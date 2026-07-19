@@ -13,6 +13,7 @@ from flask import Flask, session, request
 from helpers import files, cache
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
+from helpers.tunnel_origins import get_active_tunnel_origins, origin_key
 
 if TYPE_CHECKING:
     from helpers.ws_manager import WsManager
@@ -146,6 +147,11 @@ def validate_ws_origin(environ: dict[str, Any]) -> tuple[bool, str | None]:
 
     for host, port in candidates:
         if origin_host == host and origin_port == port:
+            return True, None
+
+    request_origin_key = (origin_parsed.scheme, origin_host, int(origin_port))
+    for active_origin in get_active_tunnel_origins():
+        if origin_key(active_origin) == request_origin_key:
             return True, None
 
     if origin_host not in {host for host, _ in candidates}:

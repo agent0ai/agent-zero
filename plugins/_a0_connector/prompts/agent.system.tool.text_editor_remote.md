@@ -1,9 +1,10 @@
 # text_editor_remote tool
 
-Reads, writes, and patches files on the machine where a connected A0 CLI is
-running. Use this tool, not server-side file tools, when the user asks for files
-on the connected local machine, A0 CLI host, or explicitly says not to use
-Docker/server files. For complex remote edits, optionally load skill `host-file-editing`.
+Shown when a connected A0 CLI advertises remote file access. Reads, writes, and
+patches files on the machine where that CLI is running. Use this tool, not
+server-side file tools, when the user asks for files on the connected local
+machine, A0 CLI host, or explicitly says not to use Docker/server files. For
+complex remote edits, optionally load skill `host-file-editing`.
 
 Availability and permissions are checked when the tool runs. If no CLI is
 connected, remote file access is disabled, or a write/patch needs Read&Write,

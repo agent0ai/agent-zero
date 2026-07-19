@@ -4,6 +4,7 @@ import {
   store as notificationStore,
   defaultPriority,
 } from "/components/notifications/notification-store.js";
+import { formatDateTime } from "/js/time-utils.js";
 
 const model = {
   pluginName: "",
@@ -77,6 +78,11 @@ const model = {
     this.running = false;
     this.exitCode = null;
     this.lastExecution = null;
+  },
+
+  formatTimestamp(value) {
+    if (!value) return "";
+    return formatDateTime(value, "full");
   },
 };
 

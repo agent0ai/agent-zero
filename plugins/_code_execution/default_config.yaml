@@ -13,13 +13,13 @@ ssh_pass: ""
 # Timeouts for python/nodejs/terminal runtimes (seconds)
 code_exec_first_output_timeout: 30
 code_exec_between_output_timeout: 15
-code_exec_max_exec_timeout: 180
+code_exec_max_exec_timeout: 240
 code_exec_dialog_timeout: 5
 
 # Timeouts for "output" runtime (seconds)
-output_first_output_timeout: 90
-output_between_output_timeout: 45
-output_max_exec_timeout: 300
+output_first_output_timeout: 120
+output_between_output_timeout: 60
+output_max_exec_timeout: 600
 output_dialog_timeout: 5
 
 # Shell prompt detection patterns (one regex per line)

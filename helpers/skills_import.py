@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import tempfile
 import time
 import zipfile
@@ -82,25 +83,60 @@ def _candidate_skill_roots(source_dir: Path) -> List[Path]:
     return unique or [source_dir]
 
 
+def _safe_extract_zip(zip_path: Path, target: Path) -> None:
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        for member in archive.infolist():
+            name = member.filename
+            if not name or name.startswith(("/", "\\")) or "\\" in name:
+                raise ValueError(f"Unsafe zip entry path: {name!r}")
+
+            mode = member.external_attr >> 16
+            if stat.S_ISLNK(mode):
+                raise ValueError(f"Refusing to extract symlink from zip: {name!r}")
+
+            destination = target / name
+            if not _is_within(destination, target):
+                raise ValueError(f"Unsafe zip entry path: {name!r}")
+
+        archive.extractall(target)
+
+
+def extract_skills_zip(
+    zip_path: Path,
+    *,
+    tmp_subdir: str = "skill_imports",
+    prefix: str = "import",
+) -> tuple[Path, Path]:
+    """
+    Extract a zip into a temp folder inside Agent Zero's tmp directory.
+    Returns (source_root, cleanup_root).
+    """
+    base_tmp = Path(files.get_abs_path("tmp", tmp_subdir))
+    base_tmp.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    target = base_tmp / f"{prefix}_{zip_path.stem}_{stamp}"
+    target.mkdir(parents=True, exist_ok=True)
+
+    try:
+        _safe_extract_zip(zip_path, target)
+    except Exception:
+        shutil.rmtree(target, ignore_errors=True)
+        raise
+
+    # If zip contains a single top-level folder, treat that as the root
+    children = [p for p in target.iterdir()]
+    if len(children) == 1 and children[0].is_dir():
+        return children[0], target
+    return target, target
+
+
 def _unzip_to_temp_dir(zip_path: Path) -> Path:
     """
     Extract a zip into a temp folder under tmp/skill_imports (inside Agent Zero base dir).
     Returns the extraction root folder.
     """
-    base_tmp = Path(files.get_abs_path("tmp", "skill_imports"))
-    base_tmp.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    target = base_tmp / f"import_{zip_path.stem}_{stamp}"
-    target.mkdir(parents=True, exist_ok=True)
-
-    with zipfile.ZipFile(zip_path, "r") as z:
-        z.extractall(target)
-
-    # If zip contains a single top-level folder, treat that as the root
-    children = [p for p in target.iterdir()]
-    if len(children) == 1 and children[0].is_dir():
-        return children[0]
-    return target
+    source_root, _cleanup_root = extract_skills_zip(zip_path)
+    return source_root
 
 
 def build_import_plan(
@@ -261,4 +297,3 @@ def import_skills(
         destination_root=dest_root,
         namespace=ns,
     )
-

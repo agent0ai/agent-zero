@@ -1,0 +1,240 @@
+<html>
+<head>
+    <title>Slash Command</title>
+    <script type="module">
+        import { store } from "/plugins/_commands/webui/commands-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.commandsManager">
+            <div class="commands-editor"
+                 x-create="$el.closest('.modal')?.querySelector('.modal-title') && ($el.closest('.modal').querySelector('.modal-title').textContent = $store.commandsManager.editorTitle)">
+                <div class="commands-editor-header">
+                    <div class="commands-editor-copy">
+                        <div class="commands-editor-title" x-text="$store.commandsManager.editorTitle"></div>
+                        <div class="commands-editor-subtitle">
+                            Saving writes a <code>.command.yaml</code> config plus a template file in <span x-text="$store.commandsManager.selectedScopeLabel"></span>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="commands-editor-grid">
+                    <label class="commands-field">
+                        <span>Command name</span>
+                        <input type="text"
+                               x-model="$store.commandsManager.editor.name"
+                               placeholder="explain-code"
+                               autocomplete="off">
+                    </label>
+
+                    <label class="commands-field">
+                        <span>Description</span>
+                        <input type="text"
+                               x-model="$store.commandsManager.editor.description"
+                               placeholder="Explain code clearly with examples.">
+                    </label>
+                </div>
+
+                <label class="commands-field">
+                    <span>Argument hint or example</span>
+                    <input type="text"
+                           x-model="$store.commandsManager.editor.argumentHint"
+                           placeholder="Optional free-form text after /command">
+                </label>
+
+                <div class="commands-editor-grid">
+                    <label class="commands-field">
+                        <span>Command type</span>
+                        <select x-model="$store.commandsManager.editor.commandType"
+                                @change="$store.commandsManager.setEditorType($store.commandsManager.editor.commandType)">
+                            <option value="text">Text template (.txt)</option>
+                            <option value="script">Python hook (.py)</option>
+                        </select>
+                    </label>
+
+                    <template x-if="$store.commandsManager.editor.commandType === 'script'">
+                        <label class="commands-field commands-field-checkbox">
+                            <span>Script context</span>
+                            <div class="commands-checkbox-inline">
+                                <input type="checkbox" x-model="$store.commandsManager.editor.includeHistory">
+                                <span>Include chat history payload</span>
+                            </div>
+                        </label>
+                    </template>
+                </div>
+
+                <label class="commands-field commands-field-body">
+                    <span x-text="$store.commandsManager.editorBodyLabel"></span>
+                    <textarea x-model="$store.commandsManager.editor.body"
+                              rows="14"
+                              :placeholder="$store.commandsManager.editor.commandType === 'script'
+                                ? 'Implement run(payload) and return { text, effects }.'
+                                : 'Write reusable text. Use {raw}, {args.positional.0}, {args.flags.some_flag}.'"></textarea>
+                </label>
+
+                <template x-if="$store.commandsManager.editor.commandType === 'text'">
+                    <div class="commands-editor-help">
+                        <span class="commands-help-chip">{raw}</span>
+                        <span class="commands-help-chip">{args.positional.0}</span>
+                        <span class="commands-help-chip">{args.flags.git_url}</span>
+                        <span class="commands-help-copy">
+                            Trailing command input is parsed once and exposed to template placeholders and python payloads.
+                        </span>
+                    </div>
+                </template>
+
+                <template x-if="$store.commandsManager.editor.commandType === 'script'">
+                    <div class="commands-editor-help">
+                        <span class="commands-help-chip">run(payload)</span>
+                        <span class="commands-help-chip">payload.arguments</span>
+                        <span class="commands-help-chip">result.effects</span>
+                        <span class="commands-help-copy">
+                            Return a string or <code>{ text, effects }</code>. Effects support <code>replace_input</code>, <code>append_input</code>, and <code>toast</code>.
+                        </span>
+                    </div>
+                </template>
+
+                <template x-if="$store.commandsManager.editor.path">
+                    <div class="commands-editor-path">
+                        <span class="material-symbols-outlined">description</span>
+                        <span x-text="$store.commandsManager.editor.path"></span>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <div class="modal-footer" data-modal-footer>
+        <button class="btn btn-ok"
+                @click="$store.commandsManager.saveEditor()"
+                :disabled="$store.commandsManager.saving">
+            Save
+        </button>
+        <button class="btn btn-cancel" @click="$store.commandsManager.closeEditor()">
+            Cancel
+        </button>
+    </div>
+
+    <style>
+        .commands-editor {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem 1.1rem 1.2rem;
+        }
+
+        .commands-editor-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .commands-editor-copy {
+            min-width: 0;
+        }
+
+        .commands-editor-title {
+            font-size: 1.02rem;
+            font-weight: 600;
+        }
+
+        .commands-editor-subtitle {
+            margin-top: 0.25rem;
+            color: var(--color-text-secondary);
+            font-size: 0.88rem;
+            line-height: 1.45;
+        }
+
+        .commands-editor-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        .commands-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .commands-field span {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        .commands-field textarea,
+        .commands-field input {
+            width: 100%;
+        }
+
+        .commands-field select {
+            width: 100%;
+        }
+
+        .commands-field-checkbox {
+            justify-content: flex-end;
+        }
+
+        .commands-checkbox-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--color-text-primary);
+            font-size: 0.86rem;
+            font-weight: 500;
+        }
+
+        .commands-checkbox-inline input {
+            width: auto;
+        }
+
+        .commands-field-body textarea {
+            min-height: 18rem;
+            resize: vertical;
+            font-family: "Roboto Mono", monospace;
+        }
+
+        .commands-editor-help {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .commands-help-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.22rem 0.55rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--color-highlight) 12%, transparent);
+            border: 1px solid color-mix(in srgb, var(--color-highlight) 24%, transparent);
+            font-family: "Roboto Mono", monospace;
+            font-size: 0.8rem;
+        }
+
+        .commands-help-copy {
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .commands-editor-path {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--color-text-secondary);
+            font-family: "Roboto Mono", monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+        }
+
+        @media (max-width: 760px) {
+            .commands-editor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>

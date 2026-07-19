@@ -5,6 +5,17 @@ from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
 
 
+def _project_metadata(context, data: dict[str, object]) -> object:
+    from helpers import projects
+
+    project_key = getattr(projects, "CONTEXT_DATA_KEY_PROJECT", "project")
+    return (
+        data.get(project_key)
+        or context.get_output_data(project_key)
+        or context.get_data(project_key)
+    )
+
+
 class ChatGet(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         from agent import AgentContext
@@ -30,14 +41,18 @@ class ChatGet(connector_base.ProtectedConnectorApiHandler):
 
         context_data = context.output()
         events, last_sequence = get_context_log_entries(context_id)
+        project = _project_metadata(context, context_data)
 
         return {
             "context_id": context.id,
             "id": context.id,
-            "name": context_data.get("name") or context.id,
+            "name": context_data.get("name") or "",
+            "no": context_data.get("no", getattr(context, "no", None)),
             "created_at": context_data.get("created_at"),
             "last_message": context_data.get("last_message"),
             "running": context_data.get("running", False),
+            "project": project,
+            "project_name": context.get_data("project") or "",
             "agent_profile": getattr(context.agent0.config, "profile", "default")
             if context.agent0
             else "default",

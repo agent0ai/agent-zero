@@ -1,0 +1,4 @@
+name: send
+description: Send all queued messages now.
+type: script
+script_path: connector_commands.py

@@ -1,0 +1,8 @@
+name: _document_query
+title: Document Query
+description: Load, parse, index, and Q&A over local and remote documents with configurable timeouts and thread-safe parsers.
+version: 1.0.0
+settings_sections:
+  - agent
+per_project_config: true
+per_agent_config: false

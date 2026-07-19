@@ -21,7 +21,7 @@
                         <template x-if="$store.pluginExecuteStore.lastExecution">
                             <span class="last-exec-info">
                                 Last run:
-                                <span x-text="new Date($store.pluginExecuteStore.lastExecution.executed_at).toLocaleString()"></span>
+                                <span x-text="$store.pluginExecuteStore.formatTimestamp($store.pluginExecuteStore.lastExecution.executed_at)"></span>
                                 &nbsp;&mdash;&nbsp;
                                 <span :class="$store.pluginExecuteStore.lastExecution.exit_code === 0 ? 'exit-ok' : 'exit-err'"
                                       x-text="$store.pluginExecuteStore.lastExecution.exit_code === 0 ? 'succeeded' : 'failed (exit ' + $store.pluginExecuteStore.lastExecution.exit_code + ')'">

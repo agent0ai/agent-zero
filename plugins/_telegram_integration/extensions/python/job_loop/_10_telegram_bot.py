@@ -31,13 +31,13 @@ class TelegramBotManager(Extension):
             get_all_bots,
             create_bot,
             cache_bot_info,
+            register_bot_commands,
             start_polling,
             setup_webhook,
             stop_bot,
         )
         from plugins._telegram_integration.helpers.handler import (
             handle_start,
-            handle_clear,
             handle_message,
             handle_callback_query,
             handle_new_members,
@@ -73,7 +73,6 @@ class TelegramBotManager(Extension):
             try:
                 # Create handler closures that capture bot_name and config
                 _on_start = partial(_make_handler(handle_start), bot_name=name, bot_cfg=bot_cfg)
-                _on_clear = partial(_make_handler(handle_clear), bot_name=name, bot_cfg=bot_cfg)
                 _on_message = partial(_make_handler(handle_message), bot_name=name, bot_cfg=bot_cfg)
                 _on_callback = partial(_make_handler(handle_callback_query), bot_name=name, bot_cfg=bot_cfg)
                 _on_new_members = partial(_make_handler(handle_new_members), bot_name=name, bot_cfg=bot_cfg)
@@ -83,7 +82,6 @@ class TelegramBotManager(Extension):
                     token=bot_cfg["token"],
                     on_message=_on_message,
                     on_command_start=_on_start,
-                    on_command_clear=_on_clear,
                     on_command_control=_on_message,
                     on_callback_query=_on_callback,
                     on_new_members=_on_new_members,
@@ -91,6 +89,7 @@ class TelegramBotManager(Extension):
                 )
 
                 await cache_bot_info(instance)
+                await register_bot_commands(instance)
 
                 mode = bot_cfg.get("mode", "polling")
                 if mode == "webhook":

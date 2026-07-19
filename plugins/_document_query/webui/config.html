@@ -1,0 +1,490 @@
+<html>
+<head>
+    <title>Document Query</title>
+</head>
+
+<body>
+    <div x-data="{
+        defaults: {
+            fetch_timeout: 30,
+            fetch_retries: 3,
+            fetch_retry_backoff: 1.0,
+            per_document_timeout: 60,
+            gather_timeout: 120,
+            parser_concurrency: 1,
+            context_intro_chunks: 2,
+            chunk_size: 1000,
+            chunk_overlap: 100,
+            max_index_chunks: 1200,
+            search_threshold: 0.5,
+            search_limit: 100,
+            max_remote_bytes: 52428800,
+            liteparse_enabled: true,
+            liteparse_ocr_enabled: true,
+            liteparse_ocr_language: 'eng',
+            liteparse_ocr_server_url: '',
+            liteparse_tessdata_path: '',
+            liteparse_max_pages: 1000,
+            liteparse_target_pages: '',
+            liteparse_dpi: 150,
+            liteparse_preserve_very_small_text: false,
+            liteparse_output_format: 'text',
+            liteparse_num_workers: 2,
+            pdf_ocr_fallback: true,
+            thread_offload: true,
+        },
+        initDefaults() {
+            for (const [key, value] of Object.entries(this.defaults)) {
+                if (config[key] === undefined || config[key] === null) config[key] = value;
+            }
+            this.ensureInt('parser_concurrency', 1, 1);
+            this.ensureInt('context_intro_chunks', 2, 0);
+            this.ensureInt('chunk_size', 1000, 100);
+            this.ensureInt('chunk_overlap', 100, 0);
+            this.ensureInt('max_index_chunks', 1200, 0);
+            this.ensureInt('search_limit', 100, 1);
+            this.ensureInt('max_remote_bytes', 52428800, 1);
+            this.ensureNumber('search_threshold', 0.5, 0, 1);
+            this.ensureNumber('fetch_timeout', 30, 1);
+            this.ensureInt('fetch_retries', 3, 1);
+            this.ensureNumber('fetch_retry_backoff', 1.0, 0);
+            this.ensureNumber('per_document_timeout', 60, 1);
+            this.ensureNumber('gather_timeout', 120, 1);
+            this.ensureInt('liteparse_max_pages', 1000, 1);
+            this.ensureNumber('liteparse_dpi', 150, 72);
+            this.ensureInt('liteparse_num_workers', 2, 1);
+            this.syncChunkOverlap();
+        },
+        ensureInt(key, fallback, min = null, max = null) {
+            let value = parseInt(config[key], 10);
+            if (!Number.isFinite(value)) value = fallback;
+            if (min !== null) value = Math.max(min, value);
+            if (max !== null) value = Math.min(max, value);
+            config[key] = value;
+        },
+        ensureNumber(key, fallback, min = null, max = null) {
+            let value = parseFloat(config[key]);
+            if (!Number.isFinite(value)) value = fallback;
+            if (min !== null) value = Math.max(min, value);
+            if (max !== null) value = Math.min(max, value);
+            config[key] = value;
+        },
+        syncChunkOverlap() {
+            this.ensureInt('chunk_size', 1000, 100);
+            this.ensureInt('chunk_overlap', 100, 0);
+            if (config.chunk_overlap >= config.chunk_size) {
+                config.chunk_overlap = Math.max(0, config.chunk_size - 1);
+            }
+        },
+    }">
+        <template x-if="config">
+            <div x-init="initDefaults()">
+                <div class="section-title">Document Query</div>
+                <div class="section-description">
+                    Settings for document parsing and retrieval.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max parser concurrency</div>
+                        <div class="field-description">
+                            Maximum document parser jobs allowed to run at the same time in this Agent Zero process.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            @change="ensureInt('parser_concurrency', 1, 1)"
+                            x-model.number="config.parser_concurrency" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Per-document timeout</div>
+                        <div class="field-description">
+                            Seconds allowed for a single document parse before trying the next parser or returning an error.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            @change="ensureNumber('per_document_timeout', 60, 1)"
+                            x-model.number="config.per_document_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Batch timeout</div>
+                        <div class="field-description">
+                            Seconds allowed for a document-query call that processes multiple files.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            @change="ensureNumber('gather_timeout', 120, 1)"
+                            x-model.number="config.gather_timeout" />
+                    </div>
+                </div>
+
+                <div class="section-title">Retrieval</div>
+                <div class="section-description">
+                    Controls how parsed text is split, indexed, and selected for Q&A.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Chunk size</div>
+                        <div class="field-description">
+                            Target character count for indexed chunks.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="100" step="50"
+                            @change="syncChunkOverlap()"
+                            x-model.number="config.chunk_size" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Chunk overlap</div>
+                        <div class="field-description">
+                            Characters repeated between neighboring chunks.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="25"
+                            :max="Math.max(0, config.chunk_size - 1)"
+                            @change="syncChunkOverlap()"
+                            x-model.number="config.chunk_overlap" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Search threshold</div>
+                        <div class="field-description">
+                            Minimum vector similarity score for retrieved chunks.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" max="1" step="0.05"
+                            @change="ensureNumber('search_threshold', 0.5, 0, 1)"
+                            x-model.number="config.search_threshold" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max index chunks</div>
+                        <div class="field-description">
+                            Adapt chunk size when a parsed document would exceed this many indexed chunks. Use 0 for no cap.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="50"
+                            @change="ensureInt('max_index_chunks', 1200, 0)"
+                            x-model.number="config.max_index_chunks" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Search limit</div>
+                        <div class="field-description">
+                            Maximum matching chunks considered during document Q&A.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            @change="ensureInt('search_limit', 100, 1)"
+                            x-model.number="config.search_limit" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Intro chunks</div>
+                        <div class="field-description">
+                            Leading chunks always included per document to preserve titles, abstracts, and setup context.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="1"
+                            @change="ensureInt('context_intro_chunks', 2, 0)"
+                            x-model.number="config.context_intro_chunks" />
+                    </div>
+                </div>
+
+                <div class="section-title">Remote Files</div>
+                <div class="section-description">
+                    Limits for documents loaded from HTTP or HTTPS URLs.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Fetch timeout</div>
+                        <div class="field-description">
+                            Seconds allowed for each remote fetch attempt.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            @change="ensureNumber('fetch_timeout', 30, 1)"
+                            x-model.number="config.fetch_timeout" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Fetch retries</div>
+                        <div class="field-description">
+                            Attempts made before giving up on a remote document.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            @change="ensureInt('fetch_retries', 3, 1)"
+                            x-model.number="config.fetch_retries" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Retry backoff</div>
+                        <div class="field-description">
+                            Delay in seconds between remote fetch retries.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="0.1"
+                            @change="ensureNumber('fetch_retry_backoff', 1.0, 0)"
+                            x-model.number="config.fetch_retry_backoff" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max remote bytes</div>
+                        <div class="field-description">
+                            Maximum size accepted for a remote document.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1048576"
+                            @change="ensureInt('max_remote_bytes', 52428800, 1)"
+                            x-model.number="config.max_remote_bytes" />
+                    </div>
+                </div>
+
+                <div class="section-title">LiteParse and OCR</div>
+                <div class="section-description">
+                    Parser preference and OCR controls for PDFs, document images, and mixed-format inputs.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Use LiteParse first</div>
+                        <div class="field-description">
+                            Prefer LiteParse before legacy parser fallbacks.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.liteparse_enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <template x-if="config.liteparse_enabled !== false">
+                    <div>
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">LiteParse workers</div>
+                                <div class="field-description">
+                                    Worker count passed to LiteParse for a single parser job.
+                                </div>
+                            </div>
+                            <div class="field-control">
+                                <input type="number" min="1" step="1"
+                                    @change="ensureInt('liteparse_num_workers', 2, 1)"
+                                    x-model.number="config.liteparse_num_workers" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">Max pages</div>
+                                <div class="field-description">
+                                    Maximum pages LiteParse should parse from one document.
+                                </div>
+                            </div>
+                            <div class="field-control">
+                                <input type="number" min="1" step="1"
+                                    @change="ensureInt('liteparse_max_pages', 1000, 1)"
+                                    x-model.number="config.liteparse_max_pages" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">Target pages</div>
+                                <div class="field-description">
+                                    Optional page range expression passed to LiteParse.
+                                </div>
+                            </div>
+                            <div class="field-control">
+                                <input type="text"
+                                    placeholder="all pages"
+                                    x-model="config.liteparse_target_pages" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">Enable OCR</div>
+                                <div class="field-description">
+                                    Allow OCR for scanned PDFs and document images.
+                                </div>
+                            </div>
+                            <div class="field-control">
+                                <label class="toggle">
+                                    <input type="checkbox" x-model="config.liteparse_ocr_enabled" />
+                                    <span class="toggler"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <template x-if="config.liteparse_ocr_enabled !== false">
+                            <div>
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">OCR language</div>
+                                        <div class="field-description">
+                                            Tesseract language code used by LiteParse OCR.
+                                        </div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text"
+                                            placeholder="eng"
+                                            x-model="config.liteparse_ocr_language" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">OCR DPI</div>
+                                        <div class="field-description">
+                                            Render density used before OCR.
+                                        </div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="number" min="72" step="1"
+                                            @change="ensureNumber('liteparse_dpi', 150, 72)"
+                                            x-model.number="config.liteparse_dpi" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">OCR server URL</div>
+                                        <div class="field-description">
+                                            Optional external OCR service URL.
+                                        </div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text"
+                                            placeholder="none"
+                                            x-model="config.liteparse_ocr_server_url" />
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <div class="field-label">
+                                        <div class="field-title">Tessdata path</div>
+                                        <div class="field-description">
+                                            Optional path to Tesseract language data.
+                                        </div>
+                                    </div>
+                                    <div class="field-control">
+                                        <input type="text"
+                                            placeholder="auto-detect"
+                                            x-model="config.liteparse_tessdata_path" />
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">Output format</div>
+                                <div class="field-description">
+                                    LiteParse output format passed to the parser runtime.
+                                </div>
+                            </div>
+                            <div class="field-control">
+                                <input type="text"
+                                    placeholder="text"
+                                    x-model="config.liteparse_output_format" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="field-label">
+                                <div class="field-title">Preserve very small text</div>
+                                <div class="field-description">
+                                    Keep tiny text regions that OCR or PDF extraction might otherwise discard.
+                                </div>
+                            </div>
+                            <div class="field-control">
+                                <label class="toggle">
+                                    <input type="checkbox" x-model="config.liteparse_preserve_very_small_text" />
+                                    <span class="toggler"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+
+                <div class="section-title">Fallbacks</div>
+                <div class="section-description">
+                    Legacy parser behavior used when the preferred parser cannot produce text.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">PDF OCR fallback</div>
+                        <div class="field-description">
+                            Try legacy Tesseract OCR when direct PDF text extraction is empty.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.pdf_ocr_fallback" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Thread offload</div>
+                        <div class="field-description">
+                            Run synchronous parser fallbacks in a worker thread.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.thread_offload" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

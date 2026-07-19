@@ -1,0 +1,4 @@
+name: plugins
+description: Open the installed-only Agent Zero plugin toggle view.
+type: script
+script_path: connector_commands.py

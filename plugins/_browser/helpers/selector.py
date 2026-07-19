@@ -7,6 +7,13 @@ from plugins._browser.helpers.config import RUNTIME_BACKEND_KEY, get_browser_con
 from plugins._browser.helpers.runtime import get_runtime as get_container_runtime
 
 
+DOCKER_BROWSER_RECOVERY_HELP = (
+    "To use Agent Zero's internal Docker browser instead, open Browser settings and "
+    "set Browser location to Internal Docker browser, or run `/browser container` "
+    "from A0 CLI."
+)
+
+
 async def get_tool_runtime(agent: Any):
     context_id = str(agent.context.id)
     config = get_browser_config(agent=agent)
@@ -29,7 +36,8 @@ async def get_tool_runtime(agent: Any):
             + (f": {detail}" if detail else ".")
         )
         raise RepairableException(
-            f"{message} Connect A0 CLI to this chat, allow host browser access, and retry."
+            f"{message} Connect A0 CLI to this chat, allow host browser access, and retry. "
+            f"{DOCKER_BROWSER_RECOVERY_HELP}"
         )
 
     return await get_container_runtime(context_id)

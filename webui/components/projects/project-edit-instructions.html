@@ -33,6 +33,20 @@
                         placeholder="Enter project instructions"></textarea>
                 </div>
 
+                <div class="projects-setting-row" style="padding: 1rem 0;">
+                    <div class="projects-setting-text">
+                        <label class="projects-form-label">Include top-level AGENTS.md</label>
+                        <span class="projects-form-description">When turned on, Agent Zero will include the project's
+                            top-level AGENTS.md file in the active project instructions when that file exists.</span>
+                    </div>
+                    <div class="projects-setting-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="$store.projects.selectedProject.include_agents_md">
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="projects-form-group">
                     <label class="projects-form-label">Instruction files</label>
                     <div class="projects-input-with-button-wrapper">

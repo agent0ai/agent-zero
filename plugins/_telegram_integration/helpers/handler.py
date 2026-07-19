@@ -21,6 +21,7 @@ from helpers.errors import format_error
 from initialize import initialize_agent
 
 from plugins._telegram_integration.helpers import telegram_client as tc
+from plugins._telegram_integration.helpers import command_ui
 from plugins._telegram_integration.helpers.bot_manager import get_bot
 from plugins._telegram_integration.helpers.constants import (
     PLUGIN_NAME,
@@ -29,6 +30,7 @@ from plugins._telegram_integration.helpers.constants import (
     CTX_TG_BOT,
     CTX_TG_BOT_CFG,
     CTX_TG_CHAT_ID,
+    CTX_TG_CHAT_TYPE,
     CTX_TG_USER_ID,
     CTX_TG_USERNAME,
     CTX_TG_TYPING_STOP,
@@ -141,53 +143,13 @@ async def handle_start(message: TgMessage, bot_name: str, bot_cfg: dict):
         f"\U0001f44b Hello {user.first_name}! I'm connected to Agent Zero.\n\n"
         "Send me a message and I'll process it.\n"
         "Use /clear to reset the conversation.\n"
-        "Use /project, /config, or /send to control the current chat.",
+        "Use /project, /model, /agent, or /send to control the current chat.",
         parse_mode=None,
+        reply_to_message_id=message.message_id,
     )
 
     # Ensure a chat context exists
     await _get_or_create_context(bot_name, bot_cfg, message)
-
-
-async def handle_clear(message: TgMessage, bot_name: str, bot_cfg: dict):
-    """Handle /clear command — reset user's chat context."""
-    user = message.from_user
-    if not user:
-        return
-
-    if not _is_allowed(bot_cfg, user.id, user.username):
-        return
-
-    key = _map_key(bot_name, user.id, message.chat.id)
-
-    with _chat_map_lock:
-        state = _load_state()
-        ctx_id = state.get("chats", {}).get(key)
-        if ctx_id:
-            ctx = AgentContext.get(ctx_id)
-            if ctx:
-                ctx.reset()
-                PrintStyle.info(f"Telegram ({bot_name}): cleared chat for user {user.id}")
-
-    instance = get_bot(bot_name)
-    if instance:
-        await _send_with_temp_bot(
-            instance.bot.token, message.chat.id,
-            "Chat cleared. Send a new message to start fresh.",
-            parse_mode=None,
-        )
-
-    # Send notification
-    if bot_cfg.get("notify_messages", False):
-        username_str = f"@{user.username}" if user.username else str(user.id)
-        NotificationManager.send_notification(
-            type=NotificationType.INFO,
-            priority=NotificationPriority.NORMAL,
-            title="Telegram: chat cleared",
-            message=f"{username_str} cleared their chat via /clear",
-            display_time=5,
-            group="telegram",
-        )
 
 
 async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
@@ -212,26 +174,38 @@ async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
             parse_mode=None,
         )
         return
+    context.data[CTX_TG_CHAT_TYPE] = str(message.chat.type or "")
+    context.data[CTX_TG_REPLY_TO] = message.message_id
 
-    command_reply = integration_commands.try_handle_command(context, text)
-    if command_reply is not None:
-        await _send_with_temp_bot(instance.bot.token, message.chat.id, command_reply, parse_mode=None)
+    if await command_ui.handle_command(
+        context,
+        instance.bot.token,
+        message.chat.id,
+        message.message_id,
+        text,
+    ):
         return
 
-    # Start persistent typing indicator (thread-based, works across event loops)
-    typing_stop = _start_typing(instance.bot.token, message.chat.id)
-
-    # Store stop event so send_telegram_reply can cancel typing
-    context.data[CTX_TG_TYPING_STOP] = typing_stop
-
-    # In group chats, if user replied to the bot's message, reply to the user's message
-    reply_to_id = None
-    if message.chat.type != "private" and instance.bot_info:
-        if (message.reply_to_message
-                and message.reply_to_message.from_user
-                and message.reply_to_message.from_user.id == instance.bot_info.id):
-            reply_to_id = message.message_id
-    context.data[CTX_TG_REPLY_TO] = reply_to_id
+    command_reply = integration_commands.try_handle_command(context, text, integration="telegram")
+    if command_reply is not None:
+        await _send_with_temp_bot(
+            instance.bot.token,
+            message.chat.id,
+            command_reply,
+            parse_mode=None,
+            reply_to_message_id=message.message_id,
+        )
+        return
+    if integration_commands.extract_command_line(text).startswith("/"):
+        command = integration_commands.extract_command_line(text).split(" ", 1)[0]
+        await _send_with_temp_bot(
+            instance.bot.token,
+            message.chat.id,
+            integration_commands.unknown_command_text(command, integration="telegram"),
+            parse_mode=None,
+            reply_to_message_id=message.message_id,
+        )
+        return
 
     # Use temp bot for downloads (cross-event-loop safe)
     async with _temp_bot(instance.bot.token) as dl_bot:
@@ -244,6 +218,24 @@ async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
         sender=_format_user(user),
         body=text,
     )
+
+    if context.is_running():
+        item = mq.add(context, user_msg, attachments)
+        save_tmp_chat(context)
+        await _send_with_temp_bot(
+            instance.bot.token,
+            message.chat.id,
+            f"Queued message #{item.get('seq', len(mq.get_queue(context)))}. Use /send to flush queued work, or /steer <message> to interrupt the active run.",
+            parse_mode=None,
+            reply_to_message_id=message.message_id,
+        )
+        return
+
+    # Start persistent typing indicator (thread-based, works across event loops)
+    typing_stop = _start_typing(instance.bot.token, message.chat.id)
+
+    # Store stop event so send_telegram_reply can cancel typing
+    context.data[CTX_TG_TYPING_STOP] = typing_stop
 
     msg_id = str(uuid.uuid4())
     mq.log_user_message(context, user_msg, attachments, message_id=msg_id, source=" (telegram)")
@@ -287,16 +279,40 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
         return
 
     context = await _get_or_create_context_from_user(
-        bot_name, bot_cfg, user.id, user.username, query.message.chat.id,
+        bot_name, bot_cfg, user.id, user.username, query.message.chat.id, str(query.message.chat.type or ""),
     )
     if not context:
         return
+    context.data[CTX_TG_REPLY_TO] = query.message.message_id
 
-    command_reply = integration_commands.try_handle_command(context, text)
+    instance = get_bot(bot_name)
+    if instance:
+        try:
+            if await command_ui.handle_callback(
+                context,
+                instance.bot.token,
+                query.message.chat.id,
+                query.message.message_id,
+                text,
+            ):
+                return
+        except Exception as e:
+            PrintStyle.error(f"Telegram callback failed: {format_error(e)}")
+            if text.startswith("tg:"):
+                return
+    if text.startswith("tg:"):
+        return
+
+    command_reply = integration_commands.try_handle_command(context, text, integration="telegram")
     if command_reply is not None:
-        instance = get_bot(bot_name)
         if instance:
-            await _send_with_temp_bot(instance.bot.token, query.message.chat.id, command_reply, parse_mode=None)
+            await _send_with_temp_bot(
+                instance.bot.token,
+                query.message.chat.id,
+                command_reply,
+                parse_mode=None,
+                reply_to_message_id=query.message.message_id,
+            )
         return
 
     agent = context.agent0
@@ -347,7 +363,7 @@ async def _get_or_create_context(
     if not user:
         return None
     return await _get_or_create_context_from_user(
-        bot_name, bot_cfg, user.id, user.username, message.chat.id,
+        bot_name, bot_cfg, user.id, user.username, message.chat.id, str(message.chat.type or ""),
     )
 
 
@@ -357,6 +373,7 @@ async def _get_or_create_context_from_user(
     user_id: int,
     username: str | None,
     chat_id: int,
+    chat_type: str = "",
 ) -> AgentContext | None:
     key = _map_key(bot_name, user_id, chat_id)
 
@@ -369,6 +386,7 @@ async def _get_or_create_context_from_user(
         if ctx_id:
             ctx = AgentContext.get(ctx_id)
             if ctx:
+                ctx.data[CTX_TG_CHAT_TYPE] = chat_type or ctx.data.get(CTX_TG_CHAT_TYPE, "")
                 return ctx
             # Context was garbage collected, remove stale mapping
             chats.pop(key, None)
@@ -382,6 +400,7 @@ async def _get_or_create_context_from_user(
             ctx.data[CTX_TG_BOT] = bot_name
             ctx.data[CTX_TG_BOT_CFG] = bot_cfg
             ctx.data[CTX_TG_CHAT_ID] = chat_id
+            ctx.data[CTX_TG_CHAT_TYPE] = chat_type
             ctx.data[CTX_TG_USER_ID] = user_id
             ctx.data[CTX_TG_USERNAME] = username or ""
 
@@ -507,12 +526,22 @@ async def send_telegram_reply(
                     local_path = files.fix_dev_path(path)
                     if tc.is_image_file(local_path):
                         await tc.send_photo(reply_bot, chat_id, local_path, reply_to_message_id=reply_to)
+                    elif tc.is_voice_file(local_path):
+                        await tc.send_voice(reply_bot, chat_id, local_path, reply_to_message_id=reply_to)
+                    elif tc.is_audio_file(local_path):
+                        await tc.send_audio(reply_bot, chat_id, local_path, reply_to_message_id=reply_to)
+                    elif tc.is_video_file(local_path):
+                        await tc.send_video(reply_bot, chat_id, local_path, reply_to_message_id=reply_to)
                     else:
                         await tc.send_file(reply_bot, chat_id, local_path, reply_to_message_id=reply_to)
 
             if response_text:
                 html_text = tc.md_to_telegram_html(response_text)
-                if keyboard:
+                from plugins._telegram_integration.helpers import draft_stream
+
+                if await draft_stream.finalize_response(context, response_text, keyboard):
+                    pass
+                elif keyboard:
                     await tc.send_text_with_keyboard(reply_bot, chat_id, html_text, keyboard, reply_to_message_id=reply_to)
                 else:
                     await tc.send_text(reply_bot, chat_id, html_text, reply_to_message_id=reply_to)
@@ -537,10 +566,22 @@ async def _temp_bot(token: str, **kwargs):
             await bot.session.close()
 
 
-async def _send_with_temp_bot(token: str, chat_id: int, text: str, parse_mode: str | None = None):
+async def _send_with_temp_bot(
+    token: str,
+    chat_id: int,
+    text: str,
+    parse_mode: str | None = None,
+    reply_to_message_id: int | None = None,
+):
     """Send text using a temporary Bot to avoid cross-event-loop session issues."""
     async with _temp_bot(token) as bot:
-        await tc.send_text(bot, chat_id, text, parse_mode=parse_mode)
+        await tc.send_text(
+            bot,
+            chat_id,
+            text,
+            reply_to_message_id=reply_to_message_id,
+            parse_mode=parse_mode,
+        )
 
 
 def _start_typing(token: str, chat_id: int) -> threading.Event:

@@ -3,18 +3,23 @@ import { store as fileBrowserStore } from "/components/modals/file-browser/file-
 
 const fetchApi = globalThis.fetchApi;
 
+function matchesSearchQuery(query, values) {
+  const normalized = String(query || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return values.some((value) => String(value ?? "").toLowerCase().includes(normalized));
+}
+
 const model = {
   loading: false,
   error: "",
   skills: [],
   projects: [],
   projectName: "",
-  agentProfiles: [],
-  agentProfileKey: "",
+  skillSearch: "",
 
   async init() {
     this.resetState();
-    await Promise.all([this.loadProjects(), this.loadAgentProfiles()]);
+    await this.loadProjects();
     await this.loadSkills();
   },
 
@@ -24,27 +29,11 @@ const model = {
     this.skills = [];
     this.projects = [];
     this.projectName = "";
-    this.agentProfiles = [];
-    this.agentProfileKey = "";
+    this.skillSearch = "";
   },
 
   onClose() {
     this.resetState();
-  },
-
-  async loadAgentProfiles() {
-    try {
-      const response = await fetchApi("/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "list" }),
-      });
-      const data = await response.json().catch(() => ({}));
-      this.agentProfiles = data.ok ? (data.data || []) : [];
-    } catch (e) {
-      console.error("Failed to load agent profiles:", e);
-      this.agentProfiles = [];
-    }
   },
 
   async loadProjects() {
@@ -72,7 +61,6 @@ const model = {
         body: JSON.stringify({
           action: "list",
           project_name: this.projectName || null,
-          agent_profile: this.agentProfileKey || null,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -88,6 +76,24 @@ const model = {
     } finally {
       this.loading = false;
     }
+  },
+
+  get filteredSkills() {
+    return this.skills.filter((skill) => matchesSearchQuery(this.skillSearch, [
+      skill.name,
+      skill.description,
+      skill.path,
+      skill.scope,
+      skill.project_name,
+    ]));
+  },
+
+  get skillSearchActive() {
+    return !!String(this.skillSearch || "").trim();
+  },
+
+  clearSkillSearch() {
+    this.skillSearch = "";
   },
 
   async deleteSkill(skill) {

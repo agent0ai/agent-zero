@@ -89,8 +89,6 @@ class Browser(Tool):
             if action == "open":
                 result = await runtime.call("open", url or "")
             elif action == "screenshot":
-                if not path:
-                    path = self._history_screenshot_path(action)
                 result = await runtime.call(
                     "screenshot_file",
                     browser_id,
@@ -428,53 +426,65 @@ class Browser(Tool):
             return
 
         screenshot = result if action == "screenshot" and isinstance(result, dict) else None
-        if not self._screenshot_has_path(screenshot):
+        if not self._screenshot_has_reference(screenshot):
             target_browser_id = self._browser_id_from_result(result) or requested_browser_id
-            output_path = self._history_screenshot_path(action)
-            if not output_path:
-                return
             try:
                 screenshot = await runtime.call(
                     "screenshot_file",
                     target_browser_id,
                     quality=HISTORY_SCREENSHOT_QUALITY,
                     full_page=False,
-                    path=output_path,
+                    path="",
                 )
             except Exception as exc:
                 PrintStyle.debug(
                     "Browser history screenshot capture failed:",
                     f"browser_id={target_browser_id}",
                     f"quality={HISTORY_SCREENSHOT_QUALITY}",
-                    f"path={output_path}",
                     f"error={exc}",
                 )
                 return
 
-        if not self._screenshot_has_path(screenshot):
+        if not self._screenshot_has_reference(screenshot):
             return
 
-        local_path = str(screenshot.get("path") or files.fix_dev_path(str(screenshot.get("a0_path") or "")))
-        if not local_path:
-            return
-        uri = f"img://{local_path}&t={time.time()}"
+        a0_path = str(screenshot.get("a0_path") or "").strip()
+        local_path = str(screenshot.get("path") or (files.fix_dev_path(a0_path) if a0_path else ""))
         state = screenshot.get("state") if isinstance(screenshot.get("state"), dict) else {}
-        self.log.update(
-            Screenshot=uri,
-            browser_snapshot={
-                "uri": uri,
-                "path": local_path,
-                "a0_path": screenshot.get("a0_path") or files.normalize_a0_path(local_path),
-                "mime": screenshot.get("mime") or "image/jpeg",
-                "browser_id": screenshot.get("browser_id") or state.get("id") or requested_browser_id,
-                "context_id": screenshot.get("context_id") or state.get("context_id") or "",
-            },
-        )
+        chat_context_id = self._agent_context_id()
+        browser_context_id = str(screenshot.get("context_id") or state.get("context_id") or "").strip()
+        snapshot = {
+            "mime": screenshot.get("mime") or "image/jpeg",
+            "browser_id": screenshot.get("browser_id") or state.get("id") or requested_browser_id,
+            "context_id": chat_context_id or browser_context_id,
+            "browser_context_id": browser_context_id,
+        }
+        update_payload: dict[str, Any] = {"browser_snapshot": snapshot}
+        if local_path:
+            uri = f"img://{local_path}&t={time.time()}"
+            snapshot.update(
+                {
+                    "uri": uri,
+                    "path": local_path,
+                    "a0_path": screenshot.get("a0_path") or files.normalize_a0_path(local_path),
+                    "ephemeral": False,
+                }
+            )
+            update_payload["Screenshot"] = uri
+        else:
+            ephemeral_ref = self._screenshot_ephemeral_ref(screenshot)
+            snapshot.update(
+                {
+                    "ephemeral": bool(ephemeral_ref),
+                    "ephemeral_ref": ephemeral_ref,
+                }
+            )
+        self.log.update(**update_payload)
 
     def _history_screenshot_path(self, action: str) -> str:
         if not getattr(self, "agent", None) or not getattr(self.agent, "context", None):
             return ""
-        context_id = str(getattr(self.agent.context, "id", "") or "").strip()
+        context_id = self._agent_context_id()
         if not context_id:
             return ""
         from helpers import persist_chat
@@ -520,6 +530,31 @@ class Browser(Tool):
     @staticmethod
     def _screenshot_has_path(screenshot: Any) -> bool:
         return isinstance(screenshot, dict) and bool(screenshot.get("path") or screenshot.get("a0_path"))
+
+    @classmethod
+    def _screenshot_has_reference(cls, screenshot: Any) -> bool:
+        return cls._screenshot_has_path(screenshot) or bool(cls._screenshot_ephemeral_ref(screenshot))
+
+    @staticmethod
+    def _screenshot_ephemeral_ref(screenshot: Any) -> str:
+        if not isinstance(screenshot, dict):
+            return ""
+        ref = str(screenshot.get("ephemeral_ref") or "").strip()
+        if ref:
+            return ref
+        vision_load = screenshot.get("vision_load")
+        if isinstance(vision_load, dict):
+            tool_args = vision_load.get("tool_args")
+            if isinstance(tool_args, dict):
+                paths = tool_args.get("paths")
+                if isinstance(paths, list) and paths:
+                    first = str(paths[0] or "").strip()
+                    if first.startswith("a0-ephemeral-image://"):
+                        return first
+        return ""
+
+    def _agent_context_id(self) -> str:
+        return str(getattr(getattr(self.agent, "context", None), "id", "") or "").strip()
 
     @staticmethod
     def _format_result(action: str, result: Any) -> str:

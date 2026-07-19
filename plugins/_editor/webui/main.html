@@ -1,0 +1,21 @@
+<html
+  class="surface-modal editor-modal modal-no-backdrop"
+  data-surface-id="editor"
+  data-surface-modal-path="/plugins/_editor/webui/main.html"
+  data-surface-dock-title="Open Editor in canvas"
+  data-surface-dock-icon="dock_to_right"
+  data-canvas-surface="editor"
+  data-canvas-modal-path="/plugins/_editor/webui/main.html"
+  data-canvas-dock-title="Open Editor in canvas"
+  data-canvas-dock-icon="dock_to_right"
+>
+<head>
+  <title>Editor</title>
+  <script type="module">
+    import { store } from "/plugins/_editor/webui/editor-store.js";
+  </script>
+</head>
+<body class="editor-modal-body">
+  <x-component path="/plugins/_editor/webui/editor-panel.html" mode="modal"></x-component>
+</body>
+</html>

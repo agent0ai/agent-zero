@@ -79,6 +79,7 @@ def log_entry_to_connector_event(
 def get_context_log_entries(
     context_id: str,
     after: int = 0,
+    limit: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Return connector events plus the next log cursor for the context."""
     try:
@@ -88,7 +89,20 @@ def get_context_log_entries(
         if context is None:
             return [], 0
 
-        log_output = context.log.output(start=max(int(after or 0), 0))
+        start = max(int(after or 0), 0)
+        end: int | None = None
+        if limit is not None:
+            limit = max(int(limit or 0), 0)
+            if limit > 0:
+                log_lock = getattr(context.log, "_lock", None)
+                log_updates = getattr(context.log, "updates", None)
+                if log_lock is not None and isinstance(log_updates, list):
+                    with log_lock:
+                        end = min(start + limit, len(log_updates))
+                else:
+                    end = start + limit
+
+        log_output = context.log.output(start=start, end=end)
         events = [
             log_entry_to_connector_event(entry, context_id)
             for entry in log_output.items

@@ -1,0 +1,5 @@
+name: profile
+description: Pick or set the active Agent Zero Core profile.
+argument_hint: "[profile]"
+type: script
+script_path: connector_commands.py

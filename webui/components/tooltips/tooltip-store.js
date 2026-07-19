@@ -47,6 +47,16 @@ function initBootstrapTooltips(root = document) {
   tooltipTargets.forEach((element) => ensureBootstrapTooltip(element));
 }
 
+function disposeBootstrapTooltip(element) {
+  const instance = globalThis.bootstrap?.Tooltip?.getInstance(element);
+  if (!instance) return;
+  try {
+    instance.dispose();
+  } catch {
+    // Bootstrap 5 can throw while disposing an already-torn-down tooltip node.
+  }
+}
+
 function observeBootstrapTooltips() {
   if (!globalThis.bootstrap?.Tooltip) return;
   
@@ -75,10 +85,7 @@ function observeBootstrapTooltips() {
               );
           tooltipElements.forEach((el) => {
             if (el.isConnected) return;
-            const instance = globalThis.bootstrap?.Tooltip?.getInstance(el);
-            if (instance) {
-              instance.dispose();
-            }
+            disposeBootstrapTooltip(el);
           });
         });
         

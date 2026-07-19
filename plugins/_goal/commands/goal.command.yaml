@@ -1,0 +1,5 @@
+name: goal
+description: Create, inspect, pause, resume, edit, or delete this chat goal.
+argument_hint: "[objective|status|pause|resume|edit <goal>|delete|auto]"
+type: script
+script_path: goal_command.py

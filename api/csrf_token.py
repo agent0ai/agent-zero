@@ -1,5 +1,4 @@
 import secrets
-from urllib.parse import urlparse
 from helpers.api import (
     ApiHandler,
     Input,
@@ -9,6 +8,7 @@ from helpers.api import (
     session,
 )
 from helpers import runtime, dotenv, login
+from helpers.tunnel_origins import origin_from_url
 import fnmatch
 
 ALLOWED_ORIGINS_KEY = "ALLOWED_ORIGINS"
@@ -82,11 +82,7 @@ class GetCsrfToken(ApiHandler):
             )
         if not r:
             return None
-        # parse and normalize
-        p = urlparse(r)
-        if not p.scheme or not p.hostname:
-            return None
-        return f"{p.scheme}://{p.hostname}" + (f":{p.port}" if p.port else "")
+        return origin_from_url(r)
 
     async def get_allowed_origins(self) -> list[str]:
         # get the allowed origins from the environment
@@ -107,8 +103,10 @@ class GetCsrfToken(ApiHandler):
             from api.tunnel_proxy import process as tunnel_api_process
 
             tunnel = await tunnel_api_process({"action": "get"})
-            if tunnel and isinstance(tunnel, dict) and tunnel["success"]:
-                allowed_origins.append(tunnel["tunnel_url"])
+            if tunnel and isinstance(tunnel, dict) and tunnel.get("success"):
+                tunnel_origin = origin_from_url(tunnel.get("tunnel_url"))
+                if tunnel_origin:
+                    allowed_origins.append(tunnel_origin)
         except Exception:
             pass
 

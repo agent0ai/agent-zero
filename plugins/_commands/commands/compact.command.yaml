@@ -1,0 +1,4 @@
+name: compact
+description: Open the connector-backed compaction confirmation flow.
+type: script
+script_path: connector_commands.py

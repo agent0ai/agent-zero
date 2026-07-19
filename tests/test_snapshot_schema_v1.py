@@ -108,3 +108,17 @@ def test_snapshot_schema_rejects_unexpected_top_level_keys():
 
     with pytest.raises(ValueError):
         snapshot.validate_snapshot_schema_v1(payload)
+
+
+def test_notification_payload_and_cursor_are_captured_together():
+    from helpers.notification import NotificationManager, NotificationPriority, NotificationType
+
+    manager = NotificationManager()
+    manager.add_notification(NotificationType.INFO, NotificationPriority.HIGH, "first")
+
+    notifications, _, version = manager.output_with_state()
+    manager.add_notification(NotificationType.INFO, NotificationPriority.HIGH, "second")
+
+    assert [item["message"] for item in notifications] == ["first"]
+    assert version == 1
+    assert [item["message"] for item in manager.output(start=version)] == ["second"]

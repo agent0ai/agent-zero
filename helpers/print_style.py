@@ -1,8 +1,10 @@
-import os, webcolors, html
+import html
 import sys
-from datetime import datetime
 from collections.abc import Mapping
-from . import files
+
+import webcolors
+
+from . import files  # Load before strings; helpers.files imports sanitize_string.
 from .strings import sanitize_string
 
 _runtime_module = None
@@ -18,7 +20,6 @@ def _get_runtime():
 
 class PrintStyle:
     last_endline = True
-    log_file_path = None
 
     def __init__(self, bold=False, italic=False, underline=False, font_color="default", background_color="default", padding=False, log_only=False):
         self.bold = bold
@@ -29,14 +30,6 @@ class PrintStyle:
         self.padding = padding
         self.padding_added = False  # Flag to track if padding was added
         self.log_only = log_only
-
-        if PrintStyle.log_file_path is None:
-            logs_dir = files.get_abs_path("logs")
-            os.makedirs(logs_dir, exist_ok=True)
-            log_filename = datetime.now().strftime("log_%Y%m%d_%H%M%S.html")
-            PrintStyle.log_file_path = os.path.join(logs_dir, log_filename)
-            with open(PrintStyle.log_file_path, "w", encoding="utf-8", errors="replace") as f:
-                f.write("<html><body style='background-color:black;font-family: Arial, Helvetica, sans-serif;'><pre>\n")
 
     def _get_rgb_color_code(self, color, is_background=False):
         try:
@@ -90,18 +83,7 @@ class PrintStyle:
         if self.padding and not self.padding_added:
             if not self.log_only:
                 print()  # Print an empty line for padding
-            self._log_html("<br>")
             self.padding_added = True
-
-    def _log_html(self, html):
-        with open(PrintStyle.log_file_path, "a", encoding="utf-8", errors="replace") as f:  # type: ignore[arg-type]
-            f.write(sanitize_string(html))
-
-    @staticmethod
-    def _close_html_log():
-        if PrintStyle.log_file_path:
-            with open(PrintStyle.log_file_path, "a", encoding="utf-8", errors="replace") as f:
-                f.write("</pre></body></html>")
 
     @staticmethod
     def _format_args(args, sep):
@@ -155,22 +137,16 @@ class PrintStyle:
         if not PrintStyle.last_endline:
             if not self.log_only:
                 print()
-            self._log_html("<br>")
-        plain_text, styled_text, html_text = self.get(*args, sep=sep)
+        _, styled_text, _ = self.get(*args, sep=sep)
         if not self.log_only:
             print(styled_text, end=end, flush=flush)
-        if end.endswith('\n'):
-            self._log_html(html_text + "<br>\n")
-        else:
-            self._log_html(html_text)
         PrintStyle.last_endline = end.endswith('\n')
 
     def stream(self, *args, sep=' ', flush=True):
         self._add_padding_if_needed()
-        plain_text, styled_text, html_text = self.get(*args, sep=sep)
+        _, styled_text, _ = self.get(*args, sep=sep)
         if not self.log_only:
             print(styled_text, end='', flush=flush)
-        self._log_html(html_text)
         PrintStyle.last_endline = False
 
     def is_last_line_empty(self):
@@ -218,7 +194,3 @@ class PrintStyle:
     def error(*args, sep=' ', end='\n', flush=True):
         prefixed = PrintStyle._prefixed_args("Error", args)
         PrintStyle(font_color="red", padding=True).print(*prefixed, sep=sep, end=end, flush=flush)
-
-# Ensure HTML file is closed properly when the program exits
-import atexit
-atexit.register(PrintStyle._close_html_log)

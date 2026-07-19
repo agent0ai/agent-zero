@@ -14,7 +14,14 @@ rules:
 - replace placeholder or demo data with real values before execution
 - use `print()` or `console.log()` when you need explicit output
 - do not interleave other tools while waiting
-- ignore framework `[SYSTEM: ...]` info in output
+- treat trailing framework `[SYSTEM: ...]` info as execution status, not command output; use it to decide whether to wait, reset, rerun, or continue
+- probe cwd files tools and dependencies before expensive commands
+- split long work into small commands: inspect, prepare, run, verify
+- for builds installs servers training and long tests, redirect logs and poll with `runtime=output`
+- after timeout or pause, inspect logs and processes before deciding wait reset or stop
+- never claim success from timeout partial output or a still-running command
+- stop stale background processes you started before final response
+- when exact output matters, verify file path line count bytes and content with commands
 examples:
 1 terminal command
 ~~~json

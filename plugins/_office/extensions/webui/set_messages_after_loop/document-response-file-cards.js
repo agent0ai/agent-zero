@@ -15,6 +15,7 @@ const RESPONSE_CARD_ACTIONS = new Set([
   "restore_version",
   "update",
 ]);
+const OFFICE_FORMATS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 
 let pendingContextId = "";
 let pendingDocuments = [];
@@ -57,7 +58,8 @@ function documentEntryFromToolResult(args = {}) {
   const result = parseDocumentResult(String(args.content ?? ""));
   const document = documentFromLog(args, result);
   if (!document.path && !document.file_id) return null;
-  if (toolName(args, result) !== "document_artifact") return null;
+  if (toolName(args, result) !== "office_artifact") return null;
+  if (!OFFICE_FORMATS.has(String(document.extension || document.format || "").toLowerCase())) return null;
   if (!isResponseCardAction(document.action)) return null;
   return {
     document,

@@ -1,0 +1,4 @@
+name: status
+description: Show this chat's project, model, agent, and queue state.
+type: script
+script_path: connector_commands.py

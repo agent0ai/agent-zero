@@ -2,8 +2,9 @@ import {
   createActionButton,
   copyToClipboard,
 } from "/components/messages/action-buttons/simple-action-buttons.js";
+import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
 import { store as stepDetailStore } from "/components/modals/process-step-detail/step-detail-store.js";
-import { store as speechStore } from "/components/chat/speech/speech-store.js";
+import { ttsService } from "/js/tts-service.js";
 import { store as browserStore } from "/plugins/_browser/webui/browser-store.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { open as openSurface } from "/js/surfaces.js";
@@ -206,6 +207,12 @@ function staticScreenshotSrc(uri = "") {
   return uri ? uri.replace("img://", "/api/image_get?path=") : "";
 }
 
+function openStaticScreenshot(uri = "") {
+  const src = staticScreenshotSrc(uri);
+  if (!src) return;
+  imageViewerStore.open(src, { name: "Browser screenshot" });
+}
+
 function releaseLiveScreenshotFrame(viewerId) {
   const release = liveScreenshotFrames.get(viewerId);
   if (!release) return;
@@ -348,6 +355,10 @@ function renderBrowserScreenshotKvp(kvpsTable, resolveBrowserPayload, label, sta
   button.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (staticUri) {
+      openStaticScreenshot(staticUri);
+      return;
+    }
     const canvasPayload = resolveBrowserPayload();
     if (!canvasPayload) return;
     await openBrowserSurface(canvasPayload);
@@ -477,7 +488,9 @@ function drawBrowserTool({
   const screenshotUri = staticScreenshotUri(kvps);
   const browserId = browserIdFromResult(browserResult, kvps);
   const browserCanvasPayload = buildBrowserCanvasPayload(browserResult, kvps);
-  const browserPreviewLabel = browserId
+  const browserPreviewLabel = screenshotUri
+    ? "Open Browser screenshot"
+    : browserId
     ? `Open Browser surface for Browser ${browserId}`
     : "Open Browser surface from screenshot";
   if (shouldRenderBrowserScreenshotKvp(browserResult, kvps)) {
@@ -512,7 +525,7 @@ function drawBrowserTool({
           buildDetailPayload(args, { headerLabels }),
         ),
       ),
-      createActionButton("speak", "", () => speechStore.speak(contentText)),
+      createActionButton("speak", "", () => ttsService.speak(contentText)),
       createActionButton("copy", "", () => copyToClipboard(contentText)),
     );
   }

@@ -7,10 +7,17 @@ import plugins._a0_connector.api.v1.base as connector_base
 
 class SkillsList(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
+        from agent import AgentContext
         from helpers import files, projects, skills
 
+        context_id = str(input.get("context_id", "") or "").strip()
         project_name = str(input.get("project_name", "")).strip() or None
-        skill_list = skills.list_skill_catalog(project_name=project_name or "")
+        context = AgentContext.get(context_id) if context_id else None
+        agent = context.get_agent() if context else None
+        if context is not None and not project_name:
+            project_name = projects.get_context_project_name(context) or None
+
+        skill_list = skills.list_skill_catalog(project_name=project_name or "", agent=agent)
 
         agent_profile = str(input.get("agent_profile", "")).strip() or None
         if agent_profile:

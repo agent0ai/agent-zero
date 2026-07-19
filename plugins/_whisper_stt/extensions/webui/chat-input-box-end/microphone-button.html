@@ -1,0 +1,103 @@
+<div x-data>
+  <style>
+    #microphone-button {
+      order: 1;
+      border-color: transparent;
+      border-radius: 12px;
+      background-color: transparent;
+      color: grey;
+      transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.12s ease-in-out,
+        color 0.2s ease,
+        opacity 0.12s ease-in-out;
+    }
+
+    #microphone-button svg {
+      transform-origin: center;
+      transition: color 0.2s ease, transform 0.12s ease-in-out;
+    }
+
+    #microphone-button.mic-disabled {
+      color: #5f6368;
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
+    #microphone-button.mic-inactive {
+      color: grey;
+    }
+
+    #microphone-button.mic-activating {
+      color: silver;
+    }
+
+    #microphone-button.mic-listening {
+      color: red;
+    }
+
+    #microphone-button.mic-recording {
+      color: green;
+    }
+
+    #microphone-button.mic-waiting {
+      color: teal;
+    }
+
+    #microphone-button.mic-processing {
+      color: darkcyan;
+    }
+
+    #microphone-button.mic-activating svg,
+    #microphone-button.mic-processing svg {
+      animation: whisper-stt-mic-pulse 0.8s infinite;
+    }
+
+    @media (hover: hover) {
+      #microphone-button:not(.mic-disabled):hover {
+        box-shadow: none;
+      }
+
+      #microphone-button:not(.mic-disabled):hover svg {
+        transform: scale(1.08);
+      }
+    }
+
+    #microphone-button:not(.mic-disabled):active {
+      box-shadow: none;
+    }
+
+    #microphone-button:not(.mic-disabled):active svg {
+      transform: scale(0.92);
+    }
+
+    @keyframes whisper-stt-mic-pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.1);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+  </style>
+  <template x-if="$store.whisperStt">
+    <template x-teleport="#chat-buttons-wrapper">
+      <button
+        class="chat-button mic-inactive"
+        id="microphone-button"
+        aria-label="Start/Stop recording"
+        @click="$store.whisperStt.handleMicrophoneClick()"
+        x-init="$store.whisperStt.updateMicrophoneButtonUI()"
+        x-effect="$store.whisperStt.updateMicrophoneButtonUI()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 18" fill="currentColor">
+          <path d="m8,12c1.66,0,3-1.34,3-3V3c0-1.66-1.34-3-3-3s-3,1.34-3,3v6c0,1.66,1.34,3,3,3Zm-1,1.9c-2.7-.4-4.8-2.6-5-5.4H0c.2,3.8,3.1,6.9,7,7.5v2h2v-2c3.9-.6,6.8-3.7,7-7.5h-2c-.2,2.8-2.3,5-5,5.4h-2Z" />
+        </svg>
+      </button>
+    </template>
+  </template>
+</div>

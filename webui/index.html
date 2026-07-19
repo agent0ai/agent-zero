@@ -14,7 +14,6 @@
     <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="css/modals.css">
     <link rel="stylesheet" href="css/surfaces.css">
-    <link rel="stylesheet" href="css/speech.css">
     <link rel="stylesheet" href="css/scheduler-datepicker.css">
     <link rel="stylesheet" href="css/scheduler.css">
     <link rel="stylesheet" href="css/notification.css">
@@ -24,7 +23,7 @@
 
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
-    <script src="vendor/flatpickr/flatpickr.min.js"></script>
+    <script defer src="vendor/flatpickr/flatpickr.min.js"></script>
 
     <script>
         globalThis.safeCall = function (name, ...args) {
@@ -35,15 +34,14 @@
     <script type="module" src="index.js"></script>
 
     <!-- Bootstrap JS (only for logic, importing bundled CSS => UI conflicts) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-        crossorigin="anonymous"></script>
+    <script defer src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
 
     <!-- Then load Alpine.js -->
     <!-- <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script> -->
+    <script defer src="vendor/ace-min/ace.js"></script>
+    <script defer src="vendor/qrcode.min.js"></script>
     <script type="module" src="js/initFw.js"></script>
 
-    <script src="vendor/ace-min/ace.js"></script>
     <link href="vendor/ace-min/ace.min.css" rel="stylesheet">
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="vendor/katex/katex.min.css" crossorigin="anonymous">
@@ -51,9 +49,6 @@
     <!-- KaTeX javascript -->
     <script defer src="vendor/katex/katex.min.js" crossorigin="anonymous"></script>
     <script defer src="vendor/katex/katex.auto-render.min.js" crossorigin="anonymous"></script>
-
-    <!-- QR Code Library -->
-    <script src="vendor/qrcode.min.js"></script>
 
     <!-- Google Icons -->
     <link rel="stylesheet" href="vendor/google/google-icons.css" />
@@ -71,6 +66,9 @@
             id: "{{runtime_id}}",
             isDevelopment: "{{runtime_is_development}}" === "true",
             loggedIn: "{{logged_in}}" === "true",
+            timezone: "{{user_timezone_setting}}",
+            timeFormat: "{{user_time_format_setting}}",
+            uiControlVisibility: {{user_ui_control_visibility}},
         };
     </script>
     <!-- Plugin head injections (scripts, stylesheets) -->
@@ -95,8 +93,12 @@
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
             <!-- Welcome Screen Component -->
-            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
-                <x-component path="welcome/welcome-screen.html"></x-component>
+            <div x-data>
+                <template x-if="$store.welcomeStore && $store.welcomeStore.isVisible">
+                    <div class="welcome-host">
+                        <x-component path="welcome/welcome-screen.html"></x-component>
+                    </div>
+                </template>
             </div>
             <!-- Message History (actual messages) -->
             <div id="chat-area-wrapper" x-data x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
@@ -134,11 +136,15 @@
                 <button class="toast__close">Close</button>
             </div>
             <!-- Chat Input Area -->
-            <div x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
-                <!-- Progress Bar -->
-                <x-component path="chat/input/progress.html"></x-component>
-                <!-- Input Section -->
-                <x-component path="chat/input/chat-bar.html"></x-component>
+            <div x-data>
+                <template x-if="!$store.welcomeStore || !$store.welcomeStore.isVisible">
+                    <div>
+                        <!-- Progress Bar -->
+                        <x-component path="chat/input/progress.html"></x-component>
+                        <!-- Input Section -->
+                        <x-component path="chat/input/chat-bar.html"></x-component>
+                    </div>
+                </template>
             </div>
         </div>
         <x-component path="canvas/right-canvas.html"></x-component>

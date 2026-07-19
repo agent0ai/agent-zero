@@ -21,3 +21,6 @@
 # Rules
 - Focus on important details like libraries used, code, encountered issues, error fixing etc.
 - Do not include simple solutions that don't require instructions to reproduce like file handling, web search etc.
+- Do not save one-off completed work, temporary file paths, exact session artifacts, benchmark/task IDs, or command transcripts
+- Save a solution only when it is a reusable technical procedure likely to help with future similar work
+- Prefer concise reproduction steps over a diary of what the agent did

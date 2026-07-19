@@ -44,6 +44,7 @@ def test_document_qa_uses_small_document_content_when_search_finds_no_chunks():
     helper = object.__new__(DocumentQueryHelper)
     helper.agent = agent
     helper.store = FakeStore()
+    helper.config = {}
     helper.progress_callback = progress.append
 
     async def document_get_content(uri, add_to_db=False):

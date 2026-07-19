@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-labelledby="llama-cpp-title">
+  <title id="llama-cpp-title">llama.cpp</title>
+  <defs>
+    <linearGradient id="llama-cpp-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#242424"/>
+      <stop offset="1" stop-color="#111111"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="140" height="140" rx="28" fill="url(#llama-cpp-bg)"/>
+  <path d="M47 111V65c0-18 14-32 32-32h9c18 0 32 14 32 32v46" fill="none" stroke="#f1e4c8" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M58 42 47 24M103 42l12-18" fill="none" stroke="#f1e4c8" stroke-width="10" stroke-linecap="round"/>
+  <path d="M58 72h50" stroke="#79c7b4" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="67" cy="88" r="5" fill="#f1e4c8"/>
+  <circle cx="96" cy="88" r="5" fill="#f1e4c8"/>
+  <path d="M72 106h22" stroke="#f1e4c8" stroke-width="8" stroke-linecap="round"/>
+  <text x="80" y="133" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="23" font-weight="800" fill="#79c7b4">.cpp</text>
+</svg>

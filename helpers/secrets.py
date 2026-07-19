@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
 from dotenv.parser import parse_stream
 from helpers.errors import RepairableException
-from helpers import files
+from helpers import dotenv, files
 from helpers.extension import extensible
 
 if TYPE_CHECKING:
@@ -509,8 +509,8 @@ class SecretsManager:
 def get_secrets_manager(context: "AgentContext|None" = None) -> SecretsManager:
     from helpers import projects
 
-    # default secrets file
-    secret_files = [DEFAULT_SECRETS_FILE]
+    # Agent-facing masking covers the secret store and runtime credentials in usr/.env.
+    secret_files = [DEFAULT_SECRETS_FILE, dotenv.get_dotenv_file_path()]
 
     # use AgentContext from contextvars if no context provided
     if not context:

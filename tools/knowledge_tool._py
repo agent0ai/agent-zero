@@ -4,7 +4,7 @@ from plugins._memory.helpers.memory import Memory
 from plugins._memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 from helpers.tool import Tool, Response
-from helpers.document_query import DocumentQueryHelper
+from plugins._document_query.helpers.document_query import DocumentQueryHelper
 
 SEARCH_ENGINE_RESULTS = 10
 

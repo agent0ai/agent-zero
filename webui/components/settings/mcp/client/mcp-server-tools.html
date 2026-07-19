@@ -11,15 +11,61 @@
 <body>
     <div x-data>
         <template x-if="$store.mcpServersStore">
-            <div>
-                <h3 x-text="$store.mcpServersStore.serverDetail.name"></h3>
-                <p x-text="$store.mcpServersStore.serverDetail.description"></p>
+            <div class="mcp-tools-modal">
+                <div class="mcp-tools-header">
+                    <div class="mcp-tools-heading">
+                        <h3 x-text="$store.mcpServersStore.serverDetail?.name || 'MCP tools'"></h3>
+                        <p x-text="$store.mcpServersStore.serverDetail?.description || 'Tools exposed by this MCP server.'"></p>
+                    </div>
+                    <div class="mcp-tools-actions">
+                        <span class="mcp-tools-count" x-text="$store.mcpServersStore.serverDetailToolsCountLabel"></span>
+                        <button type="button" class="button confirm" :disabled="$store.mcpServersStore.applying" @click="$store.mcpServersStore.applyNow()">
+                            <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                            <span x-text="$store.mcpServersStore.applying ? 'Applying' : 'Apply'"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <label class="mcp-tool-search">
+                    <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                    <input type="search" x-model.debounce.150ms="$store.mcpServersStore.toolSearch" placeholder="Search tools" />
+                    <button type="button" class="mcp-tool-search-clear"
+                        x-show="$store.mcpServersStore.toolSearch"
+                        @click="$store.mcpServersStore.clearToolSearch()"
+                        title="Clear search">
+                        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                    </button>
+                </label>
 
                 <div class="tools-container">
-                    <template x-for="tool in $store.mcpServersStore.serverDetail.tools" :key="tool.name">
+                    <template x-if="$store.mcpServersStore.serverDetailTools.length === 0">
+                        <div class="mcp-tools-empty">No tools exposed by this server.</div>
+                    </template>
+                    <template x-if="$store.mcpServersStore.serverDetailTools.length > 0 && $store.mcpServersStore.filteredServerDetailTools.length === 0">
+                        <div class="mcp-tools-empty">No tools match this search.</div>
+                    </template>
+                    <template x-for="tool in $store.mcpServersStore.filteredServerDetailTools" :key="tool.name">
                         <div class="tool-item">
-                            <h4 x-text="tool.name"></h4>
-                            <p class="tool-description" x-text="tool.description"></p>
+                            <div class="tool-header">
+                                <div>
+                                    <h4 x-text="tool.name"></h4>
+                                    <p class="tool-description" x-text="tool.description || 'No description provided.'"></p>
+                                </div>
+                                <div class="mcp-tool-toggle-group">
+                                    <label class="toggle plugin-status-toggle mcp-tool-toggle"
+                                        :class="{ 'disabled-appearance': !$store.mcpServersStore.canConfigureServerTools($store.mcpServersStore.serverDetail?.name) }"
+                                        :title="!$store.mcpServersStore.canConfigureServerTools($store.mcpServersStore.serverDetail?.name) ? 'Add this inherited server to the current config before changing tools' : ($store.mcpServersStore.isServerToolEnabled($store.mcpServersStore.serverDetail?.name, tool.name) ? 'Disable tool' : 'Enable tool')">
+                                        <input type="checkbox"
+                                            :checked="$store.mcpServersStore.isServerToolEnabled($store.mcpServersStore.serverDetail?.name, tool.name)"
+                                            :disabled="!$store.mcpServersStore.canConfigureServerTools($store.mcpServersStore.serverDetail?.name)"
+                                            @change="$store.mcpServersStore.toggleServerTool($store.mcpServersStore.serverDetail?.name, tool.name, $event.target.checked)"
+                                            @click.stop>
+                                        <span class="toggler"></span>
+                                    </label>
+                                    <span class="plugin-status-text"
+                                        x-text="$store.mcpServersStore.isServerToolEnabled($store.mcpServersStore.serverDetail?.name, tool.name) ? 'ON' : 'OFF'"></span>
+                                </div>
+                            </div>
 
                             <template x-if="tool.input_schema?.properties">
                                 <div class="tool-properties">
@@ -46,42 +92,220 @@
     </div>
 
     <style>
-        .tools-container {
-            margin-top: 1.5em;
+        .mcp-tools-modal {
             display: flex;
             flex-direction: column;
-            gap: 1.2em;
+            gap: 1rem;
+            color: var(--color-text);
+            font-family: var(--font-family-main);
         }
 
-        .tool-item {
-            padding: 1em;
-            border: 1px solid rgba(192, 192, 192, 0.16);
-            border-radius: 4px;
+        .mcp-tools-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
         }
 
-        .tool-item h4 {
-            margin-top: 0;
-            margin-bottom: 0.5em;
-            font-size: 1.1em;
+        .mcp-tools-heading {
+            min-width: 0;
         }
 
-        .tool-description {
-            margin-bottom: 1em;
-            color: var(--c-fg);
+        .mcp-tools-heading h3,
+        .mcp-tools-heading p,
+        .tool-item h4,
+        .tool-description,
+        .properties-title {
+            margin: 0;
+        }
+
+        .mcp-tools-heading h3 {
+            font-size: 1.15rem;
+            line-height: 1.2;
+        }
+
+        .mcp-tools-heading p,
+        .tool-description,
+        .mcp-tools-empty {
+            color: var(--color-text-muted);
+            font-size: 0.88rem;
             line-height: 1.4;
         }
 
+        .mcp-tools-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .mcp-tools-modal .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            min-height: 2rem;
+            padding: 0.35rem 0.65rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            cursor: pointer;
+        }
+
+        .mcp-tools-modal .button.confirm {
+            border-color: color-mix(in srgb, var(--color-highlight) 65%, var(--color-border));
+            background: var(--color-highlight);
+            color: #fff;
+        }
+
+        .mcp-tools-modal .button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .mcp-tools-count {
+            display: inline-flex;
+            align-items: center;
+            min-height: 1.45rem;
+            padding: 0.15rem 0.45rem;
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            color: var(--color-text-muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .mcp-tool-search {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            min-height: 2.25rem;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 7px;
+            background: var(--color-input);
+            color: var(--color-text-muted);
+        }
+
+        .mcp-tool-search input {
+            width: 100%;
+            min-width: 0;
+            border: 0;
+            background: transparent;
+            color: var(--color-text);
+            outline: none;
+            padding: 0.2rem;
+        }
+
+        .mcp-tool-search input::-webkit-search-cancel-button,
+        .mcp-tool-search input::-webkit-search-decoration {
+            -webkit-appearance: none;
+            appearance: none;
+            display: none;
+        }
+
+        .mcp-tool-search-clear {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.45rem;
+            height: 1.45rem;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: var(--color-text-muted);
+            cursor: pointer;
+        }
+
+        .mcp-tools-modal .material-symbols-outlined {
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .tools-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .tool-item {
+            padding: 0.85rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+        }
+
+        .tool-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .tool-item h4 {
+            font-size: 1rem;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .tool-description {
+            margin-top: 0.25rem;
+            overflow-wrap: anywhere;
+        }
+
+        .mcp-tool-toggle-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 5.2rem;
+            flex: 0 0 auto;
+        }
+
+        .mcp-tool-toggle {
+            width: 48px;
+            height: 28px;
+            flex: 0 0 48px;
+        }
+
+        .mcp-tool-toggle .toggler {
+            border-radius: 999px;
+        }
+
+        .mcp-tool-toggle .toggler:before {
+            width: 20px;
+            height: 20px;
+            left: 4px;
+            bottom: 4px;
+        }
+
+        .mcp-tool-toggle input:checked + .toggler:before {
+            transform: translateX(20px);
+        }
+
+        .mcp-tool-toggle.disabled-appearance {
+            opacity: 0.6;
+        }
+
+        .mcp-tool-toggle-group .plugin-status-text {
+            color: var(--color-text-muted);
+            font-size: 0.76rem;
+            font-weight: 700;
+            min-width: 1.7rem;
+        }
+
         .tool-properties {
-            margin-top: 0.8em;
-            padding: 0.8em;
-            background-color: rgba(0, 0, 0, 0.04);
-            border-radius: 3px;
+            margin-top: 0.8rem;
+            padding: 0.75rem;
+            border: 1px solid var(--color-border);
+            background: var(--color-input);
+            border-radius: 6px;
         }
 
         .properties-title {
             font-weight: 600;
-            margin-top: 0;
-            margin-bottom: 0.5em;
+            margin-bottom: 0.5rem;
         }
 
         .tool-properties ul {
@@ -95,16 +319,36 @@
 
         .prop-name {
             font-weight: 600;
-            color: var(--c-accent);
+            color: var(--color-highlight);
         }
 
         .prop-type {
-            color: var(--c-fg2);
+            color: var(--color-text-muted);
             font-style: italic;
         }
 
         .prop-desc {
-            color: var(--c-fg);
+            color: var(--color-text);
+        }
+
+        .mcp-tools-empty {
+            padding: 0.9rem;
+            text-align: center;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+        }
+
+        @media (max-width: 760px) {
+            .mcp-tools-header,
+            .tool-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .mcp-tools-actions {
+                justify-content: flex-start;
+            }
         }
     </style>
 

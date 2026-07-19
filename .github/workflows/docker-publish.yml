@@ -108,6 +108,27 @@ jobs:
             exit 1
           fi
 
+      - name: Free runner disk space
+        run: |
+          echo "Disk before cleanup:"
+          df -h /
+          docker system df || true
+
+          sudo rm -rf \
+            /opt/az \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/.ghcup \
+            /usr/local/lib/android \
+            /usr/local/share/boost \
+            /usr/share/dotnet
+          sudo apt-get clean
+          docker system prune -af --volumes || true
+
+          echo "Disk after cleanup:"
+          df -h /
+          docker system df || true
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

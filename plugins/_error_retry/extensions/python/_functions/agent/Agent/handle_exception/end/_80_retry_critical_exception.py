@@ -10,6 +10,20 @@ from helpers.print_style import PrintStyle
 
 from plugins._error_retry.extensions.python._functions.agent.Agent.monologue.start._10_reset_critical_exception_counter import DATA_NAME_COUNTER
 
+DEFAULT_MAX_RETRIES = 1
+RETRY_DELAY_SECONDS = 3
+
+
+def normalize_max_retries(value, default: int = DEFAULT_MAX_RETRIES) -> int:
+    if value is None or isinstance(value, bool):
+        return default
+
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
 class RetryCriticalException(Extension):
     async def execute(self, data: dict = {}, **kwargs):
         if not self.agent:
@@ -24,8 +38,8 @@ class RetryCriticalException(Extension):
             self.agent.set_data(DATA_NAME_COUNTER, 0) # reset counter if exception has been handled
             return
 
-        max_retries = 1
-        delay = 3
+        cfg = plugins.get_plugin_config("_error_retry", agent=self.agent) or {}
+        max_retries = normalize_max_retries(cfg.get("retries"))
 
         counter = self.agent.get_data(DATA_NAME_COUNTER) or 0
         if counter >= max_retries:
@@ -46,7 +60,7 @@ class RetryCriticalException(Extension):
         PrintStyle(font_color="orange", padding=True).print(
             "Critical error occurred, retrying..."
         )
-        await asyncio.sleep(delay)
+        await asyncio.sleep(RETRY_DELAY_SECONDS)
         await self.agent.handle_intervention()
         agent_facing_error = self.agent.read_prompt(
             "fw.msg_critical_error.md", error_message=error_message

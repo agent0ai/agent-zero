@@ -1,4 +1,4 @@
-<!-- Model Switcher - Floating Preset Selector (left-aligned with inline model display) -->
+<!-- Model Switcher - Floating Preset Selector -->
 <script type="module">
   import { store } from "/plugins/_model_config/webui/model-config-store.js";
 </script>
@@ -26,35 +26,16 @@
               <span class="material-symbols-outlined" style="font-size: 0.7rem;"
                     x-text="showDropdown ? 'expand_less' : 'expand_more'"></span>
             </button>
-
-            <!-- Inline active model pills (shown when a preset is active) -->
-            <template x-if="$store.modelConfig.switcherOverride">
-              <div class="model-switcher-active-pills">
-                <template x-if="$store.modelConfig.getActiveModels().main">
-                  <div class="model-pill">
-                    <span class="model-pill-role">Main</span>
-                    <span class="model-pill-name" x-text="$store.modelConfig.getActiveModels().main.name"></span>
-                  </div>
-                </template>
-                <template x-if="$store.modelConfig.getActiveModels().utility">
-                  <div class="model-pill">
-                    <span class="model-pill-role">Util</span>
-                    <span class="model-pill-name" x-text="$store.modelConfig.getActiveModels().utility.name"></span>
-                  </div>
-                </template>
-              </div>
-            </template>
-
             <!-- Dropdown (opens upward) -->
             <div class="model-switcher-dropdown" x-show="showDropdown" x-transition.opacity style="display: none;">
-              <!-- Use Default -->
+              <!-- Return to the project/profile selection -->
               <template x-if="$store.modelConfig.switcherOverride">
                 <div class="model-switcher-item revert" @click="
                   $store.modelConfig.clearOverrideSwitch($store.chats?.selected || '');
                   showDropdown = false;
                 ">
                   <span class="material-symbols-outlined" style="font-size: 15px;">undo</span>
-                  <span>Use Default</span>
+                  <span>Use scoped preset</span>
                 </div>
               </template>
               <div class="model-switcher-divider" x-show="$store.modelConfig.switcherOverride"></div>
@@ -67,7 +48,7 @@
               <!-- Preset list -->
               <template x-for="preset in $store.modelConfig.switcherPresets" :key="preset.name">
                 <div class="model-switcher-item"
-                     :class="{ 'active': $store.modelConfig.switcherOverride?.preset_name === preset.name }"
+                     :class="{ 'active': $store.modelConfig.switcherEffectivePreset === preset.name }"
                      @click="
                        $store.modelConfig.selectPresetSwitch($store.chats?.selected || '', preset.name);
                        showDropdown = false;
@@ -94,6 +75,16 @@
                         </span>
                       </div>
                     </template>
+                    <template x-if="preset.embedding?.name">
+                      <div class="model-switcher-model-row">
+                        <span class="model-switcher-model-label">Embed</span>
+                        <span class="model-switcher-model-value">
+                          <span x-text="preset.embedding.provider" style="opacity:0.5;"></span>
+                          <span style="opacity:0.3; margin:0 3px;">/</span>
+                          <span x-text="preset.embedding.name"></span>
+                        </span>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </template>
@@ -101,7 +92,10 @@
               <!-- Edit Presets shortcut -->
               <div class="model-switcher-divider" style="opacity:0.2;"></div>
               <div class="model-switcher-item model-switcher-edit" @click="
-                openModal('/plugins/_model_config/webui/main.html');
+                $store.modelConfig.openPresetEditor(
+                  $store.modelConfig.switcherEffectivePreset,
+                  $store.chats?.selected || ''
+                );
                 showDropdown = false;
               ">
                 <span class="material-symbols-outlined" style="font-size: 14px;">tune</span>
@@ -209,7 +203,7 @@
     /* color: var(--color-text); */
   }
   .model-switcher-label {
-    max-width: 120px;
+    max-width: min(240px, 38vw);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -236,43 +230,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  /* Inline active model pills */
-  .model-switcher-active-pills {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 1;
-    min-width: 0;
-  }
-  .model-pill {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--color-highlight) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-highlight) 15%, transparent);
-    font-size: 0.68rem;
-    white-space: nowrap;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .model-pill-role {
-    font-weight: 600;
-    opacity: 0.55;
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    flex-shrink: 0;
-  }
-  .model-pill-name {
-    opacity: 0.85;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-  }
-
   /* Dropdown - opens upward, aligned to left */
   .model-switcher-dropdown {
     position: absolute;
@@ -395,10 +352,9 @@
     font-weight: 500;
   }
 
-  /* Responsive: hide pills on narrow screens */
   @media (max-width: 600px) {
-    .model-switcher-active-pills {
-      display: none;
+    .model-switcher-label {
+      max-width: 160px;
     }
     .agent-profile-label {
       max-width: 92px;

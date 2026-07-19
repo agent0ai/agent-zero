@@ -16,9 +16,9 @@
                 </a>
               </li>
               <li>
-                <a href="#section-update-advanced">
+                <a href="#section-backup-restore">
                   <img src="/public/backup_restore.svg" alt="Backup & Restore" />
-                  <span>Advanced Settings</span>
+                  <span>Backup &amp; Restore</span>
                 </a>
               </li>
             </ul>
@@ -28,18 +28,8 @@
             <x-component path="settings/backup/self-update.html"></x-component>
           </div>
 
-          <div id="section-update-advanced" class="section" x-data="{ advOpen: false }">
-            <div class="settings-advanced-section">
-              <button type="button" class="settings-advanced-toggle" @click="advOpen = !advOpen">
-                <span class="material-symbols-outlined settings-advanced-toggle-icon"
-                      :style="advOpen ? 'transform:rotate(90deg)' : ''">chevron_right</span>
-                <span>Advanced Settings</span>
-              </button>
-
-              <div class="settings-advanced-body" x-show="advOpen" x-transition.opacity>
-                <x-component path="settings/backup/backup_restore.html"></x-component>
-              </div>
-            </div>
+          <div id="section-backup-restore" class="section">
+            <x-component path="settings/backup/backup_restore.html"></x-component>
           </div>
         </div>
       </template>

@@ -26,14 +26,13 @@ class TelegramAutoReply(Extension):
             return
 
         response_text = _extract_last_response(context)
-        if not response_text:
-            return
 
         attachments = context.data.pop(CTX_TG_ATTACHMENTS, [])
         keyboard = context.data.pop(CTX_TG_KEYBOARD, None)
 
         try:
-            await self._send_reply(context, response_text, attachments, keyboard)
+            if response_text:
+                await self._send_reply(context, response_text, attachments, keyboard)
         except Exception as e:
             PrintStyle.error(f"Telegram auto-reply error: {format_error(e)}")
         finally:
@@ -41,6 +40,10 @@ class TelegramAutoReply(Extension):
             typing_stop = context.data.pop(CTX_TG_TYPING_STOP, None)
             if typing_stop:
                 typing_stop.set()
+            from plugins._telegram_integration.helpers import draft_stream, heartbeat
+
+            await heartbeat.stop(context)
+            draft_stream.clear(context)
             context.data.pop(CTX_TG_REPLY_TO, None)
 
     async def _send_reply(

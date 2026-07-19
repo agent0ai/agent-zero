@@ -17,16 +17,12 @@ class _PassthroughSecretsManager:
 
 @pytest.fixture(autouse=True)
 def _reset_print_style_state():
-    PrintStyle.log_file_path = None
     PrintStyle.last_endline = True
     yield
-    PrintStyle.log_file_path = None
     PrintStyle.last_endline = True
 
 
-def test_get_sanitizes_lone_surrogates(tmp_path, monkeypatch):
-    monkeypatch.setattr("helpers.print_style.files.get_abs_path", lambda _: str(tmp_path))
-
+def test_get_sanitizes_lone_surrogates():
     style = PrintStyle(log_only=True)
     style.secrets_mgr = _PassthroughSecretsManager()
 
@@ -37,16 +33,13 @@ def test_get_sanitizes_lone_surrogates(tmp_path, monkeypatch):
     assert "\ud83d" not in html_text
 
 
-def test_print_writes_html_log_without_surrogate_crash(tmp_path, monkeypatch):
-    monkeypatch.setattr("helpers.print_style.files.get_abs_path", lambda _: str(tmp_path))
-
-    style = PrintStyle(log_only=True)
+def test_print_sanitizes_lone_surrogates_without_crash(capsys):
+    style = PrintStyle()
     style.secrets_mgr = _PassthroughSecretsManager()
 
     style.print("bad \ud83d")
 
-    log_path = Path(PrintStyle.log_file_path)
-    content = log_path.read_text(encoding="utf-8")
+    content = capsys.readouterr().out
 
     assert "bad ?" in content
     assert "\ud83d" not in content

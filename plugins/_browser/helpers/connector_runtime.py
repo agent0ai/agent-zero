@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
 import re
 import uuid
@@ -10,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from helpers import files
+from helpers import chat_media, media_artifacts
 
 try:
     from helpers.ws import NAMESPACE
@@ -40,10 +39,9 @@ from plugins._browser.helpers.url import normalize_url
 
 BROWSER_OP_EVENT = "connector_browser_op"
 BROWSER_OP_TIMEOUT = 120.0
-HOST_BROWSER_SCREENSHOT_DIR = ("tmp", "browser", "host-screenshots")
+DOM_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-page-content.js"
 MAX_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
-BASE64_DECODE_CHARS_PER_CHUNK = 64 * 1024
 HOST_BROWSER_PRIVACY_POLICY_KEY = getattr(
     browser_config,
     "HOST_BROWSER_PRIVACY_POLICY_KEY",
@@ -59,8 +57,13 @@ HOST_BROWSER_PROFILE_MODE_KEY = getattr(
     "HOST_BROWSER_PROFILE_MODE_KEY",
     "host_browser_profile_mode",
 )
+HOST_BROWSER_SELECTION_KEY = getattr(
+    browser_config,
+    "HOST_BROWSER_SELECTION_KEY",
+    "host_browser_selection",
+)
 get_browser_config = browser_config.get_browser_config
-_LOCAL_PROVIDERS = {"ollama", "lm_studio"}
+_LOCAL_PROVIDERS = {"ollama", "lm_studio", "llama_cpp", "omlx", "vllm"}
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
 _SENSITIVE_ACTIONS = {"content", "detail", "evaluate", "screenshot", "screenshot_file"}
 _KEY_ALIASES = {
@@ -80,9 +83,14 @@ _REQUIRED_API_NAMES_RE = re.compile(
     re.S,
 )
 _HOST_BROWSER_REMOTE_DEBUGGING_HELP = (
-    'For an already-open Chrome-family browser, open `chrome://inspect/#remote-debugging`, '
+    "For an already-open Chromium-family browser, open its inspect page, such as "
+    "`chrome://inspect/#remote-debugging` or `opera://inspect/#remote-debugging`, "
     'enable "Allow remote debugging for this browser instance", run `/browser host on`, '
     "and retry."
+)
+_DOCKER_BROWSER_RECOVERY_HELP = (
+    "To use Agent Zero's internal Docker browser instead, open Browser settings and set "
+    "Browser location to Internal Docker browser, or run `/browser container` from A0 CLI."
 )
 _REMOTE_DEBUGGING_ERROR_TOKENS = (
     "remote debugging",
@@ -121,6 +129,7 @@ class ConnectorBrowserRuntime:
             "context_id": self.context_id,
             "action": action,
             "profile_mode": self._host_browser_profile_mode(),
+            "browser_selection": self._host_browser_selection(),
         }
 
         if action == "open":
@@ -281,24 +290,43 @@ class ConnectorBrowserRuntime:
                         "context_id": self.context_id,
                         "action": "ensure",
                         "profile_mode": self._host_browser_profile_mode(),
+                        "browser_selection": self._host_browser_selection(),
                     },
                 ),
             )
             sid = self._select_sid() or sid
 
-        return await self._send_browser_op(sid, self._with_content_helper(sid, payload))
+        return await self._send_browser_op(sid, self._with_browser_helpers(sid, payload))
 
     def _host_browser_profile_mode(self) -> str:
         config = get_browser_config(self.agent)
         mode = str(config.get(HOST_BROWSER_PROFILE_MODE_KEY) or "existing").strip().lower()
         return "agent" if mode == "agent" else "existing"
 
+    def _host_browser_selection(self) -> str:
+        config = get_browser_config(self.agent)
+        return str(config.get(HOST_BROWSER_SELECTION_KEY) or "").strip()
+
     def _with_content_helper(self, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._with_browser_helpers(sid, payload)
+
+    def _with_browser_helpers(self, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
         metadata = host_browser_metadata_for_sid(sid) or {}
-        if str(metadata.get("content_helper_sha256") or "").strip().lower() == _content_helper_sha256():
+        content_helper_current = (
+            str(metadata.get("content_helper_sha256") or "").strip().lower()
+            == _content_helper_sha256()
+        )
+        dom_helper_current = (
+            str(metadata.get("dom_helper_sha256") or "").strip().lower()
+            == _dom_helper_sha256()
+        )
+        if content_helper_current and dom_helper_current:
             return payload
         payload = dict(payload)
-        payload["content_helper"] = _content_helper_payload()
+        if not dom_helper_current:
+            payload["dom_helper"] = _dom_helper_payload()
+        if not content_helper_current:
+            payload["content_helper"] = _content_helper_payload()
         return payload
 
     async def _send_browser_op(self, sid: str, payload: dict[str, Any]) -> Any:
@@ -424,29 +452,44 @@ class ConnectorBrowserRuntime:
         data = str(artifact.get("data") or "")
         if not data:
             return result
-        estimated_size = _estimated_base64_decoded_size(data)
+        estimated_size = media_artifacts.estimated_base64_decoded_size(data)
         if estimated_size > MAX_ARTIFACT_SIZE_BYTES:
             raise RuntimeError(
-                "Host browser artifact is too large to materialize safely "
+                "Host browser artifact is too large to attach safely "
                 f"({estimated_size} bytes, limit {MAX_ARTIFACT_SIZE_BYTES} bytes)."
             )
-        filename = _safe_filename(str(artifact.get("filename") or "host-browser.jpg"))
-        target_dir = Path(files.get_abs_path(*HOST_BROWSER_SCREENSHOT_DIR, self.context_id))
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target_path = target_dir / filename
+        filename = media_artifacts.safe_filename(
+            str(artifact.get("filename") or "host-browser.jpg"),
+            default=f"host-browser-{uuid.uuid4().hex}.jpg",
+            default_extension=".jpg",
+        )
+        mime = str(artifact.get("mime") or result.get("mime") or "image/jpeg")
         try:
-            _write_base64_to_path(data, target_path)
+            saved = chat_media.save_image_base64(
+                context_id=self.context_id,
+                data=data,
+                mime_type=mime,
+                category="screenshots",
+                source="browser",
+                preferred_name=filename,
+                max_bytes=MAX_ARTIFACT_SIZE_BYTES,
+            )
         except Exception as exc:
-            target_path.unlink(missing_ok=True)
             raise RuntimeError("Host browser artifact could not be decoded.") from exc
         materialized = dict(result)
         materialized.pop("artifact", None)
-        local_path = str(target_path)
-        materialized["path"] = local_path
-        materialized["a0_path"] = files.normalize_a0_path(local_path)
+        materialized.pop("path", None)
+        materialized.pop("a0_path", None)
+        materialized.pop("host_path", None)
+        materialized.setdefault("context_id", self.context_id)
+        materialized["path"] = saved.path
+        materialized["a0_path"] = saved.a0_path
+        materialized["mime"] = saved.mime
+        materialized["ephemeral"] = False
+        materialized["chat_scoped"] = True
         materialized["vision_load"] = {
             "tool_name": "vision_load",
-            "tool_args": {"paths": [local_path]},
+            "tool_args": {"paths": [saved.a0_path]},
         }
         return materialized
 
@@ -477,11 +520,23 @@ class ConnectorBrowserRuntime:
         if not message:
             message = "Host browser operation failed"
         normalized = message.lower()
-        if "chrome://inspect/#remote-debugging" in normalized:
-            return message
+        if (
+            "chrome://inspect/#remote-debugging" in normalized
+            or "opera://inspect/#remote-debugging" in normalized
+        ):
+            return _append_docker_browser_recovery(message)
         if any(token in normalized for token in _REMOTE_DEBUGGING_ERROR_TOKENS):
-            return f"{message}\n\n{_HOST_BROWSER_REMOTE_DEBUGGING_HELP}"
+            return _append_docker_browser_recovery(
+                f"{message}\n\n{_HOST_BROWSER_REMOTE_DEBUGGING_HELP}"
+            )
+        return _append_docker_browser_recovery(message)
+
+
+def _append_docker_browser_recovery(message: str) -> str:
+    normalized = str(message or "").lower()
+    if "internal docker browser" in normalized or "/browser container" in normalized:
         return message
+    return f"{message}\n\n{_DOCKER_BROWSER_RECOVERY_HELP}"
 
 
 @lru_cache(maxsize=1)
@@ -501,6 +556,33 @@ def _content_helper_payload() -> dict[str, Any]:
 
 def _content_helper_sha256() -> str:
     return str(_content_helper_payload()["sha256"])
+
+
+@lru_cache(maxsize=1)
+def _dom_helper_payload() -> dict[str, Any]:
+    try:
+        source = DOM_HELPER_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(
+            f"Host-browser DOM helper could not be read from {DOM_HELPER_PATH}: {exc}"
+        ) from exc
+    return {
+        "required_apis": [
+            "captureDocument",
+            "clickNode",
+            "detailNode",
+            "scrollNode",
+            "submitNode",
+            "typeNode",
+            "typeSubmitNode",
+        ],
+        "source": source,
+        "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+    }
+
+
+def _dom_helper_sha256() -> str:
+    return str(_dom_helper_payload()["sha256"])
 
 
 def _content_helper_required_apis(source: str) -> list[str]:
@@ -543,33 +625,3 @@ def _api_base_is_local(api_base: str) -> bool:
     parsed = urlparse(api_base if "://" in api_base else f"http://{api_base}")
     hostname = (parsed.hostname or "").strip().lower()
     return hostname in _LOCAL_HOSTS
-
-
-def _safe_filename(value: str) -> str:
-    cleaned = "".join(char if char.isalnum() or char in {"-", "_", "."} else "_" for char in value)
-    cleaned = cleaned.strip("._") or f"host-browser-{uuid.uuid4().hex}.jpg"
-    if "." not in cleaned:
-        cleaned += ".jpg"
-    return cleaned
-
-
-def _estimated_base64_decoded_size(data: str) -> int:
-    compact_length = sum(1 for char in data if not char.isspace())
-    return (compact_length * 3) // 4
-
-
-def _write_base64_to_path(data: str, target_path: Path) -> None:
-    pending = ""
-    with target_path.open("wb") as target:
-        for offset in range(0, len(data), BASE64_DECODE_CHARS_PER_CHUNK):
-            chunk = pending + "".join(
-                char
-                for char in data[offset : offset + BASE64_DECODE_CHARS_PER_CHUNK]
-                if not char.isspace()
-            )
-            ready_length = (len(chunk) // 4) * 4
-            if ready_length:
-                target.write(base64.b64decode(chunk[:ready_length], validate=True))
-            pending = chunk[ready_length:]
-        if pending:
-            target.write(base64.b64decode(pending, validate=True))

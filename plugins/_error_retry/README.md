@@ -1,10 +1,10 @@
 # Error Retry
 
-Retry once after an unexpected critical exception so the agent has a chance to recover instead of failing immediately.
+Retry after an unexpected critical exception so the agent has a chance to recover instead of failing immediately.
 
 ## What It Does
 
-This plugin hooks into the agent lifecycle and automatically retries the current loop once when an unhandled critical exception occurs.
+This plugin hooks into the agent lifecycle and automatically retries the current loop when an unhandled critical exception occurs.
 
 It does **not** retry exceptions that are already treated as controlled agent flow, such as:
 
@@ -16,9 +16,9 @@ It does **not** retry exceptions that are already treated as controlled agent fl
 - **Counter reset per monologue**
   - Clears the retry counter at the start of a new monologue.
 - **Critical exception retry**
-  - On an unexpected exception, logs a warning, waits briefly, injects an agent-facing critical error message into history, and suppresses the original exception once.
-- **Single retry only**
-  - Uses an internal counter so the retry happens at most one time per monologue.
+  - On an unexpected exception, logs a warning, waits briefly, injects an agent-facing critical error message into history, and suppresses the original exception while retries remain.
+- **Configurable retry count**
+  - Uses the plugin's `retries` setting to control how many times recovery is attempted per monologue. The default is `1`.
 
 ## Key Files
 

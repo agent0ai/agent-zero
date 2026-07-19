@@ -1,12 +1,12 @@
 """Per-handler email poll loop with configurable seconds/cron intervals."""
 
 import asyncio
-from datetime import datetime, timezone
 from typing import Any
 
 from crontab import CronTab
 
 from helpers.extension import Extension
+from helpers.localization import Localization
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
 from helpers import plugins
@@ -96,7 +96,7 @@ def _get_sleep_seconds(handler_cfg: dict) -> float:
         expr = handler_cfg.get("poll_interval_cron", "*/2 * * * *")
         try:
             cron = CronTab(expr)
-            next_sec = cron.next(now=datetime.now(timezone.utc))  # type: ignore[union-attr]
+            next_sec = cron.next(now=Localization.get().now())  # type: ignore[union-attr]
             return max(next_sec, MIN_INTERVAL)
         except Exception:
             return DEFAULT_INTERVAL

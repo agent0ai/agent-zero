@@ -1,6 +1,6 @@
 import asyncio
-from datetime import datetime, timezone
 
+from helpers.localization import Localization
 from helpers.print_style import PrintStyle
 
 
@@ -41,20 +41,20 @@ def format_remaining_time(total_seconds: float) -> str:
 
 async def managed_wait(agent, target_time, is_duration_wait, log, get_heading_callback):
     
-    while datetime.now(timezone.utc) < target_time:
-        before_intervention = datetime.now(timezone.utc)
+    while Localization.get().now() < target_time:
+        before_intervention = Localization.get().now()
         await agent.handle_intervention()
-        after_intervention = datetime.now(timezone.utc)
+        after_intervention = Localization.get().now()
 
         if is_duration_wait:
             pause_duration = after_intervention - before_intervention
             if pause_duration.total_seconds() > 1.5:  # Adjust for pauses longer than the sleep cycle
                 target_time += pause_duration
                 PrintStyle.info(
-                    f"Wait extended by {pause_duration.total_seconds():.1f}s to {target_time.isoformat()}...",
+                    f"Wait extended by {pause_duration.total_seconds():.1f}s to {Localization.get().serialize_datetime(target_time)}...",
                 )
 
-        current_time = datetime.now(timezone.utc)
+        current_time = Localization.get().now()
         if current_time >= target_time:
             break
         

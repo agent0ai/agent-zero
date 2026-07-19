@@ -29,20 +29,44 @@
       <div x-show="$store.settings.settings" class="settings-content">
         <!-- Tab Navigation -->
         <aside class="settings-tabs-container" aria-label="Settings categories">
+          <div class="settings-search" role="search">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input
+              type="search"
+              x-model.debounce.100ms="$store.settings.searchQuery"
+              @keydown.enter.prevent="$store.settings.openFirstSearchResult()"
+              placeholder="Search"
+              aria-label="Search settings"
+              autocomplete="off"
+            />
+            <button
+              type="button"
+              class="settings-search-clear"
+              x-show="$store.settings.hasSearchQuery"
+              @click="$store.settings.clearSearch()"
+              aria-label="Clear search"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+
           <div class="settings-tabs no-scrollbar" role="tablist" aria-orientation="vertical">
-            <template x-for="item in $store.settings.navItems" :key="item.id">
+            <template x-for="item in $store.settings.filteredNavItems" :key="item.id">
               <div class="settings-nav-group"
-                   :class="{'settings-nav-group-active': $store.settings.activeTab === item.id}">
+                   :class="{
+                     'settings-nav-group-active': $store.settings.activeTab === item.id,
+                     'settings-nav-group-open': $store.settings.isNavGroupExpanded(item.id)
+                   }">
                 <button type="button"
                         class="settings-tab settings-parent-tab"
                         role="tab"
                         :aria-selected="$store.settings.activeTab === item.id"
-                        :aria-expanded="$store.settings.activeTab === item.id"
+                        :aria-expanded="$store.settings.isNavGroupExpanded(item.id)"
                         :class="{
                           'active': $store.settings.activeTab === item.id,
                           'settings-tab-attention': $store.settings.navItemHasAttention(item)
                         }"
-                        @click="$store.settings.enterTab(item.id)">
+                        @click="$store.settings.toggleNavGroup(item.id)">
                   <span class="material-symbols-outlined" aria-hidden="true" x-text="item.icon"></span>
                   <span class="settings-tab-label" x-text="item.label"></span>
                   <span class="settings-tab-meta">
@@ -55,7 +79,7 @@
                 </button>
 
                 <div class="settings-section-list"
-                     x-show="$store.settings.activeTab === item.id"
+                     x-show="$store.settings.isNavGroupExpanded(item.id)"
                      x-transition.opacity.duration.120ms>
                   <template x-for="section in item.sections" :key="section.id">
                     <a class="settings-section-link"
@@ -76,6 +100,9 @@
                 </div>
               </div>
             </template>
+            <div class="settings-search-empty" x-show="$store.settings.hasSearchQuery && !$store.settings.filteredNavItems.length">
+              No settings found
+            </div>
           </div>
         </aside>
 

@@ -2,10 +2,10 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
 
 from helpers.api import ApiHandler, Request, Response
 from helpers import plugins, files, extension
+from helpers.localization import Localization
 
 
 class Plugins(ApiHandler):
@@ -287,7 +287,7 @@ class Plugins(ApiHandler):
         if not files.exists(execute_script):
             return Response(status=404, response="execute.py not found")
 
-        executed_at = datetime.now(timezone.utc).isoformat()
+        executed_at = Localization.get().now_iso()
         try:
             result = subprocess.run(
                 [sys.executable, execute_script],

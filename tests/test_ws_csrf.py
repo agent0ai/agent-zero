@@ -49,3 +49,49 @@ def test_validate_ws_origin_rejects_cross_origin():
     )
     assert ok is False
     assert reason == "origin_host_mismatch"
+
+
+def test_validate_ws_origin_allows_active_tunnel_origin_with_local_upstream_host(
+    monkeypatch,
+):
+    import helpers.ws as ws
+
+    monkeypatch.setattr(
+        ws,
+        "get_active_tunnel_origins",
+        lambda: ["https://agent-zero.tailabc.ts.net"],
+        raising=False,
+    )
+
+    ok, reason = validate_ws_origin(
+        {
+            "HTTP_ORIGIN": "https://agent-zero.tailabc.ts.net",
+            "HTTP_HOST": "127.0.0.1:80",
+        }
+    )
+
+    assert ok is True
+    assert reason is None
+
+
+def test_validate_ws_origin_rejects_unrelated_origin_with_active_tunnel(
+    monkeypatch,
+):
+    import helpers.ws as ws
+
+    monkeypatch.setattr(
+        ws,
+        "get_active_tunnel_origins",
+        lambda: ["https://agent-zero.tailabc.ts.net"],
+        raising=False,
+    )
+
+    ok, reason = validate_ws_origin(
+        {
+            "HTTP_ORIGIN": "https://evil.example",
+            "HTTP_HOST": "127.0.0.1:80",
+        }
+    )
+
+    assert ok is False
+    assert reason == "origin_host_mismatch"

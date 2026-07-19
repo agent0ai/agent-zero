@@ -1,0 +1,75 @@
+<html>
+
+<head>
+    <title>Project MCP servers</title>
+    <script type="module">
+        import { store as mcpServersStore } from "/components/settings/mcp/client/mcp-servers-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.projects && $store.projects.selectedProject && $store.mcpServersStore">
+            <div class="project-mcp-section">
+                <div>
+                    <p class="project-mcp-description">
+                        Project MCP servers are inherited on chats using this project. Global MCP servers remain available unless a project server with the same name overrides them.
+                    </p>
+                    <p class="project-mcp-count">
+                        <span x-text="$store.mcpServersStore.countServersInConfig($store.projects.selectedProject.mcp_servers)"></span>
+                        <span>project servers configured</span>
+                    </p>
+                </div>
+                <button type="button" class="button" @click="$store.mcpServersStore.openProjectConfig($store.projects.selectedProject)">
+                    <span class="icon material-symbols-outlined">hub</span>
+                    MCP Servers
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .project-mcp-section {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .project-mcp-description {
+            margin: 0;
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+
+        .project-mcp-count {
+            margin: 0.5rem 0 0;
+            color: var(--color-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .project-mcp-count span + span {
+            margin-left: 0.25rem;
+            color: var(--color-text-muted);
+            font-weight: 500;
+        }
+
+        .project-mcp-section .button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 760px) {
+            .project-mcp-section {
+                flex-direction: column;
+            }
+        }
+    </style>
+
+</body>
+
+</html>

@@ -7,7 +7,11 @@ import { store as chatInputStore } from "/components/chat/input/input-store.js";
 import { store as pluginSettingsStore } from "/components/plugins/plugin-settings-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as rightCanvasStore } from "/components/canvas/right-canvas-store.js";
-import { openLatest as openLatestSurface, registerUrlHandler } from "/js/surfaces.js";
+import {
+  openLatest as openLatestSurface,
+  placeSurfaceModalHeaderAction,
+  registerUrlHandler,
+} from "/js/surfaces.js";
 
 const websocket = getNamespacedClient("/ws");
 websocket.addHandlers(["ws_webui"]);
@@ -16,6 +20,8 @@ const EXTENSIONS_ROOT = "/a0/usr/_browser/extensions";
 const BROWSER_SUBSCRIBE_TIMEOUT_MS = 60000;
 const BROWSER_FIRST_INSTALL_TIMEOUT_MS = 300000;
 const BROWSER_CONFIG_REFRESH_MS = 15000;
+const BROWSER_VIEWER_TRANSPORT_SNAPSHOT = "snapshot";
+const BROWSER_VIEWER_TRANSPORT_SCREENCAST = "screencast";
 const VIEWPORT_SYNC_DEBOUNCE_MS = 220;
 const VIEWPORT_SYNC_SIZE_TOLERANCE = 4;
 const CANVAS_VIEWPORT_SETTLE_MS = 520;
@@ -28,6 +34,10 @@ const ANNOTATION_DOM_LIMIT = 1200;
 const ANNOTATION_TRAY_MARGIN = 10;
 const BROWSER_VISUAL_SHORTCUT_KEYS = new Set(["a", "c", "insert", "v", "x", "y", "z"]);
 const LOCAL_EDITABLE_SELECTOR = "input, textarea, select, [contenteditable]";
+const BROWSER_BINARY_FRAME_REQUESTS_ENABLED = false;
+const BROWSER_BINARY_PAYLOADS_SUPPORTED = typeof Blob === "function"
+  && typeof globalThis.URL?.createObjectURL === "function";
+const BROWSER_CANVAS_FRAMES_SUPPORTED = typeof globalThis.createImageBitmap === "function";
 
 function makeViewerToken() {
   return globalThis.crypto?.randomUUID?.()
@@ -108,6 +118,43 @@ function loadFrameDimensions(src) {
   });
 }
 
+function frameImageSource(data = {}) {
+  const image = data?.image;
+  if (!image) return null;
+  const mime = data.mime || "image/jpeg";
+  const isArrayBuffer = typeof ArrayBuffer !== "undefined" && image instanceof ArrayBuffer;
+  const isView = typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView?.(image);
+  const isBlob = typeof Blob !== "undefined" && image instanceof Blob;
+  if (isArrayBuffer || isView || isBlob) {
+    if (!BROWSER_BINARY_PAYLOADS_SUPPORTED) return null;
+    const blob = isBlob ? image : new Blob([image], { type: mime });
+    const src = globalThis.URL.createObjectURL(blob);
+    return {
+      src,
+      blob,
+      objectUrl: src,
+      cleanup: () => globalThis.URL.revokeObjectURL(src),
+    };
+  }
+  if (data.encoding === "binary") return null;
+  if (typeof image !== "string") return null;
+  return {
+    src: `data:${mime};base64,${image}`,
+    objectUrl: "",
+    cleanup: null,
+  };
+}
+
+async function loadFrameBitmap(src, options = {}) {
+  if (!BROWSER_CANVAS_FRAMES_SUPPORTED || !src) return null;
+  try {
+    const blob = options.blob || await fetch(src).then((response) => response.blob());
+    return await globalThis.createImageBitmap(blob);
+  } catch {
+    return null;
+  }
+}
+
 const model = {
   loading: true,
   error: "",
@@ -118,7 +165,11 @@ const model = {
   activeBrowserContextId: "",
   address: "",
   frameSrc: "",
+  frameCanvasReady: false,
   frameState: null,
+  viewerTransport: BROWSER_VIEWER_TRANSPORT_SCREENCAST,
+  tabScope: "per_context",
+  liveScreencastEnabled: true,
   annotating: false,
   annotationComments: [],
   annotationDraft: null,
@@ -138,9 +189,11 @@ const model = {
   _lastFrameDimensions: null,
   _pendingFrameSrc: "",
   _pendingFrameOptions: null,
+  _frameObjectUrl: "",
   _frameRenderHandle: null,
   _frameRenderCancel: null,
   _frameRenderSequence: 0,
+  _frameCanvas: null,
   _floatingCleanup: null,
   _stageElement: null,
   _stageResizeObserver: null,
@@ -287,8 +340,10 @@ const model = {
         { timeoutMs: 10000 },
       );
       const data = firstOk(response);
+      this.applyTabScope(data);
       this.applyBrowserListing(data.browsers || [], data.context_id || "", {
         replaceAll: Boolean(data.all_browsers),
+        replaceContext: !data.all_browsers,
       });
     })();
     try {
@@ -434,7 +489,8 @@ const model = {
       this.setActiveBrowserId(null);
       this.address = "";
       this.frameState = null;
-      this.frameSrc = "";
+      this.clearFrameSrc();
+      this.clearFrameCanvas();
       if (this.contextId) {
         await this.connectViewer();
       }
@@ -746,11 +802,13 @@ const model = {
   },
 
   releaseSurfaceBindings() {
+    this.freezeCanvasFrameToImage();
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this._stageResizeObserver?.disconnect?.();
     this._stageResizeObserver = null;
     this._stageElement = null;
+    this._frameCanvas = null;
   },
 
   isCanvasSurfaceVisible(element = null) {
@@ -805,7 +863,7 @@ const model = {
     this._surfaceMounted = true;
     this._surfaceOpenedAt = Date.now();
     this._lastViewportKey = "";
-    if (this.frameSrc && !targetChanged) {
+    if (this.hasFrame() && !targetChanged) {
       this._surfaceSwitching = false;
       this.switchingBrowserId = null;
       return;
@@ -825,13 +883,14 @@ const model = {
 
   resetRenderedFrame() {
     this.cancelFrameRender();
-    this.frameSrc = "";
+    this.clearFrameSrc();
+    this.clearFrameCanvas();
     this._lastFrameDimensions = null;
     this._lastFrameAt = 0;
   },
 
   resetRenderedFrameIfViewportChanged(viewport = null, requestedBrowserId = null, requestedContextId = "") {
-    if (!viewport || !this.frameSrc || !this._lastViewport) return;
+    if (!viewport || !this.hasFrame() || !this._lastViewport) return;
     const targetBrowserId = requestedBrowserId || this.activeBrowserId || this.firstBrowserId();
     const targetContextId = this.normalizeContextId(requestedContextId || this.contextIdForBrowserId(targetBrowserId) || this.activeBrowserContextId);
     if (!this.sameBrowserTab(this._lastViewport.browserId, this._lastViewport.contextId, targetBrowserId, targetContextId)) return;
@@ -881,10 +940,71 @@ const model = {
     if (!this.isCurrentSurfaceOpen(sequence)) {
       return;
     }
-    await this.syncViewport(true, { restartStream: this._mode === "canvas" });
+    await this.syncViewport(true, {
+      restartStream: this._mode === "canvas" && this.usesScreencastTransport(),
+    });
     if (this._mode !== "canvas") return;
     this.scheduleViewportSyncForSurface(sequence, 240);
     this.scheduleViewportSyncForSurface(sequence, 520);
+  },
+
+  requestedViewerTransport() {
+    return this.liveScreencastEnabled
+      ? BROWSER_VIEWER_TRANSPORT_SCREENCAST
+      : BROWSER_VIEWER_TRANSPORT_SNAPSHOT;
+  },
+
+  normalizeViewerTransport(value = "") {
+    const normalized = String(value || "").trim().toLowerCase().replace("-", "_");
+    if (normalized === BROWSER_VIEWER_TRANSPORT_SCREENCAST) {
+      return BROWSER_VIEWER_TRANSPORT_SCREENCAST;
+    }
+    return BROWSER_VIEWER_TRANSPORT_SNAPSHOT;
+  },
+
+  normalizeTabScope(value = "") {
+    return String(value || "").trim().toLowerCase().replace("-", "_") === "shared"
+      ? "shared"
+      : "per_context";
+  },
+
+  applyTabScope(data = {}) {
+    if (!data || typeof data !== "object") return;
+    if (!Object.prototype.hasOwnProperty.call(data, "tab_scope")) return;
+    this.tabScope = this.normalizeTabScope(data.tab_scope);
+  },
+
+  usesScreencastTransport() {
+    return this.viewerTransport === BROWSER_VIEWER_TRANSPORT_SCREENCAST;
+  },
+
+  supportsBinaryFrames() {
+    return BROWSER_BINARY_FRAME_REQUESTS_ENABLED && BROWSER_BINARY_PAYLOADS_SUPPORTED;
+  },
+
+  captureDevicePixelRatio() {
+    const value = Number(globalThis.devicePixelRatio || 1);
+    if (!Number.isFinite(value) || value <= 1) return 1;
+    return Math.min(2, value);
+  },
+
+  frameDimensionsFromData(data = null) {
+    const width = Number(data?.width || 0);
+    const height = Number(data?.height || 0);
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return { width, height };
+    }
+    return this.frameDimensionsFromMetadata(data?.metadata);
+  },
+
+  frameDimensionsFromMetadata(metadata = null) {
+    if (!metadata || typeof metadata !== "object") return null;
+    const width = Number(metadata.expectedWidth || metadata.deviceWidth || metadata.jpegWidth || 0);
+    const height = Number(metadata.expectedHeight || metadata.deviceHeight || metadata.jpegHeight || 0);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+    return { width, height };
   },
 
   scheduleViewportSyncForSurface(sequence, delayMs = 0) {
@@ -947,6 +1067,10 @@ const model = {
           browser_id: requestedBrowserId,
           viewer_id: viewerToken,
           create_browser: Boolean(options.createBrowser || options.create_browser),
+          viewer_transport: this.requestedViewerTransport(),
+          binary_frames: this.supportsBinaryFrames(),
+          slim_frames: true,
+          device_pixel_ratio: this.captureDevicePixelRatio(),
           viewport_width: initialViewport?.width,
           viewport_height: initialViewport?.height,
         },
@@ -968,24 +1092,38 @@ const model = {
       return;
     }
     const data = firstOk(response);
-    this.applyBrowserListing(data.browsers || [], contextId, { replaceAll: Boolean(data.all_browsers) });
+    this.applyTabScope(data);
+    this.applyBrowserListing(data.browsers || [], contextId, {
+      replaceAll: Boolean(data.all_browsers),
+      replaceContext: !data.all_browsers,
+    });
+    this.viewerTransport = this.normalizeViewerTransport(data.viewer_transport);
     this.setActiveBrowserId(
       data.active_browser_id || requestedBrowserId || this.activeBrowserId || null,
       data.active_browser_context_id || contextId,
     );
     this.applySnapshot(data.snapshot);
-	    this.connected = true;
-	    this.browserInstallExpected = false;
-	  },
+    this.connected = true;
+    this.browserInstallExpected = false;
+  },
 
   async _bindSocketEvents() {
     if (!this._frameOff) {
       const frameHandler = ({ data }) => {
         if (data?.context_id !== this.contextId) return;
         if (data?.viewer_id && data.viewer_id !== this._viewerToken) return;
+        if (data?.viewer_transport) {
+          this.viewerTransport = this.normalizeViewerTransport(data.viewer_transport);
+        }
+        this.applyTabScope(data);
         const incomingContextId = this.normalizeContextId(data.context_id || this.contextId);
         const incomingBrowserId = this.normalizeBrowserId(data.browser_id || data.state?.id);
-        this.applyBrowserListing(data.browsers || [], incomingContextId, { replaceContext: true });
+        if (Array.isArray(data.browsers)) {
+          this.applyBrowserListing(data.browsers, incomingContextId, {
+            replaceAll: Boolean(data.all_browsers),
+            replaceContext: !data.all_browsers,
+          });
+        }
         if (incomingBrowserId && !this.activeBrowserId) {
           this.setActiveBrowserId(incomingBrowserId, incomingContextId);
         }
@@ -1003,10 +1141,17 @@ const model = {
           this.address = data.state.currentUrl;
         }
         if (data.image) {
+          const frameImage = frameImageSource(data);
+          if (!frameImage?.src) return;
           const frameBrowserId = incomingBrowserId || this.activeBrowserId;
-          this.queueFrameRender(`data:${data.mime || "image/jpeg"};base64,${data.image}`, {
+          this.queueFrameRender(frameImage.src, {
             browserId: frameBrowserId,
             contextId: incomingContextId,
+            dimensions: this.frameDimensionsFromData(data),
+            blob: frameImage.blob,
+            objectUrl: frameImage.objectUrl,
+            useCanvas: true,
+            cleanup: frameImage.cleanup,
             onAccepted: () => {
               if (
                 this.sameBrowserId(this.switchingBrowserId, frameBrowserId)
@@ -1019,13 +1164,15 @@ const model = {
           });
         } else if (!data.state) {
           this.cancelFrameRender();
-          this.frameSrc = "";
+          this.clearFrameSrc();
+          this.clearFrameCanvas();
         }
         if (!data.image && !data.state) {
           if (!this.activeBrowserId) {
             this.setActiveBrowserId(null, "");
             this.frameState = null;
-            this.frameSrc = "";
+            this.clearFrameSrc();
+            this.clearFrameCanvas();
           }
         }
         this._lastFrameAt = Date.now();
@@ -1033,12 +1180,21 @@ const model = {
       await websocket.on("browser_viewer_frame", frameHandler);
       this._frameOff = () => websocket.off("browser_viewer_frame", frameHandler);
     }
-	    if (!this._stateOff) {
-	      const stateHandler = ({ data }) => {
-	        if (data?.context_id !== this.contextId) return;
-	        if (data?.viewer_id && data.viewer_id !== this._viewerToken) return;
+    if (!this._stateOff) {
+      const stateHandler = ({ data }) => {
+        if (data?.context_id !== this.contextId) return;
+        if (data?.viewer_id && data.viewer_id !== this._viewerToken) return;
+        if (data?.viewer_transport) {
+          this.viewerTransport = this.normalizeViewerTransport(data.viewer_transport);
+        }
+        this.applyTabScope(data);
         const commandContextId = this.normalizeContextId(data.active_browser_context_id || data.context_id || this.contextId);
-        this.applyBrowserListing(data.browsers || [], commandContextId, { replaceAll: Boolean(data.all_browsers) });
+        if (Array.isArray(data.browsers)) {
+          this.applyBrowserListing(data.browsers, commandContextId, {
+            replaceAll: Boolean(data.all_browsers),
+            replaceContext: !data.all_browsers,
+          });
+        }
         const command = String(data.command || "").toLowerCase();
         const commandBrowserId = this.normalizeBrowserId(data.browser_id);
         const result = data.result || {};
@@ -1055,23 +1211,40 @@ const model = {
           || this.activeBrowserId
           || this.firstBrowserId(resultContextId)
         );
-	        if (
-	          !this.activeBrowserId
-	          || command === "open"
-	          || command === "close"
-	          || this.sameBrowserTab(commandBrowserId, commandContextId, this.activeBrowserId, this.activeBrowserContextId)
-	        ) {
-	          this.setActiveBrowserId(preferredBrowserId, resultContextId);
-	        }
-	        this.applyActiveFrameState(resultState || this.browserById(this.activeBrowserId, this.activeBrowserContextId));
-	        this.applySnapshot(data.snapshot);
-	      };
+        const stateBrowserId = this.normalizeBrowserId(data.active_browser_id || data.browser_id || data.state?.id);
+        if (
+          stateBrowserId
+          && (
+            !this.activeBrowserId
+            || this.sameBrowserTab(stateBrowserId, commandContextId, this.activeBrowserId, this.activeBrowserContextId)
+          )
+        ) {
+          this.setActiveBrowserId(stateBrowserId, commandContextId);
+        }
+        if (
+          !this.activeBrowserId
+          || command === "open"
+          || command === "close"
+          || this.sameBrowserTab(commandBrowserId, commandContextId, this.activeBrowserId, this.activeBrowserContextId)
+        ) {
+          this.setActiveBrowserId(preferredBrowserId, resultContextId);
+        }
+        this.applyActiveFrameState(
+          resultState
+          || data.state
+          || this.browserById(this.activeBrowserId, this.activeBrowserContextId)
+        );
+        this.applySnapshot(data.snapshot);
+      };
       await websocket.on("browser_viewer_state", stateHandler);
       this._stateOff = () => websocket.off("browser_viewer_state", stateHandler);
     }
   },
 
   queueFrameRender(frameSrc, options = {}) {
+    if (this._pendingFrameSrc) {
+      this.releasePendingFrame();
+    }
     this._pendingFrameSrc = frameSrc;
     this._pendingFrameOptions = options || null;
     if (this._frameRenderHandle) return;
@@ -1101,22 +1274,44 @@ const model = {
   async renderDecodedFrame(frameSrc, options = {}, sequence = 0, surfaceSequence = this._surfaceOpenSequence) {
     if (!frameSrc) {
       if (sequence === this._frameRenderSequence) {
-        this.frameSrc = "";
+        this.clearFrameSrc();
+        this.clearFrameCanvas();
       }
       return;
     }
-    const dimensions = await loadFrameDimensions(frameSrc);
+    let bitmap = null;
+    let dimensions = options?.dimensions || null;
+    if (options?.useCanvas && this.canUseCanvasFrames()) {
+      bitmap = await loadFrameBitmap(frameSrc, options);
+      if (bitmap) {
+        dimensions ||= { width: bitmap.width || 0, height: bitmap.height || 0 };
+      }
+    }
+    dimensions ||= await loadFrameDimensions(frameSrc);
     if (sequence !== this._frameRenderSequence || surfaceSequence !== this._surfaceOpenSequence) {
+      bitmap?.close?.();
+      options?.cleanup?.();
       return;
     }
     const viewport = this.currentViewportSize() || this._lastViewport;
     if (!this.frameMatchesViewport(dimensions, viewport)) {
       this.requestViewportSyncAfterRejectedFrame();
       if (!this.shouldAcceptMismatchedFrame(dimensions)) {
+        bitmap?.close?.();
+        options?.cleanup?.();
         return;
       }
     }
-    this.frameSrc = frameSrc;
+    if (bitmap && this.paintFrameBitmap(bitmap)) {
+      this.clearFrameSrc();
+      options?.cleanup?.();
+    } else {
+      this.clearFrameCanvas();
+      this.releaseRenderedFrameUrl(frameSrc);
+      this.frameSrc = frameSrc;
+      this._frameObjectUrl = options?.objectUrl || "";
+    }
+    bitmap?.close?.();
     this._lastFrameDimensions = dimensions;
     this._lastFrameAt = Date.now();
     options?.onAccepted?.();
@@ -1128,7 +1323,7 @@ const model = {
     return Boolean(
       dimensions?.width
       && dimensions?.height
-      && (!this.frameSrc || this._surfaceSwitching || this.isSwitchingBrowser())
+      && (!this.hasFrame() || this._surfaceSwitching || this.isSwitchingBrowser())
     );
   },
 
@@ -1199,7 +1394,7 @@ const model = {
 
   clearRenderedFrameIfViewportChanged() {
     const viewport = this.currentViewportSize();
-    if (!this.frameSrc || !this._lastFrameDimensions || !viewport) return;
+    if (!this.hasFrame() || !this._lastFrameDimensions || !viewport) return;
     if (this.frameMatchesViewport(this._lastFrameDimensions, viewport)) return;
     this.cancelFrameRender();
     this.resetViewportTracking();
@@ -1215,9 +1410,84 @@ const model = {
     }
     this._frameRenderHandle = null;
     this._frameRenderCancel = null;
+    this.releasePendingFrame();
+    this._frameRenderSequence += 1;
+  },
+
+  releasePendingFrame() {
+    this._pendingFrameOptions?.cleanup?.();
     this._pendingFrameSrc = "";
     this._pendingFrameOptions = null;
-    this._frameRenderSequence += 1;
+  },
+
+  releaseRenderedFrameUrl(nextSrc = "") {
+    if (this._frameObjectUrl && this._frameObjectUrl !== nextSrc) {
+      globalThis.URL?.revokeObjectURL?.(this._frameObjectUrl);
+      this._frameObjectUrl = "";
+    }
+  },
+
+  clearFrameSrc() {
+    this.releaseRenderedFrameUrl("");
+    this.frameSrc = "";
+  },
+
+  attachFrameCanvas(canvas = null) {
+    this._frameCanvas = canvas || null;
+  },
+
+  currentFrameCanvas() {
+    const stageCanvas = this._stageElement?.querySelector?.(".browser-frame-canvas");
+    if (stageCanvas?.isConnected) return stageCanvas;
+    if (this._frameCanvas?.isConnected) return this._frameCanvas;
+    return null;
+  },
+
+  canUseCanvasFrames() {
+    return Boolean(BROWSER_CANVAS_FRAMES_SUPPORTED && this.currentFrameCanvas()?.getContext);
+  },
+
+  hasFrame() {
+    return Boolean(this.frameSrc || this.frameCanvasReady);
+  },
+
+  paintFrameBitmap(bitmap) {
+    const canvas = this.currentFrameCanvas();
+    if (!canvas || !bitmap?.width || !bitmap?.height) return false;
+    if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
+    if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    if (!context) return false;
+    context.drawImage(bitmap, 0, 0);
+    this.frameCanvasReady = true;
+    return true;
+  },
+
+  clearFrameCanvas() {
+    const canvas = this.currentFrameCanvas();
+    if (canvas?.width && canvas?.height) {
+      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    this.frameCanvasReady = false;
+  },
+
+  freezeCanvasFrameToImage() {
+    const canvas = this.currentFrameCanvas();
+    if (!this.frameCanvasReady || !canvas) return;
+    try {
+      this.frameSrc = canvas.toDataURL("image/jpeg", 0.86);
+    } catch {
+      this.frameSrc = "";
+    }
+    this.clearFrameCanvas();
+  },
+
+  frameElement() {
+    if (this.frameCanvasReady) {
+      const canvas = this.currentFrameCanvas();
+      if (canvas) return canvas;
+    }
+    return this._stageElement?.querySelector?.(".browser-frame-image") || null;
   },
 
   beginCommand() {
@@ -1250,12 +1520,18 @@ const model = {
           context_id: targetContextId,
           browser_id: targetBrowserId,
           viewer_id: this._viewerToken,
+          viewer_transport: this.requestedViewerTransport(),
           command,
         },
         { timeoutMs: 20000 },
       );
       const data = firstOk(response);
-      this.applyBrowserListing(data.browsers || [], targetContextId, { replaceAll: Boolean(data.all_browsers) });
+      this.applyTabScope(data);
+      this.applyBrowserListing(data.browsers || [], targetContextId, {
+        replaceAll: Boolean(data.all_browsers),
+        replaceContext: !data.all_browsers,
+      });
+      this.viewerTransport = this.normalizeViewerTransport(data.viewer_transport);
       const result = data.result || {};
       const resultContextId = this.normalizeContextId(
         result.context_id
@@ -1280,7 +1556,8 @@ const model = {
       );
       if (!this.activeBrowserId) {
         this.frameState = null;
-        this.frameSrc = "";
+        this.clearFrameSrc();
+        this.clearFrameCanvas();
       }
       if (result.state?.currentUrl || result.currentUrl) {
         this.address = result.state?.currentUrl || result.currentUrl;
@@ -1313,6 +1590,9 @@ const model = {
   },
 
   async restartCanvasStreamAfterPageChange() {
+    if (!this.usesScreencastTransport()) {
+      return;
+    }
     const surfaceSequence = this._surfaceOpenSequence;
     if (this._mode !== "canvas" || !this.isCurrentSurfaceOpen(surfaceSequence) || !this.activeBrowserId) {
       return;
@@ -1386,7 +1666,8 @@ const model = {
     this.error = "";
     this.switchingBrowserId = targetId;
     this.cancelFrameRender();
-    this.frameSrc = "";
+    this.clearFrameSrc();
+    this.clearFrameCanvas();
     this.frameState = browser || null;
     if (!this.addressFocused && browser?.currentUrl) {
       this.address = browser.currentUrl;
@@ -1494,6 +1775,15 @@ const model = {
     return browsers[0] || null;
   },
 
+  visibleBrowsers() {
+    const browsers = Array.isArray(this.browsers) ? this.browsers : [];
+    if (this.tabScope === "shared") return browsers;
+    const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId || this.resolveContextId());
+    return contextId
+      ? browsers.filter((browser) => this.normalizeContextId(browser?.context_id) === contextId)
+      : browsers;
+  },
+
   firstBrowserInContext(contextId = "") {
     const normalizedContextId = this.normalizeContextId(contextId);
     if (!normalizedContextId || !Array.isArray(this.browsers)) return null;
@@ -1591,35 +1881,35 @@ const model = {
     }
   },
 
-	  applySnapshot(snapshot = null) {
-	    if (!snapshot?.image) return;
-	    const snapshotId = this.normalizeBrowserId(snapshot.browser_id || snapshot.state?.id);
+  applySnapshot(snapshot = null) {
+    if (!snapshot?.image) return;
+    const snapshotId = this.normalizeBrowserId(snapshot.browser_id || snapshot.state?.id);
     const snapshotContextId = this.normalizeContextId(snapshot.context_id || snapshot.state?.context_id || this.activeBrowserContextId);
-	    if (
+    if (
       snapshotId
       && this.activeBrowserId
       && !this.sameBrowserTab(snapshotId, snapshotContextId, this.activeBrowserId, this.activeBrowserContextId)
     ) {
-	      return;
-	    }
-	    if (snapshot.state) {
-	      this.applyActiveFrameState(snapshot.state);
-	    }
-	    const frameBrowserId = snapshotId || this.activeBrowserId;
-	    this.queueFrameRender(`data:${snapshot.mime || "image/jpeg"};base64,${snapshot.image}`, {
-	      browserId: frameBrowserId,
+      return;
+    }
+    if (snapshot.state) {
+      this.applyActiveFrameState(snapshot.state);
+    }
+    const frameBrowserId = snapshotId || this.activeBrowserId;
+    this.queueFrameRender(`data:${snapshot.mime || "image/jpeg"};base64,${snapshot.image}`, {
+      browserId: frameBrowserId,
       contextId: snapshotContextId,
-	      onAccepted: () => {
-	        if (
+      onAccepted: () => {
+        if (
           this.sameBrowserId(this.switchingBrowserId, frameBrowserId)
           && this.normalizeContextId(this.activeBrowserContextId) === snapshotContextId
         ) {
-	          this.switchingBrowserId = null;
-	        }
-	        this._surfaceSwitching = false;
-	      },
-	    });
-	  },
+          this.switchingBrowserId = null;
+        }
+        this._surfaceSwitching = false;
+      },
+    });
+  },
 
   isSwitchingBrowser() {
     return Boolean(
@@ -1658,8 +1948,8 @@ const model = {
     const target = element || event?.currentTarget;
     if (!target) return null;
     const rect = target.getBoundingClientRect();
-    const naturalWidth = target.naturalWidth || rect.width;
-    const naturalHeight = target.naturalHeight || rect.height;
+    const naturalWidth = target.naturalWidth || target.width || rect.width;
+    const naturalHeight = target.naturalHeight || target.height || rect.height;
     let contentLeft = rect.left;
     let contentTop = rect.top;
     let contentWidth = rect.width;
@@ -1696,6 +1986,7 @@ const model = {
   },
 
   handleKeydown(event) {
+    if (isLocalEditableTarget(event?.target)) return;
     const annotateShortcut = event?.key === "." && (event.metaKey || event.ctrlKey) && !event.altKey;
     if (annotateShortcut && this._surfaceMounted) {
       event.preventDefault();
@@ -1810,7 +2101,7 @@ const model = {
   },
 
   canAnnotate() {
-    return Boolean(this.activeBrowserId && this.frameSrc && !this.isBusy());
+    return Boolean(this.activeBrowserId && this.hasFrame() && !this.isBusy());
   },
 
   activeAnnotationUrl() {
@@ -1971,8 +2262,7 @@ const model = {
   },
 
   stagePointForEvent(event) {
-    const image = this._stageElement?.querySelector?.(".browser-frame") || null;
-    return this.pointerCoordinatesFor(event, image);
+    return this.pointerCoordinatesFor(event, this.frameElement());
   },
 
   normalizeAnnotationRect(start = {}, end = {}) {
@@ -2336,7 +2626,7 @@ const model = {
         input_type: "viewport",
         width: viewport.width,
         height: viewport.height,
-        restart_stream: restartStream,
+        restart_stream: restartStream && this.usesScreencastTransport(),
       });
       this._lastViewportKey = key;
       this._lastViewport = {
@@ -2373,7 +2663,9 @@ const model = {
 	        const response = await websocket.request("browser_viewer_input", payload, { timeoutMs: 10000 });
 	        const data = firstOk(response);
 	        this.applyActiveFrameState(data.state);
-	        this.applySnapshot(data.snapshot);
+	        if (!this.frameCanvasReady || !this.usesScreencastTransport()) {
+	          this.applySnapshot(data.snapshot);
+	        }
 	      } catch (error) {
         this.error = error instanceof Error ? error.message : String(error);
       }
@@ -2385,8 +2677,7 @@ const model = {
   async sendWheel(event) {
     const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId);
     if (!contextId || !this.activeBrowserId || !event) return;
-    const image = event.currentTarget?.querySelector?.(".browser-frame") || event.target?.closest?.(".browser-frame");
-    const pointer = this.pointerCoordinatesFor(event, image);
+    const pointer = this.pointerCoordinatesFor(event, this.frameElement());
     if (!pointer) return;
     const payload = {
       context_id: contextId,
@@ -2410,8 +2701,7 @@ const model = {
     const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId);
     if (!contextId || !this.activeBrowserId) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    const editable = ["INPUT", "TEXTAREA", "SELECT"].includes(event.target?.tagName);
-    if (editable) return;
+    if (isLocalEditableTarget(event?.target)) return;
     event.preventDefault();
     const printable = event.key && event.key.length === 1;
     await websocket.emit("browser_viewer_input", {
@@ -2512,6 +2802,8 @@ const model = {
     this._connectSequence += 1;
     this._viewerToken = "";
     this.switchingBrowserId = null;
+    this.viewerTransport = this.requestedViewerTransport();
+    this.tabScope = "per_context";
     this._surfaceMounted = false;
     this._surfaceSwitching = false;
     this.commandInFlight = false;
@@ -2634,6 +2926,27 @@ const model = {
     };
     clampGeometry();
 
+    const newAction = globalThis.document.createElement("div");
+    newAction.className = "browser-header-actions surface-modal-new-action";
+    newAction.innerHTML = `
+      <button type="button" class="browser-header-new-button surface-modal-new-button" title="New Browser" aria-label="New Browser">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        <span>New</span>
+      </button>
+    `;
+    const newButton = newAction.querySelector(".browser-header-new-button");
+    const onNewClick = async () => {
+      if (!newButton || newButton.disabled || this.isBusy()) return;
+      newButton.disabled = true;
+      try {
+        await this.openNewBrowser();
+      } finally {
+        if (globalThis.document?.contains?.(newButton)) newButton.disabled = false;
+      }
+    };
+    newButton?.addEventListener("click", onNewClick);
+    placeSurfaceModalHeaderAction(header, newAction, "new");
+
     const focusButton = globalThis.document.createElement("button");
     focusButton.type = "button";
     focusButton.className = "surface-button browser-modal-focus-button";
@@ -2658,12 +2971,7 @@ const model = {
       updateFocusButton(false);
     };
     updateFocusButton(false);
-    const closeButton = inner.querySelector(".modal-close");
-    if (closeButton) {
-      closeButton.insertAdjacentElement("beforebegin", focusButton);
-    } else {
-      header.appendChild(focusButton);
-    }
+    placeSurfaceModalHeaderAction(header, focusButton, "window");
     const onFocusClick = () => setFocusMode(!inner.classList.contains("is-focus-mode"));
     focusButton.addEventListener("click", onFocusClick);
 
@@ -2723,6 +3031,8 @@ const model = {
     header.addEventListener("pointerdown", onPointerDown);
 
     this._floatingCleanup = () => {
+      newButton?.removeEventListener("click", onNewClick);
+      newAction.remove();
       focusButton.removeEventListener("click", onFocusClick);
       focusButton.remove();
       header.removeEventListener("pointerdown", onPointerDown);
@@ -2775,8 +3085,21 @@ const model = {
 
 export const store = createStore("browserPage", model);
 
+const WEB_INTENT_SCHEMES = new Set(["http", "https", "file", "about"]);
+
+function isWebUrlIntent(url = "") {
+  const value = String(url || "").trim();
+  if (!value) return true;
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
+  if (!scheme) return true;
+  return WEB_INTENT_SCHEMES.has(scheme[1].toLowerCase());
+}
+
 registerUrlHandler(async (intent = {}) => {
   const url = String(intent.url || "").trim();
+  // Custom schemes such as a0-editor: belong to other surfaces; claiming them
+  // here would navigate the browser to an unloadable URL.
+  if (!isWebUrlIntent(url)) return false;
   const payload = { url, source: intent.source || "surface-url-intent" };
   await openLatestSurface("browser", payload);
   return await store.openUrlIntent(url, { source: payload.source });

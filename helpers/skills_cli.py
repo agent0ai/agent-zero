@@ -11,155 +11,47 @@ Usage:
 """
 
 import argparse
-import os
 import sys
-import yaml
-import re
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-from dataclasses import dataclass, field
-from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from helpers import files
+from helpers import files, skills as skills_runtime
 
 
-@dataclass
-class Skill:
-    """Represents a skill loaded from SKILL.md"""
-    name: str
-    description: str
-    path: Path
-    version: str = "1.0.0"
-    author: str = ""
-    tags: List[str] = field(default_factory=list)
-    trigger_patterns: List[str] = field(default_factory=list)
-    content: str = ""
+Skill = skills_runtime.Skill
 
 
-def get_skills_dirs() -> List[Path]:
+def get_skills_dirs() -> list[Path]:
     """Get all skill directories"""
-    base = Path(files.get_abs_path("usr", "skills"))
-    roots = [
-        Path(files.get_abs_path("skills")),
-        base,
-        base / "custom",
-        base / "default",
-    ]
-    seen: set[Path] = set()
-    ordered: List[Path] = []
-    for root in roots:
-        if root not in seen:
-            seen.add(root)
-            ordered.append(root)
-    return ordered
+    return [Path(root) for root in skills_runtime.get_skill_roots()]
 
 
-def parse_skill_file(skill_path: Path) -> Optional[Skill]:
+def parse_skill_file(skill_path: Path) -> Skill | None:
     """Parse a SKILL.md file and return a Skill object"""
-    try:
-        content = skill_path.read_text(encoding="utf-8")
-
-        # Parse YAML frontmatter
-        if content.startswith("---"):
-            parts = content.split("---", 2)
-            if len(parts) >= 3:
-                frontmatter = yaml.safe_load(parts[1])
-                body = parts[2].strip()
-
-                return Skill(
-                    name=frontmatter.get("name", skill_path.parent.name),
-                    description=frontmatter.get("description", ""),
-                    path=skill_path.parent,
-                    version=frontmatter.get("version", "1.0.0"),
-                    author=frontmatter.get("author", ""),
-                    tags=frontmatter.get("tags", []),
-                    trigger_patterns=frontmatter.get("trigger_patterns", []),
-                    content=body,
-                )
-
-        return None
-    except Exception as e:
-        print(f"Error parsing {skill_path}: {e}")
-        return None
+    return skills_runtime.skill_from_markdown(
+        skill_path,
+        include_content=True,
+        validate=False,
+    )
 
 
-def list_skills() -> List[Skill]:
+def list_skills() -> list[Skill]:
     """List all available skills"""
-    skills = []
-    for skills_dir in get_skills_dirs():
-        if not skills_dir.exists():
-            continue
-        for skill_dir in skills_dir.iterdir():
-            if skill_dir.is_dir():
-                skill_file = skill_dir / "SKILL.md"
-                if skill_file.exists():
-                    skill = parse_skill_file(skill_file)
-                    if skill:
-                        skills.append(skill)
-    return skills
+    return skills_runtime.list_skills(include_content=True)
 
 
-def find_skill(name: str) -> Optional[Skill]:
+def find_skill(name: str) -> Skill | None:
     """Find a skill by name"""
-    for skill in list_skills():
-        if skill.name == name or skill.path.name == name:
-            return skill
-    return None
+    return skills_runtime.find_skill(name, include_content=True, validate=False)
 
 
-def search_skills(query: str) -> List[Skill]:
+def search_skills(query: str) -> list[Skill]:
     """Search skills by name, description, or tags"""
-    query = query.lower()
-    results = []
-    for skill in list_skills():
-        if (
-            query in skill.name.lower()
-            or query in skill.description.lower()
-            or any(query in tag.lower() for tag in skill.tags)
-            or any(query in trigger.lower() for trigger in skill.trigger_patterns)
-        ):
-            results.append(skill)
-    return results
+    return skills_runtime.search_skills(query)
 
 
-def validate_skill(skill: Skill) -> List[str]:
+def validate_skill(skill: Skill) -> list[str]:
     """Validate a skill and return list of issues"""
-    issues = []
-
-    # Required fields
-    if not skill.name:
-        issues.append("Missing required field: name")
-    if not skill.description:
-        issues.append("Missing required field: description")
-
-    # Name format
-    if skill.name:
-        if not (1 <= len(skill.name) <= 64):
-            issues.append("Name must be 1-64 characters")
-        if not re.match(r"^[a-z0-9-]+$", skill.name):
-            issues.append(f"Invalid name format: '{skill.name}' (use lowercase letters, numbers, and hyphens)")
-        if skill.name.startswith("-") or skill.name.endswith("-"):
-            issues.append("Name must not start or end with a hyphen")
-        if "--" in skill.name:
-            issues.append("Name must not contain consecutive hyphens")
-
-    # Description length
-    if skill.description and len(skill.description) < 20:
-        issues.append("Description is too short (minimum 20 characters)")
-
-    # Content
-    if len(skill.content) < 100:
-        issues.append("Skill content is too short (minimum 100 characters)")
-
-    # Check for associated files
-    skill_dir = skill.path
-    has_scripts = (skill_dir / "scripts").exists()
-    has_docs = (skill_dir / "docs").exists()
-
-    return issues
+    return skills_runtime.validate_skill(skill)
 
 
 def create_skill(name: str, description: str = "", author: str = "") -> Path:
@@ -184,7 +76,7 @@ description: "{description or 'Description of what this skill does and when to u
 version: "1.0.0"
 author: "{author or 'Your Name'}"
 tags: ["custom"]
-trigger_patterns:
+triggers:
   - "{name}"
 ---
 
@@ -234,7 +126,7 @@ Description of what to do next.
     return skill_dir
 
 
-def print_skill_table(skills: List[Skill]):
+def print_skill_table(skills: list[Skill]):
     """Print skills in a formatted table"""
     if not skills:
         print("No skills found.")
@@ -330,7 +222,7 @@ Examples:
             print(f"Author:      {skill.author or 'Unknown'}")
             print(f"Path:        {skill.path}")
             print(f"Tags:        {', '.join(skill.tags) if skill.tags else 'None'}")
-            print(f"Triggers:    {', '.join(skill.trigger_patterns) if skill.trigger_patterns else 'None'}")
+            print(f"Triggers:    {', '.join(skill.triggers) if skill.triggers else 'None'}")
             print(f"\nDescription:")
             print(f"  {skill.description}")
             print(f"\nContent Preview (first 500 chars):")

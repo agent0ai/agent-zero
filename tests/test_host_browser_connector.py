@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from plugins._a0_connector.helpers import ws_runtime
+from plugins._browser.helpers import connector_runtime as connector_runtime_module
 from plugins._browser.helpers.connector_runtime import (
     ConnectorBrowserRuntime,
     _agent_uses_local_chat_model,
@@ -32,8 +33,12 @@ def test_host_required_runtime_error_is_repairable(monkeypatch):
         lambda agent=None: {"runtime_backend": "host_required"},
     )
 
-    with pytest.raises(browser_selector.RepairableException, match="Bring Your Own Browser"):
+    with pytest.raises(browser_selector.RepairableException, match="Bring Your Own Browser") as exc_info:
         asyncio.run(browser_selector.get_tool_runtime(_agent("ctx-host-required-missing")))
+
+    message = str(exc_info.value)
+    assert "Internal Docker browser" in message
+    assert "/browser container" in message
 
 
 def test_host_browser_metadata_selection_is_context_scoped():
@@ -303,28 +308,38 @@ def test_connector_runtime_adds_remote_debugging_help_to_cdp_errors():
     )
 
     assert "chrome://inspect/#remote-debugging" in message
+    assert "opera://inspect/#remote-debugging" in message
     assert "Allow remote debugging for this browser instance" in message
     assert "/browser host on" in message
+    assert "Internal Docker browser" in message
+    assert "/browser container" in message
     already_helpful = (
         "Open chrome://inspect/#remote-debugging and enable "
         '"Allow remote debugging for this browser instance".'
     )
-    assert runtime._host_browser_error_message(already_helpful) == already_helpful
+    already_helpful_message = runtime._host_browser_error_message(already_helpful)
+    assert already_helpful in already_helpful_message
+    assert "/browser container" in already_helpful_message
 
 
-def test_host_browser_artifacts_materialize_inside_multi_results(monkeypatch, tmp_path):
-    import plugins._browser.helpers.connector_runtime as connector_runtime_module
+def test_connector_runtime_adds_docker_recovery_to_host_errors():
+    runtime = ConnectorBrowserRuntime("ctx-host", _agent("ctx-host"))
 
-    monkeypatch.setattr(
-        connector_runtime_module.files,
-        "get_abs_path",
-        lambda *parts: str(tmp_path.joinpath(*parts)),
-    )
-    monkeypatch.setattr(
-        connector_runtime_module.files,
-        "normalize_a0_path",
-        lambda path: "/a0/" + str(path).lstrip("/"),
-    )
+    message = runtime._host_browser_error_message("Host browser operation failed")
+
+    assert "Internal Docker browser" in message
+    assert "/browser container" in message
+
+
+def test_host_browser_artifacts_become_chat_scoped_files(monkeypatch, tmp_path):
+    def fake_get_abs_path(*parts):
+        return str(tmp_path.joinpath(*parts))
+
+    def fake_normalize_a0_path(path):
+        return "/a0/" + str(Path(path).relative_to(tmp_path)).replace("\\", "/")
+
+    monkeypatch.setattr(connector_runtime_module.chat_media.files, "get_abs_path", fake_get_abs_path)
+    monkeypatch.setattr(connector_runtime_module.chat_media.files, "normalize_a0_path", fake_normalize_a0_path)
     runtime = ConnectorBrowserRuntime("ctx-host", _agent("ctx-host"))
 
     result = runtime._materialize_artifact(
@@ -346,19 +361,15 @@ def test_host_browser_artifacts_materialize_inside_multi_results(monkeypatch, tm
 
     inner = result[0]["result"]
     assert "artifact" not in inner
-    assert inner["path"].endswith("shot.jpg")
     assert Path(inner["path"]).read_bytes() == b"fake"
-    assert inner["vision_load"]["tool_args"]["paths"] == [inner["path"]]
+    assert inner["a0_path"].startswith("/a0/usr/chats/ctx-host/screenshots/browser/shot-")
+    assert inner["context_id"] == "ctx-host"
+    assert inner["ephemeral"] is False
+    assert inner["chat_scoped"] is True
+    assert inner["vision_load"]["tool_args"]["paths"] == [inner["a0_path"]]
 
 
 def test_host_browser_artifact_materialization_rejects_oversized_payload(monkeypatch, tmp_path):
-    import plugins._browser.helpers.connector_runtime as connector_runtime_module
-
-    monkeypatch.setattr(
-        connector_runtime_module.files,
-        "get_abs_path",
-        lambda *parts: str(tmp_path.joinpath(*parts)),
-    )
     monkeypatch.setattr(connector_runtime_module, "MAX_ARTIFACT_SIZE_BYTES", 2)
     runtime = ConnectorBrowserRuntime("ctx-host", _agent("ctx-host"))
 
@@ -442,6 +453,9 @@ def test_connector_runtime_ensures_preparable_host_browser_before_action(monkeyp
             assert result == {"id": 1, "state": {"runtime": "host"}}
             assert [payload["action"] for payload in emitted] == ["ensure", "open"]
             assert [payload["profile_mode"] for payload in emitted] == ["existing", "existing"]
+            assert "__spaceBrowserDomHelper__" in emitted[0]["dom_helper"]["source"]
+            assert "captureDocument" in emitted[0]["dom_helper"]["required_apis"]
+            assert emitted[0]["dom_helper"]["sha256"]
             assert "__spaceBrowserPageContent__" in emitted[0]["content_helper"]["source"]
             assert "capture" in emitted[0]["content_helper"]["required_apis"]
             assert emitted[0]["content_helper"]["sha256"]

@@ -3,8 +3,8 @@ import * as api from "/js/api.js";
 import { callJsExtensions } from "/js/extensions.js";
 import * as css from "/js/css.js";
 import { sleep } from "/js/sleep.js";
+import { ttsService } from "/js/tts-service.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
-import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { store as inputStore } from "/components/chat/input/input-store.js";
@@ -14,6 +14,9 @@ import { store as chatTopStore } from "/components/chat/top-section/chat-top-sto
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
 import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js"
+import { store as welcomeStore } from "/components/welcome/welcome-store.js";
+import { store as modelGateStore } from "/components/chat/model-gate-store.js";
+import { getUserHour12, getUserTimezone } from "/js/time-utils.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -37,17 +40,22 @@ let skipOneSpeech = false;
 
 // Sidebar toggle logic is now handled by sidebar-store.js
 
-export async function sendMessage() {
+export async function sendMessage(options = {}) {
   try {
-    let message = inputStore.message.trim();
-    let attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
-    const hasAttachments = attachmentsWithUrls.length > 0;
+    const hasProvidedMessage = Object.prototype.hasOwnProperty.call(options, "message");
+    let message = String(hasProvidedMessage ? options.message : inputStore.message).trim();
+    let attachmentsWithUrls = options.attachments || attachmentsStore.getAttachmentsForSending();
+    let hasAttachments = attachmentsWithUrls.length > 0;
 
-    const sendCtx = { message, attachments: attachmentsWithUrls, context, cancel: false };
-    await callJsExtensions("send_message_before", sendCtx);
+    const sendCtx = { message, attachments: attachmentsWithUrls, context: options.context || context, cancel: false };
+    if (!options.skipExtensions) await callJsExtensions("send_message_before", sendCtx);
     if (sendCtx.cancel) return;
     message = sendCtx.message;
     attachmentsWithUrls = sendCtx.attachments;
+    hasAttachments = attachmentsWithUrls.length > 0;
+    const sendContext = options.context || context;
+    const messageId = options.messageId || generateGUID();
+    const shouldResetInput = !hasProvidedMessage && !options.preserveInput;
 
     // If empty input but has queued messages, send all queued
     if (!message && !hasAttachments && messageQueueStore.hasQueue) {
@@ -56,12 +64,30 @@ export async function sendMessage() {
     }
 
     if (message || hasAttachments) {
+      if (!options.bypassModelGate && !(await modelGateStore.canSendToModel())) {
+        modelGateStore.start({
+          message,
+          attachments: attachmentsWithUrls,
+          messageId,
+          context: sendContext,
+        });
+
+        if (shouldResetInput) {
+          inputStore.reset();
+          adjustTextareaHeight();
+        }
+
+        await setMessages(modelGateStore.syntheticMessages(sendContext));
+        forceScrollChatToBottom();
+        return;
+      }
+
       // Check if agent is busy - queue instead of sending
-      if (chatsStore.selectedContext.running || messageQueueStore.hasQueue) {
+      if (chatsStore.selectedContext?.running || messageQueueStore.hasQueue) {
         const success = messageQueueStore.addToQueue(message, attachmentsWithUrls);
         // no await for the queue
         // if (success) {
-          inputStore.reset();
+          if (shouldResetInput) inputStore.reset();
           adjustTextareaHeight();
         // }
         return;
@@ -72,11 +98,12 @@ export async function sendMessage() {
       forceScrollChatToBottom();
 
       let response;
-      const messageId = generateGUID();
 
-    // Clear input and attachments
-    inputStore.reset();
-    adjustTextareaHeight();
+      // Clear input and attachments
+      if (shouldResetInput) {
+        inputStore.reset();
+        adjustTextareaHeight();
+      }
 
       // Include attachments in the user message
       if (hasAttachments) {
@@ -95,7 +122,7 @@ export async function sendMessage() {
 
         const formData = new FormData();
         formData.append("text", message);
-        formData.append("context", context);
+        formData.append("context", sendContext);
         formData.append("message_id", messageId);
 
         for (let i = 0; i < attachmentsWithUrls.length; i++) {
@@ -110,7 +137,7 @@ export async function sendMessage() {
         // For text-only messages
         const data = {
           text: message,
-          context,
+          context: sendContext,
           message_id: messageId,
         };
         response = await api.fetchApi("/message_async", {
@@ -198,20 +225,21 @@ async function updateUserTime() {
   }
 
   const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const seconds = now.getSeconds();
-  const ampm = hours >= 12 ? "pm" : "am";
-  const formattedHours = hours % 12 || 12;
-
-  // Format the time
-  const timeString = `${formattedHours}:${minutes
-    .toString()
-    .padStart(2, "0")}:${seconds.toString().padStart(2, "0")} ${ampm}`;
-
-  // Format the date
-  const options = { year: "numeric", month: "short", day: "numeric" };
-  const dateString = now.toLocaleDateString(undefined, options);
+  const timezone = getUserTimezone();
+  const hour12 = getUserHour12();
+  const timeString = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12,
+    timeZone: timezone,
+  }).format(now).toLowerCase();
+  const dateString = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: timezone,
+  }).format(now);
 
   // Update the HTML
   userTimeElement.innerHTML = `${timeString}<br><span id="user-date">${dateString}</span>`;
@@ -229,12 +257,7 @@ globalThis.loadKnowledge = async function () {
 };
 
 function adjustTextareaHeight() {
-  const chatInputEl = document.getElementById("chat-input");
-  if (chatInputEl) {
-    if (!inputStore.message) chatInputEl.value = "";
-    chatInputEl.style.height = "auto";
-    chatInputEl.style.height = chatInputEl.scrollHeight + "px";
-  }
+  inputStore.adjustTextareaHeight();
 }
 
 export const sendJsonData = async function (url, data) {
@@ -288,7 +311,7 @@ let lastSpokenNo = 0;
 
 export function buildStateRequestPayload(options = {}) {
   const { forceFull = false } = options || {};
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = getUserTimezone();
   return {
     context: context || null,
     log_from: forceFull ? 0 : lastLogVersion,
@@ -350,7 +373,11 @@ export async function applySnapshot(snapshot, options = {}) {
 
   if (lastLogVersion != snapshot.log_version) {
     updated = true;
-    await setMessages(snapshot.logs);
+    if (snapshot.logs?.[0]?.no === 0) {
+      const chatHistoryEl = document.getElementById("chat-history");
+      if (chatHistoryEl) chatHistoryEl.innerHTML = "";
+    }
+    await setMessages(modelGateStore.mergeSyntheticMessages(snapshot.logs, context));
     afterMessagesUpdate(snapshot.logs);
   }
 
@@ -415,8 +442,7 @@ export async function applySnapshot(snapshot, options = {}) {
 
 export async function poll() {
   try {
-    // Get timezone from navigator
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timezone = getUserTimezone();
 
     const log_from = lastLogVersion;
     const response = await sendJsonData("/poll", {
@@ -458,7 +484,7 @@ function speakMessages(logs) {
     // finished response
     if (log.type == "response") {
       // lastSpokenNo = log.no;
-      speechStore.speakStream(
+      ttsService.speakStream(
         getChatBasedId(log.no),
         log.content,
         log.kvps?.finished
@@ -474,7 +500,7 @@ function speakMessages(logs) {
       log.kvps.tool_name != "response"
     ) {
       // lastSpokenNo = log.no;
-      speechStore.speakStream(getChatBasedId(log.no), log.kvps.headline, true);
+      ttsService.speakStream(getChatBasedId(log.no), log.kvps.headline, true);
       return;
     }
   }
@@ -550,7 +576,7 @@ export const setContext = function (id) {
   lastSpokenNo = 0;
 
   // Stop speech when switching chats
-  speechStore.stopAudio();
+  ttsService.stop();
 
   // Clear the chat history immediately to avoid showing stale content
   const chatHistoryEl = document.getElementById("chat-history");
@@ -592,7 +618,7 @@ export const deselectChat = function () {
   sessionStorage.removeItem("lastSelectedTask");
 
   // Clear the chat history
-  chatHistory.innerHTML = "";
+  if (chatHistory) chatHistory.innerHTML = "";
 };
 globalThis.deselectChat = deselectChat;
 

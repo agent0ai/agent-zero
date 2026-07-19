@@ -1,35 +1,33 @@
 from __future__ import annotations
 
 from helpers.api import ApiHandler, Request
-from plugins._oauth.helpers import codex
-from plugins._oauth.helpers.state import get_device_attempt, pop_device_attempt
+from plugins._oauth.helpers.providers import CODEX_PROVIDER_ID, get_provider
 
 
 class PollDeviceLogin(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
-        attempt_id = str(input.get("attempt_id") or "").strip()
-        if not attempt_id:
-            return {"ok": False, "error": "Missing device authorization attempt."}
-
-        attempt = get_device_attempt(attempt_id)
-        if attempt is None:
-            return {"ok": False, "expired": True, "error": "Device authorization expired."}
-
+        raw_provider_id = _provider_id(input)
         try:
-            result = codex.poll_device_authorization(
-                attempt.device_auth_id,
-                attempt.user_code,
-            )
+            return get_provider(raw_provider_id).poll_login(input, request).to_dict()
         except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+            return {
+                "ok": False,
+                "provider_id": _provider_id_label(raw_provider_id),
+                "error": str(exc),
+            }
 
-        if result.get("completed"):
-            pop_device_attempt(attempt_id)
-            return {"ok": True, "completed": True, "account_id": result.get("account_id", "")}
 
-        return {
-            "ok": True,
-            "completed": False,
-            "interval": attempt.interval,
-            "expires_at": attempt.expires_at,
-        }
+def _provider_id(input: dict) -> object:
+    if "provider_id" not in input or input.get("provider_id") is None:
+        return CODEX_PROVIDER_ID
+    value = input.get("provider_id")
+    if isinstance(value, str) and not value.strip():
+        return CODEX_PROVIDER_ID
+    return value
+
+
+def _provider_id_label(value: object) -> str:
+    if value is None:
+        return CODEX_PROVIDER_ID
+    text = str(value).strip()
+    return text or CODEX_PROVIDER_ID

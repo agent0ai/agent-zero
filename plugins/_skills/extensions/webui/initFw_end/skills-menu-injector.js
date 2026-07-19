@@ -18,7 +18,11 @@ function buildButton() {
   button.addEventListener("click", async () => {
     chatInputStore.closeChatMoreMenu();
     const projectName = chatsStore.selectedContext?.project?.name || "";
-    await pluginSettingsStore.openConfig("_skills", projectName, "", { focus: "chat" });
+    await pluginSettingsStore.openConfig("_skills", projectName, "", {
+      focus: "chat",
+      hideSettingsActions: true,
+      title: "Skills",
+    });
   });
 
   return button;

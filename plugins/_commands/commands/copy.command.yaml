@@ -1,0 +1,4 @@
+name: copy
+description: Copy the currently visible transcript text to the clipboard.
+type: script
+script_path: connector_commands.py

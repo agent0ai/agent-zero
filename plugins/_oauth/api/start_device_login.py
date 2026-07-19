@@ -1,36 +1,33 @@
 from __future__ import annotations
 
-import secrets
-
 from helpers.api import ApiHandler, Request
-from plugins._oauth.helpers import codex
-from plugins._oauth.helpers.config import codex_config
-from plugins._oauth.helpers.state import put_device_attempt
+from plugins._oauth.helpers.providers import CODEX_PROVIDER_ID, get_provider
 
 
 class StartDeviceLogin(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
-        cfg = codex_config()
-        if not cfg["enabled"]:
-            return {"ok": False, "error": "Codex/ChatGPT account connection is disabled."}
-
+        raw_provider_id = _provider_id(input)
         try:
-            device = codex.request_device_code()
-            attempt_id = secrets.token_urlsafe(24)
-            attempt = put_device_attempt(
-                attempt_id,
-                device["device_auth_id"],
-                device["user_code"],
-                device["interval"],
-                device["expires_at"],
-            )
-            return {
-                "ok": True,
-                "attempt_id": attempt.attempt_id,
-                "verification_url": device["verification_url"],
-                "user_code": attempt.user_code,
-                "interval": attempt.interval,
-                "expires_at": attempt.expires_at,
-            }
+            return get_provider(raw_provider_id).start_login(input, request).to_dict()
         except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+            return {
+                "ok": False,
+                "provider_id": _provider_id_label(raw_provider_id),
+                "error": str(exc),
+            }
+
+
+def _provider_id(input: dict) -> object:
+    if "provider_id" not in input or input.get("provider_id") is None:
+        return CODEX_PROVIDER_ID
+    value = input.get("provider_id")
+    if isinstance(value, str) and not value.strip():
+        return CODEX_PROVIDER_ID
+    return value
+
+
+def _provider_id_label(value: object) -> str:
+    if value is None:
+        return CODEX_PROVIDER_ID
+    text = str(value).strip()
+    return text or CODEX_PROVIDER_ID

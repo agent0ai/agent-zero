@@ -8,7 +8,7 @@ from helpers import skills as skills_helper
 from helpers.print_style import PrintStyle
 
 
-DATA_NAME_LOADED_SKILLS = skills_helper.AGENT_DATA_NAME_LOADED_SKILLS
+DATA_NAME_LOADED_SKILLS = skills_helper.CONTEXT_DATA_NAME_LOADED_SKILLS
 
 
 class SkillsTool(Tool):
@@ -24,15 +24,24 @@ class SkillsTool(Tool):
     Script execution is handled by code_execution_tool directly.
     """
 
-    def _current_action(self) -> str:
+    @staticmethod
+    def _normalize_action(action: object) -> str:
         return (
             str(
-                self.args.get("action")
-                or ""
+                action
+                or "list"
             )
             .strip()
             .lower()
             .replace("-", "_")
+        )
+
+    def _current_action(self, **kwargs) -> str:
+        return self._normalize_action(
+            kwargs.get("action")
+            or self.args.get("action")
+            or kwargs.get("method")
+            or self.args.get("method")
         )
 
     @staticmethod
@@ -65,14 +74,14 @@ class SkillsTool(Tool):
         return super().get_log_object()
 
     async def before_execution(self, **kwargs):
-        if self._current_action() != "load":
+        if self._current_action(**kwargs) != "load":
             await super().before_execution(**kwargs)
             return
 
         skill_name = self._normalize_skill_name(
             str(kwargs.get("skill_name") or self.args.get("skill_name") or "")
         )
-        label = f"{self.name} action {self._current_action()}"
+        label = f"{self.name} action {self._current_action(**kwargs)}"
         if skill_name:
             PrintStyle(
                 font_color="#1B4F72",
@@ -90,35 +99,29 @@ class SkillsTool(Tool):
         self.log = self.get_log_object()
 
     async def execute(self, **kwargs) -> Response:
-        action = (
-            str(
-                kwargs.get("action")
-                or self.args.get("action")
-                or ""
-            )
-            .strip()
-            .lower()
-            .replace("-", "_")
+        action = self._current_action(**kwargs)
+
+        query = str(kwargs.get("query") or self.args.get("query") or "").strip()
+        skill_name = self._normalize_skill_name(
+            str(kwargs.get("skill_name") or self.args.get("skill_name") or "")
         )
+        file_path = str(
+            kwargs.get("file_path") or self.args.get("file_path") or ""
+        ).strip()
+
+        if "action" not in kwargs and "action" not in self.args and "method" in kwargs:
+            kwargs["action"] = action
+        if "action" not in self.args and "method" in self.args:
+            self.args["action"] = action
 
         try:
             if action == "list":
                 return Response(message=self._list(), break_loop=False)
             if action == "search":
-                query = str(kwargs.get("query") or self.args.get("query") or "").strip()
                 return Response(message=self._search(query), break_loop=False)
             if action == "load":
-                skill_name = self._normalize_skill_name(
-                    str(kwargs.get("skill_name") or self.args.get("skill_name") or "")
-                )
-                return Response(message=self._load(skill_name), break_loop=False)
+                return self._load(skill_name)
             if action == "read_file":
-                skill_name = self._normalize_skill_name(
-                    str(kwargs.get("skill_name") or self.args.get("skill_name") or "")
-                )
-                file_path = str(
-                    kwargs.get("file_path") or self.args.get("file_path") or ""
-                ).strip()
                 return Response(
                     message=self._read_file(skill_name, file_path),
                     break_loop=False,
@@ -185,11 +188,14 @@ class SkillsTool(Tool):
         )
         return "\n".join(lines)
 
-    def _load(self, skill_name: str) -> str:
+    def _load(self, skill_name: str) -> Response:
         skill_name = self._normalize_skill_name(skill_name)
 
         if not skill_name:
-            return "Error: 'skill_name' is required for action=load."
+            return Response(
+                message="Error: 'skill_name' is required for action=load.",
+                break_loop=False,
+            )
 
         # Verify skill exists
         skill = skills_helper.find_skill(
@@ -198,18 +204,63 @@ class SkillsTool(Tool):
             agent=self.agent,
         )
         if not skill:
-            return f"Error: skill not found: {skill_name!r}. Try skills_tool action=list or action=search."
+            return Response(
+                message=(
+                    f"Error: skill not found: {skill_name!r}. "
+                    "Try skills_tool action=list or action=search."
+                ),
+                break_loop=False,
+            )
 
-        # Store skill name for fresh loading each turn
-        if not self.agent.data.get(DATA_NAME_LOADED_SKILLS):
-            self.agent.data[DATA_NAME_LOADED_SKILLS] = []
-        loaded = self.agent.data[DATA_NAME_LOADED_SKILLS]
-        if skill.name in loaded:
-            loaded.remove(skill.name)
-        loaded.append(skill.name)
-        self.agent.data[DATA_NAME_LOADED_SKILLS] = loaded[-max_loaded_skills():]
+        skill_data = skills_helper.load_skill_for_agent(
+            skill_name=skill.name,
+            agent=self.agent,
+        )
+        metadata = {
+            "name": skill.name,
+            "path": str(skill.path),
+            "source": "skills_tool:load",
+            "content_included": True,
+        }
 
-        return f"Loaded skill '{skill.name}' into EXTRAS."
+        skills_helper.add_loaded_skill_name(
+            self.agent,
+            skill.name,
+            limit=max_loaded_skills(),
+        )
+
+        if self._visible_skill_loaded(skill.name):
+            return Response(
+                message=(
+                    f"Skill '{skill.name}' is already loaded in visible "
+                    "chat history."
+                ),
+                break_loop=False,
+                additional={
+                    "skill_instructions": {
+                        **metadata,
+                        "content_included": False,
+                        "already_loaded": True,
+                    }
+                },
+            )
+
+        return Response(
+            message=skill_data,
+            break_loop=False,
+            additional={"skill_instructions": metadata},
+        )
+
+    def _visible_skill_loaded(self, skill_name: str) -> bool:
+        history_obj = getattr(self.agent, "history", None)
+        output = getattr(history_obj, "output", None)
+        if not callable(output):
+            return False
+
+        return any(
+            skills_helper.skill_instruction_name(message) == skill_name
+            for message in output()
+        )
 
     def _read_file(self, skill_name: str, file_path: str) -> str:
         if not skill_name:

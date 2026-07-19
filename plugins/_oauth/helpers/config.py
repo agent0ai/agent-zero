@@ -19,6 +19,14 @@ DEFAULT_CODEX_SCOPES = [
     "api.connectors.read",
     "api.connectors.invoke",
 ]
+DEFAULT_GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+DEFAULT_GEMINI_API_SCOPES = [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/generative-language.retriever",
+]
 
 
 def oauth_config() -> dict[str, Any]:
@@ -48,6 +56,23 @@ def codex_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
         "callback_path": _normalize_base_path(raw.get("callback_path"), "/auth/callback"),
         "require_proxy_token": _as_bool(raw.get("require_proxy_token"), False),
         "proxy_token": _as_str(raw.get("proxy_token")),
+    }
+
+
+def gemini_api_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+    source = config if isinstance(config, dict) else oauth_config()
+    raw = source.get("gemini_api", {}) if isinstance(source, dict) else {}
+    raw = raw if isinstance(raw, dict) else {}
+
+    return {
+        "enabled": _as_bool(raw.get("enabled"), True),
+        "client_id": _as_str(raw.get("client_id")),
+        "client_secret": _as_str(raw.get("client_secret")),
+        "scopes": _as_str_list(raw.get("scopes")) or DEFAULT_GEMINI_API_SCOPES,
+        "quota_project_id": _as_str(raw.get("quota_project_id")),
+        "api_base_url": _trim_url(raw.get("api_base_url"), DEFAULT_GEMINI_API_BASE_URL),
+        "proxy_base_path": _normalize_base_path(raw.get("proxy_base_path"), "/oauth/gemini-api"),
+        "callback_path": _normalize_base_path(raw.get("callback_path"), "/oauth/gemini-api/callback"),
     }
 
 

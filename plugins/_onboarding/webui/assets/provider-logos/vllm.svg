@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-labelledby="vllm-title">
+  <title id="vllm-title">vLLM</title>
+  <defs>
+    <linearGradient id="vllm-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12303a"/>
+      <stop offset="1" stop-color="#101820"/>
+    </linearGradient>
+    <linearGradient id="vllm-mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8ce9dc"/>
+      <stop offset="1" stop-color="#4da3ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="140" height="140" rx="28" fill="url(#vllm-bg)"/>
+  <path d="M37 43 65 116 93 43" fill="none" stroke="url(#vllm-mark)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M99 68v48M120 68v48" fill="none" stroke="#efffff" stroke-width="12" stroke-linecap="round"/>
+  <path d="M99 92h21" stroke="#efffff" stroke-width="12" stroke-linecap="round"/>
+  <text x="80" y="135" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="21" font-weight="900" fill="#8ce9dc">vLLM</text>
+</svg>

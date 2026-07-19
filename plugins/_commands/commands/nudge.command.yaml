@@ -1,0 +1,4 @@
+name: nudge
+description: Nudge the current agent run.
+type: script
+script_path: connector_commands.py

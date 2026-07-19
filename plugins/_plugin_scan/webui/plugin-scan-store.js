@@ -2,6 +2,7 @@ import { marked } from "/vendor/marked/marked.esm.js";
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal } from "/js/modals.js";
+import { getUserTimezone } from "/js/time-utils.js";
 import { toastFrontendError } from "/components/notifications/notification-store.js";
 
 const BASE = "/plugins/_plugin_scan/webui";
@@ -225,7 +226,7 @@ export const store = createStore("pluginScan", {
       try {
         const snap = await api.callJsonApi("/poll", {
           context: ctxId, log_from: 0, notifications_from: 0,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: getUserTimezone(),
         });
 
         if (gen === _pollGen && snap.logs?.length) {

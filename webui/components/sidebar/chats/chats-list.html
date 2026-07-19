@@ -22,25 +22,53 @@
 
 
 
-        <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.contexts.length > 0">
-          <template x-for="context in $store.chats.contexts" :key="context.id">
-            <li>
-              <div :class="{'chat-container': true, 'chat-selected': context.id === $store.chats.selected}"
+        <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.topLevelContexts().length > 0">
+          <template x-for="context in $store.chats.topLevelContexts()" :key="context.id">
+            <li class="chat-tree-item">
+              <div :class="{'chat-container': true, 'chat-has-children': $store.chats.hasChildren(context.id), 'chat-selected': context.id === $store.chats.selected}"
                 @click="$store.chats.selectChat(context.id)">
+                <button class="chat-expand-btn"
+                        x-show="$store.chats.hasChildren(context.id)"
+                        :class="{ 'is-visible': $store.chats.hasChildren(context.id), 'is-expanded': $store.chats.isExpanded(context.id) }"
+                        :aria-expanded="$store.chats.isExpanded(context.id)"
+                        :aria-label="$store.chats.isExpanded(context.id) ? 'Collapse chat children' : 'Expand chat children'"
+                        @click.stop="$store.chats.toggleChildren(context.id)">
+                  <span class="material-symbols-outlined"
+                    x-text="$store.chats.isExpanded(context.id) ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"></span>
+                </button>
                 <div class="chat-list-button">
                   <span :class="{'project-color-ball': true, 'heartbeat': context.running}"
                     :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
                   <span class="chat-name"
-                    x-text="context.name ? context.name : 'Chat #' + context.no"></span>
+                    x-text="$store.chats.displayName(context)"></span>
                 </div>
                 <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
                   <span class="material-symbols-outlined">close</span>
                 </button>
               </div>
+              <ul class="chat-child-list" x-show="$store.chats.isExpanded(context.id) && $store.chats.hasChildren(context.id)">
+                <template x-for="child in $store.chats.childContexts(context.id)" :key="child.id">
+                  <li>
+                    <div :class="{'chat-container': true, 'chat-child-container': true, 'chat-selected': child.id === $store.chats.selected}"
+                      @click="$store.chats.selectChat(child.id)">
+                      <div class="chat-child-indent"></div>
+                      <div class="chat-list-button">
+                        <span :class="{'project-color-ball': true, 'heartbeat': child.running}"
+                          :style="child.project?.color ? { backgroundColor: child.project.color } : { border: '1px solid var(--color-border)' }"></span>
+                        <span class="chat-name"
+                          x-text="$store.chats.displayName(child)"></span>
+                      </div>
+                      <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(child.id))">
+                        <span class="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+                  </li>
+                </template>
+              </ul>
             </li>
           </template>
         </ul>
-        <div class="empty-list-message" x-show="$store.chats.contexts.length === 0">
+        <div class="empty-list-message" x-show="$store.chats.topLevelContexts().length === 0">
           <p><i>No chats to list.</i></p>
         </div>
         <x-extension id="sidebar-chats-list-end"></x-extension>
@@ -91,6 +119,72 @@
       border-radius: 4px;
       overflow: hidden;
       cursor: pointer;
+    }
+
+    .chats-config-list .chat-tree-item {
+      display: block;
+      align-items: stretch;
+      justify-content: flex-start;
+    }
+
+    .chat-child-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+    }
+
+    .chats-config-list .chat-child-list > li {
+      display: block;
+      padding: 0;
+    }
+
+    .chat-child-container {
+      min-height: 34px;
+    }
+
+    .chat-child-indent {
+      width: 18px;
+      flex-shrink: 0;
+    }
+
+    .chat-expand-btn {
+      position: absolute;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 0;
+      background: transparent;
+      color: var(--color-text-muted);
+      opacity: 0;
+      pointer-events: none;
+      padding: 0;
+      margin: 0;
+      z-index: 1;
+    }
+
+    .chat-expand-btn.is-visible {
+      opacity: 0.95;
+      pointer-events: auto;
+    }
+
+    .chat-expand-btn.is-visible:hover {
+      color: var(--color-text);
+      opacity: 1;
+    }
+
+    .chat-expand-btn .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .chat-container.chat-has-children .chat-list-button {
+      padding-left: 24px;
     }
 
     .chat-list-button {

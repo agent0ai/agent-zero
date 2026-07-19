@@ -1,0 +1,5 @@
+name: _editor
+title: Editor
+description: Native Markdown editor surface for Agent Zero canvas and floating modal workflows.
+version: 1.0.0
+always_enabled: false

@@ -126,7 +126,6 @@ def cleanup_stale_runtime_state(force: bool = False) -> dict[str, Any]:
 
     _retire_supervisor_program(errors)
     _ensure_runtime_dependencies(installed, errors)
-    _ensure_desktop_runtime_compat(installed, removed, migrated, warnings, errors)
     return {
         "ok": not errors,
         "skipped": not cleanup_needed,
@@ -136,6 +135,20 @@ def cleanup_stale_runtime_state(force: bool = False) -> dict[str, Any]:
         "warnings": warnings,
         "errors": errors,
     }
+
+
+def timezone_changed(timezone: str, previous_timezone: str | None = None) -> dict[str, Any]:
+    try:
+        from plugins._desktop.helpers import desktop_session
+
+        return desktop_session.get_manager().sync_timezone(timezone)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "timezone": timezone,
+            "previous_timezone": previous_timezone,
+        }
 
 
 def retire_collabora_web_runtime(force: bool = False) -> dict[str, Any]:
@@ -225,42 +238,6 @@ def _migrate_retired_plugin_state(
         warnings=warnings,
         errors=errors,
     )
-
-
-def _ensure_desktop_runtime_compat(
-    installed: list[str],
-    removed: list[str],
-    migrated: list[str],
-    warnings: list[str],
-    errors: list[str],
-) -> None:
-    """Keep self-update compatibility for managers that only invoke _office/hooks.py.
-
-    Agent Zero 1.10-1.13 self-update managers call the Office cleanup hook
-    directly before starting the updated UI. Desktop runtime ownership now lives
-    in _desktop, so this temporary delegate preserves the old pre-launch cleanup
-    and package-preparation behavior for users updating from those releases.
-    """
-
-    try:
-        from plugins._desktop import hooks as desktop_hooks
-    except Exception as exc:
-        warnings.append(f"Desktop runtime compatibility hook unavailable: {exc}")
-        return
-
-    try:
-        result = desktop_hooks.cleanup_stale_runtime_state()
-    except Exception as exc:
-        errors.append(f"Desktop runtime compatibility hook failed: {exc}")
-        return
-
-    if not isinstance(result, dict):
-        return
-    installed.extend(str(item) for item in result.get("installed") or [])
-    removed.extend(str(item) for item in result.get("removed") or [])
-    migrated.extend(str(item) for item in result.get("migrated") or [])
-    warnings.extend(str(item) for item in result.get("warnings") or [])
-    errors.extend(str(item) for item in result.get("errors") or [])
 
 
 def _remove_path(path: Path) -> bool:

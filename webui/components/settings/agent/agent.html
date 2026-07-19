@@ -66,6 +66,23 @@
                   </label>
                 </div>
               </div>
+
+              <div class="field">
+                <div class="field-label">
+                  <div class="field-title">Consecutive unusable response limit</div>
+                  <div class="field-description">
+                    Stop after this many malformed or repeated model responses. The default allows one corrective retry.
+                  </div>
+                </div>
+                <div class="field-control">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    x-model.number="$store.settings.settings.max_consecutive_unusable_responses"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

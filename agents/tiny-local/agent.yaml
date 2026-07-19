@@ -1,0 +1,3 @@
+title: Tiny Local
+description: Action-first profile for small local models that need a minimal tool-call contract.
+context: Use this agent when running small local chat models through Ollama, LM Studio, or similar providers and the model tends to explain actions instead of calling tools.

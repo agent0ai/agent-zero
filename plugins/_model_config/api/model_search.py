@@ -26,6 +26,12 @@ _NON_CHAT_EXCLUDE = frozenset({
     "omni-moderation",
     "vision-preview",
 })
+_LOCAL_PLACEHOLDER_KEYS = {
+    "lm_studio": {"lm-studio"},
+    "llama_cpp": {"llama-cpp"},
+    "omlx": {"omlx"},
+    "vllm": {"vllm"},
+}
 
 
 class ModelSearch(ApiHandler):
@@ -179,8 +185,8 @@ class ModelSearch(ApiHandler):
         elif provider == "azure":
             if has_key:
                 headers["api-key"] = api_key
-        elif provider not in ("ollama", "lm_studio"):
-            if has_key:
+        elif provider != "ollama":
+            if has_key and api_key not in _LOCAL_PLACEHOLDER_KEYS.get(provider, set()):
                 headers["Authorization"] = f"Bearer {api_key}"
 
         extra = (cfg or {}).get("kwargs", {}).get("extra_headers", {})

@@ -351,6 +351,29 @@ def test_debounced_snapshots_coalesce_to_one_commit(workspace):
         tt.clear_debounced_snapshots()
 
 
+def test_debounced_snapshot_skips_removed_workspace(workspace, monkeypatch):
+    root, service = workspace
+    errors = []
+    monkeypatch.setattr(tt.PrintStyle, "error", lambda message: errors.append(message))
+    tt.clear_debounced_snapshots()
+    try:
+        (root / "file.txt").write_text("one\n", encoding="utf-8")
+        tt.schedule_debounced_snapshot(
+            service.workspace,
+            trigger="watchdog",
+            metadata={"source": "watchdog"},
+            delay=60,
+        )
+        shutil.rmtree(root)
+
+        tt.flush_debounced_snapshots()
+
+        assert errors == []
+        assert not service.workspace.repo_git_path.exists()
+    finally:
+        tt.clear_debounced_snapshots()
+
+
 def test_workspace_resolution_prefers_project_and_rejects_external_paths(monkeypatch: pytest.MonkeyPatch, workspace):
     root, _service = workspace
     projects_mod = ModuleType("helpers.projects")
@@ -373,3 +396,83 @@ def test_workspace_resolution_prefers_project_and_rejects_external_paths(monkeyp
     projects_mod.get_context_project_name = lambda _context: ""
     with pytest.raises(WorkspaceRejectedError):
         resolve_workspace("ctx", context_loader=lambda _ctxid: SimpleNamespace(id="ctx"))
+
+
+def test_selectable_workspaces_list_workdir_first_and_default_to_context_project(
+    monkeypatch: pytest.MonkeyPatch,
+    workspace,
+):
+    root, _service = workspace
+    (root / "workdir").mkdir()
+    (root / "demo").mkdir()
+    (root / "other").mkdir()
+
+    projects_mod = ModuleType("helpers.projects")
+    projects_mod.get_active_projects_list = lambda: [
+        {"name": "demo", "title": "Demo Project", "color": "#336699"},
+        {"name": "other", "title": "Other Project", "color": ""},
+    ]
+    projects_mod.get_context_project_name = lambda _context: "demo"
+    projects_mod.get_project_folder = lambda name: str(root / name)
+    settings_mod = ModuleType("helpers.settings")
+    settings_mod.get_settings = lambda: {"workdir_path": str(root / "workdir")}
+
+    import helpers
+
+    monkeypatch.setitem(sys.modules, "helpers.projects", projects_mod)
+    monkeypatch.setitem(sys.modules, "helpers.settings", settings_mod)
+    monkeypatch.setattr(helpers, "projects", projects_mod, raising=False)
+    monkeypatch.setattr(helpers, "settings", settings_mod, raising=False)
+
+    data = tt.list_selectable_workspaces(
+        "ctx",
+        context_loader=lambda _ctxid: SimpleNamespace(id="ctx"),
+    )
+    workspaces = data["workspaces"]
+    demo_workspace = next(item for item in workspaces if item["project_name"] == "demo")
+
+    assert workspaces[0]["kind"] == "workdir"
+    assert workspaces[0]["display_path"].endswith("/workdir")
+    assert [item["project_name"] for item in workspaces[1:]] == ["demo", "other"]
+    assert data["default_workspace_id"] == demo_workspace["id"]
+
+    resolved = resolve_workspace(
+        "ctx",
+        workspace_id=demo_workspace["id"],
+        context_loader=lambda _ctxid: SimpleNamespace(id="ctx"),
+    )
+
+    assert resolved.project_name == "demo"
+    assert resolved.display_path == demo_workspace["display_path"]
+
+    with pytest.raises(WorkspaceRejectedError):
+        resolve_workspace(
+            "ctx",
+            workspace_id="missing",
+            context_loader=lambda _ctxid: SimpleNamespace(id="ctx"),
+        )
+
+
+def test_external_workdir_workspace_option_is_locked(monkeypatch: pytest.MonkeyPatch):
+    projects_mod = ModuleType("helpers.projects")
+    projects_mod.get_active_projects_list = lambda: []
+    projects_mod.get_context_project_name = lambda _context: ""
+    settings_mod = ModuleType("helpers.settings")
+    settings_mod.get_settings = lambda: {"workdir_path": "/tmp/not-a0"}
+
+    import helpers
+
+    monkeypatch.setitem(sys.modules, "helpers.projects", projects_mod)
+    monkeypatch.setitem(sys.modules, "helpers.settings", settings_mod)
+    monkeypatch.setattr(helpers, "projects", projects_mod, raising=False)
+    monkeypatch.setattr(helpers, "settings", settings_mod, raising=False)
+
+    data = tt.list_selectable_workspaces("")
+    workdir = data["workspaces"][0]
+
+    assert workdir["kind"] == "workdir"
+    assert workdir["locked"] is True
+    assert data["default_workspace_id"] == workdir["id"]
+
+    with pytest.raises(WorkspaceRejectedError):
+        resolve_workspace("", workspace_id=workdir["id"])

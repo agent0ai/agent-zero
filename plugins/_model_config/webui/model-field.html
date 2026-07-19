@@ -13,7 +13,7 @@
       modelType   — 'chat' | 'utility' | 'embedding'
       providers   — array of { value, label }
       searchType  — 'chat' | 'embedding'
-      apiKeyMode  — 'store' (config.html: key lives in $store.modelConfig.apiKeyValues) | 'inline' (preset: key lives in model.api_key)
+      apiKeyMode  — 'store' (key lives in $store.modelConfig.apiKeyValues), 'inline' (key lives in model.api_key), or 'none'
     Optional:
       providerFallback — fallback provider string for search/API key status (e.g. preset.chat.provider for utility slot)
       apiBaseFallback  — fallback api_base string for search (e.g. preset.chat.api_base for utility slot)
@@ -28,7 +28,7 @@
       <div class="field-control">
         <select x-model="model.provider"
                 x-effect="$nextTick(() => { if (providers.length) $el.value = model.provider })"
-                @change="model.api_base = ''">
+                @change="model.api_base = ''; model.kwargs = {}; model._kwargs_text = ''">
           <option value="">&mdash; select &mdash;</option>
           <template x-for="p in providers" :key="p.value">
             <option :value="p.value" x-text="p.label"></option>
@@ -41,22 +41,27 @@
     <div class="field">
       <div class="field-label">
         <div class="field-title">Model name</div>
-        <div class="field-description">Model identifier. Click the search icon to browse available models.</div>
+        <div class="field-description">Model identifier. Click the field or search icon to browse available models.</div>
       </div>
       <div class="field-control" style="position:relative;"
            x-data="{ results: [], open: false, searching: false,
-             doSearch() { this.searching = true; $store.modelConfig.searchModels(_prov, model.name, searchType, _apiBase).then(r => { this.results = r; this.open = true; }).finally(() => this.searching = false); },
+             doSearch() { if (this.searching) return; this.searching = true; $store.modelConfig.searchModels(_prov, model.name, searchType, _apiBase).then(r => { this.results = r; this.open = true; }).finally(() => this.searching = false); },
+             openSearch(trigger) { trigger?.scrollIntoView({ block: 'center' }); this.doSearch(); },
              grouped() { return $store.modelConfig.groupResults(this.results, model.name); }
            }"
            @click.outside="open = false">
         <input type="text" x-model="model.name" style="padding-right:32px;"
+               @click="openSearch($el)"
                @keydown.enter.prevent="doSearch()" />
-        <span class="model-search-btn"
-              @click="if (!searching) doSearch()"
-              title="Search available models">
+        <button class="model-search-btn"
+                type="button"
+                @click="openSearch($el)"
+                :disabled="searching"
+                title="Search available models"
+                aria-label="Search available models">
           <span class="material-symbols-outlined" :style="searching && 'opacity:0'">search</span>
           <span class="material-symbols-outlined model-search-spinner" :style="!searching && 'opacity:0'">progress_activity</span>
-        </span>
+        </button>
         <div class="model-search-results" x-show="open && results.length > 0" x-transition.opacity>
           <template x-for="m in grouped().matched" :key="'m_'+m">
             <div class="model-search-item matched" @click="model.name = m; open = false;" x-text="m"></div>
@@ -141,6 +146,19 @@
       </div>
     </template>
 
+    <!-- Context window size (main and utility only) -->
+    <template x-if="modelType !== 'embedding'">
+      <div class="field">
+        <div class="field-label">
+          <div class="field-title">Context window size</div>
+          <div class="field-description">Maximum number of tokens in the context window. System prompt, chat history, RAG and response all count towards this limit.</div>
+        </div>
+        <div class="field-control">
+          <input type="number" x-model.number="model.ctx_length" />
+        </div>
+      </div>
+    </template>
+
     <!-- Advanced Settings (collapsed by default) -->
     <div class="advanced-section" x-data="{ advOpen: false }">
       <div class="advanced-toggle" @click="advOpen = !advOpen">
@@ -161,19 +179,6 @@
             <input type="text" x-model="model.api_base" />
           </div>
         </div>
-
-        <!-- Context length (not for embedding) -->
-        <template x-if="modelType !== 'embedding'">
-          <div class="field">
-            <div class="field-label">
-              <div class="field-title">Context length</div>
-              <div class="field-description">Maximum number of tokens in the context window. System prompt, chat history, RAG and response all count towards this limit.</div>
-            </div>
-            <div class="field-control">
-              <input type="number" x-model.number="model.ctx_length" />
-            </div>
-          </div>
-        </template>
 
         <!-- Chat-specific: ctx_history, max_embeds -->
         <template x-if="modelType === 'chat'">
@@ -289,8 +294,12 @@
     transform: translateY(-50%);
     width: 20px;
     height: 20px;
+    padding: 0;
     display: grid;
     place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
     cursor: pointer;
     user-select: none;
     opacity: 0.6;
@@ -298,6 +307,9 @@
   }
   .model-search-btn:hover {
     opacity: 1;
+  }
+  .model-search-btn:disabled {
+    cursor: default;
   }
   .model-search-btn > span {
     grid-area: 1 / 1;

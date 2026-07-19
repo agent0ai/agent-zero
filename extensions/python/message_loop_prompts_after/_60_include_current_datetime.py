@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from helpers.extension import Extension
 from agent import LoopData
 from helpers.localization import Localization
@@ -9,13 +8,7 @@ class IncludeCurrentDatetime(Extension):
         if not self.agent:
             return
 
-        # get current datetime
-        current_datetime = Localization.get().utc_dt_to_localtime_str(
-            datetime.now(timezone.utc), sep=" ", timespec="seconds"
-        )
-        # remove timezone offset
-        if current_datetime and "+" in current_datetime:
-            current_datetime = current_datetime.split("+")[0]
+        current_datetime = Localization.get().now().strftime("%Y-%m-%d %H:%M:%S %Z")
 
         # read prompt
         datetime_prompt = self.agent.read_prompt(

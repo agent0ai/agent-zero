@@ -1,0 +1,5 @@
+name: browser
+description: Choose Browser host/container mode and manage host-browser control.
+argument_hint: "[host|container|status]"
+type: script
+script_path: connector_commands.py

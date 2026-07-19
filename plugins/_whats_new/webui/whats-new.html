@@ -1,0 +1,20 @@
+<html>
+<head>
+  <title>What's New in Agent Zero</title>
+  <script type="module">
+    import { closeModal, openModal } from "/js/modals.js";
+
+    const legacyPath = "/plugins/_whats_new/webui/whats-new.html";
+    const mainPath = "/plugins/_whats_new/webui/main.html";
+
+    queueMicrotask(async () => {
+      await closeModal(legacyPath);
+      await openModal(mainPath);
+    });
+  </script>
+</head>
+
+<body>
+  <div class="loading">Opening What's New...</div>
+</body>
+</html>

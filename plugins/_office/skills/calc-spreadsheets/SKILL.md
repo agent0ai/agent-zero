@@ -18,7 +18,7 @@ triggers:
   - "sheet"
   - "chart"
 allowed_tools:
-  - document_artifact
+  - office_artifact
 ---
 
 # Calc Spreadsheets
@@ -33,7 +33,7 @@ Create a workbook:
 
 ```json
 {
-  "tool_name": "document_artifact",
+  "tool_name": "office_artifact",
   "tool_args": {
     "action": "create",
     "kind": "spreadsheet",
@@ -50,7 +50,7 @@ Edit cells:
 
 ```json
 {
-  "tool_name": "document_artifact",
+  "tool_name": "office_artifact",
   "tool_args": {
     "action": "edit",
     "file_id": "abc123",

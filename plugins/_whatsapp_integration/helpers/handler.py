@@ -207,6 +207,24 @@ async def _route_to_chat(
     msg_id = str(uuid.uuid4())
     media_urls = msg.get("mediaUrls", [])
     attachments = await _save_incoming_media(media_urls) if media_urls else []
+
+    if context.is_running():
+        item = mq.add(context, user_msg, attachments)
+        save_tmp_chat(context)
+        port = int((plugins.get_plugin_config(PLUGIN_NAME) or {}).get("bridge_port", 3100))
+        base_url = bridge_manager.get_bridge_url(port)
+        chat_id = context.data.get(CTX_WA_CHAT_ID, "") or msg.get("chatId", "")
+        reply_to = msg.get("messageId", "") if context.data.get(CTX_WA_IS_GROUP) else ""
+        await wa_client.send_message(
+            base_url,
+            chat_id,
+            f"Queued message #{item.get('seq', len(mq.get_queue(context)))}. Use /send to flush queued work, or /steer <message> to interrupt the active run.",
+            reply_to=reply_to,
+        )
+        await wa_client.send_typing(base_url, chat_id, paused=True)
+        context.data[CTX_WA_TYPING_ACTIVE] = False
+        return
+
     mq.log_user_message(
         context, user_msg, attachments, message_id=msg_id, source=" (whatsapp)",
     )

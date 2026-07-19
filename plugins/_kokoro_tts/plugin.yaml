@@ -1,0 +1,9 @@
+name: _kokoro_tts
+title: Kokoro TTS
+description: Built-in Kokoro text-to-speech plugin with browser TTS fallback when disabled.
+version: 1.0.0
+always_enabled: false
+settings_sections:
+  - agent
+per_project_config: false
+per_agent_config: false

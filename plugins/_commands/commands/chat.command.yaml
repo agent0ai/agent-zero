@@ -1,0 +1,5 @@
+name: chat
+description: Switch to a chat context by id.
+argument_hint: "<context_id>"
+type: script
+script_path: connector_commands.py

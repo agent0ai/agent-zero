@@ -41,6 +41,7 @@ PLAYWRIGHT_BROWSERS_PATH=tmp/playwright playwright install chromium
 If **Bring Your Own Browser** mode fails:
 
 - keep A0 CLI connected to the chat;
+- restart or reconnect A0 CLI after enabling remote debugging in a browser;
 - run `/browser status` in A0 CLI;
 - check that Browser settings still say **Bring Your Own Browser**;
 - check **Page content access** if page text or screenshots are blocked.

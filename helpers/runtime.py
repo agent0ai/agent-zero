@@ -31,7 +31,7 @@ def initialize():
         "--cloudflare_tunnel",
         type=bool,
         default=False,
-        help="Use cloudflare tunnel for public URL",
+        help="Use Cloudflare Tunnel for public URL",
     )
     parser.add_argument(
         "--development", type=bool, default=False, help="Development mode"

@@ -1,5 +1,6 @@
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
+from helpers.localization import Localization
 from models import ModelConfig, ModelType
 from langchain_core.documents import Document
 from agent import AgentContext
@@ -174,8 +175,10 @@ class MemoryDashboard(ApiHandler):
 
                 # sort by timestamp
                 def get_sort_key(m):
-                    timestamp = m.metadata.get("timestamp", "0000-00-00 00:00:00")
-                    return timestamp
+                    timestamp = self._serialize_memory_timestamp(
+                        m.metadata.get("timestamp", "0000-00-00 00:00:00")
+                    )
+                    return timestamp or "0000-00-00T00:00:00"
 
                 memories.sort(key=get_sort_key, reverse=True)
 
@@ -214,10 +217,11 @@ class MemoryDashboard(ApiHandler):
     def _format_memory_for_dashboard(self, m: Document) -> dict:
         """Format a memory document for the dashboard."""
         metadata = m.metadata
+        timestamp = self._serialize_memory_timestamp(metadata.get("timestamp", "unknown"))
         return {
             "id": metadata.get("id", "unknown"),
             "area": metadata.get("area", "unknown"),
-            "timestamp": metadata.get("timestamp", "unknown"),
+            "timestamp": timestamp,
             # "content_preview": m.page_content[:200]
             # + ("..." if len(m.page_content) > 200 else ""),
             "content_full": m.page_content,
@@ -228,6 +232,24 @@ class MemoryDashboard(ApiHandler):
             "tags": metadata.get("tags", []),
             "metadata": metadata,  # Include full metadata for advanced users
         }
+
+    def _serialize_memory_timestamp(self, value) -> str:
+        if not value or value == "unknown":
+            return "unknown"
+
+        if isinstance(value, str):
+            value = value.strip()
+            if not value or value == "unknown":
+                return "unknown"
+
+        localization = Localization.get()
+        if isinstance(value, str):
+            parsed = localization.localtime_str_to_utc_dt(value)
+            if parsed is None:
+                return value
+            return localization.utc_dt_to_localtime_str(parsed, timespec="seconds") or value
+
+        return localization.serialize_datetime(value) or str(value)
 
     async def _update_memory(self, input: dict) -> dict:
         try:

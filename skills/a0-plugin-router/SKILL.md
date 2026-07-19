@@ -111,7 +111,7 @@ For `@extensible` targets, the only valid implicit hook layout is `extensions/py
 
 ### Deep-Dive References
 
-- Architecture + extension points: `/a0/docs/agents/AGENTS.plugins.md`
+- Architecture + extension points: `/a0/plugins/AGENTS.md`
 - Developer guide: `/a0/docs/developer/plugins.md`
-- Component system: `/a0/docs/agents/AGENTS.components.md`
-- Modal system: `/a0/docs/agents/AGENTS.modals.md`
+- Component system: `/a0/webui/components/AGENTS.md`
+- Modal system: `/a0/webui/js/AGENTS.md` and `/a0/webui/css/AGENTS.md`

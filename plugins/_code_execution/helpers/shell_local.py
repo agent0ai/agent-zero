@@ -1,3 +1,4 @@
+import os
 import platform
 import select
 import subprocess
@@ -8,6 +9,22 @@ from helpers import runtime
 from plugins._code_execution.helpers import tty_session
 from plugins._code_execution.helpers.shell_ssh import clean_string
 
+
+def disable_pagers_in_env(env: dict | None = None) -> dict:
+    """Return a copy of ``env`` with terminal pagers disabled.
+
+    Commands such as ``git diff``/``git log`` detect a TTY and pipe their output
+    through a pager (``more``/``less``). The non-interactive shells created by
+    the code execution tool never receive any user input, so the pager blocks
+    forever and spins at 100% CPU per process. Pointing the pager variables at
+    ``cat`` lets the output stream through instead. See issue #1697.
+    """
+    env = dict(env if env is not None else os.environ)
+    env["PAGER"] = "cat"
+    env["GIT_PAGER"] = "cat"
+    return env
+
+
 class LocalInteractiveSession:
     def __init__(self, cwd: str|None = None):
         self.session: tty_session.TTYSession|None = None
@@ -15,7 +32,11 @@ class LocalInteractiveSession:
         self.cwd = cwd
 
     async def connect(self):
-        self.session = tty_session.TTYSession(runtime.get_terminal_executable(), cwd=self.cwd)
+        self.session = tty_session.TTYSession(
+            runtime.get_terminal_executable(),
+            cwd=self.cwd,
+            env=disable_pagers_in_env(),
+        )
         await self.session.start()
         await self.session.read_full_until_idle(idle_timeout=1, total_timeout=1)
 

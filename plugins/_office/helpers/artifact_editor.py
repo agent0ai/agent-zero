@@ -51,8 +51,8 @@ def read_artifact(doc: dict[str, Any], max_chars: int = 12000) -> dict[str, Any]
     path = Path(doc["path"])
     ext = str(doc["extension"]).lower()
     if ext == "md":
-        content = _read_markdown(path)
-    elif ext == "odt":
+        raise ValueError("Office artifact reads are not available for Markdown; use text_editor.")
+    if ext == "odt":
         content = _read_odt(path)
     elif ext == "ods":
         content = _read_ods(path)
@@ -104,7 +104,7 @@ def edit_artifact(
 
     invalidate_sessions = bool(kwargs.pop("invalidate_sessions", False))
     if ext == "md":
-        updated, details = _edit_markdown(before, op, content=content, find=find, replace=replace, **kwargs)
+        raise ValueError("Office artifact edits are not available for Markdown; use text_editor.")
     elif ext == "odt":
         updated, details = _edit_odt(before, op, content=content, find=find, replace=replace, **kwargs)
     elif ext == "ods":
@@ -125,14 +125,14 @@ def edit_artifact(
         document_store.replace_document_bytes(
             doc["file_id"],
             updated,
-            actor="document_artifact:edit",
+            actor="office_artifact:edit",
             invalidate_sessions=invalidate_sessions,
         )
         if changed
         else doc
     )
     if changed:
-        _refresh_open_editor_sessions(updated_doc["file_id"])
+        _refresh_open_office_sessions(updated_doc["file_id"])
     preview = read_artifact(updated_doc, max_chars=int(kwargs.get("preview_chars") or 4000))
     payload = {
         "ok": True,
@@ -269,19 +269,13 @@ def _looks_like_replace_operation(operation: str = "") -> bool:
     return op in {"replace", "replace_text", "patch", "update"}
 
 
-def _refresh_open_editor_sessions(file_id: str) -> None:
-    try:
-        from plugins._office.helpers import markdown_sessions
-
-        markdown_sessions.get_manager().refresh_document(file_id)
-    except Exception:
-        # Direct artifact edits should never fail just because no canvas is open.
-        pass
+def _refresh_open_office_sessions(file_id: str) -> None:
     try:
         from plugins._desktop.helpers import desktop_session
 
         desktop_session.get_manager().refresh_document(file_id)
     except Exception:
+        # Direct artifact edits should never fail just because no Office surface is open.
         pass
 
 
@@ -296,7 +290,7 @@ def normalize_operation(
     slides: Any = None,
 ) -> str:
     op = str(operation or "").strip().lower().replace("-", "_")
-    aliases = {
+    operation_map = {
         "patch": "replace_text" if find else "set_text",
         "update": "replace_text" if find else "set_text",
         "replace": "replace_text",
@@ -321,7 +315,7 @@ def normalize_operation(
         "add_slide": "append_slide",
         "set_deck": "set_slides",
     }
-    op = aliases.get(op, op)
+    op = operation_map.get(op, op)
     if op:
         return op
     if cells:
@@ -337,19 +331,6 @@ def normalize_operation(
     if content:
         return "set_text"
     raise ValueError("operation is required")
-
-
-def _read_markdown(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8", errors="replace")
-    lines = [line for line in text.splitlines() if line.strip()]
-    headings = [line.lstrip("#").strip() for line in lines if line.lstrip().startswith("#")]
-    return {
-        "kind": "document",
-        "format": "markdown",
-        "line_count": len(text.splitlines()),
-        "headings": headings[:40],
-        "text": text,
-    }
 
 
 def _read_odt(path: Path) -> dict[str, Any]:
@@ -476,32 +457,6 @@ def _read_pptx(path: Path) -> dict[str, Any]:
         "slide_count": len(slides),
         "slides": slides[:40],
     }
-
-
-def _edit_markdown(before: bytes, op: str, *, content: str = "", find: str = "", replace: str = "", **kwargs: Any) -> tuple[bytes, dict[str, Any]]:
-    if op not in {"set_text", "append_text", "prepend_text", "replace_text", "delete_text"}:
-        raise ValueError(f"Unsupported Markdown operation: {op}")
-
-    text = before.decode("utf-8", errors="replace")
-    if op == "set_text":
-        updated = content
-        details = {"lines_written": len(content.splitlines())}
-    elif op == "append_text":
-        separator = "" if not text or text.endswith("\n") else "\n"
-        updated = f"{text}{separator}{content}"
-        details = {"lines_appended": len(content.splitlines())}
-    elif op == "prepend_text":
-        separator = "" if not text or content.endswith("\n") else "\n"
-        updated = f"{content}{separator}{text}"
-        details = {"lines_prepended": len(content.splitlines())}
-    else:
-        if not find:
-            raise ValueError("find is required for replace_text")
-        replacement = "" if op == "delete_text" else replace
-        count_limit = _int_or_none(kwargs.get("count"))
-        updated, count = _replace_limited(text, find, replacement, count_limit)
-        details = {"replacements": count}
-    return updated.encode("utf-8"), details
 
 
 def _edit_odt(before: bytes, op: str, *, content: str = "", find: str = "", replace: str = "", **kwargs: Any) -> tuple[bytes, dict[str, Any]]:
@@ -755,7 +710,7 @@ _CHART_SPEC_KEYS = {
     "yvalues",
 }
 
-_CHART_TYPE_ALIASES = {
+_CHART_TYPE_NORMALIZATIONS = {
     "area": "area",
     "bar": "bar",
     "candlestick": "stock",
@@ -815,7 +770,7 @@ def _normalize_chart_spec(value: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
     explicit_type = bool(spec.get("type") or spec.get("chart_type"))
     chart_type = str(spec.get("type") or spec.get("chart_type") or "").strip().lower().replace("-", "_")
     if chart_type:
-        chart_type = _CHART_TYPE_ALIASES.get(chart_type, chart_type)
+        chart_type = _CHART_TYPE_NORMALIZATIONS.get(chart_type, chart_type)
     spec["type"] = chart_type
     spec["_explicit_type"] = explicit_type
     spec["position"] = str(spec.get("position") or spec.get("anchor") or "H2")
@@ -832,7 +787,7 @@ def _create_xlsx_chart(workbook: Any, default_worksheet: Any, spec: dict[str, An
     openpyxl = _require_openpyxl()
     worksheet = _worksheet(workbook, str(spec.get("sheet") or default_worksheet.title))
     chart_type = spec["type"] or _infer_default_chart_type(worksheet)
-    if chart_type not in _CHART_TYPE_ALIASES.values():
+    if chart_type not in _CHART_TYPE_NORMALIZATIONS.values():
         raise ValueError(f"Unsupported XLSX chart type: {chart_type}")
 
     if spec["replace_existing"]:

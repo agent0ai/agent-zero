@@ -89,7 +89,7 @@ def cleanup_stale_runtime_state(force: bool = False) -> dict[str, Any]:
         errors: list[str] = []
 
         _migrate_retired_plugin_state(migrated, warnings, errors)
-        _migrate_unscoped_screenshots(migrated, warnings, errors)
+        _remove_persisted_screenshots(warnings, errors)
 
         retired_packages = _installed_packages(RETIRED_RUNTIME_PACKAGES)
         if retired_packages:
@@ -142,33 +142,18 @@ def _migrate_retired_plugin_state(
     )
 
 
-def _migrate_unscoped_screenshots(
-    migrated: list[str],
+def _remove_persisted_screenshots(
     warnings: list[str],
     errors: list[str],
 ) -> None:
     screenshots_dir = STATE_DIR / "screenshots"
     if not screenshots_dir.exists():
         return
-    legacy_screenshots = [
-        path
-        for path in screenshots_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".xwd"}
-    ]
-    if not legacy_screenshots:
-        return
-
-    context_dir = screenshots_dir / "default"
-    context_dir.mkdir(parents=True, exist_ok=True)
-    for screenshot in legacy_screenshots:
-        state_migration.migrate_retired_state_tree(
-            source=screenshot,
-            destination=context_dir / screenshot.name,
-            owner="Desktop screenshot",
-            migrated=migrated,
-            warnings=warnings,
-            errors=errors,
-        )
+    try:
+        shutil.rmtree(screenshots_dir)
+        warnings.append(f"Removed retired persistent Desktop screenshots: {screenshots_dir}")
+    except Exception as exc:
+        errors.append(f"Failed to remove retired persistent Desktop screenshots at {screenshots_dir}: {exc}")
 
 
 def _begin_runtime_preparation() -> None:

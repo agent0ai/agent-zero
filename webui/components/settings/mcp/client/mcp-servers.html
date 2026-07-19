@@ -1,7 +1,7 @@
 <html>
 
 <head>
-    <title>MCP Servers Configuration</title>
+    <title>MCP Servers</title>
 
     <script type="module">
         import { store } from "/components/settings/mcp/client/mcp-servers-store.js";
@@ -11,178 +11,816 @@
 <body>
     <div x-data>
         <template x-if="$store.mcpServersStore">
-            <div x-init="$store.mcpServersStore.initialize()" x-destroy="$store.mcpServersStore.onClose()">
+            <div class="mcp-manager" x-create="$store.mcpServersStore.initialize()" x-destroy="$store.mcpServersStore.onClose()">
+                <header class="mcp-manager-header">
+                    <div class="mcp-manager-heading">
+                        <div class="mcp-manager-title-row">
+                            <h2 x-text="$store.mcpServersStore.scopeTitle"></h2>
+                            <span class="mcp-scope-pill" x-text="$store.mcpServersStore.scope === 'project' ? 'Project' : 'Global'"></span>
+                        </div>
+                        <p x-text="$store.mcpServersStore.scopeSubtitle"></p>
 
-                <h3>MCP Servers Configuration JSON
-                    <button class="btn slim" style="margin-left: 0.5em;"
-                        onclick="openModal('settings/mcp/client/example.html')">Examples</button>
-                    <button class="btn slim" style="margin-left: 0.5em;"
-                        @click="$store.mcpServersStore.formatJson()">Reformat</button>
-                    <button class="btn slim primary" :disabled="$store.mcpServersStore.loading"
-                        style="margin-left: 0.5em;" @click="$store.mcpServersStore.applyNow()">Apply now</button>
-                </h3>
-                <div id="mcp-servers-config-json"></div>
-
-                <h3 id="mcp-servers-status">Servers status (refreshing automatically)</h3>
-
-
-                <div class="server-list" x-show="!$store.mcpServersStore.loading">
-                    <template x-for="server in $store.mcpServersStore.servers" :key="server.name">
-                        <div class="server-item">
-                            <div class="server-main-row">
-                                <!-- Status indicator -->
-                                <div class="status-dot" x-data="{ connected: server.connected }">
-                                    <svg viewBox="0 0 16 16" width="12" height="12">
-                                        <circle cx="8" cy="8" r="6" x-bind:fill="server.connected 
-                                                ? (server.error ? '#e40138' : (server.tool_count > 0 ? '#00c340' : '#e40138')) 
-                                                : 'none'" x-bind:opacity="server.connected ? 1 : 0" />
-                                        <circle cx="8" cy="8" r="6" fill="none" stroke="#e40138" stroke-width="2"
-                                            x-bind:opacity="server.connected ? 0 : 1" />
-                                    </svg>
-                                </div>
-
-                                <!-- Server name -->
-                                <span class="server-name" x-text="server.name"></span>
-
-                                <!-- Tool count (clickable if > 0, only for connected servers without errors) -->
-                                <span class="tool-count" x-show="server.tool_count > 0"
-                                    @click="$store.mcpServersStore.onToolCountClick && $store.mcpServersStore.onToolCountClick(server.name)"
-                                    x-text="server.tool_count + ' tools'"></span>
-
-                                <!-- Log button (only shown if has_log is true) -->
-                                <span class="log-btn" x-show="server.has_log"
-                                    @click="$store.mcpServersStore.getServerLog(server.name)">Log</span>
+                        <div class="mcp-view-controls">
+                            <div class="mcp-view-tabs">
+                                <button type="button" :class="{ active: $store.mcpServersStore.activeView === 'visual' }"
+                                    @click="$store.mcpServersStore.setActiveView('visual')">
+                                    <span class="material-symbols-outlined" aria-hidden="true">dashboard_customize</span>
+                                    <span>Manager</span>
+                                </button>
+                                <button type="button" :class="{ active: $store.mcpServersStore.activeView === 'raw' }"
+                                    @click="$store.mcpServersStore.setActiveView('raw')">
+                                    <span class="material-symbols-outlined" aria-hidden="true">data_object</span>
+                                    <span>Raw JSON</span>
+                                </button>
                             </div>
 
-                            <!-- Error message (if any) -->
-                            <div class="server-error-row" x-show="server.error">
-                                <span class="server-error" x-text="server.error"></span>
+                            <label class="mcp-search" x-show="$store.mcpServersStore.activeView === 'visual'" style="display: none;">
+                                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                                <input type="search" x-model.debounce.150ms="$store.mcpServersStore.serverSearch" placeholder="Search MCP servers" />
+                                <button type="button" class="mcp-search-clear"
+                                    x-show="$store.mcpServersStore.serverSearchActive"
+                                    @click="$store.mcpServersStore.clearServerSearch()"
+                                    title="Clear search">
+                                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                                </button>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mcp-manager-actions">
+                        <button type="button" class="button" title="Refresh status" @click="$store.mcpServersStore.loadStatus()">
+                            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+                        </button>
+                        <button type="button" class="button confirm" :disabled="$store.mcpServersStore.applying" @click="$store.mcpServersStore.applyNow()">
+                            <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                            <span x-text="$store.mcpServersStore.applying ? 'Applying' : 'Apply'"></span>
+                        </button>
+                    </div>
+                </header>
+
+                <section x-show="$store.mcpServersStore.activeView === 'visual'" class="mcp-visual-panel">
+                    <section class="mcp-config-list" id="mcp-configured-servers">
+                        <div class="mcp-section-title">
+                            <h3>Configured servers</h3>
+                            <span x-text="$store.mcpServersStore.configuredServersCountLabel"></span>
+                        </div>
+                        <template x-if="$store.mcpServersStore.configuredServers.length === 0">
+                            <div class="mcp-empty">No MCP servers configured.</div>
+                        </template>
+                        <template x-if="$store.mcpServersStore.configuredServers.length > 0 && $store.mcpServersStore.filteredConfiguredServers.length === 0">
+                            <div class="mcp-empty">No configured MCP servers match this search.</div>
+                        </template>
+                        <template x-for="entry in $store.mcpServersStore.filteredConfiguredServers" :key="entry.name">
+                            <article class="mcp-config-card" :class="{ disabled: entry.config.disabled }">
+                                <div class="mcp-config-card-main">
+                                    <div>
+                                        <div class="mcp-config-name" x-text="entry.name"></div>
+                                        <div class="mcp-config-summary" x-text="$store.mcpServersStore.configSummary(entry.config)"></div>
+                                    </div>
+                                    <span class="mcp-config-mode" x-text="$store.mcpServersStore.configModeLabel(entry.config)"></span>
+                                </div>
+                                <div class="mcp-config-actions">
+                                    <button type="button" class="mcp-icon-button" title="Edit" @click="$store.mcpServersStore.editConfigServer(entry.name)">
+                                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                    </button>
+                                    <div class="mcp-toggle-group">
+                                        <label class="toggle plugin-status-toggle mcp-status-toggle"
+                                            :title="entry.config.disabled ? 'Enable MCP server' : 'Disable MCP server'">
+                                            <input type="checkbox"
+                                                :checked="!entry.config.disabled"
+                                                @change="$store.mcpServersStore.toggleConfigServer(entry.name)"
+                                                @click.stop>
+                                            <span class="toggler"></span>
+                                        </label>
+                                        <span class="plugin-status-text" x-text="entry.config.disabled ? 'OFF' : 'ON'"></span>
+                                    </div>
+                                    <button type="button" class="mcp-icon-button" title="Remove"
+                                        :disabled="$store.mcpServersStore.applying"
+                                        @click="$confirmClick($event, () => $store.mcpServersStore.removeConfigServer(entry.name))">
+                                        <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                    </button>
+                                </div>
+                            </article>
+                        </template>
+                    </section>
+
+                    <section class="mcp-status-section" id="mcp-servers-status">
+                        <div class="mcp-section-title">
+                            <h3>Servers status</h3>
+                            <span x-text="$store.mcpServersStore.visibleServersCountLabel"></span>
+                        </div>
+
+                        <div x-show="$store.mcpServersStore.loading" class="mcp-empty">
+                            Loading MCP server status...
+                        </div>
+
+                        <div class="mcp-status-list" x-show="!$store.mcpServersStore.loading">
+                            <template x-for="server in $store.mcpServersStore.filteredServers" :key="server.scope + ':' + server.name">
+                                <article class="mcp-status-row" :class="$store.mcpServersStore.statusClass(server)">
+                                    <div class="mcp-status-main">
+                                        <span class="mcp-status-dot"></span>
+                                        <div>
+                                            <div class="mcp-status-name">
+                                                <span x-text="server.name"></span>
+                                                <span class="mcp-status-scope" x-text="server.scope || 'global'"></span>
+                                            </div>
+                                            <div class="mcp-status-meta">
+                                                <span x-text="$store.mcpServersStore.statusLabel(server)"></span>
+                                                <span x-show="server.type" x-text="server.type"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mcp-status-actions">
+                                        <button type="button" class="button" x-show="server.tool_count > 0"
+                                            @click="$store.mcpServersStore.onToolCountClick(server.name)"
+                                            x-text="server.tool_count + ' tools'"></button>
+                                        <button type="button" class="button" x-show="server.has_log"
+                                            @click="$store.mcpServersStore.getServerLog(server.name)">Log</button>
+                                    </div>
+                                    <div class="mcp-status-error" x-show="server.error" x-text="server.error"></div>
+                                </article>
+                            </template>
+
+                            <div x-show="$store.mcpServersStore.servers.length === 0" class="mcp-empty">
+                                No servers.
+                            </div>
+                            <div x-show="$store.mcpServersStore.servers.length > 0 && $store.mcpServersStore.filteredServers.length === 0" class="mcp-empty">
+                                No visible MCP servers match this search.
                             </div>
                         </div>
-                    </template>
-                    <div x-show="$store.mcpServersStore.servers.length === 0" class="mcp-servers-loading">
-                        No servers
-                    </div>
-                </div>
+                    </section>
 
-                <div x-show="$store.mcpServersStore.loading" class="mcp-servers-loading">
-                    Loading servers status...
-                </div>
+                    <section class="mcp-add-panel" id="mcp-add-server">
+                        <div class="mcp-add-header">
+                            <h3>Add MCP server</h3>
+                            <button type="button" class="mcp-icon-button" title="Clear form" @click="$store.mcpServersStore.resetForm()">
+                                <span class="material-symbols-outlined" aria-hidden="true">backspace</span>
+                            </button>
+                        </div>
+
+                        <div class="mcp-segmented" role="tablist" aria-label="MCP server type">
+                            <button type="button" :class="{ active: $store.mcpServersStore.serverForm.mode === 'local' }"
+                                @click="$store.mcpServersStore.setFormMode('local')">Command (uvx/npx)</button>
+                            <button type="button" :class="{ active: $store.mcpServersStore.serverForm.mode === 'remote' }"
+                                @click="$store.mcpServersStore.setFormMode('remote')">Remote URL</button>
+                        </div>
+
+                        <div class="mcp-form-grid">
+                            <label class="mcp-field">
+                                <span>Name</span>
+                                <input type="text" x-model="$store.mcpServersStore.serverForm.name" placeholder="github" />
+                            </label>
+
+                            <label class="mcp-field" x-show="$store.mcpServersStore.serverForm.mode === 'remote'">
+                                <span>Remote MCP server URL</span>
+                                <input type="url" x-model="$store.mcpServersStore.serverForm.url" placeholder="https://example.com/mcp" />
+                            </label>
+
+                            <label class="mcp-field" x-show="$store.mcpServersStore.serverForm.mode === 'local'" style="display: none;">
+                                <span>Command line</span>
+                                <input type="text" x-model="$store.mcpServersStore.serverForm.command" placeholder="npx -y @modelcontextprotocol/server-filesystem" />
+                            </label>
+
+                            <label class="mcp-field" x-show="$store.mcpServersStore.serverForm.mode === 'remote'">
+                                <span>Transport</span>
+                                <select x-model="$store.mcpServersStore.serverForm.type">
+                                    <option value="streamable-http">Streamable HTTP</option>
+                                    <option value="sse">SSE</option>
+                                </select>
+                            </label>
+
+                            <label class="mcp-field" x-show="$store.mcpServersStore.serverForm.mode === 'local'" style="display: none;">
+                                <span>Arguments</span>
+                                <textarea x-model="$store.mcpServersStore.serverForm.argsText" rows="4" placeholder="--yes&#10;@modelcontextprotocol/server-filesystem"></textarea>
+                            </label>
+
+                            <label class="mcp-field" x-show="$store.mcpServersStore.serverForm.mode === 'remote'">
+                                <span>Headers</span>
+                                <textarea x-model="$store.mcpServersStore.serverForm.headersText" rows="4" placeholder="Authorization=Bearer ..."></textarea>
+                            </label>
+
+                            <label class="mcp-field" x-show="$store.mcpServersStore.serverForm.mode === 'local'" style="display: none;">
+                                <span>Environment</span>
+                                <textarea x-model="$store.mcpServersStore.serverForm.envText" rows="4" placeholder="TOKEN=..."></textarea>
+                            </label>
+                        </div>
+
+                        <button type="button" class="mcp-advanced-toggle" @click="$store.mcpServersStore.advancedOpen = !$store.mcpServersStore.advancedOpen">
+                            <span class="material-symbols-outlined" :style="$store.mcpServersStore.advancedOpen ? 'transform:rotate(90deg)' : ''">chevron_right</span>
+                            <span>Advanced settings</span>
+                        </button>
+
+                        <div class="mcp-advanced-body" x-show="$store.mcpServersStore.advancedOpen" x-transition.opacity style="display: none;">
+                            <div class="mcp-form-grid">
+                                <label class="mcp-field mcp-field-wide">
+                                    <span>Description</span>
+                                    <input type="text" x-model="$store.mcpServersStore.serverForm.description" placeholder="Optional" />
+                                </label>
+
+                                <label class="mcp-field">
+                                    <span>Startup timeout</span>
+                                    <input type="number" min="0" x-model="$store.mcpServersStore.serverForm.init_timeout" />
+                                </label>
+
+                                <label class="mcp-field">
+                                    <span>Tool timeout</span>
+                                    <input type="number" min="0" x-model="$store.mcpServersStore.serverForm.tool_timeout" />
+                                </label>
+                            </div>
+
+                            <div class="mcp-toggle-row">
+                                <label>
+                                    <input type="checkbox" x-model="$store.mcpServersStore.serverForm.disabled" />
+                                    <span>Disabled</span>
+                                </label>
+                                <label x-show="$store.mcpServersStore.serverForm.mode === 'remote'">
+                                    <input type="checkbox" x-model="$store.mcpServersStore.serverForm.verify" />
+                                    <span>Verify SSL</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mcp-add-actions">
+                            <button type="button" class="button" @click="$store.mcpServersStore.openScanModal()">
+                                <span class="material-symbols-outlined" aria-hidden="true">radar</span>
+                                <span>Scan with Agent Zero</span>
+                            </button>
+                            <button type="button" class="button confirm" @click="$store.mcpServersStore.addServerFromForm()">
+                                <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+                                <span>Add to config</span>
+                            </button>
+                        </div>
+                    </section>
+                </section>
+
+                <section x-show="$store.mcpServersStore.activeView === 'raw'" class="mcp-raw-panel" style="display: none;">
+                    <div class="mcp-raw-toolbar">
+                        <h3>MCP Servers Configuration JSON</h3>
+                        <div class="mcp-raw-actions">
+                            <button type="button" class="button" onclick="openModal('settings/mcp/client/example.html')">Examples</button>
+                            <button type="button" class="button" @click="$store.mcpServersStore.formatJson()">
+                                <span class="material-symbols-outlined" aria-hidden="true">format_indent_increase</span>
+                                <span>Reformat</span>
+                            </button>
+                            <button type="button" class="button" title="Refresh status" @click="$store.mcpServersStore.loadStatus()">
+                                <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+                            </button>
+                            <button type="button" class="button confirm" :disabled="$store.mcpServersStore.applying" @click="$store.mcpServersStore.applyNow()">
+                                <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                                <span x-text="$store.mcpServersStore.applying ? 'Applying' : 'Apply'"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="mcp-servers-config-json"></div>
+                </section>
             </div>
         </template>
     </div>
 
     <style>
-
-    .modal-inner .modal-scroll {
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    .modal-inner .modal-scroll::-webkit-scrollbar {
-        display: none;
-    }
-
-    .mcp-servers-loading {
-        width: 100%;
-        text-align: center;
-        margin-top: 2rem;
-        margin-bottom: 2rem;
-    }
-        #mcp-servers-config-json {
-            width: 100%;
-            height: 40em;
-        }
-
-        .server-list {
-            margin-top: 0.5em;
-            margin-bottom: 1em;
-        }
-
-        .server-item {
+        .mcp-manager {
             display: flex;
             flex-direction: column;
-            padding: 0.5em 0.7em;
-            margin-bottom: 0.4em;
-            min-height: 2.2em;
-            /* Ensure consistent height even without errors */
-            border: 1px solid rgba(192, 192, 192, 0.161);
-            /* Silver with 30% opacity */
-            border-radius: 4px;
+            gap: 1rem;
+            color: var(--color-text);
+            font-family: var(--font-family-main);
         }
 
-        .server-list {
-            margin-top: 0.5em;
-            margin-bottom: 1em;
+        .mcp-manager button,
+        .mcp-manager input,
+        .mcp-manager textarea,
+        .mcp-manager select {
+            font-family: inherit;
+        }
+
+        .mcp-manager-header,
+        .mcp-add-header,
+        .mcp-section-title,
+        .mcp-raw-toolbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .mcp-manager-heading {
             display: flex;
             flex-direction: column;
-            gap: 0.2em;
+            gap: 0.55rem;
+            min-width: 0;
         }
 
-        .server-main-row {
+        .mcp-manager-title-row {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 0.8em;
-            width: 100%;
+            gap: 0.5rem;
         }
 
-        .status-dot {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .mcp-manager h2,
+        .mcp-manager h3,
+        .mcp-manager p {
+            margin: 0;
         }
 
-        .server-name {
-            font-weight: 600;
-            min-width: 12em;
-        }
-
-        .tool-count {
-            color: var(--c-fg2);
-            font-size: 0.9em;
-            user-select: none;
-        }
-
-        .tool-count {
-            cursor: default;
-        }
-
-        .tool-count:hover {
-            opacity: 0.8;
-            cursor: pointer;
-        }
-
-        .config-status {
-            color: #e40138;
-            font-size: 0.85em;
-            opacity: 0.8;
-        }
-
-        .log-btn {
-            margin-left: auto;
-            font-size: 0.9em;
-            cursor: pointer;
-            text-decoration: none;
-            opacity: 0.85;
-        }
-
-        .log-btn:hover {
-            opacity: 1;
-        }
-
-        .server-error-row {
-            margin-left: 1.8em;
-            margin-top: 0.1em;
-            font-size: 0.8em;
-            color: #F44336;
-            opacity: 0.85;
+        .mcp-manager h2 {
+            font-size: 1.35rem;
             line-height: 1.2;
         }
 
-        .no-servers {
-            padding: 0.5em;
-            color: var(--c-fg2);
-            font-style: italic;
+        .mcp-manager h3 {
+            font-size: 1rem;
+            line-height: 1.2;
+        }
+
+        .mcp-manager p,
+        .mcp-config-summary,
+        .mcp-status-meta,
+        .mcp-empty {
+            color: var(--color-text-muted);
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .mcp-scope-pill,
+        .mcp-status-scope,
+        .mcp-config-mode,
+        .mcp-section-title > span {
+            display: inline-flex;
+            align-items: center;
+            min-height: 1.45rem;
+            padding: 0.15rem 0.45rem;
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            color: var(--color-text-muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .mcp-manager-actions,
+        .mcp-add-actions,
+        .mcp-config-actions,
+        .mcp-status-actions,
+        .mcp-toggle-row,
+        .mcp-raw-actions,
+        .mcp-raw-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mcp-manager .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            min-height: 2rem;
+            padding: 0.35rem 0.65rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            cursor: pointer;
+        }
+
+        .mcp-manager .button.confirm {
+            border-color: color-mix(in srgb, var(--color-highlight) 65%, var(--color-border));
+            background: var(--color-highlight);
+            color: #fff;
+        }
+
+        .mcp-manager .button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .mcp-manager .material-symbols-outlined {
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .mcp-add-panel,
+        .mcp-config-card,
+        .mcp-status-row,
+        .mcp-scan-result,
+        .mcp-empty {
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+        }
+
+        .mcp-add-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            padding: 1rem;
+        }
+
+        .mcp-segmented,
+        .mcp-view-tabs {
+            display: inline-flex;
+            width: fit-content;
+            padding: 0.18rem;
+            border: 1px solid var(--color-border);
+            border-radius: 7px;
+            background: var(--color-input);
+        }
+
+        .mcp-view-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .mcp-segmented button,
+        .mcp-view-tabs button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            min-height: 1.9rem;
+            padding: 0.3rem 0.65rem;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: var(--color-text-muted);
+            cursor: pointer;
+        }
+
+        .mcp-segmented button.active,
+        .mcp-view-tabs button.active {
+            background: var(--color-panel);
+            color: var(--color-text);
+        }
+
+        .mcp-search {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            min-height: 2.1rem;
+            min-width: min(22rem, 100%);
+            padding: 0.25rem 0.45rem;
+            border: 1px solid var(--color-border);
+            border-radius: 7px;
+            background: var(--color-input);
+            color: var(--color-text-muted);
+        }
+
+        .mcp-search input {
+            width: 100%;
+            min-width: 8rem;
+            border: 0;
+            background: transparent;
+            color: var(--color-text);
+            outline: none;
+            padding: 0.2rem;
+        }
+
+        .mcp-search input::-webkit-search-cancel-button,
+        .mcp-search input::-webkit-search-decoration {
+            -webkit-appearance: none;
+            appearance: none;
+            display: none;
+        }
+
+        .mcp-search-clear {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.45rem;
+            height: 1.45rem;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: var(--color-text-muted);
+            cursor: pointer;
+        }
+
+        .mcp-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .mcp-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            min-width: 0;
+        }
+
+        .mcp-field-wide {
+            grid-column: 1 / -1;
+        }
+
+        .mcp-field span {
+            color: var(--color-text-muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .mcp-field input,
+        .mcp-field textarea,
+        .mcp-field select {
+            width: 100%;
+            border: 1px solid var(--color-border);
+            border-radius: 7px;
+            background: var(--color-input);
+            color: var(--color-text);
+            padding: 0.55rem 0.65rem;
+            font-size: 0.88rem;
+            outline: none;
+        }
+
+        .mcp-field textarea {
+            resize: vertical;
+            min-height: 5.5rem;
+            font-family: var(--font-family-code);
+            font-size: 0.8rem;
+        }
+
+        .mcp-field input:focus,
+        .mcp-field textarea:focus,
+        .mcp-field select:focus {
+            border-color: var(--color-highlight);
+        }
+
+        .mcp-advanced-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            width: fit-content;
+            padding: 0.2rem 0;
+            border: 0;
+            background: transparent;
+            color: var(--color-text);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .mcp-advanced-toggle .material-symbols-outlined {
+            transition: transform 0.12s ease;
+        }
+
+        .mcp-advanced-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .mcp-toggle-row label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--color-text-muted);
+            font-size: 0.85rem;
+        }
+
+        .mcp-scan-result {
+            padding: 0.75rem;
+        }
+
+        .mcp-scan-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 700;
+        }
+
+        .mcp-scan-warnings {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-top: 0.65rem;
+        }
+
+        .mcp-scan-warning {
+            display: flex;
+            flex-direction: column;
+            gap: 0.12rem;
+            padding: 0.55rem 0.65rem;
+            border-left: 3px solid var(--color-border);
+            background: var(--color-input);
+            border-radius: 5px;
+            font-size: 0.82rem;
+        }
+
+        .mcp-scan-warning.warning {
+            border-left-color: var(--color-warning-text);
+        }
+
+        .mcp-scan-warning.error {
+            border-left-color: var(--color-error-text);
+        }
+
+        .mcp-visual-panel,
+        .mcp-config-list,
+        .mcp-status-section,
+        .mcp-raw-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+
+        .mcp-config-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.75rem;
+        }
+
+        .mcp-config-card.disabled {
+            opacity: 0.62;
+        }
+
+        .mcp-config-card-main {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .mcp-config-name,
+        .mcp-status-name {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            min-width: 0;
+            font-weight: 700;
+        }
+
+        .mcp-config-summary {
+            margin-top: 0.2rem;
+            overflow-wrap: anywhere;
+        }
+
+        .mcp-toggle-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 5.2rem;
+        }
+
+        .mcp-status-toggle {
+            width: 48px;
+            height: 28px;
+            flex: 0 0 48px;
+        }
+
+        .mcp-status-toggle .toggler {
+            border-radius: 999px;
+        }
+
+        .mcp-status-toggle .toggler:before {
+            width: 20px;
+            height: 20px;
+            left: 4px;
+            bottom: 4px;
+        }
+
+        .mcp-status-toggle input:checked + .toggler:before {
+            transform: translateX(20px);
+        }
+
+        .mcp-toggle-group .plugin-status-text {
+            color: var(--color-text-muted);
+            font-size: 0.76rem;
+            font-weight: 700;
+            min-width: 1.7rem;
+        }
+
+        .mcp-icon-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            cursor: pointer;
+        }
+
+        .mcp-icon-button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .mcp-raw-toolbar {
+            align-items: center;
+        }
+
+        .mcp-raw-actions {
+            justify-content: flex-end;
+        }
+
+        #mcp-servers-config-json {
+            width: 100%;
+            height: 28rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .mcp-status-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .mcp-status-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.6rem 1rem;
+            padding: 0.75rem;
+        }
+
+        .mcp-status-main {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            min-width: 0;
+        }
+
+        .mcp-status-dot {
+            width: 0.72rem;
+            height: 0.72rem;
+            border-radius: 50%;
+            border: 2px solid var(--color-border);
+            flex-shrink: 0;
+        }
+
+        .mcp-status-row.ok .mcp-status-dot {
+            border-color: #22c55e;
+            background: #22c55e;
+        }
+
+        .mcp-status-row.idle .mcp-status-dot {
+            border-color: var(--color-warning-text);
+        }
+
+        .mcp-status-row.danger .mcp-status-dot {
+            border-color: var(--color-error-text);
+            background: var(--color-error-text);
+        }
+
+        .mcp-status-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.7rem;
+            margin-top: 0.18rem;
+        }
+
+        .mcp-status-error {
+            grid-column: 1 / -1;
+            color: var(--color-error-text);
+            font-size: 0.8rem;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .mcp-empty {
+            padding: 0.9rem;
+            text-align: center;
+        }
+
+        @media (max-width: 760px) {
+            .mcp-manager-header,
+            .mcp-config-card,
+            .mcp-status-row {
+                align-items: stretch;
+                grid-template-columns: 1fr;
+                flex-direction: column;
+            }
+
+            .mcp-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .mcp-manager-actions,
+            .mcp-raw-actions,
+            .mcp-status-actions {
+                justify-content: flex-start;
+            }
+
+            .mcp-view-tabs {
+                width: 100%;
+            }
+
+            .mcp-view-tabs button {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .mcp-view-controls,
+            .mcp-search {
+                width: 100%;
+            }
         }
     </style>
 

@@ -1,0 +1,58 @@
+<html>
+  <head>
+    <title>Locale</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settings.settings">
+        <div>
+          <div class="section-title">Locale</div>
+          <div class="section-description">
+            Control how dates and times appear across Agent Zero.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Timezone</div>
+              <div class="field-description">
+                Effective timezone: <span x-text="$store.settings.effectiveTimezone"></span>
+              </div>
+            </div>
+            <div class="field-control">
+              <select
+                :value="$store.settings.settings.timezone || 'auto'"
+                @change="$store.settings.settings.timezone = $event.target.value"
+                x-effect="$nextTick(() => { $el.value = $store.settings.settings.timezone || 'auto'; })"
+              >
+                <option value="auto">Automatic (browser)</option>
+                <template x-for="option in $store.settings.additional?.timezones || []" :key="option.value">
+                  <option :value="option.value" x-text="option.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Time format</div>
+              <div class="field-description">
+                Choose the clock style used for displayed times.
+              </div>
+            </div>
+            <div class="field-control">
+              <select
+                :value="$store.settings.settings.time_format || '12h'"
+                @change="$store.settings.settings.time_format = $event.target.value"
+                x-effect="$nextTick(() => { $el.value = $store.settings.settings.time_format || '12h'; })"
+              >
+                <option value="12h">12-hour (AM/PM)</option>
+                <option value="24h">24-hour</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { createActionButton, copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { formatDateTime } from "/js/time-utils.js";
 
 // Step Detail Store - manages the step detail modal
 
@@ -62,7 +63,7 @@ const model = {
     if (heading) lines.push(`Heading: ${heading}`);
     if (step.timestamp) {
       const date = new Date(parseFloat(step.timestamp) * 1000);
-      lines.push(`Timestamp: ${date.toISOString()}`);
+      lines.push(`Timestamp: ${formatDateTime(date.toISOString(), "full")}`);
     }
     if (step.durationMs) lines.push(`Duration: ${step.durationMs}ms`);
     if (step.kvps) {

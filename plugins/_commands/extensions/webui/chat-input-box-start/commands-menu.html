@@ -1,0 +1,192 @@
+<html>
+<head>
+    <script type="module">
+        import { store } from "/plugins/_commands/webui/commands-slash-store.js";
+    </script>
+</head>
+<body>
+    <div x-data>
+        <template x-if="$store.commandsSlash">
+            <div class="commands-slash-menu-root" x-create="$store.commandsSlash.onMount()" x-destroy="$store.commandsSlash.cleanup()">
+                <div class="commands-slash-menu" x-show="$store.commandsSlash.menuVisible" x-transition.opacity.duration.120ms>
+                    <template x-if="$store.commandsSlash.loading">
+                        <div class="commands-slash-loading">
+                            <span class="material-symbols-outlined spinning">progress_activity</span>
+                            <span>Loading slash commands...</span>
+                        </div>
+                    </template>
+
+                    <template x-if="!$store.commandsSlash.loading && $store.commandsSlash.filteredCommands.length > 0">
+                        <div class="commands-slash-results">
+                            <template x-for="(command, index) in $store.commandsSlash.filteredCommands" :key="command.path">
+                                <button type="button"
+                                        class="commands-slash-item"
+                                        :class="{ active: index === $store.commandsSlash.selectedIndex }"
+                                        @mouseenter="$store.commandsSlash.selectedIndex = index"
+                                        @mousedown.prevent
+                                        @click.prevent="$store.commandsSlash.applySelection(command)">
+                                    <div class="commands-slash-item-header">
+                                        <div class="commands-slash-item-name">
+                                            <span class="commands-slash-prefix">/</span><span x-text="command.name"></span>
+                                        </div>
+                                        <span class="commands-slash-scope" x-text="command.source_scope_label"></span>
+                                    </div>
+                                    <div class="commands-slash-item-description" x-text="command.description"></div>
+                                    <template x-if="command.argument_hint">
+                                        <div class="commands-slash-item-hint" x-text="command.argument_hint"></div>
+                                    </template>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!$store.commandsSlash.loading && $store.commandsSlash.filteredCommands.length === 0">
+                        <div class="commands-slash-empty">
+                            <div class="commands-slash-empty-copy">
+                                No matching slash commands.
+                            </div>
+                            <button type="button"
+                                    class="commands-slash-create"
+                                    @mousedown.prevent
+                                    @click.prevent="$store.commandsSlash.openCreateCommand()">
+                                <span class="material-symbols-outlined">add</span>
+                                <span x-text="$store.commandsSlash.emptyStateLabel"></span>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .commands-slash-menu-root {
+            position: relative;
+            z-index: 30;
+        }
+
+        .commands-slash-menu {
+            margin-bottom: 0.55rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-panel) 96%, var(--color-background));
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.14);
+            overflow: hidden;
+        }
+
+        .commands-slash-results {
+            max-height: 18rem;
+            overflow-y: auto;
+        }
+
+        .commands-slash-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.32rem;
+            width: 100%;
+            padding: var(--spacing-sm) 0.8rem;
+            border: 0;
+            border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+            background: transparent;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .commands-slash-item:last-child {
+            border-bottom: 0;
+        }
+
+        .commands-slash-item.active,
+        .commands-slash-item:hover {
+            background: color-mix(in srgb, var(--color-highlight) 10%, transparent);
+        }
+
+        .commands-slash-item-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .commands-slash-item-name {
+            font-weight: 600;
+        }
+
+        .commands-slash-prefix {
+            color: var(--color-highlight);
+        }
+
+        .commands-slash-scope {
+            padding: 0.18rem 0.45rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--color-highlight) 12%, transparent);
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .commands-slash-item-description {
+            color: var(--color-text-secondary);
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .commands-slash-item-hint {
+            color: var(--color-text-secondary);
+            font-family: "Roboto Mono", monospace;
+            font-size: 0.77rem;
+            opacity: 0.85;
+        }
+
+        .commands-slash-empty,
+        .commands-slash-loading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.9rem 1rem;
+        }
+
+        .commands-slash-empty-copy,
+        .commands-slash-loading {
+            color: var(--color-text-secondary);
+        }
+
+        .commands-slash-create {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--color-text);
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .spinning {
+            animation: commands-slash-spin 1s linear infinite;
+        }
+
+        @keyframes commands-slash-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 640px) {
+            .commands-slash-empty,
+            .commands-slash-loading {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .commands-slash-create {
+                justify-content: center;
+            }
+        }
+    </style>
+</body>
+</html>

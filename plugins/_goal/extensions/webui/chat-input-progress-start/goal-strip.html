@@ -1,0 +1,207 @@
+<script type="module">
+  import { store } from "/plugins/_goal/webui/goal-store.js";
+</script>
+
+<div x-data
+     class="goal-strip-root"
+     x-create="$store.goalBar.onMount()"
+     x-init="$watch('$store.chats.selected', () => $store.goalBar.refresh(true))"
+     x-destroy="$store.goalBar.cleanup()">
+  <template x-if="$store.goalBar && $store.goalBar.visible">
+    <div class="goal-strip" :class="`is-${$store.goalBar.goal?.status || 'active'}`">
+      <span class="material-symbols-outlined goal-strip-icon" x-text="$store.goalBar.statusIcon" aria-hidden="true"></span>
+
+      <template x-if="!$store.goalBar.editing">
+        <div class="goal-strip-copy">
+          <span class="goal-strip-status" x-text="$store.goalBar.statusLabel"></span>
+          <span class="goal-strip-objective" x-text="$store.goalBar.goal?.objective || ''"></span>
+          <span class="goal-strip-time" x-text="`• ${$store.goalBar.elapsedLabel}`"></span>
+        </div>
+      </template>
+
+      <template x-if="$store.goalBar.editing">
+        <div class="goal-strip-edit">
+          <input class="goal-strip-input"
+                 type="text"
+                 x-model="$store.goalBar.draft"
+                 @keydown.enter.prevent="$store.goalBar.saveEdit()"
+                 @keydown.escape.prevent="$store.goalBar.cancelEdit()"
+                 aria-label="Goal objective" />
+          <button type="button" class="goal-strip-action" title="Save goal" @click="$store.goalBar.saveEdit()" :disabled="$store.goalBar.saving">
+            <span class="material-symbols-outlined" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="goal-strip-action" title="Cancel" @click="$store.goalBar.cancelEdit()" :disabled="$store.goalBar.saving">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </div>
+      </template>
+
+      <div class="goal-strip-actions" x-show="!$store.goalBar.editing">
+        <button type="button" class="goal-strip-action" title="Edit goal" @click="$store.goalBar.startEdit()" :disabled="$store.goalBar.saving">
+          <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+        </button>
+        <button type="button" class="goal-strip-action"
+                :title="$store.goalBar.goal?.status === 'active' ? 'Pause goal' : 'Resume goal'"
+                @click="$store.goalBar.pauseOrResume()"
+                :disabled="$store.goalBar.saving">
+          <span class="material-symbols-outlined" aria-hidden="true" x-text="$store.goalBar.goal?.status === 'active' ? 'pause_circle' : 'play_circle'"></span>
+        </button>
+        <button type="button" class="goal-strip-action" title="Delete goal" @click="$confirmClick($event, () => $store.goalBar.deleteGoal())" :disabled="$store.goalBar.saving">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+        </button>
+      </div>
+    </div>
+  </template>
+</div>
+
+<style>
+  #progress-bar-box.has-goal-bar {
+    flex-wrap: wrap;
+    row-gap: var(--spacing-xs);
+  }
+
+  #progress-bar-box.has-goal-bar .goal-strip-root {
+    flex: 0 0 100%;
+    min-width: 0;
+    display: flex;
+    width: 100%;
+  }
+
+  .goal-strip {
+    width: 100%;
+    min-height: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.18rem var(--spacing-sm);
+    color: var(--color-text);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .goal-strip-icon {
+    flex: 0 0 auto;
+    font-size: 1rem;
+    opacity: 0.75;
+  }
+
+  .goal-strip-copy {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .goal-strip-status {
+    flex: 0 0 auto;
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+
+  .goal-strip-objective {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: color-mix(in srgb, var(--color-text) 64%, transparent);
+    font-size: 0.76rem;
+  }
+
+  .goal-strip-time {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--color-text) 44%, transparent);
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+
+  .goal-strip-actions,
+  .goal-strip-edit {
+    display: flex;
+    align-items: center;
+    gap: 0.18rem;
+    min-width: 0;
+  }
+
+  .goal-strip-edit {
+    flex: 1 1 auto;
+  }
+
+  .goal-strip-input {
+    flex: 1 1 auto;
+    min-width: 8rem;
+    height: 1.55rem;
+    padding: 0 0.35rem;
+    border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-background) 80%, transparent);
+    color: var(--color-text);
+    font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
+    font-size: 0.76rem;
+    outline: none;
+  }
+
+  .goal-strip-input:focus {
+    border-color: color-mix(in srgb, var(--color-text) 28%, var(--color-border));
+  }
+
+  .goal-strip-action {
+    width: 1.55rem;
+    height: 1.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text);
+    opacity: 0.68;
+    cursor: pointer;
+  }
+
+  .goal-strip-action:hover:not(:disabled) {
+    opacity: 1;
+    background: color-mix(in srgb, var(--color-border) 34%, transparent);
+  }
+
+  .goal-strip-action.confirming:not(:disabled) {
+    opacity: 1;
+    color: var(--color-warning, var(--color-text));
+    background: color-mix(in srgb, var(--color-warning, var(--color-text)) 16%, transparent);
+  }
+
+  .goal-strip-action:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .goal-strip-action .material-symbols-outlined {
+    font-size: 1rem;
+  }
+
+  .goal-strip.is-paused .goal-strip-icon,
+  .goal-strip.is-blocked .goal-strip-icon {
+    color: var(--color-warning, var(--color-text));
+  }
+
+  .goal-strip.is-complete .goal-strip-icon {
+    color: var(--color-success, var(--color-text));
+  }
+
+  @media (max-width: 768px) {
+    .goal-strip {
+      width: 100%;
+    }
+
+    .goal-strip-status,
+    .goal-strip-objective,
+    .goal-strip-time,
+    .goal-strip-input {
+      font-size: 0.72rem;
+    }
+  }
+</style>

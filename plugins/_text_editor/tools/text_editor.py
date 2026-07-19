@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from helpers.tool import Tool, Response
 from helpers.extension import call_extensions_async
 from helpers import plugins, runtime
@@ -147,7 +149,11 @@ class TextEditor(Tool):
             total_lines=str(result["total_lines"]),
             content=read_result["content"],
         )
-        return Response(message=msg, break_loop=False)
+        return Response(
+            message=msg,
+            break_loop=False,
+            additional=_result_additional("write", info, kwargs, agent=self.agent),
+        )
 
     # ------------------------------------------------------------------
     # PATCH
@@ -175,11 +181,11 @@ class TextEditor(Tool):
 
         if patch_request and patch_request.mode == "patch_text":
             return await self._patch_context(
-                path, expanded, patch_request.patch_text
+                path, expanded, patch_request.patch_text, kwargs
             )
         if patch_request and patch_request.mode == "replace":
             return await self._patch_replace(
-                path, expanded, patch_request.old_text, patch_request.new_text
+                path, expanded, patch_request.old_text, patch_request.new_text, kwargs
             )
 
         return await self._patch_edits(
@@ -187,10 +193,11 @@ class TextEditor(Tool):
             expanded,
             info,
             patch_request.edits if patch_request else edits,
+            kwargs,
         )
 
     async def _patch_edits(
-        self, path: str, expanded: str, info: FileInfo, edits
+        self, path: str, expanded: str, info: FileInfo, edits, options: dict | None = None
     ) -> Response:
         freshness_code = check_patch_freshness(self.agent, info, key=_MTIME_KEY)
         if freshness_code:
@@ -246,10 +253,14 @@ class TextEditor(Tool):
             total_lines=str(total_lines),
             content=patch_content,
         )
-        return Response(message=msg, break_loop=False)
+        return Response(
+            message=msg,
+            break_loop=False,
+            additional=_result_additional("patch", post_info, options, agent=self.agent),
+        )
 
     async def _patch_replace(
-        self, path: str, expanded: str, old_text: str, new_text: str
+        self, path: str, expanded: str, old_text: str, new_text: str, options: dict | None = None
     ) -> Response:
         # Extension point
         ext_data = {
@@ -301,10 +312,14 @@ class TextEditor(Tool):
             total_lines=str(total_lines),
             content=patch_content,
         )
-        return Response(message=msg, break_loop=False)
+        return Response(
+            message=msg,
+            break_loop=False,
+            additional=_result_additional("patch", post_info, options, agent=self.agent),
+        )
 
     async def _patch_context(
-        self, path: str, expanded: str, patch_text
+        self, path: str, expanded: str, patch_text, options: dict | None = None
     ) -> Response:
         patch_text = str(patch_text)
         if not patch_text.strip():
@@ -359,7 +374,11 @@ class TextEditor(Tool):
             total_lines=str(total_lines),
             content=patch_content,
         )
-        return Response(message=msg, break_loop=False)
+        return Response(
+            message=msg,
+            break_loop=False,
+            additional=_result_additional("patch", post_info, options, agent=self.agent),
+        )
 
     # ------------------------------------------------------------------
     # Shared error helper
@@ -454,6 +473,40 @@ def _freshness_error_message(agent, info: FileInfo, code: str) -> str:
         else "fw.text_editor.patch_need_read.md"
     )
     return agent.read_prompt(prompt, path=info["expanded"])
+
+
+def _result_additional(action: str, info: FileInfo, options: dict | None = None, agent=None) -> dict:
+    path = str(info.get("expanded") or "")
+    extension = Path(path).suffix.lower().lstrip(".")
+    options = options or {}
+    open_in_canvas = _truthy(
+        options.get("open_in_canvas")
+        or options.get("open_canvas")
+        or options.get("open_document")
+    )
+    additional = {
+        "_tool_name": "text_editor",
+        "action": action,
+        "path": path,
+        "format": extension,
+        "extension": extension,
+        "open_in_canvas": open_in_canvas,
+    }
+    context_id = str(getattr(getattr(agent, "context", None), "id", "") or "").strip()
+    if context_id:
+        additional["context_id"] = context_id
+        additional["ctxid"] = context_id
+    return additional
+
+
+def _truthy(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 # ------------------------------------------------------------------
 # Config

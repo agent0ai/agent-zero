@@ -1,0 +1,8 @@
+name: _orchestrator
+title: Orchestrator
+description: Load-on-demand skill and status UI for external headless terminal coding agents such as Agent Zero, Codex, Claude Code, Cursor CLI, Gemini CLI, Grok Build, Hermes Agent, and OpenCode.
+version: 0.2.0
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false

@@ -24,7 +24,7 @@ class UnsecuredConnectionCheck(Extension):
                 "priority": 80,
                 "title": "Unsecured Connection",
                 "html": """You are accessing Agent Zero from a non-local address without authentication. 
-                         <a href="#" onclick="document.getElementById('settings').click(); return false;">
+                         <a href="#section-auth" data-banner-action="open-modal:settings/settings.html#section-auth">
                          Configure credentials</a> in Settings → External Services → Authentication.""",
                 "dismissible": True,
                 "source": "backend"

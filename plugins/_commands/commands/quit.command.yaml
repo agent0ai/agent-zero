@@ -1,0 +1,4 @@
+name: quit
+description: Disconnect and exit the CLI.
+type: script
+script_path: connector_commands.py

@@ -1,0 +1,1072 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/plugins/_editor/webui/editor-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.editor">
+      <div class="editor-panel" x-create="$store.editor.onMount($el, xAttrs($el) || {})" x-destroy="$store.editor.cleanup()">
+        <div class="editor-shell" @keydown.capture="$store.editor.handleEditorKeydown($event)">
+          <div class="editor-tabs" x-show="$store.editor.visibleTabs().length > 0" style="display: none;" role="tablist" aria-label="Open text files">
+            <template x-for="tab in $store.editor.visibleTabs()" :key="tab.tab_id">
+              <div
+                class="editor-tab-shell"
+                :class="{ 'is-active': $store.editor.isActiveTab(tab), 'is-dirty': $store.editor.isTabDirty(tab), 'is-pending-close': $store.editor.pendingClose?.tabId === tab.tab_id }"
+              >
+                <button
+                  type="button"
+                  class="editor-tab"
+                  role="tab"
+                  :aria-selected="$store.editor.isActiveTab(tab).toString()"
+                  :title="$store.editor.tabLabel(tab)"
+                  @click="$store.editor.selectTab(tab.tab_id)"
+                >
+                  <span class="material-symbols-outlined editor-tab-icon" aria-hidden="true" x-text="$store.editor.tabIcon(tab)"></span>
+                  <span class="editor-tab-title" x-text="$store.editor.tabTitle(tab)"></span>
+                </button>
+                <button
+                  type="button"
+                  class="editor-tab-close"
+                  title="Close file"
+                  aria-label="Close file"
+                  @pointerdown.stop
+                  @click.stop="$store.editor.closeTab(tab.tab_id)"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+              </div>
+            </template>
+            <button
+              type="button"
+              class="editor-new-tab"
+              title="New Markdown"
+              aria-label="New Markdown"
+              :disabled="$store.editor.loading || $store.editor.saving"
+              @click="$store.editor.runNewMenuAction('markdown')"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            </button>
+          </div>
+
+          <div class="editor-close-confirm" x-show="$store.editor.hasPendingClose()" style="display: none;" role="status">
+            <span class="material-symbols-outlined editor-close-confirm-icon" aria-hidden="true">warning</span>
+            <div class="editor-close-confirm-copy">
+              <span class="editor-close-confirm-title" x-text="$store.editor.pendingCloseTitle()"></span>
+              <span class="editor-close-confirm-message" x-text="$store.editor.pendingCloseMessage()"></span>
+            </div>
+            <div class="editor-close-confirm-actions">
+              <button
+                type="button"
+                class="editor-text-button is-primary"
+                x-show="$store.editor.pendingCloseHasDirty()"
+                :disabled="$store.editor.saving"
+                @click="$store.editor.confirmPendingClose({ save: true })"
+              >
+                Save &amp; Close
+              </button>
+              <button
+                type="button"
+                class="editor-text-button"
+                :disabled="$store.editor.saving"
+                @click="$store.editor.confirmPendingClose({ save: false })"
+                x-text="$store.editor.pendingCloseDiscardLabel()"
+              ></button>
+              <button type="button" class="editor-text-button" :disabled="$store.editor.saving" @click="$store.editor.cancelPendingClose()">Cancel</button>
+            </div>
+          </div>
+
+          <div class="editor-toolbar" x-show="$store.editor.session" style="display: none;">
+            <div class="editor-toolbar-row">
+              <button
+                type="button"
+                class="editor-icon-button editor-mode-toggle"
+                x-show="$store.editor.isTextDocument()"
+                style="display: none;"
+                :title="$store.editor.viewModeTitle()"
+                :aria-label="$store.editor.viewModeTitle()"
+                @click="$store.editor.toggleViewMode()"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true" x-text="$store.editor.viewModeIcon()"></span>
+              </button>
+
+              <div class="editor-tool-group editor-history-tools" x-show="$store.editor.isTextDocument()" style="display: none;">
+                <button type="button" class="editor-icon-button" title="Undo" aria-label="Undo" :disabled="$store.editor.previewEditing || !$store.editor.canUndo()" @click="$store.editor.undo()">
+                  <span class="material-symbols-outlined">undo</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="Redo" aria-label="Redo" :disabled="$store.editor.previewEditing || !$store.editor.canRedo()" @click="$store.editor.redo()">
+                  <span class="material-symbols-outlined">redo</span>
+                </button>
+              </div>
+
+              <div class="editor-tool-group editor-source-tools" x-show="$store.editor.isTextDocument() && $store.editor.isSourceMode()" style="display: none;">
+                <button type="button" class="editor-icon-button" title="Bold" aria-label="Bold" @click="$store.editor.format('bold')">
+                  <span class="material-symbols-outlined">format_bold</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="Italic" aria-label="Italic" @click="$store.editor.format('italic')">
+                  <span class="material-symbols-outlined">format_italic</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="List" aria-label="List" @click="$store.editor.format('list')">
+                  <span class="material-symbols-outlined">format_list_bulleted</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="Numbered list" aria-label="Numbered list" @click="$store.editor.format('numbered')">
+                  <span class="material-symbols-outlined">format_list_numbered</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="Table" aria-label="Table" @click="$store.editor.format('table')">
+                  <span class="material-symbols-outlined">table</span>
+                </button>
+              </div>
+              <div class="editor-tool-group editor-preview-tools" x-show="$store.editor.isTextDocument() && $store.editor.isPreviewMode()" style="display: none;">
+                <button type="button" class="editor-icon-button" title="Edit document" aria-label="Edit document" x-show="!$store.editor.previewEditing" @click="$store.editor.startPreviewEdit()">
+                  <span class="material-symbols-outlined">edit_note</span>
+                </button>
+                <button type="button" class="editor-icon-button is-primary" title="Apply document edit" aria-label="Apply document edit" x-show="$store.editor.previewEditing" @click="$store.editor.applyPreviewEdit()">
+                  <span class="material-symbols-outlined">check</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="Cancel document edit" aria-label="Cancel document edit" x-show="$store.editor.previewEditing" @click="$store.editor.cancelPreviewEdit()">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+                <button type="button" class="editor-icon-button" title="Search" aria-label="Search" :disabled="$store.editor.previewEditing" @click="$store.editor.openSearch()">
+                  <span class="material-symbols-outlined">search</span>
+                </button>
+              </div>
+              <span class="editor-toolbar-spacer"></span>
+
+              <button
+                type="button"
+                class="editor-icon-button editor-save-button"
+                :class="{ 'is-primary': $store.editor.dirty || $store.editor.saving }"
+                :title="$store.editor.saving ? 'Saving' : 'Save'"
+                :aria-label="$store.editor.saving ? 'Saving' : 'Save'"
+                :disabled="$store.editor.saving"
+                @click="$store.editor.save()"
+              >
+                <span class="material-symbols-outlined" :class="{ spinning: $store.editor.saving }" x-text="$store.editor.saving ? 'progress_activity' : 'save'"></span>
+              </button>
+
+              <button
+                type="button"
+                class="editor-icon-button editor-save-as-button"
+                title="Save As"
+                aria-label="Save As"
+                :disabled="$store.editor.saving"
+                @click="$store.editor.saveAs()"
+              >
+                <span class="material-symbols-outlined">save_as</span>
+              </button>
+
+              <div class="editor-file-actions" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+                <button
+                  type="button"
+                  class="editor-icon-button editor-file-menu-button"
+                  title="File actions"
+                  aria-label="File actions"
+                  aria-haspopup="menu"
+                  :aria-expanded="open.toString()"
+                  :disabled="$store.editor.saving"
+                  @click.stop="open = !open"
+                >
+                  <span class="material-symbols-outlined">more_vert</span>
+                </button>
+                <div class="editor-new-menu editor-file-menu" role="menu" x-show="open" @click.stop>
+                  <button type="button" class="editor-new-menu-item" role="menuitem" :disabled="$store.editor.saving" @click="open = false; $store.editor.downloadActiveFile()">
+                    <span class="material-symbols-outlined" aria-hidden="true">download</span>
+                    <span>Download</span>
+                  </button>
+                  <button type="button" class="editor-new-menu-item" role="menuitem" :disabled="$store.editor.saving" @click="open = false; $store.editor.renameActiveFile()">
+                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    <span>Rename</span>
+                  </button>
+                  <button type="button" class="editor-new-menu-item" role="menuitem" :disabled="$store.editor.loading" @click="open = false; $store.editor.closeActiveFile()">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                    <span>Close File</span>
+                  </button>
+                  <button type="button" class="editor-new-menu-item" role="menuitem" :disabled="$store.editor.loading || $store.editor.visibleTabs().length === 0" @click="open = false; $store.editor.closeAllFiles()">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                    <span>Close All</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="editor-search-bar" x-show="$store.editor.searchOpen" style="display: none;">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input
+              type="search"
+              data-editor-search
+              aria-label="Search preview"
+              x-model="$store.editor.searchQuery"
+              @input="$store.editor.runSearch()"
+              @keydown.enter.prevent="$event.shiftKey ? $store.editor.previousSearchMatch() : $store.editor.nextSearchMatch()"
+              @keydown.escape.prevent="$store.editor.closeSearch()"
+            />
+            <span class="editor-search-count" x-text="$store.editor.searchCountLabel()"></span>
+            <button type="button" class="editor-icon-button" title="Previous match" aria-label="Previous match" :disabled="$store.editor.searchMatches.length === 0" @click="$store.editor.previousSearchMatch()">
+              <span class="material-symbols-outlined">keyboard_arrow_up</span>
+            </button>
+            <button type="button" class="editor-icon-button" title="Next match" aria-label="Next match" :disabled="$store.editor.searchMatches.length === 0" @click="$store.editor.nextSearchMatch()">
+              <span class="material-symbols-outlined">keyboard_arrow_down</span>
+            </button>
+            <button type="button" class="editor-icon-button" title="Close search" aria-label="Close search" @click="$store.editor.closeSearch()">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          <div class="editor-state-line" x-show="$store.editor.message || $store.editor.error || $store.editor.loading" style="display: none;">
+            <span class="material-symbols-outlined" :class="{ spinning: $store.editor.loading }" x-text="$store.editor.loading ? 'progress_activity' : ($store.editor.error ? 'error' : 'check_circle')"></span>
+            <span x-text="$store.editor.error || $store.editor.message || 'Working'"></span>
+          </div>
+
+          <div class="editor-body">
+            <div class="editor-wrap" x-show="$store.editor.session && $store.editor.isSourceMode()" style="display: none;">
+              <div class="editor-scroll" @click.self="$store.editor.focusEditor()">
+                <div class="editor-ace" data-editor-ace x-show="!$store.editor.aceUnavailable"></div>
+                <textarea
+                  class="editor-source-editor"
+                  data-editor-source
+                  aria-label="Text source"
+                  x-show="$store.editor.aceUnavailable"
+                  x-model="$store.editor.editorText"
+                  @input="$store.editor.onSourceInput()"
+                  @blur="$store.editor.flushInput()"
+                  spellcheck="true"
+                  style="display: none;"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="editor-preview-shell" x-show="$store.editor.session && $store.editor.isTextDocument() && $store.editor.isPreviewMode()" style="display: none;">
+              <div class="editor-preview-title">
+                <h1 x-text="$store.editor.pageTitle()"></h1>
+              </div>
+              <div class="editor-preview-edit-shell" x-show="$store.editor.previewEditing" style="display: none;">
+                <textarea
+                  class="editor-preview-page-editor"
+                  data-editor-preview-source
+                  aria-label="Document source"
+                  x-model="$store.editor.previewEditText"
+                  @input="$store.editor.onPreviewEditInput()"
+                  @keydown.meta.enter.prevent="$store.editor.applyPreviewEdit()"
+                  @keydown.ctrl.enter.prevent="$store.editor.applyPreviewEdit()"
+                  @keydown.escape.prevent="$store.editor.cancelPreviewEdit()"
+                  spellcheck="true"
+                ></textarea>
+              </div>
+              <div
+                class="editor-preview-content msg-content"
+                data-editor-preview
+                x-show="!$store.editor.previewEditing"
+                x-html="$store.editor.previewHtml()"
+                x-effect="$store.editor.editorText; $store.editor.searchQuery; $store.editor.searchIndex; $store.editor.schedulePreviewEnhance()"
+                @click="$store.editor.handlePreviewClick($event)"
+              ></div>
+            </div>
+
+            <div class="editor-empty" x-show="!$store.editor.session && !$store.editor.loading" style="display: none;">
+              <div class="editor-empty-actions">
+                <button type="button" class="editor-icon-button editor-command-button" @click="$store.editor.runNewMenuAction('open')">
+                  <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+                  <span class="editor-button-label">Open</span>
+                </button>
+                <button type="button" class="editor-icon-button editor-command-button" @click="$store.editor.runNewMenuAction('markdown')">
+                  <span class="material-symbols-outlined" aria-hidden="true">article</span>
+                  <span class="editor-button-label">Markdown</span>
+                </button>
+                <button type="button" class="editor-icon-button editor-command-button" @click="$store.editor.runNewMenuAction('text')">
+                  <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                  <span class="editor-button-label">Text</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .editor-panel,
+    .editor-shell {
+      --editor-chrome-surface: color-mix(in srgb, var(--color-background) 92%, #000 8%);
+      --editor-chrome-border: color-mix(in srgb, var(--color-border) 58%, transparent);
+      --editor-tab-hover-border: color-mix(in srgb, var(--color-border) 78%, transparent);
+      --editor-tab-height: 36px;
+      --editor-tab-close-size: 32px;
+      --editor-control-radius: 0.55rem;
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      background: var(--color-background);
+      color: var(--color-text);
+    }
+
+    .editor-panel {
+      container-type: inline-size;
+    }
+
+    .modal-inner.editor-modal {
+      box-sizing: border-box;
+      width: min(1040px, calc(100vw - 32px));
+      height: min(760px, calc(100vh - 32px));
+      min-width: min(640px, calc(100vw - 16px));
+      min-height: min(460px, calc(100vh - 16px));
+      max-width: none;
+      max-height: none;
+      resize: both;
+      overflow: hidden;
+    }
+
+    .modal-inner.editor-modal.is-focus-mode {
+      left: 8px !important;
+      top: 8px !important;
+      width: calc(100vw - 16px) !important;
+      height: calc(100vh - 16px) !important;
+      transform: none !important;
+    }
+
+    .modal-inner.editor-modal .modal-scroll,
+    .modal-inner.editor-modal .modal-bd.editor-modal-body,
+    .modal-inner.editor-modal .modal-bd.editor-modal-body > x-component,
+    .modal-inner.editor-modal .modal-bd.editor-modal-body > x-component > div[x-data],
+    .modal-inner.editor-modal .modal-bd.editor-modal-body > x-component > div[x-data] > .editor-panel {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .modal-inner.editor-modal .modal-header {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+
+    .editor-tabs {
+      display: flex;
+      align-items: end;
+      gap: 4px;
+      min-height: 44px;
+      padding: 7px 10px 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-bottom: 1px solid var(--editor-chrome-border);
+      background: var(--editor-chrome-surface);
+      scrollbar-width: thin;
+    }
+
+    .editor-tabs::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .editor-tabs::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .editor-tabs::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--color-border) 78%, transparent);
+      border-radius: 999px;
+    }
+
+    .editor-tab-shell {
+      flex: 0 1 210px;
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--editor-tab-close-size);
+      align-items: center;
+      gap: 3px;
+      min-width: 128px;
+      max-width: 250px;
+      height: var(--editor-tab-height);
+      padding: 0 7px 0 10px;
+      border: 1px solid transparent;
+      border-radius: var(--editor-control-radius) var(--editor-control-radius) 0 0;
+      background: transparent;
+      opacity: 0.72;
+      transition: border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .editor-new-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 34px;
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      min-height: 34px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--editor-control-radius);
+      background: transparent;
+      color: color-mix(in srgb, var(--color-text) 62%, var(--color-primary) 38%);
+      cursor: pointer;
+      transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .editor-icon-button {
+      display: inline-grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      padding: 0;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-panel), var(--color-background) 16%);
+      color: inherit;
+      cursor: pointer;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+
+    .editor-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }
+
+    .editor-tab-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--editor-tab-close-size);
+      min-width: var(--editor-tab-close-size);
+      height: var(--editor-tab-close-size);
+      min-height: var(--editor-tab-close-size);
+      padding: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: color-mix(in srgb, var(--color-text) 52%, var(--color-primary) 48%);
+      cursor: pointer;
+      opacity: 0.72;
+      transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .editor-tab-shell:hover,
+    .editor-tab-shell:focus-within {
+      border-color: var(--editor-tab-hover-border);
+      opacity: 0.94;
+    }
+
+    .editor-tab-shell.is-active {
+      z-index: 2;
+      margin-bottom: -1px;
+      border-color: var(--editor-chrome-border);
+      background: transparent;
+      opacity: 1;
+      box-shadow: none;
+    }
+
+    .editor-icon-button.is-primary {
+      border-color: color-mix(in srgb, #2c7be5, var(--color-border) 36%);
+      background: color-mix(in srgb, #2c7be5, var(--color-panel) 88%);
+    }
+
+    .editor-tab-shell.is-pending-close {
+      border-color: color-mix(in srgb, #d98b2b, var(--color-border) 30%);
+      background: color-mix(in srgb, #d98b2b, var(--color-panel) 88%);
+      opacity: 1;
+    }
+
+    .editor-tab-shell.is-dirty .editor-tab-title::after {
+      content: " *";
+      color: #2ca58d;
+    }
+
+    .editor-tab-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .editor-toolbar,
+    .editor-state-line,
+    .editor-close-confirm,
+    .editor-search-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border), transparent 22%);
+      padding: 7px 10px;
+      min-width: 0;
+    }
+
+    .editor-close-confirm {
+      min-height: 44px;
+      background: color-mix(in srgb, #d98b2b 9%, var(--color-background));
+      color: var(--color-text);
+    }
+
+    .editor-close-confirm-icon {
+      color: #d98b2b;
+      font-size: 20px;
+    }
+
+    .editor-close-confirm-copy {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    .editor-close-confirm-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .editor-close-confirm-message {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      letter-spacing: 0;
+    }
+
+    .editor-close-confirm-actions {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .editor-toolbar {
+      min-height: 46px;
+      padding: 6px 10px;
+      position: relative;
+      z-index: 20;
+      overflow: visible;
+      background: color-mix(in srgb, var(--color-background), var(--color-panel) 48%);
+    }
+
+    .editor-toolbar-row,
+    .editor-tool-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .editor-toolbar-row {
+      width: 100%;
+      overflow: visible;
+    }
+
+    .editor-toolbar-spacer {
+      flex: 1 1 16px;
+      min-width: 8px;
+    }
+
+    .editor-search-count {
+      min-width: 54px;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .editor-search-bar {
+      min-height: 40px;
+      background: color-mix(in srgb, var(--color-background), var(--color-panel) 30%);
+    }
+
+    .editor-search-bar input {
+      flex: 1 1 auto;
+      min-width: 90px;
+      height: 30px;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
+      border-radius: 7px;
+      background: var(--color-background);
+      color: var(--color-text);
+      padding: 0 9px;
+      font: inherit;
+      font-size: 13px;
+    }
+
+    .editor-icon-button:hover:not(:disabled) {
+      border-color: color-mix(in srgb, #2c7be5, var(--color-border) 45%);
+      background: color-mix(in srgb, var(--color-panel), #2c7be5 8%);
+    }
+
+    .editor-tab:hover {
+      background: transparent;
+    }
+
+    .editor-tab:focus-visible,
+    .editor-tab-close:focus-visible {
+      outline: 1px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
+      outline-offset: 1px;
+    }
+
+    .editor-tab-icon {
+      flex: 0 0 auto;
+      color: color-mix(in srgb, var(--color-text) 72%, var(--color-primary) 28%);
+      font-size: 1.04rem;
+      line-height: 1;
+    }
+
+    .editor-tab-close:hover {
+      background: color-mix(in srgb, var(--color-background-hover) 70%, transparent);
+      color: var(--color-text);
+      opacity: 1;
+    }
+
+    .editor-new-tab:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--color-background-hover) 58%, transparent);
+      border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+      color: var(--color-text);
+    }
+
+    .editor-new-tab:disabled {
+      cursor: default;
+      opacity: 0.42;
+    }
+
+    .editor-tab-close .material-symbols-outlined {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .editor-new-tab .material-symbols-outlined {
+      font-size: 1.12rem;
+      line-height: 1;
+    }
+
+    .editor-icon-button:disabled {
+      cursor: default;
+      opacity: 0.42;
+    }
+
+    .editor-file-actions,
+    .editor-header-actions {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      z-index: 30;
+    }
+
+    .editor-new-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 10000;
+      min-width: 184px;
+      padding: 5px;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 10%);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-panel), var(--color-background) 10%);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+    }
+
+    .editor-new-menu[hidden] {
+      display: none;
+    }
+
+    .editor-new-menu-item,
+    .editor-header-new-button {
+      appearance: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .editor-header-new-button {
+      justify-content: center;
+      height: 34px;
+      padding: 0 9px 0 8px;
+      border-radius: 7px;
+      opacity: 0.82;
+    }
+
+    .editor-new-menu-item {
+      width: 100%;
+      height: 32px;
+      padding: 0 8px;
+      border-radius: 6px;
+      text-align: left;
+    }
+
+    .editor-new-menu-item.is-emphasized {
+      color: var(--color-text);
+      background: color-mix(in srgb, #2c7be5 10%, transparent);
+    }
+
+    .editor-text-button {
+      appearance: none;
+      height: 28px;
+      padding: 0 9px;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 10%);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--color-panel), var(--color-background) 18%);
+      color: var(--color-text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .editor-text-button.is-primary {
+      border-color: color-mix(in srgb, #2c7be5, var(--color-border) 35%);
+      background: color-mix(in srgb, #2c7be5, var(--color-panel) 82%);
+    }
+
+    .editor-header-new-button:hover,
+    .editor-header-actions.is-open .editor-header-new-button,
+    .editor-new-menu-item:hover,
+    .editor-text-button:hover:not(:disabled) {
+      opacity: 1;
+      border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+      background: color-mix(in srgb, var(--color-background-hover) 76%, transparent);
+    }
+
+    .editor-text-button:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    @container (max-width: 560px) {
+      .editor-close-confirm {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .editor-close-confirm-actions {
+        flex-wrap: wrap;
+      }
+    }
+
+    .editor-body,
+    .editor-wrap,
+    .editor-scroll,
+    .editor-preview-shell {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .editor-body {
+      position: relative;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .editor-wrap,
+    .editor-scroll {
+      width: 100%;
+      height: 100%;
+    }
+
+    .editor-scroll {
+      position: relative;
+    }
+
+    .editor-ace {
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .editor-ace .ace_gutter {
+      display: none !important;
+    }
+
+    .editor-ace .ace_scroller {
+      left: 0 !important;
+    }
+
+    .editor-source-editor {
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      resize: none;
+      border: 0;
+      outline: none;
+      padding: 18px 20px;
+      background: var(--color-background);
+      color: var(--color-text);
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0;
+    }
+
+    .editor-preview-shell {
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--color-background);
+    }
+
+    .editor-preview-title {
+      flex: 0 0 auto;
+      padding: 20px 24px 10px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border), transparent 30%);
+    }
+
+    .editor-preview-title h1 {
+      margin: 0;
+      color: var(--color-text);
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .editor-preview-content {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 20px 24px 36px;
+      color: var(--color-text);
+      line-height: 1.58;
+    }
+
+    .editor-preview-edit-shell {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      padding: 16px 24px 36px;
+      background: var(--color-background);
+    }
+
+    .editor-preview-page-editor {
+      box-sizing: border-box;
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      resize: none;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
+      border-radius: 8px;
+      outline: none;
+      padding: 14px 16px;
+      background: color-mix(in srgb, var(--color-panel), var(--color-background) 28%);
+      color: var(--color-text);
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0;
+    }
+
+    .editor-preview-page-editor:focus {
+      border-color: color-mix(in srgb, #2c7be5, var(--color-border) 40%);
+      box-shadow: 0 0 0 1px color-mix(in srgb, #2c7be5 24%, transparent);
+    }
+
+    .editor-preview-content img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 12px 0;
+    }
+
+    .editor-preview-content h1,
+    .editor-preview-content h2,
+    .editor-preview-content h3,
+    .editor-preview-content h4,
+    .editor-preview-content h5,
+    .editor-preview-content h6 {
+      scroll-margin-top: 16px;
+      letter-spacing: 0;
+    }
+
+    .editor-preview-content blockquote {
+      margin: 12px 0;
+      padding: 1px 0 1px 14px;
+      border-left: 3px solid color-mix(in srgb, var(--color-primary), var(--color-border) 45%);
+      color: var(--color-text-secondary);
+    }
+
+    .editor-table-wrap {
+      max-width: 100%;
+      overflow-x: auto;
+      margin: 14px 0;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
+      border-radius: 8px;
+    }
+
+    .editor-preview-content table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 420px;
+    }
+
+    .editor-preview-content th,
+    .editor-preview-content td {
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border), transparent 22%);
+      padding: 8px 10px;
+      text-align: inherit;
+      vertical-align: top;
+    }
+
+    .editor-preview-content th {
+      background: color-mix(in srgb, var(--color-panel), var(--color-background) 24%);
+      font-weight: 800;
+    }
+
+    .editor-preview-content input[type="checkbox"] {
+      margin-right: 6px;
+      cursor: pointer;
+    }
+
+    .editor-code-block {
+      overflow: hidden;
+      margin: 14px 0;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-panel), var(--color-background) 16%);
+    }
+
+    .editor-code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 32px;
+      padding: 0 8px 0 10px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border), transparent 22%);
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .editor-code-copy {
+      height: 24px;
+      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
+      border-radius: 6px;
+      background: var(--color-background);
+      color: var(--color-text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .editor-code-block pre {
+      margin: 0;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .editor-code-block code {
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .editor-math-display {
+      margin: 14px 0;
+      overflow-x: auto;
+      text-align: center;
+    }
+
+    .editor-footnotes {
+      margin-top: 24px;
+      border-top: 1px solid color-mix(in srgb, var(--color-border), transparent 22%);
+      color: var(--color-text-secondary);
+      font-size: 13px;
+    }
+
+    mark.editor-search-mark {
+      border-radius: 3px;
+      background: color-mix(in srgb, #d9b12b 55%, transparent);
+      color: inherit;
+      padding: 0 1px;
+    }
+
+    mark.editor-search-mark.is-current {
+      background: color-mix(in srgb, #2c7be5 55%, transparent);
+      outline: 1px solid color-mix(in srgb, #2c7be5, var(--color-border) 24%);
+    }
+
+    .editor-empty {
+      display: grid;
+      flex: 1 1 auto;
+      place-items: center;
+      align-content: center;
+      gap: 12px;
+      color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    }
+
+    .editor-empty-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .editor-command-button {
+      display: inline-flex;
+      width: auto;
+      max-width: 140px;
+      padding: 0 9px;
+      gap: 6px;
+    }
+
+    .editor-button-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .editor-state-line {
+      min-height: 34px;
+      font-size: 12px;
+      color: color-mix(in srgb, var(--color-text) 80%, transparent);
+    }
+  </style>
+</body>
+</html>

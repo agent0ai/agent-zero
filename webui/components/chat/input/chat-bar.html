@@ -3,31 +3,13 @@
     <script type="module">
         import { store } from "/components/chat/input/input-store.js";
         import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
-        import { store as composerBannerStore } from "/components/chat/input/composer-banner-store.js";
     </script>
 </head>
 <body>
     <div id="input-section" x-data>
         <x-extension id="chat-input-start"></x-extension>
         <template x-if="$store.chatInput">
-            <div style="width: 100%; display: contents;"
-                 x-init="$store.composerBanner?.init()"
-                 x-effect="$store.chats?.selected && $store.composerBanner?.refresh()">
-                <!-- Missing API keys (global model config) -->
-                <template x-if="$store.composerBanner && $store.composerBanner.hasMissingApiKeys">
-                    <div class="composer-banner composer-banner--danger" role="alert">
-                        <span class="material-symbols-outlined composer-banner-icon" aria-hidden="true">error</span>
-                        <div class="composer-banner-text">
-                            <span class="composer-banner-title">API key missing</span>
-                            <span class="composer-banner-detail" x-text="$store.composerBanner.missingApiKeysSummaryText"></span>
-                        </div>
-                        <button type="button" class="btn btn-ok composer-banner-cta"
-                                @click="window.openModal('/plugins/_onboarding/webui/onboarding.html')">
-                            Insert API key
-                        </button>
-                    </div>
-                </template>
-
+            <div style="width: 100%; display: contents;">
                 <!-- Message Queue section -->
                 <x-component path="chat/message-queue/message-queue.html"></x-component>
 
@@ -65,60 +47,6 @@
       #input-section { align-items: normal !important; }
     }
 
-    .composer-banner {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      width: 100%;
-      padding: var(--spacing-xs) var(--spacing-sm);
-      margin-bottom: var(--spacing-xxs);
-      background: var(--color-panel);
-      border: 1px solid var(--color-border);
-      border-radius: 6px;
-      box-sizing: border-box;
-    }
-    .composer-banner--danger {
-      border-left: 4px solid #F44336;
-    }
-    .composer-banner--danger .composer-banner-icon {
-      color: #F44336;
-    }
-    .composer-banner-icon {
-      flex-shrink: 0;
-      font-size: 1.25rem;
-    }
-    .composer-banner-text {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      text-align: left;
-    }
-    .composer-banner-title {
-      font-weight: 600;
-      font-size: 0.85rem;
-      color: var(--color-text);
-    }
-    .composer-banner-detail {
-      font-size: 0.78rem;
-      color: var(--color-secondary);
-      line-height: 1.35;
-      word-break: break-word;
-    }
-    .composer-banner-cta {
-      flex-shrink: 0;
-      font-size: 0.8rem;
-      padding: 0.35rem 0.65rem;
-    }
-    @media (max-width: 768px) {
-      .composer-banner {
-        flex-wrap: wrap;
-      }
-      .composer-banner-cta {
-        width: 100%;
-      }
-    }
     </style>
 </body>
 </html>

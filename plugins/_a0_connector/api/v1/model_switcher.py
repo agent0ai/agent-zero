@@ -4,7 +4,9 @@ from __future__ import annotations
 import time
 from typing import Callable
 
+from helpers import defer
 from helpers.api import Request, Response
+from helpers.extension import call_extensions_async
 import plugins._a0_connector.api.v1.base as connector_base
 
 _MODEL_OVERRIDE_REVISION_KEY = "_model_config_override_revision"
@@ -91,6 +93,11 @@ def _notify_model_override_changed(context: object, context_id: str) -> None:
         pass
 
 
+def _notify_embedding_if_changed(before: dict, after: dict) -> None:
+    if before != after:
+        defer.DeferredTask().start_task(call_extensions_async, "embedding_model_changed")
+
+
 class ModelSwitcher(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         from agent import AgentContext
@@ -113,6 +120,7 @@ class ModelSwitcher(connector_base.ProtectedConnectorApiHandler):
                 chat_providers = []
             chat_model = model_config.get_chat_model_config(agent)
             utility_model = model_config.get_utility_model_config(agent)
+            embedding_model = model_config.get_embedding_model_config(agent)
 
             def _has_api_key(config: object) -> bool:
                 if not isinstance(config, dict):
@@ -130,10 +138,16 @@ class ModelSwitcher(connector_base.ProtectedConnectorApiHandler):
                 "ok": True,
                 "allowed": bool(model_config.is_chat_override_allowed(agent)),
                 "override": override,
+                "configured_preset": model_config.get_configured_preset_name(agent=agent),
+                "effective_preset": model_config.get_effective_preset_name(agent),
                 "presets": model_config.get_presets(),
                 "chat_providers": chat_providers,
                 "main_model": _model_payload(chat_model, has_api_key=_has_api_key(chat_model)),
                 "utility_model": _model_payload(utility_model, has_api_key=_has_api_key(utility_model)),
+                "embedding_model": _model_payload(
+                    embedding_model,
+                    has_api_key=_has_api_key(embedding_model),
+                ),
             }
 
         if action == "get":
@@ -155,31 +169,52 @@ class ModelSwitcher(connector_base.ProtectedConnectorApiHandler):
             preset = model_config.get_preset_by_name(preset_name)
             if not preset:
                 return Response(status=404, response=f"Preset '{preset_name}' not found")
-            context.set_data("chat_model_override", {"preset_name": preset_name})
+            previous_embedding = model_config.get_embedding_model_config(agent)
+            context.set_data(
+                "chat_model_override",
+                {"preset_name": str(preset.get("name") or preset_name)},
+            )
             save_tmp_chat(context)
             _notify_model_override_changed(context, context_id)
+            _notify_embedding_if_changed(
+                previous_embedding,
+                model_config.get_embedding_model_config(agent),
+            )
             return build_state()
 
         if action == "clear":
+            previous_embedding = model_config.get_embedding_model_config(agent)
             context.set_data("chat_model_override", None)
             save_tmp_chat(context)
             _notify_model_override_changed(context, context_id)
+            _notify_embedding_if_changed(
+                previous_embedding,
+                model_config.get_embedding_model_config(agent),
+            )
             return build_state()
 
         if action == "set_override":
             main_model = _coerce_override_model(input.get("main_model"))
             utility_model = _coerce_override_model(input.get("utility_model"))
-            if not main_model and not utility_model:
+            embedding_model = _coerce_override_model(input.get("embedding_model"))
+            if not main_model and not utility_model and not embedding_model:
                 return Response(status=400, response="Missing model override payload")
 
+            previous_embedding = model_config.get_embedding_model_config(agent)
             override: dict[str, dict[str, str]] = {}
             if main_model:
                 override["chat"] = main_model
             if utility_model:
                 override["utility"] = utility_model
+            if embedding_model:
+                override["embedding"] = embedding_model
             context.set_data("chat_model_override", override)
             save_tmp_chat(context)
             _notify_model_override_changed(context, context_id)
+            _notify_embedding_if_changed(
+                previous_embedding,
+                model_config.get_embedding_model_config(agent),
+            )
             return build_state()
 
         return Response(status=400, response=f"Unknown action: {action}")

@@ -1,0 +1,6 @@
+name: chats
+description: List previous chats (default sorted by last updated). Use --project to filter by active project.
+argument_hint: "[--project|--all-projects] [--sort=updated|created|name]"
+type: script
+script_path: connector_commands.py
+webui_hidden: true

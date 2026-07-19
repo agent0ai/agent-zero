@@ -52,6 +52,7 @@ SURFACE_SCENARIOS: list[tuple[str, str]] = [
     ("chat-input-bottom-actions-end", "webui/components/chat/input/bottom-actions-bar.html"),
     ("chat-top-start", "webui/components/chat/top-section/chat-top.html"),
     ("chat-top-end", "webui/components/chat/top-section/chat-top.html"),
+    ("sync-status-end", "webui/components/sync/sync-status.html"),
     ("welcome-screen-start", "webui/components/welcome/welcome-screen.html"),
     ("welcome-screen-end", "webui/components/welcome/welcome-screen.html"),
     ("welcome-actions-start", "webui/components/welcome/welcome-screen.html"),

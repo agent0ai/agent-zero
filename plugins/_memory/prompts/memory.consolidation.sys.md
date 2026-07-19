@@ -23,9 +23,11 @@ Default bias: for mutable user preferences, project state, configuration choices
 
 ### 1. Temporal Intelligence
 - **Newer information** generally supersedes older information
+- **Timestamps are soft recency signals, not automatic TTLs**; age alone does not make a durable memory invalid
 - **Preserve historical context** only when the user explicitly needs history or an audit trail
 - **Do not keep old preferences as equally important memories** when the new memory clearly gives the current state
 - **Consider recency** - more recent memories are usually more relevant for mutable facts
+- **Keep stable old facts** when they remain useful and are not contradicted by newer/current information
 
 ### 2. Content Relationships
 - **Complementary information** should be merged into comprehensive memories

@@ -1,5 +1,4 @@
 import base64
-from datetime import datetime
 from io import BytesIO
 import os
 from pathlib import Path
@@ -10,6 +9,7 @@ from flask import Response
 
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers import files, runtime
+from helpers.localization import Localization
 from api.download_work_dir_file import fetch_file, stream_file_download
 
 
@@ -65,7 +65,7 @@ def normalize_paths(paths) -> list[str]:
 
 
 def selected_archive_name(count: int) -> str:
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = Localization.get().now().strftime("%Y%m%d-%H%M%S")
     return f"agent-zero-selected-{count}-{stamp}.zip"
 
 

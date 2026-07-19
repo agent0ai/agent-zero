@@ -16,24 +16,38 @@
         x-destroy="$store.browserConfig.cleanup()"
       >
         <div class="browser-config-card">
-          <div class="section-title">Host Browser</div>
+          <div class="section-title">Browser Runtime</div>
           <div class="section-description">
-            Use Chrome, Edge, or Chromium on this computer. Keep A0 CLI connected; the browser opens when the agent first needs it.
+            Choose the internal Docker browser or a browser on the computer running A0 CLI.
           </div>
 
           <label class="browser-config-field">
             <span class="browser-config-field-label">Browser location</span>
             <select x-model="$store.browserConfig.config.runtime_backend">
-              <option value="container">Docker browser</option>
-              <option value="host_required">Bring Your Own Browser</option>
+              <option value="container">Internal Docker browser</option>
+              <option value="host_required">Host browser through A0 CLI</option>
             </select>
+            <span
+              class="browser-config-field-help"
+              x-show="$store.browserConfig.config.runtime_backend !== 'host_required'"
+            >
+              Runs inside Agent Zero's Docker environment. No A0 CLI connection or host browser setup is needed.
+            </span>
             <span
               class="browser-config-field-help"
               x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
             >
-              Use Google Chrome or a Chromium family browser. Visit chrome://inspect/#remote-debugging and enable "Allow remote debugging".
+              Uses Chrome, Edge, Brave, Opera, Vivaldi, or Chromium on the A0 CLI host. Keep A0 CLI connected; the browser opens when the agent first needs it. For an already-open browser, use its inspect page, such as chrome://inspect/#remote-debugging or opera://inspect/#remote-debugging, and enable "Allow remote debugging for this browser instance".
             </span>
           </label>
+
+          <div
+            class="browser-config-note browser-config-success"
+            x-show="$store.browserConfig.config.runtime_backend !== 'host_required'"
+          >
+            <span class="material-symbols-outlined">deployed_code</span>
+            <span>Internal Docker browser selected. Host-browser CLI settings are ignored for Browser tool runs.</span>
+          </div>
 
           <label
             class="browser-config-field"
@@ -52,6 +66,50 @@
             </span>
           </label>
 
+          <label
+            class="browser-config-field"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
+          >
+            <span class="browser-config-field-label">Host browser</span>
+            <select
+              :value="$store.browserConfig.hostBrowserSelectValue()"
+              @focus="$store.browserConfig.loadHostBrowserStatus()"
+              @click="$store.browserConfig.loadHostBrowserStatus()"
+              @change="$store.browserConfig.setHostBrowserSelection($event.target.value)"
+            >
+              <template x-for="option in $store.browserConfig.hostBrowserOptions()" :key="option.value">
+                <option :value="option.value" x-text="option.label"></option>
+              </template>
+            </select>
+            <span class="browser-config-field-help">Choose an allowed debug endpoint, or leave Automatic so A0 CLI picks.</span>
+          </label>
+
+          <label
+            class="browser-config-field"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent' && $store.browserConfig.showCustomHostBrowserEndpoint()"
+          >
+            <span class="browser-config-field-label">Custom endpoint</span>
+            <input
+              type="text"
+              :value="$store.browserConfig.hostBrowserCustomEndpoint"
+              @focus="$store.browserConfig.loadHostBrowserStatus()"
+              @input="$store.browserConfig.setCustomHostBrowserEndpoint($event.target.value)"
+              placeholder="ws://127.0.0.1:9222/devtools/browser/..."
+              autocomplete="off"
+            />
+            <span class="browser-config-field-help" x-text="$store.browserConfig.customHostBrowserEndpointDiagnostic()"></span>
+          </label>
+
+          <div
+            class="browser-config-note"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
+          >
+            <span class="material-symbols-outlined">info</span>
+            <span>
+              For an already-open browser, Chrome, Edge, Brave, Vivaldi, and Chromium use chrome://inspect/#remote-debugging; Opera uses opera://inspect/#remote-debugging. Enable "Allow remote debugging for this browser instance", then restart or reconnect A0 CLI if the browser does not appear. If needed, launch the browser with --remote-debugging-port=9222 and --user-data-dir=&lt;profile-dir&gt;, then use localhost:9222 or the full ws://.../devtools/browser/... endpoint here or in A0_HOST_BROWSER_REMOTE_DEBUGGING_ENDPOINTS.
+            </span>
+          </div>
+
           <div
             class="browser-config-warning"
             x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
@@ -63,7 +121,10 @@
             </span>
           </div>
 
-          <label class="browser-config-field">
+          <label
+            class="browser-config-field"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
+          >
             <span class="browser-config-field-label">Page content access</span>
             <select x-model="$store.browserConfig.config.host_browser_privacy_policy">
               <option value="enforce_local">Local models only</option>
@@ -75,7 +136,7 @@
 
           <div class="browser-config-note">
             <span class="material-symbols-outlined" :class="{ spinning: $store.browserConfig.hostBrowserStatusLoading }" x-text="$store.browserConfig.hostBrowserStatusLoading ? 'progress_activity' : 'captive_portal'"></span>
-            <span x-text="$store.browserConfig.hostBrowserConnectorLabel()"></span>
+            <span x-text="$store.browserConfig.browserRuntimeStatusLabel()"></span>
           </div>
         </div>
 
@@ -93,6 +154,44 @@
               placeholder="about:blank or https://example.com"
               autocomplete="off"
             />
+          </label>
+
+          <label class="browser-config-field">
+            <span class="browser-config-field-label">Browser tabs</span>
+            <select
+              x-model="$store.browserConfig.config.browser_tab_scope"
+              @change="$store.browserConfig.setBrowserTabScope($event.target.value)"
+            >
+              <option value="per_context">Separate per chat</option>
+              <option value="shared">Shared across chats</option>
+            </select>
+            <span
+              class="browser-config-field-help"
+              x-show="$store.browserConfig.config.browser_tab_scope !== 'shared'"
+            >
+              Each chat shows only its own Browser tabs.
+            </span>
+            <span
+              class="browser-config-field-help"
+              x-show="$store.browserConfig.config.browser_tab_scope === 'shared'"
+            >
+              The Browser tab strip shows tabs from every active chat.
+            </span>
+          </label>
+
+          <label class="browser-config-field">
+            <span class="browser-config-field-label">Maximum tabs per chat</span>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              step="1"
+              x-model.number="$store.browserConfig.config.max_open_tabs"
+              @change="$store.browserConfig.normalizeMaxOpenTabs()"
+            />
+            <span class="browser-config-field-help">
+              New Browser tabs stop opening in a chat after this limit.
+            </span>
           </label>
 
           <label class="browser-config-switch-row">
@@ -225,6 +324,7 @@
     }
 
     .browser-config-field input[type="text"],
+    .browser-config-field input[type="number"],
     .browser-config-field select {
       width: 100%;
       min-height: 36px;

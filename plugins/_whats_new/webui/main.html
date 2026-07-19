@@ -1,0 +1,322 @@
+<html class="whats-new-modal">
+<head>
+  <title>What's New in Agent Zero</title>
+  <script type="module">
+    import { store } from "/plugins/_whats_new/webui/whats-new-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.whatsNew">
+      <div class="whats-new-shell" x-init="$store.whatsNew.onOpen()" x-destroy="$store.whatsNew.cleanup()">
+        <section
+          class="whats-new-media-panel"
+          x-show="$store.whatsNew.hasSlides()"
+          :aria-label="$store.whatsNew.currentSlide.mediaLabel"
+        >
+          <template x-if="$store.whatsNew.currentSlide.mediaType === 'video'">
+            <video
+              class="whats-new-media"
+              :src="$store.whatsNew.currentSlide.media"
+              :aria-label="$store.whatsNew.currentSlide.mediaLabel"
+              autoplay
+              loop
+              muted
+              playsinline
+            ></video>
+          </template>
+          <template x-if="$store.whatsNew.currentSlide.mediaType === 'image'">
+            <img
+              class="whats-new-media"
+              :src="$store.whatsNew.currentSlide.media"
+              :alt="$store.whatsNew.currentSlide.mediaLabel"
+            />
+          </template>
+        </section>
+
+        <section class="whats-new-copy">
+          <div class="whats-new-eyebrow" x-text="$store.whatsNew.currentSlide.eyebrow"></div>
+          <h3 x-text="$store.whatsNew.currentSlide.title"></h3>
+          <p class="whats-new-summary" x-text="$store.whatsNew.currentSlide.summary"></p>
+          <ul
+            class="whats-new-bullets"
+            x-show="$store.whatsNew.currentSlide.bullets.length"
+          >
+            <template x-for="item in $store.whatsNew.currentSlide.bullets" :key="item">
+              <li x-text="item"></li>
+            </template>
+          </ul>
+        </section>
+
+        <div class="modal-footer whats-new-footer" data-modal-footer>
+          <div class="whats-new-footer-left">
+            <div class="whats-new-footer-progress" x-show="$store.whatsNew.hasSlides()">
+              <span class="whats-new-progress-label" x-text="$store.whatsNew.progressLabel()"></span>
+              <div class="whats-new-progress-dots" role="tablist" aria-label="What's New slides">
+                <template x-for="(slide, index) in $store.whatsNew.slides" :key="slide.id">
+                  <button
+                    type="button"
+                    class="whats-new-dot"
+                    role="tab"
+                    :class="{ 'active': index === $store.whatsNew.currentIndex }"
+                    :aria-label="$store.whatsNew.dotLabel(index)"
+                    :aria-selected="index === $store.whatsNew.currentIndex ? 'true' : 'false'"
+                    @click="$store.whatsNew.goTo(index)"
+                  ></button>
+                </template>
+              </div>
+            </div>
+            <label class="whats-new-never-show" x-show="$store.whatsNew.hasSlides()">
+              <input
+                type="checkbox"
+                :checked="$store.whatsNew.neverShowAgain"
+                @change="$store.whatsNew.setNeverShowAgain($event.target.checked)"
+              />
+              <span>Don't show automatically again</span>
+            </label>
+          </div>
+          <div class="whats-new-footer-actions">
+            <button
+              type="button"
+              class="btn btn-cancel"
+              x-show="$store.whatsNew.hasSlides()"
+              @click="$store.whatsNew.skip()"
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              class="btn btn-field"
+              x-show="!$store.whatsNew.isFirst()"
+              @click="$store.whatsNew.previous()"
+            >
+              Back
+            </button>
+            <button type="button" class="btn btn-ok" @click="$store.whatsNew.next()">
+              <span x-text="$store.whatsNew.isLast() ? 'Done' : 'Next'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .modal-inner.whats-new-modal {
+      width: min(92vw, 760px);
+      max-height: min(88vh, 820px);
+    }
+
+    .whats-new-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .whats-new-media-panel {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      aspect-ratio: 1476 / 842;
+      min-height: 180px;
+      max-height: min(44vh, 360px);
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+      border-radius: 7px;
+      background:
+        radial-gradient(circle at 18% 12%, color-mix(in srgb, #4248f1 18%, transparent), transparent 34%),
+        color-mix(in srgb, var(--color-panel) 78%, #000 22%);
+    }
+
+    .whats-new-media {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: color-mix(in srgb, var(--color-panel) 82%, #000 18%);
+    }
+
+    .whats-new-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      min-width: 0;
+      color: var(--color-text);
+      text-align: left;
+    }
+
+    .whats-new-eyebrow {
+      color: color-mix(in srgb, #2196f3 86%, var(--color-text));
+      font-size: 0.74rem;
+      font-weight: 760;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .whats-new-copy h3 {
+      margin: 0;
+      color: var(--color-text);
+      font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+      font-weight: 760;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .whats-new-summary {
+      max-width: 62ch;
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: 0.98rem;
+      line-height: 1.45;
+    }
+
+    .whats-new-bullets {
+      display: grid;
+      gap: 0.45rem;
+      margin: 0.25rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .whats-new-bullets li {
+      position: relative;
+      min-width: 0;
+      padding-left: 1.1rem;
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+      line-height: 1.42;
+    }
+
+    .whats-new-bullets li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.58em;
+      width: 0.42rem;
+      height: 0.42rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, #4248f1 72%, #2196f3 28%);
+      box-shadow: 0 0 0 3px color-mix(in srgb, #4248f1 18%, transparent);
+    }
+
+    .whats-new-footer {
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .whats-new-footer-left,
+    .whats-new-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+    }
+
+    .whats-new-footer-left {
+      flex-wrap: wrap;
+    }
+
+    .whats-new-footer-progress {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+    }
+
+    .whats-new-progress-label {
+      color: var(--color-text-muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .whats-new-progress-dots {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .whats-new-dot {
+      width: 0.48rem;
+      height: 0.48rem;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+      cursor: pointer;
+      transition: transform 0.16s ease, background-color 0.16s ease, width 0.16s ease;
+    }
+
+    .whats-new-dot.active {
+      width: 1.2rem;
+      background: color-mix(in srgb, #4248f1 74%, #2196f3 26%);
+    }
+
+    .whats-new-dot:hover {
+      transform: translateY(-1px);
+      background: color-mix(in srgb, #2196f3 72%, var(--color-text));
+    }
+
+    .whats-new-never-show {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      min-width: 0;
+      color: var(--color-text-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .whats-new-never-show input {
+      width: 0.95rem;
+      height: 0.95rem;
+      margin: 0;
+      flex: 0 0 auto;
+      accent-color: #4248f1;
+    }
+
+    .whats-new-never-show span {
+      min-width: 0;
+      white-space: normal;
+    }
+
+    @media (max-width: 640px) {
+      .modal-inner.whats-new-modal {
+        width: min(94vw, 760px);
+      }
+
+      .whats-new-media-panel {
+        min-height: 150px;
+        max-height: 32vh;
+      }
+
+      .whats-new-footer,
+      .whats-new-footer-left,
+      .whats-new-footer-actions {
+        align-items: stretch;
+      }
+
+      .whats-new-footer {
+        flex-direction: column;
+      }
+
+      .whats-new-footer-left {
+        justify-content: space-between;
+      }
+
+      .whats-new-footer-progress {
+        justify-content: space-between;
+      }
+
+      .whats-new-footer-actions {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</body>
+</html>

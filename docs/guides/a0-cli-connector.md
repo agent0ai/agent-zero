@@ -132,15 +132,22 @@ machine.
 - [ ] Keep A0 CLI connected to the Agent Zero chat.
 - [ ] In Agent Zero Web UI, open Browser plugin settings and choose **Bring Your
       Own Browser**.
-- [ ] If you want Agent Zero to use an already-open personal Chrome window, open
-      that browser first.
-- [ ] In that browser, go to `chrome://inspect/#remote-debugging`.
+- [ ] If you want Agent Zero to use an already-open personal browser window,
+      open that browser first.
+- [ ] In that browser, open its remote debugging page.
 - [ ] Enable **Allow remote debugging for this browser instance**.
+
+Remote debugging pages:
+
+| Browser | Page |
+| --- | --- |
+| Chrome, Edge, Brave, Vivaldi, Chromium | `chrome://inspect/#remote-debugging` |
+| Opera | `opera://inspect/#remote-debugging` |
 
 ![Chrome remote debugging setting](../res/usage/browser/host-browser-remote-debugging-setting.png)
 
 When Agent Zero performs its first Browser action against that host browser,
-Chrome asks for confirmation. Click **Allow** if you trust this Agent Zero
+the browser asks for confirmation. Click **Allow** if you trust this Agent Zero
 instance and A0 CLI connection.
 
 ![Chrome remote debugging allow prompt](../res/usage/browser/host-browser-remote-debugging-allow.png)
@@ -149,10 +156,30 @@ A0 CLI does not take over the browser while it is only checking status. Browser
 control starts when Agent Zero actually needs to use the browser.
 
 > [!IMPORTANT]
-> Remote debugging gives the connected app full control of that Chrome session,
+> Remote debugging gives the connected app full control of that browser session,
 > including access to saved data, cookies, site data, and navigation. Use it only
 > with trusted Agent Zero instances and browser windows you intend the agent to
 > control.
+
+The **Host browser** list in Browser settings comes from the connected local A0
+CLI, not from the Agent Zero Web UI server. It shows Automatic, currently
+advertised debug endpoints, and **Custom endpoint**. If a newly authorized
+browser does not appear, restart or reconnect A0 CLI.
+
+If the inspect checkbox is not enough for your browser build, launch it with an
+explicit remote debugging port and a separate profile:
+
+```bash
+opera --remote-debugging-port=9222 --user-data-dir="$HOME/.config/a0-opera-debug"
+```
+
+Then choose **Custom endpoint** in Browser settings, run
+`/browser localhost:9222` in A0 CLI, or pass the discovery address to A0 CLI. A
+full DevTools WebSocket endpoint also works:
+
+```bash
+export A0_HOST_BROWSER_REMOTE_DEBUGGING_ENDPOINTS="http://localhost:9222"
+```
 
 ### Browser Profiles
 

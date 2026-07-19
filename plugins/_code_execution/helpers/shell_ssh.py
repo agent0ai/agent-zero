@@ -8,6 +8,12 @@ from helpers.print_style import PrintStyle
 # from helpers.strings import calculate_valid_match_lengths
 
 
+# Injected into every new SSH shell to keep it safe for non-interactive use.
+# Pagers (more/less) would otherwise block forever waiting for input that
+# never arrives and spin at 100% CPU; see issue #1697.
+PAGER_DISABLE_COMMAND = "export GIT_PAGER=cat; export PAGER=cat"
+
+
 class SSHInteractiveSession:
 
     # end_comment = "# @@==>> SSHInteractiveSession End-of-Command  <<==@@"
@@ -63,7 +69,7 @@ class SSHInteractiveSession:
                 self.shell = self.client.invoke_shell(width=100, height=50)
 
                 # disable systemd/OSC prompt metadata and disable local echo
-                initial_command = "unset PROMPT_COMMAND PS0; stty -echo"
+                initial_command = f"unset PROMPT_COMMAND PS0; stty -echo; {PAGER_DISABLE_COMMAND}"
                 if self.cwd:
                     initial_command = f"cd {self.cwd}; {initial_command}"
                 self.shell.send(f"{initial_command}\n".encode())

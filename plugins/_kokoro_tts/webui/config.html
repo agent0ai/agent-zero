@@ -1,0 +1,39 @@
+<html>
+<head>
+  <title>Kokoro TTS</title>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="config">
+      <div class="plugin-config-page">
+        <div class="section-title">Kokoro TTS</div>
+        <div class="section-description">
+          Configure the built-in Kokoro voice provider. When this plugin is disabled,
+          spoken output falls back to the browser speech API.
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Voice</div>
+            <div class="field-description">Kokoro voice identifier passed to the backend pipeline.</div>
+          </div>
+          <div class="field-control">
+            <input type="text" x-model="config.voice" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Speed</div>
+            <div class="field-description">Playback speed multiplier for Kokoro synthesis.</div>
+          </div>
+          <div class="field-control">
+            <input type="number" min="0.1" step="0.1" x-model.number="config.speed" />
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

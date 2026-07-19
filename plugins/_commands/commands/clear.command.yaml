@@ -1,0 +1,4 @@
+name: clear
+description: Clear the visible chat log.
+type: script
+script_path: connector_commands.py

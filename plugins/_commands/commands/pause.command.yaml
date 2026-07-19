@@ -1,0 +1,4 @@
+name: pause
+description: Pause the active agent run.
+type: script
+script_path: connector_commands.py

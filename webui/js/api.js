@@ -266,10 +266,20 @@ function _normalizeApiUrl(url) {
 }
 
 function redirect(response) {
-  if (!(response.redirected && response.url.endsWith("/login"))) return false;
+  if (!response.redirected) return false;
+
   const _redirectUrl = new URL(response.url);
-  if (_redirectUrl.origin === window.location.origin) {
-    window.location.href = response.url;
+  if (
+    _redirectUrl.origin === window.location.origin &&
+    _redirectUrl.pathname === "/login"
+  ) {
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (currentUrl && currentUrl !== "/login") {
+      _redirectUrl.searchParams.set("next", currentUrl);
+    }
+    window.location.href = _redirectUrl.toString();
+    return true;
   }
-  return true;
+
+  return false;
 }

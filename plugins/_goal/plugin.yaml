@@ -1,0 +1,5 @@
+name: _goal
+title: Goal
+description: Built-in chat goal tracking and goal tools.
+version: 0.1.0
+always_enabled: true

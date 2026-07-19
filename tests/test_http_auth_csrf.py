@@ -122,3 +122,72 @@ def test_http_csrf_accepts_valid_cookie(monkeypatch) -> None:
     _set_csrf_cookie(client, "csrf-4")
     response = client.get("/secure")
     assert response.status_code == 200
+
+
+def test_safe_next_url_accepts_plugin_page_path() -> None:
+    from helpers.api import get_safe_next_url, is_safe_next_url
+
+    target = "/plugins/a0_voqualizer/webui/voqualizer.html"
+    assert is_safe_next_url(target)
+    assert get_safe_next_url(target, "/") == target
+
+
+def test_safe_next_url_preserves_query_string() -> None:
+    from helpers.api import get_safe_next_url
+
+    target = "/plugins/a0_voqualizer/webui/voqualizer.html?context=rlO1iMV7"
+    assert get_safe_next_url(target, "/") == target
+
+
+def test_safe_next_url_rejects_external_and_protocol_relative_urls() -> None:
+    from helpers.api import get_safe_next_url, is_safe_next_url
+
+    fallback = "/"
+    for value in [
+        "https://evil.example/plugins/a0_voqualizer/webui/voqualizer.html",
+        "//evil.example/plugins/a0_voqualizer/webui/voqualizer.html",
+        "javascript:alert(1)",
+        "/safe\nLocation: https://evil.example",
+    ]:
+        assert not is_safe_next_url(value)
+        assert get_safe_next_url(value, fallback) == fallback
+
+
+def test_auth_redirect_includes_original_path_and_query(monkeypatch) -> None:
+    from run_ui import requires_auth
+
+    monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: "hash")
+
+    app = _make_app()
+
+    @app.get("/plugins/a0_voqualizer/webui/voqualizer.html")
+    @requires_auth
+    async def voqualizer_page():
+        return Response("ok", status=200)
+
+    client = app.test_client()
+    response = client.get("/plugins/a0_voqualizer/webui/voqualizer.html?context=rlO1iMV7")
+    assert response.status_code == 302
+    location = response.headers["Location"]
+    assert location.startswith("/login?next=")
+    assert "%2Fplugins%2Fa0_voqualizer%2Fwebui%2Fvoqualizer.html%3Fcontext%3DrlO1iMV7" in location
+
+
+def test_is_safe_next_url_rejects_backslash_open_redirects() -> None:
+    from helpers.api import is_safe_next_url
+
+    # Raw backslash forms
+    assert is_safe_next_url("/\\evil.example") is False
+    assert is_safe_next_url("\\/evil.example") is False
+    assert is_safe_next_url("/path\\evil") is False
+
+    # Percent-encoded backslash forms
+    assert is_safe_next_url("/%5Cevil.example") is False
+    assert is_safe_next_url("%5C/evil.example") is False
+    assert is_safe_next_url("/%5cevil.example") is False  # lowercase hex
+
+    # Mixed / double-encoded edge
+    assert is_safe_next_url("/path/%5Cevil") is False
+
+    # Sanity: a legitimate relative path still passes
+    assert is_safe_next_url("/plugins/a0_voqualizer/webui/voqualizer.html") is True

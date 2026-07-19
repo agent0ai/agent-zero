@@ -24,7 +24,8 @@ Browser boundary: do not use shell launchers such as `xdg-open`, `sensible-brows
 - Use `runtime=terminal` for shell commands, `runtime=python` for Python snippets, and `runtime=nodejs` for Node.js snippets.
 - Reuse the same integer `session` while continuing a workflow; session state is local to the CLI frontend.
 - Use `runtime=output` when a previous command is still running or returned before the shell reached a prompt.
-- Use `runtime=reset` when a session is stuck or a clean shell is safer.
+- Use `runtime=reset` when a session is stuck and no replacement command needs to run yet.
+- Use `reset: true` with `runtime=terminal`, `python`, or `nodejs` when a session is stuck and the next command should run immediately in a clean shell.
 - Match the remote host shell syntax. A Windows CLI may need PowerShell syntax even when Agent Zero runs on Linux.
 
 ## Failure Handling

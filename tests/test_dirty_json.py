@@ -54,3 +54,42 @@ def test_completed_remains_true_after_trailing_content() -> None:
     }
 
     assert parser.completed is True
+
+
+def test_value_keeps_unescaped_markdown_quotes_until_structural_delimiter() -> None:
+    payload = (
+        "{\n"
+        '    "tool_name": "response",\n'
+        '    "tool_args": {\n'
+        '        "text": "The rule:\\n\\n> *"'
+        'Create a child AGENTS.md when a folder becomes a boundary."'
+        '*\\n\\nAdding `css/AGENTS.md` that says *"'
+        'this folder contains CSS"'
+        '* is duplication."\n'
+        "    }\n"
+        "}"
+    )
+
+    parsed = DirtyJson.parse_string(payload)
+
+    assert parsed["tool_args"] == {
+        "text": (
+            "The rule:\n\n"
+            '> *"Create a child AGENTS.md when a folder becomes a boundary."*\n\n'
+            'Adding `css/AGENTS.md` that says *"this folder contains CSS"* is duplication.'
+        )
+    }
+
+
+def test_value_keeps_unescaped_quotes_on_single_line() -> None:
+    parsed = DirtyJson.parse_string(
+        '{"text":"He said "hello" before closing","ok":true}'
+    )
+
+    assert parsed == {"text": 'He said "hello" before closing', "ok": True}
+
+
+def test_value_can_still_end_before_quoted_key_when_comma_is_missing() -> None:
+    parsed = DirtyJson.parse_string('{"first":"one" "second":"two"}')
+
+    assert parsed == {"first": "one", "second": "two"}

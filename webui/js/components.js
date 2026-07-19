@@ -50,10 +50,12 @@ export async function importComponent(path, targetElement) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
+    const componentAssetSelector = "style, script, link[rel='stylesheet']";
     const allNodes = [
-      ...doc.querySelectorAll("style"),
-      ...doc.querySelectorAll("script"),
-      ...doc.body.childNodes,
+      ...doc.querySelectorAll(componentAssetSelector),
+      ...Array.from(doc.body.childNodes).filter(
+        (node) => !node.matches?.(componentAssetSelector)
+      ),
     ];
 
     const loadPromises = [];
@@ -77,8 +79,8 @@ export async function importComponent(path, targetElement) {
             if (!componentCache[resolvedUrl]) {
               const modulePromise = import(resolvedUrl);
               componentCache[resolvedUrl] = modulePromise;
-              loadPromises.push(modulePromise);
             }
+            loadPromises.push(componentCache[resolvedUrl]);
           } else {
             const virtualUrl = `${componentUrl.replaceAll(
               "/",
@@ -120,8 +122,8 @@ export async function importComponent(path, targetElement) {
                 .finally(() => URL.revokeObjectURL(blobUrl));
 
               componentCache[virtualUrl] = modulePromise;
-              loadPromises.push(modulePromise);
             }
+            loadPromises.push(componentCache[virtualUrl]);
           }
         } else {
           // Non-module script
@@ -168,12 +170,6 @@ export async function importComponent(path, targetElement) {
       targetElement.appendChild(deferred);
     }
 
-    // Remove loading indicator
-    const loadingEl = targetElement.querySelector(':scope > .loading');
-    if (loadingEl) {
-      targetElement.removeChild(loadingEl);
-    }
-
     // // Load any nested components
     // await loadComponents([targetElement]);
 
@@ -183,6 +179,7 @@ export async function importComponent(path, targetElement) {
     console.error("Error importing component:", error);
     throw error;
   } finally {
+    targetElement.querySelector(':scope > .loading')?.remove();
     // Release the lock when done, regardless of success or failure
     importLocks.delete(lockKey);
   }

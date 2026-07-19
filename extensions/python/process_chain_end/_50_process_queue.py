@@ -2,6 +2,7 @@ import asyncio
 from helpers.extension import Extension
 from helpers import message_queue as mq
 from agent import AgentContext, Agent, LoopData
+from helpers.state_monitor_integration import mark_dirty_for_context
 
 
 class ProcessQueue(Extension):
@@ -34,4 +35,5 @@ class ProcessQueue(Extension):
         
         # Send next queued message if task is not running
         if not context.is_running():
-            mq.send_next(context)
+            if mq.send_next(context):
+                mark_dirty_for_context(context.id, reason="message_queue_auto_send")

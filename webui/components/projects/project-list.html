@@ -37,34 +37,36 @@
 
                 <template :key="project.name" x-for="project in $store.projects.projectList">
                     <div class="projects-project-card" :class="{ 'projects-active': project.name === $store.chats.selectedContext?.project?.name }">
-                        <div class="projects-project-card-header" style="display: flex; align-items: start; justify-content: space-between; gap: 1em;">
-  <div>
-    <div class="projects-project-card-title">
-        <span class="project-color-ball" :style="project.color ? { backgroundColor: project.color } : { border: '1px solid var(--color-border)' }"></span>
-        <span x-text="project.title"></span>
-    </div>
-    <div class="projects-project-card-name">/<span x-text="project.name"></span></div>
-  </div>
-  <div class="projects-project-card-actions" style="display: flex; gap: 0.5em;">
-    <template x-if="$store.chats.selectedContext && project.name === $store.chats.selectedContext?.project?.name">
-      <button type="button" class="button cancel" title="Deactivate" style="width:9em" @click="$store.projects.deactivateProject()">
-        <span class="icon material-symbols-outlined">close</span> Deactivate
-      </button>
-    </template>
-    <template x-if="$store.chats.selectedContext && project.name !== $store.chats.selectedContext?.project?.name">
-      <button type="button" class="button confirm" title="Activate" style="width:9em" @click="$store.projects.activateProject(project.name)">
-        <span class="icon material-symbols-outlined">play_arrow</span> Activate
-      </button>
-    </template>
-    <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal(project.name)">
-      <span class="icon material-symbols-outlined">edit</span>
-    </button>
-    <button type="button" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => $store.projects.deleteProject(project.name))">
-      <span class="icon material-symbols-outlined">delete</span>
-    </button>
-  </div>
-</div>
-<!-- <div class="projects-project-card-description"><span x-text="project.description"></span></div> -->
+                        <div class="projects-project-card-header">
+                            <div class="projects-project-card-info">
+                                <div class="projects-project-card-title">
+                                    <span class="project-color-ball" :style="project.color ? { backgroundColor: project.color } : { border: '1px solid var(--color-border)' }"></span>
+                                    <span class="projects-project-card-title-text" x-text="project.title"></span>
+                                </div>
+                                <div class="projects-project-card-name">/<span x-text="project.name"></span></div>
+                            </div>
+                            <div class="projects-project-card-actions">
+                                <template x-if="$store.chats.selectedContext && project.name === $store.chats.selectedContext?.project?.name">
+                                    <button type="button" class="button cancel projects-project-card-state-action" title="Deactivate" @click="$store.projects.deactivateProject()">
+                                        <span class="icon material-symbols-outlined">close</span>
+                                        <span class="projects-project-card-action-text">Deactivate</span>
+                                    </button>
+                                </template>
+                                <template x-if="$store.chats.selectedContext && project.name !== $store.chats.selectedContext?.project?.name">
+                                    <button type="button" class="button confirm projects-project-card-state-action" title="Activate" @click="$store.projects.activateProject(project.name)">
+                                        <span class="icon material-symbols-outlined">play_arrow</span>
+                                        <span class="projects-project-card-action-text">Activate</span>
+                                    </button>
+                                </template>
+                                <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal(project.name)">
+                                    <span class="icon material-symbols-outlined">edit</span>
+                                </button>
+                                <button type="button" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => $store.projects.deleteProject(project.name))">
+                                    <span class="icon material-symbols-outlined">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- <div class="projects-project-card-description"><span x-text="project.description"></span></div> -->
                     </div>
                 </template>
 
@@ -94,14 +96,52 @@
         border-color: var(--color-highlight);
     }
 
+    .projects-project-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1em;
+    }
+
+    .projects-project-card-info {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
     .projects-project-card-title {
         font-weight: bold;
         font-size: 1.2em;
         display: flex;
         align-items: center;
+        min-width: 0;
+        line-height: 1.25;
     }
+
+    .projects-project-card-title-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .projects-project-card-name {
         margin-top: var(--spacing-xs);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .projects-project-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        flex: 0 0 auto;
+    }
+
+    .projects-project-card-state-action {
+        gap: 0.35em;
+        min-width: 9em;
     }
 
     .project-color-ball {
@@ -162,10 +202,31 @@
       flex-wrap: wrap;
       gap: 1em;
     }
+
     .projects-project-card-header {
-      flex-direction: column;
-      gap: 1em;
+      flex-direction: row;
+      gap: 0.75em;
     }
+
+    .projects-project-card-title {
+      font-size: 1.1em;
+    }
+
+    .projects-project-card-actions {
+      gap: 0.4em;
+      padding-top: 0.08em;
+    }
+
+    .projects-project-card-state-action {
+      min-width: 2.75rem;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .projects-project-card-action-text {
+      display: none;
+    }
+
     .active-project-display {
       width: 100%;
       justify-content: space-between;

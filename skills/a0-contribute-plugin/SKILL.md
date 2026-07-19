@@ -230,7 +230,7 @@ gh pr create \
 
 ## References
 
-- Plugin architecture: `/a0/docs/agents/AGENTS.plugins.md`
+- Plugin architecture: `/a0/plugins/AGENTS.md`
 - Developer lifecycle guide: `/a0/docs/developer/plugins.md`
 - Plugin Index repo: https://github.com/agent0ai/a0-plugins
 - Recommended tags: https://github.com/agent0ai/a0-plugins/blob/main/TAGS.md

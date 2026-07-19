@@ -7,22 +7,33 @@
 
 <body>
     <div x-data>
-        <p>Agent Zero uses standard JSON configuration known from other AI applications.<br>
-            The configuration is a JSON object containing "mcpServers" object where each key is an individual MCP
-            server.<br>
-            Local servers are defined by a "command", "args", "env" variables.<br>
-            Remote servers are defined by a "url", "headers".<br>
-            "disabled" can be set to true to disable a server without removing config.<br>
-            Custom "description" can be set to provide additional information about the server to A0.<br>
-            All servers can also define "init_timeout" and "tool_timeout" which override global settings.</p>
+        <section class="mcp-example-intro">
+            <p>
+                Agent Zero uses the standard <code>mcpServers</code> JSON shape used by MCP-compatible clients.
+                Each key under <code>mcpServers</code> is one MCP server.
+            </p>
 
+            <div class="mcp-example-notes">
+                <div>
+                    <strong>Local command servers</strong>
+                    <span>Use <code>command</code>, optional <code>args</code>, and optional <code>env</code>.</span>
+                </div>
+                <div>
+                    <strong>Remote servers</strong>
+                    <span>Use <code>url</code>, optional <code>headers</code>, and a transport <code>type</code>.</span>
+                </div>
+                <div>
+                    <strong>Common fields</strong>
+                    <span><code>description</code>, <code>disabled</code>, <code>init_timeout</code>, and <code>tool_timeout</code> work on either kind of server.</span>
+                </div>
+            </div>
+        </section>
 
-        <h3>Example MCP Servers Configuration JSON</h3>
+        <h3>Example MCP servers configuration JSON</h3>
         <div id="mcp-servers-example"></div>
 
         <script>
             setTimeout(() => {
-                const url = window.location.origin;
                 const jsonExample = JSON.stringify({
                     "mcpServers":
                     {
@@ -67,13 +78,65 @@
                 editor.setReadOnly(true);
             }, 0);
         </script>
-        <!-- </template> -->
     </div>
 
     <style>
+        .mcp-example-intro {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            margin-bottom: 1rem;
+            color: var(--color-text);
+        }
+
+        .mcp-example-intro p,
+        .mcp-example-intro h3 {
+            margin: 0;
+        }
+
+        .mcp-example-notes {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .mcp-example-notes > div {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            padding: 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+        }
+
+        .mcp-example-notes span {
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .mcp-example-intro code {
+            padding: 0.08rem 0.28rem;
+            border-radius: 4px;
+            background: var(--color-input);
+            color: var(--color-text);
+            font-family: var(--font-family-code);
+            font-size: 0.88em;
+        }
+
         #mcp-servers-example {
             width: 100%;
             height: 40em;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        @media (max-width: 840px) {
+            .mcp-example-notes {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 

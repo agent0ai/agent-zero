@@ -39,17 +39,6 @@
                     </label>
 
                     <label class="policy-label">
-                        <span class="policy-label-text">Limit to agent profile:</span>
-                        <select x-model="$store.skillsImportStore.agentProfileKey" class="policy-dropdown"
-                            @change="$store.skillsImportStore.previewImport()">
-                            <option value="">All</option>
-                            <template x-for="agentProfile in $store.skillsImportStore.agentProfiles" :key="agentProfile.key">
-                                <option :value="agentProfile.key" x-text="agentProfile.label"></option>
-                            </template>
-                        </select>
-                    </label>
-
-                    <label class="policy-label">
                         <span class="policy-label-text">Namespace:</span>
                         <input class="text-input" type="text" placeholder="e.g. my-pack"
                             x-model="$store.skillsImportStore.namespace"
@@ -67,6 +56,8 @@
                     </label>
 
                     <div class="buttons">
+                        <button class="btn slim" @click="$store.skillsImportStore.scanSelectedFile()"
+                            :disabled="$store.skillsImportStore.loading || $store.skillsScanStore?.preparingUpload">Scan Skills</button>
                         <button class="btn slim" @click="$store.skillsImportStore.previewImport()"
                             :disabled="$store.skillsImportStore.loading">Preview</button>
                         <button class="btn slim primary" @click="$store.skillsImportStore.performImport()"

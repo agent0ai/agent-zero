@@ -49,7 +49,7 @@ class TokenStatus(connector_base.ProtectedConnectorApiHandler):
                     history_output, ai_label="assistant", human_label="user"
                 )
                 if full_text.strip():
-                    token_count = tokens_helper.approximate_tokens(full_text)
+                    token_count = tokens_helper.approximate_prompt_tokens(full_text)
             except Exception:
                 token_count = None
 

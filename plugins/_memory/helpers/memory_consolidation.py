@@ -1,7 +1,6 @@
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
@@ -9,6 +8,7 @@ from langchain_core.documents import Document
 
 from plugins._memory.helpers.memory import Memory
 from helpers.dirty_json import DirtyJson
+from helpers.localization import Localization
 from helpers.log import LogItem
 from helpers.print_style import PrintStyle
 from agent import Agent
@@ -753,7 +753,7 @@ class MemoryConsolidator:
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in standard format."""
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        return Localization.get().now_iso(timespec="seconds")
 
 
 # Factory function for easy instantiation

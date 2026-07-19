@@ -21,9 +21,10 @@ Related skills: `/a0/skills/a0-review-plugin/SKILL.md` | `/a0/skills/a0-contribu
 
 Primary references:
 - /a0/AGENTS.md (Full-stack architecture & AgentContext)
-- /a0/docs/agents/AGENTS.components.md (Component system deep dive)
-- /a0/docs/agents/AGENTS.modals.md (Modal system & CSS conventions)
-- /a0/docs/agents/AGENTS.plugins.md (Extension points, plugin.yaml, settings system, Plugin Index)
+- /a0/plugins/AGENTS.md (Plugin contract, plugin.yaml, settings, banners, extension contracts, Plugin Index)
+- /a0/webui/components/AGENTS.md (Component system and modal component conventions)
+- /a0/webui/js/AGENTS.md (Modal stack, API helpers, extension loader)
+- /a0/webui/css/AGENTS.md (Modal CSS and shared visual primitives)
 - /a0/docs/developer/plugins.md (Developer lifecycle and publishing)
 
 ---

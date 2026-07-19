@@ -379,8 +379,9 @@ class _FakeTool:
 
 
 class _FakeAgent:
-    def __init__(self) -> None:
+    def __init__(self, context_id: str = "") -> None:
         self.data = {}
+        self.context = types.SimpleNamespace(id=context_id) if context_id else None
 
     def read_prompt(self, name: str, **kwargs) -> str:
         if name.endswith("read_ok.md"):
@@ -549,6 +550,34 @@ def test_text_editor_execute_accepts_action_alias_for_read(
 
     assert "read 2 lines" in response.message
     assert "line-1" in response.message
+
+
+def test_text_editor_write_result_carries_markdown_canvas_intent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module, _calls = _load_text_editor_tool(monkeypatch)
+    target = tmp_path / "note.md"
+    tool = module.TextEditor(_FakeAgent("ctx-write-1"), "text_editor", "write", {}, "", None)
+
+    response = asyncio.run(
+        tool._write(
+            path=str(target),
+            content="# Note\n",
+            open_in_canvas=True,
+        )
+    )
+
+    assert target.read_text(encoding="utf-8") == "# Note\n"
+    assert response.additional == {
+        "_tool_name": "text_editor",
+        "action": "write",
+        "path": str(target),
+        "format": "md",
+        "extension": "md",
+        "open_in_canvas": True,
+        "context_id": "ctx-write-1",
+        "ctxid": "ctx-write-1",
+    }
 
 
 def test_text_editor_patch_text_rejects_simultaneous_edits(

@@ -21,6 +21,8 @@ from contextlib import AsyncExitStack
 from shutil import which
 from datetime import timedelta
 import json
+import shlex
+import uuid
 from helpers import errors
 from helpers import settings
 from helpers.log import LogItem
@@ -39,9 +41,24 @@ from anyio.streams.memory import (
 )
 
 from pydantic import BaseModel, Field, Discriminator, Tag, PrivateAttr
-from helpers import dirty_json
+from helpers import dirty_json, media_artifacts
 from helpers.print_style import PrintStyle
 from helpers.tool import Tool, Response
+from helpers.defer import DeferredTask
+from helpers.responses_tools import original_tool_name
+
+
+MCP_MEDIA_TOKENS_ESTIMATE = 1500
+MAX_MCP_RESOURCE_TEXT_CHARS = 12_000
+MCP_SESSION_CLEANUP_TIMEOUT_SECONDS = 5.0
+MCP_OPERATION_TIMEOUT_GRACE_SECONDS = MCP_SESSION_CLEANUP_TIMEOUT_SECONDS + 2.0
+DEFAULT_MCP_SERVERS_CONFIG = '{\n    "mcpServers": {}\n}'
+
+
+def _mcp_get(item: Any, key: str, default: Any = None) -> Any:
+    if isinstance(item, dict):
+        return item.get(key, default)
+    return getattr(item, key, default)
 
 
 def normalize_name(name: str) -> str:
@@ -81,6 +98,60 @@ def _is_streaming_http_type(server_type: str) -> bool:
     return server_type.lower() in ["http-stream", "streaming-http", "streamable-http", "http-streaming"]
 
 
+def _split_qualified_tool_name(tool_name: str) -> tuple[str, str]:
+    """Split Agent Zero's server.tool MCP name while preserving dots in MCP tool names."""
+    if "." not in tool_name:
+        raise ValueError(f"Tool {tool_name} not found")
+    server_name_part, tool_name_part = tool_name.split(".", 1)
+    if not server_name_part or not tool_name_part:
+        raise ValueError(f"Tool {tool_name} not found")
+    return server_name_part, tool_name_part
+
+
+def _normalize_disabled_tools(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _split_stdio_command(command: Any) -> tuple[str, list[str]]:
+    text = str(command or "").strip()
+    if not text:
+        return "", []
+    try:
+        parts = shlex.split(text)
+    except ValueError:
+        return text, []
+    if not parts:
+        return "", []
+    return parts[0], parts[1:]
+
+
+def _split_stdio_arg_fragment(arg: str) -> list[str]:
+    try:
+        parts = shlex.split(arg)
+    except ValueError:
+        return [arg]
+    if len(parts) <= 1:
+        return parts or []
+    if parts[0].startswith("-") and "=" not in parts[0]:
+        return parts
+    if any(part.startswith("-") for part in parts[1:]):
+        return parts
+    return [arg]
+
+
+def _normalize_stdio_args(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    args: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text:
+            args.extend(_split_stdio_arg_fragment(text))
+    return args
+
+
 def initialize_mcp(mcp_servers_config: str):
     if not MCPConfig.get_instance().is_initialized():
         try:
@@ -102,7 +173,6 @@ class MCPTool(Tool):
     """MCP Tool wrapper"""
 
     def get_log_object(self) -> LogItem:
-        import uuid
         return self.agent.context.log.log(
             type="mcp",
             heading=f"icon://extension {self.agent.agent_name}: Using MCP tool '{self.name}'",
@@ -111,17 +181,268 @@ class MCPTool(Tool):
             id=str(uuid.uuid4()),
         )
 
+    def _context_id(self) -> str:
+        return str(getattr(getattr(self.agent, "context", None), "id", "") or "").strip()
+
+    def _raw_tool_response(self, response: Response) -> str:
+        raw_tool_response = response.message.strip() if response.message else ""
+        if not raw_tool_response:
+            PrintStyle(font_color="red").print(
+                f"Warning: Tool '{self.name}' returned an empty message."
+            )
+            raw_tool_response = "[Tool returned no textual content]"
+        return raw_tool_response
+
+    def _coerce_media_token_estimate(self, value: object) -> int:
+        try:
+            estimate = int(value or 0)
+        except (TypeError, ValueError):
+            estimate = 0
+        return estimate if estimate > 0 else MCP_MEDIA_TOKENS_ESTIMATE
+
+    def _format_image_content(
+        self,
+        *,
+        encoded: str,
+        mime_type: str,
+        label: str,
+        index: int,
+        preferred_name: str = "",
+    ) -> tuple[str, dict[str, Any] | None, str]:
+        try:
+            safe_mime = media_artifacts.normalize_mime(
+                mime_type,
+                default="image/png",
+                required_prefix="image/",
+            )
+            artifact = media_artifacts.save_base64_artifact(
+                encoded,
+                mime_type=safe_mime,
+                directory_parts=self._artifact_directory_parts(),
+                preferred_name=preferred_name,
+                default_filename=self._default_artifact_filename(
+                    label=label,
+                    index=index,
+                    mime_type=safe_mime,
+                ),
+            )
+        except media_artifacts.EmptyBase64Data:
+            return f"MCP returned an empty {label} attachment.", None, ""
+        except media_artifacts.InvalidBase64Data:
+            return (
+                f"MCP returned a {label} attachment that could not be decoded.",
+                None,
+                "",
+            )
+
+        return (
+            (
+                f"Saved MCP {label} attachment "
+                f"({artifact.mime}, {artifact.size} bytes) to {artifact.path}."
+            ),
+            {
+                "type": "image_url",
+                "image_url": {"url": artifact.path},
+            },
+            artifact.path,
+        )
+
+    def _materialize_binary_content(
+        self,
+        *,
+        encoded: str,
+        mime_type: str,
+        label: str,
+        index: int,
+        preferred_name: str = "",
+    ) -> str:
+        try:
+            safe_mime = media_artifacts.normalize_mime(mime_type)
+            artifact = media_artifacts.save_base64_artifact(
+                encoded,
+                mime_type=safe_mime,
+                directory_parts=self._artifact_directory_parts(),
+                preferred_name=preferred_name,
+                default_filename=self._default_artifact_filename(
+                    label=label,
+                    index=index,
+                    mime_type=safe_mime,
+                ),
+            )
+        except media_artifacts.EmptyBase64Data:
+            return f"MCP returned an empty {label} attachment."
+        except media_artifacts.InvalidBase64Data:
+            return f"MCP returned a {label} attachment that could not be decoded."
+
+        return f"Saved MCP {label} attachment ({artifact.mime}, {artifact.size} bytes) to {artifact.path}."
+
+    def _artifact_directory_parts(self) -> tuple[str, ...]:
+        context_id = normalize_name(self._context_id() or "shared") or "shared"
+        tool_name = normalize_name(self.name or "mcp_tool") or "mcp_tool"
+        return ("tmp", "mcp", context_id, tool_name)
+
+    def _default_artifact_filename(self, *, label: str, index: int, mime_type: str) -> str:
+        tool_name = normalize_name(self.name or "mcp_tool") or "mcp_tool"
+        ext = media_artifacts.guess_extension(mime_type, ".bin")
+        return f"{tool_name}_{label}_{index}{ext}"
+
+    def _format_resource_text(self, text: str, uri: str = "") -> str:
+        body = str(text or "").strip()
+        if not body:
+            return ""
+        if len(body) > MAX_MCP_RESOURCE_TEXT_CHARS:
+            body = body[:MAX_MCP_RESOURCE_TEXT_CHARS].rstrip() + "\n...[truncated]"
+        if uri:
+            return f"Resource {uri}:\n{body}"
+        return body
+
+    def _content_item_dump(self, item: Any) -> dict[str, Any]:
+        if isinstance(item, dict):
+            return dict(item)
+        model_dump = getattr(item, "model_dump", None)
+        if callable(model_dump):
+            dumped = model_dump(mode="python")
+            if isinstance(dumped, dict):
+                return dumped
+        item_vars = getattr(item, "__dict__", None)
+        if isinstance(item_vars, dict):
+            return dict(item_vars)
+        return {}
+
+    def _summarize_unknown_item(self, item: Any, item_type: str) -> str:
+        dumped = self._content_item_dump(item)
+        if dumped:
+            dumped.pop("data", None)
+            resource = dumped.get("resource")
+            if isinstance(resource, dict):
+                resource.pop("blob", None)
+            summary = json.dumps(dumped, ensure_ascii=False)
+            if len(summary) > 600:
+                summary = summary[:600] + "...[truncated]"
+            return f"MCP returned unsupported content item type '{item_type}': {summary}"
+        return f"MCP returned unsupported content item type '{item_type}'."
+
+    def _format_tool_result(
+        self, response: CallToolResult
+    ) -> tuple[str, dict[str, Any] | None]:
+        text_parts: list[str] = []
+        notes: list[str] = []
+        raw_images: list[dict[str, Any]] = []
+        image_paths: list[str] = []
+        content_items = list(getattr(response, "content", []) or [])
+
+        for index, item in enumerate(content_items, start=1):
+            item_type = str(_mcp_get(item, "type", "") or "").strip().lower()
+
+            if item_type == "text":
+                text = str(_mcp_get(item, "text", "") or "").strip()
+                if text:
+                    text_parts.append(text)
+                continue
+
+            if item_type == "image":
+                note, raw_content, path = self._format_image_content(
+                    encoded=str(_mcp_get(item, "data", "") or ""),
+                    mime_type=str(_mcp_get(item, "mimeType", "") or "image/png"),
+                    label="image",
+                    index=index,
+                )
+                notes.append(note)
+                if raw_content:
+                    raw_images.append(raw_content)
+                if path:
+                    image_paths.append(path)
+                continue
+
+            if item_type == "audio":
+                note = self._materialize_binary_content(
+                    encoded=str(_mcp_get(item, "data", "") or ""),
+                    mime_type=str(_mcp_get(item, "mimeType", "") or "audio/wav"),
+                    label="audio",
+                    index=index,
+                )
+                notes.append(note)
+                continue
+
+            if item_type == "resource":
+                resource = _mcp_get(item, "resource", None)
+                uri = str(_mcp_get(resource, "uri", "") or "").strip()
+                text = _mcp_get(resource, "text", None)
+                if isinstance(text, str) and text.strip():
+                    text_parts.append(self._format_resource_text(text, uri))
+                    continue
+
+                blob = str(_mcp_get(resource, "blob", "") or "").strip()
+                if blob:
+                    mime_type = str(
+                        _mcp_get(resource, "mimeType", "") or "application/octet-stream"
+                    ).strip().lower()
+                    if mime_type.startswith("image/"):
+                        note, raw_content, path = self._format_image_content(
+                            encoded=blob,
+                            mime_type=mime_type,
+                            label="resource image",
+                            index=index,
+                            preferred_name=uri,
+                        )
+                    else:
+                        note = self._materialize_binary_content(
+                            encoded=blob,
+                            mime_type=mime_type,
+                            label="resource",
+                            index=index,
+                            preferred_name=uri,
+                        )
+                        raw_content = None
+                        path = ""
+                    notes.append(note)
+                    if raw_content:
+                        raw_images.append(raw_content)
+                    if path:
+                        image_paths.append(path)
+                    continue
+
+                if uri:
+                    mime_type = str(_mcp_get(resource, "mimeType", "") or "").strip()
+                    details = f" ({mime_type})" if mime_type else ""
+                    notes.append(f"MCP returned a resource reference: {uri}{details}.")
+                    continue
+
+                notes.append("MCP returned a resource item without text or binary data.")
+                continue
+
+            if item_type:
+                notes.append(self._summarize_unknown_item(item, item_type))
+                continue
+
+            notes.append(self._summarize_unknown_item(item, "unknown"))
+
+        message = "\n\n".join(part for part in [*text_parts, *notes] if part.strip())
+        if not message and content_items:
+            message = "MCP tool returned content that could not be rendered as text."
+
+        additional = None
+        if raw_images:
+            additional = {
+                "raw_content": raw_images,
+                "preview": f"<MCP image attachments: {len(raw_images)}>",
+                "_tokens": MCP_MEDIA_TOKENS_ESTIMATE * len(raw_images),
+                "attachments": image_paths,
+                "media_paths": image_paths,
+            }
+
+        return message, additional
+
     async def execute(self, **kwargs: Any):
         error = ""
+        additional: dict[str, Any] | None = None
         try:
-            response: CallToolResult = await MCPConfig.get_instance().call_tool(
+            response: CallToolResult = await MCPConfig.get_for_agent(self.agent).call_tool(
                 self.name, kwargs
             )
-            message = "\n\n".join(
-                [item.text for item in response.content if item.type == "text"]
-            )
+            message, additional = self._format_tool_result(response)
             if response.isError:
-                error = message
+                error = message or "MCP tool returned an error without textual content."
         except Exception as e:
             error = f"MCP Tool Exception: {str(e)}"
             message = f"ERROR: {str(e)}"
@@ -139,7 +460,7 @@ class MCPTool(Tool):
                 content=f"{self.name}: {error}",
             )
 
-        return Response(message=message, break_loop=False)
+        return Response(message=message, break_loop=False, additional=additional)
 
     async def before_execution(self, **kwargs: Any):
         (
@@ -159,48 +480,29 @@ class MCPTool(Tool):
             PrintStyle().print()
 
     async def after_execution(self, response: Response, **kwargs: Any):
-        raw_tool_response = response.message.strip() if response.message else ""
-        if not raw_tool_response:
-            PrintStyle(font_color="red").print(
-                f"Warning: Tool '{self.name}' returned an empty message."
+        final_text_for_agent = self._raw_tool_response(response)
+        additional = dict(response.additional or {})
+        raw_content = additional.pop("raw_content", None)
+        preview = str(additional.pop("preview", "") or "").strip()
+        token_estimate = self._coerce_media_token_estimate(additional.pop("_tokens", 0))
+
+        self.agent.hist_add_tool_result(
+            self.name,
+            final_text_for_agent,
+            id=self.log.id if self.log else "",
+            **additional,
+        )
+        if raw_content:
+            from helpers import history
+
+            self.agent.hist_add_message(
+                False,
+                content=history.RawMessage(
+                    raw_content=raw_content,
+                    preview=preview or final_text_for_agent,
+                ),
+                tokens=token_estimate,
             )
-            # Even if empty, we might still want to provide context for the agent
-            raw_tool_response = "[Tool returned no textual content]"
-
-        # Prepare user message context
-        # user_message_text = (
-        #     "No specific user message context available for this exact step."
-        # )
-        # if (
-        #     self.agent
-        #     and self.agent.last_user_message
-        #     and self.agent.last_user_message.content
-        # ):
-        #     content = self.agent.last_user_message.content
-        #     if isinstance(content, dict):
-        #         # Attempt to get a 'message' field, otherwise stringify the dict
-        #         user_message_text = str(content.get(
-        #             "message", json.dumps(content, indent=2)
-        #         ))
-        #     elif isinstance(content, str):
-        #         user_message_text = content
-        #     else:
-        #         # Fallback for any other types (e.g. list, if that were possible for content)
-        #         user_message_text = str(content)
-
-        # # Ensure user_message_text is a string before length check and slicing
-        # user_message_text = str(user_message_text)
-
-        # # Truncate user message context if it's too long to avoid overwhelming the prompt
-        # max_user_context_len = 500  # characters
-        # if len(user_message_text) > max_user_context_len:
-        #     user_message_text = (
-        #         user_message_text[:max_user_context_len] + "... (truncated)"
-        #     )
-
-        final_text_for_agent = raw_tool_response
-
-        self.agent.hist_add_tool_result(self.name, final_text_for_agent, id=self.log.id if self.log else "")
         (
             PrintStyle(
                 font_color="#1B4F72", background_color="white", padding=True, bold=True
@@ -210,8 +512,8 @@ class MCPTool(Tool):
         )
         # Print only the raw response to console for brevity, agent gets the full context.
         PrintStyle(font_color="#85C1E9").print(
-            raw_tool_response
-            if raw_tool_response
+            final_text_for_agent
+            if final_text_for_agent
             else "[No direct textual output from tool]"
         )
         if self.log:
@@ -230,6 +532,8 @@ class MCPServerRemote(BaseModel):
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
+    disabled_tools: list[str] = Field(default_factory=list)
+    scope: str = Field(default="global")
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __client: Optional["MCPClientRemote"] = PrivateAttr(default=None)
@@ -248,12 +552,26 @@ class MCPServerRemote(BaseModel):
             return self.__client.get_log()  # type: ignore
 
     def get_tools(self) -> List[dict[str, Any]]:
-        """Get all tools from the server"""
+        """Get enabled tools from the server"""
         with self.__lock:
-            return self.__client.tools  # type: ignore
+            tools = self.__client.get_tools()  # type: ignore
+            disabled = set(self.disabled_tools)
+            return [tool for tool in tools if tool.get("name") not in disabled]
+
+    def get_all_tools(self) -> List[dict[str, Any]]:
+        """Get all tools from the server and mark disabled tools for UI detail views."""
+        with self.__lock:
+            tools = self.__client.get_tools()  # type: ignore
+            disabled = set(self.disabled_tools)
+            return [
+                {**tool, "disabled": tool.get("name") in disabled}
+                for tool in tools
+            ]
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
+        if tool_name in self.disabled_tools:
+            return False
         with self.__lock:
             return self.__client.has_tool(tool_name)  # type: ignore
 
@@ -261,9 +579,12 @@ class MCPServerRemote(BaseModel):
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
-        with self.__lock:
-            # We already run in an event loop, dont believe Pylance
-            return await self.__client.call_tool(tool_name, input_data)  # type: ignore
+        client = self.__client
+        if client is None:
+            raise RuntimeError("MCP remote client is not initialized")
+        if tool_name in self.disabled_tools:
+            raise ValueError(f"Tool {tool_name} is disabled for server {self.name}.")
+        return await client.call_tool(tool_name, input_data)
 
     def update(self, config: dict[str, Any]) -> "MCPServerRemote":
         with self.__lock:
@@ -278,12 +599,16 @@ class MCPServerRemote(BaseModel):
                     "init_timeout",
                     "tool_timeout",
                     "disabled",
+                    "disabled_tools",
                     "verify",
+                    "scope",
                 ]:
                     if key == "name":
                         value = normalize_name(value)
                     if key == "serverUrl":
                         key = "url"  # remap serverUrl to url
+                    if key == "disabled_tools":
+                        value = _normalize_disabled_tools(value)
 
                     setattr(self, key, value)
             return self
@@ -308,6 +633,8 @@ class MCPServerLocal(BaseModel):
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
+    disabled_tools: list[str] = Field(default_factory=list)
+    scope: str = Field(default="global")
 
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __client: Optional["MCPClientLocal"] = PrivateAttr(default=None)
@@ -326,12 +653,26 @@ class MCPServerLocal(BaseModel):
             return self.__client.get_log()  # type: ignore
 
     def get_tools(self) -> List[dict[str, Any]]:
-        """Get all tools from the server"""
+        """Get enabled tools from the server"""
         with self.__lock:
-            return self.__client.tools  # type: ignore
+            tools = self.__client.get_tools()  # type: ignore
+            disabled = set(self.disabled_tools)
+            return [tool for tool in tools if tool.get("name") not in disabled]
+
+    def get_all_tools(self) -> List[dict[str, Any]]:
+        """Get all tools from the server and mark disabled tools for UI detail views."""
+        with self.__lock:
+            tools = self.__client.get_tools()  # type: ignore
+            disabled = set(self.disabled_tools)
+            return [
+                {**tool, "disabled": tool.get("name") in disabled}
+                for tool in tools
+            ]
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
+        if tool_name in self.disabled_tools:
+            return False
         with self.__lock:
             return self.__client.has_tool(tool_name)  # type: ignore
 
@@ -339,12 +680,24 @@ class MCPServerLocal(BaseModel):
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
-        with self.__lock:
-            # We already run in an event loop, dont believe Pylance
-            return await self.__client.call_tool(tool_name, input_data)  # type: ignore
+        client = self.__client
+        if client is None:
+            raise RuntimeError("MCP local client is not initialized")
+        if tool_name in self.disabled_tools:
+            raise ValueError(f"Tool {tool_name} is disabled for server {self.name}.")
+        return await client.call_tool(tool_name, input_data)
 
     def update(self, config: dict[str, Any]) -> "MCPServerLocal":
         with self.__lock:
+            command = self.command
+            command_args: list[str] = []
+            args = list(self.args)
+            if "command" in config:
+                command, command_args = _split_stdio_command(config.get("command"))
+                args = [*command_args, *args]
+            if "args" in config:
+                args = [*command_args, *_normalize_stdio_args(config.get("args"))]
+
             for key, value in config.items():
                 if key in [
                     "name",
@@ -358,10 +711,18 @@ class MCPServerLocal(BaseModel):
                     "init_timeout",
                     "tool_timeout",
                     "disabled",
+                    "disabled_tools",
+                    "scope",
                 ]:
+                    if key in ["command", "args"]:
+                        continue
                     if key == "name":
                         value = normalize_name(value)
+                    if key == "disabled_tools":
+                        value = _normalize_disabled_tools(value)
                     setattr(self, key, value)
+            self.command = command
+            self.args = args
             return self
 
     async def initialize(self) -> "MCPServerLocal":
@@ -381,16 +742,136 @@ MCPServer = Annotated[
 class MCPConfig(BaseModel):
     servers: list[MCPServer] = Field(default_factory=list)
     disconnected_servers: list[dict[str, Any]] = Field(default_factory=list)
+    config_scope: str = Field(default="global")
     __lock: ClassVar[threading.Lock] = PrivateAttr(default=threading.Lock())
     __instance: ClassVar[Any] = PrivateAttr(default=None)
     __initialized: ClassVar[bool] = PrivateAttr(default=False)
+    __project_instances: ClassVar[dict[str, tuple[str, "MCPConfig"]]] = {}
 
     @classmethod
     def get_instance(cls) -> "MCPConfig":
-        # with cls.__lock:
-        if cls.__instance is None:
-            cls.__instance = cls(servers_list=[])
-        return cls.__instance
+        with cls.__lock:
+            if cls.__instance is None:
+                cls.__instance = cls(servers_list=[], config_scope="global")
+            return cls.__instance
+
+    @classmethod
+    def clear_project_instances(cls):
+        with cls.__lock:
+            cls.__project_instances = {}
+
+    @classmethod
+    def parse_config_string(cls, config_str: str) -> List[Dict[str, Any]]:
+        servers_data: List[Dict[str, Any]] = []
+
+        if not (config_str and config_str.strip()):
+            return servers_data
+
+        try:
+            parsed_value = dirty_json.try_parse(config_str)
+            normalized = cls.normalize_config(parsed_value)
+
+            if isinstance(normalized, list):
+                for item in normalized:
+                    if isinstance(item, dict):
+                        servers_data.append(dict(item))
+                    else:
+                        PrintStyle(
+                            background_color="yellow",
+                            font_color="black",
+                            padding=True,
+                        ).print(
+                            f"Warning: MCP config item was not a dictionary and was ignored: {item}"
+                        )
+            else:
+                PrintStyle(
+                    background_color="red", font_color="white", padding=True
+                ).print(
+                    f"Error: Parsed MCP config top-level structure is not a list. Config string was: '{config_str}'"
+                )
+        except Exception as e_json:
+            PrintStyle.error(
+                f"Error parsing MCP config string: {e_json}. Config string was: '{config_str}'"
+            )
+
+        return servers_data
+
+    @classmethod
+    def merge_config_strings(
+        cls, global_config: str, project_config: str
+    ) -> tuple[list[dict[str, Any]], str]:
+        merged: dict[str, dict[str, Any]] = {}
+        unnamed: list[dict[str, Any]] = []
+
+        def add_servers(config_str: str, scope: str):
+            for server in cls.parse_config_string(config_str):
+                server_copy = dict(server)
+                server_copy["scope"] = scope
+                name = str(server_copy.get("name", "") or "").strip()
+                if not name:
+                    unnamed.append(server_copy)
+                    continue
+                normalized_name = normalize_name(name)
+                server_copy["name"] = normalized_name
+                merged[normalized_name] = server_copy
+
+        add_servers(global_config or DEFAULT_MCP_SERVERS_CONFIG, "global")
+        add_servers(project_config or DEFAULT_MCP_SERVERS_CONFIG, "project")
+
+        servers = [*unnamed, *merged.values()]
+        cache_key = dirty_json.stringify(
+            {
+                "mcpServers": {
+                    s.get("name", f"unnamed_{i}"): s
+                    for i, s in enumerate(servers)
+                }
+            }
+        )
+        return servers, cache_key
+
+    @classmethod
+    def get_project_instance(cls, project_name: str | None, *, force: bool = False) -> "MCPConfig":
+        project_key = str(project_name or "").strip()
+        if not project_key:
+            return cls.get_instance()
+
+        from helpers import projects
+        project_key = projects.validate_project_name(project_key)
+
+        global_config = settings.get_settings().get(
+            "mcp_servers", DEFAULT_MCP_SERVERS_CONFIG
+        )
+        project_config = projects.load_project_mcp_servers(project_key)
+        servers_data, cache_key = cls.merge_config_strings(global_config, project_config)
+
+        with cls.__lock:
+            cached = cls.__project_instances.get(project_key)
+            if cached and cached[0] == cache_key and not force:
+                return cached[1]
+
+        instance = cls(servers_list=servers_data, config_scope=f"project:{project_key}")
+        with cls.__lock:
+            cls.__project_instances[project_key] = (cache_key, instance)
+        return instance
+
+    @classmethod
+    def refresh_project(cls, project_name: str) -> "MCPConfig":
+        project_key = str(project_name or "").strip()
+        with cls.__lock:
+            cls.__project_instances.pop(project_key, None)
+        return cls.get_project_instance(project_key, force=True)
+
+    @classmethod
+    def get_for_agent(cls, agent: Any) -> "MCPConfig":
+        try:
+            from helpers import projects
+
+            project_name = projects.get_context_project_name(agent.context)
+            if project_name:
+                return cls.get_project_instance(project_name)
+        except Exception:
+            pass
+        return cls.get_instance()
 
     @classmethod
     def wait_for_lock(cls):
@@ -399,97 +880,20 @@ class MCPConfig(BaseModel):
 
     @classmethod
     def update(cls, config_str: str) -> Any:
+        servers_data = cls.parse_config_string(config_str)
+        new_instance = cls(servers_list=servers_data, config_scope="global")
         with cls.__lock:
-            servers_data: List[Dict[str, Any]] = []  # Default to empty list
-
-            if (
-                config_str and config_str.strip()
-            ):  # Only parse if non-empty and not just whitespace
-                try:
-                    # Try with standard json.loads first, as it should handle escaped strings correctly
-                    parsed_value = dirty_json.try_parse(config_str)
-                    normalized = cls.normalize_config(parsed_value)
-
-                    if isinstance(normalized, list):
-                        valid_servers = []
-                        for item in normalized:
-                            if isinstance(item, dict):
-                                valid_servers.append(item)
-                            else:
-                                PrintStyle(
-                                    background_color="yellow",
-                                    font_color="black",
-                                    padding=True,
-                                ).print(
-                                    f"Warning: MCP config item (from json.loads) was not a dictionary and was ignored: {item}"
-                                )
-                        servers_data = valid_servers
-                    else:
-                        PrintStyle(
-                            background_color="red", font_color="white", padding=True
-                        ).print(
-                            f"Error: Parsed MCP config (from json.loads) top-level structure is not a list. Config string was: '{config_str}'"
-                        )
-                        # servers_data remains empty
-                except (
-                    Exception
-                ) as e_json:  # Catch json.JSONDecodeError specifically if possible, or general Exception
-                    PrintStyle.error(
-                        f"Error parsing MCP config string: {e_json}. Config string was: '{config_str}'"
-                    )
-
-                    # # Fallback to DirtyJson or log error if standard json.loads fails
-                    # PrintStyle(background_color="orange", font_color="black", padding=True).print(
-                    #     f"Standard json.loads failed for MCP config: {e_json}. Attempting DirtyJson as fallback."
-                    # )
-                    # try:
-                    #     parsed_value = DirtyJson.parse_string(config_str)
-                    #     if isinstance(parsed_value, list):
-                    #         valid_servers = []
-                    #         for item in parsed_value:
-                    #             if isinstance(item, dict):
-                    #                 valid_servers.append(item)
-                    #             else:
-                    #                 PrintStyle(background_color="yellow", font_color="black", padding=True).print(
-                    #                     f"Warning: MCP config item (from DirtyJson) was not a dictionary and was ignored: {item}"
-                    #                 )
-                    #         servers_data = valid_servers
-                    #     else:
-                    #         PrintStyle(background_color="red", font_color="white", padding=True).print(
-                    #             f"Error: Parsed MCP config (from DirtyJson) top-level structure is not a list. Config string was: '{config_str}'"
-                    #         )
-                    #         # servers_data remains empty
-                    # except Exception as e_dirty:
-                    #     PrintStyle(background_color="red", font_color="white", padding=True).print(
-                    #         f"Error parsing MCP config string with DirtyJson as well: {e_dirty}. Config string was: '{config_str}'"
-                    #     )
-                    #     # servers_data remains empty, allowing graceful degradation
-
-            # Initialize/update the singleton instance with the (potentially empty) list of server data
-            instance = cls.get_instance()
-            # Directly update the servers attribute of the existing instance or re-initialize carefully
-            # For simplicity and to ensure __init__ logic runs if needed for setup:
-            new_instance_data = {
-                "servers": servers_data
-            }  # Prepare data for re-initialization or update
-
-            # Option 1: Re-initialize the existing instance (if __init__ is idempotent for other fields)
-            instance.__init__(servers_list=servers_data)
-
-            # Option 2: Or, if __init__ has side effects we don't want to repeat,
-            # and 'servers' is the primary thing 'update' changes:
-            # instance.servers = [] # Clear existing servers first
-            # for server_item_data in servers_data:
-            #     try:
-            #         if server_item_data.get("url", None):
-            #             instance.servers.append(MCPServerRemote(server_item_data))
-            #         else:
-            #             instance.servers.append(MCPServerLocal(server_item_data))
-            #     except Exception as e_init:
-            #         PrintStyle(background_color="grey", font_color="red", padding=True).print(
-            #             f"MCPConfig.update: Failed to create MCPServer from item '{server_item_data.get('name', 'Unknown')}': {e_init}"
-            #         )
-
+            # Build and initialize outside the class lock so a slow or wedged MCP
+            # server cannot freeze status reads, prompts, or later tool calls.
+            instance = cls.__instance
+            if instance is None:
+                instance = new_instance
+                cls.__instance = instance
+            else:
+                instance.servers = new_instance.servers
+                instance.disconnected_servers = new_instance.disconnected_servers
+                instance.config_scope = new_instance.config_scope
+            cls.__project_instances = {}
             cls.__initialized = True
             return instance
 
@@ -499,23 +903,24 @@ class MCPConfig(BaseModel):
         if isinstance(servers, list):
             for server in servers:
                 if isinstance(server, dict):
-                    normalized.append(server)
+                    normalized.append(dict(server))
         elif isinstance(servers, dict):
             if "mcpServers" in servers:
                 if isinstance(servers["mcpServers"], dict):
                     for key, value in servers["mcpServers"].items():
                         if isinstance(value, dict):
-                            value["name"] = key
-                            normalized.append(value)
+                            server = dict(value)
+                            server["name"] = key
+                            normalized.append(server)
                 elif isinstance(servers["mcpServers"], list):
                     for server in servers["mcpServers"]:
                         if isinstance(server, dict):
-                            normalized.append(server)
+                            normalized.append(dict(server))
             else:
-                normalized.append(servers)  # single server?
+                normalized.append(dict(servers))  # single server?
         return normalized
 
-    def __init__(self, servers_list: List[Dict[str, Any]]):
+    def __init__(self, servers_list: List[Dict[str, Any]], config_scope: str = "global"):
         from collections.abc import Mapping, Iterable
 
         # # DEBUG: Print the received servers_list
@@ -532,6 +937,7 @@ class MCPConfig(BaseModel):
 
         # Clear any servers potentially initialized by super().__init__() before we populate based on servers_list
         self.servers = []
+        self.config_scope = config_scope
         # initialize failed servers list
         self.disconnected_servers = []
 
@@ -565,6 +971,11 @@ class MCPConfig(BaseModel):
                     }
                 )
                 continue
+
+            server_item = dict(server_item)
+            server_item["disabled_tools"] = _normalize_disabled_tools(
+                server_item.get("disabled_tools")
+            )
 
             if server_item.get("disabled", False):
                 # get server name if available
@@ -658,10 +1069,10 @@ class MCPConfig(BaseModel):
                 name = server.name
                 # get tool count
                 tool_count = len(server.get_tools())
-                # check if server is connected
-                connected = True  # tool_count > 0
                 # get error message if any
                 error = server.get_error()
+                # A server object can exist while its initialization failed.
+                connected = not bool(error)
                 # get log bool
                 has_log = server.get_log() != ""
 
@@ -669,6 +1080,9 @@ class MCPConfig(BaseModel):
                 result.append(
                     {
                         "name": name,
+                        "scope": getattr(server, "scope", self.config_scope),
+                        "type": getattr(server, "type", ""),
+                        "description": getattr(server, "description", ""),
                         "connected": connected,
                         "error": error,
                         "tool_count": tool_count,
@@ -681,6 +1095,9 @@ class MCPConfig(BaseModel):
                 result.append(
                     {
                         "name": disconnected["name"],
+                        "scope": disconnected.get("config", {}).get("scope", self.config_scope),
+                        "type": disconnected.get("config", {}).get("type", ""),
+                        "description": disconnected.get("config", {}).get("description", ""),
                         "connected": False,
                         "error": disconnected["error"],
                         "tool_count": 0,
@@ -695,12 +1112,15 @@ class MCPConfig(BaseModel):
             for server in self.servers:
                 if server.name == server_name:
                     try:
-                        tools = server.get_tools()
+                        get_all_tools = getattr(server, "get_all_tools", None)
+                        tools = get_all_tools() if callable(get_all_tools) else server.get_tools()
                     except Exception:
                         tools = []
                     return {
                         "name": server.name,
                         "description": server.description,
+                        "scope": getattr(server, "scope", self.config_scope),
+                        "type": getattr(server, "type", ""),
                         "tools": tools,
                     }
             return {}
@@ -777,9 +1197,10 @@ class MCPConfig(BaseModel):
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
-        if "." not in tool_name:
+        try:
+            server_name_part, tool_name_part = _split_qualified_tool_name(tool_name)
+        except ValueError:
             return False
-        server_name_part, tool_name_part = tool_name.split(".")
         with self.__lock:
             for server in self.servers:
                 if server.name == server_name_part:
@@ -787,22 +1208,36 @@ class MCPConfig(BaseModel):
             return False
 
     def get_tool(self, agent: Any, tool_name: str) -> MCPTool | None:
+        effective_config = MCPConfig.get_for_agent(agent)
+        if effective_config is not self:
+            return effective_config.get_tool(agent, tool_name)
         if not self.has_tool(tool_name):
-            return None
+            get_data = getattr(agent, "get_data", None)
+            name_map_key = getattr(agent, "DATA_NAME_RESPONSES_TOOL_NAME_MAP", "")
+            tool_name = original_tool_name(
+                tool_name,
+                get_data(name_map_key)
+                if name_map_key and callable(get_data)
+                else None,
+            )
+            if not self.has_tool(tool_name):
+                return None
         return MCPTool(agent=agent, name=tool_name, method=None, args={}, message="", loop_data=None)
 
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]
     ) -> CallToolResult:
         """Call a tool with the given input data"""
-        if "." not in tool_name:
-            raise ValueError(f"Tool {tool_name} not found")
-        server_name_part, tool_name_part = tool_name.split(".")
+        server_name_part, tool_name_part = _split_qualified_tool_name(tool_name)
+        matched_server = None
         with self.__lock:
             for server in self.servers:
                 if server.name == server_name_part and server.has_tool(tool_name_part):
-                    return await server.call_tool(tool_name_part, input_data)
+                    matched_server = server
+                    break
+        if matched_server is None:
             raise ValueError(f"Tool {tool_name} not found")
+        return await matched_server.call_tool(tool_name_part, input_data)
 
 
 T = TypeVar("T")
@@ -821,6 +1256,49 @@ class MCPClientBase(ABC):
         self.error: str = ""
         self.log: List[str] = []
         self.log_file: Optional[TextIO] = None
+
+    def _operation_timeout_seconds(self, read_timeout_seconds: float) -> float:
+        try:
+            seconds = float(read_timeout_seconds)
+        except (TypeError, ValueError):
+            seconds = 60.0
+        if seconds <= 0:
+            seconds = 60.0
+        return seconds + MCP_OPERATION_TIMEOUT_GRACE_SECONDS
+
+    def _operation_thread_name(self, operation_name: str) -> str:
+        server_name = normalize_name(str(getattr(self.server, "name", "") or "server"))
+        return f"MCPClient-{server_name[:32] or 'server'}-{operation_name}-{uuid.uuid4().hex[:8]}"
+
+    async def _run_isolated_operation(
+        self,
+        operation_name: str,
+        operation: Callable[[], Awaitable[T]],
+        timeout_seconds: float,
+    ) -> T:
+        worker = DeferredTask(thread_name=self._operation_thread_name(operation_name))
+        timed_out = False
+        try:
+            return await asyncio.wait_for(
+                worker.execute_inside(operation),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError as exc:
+            timed_out = True
+            message = (
+                f"MCPClientBase ({self.server.name} - {operation_name}): "
+                f"operation did not finish within {timeout_seconds:.1f}s; "
+                "abandoning the isolated worker so Agent Zero can continue."
+            )
+            PrintStyle.warning(message)
+            with self.__lock:
+                self.error = message
+            raise TimeoutError(message) from exc
+        finally:
+            if timed_out:
+                worker.kill(terminate_thread=False)
+            else:
+                worker.kill(terminate_thread=True)
 
     # Protected method
     @abstractmethod
@@ -844,54 +1322,56 @@ class MCPClientBase(ABC):
         """
         operation_name = coro_func.__name__  # For logging
         # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Creating new session for operation '{operation_name}'...")
-        # Store the original exception outside the async block
         original_exception = None
+        result: T | None = None
+        has_result = False
+        temp_stack = AsyncExitStack()
         try:
-            async with AsyncExitStack() as temp_stack:
-                try:
+            stdio, write = await self._create_stdio_transport(temp_stack)
+            # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
+            session = await temp_stack.enter_async_context(
+                ClientSession(
+                    stdio,  # type: ignore
+                    write,  # type: ignore
+                    read_timeout_seconds=timedelta(
+                        seconds=read_timeout_seconds
+                    ),
+                )
+            )
+            await session.initialize()
 
-                    stdio, write = await self._create_stdio_transport(temp_stack)
-                    # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name} - {operation_name}): Transport created. Initializing session...")
-                    session = await temp_stack.enter_async_context(
-                        ClientSession(
-                            stdio,  # type: ignore
-                            write,  # type: ignore
-                            read_timeout_seconds=timedelta(
-                                seconds=read_timeout_seconds
-                            ),
-                        )
-                    )
-                    await session.initialize()
-
-                    result = await coro_func(session)
-
-                    return result
-                except Exception as e:
-                    # Store the original exception and raise a dummy exception
-                    excs = getattr(e, "exceptions", None)  # Python 3.11+ ExceptionGroup
-                    if excs:
-                        original_exception = excs[0]
-                    else:
-                        original_exception = e
-                    # Create a dummy exception to break out of the async block
-                    raise RuntimeError("Dummy exception to break out of async block")
+            result = await coro_func(session)
+            has_result = True
         except Exception as e:
-            # Check if this is our dummy exception
-            if original_exception is not None:
-                e = original_exception
-            # We have the original exception stored
+            excs = getattr(e, "exceptions", None)  # Python 3.11+ ExceptionGroup
+            if excs:
+                original_exception = excs[0]
+            else:
+                original_exception = e
+        try:
+            await asyncio.wait_for(
+                temp_stack.aclose(),
+                timeout=MCP_SESSION_CLEANUP_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            PrintStyle.warning(
+                f"MCPClientBase ({self.server.name} - {operation_name}): "
+                f"session cleanup exceeded {MCP_SESSION_CLEANUP_TIMEOUT_SECONDS:.1f}s."
+            )
+        except Exception as cleanup_exception:
+            PrintStyle.warning(
+                f"MCPClientBase ({self.server.name} - {operation_name}): "
+                f"session cleanup failed: {type(cleanup_exception).__name__}: {cleanup_exception}"
+            )
+        if original_exception is not None:
             PrintStyle(
                 background_color="#AA4455", font_color="white", padding=False
             ).print(
-                f"MCPClientBase ({self.server.name} - {operation_name}): Error during operation: {type(e).__name__}: {e}"
+                f"MCPClientBase ({self.server.name} - {operation_name}): Error during operation: {type(original_exception).__name__}: {original_exception}"
             )
-            raise e  # Re-raise the original exception
-        # finally:
-        #     PrintStyle(font_color="cyan").print(
-        #         f"MCPClientBase ({self.server.name} - {operation_name}): Session and transport will be closed by AsyncExitStack."
-        #     )
-        # This line should ideally be unreachable if the try/except/finally logic within the 'async with' is exhaustive.
-        # Adding it to satisfy linters that might not fully trace the raise/return paths through async context managers.
+            raise original_exception
+        if has_result:
+            return cast(T, result)
         raise RuntimeError(
             f"MCPClientBase ({self.server.name} - {operation_name}): _execute_with_session exited 'async with' block unexpectedly."
         )
@@ -910,16 +1390,25 @@ class MCPClientBase(ABC):
                     }
                     for tool in response.tools
                 ]
+                self.error = ""
             PrintStyle(font_color="green").print(
                 f"MCPClientBase ({self.server.name}): Tools updated. Found {len(self.tools)} tools."
             )
 
         try:
-            set = settings.get_settings()
-            await self._execute_with_session(
-                list_tools_op,
-                read_timeout_seconds=self.server.init_timeout
-                or set["mcp_client_init_timeout"],
+            current_settings = settings.get_settings()
+            init_timeout = (
+                self.server.init_timeout
+                or current_settings.get("mcp_client_init_timeout", 10)
+                or 10
+            )
+            await self._run_isolated_operation(
+                "update_tools",
+                lambda: self._execute_with_session(
+                    list_tools_op,
+                    read_timeout_seconds=init_timeout,
+                ),
+                timeout_seconds=self._operation_timeout_seconds(init_timeout),
             )
         except Exception as e:
             # e = eg.exceptions[0]
@@ -946,7 +1435,7 @@ class MCPClientBase(ABC):
     def get_tools(self) -> List[dict[str, Any]]:
         """Get all tools from the server (uses cached tools)"""
         with self.__lock:
-            return self.tools
+            return [dict(tool) for tool in self.tools]
 
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]
@@ -968,19 +1457,35 @@ class MCPClientBase(ABC):
                 f"MCPClientBase ({self.server.name}): Tool '{tool_name}' found after updating tools."
             )
 
+        current_settings = settings.get_settings()
+        tool_timeout = (
+            self.server.tool_timeout
+            or current_settings.get("mcp_client_tool_timeout", 120)
+            or 120
+        )
+
         async def call_tool_op(current_session: ClientSession):
-            set = settings.get_settings()
             # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Executing 'call_tool' for '{tool_name}' via MCP session...")
             response: CallToolResult = await current_session.call_tool(
                 tool_name,
                 input_data,
-                read_timeout_seconds=timedelta(seconds=set["mcp_client_tool_timeout"]),
+                read_timeout_seconds=timedelta(seconds=tool_timeout),
             )
             # PrintStyle(font_color="green").print(f"MCPClientBase ({self.server.name}): Tool '{tool_name}' call successful via session.")
             return response
 
         try:
-            return await self._execute_with_session(call_tool_op)
+            response = await self._run_isolated_operation(
+                "call_tool",
+                lambda: self._execute_with_session(
+                    call_tool_op,
+                    read_timeout_seconds=tool_timeout,
+                ),
+                timeout_seconds=self._operation_timeout_seconds(tool_timeout),
+            )
+            with self.__lock:
+                self.error = ""
+            return response
         except Exception as e:
             # Error logged by _execute_with_session. Re-raise a specific error for the caller.
             PrintStyle(
@@ -1095,11 +1600,19 @@ class MCPClientRemote(MCPClientBase):
     ]:
         """Connect to an MCP server, init client and save stdio/write streams"""
         server: MCPServerRemote = cast(MCPServerRemote, self.server)
-        set = settings.get_settings()
+        current_settings = settings.get_settings()
 
         # Resolve timeout: check server config first, then settings, defaulting to 5s/10s
-        init_timeout = server.init_timeout or set["mcp_client_init_timeout"] or 5
-        tool_timeout = server.tool_timeout or set["mcp_client_tool_timeout"] or 10
+        init_timeout = (
+            server.init_timeout
+            or current_settings.get("mcp_client_init_timeout", 10)
+            or 10
+        )
+        tool_timeout = (
+            server.tool_timeout
+            or current_settings.get("mcp_client_tool_timeout", 120)
+            or 120
+        )
 
         client_factory = CustomHTTPClientFactory(verify=server.verify)
         # Check if this is a streaming HTTP type

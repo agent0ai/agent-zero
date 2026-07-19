@@ -6,7 +6,8 @@ from aiogram import Bot, Dispatcher, Router, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode, ChatType, ContentType
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import BotCommand, Message
+from helpers import integration_commands
 
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
@@ -44,7 +45,6 @@ def create_bot(
     token: str,
     on_message: Callable[..., Awaitable],
     on_command_start: Callable[..., Awaitable],
-    on_command_clear: Callable[..., Awaitable],
     on_command_control: Callable[..., Awaitable] | None = None,
     on_callback_query: Callable[..., Awaitable] | None = None,
     on_new_members: Callable[..., Awaitable] | None = None,
@@ -56,11 +56,10 @@ def create_bot(
 
     # Register command handlers
     router.message.register(on_command_start, CommandStart())
-    router.message.register(on_command_clear, Command("clear"))
     if on_command_control:
         router.message.register(
             on_command_control,
-            Command(commands=["project", "config", "preset", "queue", "send"]),
+            Command(commands=integration_commands.command_names(integration="telegram")),
         )
 
     if on_callback_query:
@@ -91,6 +90,21 @@ def create_bot(
     instance = BotInstance(name=name, bot=bot, dispatcher=dp, router=router, group_mode=group_mode)
     _bots[name] = instance
     return instance
+
+
+async def register_bot_commands(instance: BotInstance) -> None:
+    """Register Telegram's native / command menu from the shared integration registry."""
+    commands = [
+        BotCommand(command=name, description=description)
+        for name, description in integration_commands.telegram_menu_commands()
+    ]
+    if not commands:
+        return
+    try:
+        await instance.bot.set_my_commands(commands)
+        PrintStyle.info(f"Telegram ({instance.name}): registered {len(commands)} bot commands")
+    except Exception as e:
+        PrintStyle.error(f"Telegram ({instance.name}): failed to register bot commands: {format_error(e)}")
 
 
 async def cache_bot_info(instance: BotInstance):

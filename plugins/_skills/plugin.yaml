@@ -1,6 +1,6 @@
 name: _skills
 title: Skills
-description: Pin skills into prompt extras on every turn.
+description: Load skills into the current chat history.
 version: 1.0.0
 always_enabled: true
 settings_sections:

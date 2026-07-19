@@ -1,22 +1,15 @@
 from __future__ import annotations
 
 from helpers.api import ApiHandler, Request
-from plugins._oauth.helpers import codex
-from plugins._oauth.helpers.config import codex_config
 from plugins._oauth.helpers.route_bootstrap import is_installed
+from plugins._oauth.helpers.providers import provider_registry
+from plugins._oauth.helpers.summary import build_oauth_status_summary
 
 
 class Status(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
-        cfg = codex_config()
-        return {
-            "ok": True,
-            "routes_installed": is_installed(),
-            "codex": {
-                **codex.status(),
-                "enabled": cfg["enabled"],
-                "proxy_base_path": cfg["proxy_base_path"],
-                "callback_path": cfg["callback_path"],
-                "v1_base_path": f'{cfg["proxy_base_path"]}/v1',
-            },
-        }
+        del input, request
+        return build_oauth_status_summary(
+            provider_registry=provider_registry,
+            routes_installed=is_installed,
+        )

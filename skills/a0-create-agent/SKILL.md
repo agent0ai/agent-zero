@@ -22,7 +22,7 @@ Related skills: `/a0/skills/a0-development/SKILL.md` (broader framework guide) |
 Primary references:
 - `/a0/agents/_example/` — the canonical reference profile (tool + extension + prompt overrides)
 - `/a0/agents/default/` — the base profile every other profile inherits from
-- `/a0/docs/agents/AGENTS.plugins.md` — plugin-distributed profiles + per-profile config
+- `/a0/plugins/AGENTS.md` — plugin-distributed profiles + per-profile config
 
 ---
 
@@ -72,7 +72,7 @@ Recommended interview flow:
    - "Should it work more like a concise specialist, a rigorous researcher, a code-heavy implementer, or something else?"
 4. Ask about advanced options only when the user's request implies them:
    - custom output format
-   - profile-specific Main/Utility models
+   - a profile-specific model preset
    - custom tools
    - lifecycle extensions
    - plugin/project scope
@@ -141,14 +141,12 @@ Before writing files, produce exactly one valid JSON object in a fenced `json` b
   "llm_config": {
     "enabled": false,
     "path": "/a0/usr/agents/data-analyst/plugins/_model_config/config.json",
-    "source": "inherit_global",
-    "chat_model": null,
-    "utility_model": null,
-    "embedding_model": null,
+    "source": "inherit_scoped",
+    "model_preset": null,
     "notes": [
       "Do not put model settings in agent.yaml.",
-      "Only create this config file if the user wants profile-specific Main or Utility models.",
-      "Scoped _model_config config is not deep-merged; include a complete config with chat_model, utility_model, and embedding_model."
+      "Only create this config file if the user wants this profile to select a specific global model preset.",
+      "Scoped _model_config config stores only model_preset."
     ]
   },
   "files": [
@@ -183,7 +181,7 @@ Rules for the blueprint:
 - `profile.name` must be lowercase letters, numbers, hyphens, or underscores only.
 - `prompt_strategy.root_prompt_overrides` must list any inherited root `/prompts` files being considered or replaced and why.
 - If a root prompt override is only a possibility, list it in `prompt_strategy` but do not add it to `files` until confirmed.
-- `llm_config.enabled` controls whether a profile-scoped `_model_config/config.json` file is created. Keep it `false` when models should inherit from global/project settings.
+- `llm_config.enabled` controls whether a profile-scoped `_model_config/config.json` file is created. Keep it `false` when the preset should inherit from broader project/global settings.
 - `files[*].content` must be the exact file content to write.
 - Include only files that should actually be created.
 - Set `status` to `draft` until all required choices are known; set it to `ready` only after resolving open questions.
@@ -203,7 +201,7 @@ The blueprint must contain these required profile inputs:
 | **context** | instructions telling the *superior* agent when to delegate to this profile | `Use this agent for data analysis tasks, creating visualizations, statistical analysis, and working with datasets in Python.` |
 
 > [!NOTE]
-> `agent.yaml` has **only** these three content fields (`title`, `description`, `context`). Do not add model, temperature, or `allowed_tools` fields to `agent.yaml`. Profile-specific model settings live in a companion `_model_config` plugin config file, and tool availability is controlled by plugin activation.
+> `agent.yaml` has **only** these three content fields (`title`, `description`, `context`). Do not add model, temperature, or `allowed_tools` fields to `agent.yaml`. A profile-specific preset selection lives in a companion `_model_config` plugin config file, and tool availability is controlled by plugin activation.
 
 ---
 
@@ -232,9 +230,9 @@ A profile with only `agent.yaml` is valid — it inherits everything from `defau
 
 ---
 
-## Step 4: Optional profile-specific LLM config
+## Step 4: Optional profile-specific model preset
 
-Agent Zero does **not** read Main/Utility model settings from `agent.yaml`. The `_model_config` plugin is always enabled and supports per-agent-profile config. If the user wants this profile to use specific LLMs, create a companion config file:
+Agent Zero does **not** read model settings from `agent.yaml`. The `_model_config` plugin is always enabled and supports per-agent-profile preset selection. If the user wants this profile to use a specific existing global preset, create a companion config file:
 
 | Profile scope | Model config path |
 |---|---|
@@ -242,54 +240,21 @@ Agent Zero does **not** read Main/Utility model settings from `agent.yaml`. The 
 | Plugin-distributed profile | `/a0/usr/plugins/<plugin>/agents/<profile>/plugins/_model_config/config.json` |
 | Project-scoped profile | `<project>/.a0proj/agents/<profile>/plugins/_model_config/config.json` |
 
-Scoped `_model_config/config.json` files are selected as a whole; they are **not** deep-merged with broader global/project config. Therefore, if you create this file, include a complete effective model config. When the user only wants to customize Main or Utility, copy the other sections from the current effective config.
+Scoped `_model_config/config.json` files contain only the selected global preset name. Preset definitions are managed centrally in Model Configuration and are not copied into profiles.
 
-Minimal complete profile-scoped config:
+Profile-scoped selection:
 
 ```json
 {
-  "allow_chat_override": true,
-  "chat_model": {
-    "provider": "openrouter",
-    "name": "anthropic/claude-sonnet-4.6",
-    "api_base": "",
-    "ctx_length": 200000,
-    "ctx_history": 0.7,
-    "vision": true,
-    "rl_requests": 0,
-    "rl_input": 0,
-    "rl_output": 0,
-    "kwargs": {}
-  },
-  "utility_model": {
-    "provider": "openrouter",
-    "name": "openai/gpt-5.4-mini",
-    "api_base": "",
-    "ctx_length": 128000,
-    "ctx_input": 0.7,
-    "rl_requests": 0,
-    "rl_input": 0,
-    "rl_output": 0,
-    "kwargs": {}
-  },
-  "embedding_model": {
-    "provider": "huggingface",
-    "name": "sentence-transformers/all-MiniLM-L6-v2",
-    "api_base": "",
-    "rl_requests": 0,
-    "rl_input": 0,
-    "kwargs": {}
-  }
+  "model_preset": "Research"
 }
 ```
 
 Rules:
 
-- Ask the user whether Main/Utility should inherit defaults or be profile-specific.
-- Do not store API keys in this file; API keys are managed globally through settings/secrets.
-- Include `chat_model`, `utility_model`, and `embedding_model` in the generated file if any profile-scoped model config is created.
-- If only Main or Utility is customized, copy the non-customized model sections from the current effective `_model_config` config.
-- Use provider IDs and model names exactly as `_model_config` expects.
+- Ask whether the profile should inherit its scoped preset or select an existing global preset.
+- Verify the preset exists before adding the file. If new model choices are needed, create a global preset through Model Configuration first.
+- Do not store API keys or model dictionaries in this file; API keys and preset definitions are managed centrally.
 - Add this file to `files` only when `llm_config.enabled` is `true`.
 
 ---
@@ -446,7 +411,7 @@ Copy this shape when in doubt — it demonstrates every customization surface a 
 
 - [ ] Confirmed profile scope (user / plugin / project)
 - [ ] Produced and confirmed `agent_zero.agent_profile_blueprint.v1` JSON
-- [ ] Confirmed whether Main/Utility models inherit defaults or need `_model_config/config.json`
+- [ ] Confirmed whether the model preset inherits or needs a profile-specific `_model_config/config.json` selection
 - [ ] Directory name is unique and matches allowed characters
 - [ ] `agent.yaml` contains exactly `title`, `description`, `context`
 - [ ] Prompt overrides only include files that actually change behavior

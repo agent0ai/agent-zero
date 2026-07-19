@@ -13,6 +13,7 @@
 - Focus on USER MESSAGE if provided, use HISTORY for context
 - Keep in mind that these memories should be helpful for continuing the conversation and solving problems by AI
 - Consider if each memory holds real information value for the context or not
+- If memories include timestamps, treat recency as a soft signal: newer/current memories are usually better for mutable facts, while old durable facts may still be useful
 - If multiple memories conflict about the same mutable user/project fact, include only the newest/current one when it is identifiable
 - Exclude superseded, historical, duplicate, or low-detail fragments when a more complete current memory is available
 

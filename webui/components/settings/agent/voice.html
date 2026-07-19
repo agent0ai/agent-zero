@@ -1,0 +1,35 @@
+<html>
+  <head>
+    <title>Voice</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <div class="section-title">Voice</div>
+      <div class="section-description">
+        Voice capabilities are provided by built-in plugins. Browser-native
+        speech remains available as the fallback output path when no TTS plugin
+        is active. Enable or disable providers from the Agent Plugins section
+        below.
+      </div>
+
+      <x-extension id="voice-settings-start"></x-extension>
+      <div class="voice-settings-grid">
+        <x-extension id="voice-settings-main"></x-extension>
+      </div>
+      <x-extension id="voice-settings-end"></x-extension>
+    </div>
+
+    <style>
+      .voice-settings-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .voice-settings-grid > x-extension {
+        display: contents;
+      }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,242 @@
+<html>
+
+<head>
+    <title>Skill Scanner</title>
+
+    <script type="module">
+        import { store } from "/components/settings/skills/skills-scan-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.skillsScanStore">
+            <div class="skill-scan-modal" x-create="$store.skillsScanStore.onScanModalOpen()" x-destroy="$store.skillsScanStore.scanCleanup()">
+                <div class="scan-field">
+                    <label>Target Skills</label>
+                    <textarea class="scan-target" x-model="$store.skillsScanStore.targetText" @input.debounce.300ms="$store.skillsScanStore.buildScanPrompt()"></textarea>
+                </div>
+
+                <div class="scan-field">
+                    <label>Security Checks</label>
+                    <div class="scan-checks">
+                        <template x-for="[key, meta] of Object.entries($store.skillsScanStore.scanChecksMeta)" :key="key">
+                            <label>
+                                <input type="checkbox" x-model="$store.skillsScanStore.scanChecks[key]" @change="$store.skillsScanStore.buildScanPrompt()" />
+                                <span x-text="meta.label"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="scan-field">
+                    <label>Scanner Options</label>
+                    <div class="scan-checks">
+                        <label>
+                            <input type="checkbox" x-model="$store.skillsScanStore.scanOptions.useSnykAgentScan" @change="$store.skillsScanStore.buildScanPrompt()" />
+                            <span>Use Snyk Agent Scan</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="scan-field">
+                    <label>Agent Prompt <span>(editable)</span></label>
+                    <textarea class="scan-prompt" x-model="$store.skillsScanStore.scanPrompt"></textarea>
+                </div>
+
+                <div class="scan-actions">
+                    <button type="button" class="button" @click="$store.skillsScanStore.copyScanPrompt()">
+                        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                        <span>Copy Prompt</span>
+                    </button>
+                    <button type="button" class="button confirm" :disabled="$store.skillsScanStore.agentScanning" @click="$store.skillsScanStore.runAgentScan()">
+                        <span x-show="$store.skillsScanStore.agentScanning"><span class="scan-spinner"></span>Scanning</span>
+                        <span x-show="!$store.skillsScanStore.agentScanning">Run Scan</span>
+                    </button>
+                    <button type="button" class="button" x-show="$store.skillsScanStore.scanCtxId" @click="$store.skillsScanStore.openScanChatInNewWindow()">
+                        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+                        <span>Open in Chat</span>
+                    </button>
+                </div>
+
+                <div x-show="$store.skillsScanStore.scanOutput" class="scan-output">
+                    <label>Scan Results</label>
+                    <div class="scan-output-html" x-html="$store.skillsScanStore.renderedScanOutput"></div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .skill-scan-modal {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 0.5rem;
+            color: var(--color-text);
+            font-family: var(--font-family-main);
+        }
+
+        .scan-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .scan-field label,
+        .scan-output label {
+            color: var(--color-text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .scan-field > label span {
+            font-weight: 400;
+            opacity: 0.7;
+        }
+
+        .scan-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            padding: 0.5rem 0.75rem;
+            font-family: var(--font-family-code);
+            font-size: 0.82rem;
+            line-height: 1.45;
+            resize: vertical;
+        }
+
+        .scan-field textarea:focus {
+            border-color: var(--color-highlight);
+            outline: none;
+        }
+
+        .scan-target {
+            min-height: 6rem;
+        }
+
+        .scan-prompt {
+            min-height: 18rem;
+        }
+
+        .scan-checks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1.25rem;
+        }
+
+        .scan-checks label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--color-text);
+            cursor: pointer;
+            font-size: 0.85rem;
+            user-select: none;
+        }
+
+        .scan-checks input[type="checkbox"] {
+            accent-color: var(--color-highlight);
+        }
+
+        .scan-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .skill-scan-modal .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            min-height: 2rem;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            cursor: pointer;
+        }
+
+        .skill-scan-modal .button.confirm {
+            border-color: color-mix(in srgb, var(--color-highlight) 65%, var(--color-border));
+            background: var(--color-highlight);
+            color: #fff;
+        }
+
+        .skill-scan-modal .button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .skill-scan-modal .material-symbols-outlined {
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .scan-output {
+            border-top: 1px solid var(--color-border);
+            padding-top: 1rem;
+        }
+
+        .scan-output-html {
+            line-height: 1.5;
+        }
+
+        .scan-output-html table {
+            width: 100%;
+            margin: 0.75rem 0;
+            border-collapse: collapse;
+        }
+
+        .scan-output-html th,
+        .scan-output-html td {
+            border: 1px solid var(--color-border);
+            padding: 0.4rem 0.6rem;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .scan-output-html th {
+            background: var(--color-panel);
+            font-weight: 600;
+        }
+
+        .scan-output-html pre {
+            overflow-x: auto;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            padding: 0.75rem;
+        }
+
+        .scan-output-html code {
+            font-size: 0.8rem;
+        }
+
+        .scan-spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            margin-right: 0.4em;
+            border: 2px solid var(--color-border);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            vertical-align: middle;
+            animation: scan-spin 0.6s linear infinite;
+        }
+
+        @keyframes scan-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+</body>
+
+</html>

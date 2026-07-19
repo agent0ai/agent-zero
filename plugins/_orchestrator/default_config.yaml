@@ -1,0 +1,37 @@
+a0:
+  binary: a0          # falls back to /opt/venv/bin/a0 in Agent Zero Docker
+  host: ""          # empty = AGENT_ZERO_HOST env, else local instance (http://localhost:80)
+codex:
+  binary: codex
+  model: ""
+  bypass_sandbox: true
+claude:
+  binary: claude
+  model: ""
+  permission_mode: bypassPermissions
+  allowed_tools: "Bash,Read,Edit"
+  bare: false
+cursor:
+  binary: agent
+  output_format: text
+  force: true
+gemini:
+  binary: gemini
+  model: ""
+grok:
+  binary: grok
+  model: ""
+  output_format: json
+  always_approve: true
+  no_auto_update: true
+hermes:
+  binary: hermes
+  model: ""
+  provider: ""
+  toolsets: ""
+  yolo: true
+opencode:
+  binary: opencode
+  model: ""
+  agent: ""
+  auto: true

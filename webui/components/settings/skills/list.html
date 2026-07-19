@@ -28,15 +28,16 @@
                             </select>
                         </label>
 
-                        <label class="skills-toolbar-item">
-                            <span class="skills-toolbar-label">Agent profile</span>
-                            <select x-model="$store.skillsListStore.agentProfileKey"
-                                @change="$store.skillsListStore.loadSkills()">
-                                <option value="">All</option>
-                                <template x-for="agentProfile in $store.skillsListStore.agentProfiles" :key="agentProfile.key">
-                                    <option :value="agentProfile.key" x-text="agentProfile.label"></option>
-                                </template>
-                            </select>
+                        <label class="skills-search">
+                            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                            <input type="search" x-model.debounce.150ms="$store.skillsListStore.skillSearch"
+                                placeholder="Search skills" />
+                            <button type="button" class="skills-search-clear"
+                                x-show="$store.skillsListStore.skillSearchActive"
+                                @click="$store.skillsListStore.clearSkillSearch()"
+                                title="Clear search">
+                                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                            </button>
                         </label>
 
                         <div class="skills-toolbar-actions">
@@ -62,8 +63,13 @@
                     <div class="skills-empty">No skills found.</div>
                 </template>
 
+                <template
+                    x-if="!$store.skillsListStore.loading && !$store.skillsListStore.error && $store.skillsListStore.skills.length > 0 && $store.skillsListStore.filteredSkills.length === 0">
+                    <div class="skills-empty">No skills match this search.</div>
+                </template>
+
                 <div class="skills-list">
-                    <template x-for="skill in $store.skillsListStore.skills" :key="skill.path">
+                    <template x-for="skill in $store.skillsListStore.filteredSkills" :key="skill.path">
                         <div class="skill-card">
                             <div class="skill-header">
                                 <div class="skill-heading">
@@ -130,12 +136,61 @@
             flex: 0 0 auto;
         }
 
+        .skills-search {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            min-height: 2.1rem;
+            flex: 1 1 18rem;
+            min-width: min(18rem, 100%);
+            padding: 0.25rem 0.45rem;
+            border: 1px solid var(--color-border);
+            border-radius: 7px;
+            background: var(--color-input);
+            color: var(--color-text-muted);
+        }
+
+        .skills-search input {
+            width: 100%;
+            min-width: 8rem;
+            border: 0;
+            background: transparent;
+            color: var(--color-text);
+            outline: none;
+            padding: 0.2rem;
+        }
+
+        .skills-search input::-webkit-search-cancel-button,
+        .skills-search input::-webkit-search-decoration {
+            -webkit-appearance: none;
+            appearance: none;
+            display: none;
+        }
+
+        .skills-search-clear {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.45rem;
+            height: 1.45rem;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: var(--color-text-muted);
+            cursor: pointer;
+        }
+
         @media (max-width: 640px) {
             .skills-toolbar-row {
                 gap: 0.5rem;
             }
 
             .skills-toolbar-item {
+                flex-basis: 100%;
+                min-width: 0;
+            }
+
+            .skills-search {
                 flex-basis: 100%;
                 min-width: 0;
             }

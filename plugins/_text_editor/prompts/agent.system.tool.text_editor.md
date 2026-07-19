@@ -1,9 +1,12 @@
 ### text_editor
-file read write patch with numbered lines
+canonical text and Markdown file read write patch with numbered lines
 not code execution rejects binary
 terminal (grep find sed) advance search/replace
 actions: read write patch
 common args: action path
+optional UI intent args: open_in_canvas
+use this tool for Markdown and plain text files; use `office_artifact` only for Office packages such as odt ods odp docx xlsx pptx
+if the user explicitly asks to open the Markdown file in the canvas/Editor after a write or patch, set `open_in_canvas: true`; otherwise omit UI flags because already-open Editor sessions refresh automatically
 
 #### read
 read file with numbered lines
@@ -29,6 +32,7 @@ usage:
 #### write
 create/overwrite file auto-creates dirs
 args path content
+for Markdown files, include `open_in_canvas: true` only when the user explicitly asks to open the canvas/Editor
 usage:
 ~~~json
 {
@@ -47,6 +51,7 @@ usage:
 edit existing file. prefer exact replace for simple "change X to Y"; use patch_text for context changes; use edits only right after read for tiny line edits
 if the user says patch, change without rewriting, or don't rewrite, use action patch instead of write
 args path plus exactly one of: old_text+new_text OR patch_text string OR edits [{from to content}]
+for Markdown files, include `open_in_canvas: true` only when the user explicitly asks to open the canvas/Editor
 exact replace: `old_text` must be the exact current text span and must match once; `new_text` is the replacement
 patch_text uses current file content, no prior read required
 patch_text update-only forms:

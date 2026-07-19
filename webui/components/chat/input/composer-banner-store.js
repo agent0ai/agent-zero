@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
+import { getCurrentUserISOString } from "/js/time-utils.js";
 
 function buildBannersContext() {
   return {
@@ -8,7 +9,7 @@ function buildBannersContext() {
     hostname: window.location.hostname,
     port: window.location.port,
     browser: navigator.userAgent,
-    timestamp: new Date().toISOString(),
+    timestamp: getCurrentUserISOString(),
   };
 }
 

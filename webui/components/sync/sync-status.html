@@ -10,10 +10,15 @@
         .status-icon {
             display: inline-flex;
             align-items: center;
+            gap: 0.1rem;
         }
 
         .status-icon svg {
             pointer-events: none;
+        }
+
+        .status-icon > x-extension {
+            display: contents;
         }
 
         .pending-ring {
@@ -45,29 +50,17 @@
             <div
                 class="status-icon"
                 x-create="$store.sync.init()"
-                :title="$store.sync.mode === 'HEALTHY'
-                  ? 'Connected (push sync healthy)'
-                  : $store.sync.mode === 'HANDSHAKE_PENDING'
-                    ? 'Connecting (waiting for state handshake)'
-                    : $store.sync.mode === 'DEGRADED'
-                      ? 'Degraded (polling fallback)'
-                      : 'Disconnected (waiting to reconnect)'"
             >
                 <svg viewBox="0 0 30 30" width="20" height="20" aria-label="sync status">
-                    <!-- HEALTHY (filled circle) -->
-                    <circle x-show="$store.sync.mode === 'HEALTHY'" cx="15" cy="15" r="8" fill="#00c340" />
-
-                    <!-- DEGRADED (filled circle) -->
-                    <circle x-show="$store.sync.mode === 'DEGRADED'" cx="15" cy="15" r="8" fill="#ff6b00" />
-
-                    <!-- HANDSHAKE_PENDING (pulsing outline) -->
-                    <circle x-show="$store.sync.mode === 'HANDSHAKE_PENDING'" class="pending-ring" cx="15" cy="15" r="12"
-                        fill="none" stroke="#f0a000" stroke-width="3" />
-
-                    <!-- DISCONNECTED (outline circle) -->
-                    <circle x-show="$store.sync.mode === 'DISCONNECTED'" cx="15" cy="15" r="12"
-                        fill="none" stroke="#e40138" stroke-width="3" />
+                    <circle
+                        cx="15" cy="15" r="12" fill="none" stroke="#e40138" stroke-width="3"
+                        :class="{ 'pending-ring': $store.sync.mode === 'HANDSHAKE_PENDING' }"
+                        :r="['HEALTHY', 'DEGRADED'].includes($store.sync.mode) ? 8 : 12"
+                        :fill="$store.sync.mode === 'HEALTHY' ? '#00c340' : $store.sync.mode === 'DEGRADED' ? '#ff6b00' : 'none'"
+                        :stroke="$store.sync.mode === 'HANDSHAKE_PENDING' ? '#f0a000' : $store.sync.mode === 'DISCONNECTED' ? '#e40138' : 'none'"
+                    />
                 </svg>
+                <x-extension id="sync-status-end"></x-extension>
             </div>
         </template>
     </div>

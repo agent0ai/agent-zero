@@ -12,8 +12,13 @@ from plugins._time_travel.helpers.time_travel import (
 class HistoryTravel(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         context_id = str(input.get("context_id") or "").strip()
+        workspace_id = str(input.get("workspace_id") or "").strip()
         try:
-            workspace = resolve_workspace(context_id, context_loader=self.use_context)
+            workspace = resolve_workspace(
+                context_id,
+                workspace_id=workspace_id,
+                context_loader=self.use_context,
+            )
             return TimeTravelService(workspace).travel(
                 commit_hash=str(input.get("commit_hash") or ""),
                 metadata=input.get("metadata") if isinstance(input.get("metadata"), dict) else {},

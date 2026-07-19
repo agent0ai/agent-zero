@@ -1,62 +1,59 @@
 # First-Run Onboarding
 
 Use onboarding the first time you open Agent Zero, or any time the Web UI says
-your models still need setup. The wizard helps you pick a provider, add the
-needed key or connection, choose the main model, choose the utility model, and
-start chatting.
+your models still need setup. The wizard helps you pick Cloud, AI account, or
+Local access, configure a main model, choose a utility model, and start
+chatting.
 
-This example uses **Agent Zero API** with a fake demo key and
-`claude-opus-4-6`. Replace the demo key with your own key.
+This example uses **OpenRouter** with a masked demo key. Replace the demo key
+with your own key.
 
-## Choose Cloud Or Local
+## Open Onboarding
 
-Open the Web UI and click **Start Onboarding** from the welcome banner. On the
-first screen, choose whether Agent Zero should use a hosted provider or a local
-model server.
+Open the Web UI. The welcome screen can show account shortcuts, and the message
+composer is ready immediately.
 
-![Onboarding start screen with Cloud and Local choices](../res/usage/onboarding/onboarding-start.png)
+![Welcome screen with account and channel setup cards](../res/usage/onboarding/onboarding-start.png)
 
-Choose **Cloud** when you want to use Agent Zero API, OpenRouter, Anthropic,
-OpenAI, Google, Venice, or another hosted provider. Choose **Local** when you
-want to connect to Ollama, LM Studio, or another model server running on your
-machine.
+If you send a message before models are configured, Agent Zero creates the chat,
+holds the message, and shows the model gate inside the conversation. Choose
+**Cloud provider**, **AI account**, or **Local model** to open onboarding.
 
-## Pick Agent Zero API
+![Chat model gate with Cloud provider, AI account, and Local model choices](../res/usage/onboarding/onboarding-model-gate.png)
 
-On the Cloud provider screen, click **Agent Zero API**.
+## Choose A Provider Path
 
-![Cloud provider picker with Agent Zero API](../res/usage/onboarding/onboarding-cloud-provider.png)
+Choose **Cloud** when you want to paste an API key for OpenRouter, OpenAI,
+Anthropic, Google, Venice, or another hosted provider.
 
-The ChatGPT/Codex account option is also available on this Cloud screen if you
-want to connect by device code instead of pasting a provider key.
+![Cloud provider picker with hosted providers](../res/usage/onboarding/onboarding-cloud-provider.png)
 
-## Add The Key And Main Model
+Choose **Account** when you want to sign in with Codex/ChatGPT, GitHub Copilot,
+Google Cloud Gemini, or xAI Grok instead of pasting a provider key.
 
-Paste your Agent Zero API key in **API key**. The screenshot uses a fake example
-key, and the field is masked.
+![AI account picker with Codex, Copilot, Google Cloud Gemini, and Grok](../res/usage/onboarding/onboarding-account-provider.png)
 
-Click the magnifier in **Main model** to open the model list, then choose
-`claude-opus-4-6`.
+Choose **Local** when you want to connect to Ollama, LM Studio, oMLX, llama.cpp,
+vLLM, or another model server running on your machine.
 
-![Agent Zero API setup with model dropdown open](../res/usage/onboarding/onboarding-agent-zero-api-model-dropdown.png)
+![Local model provider picker with Ollama, LM Studio, oMLX, llama.cpp, and vLLM](../res/usage/onboarding/onboarding-local-ollama-main.png)
 
-After the model is selected, click **Choose utility model**.
+## Configure The Main Model
 
-![Agent Zero API setup with key and main model selected](../res/usage/onboarding/onboarding-agent-zero-api-key-model.png)
+For API-key providers, choose the main model and paste the provider key. The
+screenshot uses a masked demo key.
+
+![OpenRouter setup with main model and masked API key](../res/usage/onboarding/onboarding-agent-zero-api-key-model.png)
+
+After the main model is selected, click **Choose utility model**.
 
 ## Choose The Utility Model
 
-The utility model handles supporting work such as summarizing, organizing
-memory, and other background tasks.
+The utility model handles quick internal tasks such as summaries, naming, and
+memory. A small, fast, cheap model usually works best here. The wizard may
+prefill a utility provider and model, but it remains an explicit choice.
 
-Leave **Use same as Main Model** checked if you want both roles to use
-`claude-opus-4-6`.
-
-![Utility model step using the same model as main](../res/usage/onboarding/onboarding-utility-same-model.png)
-
-You can also uncheck **Use same as Main Model** and choose a different utility
-provider and model. For example, you might keep a strong main model for chat and
-use a faster or cheaper model for utility tasks.
+![Utility model step with OpenRouter and a fast Gemini model](../res/usage/onboarding/onboarding-utility-same-model.png)
 
 Click **Finish setup** when the utility model looks right.
 

@@ -1,7 +1,7 @@
 import json
-from datetime import datetime
 
 from helpers.api import ApiHandler, Input, Output, Request, Response
+from helpers.localization import Localization
 from helpers.persist_chat import (
     _serialize_context,
     _deserialize_context,
@@ -128,7 +128,7 @@ class BranchChat(ApiHandler):
         # Give the branch a distinguishable name
         src_name = data.get("name") or "Chat"
         data["name"] = f"{src_name} (branch)"
-        data["created_at"] = datetime.now().isoformat()
+        data["created_at"] = Localization.get().now_iso()
 
         # Deserialize into a brand-new context (new id, fresh agent config)
         new_context = _deserialize_context(data)

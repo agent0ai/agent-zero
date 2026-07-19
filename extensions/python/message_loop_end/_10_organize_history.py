@@ -1,8 +1,16 @@
 from helpers.extension import Extension
 from agent import LoopData
 from helpers.defer import DeferredTask, THREAD_BACKGROUND
+from helpers.history import clear_responses_provider_state
 
 DATA_NAME_TASK = "_organize_history_task"
+
+
+async def compress_history(agent) -> bool:
+    compressed = bool(await agent.history.compress())
+    if compressed:
+        clear_responses_provider_state(agent)
+    return compressed
 
 
 class OrganizeHistory(Extension):
@@ -17,6 +25,6 @@ class OrganizeHistory(Extension):
 
         # start task
         task = DeferredTask(thread_name=THREAD_BACKGROUND)
-        task.start_task(self.agent.history.compress)
+        task.start_task(compress_history, self.agent)
         # set to agent to be able to wait for it
         self.agent.set_data(DATA_NAME_TASK, task)

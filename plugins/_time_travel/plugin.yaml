@@ -1,6 +1,6 @@
 name: _time_travel
 title: Time Travel
-description: Agent Zero-owned workspace history, diff inspection, travel, and revert for active /a0/usr workspaces.
+description: Agent Zero-owned workdir/project history, diff inspection, travel, and revert for /a0/usr workspaces.
 version: 0.1.0
 always_enabled: false
 settings_sections: []

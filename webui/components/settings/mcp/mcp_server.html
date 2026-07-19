@@ -4,7 +4,25 @@
   </head>
 
   <body>
-    <div x-data="{ get settings() { return $store.settings.settings } }">
+    <div x-data="{
+      get settings() { return $store.settings.settings },
+      internalToolSearch: '',
+      internalTools: [
+        {
+          name: 'send_message',
+          description: 'Send a message to this Agent Zero instance, start a chat, or continue a persistent chat.'
+        },
+        {
+          name: 'finish_chat',
+          description: 'Finish a persistent chat that was started through the Agent Zero MCP server.'
+        }
+      ],
+      get filteredInternalTools() {
+        const query = this.internalToolSearch.trim().toLowerCase();
+        if (!query) return this.internalTools;
+        return this.internalTools.filter((tool) => `${tool.name} ${tool.description}`.toLowerCase().includes(query));
+      }
+    }">
       <template x-if="settings">
         <div>
           <div class="section-title">A0 MCP Server</div>
@@ -26,8 +44,122 @@
               </label>
             </div>
           </div>
+
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Internal tools</div>
+              <div class="field-description">
+                Tools exposed by this Agent Zero instance when the internal MCP server is enabled.
+              </div>
+            </div>
+          </div>
+
+          <div class="mcp-internal-tools">
+            <label class="mcp-internal-search">
+              <span class="material-symbols-outlined" aria-hidden="true">search</span>
+              <input type="search" x-model.debounce.150ms="internalToolSearch" placeholder="Search internal tools" />
+              <button type="button" x-show="internalToolSearch" @click="internalToolSearch = ''" title="Clear search">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+            </label>
+
+            <div class="mcp-internal-tool-list">
+              <template x-for="tool in filteredInternalTools" :key="tool.name">
+                <article class="mcp-internal-tool">
+                  <div class="mcp-internal-tool-name" x-text="tool.name"></div>
+                  <p x-text="tool.description"></p>
+                </article>
+              </template>
+              <div class="mcp-internal-empty" x-show="filteredInternalTools.length === 0">
+                No internal tools match this search.
+              </div>
+            </div>
+          </div>
         </div>
       </template>
     </div>
+
+    <style>
+      .mcp-internal-tools {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        margin-top: 0.75rem;
+      }
+
+      .mcp-internal-search {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-height: 2.25rem;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid var(--color-border);
+        border-radius: 7px;
+        background: var(--color-input);
+        color: var(--color-text-muted);
+      }
+
+      .mcp-internal-search input {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        color: var(--color-text);
+        outline: none;
+        padding: 0.2rem;
+      }
+
+      .mcp-internal-search input::-webkit-search-cancel-button,
+      .mcp-internal-search input::-webkit-search-decoration {
+        -webkit-appearance: none;
+        appearance: none;
+        display: none;
+      }
+
+      .mcp-internal-search button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.45rem;
+        height: 1.45rem;
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--color-text-muted);
+        cursor: pointer;
+      }
+
+      .mcp-internal-tool-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .mcp-internal-tool,
+      .mcp-internal-empty {
+        padding: 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+      }
+
+      .mcp-internal-tool-name {
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      .mcp-internal-tool p,
+      .mcp-internal-empty {
+        margin: 0.25rem 0 0;
+        color: var(--color-text-muted);
+        font-size: 0.86rem;
+        line-height: 1.4;
+      }
+
+      .mcp-internal-empty {
+        margin: 0;
+        text-align: center;
+      }
+    </style>
   </body>
 </html>

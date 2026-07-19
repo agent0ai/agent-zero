@@ -9,16 +9,29 @@
     <template x-if="$store.timeTravel">
       <div class="time-travel-shell">
         <div class="time-travel-toolbar">
-          <div class="time-travel-title">
-            <span class="material-symbols-outlined">history</span>
-            <span>Time Travel</span>
+          <div class="time-travel-workspace-picker" :title="$store.timeTravel.workspacePath || $store.timeTravel.workspaceOptionLabel($store.timeTravel.selectedWorkspace())">
+            <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+            <select
+              aria-label="Workspace"
+              :value="$store.timeTravel.selectedWorkspaceId"
+              @change="$store.timeTravel.selectWorkspace($event.target.value)"
+              :disabled="$store.timeTravel.workspaceLoading || $store.timeTravel.loading || $store.timeTravel.busy"
+            >
+              <option value="" x-show="$store.timeTravel.workspaces.length === 0">Workspace</option>
+              <template x-for="workspace in $store.timeTravel.workspaces" :key="workspace.id">
+                <option
+                  :value="workspace.id"
+                  :selected="workspace.id === $store.timeTravel.selectedWorkspaceId"
+                  x-text="$store.timeTravel.workspaceOptionLabel(workspace)"
+                ></option>
+              </template>
+            </select>
           </div>
-          <div class="time-travel-workspace" :title="$store.timeTravel.workspacePath" x-text="$store.timeTravel.workspacePath || 'workspace'"></div>
           <span class="time-travel-spacer"></span>
           <button type="button" class="time-travel-icon-button" title="Snapshot" aria-label="Snapshot" @click="$store.timeTravel.manualSnapshot()" :disabled="$store.timeTravel.busy || $store.timeTravel.loading || $store.timeTravel.isLocked()">
             <span class="material-symbols-outlined">add_a_photo</span>
           </button>
-          <button type="button" class="time-travel-icon-button" title="Refresh" aria-label="Refresh" @click="$store.timeTravel.refresh({ keepSelection: true })" :disabled="$store.timeTravel.loading">
+          <button type="button" class="time-travel-icon-button" title="Refresh" aria-label="Refresh" @click="$store.timeTravel.refresh({ keepSelection: true, reloadWorkspaces: true })" :disabled="$store.timeTravel.loading">
             <span class="material-symbols-outlined" :class="{ spinning: $store.timeTravel.loading }">refresh</span>
           </button>
         </div>
@@ -270,7 +283,6 @@
 
     .time-travel-toolbar,
     .time-travel-status,
-    .time-travel-title,
     .time-travel-filter,
     .time-travel-actions,
     .time-travel-tool-button,
@@ -293,25 +305,48 @@
       background: color-mix(in srgb, var(--color-background) 91%, #000 9%);
     }
 
-    .time-travel-title {
-      gap: 7px;
-      font-weight: 750;
-      font-size: 0.9rem;
-    }
-
-    .time-travel-title .material-symbols-outlined {
-      font-size: 19px;
-    }
-
-    .time-travel-workspace {
+    .time-travel-workspace-picker {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 1 520px;
       min-width: 0;
-      max-width: 45%;
-      overflow: hidden;
+      max-width: 48%;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--color-panel) 70%, transparent);
+    }
+
+    .time-travel-workspace-picker .material-symbols-outlined {
+      flex: 0 0 auto;
       color: var(--color-text-muted);
+      font-size: 17px;
+    }
+
+    .time-travel-workspace-picker select {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      font-size: 0.76rem;
+      overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-family: var(--font-family-code);
-      font-size: 0.72rem;
+    }
+
+    .time-travel-workspace-picker select:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .time-travel-workspace-picker option {
+      background: var(--color-background);
+      color: var(--color-text);
     }
 
     .time-travel-spacer {
@@ -877,12 +912,17 @@
         justify-content: flex-start;
       }
 
-      .time-travel-workspace {
-        display: none;
+      .time-travel-workspace-picker {
+        flex: 1 1 160px;
+        max-width: none;
       }
     }
 
     @container (max-width: 520px) {
+      .time-travel-workspace-picker {
+        flex-basis: 120px;
+      }
+
       .time-travel-tool-button span:last-child {
         display: none;
       }

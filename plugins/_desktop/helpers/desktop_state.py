@@ -6,11 +6,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 SESSION_ID = "agent-zero-desktop"
@@ -20,9 +23,10 @@ STATE_DIR = BASE_DIR / "usr" / "plugins" / PLUGIN_NAME
 RETIRED_STATE_DIR = BASE_DIR / "usr" / PLUGIN_NAME
 SESSION_DIR = STATE_DIR / "sessions"
 PROFILE_DIR = STATE_DIR / "profiles"
-SCREENSHOT_DIR = STATE_DIR / "screenshots"
+SCREENSHOT_DIR = Path(os.environ.get("A0_DESKTOP_SCREENSHOT_DIR") or BASE_DIR / "tmp" / "desktop" / "screenshots")
 RECENT_SCREENSHOT_SECONDS = 600
 _SAFE_CONTEXT_RE = re.compile(r"[^a-zA-Z0-9_.-]+")
+_SCREENSHOT_SUFFIXES = {".png", ".jpg", ".jpeg", ".xwd"}
 
 
 def session_manifest_path(session_id: str = SESSION_ID) -> Path:
@@ -31,6 +35,19 @@ def session_manifest_path(session_id: str = SESSION_ID) -> Path:
 
 def context_screenshot_dir(context_id: str = "") -> Path:
     return SCREENSHOT_DIR / _safe_context_id(context_id)
+
+
+def chat_screenshot_dir(context_id: str = "") -> Path:
+    return BASE_DIR / "usr" / "chats" / _safe_context_id(context_id) / "screenshots" / "desktop"
+
+
+def normalize_a0_path(path: str | Path) -> str:
+    candidate = Path(path)
+    try:
+        relative = candidate.resolve(strict=False).relative_to(BASE_DIR.resolve(strict=False))
+    except ValueError:
+        return str(candidate)
+    return "/a0/" + str(relative).replace(os.sep, "/")
 
 
 def _safe_context_id(context_id: str = "") -> str:
@@ -47,6 +64,7 @@ def collect_state(
     include_screenshot: bool = False,
     screenshot_path: str | Path | None = None,
     context_id: str = "",
+    screenshot_transport: str = "ephemeral",
 ) -> dict[str, Any]:
     errors: list[str] = []
     env_info = resolve_environment(errors=errors)
@@ -72,9 +90,11 @@ def collect_state(
             path=screenshot_path,
             errors=errors,
             context_id=context_id,
+            transport=screenshot_transport,
         )
 
     return stable_state(
+        context_id=context_id,
         display=display,
         profile_dir=profile_dir,
         size=size,
@@ -94,6 +114,7 @@ def capture_screenshot(
     path: str | Path | None = None,
     errors: list[str] | None = None,
     context_id: str = "",
+    transport: str = "ephemeral",
 ) -> dict[str, Any]:
     local_errors = errors if errors is not None else []
     capabilities = capabilities or collect_capabilities()
@@ -109,12 +130,20 @@ def capture_screenshot(
         local_errors.append(message)
         return {"ok": False, "path": "", "format": "", "captured_at": "", "error": message}
 
-    screenshot_dir = context_screenshot_dir(context_id)
-    screenshot_dir.mkdir(parents=True, exist_ok=True)
+    explicit_path = path is not None and str(path).strip() != ""
+    transport_mode = str(transport or "").strip().lower()
+    chat_scoped = bool(not explicit_path and transport_mode == "path" and str(context_id or "").strip())
+    ephemeral_ref = not explicit_path and transport_mode != "path"
+    screenshot_dir = chat_screenshot_dir(context_id) if chat_scoped else context_screenshot_dir(context_id)
+    if not explicit_path and not chat_scoped:
+        prune_context_screenshots(context_id=context_id)
+        screenshot_dir.mkdir(parents=True, exist_ok=True)
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    target = Path(path) if path else screenshot_dir / f"desktop-{timestamp}.png"
+    millis = int((time.time() % 1) * 1000)
+    target = Path(path) if explicit_path else screenshot_dir / f"desktop-{timestamp}-{millis:03d}.png"
     target.parent.mkdir(parents=True, exist_ok=True)
     raw_path = target.with_suffix(".xwd")
+    safe_context = _safe_context_id(context_id)
 
     result = run([xwd, "-root", "-silent", "-out", str(raw_path)], env=env, timeout=8)
     if result.returncode != 0:
@@ -124,12 +153,18 @@ def capture_screenshot(
         return {"ok": False, "path": "", "format": "", "captured_at": "", "error": detail}
 
     if target.suffix.lower() == ".xwd":
+        if not explicit_path and not chat_scoped:
+            prune_context_screenshots(context_id=context_id, keep_path=raw_path)
         return {
             "ok": True,
             "path": str(raw_path),
+            "a0_path": normalize_a0_path(raw_path),
             "format": "xwd",
             "captured_at": iso_now(),
             "recent": True,
+            "ephemeral": not explicit_path and not chat_scoped,
+            "chat_scoped": chat_scoped,
+            "context_id": safe_context,
             "error": "",
         }
 
@@ -141,39 +176,84 @@ def capture_screenshot(
             width = int(image.width)
             height = int(image.height)
         raw_path.unlink(missing_ok=True)
+        if ephemeral_ref:
+            return ephemeral_screenshot_result(
+                target,
+                context_id=context_id,
+                image_format=target.suffix.lower().lstrip(".") or "png",
+                width=width,
+                height=height,
+            )
+        if not explicit_path and not chat_scoped:
+            prune_context_screenshots(context_id=context_id, keep_path=target)
         return {
             "ok": True,
             "path": str(target),
+            "a0_path": normalize_a0_path(target),
             "format": target.suffix.lower().lstrip(".") or "png",
             "width": width,
             "height": height,
             "captured_at": iso_now(),
             "recent": True,
+            "ephemeral": not explicit_path and not chat_scoped,
+            "chat_scoped": chat_scoped,
+            "context_id": safe_context,
             "error": "",
         }
     except Exception as exc:
         try:
             converted = convert_xwd_to_image(raw_path, target)
             raw_path.unlink(missing_ok=True)
+            if ephemeral_ref:
+                return ephemeral_screenshot_result(
+                    target,
+                    context_id=context_id,
+                    image_format=target.suffix.lower().lstrip(".") or "png",
+                    width=converted["width"],
+                    height=converted["height"],
+                )
+            if not explicit_path and not chat_scoped:
+                prune_context_screenshots(context_id=context_id, keep_path=target)
             return {
                 "ok": True,
                 "path": str(target),
+                "a0_path": normalize_a0_path(target),
                 "format": target.suffix.lower().lstrip(".") or "png",
                 "width": converted["width"],
                 "height": converted["height"],
                 "captured_at": iso_now(),
                 "recent": True,
+                "ephemeral": not explicit_path and not chat_scoped,
+                "chat_scoped": chat_scoped,
+                "context_id": safe_context,
                 "error": "",
             }
         except Exception as fallback_exc:
             message = f"Pillow could not convert the XWD screenshot: {exc}; fallback parser failed: {fallback_exc}"
         local_errors.append(message)
+        if ephemeral_ref:
+            raw_path.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+            return {
+                "ok": False,
+                "path": "",
+                "format": "",
+                "captured_at": iso_now(),
+                "recent": False,
+                "ephemeral": True,
+                "context_id": safe_context,
+                "error": message,
+            }
         return {
             "ok": True,
             "path": str(raw_path),
+            "a0_path": normalize_a0_path(raw_path),
             "format": "xwd",
             "captured_at": iso_now(),
             "recent": True,
+            "ephemeral": not explicit_path and not chat_scoped,
+            "chat_scoped": chat_scoped,
+            "context_id": safe_context,
             "error": message,
         }
 
@@ -182,50 +262,43 @@ def convert_xwd_to_image(raw_path: Path, target: Path) -> dict[str, int]:
     from PIL import Image
 
     data = raw_path.read_bytes()
-    header, endian = parse_xwd_header(data)
+    header, _ = parse_xwd_header(data)
     width = header["pixmap_width"]
     height = header["pixmap_height"]
     bytes_per_line = header["bytes_per_line"]
     bits_per_pixel = header["bits_per_pixel"]
-    image_byte_order = "little" if header["byte_order"] == 0 else "big"
     color_table_size = header["ncolors"] * 12
     pixel_offset = header["header_size"] + color_table_size
-    bytes_per_pixel = max((bits_per_pixel + 7) // 8, 1)
-    if width > 0 and bytes_per_line % width == 0:
-        bytes_per_pixel = max(bytes_per_pixel, bytes_per_line // width)
     if width <= 0 or height <= 0 or bytes_per_line <= 0:
         raise ValueError("invalid XWD dimensions")
-    if pixel_offset + (height * bytes_per_line) > len(data):
+    pixel_size = height * bytes_per_line
+    if pixel_offset + pixel_size > len(data):
         raise ValueError("truncated XWD pixel data")
 
-    red_mask = header["red_mask"]
-    green_mask = header["green_mask"]
-    blue_mask = header["blue_mask"]
-    red_shift, red_bits = mask_shift_and_bits(red_mask)
-    green_shift, green_bits = mask_shift_and_bits(green_mask)
-    blue_shift, blue_bits = mask_shift_and_bits(blue_mask)
-    if min(red_bits, green_bits, blue_bits) <= 0:
+    if (header["red_mask"], header["green_mask"], header["blue_mask"]) != (
+        0x00FF0000,
+        0x0000FF00,
+        0x000000FF,
+    ):
         raise ValueError("unsupported XWD visual masks")
+    raw_mode = {
+        (24, 0): "BGR",
+        (24, 1): "RGB",
+        (32, 0): "BGRX",
+        (32, 1): "XRGB",
+    }.get((bits_per_pixel, header["byte_order"]))
+    if not raw_mode:
+        raise ValueError(f"unsupported XWD pixel layout: {bits_per_pixel} bpp")
 
-    pixels: list[tuple[int, int, int]] = []
-    for row in range(height):
-        row_start = pixel_offset + (row * bytes_per_line)
-        for column in range(width):
-            start = row_start + (column * bytes_per_pixel)
-            pixel_bytes = data[start : start + bytes_per_pixel]
-            if len(pixel_bytes) < bytes_per_pixel:
-                raise ValueError("truncated XWD pixel")
-            pixel = int.from_bytes(pixel_bytes, image_byte_order, signed=False)
-            pixels.append(
-                (
-                    scale_channel((pixel & red_mask) >> red_shift, red_bits),
-                    scale_channel((pixel & green_mask) >> green_shift, green_bits),
-                    scale_channel((pixel & blue_mask) >> blue_shift, blue_bits),
-                ),
-            )
-
-    image = Image.new("RGB", (width, height))
-    image.putdata(pixels)
+    image = Image.frombytes(
+        "RGB",
+        (width, height),
+        data[pixel_offset : pixel_offset + pixel_size],
+        "raw",
+        raw_mode,
+        bytes_per_line,
+        1,
+    )
     image.save(target)
     return {"width": width, "height": height}
 
@@ -266,28 +339,6 @@ def parse_xwd_header(data: bytes) -> tuple[dict[str, int], str]:
         if 100 <= header["header_size"] <= len(data) and header["file_version"] == 7:
             return header, endian
     raise ValueError("unsupported XWD header")
-
-
-def mask_shift_and_bits(mask: int) -> tuple[int, int]:
-    if mask <= 0:
-        return 0, 0
-    shift = 0
-    value = mask
-    while value and value & 1 == 0:
-        shift += 1
-        value >>= 1
-    bits = 0
-    while value & 1:
-        bits += 1
-        value >>= 1
-    return shift, bits
-
-
-def scale_channel(value: int, bits: int) -> int:
-    if bits >= 8:
-        return max(0, min(255, value >> (bits - 8)))
-    max_value = (1 << bits) - 1
-    return 0 if max_value <= 0 else round((value / max_value) * 255)
 
 
 def resolve_environment(*, errors: list[str] | None = None, session_id: str = SESSION_ID) -> dict[str, str]:
@@ -518,24 +569,61 @@ def parse_xprop(output: str) -> dict[str, str]:
 
 
 def latest_screenshot(*, context_id: str = "") -> dict[str, Any]:
+    chat_dir = chat_screenshot_dir(context_id)
+    chat_latest = _latest_screenshot_from_dir(
+        chat_dir,
+        context_id=context_id,
+        ephemeral=False,
+        chat_scoped=True,
+        prune_older=False,
+    )
+    if chat_latest.get("ok"):
+        return chat_latest
+
+    prune_context_screenshots(context_id=context_id, max_age_seconds=RECENT_SCREENSHOT_SECONDS)
     screenshot_dir = context_screenshot_dir(context_id)
+    return _latest_screenshot_from_dir(
+        screenshot_dir,
+        context_id=context_id,
+        ephemeral=True,
+        chat_scoped=False,
+        prune_older=True,
+    )
+
+
+def _latest_screenshot_from_dir(
+    screenshot_dir: Path,
+    *,
+    context_id: str = "",
+    ephemeral: bool,
+    chat_scoped: bool,
+    prune_older: bool,
+) -> dict[str, Any]:
     if not screenshot_dir.exists():
         return {"ok": False, "path": "", "format": "", "captured_at": "", "recent": False}
     candidates = [
         path
         for path in screenshot_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".xwd"}
+        if path.is_file() and path.suffix.lower() in _SCREENSHOT_SUFFIXES
     ]
     if not candidates:
         return {"ok": False, "path": "", "format": "", "captured_at": "", "recent": False}
     latest = max(candidates, key=lambda item: item.stat().st_mtime)
+    if prune_older:
+        for candidate in candidates:
+            if candidate != latest:
+                candidate.unlink(missing_ok=True)
     age = max(0.0, time.time() - latest.stat().st_mtime)
     return {
         "ok": True,
         "path": str(latest),
+        "a0_path": normalize_a0_path(latest),
         "format": latest.suffix.lower().lstrip("."),
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(latest.stat().st_mtime)),
         "recent": age <= RECENT_SCREENSHOT_SECONDS,
+        "ephemeral": ephemeral,
+        "chat_scoped": chat_scoped,
+        "context_id": _safe_context_id(context_id),
     }
 
 
@@ -543,6 +631,7 @@ def stable_state(
     *,
     display: str,
     profile_dir: str,
+    context_id: str = "",
     size: dict[str, int] | None = None,
     pointer: dict[str, int] | None = None,
     active_window: dict[str, Any] | None = None,
@@ -554,6 +643,7 @@ def stable_state(
     clean_errors = [str(error) for error in errors or [] if str(error)]
     return {
         "ok": not clean_errors,
+        "context_id": _safe_context_id(context_id),
         "display": display,
         "profile_dir": profile_dir,
         "size": size or {"width": 0, "height": 0},
@@ -594,10 +684,18 @@ def compact_prompt_context(state: dict[str, Any] | None = None) -> str:
         lines.append("- visible=" + "; ".join(visible))
     screenshot = state.get("screenshot") or {}
     if screenshot.get("recent") and screenshot.get("path"):
-        lines.append(f"- recent_screenshot={screenshot['path']}")
+        ephemeral = " ephemeral" if screenshot.get("ephemeral") else ""
+        screenshot_ref = screenshot.get("a0_path") or screenshot["path"]
+        lines.append(f"- recent_screenshot={screenshot_ref}{ephemeral}")
+    context_id = str(state.get("context_id") or "").strip()
+    if context_id:
+        lines.append(f"- screenshot_context={context_id}")
+    context_arg = f" --context-id {context_id}" if context_id else ""
     lines.append(
-        "- next=plugins/_desktop/skills/linux-desktop/scripts/desktopctl.sh observe --json --screenshot "
-        "before any coordinate action; prefer focus/key/paste/save/app-native helpers first."
+        "- next=plugins/_desktop/skills/linux-desktop/scripts/desktopctl.sh state --json"
+        f"{context_arg} for structured checks; use observe --json --screenshot"
+        f"{context_arg} "
+        "before coordinate or visual-OCR actions; prefer sequence/focus/key/paste/save/app-native helpers first."
     )
     lines.append(
         "- verify=for terminal/CLI-agent output, use the screenshot path from a fresh final "
@@ -667,6 +765,75 @@ def image_height(path: Path) -> int:
         return 0
 
 
+def ephemeral_screenshot_result(
+    path: Path,
+    *,
+    context_id: str = "",
+    image_format: str = "png",
+    width: int = 0,
+    height: int = 0,
+) -> dict[str, Any]:
+    from helpers import ephemeral_images
+
+    mime = "image/jpeg" if image_format.lower() in {"jpg", "jpeg"} else "image/png"
+    safe_context = _safe_context_id(context_id)
+    ref = ephemeral_images.put_image_bytes(
+        context_id=str(context_id or "").strip(),
+        mime=mime,
+        payload=path.read_bytes(),
+        name=path.name,
+    )
+    path.unlink(missing_ok=True)
+    prune_context_screenshots(context_id=context_id)
+    return {
+        "ok": True,
+        "path": "",
+        "format": image_format,
+        "mime": mime,
+        "width": width,
+        "height": height,
+        "captured_at": iso_now(),
+        "recent": True,
+        "ephemeral": True,
+        "ephemeral_ref": ref,
+        "context_id": safe_context,
+        "vision_load": {
+            "tool_name": "vision_load",
+            "tool_args": {"paths": [ref]},
+        },
+        "error": "",
+    }
+
+
+def prune_context_screenshots(
+    *,
+    context_id: str = "",
+    keep_path: Path | None = None,
+    max_age_seconds: float | None = None,
+) -> None:
+    screenshot_dir = context_screenshot_dir(context_id)
+    if not screenshot_dir.exists():
+        return
+    keep = keep_path.resolve(strict=False) if keep_path else None
+    now = time.time()
+    for candidate in screenshot_dir.iterdir():
+        if not candidate.is_file() or candidate.suffix.lower() not in _SCREENSHOT_SUFFIXES:
+            continue
+        if keep is not None and candidate.resolve(strict=False) == keep:
+            continue
+        if max_age_seconds is not None:
+            try:
+                if now - candidate.stat().st_mtime <= max_age_seconds:
+                    continue
+            except OSError:
+                pass
+        candidate.unlink(missing_ok=True)
+    try:
+        screenshot_dir.rmdir()
+    except OSError:
+        pass
+
+
 def iso_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -696,6 +863,7 @@ def main(argv: list[str] | None = None) -> int:
         payload = collect_state(
             include_screenshot=bool(args.screenshot),
             context_id=str(args.context_id or ""),
+            screenshot_transport="path",
         )
         print(json.dumps(payload, sort_keys=True))
         return 0 if payload.get("ok") else 1
@@ -709,6 +877,7 @@ def main(argv: list[str] | None = None) -> int:
             path=args.path,
             errors=errors,
             context_id=str(args.context_id or ""),
+            transport="path",
         )
         if args.json:
             print(json.dumps(payload, sort_keys=True))

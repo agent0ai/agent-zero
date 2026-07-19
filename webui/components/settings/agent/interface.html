@@ -1,0 +1,161 @@
+<html>
+  <head>
+    <title>Interface</title>
+  </head>
+
+  <body>
+    <div x-data>
+      <template x-if="$store.settings.uiVisibility">
+        <div>
+          <div class="section-title">Interface controls</div>
+          <div class="section-description">
+            Choose where each control appears. Bright devices are shown; dim devices are hidden.
+          </div>
+
+          <div class="ui-visibility-list">
+            <template x-for="control in $store.settings.uiControls" :key="control.id">
+              <div class="ui-visibility-row">
+                <div class="ui-visibility-control">
+                  <span class="material-symbols-outlined" aria-hidden="true" x-text="control.icon"></span>
+                  <div>
+                    <div class="field-title" x-text="control.label"></div>
+                    <div class="ui-visibility-state" x-text="$store.settings.uiControlVisibilityLabel(control.id)"></div>
+                  </div>
+                </div>
+
+                <div class="ui-device-selector" :aria-label="`${control.label} visibility`">
+                  <button
+                    type="button"
+                    class="ui-device-button"
+                    :class="{ 'is-visible': $store.settings.isUiControlVisible(control.id, 'mobile') }"
+                    :aria-label="`Show ${control.label.toLowerCase()} on mobile`"
+                    :aria-pressed="$store.settings.isUiControlVisible(control.id, 'mobile').toString()"
+                    :title="$store.settings.isUiControlVisible(control.id, 'mobile') ? 'Shown on mobile' : 'Hidden on mobile'"
+                    @click="$store.settings.toggleUiControl(control.id, 'mobile')"
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">smartphone</span>
+                    <span>Mobile</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="ui-device-button"
+                    :class="{ 'is-visible': $store.settings.isUiControlVisible(control.id, 'desktop') }"
+                    :aria-label="`Show ${control.label.toLowerCase()} on desktop`"
+                    :aria-pressed="$store.settings.isUiControlVisible(control.id, 'desktop').toString()"
+                    :title="$store.settings.isUiControlVisible(control.id, 'desktop') ? 'Shown on desktop' : 'Hidden on desktop'"
+                    @click="$store.settings.toggleUiControl(control.id, 'desktop')"
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">desktop_windows</span>
+                    <span>Desktop</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+
+  <style>
+    .ui-visibility-list {
+      margin-top: 1rem;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--color-panel) 48%, transparent);
+    }
+
+    .ui-visibility-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 1rem;
+      min-height: 78px;
+      padding: 0.8rem 0.9rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+    }
+
+    .ui-visibility-row:last-child {
+      border-bottom: 0;
+    }
+
+    .ui-visibility-control {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+
+    .ui-visibility-control > .material-symbols-outlined {
+      display: grid;
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 9px;
+      background: color-mix(in srgb, var(--color-text) 8%, transparent);
+      color: var(--color-text);
+      font-size: 21px;
+    }
+
+    .ui-visibility-state {
+      margin-top: 0.18rem;
+      color: var(--color-text-muted);
+      font-size: 0.78rem;
+    }
+
+    .ui-device-selector {
+      display: grid;
+      grid-template-columns: repeat(2, 78px);
+      gap: 0.45rem;
+    }
+
+    .ui-device-button {
+      display: flex;
+      min-height: 54px;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding: 0.4rem;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.72rem;
+      opacity: 0.35;
+      transition: opacity 0.16s ease, color 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+    }
+
+    .ui-device-button:hover,
+    .ui-device-button:focus-visible {
+      opacity: 0.72;
+      outline: none;
+      border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+    }
+
+    .ui-device-button.is-visible {
+      opacity: 1;
+      color: var(--color-text);
+      border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border));
+      background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    }
+
+    .ui-device-button .material-symbols-outlined {
+      font-size: 22px;
+    }
+
+    @media (max-width: 640px) {
+      .ui-visibility-row {
+        grid-template-columns: 1fr;
+      }
+
+      .ui-device-selector {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</html>

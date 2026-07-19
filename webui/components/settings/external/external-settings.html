@@ -41,8 +41,14 @@
               </li>
               <li>
                 <a href="#section-tunnel">
-                  <img src="/public/tunnel.svg" alt="Remote Link" />
-                  <span>Remote Link</span>
+                  <img src="/public/tunnel.svg" alt="Remote Control" />
+                  <span>Remote Control</span>
+                </a>
+              </li>
+              <li>
+                <a href="#section-external-plugins">
+                  <span class="material-symbols-outlined" aria-hidden="true">extension</span>
+                  <span>Plugins</span>
                 </a>
               </li>
             </ul>
@@ -66,6 +72,9 @@
           <!-- Tunnel section content -->
           <div id="section-tunnel" class="section">
             <x-component path="settings/tunnel/tunnel-section.html"></x-component>
+          </div>
+          <div id="section-external-plugins" class="section">
+            <x-component path="settings/plugins/plugins-subsection.html" data-tab="external"></x-component>
           </div>
         </div>
       </template>

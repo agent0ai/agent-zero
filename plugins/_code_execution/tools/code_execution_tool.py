@@ -27,6 +27,14 @@ def _is_closed_pty_error(exc: BaseException) -> bool:
     return False
 
 
+def _group_multiline_command(command: str, powershell: bool = False) -> str:
+    body = command.rstrip("\n")
+    if "\n" not in body:
+        return body
+    opener = ". {" if powershell else "{"
+    return f"{opener}\n{body}\n}}"
+
+
 @dataclass
 class ShellWrap:
     id: int
@@ -165,6 +173,9 @@ class CodeExecution(Tool):
             + self.format_command_for_output(command)
             + "\n\n"
         )
+        command = _group_multiline_command(
+            command, powershell=runtime.is_windows() and not cfg["ssh_enabled"]
+        )
         return await self.terminal_session(cfg, session, command, reset, prefix)
 
     async def terminal_session(
@@ -228,7 +239,7 @@ class CodeExecution(Tool):
         first_output_timeout=30,
         between_output_timeout=15,
         dialog_timeout=5,
-        max_exec_timeout=180,
+        max_exec_timeout=240,
         sleep_time=0.5,
         prefix="",
         timeouts: dict | None = None,
@@ -546,8 +557,8 @@ def _get_config(agent) -> dict:
         "ssh_port": int(cfg.get("ssh_port", 55022)),
         "ssh_user": str(cfg.get("ssh_user", "root")),
         "ssh_pass": str(cfg.get("ssh_pass", "")),
-        "code_exec_timeouts": _parse_timeouts(cfg, "code_exec", (30, 15, 180, 5)),
-        "output_timeouts": _parse_timeouts(cfg, "output", (90, 45, 300, 5)),
+        "code_exec_timeouts": _parse_timeouts(cfg, "code_exec", (30, 15, 240, 5)),
+        "output_timeouts": _parse_timeouts(cfg, "output", (120, 60, 600, 5)),
         "prompt_patterns": _parse_patterns(cfg.get("prompt_patterns", "")),
         "dialog_patterns": _parse_patterns(cfg.get("dialog_patterns", ""), re.IGNORECASE),
     }

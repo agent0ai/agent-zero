@@ -66,6 +66,10 @@ These controls are related, but they solve different problems.
 | **Project** | Files, workspace, memories, instructions, secrets, and long-running context. |
 | **Model Preset** | Which models are used for the chat. |
 
+For small local models that narrate instead of calling tools, use the bundled
+**Tiny Local** profile or the project-scoped Prompt Include recipe in
+[Local Model Tool Use](local-model-tool-use.md).
+
 Example:
 
 - use a **Project** for a client repository;

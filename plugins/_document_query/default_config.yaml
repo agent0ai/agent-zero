@@ -1,0 +1,37 @@
+# Document Query Plugin Configuration
+# All timeout values in seconds
+
+# --- Timeouts ---
+fetch_timeout: 30            # HTTP fetch connect/read timeout
+fetch_retries: 3             # HTTP retry attempts
+fetch_retry_backoff: 1.0     # delay between HTTP retry attempts
+per_document_timeout: 60     # max time for a single document parse
+gather_timeout: 120          # max time for all documents combined in one call
+
+# --- Parser settings ---
+parser_concurrency: 1        # max parser jobs running across all chats in this process
+context_intro_chunks: 2      # always include leading chunks per document for title/abstract grounding
+chunk_size: 1000
+chunk_overlap: 100
+max_index_chunks: 1200       # adapt chunk size above this many indexed chunks
+search_threshold: 0.5
+search_limit: 100
+max_remote_bytes: 52428800   # 50 MB
+
+# --- Feature flags ---
+liteparse_enabled: true      # prefer LiteParse before legacy parser fallbacks
+liteparse_ocr_enabled: true
+liteparse_ocr_language: eng
+liteparse_ocr_server_url:
+liteparse_tessdata_path:
+liteparse_max_pages: 1000
+liteparse_target_pages:
+liteparse_dpi: 150
+liteparse_preserve_very_small_text: false
+liteparse_output_format: text
+liteparse_num_workers: 2     # balanced default for OCR speed without overloading shared Web UI runtime
+liteparse_ocr_auto_disable: true       # disable OCR automatically for long PDFs
+liteparse_ocr_auto_disable_pages: 30   # OCR-on runtime climbs sharply around this page count
+liteparse_ocr_auto_sample_pages: 5
+pdf_ocr_fallback: true       # enable legacy Tesseract fallback after PyMuPDF
+thread_offload: true         # offload sync parsers to thread pool

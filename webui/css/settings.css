@@ -72,6 +72,10 @@ textarea:focus {
   filter: brightness(1.2);
 }
 
+.masked-text-input {
+  -webkit-text-security: disc;
+}
+
 .light-mode input[type="text"]:focus,
 .light-mode input[type="number"]:focus,
 .light-mode input[type="password"]:focus, 
@@ -196,6 +200,9 @@ select:disabled {
 .settings-tabs-container {
   position: sticky;
   top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   align-self: stretch;
   z-index: 2;
   min-width: 0;
@@ -207,10 +214,81 @@ select:disabled {
   background: color-mix(in srgb, var(--color-panel) 44%, transparent);
 }
 
+.settings-search {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 42%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  color: var(--color-text-muted);
+}
+
+.settings-search:focus-within {
+  border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
+  background: color-mix(in srgb, var(--color-text) 13%, transparent);
+}
+
+.settings-search .material-symbols-outlined {
+  font-size: 19px;
+}
+
+.settings-search input[type="search"] {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.settings-search input[type="search"]::-webkit-search-decoration,
+.settings-search input[type="search"]::-webkit-search-cancel-button,
+.settings-search input[type="search"]::-webkit-search-results-button,
+.settings-search input[type="search"]::-webkit-search-results-decoration {
+  display: none;
+}
+
+.settings-search input[type="search"]::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.9;
+}
+
+.settings-search-clear {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.settings-search-clear:hover {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  color: var(--color-text);
+}
+
 .settings-tabs {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -262,7 +340,7 @@ select:disabled {
   transition: transform 0.16s ease;
 }
 
-.settings-nav-group-active .settings-tab-chevron {
+.settings-nav-group-open .settings-tab-chevron {
   transform: rotate(0deg);
 }
 
@@ -351,6 +429,13 @@ select:disabled {
 .settings-section-link:hover,
 .settings-section-link.active {
   opacity: 1;
+}
+
+.settings-search-empty {
+  padding: 10px 9px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
 
 .settings-pane {

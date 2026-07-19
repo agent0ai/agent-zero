@@ -8,6 +8,7 @@ You must return a single summary of all records
 Your output will be a text of the summary
 Summary must be shorter than original messages
 Length of the text should be maximum one paragraph, approximately 100 words, shorter if original is shorter
+If a tool result includes skill_instructions metadata, preserve the loaded skill name in the summary, but do not copy the full skill body
 No intro
 No conclusion
 No formatting

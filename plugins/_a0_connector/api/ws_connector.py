@@ -10,8 +10,10 @@ from helpers.ws_manager import WsResult
 
 from plugins._a0_connector.helpers.exec_config import build_exec_config
 from plugins._a0_connector.helpers.event_bridge import get_context_log_entries
+from plugins._a0_connector.helpers.version import agent_zero_version
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_remote_tree_snapshot,
+    clear_sid_launcher_gateway_metadata,
     clear_sid_host_browser_metadata,
     clear_sid_computer_use_metadata,
     clear_sid_remote_exec_metadata,
@@ -21,15 +23,18 @@ from plugins._a0_connector.helpers.ws_runtime import (
     fail_pending_computer_use_ops_for_sid,
     fail_pending_exec_ops_for_sid,
     fail_pending_file_ops_for_sid,
+    fail_pending_gateway_controls_for_sid,
     host_browser_metadata_for_sid,
     register_sid,
     remote_exec_metadata_for_sid,
     remote_file_metadata_for_sid,
+    resolve_pending_gateway_control,
     resolve_pending_browser_op,
     resolve_pending_computer_use_op,
     resolve_pending_exec_op,
     resolve_pending_file_op,
     store_remote_tree_snapshot,
+    store_sid_launcher_gateway_metadata,
     store_sid_host_browser_metadata,
     store_sid_computer_use_metadata,
     store_sid_remote_exec_metadata,
@@ -49,13 +54,21 @@ PROTOCOL_VERSION = "a0-connector.v1"
 WS_FEATURES = [
     "connector_subscribe_context",
     "connector_send_message",
+    "message_queue",
+    "connector_message_queue_add",
+    "connector_message_queue_remove",
+    "connector_message_queue_send",
     "text_editor_remote",
     "remote_file_tree",
     "code_execution_remote",
     "computer_use_remote",
     "browser_host_remote",
     "connector_browser_op",
+    "launcher_gateway_control",
 ]
+
+_SNAPSHOT_REPLAY_PAGE_SIZE = 50
+_LIVE_STREAM_PAGE_SIZE = 100
 
 
 class WsConnector(WsHandler):
@@ -98,10 +111,15 @@ class WsConnector(WsHandler):
             sid,
             error="CLI disconnected before completing the requested browser operation",
         )
+        fail_pending_gateway_controls_for_sid(
+            sid,
+            error="Launcher gateway disconnected before acknowledging the control request",
+        )
         clear_sid_computer_use_metadata(sid)
         clear_sid_host_browser_metadata(sid)
         clear_sid_remote_file_metadata(sid)
         clear_sid_remote_exec_metadata(sid)
+        clear_sid_launcher_gateway_metadata(sid)
         PrintStyle.debug(f"[a0-connector] /ws disconnected: {sid}")
 
     async def process(
@@ -115,6 +133,7 @@ class WsConnector(WsHandler):
             self._associate_declared_context(data, sid)
             return {
                 "protocol": PROTOCOL_VERSION,
+                "agent_zero_version": agent_zero_version(),
                 "features": WS_FEATURES,
                 "exec_config": build_exec_config(),
                 "remote_tools": self._remote_tool_state(sid),
@@ -128,6 +147,15 @@ class WsConnector(WsHandler):
 
         if event == "connector_send_message":
             return await self._handle_send_message(data, sid)
+
+        if event == "connector_message_queue_add":
+            return await self._handle_message_queue_add(data, sid)
+
+        if event == "connector_message_queue_remove":
+            return await self._handle_message_queue_remove(data, sid)
+
+        if event == "connector_message_queue_send":
+            return await self._handle_message_queue_send(data, sid)
 
         if event == "connector_file_op_result":
             return self._handle_file_op_result(data, sid)
@@ -144,6 +172,9 @@ class WsConnector(WsHandler):
         if event == "connector_browser_op_result":
             return self._handle_browser_op_result(data, sid)
 
+        if event == "connector_gateway_control_result":
+            return self._handle_gateway_control_result(data, sid)
+
         if event.startswith("connector_"):
             return WsResult.error(
                 code="UNKNOWN_EVENT",
@@ -158,6 +189,7 @@ class WsConnector(WsHandler):
         host_browser = data.get("host_browser")
         remote_files = data.get("remote_files")
         remote_exec = data.get("remote_exec")
+        gateway = data.get("gateway")
         if isinstance(computer_use, dict):
             store_sid_computer_use_metadata(sid, computer_use)
         else:
@@ -174,6 +206,10 @@ class WsConnector(WsHandler):
             store_sid_remote_exec_metadata(sid, remote_exec)
         else:
             clear_sid_remote_exec_metadata(sid)
+        if isinstance(gateway, dict):
+            store_sid_launcher_gateway_metadata(sid, gateway)
+        else:
+            clear_sid_launcher_gateway_metadata(sid)
 
     def _associate_declared_context(self, data: dict[str, Any], sid: str) -> str:
         context_id = str(data.get("context_id", "") or "").strip()
@@ -238,18 +274,25 @@ class WsConnector(WsHandler):
             )
 
         subscribe_sid_to_context(sid, context_id)
-        events, last_sequence = get_context_log_entries(context_id, after=from_sequence)
-        await self.emit_to(
+        events, last_sequence = get_context_log_entries(
+            context_id,
+            after=from_sequence,
+            limit=_SNAPSHOT_REPLAY_PAGE_SIZE,
+        )
+        await self._emit_context_snapshot(
             sid,
-            "connector_context_snapshot",
-            {
-                "context_id": context_id,
-                "events": events,
-                "last_sequence": last_sequence,
-            },
+            context_id=context_id,
+            events=events,
+            last_sequence=last_sequence,
+            context=context,
             correlation_id=data.get("correlationId"),
         )
-        self._start_streaming(sid, context_id, from_sequence=last_sequence)
+        self._start_streaming(
+            sid,
+            context_id,
+            from_sequence=last_sequence,
+            replay_history=True,
+        )
 
         return {
             "context_id": context_id,
@@ -333,18 +376,25 @@ class WsConnector(WsHandler):
 
         if context_id not in subscribed_contexts_for_sid(sid):
             subscribe_sid_to_context(sid, context_id)
-            events, last_sequence = get_context_log_entries(context_id, after=0)
-            await self.emit_to(
+            events, last_sequence = get_context_log_entries(
+                context_id,
+                after=0,
+                limit=_SNAPSHOT_REPLAY_PAGE_SIZE,
+            )
+            await self._emit_context_snapshot(
                 sid,
-                "connector_context_snapshot",
-                {
-                    "context_id": context_id,
-                    "events": events,
-                    "last_sequence": last_sequence,
-                },
+                context_id=context_id,
+                events=events,
+                last_sequence=last_sequence,
+                context=context,
                 correlation_id=data.get("correlationId"),
             )
-            self._start_streaming(sid, context_id, from_sequence=last_sequence)
+            self._start_streaming(
+                sid,
+                context_id,
+                from_sequence=last_sequence,
+                replay_history=True,
+            )
 
         message_id = client_message_id or data.get("correlationId") or ""
         context.log.log(
@@ -368,6 +418,162 @@ class WsConnector(WsHandler):
             "context_id": context_id,
             "status": "accepted",
             "client_message_id": client_message_id or None,
+        }
+
+    async def _handle_message_queue_add(
+        self,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any] | WsResult:
+        from agent import AgentContext
+        from helpers import message_queue as mq
+        from helpers.state_monitor_integration import mark_dirty_for_context
+
+        context_id = str(data.get("context_id", data.get("context", ""))).strip()
+        message = str(data.get("message", data.get("text", ""))).strip()
+        client_message_id = str(data.get("client_message_id", data.get("item_id", ""))).strip()
+        raw_attachments = list(data.get("attachments", [])) if isinstance(data.get("attachments"), list) else []
+        attachments, attachment_error = self._normalize_attachment_refs(raw_attachments)
+        if attachment_error:
+            return WsResult.error(
+                code="INVALID_ATTACHMENTS",
+                message=attachment_error,
+                correlation_id=data.get("correlationId"),
+            )
+        if not context_id:
+            return WsResult.error(
+                code="MISSING_CONTEXT_ID",
+                message="context_id is required",
+                correlation_id=data.get("correlationId"),
+            )
+        if not message and not attachments:
+            return WsResult.error(
+                code="MISSING_MESSAGE",
+                message="message or attachments are required",
+                correlation_id=data.get("correlationId"),
+            )
+
+        context = AgentContext.get(context_id)
+        if context is None:
+            return WsResult.error(
+                code="CONTEXT_NOT_FOUND",
+                message=f"Context '{context_id}' not found",
+                correlation_id=data.get("correlationId"),
+            )
+
+        item = mq.add(
+            context,
+            message,
+            attachments,
+            item_id=client_message_id or data.get("correlationId") or None,
+        )
+        mark_dirty_for_context(context_id, reason="connector_message_queue_add")
+        await self._emit_message_queue_updated(context_id=context_id, context=context)
+
+        return {
+            "context_id": context_id,
+            "status": "queued",
+            "item": self._queue_item_payload(item),
+            "message_queue": self._queue_items_for_context(context),
+        }
+
+    async def _handle_message_queue_remove(
+        self,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any] | WsResult:
+        from agent import AgentContext
+        from helpers import message_queue as mq
+        from helpers.state_monitor_integration import mark_dirty_for_context
+
+        context_id = str(data.get("context_id", data.get("context", ""))).strip()
+        item_id = str(data.get("item_id", "") or "").strip() or None
+        if not context_id:
+            return WsResult.error(
+                code="MISSING_CONTEXT_ID",
+                message="context_id is required",
+                correlation_id=data.get("correlationId"),
+            )
+
+        context = AgentContext.get(context_id)
+        if context is None:
+            return WsResult.error(
+                code="CONTEXT_NOT_FOUND",
+                message=f"Context '{context_id}' not found",
+                correlation_id=data.get("correlationId"),
+            )
+
+        remaining = mq.remove(context, item_id)
+        mark_dirty_for_context(context_id, reason="connector_message_queue_remove")
+        await self._emit_message_queue_updated(context_id=context_id, context=context)
+
+        return {
+            "context_id": context_id,
+            "status": "removed",
+            "remaining": remaining,
+            "message_queue": self._queue_items_for_context(context),
+        }
+
+    async def _handle_message_queue_send(
+        self,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any] | WsResult:
+        from agent import AgentContext
+        from helpers import message_queue as mq
+        from helpers.state_monitor_integration import mark_dirty_for_context
+
+        context_id = str(data.get("context_id", data.get("context", ""))).strip()
+        item_id = str(data.get("item_id", "") or "").strip() or None
+        send_all = bool(data.get("send_all", False))
+        if not context_id:
+            return WsResult.error(
+                code="MISSING_CONTEXT_ID",
+                message="context_id is required",
+                correlation_id=data.get("correlationId"),
+            )
+
+        context = AgentContext.get(context_id)
+        if context is None:
+            return WsResult.error(
+                code="CONTEXT_NOT_FOUND",
+                message=f"Context '{context_id}' not found",
+                correlation_id=data.get("correlationId"),
+            )
+
+        if not mq.has_queue(context):
+            await self._emit_message_queue_updated(context_id=context_id, context=context)
+            return {
+                "context_id": context_id,
+                "status": "empty",
+                "sent_count": 0,
+                "message_queue": [],
+            }
+
+        if send_all:
+            sent_count = mq.send_all_aggregated(context)
+            sent_item_id = None
+        else:
+            item = mq.pop_item(context, item_id) if item_id else mq.pop_first(context)
+            if not item:
+                return WsResult.error(
+                    code="QUEUE_ITEM_NOT_FOUND",
+                    message="Queued message was not found",
+                    correlation_id=data.get("correlationId"),
+                )
+            sent_item_id = item.get("id")
+            mq.send_message(context, item)
+            sent_count = 1
+
+        mark_dirty_for_context(context_id, reason="connector_message_queue_send")
+        await self._emit_message_queue_updated(context_id=context_id, context=context)
+
+        return {
+            "context_id": context_id,
+            "status": "sent",
+            "sent_count": sent_count,
+            "sent_item_id": sent_item_id,
+            "message_queue": self._queue_items_for_context(context),
         }
 
     def _normalize_attachment_refs(self, attachments: list[Any]) -> tuple[list[str], str]:
@@ -397,6 +603,71 @@ class WsConnector(WsHandler):
             refs.append(ref)
 
         return refs, ""
+
+    def _queue_item_payload(self, item: dict[str, Any]) -> dict[str, Any]:
+        text = str(item.get("text", "") or "")
+        attachments = [
+            str(attachment).split("/")[-1]
+            for attachment in item.get("attachments", [])
+            if str(attachment or "").strip()
+        ]
+        return {
+            "id": str(item.get("id", "") or ""),
+            "seq": int(item.get("seq", 0) or 0),
+            "text": text[:100] + "..." if len(text) > 100 else text,
+            "attachments": attachments,
+            "attachment_count": len(item.get("attachments", []) or []),
+        }
+
+    def _queue_items_for_context(self, context: AgentContext | None) -> list[dict[str, Any]]:
+        if context is None:
+            return []
+        try:
+            from helpers import message_queue as mq
+
+            return [self._queue_item_payload(item) for item in mq.get_queue(context)]
+        except Exception:
+            return []
+
+    def _queue_state_for_context_id(self, context_id: str) -> tuple[str, list[dict[str, Any]]]:
+        try:
+            from agent import AgentContext
+
+            context = AgentContext.get(context_id)
+        except Exception:
+            context = None
+
+        items = self._queue_items_for_context(context)
+        signature = repr(items)
+        return signature, items
+
+    def _context_is_running(self, context_id: str) -> bool:
+        try:
+            from agent import AgentContext
+
+            context = AgentContext.get(context_id)
+            return bool(context is not None and context.is_running())
+        except Exception:
+            return False
+
+    async def _emit_message_queue_updated(
+        self,
+        *,
+        context_id: str,
+        context: AgentContext | None = None,
+    ) -> None:
+        payload = {
+            "context_id": context_id,
+            "message_queue": self._queue_items_for_context(context),
+        }
+        for target_sid in subscribed_sids_for_context(context_id):
+            try:
+                await self.emit_to(target_sid, "connector_message_queue_updated", payload)
+            except Exception as exc:
+                PrintStyle.error(
+                    f"[a0-connector] failed to emit connector_message_queue_updated "
+                    f"to {target_sid}: {exc}"
+                )
 
     def _handle_file_op_result(
         self,
@@ -524,6 +795,26 @@ class WsConnector(WsHandler):
 
         return {"op_id": op_id, "accepted": True}
 
+    def _handle_gateway_control_result(
+        self,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any] | WsResult:
+        request_id = str(data.get("request_id", "") or "").strip()
+        if not request_id:
+            return WsResult.error(
+                code="MISSING_REQUEST_ID",
+                message="request_id is required",
+                correlation_id=data.get("correlationId"),
+            )
+        if not resolve_pending_gateway_control(request_id, sid=sid, payload=data):
+            return WsResult.error(
+                code="UNKNOWN_REQUEST_ID",
+                message=f"No pending gateway control for request_id '{request_id}'",
+                correlation_id=data.get("correlationId"),
+            )
+        return {"request_id": request_id, "accepted": True}
+
     async def _resolve_context(
         self,
         *,
@@ -627,14 +918,48 @@ class WsConnector(WsHandler):
                     f"[a0-connector] failed to emit connector_context_complete to {target_sid}: {exc}"
                 )
 
-    def _start_streaming(self, sid: str, context_id: str, *, from_sequence: int) -> None:
+    async def _emit_context_snapshot(
+        self,
+        sid: str,
+        *,
+        context_id: str,
+        events: list[dict[str, Any]],
+        last_sequence: int,
+        context: AgentContext | None = None,
+        correlation_id: str | None = None,
+    ) -> None:
+        await self.emit_to(
+            sid,
+            "connector_context_snapshot",
+            {
+                "context_id": context_id,
+                "events": events,
+                "last_sequence": last_sequence,
+                "message_queue": self._queue_items_for_context(context),
+            },
+            correlation_id=correlation_id,
+        )
+
+    def _start_streaming(
+        self,
+        sid: str,
+        context_id: str,
+        *,
+        from_sequence: int,
+        replay_history: bool = False,
+    ) -> None:
         key = (sid, context_id)
         task = self._streaming_tasks.get(key)
         if task is not None and not task.done():
             return
 
         task = asyncio.create_task(
-            self._stream_events(sid, context_id, from_sequence=from_sequence)
+            self._stream_events(
+                sid,
+                context_id,
+                from_sequence=from_sequence,
+                replay_history=replay_history,
+            )
         )
         self._streaming_tasks[key] = task
 
@@ -649,16 +974,52 @@ class WsConnector(WsHandler):
         context_id: str,
         *,
         from_sequence: int,
+        replay_history: bool = False,
     ) -> None:
         # `from_sequence` is a log-output cursor (not an event sequence number).
         cursor = max(int(from_sequence or 0), 0)
+        last_queue_signature, _ = self._queue_state_for_context_id(context_id)
+        was_running = self._context_is_running(context_id)
         try:
+            if replay_history:
+                cursor = await self._replay_history_snapshots(
+                    sid,
+                    context_id,
+                    from_sequence=cursor,
+                )
+
             while context_id in subscribed_contexts_for_sid(sid):
-                events, next_cursor = get_context_log_entries(context_id, after=cursor)
+                events, next_cursor = get_context_log_entries(
+                    context_id,
+                    after=cursor,
+                    limit=_LIVE_STREAM_PAGE_SIZE,
+                )
                 for event in events:
                     await self.emit_to(sid, "connector_context_event", event)
                 cursor = max(cursor, int(next_cursor or cursor))
-                await asyncio.sleep(0.5)
+                queue_signature, queue_items = self._queue_state_for_context_id(context_id)
+                if queue_signature != last_queue_signature:
+                    last_queue_signature = queue_signature
+                    await self.emit_to(
+                        sid,
+                        "connector_message_queue_updated",
+                        {
+                            "context_id": context_id,
+                            "message_queue": queue_items,
+                        },
+                    )
+                is_running = self._context_is_running(context_id)
+                if was_running and not is_running:
+                    await self.emit_to(
+                        sid,
+                        "connector_context_complete",
+                        {
+                            "context_id": context_id,
+                            "status": "completed",
+                        },
+                    )
+                was_running = is_running
+                await asyncio.sleep(0 if events else 0.5)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -667,3 +1028,41 @@ class WsConnector(WsHandler):
             )
         finally:
             self._streaming_tasks.pop((sid, context_id), None)
+
+    async def _replay_history_snapshots(
+        self,
+        sid: str,
+        context_id: str,
+        *,
+        from_sequence: int,
+    ) -> int:
+        cursor = max(int(from_sequence or 0), 0)
+
+        while context_id in subscribed_contexts_for_sid(sid):
+            events, next_cursor = get_context_log_entries(
+                context_id,
+                after=cursor,
+                limit=_SNAPSHOT_REPLAY_PAGE_SIZE,
+            )
+            next_cursor = max(cursor, int(next_cursor or cursor))
+            if not events:
+                return next_cursor
+
+            _, queue_items = self._queue_state_for_context_id(context_id)
+            await self.emit_to(
+                sid,
+                "connector_context_snapshot",
+                {
+                    "context_id": context_id,
+                    "events": events,
+                    "last_sequence": next_cursor,
+                    "message_queue": queue_items,
+                },
+            )
+
+            if next_cursor == cursor:
+                return cursor + len(events)
+            cursor = next_cursor
+            await asyncio.sleep(0)
+
+        return cursor

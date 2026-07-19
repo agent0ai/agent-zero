@@ -1,0 +1,31 @@
+# Skills Plugin DOX
+
+## Purpose
+
+- Own current-chat skill loading and hidden skill configuration.
+
+## Ownership
+
+- `hooks.py` owns skill config normalization.
+- `api/skills_catalog.py` owns skill catalog access and loading selected skills into chat history.
+- `webui/` owns skill settings UI and store.
+- `default_config.yaml`, `plugin.yaml`, `README.md`, and `LICENSE` own defaults, metadata, docs, and license.
+
+## Local Contracts
+
+- Skills selected in `webui/` load into the current chat history only; do not store them as scope defaults.
+- Loaded skills are append-only from the user UI because their instructions live in chat history.
+- Store configured skills in normalized portable paths.
+- Hidden skills affect catalog/search/load visibility but must not remove loaded skill history.
+
+## Work Guidance
+
+- Coordinate skill loading changes with `skills_tool`, loaded-skill history reattachment, and settings UI.
+
+## Verification
+
+- Run skill runtime/catalog tests or smoke-test active, hidden, global, project, and chat-scope behavior after changes.
+
+## Child DOX Index
+
+No child DOX files.

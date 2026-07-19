@@ -1,108 +1,129 @@
 <html>
+
 <head>
-    <script type="module">
-        import { store as speechStore } from "/components/chat/speech/speech-store.js";
-        import { store as fullScreenStore } from "/components/modals/full-screen-input/full-screen-store.js";
-        import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
-        import { store as chatInputStore } from "/components/chat/input/input-store.js";
-    </script>
+  <script type="module">
+    import { store as fullScreenStore } from "/components/modals/full-screen-input/full-screen-store.js";
+    import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
+    import { store as chatInputStore } from "/components/chat/input/input-store.js";
+  </script>
 </head>
+
 <body>
-    <div x-data>
-        <x-extension id="chat-input-box-start"></x-extension>
-        <div class="input-row">
-        <!-- More actions (+): opens upward; content lives in bottom-actions.html -->
-        <div
-            class="attachment-wrapper chat-more-dropdown"
-            @click.outside="$store.chatInput.closeChatMoreMenu()"
-            @keydown.escape.window="$store.chatInput.closeChatMoreMenu()"
-        >
-            <button
-                type="button"
-                class="chat-more-trigger"
-                @click.stop="$store.chatInput.toggleChatMoreMenu()"
-                :aria-expanded="$store.chatInput.chatMoreMenuOpen.toString()"
-                aria-label="More actions"
-            >
-                <span class="material-symbols-outlined" aria-hidden="true">add</span>
-            </button>
-            <div
-                class="chat-more-panel"
-                x-show="$store.chatInput.chatMoreMenuOpen"
-                x-transition
-                style="display: none;"
-            >
-                <x-component path="chat/input/bottom-actions.html"></x-component>
-            </div>
+  <div x-data>
+    <x-extension id="chat-input-box-start"></x-extension>
+    <div class="input-row">
+      <!-- More actions (+): opens upward; content lives in bottom-actions.html -->
+      <div class="attachment-wrapper chat-more-dropdown" @click.outside="$store.chatInput.closeChatMoreMenu()"
+        @keydown.escape.window="$store.chatInput.closeChatMoreMenu()">
+        <button type="button" class="chat-more-trigger" @click.stop="$store.chatInput.toggleChatMoreMenu()"
+          :aria-expanded="$store.chatInput.chatMoreMenuOpen.toString()" aria-label="More actions">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        </button>
+        <div class="chat-more-panel" x-show="$store.chatInput.chatMoreMenuOpen" x-transition style="display: none;">
+          <x-component path="chat/input/bottom-actions.html"></x-component>
         </div>
+      </div>
 
-        <!-- Container for textarea and expand button -->
-        <div id="chat-input-container" style="position: relative;">
-            <textarea id="chat-input" :placeholder="$store.chatInput.inputPlaceholder" rows="1"
-                      @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $store.chatInput.sendMessage(); }"
-                      @keydown.up="$store.chatInput.historyPrev($event)"
-                      @keydown.down="$store.chatInput.historyNext($event)"
-                      @input="$store.chatInput.adjustTextareaHeight()"
-                      x-model="$store.chatInput.message"></textarea>
-            <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
-                <span class="material-symbols-outlined" aria-hidden="true">open_in_full</span>
-            </button>
+      <!-- Container for composer and expand button -->
+      <div id="chat-input-container">
+        <div id="chat-input" role="textbox" aria-label="Message" aria-multiline="true" contenteditable="true"
+          spellcheck="true" :data-placeholder="$store.chatInput.inputPlaceholder"
+          @keydown="$store.chatInput.handleKeydown($event)"
+          @input="$store.chatInput.handleInput($event)"
+          @paste="$store.chatInput.handlePaste($event)"
+          :class="{ 'progress-active': $store.chatInput.progressActive, 'is-empty': !$store.chatInput.message }"
+          x-create="$store.chatInput.mountEditor($el)"
+          x-destroy="$store.chatInput.unmountEditor($el)"></div>
+        <div id="chat-input-progress-placeholder" x-show="$store.chatInput.showProgressPlaceholder"
+          x-html="$store.chatInput.progressPlaceholderHtml"
+          :class="{ 'progress-active': $store.chatInput.progressActive }" aria-hidden="true" style="display: none;">
         </div>
+        <button id="expand-button" @click="$store.fullScreenInputModal.openModal()" aria-label="Expand input">
+          <span class="material-symbols-outlined" aria-hidden="true">fullscreen</span>
+        </button>
+      </div>
 
-        <div id="chat-buttons-wrapper">
-            <!-- Send button -->
-            <button class="chat-button" id="send-button" aria-label="Send message"
-                    @click="$store.chatInput.sendMessage()"
-                    :class="$store.chatInput.sendButtonClass"
-                    :title="$store.chatInput.sendButtonTitle">
-                    <span class="material-symbols-outlined" x-text="$store.chatInput.sendButtonIcon"></span>
-            </button>
-
-            <!-- Microphone button -->
-            <button class="chat-button mic-inactive" id="microphone-button" aria-label="Start/Stop recording"
-                    @click="$store.speech.handleMicrophoneClick()" x-effect="$store.speech.updateMicrophoneButtonUI()">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 18" fill="currentColor">
-                    <path d="m8,12c1.66,0,3-1.34,3-3V3c0-1.66-1.34-3-3-3s-3,1.34-3,3v6c0,1.66,1.34,3,3,3Zm-1,1.9c-2.7-.4-4.8-2.6-5-5.4H0c.2,3.8,3.1,6.9,7,7.5v2h2v-2c3.9-.6,6.8-3.7,7-7.5h-2c-.2,2.8-2.3,5-5,5.4h-2Z" />
-                </svg>
-            </button>
-        </div>
-        </div>
-
-        <!-- Full Screen Input Modal -->
-        <x-component path="modals/full-screen-input/full-screen-input.html"></x-component>
-        <x-extension id="chat-input-box-end"></x-extension>
+      <div id="chat-buttons-wrapper">
+        <!-- Send button -->
+        <button class="chat-button" id="send-button" aria-label="Send message" @click="$store.chatInput.sendMessage()"
+          :class="$store.chatInput.sendButtonClass" :title="$store.chatInput.sendButtonTitle">
+          <span class="material-symbols-outlined" x-text="$store.chatInput.sendButtonIcon"></span>
+        </button>
+      </div>
     </div>
 
+    <!-- Full Screen Input Modal -->
+    <x-component path="modals/full-screen-input/full-screen-input.html"></x-component>
+    <x-extension id="chat-input-box-end"></x-extension>
+  </div>
 
-    <style>
+
+  <style>
     /* Layout rows */
-    .input-row { display: flex; align-items: center; gap: var(--spacing-xs); width: 100%; white-space: nowrap; }
-    
-    .attachment-wrapper { position: relative; flex-shrink: 0; }
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.72rem;
+      width: 100%;
+      min-height: 4.25rem;
+      padding: 0.42rem 0.52rem 0.42rem 0.72rem;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-panel) 72%, var(--color-background) 28%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 18px 46px rgba(0, 0, 0, 0.18);
+      white-space: nowrap;
+      transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .input-row:focus-within {
+      border-color: color-mix(in srgb, var(--color-border) 88%, var(--color-text) 12%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
+        0 22px 54px rgba(0, 0, 0, 0.22);
+    }
+
+    .attachment-wrapper {
+      position: relative;
+      flex-shrink: 0;
+    }
 
     /* Composer + menu: custom panel (edit here; not shared with file-browser dropdown) */
-    .chat-more-dropdown { z-index: 1; }
+    .chat-more-dropdown {
+      z-index: 1;
+    }
+
     .chat-more-trigger {
       cursor: pointer;
       color: var(--color-text);
-      opacity: 0.75;
-      transition: opacity 0.2s ease;
+      opacity: 0.82;
+      transition: opacity 0.16s ease, background-color 0.16s ease, color 0.16s ease;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 2.25rem;
-      height: 2.25rem;
+      width: 2.5rem;
+      height: 2.5rem;
       padding: 0;
       border: none;
-      border-radius: 50%;
+      border-radius: 10px;
       background: transparent;
     }
-    .chat-more-trigger:hover { opacity: 1; }
-    .chat-more-trigger:active { opacity: 0.5; }
+
+    .chat-more-trigger:hover {
+      opacity: 1;
+      background: color-mix(in srgb, var(--color-border) 36%, transparent);
+    }
+
+    .chat-more-trigger:active {
+      opacity: 0.5;
+    }
+
     .chat-more-trigger .material-symbols-outlined {
-      font-size: 1.5rem;
+      font-size: 1.7rem;
       line-height: 1;
     }
+
     .chat-more-panel {
       position: absolute;
       left: 0;
@@ -113,100 +134,309 @@
       max-height: min(70vh, 20rem);
       overflow-x: hidden;
       overflow-y: auto;
-      background-color: var(--color-panel);
+      background-color: color-mix(in srgb, var(--color-panel) 90%, black 10%);
       border: 1px solid var(--color-border);
-      border-radius: 0.4rem;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+      border-radius: 12px;
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.3);
       z-index: 1050;
-      padding: 0.2rem 0;
+      padding: 0.3rem;
     }
+
     .light-mode .chat-more-panel {
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
     }
-/* Text input */
+
+    /* Text input */
     #chat-input-container {
-    position: relative;
-    width: 100%;
+      position: relative;
+      width: 100%;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      align-self: stretch;
     }
+
     #chat-input {
-    background-color: var(--color-input);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    color: var(--color-text);
-    flex-grow: 1;
-    font-family: "Roboto Mono", monospace;
-    font-optical-sizing: auto;
-    -webkit-font-optical-sizing: auto;
-    font-size: 0.9rem;
-    max-height: 60vh;
-    min-height: 3.05rem;
-    width: 100%;
-    padding: 0.48rem 40px var(--spacing-sm) var(--spacing-sm);
-    margin-right: var(--spacing-xs);
-    overflow-y: auto;
-    scroll-behavior: smooth;
-    resize: none;
-    align-content: start;
-    background-clip: border-box;
-    border: 6px solid transparent;
-    outline: 1px solid var(--color-border);
-    transition: all 0.3s ease;
-    -webkit-transition: all 0.3s ease;
+      background-color: transparent;
+      border: 0;
+      border-radius: 0;
+      color: var(--color-text);
+      flex-grow: 1;
+      font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
+      font-optical-sizing: auto;
+      -webkit-font-optical-sizing: auto;
+      font-size: 1rem;
+      line-height: 1.45;
+      max-height: 30vh;
+      min-height: 2.8rem;
+      width: 100%;
+      padding: 0.68rem 2.2rem 0.68rem 0.1rem;
+      margin: 0;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      scroll-behavior: smooth;
+      resize: none;
+      align-content: center;
+      background-clip: border-box;
+      outline: none;
+      transition: color 0.16s ease, background-color 0.16s ease;
+      -webkit-transition: color 0.16s ease, background-color 0.16s ease;
     }
-    #chat-input::-webkit-scrollbar { width: 6px; height: 6px; }
-    #chat-input::-webkit-scrollbar-track { background: transparent; margin: 4px 0; border-radius: 6px; }
-    #chat-input::-webkit-scrollbar-thumb { background-color: rgba(155,155,155,0.5); border-radius: 6px; -webkit-transition: background-color 0.2s ease; transition: background-color 0.2s ease; }
-    #chat-input::-webkit-scrollbar-thumb:hover { background-color: rgba(155,155,155,0.7); }
-    #chat-input:focus { outline: 0.05rem solid rgba(155,155,155,0.5); font-size: 0.955rem; padding-top: 0.45rem; background-color: var(--color-input-focus); }
-    #chat-input::placeholder { color: var(--color-text-muted); opacity: 0.7; transition: color 0.3s ease; }
+
+    #chat-input.is-empty::before {
+      content: attr(data-placeholder);
+      color: color-mix(in srgb, var(--color-text) 62%, transparent);
+      opacity: 0.78;
+      pointer-events: none;
+    }
+
+    #chat-input .composer-code-block {
+      display: block;
+      margin: 0.48rem 0;
+      padding: 0.56rem 0.7rem;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--color-border) 28%, transparent);
+    }
+
+    #chat-input .composer-code-content {
+      min-height: 1.35rem;
+      margin: 0;
+      outline: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font-family-code, "Roboto Mono", monospace);
+      font-size: 0.94rem;
+      line-height: 1.45;
+    }
+
+    #chat-input::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    #chat-input::-webkit-scrollbar-track {
+      background: transparent;
+      margin: 4px 0;
+      border-radius: 6px;
+    }
+
+    #chat-input::-webkit-scrollbar-thumb {
+      background-color: rgba(155, 155, 155, 0.5);
+      border-radius: 6px;
+      -webkit-transition: background-color 0.2s ease;
+      transition: background-color 0.2s ease;
+    }
+
+    #chat-input::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(155, 155, 155, 0.7);
+    }
+
+    #chat-input:focus {
+      outline: none;
+      background-color: transparent;
+    }
 
     /* Progress ghost text animation — gentle pulse on placeholder */
-    #chat-input.progress-active::placeholder {
+    #chat-input.progress-active.is-empty::before {
       animation: placeholder-pulse 2s ease-in-out infinite;
     }
+
     @keyframes placeholder-pulse {
-      0%, 100% { opacity: 0.45; }
-      50% { opacity: 0.85; }
+
+      0%,
+      100% {
+        opacity: 0.45;
+      }
+
+      50% {
+        opacity: 0.85;
+      }
     }
+
     #chat-input.progress-active {
       border-color: color-mix(in srgb, var(--color-highlight) 20%, transparent);
       outline-color: color-mix(in srgb, var(--color-highlight) 15%, transparent);
     }
 
-    #expand-button { 
-    position: absolute;
-    top: 12px;
-    right: 6px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transform: scale(0.8);
-    font-size: 1.2rem;
-    color: var(--color-text);
-    opacity: 0.2;
-    transition: opacity 0.2s;
+    #chat-input-progress-placeholder {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0.12rem;
+      right: 2rem;
+      color: var(--color-text-muted);
+      opacity: 0.7;
+      font-family: var(--font-family-code, "Roboto Mono", monospace);
+      font-size: 0.9rem;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
     }
-    #expand-button:hover { opacity: 0.7; }
-    #expand-button:active { opacity: 1; }
-    #expand-button .material-symbols-outlined { display: block; font-size: 1.3rem; line-height: 1; }
+
+    #chat-input-progress-placeholder.progress-active {
+      animation: placeholder-pulse 2s ease-in-out infinite;
+    }
+
+    #chat-input-progress-placeholder .chat-input-progress-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      line-height: 1;
+      color: var(--color-highlight);
+    }
+
+    #expand-button {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      width: 2rem;
+      height: 2rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transform: translateY(-50%) scale(0.8);
+      transform-origin: center;
+      font-size: 1.2rem;
+      color: var(--color-text);
+      opacity: 0.2;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    #expand-button:hover {
+      opacity: 0.7;
+    }
+
+    #expand-button:active {
+      opacity: 1;
+    }
+
+    #expand-button .material-symbols-outlined {
+      display: block;
+      font-size: 1.3rem;
+      line-height: 1;
+    }
 
     /* Chat buttons (Send/Mic) */
-    #chat-buttons-wrapper { gap: var(--spacing-xs); padding-left: var(--spacing-xs); line-height: 0.5rem; display: -webkit-flex; display: flex; }
-    .chat-button { border: none; border-radius: 50%; color: var(--color-background); cursor: pointer; font-size: var(--font-size-normal); height: 2.525rem; width: 2.525rem; margin: 0 0.18rem 0 0 var(--spacing-xs); display: -webkit-flex; display: flex; align-items: center; justify-content: center; flex-shrink: 0; flex-grow: 0; min-width: 2.525rem; -webkit-transition: background-color var(--transition-speed), box-shadow 0.12s ease-in-out, filter 0.12s ease-in-out; transition: background-color var(--transition-speed), box-shadow 0.12s ease-in-out, filter 0.12s ease-in-out; }
-    #send-button { background-color: #4248f1; }
-    #send-button.send-queue { background-color: #e67e22; }
-    #send-button:hover { background-color: #353bc5; box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 6px 14px rgba(0,0,0,0.2); }
-    #send-button.send-queue:hover { background-color: #d35400; }
-    #send-button:active { background-color: #2b309c; filter: brightness(0.96); }
-    .chat-button svg { width: 1.5rem; height: 1.5rem; }
-    #send-button .material-symbols-outlined { font-size: 1.5rem; }
-    
+    #chat-buttons-wrapper {
+      gap: 0.58rem;
+      padding-left: 0;
+      line-height: 1;
+      display: -webkit-flex;
+      display: flex;
+      align-items: center;
+    }
+
+    .chat-button {
+      border: 1px solid transparent;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      font-size: var(--font-size-normal);
+      height: 3.15rem;
+      width: 3.15rem;
+      margin: 0;
+      display: -webkit-flex;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      flex-grow: 0;
+      min-width: 3.15rem;
+      -webkit-transition: background-color var(--transition-speed), border-color 0.16s ease, box-shadow 0.16s ease, filter 0.12s ease-in-out, transform 0.12s ease;
+      transition: background-color var(--transition-speed), border-color 0.16s ease, box-shadow 0.16s ease, filter 0.12s ease-in-out, transform 0.12s ease;
+    }
+
+    #send-button {
+      order: 2;
+      border-radius: 12px;
+      background-color: #4248f1;
+      box-shadow: none;
+    }
+
+    #send-button.send-queue {
+      background-color: #e67e22;
+      box-shadow: none;
+    }
+
+    #send-button:hover {
+      background-color: #353bc5;
+      filter: none;
+      box-shadow: none;
+    }
+
+    #send-button.send-queue:hover {
+      background-color: #d35400;
+      filter: none;
+    }
+
+    #send-button:active {
+      background-color: #2b309c;
+      transform: translateY(1px) scale(0.98);
+      filter: brightness(0.96);
+    }
+
+    .chat-button svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    #send-button .material-symbols-outlined {
+      font-size: 1.78rem;
+    }
+
     /* Responsive tweaks */
     @media (max-width: 640px) {
-      #chat-input { min-height: 5.3rem; align-content: start; }
-      #chat-buttons-wrapper { display: flex; gap: var(--spacing-xs); padding: 0 0 0 var(--spacing-sm) !important; width: 3.5rem; flex-wrap: wrap; -webkit-transition: all 0.3s ease; transition: all 0.3s ease; }
+      #chat-input {
+        align-content: center;
+      }
+
+      #chat-buttons-wrapper {
+        display: flex;
+        gap: 0.42rem;
+        padding: 0 !important;
+        width: auto;
+        flex-wrap: nowrap;
+        -webkit-transition: all 0.3s ease;
+        transition: all 0.3s ease;
+      }
+
+      .input-row {
+        gap: 0.42rem;
+        min-height: 4rem;
+        padding: 0.36rem 0.42rem 0.36rem 0.48rem;
+      }
+
+      .chat-more-trigger {
+        width: 2.15rem;
+        height: 2.15rem;
+      }
+
+      .chat-button {
+        width: 2.75rem;
+        height: 2.75rem;
+        min-width: 2.75rem;
+      }
     }
-    @media (min-width: 768px) { #chat-buttons-wrapper { flex-wrap: nowrap; -webkit-flex-wrap: nowrap; flex-wrap: nowrap; } }
-    </style>
+
+    @media (min-width: 768px) {
+      #chat-buttons-wrapper {
+        flex-wrap: nowrap;
+        -webkit-flex-wrap: nowrap;
+        flex-wrap: nowrap;
+      }
+    }
+  </style>
 </body>
+
 </html>

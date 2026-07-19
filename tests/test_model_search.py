@@ -66,6 +66,22 @@ def test_model_search_resolves_v1_base_without_duplicate_v1():
     assert fmt == "openai"
 
 
+def test_model_search_omits_auth_header_for_omlx_placeholder_key():
+    handler = _handler()
+
+    assert handler._build_headers("omlx", "omlx", {}) == {}
+
+
+def test_model_search_omits_auth_header_for_local_placeholder_keys():
+    handler = _handler()
+
+    assert handler._build_headers("llama_cpp", "llama-cpp", {}) == {}
+    assert handler._build_headers("vllm", "vllm", {}) == {}
+    assert handler._build_headers("llama_cpp", "real-local-key", {}) == {
+        "Authorization": "Bearer real-local-key"
+    }
+
+
 def test_model_search_filters_non_chat_models():
     handler = _handler()
 

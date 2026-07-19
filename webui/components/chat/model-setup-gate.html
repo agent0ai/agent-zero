@@ -1,0 +1,203 @@
+<html>
+<head>
+  <script type="module">
+    import { store as modelGateStore } from "/components/chat/model-gate-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.modelGate">
+      <section class="model-gate" x-create="$store.modelGate.onCardCreate()">
+        <template x-if="$store.modelGate.connected">
+          <div class="model-gate-chip">
+            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+            <span x-text="$store.modelGate.introText"></span>
+          </div>
+        </template>
+
+        <template x-if="!$store.modelGate.connected">
+          <div class="model-gate-body">
+            <p class="model-gate-intro" x-text="$store.modelGate.introText"></p>
+
+            <div class="model-gate-card">
+              <div class="model-gate-fork is-single" x-show="$store.modelGate.accountConnected">
+                <button type="button"
+                        class="model-gate-option"
+                        @click="$store.modelGate.openAdvancedModelConfiguration()">
+                  <span class="model-gate-option-title">
+                    <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                    <span>Choose models</span>
+                  </span>
+                  <span class="model-gate-option-sub">Select Main and Utility models</span>
+                </button>
+              </div>
+
+              <div class="model-gate-fork" x-show="!$store.modelGate.accountConnected">
+                <button type="button"
+                        class="model-gate-option"
+                        :class="{ selected: $store.modelGate.choice === 'cloud' }"
+                        @click="$store.modelGate.openOnboarding('cloud')">
+                  <span class="model-gate-option-title">
+                    <span class="material-symbols-outlined" aria-hidden="true">cloud</span>
+                    <span>Cloud provider</span>
+                  </span>
+                  <span class="model-gate-option-sub">Connect with an API key</span>
+                </button>
+                <button type="button"
+                        class="model-gate-option"
+                        :class="{ selected: $store.modelGate.choice === 'account' }"
+                        @click="$store.modelGate.openOnboarding('account')">
+                  <span class="model-gate-option-title">
+                    <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>
+                    <span>AI account</span>
+                  </span>
+                  <span class="model-gate-option-sub">Codex, Copilot, Gemini, Grok</span>
+                </button>
+                <button type="button"
+                        class="model-gate-option"
+                        :class="{ selected: $store.modelGate.choice === 'local' }"
+                        @click="$store.modelGate.openOnboarding('local')">
+                  <span class="model-gate-option-title">
+                    <span class="material-symbols-outlined" aria-hidden="true">memory</span>
+                    <span>Local model</span>
+                  </span>
+                  <span class="model-gate-option-sub">Runs on your machine</span>
+                </button>
+              </div>
+            </div>
+
+            <p class="model-gate-footnote">
+              <span>Your message sends automatically once a model is connected.</span>
+              <button type="button" @click="$store.modelGate.openAdvancedModelConfiguration()">Advanced model configuration</button>
+            </p>
+          </div>
+        </template>
+      </section>
+    </template>
+  </div>
+
+  <style>
+    .model-gate {
+      width: min(100%, 36rem);
+      color: var(--color-text);
+      font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
+    }
+
+    .model-gate-body {
+      display: grid;
+      gap: 0.65rem;
+      container-type: inline-size;
+    }
+
+    .model-gate-intro {
+      margin: 0;
+      color: color-mix(in srgb, var(--color-text) 84%, transparent);
+      line-height: 1.45;
+    }
+
+    .model-gate-card {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .model-gate-fork {
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    .model-gate-fork .model-gate-option {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    @container (max-width: 30rem) {
+      .model-gate-fork {
+        flex-direction: column;
+      }
+    }
+
+    .model-gate-option {
+      border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-background) 52%, transparent);
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .model-gate-option {
+      display: grid;
+      gap: 0.25rem;
+      padding: 0.72rem;
+    }
+
+    .model-gate-option:hover,
+    .model-gate-option:focus-visible,
+    .model-gate-option.selected {
+      border-color: color-mix(in srgb, var(--color-border) 86%, var(--color-text) 14%);
+      background: color-mix(in srgb, var(--color-background-hover) 60%, var(--color-panel));
+      outline: none;
+    }
+
+    .model-gate-option-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-weight: 560;
+    }
+
+    .model-gate-option-title .material-symbols-outlined {
+      font-size: 1.15rem;
+      color: color-mix(in srgb, var(--color-text) 72%, transparent);
+    }
+
+    .model-gate-option-sub,
+    .model-gate-footnote {
+      color: color-mix(in srgb, var(--color-text) 58%, transparent);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .model-gate-footnote {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    .model-gate-footnote button {
+      border: 0;
+      background: transparent;
+      color: color-mix(in srgb, #6f8cff 82%, var(--color-text));
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .model-gate-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid color-mix(in srgb, #7bc995 44%, var(--color-border));
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      color: color-mix(in srgb, var(--color-text) 88%, #7bc995);
+      background: color-mix(in srgb, #7bc995 10%, var(--color-panel));
+      font-size: 0.84rem;
+    }
+
+    .model-gate-chip .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    @media (max-width: 480px) {
+      .model-gate-fork {
+        flex-direction: column;
+      }
+    }
+  </style>
+</body>
+</html>

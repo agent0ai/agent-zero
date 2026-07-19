@@ -2,6 +2,7 @@ import { marked } from "/vendor/marked/marked.esm.js";
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal as openAppModal } from "/js/modals.js";
+import { getUserTimezone } from "/js/time-utils.js";
 import { toastFrontendError } from "/components/notifications/notification-store.js";
 
 const BASE = "/plugins/_plugin_validator/webui";
@@ -440,7 +441,7 @@ export const store = createStore("pluginValidator", {
           context: ctxId,
           log_from: 0,
           notifications_from: 0,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: getUserTimezone(),
         });
 
         if (gen === _pollGen && snapshot.logs?.length) {

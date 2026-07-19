@@ -10,6 +10,8 @@ For day-to-day upgrades inside a running instance:
 
 The UI will tell you when a new A0 update is available for download. Backups are automatically managed internally during the update process.
 
+![Self Update modal showing the current v2.0 state](../res/usage/updating/self-update-v2-current.png)
+
 ---
 
 ## Technical reference
@@ -70,6 +72,24 @@ Tags below `v1.0` are ignored by the selector and rejected by the self-update re
 Self-update is intentionally limited to changes within the same major line.
 
 If a newer major line exists, the UI points you to the Docker setup guide because those upgrades require downloading a new Docker image. They can include operating system level changes or other breaking changes outside the repository checkout.
+
+## v1.20 to v2.0
+
+Use the Docker image update path for v1.20 -> v2.0. Self Update can show that a
+newer major release line exists, but it intentionally keeps the version selector
+inside the current major line.
+
+![Self Update warning for a newer major release line](../res/usage/updating/self-update-v1-to-v2-warning.png)
+
+The important part is moving a backup zip into a fresh v2.0 container:
+
+1. In the old v1.20 Web UI, create a backup from **Settings -> Check for Updates -> Backup & Restore -> Create Backup**.
+2. Pull `agent0ai/agent-zero:latest` in Docker Desktop or Docker CLI. For the v2.0 release, `latest` is the v2.0 image.
+3. Start a new container from that image, or use the **latest** card in **Agent Zero Launcher**.
+4. Restore the downloaded backup zip into the new v2.0 Instance.
+5. Verify the new Instance before deleting the old v1.20 container.
+
+For command examples, see [Updating from v1.20 to v2.0](../setup/installation.md#updating-from-v120-to-v20).
 
 ## Safety notes
 

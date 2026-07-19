@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import json
 import threading
+from urllib.parse import urlsplit, unquote
 from functools import wraps
 from pathlib import Path
 from typing import Union, Dict, Any
@@ -102,6 +103,44 @@ class ApiHandler:
 from helpers.network import is_loopback_address
 
 
+def is_safe_next_url(value: str | None) -> bool:
+    """Return True when value is a safe same-origin redirect target."""
+    if not value:
+        return False
+    if "\r" in value or "\n" in value:
+        return False
+    # Reject raw backslashes (browsers normalize `/\host` to `//host` -> external).
+    if "\\" in value:
+        return False
+
+    # Decode percent-escapes so encoded backslashes (e.g. `%5C`) are caught too.
+    decoded = unquote(value)
+    if "\\" in decoded:
+        return False
+
+    parsed = urlsplit(decoded)
+    if parsed.scheme or parsed.netloc:
+        return False
+
+    # Require an absolute path within this origin, but reject protocol-relative URLs.
+    return parsed.path.startswith("/") and not parsed.path.startswith("//")
+
+
+def get_safe_next_url(value: str | None, fallback: str | None = None) -> str | None:
+    """Return value if it is a safe next URL, otherwise return a safe fallback."""
+    if is_safe_next_url(value):
+        return value
+    if is_safe_next_url(fallback):
+        return fallback
+    return None
+
+
+def get_current_request_next_url() -> str:
+    """Return the current request path/query as a safe relative redirect target."""
+    next_url = request.full_path if request.query_string else request.path
+    return get_safe_next_url(next_url, url_for("serve_index")) or url_for("serve_index")
+
+
 def requires_api_key(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
@@ -142,7 +181,7 @@ def requires_auth(f):
         if not user_pass_hash:
             return await f(*args, **kwargs)
         if session.get("authentication") != user_pass_hash:
-            return redirect(url_for("login_handler"))
+            return redirect(url_for("login_handler", next=get_current_request_next_url()))
         return await f(*args, **kwargs)
 
     return decorated

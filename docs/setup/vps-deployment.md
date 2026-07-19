@@ -708,7 +708,6 @@ curl -I https://your-domain.com/login
 | Environment File | `/opt/a0-instance/.env` |
 | Memory Storage | `/opt/a0-instance/memory/` |
 | Work Directory | `/opt/a0-instance/work_dir/` |
-| Logs | `/opt/a0-instance/logs/` |
 | Apache Config (Standard) | `/etc/apache2/sites-available/` |
 | Apache Config (DirectAdmin) | `/etc/httpd/conf/extra/httpd-includes.conf` |
 | DirectAdmin SSL Certs | `/usr/local/directadmin/data/users/USER/domains/` |

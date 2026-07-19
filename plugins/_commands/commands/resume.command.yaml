@@ -1,0 +1,4 @@
+name: resume
+description: Resume a paused agent run.
+type: script
+script_path: connector_commands.py

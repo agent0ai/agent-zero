@@ -9,7 +9,7 @@ class GetWorkDirFiles(ApiHandler):
         return ["GET"]
 
     async def process(self, input: dict, request: Request) -> dict | Response:
-        current_path = request.args.get("path", "")
+        current_path = request.args.get("path", "") or "$WORK_DIR"
         if current_path == "$WORK_DIR":
             # if runtime.is_development():
             #     current_path = "work_dir"

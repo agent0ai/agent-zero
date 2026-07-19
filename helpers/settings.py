@@ -7,7 +7,8 @@ import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
-from helpers import runtime, whisper, defer, git, subagents
+import pytz  # type: ignore
+from helpers import runtime, defer, git, subagents
 from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -55,6 +56,10 @@ class Settings(TypedDict):
 
     agent_profile: str
     agent_knowledge_subdir: str
+    max_consecutive_unusable_responses: int
+    timezone: str
+    time_format: str
+    ui_control_visibility: dict[str, dict[str, bool]]
 
     workdir_path: str
     workdir_show: bool
@@ -63,6 +68,7 @@ class Settings(TypedDict):
     workdir_max_folders: int
     workdir_max_lines: int
     workdir_gitignore: str
+    file_browser_remember_last_directory: bool
 
     api_keys: dict[str, str]
 
@@ -77,14 +83,6 @@ class Settings(TypedDict):
 
     websocket_server_restart_enabled: bool
     uvicorn_access_logs_enabled: bool
-
-    stt_model_size: str
-    stt_language: str
-    stt_silence_threshold: float
-    stt_silence_duration: int
-    stt_waiting_timeout: int
-
-    tts_kokoro: bool
 
     mcp_servers: str
     mcp_client_init_timeout: int
@@ -151,7 +149,8 @@ class SettingsOutputAdditional(TypedDict):
     embedding_providers: list[ModelProvider]
     agent_subdirs: list[FieldOption]
     knowledge_subdirs: list[FieldOption]
-    stt_models: list[FieldOption]
+    timezones: list[FieldOption]
+    resolved_timezone: str
     is_dockerized: bool
     runtime_settings: dict[str, Any]
 
@@ -163,6 +162,15 @@ class SettingsOutput(TypedDict):
 
 PASSWORD_PLACEHOLDER = "****PSWD****"
 API_KEY_PLACEHOLDER = "************"
+TIMEZONE_AUTO = "auto"
+TIME_FORMAT_12H = "12h"
+TIME_FORMAT_24H = "24h"
+UI_CONTROL_VISIBILITY_DEFAULTS = {
+    "projectSelector": {"mobile": True, "desktop": True},
+    "time": {"mobile": False, "desktop": True},
+    "connectionStatus": {"mobile": True, "desktop": True},
+    "rightCanvasRail": {"mobile": True, "desktop": True},
+}
 
 SETTINGS_FILE = files.get_abs_path("usr/settings.json")
 _settings: Settings | None = None
@@ -184,6 +192,65 @@ def _ensure_option_present(options: list[OptionT] | None, current_value: str | N
     opts.insert(0, cast(OptionT, {"value": current_value, "label": current_value}))
     return opts
 
+
+def _is_valid_timezone(value: str) -> bool:
+    try:
+        pytz.timezone(value)
+        return True
+    except pytz.exceptions.UnknownTimeZoneError:
+        return False
+
+
+def _normalize_timezone_setting(value: Any, default: str = TIMEZONE_AUTO) -> str:
+    timezone = str(value or "").strip()
+    if timezone.lower() == TIMEZONE_AUTO:
+        return TIMEZONE_AUTO
+    if _is_valid_timezone(timezone):
+        return timezone
+    return default if default == TIMEZONE_AUTO or _is_valid_timezone(default) else TIMEZONE_AUTO
+
+
+def _normalize_time_format(value: Any, default: str = TIME_FORMAT_12H) -> str:
+    time_format = str(value or "").strip().lower()
+    if time_format in {TIME_FORMAT_12H, TIME_FORMAT_24H}:
+        return time_format
+    return default if default in {TIME_FORMAT_12H, TIME_FORMAT_24H} else TIME_FORMAT_12H
+
+
+def _normalize_ui_control_visibility(value: Any) -> dict[str, dict[str, bool]]:
+    submitted = value if isinstance(value, dict) else {}
+    normalized = {}
+    for control, devices in UI_CONTROL_VISIBILITY_DEFAULTS.items():
+        submitted_devices = submitted.get(control, {})
+        if not isinstance(submitted_devices, dict):
+            submitted_devices = {}
+        normalized[control] = {
+            device: submitted_devices.get(device)
+            if isinstance(submitted_devices.get(device), bool)
+            else default
+            for device, default in devices.items()
+        }
+    return normalized
+
+
+def _resolve_runtime_timezone(setting_value: str, browser_timezone: str | None = None) -> str:
+    if setting_value == TIMEZONE_AUTO:
+        candidate = str(browser_timezone or "").strip()
+        if _is_valid_timezone(candidate):
+            return candidate
+        try:
+            from helpers.localization import Localization
+
+            return Localization.get().get_timezone()
+        except Exception:
+            return "UTC"
+    return _normalize_timezone_setting(setting_value, default="UTC")
+
+
+def _timezone_options() -> list[FieldOption]:
+    return [{"value": timezone, "label": timezone} for timezone in pytz.common_timezones]
+
+
 def convert_out(settings: Settings) -> SettingsOutput:
     out = SettingsOutput(
         settings = settings.copy(),
@@ -196,14 +263,8 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 if item["key"] != "_example"],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
-            stt_models=[
-                {"value": "tiny", "label": "Tiny (39M, English)"},
-                {"value": "base", "label": "Base (74M, English)"},
-                {"value": "small", "label": "Small (244M, English)"},
-                {"value": "medium", "label": "Medium (769M, English)"},
-                {"value": "large", "label": "Large (1.5B, Multilingual)"},
-                {"value": "turbo", "label": "Turbo (Multilingual)"},
-            ],
+            timezones=_timezone_options(),
+            resolved_timezone="UTC",
             runtime_settings={},
         ),
     )
@@ -225,7 +286,9 @@ def convert_out(settings: Settings) -> SettingsOutput:
 
     additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
     additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
-    additional["stt_models"] = _ensure_option_present(additional.get("stt_models"), current.get("stt_model_size"))
+    if current.get("timezone") != TIMEZONE_AUTO:
+        additional["timezones"] = _ensure_option_present(additional.get("timezones"), current.get("timezone"))
+    additional["resolved_timezone"] = _resolve_runtime_timezone(current.get("timezone", TIMEZONE_AUTO))
 
     # masked api keys
     providers = get_providers("chat") + get_providers("embedding")
@@ -312,13 +375,13 @@ def set_runtime_settings_snapshot(settings: Settings) -> None:
     _runtime_settings_snapshot = settings.copy()
 
 
-def set_settings(settings: Settings, apply: bool = True):
+def set_settings(settings: Settings, apply: bool = True, browser_timezone: str | None = None):
     global _settings
     previous = _settings
     _settings = normalize_settings(settings)
     _write_settings_file(_settings)
     if apply:
-        _apply_settings(previous)
+        _apply_settings(previous, browser_timezone)
     return reload_settings()
 
 
@@ -362,6 +425,12 @@ def normalize_settings(settings: Settings) -> Settings:
 
     # mcp server token is set automatically
     copy["mcp_server_token"] = create_auth_token()
+    copy["max_consecutive_unusable_responses"] = max(
+        1, copy["max_consecutive_unusable_responses"]
+    )
+    copy["timezone"] = _normalize_timezone_setting(copy.get("timezone"), default["timezone"])
+    copy["time_format"] = _normalize_time_format(copy.get("time_format"), default["time_format"])
+    copy["ui_control_visibility"] = _normalize_ui_control_visibility(copy.get("ui_control_visibility"))
 
     return copy
 
@@ -457,6 +526,14 @@ def get_default_settings() -> Settings:
         root_password="",
         agent_profile=get_default_value("agent_profile", "agent0"),
         agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
+        max_consecutive_unusable_responses=get_default_value(
+            "max_consecutive_unusable_responses", 2
+        ),
+        timezone=_normalize_timezone_setting(get_default_value("timezone", TIMEZONE_AUTO)),
+        time_format=_normalize_time_format(get_default_value("time_format", TIME_FORMAT_12H)),
+        ui_control_visibility=_normalize_ui_control_visibility(
+            get_default_value("ui_control_visibility", UI_CONTROL_VISIBILITY_DEFAULTS)
+        ),
         workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
         workdir_show=get_default_value("workdir_show", True),
         workdir_max_depth=get_default_value("workdir_max_depth", 5),
@@ -464,18 +541,16 @@ def get_default_settings() -> Settings:
         workdir_max_folders=get_default_value("workdir_max_folders", 20),
         workdir_max_lines=get_default_value("workdir_max_lines", 250),
         workdir_gitignore=get_default_value("workdir_gitignore", gitignore),
+        file_browser_remember_last_directory=get_default_value(
+            "file_browser_remember_last_directory",
+            True,
+        ),
         rfc_auto_docker=get_default_value("rfc_auto_docker", True),
         rfc_url=get_default_value("rfc_url", "localhost"),
         rfc_password="",
         rfc_port_http=get_default_value("rfc_port_http", 55080),
         websocket_server_restart_enabled=get_default_value("websocket_server_restart_enabled", True),
         uvicorn_access_logs_enabled=get_default_value("uvicorn_access_logs_enabled", False),
-        stt_model_size=get_default_value("stt_model_size", "base"),
-        stt_language=get_default_value("stt_language", "en"),
-        stt_silence_threshold=get_default_value("stt_silence_threshold", 0.3),
-        stt_silence_duration=get_default_value("stt_silence_duration", 1000),
-        stt_waiting_timeout=get_default_value("stt_waiting_timeout", 2000),
-        tts_kokoro=get_default_value("tts_kokoro", True),
         mcp_servers=get_default_value("mcp_servers", '{\n    "mcpServers": {}\n}'),
         mcp_client_init_timeout=get_default_value("mcp_client_init_timeout", 10),
         mcp_client_tool_timeout=get_default_value("mcp_client_tool_timeout", 120),
@@ -490,27 +565,68 @@ def get_default_settings() -> Settings:
     )
 
 
-def _apply_settings(previous: Settings | None):
+def _apply_timezone_setting(previous: Settings | None, browser_timezone: str | None = None) -> None:
+    if not _settings:
+        return
+
+    from helpers.localization import Localization
+
+    localization = Localization.get()
+    previous_timezone = localization.get_timezone()
+    target_timezone = _resolve_runtime_timezone(_settings["timezone"], browser_timezone)
+    if (
+        previous
+        and _settings["timezone"] == previous.get("timezone")
+        and _settings["timezone"] != TIMEZONE_AUTO
+        and previous_timezone == target_timezone
+    ):
+        return
+
+    localization.set_timezone(target_timezone)
+    current_timezone = localization.get_timezone()
+    if current_timezone == previous_timezone:
+        return
+
+    try:
+        from helpers import plugins
+
+        plugins.call_plugin_hook(
+            "_office",
+            "timezone_changed",
+            None,
+            previous_timezone=previous_timezone,
+            timezone=current_timezone,
+        )
+    except Exception:
+        return
+
+
+def _apply_settings(previous: Settings | None, browser_timezone: str | None = None):
     global _settings
     if _settings:
-        from agent import AgentContext
+        _apply_timezone_setting(previous, browser_timezone)
+
+        from agent import Agent, AgentContext
         from initialize import initialize_agent
 
         for ctx in AgentContext.all():
-            profile = str(getattr(ctx.config, "profile", "") or _settings["agent_profile"])
-            config = initialize_agent(override_settings={"agent_profile": profile})
-            ctx.config = config  # reinitialize context config with new settings
-            # apply config to agents
+            profile = str(
+                getattr(ctx.config, "profile", "") or _settings["agent_profile"]
+            )
+            ctx.config = initialize_agent(override_settings={"agent_profile": profile})
             agent = ctx.agent0
             while agent:
-                agent.config = ctx.config
-                agent = agent.get_data(agent.DATA_NAME_SUBORDINATE)
-
-        # reload whisper model if necessary
-        if not previous or _settings["stt_model_size"] != previous["stt_model_size"]:
-            task = defer.DeferredTask().start_task(
-                whisper.preload, _settings["stt_model_size"]
-            )  # TODO overkill, replace with background task
+                agent_profile = str(
+                    getattr(getattr(agent, "config", None), "profile", "") or profile
+                )
+                agent.config = (
+                    ctx.config
+                    if agent is ctx.agent0 and agent_profile == profile
+                    else initialize_agent(
+                        override_settings={"agent_profile": agent_profile}
+                    )
+                )
+                agent = agent.get_data(Agent.DATA_NAME_SUBORDINATE)
 
         # update mcp settings if necessary
         if not previous or _settings["mcp_servers"] != previous["mcp_servers"]:
@@ -566,7 +682,7 @@ def _apply_settings(previous: Settings | None):
                 )
 
             task2 = defer.DeferredTask().start_task(
-                update_mcp_settings, config.mcp_servers
+                update_mcp_settings, _settings["mcp_servers"]
             )  # TODO overkill, replace with background task
 
         # update token in mcp server

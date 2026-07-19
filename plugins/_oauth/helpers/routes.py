@@ -3,12 +3,20 @@ from __future__ import annotations
 import ipaddress
 import json
 import time
-from typing import Any
+from typing import Any, Callable
 
 from flask import Response, jsonify, request, stream_with_context
 
 from plugins._oauth.helpers import codex
 from plugins._oauth.helpers.config import codex_config
+from plugins._oauth.helpers.providers import (
+    GEMINI_API_PROVIDER_ID,
+    GITHUB_COPILOT_PROVIDER_ID,
+    XAI_GROK_PROVIDER_ID,
+    ProviderError,
+    get_provider,
+    provider_registry,
+)
 from plugins._oauth.helpers.state import pop_attempt
 
 
@@ -38,6 +46,9 @@ def register_oauth_routes(app) -> None:
         if endpoint in app.view_functions:
             continue
         app.add_url_rule(rule, endpoint, view_func, methods=methods)
+
+    for provider in provider_registry().values():
+        provider.register_routes(app)
 
 
 def codex_health():
@@ -91,6 +102,8 @@ def codex_models():
                 ],
             }
         )
+    except ProviderError as exc:
+        return _json_error(str(exc), status=exc.status, code=exc.code)
     except Exception as exc:
         return _json_error(str(exc), status=502, code="upstream_error")
 
@@ -189,6 +202,273 @@ def codex_chat_completions():
     )
 
 
+def github_copilot_health():
+    return jsonify(
+        {
+            "ok": True,
+            "provider": GITHUB_COPILOT_PROVIDER_ID,
+            "base_path": "/oauth/github-copilot",
+        }
+    )
+
+
+def github_copilot_models():
+    if request.method == "OPTIONS":
+        return _options_response()
+    denied = _proxy_denied_response()
+    if denied:
+        return denied
+
+    provider = get_provider(GITHUB_COPILOT_PROVIDER_ID)
+    return jsonify(
+        {
+            "object": "list",
+            "data": [
+                {
+                    "id": model,
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "github-copilot-oauth",
+                }
+                for model in provider.models()
+            ],
+        }
+    )
+
+
+def github_copilot_chat_completions():
+    if request.method == "OPTIONS":
+        return _options_response()
+    return _github_copilot_json_proxy("/chat/completions")
+
+
+def github_copilot_responses():
+    if request.method == "OPTIONS":
+        return _options_response()
+    return _github_copilot_json_proxy("/responses")
+
+
+def xai_grok_health():
+    return jsonify(
+        {
+            "ok": True,
+            "provider": XAI_GROK_PROVIDER_ID,
+            "base_path": "/oauth/xai-grok",
+        }
+    )
+
+
+def xai_grok_callback():
+    provider = get_provider(XAI_GROK_PROVIDER_ID)
+    result = provider.complete_callback(dict(request.args), request)
+    if result.ok:
+        return _html_page("xAI Grok Connected", result.account_label or "Connected")
+    return _html_page("xAI Grok Sign-In Failed", result.error or "The OAuth callback failed."), 400
+
+
+def xai_grok_models():
+    if request.method == "OPTIONS":
+        return _options_response()
+    denied = _proxy_denied_response()
+    if denied:
+        return denied
+
+    provider = get_provider(XAI_GROK_PROVIDER_ID)
+    return jsonify(
+        {
+            "object": "list",
+            "data": [
+                {
+                    "id": model,
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "xai-grok-oauth",
+                }
+                for model in provider.models()
+            ],
+        }
+    )
+
+
+def xai_grok_chat_completions():
+    if request.method == "OPTIONS":
+        return _options_response()
+    return _xai_grok_json_proxy("/chat/completions")
+
+
+def xai_grok_responses():
+    if request.method == "OPTIONS":
+        return _options_response()
+    return _xai_grok_json_proxy("/responses")
+
+
+def gemini_api_health():
+    return jsonify(
+        {
+            "ok": True,
+            "provider": GEMINI_API_PROVIDER_ID,
+            "base_path": "/oauth/gemini-api",
+        }
+    )
+
+
+def gemini_api_callback():
+    provider = get_provider(GEMINI_API_PROVIDER_ID)
+    result = provider.complete_callback(dict(request.args), request)
+    if result.ok:
+        return _html_page("Google Gemini API Connected", result.account_label or "Connected")
+    return _html_page("Google Gemini API Sign-In Failed", result.error or "The OAuth callback failed."), 400
+
+
+def gemini_api_models():
+    if request.method == "OPTIONS":
+        return _options_response()
+    denied = _proxy_denied_response()
+    if denied:
+        return denied
+
+    provider = get_provider(GEMINI_API_PROVIDER_ID)
+    return jsonify(
+        {
+            "object": "list",
+            "data": [
+                {
+                    "id": model,
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "gemini-api-oauth",
+                }
+                for model in provider.models()
+            ],
+        }
+    )
+
+
+def gemini_api_chat_completions():
+    if request.method == "OPTIONS":
+        return _options_response()
+    return _gemini_api_json_proxy("/chat/completions")
+
+
+def gemini_api_responses():
+    if request.method == "OPTIONS":
+        return _options_response()
+    return _gemini_api_json_proxy("/responses")
+
+
+def _github_copilot_json_proxy(path: str):
+    from plugins._oauth.helpers.providers.github_copilot import COPILOT_HEADERS, safe_copilot_base_url
+
+    return _oauth_json_proxy(
+        GITHUB_COPILOT_PROVIDER_ID,
+        path,
+        "GitHub Copilot OAuth is not connected.",
+        lambda auth: safe_copilot_base_url(auth.get("base_url"), auth.get("enterprise_domain")),
+        lambda auth, access: {
+            **COPILOT_HEADERS,
+            "Authorization": f"Bearer {access}",
+            "Content-Type": "application/json",
+        },
+    )
+
+
+def _xai_grok_json_proxy(path: str):
+    from plugins._oauth.helpers.providers.xai_grok import safe_api_base_url
+
+    return _oauth_json_proxy(
+        XAI_GROK_PROVIDER_ID,
+        path,
+        "xAI Grok OAuth is not connected.",
+        lambda auth: safe_api_base_url(auth.get("base_url")),
+        lambda auth, access: {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {access}",
+            "Content-Type": "application/json",
+        },
+        require_refresh=True,
+    )
+
+
+def _gemini_api_json_proxy(path: str):
+    from plugins._oauth.helpers.providers.gemini_api import _gemini_headers, safe_api_base_url
+
+    return _oauth_json_proxy(
+        GEMINI_API_PROVIDER_ID,
+        path,
+        "Google Gemini API OAuth is not connected.",
+        lambda auth: safe_api_base_url(auth.get("base_url")),
+        lambda auth, access: {
+            **_gemini_headers(auth),
+            "Content-Type": "application/json",
+        },
+        require_refresh=True,
+    )
+
+
+def _oauth_json_proxy(
+    provider_id: str,
+    path: str,
+    not_connected_message: str,
+    base_url_for: Callable[[dict[str, Any]], str],
+    headers_for: Callable[[dict[str, Any], str], dict[str, str]],
+    *,
+    require_refresh: bool = False,
+):
+    denied = _proxy_denied_response()
+    if denied:
+        return denied
+
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return _json_error("Request body must be a JSON object.")
+
+    try:
+        auth = _provider_auth(provider_id)
+    except ProviderError as exc:
+        return _json_error(str(exc), status=exc.status, code=exc.code)
+    except Exception as exc:
+        return _json_error(str(exc), status=502, code="upstream_error")
+
+    access = str(auth.get("access") or "")
+    refresh = str(auth.get("refresh") or "")
+    if not access or (require_refresh and not refresh):
+        return _json_error(not_connected_message, status=401, code="not_connected")
+
+    wants_stream = body.get("stream") is True
+    try:
+        import requests
+
+        base_url = base_url_for(auth)
+        upstream = requests.post(
+            f"{base_url}{path}",
+            headers=headers_for(auth, access),
+            json=body,
+            stream=wants_stream,
+            timeout=120,
+        )
+    except ProviderError as exc:
+        return _json_error(str(exc), status=exc.status, code=exc.code)
+    except Exception as exc:
+        return _json_error(str(exc), status=502, code="upstream_error")
+
+    if wants_stream and upstream.ok:
+        return _stream_upstream_sse(upstream)
+    return _copy_upstream_response(upstream)
+
+
+def _provider_auth(provider_id: str) -> dict[str, Any]:
+    provider = get_provider(provider_id)
+    ensure_fresh_auth = getattr(provider, "ensure_fresh_auth", None)
+    read_auth = getattr(provider, "read_auth", None)
+    if callable(ensure_fresh_auth):
+        auth = ensure_fresh_auth()
+    elif callable(read_auth):
+        auth = read_auth()
+    else:
+        auth = {}
+    return auth if isinstance(auth, dict) else {}
+
+
 def _stream_upstream_sse(upstream):
     headers = codex.response_headers(upstream)
     headers.setdefault("Content-Type", "text/event-stream")
@@ -279,7 +559,7 @@ def _proxy_authorized() -> bool:
         return True
     if cfg["require_proxy_token"]:
         return False
-    return _host_is_local(request.host) or _remote_is_loopback(request.remote_addr)
+    return _remote_is_loopback(request.remote_addr)
 
 
 def _supplied_proxy_token() -> str:
@@ -295,7 +575,12 @@ def _supplied_proxy_token() -> str:
 
 
 def _host_is_local(host: str) -> bool:
-    hostname = (host or "").split(":", 1)[0].strip("[]").lower()
+    hostname = (host or "").strip().lower()
+    if hostname.startswith("["):
+        closing_bracket = hostname.find("]")
+        hostname = hostname[1:closing_bracket] if closing_bracket >= 0 else hostname.strip("[]")
+    elif hostname.count(":") == 1:
+        hostname = hostname.split(":", 1)[0]
     if hostname in {"localhost", "127.0.0.1", "::1"}:
         return True
     try:

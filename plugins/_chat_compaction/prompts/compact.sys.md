@@ -6,6 +6,7 @@ Rules:
 - Use terse bullet points, not prose
 - Collapse related items into single lines
 - Keep exact values: file paths, config values, code identifiers, credentials, URLs
+- Preserve loaded skill names from skill_instructions metadata, but do not copy full skill bodies
 - Omit anything that can be re-derived from context
 - Group by topic, not chronology
 - No meta-commentary about the summarization

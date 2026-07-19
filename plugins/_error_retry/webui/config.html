@@ -20,7 +20,8 @@
                         </div>
                     </div>
                     <div class="field-control">
-                        <input type="number" min="0"
+                        <input type="number" min="0" step="1"
+                            x-init="if (config.retries === undefined || config.retries === null) config.retries = 1"
                             x-model.number="config.retries" />
                     </div>
                 </div>

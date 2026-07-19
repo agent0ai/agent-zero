@@ -18,7 +18,7 @@ triggers:
   - "deck"
   - "Impress"
 allowed_tools:
-  - document_artifact
+  - office_artifact
 ---
 
 # Impress Presentations
@@ -33,7 +33,7 @@ Create:
 
 ```json
 {
-  "tool_name": "document_artifact",
+  "tool_name": "office_artifact",
   "tool_args": {
     "action": "create",
     "kind": "presentation",
@@ -48,7 +48,7 @@ Edit slides:
 
 ```json
 {
-  "tool_name": "document_artifact",
+  "tool_name": "office_artifact",
   "tool_args": {
     "action": "edit",
     "file_id": "abc123",

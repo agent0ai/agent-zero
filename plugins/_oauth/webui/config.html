@@ -11,101 +11,279 @@
     <template x-if="$store.oauthConfig && config">
       <div
         class="oauth"
-        x-init="$store.oauthConfig.init(config)"
+        x-init="$store.oauthConfig.init(config, context)"
         x-effect="$store.oauthConfig.bindConfig(config)"
         x-destroy="$store.oauthConfig.cleanup()"
       >
-        <section class="oauth-hero" :class="$store.oauthConfig.connected() ? 'is-connected' : ''">
-          <div class="oauth-mark">
-            <span class="material-symbols-outlined" x-text="$store.oauthConfig.connected() ? 'check' : 'key'"></span>
-          </div>
-
-          <div class="oauth-copy">
-            <h2>Codex/ChatGPT</h2>
-            <p x-show="!$store.oauthConfig.connected() && !$store.oauthConfig.connecting">
-              Connect your account to unlock Codex models locally.
-            </p>
-            <p x-show="$store.oauthConfig.connected()">
-              Connected and ready.
-            </p>
-            <p x-show="$store.oauthConfig.connecting">
-              Finish sign-in in the browser tab.
-            </p>
-          </div>
-
-          <div class="oauth-primary">
-            <button
-              class="oauth-connect"
-              type="button"
-              @click="$store.oauthConfig.connectCodex()"
-              :disabled="$store.oauthConfig.connecting"
-              x-show="!$store.oauthConfig.connected()"
-            >
-              <span class="material-symbols-outlined" x-text="$store.oauthConfig.connecting ? 'progress_activity' : 'login'"></span>
-              <span x-text="$store.oauthConfig.connecting ? 'Waiting' : 'Connect'"></span>
-            </button>
-            <button
-              class="oauth-connect secondary"
-              type="button"
-              @click="$store.oauthConfig.loadModels()"
-              :disabled="$store.oauthConfig.loadingModels"
-              x-show="$store.oauthConfig.connected()"
-            >
-              <span class="material-symbols-outlined" x-text="$store.oauthConfig.loadingModels ? 'progress_activity' : 'view_list'"></span>
-              <span>Check Models</span>
-            </button>
-            <button
-              class="oauth-connect danger"
-              type="button"
-              @click="$store.oauthConfig.disconnectCodex()"
-              :disabled="$store.oauthConfig.disconnecting"
-              x-show="$store.oauthConfig.connected()"
-            >
-              <span class="material-symbols-outlined" x-text="$store.oauthConfig.disconnecting ? 'progress_activity' : 'link_off'"></span>
-              <span x-text="$store.oauthConfig.disconnecting ? 'Disconnecting' : 'Disconnect'"></span>
+        <section class="oauth-provider-list">
+          <div class="oauth-section-head">
+            <div>
+              <h3>Providers</h3>
+              <p>Each account can be connected independently.</p>
+            </div>
+            <button class="oauth-icon-button" type="button" @click="$store.oauthConfig.loadStatus()" title="Refresh status" aria-label="Refresh status">
+              <span class="material-symbols-outlined">refresh</span>
             </button>
           </div>
-        </section>
 
-        <section class="oauth-device" x-show="$store.oauthConfig.device">
-          <span>Enter this code</span>
-          <strong x-text="$store.oauthConfig.device?.user_code"></strong>
-          <button class="text-button" type="button" @click="$store.oauthConfig.cancelConnect()">
-            <span class="material-symbols-outlined">close</span>
-            <span>Cancel</span>
-          </button>
-        </section>
-
-        <section class="oauth-usage" x-show="$store.oauthConfig.connected() && $store.oauthConfig.usageWindows().length">
-          <template x-for="window in $store.oauthConfig.usageWindows()" :key="window.key">
-            <div class="oauth-usage-window">
-              <div class="oauth-usage-head">
-                <span>
-                  <span x-text="window.title"></span>
-                  <small x-show="$store.oauthConfig.formatWindowLabel(window)" x-text="$store.oauthConfig.formatWindowLabel(window)"></small>
+          <div class="oauth-provider-rows">
+            <template x-for="card in $store.oauthConfig.providerCards()" :key="card.provider_id">
+              <article
+                class="oauth-provider-row"
+                :class="{ selected: $store.oauthConfig.selectedProviderId === card.provider_id, connected: card.connected }"
+                @click="$store.oauthConfig.selectProvider(card.provider_id)"
+              >
+                <span class="oauth-mark" :class="{ connected: card.connected }">
+                  <span class="material-symbols-outlined" x-text="card.connected ? 'check' : card.mark"></span>
                 </span>
-                <strong x-text="$store.oauthConfig.formatRemainingPercent(window)"></strong>
-              </div>
-              <div class="oauth-usage-bar" aria-hidden="true">
-                <i :style="{ width: $store.oauthConfig.usageWidth(window) }"></i>
-              </div>
-              <p x-show="$store.oauthConfig.formatReset(window)" x-text="`Resets in ${$store.oauthConfig.formatReset(window)}`"></p>
+                <div class="oauth-provider-row-copy">
+                  <strong x-text="card.display_name"></strong>
+                  <span x-text="$store.oauthConfig.providerReadinessLabel(card.provider_id)"></span>
+                </div>
+                <span class="oauth-account-state connected" x-show="card.connected">Connected</span>
+                <div class="oauth-row-actions">
+                  <button
+                    class="oauth-connect compact"
+                    type="button"
+                    @click.stop="$store.oauthConfig.handleProviderPrimary(card.provider_id)"
+                    :disabled="$store.oauthConfig.providerPrimaryDisabled(card.provider_id)"
+                    x-show="!card.connected"
+                  >
+                    <span class="material-symbols-outlined" x-text="$store.oauthConfig.connectingProvider === card.provider_id ? 'progress_activity' : ($store.oauthConfig.providerSetupReady(card.provider_id) ? 'login' : 'tune')"></span>
+                    <span x-text="$store.oauthConfig.providerPrimaryLabel(card.provider_id)"></span>
+                  </button>
+                  <button
+                    class="oauth-connect danger compact"
+                    type="button"
+                    @click.stop="$store.oauthConfig.disconnectProvider(card.provider_id)"
+                    :disabled="$store.oauthConfig.disconnectingProvider === card.provider_id"
+                    x-show="card.connected"
+                  >
+                    <span class="material-symbols-outlined" x-text="$store.oauthConfig.disconnectingProvider === card.provider_id ? 'progress_activity' : 'link_off'"></span>
+                    <span x-text="$store.oauthConfig.disconnectingProvider === card.provider_id ? 'Disconnecting' : 'Disconnect'"></span>
+                  </button>
+                </div>
+                <div class="oauth-provider-usage" x-show="$store.oauthConfig.usageWindows(card.provider_id).length">
+                  <template x-for="window in $store.oauthConfig.usageWindows(card.provider_id)" :key="`${card.provider_id}-${window.key}`">
+                    <div class="oauth-usage-window">
+                      <div class="oauth-usage-head">
+                        <span>
+                          <span x-text="`${card.short_name || card.display_name || 'Account'} ${window.title}`"></span>
+                          <small x-show="$store.oauthConfig.formatWindowLabel(window)" x-text="$store.oauthConfig.formatWindowLabel(window)"></small>
+                        </span>
+                        <strong x-text="$store.oauthConfig.formatRemainingPercent(window)"></strong>
+                      </div>
+                      <div class="oauth-usage-bar" aria-hidden="true">
+                        <i :style="{ width: $store.oauthConfig.usageWidth(window) }"></i>
+                      </div>
+                      <p x-show="$store.oauthConfig.formatReset(window)" x-text="`Resets in ${$store.oauthConfig.formatReset(window)}`"></p>
+                    </div>
+                  </template>
+                </div>
+
+                <div class="oauth-provider-row-detail" x-show="$store.oauthConfig.providerDetailOpen(card.provider_id)" @click.stop>
+                  <div class="oauth-detail-grid">
+                    <label class="oauth-provider-input" x-show="$store.oauthConfig.providerShowSetupFields(card.provider_id) && card.supports_enterprise_domain">
+                      <span>Enterprise domain</span>
+                      <input
+                        type="text"
+                        x-model="$store.oauthConfig.providerUiFor(card.provider_id).enterprise_domain"
+                        name="enterprise_domain"
+                        placeholder="github.com"
+                      />
+                    </label>
+
+                    <div class="oauth-provider-fields" x-show="$store.oauthConfig.providerShowSetupFields(card.provider_id) && card.supports_oauth_client_config">
+                      <label class="oauth-provider-input">
+                        <span>OAuth client ID</span>
+                        <input
+                          type="text"
+                          x-model="$store.oauthConfig.providerUiFor(card.provider_id).client_id"
+                          name="oauth_client_id"
+                          placeholder="Google Cloud OAuth client ID"
+                        />
+                      </label>
+                      <label class="oauth-provider-input">
+                        <span>OAuth client secret</span>
+                        <input
+                          type="password"
+                          x-model="$store.oauthConfig.providerUiFor(card.provider_id).client_secret"
+                          name="oauth_client_secret"
+                          autocomplete="off"
+                          placeholder="Google Cloud OAuth client secret"
+                        />
+                      </label>
+                      <label class="oauth-provider-input" x-show="card.supports_quota_project">
+                        <span>Quota project</span>
+                        <input
+                          type="text"
+                          x-model="$store.oauthConfig.providerUiFor(card.provider_id).quota_project_id"
+                          name="quota_project_id"
+                          placeholder="Optional Google Cloud project ID"
+                        />
+                      </label>
+                    </div>
+
+                    <div class="oauth-device" x-show="$store.oauthConfig.providerDevice(card.provider_id)?.user_code">
+                      <span>Enter this code</span>
+                      <strong x-text="$store.oauthConfig.providerDevice(card.provider_id)?.user_code"></strong>
+                      <button class="text-button" type="button" @click="$store.oauthConfig.cancelConnect(card.provider_id)">
+                        <span class="material-symbols-outlined">close</span>
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+
+                    <div class="oauth-manual-callback" x-show="card.supports_manual_callback && $store.oauthConfig.providerDevice(card.provider_id)?.flow === 'browser_pkce' && !card.connected">
+                      <input
+                        type="text"
+                        x-model="$store.oauthConfig.providerUiFor(card.provider_id).manualCallback"
+                        placeholder="Paste callback URL, query string, or code"
+                      />
+                      <button type="button" class="oauth-connect secondary" @click="$store.oauthConfig.submitManualCallback(card.provider_id)">
+                        <span class="material-symbols-outlined">check</span>
+                        <span>Submit</span>
+                      </button>
+                      <button type="button" class="oauth-connect secondary" @click="$store.oauthConfig.cancelConnect(card.provider_id)">
+                        <span class="material-symbols-outlined">close</span>
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+
+                    <div class="oauth-auth-attempt" x-show="$store.oauthConfig.providerDevice(card.provider_id) && !$store.oauthConfig.providerDevice(card.provider_id)?.user_code && !card.supports_manual_callback">
+                      <span>Sign-in started</span>
+                      <button class="text-button" type="button" @click="$store.oauthConfig.cancelConnect(card.provider_id)">
+                        <span class="material-symbols-outlined">close</span>
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+
+                    <p class="oauth-provider-note" x-show="$store.oauthConfig.providerShowNote(card.provider_id)" x-text="card.warning || card.note"></p>
+                  </div>
+                </div>
+              </article>
+            </template>
+          </div>
+        </section>
+
+        <section class="oauth-model-config">
+          <div class="oauth-section-head">
+            <div>
+              <h3>Choose your models</h3>
+            </div>
+            <span class="oauth-save-chip" x-show="$store.oauthConfig.modelConfigDirty">Pending changes</span>
+          </div>
+
+          <div class="oauth-model-loading" x-show="$store.oauthConfig.modelConfigLoading">
+            Loading model configuration...
+          </div>
+
+          <template x-if="$store.oauthConfig.modelConfig">
+            <div class="oauth-model-grid">
+              <template x-for="slot in $store.oauthConfig.modelSlots" :key="slot.key">
+                <div class="oauth-model-card">
+                  <div class="oauth-model-head">
+                    <span class="oauth-model-icon material-symbols-outlined" x-text="slot.icon"></span>
+                    <div class="oauth-model-title">
+                      <strong x-text="slot.title"></strong>
+                      <span x-show="$store.oauthConfig.slotStatusLabel(slot.key)" x-text="$store.oauthConfig.slotStatusLabel(slot.key)"></span>
+                    </div>
+                    <div class="oauth-model-actions">
+                      <button
+                        class="oauth-model-action icon"
+                        type="button"
+                        title="Copy Main model"
+                        aria-label="Copy Main model"
+                        x-show="slot.key === 'utility_model' && $store.oauthConfig.slotUsesOauth('chat_model')"
+                        @click="$store.oauthConfig.copyMainToUtility()"
+                      >
+                        <span class="material-symbols-outlined">content_copy</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="oauth-model-picker" @click.outside="$store.oauthConfig.closeModelDropdown(slot.key)">
+                    <label class="oauth-model-provider-field">
+                      <select
+                        :aria-label="`${slot.title} provider`"
+                        :value="$store.oauthConfig.slotCanUseModels(slot.key) ? $store.oauthConfig.modelSlot(slot.key).provider : ''"
+                        @change="$store.oauthConfig.useProviderForSlot(slot.key, $event.target.value)"
+                        :disabled="!$store.oauthConfig.connectedProviderCards().length"
+                      >
+                        <option value="" disabled>Choose connected provider</option>
+                        <template x-for="provider in $store.oauthConfig.slotProviderChoices(slot.key)" :key="`${slot.key}-${provider.provider_id}`">
+                          <option :value="provider.provider_id" x-text="$store.oauthConfig.modelProviderOptionLabel(provider)"></option>
+                        </template>
+                      </select>
+                    </label>
+
+                    <div class="oauth-model-input-row">
+                      <input
+                        type="text"
+                        x-model="$store.oauthConfig.modelSlot(slot.key).name"
+                        @input="$store.oauthConfig.markModelDirty(slot.key)"
+                        @click="$store.oauthConfig.openModelDropdown(slot.key, $el)"
+                        :disabled="!$store.oauthConfig.slotCanUseModels(slot.key)"
+                        :placeholder="$store.oauthConfig.slotCanUseModels(slot.key) ? 'Search or enter a provider model' : 'Choose a connected provider first'"
+                      />
+                      <button
+                        class="oauth-model-search"
+                        type="button"
+                        title="Browse available models"
+                        aria-label="Browse available models"
+                        @click="$store.oauthConfig.openModelDropdown(slot.key, $el)"
+                        :disabled="!$store.oauthConfig.slotCanUseModels(slot.key) || $store.oauthConfig.loadingModelsProvider === $store.oauthConfig.modelSlot(slot.key).provider"
+                      >
+                        <span class="material-symbols-outlined" x-text="$store.oauthConfig.loadingModelsProvider === $store.oauthConfig.modelSlot(slot.key).provider ? 'progress_activity' : 'search'"></span>
+                      </button>
+                    </div>
+
+                    <div
+                      class="oauth-model-dropdown"
+                      x-show="$store.oauthConfig.modelDropdown[slot.key]?.open && !$store.oauthConfig.loadingModelsProvider"
+                      x-transition.opacity
+                    >
+                      <template x-for="model in $store.oauthConfig.filteredModels(slot.key)" :key="slot.key + model">
+                        <button
+                          type="button"
+                          class="oauth-model-item"
+                          @click="$store.oauthConfig.selectModel(slot.key, model)"
+                        >
+                          <span
+                            class="oauth-model-name"
+                            x-text="model"
+                          ></span>
+                          <small
+                            x-show="$store.oauthConfig.modelDescription(slot.provider, model)"
+                            x-text="$store.oauthConfig.modelDescription(slot.provider, model)"
+                          ></small>
+                        </button>
+                      </template>
+                      <div class="oauth-model-item muted" x-show="$store.oauthConfig.filteredModels(slot.key).length === 0">
+                        No models found. You can still type the model name manually.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
           </template>
         </section>
 
-        <section class="oauth-status-row">
-          <div>
-            <span>Status</span>
-            <strong x-text="$store.oauthConfig.statusLabel()"></strong>
+        <section class="oauth-models-panel" x-show="$store.oauthConfig.activeProviderModels().length">
+          <div class="oauth-section-head">
+            <div>
+              <h3>Available models</h3>
+              <p x-text="$store.oauthConfig.activeModelsDescription()"></p>
+            </div>
           </div>
-          <div x-show="$store.oauthConfig.status?.codex?.email">
-            <span>Account</span>
-            <strong x-text="$store.oauthConfig.status?.codex?.email"></strong>
+          <div class="oauth-models">
+            <template x-for="model in $store.oauthConfig.activeProviderModels()" :key="model">
+              <span
+                :title="$store.oauthConfig.modelDescription($store.oauthConfig.activeModelProvider, model)"
+                x-text="model"
+              ></span>
+            </template>
           </div>
-          <button class="oauth-icon-button" type="button" @click="$store.oauthConfig.loadStatus()" title="Refresh status" aria-label="Refresh status">
-            <span class="material-symbols-outlined">refresh</span>
-          </button>
         </section>
 
         <details class="oauth-advanced">
@@ -113,34 +291,35 @@
 
           <div class="oauth-details">
             <div>
-              <span>Endpoint</span>
-              <code x-text="$store.oauthConfig.endpointUrl()"></code>
+              <span>Codex endpoint</span>
+              <code x-text="$store.oauthConfig.providerEndpointUrl('codex_oauth')"></code>
             </div>
             <div>
               <span>Auth file</span>
-              <code x-text="$store.oauthConfig.status?.codex?.auth_file_path || 'Auto-discover'"></code>
+              <code x-text="$store.oauthConfig.status?.codex?.auth_file_path || 'Agent Zero private store'"></code>
             </div>
           </div>
 
           <div class="oauth-grid">
             <label>
               <span>Auth file path</span>
-              <input type="text" x-model="$store.oauthConfig.codex().auth_file_path" placeholder="Auto-discover" />
+              <input type="text" x-model="$store.oauthConfig.codex().auth_file_path" placeholder="Agent Zero private store" />
+              <small>Use an Agent Zero-owned file. Shared Codex CLI auth files are rejected.</small>
             </label>
             <label>
-              <span>Issuer</span>
+              <span>Codex issuer</span>
               <input type="text" x-model="$store.oauthConfig.codex().issuer" />
             </label>
             <label>
-              <span>Token URL</span>
+              <span>Codex token URL</span>
               <input type="text" x-model="$store.oauthConfig.codex().token_url" />
             </label>
             <label>
-              <span>Base path</span>
+              <span>Codex base path</span>
               <input type="text" x-model="$store.oauthConfig.codex().proxy_base_path" />
             </label>
             <label>
-              <span>Upstream URL</span>
+              <span>Codex upstream URL</span>
               <input type="text" x-model="$store.oauthConfig.codex().upstream_base_url" />
             </label>
             <label>
@@ -148,21 +327,15 @@
               <input type="text" x-model="$store.oauthConfig.codex().codex_version" placeholder="Auto" />
             </label>
             <label class="oauth-switch">
-              <span>Require proxy token</span>
+              <span>Codex proxy token required</span>
               <input type="checkbox" x-model="$store.oauthConfig.codex().require_proxy_token" />
             </label>
             <label>
-              <span>Proxy token</span>
+              <span>Codex proxy token</span>
               <input type="password" x-model="$store.oauthConfig.codex().proxy_token" autocomplete="off" />
             </label>
           </div>
         </details>
-
-        <div class="oauth-models" x-show="$store.oauthConfig.models.length">
-          <template x-for="model in $store.oauthConfig.models" :key="model">
-            <span x-text="model"></span>
-          </template>
-        </div>
       </div>
     </template>
   </div>
@@ -175,53 +348,187 @@
       color: var(--color-text);
     }
 
-    .oauth-hero {
+    .oauth-provider-list {
       display: grid;
-      grid-template-columns: 52px minmax(0, 1fr) auto;
+      gap: 12px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .oauth-provider-row-copy strong {
+      overflow: hidden;
+      display: block;
+      font-size: 0.88rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-provider-rows {
+      display: grid;
+      gap: 8px;
+    }
+
+    .oauth-provider-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
       align-items: center;
-      gap: 16px;
-      min-height: 118px;
-      padding: 18px;
+      gap: 10px;
+      min-height: 62px;
+      padding: 10px 12px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-background) 24%, transparent);
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .oauth-provider-row:hover,
+    .oauth-provider-row.selected {
+      border-color: color-mix(in srgb, var(--color-primary) 62%, var(--color-border));
+      background: color-mix(in srgb, var(--color-primary) 7%, var(--color-panel));
+    }
+
+    .oauth-provider-row-copy {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    .oauth-provider-row-copy span {
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-account-state {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+      border-radius: 999px;
+      color: var(--color-text-secondary);
+      font-size: 0.68rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .oauth-account-state.connected {
+      border-color: color-mix(in srgb, #35d07f 46%, var(--color-border));
+      color: var(--color-text);
+    }
+
+    .oauth .oauth-provider-row.connected .oauth-provider-row-copy strong {
+      color: var(--color-text, #fff);
+    }
+
+    .oauth .oauth-provider-row.connected .oauth-provider-row-copy span {
+      color: var(--color-text-secondary, rgba(255, 255, 255, .72));
+    }
+
+    .oauth-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .oauth-provider-usage {
+      display: grid;
+      grid-column: 2 / -1;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      min-width: 0;
+      padding: 4px 0 0;
+    }
+
+    .oauth-provider-row-detail {
+      display: grid;
+      grid-column: 1 / -1;
+      min-width: 0;
+      padding-top: 2px;
+    }
+
+    .oauth-detail-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .oauth-provider-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .oauth-provider-card {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      min-width: 0;
+      min-height: 188px;
+      padding: 16px;
       border: 1px solid var(--color-border);
       border-radius: 8px;
       background: color-mix(in srgb, var(--color-panel) 86%, transparent);
     }
 
+    .oauth-provider-card.is-connected .oauth-mark {
+      color: #08120c;
+      background: #35d07f;
+    }
+
+    .oauth-mark.connected {
+      color: #08120c;
+      background: #35d07f;
+    }
+
+    .oauth-provider-head {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+    }
+
     .oauth-mark {
       display: grid;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       place-items: center;
       border-radius: 50%;
       background: color-mix(in srgb, var(--color-border) 52%, transparent);
     }
 
     .oauth-mark .material-symbols-outlined {
-      font-size: 28px;
-    }
-
-    .oauth-hero.is-connected .oauth-mark {
-      color: #08120c;
-      background: #35d07f;
+      font-size: 26px;
     }
 
     .oauth-copy h2 {
       margin: 0 0 4px;
-      font-size: 1.35rem;
+      font-size: 1rem;
       letter-spacing: 0;
     }
 
     .oauth-copy p {
+      overflow: hidden;
       margin: 0;
       color: var(--color-text-secondary);
-      font-size: 0.88rem;
-      line-height: 1.4;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .oauth-primary {
       display: flex;
       flex-wrap: wrap;
-      justify-content: flex-end;
+      justify-content: flex-start;
       gap: 8px;
     }
 
@@ -230,21 +537,22 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      min-width: 124px;
-      min-height: 40px;
-      padding: 0 16px;
+      min-width: 112px;
+      min-height: 38px;
+      padding: 0 13px;
       border: 0;
       border-radius: 8px;
       background: #f5f7fa;
       color: #111418;
       font: inherit;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       font-weight: 750;
       cursor: pointer;
     }
 
     .oauth-connect.secondary {
-      background: color-mix(in srgb, var(--color-border) 60%, transparent);
+      border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+      background: color-mix(in srgb, var(--color-border) 44%, transparent);
       color: var(--color-text);
     }
 
@@ -259,12 +567,76 @@
       opacity: .65;
     }
 
+    .oauth-connect.compact {
+      min-width: 0;
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 0.76rem;
+      white-space: nowrap;
+    }
+
+    .oauth-provider-input,
+    .oauth-provider-fields,
+    .oauth-manual-callback,
+    .oauth-auth-attempt {
+      display: grid;
+      min-width: 0;
+      gap: 6px;
+    }
+
+    .oauth-provider-fields {
+      gap: 8px;
+    }
+
+    .oauth-manual-callback {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .oauth-auth-attempt {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid color-mix(in srgb, #f5f7fa 18%, var(--color-border));
+      border-radius: 8px;
+      background: color-mix(in srgb, #f5f7fa 7%, var(--color-panel));
+    }
+
+    .oauth-provider-input span,
+    .oauth-auth-attempt span {
+      color: var(--color-text-secondary);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .oauth-provider-input input,
+    .oauth-manual-callback input {
+      width: 100%;
+      min-width: 0;
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+      border-radius: 8px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.82rem;
+    }
+
+    .oauth-provider-note {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
     .oauth-device {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
-      gap: 14px;
-      padding: 14px 16px;
+      gap: 10px;
+      padding: 10px 12px;
       border: 1px solid color-mix(in srgb, #f5f7fa 18%, var(--color-border));
       border-radius: 8px;
       background: color-mix(in srgb, #f5f7fa 7%, var(--color-panel));
@@ -272,22 +644,13 @@
 
     .oauth-device span {
       color: var(--color-text-secondary);
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       font-weight: 700;
     }
 
     .oauth-device strong {
-      font-size: 1.45rem;
+      font-size: 1.12rem;
       letter-spacing: 0;
-    }
-
-    .oauth-usage {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      padding: 12px 14px;
-      border: 1px solid var(--color-border);
-      border-radius: 8px;
     }
 
     .oauth-usage-window {
@@ -311,6 +674,18 @@
       color: var(--color-text-secondary);
       font-size: 0.78rem;
       font-weight: 750;
+    }
+
+    .oauth .oauth-provider-row.connected .oauth-usage-head span {
+      color: var(--color-text-secondary, rgba(255, 255, 255, .72));
+    }
+
+    .oauth .oauth-provider-row.connected .oauth-usage-head strong {
+      color: var(--color-text, #fff);
+    }
+
+    .oauth .oauth-provider-row.connected .oauth-usage-window p {
+      color: var(--color-text-secondary, rgba(255, 255, 255, .72));
     }
 
     .oauth-usage-head small {
@@ -393,14 +768,296 @@
       cursor: pointer;
     }
 
-    .oauth-advanced {
-      border: 1px solid var(--color-border);
+    .oauth-model-config {
+      display: grid;
+      gap: 12px;
+      padding: 0;
+      border: 0;
+    }
+
+    .oauth-models-panel {
+      display: grid;
+      gap: 10px;
+      padding: 0;
+      border: 0;
+    }
+
+    .oauth-section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .oauth-section-head h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    .oauth-section-head p,
+    .oauth-model-loading {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .oauth-save-chip {
+      flex: 0 0 auto;
+      padding: 3px 8px;
+      border: 1px solid color-mix(in srgb, #d9ad68 46%, var(--color-border));
+      border-radius: 999px;
+      color: #d9ad68;
+      font-size: 0.72rem;
+      font-weight: 750;
+    }
+
+    .oauth-model-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .oauth-model-card {
+      display: grid;
+      min-width: 0;
+      gap: 10px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .oauth-model-head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .oauth-model-icon {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
       border-radius: 8px;
+      background: color-mix(in srgb, var(--color-border) 52%, transparent);
+      color: var(--color-text);
+      font-size: 19px;
+    }
+
+    .oauth-model-title {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    .oauth-model-title strong {
+      overflow: hidden;
+      font-size: 0.88rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-model-title span {
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-model-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .oauth-model-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 32px;
+      padding: 0 9px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--color-text);
+      font-size: 0.76rem;
+      font-weight: 750;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .oauth-model-action.icon {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+    }
+
+    .oauth-model-action .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .oauth-model-action:disabled {
+      cursor: default;
+      opacity: .45;
+    }
+
+    .oauth-model-picker {
+      position: relative;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .oauth-model-provider-field {
+      display: grid;
+      min-width: 0;
+      gap: 6px;
+    }
+
+    .oauth-model-provider-field span {
+      color: var(--color-text-secondary);
+      font-size: 0.74rem;
+      font-weight: 750;
+    }
+
+    .oauth-model-provider-field select {
+      width: 100%;
+      min-width: 0;
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+      border-radius: 8px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.82rem;
+    }
+
+    .oauth-model-provider-field select:disabled {
+      opacity: .58;
+    }
+
+    .oauth-model-input-row {
+      position: relative;
+    }
+
+    .oauth-model-input-row input {
+      width: 100%;
+      min-width: 0;
+      padding: .5rem 32px .5rem .5rem;
+      border: 1px solid var(--color-border);
+      border-radius: .25rem;
+      background: var(--color-background);
+      color: var(--color-text);
+      font-family: "Rubik", Arial, Helvetica, sans-serif;
+    }
+
+    .oauth-model-input-row input:disabled {
+      opacity: .58;
+    }
+
+    .oauth-model-search {
+      position: absolute;
+      z-index: 1;
+      top: 50%;
+      right: 8px;
+      display: grid;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      transform: translateY(-50%);
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      opacity: .6;
+    }
+
+    .oauth-model-search:hover {
+      opacity: 1;
+    }
+
+    .oauth-model-search:disabled {
+      cursor: default;
+      opacity: .45;
+    }
+
+    .oauth-model-search .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .oauth-model-dropdown {
+      position: absolute;
+      z-index: 50;
+      top: calc(100% + 4px);
+      right: 0;
+      left: 0;
+      overflow: auto;
+      max-height: 200px;
+      padding: 4px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-input);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+    }
+
+    .oauth-model-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+      min-height: 30px;
+      padding: 5px 8px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.8rem;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .oauth-model-name {
+      font-weight: 650;
+    }
+
+    .oauth-model-item small {
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 0.72rem;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-model-item:hover,
+    .oauth-model-item:focus-visible {
+      background: color-mix(in srgb, var(--color-border) 42%, transparent);
+      outline: none;
+    }
+
+    .oauth-model-item.muted {
+      color: var(--color-text-secondary);
+      cursor: default;
+    }
+
+    .oauth-advanced {
+      border: 0;
+      border-radius: 0;
       padding: 0;
     }
 
     .oauth-advanced summary {
-      padding: 12px 14px;
+      padding: 8px 0;
       color: var(--color-text-secondary);
       font-size: 0.84rem;
       font-weight: 750;
@@ -415,7 +1072,7 @@
 
     .oauth-details div {
       display: grid;
-      grid-template-columns: 84px minmax(0, 1fr);
+      grid-template-columns: 116px minmax(0, 1fr);
       align-items: center;
       gap: 10px;
     }
@@ -439,6 +1096,12 @@
       min-width: 0;
       flex-direction: column;
       gap: 6px;
+    }
+
+    .oauth-grid small {
+      color: var(--color-text-secondary);
+      font-size: 0.72rem;
+      line-height: 1.35;
     }
 
     .oauth-grid input[type="text"],
@@ -472,24 +1135,64 @@
 
     .oauth-models span {
       padding: 5px 8px;
-      border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
       border-radius: 999px;
+      background: color-mix(in srgb, var(--color-border) 34%, transparent);
       color: var(--color-text-secondary);
       font-size: 0.76rem;
     }
 
-    @media (max-width: 720px) {
-      .oauth-hero,
-      .oauth-device,
-      .oauth-usage,
-      .oauth-status-row,
-      .oauth-grid,
-      .oauth-details div {
+    @media (max-width: 980px) {
+      .oauth-provider-grid {
         grid-template-columns: 1fr;
+      }
+
+      .oauth-model-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .oauth-provider-row {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+
+      .oauth-row-actions {
+        grid-column: 2 / -1;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .oauth-device,
+      .oauth-provider-row-detail,
+      .oauth-provider-usage,
+      .oauth-status-row,
+      .oauth-model-grid,
+      .oauth-model-head,
+      .oauth-grid,
+      .oauth-details div,
+      .oauth-manual-callback,
+      .oauth-auth-attempt,
+      .oauth-provider-row {
+        grid-template-columns: 1fr;
+      }
+
+      .oauth-section-head {
+        flex-direction: column;
       }
 
       .oauth-primary {
         width: 100%;
+      }
+
+      .oauth-row-actions {
+        grid-column: auto;
+      }
+
+      .oauth-provider-usage {
+        grid-column: auto;
+      }
+
+      .oauth-model-actions {
+        justify-content: flex-start;
       }
 
       .oauth-connect {

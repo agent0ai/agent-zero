@@ -30,6 +30,21 @@
 
           <div class="field">
             <div class="field-label">
+              <div class="field-title">Remember last file browser location</div>
+              <div class="field-description">
+                Open the file browser at the most recently visited directory when no specific path is requested.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settings.settings.file_browser_remember_last_directory" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
               <div class="field-title">Show workdir structure to the agent</div>
               <div class="field-description">
                 Give the agent a compact map of the workspace at the start of a task.

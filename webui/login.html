@@ -9,7 +9,10 @@
 </head>
 <body>
     <div class="login-container">
-        <form class="login-form" method="POST" action="/login">
+        <form class="login-form" method="POST" action="/login{% if next %}?next={{ next|urlencode }}{% endif %}">
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
             <img src="/public/splash.jpg" alt="Agent Zero Logo" class="logo">
             <h2>Agent Zero</h2>
             <div class="input-group">

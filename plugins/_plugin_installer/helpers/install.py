@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 import os
 import time
-from turtle import stamp
 import urllib.request
 import uuid
 import zipfile
@@ -12,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from helpers import files, print_style, plugins, git
+from helpers.localization import Localization
 from helpers import yaml as yaml_helper
 from helpers.plugins import (
     META_FILE_NAME,
@@ -272,7 +272,10 @@ def update_from_git(plugin_name: str) -> dict:
         "title": meta.title if meta else plugin_name,
         "path": files.deabsolute_path(plugin_dir),
         "current_commit": head.hexsha,
-        "current_commit_timestamp": datetime.fromtimestamp(head.committed_date, timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "current_commit_timestamp": datetime.fromtimestamp(
+            head.committed_date,
+            tz=Localization.get().get_tzinfo(),
+        ).strftime("%Y-%m-%d %H:%M:%S %Z"),
         "version": getattr(meta, "version", "") or "",
         "branch": repo.active_branch.name if not repo.head.is_detached else "",
         "remote_url": git.strip_auth_from_url(repo.remotes.origin.url) if repo.remotes else "",

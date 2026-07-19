@@ -1,0 +1,5 @@
+name: attach
+description: Attach local image file(s) to the next message.
+argument_hint: Choose local file(s) from the WebUI picker.
+type: script
+script_path: connector_commands.py

@@ -33,16 +33,22 @@
         </div>
       </div>
 
-      <div class="skills-panel" x-show="selectedSkills.length > 0">
-        <div class="skills-panel-title">Active skills</div>
+      <div class="skills-section">
+        <div class="skills-panel-title">Loaded skills</div>
+        <div class="skills-panel-subtitle" x-text="pinnedSubtitle()"></div>
+
+        <template x-if="!loadingCatalog && selectedSkills.length === 0">
+          <div class="skills-empty">No loaded skills yet.</div>
+        </template>
+
         <div class="skills-selected-list">
           <template x-for="entry in selectedSkills" :key="entryKey(entry)">
-            <div class="skills-selected-card" :class="{ 'is-missing': isEntryMissing(entry) }">
-              <div class="skills-selected-copy">
-                <div class="skills-selected-title" x-text="labelForEntry(entry)"></div>
-                <div class="skills-selected-meta" x-text="secondaryLabelForEntry(entry)"></div>
+            <div class="skills-row skills-pinned-row" :class="{ 'is-missing': isEntryMissing(entry) }">
+              <div class="skills-row-copy">
+                <div class="skills-row-title" x-text="labelForEntry(entry)"></div>
+                <div class="skills-row-meta" x-text="secondaryLabelForEntry(entry)"></div>
               </div>
-              <div class="skills-card-actions">
+              <div class="skills-row-actions">
                 <button
                   type="button"
                   class="button icon-button"
@@ -52,25 +58,17 @@
                 >
                   <span class="icon material-symbols-outlined">article</span>
                 </button>
-                <button
-                  type="button"
-                  class="button cancel icon-button"
-                  title="Remove"
-                  aria-label="Remove skill"
-                  @click="$confirmClick($event, () => removeEntry(entry))"
-                  :disabled="mutatingChat"
-                >
-                  <span class="icon material-symbols-outlined">close</span>
-                </button>
               </div>
             </div>
           </template>
         </div>
       </div>
 
-      <div class="skills-panel">
-        <div class="skills-panel-title">Available skills</div>
-        <div class="skills-panel-subtitle">Check a skill to add it. Uncheck it to remove it.</div>
+      <hr class="skills-divider">
+
+      <div class="skills-section">
+        <div class="skills-panel-title">All skills</div>
+        <div class="skills-panel-subtitle" x-text="allSkillsSubtitle()"></div>
 
         <div class="skills-loading" x-show="loadingCatalog">
           <span class="material-symbols-outlined spinning">progress_activity</span>
@@ -83,27 +81,54 @@
 
         <div class="skills-list">
           <template x-for="skill in filteredCatalog" :key="skill.path">
-            <label class="skills-card" :class="{ 'is-selected': isSelected(skill) }">
-              <input
-                type="checkbox"
-                :checked="isSelected(skill)"
-                :disabled="isCheckboxDisabled(skill)"
-                @change="toggleSkill(skill, $event.target.checked)"
-              >
-              <div class="skills-card-copy">
-                <div class="skills-card-title" x-text="skill.name || '(unnamed skill)'"></div>
-                <div class="skills-card-description" x-text="skill.description || 'No description provided.'"></div>
+            <div
+              class="skills-row skills-catalog-row"
+              :class="{
+                'is-pinned': isSelected(skill),
+                'is-hidden': isHidden(skill),
+              }"
+            >
+              <label class="skills-checkbox" :title="isSelected(skill) ? 'Loaded in this chat' : 'Load skill into this chat'">
+                <input
+                  type="checkbox"
+                  :checked="isSelected(skill)"
+                  :disabled="isPinDisabled(skill)"
+                  @change="togglePinnedSkill(skill, $event.target.checked)"
+                >
+              </label>
+              <div class="skills-row-copy">
+                <div class="skills-row-title" x-text="skill.name || '(unnamed skill)'"></div>
+                <div class="skills-row-description" x-text="skill.description || 'No description provided.'"></div>
+                <div
+                  class="skills-row-state"
+                  x-show="isHidden(skill)"
+                  x-text="hiddenStateLabel()"
+                >
+                </div>
               </div>
-              <button
-                type="button"
-                class="button icon-button"
-                title="Open skill"
-                aria-label="Open skill"
-                @click.prevent.stop="openSkill(skill)"
-              >
-                <span class="icon material-symbols-outlined">article</span>
-              </button>
-            </label>
+              <div class="skills-row-actions">
+                <button
+                  type="button"
+                  class="button icon-button skills-visibility-button"
+                  :class="{ 'is-hidden-state': isHidden(skill) }"
+                  :title="visibilityButtonTitle(skill)"
+                  :aria-label="visibilityButtonTitle(skill)"
+                  :disabled="isVisibilityDisabled()"
+                  @click.prevent.stop="toggleVisibility(skill)"
+                >
+                  <span class="icon material-symbols-outlined" x-text="visibilityButtonIcon(skill)"></span>
+                </button>
+                <button
+                  type="button"
+                  class="button icon-button"
+                  title="Open skill"
+                  aria-label="Open skill"
+                  @click.prevent.stop="openSkill(skill)"
+                >
+                  <span class="icon material-symbols-outlined">article</span>
+                </button>
+              </div>
+            </div>
           </template>
         </div>
       </div>
@@ -151,17 +176,22 @@
       margin-left: auto;
     }
 
-    .skills-count {
-      color: var(--color-text-secondary);
-      font-size: var(--font-size-small);
-      font-weight: 600;
-      white-space: nowrap;
+    .skills-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .skills-divider {
+      width: 100%;
+      border: 0;
+      border-top: 1px solid var(--color-border);
+      margin: 0;
     }
 
     .skills-help,
     .skills-panel-subtitle,
-    .skills-selected-meta,
-    .skills-card-description {
+    .skills-row-meta,
+    .skills-row-description {
       color: var(--color-text-secondary);
       font-size: var(--font-size-small);
     }
@@ -175,69 +205,50 @@
     .skills-list {
       display: flex;
       flex-direction: column;
-      gap: 0.65rem;
       margin-top: 0.75rem;
     }
 
-    .skills-selected-card,
-    .skills-card {
-      border: 1px solid var(--color-border);
-      border-radius: 0.75rem;
-      background: var(--color-bg-primary);
-    }
-
-    .skills-selected-card {
+    .skills-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.8rem 0.9rem;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 0.95rem 0;
     }
 
-    .skills-selected-card.is-missing {
-      border-style: dashed;
+    .skills-row + .skills-row {
+      border-top: 1px solid var(--color-border);
     }
 
-    .skills-selected-copy {
+    .skills-row.is-pinned .skills-row-title {
+      color: var(--color-text);
+    }
+
+    .skills-row.is-hidden {
+      opacity: 0.72;
+    }
+
+    .skills-row.is-missing .skills-row-title::after {
+      content: " (missing)";
+      color: var(--color-text-secondary);
+      font-weight: 500;
+    }
+
+    .skills-row-copy {
       flex: 1 1 auto;
       min-width: 0;
     }
 
-    .skills-selected-title,
-    .skills-card-title {
+    .skills-row-title {
       font-weight: 650;
       word-break: break-word;
     }
 
-    .skills-selected-meta {
+    .skills-row-meta {
       margin-top: 0.25rem;
       word-break: break-all;
     }
 
-    .skills-card {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.85rem;
-      padding: 0.85rem;
-      cursor: pointer;
-      transition: border-color 0.15s ease, background-color 0.15s ease;
-    }
-
-    .skills-card.is-selected {
-      border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
-      background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-primary));
-    }
-
-    .skills-card input {
-      margin-top: 0.15rem;
-    }
-
-    .skills-card-copy {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-
-    .skills-card-actions {
+    .skills-row-actions {
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -245,9 +256,33 @@
       margin-left: auto;
     }
 
-    .skills-card-description {
+    .skills-row-description {
       margin-top: 0.3rem;
       line-height: 1.45;
+    }
+
+    .skills-row-state {
+      margin-top: 0.4rem;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+      font-weight: 600;
+    }
+
+    .skills-checkbox {
+      display: inline-flex;
+      align-items: flex-start;
+      justify-content: center;
+      width: 1.25rem;
+      margin-top: 0.1rem;
+    }
+
+    .skills-checkbox input {
+      margin: 0.1rem 0 0;
+      accent-color: var(--color-primary);
+    }
+
+    .skills-visibility-button.is-hidden-state {
+      color: var(--color-text-secondary);
     }
 
     .skills-loading {
@@ -259,11 +294,9 @@
     }
 
     .skills-empty {
-      border: 1px dashed var(--color-border);
-      border-radius: 0.75rem;
       color: var(--color-text-secondary);
       margin-top: 0.75rem;
-      padding: 1rem;
+      padding: 0.15rem 0 0;
     }
 
     .button, .button.cancel {

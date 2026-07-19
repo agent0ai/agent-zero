@@ -1,0 +1,5 @@
+name: project
+description: Open the project menu, or switch directly with /project <name>.
+argument_hint: "[name]"
+type: script
+script_path: connector_commands.py

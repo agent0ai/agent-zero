@@ -29,8 +29,8 @@ def build_exec_config(*, agent: object | None = None) -> dict[str, Any]:
     cfg = plugins.get_plugin_config("_code_execution", agent=agent) or {}
     return {
         "version": 1,
-        "code_exec_timeouts": _parse_timeouts(cfg, "code_exec", (30, 15, 180, 5)),
-        "output_timeouts": _parse_timeouts(cfg, "output", (90, 45, 300, 5)),
+        "code_exec_timeouts": _parse_timeouts(cfg, "code_exec", (30, 15, 240, 5)),
+        "output_timeouts": _parse_timeouts(cfg, "output", (120, 60, 600, 5)),
         "prompt_patterns": _parse_patterns(cfg.get("prompt_patterns", "")),
         "dialog_patterns": _parse_patterns(cfg.get("dialog_patterns", "")),
     }

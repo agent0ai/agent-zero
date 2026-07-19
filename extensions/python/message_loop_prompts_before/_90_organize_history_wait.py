@@ -1,6 +1,9 @@
 from helpers.extension import Extension
 from agent import LoopData
-from extensions.python.message_loop_end._10_organize_history import DATA_NAME_TASK
+from extensions.python.message_loop_end._10_organize_history import (
+    DATA_NAME_TASK,
+    compress_history,
+)
 from helpers.defer import DeferredTask, THREAD_BACKGROUND
 
 MAX_SYNC_COMPRESSION_PASSES = 64
@@ -33,7 +36,7 @@ class OrganizeHistoryWait(Extension):
             else:
                 # no task was running, start and wait
                 self.agent.context.log.set_progress("Compressing history...")
-                compressed = await self.agent.history.compress()
+                compressed = await compress_history(self.agent)
 
             after_tokens = self.agent.history.get_tokens()
             if not compressed or after_tokens >= before_tokens:

@@ -1,8 +1,9 @@
 from copy import deepcopy
 
 from helpers.api import ApiHandler, Request, Response
-from helpers import plugins, defer, dotenv
+from helpers import defer, dotenv
 from helpers.extension import call_extensions_async
+from plugins._model_config.helpers import model_config
 
 API_KEY_PLACEHOLDER = "************"
 
@@ -32,18 +33,39 @@ class ModelConfigSet(ApiHandler):
                 dotenv.save_dotenv_value(f"API_KEY_{provider.upper()}", api_key)
             section.pop("api_key", None)
 
-        # Read previous config BEFORE saving so we can detect changes
-        prev_config = plugins.get_plugin_config(
-            "_model_config",
-            project_name=project_name or None,
-            agent_profile=agent_profile or None,
-        ) or {}
+        preset_name = str(
+            input.get("preset_name")
+            or config_to_save.get(model_config.MODEL_PRESET_CONFIG_KEY)
+            or model_config.get_configured_preset_name(
+                project_name=project_name or None,
+                agent_profile=agent_profile or None,
+            )
+        ).strip()
+        preset = model_config.resolve_preset(preset_name)
+        if not preset:
+            return Response(status=404, response=f"Preset '{preset_name}' not found")
+        preset_name = str(preset.get("name") or model_config.DEFAULT_PRESET_NAME)
+
+        # Read the preset before saving so embedding changes can still trigger
+        # the established re-index notification.
+        prev_config = model_config.resolve_config_settings(
+            {model_config.MODEL_PRESET_CONFIG_KEY: preset_name}
+        )
+
+        try:
+            model_config.update_preset_from_config(preset_name, config_to_save)
+        except ValueError as exc:
+            return Response(status=400, response=str(exc))
+
+        # Keep the requested scope pointed at the preset being edited. This is
+        # selection-only persistence; model dictionaries live in presets.yaml.
+        from helpers import plugins
 
         plugins.save_plugin_config(
             "_model_config",
-            project_name=project_name,
-            agent_profile=agent_profile,
-            settings=config_to_save,
+            project_name=project_name or None,
+            agent_profile=agent_profile or None,
+            settings={model_config.MODEL_PRESET_CONFIG_KEY: preset_name},
         )
 
         # Check if embedding model changed and notify
@@ -58,4 +80,4 @@ class ModelConfigSet(ApiHandler):
                 call_extensions_async, "embedding_model_changed"
             )
 
-        return {"ok": True}
+        return {"ok": True, "preset_name": preset_name}

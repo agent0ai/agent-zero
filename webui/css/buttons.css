@@ -21,6 +21,56 @@
   box-sizing: border-box;
 }
 
+.text-button {
+  appearance: none;
+  background-color: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  font-family: "Rubik", Arial, Helvetica, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  opacity: 0.82;
+  padding: 6px var(--spacing-sm);
+  transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+}
+
+.text-button:hover:not(:disabled) {
+  opacity: 1;
+  background-color: var(--color-background-hover);
+}
+
+.text-button:active:not(:disabled) {
+  opacity: 0.5;
+}
+
+.text-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.text-button .material-symbols-outlined,
+.text-button .material-icons-outlined {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.text-button svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.text-button p {
+  margin-block: 0;
+}
+
 .button.confirm {
   background: var(--color-highlight);
   color: #fff;

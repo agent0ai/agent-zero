@@ -1,0 +1,4 @@
+name: models
+description: Open Main/Utility model runtime editor.
+type: script
+script_path: connector_commands.py

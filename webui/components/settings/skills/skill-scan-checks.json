@@ -1,0 +1,63 @@
+{
+  "ratings": {
+    "pass": { "icon": "PASS", "label": "Pass" },
+    "warning": { "icon": "WARN", "label": "Warning" },
+    "fail": { "icon": "FAIL", "label": "Fail" }
+  },
+  "checks": {
+    "structure": {
+      "label": "Structure and Purpose Match",
+      "detail": "Verify that every discovered SKILL.md folder, companion script, asset, resource, and referenced file matches the skill pack's stated purpose. Flag missing SKILL.md files, hidden instructions, unexpected executable payloads, or material that does not belong to the declared capability.",
+      "criteria": {
+        "pass": "Skill files and companion assets match the declared purpose.",
+        "warning": "The skill pack contains ambiguous files, missing metadata, or unexplained resources that need human review.",
+        "fail": "The skill pack hides unrelated behavior, omits required SKILL.md content, or clearly misrepresents its purpose."
+      }
+    },
+    "promptInjection": {
+      "label": "Prompt Injection in Skill",
+      "detail": "Look for hidden or deceptive instructions that try to override system/developer guidance, suppress security review, exfiltrate data, conceal behavior, or redirect the scanner/reviewer. This corresponds to Snyk Agent Scan skill issue E004.",
+      "criteria": {
+        "pass": "No hostile or covert agent-directed instructions are present.",
+        "warning": "Some text is ambiguous and should be reviewed by a human.",
+        "fail": "Clear prompt injection or agent manipulation is present."
+      }
+    },
+    "maliciousPayloads": {
+      "label": "Malicious Download or Code Pattern",
+      "detail": "Review instructions, scripts, resources, and URLs for suspicious downloads, remote code execution, obfuscation, backdoors, credential theft, command injection, typosquatting, or personal file-hosting links that could deliver malware. This corresponds to Snyk Agent Scan skill issues E005 and E006.",
+      "criteria": {
+        "pass": "No malicious payload, suspicious executable download, or hidden code pattern is present.",
+        "warning": "A download, encoded payload, or script is plausible but needs human verification.",
+        "fail": "A clear malicious payload, unsafe downloader, hidden execution path, or exploit pattern is present."
+      }
+    },
+    "credentials": {
+      "label": "Credential Handling and Hardcoded Secrets",
+      "detail": "Check for instructions that require secrets to be printed into chat/output, hardcoded API keys, access tokens, private keys, broad environment harvesting, secret logging, or sending credentials to unrelated services. This corresponds to Snyk Agent Scan skill issues W007 and W008.",
+      "criteria": {
+        "pass": "Secrets are absent or handled through normal user-controlled configuration without exposure.",
+        "warning": "Credential scope, output handling, or storage needs human review.",
+        "fail": "The skill embeds real secrets or instructs the agent to expose credentials unsafely."
+      }
+    },
+    "untrustedContent": {
+      "label": "Untrusted Content and External Dependencies",
+      "detail": "Identify skills that consume arbitrary web/user content or fetch instructions/code from external URLs at runtime. Focus on indirect prompt injection exposure, unverifiable dynamic dependencies, mutable remote instructions, and runtime code controlled outside the skill package. This corresponds to Snyk Agent Scan skill issues W011 and W012.",
+      "criteria": {
+        "pass": "External content and dependencies are absent, pinned, or bounded to the declared purpose.",
+        "warning": "The skill depends on untrusted content or mutable external resources but may be legitimate.",
+        "fail": "The skill gives untrusted or remote-controlled content direct authority over prompts, code, or decisions."
+      }
+    },
+    "dangerousActions": {
+      "label": "Financial, System, or Destructive Actions",
+      "detail": "Check for direct financial execution, system service modification, privilege escalation, persistence, destructive file operations, or irreversible actions. This corresponds to Snyk Agent Scan skill issues W009 and W013, plus local destructive behavior that materially expands user risk.",
+      "criteria": {
+        "pass": "No high-impact financial, system, persistence, or destructive capability is present.",
+        "warning": "The skill requests powerful actions that may be legitimate but require human approval.",
+        "fail": "The skill directs unauthorized financial execution, system compromise, persistence, or destructive actions."
+      }
+    }
+  }
+}

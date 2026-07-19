@@ -180,24 +180,17 @@
                                     <div class="plugin-footer-row">
                                         <div class="plugin-description" x-text="plugin.description || 'No description provided.'"></div>
                                         <div class="plugin-status-group">
-                                            <template x-if="plugin.toggle_state === 'advanced'">
-                                                <button type="button"
-                                                        class="button icon-button"
-                                                        title="Open Advanced"
-                                                        @click="$store.pluginListStore.openPluginAdvancedToggle(plugin)">
-                                                    <span class="icon material-symbols-outlined">rule_settings</span>
-                                                </button>
-                                            </template>
-                                            <select class="plugin-status-select"
-                                                @change="$store.pluginListStore.updateToggle(plugin, $event.target.value)"
-                                                @click.stop
-                                                :disabled="plugin.always_enabled">
-                                                <option value="enabled" :selected="plugin.toggle_state === 'enabled'">ON</option>
-                                                <option value="disabled" :selected="plugin.toggle_state === 'disabled'">OFF</option>
-                                                <template x-if="plugin.per_project_config || plugin.per_agent_config">
-                                                    <option value="advanced" :selected="plugin.toggle_state === 'advanced'">Advanced</option>
-                                                </template>
-                                            </select>
+                                            <label class="toggle plugin-status-toggle"
+                                                   :class="{ 'disabled-appearance': plugin.always_enabled || $store.pluginListStore.loading }"
+                                                   :title="plugin.always_enabled ? 'Always enabled' : ($store.pluginListStore.isPluginEnabled(plugin) ? 'Disable plugin' : 'Enable plugin')">
+                                                <input type="checkbox"
+                                                       :checked="$store.pluginListStore.isPluginEnabled(plugin)"
+                                                       :disabled="plugin.always_enabled || $store.pluginListStore.loading"
+                                                       @change="$store.pluginListStore.updateToggle(plugin, $event.target.checked)"
+                                                       @click.stop>
+                                                <span class="toggler"></span>
+                                            </label>
+                                            <span class="plugin-status-text" x-text="$store.pluginListStore.toggleStatusLabel(plugin)"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -389,35 +382,40 @@
             flex: 0 0 auto;
         }
 
-        .plugin-status-group .button {
-            padding: 0.3rem 0.5rem;
-            height: 2.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .plugin-status-toggle {
+            width: 48px;
+            height: 28px;
+            flex: 0 0 48px;
         }
 
-        .plugin-status-group .button .icon {
-            font-size: 1.1rem;
+        .plugin-status-toggle .toggler {
+            border-radius: 999px;
         }
 
-        .plugin-status-select {
-            padding: 0.3rem 2rem 0.3rem 0.6rem;
-            font-size: 0.9rem;
-            border: 1px solid var(--color-border);
-            border-radius: 4px;
-            background: var(--color-background);
-            color: var(--color-text-primary);
-            cursor: pointer;
-            height: 2.2rem;
-            width: 8rem;
-            flex: 0 0 8rem;
+        .plugin-status-toggle .toggler:before {
+            width: 20px;
+            height: 20px;
+            left: 4px;
+            bottom: 4px;
         }
-        
-        .plugin-status-select:disabled {
-            opacity: 0.7;
+
+        .plugin-status-toggle input:checked + .toggler:before {
+            transform: translateX(20px);
+        }
+
+        .plugin-status-toggle input:disabled + .toggler {
             cursor: default;
-            background: var(--color-bg-secondary);
+        }
+
+        .plugin-status-toggle.disabled-appearance {
+            opacity: 0.6;
+        }
+
+        .plugin-status-text {
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            min-width: 2rem;
         }
 
         .plugin-description {

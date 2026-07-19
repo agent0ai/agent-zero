@@ -45,6 +45,23 @@ class _MaxPassHistory:
         return True
 
 
+class _CompressOnceHistory:
+    def __init__(self):
+        self.compress_calls = 0
+        self.tokens = 2000
+
+    def is_over_limit(self):
+        return self.compress_calls == 0
+
+    def get_tokens(self):
+        return self.tokens
+
+    async def compress(self):
+        self.compress_calls += 1
+        self.tokens -= 1000
+        return True
+
+
 class _FakeLog:
     def __init__(self):
         self.entries = []
@@ -94,3 +111,20 @@ async def test_history_wait_stops_after_max_sync_compression_passes():
         f"stopped after {MAX_SYNC_COMPRESSION_PASSES} passes"
         in agent.context.log.entries[-1]["content"]
     )
+
+
+@pytest.mark.asyncio
+async def test_history_compression_clears_active_responses_state():
+    agent = _FakeAgent(_CompressOnceHistory())
+    agent.data["responses_state"] = {
+        "response_id": "resp_current",
+        "previous_response_id": "resp_previous",
+        "response_ids": ["resp_previous", "resp_current"],
+    }
+
+    await OrganizeHistoryWait(agent).execute()
+
+    state = agent.data["responses_state"]
+    assert "response_id" not in state
+    assert "previous_response_id" not in state
+    assert state["response_ids"] == ["resp_previous", "resp_current"]

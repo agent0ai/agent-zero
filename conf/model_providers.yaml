@@ -14,7 +14,7 @@
 #
 # Optional fields:
 #   kwargs:           A dictionary of extra parameters to pass to LiteLLM.
-#                     This is useful for `api_base`, `extra_headers`, etc.
+#                     This is useful for `api_base`, `extra_headers`, non-secret local placeholders, etc.
 #
 # Optional model listing fields (used by the Model Configuration plugin):
 #   models_list:
@@ -83,20 +83,36 @@ chat:
     models_list:
       endpoint_url: "/v1/models"
       default_base: "http://host.docker.internal:1234"
+    kwargs:
+      a0_api_mode: chat
+      api_base: "http://host.docker.internal:1234/v1"
+      api_key: "lm-studio"
+  llama_cpp:
+    name: llama.cpp
+    litellm_provider: hosted_vllm
+    models_list:
+      endpoint_url: "/v1/models"
+      default_base: "http://host.docker.internal:8080"
+    kwargs:
+      a0_api_mode: chat
+      api_base: "http://host.docker.internal:8080/v1"
+      api_key: "llama-cpp"
   minimax:
     name: MiniMax
     litellm_provider: openai
-    kwargs:
-      api_base: https://api.minimax.io/v1
     models_list:
       endpoint_url: "https://api.minimax.io/v1/models"
+    kwargs:
+      a0_api_mode: responses
+      api_base: https://api.minimax.io/v1
   minimax-cn:
     name: MiniMax China
     litellm_provider: openai
-    kwargs:
-      api_base: https://api.minimaxi.com/v1
     models_list:
       endpoint_url: "https://api.minimaxi.com/v1/models"
+    kwargs:
+      a0_api_mode: responses
+      api_base: https://api.minimaxi.com/v1
   mistral:
     name: Mistral AI
     litellm_provider: mistral
@@ -114,6 +130,11 @@ chat:
       endpoint_url: "/models"
     kwargs:
       api_base: https://api.tokenfactory.nebius.com/v1
+  nvidia_nim:
+    name: NVIDIA NIM
+    litellm_provider: nvidia_nim
+    models_list:
+      endpoint_url: "https://integrate.api.nvidia.com/v1/models"
   ollama:
     name: Ollama
     litellm_provider: ollama
@@ -121,12 +142,26 @@ chat:
       endpoint_url: "/api/tags"
       format: "ollama"
       default_base: "http://host.docker.internal:11434"
+    kwargs:
+      a0_api_mode: chat
+      api_base: "http://host.docker.internal:11434"
+  omlx:
+    name: oMLX
+    litellm_provider: hosted_vllm
+    models_list:
+      endpoint_url: "/v1/models"
+      default_base: "http://host.docker.internal:8000"
+    kwargs:
+      a0_api_mode: chat
+      api_base: "http://host.docker.internal:8000/v1"
+      api_key: "omlx"
   ollama_cloud:
     name: Ollama Cloud
     litellm_provider: openai
     models_list:
       endpoint_url: "/models"
     kwargs:
+      a0_api_mode: chat
       api_base: https://ollama.com/v1
   openai:
     name: OpenAI
@@ -164,9 +199,20 @@ chat:
     models_list:
       endpoint_url: "https://api.venice.ai/api/v1/models"
     kwargs:
+      a0_api_mode: chat
       api_base: https://api.venice.ai/api/v1
       venice_parameters:
         include_venice_system_prompt: false
+  vllm:
+    name: vLLM
+    litellm_provider: hosted_vllm
+    models_list:
+      endpoint_url: "/v1/models"
+      default_base: "http://host.docker.internal:8000"
+    kwargs:
+      a0_api_mode: chat
+      api_base: "http://host.docker.internal:8000/v1"
+      api_key: "vllm"
   xai:
     name: xAI
     litellm_provider: xai
@@ -189,6 +235,8 @@ chat:
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
+    kwargs:
+      a0_api_mode: chat
 
 embedding:
   huggingface:
@@ -200,12 +248,34 @@ embedding:
   lm_studio:
     name: LM Studio
     litellm_provider: lm_studio
+    kwargs:
+      api_base: "http://host.docker.internal:1234/v1"
+      api_key: "lm-studio"
+  llama_cpp:
+    name: llama.cpp
+    litellm_provider: hosted_vllm
+    kwargs:
+      api_base: "http://host.docker.internal:8080/v1"
+      api_key: "llama-cpp"
   mistral:
     name: Mistral AI
     litellm_provider: mistral
+  nvidia_nim:
+    name: NVIDIA NIM
+    litellm_provider: nvidia_nim
+    models_list:
+      endpoint_url: "https://integrate.api.nvidia.com/v1/models"
   ollama:
     name: Ollama
     litellm_provider: ollama
+    kwargs:
+      api_base: "http://host.docker.internal:11434"
+  omlx:
+    name: oMLX
+    litellm_provider: hosted_vllm
+    kwargs:
+      api_base: "http://host.docker.internal:8000/v1"
+      api_key: "omlx"
   openai:
     name: OpenAI
     litellm_provider: openai
@@ -239,6 +309,12 @@ embedding:
       endpoint_url: "https://api.venice.ai/api/v1/models"
     kwargs:
       api_base: https://api.venice.ai/api/v1
+  vllm:
+    name: vLLM
+    litellm_provider: hosted_vllm
+    kwargs:
+      api_base: "http://host.docker.internal:8000/v1"
+      api_key: "vllm"
   other:
     name: Other OpenAI compatible
     litellm_provider: openai

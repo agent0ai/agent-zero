@@ -1,0 +1,139 @@
+<html>
+<body>
+  <div class="model-preset-widget">
+    <label class="model-preset-picker">
+      <span>
+        <span class="field-title">Model preset</span>
+        <span class="field-description" x-text="presetDescription || 'Choose the models Agent Zero should use.'"></span>
+      </span>
+      <select :value="selectedPresetName"
+              @change="selectPreset($el.value)"
+              :disabled="loading">
+        <template x-for="preset in presets" :key="preset.name">
+          <option :value="preset.name" x-text="preset.name"></option>
+        </template>
+      </select>
+    </label>
+
+    <div class="model-preset-rows" aria-live="polite">
+      <template x-for="model in modelRows" :key="model.title">
+        <div class="model-preset-row">
+          <span class="material-symbols-outlined model-preset-icon" x-text="model.icon"></span>
+          <span class="model-preset-role" x-text="model.title"></span>
+          <span class="model-preset-identity">
+            <span class="model-preset-provider" x-text="model.provider"></span>
+            <span class="model-preset-separator">/</span>
+            <span x-text="model.name"></span>
+          </span>
+        </div>
+      </template>
+    </div>
+
+    <div class="model-preset-actions">
+      <button type="button" class="button" @click="editPresets()">
+        <span class="icon material-symbols-outlined">tune</span>
+        Edit Presets
+      </button>
+      <button type="button" class="button" @click="apiKeys()">
+        <span class="icon material-symbols-outlined">key</span>
+        API Keys
+      </button>
+      <button type="button" class="button" x-show="showScopedSettings" @click="scopedSettings()">
+        <span class="icon material-symbols-outlined">account_tree</span>
+        Per-project / agent
+      </button>
+    </div>
+  </div>
+
+  <style>
+    .model-preset-widget {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .model-preset-picker {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(13rem, 18rem);
+      align-items: center;
+      gap: 1rem;
+      margin: 0;
+    }
+
+    .model-preset-picker select {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .model-preset-rows {
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-input);
+    }
+
+    .model-preset-row {
+      display: grid;
+      grid-template-columns: 1.25rem 5.5rem minmax(0, 1fr);
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
+      padding: 0.65rem 0.8rem;
+      font-size: 0.82rem;
+    }
+
+    .model-preset-row + .model-preset-row {
+      border-top: 1px solid var(--color-border);
+    }
+
+    .model-preset-icon,
+    .model-preset-provider,
+    .model-preset-separator {
+      opacity: 0.5;
+    }
+
+    .model-preset-icon {
+      font-size: 1rem;
+    }
+
+    .model-preset-role {
+      font-weight: 600;
+      opacity: 0.75;
+    }
+
+    .model-preset-identity {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .model-preset-separator {
+      margin: 0 0.25rem;
+    }
+
+    .model-preset-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .model-preset-picker {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+
+      .model-preset-row {
+        grid-template-columns: 1.25rem 4.5rem minmax(0, 1fr);
+        padding: 0.6rem;
+      }
+
+      .model-preset-actions .button {
+        flex: 1 1 auto;
+        justify-content: center;
+      }
+    }
+  </style>
+</body>
+</html>

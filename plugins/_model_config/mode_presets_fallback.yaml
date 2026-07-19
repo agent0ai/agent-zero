@@ -1,0 +1,54 @@
+- name: Default
+  chat:
+    provider: openrouter
+    name: openai/gpt-5.6-terra
+    api_base: ""
+    ctx_length: 200000
+    ctx_history: 0.7
+    vision: true
+    max_embeds: 10
+    rl_requests: 0
+    rl_input: 0
+    rl_output: 0
+    kwargs: {}
+  utility:
+    provider: openrouter
+    name: google/gemini-3.1-flash-lite
+    api_base: ""
+    ctx_length: 128000
+    ctx_input: 0.7
+    rl_requests: 0
+    rl_input: 0
+    rl_output: 0
+    kwargs: {}
+  embedding:
+    provider: huggingface
+    name: sentence-transformers/all-MiniLM-L6-v2
+    api_base: ""
+    rl_requests: 0
+    rl_input: 0
+    kwargs: {}
+
+- name: Efficiency
+  chat:
+    provider: openrouter
+    name: z-ai/glm-5.2
+    api_base: ""
+    ctx_length: 128000
+    ctx_history: 0.7
+    vision: false
+  utility:
+    provider: openrouter
+    name: deepseek/deepseek-v4-flash
+
+- name: Power
+  chat:
+    provider: openrouter
+    name: openai/gpt-5.6-sol
+    api_base: ""
+    ctx_length: 200000
+    ctx_history: 0.7
+    vision: true
+  utility:
+    provider: openrouter
+    name: openai/gpt-5.6-luna

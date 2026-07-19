@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { getCurrentUserISOString } from "/js/time-utils.js";
 
 const websocket = getNamespacedClient("/ws");
 websocket.addHandlers(["ws_dev_test"]);
@@ -112,7 +113,7 @@ const model = {
 
     try {
       await websocket.request(SUBSCRIBE_EVENT, {
-        requestedAt: new Date().toISOString(),
+        requestedAt: getCurrentUserISOString(),
       });
       this.subscriptionActive = true;
       this.lastError = null;
@@ -205,7 +206,7 @@ const model = {
       eventId: envelope?.eventId || null,
       sid: payload.sid || null,
       correlationId: payload.correlationId || envelope?.correlationId || null,
-      timestamp: payload.timestamp || envelope?.ts || new Date().toISOString(),
+      timestamp: payload.timestamp || envelope?.ts || getCurrentUserISOString(),
       handlerId: payload.handlerId || envelope?.handlerId || "WsManager",
       resultSummary: payload.resultSummary || {},
       payloadSummary: payload.payloadSummary || {},

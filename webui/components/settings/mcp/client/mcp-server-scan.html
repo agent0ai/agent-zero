@@ -1,0 +1,301 @@
+<html>
+
+<head>
+    <title>MCP Scanner</title>
+
+    <script type="module">
+        import { store } from "/components/settings/mcp/client/mcp-servers-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.mcpServersStore">
+            <div class="mcp-scan-modal" x-create="$store.mcpServersStore.onScanModalOpen()" x-destroy="$store.mcpServersStore.scanCleanup()">
+                <div class="scan-field">
+                    <label>Draft MCP server</label>
+                    <textarea class="scan-target" x-model="$store.mcpServersStore.scanTargetJson" readonly></textarea>
+                </div>
+
+                <div class="scan-field">
+                    <label>Security Checks</label>
+                    <div class="scan-checks">
+                        <template x-for="[key, meta] of Object.entries($store.mcpServersStore.scanChecksMeta)" :key="key">
+                            <label>
+                                <input type="checkbox" x-model="$store.mcpServersStore.scanChecks[key]" @change="$store.mcpServersStore.buildScanPrompt()" />
+                                <span x-text="meta.label"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="scan-field">
+                    <label>Inspection Options</label>
+                    <div class="scan-checks">
+                        <label>
+                            <input type="checkbox" x-model="$store.mcpServersStore.scanOptions.inspectRuntime" @change="$store.mcpServersStore.buildScanPrompt()" />
+                            <span>Inspect runtime tools</span>
+                        </label>
+                        <label x-show="$store.mcpServersStore.scanServer?.url || $store.mcpServersStore.scanServer?.serverUrl">
+                            <input type="checkbox" x-model="$store.mcpServersStore.scanOptions.allowRemoteNetwork" @change="$store.mcpServersStore.buildScanPrompt()" />
+                            <span>Allow remote network inspection</span>
+                        </label>
+                        <label x-show="$store.mcpServersStore.scanServer?.command">
+                            <input type="checkbox" x-model="$store.mcpServersStore.scanOptions.allowLocalExecution" @change="$store.mcpServersStore.buildScanPrompt()" />
+                            <span>Allow local command execution</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="scan-field">
+                    <label>Agent Prompt <span>(editable)</span></label>
+                    <textarea class="scan-prompt" x-model="$store.mcpServersStore.scanPrompt"></textarea>
+                </div>
+
+                <div class="scan-actions">
+                    <button type="button" class="button" @click="$store.mcpServersStore.copyScanPrompt()">Copy Prompt</button>
+                    <button type="button" class="button" :disabled="$store.mcpServersStore.scanLoading" @click="$store.mcpServersStore.runConfigInspection()">
+                        <span x-show="$store.mcpServersStore.scanLoading"><span class="scan-spinner"></span>Inspecting</span>
+                        <span x-show="!$store.mcpServersStore.scanLoading">Run Config Inspection</span>
+                    </button>
+                    <button type="button" class="button confirm" :disabled="$store.mcpServersStore.agentScanning" @click="$store.mcpServersStore.runAgentScan()">
+                        <span x-show="$store.mcpServersStore.agentScanning"><span class="scan-spinner"></span>Scanning</span>
+                        <span x-show="!$store.mcpServersStore.agentScanning">Run Scan</span>
+                    </button>
+                    <button type="button" class="button" x-show="$store.mcpServersStore.scanCtxId" @click="$store.mcpServersStore.openScanChatInNewWindow()">
+                        Open in Chat
+                    </button>
+                </div>
+
+                <div class="mcp-scan-result" x-show="$store.mcpServersStore.scanResult">
+                    <div class="mcp-scan-heading">
+                        <span class="material-symbols-outlined" aria-hidden="true"
+                            x-text="$store.mcpServersStore.scanResult?.risk_level === 'ok' ? 'verified' : ($store.mcpServersStore.scanResult?.risk_level === 'error' ? 'error' : 'warning')"></span>
+                        <span x-text="$store.mcpServersStore.scanRiskLabel"></span>
+                    </div>
+                    <div class="mcp-scan-warnings">
+                        <template x-for="warning in $store.mcpServersStore.scanWarnings" :key="warning.title + warning.message">
+                            <div class="mcp-scan-warning" :class="warning.level">
+                                <strong x-text="warning.title"></strong>
+                                <span x-text="warning.message"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div x-show="$store.mcpServersStore.scanOutput" class="scan-output">
+                    <label>Scan Results</label>
+                    <div class="scan-output-html" x-html="$store.mcpServersStore.renderedScanOutput"></div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .mcp-scan-modal {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 0.5rem;
+            color: var(--color-text);
+            font-family: var(--font-family-main);
+        }
+
+        .scan-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .scan-field label,
+        .scan-output label {
+            color: var(--color-text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .scan-field > label span {
+            font-weight: 400;
+            opacity: 0.7;
+        }
+
+        .scan-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            padding: 0.5rem 0.75rem;
+            font-family: var(--font-family-code);
+            font-size: 0.82rem;
+            line-height: 1.45;
+            resize: vertical;
+        }
+
+        .scan-field textarea:focus {
+            border-color: var(--color-highlight);
+            outline: none;
+        }
+
+        .scan-target {
+            min-height: 7rem;
+        }
+
+        .scan-prompt {
+            min-height: 18rem;
+        }
+
+        .scan-checks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1.25rem;
+        }
+
+        .scan-checks label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--color-text);
+            cursor: pointer;
+            font-size: 0.85rem;
+            user-select: none;
+        }
+
+        .scan-checks input[type="checkbox"] {
+            accent-color: var(--color-highlight);
+        }
+
+        .scan-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .mcp-scan-modal .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            min-height: 2rem;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            cursor: pointer;
+        }
+
+        .mcp-scan-modal .button.confirm {
+            border-color: color-mix(in srgb, var(--color-highlight) 65%, var(--color-border));
+            background: var(--color-highlight);
+            color: #fff;
+        }
+
+        .mcp-scan-modal .button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .mcp-scan-result {
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+            padding: 0.75rem;
+        }
+
+        .mcp-scan-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 700;
+        }
+
+        .mcp-scan-warnings {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-top: 0.65rem;
+        }
+
+        .mcp-scan-warning {
+            display: flex;
+            flex-direction: column;
+            gap: 0.12rem;
+            padding: 0.55rem 0.65rem;
+            border-left: 3px solid var(--color-border);
+            border-radius: 5px;
+            background: var(--color-input);
+            font-size: 0.82rem;
+        }
+
+        .mcp-scan-warning.warning {
+            border-left-color: var(--color-warning-text);
+        }
+
+        .mcp-scan-warning.error {
+            border-left-color: var(--color-error-text);
+        }
+
+        .scan-output {
+            border-top: 1px solid var(--color-border);
+            padding-top: 1rem;
+        }
+
+        .scan-output-html {
+            line-height: 1.5;
+        }
+
+        .scan-output-html table {
+            width: 100%;
+            margin: 0.75rem 0;
+            border-collapse: collapse;
+        }
+
+        .scan-output-html th,
+        .scan-output-html td {
+            border: 1px solid var(--color-border);
+            padding: 0.4rem 0.6rem;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .scan-output-html th {
+            background: var(--color-panel);
+            font-weight: 600;
+        }
+
+        .scan-output-html pre {
+            overflow-x: auto;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-panel);
+            padding: 0.75rem;
+        }
+
+        .scan-output-html code {
+            font-size: 0.8rem;
+        }
+
+        .scan-spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            margin-right: 0.4em;
+            border: 2px solid var(--color-border);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            vertical-align: middle;
+            animation: scan-spin 0.6s linear infinite;
+        }
+
+        @keyframes scan-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+</body>
+
+</html>

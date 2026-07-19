@@ -1,0 +1,9 @@
+name: _whisper_stt
+title: Whisper STT
+description: Built-in Whisper speech-to-text plugin.
+version: 1.0.0
+always_enabled: false
+settings_sections:
+  - agent
+per_project_config: false
+per_agent_config: false

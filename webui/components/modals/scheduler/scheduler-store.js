@@ -1,6 +1,12 @@
 import { createStore } from "/js/AlpineStore.js";
 import { fetchApi } from "/js/api.js";
-import { formatDateTime, getUserTimezone } from "/js/time-utils.js";
+import {
+  formatDateTime,
+  getUserDateTimeParts,
+  getUserTimezone,
+  toUserISOString,
+  toUserWallClockISOString,
+} from "/js/time-utils.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as notificationsStore } from "/components/notifications/notification-store.js";
@@ -175,18 +181,18 @@ function normalizePlanStruct(plan) {
   const sanitized = clone.todo
     .map((value) => new Date(value))
     .filter((date) => !Number.isNaN(date.getTime()))
-    .map((date) => date.toISOString())
+    .map((date) => toUserISOString(date))
     .sort();
   clone.todo = sanitized;
   clone.done = clone.done
     .map((value) => new Date(value))
     .filter((date) => !Number.isNaN(date.getTime()))
-    .map((date) => date.toISOString());
+    .map((date) => toUserISOString(date));
   if (clone.in_progress) {
     const inProgress = new Date(clone.in_progress);
     clone.in_progress = Number.isNaN(inProgress.getTime())
       ? null
-      : inProgress.toISOString();
+      : toUserISOString(inProgress);
   }
   return clone;
 }
@@ -382,6 +388,8 @@ function setupPlannerInput(inputId) {
   wrapper.appendChild(input);
   input.classList.add("scheduler-flatpickr-input");
 
+  const nowParts = getUserDateTimeParts();
+  const roundedMinute = Math.ceil(nowParts.minute / 5) * 5;
   const options = {
     dateFormat: "Y-m-d H:i",
     enableTime: true,
@@ -392,8 +400,8 @@ function setupPlannerInput(inputId) {
     positionElement: wrapper,
     theme: "scheduler-theme",
     minuteIncrement: 5,
-    defaultHour: new Date().getHours(),
-    defaultMinute: Math.ceil(new Date().getMinutes() / 5) * 5,
+    defaultHour: roundedMinute >= 60 ? (nowParts.hour + 1) % 24 : nowParts.hour,
+    defaultMinute: roundedMinute % 60,
     onOpen(selectedDates, dateStr, instance) {
       instance.calendarContainer.style.zIndex = "9999";
       instance.calendarContainer.style.position = "absolute";
@@ -1073,7 +1081,7 @@ const schedulerStoreModel = {
       return;
     }
 
-    this.editingTask.plan.todo.push(selectedDate.toISOString());
+    this.editingTask.plan.todo.push(toUserWallClockISOString(selectedDate));
     this.editingTask.plan.todo.sort();
 
     if (input._flatpickr) {

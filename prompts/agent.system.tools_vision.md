@@ -2,7 +2,7 @@
 
 ### vision_load
 load images into the model for visual reasoning
-args: `paths` list of absolute image paths
+args: `paths` list of absolute image paths or tool-returned ephemeral image refs
 rules:
 - load all relevant images in one call when comparing screenshots or pages
 - use when the task depends on screenshots, diagrams, scanned documents, charts, or photos

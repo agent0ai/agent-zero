@@ -1,5 +1,0 @@
-litellm==1.79.3
-openai==1.99.5
-# `unstructured` pulls `chardet` without an upper bound, but `requests`
-# warns on import when chardet>=6 is present in the same environment.
-chardet<6

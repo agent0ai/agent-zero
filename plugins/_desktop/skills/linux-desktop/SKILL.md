@@ -1,40 +1,50 @@
 ---
 name: linux-desktop
-description: Use when the user asks Agent Zero to operate the built-in Linux Desktop, XFCE apps, LibreOffice GUI apps, file manager, terminal, or visual desktop workflows.
+description: Use only for Agent Zero's built-in Docker/Xpra Linux Desktop, XFCE apps, LibreOffice GUI apps, file manager, terminal, or visual workflows inside the Agent Zero runtime. Not for A0 CLI /computer-use or computer_use_remote host control.
 version: "0.3.0"
 author: "Agent Zero Core Team"
 tags: ["linux", "desktop", "xfce", "libreoffice", "gui", "files", "terminal"]
 triggers:
-  - "Linux desktop"
-  - "Desktop GUI"
-  - "XFCE"
-  - "LibreOffice GUI"
-  - "file manager"
-  - "terminal app"
-  - "use the OS"
+  - "Agent Zero Desktop"
+  - "built-in Linux Desktop"
+  - "Xpra Desktop"
+  - "XFCE Desktop"
+  - "LibreOffice GUI in Desktop"
+  - "Desktop file manager"
+  - "Docker desktop terminal"
 allowed_tools:
-  - document_artifact
+  - office_artifact
   - code_execution_tool
 ---
 
 # Linux Desktop Interface
 
+## Boundary With Host Computer Use
+
+This skill is only for the built-in Desktop surface running inside Agent Zero's Docker/runtime Xpra session. It does not control the user's host OS, real monitor, local Ubuntu/Wayland session, macOS desktop, or Windows desktop.
+
+If the user asks for `/computer-use`, "my computer", "host machine", "local desktop", screenshots of the user's screen, hiding/minimizing a window on their screen, or any connected A0 CLI Computer Use task, do not use this skill, `desktopctl.sh`, Xpra, `code_execution_tool`, or Docker shell commands. Load `host-computer-use` and use `computer_use_remote`; if unavailable, tell the user to enable `/computer-use on`.
+
+`desktopctl.sh` only targets the internal Agent Zero Xpra display. It cannot observe or control the user's connected host screen.
+
 Use the Desktop as a full Linux GUI when the user explicitly needs a visual workflow, an installed desktop app, or manual layout polish that is awkward through structured file edits alone. Agent Zero may warm the persistent Desktop runtime during initial startup, but visible Desktop surface use remains opt-in. The Desktop is opt-in at the UI level: do not open a surface just because the user asks for a document. Use structured tools first for deterministic content changes, then use the Desktop for inspection, GUI-only actions, and final visual confirmation.
 
 ## Operating Model
 
-The Desktop is an observe-act-verify control surface. Use this decision hierarchy:
+The Desktop is a structured-first X11 control surface. Use this decision hierarchy:
 
-1. Prefer structured tools such as `document_artifact` for deterministic file creation, reads, and edits.
-2. Prefer app-native helpers for visible live edits, such as `desktopctl.sh calc-set-cell` for Calc/UNO spreadsheet changes.
-3. Prefer launcher commands, window focus, keyboard shortcuts, menus, paste, and save commands.
-4. Use coordinate clicks only as a last resort, and only after a fresh Desktop observation.
-5. After any GUI action, verify through Desktop state, active window titles, screenshots, saved file state, or exported output.
-6. For terminal or CLI-agent work, verify against a fresh final `observe --json --screenshot` captured after the command has finished or visibly returned to an input prompt. Do not report from an earlier screenshot path.
+1. Prefer structured tools such as `office_artifact` for deterministic Office file creation, reads, and edits.
+2. Prefer structured Desktop state and window commands: `check`, `state --json`, `windows`, `active-window`, `geometry`, and `wait-window`.
+3. Prefer app-native helpers for visible live edits, such as `desktopctl.sh calc-set-cell` for Calc/UNO spreadsheet changes.
+4. Prefer launcher commands, window focus, keyboard shortcuts, menus, paste, and save commands. Batch multi-step actions with `sequence`/`batch` so one helper process drives the flow.
+5. Use screenshots for visual inspection, OCR, coordinate work, and final evidence when the task depends on pixels. Do not take screenshots merely to learn window titles or readiness that structured state already reports.
+6. Use coordinate clicks only as a last resort, and only after a fresh screenshot observation.
+7. After any GUI action, verify through Desktop state, active window titles, screenshots when visually necessary, saved file state, or exported output.
+8. For terminal or CLI-agent work, prefer deterministic command output or saved transcripts. When exact visible terminal text matters, verify against a fresh final `observe --json --screenshot` captured after the command has finished or visibly returned to an input prompt. Agent-facing Desktop screenshots are ephemeral refs; `desktopctl` shell observations with `--context-id` return chat-scoped screenshot paths. Do not report from an earlier screenshot path.
 
 Keep these standing rules:
 
-1. Treat Markdown as first-class. For writing, notes, reports, and drafts with no explicit binary Office requirement, create Markdown and use the custom Markdown editor when the user opens the canvas.
+1. Treat Markdown as first-class, but use the separate Editor surface for it. For writing, notes, reports, and drafts with no explicit binary Office requirement, create Markdown and let the user open it in Editor instead of Desktop.
 2. Treat ODF as first-class for LibreOffice office work: ODT in Writer, ODS in Calc, ODP in Impress. Use DOCX/XLSX/PPTX only for explicit OOXML compatibility.
 3. Use the Desktop only when the user asks for the Desktop, a GUI app, binary Office visual work, or visual confirmation.
 4. Never open the Desktop surface automatically from a tool result if the user has not opened it. Offer an explicit Open in Desktop action instead.
@@ -50,7 +60,7 @@ Use the helper script when the Desktop is already open and you need reliable app
 DESKTOP=/a0/plugins/_desktop/skills/linux-desktop/scripts/desktopctl.sh
 $DESKTOP check
 $DESKTOP state --json
-$DESKTOP observe --json --screenshot
+$DESKTOP observe --json
 $DESKTOP launch calc
 $DESKTOP wait-window LibreOffice
 $DESKTOP windows LibreOffice
@@ -60,7 +70,7 @@ $DESKTOP key ctrl+s
 
 The script targets the persistent `agent-zero-desktop` X display, sets `DISPLAY`, `XAUTHORITY`, and `HOME` to the XFCE profile, then uses `xdotool` for input. Startup normally prepares this session. If `check` fails during explicit Desktop work, report that the Desktop runtime is not ready instead of installing packages ad hoc.
 
-If `observe --json --screenshot` shows a reachable display, visible Desktop/window entries, and a fresh screenshot, the Desktop is usable even when `active_window` is `null`; a bare XFCE desktop can have no active application window. Treat missing screenshots, missing display, or unavailable `xdotool`/`xwd` as blockers and stop with the specific readiness message instead of repeating clicks or inventing a fallback.
+If `state --json` or `observe --json` shows a reachable display and visible Desktop/window entries, the Desktop is usable even when `active_window` is `null`; a bare XFCE desktop can have no active application window. Treat missing display or unavailable `xdotool` as blockers and stop with the specific readiness message instead of repeating clicks or inventing a fallback. Use `observe --json --screenshot` only when you need pixels, and treat unavailable `xwd` as a screenshot blocker rather than a general Desktop blocker. Shell screenshots captured with `--context-id` live in the owning chat's screenshot folder; screenshots without a chat context remain temporary.
 
 For direct app launches without coordinates:
 
@@ -76,6 +86,20 @@ $DESKTOP focus "LibreOffice"
 $DESKTOP paste-text "Text to insert"
 $DESKTOP key ctrl+s
 ```
+
+For multi-step window or terminal actions, batch commands through one helper process:
+
+```bash
+DESKTOP=/a0/plugins/_desktop/skills/linux-desktop/scripts/desktopctl.sh
+$DESKTOP sequence - <<'EOF'
+focus Terminal
+paste-text echo ready
+key Return
+state --json
+EOF
+```
+
+Use one command per line. `paste-text` joins the remaining words on that line, so it is suitable for ordinary command text; for complex multiline payloads, write the payload to a file or invoke `paste-text` directly.
 
 For live spreadsheet coworking, use the Calc helper instead of hand-written UNO snippets:
 
@@ -112,10 +136,10 @@ When browser automation is available, the higher-level QA flow is:
 
 Terminal apps are visual state, not structured logs. When the task depends on exact terminal output, follow this stricter loop:
 
-1. Run `desktopctl.sh observe --json --screenshot` immediately before acting to record the starting window and screenshot path.
-2. Use `focus`, `paste-text` or `type`, and `key Return` to drive the terminal. Prefer CLI-native commands and keyboard input over clicks.
+1. Run `desktopctl.sh state --json` or `desktopctl.sh windows Terminal` before acting to confirm the target window. Add `observe --json --screenshot` only if the current prompt or screen contents must be read visually.
+2. Use `sequence`, `focus`, `paste-text` or `type`, and `key Return` to drive the terminal. Prefer CLI-native commands and keyboard input over clicks.
 3. Wait until the CLI has visibly produced a response or returned to an input prompt.
-4. Run a new final `desktopctl.sh observe --json --screenshot`.
+4. If exact visible text matters and no deterministic transcript was saved, run a new final `desktopctl.sh observe --json --screenshot`.
 5. Verify exact text only from the screenshot path returned by that final observation, or from a newer screenshot. Never use an earlier screenshot path as final evidence.
 6. If the final screenshot is cropped, stale, or unreadable, capture another screenshot or report the result as unverified with that specific reason.
 
@@ -132,13 +156,17 @@ Example for a nested CLI-agent smoke test:
 
 ```bash
 DESKTOP=/a0/plugins/_desktop/skills/linux-desktop/scripts/desktopctl.sh
-$DESKTOP focus "Terminal"
-$DESKTOP paste-text 'TARGET_CLI="example-cli-agent"; FALLBACK_CMD=""; if command -v "$TARGET_CLI" >/dev/null 2>&1; then "$TARGET_CLI"; elif [ -n "$FALLBACK_CMD" ]; then sh -lc "$FALLBACK_CMD"; else echo "CLI agent not found: $TARGET_CLI"; fi'
-$DESKTOP key Return
+$DESKTOP sequence - <<'EOF'
+focus Terminal
+paste-text TARGET_CLI="example-cli-agent"; FALLBACK_CMD=""; if command -v "$TARGET_CLI" >/dev/null 2>&1; then "$TARGET_CLI"; elif [ -n "$FALLBACK_CMD" ]; then sh -lc "$FALLBACK_CMD"; else echo "CLI agent not found: $TARGET_CLI"; fi
+key Return
+EOF
 $DESKTOP observe --json --screenshot
 # Verify the screenshot shows the target CLI prompt, not a shell prompt, before sending natural language:
-$DESKTOP paste-text 'Reply with exactly the requested smoke-test token.'
-$DESKTOP key Return
+$DESKTOP sequence - <<'EOF'
+paste-text Reply with exactly the requested smoke-test token.
+key Return
+EOF
 $DESKTOP observe --json --screenshot
 ```
 

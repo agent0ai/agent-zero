@@ -127,7 +127,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 2002;
+      z-index: 5002;
+      white-space: normal;
     }
     
     .cmpct-dialog {
@@ -136,7 +137,11 @@
       box-shadow: 0 4px 23px rgba(0, 0, 0, 0.3);
       width: 90%;
       max-width: 560px;
+      max-height: calc(100vh - 24px);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      white-space: normal;
     }
     
     .cmpct-header {
@@ -170,6 +175,8 @@
     
     .cmpct-body {
       padding: 20px;
+      min-height: 0;
+      overflow-y: auto;
     }
     
     .cmpct-desc {
@@ -314,9 +321,11 @@
     .cmpct-footer {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       gap: 8px;
       padding: 12px 20px;
       border-top: 1px solid var(--color-border, #333);
+      flex-shrink: 0;
     }
     
     .cmpct-btn {

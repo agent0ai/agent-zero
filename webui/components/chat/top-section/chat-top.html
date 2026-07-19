@@ -6,6 +6,7 @@
     <!-- Import the alpine store -->
     <script type="module">
         import { store } from "/components/chat/top-section/chat-top-store.js";
+        import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
     </script>
 </head>
 
@@ -17,12 +18,16 @@
             <!-- Time and Date -->
             <div id="time-date-container">
                 <x-extension id="chat-top-start"></x-extension>
-                <div id="time-date"></div>
-                <x-component path="sync/sync-status.html"></x-component>
+                <div id="time-date" x-show="$store.preferences.isUiControlVisible('time')"></div>
+                <div x-show="$store.preferences.isUiControlVisible('connectionStatus')">
+                    <x-component path="sync/sync-status.html"></x-component>
+                </div>
                 <!-- Notification Toggle positioned next to time-date -->
                 <x-component path="notifications/notification-icons.html"></x-component>
                 <!-- Project Selector -->
-                <x-component path="projects/project-selector.html"></x-component>
+                <div x-show="$store.preferences.isUiControlVisible('projectSelector')">
+                    <x-component path="projects/project-selector.html"></x-component>
+                </div>
                 <x-extension id="chat-top-end"></x-extension>
             </div>
         </template>

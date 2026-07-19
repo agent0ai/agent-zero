@@ -19,6 +19,7 @@ const model = {
   selected: "",
   selectedContext: null,
   loggedIn: false,
+  expandedParents: {},
 
   // for convenience
   getSelectedChatId() {
@@ -53,7 +54,7 @@ const model = {
   // Update contexts from polling
   applyContexts(contextsList) {
     // Sort by created_at time (newer first)
-    this.contexts = contextsList.sort(
+    this.contexts = [...contextsList].sort(
       (a, b) => (b.created_at || 0) - (a.created_at || 0)
     );
 
@@ -64,8 +65,47 @@ const model = {
       const updated = this.contexts.find((ctx) => ctx.id === selectedId);
       if (updated) {
         this.selectedContext = updated;
+        const nextExpandedParents = { ...this.expandedParents };
+        if (updated.parent_context_id) {
+          nextExpandedParents[updated.parent_context_id] = true;
+        } else if (
+          this.hasChildren(selectedId) &&
+          nextExpandedParents[selectedId] === undefined
+        ) {
+          nextExpandedParents[selectedId] = true;
+        }
+        this.expandedParents = nextExpandedParents;
       }
     }
+  },
+
+  topLevelContexts() {
+    return this.contexts.filter((ctx) => !ctx?.parent_context_id);
+  },
+
+  childContexts(parentId) {
+    return this.contexts.filter((ctx) => ctx?.parent_context_id === parentId);
+  },
+
+  hasChildren(parentId) {
+    return this.childContexts(parentId).length > 0;
+  },
+
+  isExpanded(parentId) {
+    return Boolean(this.expandedParents?.[parentId]);
+  },
+
+  toggleChildren(parentId) {
+    if (!parentId || !this.hasChildren(parentId)) return;
+    this.expandedParents = {
+      ...this.expandedParents,
+      [parentId]: !this.expandedParents?.[parentId],
+    };
+  },
+
+  displayName(context) {
+    if (!context) return "";
+    return context.parent_context_label || context.name || `Chat #${context.no}`;
   },
 
   // Select a chat
@@ -170,12 +210,13 @@ const model = {
       if (response.ok) {
         await this.selectChat(response.ctxid);
         document.dispatchEvent(new CustomEvent("chat-created", { detail: { ctxid: response.ctxid } }));
-        return;
+        return response.ctxid;
       }
 
     } catch (e) {
       toastFetchError("Error creating new chat", e);
     }
+    return null;
   },
 
   deselectChat(){

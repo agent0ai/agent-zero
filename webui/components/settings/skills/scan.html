@@ -1,0 +1,108 @@
+<html>
+
+<head>
+    <title>Scan Skills</title>
+    <script type="module">
+        import { store } from "/components/settings/skills/skills-scan-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="$store.skillsScanStore">
+            <div class="skills-scan-section" x-init="$store.skillsScanStore.init()" x-destroy="$store.skillsScanStore.onClose()">
+                <div class="section-title">Scan Skills</div>
+                <div class="section-description">
+                    Review installed skills, a local skill path, or a skill repository before activation.
+                </div>
+
+                <div class="skills-scan-toolbar">
+                    <label class="skills-scan-target">
+                        <span>Target</span>
+                        <textarea x-model="$store.skillsScanStore.sectionTarget" rows="3"
+                            placeholder="/a0/usr/skills/my-pack/my-skill&#10;https://github.com/example/agent-skills.git"></textarea>
+                    </label>
+
+                    <div class="skills-scan-actions">
+                        <button type="button" class="button" @click="$store.skillsScanStore.openForInstalledSkills()"
+                            :disabled="$store.skillsScanStore.sectionLoading">
+                            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                            <span>Installed Skills</span>
+                        </button>
+                        <button type="button" class="button confirm" @click="$store.skillsScanStore.openForManualTarget()"
+                            :disabled="$store.skillsScanStore.sectionLoading">
+                            <span class="material-symbols-outlined" aria-hidden="true">radar</span>
+                            <span>Open Scanner</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <style>
+        .skills-scan-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .skills-scan-toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .skills-scan-target {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin: 0;
+        }
+
+        .skills-scan-target span {
+            color: var(--color-text-secondary);
+            font-weight: 600;
+        }
+
+        .skills-scan-target textarea {
+            width: 100%;
+            min-height: 5rem;
+            box-sizing: border-box;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            padding: 0.55rem 0.7rem;
+            font-family: var(--font-family-code);
+            font-size: 0.86rem;
+            line-height: 1.4;
+            resize: vertical;
+        }
+
+        .skills-scan-target textarea:focus {
+            border-color: var(--color-highlight);
+            outline: none;
+        }
+
+        .skills-scan-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .skills-scan-actions .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+        }
+
+        .skills-scan-actions .material-symbols-outlined {
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+    </style>
+</body>
+
+</html>

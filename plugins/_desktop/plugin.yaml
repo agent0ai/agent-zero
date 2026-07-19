@@ -2,4 +2,4 @@ name: _desktop
 title: Desktop
 description: Owns the Agent Zero Linux Desktop runtime, Xpra/Xfce sessions, and live Desktop surface.
 version: 1.0.0
-always_enabled: true
+always_enabled: false

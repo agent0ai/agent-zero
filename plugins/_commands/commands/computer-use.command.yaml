@@ -1,0 +1,5 @@
+name: computer-use
+description: Turn local Computer Use on or off.
+argument_hint: "[on|off|status]"
+type: script
+script_path: connector_commands.py

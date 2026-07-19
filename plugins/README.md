@@ -11,7 +11,7 @@ This directory contains the system-level plugins bundled with Agent Zero.
 
 For detailed guides on how to create, extend, or configure plugins, refer to:
 
-- [`docs/agents/AGENTS.plugins.md`](../docs/agents/AGENTS.plugins.md): Full-stack plugin architecture, manifest format, extension points, and Plugin Index submission.
+- [`plugins/AGENTS.md`](AGENTS.md): Bundled and custom plugin architecture, manifest format, extension points, banners, and Plugin Index submission rules.
 - [`docs/developer/plugins.md`](../docs/developer/plugins.md): Human-facing developer guide covering the full plugin lifecycle.
 - [`AGENTS.md`](../AGENTS.md): Main framework guide and backend context.
 - [`skills/a0-plugin-router/SKILL.md`](../skills/a0-plugin-router/SKILL.md): Agent-facing entry point that routes plugin tasks to the appropriate specialist skill.

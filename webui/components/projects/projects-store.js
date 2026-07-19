@@ -162,6 +162,7 @@ const model = {
           title: project.title,
           color: project.color,
           git_url: project.git_url,
+          include_agents_md: project.include_agents_md !== false,
           git_token: project.git_token || "",
           llm: project.llm || null,
         },
@@ -372,6 +373,8 @@ const model = {
           notifications.NotificationPriority.NORMAL,
           true
         );
+        const contextId = chatsStore.getSelectedChatId();
+        if (contextId) await modelConfigStore.refreshSwitcher(contextId);
         return response.data;
       } else {
         notifications.toastFrontendError(
@@ -407,6 +410,8 @@ const model = {
       name: ``,
       title: `Project #${this.projectList.length + 1}`,
       description: "",
+      instructions: "",
+      include_agents_md: true,
       color: "",
       git_url: "",
       git_token: "",
@@ -425,6 +430,7 @@ const model = {
         creating: false,
       },
       ...projectData,
+      include_agents_md: projectData.include_agents_md !== false,
       llm: this._normalizeProjectLlmData(projectData.llm, name),
     };
   },
@@ -437,56 +443,37 @@ const model = {
     const presetsResult = await api.callJsonApi("/plugins/_model_config/model_presets", {
       action: "get",
       project_name: projectName || "",
-      scope: projectName ? "combined" : "global",
     });
     return this._normalizeProjectLlmData({
-      config: configResult.config || {},
       selected_preset: {
-        scope: "current",
-        project_name: projectName || "",
-        name: "Current config",
+        scope: "global",
+        project_name: "",
+        name: configResult.selected_preset || configResult.configured_preset || "Default",
       },
       global_presets: presetsResult.global_presets || presetsResult.presets || [],
-      project_presets: presetsResult.project_presets || [],
       presets: presetsResult.presets || [],
     }, projectName);
   },
 
   _normalizeProjectLlmData(raw, projectName) {
     const data = raw || {};
-    const config = JSON.parse(JSON.stringify(data.config || {}));
-    config.chat_model = config.chat_model || {};
-    config.utility_model = config.utility_model || {};
-    config.embedding_model = config.embedding_model || {};
-    modelConfigStore.initConfigFields(config);
-
     const globalPresets = this._normalizePresetsWithScope(
       data.global_presets || [],
       "global",
       ""
     );
-    const projectPresets = this._normalizePresetsWithScope(
-      data.project_presets || [],
-      "project",
-      projectName || ""
-    );
-    const presets = [
-      ...globalPresets,
-      ...projectPresets,
-    ];
+    const presets = [...globalPresets];
     const selected = data.selected_preset || {
-      scope: "current",
-      project_name: projectName || "",
-      name: "Current config",
+      scope: "global",
+      project_name: "",
+      name: "Default",
     };
     return {
-      config,
       selected_preset: selected,
       preset_key: this.getLlmPresetKey(selected),
       global_presets: globalPresets,
-      project_presets: projectPresets,
+      project_presets: [],
       presets,
-      new_preset_name: "",
     };
   },
 
@@ -502,27 +489,19 @@ const model = {
   },
 
   getLlmPresetKey(preset) {
-    if (!preset || preset.scope === "current") return "current";
+    if (!preset) return "global||Default";
     return `${preset.scope || "global"}|${preset.project_name || ""}|${preset.name || ""}`;
   },
 
   _findLlmPresetByKey(key) {
     const llm = this.selectedProject?.llm;
-    if (!llm || key === "current") return null;
+    if (!llm) return null;
     return (llm.presets || []).find((preset) => this.getLlmPresetKey(preset) === key) || null;
   },
 
   applySelectedLlmPreset() {
     const llm = this.selectedProject?.llm;
     if (!llm) return;
-    if (llm.preset_key === "current") {
-      llm.selected_preset = {
-        scope: "current",
-        project_name: this.selectedProject?.name || "",
-        name: "Current config",
-      };
-      return;
-    }
     const preset = this._findLlmPresetByKey(llm.preset_key);
     if (!preset) return;
     llm.selected_preset = {
@@ -530,100 +509,27 @@ const model = {
       project_name: preset.project_name || "",
       name: preset.name || "",
     };
-    llm.config = this._configFromPreset(preset, llm.config || {});
-    modelConfigStore.initConfigFields(llm.config);
   },
 
-  markLlmCurrent() {
+  async editSelectedProjectPresets() {
     const llm = this.selectedProject?.llm;
     if (!llm) return;
+    const selectedName = llm.selected_preset?.name || "Default";
+    await modelConfigStore.openPresetEditor(selectedName);
+    await modelConfigStore.loadGlobalPresets();
+    llm.global_presets = this._normalizePresetsWithScope(
+      modelConfigStore.globalPresets,
+      "global",
+      ""
+    );
+    llm.presets = [...llm.global_presets];
+    const remappedName = modelConfigStore.remapPresetName(selectedName);
     llm.selected_preset = {
-      scope: "current",
-      project_name: this.selectedProject?.name || "",
-      name: "Current config",
-    };
-    llm.preset_key = "current";
-  },
-
-  _configFromPreset(preset, baseConfig) {
-    const config = JSON.parse(JSON.stringify(baseConfig || {}));
-    if (preset.chat) config.chat_model = this._cleanModelSlot(preset.chat, true);
-    if (preset.utility?.provider || preset.utility?.name) {
-      config.utility_model = this._cleanModelSlot(preset.utility, true);
-    }
-    return config;
-  },
-
-  _cleanModelSlot(slot, stripApiKey = true) {
-    const clean = JSON.parse(JSON.stringify(slot || {}));
-    for (const key of Object.keys(clean)) {
-      if (key.startsWith("_")) delete clean[key];
-    }
-    if (stripApiKey) delete clean.api_key;
-    return clean;
-  },
-
-  _presetFromLlmConfig(name, config) {
-    return {
-      name,
-      chat: this._cleanModelSlot(config?.chat_model || {}, true),
-      utility: this._cleanModelSlot(config?.utility_model || {}, true),
-    };
-  },
-
-  async saveSelectedLlmProjectPreset() {
-    const project = this.selectedProject;
-    const llm = project?.llm;
-    const name = (llm?.new_preset_name || "").trim();
-    if (!project || !llm || !name) return;
-
-    const preset = {
-      ...this._presetFromLlmConfig(name, llm.config || {}),
-      scope: "project",
-      project_name: project.name || "",
-    };
-    const projectPresets = llm.project_presets || (llm.project_presets = []);
-    const existingIndex = projectPresets.findIndex((p) => p.name === name);
-    if (existingIndex >= 0) projectPresets.splice(existingIndex, 1, preset);
-    else projectPresets.push(preset);
-
-    llm.presets = [
-      ...(llm.global_presets || []),
-      ...(llm.project_presets || []),
-    ];
-    llm.selected_preset = {
-      scope: "project",
-      project_name: project.name || "",
-      name,
+      scope: "global",
+      project_name: "",
+      name: remappedName,
     };
     llm.preset_key = this.getLlmPresetKey(llm.selected_preset);
-    llm.new_preset_name = "";
-
-    if (!project._meta?.creating && project.name) {
-      await api.callJsonApi("/plugins/_model_config/model_presets", {
-        action: "save",
-        scope: "project",
-        project_name: project.name,
-        presets: llm.project_presets,
-      });
-      notifications.toastFrontendSuccess(
-        "Project preset saved",
-        "LLM preset",
-        3,
-        "projects_llm",
-        notifications.NotificationPriority.NORMAL,
-        true
-      );
-    } else {
-      notifications.toastFrontendSuccess(
-        "Project preset ready",
-        "LLM preset",
-        3,
-        "projects_llm",
-        notifications.NotificationPriority.NORMAL,
-        true
-      );
-    }
   },
 
   async browseSelected(...relPath) {

@@ -58,7 +58,7 @@
             position: absolute;
             bottom: 5px; /* Spacing from the bottom of the zero-height container */
             padding-right: 5px;
-            z-index: 4000;
+            z-index: 8900;
             display: flex;
             flex-direction: column-reverse; /* Stack toasts upwards */
             gap: 8px;
@@ -148,6 +148,10 @@
             color: var(--color-text);
             line-height: 1.4;
             margin-bottom: 4px;
+        }
+
+        .toast-action-row {
+            margin-top: var(--spacing-sm);
         }
 
         .toast-timestamp {

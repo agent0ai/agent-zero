@@ -1,9 +1,13 @@
 chat:
-  codex_oauth:
-    api_key_mode: oauth
   lm_studio:
     api_key_mode: none
+  llama_cpp:
+    api_key_mode: none
   ollama:
+    api_key_mode: none
+  omlx:
+    api_key_mode: none
+  vllm:
     api_key_mode: none
   other:
     api_key_mode: optional
@@ -13,7 +17,13 @@ embedding:
     api_key_mode: none
   lm_studio:
     api_key_mode: none
+  llama_cpp:
+    api_key_mode: none
   ollama:
+    api_key_mode: none
+  omlx:
+    api_key_mode: none
+  vllm:
     api_key_mode: none
   other:
     api_key_mode: optional

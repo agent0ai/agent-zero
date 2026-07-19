@@ -15,6 +15,8 @@ This plugin stores memories and knowledge embeddings in a FAISS-backed vector da
   - Loads configured knowledge directories into memory when a database is initialized.
 - **Memory tools**
   - Includes tools for saving, loading, deleting, forgetting, and behavior adjustment workflows.
+- **Automatic conversation memory**
+  - Stores durable preferences, project facts, and recurring constraints while filtering transient action-history fragments before insertion.
 - **Dashboard APIs**
   - Exposes search, delete, bulk delete, update, and subdirectory listing endpoints for the memory dashboard.
 - **Scoped storage**

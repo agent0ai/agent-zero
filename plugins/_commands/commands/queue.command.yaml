@@ -1,0 +1,5 @@
+name: queue
+description: Show, send, clear, or remove queued messages.
+argument_hint: "[send|clear|remove <number|id>]"
+type: script
+script_path: connector_commands.py

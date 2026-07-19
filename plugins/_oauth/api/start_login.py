@@ -1,54 +1,44 @@
 from __future__ import annotations
 
-import webbrowser
-
 from helpers.api import ApiHandler, Request
-from plugins._oauth.helpers import codex
-from plugins._oauth.helpers.config import codex_config
-from plugins._oauth.helpers.state import put_attempt
+from plugins._oauth.helpers.providers import CODEX_PROVIDER_ID, get_provider
 
 
 class StartLogin(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
-        cfg = codex_config()
-        if not cfg["enabled"]:
-            return {"ok": False, "error": "Codex/ChatGPT account connection is disabled."}
-
-        redirect_uri = _redirect_uri(request, cfg["callback_path"])
-        pkce = codex.generate_pkce()
-        state = codex.generate_state()
-        attempt = put_attempt(state, pkce.verifier, redirect_uri)
-        auth_url = codex.build_authorize_url(redirect_uri, state, pkce)
-
-        if cfg["open_browser_from_server"]:
+        if "provider_id" not in input:
+            raw_provider_id = CODEX_PROVIDER_ID
             try:
-                webbrowser.open(auth_url)
-            except Exception:
-                pass
+                provider = get_provider(CODEX_PROVIDER_ID)
+                start_browser_login = getattr(provider, "start_browser_login", None)
+                if callable(start_browser_login):
+                    return start_browser_login(input, request).to_dict()
+                return provider.start_login(input, request).to_dict()
+            except Exception as exc:
+                return {"ok": False, "provider_id": CODEX_PROVIDER_ID, "error": str(exc)}
 
-        return {
-            "ok": True,
-            "auth_url": auth_url,
-            "redirect_uri": redirect_uri,
-            "expires_at": attempt.expires_at,
-        }
+        raw_provider_id = _provider_id(input)
+        try:
+            return get_provider(raw_provider_id).start_login(input, request).to_dict()
+        except Exception as exc:
+            return {
+                "ok": False,
+                "provider_id": _provider_id_label(raw_provider_id),
+                "error": str(exc),
+            }
 
 
-def _redirect_uri(request: Request, callback_path: str) -> str:
-    origin = (request.headers.get("Origin") or "").rstrip("/")
-    if not _is_local_origin(origin):
-        origin = request.url_root.rstrip("/")
-    return f"{origin}{callback_path}"
+def _provider_id(input: dict) -> object:
+    if "provider_id" not in input or input.get("provider_id") is None:
+        return CODEX_PROVIDER_ID
+    value = input.get("provider_id")
+    if isinstance(value, str) and not value.strip():
+        return CODEX_PROVIDER_ID
+    return value
 
 
-def _is_local_origin(origin: str) -> bool:
-    if not origin:
-        return False
-    return (
-        origin.startswith("http://localhost:")
-        or origin == "http://localhost"
-        or origin.startswith("http://127.0.0.1:")
-        or origin == "http://127.0.0.1"
-        or origin.startswith("http://[::1]:")
-        or origin == "http://[::1]"
-    )
+def _provider_id_label(value: object) -> str:
+    if value is None:
+        return CODEX_PROVIDER_ID
+    text = str(value).strip()
+    return text or CODEX_PROVIDER_ID

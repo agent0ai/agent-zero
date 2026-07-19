@@ -7,6 +7,7 @@ You must return a single summary of all records
 # Expected output
 Your output will be a text of the summary
 Length of the text should be one paragraph, approximately 100 words
+If a tool result includes skill_instructions metadata, preserve the loaded skill name in the summary, but do not copy the full skill body
 No intro
 No conclusion
 No formatting

@@ -8,16 +8,16 @@ def json_parse_dirty(json: str) -> dict[str, Any] | None:
     if not json or not isinstance(json, str):
         return None
 
-    ext_json = extract_json_object_string(json.strip())
-    if ext_json:
-        try:
-            data = DirtyJson.parse_string(ext_json)
-            if isinstance(data, dict):
-                return data
-        except Exception:
-            # If parsing fails, return None instead of crashing
-            return None
-    return None
+    first_data: dict[str, Any] | None = None
+    for ext_json in extract_json_root_strings(json.strip()):
+        data = _parse_json_root_object(ext_json)
+        if data is None:
+            continue
+        if first_data is None:
+            first_data = data
+        if _is_tool_request(data):
+            return data
+    return first_data
 
 
 def normalize_tool_request(tool_request: Any) -> tuple[str, dict]:
@@ -46,26 +46,82 @@ def normalize_tool_request(tool_request: Any) -> tuple[str, dict]:
 
 
 def extract_json_root_string(content: str) -> str | None:
+    first_root: str | None = None
+    for root in extract_json_root_strings(content):
+        if first_root is None:
+            first_root = root
+        data = _parse_json_root_object(root)
+        if data is not None and _is_tool_request(data):
+            return root
+    return first_root
+
+
+def extract_json_root_strings(content: str) -> list[str]:
     if not content or not isinstance(content, str):
-        return None
+        return []
 
-    start = content.find("{")
-    if start == -1:
-        return None
-    first_array = content.find("[")
-    if first_array != -1 and first_array < start:
-        return None
+    if content.lstrip().startswith("["):
+        return []
 
-    parser = DirtyJson()
+    roots: list[str] = []
+    for start in _json_root_object_starts(content):
+        parser = DirtyJson()
+        try:
+            parser.parse(content[start:])
+        except Exception:
+            continue
+
+        if not parser.completed:
+            continue
+
+        roots.append(content[start : start + parser.index])
+    return roots
+
+
+def _json_root_object_starts(content: str) -> list[int]:
+    starts: list[int] = []
+    depth = 0
+    quote: str | None = None
+    escaped = False
+
+    for index, char in enumerate(content):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+
+        if depth and char in ['"', "'", "`"]:
+            quote = char
+        elif char == "{":
+            if depth == 0:
+                starts.append(index)
+            depth += 1
+        elif depth and char == "[":
+            depth += 1
+        elif depth and char in ["}", "]"]:
+            depth -= 1
+
+    return starts
+
+
+def _parse_json_root_object(root: str) -> dict[str, Any] | None:
     try:
-        parser.parse(content[start:])
+        data = DirtyJson.parse_string(root)
     except Exception:
         return None
+    return data if isinstance(data, dict) else None
 
-    if not parser.completed:
-        return None
 
-    return content[start : start + parser.index]
+def _is_tool_request(data: dict[str, Any]) -> bool:
+    try:
+        normalize_tool_request(data)
+    except ValueError:
+        return False
+    return True
 
 
 def extract_json_object_string(content):

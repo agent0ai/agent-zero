@@ -1,6 +1,7 @@
 import os
 import re
 
+import aiohttp
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
@@ -17,6 +18,7 @@ _UNSET = object()  # sentinel: "not provided" (lets Bot default apply)
 # Text messages
 
 MAX_MESSAGE_LENGTH: int = 4096  # Telegram message length limit
+TELEGRAM_API_BASE: str = "https://api.telegram.org"
 
 
 async def send_text(
@@ -113,6 +115,81 @@ async def send_photo(
         return None
 
 
+async def send_voice(
+    bot: Bot,
+    chat_id: int,
+    voice_path: str,
+    caption: str = "",
+    reply_to_message_id: int | None = None,
+) -> int | None:
+    """Send a voice message from local path. Returns message_id or None on error."""
+    try:
+        if not os.path.isfile(voice_path):
+            PrintStyle.error(f"Telegram: voice file not found: {voice_path}")
+            return None
+        input_file = FSInputFile(voice_path)
+        msg = await bot.send_voice(
+            chat_id=chat_id,
+            voice=input_file,
+            caption=caption[:1024] if caption else None,
+            reply_to_message_id=reply_to_message_id,
+        )
+        return msg.message_id
+    except Exception as e:
+        PrintStyle.error(f"Telegram send_voice failed: {format_error(e)}")
+        return None
+
+
+async def send_audio(
+    bot: Bot,
+    chat_id: int,
+    audio_path: str,
+    caption: str = "",
+    reply_to_message_id: int | None = None,
+) -> int | None:
+    """Send an audio message from local path. Returns message_id or None on error."""
+    try:
+        if not os.path.isfile(audio_path):
+            PrintStyle.error(f"Telegram: audio file not found: {audio_path}")
+            return None
+        input_file = FSInputFile(audio_path)
+        msg = await bot.send_audio(
+            chat_id=chat_id,
+            audio=input_file,
+            caption=caption[:1024] if caption else None,
+            reply_to_message_id=reply_to_message_id,
+        )
+        return msg.message_id
+    except Exception as e:
+        PrintStyle.error(f"Telegram send_audio failed: {format_error(e)}")
+        return None
+
+
+async def send_video(
+    bot: Bot,
+    chat_id: int,
+    video_path: str,
+    caption: str = "",
+    reply_to_message_id: int | None = None,
+) -> int | None:
+    """Send a video message from local path. Returns message_id or None on error."""
+    try:
+        if not os.path.isfile(video_path):
+            PrintStyle.error(f"Telegram: video file not found: {video_path}")
+            return None
+        input_file = FSInputFile(video_path)
+        msg = await bot.send_video(
+            chat_id=chat_id,
+            video=input_file,
+            caption=caption[:1024] if caption else None,
+            reply_to_message_id=reply_to_message_id,
+        )
+        return msg.message_id
+    except Exception as e:
+        PrintStyle.error(f"Telegram send_video failed: {format_error(e)}")
+        return None
+
+
 # Inline keyboards
 
 def build_inline_keyboard(
@@ -171,6 +248,88 @@ async def send_typing(bot: Bot, chat_id: int):
     except Exception:
         pass
 
+
+async def raw_send_text(
+    token: str,
+    chat_id: int,
+    text: str,
+    reply_to_message_id: int | None = None,
+    parse_mode: str | None = "HTML",
+    reply_markup: dict | None = None,
+) -> int | None:
+    payload: dict[str, object] = {
+        "chat_id": chat_id,
+        "text": text[:MAX_MESSAGE_LENGTH],
+    }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    if reply_to_message_id:
+        payload["reply_parameters"] = {"message_id": int(reply_to_message_id)}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    data = await _raw_post(token, "sendMessage", payload)
+    result = data.get("result") if isinstance(data, dict) else None
+    if isinstance(result, dict):
+        return result.get("message_id")
+    return None
+
+
+async def raw_edit_text(
+    token: str,
+    chat_id: int,
+    message_id: int,
+    text: str,
+    parse_mode: str | None = "HTML",
+    reply_markup: dict | None = None,
+) -> bool:
+    payload: dict[str, object] = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text[:MAX_MESSAGE_LENGTH],
+    }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    data = await _raw_post(token, "editMessageText", payload)
+    if not isinstance(data, dict):
+        return False
+    if data.get("ok"):
+        return True
+    description = str(data.get("description") or "").lower()
+    return "message is not modified" in description
+
+
+async def raw_edit_reply_markup(
+    token: str,
+    chat_id: int,
+    message_id: int,
+    reply_markup: dict | None = None,
+) -> bool:
+    payload: dict[str, object] = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+    }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    data = await _raw_post(token, "editMessageReplyMarkup", payload)
+    return bool(isinstance(data, dict) and data.get("ok"))
+
+
+async def _raw_post(token: str, method: str, payload: dict[str, object]) -> dict:
+    url = f"{TELEGRAM_API_BASE}/bot{token}/{method}"
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=payload) as response:
+                data = await response.json(content_type=None)
+                if response.status != 200 or not data.get("ok"):
+                    PrintStyle.debug(f"Telegram {method} failed: {data}")
+                return data if isinstance(data, dict) else {}
+    except Exception as e:
+        PrintStyle.debug(f"Telegram {method} failed: {format_error(e)}")
+        return {}
+
 # File download
 
 async def download_file(
@@ -210,11 +369,29 @@ def _split_text(text: str, max_len: int) -> list[str]:
 
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+_VOICE_EXTENSIONS = {".ogg", ".oga", ".opus"}
+_AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".wav", ".flac"}
+_VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm"}
 
 
 def is_image_file(path: str) -> bool:
     _, ext = os.path.splitext(path.lower())
     return ext in _IMAGE_EXTENSIONS
+
+
+def is_voice_file(path: str) -> bool:
+    _, ext = os.path.splitext(path.lower())
+    return ext in _VOICE_EXTENSIONS
+
+
+def is_audio_file(path: str) -> bool:
+    _, ext = os.path.splitext(path.lower())
+    return ext in _AUDIO_EXTENSIONS
+
+
+def is_video_file(path: str) -> bool:
+    _, ext = os.path.splitext(path.lower())
+    return ext in _VIDEO_EXTENSIONS
 
 
 def md_to_telegram_html(text: str) -> str:

@@ -16,7 +16,7 @@ triggers:
   - "LibreOffice Writer"
   - "Word document"
 allowed_tools:
-  - document_artifact
+  - office_artifact
 ---
 
 # Writer Documents
@@ -31,7 +31,7 @@ Create:
 
 ```json
 {
-  "tool_name": "document_artifact",
+  "tool_name": "office_artifact",
   "tool_args": {
     "action": "create",
     "kind": "document",

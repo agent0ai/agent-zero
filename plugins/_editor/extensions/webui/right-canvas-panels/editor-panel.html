@@ -1,0 +1,11 @@
+<div
+  class="right-canvas-surface-panel editor-canvas-surface"
+  data-surface-id="editor"
+  :class="{
+    'is-active': $store.rightCanvas?.isSurfaceVisible('editor'),
+    'is-mounted': $store.rightCanvas?.isSurfaceRendered('editor')
+  }"
+  :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('editor')).toString()"
+>
+  <x-component path="/plugins/_editor/webui/editor-panel.html" mode="canvas"></x-component>
+</div>

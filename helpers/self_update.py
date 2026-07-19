@@ -5,11 +5,12 @@ import re
 import subprocess
 import tempfile
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from helpers import git, yaml
+from helpers.localization import Localization
 
 
 OFFICIAL_REPO_AUTHOR = "agent0ai"
@@ -73,7 +74,7 @@ class SelectorTagOption(TypedDict):
 
 
 def _now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    return Localization.get().now_iso()
 
 
 def get_update_file_path() -> Path:
@@ -197,7 +198,10 @@ def _get_tag_release_time_in_repo(
         timestamp = _run_git(repo_dir, "log", "-1", "--format=%ct", normalized_tag)
         if not timestamp:
             return ""
-        return datetime.fromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.fromtimestamp(
+            int(timestamp),
+            tz=Localization.get().get_tzinfo(),
+        ).strftime("%Y-%m-%d %H:%M:%S %Z")
     except Exception:
         return ""
 
@@ -242,7 +246,7 @@ def build_default_backup_name(
     current_version: str,
     target_tag: str | None = None,
 ) -> str:
-    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    timestamp = Localization.get().now().strftime("%Y%m%d-%H%M%S")
     return f"usr-{timestamp}.zip"
 
 

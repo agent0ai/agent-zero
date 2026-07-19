@@ -1,7 +1,7 @@
 (() => {
   const GLOBAL_KEY = "__spaceBrowserPageContent__";
   const DOM_HELPER_KEY = "__spaceBrowserDomHelper__";
-  const VERSION = "12";
+  const VERSION = "13";
   const REQUIRED_API_NAMES = Object.freeze([
     "annotate",
     "boundingBoxFor",
@@ -3103,8 +3103,12 @@
 
   function buildActionResult(entry, extra = {}) {
     return {
+      actionStrategy: entry.helperBacked ? "frame_chain_ref" : "dom_ref",
       captureId: state.captureId,
       descriptorTags: Array.isArray(entry?.descriptorTags) ? entry.descriptorTags.slice() : [],
+      frameChain: Array.isArray(entry?.frameChain) ? entry.frameChain.slice() : [],
+      frameId: entry.frameId || "",
+      nodeId: entry.nodeId || "",
       referenceId: entry.referenceId,
       semanticTags: Array.isArray(entry?.semanticTags) ? entry.semanticTags.slice() : [],
       state: entry.state || collectElementStateMetadata(entry.element, state.captureOptions),
@@ -3116,6 +3120,7 @@
 
   function buildHelperBackedActionResult(entry, helperResult, extra = {}) {
     return {
+      actionStrategy: "frame_chain_ref",
       captureId: state.captureId,
       descriptorTags: Array.isArray(helperResult?.descriptorTags) ? helperResult.descriptorTags : (entry.descriptorTags || []),
       frameChain: entry.frameChain.slice(),
