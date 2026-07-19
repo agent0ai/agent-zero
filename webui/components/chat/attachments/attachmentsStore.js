@@ -112,19 +112,12 @@ const model = {
     // Handle drop
     document.addEventListener(
       "drop",
-      async (e) => {
-        const dataTransfer = e.dataTransfer;
-        console.log("Drop detected with files:", dataTransfer?.files?.length || 0);
+      (e) => {
+        console.log("Drop detected with files:", e.dataTransfer.files.length);
         dragCounter = 0;
         this.hideDragDropOverlay();
 
-        let files = [];
-        try {
-          files = await this.getDroppedFiles(dataTransfer);
-        } catch (error) {
-          console.error("Failed to read dropped files:", error);
-          files = Array.from(dataTransfer?.files || []);
-        }
+        const files = e.dataTransfer.files;
         this.handleFiles(files);
       },
       false
@@ -136,10 +129,7 @@ const model = {
     console.log("Setting up paste handler...");
     document.addEventListener("paste", (e) => {
       // console.log("Paste event detected, target:", e.target.id);
-      if (
-        e.target.id !== "chat-input" &&
-        e.target.id !== "full-screen-input"
-      ) return;
+      if(e.target.id != "chat-input" && e.target.id != "full-screen-input") return;
 
       const items = e.clipboardData.items;
       let imageFound = false;
@@ -219,76 +209,10 @@ const model = {
     event.target.value = ""; // clear uploader selection to fix issue where same file is ignored the second time
   },
 
-  async getDroppedFiles(dataTransfer) {
-    const items = Array.from(dataTransfer?.items || []);
-    const entries = items
-      .map((item) =>
-        typeof item.webkitGetAsEntry === "function"
-          ? item.webkitGetAsEntry()
-          : null
-      )
-      .filter(Boolean);
-
-    if (!entries.length) {
-      return Array.from(dataTransfer?.files || []);
-    }
-
-    const nested = await Promise.all(
-      entries.map((entry) => this.readEntryFiles(entry))
-    );
-    const files = nested.flat();
-    return files.length ? files : Array.from(dataTransfer?.files || []);
-  },
-
-  async readEntryFiles(entry) {
-    if (entry.isFile) {
-      return await new Promise((resolve, reject) => {
-        entry.file(
-          (file) => resolve([file]),
-          (error) => reject(error)
-        );
-      });
-    }
-
-    if (!entry.isDirectory) return [];
-
-    const reader = entry.createReader();
-    const childEntries = await this.readAllDirectoryEntries(reader);
-    const nested = await Promise.all(
-      childEntries.map((child) => this.readEntryFiles(child))
-    );
-    return nested.flat();
-  },
-
-  async readAllDirectoryEntries(reader) {
-    const entries = [];
-
-    return await new Promise((resolve, reject) => {
-      const readBatch = () => {
-        reader.readEntries(
-          (batch) => {
-            if (!batch.length) {
-              resolve(entries);
-              return;
-            }
-            entries.push(...batch);
-            readBatch();
-          },
-          (error) => reject(error)
-        );
-      };
-
-      readBatch();
-    });
-  },
-
   // File handling logic (moved from index.js)
   handleFiles(files) {
-    const fileList = Array.from(files || []);
-    console.log("handleFiles called with", fileList.length, "files");
-    fileList.forEach((file) => {
-      if (!file?.name) return;
-
+    console.log("handleFiles called with", files.length, "files");
+    Array.from(files).forEach((file) => {
       console.log("Processing file:", file.name, file.type);
       const ext = file.name.split(".").pop().toLowerCase();
       const isImage = ["jpg", "jpeg", "png", "bmp", "gif", "webp", "svg"].includes(

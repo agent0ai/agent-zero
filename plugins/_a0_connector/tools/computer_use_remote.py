@@ -6,8 +6,7 @@ from pathlib import Path
 import uuid
 from typing import Any
 
-from helpers import chat_media, history, media_artifacts
-from helpers.print_style import PrintStyle
+from helpers import files, history
 from helpers.tool import Response, Tool
 from helpers.ws import NAMESPACE
 from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
@@ -22,21 +21,14 @@ from plugins._a0_connector.helpers.ws_runtime import (
 
 COMPUTER_USE_OP_TIMEOUT = 180.0
 COMPUTER_USE_OP_EVENT = "connector_computer_use_op"
+COMPUTER_USE_CAPTURE_DIR = ("tmp", "_a0_connector", "computer_use", "captures")
 CAPTURE_TOKENS_ESTIMATE = 1500
 MAX_CAPTURE_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
-CAPTURE_VERIFICATION_NOTE = (
-    "Inspect the attached screenshot before the next action; do not claim or proceed "
-    "from assumed state. If you cannot see the screenshot, stop and report that visual "
-    "verification is unavailable."
-)
 REARM_REQUIRED_DEFAULT_MESSAGE = (
     "Computer use is configured, but the installed desktop-control backend is not armed."
 )
 _AUTO_CAPTURE_ACTIONS = {
     "start_session",
-    "element_action",
-    "ax_action",
-    "uia_action",
     "move",
     "click",
     "scroll",
@@ -49,8 +41,6 @@ _SETTLE_DELAY_CLICK = 0.35
 _SETTLE_DELAY_SCROLL = 0.35
 _SETTLE_DELAY_KEY = 0.2
 _SETTLE_DELAY_TYPE = 0.25
-_SETTLE_DELAY_AX_ACTION = 0.25
-_SETTLE_DELAY_UIA_ACTION = 0.25
 _SETTLE_DELAY_GLOBAL_FOCUS = 0.45
 _SETTLE_DELAY_PLAIN_ENTER = 0.3
 _SETTLE_DELAY_SUBMIT = 0.45
@@ -59,13 +49,6 @@ _SUPPORTED_ACTIONS = {
     "start_session",
     "status",
     "capture",
-    "list_windows",
-    "get_window_state",
-    "element_action",
-    "ax_snapshot",
-    "ax_action",
-    "uia_snapshot",
-    "uia_action",
     "move",
     "click",
     "scroll",
@@ -77,17 +60,12 @@ _SUPPORTED_ACTIONS = {
 
 class ComputerUseRemote(Tool):
     async def execute(self, **kwargs: Any) -> Response:
-        self._latest_capture_content: list[dict[str, Any]] | None = None
-        self._latest_capture_preview = ""
         action = str(self.args.get("action") or "").strip().lower()
         if action not in _SUPPORTED_ACTIONS:
             return Response(
                 message=(
                     "action is required and must be one of: "
-                    "start_session, status, capture, list_windows, get_window_state, "
-                    "element_action, ax_snapshot, ax_action, "
-                    "uia_snapshot, uia_action, "
-                    "move, click, scroll, key, type, stop_session"
+                    "start_session, status, capture, move, click, scroll, key, type, stop_session"
                 ),
                 break_loop=False,
             )
@@ -153,42 +131,10 @@ class ComputerUseRemote(Tool):
         if capture_note:
             message = f"{message} {capture_note}".strip()
 
-        return self._response(message)
-
-    async def after_execution(self, response: Response, **kwargs: Any) -> None:
-        if not response.additional or not response.additional.get("raw_content"):
-            await super().after_execution(response, **kwargs)
-            return
-
-        text = _sanitize_tool_text(response.message.strip())
-        additional = dict(response.additional)
-        raw_content = additional.pop("raw_content", None)
-        preview = str(additional.pop("preview", "") or "").strip() or text
-        token_estimate = self._coerce_token_estimate(additional.pop("_tokens", CAPTURE_TOKENS_ESTIMATE))
-        log_id = str(getattr(getattr(self, "log", None), "id", "") or "")
-        self.agent.hist_add_tool_result(
-            self.name,
-            text,
-            id=log_id,
-            **additional,
+        return Response(
+            message=message,
+            break_loop=False,
         )
-        self.agent.hist_add_message(
-            False,
-            content=history.RawMessage(raw_content=raw_content, preview=preview),
-            tokens=token_estimate,
-        )
-
-        agent_name = str(getattr(self.agent, "agent_name", "Agent Zero") or "Agent Zero")
-        PrintStyle(
-            font_color="#1B4F72",
-            background_color="white",
-            padding=True,
-            bold=True,
-        ).print(f"{agent_name}: Response from tool '{self.name}'")
-        PrintStyle(font_color="#85C1E9").print(text)
-        if getattr(self, "log", None) is not None:
-            self.log.update(content=text)
-        self._prune_prior_capture_history()
 
     async def _dispatch_payload(self, *, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
         op_id = str(payload.get("op_id") or "").strip()
@@ -231,11 +177,6 @@ class ComputerUseRemote(Tool):
 
         data = result.get("result")
         result_data = dict(data) if isinstance(data, dict) else {}
-        if action == "element_action":
-            actual_dispatch = str(result_data.get("actual_dispatch") or "").strip().lower()
-            if actual_dispatch in {"background", "none"}:
-                return ""
-
         session_id = str(result_data.get("session_id") or self.args.get("session_id") or "").strip()
         if not session_id:
             return ""
@@ -264,7 +205,7 @@ class ComputerUseRemote(Tool):
             summary = self._record_capture(capture_data)
         except Exception as exc:
             return f"Automatic screen refresh failed: {exc}"
-        return f"Latest screen attached: {summary} {CAPTURE_VERIFICATION_NOTE}"
+        return f"Latest screen attached: {summary}"
 
     def _auto_capture_settle_seconds(self, action: str) -> float:
         if action == "start_session":
@@ -275,10 +216,6 @@ class ComputerUseRemote(Tool):
             return _SETTLE_DELAY_CLICK
         if action == "scroll":
             return _SETTLE_DELAY_SCROLL
-        if action == "ax_action":
-            return _SETTLE_DELAY_AX_ACTION
-        if action == "uia_action":
-            return _SETTLE_DELAY_UIA_ACTION
         if action == "type" and self._coerce_bool(self.args.get("submit")):
             return _SETTLE_DELAY_SUBMIT
         if action == "type":
@@ -334,77 +271,6 @@ class ComputerUseRemote(Tool):
             payload["text"] = self.args.get("text", "")
             if self._coerce_bool(self.args.get("submit")):
                 payload["submit"] = True
-        elif action == "list_windows":
-            for key in ("include_hidden", "include_offscreen", "max_windows"):
-                if key in self.args:
-                    payload[key] = self.args.get(key)
-        elif action == "get_window_state":
-            for key in ("pid", "window_id", "mode", "max_depth", "max_nodes"):
-                if key in self.args:
-                    payload[key] = self.args.get(key)
-        elif action == "element_action":
-            for key in (
-                "pid",
-                "window_id",
-                "element_index",
-                "path",
-                "operation",
-                "name",
-                "dispatch",
-                "value",
-                "text",
-                "submit",
-            ):
-                if key in self.args:
-                    payload[key] = self.args.get(key)
-            target = self.args.get("target")
-            if isinstance(target, dict):
-                payload["target"] = dict(target)
-            if "selector" in self.args:
-                payload["selector"] = self.args.get("selector")
-        elif action == "ax_snapshot":
-            if "max_depth" in self.args:
-                payload["max_depth"] = self._coerce_int(self.args.get("max_depth"), name="max_depth")
-            if "max_nodes" in self.args:
-                payload["max_nodes"] = self._coerce_int(self.args.get("max_nodes"), name="max_nodes")
-        elif action == "ax_action":
-            target = self.args.get("target")
-            if isinstance(target, dict):
-                payload["target"] = dict(target)
-            if "path" in self.args:
-                payload["path"] = self.args.get("path")
-            operation = self.args.get("operation", self.args.get("ax_action", self.args.get("name")))
-            if operation is not None:
-                payload["operation"] = operation
-            if "value" in self.args:
-                payload["value"] = self.args.get("value")
-            if "text" in self.args:
-                payload["text"] = self.args.get("text", "")
-        elif action == "uia_snapshot":
-            if "max_depth" in self.args:
-                payload["max_depth"] = self._coerce_int(self.args.get("max_depth"), name="max_depth")
-            if "max_nodes" in self.args:
-                payload["max_nodes"] = self._coerce_int(self.args.get("max_nodes"), name="max_nodes")
-        elif action == "uia_action":
-            target = self.args.get("target")
-            normalized_target: dict[str, Any] = {}
-            if isinstance(target, dict):
-                normalized_target.update(target)
-            if "selector" in self.args:
-                normalized_target["selector"] = str(self.args.get("selector") or "").strip()
-            if normalized_target:
-                payload["target"] = normalized_target
-            if "path" in self.args:
-                payload["path"] = self.args.get("path")
-            operation = self.args.get("operation", self.args.get("uia_action", self.args.get("name")))
-            if operation is not None:
-                payload["operation"] = operation
-            if "value" in self.args:
-                payload["value"] = self.args.get("value")
-            if "text" in self.args:
-                payload["text"] = self.args.get("text", "")
-            if self._coerce_bool(self.args.get("submit")):
-                payload["submit"] = True
 
         return payload
 
@@ -423,41 +289,14 @@ class ComputerUseRemote(Tool):
 
         if action == "capture":
             summary = self._record_capture(data)
-            return f"Current screen attached: {summary} {CAPTURE_VERIFICATION_NOTE}"
-        if action == "list_windows":
-            return self._format_window_list(data)
-        if action == "get_window_state":
-            return self._format_window_state(data)
-        if action == "element_action":
-            return self._format_element_action(data)
-        if action == "ax_snapshot":
-            return self._format_ax_snapshot(data)
-        if action == "ax_action":
-            target = data.get("target") if isinstance(data.get("target"), dict) else {}
-            operation = str(data.get("operation") or "?")
-            path = target.get("path", "?")
-            return f"Performed AX {operation} on {self._ax_target_label(target)} path={path}."
-        if action == "uia_snapshot":
-            return self._format_uia_snapshot(data)
-        if action == "uia_action":
-            target = data.get("target") if isinstance(data.get("target"), dict) else {}
-            operation = str(data.get("operation") or "?")
-            path = target.get("path", "?")
-            return f"Performed Windows UIA {operation} on {self._uia_target_label(target)} path={path}."
+            return f"Current screen attached: {summary}"
         if action == "status":
             return self._format_status(data)
         if action == "start_session":
-            message = (
+            return (
                 f"Computer-use session started: session_id={data.get('session_id', '?')} "
                 f"size={data.get('width', '?')}x{data.get('height', '?')}"
             )
-            backend_details = self._format_backend_details(data)
-            if backend_details:
-                message = f"{message}, {backend_details}"
-            skill_hint = self._backend_skill_hint(data)
-            if skill_hint:
-                return f"{message}.{skill_hint}"
-            return message
         if action == "stop_session":
             return "Computer-use session stopped."
         if action == "move":
@@ -479,104 +318,27 @@ class ComputerUseRemote(Tool):
     def _format_error(self, result: dict[str, Any]) -> str:
         error = str(result.get("error") or "Unknown error")
         code = str(result.get("code") or "")
-        if code in {"COMPUTER_USE_REARM_REQUIRED", "COMPUTER_USE_APPROVAL_REQUIRED"} or error in {
-            "COMPUTER_USE_REARM_REQUIRED",
-            "COMPUTER_USE_APPROVAL_REQUIRED",
-        }:
+        if code == "COMPUTER_USE_REARM_REQUIRED" or error == "COMPUTER_USE_REARM_REQUIRED":
             detail = error if error and error != code else REARM_REQUIRED_DEFAULT_MESSAGE
             return (
                 "COMPUTER_USE_REARM_REQUIRED: "
                 f"{detail} Stop using computer_use_remote for now; ask the user to re-arm "
-                "Computer Use with /computer-use on in the A0 Launcher chat when using "
-                "Launcher Host access, or in A0 CLI, and approve the platform permission "
-                "prompt if shown. "
+                "Computer Use in the A0 CLI with Confirm with User, approve the platform "
+                "permission prompt if shown, then switch back to Free Run if desired. "
                 "Do not retry or use screenshot fallbacks."
             )
         if code:
             return f"{code}: {error}"
         return error
 
-    def _format_backend_details(self, data: dict[str, Any]) -> str:
-        backend_id = str(data.get("backend_id", "") or "").strip()
-        backend_family = str(data.get("backend_family", "") or "").strip()
-        features = self._backend_features(data)
-        parts: list[str] = []
-        if backend_id:
-            backend_text = backend_id
-            if backend_family:
-                backend_text = f"{backend_text}/{backend_family}"
-            parts.append(f"backend={backend_text}")
-        contract_version = data.get("contract_version")
-        if not contract_version and isinstance(data.get("capabilities"), dict):
-            contract_version = data["capabilities"].get("contract_version")
-        if contract_version:
-            parts.append(f"contract=v{contract_version}")
-        if features:
-            parts.append(f"features={', '.join(features)}")
-        return ", ".join(parts)
-
-    def _backend_features(self, data: dict[str, Any]) -> list[str]:
-        raw_features = data.get("features") or []
-        if not isinstance(raw_features, (list, tuple, set)):
-            return []
-        features: list[str] = []
-        for feature in raw_features:
-            text = str(feature or "").strip()
-            if text:
-                features.append(text)
-        return features
-
-    def _backend_skill_hint(self, data: dict[str, Any]) -> str:
-        backend_id = str(data.get("backend_id", "") or "").strip().lower()
-        backend_family = str(data.get("backend_family", "") or "").strip().lower()
-        features = {feature.lower() for feature in self._backend_features(data)}
-        has_linux_atspi = bool(
-            features
-            & {
-                "atspi-tree-snapshot",
-                "atspi-structural-targeting",
-                "atspi-element-action",
-                "atspi-set-value",
-            }
-        )
-        if backend_id in {"wayland", "x11", "linux"} or backend_family == "linux" or has_linux_atspi:
-            return (
-                " Load skill `host-computer-use-linux` before using Linux AT-SPI "
-                "structural actions."
-            )
-        has_macos_ax = bool(
-            features
-            & {
-                "accessibility-tree-snapshot",
-                "accessibility-structural-targeting",
-            }
-        )
-        if backend_id == "macos" or backend_family == "macos" or has_macos_ax:
-            return (
-                " Load skill `host-computer-use-macos` before using macOS AX "
-                "structural actions."
-            )
-        has_windows_uia = bool(
-            features
-            & {
-                "uia-tree-snapshot",
-                "uia-structural-targeting",
-                "uia-element-action",
-                "uia-window-management",
-            }
-        )
-        if backend_id == "windows" or backend_family == "windows" or has_windows_uia:
-            return (
-                " Load skill `host-computer-use-windows` before using Windows UIA "
-                "structural actions and window-management operations."
-            )
-        return ""
-
     def _format_status(self, data: dict[str, Any]) -> str:
         status = str(data.get("status", "unknown") or "unknown")
         trust_mode = str(data.get("trust_mode", "") or "")
+        backend_id = str(data.get("backend_id", "") or "").strip()
+        backend_family = str(data.get("backend_family", "") or "").strip()
         active_contexts = data.get("active_contexts") or []
         active_text = ", ".join(str(item) for item in active_contexts) if active_contexts else "none"
+        backend_text = ""
         rearm_guidance = ""
         if status == "rearm required":
             detail = str(data.get("last_error") or "").strip()
@@ -590,226 +352,26 @@ class ComputerUseRemote(Tool):
                     "is not armed. "
                     "Stop using computer_use_remote until the user re-arms it."
                 )
-        backend_details = self._format_backend_details(data)
-        if backend_details:
+        if backend_id:
+            backend_text = backend_id
+            if backend_family:
+                backend_text = f"{backend_text}/{backend_family}"
+        if backend_text:
             return (
                 f"Computer use status={status}, trust_mode={trust_mode or 'unknown'}, "
-                f"{backend_details}, active_contexts={active_text}."
-                f"{self._backend_skill_hint(data)}{rearm_guidance}"
+                f"backend={backend_text}, active_contexts={active_text}.{rearm_guidance}"
             )
         return (
             f"Computer use status={status}, trust_mode={trust_mode or 'unknown'}, "
             f"active_contexts={active_text}.{rearm_guidance}"
         )
 
-    def _format_window_list(self, data: dict[str, Any]) -> str:
-        windows = data.get("windows") if isinstance(data.get("windows"), list) else []
-        count = data.get("count", len(windows))
-        if not windows:
-            return (
-                "No native windows were returned by the computer-use backend. "
-                "Use capture or backend-specific snapshots as a fallback."
-            )
-        lines = [
-            (
-                f"Computer-use native window list: {count} window(s). "
-                "Prefer get_window_state(pid/window_id) before element_action."
-            )
-        ]
-        for item in windows[:40]:
-            if not isinstance(item, dict):
-                continue
-            title = str(item.get("title") or item.get("name") or "").strip()
-            app_name = str(item.get("app_name") or item.get("app") or "").strip()
-            pid = item.get("pid")
-            window_id = str(item.get("window_id") or "").strip()
-            role = str(item.get("role") or "window").strip()
-            parts = [f"- window_id={window_id or '?'}"]
-            if pid is not None:
-                parts.append(f"pid={pid}")
-            if app_name:
-                parts.append(f"app={app_name!r}")
-            if title:
-                parts.append(f"title={title!r}")
-            parts.append(f"role={role}")
-            frame = item.get("frame")
-            if isinstance(frame, dict):
-                parts.append(
-                    f"frame=({frame.get('x', '?')},{frame.get('y', '?')} "
-                    f"{frame.get('width', '?')}x{frame.get('height', '?')})"
-                )
-            flags: list[str] = []
-            for flag in ("is_on_screen", "on_current_space", "focused", "visible"):
-                if flag in item:
-                    flags.append(f"{flag}={item.get(flag)}")
-            if flags:
-                parts.append(" ".join(flags))
-            lines.append(" ".join(parts))
-        if len(windows) > 40:
-            lines.append("... window list truncated; request a narrower app/window target.")
-        return "\n".join(lines)
-
-    def _format_window_state(self, data: dict[str, Any]) -> str:
-        tree = data.get("tree") if isinstance(data.get("tree"), dict) else {}
-        window = data.get("window") if isinstance(data.get("window"), dict) else {}
-        app = data.get("app") if isinstance(data.get("app"), dict) else {}
-        title = str(window.get("title") or app.get("name") or "target window").strip()
-        window_id = str(window.get("window_id") or data.get("window_id") or "").strip()
-        node_count = data.get("node_count", "?")
-        truncated = " truncated" if data.get("truncated") else ""
-        mode = str(data.get("mode") or "auto").strip()
-        return (
-            f"Window state for {title!r}"
-            f"{f' window_id={window_id}' if window_id else ''}: "
-            f"{node_count} element(s){truncated}, mode={mode}. "
-            "Use element_action with element_index; dispatch defaults to background."
-            f"{self._structural_tree_outline(tree)}"
-        )
-
-    def _format_element_action(self, data: dict[str, Any]) -> str:
-        target = data.get("target") if isinstance(data.get("target"), dict) else {}
-        operation = str(data.get("operation") or "?")
-        requested_dispatch = str(data.get("requested_dispatch") or data.get("dispatch") or "background")
-        actual_dispatch = str(data.get("actual_dispatch") or data.get("dispatch") or requested_dispatch)
-        fallback = bool(data.get("foreground_fallback_used") or data.get("fallback_used"))
-        index = target.get("element_index", data.get("element_index", "?"))
-        label = (
-            self._uia_target_label(target)
-            if target.get("selector") or target.get("automation_id")
-            else self._ax_target_label(target)
-        )
-        if data.get("background_unavailable"):
-            reason = str(data.get("reason") or "background dispatch was unavailable")
-            return (
-                f"Background element action unavailable for element_index={index}: {reason}. "
-                "Use dispatch='auto' or dispatch='foreground' only if foreground control is acceptable."
-            )
-        dispatch_text = (
-            f"requested_dispatch={requested_dispatch}, actual_dispatch={actual_dispatch}"
-            f"{', foreground_fallback_used=true' if fallback else ''}"
-        )
-        return f"Performed {operation} on element_index={index} {label}; {dispatch_text}."
-
-    def _format_ax_snapshot(self, data: dict[str, Any]) -> str:
-        app = data.get("app") if isinstance(data.get("app"), dict) else {}
-        tree = data.get("tree") if isinstance(data.get("tree"), dict) else {}
-        app_name = str(app.get("name") or app.get("bundle_id") or "frontmost app")
-        node_count = data.get("node_count", "?")
-        truncated = " truncated" if data.get("truncated") else ""
-        root_label = self._ax_target_label(tree)
-        return (
-            f"AX snapshot for {app_name}: {node_count} node(s){truncated}. "
-            f"Root {root_label}. Use path or semantic target fields with ax_action."
-            f"{self._structural_tree_outline(tree)}"
-        )
-
-    def _format_uia_snapshot(self, data: dict[str, Any]) -> str:
-        app = data.get("app") if isinstance(data.get("app"), dict) else {}
-        tree = data.get("tree") if isinstance(data.get("tree"), dict) else {}
-        app_name = str(app.get("name") or "Windows desktop")
-        node_count = data.get("node_count", "?")
-        truncated = " truncated" if data.get("truncated") else ""
-        root_label = self._uia_target_label(tree)
-        return (
-            f"Windows UIA snapshot for {app_name}: {node_count} node(s){truncated}. "
-            f"Root {root_label}. Prefer node actions with uia_action; use "
-            f"focus_window/minimize/restore/maximize for windows, and reserve click "
-            f"for a last resort."
-            f"{self._structural_tree_outline(tree)}"
-        )
-
-    def _structural_tree_outline(self, tree: dict[str, Any], *, max_lines: int = 80) -> str:
-        if not tree:
-            return ""
-        lines: list[str] = ["", "", "Nodes:"]
-        truncated = False
-
-        def visit(node: dict[str, Any], depth: int) -> None:
-            nonlocal truncated
-            if len(lines) - 3 >= max_lines:
-                truncated = True
-                return
-            lines.append(self._structural_node_line(node, depth=depth))
-            children = node.get("children")
-            if not isinstance(children, list):
-                return
-            for child in children:
-                if len(lines) - 3 >= max_lines:
-                    truncated = True
-                    break
-                if isinstance(child, dict):
-                    visit(child, depth + 1)
-
-        visit(tree, 0)
-        if truncated:
-            lines.append("... outline truncated; request a narrower max_depth/max_nodes snapshot if needed.")
-        return "\n".join(lines)
-
-    def _structural_node_line(self, node: dict[str, Any], *, depth: int) -> str:
-        indent = "  " * max(0, depth)
-        role = str(node.get("role") or "element")
-        path = node.get("path", [])
-        element_index = node.get("element_index")
-        prefix = f"{indent}-"
-        if element_index is not None:
-            prefix = f"{prefix} element_index={element_index}"
-        parts = [f"{prefix} path={path} role={role}"]
-        for key in ("title", "name", "description", "automation_id", "class_name", "selector"):
-            value = node.get(key)
-            if isinstance(value, str) and value.strip():
-                parts.append(f"{key}={value.strip()[:120]!r}")
-                break
-        frame = node.get("frame")
-        if isinstance(frame, dict):
-            x = frame.get("x", "?")
-            y = frame.get("y", "?")
-            width = frame.get("width", "?")
-            height = frame.get("height", "?")
-            parts.append(f"frame=({x},{y} {width}x{height})")
-        actions = node.get("actions")
-        if isinstance(actions, list) and actions:
-            names = [
-                str(item.get("name") or "").strip()
-                for item in actions
-                if isinstance(item, dict) and str(item.get("name") or "").strip()
-            ]
-            if names:
-                parts.append(f"actions={','.join(names[:6])}")
-        states = node.get("states")
-        if isinstance(states, list) and states:
-            values = [str(item).strip() for item in states if str(item).strip()]
-            if values:
-                parts.append(f"states={','.join(values[:8])}")
-        text = node.get("text")
-        if isinstance(text, str) and text.strip():
-            parts.append(f"text={text.strip()[:120]!r}")
-        return " ".join(parts)
-
-    def _ax_target_label(self, target: dict[str, Any]) -> str:
-        role = str(target.get("role") or "element")
-        title = str(target.get("title") or target.get("description") or target.get("identifier") or "").strip()
-        if title:
-            return f"{role} {title!r}"
-        return role
-
-    def _uia_target_label(self, target: dict[str, Any]) -> str:
-        role = str(target.get("role") or "element")
-        title = str(
-            target.get("title")
-            or target.get("name")
-            or target.get("automation_id")
-            or target.get("class_name")
-            or ""
-        ).strip()
-        if title:
-            return f"{role} {title!r}"
-        return role
-
     def _record_capture(self, data: dict[str, Any]) -> str:
-        display_ref, resolved_capture_id = self._resolve_capture_ref(data)
+        data = self._materialize_capture_artifact(data)
+        _image_path, display_path = self._resolve_capture_path(data)
         width = data.get("width", "?")
         height = data.get("height", "?")
-        capture_id = str(data.get("capture_id") or resolved_capture_id or "?").strip()
+        capture_id = str(data.get("capture_id") or Path(display_path).stem or "?").strip()
         coordinate_space = str(data.get("coordinate_space") or "normalized_global_screen").strip()
         summary = (
             f"Computer-use capture id={capture_id} {width}x{height}, "
@@ -821,41 +383,14 @@ class ComputerUseRemote(Tool):
                 summary = f"{summary} Fresh frame {fresh_state}."
             else:
                 summary = f"{summary} Fresh capture requested."
-        self._latest_capture_content = [
+        content = [
             {"type": "text", "text": summary},
-            {"type": "image_url", "image_url": {"url": display_ref}},
+            {"type": "image_url", "image_url": {"url": display_path}},
         ]
-        self._latest_capture_preview = summary
+        raw_message = history.RawMessage(raw_content=content, preview=summary)
+        self.agent.hist_add_message(False, content=raw_message, tokens=CAPTURE_TOKENS_ESTIMATE)
+        self._prune_prior_capture_history()
         return summary
-
-    def _response(self, message: str) -> Response:
-        capture_content = self._latest_capture_content
-        if not capture_content:
-            return Response(message=message, break_loop=False)
-
-        raw_content = [dict(item) for item in capture_content]
-        if raw_content and raw_content[0].get("type") == "text":
-            raw_content[0] = {"type": "text", "text": message}
-        else:
-            raw_content.insert(0, {"type": "text", "text": message})
-
-        return Response(
-            message=message,
-            break_loop=False,
-            additional={
-                "raw_content": raw_content,
-                "preview": self._latest_capture_preview or message,
-                "_tokens": CAPTURE_TOKENS_ESTIMATE,
-            },
-        )
-
-    @staticmethod
-    def _coerce_token_estimate(value: object) -> int:
-        try:
-            estimate = int(value or 0)
-        except (TypeError, ValueError):
-            estimate = 0
-        return estimate if estimate > 0 else CAPTURE_TOKENS_ESTIMATE
 
     def _prune_prior_capture_history(self) -> None:
         history_obj = getattr(self.agent, "history", None)
@@ -878,56 +413,6 @@ class ComputerUseRemote(Tool):
                 message.summary = ""
             if hasattr(message, "calculate_tokens"):
                 message.tokens = message.calculate_tokens()
-
-    def _resolve_capture_ref(self, data: dict[str, Any]) -> tuple[str, str]:
-        path_error: FileNotFoundError | None = None
-        try:
-            image_path, display_path = self._resolve_capture_path(data)
-        except FileNotFoundError as exc:
-            path_error = exc
-        else:
-            saved = chat_media.save_image_file(
-                context_id=self.agent.context.id,
-                path=image_path,
-                category="screenshots",
-                source="computer-use",
-                preferred_name=Path(display_path).name or image_path.name,
-                max_bytes=MAX_CAPTURE_ARTIFACT_SIZE_BYTES,
-            )
-            return saved.a0_path, Path(saved.path).stem
-
-        artifact = data.get("artifact")
-        if isinstance(artifact, dict) and str(artifact.get("encoding", "")).strip().lower() == "base64":
-            encoded = str(artifact.get("data") or "")
-            if encoded:
-                estimated_size = media_artifacts.estimated_base64_decoded_size(encoded)
-                if estimated_size > MAX_CAPTURE_ARTIFACT_SIZE_BYTES:
-                    raise RuntimeError(
-                        "Computer-use capture artifact is too large to attach safely "
-                        f"({estimated_size} bytes, limit {MAX_CAPTURE_ARTIFACT_SIZE_BYTES} bytes)."
-                    )
-                mime = str(artifact.get("mime") or "image/png").strip()
-                if not mime.startswith("image/"):
-                    mime = "image/png"
-                filename = media_artifacts.safe_filename(
-                    str(artifact.get("filename") or "computer-use-capture.png"),
-                    default=f"computer-use-{uuid.uuid4().hex}.png",
-                    default_extension=".png",
-                )
-                saved = chat_media.save_image_base64(
-                    context_id=self.agent.context.id,
-                    data=encoded,
-                    mime_type=mime,
-                    category="screenshots",
-                    source="computer-use",
-                    preferred_name=filename,
-                    max_bytes=MAX_CAPTURE_ARTIFACT_SIZE_BYTES,
-                )
-                return saved.a0_path, Path(saved.path).stem
-
-        if path_error is not None:
-            raise path_error
-        raise FileNotFoundError("Capture artifact was not found in the tool response.")
 
     def _collect_capture_messages(self, history_obj: Any) -> list[Any]:
         messages: list[Any] = []
@@ -994,6 +479,43 @@ class ComputerUseRemote(Tool):
             f"Capture artifact was not found in any advertised path: {candidates!r}"
         )
 
+    def _materialize_capture_artifact(self, data: dict[str, Any]) -> dict[str, Any]:
+        artifact = data.get("artifact")
+        if not isinstance(artifact, dict):
+            return data
+        if str(artifact.get("encoding", "")).strip().lower() != "base64":
+            return data
+
+        encoded = str(artifact.get("data") or "")
+        if not encoded:
+            return data
+
+        estimated_size = _estimated_base64_decoded_size(encoded)
+        if estimated_size > MAX_CAPTURE_ARTIFACT_SIZE_BYTES:
+            raise RuntimeError(
+                "Computer-use capture artifact is too large to materialize safely "
+                f"({estimated_size} bytes, limit {MAX_CAPTURE_ARTIFACT_SIZE_BYTES} bytes)."
+            )
+
+        filename = _safe_filename(str(artifact.get("filename") or "computer-use-capture.png"))
+        context_id = str(getattr(getattr(self.agent, "context", None), "id", "") or "default")
+        target_relative = str(Path(*COMPUTER_USE_CAPTURE_DIR, context_id, filename))
+        target_path = Path(files.get_abs_path(target_relative))
+        try:
+            files.write_file_base64(target_relative, encoded)
+        except Exception as exc:
+            target_path.unlink(missing_ok=True)
+            raise RuntimeError("Computer-use capture artifact could not be decoded.") from exc
+
+        materialized = dict(data)
+        materialized.pop("artifact", None)
+        local_path = str(target_path)
+        materialized["path"] = local_path
+        materialized["a0_path"] = files.normalize_a0_path(local_path)
+        materialized.setdefault("capture_path", local_path)
+        materialized.setdefault("capture_id", target_path.stem)
+        return materialized
+
     def _coerce_int(self, value: object, *, name: str) -> int:
         try:
             return int(value or 0)
@@ -1008,9 +530,14 @@ class ComputerUseRemote(Tool):
         return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _sanitize_tool_text(value: str) -> str:
-    try:
-        from helpers.strings import sanitize_string
-    except Exception:
-        return value
-    return sanitize_string(value)
+def _safe_filename(value: str) -> str:
+    cleaned = "".join(char if char.isalnum() or char in {"-", "_", "."} else "_" for char in value)
+    cleaned = cleaned.strip("._") or f"computer-use-{uuid.uuid4().hex}.png"
+    if "." not in cleaned:
+        cleaned += ".png"
+    return cleaned
+
+
+def _estimated_base64_decoded_size(data: str) -> int:
+    compact_length = sum(1 for char in data if not char.isspace())
+    return (compact_length * 3) // 4

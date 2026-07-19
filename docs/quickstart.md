@@ -5,13 +5,7 @@ Agent Zero, add a model or API key, open the Web UI, and give it a concrete job.
 
 ## Installation (recommended)
 
-Choose the path that matches your machine:
-
-- Use [A0 Launcher](guides/launcher.md) if you want a desktop app on a fresh
-  machine. It can set up the local runtime, download Agent Zero, open
-  Instances, or save a remote Instance URL.
-- Use A0 Install if you want the terminal path. The script handles Docker
-  detection, image pull, and container setup.
+Run one command; the script handles Docker, image pull, and container setup.
 
 **macOS / Linux:**
 ```bash
@@ -29,7 +23,7 @@ Follow the CLI prompts for port and authentication, complete onboarding, then op
 > To update later, open **Settings UI -> Update tab -> Open Self Update** (see [How to Update](setup/installation.md#how-to-update-agent-zero)). Backups are automatically managed internally.
 
 > [!NOTE]
-> For Launcher downloads, headless installer flags, direct Docker, manual Docker Desktop setup, volume mapping, and platform-specific detail, see the [Installation Guide](setup/installation.md).
+> For manual Docker Desktop setup, volume mapping, and platform-specific detail, see the [Installation Guide](setup/installation.md#manual-installation-advanced).
 
 ## Use Agent Zero on your real local files
 
@@ -62,19 +56,18 @@ For the full setup flow, host picker screenshots, command palette guidance, Brow
 ### Open the Web UI and complete onboarding
 
 Open your browser and navigate to `http://localhost:<PORT>`. The Web UI will
-open on the welcome screen. If models still need setup, send a message or use
-the setup shortcuts to choose Cloud, AI account, or Local access, then select
-your main and utility models.
+show the onboarding banner. Click **Start Onboarding** to choose Cloud or
+Local, add a provider key or account connection, and select your main and
+utility models.
 
 ![Agent Zero Web UI](res/setup/6-docker-a0-running-new.png)
 
-For a screenshot walkthrough using OpenRouter, see the
-[First-Run Onboarding guide](guides/onboarding.md).
+For a screenshot walkthrough using **Agent Zero API** with
+`claude-opus-4-6`, see the [First-Run Onboarding guide](guides/onboarding.md).
 
 > [!NOTE]
-> Agent Zero supports hosted providers, account-backed providers, and local
-> models. Choose a strong main model for chat and a fast utility model for
-> internal tasks.
+> Agent Zero supports hosted providers and local models. You can use the same
+> provider for main and utility work, or choose separate providers for each.
 
 ### Start your first chat
 
@@ -148,7 +141,7 @@ Explains how to search, edit, delete, export, and curate memories before stale c
 
 ### [Open A0 Skills Guide](guides/skills.md)
 
-Shows the chat input **+** menu, the Skills selector, and how active skills are added to prompt protocol.
+Shows the chat input **+** menu, the Skills selector, and how active skills are added to prompt extras.
 
 ### [Open A0 Agent Profiles Guide](guides/agent-profiles.md)
 

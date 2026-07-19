@@ -158,11 +158,11 @@ print('Done')
 ## 8. Check Agent Zero logs
 
 ```bash
-# Run from the Docker host; replace the name if needed
-docker logs --tail 200 a0-instance
+# Find recent log files
+ls -lt /a0/logs/*.html | head -5
 ```
 
-Plugin-related errors appear in the container output as Python tracebacks mentioning the plugin path.
+Plugin-related errors appear as Python tracebacks mentioning the plugin path.
 
 ---
 
@@ -183,5 +183,5 @@ Plugins are re-scanned when:
 
 ## References
 
-- Plugin architecture: `/a0/plugins/AGENTS.md`
+- Plugin architecture: `/a0/docs/agents/AGENTS.plugins.md`
 - Manage (install/update/uninstall): read `/a0/skills/a0-manage-plugin/SKILL.md`

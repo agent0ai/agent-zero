@@ -20,7 +20,6 @@ import * as cache from "./cache.js";
 
 const JS_CACHE_AREA = "frontend_extensions_js(extensions)(plugins)";
 const HTML_CACHE_AREA = "frontend_extensions_html(extensions)(plugins)";
-let extensionRequestQueue = Promise.resolve();
 
 export const API_EXTENSION_EXCLUDED_ENDPOINTS = new Set([
   "/api/load_webui_extensions",
@@ -29,17 +28,6 @@ export const API_EXTENSION_EXCLUDED_ENDPOINTS = new Set([
 export function clearCache() {
   cache.clear(JS_CACHE_AREA);
   cache.clear(HTML_CACHE_AREA);
-}
-
-function requestExtensionPaths(extensionPoint, filters) {
-  const request = extensionRequestQueue.then(() =>
-    api.callJsonApi(`/api/load_webui_extensions`, {
-      extension_point: extensionPoint,
-      filters,
-    }),
-  );
-  extensionRequestQueue = request.catch(() => {});
-  return request;
 }
 
 /**
@@ -72,10 +60,10 @@ export async function loadJsExtensions(extensionPoint) {
     if (cached != null) return cached;
 
     /** @type {LoadWebuiExtensionsResponse} */
-    const response = await requestExtensionPaths(extensionPoint, [
-      "*.js",
-      "*.mjs",
-    ]);
+    const response = await api.callJsonApi(`/api/load_webui_extensions`, {
+      extension_point: extensionPoint,
+      filters: ["*.js", "*.mjs"],
+    });
     /** @type {JsExtensionImport[]} */
     const imports = await Promise.all(
       response.extensions.map(async (path) => ({
@@ -179,11 +167,10 @@ export async function importHtmlExtensions(extensionPoint, targetElement) {
     }
 
     /** @type {LoadWebuiExtensionsResponse} */
-    const response = await requestExtensionPaths(extensionPoint, [
-      "*.html",
-      "*.htm",
-      "*.xhtml",
-    ]);
+    const response = await api.callJsonApi(`/api/load_webui_extensions`, {
+      extension_point: extensionPoint,
+      filters: ["*.html", "*.htm", "*.xhtml"],
+    });
     let combinedHTML = "";
     for (const extension of response.extensions) {
       const path = normalizePath(extension);

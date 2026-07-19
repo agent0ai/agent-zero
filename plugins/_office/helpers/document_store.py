@@ -16,15 +16,13 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from helpers import files
-from helpers.localization import Localization
 from plugins._office.helpers import pptx_writer
 
 
 PLUGIN_NAME = "_office"
 OPEN_DOCUMENT_EXTENSIONS = {"odt", "ods", "odp"}
 OOXML_EXTENSIONS = {"docx", "xlsx", "pptx"}
-EDITOR_TEXT_EXTENSIONS = {"md", "txt"}
-SUPPORTED_EXTENSIONS = {*EDITOR_TEXT_EXTENSIONS, *OPEN_DOCUMENT_EXTENSIONS, *OOXML_EXTENSIONS}
+SUPPORTED_EXTENSIONS = {"md", *OPEN_DOCUMENT_EXTENSIONS, *OOXML_EXTENSIONS}
 DEFAULT_TTL_SECONDS = 8 * 60 * 60
 MAX_SAVE_BYTES = 512 * 1024 * 1024
 ODF_OFFICE_NS = "urn:oasis:names:tc:opendocument:xmlns:office:1.0"
@@ -54,7 +52,7 @@ def now() -> float:
 
 
 def now_iso() -> str:
-    return Localization.get().now_iso(timespec="seconds")
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 def ensure_dirs() -> None:
@@ -128,7 +126,7 @@ def _path_from_a0(path: str | Path) -> Path:
     return Path(raw if os.path.isabs(raw) else files.get_abs_path(raw)).expanduser()
 
 
-def allowed_roots(context_id: str = "", allow_base_dir: bool = False) -> list[Path]:
+def allowed_roots(context_id: str = "") -> list[Path]:
     project_helpers = _projects()
     roots = {
         WORKDIR.resolve(strict=False),
@@ -140,8 +138,6 @@ def allowed_roots(context_id: str = "", allow_base_dir: bool = False) -> list[Pa
     configured = str(_settings().get_settings().get("workdir_path") or "").strip()
     if configured:
         roots.add(_path_from_a0(configured).resolve(strict=False))
-    if allow_base_dir:
-        roots.add(Path(files.get_base_dir()).resolve(strict=False))
     return sorted(roots, key=lambda item: str(item))
 
 
@@ -157,10 +153,10 @@ def _settings() -> Any:
     return settings
 
 
-def normalize_path(path: str | Path, context_id: str = "", allow_base_dir: bool = False) -> Path:
+def normalize_path(path: str | Path, context_id: str = "") -> Path:
     candidate = _path_from_a0(path)
     resolved = candidate.resolve(strict=False)
-    roots = allowed_roots(context_id, allow_base_dir=allow_base_dir)
+    roots = allowed_roots(context_id)
     if not any(_is_relative_to(resolved, root) for root in roots):
         raise PermissionError("Document artifacts must stay inside the active project or workdir.")
     if candidate.exists():
@@ -238,13 +234,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     )
 
 
-def register_document(
-    path: str | Path,
-    owner_id: str = "a0",
-    context_id: str = "",
-    allow_base_dir: bool = False,
-) -> dict[str, Any]:
-    resolved = normalize_path(path, context_id=context_id, allow_base_dir=allow_base_dir)
+def register_document(path: str | Path, owner_id: str = "a0", context_id: str = "") -> dict[str, Any]:
+    resolved = normalize_path(path, context_id=context_id)
     if not resolved.exists():
         raise FileNotFoundError(str(resolved))
     ext = normalize_extension(resolved.suffix.lstrip("."))
@@ -336,8 +327,8 @@ def rename_document(
     ext = normalize_extension(resolved.suffix.lstrip("."))
     data = None
     if content is not None:
-        if ext not in EDITOR_TEXT_EXTENSIONS:
-            raise ValueError("Inline content can only be provided for Editor text documents.")
+        if ext != "md":
+            raise ValueError("Inline content can only be provided for Markdown documents.")
         data = str(content or "").encode("utf-8")
         if len(data) > MAX_SAVE_BYTES:
             raise OverflowError("Document save exceeds maximum size")
@@ -495,91 +486,13 @@ def close_session(session_id: str = "", file_id: str = "") -> int:
 def read_text_for_editor(doc: dict[str, Any]) -> str:
     path = Path(doc["path"])
     ext = str(doc["extension"]).lower()
-    if ext in EDITOR_TEXT_EXTENSIONS:
+    if ext == "md":
         return path.read_text(encoding="utf-8", errors="replace")
     raise ValueError(f"Text editing is not available for .{ext}.")
 
 
-def write_text_document(file_id: str, content: str) -> dict[str, Any]:
-    doc = get_document(file_id)
-    ext = str(doc.get("extension") or "").lower()
-    if ext not in EDITOR_TEXT_EXTENSIONS:
-        raise ValueError(f"Editor text saves are not available for .{ext}.")
-    return replace_document_bytes(file_id, str(content or "").encode("utf-8"), actor=f"editor:{ext}")
-
-
 def write_markdown(file_id: str, content: str) -> dict[str, Any]:
-    return write_text_document(file_id, content)
-
-
-def save_text_document_as(
-    file_id: str,
-    path: str | Path,
-    content: str,
-    context_id: str = "",
-) -> dict[str, Any]:
-    target = normalize_path(path, context_id=context_id)
-    ext = normalize_extension(target.suffix.lstrip("."))
-    if ext not in EDITOR_TEXT_EXTENSIONS:
-        raise ValueError("Editor Save As only supports Markdown (.md) and text (.txt) files.")
-    if target.exists():
-        raise FileExistsError(f"Target already exists: {display_path(target)}")
-
-    data = str(content or "").encode("utf-8")
-    if len(data) > MAX_SAVE_BYTES:
-        raise OverflowError("Document save exceeds maximum size")
-
-    with connect() as conn:
-        source = get_document(file_id, conn=conn)
-        source_ext = str(source.get("extension") or "").lower()
-        if source_ext not in EDITOR_TEXT_EXTENSIONS:
-            raise ValueError(f"Editor Save As is not available for .{source_ext}.")
-        changed_at = now()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        _write_atomic(target, data)
-        digest = sha256_bytes(data)
-        stat = target.stat()
-        new_file_id = uuid.uuid4().hex
-        conn.execute(
-            """
-            INSERT INTO documents
-            (file_id, path, basename, extension, owner_id, size, version, sha256, last_modified, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                new_file_id,
-                str(target),
-                target.name,
-                ext,
-                str(source.get("owner_id") or "a0"),
-                stat.st_size,
-                1,
-                digest,
-                now_iso(),
-                changed_at,
-                changed_at,
-            ),
-        )
-        _record_version(conn, new_file_id, target, "1", data)
-        conn.execute(
-            "INSERT INTO events (file_id, event_type, payload, created_at) VALUES (?, ?, ?, ?)",
-            (
-                file_id,
-                "saved_as",
-                json.dumps({"from": display_path(source["path"]), "to": display_path(target)}),
-                changed_at,
-            ),
-        )
-        conn.execute(
-            "INSERT INTO events (file_id, event_type, payload, created_at) VALUES (?, ?, ?, ?)",
-            (
-                new_file_id,
-                "created_from_save_as",
-                json.dumps({"from": display_path(source["path"])}),
-                changed_at,
-            ),
-        )
-        return get_document(new_file_id, conn=conn)
+    return replace_document_bytes(file_id, str(content or "").encode("utf-8"), actor="office:markdown")
 
 
 def replace_document_bytes(
@@ -701,7 +614,7 @@ def create_document(
 
 def _unique_document_path(title: str, ext: str, context_id: str = "") -> Path:
     base = safe_document_stem(title, ext, "Document")
-    root = document_home(context_id) if ext in EDITOR_TEXT_EXTENSIONS else document_binary_home(context_id)
+    root = document_home(context_id) if ext == "md" else document_binary_home(context_id)
     candidate = root / f"{base}.{ext}"
     index = 2
     while candidate.exists():
@@ -722,8 +635,6 @@ def template_bytes(kind: str, ext: str, title: str, content: str) -> bytes:
     ext = normalize_extension(ext or "md")
     if ext == "md":
         return _markdown(title, content).encode("utf-8")
-    if ext == "txt":
-        return (str(content or "") or str(title or "")).encode("utf-8")
     if ext == "odt":
         return odt_bytes(title, content)
     if ext == "ods":

@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Remote Control</title>
+    <title>Remote Link</title>
     <script type="module">
       import { store } from "/components/settings/tunnel/tunnel-store.js";
     </script>
@@ -20,23 +20,23 @@
               <span class="material-symbols-outlined">share</span>
             </div>
             <div>
-              <div class="section-title">Remote Control</div>
+              <div class="section-title">Remote Link</div>
               <div class="section-description">
-                Create temporary HTTPS access for this Agent Zero instance, then open it from another browser or scan it from your phone.
+                Create a temporary HTTPS link for this Agent Zero instance, then open it from another browser or scan it from your phone.
               </div>
             </div>
           </header>
 
           <div class="remote-link-safety-note">
             <span class="material-symbols-outlined" aria-hidden="true">lock</span>
-            <span>Use sign-in before sharing remote control access. The URL can reach your instance while access is active.</span>
+            <span>Use sign-in before sharing a remote link. The URL can reach your instance while the link is active.</span>
           </div>
 
           <div class="field remote-link-provider-field">
             <div class="field-label">
               <div class="field-title">Link provider</div>
               <div class="field-description">
-                Cloudflare Tunnel is the quickest shareable URL. Tailscale Funnel creates a public HTTPS URL after this container joins your tailnet and may ask you to approve sign-in or Funnel access. Microsoft Dev Tunnels may ask you to approve a GitHub device login.
+                Cloudflare is the quickest path for a shareable URL. Microsoft Dev Tunnels may ask you to sign in.
               </div>
             </div>
             <div class="field-control">
@@ -45,8 +45,7 @@
                 x-model="$store.tunnelStore.provider"
                 :disabled="$store.tunnelStore.isLoading"
               >
-                <option value="cloudflared">Cloudflare Tunnel</option>
-                <option value="tailscale">Tailscale</option>
+                <option value="cloudflared">Cloudflare</option>
                 <option value="microsoft">Microsoft Dev Tunnels</option>
                 <option value="serveo">Serveo</option>
               </select>
@@ -55,22 +54,22 @@
 
           <div class="remote-link-loading" x-show="$store.tunnelStore.isLoading" style="display: none;">
             <span class="material-symbols-outlined spin" aria-hidden="true">progress_activity</span>
-            <span x-text="$store.tunnelStore.loadingText || 'Preparing remote control...'"></span>
+            <span x-text="$store.tunnelStore.loadingText || 'Preparing remote link...'"></span>
           </div>
 
-          <div class="microsoft-login-box" x-show="$store.tunnelStore.loginActionVisible" x-transition style="display: none;">
+          <div class="microsoft-login-box" x-show="$store.tunnelStore.microsoftLoginCode" x-transition style="display: none;">
             <div class="microsoft-login-header">
               <span class="material-symbols-outlined" aria-hidden="true">key</span>
               <div>
-                <div class="microsoft-login-title" x-text="$store.tunnelStore.loginActionTitle"></div>
-                <div class="microsoft-login-copy" x-text="$store.tunnelStore.loginActionCopy"></div>
+                <div class="microsoft-login-title">Microsoft sign-in</div>
+                <div class="microsoft-login-copy">Approve the tunnel request, then Agent Zero will finish creating the link.</div>
               </div>
             </div>
-            <a class="microsoft-login-link" x-show="$store.tunnelStore.microsoftLoginUrl" :href="$store.tunnelStore.microsoftLoginUrl" target="_blank" rel="noopener noreferrer">
+            <a class="microsoft-login-link" :href="$store.tunnelStore.microsoftLoginUrl" target="_blank" rel="noopener noreferrer">
               <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
               <span x-text="$store.tunnelStore.microsoftLoginUrl"></span>
             </a>
-            <div class="microsoft-login-code-row" x-show="$store.tunnelStore.microsoftLoginCode">
+            <div class="microsoft-login-code-row">
               <div class="microsoft-login-code" x-text="$store.tunnelStore.microsoftLoginCode"></div>
               <button
                 type="button"
@@ -92,7 +91,7 @@
                   class="remote-link-input"
                   :value="$store.tunnelStore.tunnelLink"
                   readonly
-                  aria-label="Remote Control URL"
+                  aria-label="Remote link URL"
                 >
                 <button
                   type="button"
@@ -113,7 +112,7 @@
                   :disabled="$store.tunnelStore.isLoading"
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
-                  <span>New URL</span>
+                  <span>New link</span>
                 </button>
               </div>
 
@@ -128,7 +127,7 @@
                 <div class="remote-link-status-panel">
                   <span class="material-symbols-outlined" aria-hidden="true">verified</span>
                   <div>
-                    <div class="remote-link-status-title">Remote Control is active</div>
+                    <div class="remote-link-status-title">Link is active</div>
                     <div class="remote-link-status-copy">
                       It stays available until you stop it or the container restarts.
                     </div>
@@ -144,14 +143,14 @@
                   :disabled="$store.tunnelStore.isLoading"
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">stop_circle</span>
-                  <span>Stop Remote Control</span>
+                  <span>Stop link</span>
                 </button>
               </div>
             </div>
 
             <div class="remote-link-empty" x-show="!$store.tunnelStore.linkGenerated">
               <span class="material-symbols-outlined" aria-hidden="true">link</span>
-              <strong>No Remote Control yet</strong>
+              <strong>No remote link yet</strong>
               <span>Create one when you want to reach Agent Zero from another device or share access temporarily.</span>
               <button
                 type="button"
@@ -160,7 +159,7 @@
                 :disabled="$store.tunnelStore.isLoading"
               >
                 <span class="material-symbols-outlined" aria-hidden="true">share</span>
-                <span>Start Remote Control</span>
+                <span>Create remote link</span>
               </button>
             </div>
           </div>

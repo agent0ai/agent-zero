@@ -5,26 +5,20 @@ from typing import Any
 from plugins._desktop.helpers import desktop_state
 from plugins._office.helpers import document_store
 
-OFFICE_EXTENSIONS = document_store.OPEN_DOCUMENT_EXTENSIONS | document_store.OOXML_EXTENSIONS
-
 
 def build_context(max_items: int = 6) -> str:
-    documents = [
-        doc
-        for doc in document_store.get_open_documents(limit=max(max_items * 4, 20))
-        if str(doc.get("extension") or "").lower() in OFFICE_EXTENSIONS
-    ][:max_items]
+    documents = document_store.get_open_documents(limit=max_items)
     desktop_context = build_desktop_context()
     if not documents:
         return desktop_context
 
     lines = [
-        "These Office artifacts have active document sessions. Content is omitted; use `office_artifact` with action `read` before content-sensitive edits.",
+        "These document artifacts have active document sessions. Content is omitted; load skill `document-artifacts` for edit workflow, then use `document_artifact` with action `read` before content-sensitive edits.",
     ]
     for doc in documents:
         lines.append(format_document_line(doc))
     lines.append(
-        "Use `office_artifact` with action `edit` and file_id or path for saved Office edits; tool results refresh already-open document canvases automatically."
+        "Use `document_artifact` with action `edit` and file_id or path for saved edits; tool results refresh the document canvas."
     )
     if desktop_context:
         lines.extend(["", desktop_context])

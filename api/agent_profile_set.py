@@ -1,4 +1,4 @@
-from agent import AgentContext
+from agent import Agent, AgentContext
 from helpers import subagents
 from helpers.api import ApiHandler, Request, Response
 from helpers.persist_chat import save_tmp_chat
@@ -39,7 +39,11 @@ class SetAgentProfile(ApiHandler):
 
         config = initialize_agent(override_settings={"agent_profile": profile})
         context.config = config
-        context.agent0.config = config
+
+        agent = context.agent0
+        while agent:
+            agent.config = config
+            agent = agent.get_data(Agent.DATA_NAME_SUBORDINATE)
 
         save_tmp_chat(context)
         mark_dirty_for_context(context.id, reason="agent_profile_change")

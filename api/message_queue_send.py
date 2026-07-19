@@ -19,8 +19,6 @@ class MessageQueueSend(ApiHandler):
 
         if send_all:
             count = mq.send_all_aggregated(context)
-            if count:
-                mark_dirty_for_context(context.id, reason="message_queue_send_all")
             return {"ok": True, "sent_count": count}
 
         # Send single item

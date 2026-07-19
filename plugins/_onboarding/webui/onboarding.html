@@ -20,7 +20,7 @@
             padding: 24px 30px 28px;
             background: var(--color-panel, #151515);
         }
-        .onboarding-content { position: relative; z-index: 1; container-type: inline-size; }
+        .onboarding-content { position: relative; z-index: 1; }
         .onboarding-header {
             display: flex;
             align-items: center;
@@ -85,57 +85,63 @@
             box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
             padding: 18px;
         }
-        .mode-switch {
-            display: flex;
-            gap: 6px;
-            padding: 6px;
-            margin-bottom: 16px;
-            border: 1px solid var(--onboard-line);
-            border-radius: 16px;
-            background: color-mix(in srgb, var(--color-background) 45%, transparent);
+        .path-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
         }
-        .mode-option {
-            flex: 1 1 0;
-            min-width: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 11px;
-            min-height: 56px;
-            padding: 9px 16px;
-            border: 1px solid transparent;
-            border-radius: 12px;
-            background: transparent;
-            color: var(--onboard-muted);
+        .path-card {
+            position: relative;
+            aspect-ratio: 21 / 9;
+            min-height: 0;
+            overflow: hidden;
+            border: 1px solid color-mix(in srgb, var(--onboard-line) 78%, transparent);
+            border-radius: 18px;
+            background: var(--onboard-soft);
             text-align: left;
             cursor: pointer;
+            padding: 0;
+            color: var(--onboard-ink);
             font-family: "Rubik", var(--font-family, sans-serif);
-            transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
-        .mode-option:hover, .mode-option:focus-visible {
-            border-color: color-mix(in srgb, var(--onboard-line) 82%, transparent);
-            background: color-mix(in srgb, var(--color-background-hover) 44%, transparent);
+        .path-card:hover, .path-card:focus-visible {
+            border-color: var(--color-border);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
             outline: none;
         }
-        .mode-option.active {
-            color: var(--onboard-ink);
-            border-color: color-mix(in srgb, #d9ad68 42%, var(--onboard-line));
-            background: color-mix(in srgb, #d9ad68 9%, var(--color-panel));
+        .path-card img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            opacity: 0.92;
         }
-        .mode-option .material-symbols-outlined {
-            font-size: 22px;
+        .path-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.58));
         }
-        .mode-option.active .material-symbols-outlined {
-            color: #d9ad68;
+        .path-card-copy {
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            bottom: 18px;
+            z-index: 1;
+            color: #f8f4ec;
+            text-shadow: 0 1px 18px rgba(0,0,0,0.45);
         }
-        .mode-copy { display: grid; gap: 1px; min-width: 0; }
-        .mode-title { font-weight: 900; line-height: 1.15; }
-        .mode-sub { font-size: 0.78rem; line-height: 1.3; color: var(--onboard-muted); }
-        .pane-note { margin-top: 14px; }
-        @container (max-width: 700px) {
-            .mode-switch { flex-direction: column; }
-            .mode-option { justify-content: flex-start; }
+        .path-card-title {
+            display: block;
+            font-size: clamp(1.18rem, 2.4vw, 1.65rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 5px;
         }
+        .path-card-text { display: block; max-width: 38ch; line-height: 1.45; }
         .account-strip {
             display: flex;
             align-items: center;
@@ -169,80 +175,6 @@
         .section-title { color: var(--onboard-ink); font-weight: 900; }
         .setup-hero .section-title { font-weight: 720; }
         .account-subtitle, .section-description { color: var(--onboard-muted); line-height: 1.45; }
-        .oauth-account-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-        }
-        .oauth-account-card {
-            min-height: 76px;
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
-            align-items: center;
-            gap: 10px;
-            padding: 12px;
-            border: 1px solid var(--onboard-line);
-            border-radius: 15px;
-            background: color-mix(in srgb, var(--color-panel) 68%, transparent);
-            color: var(--onboard-ink);
-            text-align: left;
-            cursor: pointer;
-            transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
-        }
-        .oauth-account-card:hover,
-        .oauth-account-card:focus-visible {
-            border-color: var(--color-border);
-            background: color-mix(in srgb, var(--color-background-hover) 62%, var(--color-panel));
-            outline: none;
-        }
-        .oauth-account-card.connected {
-            border-color: color-mix(in srgb, #8fd8a8 44%, var(--onboard-line));
-        }
-        .oauth-account-mark {
-            width: 36px;
-            height: 36px;
-            display: grid;
-            place-items: center;
-            border-radius: 10px;
-            background: color-mix(in srgb, var(--color-background) 50%, transparent);
-            color: var(--onboard-muted);
-        }
-        .oauth-account-mark.connected {
-            color: #0c1b11;
-            background: #8fd8a8;
-        }
-        .oauth-account-copy {
-            display: grid;
-            min-width: 0;
-            gap: 3px;
-        }
-        .oauth-account-title,
-        .oauth-account-subtitle {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .oauth-account-title {
-            font-weight: 900;
-            line-height: 1.2;
-        }
-        .oauth-account-subtitle {
-            color: var(--onboard-muted);
-            font-size: 0.84rem;
-        }
-        .oauth-account-action {
-            min-height: 28px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 10px;
-            border-radius: 8px;
-            background: color-mix(in srgb, var(--color-background) 54%, transparent);
-            color: var(--onboard-ink);
-            font-size: 0.78rem;
-            font-weight: 900;
-            white-space: nowrap;
-        }
         .provider-grid {
             display: grid;
             grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -272,6 +204,40 @@
             margin-bottom: 0;
         }
         .provider-name { font-weight: 900; line-height: 1.18; }
+        .more-providers {
+            margin: 10px 0 14px;
+            padding: 0;
+            overflow: hidden;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+        .more-provider-toggle {
+            width: 100%;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 0;
+            background: transparent;
+            color: var(--onboard-ink);
+            cursor: pointer;
+            font-weight: 900;
+        }
+        .more-provider-toggle .material-symbols-outlined {
+            transition: transform 0.18s ease;
+        }
+        .more-provider-toggle.open .material-symbols-outlined {
+            transform: rotate(180deg);
+        }
+        .more-provider-list {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            padding: 0;
+            margin-top: 8px;
+        }
         .local-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -521,25 +487,6 @@
             line-height: 1.4;
         }
         .oauth-device-note .material-symbols-outlined { font-size: 19px; color: #d9ad68; }
-        .oauth-provider-fields {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-        }
-        .oauth-provider-fields .field {
-            display: grid;
-            gap: 6px;
-        }
-        .oauth-provider-fields .field span {
-            color: var(--onboard-ink);
-            font-weight: 850;
-        }
-        .oauth-manual-callback {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            align-items: center;
-            gap: 8px;
-        }
         .status-pill {
             display: inline-flex;
             align-items: center;
@@ -554,30 +501,59 @@
         .status-pill.connected { color: #8fd8a8; border-color: color-mix(in srgb, #8fd8a8 44%, var(--onboard-line)); }
         @media (max-width: 980px) {
             .provider-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            .oauth-account-grid { grid-template-columns: 1fr; }
+            .more-provider-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .setup-layout { grid-template-columns: 1fr; }
         }
         @media (max-width: 760px) {
             .onboarding-shell { padding: 18px 14px 22px; }
             .onboarding-header { align-items: flex-start; flex-direction: column; }
             .onboarding-progress { justify-content: flex-start; }
-            .local-grid { grid-template-columns: 1fr; }
+            .path-grid, .local-grid { grid-template-columns: 1fr; }
             .provider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .mode-switch { flex-direction: column; }
-            .mode-option { justify-content: flex-start; }
+            .more-provider-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .path-card { aspect-ratio: 21 / 10; }
             .account-strip { align-items: flex-start; flex-direction: column; }
-            .oauth-account-card { grid-template-columns: auto minmax(0, 1fr); }
-            .oauth-account-action { grid-column: 2; justify-self: start; }
             .oauth-connect-main { align-items: stretch; flex-direction: column; }
             .oauth-connect-actions { justify-content: flex-start; }
-            .oauth-provider-fields,
-            .oauth-manual-callback {
-                grid-template-columns: 1fr;
-            }
         }
         @media (max-width: 480px) {
             .provider-grid { grid-template-columns: 1fr; }
+            .more-provider-list { grid-template-columns: 1fr; }
             .provider-card, .local-card { min-height: auto; }
+        }
+    
+        .more-providers.onboarding-panel {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .more-provider-toggle,
+        .more-provider-toggle.open {
+            border: 0 !important;
+            border-top: 0 !important;
+            border-bottom: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        .more-provider-toggle:focus,
+        .more-provider-toggle:focus-visible,
+        .more-provider-toggle.open:focus,
+        .more-provider-toggle.open:focus-visible {
+            outline: none !important;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 5px;
+            text-decoration-color: color-mix(in srgb, #d9ad68 62%, transparent);
+        }
+
+        .more-provider-toggle,
+        .more-provider-toggle:focus,
+        .more-provider-toggle:focus-visible,
+        .more-provider-toggle.open:focus,
+        .more-provider-toggle.open:focus-visible {
+            text-decoration: none !important;
         }
 </style>
 </head>
@@ -607,82 +583,57 @@
 
                     <template x-if="!$store.onboarding.loading && $store.onboarding.config">
                         <div>
-                            <section x-show="$store.onboarding.isStep('connect')" x-transition.opacity>
-                                <div class="mode-switch" role="tablist" aria-label="Where should your AI model run?">
-                                    <button type="button"
-                                            class="mode-option"
-                                            role="tab"
-                                            :class="{ active: $store.onboarding.providerMode === 'cloud' }"
-                                            :aria-selected="$store.onboarding.providerMode === 'cloud' ? 'true' : 'false'"
-                                            @click="$store.onboarding.setProviderMode('cloud')">
-                                        <span class="material-symbols-outlined" aria-hidden="true">cloud</span>
-                                        <span class="mode-copy">
-                                            <span class="mode-title">Cloud</span>
-                                            <span class="mode-sub">Connect with an API key</span>
+                            <section x-show="$store.onboarding.isStep('path')" x-transition.opacity>
+                                <div class="path-grid">
+                                    <button type="button" class="path-card" @click="$store.onboarding.choosePath('cloud')" aria-label="Choose Cloud provider setup">
+                                        <img src="/plugins/_onboarding/webui/assets/cloud-card.webp" alt="">
+                                        <span class="path-card-copy">
+                                            <span class="path-card-title">Cloud</span>
+                                            <span class="path-card-text">Use an online provider with an API key or account connection.</span>
                                         </span>
                                     </button>
-                                    <button type="button"
-                                            class="mode-option"
-                                            role="tab"
-                                            x-show="$store.onboarding.oauthProviderCards().length"
-                                            :class="{ active: $store.onboarding.providerMode === 'account' }"
-                                            :aria-selected="$store.onboarding.providerMode === 'account' ? 'true' : 'false'"
-                                            @click="$store.onboarding.setProviderMode('account')">
-                                        <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>
-                                        <span class="mode-copy">
-                                            <span class="mode-title">Account</span>
-                                            <span class="mode-sub">Codex, Copilot, Gemini, Grok</span>
-                                        </span>
-                                    </button>
-                                    <button type="button"
-                                            class="mode-option"
-                                            role="tab"
-                                            :class="{ active: $store.onboarding.providerMode === 'local' }"
-                                            :aria-selected="$store.onboarding.providerMode === 'local' ? 'true' : 'false'"
-                                            @click="$store.onboarding.setProviderMode('local')">
-                                        <span class="material-symbols-outlined" aria-hidden="true">memory</span>
-                                        <span class="mode-copy">
-                                            <span class="mode-title">Local</span>
-                                            <span class="mode-sub">Runs on your machine</span>
+                                    <button type="button" class="path-card" @click="$store.onboarding.choosePath('local')" aria-label="Choose Local model setup">
+                                        <img src="/plugins/_onboarding/webui/assets/local-card.webp" alt="">
+                                        <span class="path-card-copy">
+                                            <span class="path-card-title">Local</span>
+                                            <span class="path-card-text">Use a local LLM running on your own machine, with more control over where requests go.</span>
                                         </span>
                                     </button>
                                 </div>
+                            </section>
 
-                                <div x-show="$store.onboarding.providerMode === 'local'" x-transition.opacity>
-                                    <div class="local-grid">
-                                        <template x-for="provider in $store.onboarding.localProviderCards()" :key="provider.id + provider.name">
-                                            <button type="button" class="local-card" @click="$store.onboarding.selectProvider(provider.id, 'local')">
-                                                <span class="provider-card-top">
-                                                    <img class="provider-logo" :src="provider.logo" :alt="provider.name + ' logo'" @error="$el.style.display='none'">
-                                                    <span class="provider-name" x-text="provider.name"></span>
-                                                </span>
-                                            </button>
-                                        </template>
+                            <section x-show="$store.onboarding.isStep('cloud')" x-transition.opacity>
+                                <div class="provider-grid" aria-label="Cloud providers">
+                                    <template x-for="provider in $store.onboarding.topCloudProviders()" :key="provider.id">
+                                        <button type="button" class="provider-card" @click="$store.onboarding.selectProvider(provider.id, 'cloud')">
+                                            <span class="provider-card-top">
+                                                <img class="provider-logo" :src="provider.logo" :alt="provider.name + ' logo'" @error="$el.style.display='none'">
+                                                <span class="provider-name" x-text="provider.name"></span>
+                                            </span>
+                                        </button>
+                                    </template>
+                                </div>
+                                <div class="account-strip">
+                                    <div class="account-strip-main">
+                                        <img :src="$store.onboarding.accountMeta().logo" alt="OpenAI logo">
+                                        <div>
+                                            <div class="account-title">Connect ChatGPT/Codex Account</div>
+                                            <div class="account-subtitle" x-text="$store.onboarding.oauthStatusLabel()"></div>
+                                        </div>
                                     </div>
-                                    <div class="soft-note pane-note">Pick the app you use to run models on this machine. No API key needed — Agent Zero connects to it directly.</div>
+                                    <button type="button" class="btn btn-secondary" @click="$store.onboarding.selectCodexAccount()" x-text="$store.onboarding.accountActionLabel()"></button>
                                 </div>
-
-                                <div x-show="$store.onboarding.providerMode === 'account'" x-transition.opacity>
-                                    <div class="oauth-account-grid">
-                                        <template x-for="provider in $store.onboarding.oauthProviderCards()" :key="`account-${provider.provider_id}`">
-                                            <button type="button" class="oauth-account-card" :class="{ connected: provider.connected }" @click="$store.onboarding.selectOAuthProvider(provider.provider_id)">
-                                                <span class="oauth-account-mark" :class="{ connected: provider.connected }">
-                                                    <span class="material-symbols-outlined" x-text="$store.onboarding.oauthMark(provider)"></span>
-                                                </span>
-                                                <span class="oauth-account-copy">
-                                                    <span class="oauth-account-title" x-text="$store.onboarding.oauthCardTitle(provider)"></span>
-                                                    <span class="oauth-account-subtitle" x-text="$store.onboarding.oauthCardSubtitle(provider)"></span>
-                                                </span>
-                                                <span class="oauth-account-action" x-text="$store.onboarding.oauthAccountActionLabel(provider.provider_id)"></span>
-                                            </button>
-                                        </template>
-                                    </div>
-                                    <div class="soft-note pane-note">Sign in with a subscription you already have — no API key needed.</div>
-                                </div>
-
-                                <div x-show="$store.onboarding.providerMode === 'cloud'" x-transition.opacity>
-                                    <div class="provider-grid" aria-label="Cloud providers">
-                                        <template x-for="provider in $store.onboarding.cloudProviders()" :key="provider.id">
+                                <div class="more-providers onboarding-panel">
+                                    <button type="button"
+                                            class="more-provider-toggle"
+                                            :class="{ open: $store.onboarding.moreCloudOpen }"
+                                            @click="$store.onboarding.moreCloudOpen = !$store.onboarding.moreCloudOpen"
+                                            :aria-expanded="$store.onboarding.moreCloudOpen ? 'true' : 'false'">
+                                        <span>Click here if you don't see your provider</span>
+                                        <span class="material-symbols-outlined">keyboard_arrow_down</span>
+                                    </button>
+                                    <div class="more-provider-list" x-show="$store.onboarding.moreCloudOpen" x-transition.opacity>
+                                        <template x-for="provider in $store.onboarding.moreCloudProviders()" :key="provider.id">
                                             <button type="button" class="provider-card" @click="$store.onboarding.selectProvider(provider.id, 'cloud')">
                                                 <span class="provider-card-top">
                                                     <img class="provider-logo" :src="provider.logo" :alt="provider.name + ' logo'" @error="$el.style.display='none'">
@@ -691,6 +642,19 @@
                                             </button>
                                         </template>
                                     </div>
+                                </div>
+                            </section>
+
+                            <section x-show="$store.onboarding.isStep('local')" x-transition.opacity>
+                                <div class="local-grid">
+                                    <template x-for="provider in $store.onboarding.localProviderCards()" :key="provider.id + provider.name">
+                                        <button type="button" class="local-card" @click="$store.onboarding.selectProvider(provider.id, 'local')">
+                                            <span class="provider-card-top">
+                                                <img class="provider-logo" :src="provider.logo" :alt="provider.name + ' logo'" @error="$el.style.display='none'">
+                                                <span class="provider-name" x-text="provider.name"></span>
+                                            </span>
+                                        </button>
+                                    </template>
                                 </div>
                             </section>
 
@@ -739,55 +703,31 @@
                                             <div class="oauth-connect-panel">
                                                 <div class="oauth-connect-main">
                                                     <div class="oauth-status-group">
-                                                        <span class="oauth-status-mark" :class="{ connected: $store.onboarding.oauthConnected($store.onboarding.selectedProviderId) }">
-                                                            <span class="material-symbols-outlined" x-text="$store.onboarding.oauthConnected($store.onboarding.selectedProviderId) ? 'check_circle' : $store.onboarding.oauthMark($store.onboarding.oauthProviderStatus($store.onboarding.selectedProviderId))"></span>
+                                                        <span class="oauth-status-mark" :class="{ connected: $store.onboarding.oauthConnected() }">
+                                                            <span class="material-symbols-outlined" x-text="$store.onboarding.oauthConnected() ? 'check_circle' : 'lock_open'"></span>
                                                         </span>
                                                         <span class="oauth-status-copy">
-                                                            <span class="oauth-status-label" x-text="$store.onboarding.selectedProviderName()"></span>
+                                                            <span class="oauth-status-label">ChatGPT/Codex account</span>
                                                             <span class="oauth-status-detail">
-                                                                <span x-text="$store.onboarding.oauthStatusLabel($store.onboarding.selectedProviderId)"></span>
+                                                                <span x-text="$store.onboarding.oauthStatusLabel()"></span>
+                                                                <span x-show="$store.onboarding.oauthEmail()"> - <span x-text="$store.onboarding.oauthEmail()"></span></span>
                                                             </span>
                                                         </span>
                                                     </div>
                                                     <div class="oauth-connect-actions">
-                                                        <button type="button" class="btn btn-ok" x-show="!$store.onboarding.oauthConnected($store.onboarding.selectedProviderId)" @click="$store.onboarding.connectOAuth($store.onboarding.selectedProviderId)" :disabled="$store.onboarding.oauthConnecting || !$store.onboarding.oauthSetupReady($store.onboarding.selectedProviderId)">
-                                                            <span x-text="$store.onboarding.oauthAccountActionLabel($store.onboarding.selectedProviderId)"></span>
+                                                        <button type="button" class="btn btn-ok" x-show="!$store.onboarding.oauthConnected()" @click="$store.onboarding.connectCodex()" :disabled="$store.onboarding.oauthConnecting">
+                                                            <span x-text="$store.onboarding.oauthConnecting ? 'Waiting for sign-in' : 'Connect account'"></span>
                                                         </button>
                                                         <button type="button" class="btn btn-cancel" x-show="$store.onboarding.oauthConnecting" @click="$store.onboarding.cancelOauthConnect()">Cancel</button>
-                                                        <span class="status-pill connected" x-show="$store.onboarding.oauthConnected($store.onboarding.selectedProviderId)">
+                                                        <span class="status-pill connected" x-show="$store.onboarding.oauthConnected()">
                                                             <span class="material-symbols-outlined">check_circle</span>
                                                             <span>Connected</span>
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <div class="oauth-provider-fields" x-show="$store.onboarding.oauthProviderStatus($store.onboarding.selectedProviderId)?.supports_enterprise_domain && !$store.onboarding.oauthConnected($store.onboarding.selectedProviderId)">
-                                                    <label class="field">
-                                                        <span>Enterprise domain</span>
-                                                        <input type="text" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).enterprise_domain" placeholder="github.com">
-                                                    </label>
-                                                </div>
-                                                <div class="oauth-provider-fields" x-show="$store.onboarding.oauthProviderStatus($store.onboarding.selectedProviderId)?.supports_oauth_client_config && !$store.onboarding.oauthConnected($store.onboarding.selectedProviderId)">
-                                                    <label class="field">
-                                                        <span>OAuth client ID</span>
-                                                        <input type="text" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).client_id" placeholder="Google Cloud OAuth client ID">
-                                                    </label>
-                                                    <label class="field">
-                                                        <span>OAuth client secret</span>
-                                                        <input type="password" autocomplete="off" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).client_secret" placeholder="Google Cloud OAuth client secret">
-                                                    </label>
-                                                    <label class="field" x-show="$store.onboarding.oauthProviderStatus($store.onboarding.selectedProviderId)?.supports_quota_project">
-                                                        <span>Quota project</span>
-                                                        <input type="text" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).quota_project_id" placeholder="Optional Google Cloud project ID">
-                                                    </label>
-                                                </div>
                                                 <div class="oauth-device-note" x-show="$store.onboarding.oauthDevice">
                                                     <span class="material-symbols-outlined">key</span>
-                                                    <span x-show="$store.onboarding.oauthDevice?.user_code">Device code: <b x-text="$store.onboarding.oauthDevice?.user_code"></b></span>
-                                                    <span x-show="!$store.onboarding.oauthDevice?.user_code">Finish sign-in in the opened browser tab.</span>
-                                                </div>
-                                                <div class="oauth-manual-callback" x-show="$store.onboarding.oauthProviderStatus($store.onboarding.selectedProviderId)?.supports_manual_callback && $store.onboarding.oauthDevice?.flow === 'browser_pkce' && !$store.onboarding.oauthConnected($store.onboarding.selectedProviderId)">
-                                                    <input type="text" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).manualCallback" placeholder="Paste callback URL, query string, or code">
-                                                    <button type="button" class="btn btn-secondary" @click="$store.onboarding.submitOAuthManualCallback($store.onboarding.selectedProviderId)">Submit</button>
+                                                    <span>Device code: <b x-text="$store.onboarding.oauthDevice?.user_code"></b></span>
                                                 </div>
                                             </div>
                                         </template>
@@ -821,10 +761,13 @@
 
                             <section x-show="$store.onboarding.isStep('utility')" x-transition.opacity>
                                 <div class="utility-panel field-stack">
-                                    <div class="soft-note">The utility model handles quick internal tasks — summaries, naming, memory. A small, fast, cheap model works best here.</div>
+                                    <label class="soft-note">
+                                        <input type="checkbox" x-model="$store.onboarding.sameAsMain" @change="$store.onboarding.syncUtilityWithMain()">
+                                        Use same as Main Model
+                                    </label>
                                     <div class="field">
                                         <label for="utility-provider">Utility provider</label>
-                                        <select id="utility-provider" x-model="$store.onboarding.config.utility_model.provider" @change="$store.onboarding.utilityProviderChanged()">
+                                        <select id="utility-provider" x-model="$store.onboarding.config.utility_model.provider" @change="$store.onboarding.utilityProviderChanged()" :disabled="$store.onboarding.sameAsMain">
                                             <template x-for="provider in $store.modelConfig.getProviders('utility_model')" :key="provider.value">
                                                 <option :value="provider.value" x-text="provider.label"></option>
                                             </template>
@@ -833,16 +776,17 @@
                                     <div class="field relative-field" @click.outside="$store.onboarding.closeModelDropdown('utility_model')">
                                         <label class="model-label" for="utility-model-input">Search or enter Utility Model</label>
                                         <div class="model-input-row">
-                                            <input id="utility-model-input" type="text" x-model="$store.onboarding.config.utility_model.name" @input="$store.onboarding.markModelTouched('utility_model')" @focus="$store.onboarding.openModelDropdown('utility_model')" placeholder="Search or enter a model">
+                                            <input id="utility-model-input" type="text" x-model="$store.onboarding.config.utility_model.name" @input="$store.onboarding.markModelTouched('utility_model')" @focus="$store.onboarding.openModelDropdown('utility_model')" :disabled="$store.onboarding.sameAsMain" placeholder="Search or enter a model">
                                             <button type="button"
                                                     class="model-refresh-button"
                                                     aria-label="Refresh utility model list"
                                                     title="Refresh model list"
+                                                    x-show="!$store.onboarding.sameAsMain"
                                                     @click="$store.onboarding.loadModels('utility_model')"
                                                     :disabled="$store.onboarding.modelDropdown.utility_model.loading">
                                                 <span class="material-symbols-outlined" x-text="$store.onboarding.modelDropdown.utility_model.loading ? 'progress_activity' : 'search'"></span>
                                             </button>
-                                            <div class="model-dropdown" x-show="$store.onboarding.modelDropdown.utility_model.open && !$store.onboarding.modelDropdown.utility_model.loading" x-transition.opacity>
+                                            <div class="model-dropdown" x-show="!$store.onboarding.sameAsMain && $store.onboarding.modelDropdown.utility_model.open && !$store.onboarding.modelDropdown.utility_model.loading" x-transition.opacity>
                                                 <template x-for="model in $store.onboarding.filteredModels('utility_model')" :key="model">
                                                     <button type="button" class="model-item" @click="$store.onboarding.selectModel('utility_model', model)" x-text="model"></button>
                                                 </template>
@@ -858,7 +802,7 @@
                                 <x-extension id="onboarding-success-end"></x-extension>
                             </section>
 
-                            <div class="onboarding-advanced-link" x-show="!$store.onboarding.isStep('ready')">
+                            <div class="onboarding-advanced-link" x-show="!$store.onboarding.isStep('ready') && !$store.onboarding.isStep('cloud') && !$store.onboarding.isStep('local')">
                                 <button type="button" class="advanced-settings-toggle" @click="$store.onboarding.openAdvancedSettings()">
                                     <span>Advanced Settings</span>
                                     <span class="material-symbols-outlined">keyboard_arrow_right</span>

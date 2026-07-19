@@ -1,5 +1,4 @@
 import { createStore } from "/js/AlpineStore.js";
-import { store as chatInputStore } from "/components/chat/input/input-store.js";
 
 // Store model for the Full-Screen Input Modal
 const model = {
@@ -19,7 +18,8 @@ const model = {
 
   // Open modal with current chat input content
   openModal() {
-    this.inputText = chatInputStore.message || "";
+    const chatInput = document.getElementById("chat-input");
+    this.inputText = chatInput ? chatInput.value : this.inputText;
     this.lastSavedState = this.inputText;
     this.isOpen = true;
     this.undoStack = [];
@@ -34,8 +34,11 @@ const model = {
 
   // Close modal and write value back into main chat input
   handleClose() {
-    chatInputStore.message = this.inputText;
-    chatInputStore.adjustTextareaHeight();
+    const chatInput = document.getElementById("chat-input");
+    if (chatInput) {
+      chatInput.value = this.inputText;
+      chatInput.dispatchEvent(new Event("input")); // trigger auto-resize
+    }
     this.isOpen = false;
   },
 
@@ -84,4 +87,5 @@ const model = {
 };
 
 export const store = createStore("fullScreenInputModal", model);
+
 

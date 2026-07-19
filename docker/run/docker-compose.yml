@@ -6,9 +6,3 @@ services:
       - ./agent-zero:/a0
     ports:
       - "50080:80"
-    ulimits:
-      nofile:
-        soft: 65535
-        hard: 65535
-    extra_hosts:
-      - "host.docker.internal:host-gateway"

@@ -5,6 +5,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -17,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 from helpers import files, virtual_desktop
-from helpers.localization import Localization
 from plugins._desktop.helpers import desktop_state
 from plugins._office.helpers import document_store, libreoffice
 
@@ -77,8 +77,6 @@ DESKTOP_FOLDER_LINKS = (
 URL_INTENT_MAX_ITEMS = 50
 URL_INTENT_MAX_LENGTH = 8192
 URL_HANDLER_DESKTOP_ID = "agent-zero-browser.desktop"
-EDITOR_HANDLER_DESKTOP_ID = "agent-zero-editor.desktop"
-WRITER_HANDLER_DESKTOP_ID = "libreoffice-writer.desktop"
 SHUTDOWN_HANDLER_DESKTOP_ID = "agent-zero-shutdown.desktop"
 SHUTDOWN_PANEL_LAUNCHER_ID = SHUTDOWN_HANDLER_DESKTOP_ID
 SHUTDOWN_CONFIRM_SECONDS = 8
@@ -105,7 +103,6 @@ class DesktopSession:
     process_ids: dict[str, int] = field(default_factory=dict)
     owns_processes: bool = True
     started_at: float = field(default_factory=time.time)
-    timezone: str = field(default_factory=lambda: Localization.get().get_timezone())
 
     def alive(self) -> bool:
         return _running(self.processes.get("xpra")) or _pid_is_running(self.process_ids.get("xpra", 0))
@@ -222,69 +219,39 @@ class DesktopSessionManager:
             return {"ok": True, "refreshed": refreshed, "desktop": session.public(doc)}
 
     def save(self, session_id: str, file_id: str = "") -> dict[str, Any]:
-        with self._lock:
-            session = self.require(session_id)
-            doc = self._document_for_save(session, file_id)
-            if not doc:
-                return {
-                    "ok": True,
-                    "session_id": session.session_id,
-                    "document": None,
-                    "changed": False,
-                }
-
-            xdotool = shutil.which("xdotool")
-            if not xdotool:
-                updated = document_store.register_document(doc["path"])
-                return {
-                    "ok": False,
-                    "error": "xdotool is not installed; use LibreOffice's Save control inside the canvas.",
-                    "document": _public_doc(updated),
-                }
-
-            window_id = self._office_window_id_locked(
-                session,
-                title=str(doc.get("basename") or Path(doc["path"]).name),
-                fallback=False,
-            )
-            if not window_id:
-                return {
-                    "ok": False,
-                    "error": f"LibreOffice window not found for {doc['basename']}.",
-                    "document": _public_doc(doc),
-                }
-
-            result = subprocess.run(
-                [
-                    xdotool,
-                    "windowactivate",
-                    "--sync",
-                    window_id,
-                    "key",
-                    "--clearmodifiers",
-                    "ctrl+s",
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=8,
-                env=self._display_env(session),
-            )
-            time.sleep(0.8)
-            updated = document_store.register_document(doc["path"])
-            if result.returncode != 0:
-                detail = (result.stderr or result.stdout or "").strip()
-                return {
-                    "ok": False,
-                    "error": detail or "LibreOffice desktop save shortcut failed.",
-                    "document": _public_doc(updated),
-                }
+        session = self.require(session_id)
+        doc = self._document_for_save(session, file_id)
+        xdotool = shutil.which("xdotool")
+        if not xdotool:
+            updated = document_store.register_document(doc["path"]) if doc else None
             return {
-                "ok": True,
-                "session_id": session.session_id,
-                "document": _public_doc(updated),
-                "changed": updated.get("sha256") != doc.get("sha256"),
+                "ok": False,
+                "error": "xdotool is not installed; use LibreOffice's Save control inside the canvas.",
+                "document": _public_doc(updated) if updated else None,
             }
+
+        result = subprocess.run(
+            [xdotool, "key", "--clearmodifiers", "ctrl+s"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=8,
+            env=self._display_env(session),
+        )
+        time.sleep(0.8)
+        updated = document_store.register_document(doc["path"]) if doc else None
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()
+            return {
+                "ok": False,
+                "error": detail or "LibreOffice desktop save shortcut failed.",
+                "document": _public_doc(updated) if updated else None,
+            }
+        return {
+            "ok": True,
+            "session_id": session.session_id,
+            "document": _public_doc(updated) if updated else None,
+        }
 
     def sync(self, session_id: str = "", file_id: str = "") -> dict[str, Any]:
         session = self.get(session_id) if session_id else self._find_by_file_id(file_id)
@@ -430,8 +397,6 @@ class DesktopSessionManager:
         if not session:
             return {"ok": False, "error": "LibreOffice desktop session not found."}
         is_system_desktop = session.session_id == SYSTEM_SESSION_ID and session.extension == "desktop"
-        if is_system_desktop:
-            width, height = virtual_desktop.normalize_desktop_display_size(width, height)
         result = virtual_desktop.resize_display(
             display=session.display,
             width=width,
@@ -491,27 +456,6 @@ class DesktopSessionManager:
                 self._terminate_session(session)
                 self._remove_manifest(session.session_id)
 
-    def sync_timezone(self, timezone: str | None = None) -> dict[str, Any]:
-        target_timezone = str(timezone or Localization.get().get_timezone()).strip()
-        if not target_timezone:
-            target_timezone = Localization.get().get_timezone()
-
-        with self._lock:
-            self._reap_dead_locked()
-            session = self._sessions.get(SYSTEM_SESSION_ID)
-            if not session or not session.alive():
-                return {"ok": True, "restarted": False, "reason": "no_active_desktop"}
-            if session.timezone == target_timezone:
-                return {"ok": True, "restarted": False, "timezone": target_timezone}
-
-            replacement = self._restart_system_desktop_for_timezone_locked(session)
-            return {
-                "ok": True,
-                "restarted": True,
-                "session_id": replacement.session_id,
-                "timezone": replacement.timezone,
-            }
-
     def _document_for_save(self, session: DesktopSession, file_id: str = "") -> dict[str, Any] | None:
         normalized = str(file_id or "").strip()
         if normalized == SYSTEM_FILE_ID:
@@ -527,32 +471,6 @@ class DesktopSessionManager:
                     return document_store.register_document(path)
         return None
 
-    def _restart_system_desktop_for_timezone_locked(self, session: DesktopSession) -> DesktopSession:
-        try:
-            doc = self._document_for_save(session, session.file_id)
-        except Exception:
-            doc = None
-        if doc:
-            try:
-                self.save(session.session_id, str(doc.get("file_id") or ""))
-            except Exception:
-                pass
-
-        virtual_desktop.unregister_session(session.token)
-        self._sessions.pop(session.session_id, None)
-        self._terminate_session(session, include_rehydrated=True)
-        self._remove_manifest(session.session_id)
-
-        replacement = self._ensure_system_desktop_locked()
-        if doc:
-            self._open_document_locked(replacement, doc)
-            replacement.file_id = str(doc["file_id"])
-            replacement.extension = str(doc["extension"])
-            replacement.path = str(doc["path"])
-            replacement.title = str(doc["basename"])
-            self._write_manifest(replacement)
-        return replacement
-
     def _register_virtual_desktop(self, session: DesktopSession) -> None:
         virtual_desktop.register_session(
             token=session.token,
@@ -564,11 +482,8 @@ class DesktopSessionManager:
         )
 
     def _ensure_system_desktop_locked(self) -> DesktopSession:
-        target_timezone = Localization.get().get_timezone()
         existing = self._sessions.get(SYSTEM_SESSION_ID)
         if existing and existing.alive():
-            if existing.timezone != target_timezone:
-                return self._restart_system_desktop_for_timezone_locked(existing)
             self._prepare_desktop_url_bridge(existing)
             self._refresh_xfce_desktop(existing)
             return existing
@@ -577,8 +492,6 @@ class DesktopSessionManager:
         if existing:
             self._sessions[existing.session_id] = existing
             self._register_virtual_desktop(existing)
-            if existing.timezone != target_timezone:
-                return self._restart_system_desktop_for_timezone_locked(existing)
             self._prepare_desktop_url_bridge(existing)
             self._refresh_xfce_desktop(existing)
             return existing
@@ -600,7 +513,6 @@ class DesktopSessionManager:
             token=SYSTEM_SESSION_ID,
             url=_xpra_url(SYSTEM_SESSION_ID),
             profile_dir=profile_dir,
-            timezone=target_timezone,
         )
         try:
             self._prepare_profile(session)
@@ -660,7 +572,6 @@ class DesktopSessionManager:
                 process_ids=process_ids,
                 owns_processes=False,
                 started_at=float(payload.get("started_at") or time.time()),
-                timezone=str(payload.get("timezone") or Localization.get().get_timezone()),
             )
         except Exception:
             return None
@@ -849,48 +760,57 @@ class DesktopSessionManager:
             return ""
         env = self._display_env(session)
         title = str(title or "").strip()
-        try:
-            result = subprocess.run(
-                [xdotool, "search", "--onlyvisible", "--class", "libreoffice"],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=2,
-                env=env,
-            )
-            window_ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-        except (OSError, subprocess.TimeoutExpired):
-            window_ids = []
+        searches: list[list[str]] = []
         if title:
-            for window_id in reversed(window_ids):
-                try:
-                    result = subprocess.run(
-                        [xdotool, "getwindowname", window_id],
-                        check=False,
-                        capture_output=True,
-                        text=True,
-                        timeout=2,
-                        env=env,
-                    )
-                except (OSError, subprocess.TimeoutExpired):
-                    continue
-                if title.casefold() in result.stdout.strip().casefold():
-                    return window_id
-        if fallback and window_ids:
-            return window_ids[-1]
+            escaped_title = re.escape(title)
+            searches.append([
+                xdotool,
+                "search",
+                "--onlyvisible",
+                "--name",
+                escaped_title,
+            ])
+            for window_class in (
+                "libreoffice",
+                "libreoffice-writer",
+                "libreoffice-calc",
+                "libreoffice-impress",
+            ):
+                searches.append([
+                    xdotool,
+                    "search",
+                    "--onlyvisible",
+                    "--class",
+                    window_class,
+                    "--name",
+                    escaped_title,
+                ])
         if fallback:
+            for window_class in (
+                "libreoffice",
+                "libreoffice-writer",
+                "libreoffice-calc",
+                "libreoffice-impress",
+            ):
+                searches.append([xdotool, "search", "--onlyvisible", "--class", window_class])
+            searches.append([xdotool, "search", "--onlyvisible", "--name", "LibreOffice"])
+        for command in searches:
             try:
                 result = subprocess.run(
-                    [xdotool, "search", "--onlyvisible", "--name", "LibreOffice"],
+                    command,
                     check=False,
                     capture_output=True,
                     text=True,
                     timeout=2,
                     env=env,
                 )
-                window_ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
             except (OSError, subprocess.TimeoutExpired):
-                window_ids = []
+                continue
+            window_ids = [
+                line.strip()
+                for line in result.stdout.splitlines()
+                if line.strip()
+            ]
             if window_ids:
                 return window_ids[-1]
         return ""
@@ -1157,7 +1077,6 @@ class DesktopSessionManager:
         applications_dir.mkdir(parents=True, exist_ok=True)
 
         browser_bridge = _write_url_bridge_script(session)
-        editor_bridge = _write_editor_bridge_script(session)
         shutdown_bridge = _write_shutdown_bridge_script(session)
         helpers_rc = config_dir / "xfce4" / "helpers.rc"
         helpers_rc.parent.mkdir(parents=True, exist_ok=True)
@@ -1176,12 +1095,8 @@ class DesktopSessionManager:
             config_dir / "xfce4" / "helpers" / "agent-zero-browser.desktop",
             browser_bridge,
         )
-        _write_mimeapps_defaults(config_dir / "mimeapps.list", URL_HANDLER_DESKTOP_ID, EDITOR_HANDLER_DESKTOP_ID)
-        _write_mimeapps_defaults(
-            data_dir / "applications" / "mimeapps.list",
-            URL_HANDLER_DESKTOP_ID,
-            EDITOR_HANDLER_DESKTOP_ID,
-        )
+        _write_mimeapps_defaults(config_dir / "mimeapps.list", URL_HANDLER_DESKTOP_ID)
+        _write_mimeapps_defaults(data_dir / "applications" / "mimeapps.list", URL_HANDLER_DESKTOP_ID)
         _write_desktop_launcher(
             applications_dir / URL_HANDLER_DESKTOP_ID,
             name="Agent Zero Browser",
@@ -1191,15 +1106,6 @@ class DesktopSessionManager:
             try_exec=str(browser_bridge),
             mime_types=_url_handler_mime_types(),
             no_display=True,
-        )
-        _write_desktop_launcher(
-            applications_dir / EDITOR_HANDLER_DESKTOP_ID,
-            name="Agent Zero Editor",
-            exec_line=_desktop_exec(editor_bridge, "%F"),
-            icon="accessories-text-editor",
-            categories="Utility;TextEditor;",
-            try_exec=str(editor_bridge),
-            mime_types=_editor_text_handler_mime_types(),
         )
         _write_desktop_launcher(
             applications_dir / SHUTDOWN_HANDLER_DESKTOP_ID,
@@ -1225,14 +1131,6 @@ class DesktopSessionManager:
             icon="web-browser",
             categories="Network;WebBrowser;",
             try_exec=str(browser_bridge),
-        )
-        _write_desktop_launcher(
-            desktop_dir / "Editor.desktop",
-            name="Editor",
-            exec_line=_desktop_exec(editor_bridge),
-            icon="accessories-text-editor",
-            categories="Utility;TextEditor;",
-            try_exec=str(editor_bridge),
         )
         self._trust_desktop_launchers(session, desktop_dir)
 
@@ -1533,7 +1431,6 @@ fi
             **os.environ,
             "HOME": str(session.profile_dir),
             "LANG": os.environ.get("LANG") or "C.UTF-8",
-            "TZ": session.timezone or Localization.get().get_timezone(),
         }
         browser_bridge = _url_bridge_script_path(session)
         if browser_bridge.exists():
@@ -1593,20 +1490,14 @@ fi
                 self._remove_manifest(session_id)
 
     def _wait_for_display(self, session: DesktopSession) -> None:
+        marker = Path(f"/tmp/.X11-unix/X{session.display}")
         deadline = time.time() + DISPLAY_START_TIMEOUT_SECONDS
         while time.time() < deadline:
             process = session.processes.get("xvfb") or session.processes.get("xpra")
             if process and process.poll() is not None:
                 raise RuntimeError("The LibreOffice X display exited before it was ready.")
-            try:
-                if virtual_desktop.current_display_size(
-                    session.display,
-                    xauthority=self._xauthority(session),
-                    home=str(session.profile_dir),
-                ):
-                    return
-            except (OSError, subprocess.TimeoutExpired):
-                pass
+            if marker.exists():
+                return
             time.sleep(0.1)
         raise TimeoutError("Timed out waiting for the LibreOffice X display.")
 
@@ -1615,7 +1506,7 @@ fi
         while time.time() < deadline:
             process = session.processes.get("xfce")
             if process and process.poll() is not None:
-                raise RuntimeError("The XFCE desktop session exited before it was ready.")
+                return
             if virtual_desktop.has_window(
                 display=session.display,
                 name="xfce4-panel",
@@ -1641,17 +1532,10 @@ fi
             "width": session.width,
             "height": session.height,
             "started_at": session.started_at,
-            "timezone": session.timezone,
             "owner_pid": os.getpid(),
             "pids": pids,
         }
-        manifest = SESSION_DIR / f"{session.session_id}.json"
-        tmp = manifest.with_name(f".{manifest.name}.{uuid.uuid4().hex}.tmp")
-        try:
-            tmp.write_text(json.dumps(payload), encoding="utf-8")
-            os.replace(tmp, manifest)
-        finally:
-            tmp.unlink(missing_ok=True)
+        (SESSION_DIR / f"{session.session_id}.json").write_text(json.dumps(payload), encoding="utf-8")
 
     def _remove_manifest(self, session_id: str) -> None:
         (SESSION_DIR / f"{session_id}.json").unlink(missing_ok=True)
@@ -1886,10 +1770,6 @@ def _url_bridge_script_path(session: DesktopSession) -> Path:
     return _url_bridge_dir(session) / "open-url"
 
 
-def _editor_bridge_script_path(session: DesktopSession) -> Path:
-    return _url_bridge_dir(session) / "open-editor"
-
-
 def _url_bridge_queue_path(session: DesktopSession) -> Path:
     return _url_bridge_dir(session) / "browser-url-intents.jsonl"
 
@@ -1942,64 +1822,6 @@ def main():
                     "url": url,
                     "created_at": time.time(),
                     "source": "desktop",
-                }}, ensure_ascii=True) + "\\n")
-            queue_file.flush()
-            os.fsync(queue_file.fileno())
-        fcntl.flock(lock_file, fcntl.LOCK_UN)
-
-
-if __name__ == "__main__":
-    main()
-""",
-        encoding="utf-8",
-    )
-    try:
-        script.chmod(0o755)
-    except OSError:
-        pass
-    return script
-
-
-def _write_editor_bridge_script(session: DesktopSession) -> Path:
-    bridge_dir = _url_bridge_dir(session)
-    bridge_dir.mkdir(parents=True, exist_ok=True)
-    script = _editor_bridge_script_path(session)
-    queue = _url_bridge_queue_path(session)
-    lock = _url_bridge_lock_path(session)
-    script.write_text(
-        f"""#!/usr/bin/env python3
-import fcntl
-import json
-import os
-import sys
-import time
-from urllib.parse import quote
-
-QUEUE_PATH = {str(queue)!r}
-LOCK_PATH = {str(lock)!r}
-MAX_URL_LENGTH = {URL_INTENT_MAX_LENGTH}
-
-
-def editor_url(path):
-    path = str(path or "").strip()
-    if not path:
-        return "a0-editor://open"
-    return "a0-editor://open?path=" + quote(path[:MAX_URL_LENGTH], safe="/:")
-
-
-def main():
-    urls = [editor_url(arg) for arg in sys.argv[1:] if str(arg or "").strip()]
-    if not urls:
-        urls = [editor_url("")]
-    os.makedirs(os.path.dirname(QUEUE_PATH), exist_ok=True)
-    with open(LOCK_PATH, "a+", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file, fcntl.LOCK_EX)
-        with open(QUEUE_PATH, "a", encoding="utf-8") as queue_file:
-            for url in urls:
-                queue_file.write(json.dumps({{
-                    "url": url,
-                    "created_at": time.time(),
-                    "source": "desktop-editor",
                 }}, ensure_ascii=True) + "\\n")
             queue_file.flush()
             os.fsync(queue_file.fileno())
@@ -2220,29 +2042,14 @@ def _url_handler_mime_types() -> tuple[str, ...]:
     )
 
 
-def _editor_text_handler_mime_types() -> tuple[str, ...]:
-    return (
-        "text/markdown",
-        "text/x-markdown",
-        "text/plain",
-    )
-
-
-def _write_mimeapps_defaults(path: Path, url_desktop_id: str, editor_desktop_id: str) -> None:
-    url_associations = ";".join([url_desktop_id, ""])
-    # LibreOffice Writer stays the default so double-clicks keep the user (and
-    # agents) inside the Desktop; the Agent Zero Editor remains an "Open With"
-    # option. When Writer's desktop entry is missing, xdg falls back through
-    # the added associations to the editor.
-    text_associations = ";".join([WRITER_HANDLER_DESKTOP_ID, editor_desktop_id, ""])
+def _write_mimeapps_defaults(path: Path, desktop_id: str) -> None:
+    associations = ";".join([desktop_id, ""])
     lines = [
         "[Default Applications]",
-        *(f"{mime_type}={url_desktop_id}" for mime_type in _url_handler_mime_types()),
-        *(f"{mime_type}={WRITER_HANDLER_DESKTOP_ID}" for mime_type in _editor_text_handler_mime_types()),
+        *(f"{mime_type}={desktop_id}" for mime_type in _url_handler_mime_types()),
         "",
         "[Added Associations]",
-        *(f"{mime_type}={url_associations}" for mime_type in _url_handler_mime_types()),
-        *(f"{mime_type}={text_associations}" for mime_type in _editor_text_handler_mime_types()),
+        *(f"{mime_type}={associations}" for mime_type in _url_handler_mime_types()),
         "",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)

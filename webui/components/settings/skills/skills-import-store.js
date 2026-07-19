@@ -1,6 +1,5 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
-import { store as skillsScanStore } from "/components/settings/skills/skills-scan-store.js";
 
 function sanitizeNamespace(text) {
   if (!text) return "";
@@ -19,7 +18,9 @@ const model = {
   namespace: "",
   conflict: "skip", // skip|overwrite|rename
   projectKey: "", // selected project key, empty means All
+  agentProfileKey: "", // selected agent profile key, empty means All
   projects: [], // available projects options [{key,label}]
+  agentProfiles: [], // available agent profile options [{key,label}]
 
   preview: null,
   result: null,
@@ -27,6 +28,7 @@ const model = {
   init() {
     this.resetState();
     this.loadProjects();
+    this.loadAgentProfiles();
   },
 
   resetState() {
@@ -43,6 +45,7 @@ const model = {
     this.namespace = "";
     this.conflict = "skip";
     this.projectKey = "";
+    this.agentProfileKey = "";
   },
 
   async loadProjects() {
@@ -52,6 +55,16 @@ const model = {
     } catch (e) {
       console.error("Failed to load projects:", e);
       this.projects = [];
+    }
+  },
+
+  async loadAgentProfiles() {
+    try {
+      const data = await api.callJsonApi("/agents", { action: "list" });
+      this.agentProfiles = data.ok ? (data.data || []) : [];
+    } catch (e) {
+      console.error("Failed to load agent profiles:", e);
+      this.agentProfiles = [];
     }
   },
 
@@ -86,6 +99,9 @@ const model = {
       formData.append("project_name", this.projectKey);
     }
 
+    if (this.agentProfileKey) {
+      formData.append("agent_profile", this.agentProfileKey);
+    }
     return formData;
   },
 
@@ -121,17 +137,6 @@ const model = {
       this.loading = false;
       this.loadingMessage = "";
     }
-  },
-
-  async scanSelectedFile() {
-    if (!this.skillsFile) {
-      this.error = "Please select a skills .zip file first";
-      return;
-    }
-
-    await skillsScanStore.openForUploadedFile(this.skillsFile, {
-      namespace: sanitizeNamespace(this.namespace),
-    });
   },
 
   async performImport() {
@@ -176,3 +181,4 @@ const model = {
 
 const store = createStore("skillsImportStore", model);
 export { store };
+

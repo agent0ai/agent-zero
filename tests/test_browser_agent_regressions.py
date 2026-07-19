@@ -1,7 +1,5 @@
 import asyncio
-import concurrent.futures
 import json
-import re
 import sys
 import threading
 from pathlib import Path
@@ -81,7 +79,6 @@ sys.modules.setdefault("plugins._model_config.helpers.model_config", _model_conf
 def anyio_backend():
     return "asyncio"
 
-from helpers import ephemeral_images
 from helpers.errors import RepairableException
 from plugins._browser.helpers.config import (
     build_browser_launch_config,
@@ -157,12 +154,10 @@ def test_browser_config_normalizes_extension_paths(tmp_path):
         "extension_paths": [str(extension_dir)],
         "default_homepage": "about:blank",
         "autofocus_active_page": True,
-        "browser_tab_scope": "per_context",
         "max_open_tabs": 32,
         "runtime_backend": "container",
         "host_browser_privacy_policy": "allow",
         "host_browser_profile_mode": "existing",
-        "host_browser_selection": "",
         "model_preset": "",
     }
 
@@ -184,30 +179,6 @@ def test_browser_config_normalizes_host_backend_and_privacy_policy():
     assert config["runtime_backend"] == "host_required"
     assert config["host_browser_privacy_policy"] == "warn"
     assert config["host_browser_profile_mode"] == "agent"
-
-
-def test_browser_config_normalizes_host_browser_selection():
-    assert normalize_browser_config({})["host_browser_selection"] == ""
-    assert (
-        normalize_browser_config({"host_browser_selection": "  Edge Dev  "})["host_browser_selection"]
-        == "edge_dev"
-    )
-    assert (
-        normalize_browser_config({"host_browser_choice": "chrome"})["host_browser_selection"]
-        == "chrome"
-    )
-    assert (
-        normalize_browser_config({"host_browser_selection": "ws://127.0.0.1:9222/devtools/Browser/AbC?token=XyZ"})[
-            "host_browser_selection"
-        ]
-        == "ws://127.0.0.1:9222/devtools/Browser/AbC?token=XyZ"
-    )
-    assert normalize_browser_config({"host_browser_selection": "localhost:9222"})[
-        "host_browser_selection"
-    ] == "localhost:9222"
-    assert normalize_browser_config({"host_browser_selection": "bad\x00value"})[
-        "host_browser_selection"
-    ] == "badvalue"
     assert (
         normalize_browser_config({"runtime_backend": "host_when_available"})["runtime_backend"]
         == "host_required"
@@ -219,13 +190,6 @@ def test_browser_config_normalizes_max_open_tabs():
     assert normalize_browser_config({"max_open_tabs": "0"})["max_open_tabs"] == 1
     assert normalize_browser_config({"max_open_tabs": "200"})["max_open_tabs"] == 50
     assert normalize_browser_config({"max_open_tabs": "oops"})["max_open_tabs"] == 32
-
-
-def test_browser_config_normalizes_tab_scope():
-    assert normalize_browser_config({})["browser_tab_scope"] == "per_context"
-    assert normalize_browser_config({"browser_tab_scope": "shared"})["browser_tab_scope"] == "shared"
-    assert normalize_browser_config({"browser_tab_scope": "per-context"})["browser_tab_scope"] == "per_context"
-    assert normalize_browser_config({"browser_tab_scope": "everything"})["browser_tab_scope"] == "per_context"
 
 
 def test_browser_model_selection_uses_presets(monkeypatch):
@@ -643,7 +607,7 @@ def test_browser_canvas_startup_waits_for_raw_viewport_settle():
     assert "isCanvasSurfaceVisible(element)" in js
     assert "scheduleViewportSyncForSurface" in js
     assert "const targetChanged = Boolean(" in js
-    assert "if (this.hasFrame() && !targetChanged)" in js
+    assert "if (this.frameSrc && !targetChanged)" in js
     assert "this.cancelFrameRender();" in js
     assert "this.resetRenderedFrame();" in js
 
@@ -660,7 +624,7 @@ def test_browser_surface_handoffs_keep_existing_frame_until_replacement_arrives(
     clear_block = js[clear_start: js.index("beginCommand()", clear_start)]
 
     assert "modeChanged" not in prepare_block
-    assert "if (this.hasFrame() && !targetChanged)" in prepare_block
+    assert "if (this.frameSrc && !targetChanged)" in prepare_block
     assert "this.resetRenderedFrame();" in prepare_block
     assert "this.cancelFrameRender();" in viewport_block
     assert "this.resetRenderedFrame();" not in viewport_block
@@ -708,12 +672,12 @@ def test_browser_canvas_nudges_width_after_first_accepted_frame():
     assert 'canvas.activeSurfaceId !== "browser"' in js
     assert "canvas.setWidth?.(nudgedWidth, { persist: false })" in js
     assert "this.queueViewportSync(true)" in js
-    frame_accept_index = js.index("this._lastFrameDimensions = dimensions;")
+    frame_assignment_index = js.index("this.frameSrc = frameSrc;")
     frame_nudge_schedule_index = js.index(
         "this.scheduleCanvasWidthNudgeAfterFirstFrame();",
-        frame_accept_index,
+        frame_assignment_index,
     )
-    assert frame_accept_index < frame_nudge_schedule_index
+    assert frame_assignment_index < frame_nudge_schedule_index
 
 
 def test_browser_canvas_restarts_stream_after_page_navigation():
@@ -722,7 +686,6 @@ def test_browser_canvas_restarts_stream_after_page_navigation():
     )
 
     assert "async restartCanvasStreamAfterPageChange()" in js
-    assert "if (!this.usesScreencastTransport())" in js
     assert '["navigate", "back", "forward", "reload"].includes(commandName)' in js
     assert "await this.restartCanvasStreamAfterPageChange();" in js
     assert "await this.waitForSurfaceViewport({ sequence: surfaceSequence });" in js
@@ -837,14 +800,11 @@ def test_browser_entry_points_prefer_canvas_and_modal_dock_handoff():
         assert "Alpine.store" not in js
 
 
-def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
+def test_browser_and_desktop_surface_buttons_remember_latest_window_mode():
     canvas_store = (PROJECT_ROOT / "webui" / "components" / "canvas" / "right-canvas-store.js").read_text(
         encoding="utf-8"
     )
     canvas_html = (PROJECT_ROOT / "webui" / "components" / "canvas" / "right-canvas.html").read_text(
-        encoding="utf-8"
-    )
-    canvas_css = (PROJECT_ROOT / "webui" / "components" / "canvas" / "right-canvas.css").read_text(
         encoding="utf-8"
     )
     modals_js = (PROJECT_ROOT / "webui" / "js" / "modals.js").read_text(encoding="utf-8")
@@ -863,10 +823,6 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
         canvas_store.index("async openModalSurface"):
         canvas_store.index("async undockActiveSurface")
     ]
-    should_render_block = canvas_store[
-        canvas_store.index("\n  shouldRender()"):
-        canvas_store.index("};\n\nexport const store")
-    ]
     surface_button_block = surfaces_js[
         surfaces_js.index("function createModalSurfaceButton"):
         surfaces_js.index("function configureModalSurfaceSwitcher")
@@ -879,7 +835,6 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert "markSurfaceMounted(targetId)" in canvas_store
     assert "isSurfaceRendered(id)" in canvas_store
     assert "isSurfaceVisible(id)" in canvas_store
-    assert 'import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";' in canvas_store
     assert "async openLatest(surfaceId" in canvas_store
     assert "async openModalSurface(surfaceId" in canvas_store
     assert "this.recordSurfaceMode(targetId, SURFACE_MODE_DOCKED" in canvas_store
@@ -887,14 +842,6 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert "surfaceModes: this.surfaceModes" in canvas_store
     assert "normalizeSurfaceMode(mode)" in canvas_store
     assert "migratePersistedSurfaceState" in canvas_store
-    assert "if (this.isMobileMode && !surface.actionOnly)" not in canvas_store
-    assert "return await this.openModalSurface(targetId, payload);" in canvas_store
-    assert "return await this.open(targetId, payload);" in canvas_store
-    assert 'return await this.open(this.activeSurfaceId || this.panelSurfaces[0]?.id || "", { source: "mobile-toggle" });' in canvas_store
-    assert "isWelcomeVisible()" in canvas_store
-    assert "return !this.isWelcomeVisible();" in should_render_block
-    assert "isMobileMode" not in should_render_block
-    assert 'document.body.classList.toggle("right-canvas-open", this.isOpen && !this.isMobileMode && this.shouldRender());' in canvas_store
     assert "this.mountedSurfaces = {}" not in close_block
     assert "surface?.close" not in close_block
     assert "this.mountedSurfaces = {}" not in undock_block
@@ -902,12 +849,8 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert "this.mountedSurfaces = {}" not in open_modal_block
     assert "failed to close before modal open" not in open_modal_block
 
-    assert '@click="$store.rightCanvas.openLatest(surface.id)"' not in canvas_html
-    assert canvas_html.count('@click="$store.rightCanvas.open(surface.id)"') == 2
-    assert "body.right-canvas-mobile-mode .right-canvas-rail" in canvas_css
-    assert "display: flex !important;" in canvas_css
-    assert "body.right-canvas-mobile-mode .right-canvas-shell" in canvas_css
-    assert "body.right-canvas-mobile-mode .right-canvas,\nbody.right-canvas-mobile-mode .right-canvas-rail" not in canvas_css
+    assert '@click="$store.rightCanvas.openLatest(surface.id)"' in canvas_html
+    assert '@click="$store.rightCanvas.open(surface.id)"' in canvas_html
 
     assert "recordMode(metadata.surfaceId, SURFACE_MODE_FLOATING)" in surfaces_js
     assert "configureModalSurfaceSwitcher" in surfaces_js
@@ -935,36 +878,11 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert "&& !modalRequiresExplicitClose(newModal)" in modals_js
     assert "if (modalRequiresExplicitClose(modalStack[modalStack.length - 1])) return;" in modals_js
     assert ".modal-surface-switcher" not in modals_css
-
-    modal_stack_z = int(re.search(r"const baseZIndex = (\d+);", modals_js).group(1))
-    modal_css_z = int(re.search(r"\.modal \{[^}]*z-index: (\d+);", modals_css, re.S).group(1))
-    legacy_overlay_z = int(re.search(r"\.modal-overlay \{[^}]*z-index: (\d+);", modals_css, re.S).group(1))
-    mobile_canvas_z = int(
-        re.search(
-            r"body\.right-canvas-mobile-mode \.right-canvas \{[^}]*z-index: (\d+);",
-            canvas_css,
-            re.S,
-        ).group(1)
-    )
-    assert mobile_canvas_z == 3400
-    assert modal_stack_z > mobile_canvas_z
-    assert modal_css_z > mobile_canvas_z
-    assert legacy_overlay_z > mobile_canvas_z
-    assert "@media (max-width: 420px)" in canvas_css
-    assert "body.right-canvas-mobile-mode .right-canvas-rail {\n    gap: 5px;" in canvas_css
-    assert "transform: translateY(-50%) scale(0.92);" in canvas_css
     assert ".surface-switcher" in surfaces_css
     assert ".surface-button" in surfaces_css
     assert ".modal-surface-button.is-active" in surfaces_css
     assert ".modal-surface-image" in surfaces_css
     assert ".modal.modal-surface-parked" in surfaces_css
-    assert "@media (max-width: 768px)" in surfaces_css
-    assert ".modal-inner.surface-modal .surface-modal-action-group-surfaces" in surfaces_css
-    assert ".modal-inner.surface-modal .surface-modal-action-group-window" in surfaces_css
-    assert ".modal-inner.surface-modal .surface-modal-action-group-new" in surfaces_css
-    assert ".modal-inner.editor-modal .surface-modal-action-group-new" in surfaces_css
-    assert ".surface-modal-new-action:not(.editor-header-actions)" in surfaces_css
-    assert "const safeMinWidth = Math.min(minWidth, maxWidth)" in surfaces_js
     assert "grid-auto-flow: column" in surfaces_css
     assert 'id: "browser"' in surfaces_js
     assert 'id: "desktop"' in surfaces_js
@@ -972,44 +890,16 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert "/plugins/_desktop/webui/main.html" in surfaces_js
 
 
-def test_transient_ui_layers_above_modals_below_confirm_dialogs():
-    index_css = (PROJECT_ROOT / "webui" / "index.css").read_text(encoding="utf-8")
-    modals_js = (PROJECT_ROOT / "webui" / "js" / "modals.js").read_text(encoding="utf-8")
-    modals_css = (PROJECT_ROOT / "webui" / "css" / "modals.css").read_text(encoding="utf-8")
-    toast_html = (
-        PROJECT_ROOT / "webui" / "components" / "notifications" / "notification-toast-stack.html"
-    ).read_text(encoding="utf-8")
-
-    modal_base_z = int(re.search(r"const baseZIndex = (\d+);", modals_js).group(1))
-    legacy_overlay_z = int(re.search(r"\.modal-overlay \{[^}]*z-index: (\d+);", modals_css, re.S).group(1))
-    confirm_z = int(re.search(r"\.confirm-dialog-backdrop \{[^}]*z-index: (\d+);", modals_css, re.S).group(1))
-    toast_z = int(re.search(r"\.toast-stack-container \{[^}]*z-index: (\d+);", toast_html, re.S).group(1))
-    tooltip_z_indexes = [
-        int(z)
-        for z in re.findall(r"\.tooltip \{[^}]*z-index: (\d+);", index_css, re.S)
-    ]
-
-    assert tooltip_z_indexes
-    assert toast_z > max(modal_base_z + 20, legacy_overlay_z)
-    assert all(z > toast_z for z in tooltip_z_indexes)
-    assert all(z < confirm_z for z in [toast_z, *tooltip_z_indexes])
-
-
 def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
     prompt = (
         PROJECT_ROOT / "plugins" / "_browser" / "prompts" / "agent.system.tool.browser.md"
     ).read_text(encoding="utf-8")
-    from helpers import tokens
-
     config = (PROJECT_ROOT / "plugins" / "_browser" / "default_config.yaml").read_text(
         encoding="utf-8"
     )
     config_html = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "config.html").read_text(
         encoding="utf-8"
     )
-    config_store_js = (
-        PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-config-store.js"
-    ).read_text(encoding="utf-8")
 
     assert "must not open a Browser surface automatically" in prompt
     assert "Use the tool headlessly unless the user opens the Browser surface" in prompt
@@ -1020,49 +910,21 @@ def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
     assert "set_checked" in prompt
     assert "upload_file" in prompt
     assert "browser-form-workflows" in prompt
-    assert "first load `browser-automation` with `skills_tool:load`" in prompt
-    assert "`browser-automation` links to `browser-form-workflows`" in prompt
     assert "does not automatically load screenshots" in prompt
     assert "chrome://inspect/#remote-debugging" in prompt
-    assert "opera://inspect/#remote-debugging" in prompt
-    assert tokens.approximate_tokens(prompt) <= 650
     assert "already open" in config
     assert "already-open Browser surface" in config_html
     assert "chrome://inspect/#remote-debugging" in config_html
-    assert "opera://inspect/#remote-debugging" in config_html
-    assert "A0_HOST_BROWSER_REMOTE_DEBUGGING_ENDPOINTS" in config_html
-    assert "Custom endpoint" in config_html
-    assert "localhost:9222" in config_html
-    assert "customHostBrowserEndpointDiagnostic" in config_store_js
-    assert "http(s):// discovery address" in config_store_js
-    assert "HOST_BROWSER_STATUS_REFRESH_MS = 1000" in config_store_js
 
 
-def test_browser_skills_are_plugin_owned_and_progressively_linked():
-    automation_path = (
-        PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md"
-    )
+def test_browser_forms_skill_is_plugin_owned_and_discoverable():
     skill_path = PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-form-workflows" / "SKILL.md"
-    assert automation_path.exists()
     assert skill_path.exists()
-    automation = automation_path.read_text(encoding="utf-8")
     skill = skill_path.read_text(encoding="utf-8")
     assert skill.startswith("---\n")
-    automation_frontmatter = automation.split("---", 2)[1]
     frontmatter = skill.split("---", 2)[1]
-    assert "name: browser-automation" in automation_frontmatter
-    assert "triggers:" in automation_frontmatter
-    assert "browser screenshot" in automation_frontmatter
-    assert "host browser" in automation_frontmatter
     assert "name: browser-form-workflows" in frontmatter
     assert "description:" in frontmatter
-    assert "triggers:" in frontmatter
-    assert "fill web form" in frontmatter
-    assert "file upload" in frontmatter
-    assert "progressive-disclosure workflow guide" in automation
-    assert "`browser-form-workflows` with `skills_tool:load`" in automation
-    assert 'skill_name: "browser-form-workflows"' in automation
-    assert "form-specific extension of `browser-automation`" in skill
     assert "select_option" in skill
     assert "set_checked" in skill
     assert "upload_file" in skill
@@ -1132,15 +994,6 @@ def test_browser_extension_settings_stay_user_facing():
 
     assert "Choose which installed Chrome extensions Browser loads." in config_html
     assert "Installed extensions" in config_html
-    assert "Browser tabs" in config_html
-    assert "Separate per chat" in config_html
-    assert "Shared across chats" in config_html
-    assert "Maximum tabs per chat" in config_html
-    assert 'x-model="$store.browserConfig.config.browser_tab_scope"' in config_html
-    assert 'x-model.number="$store.browserConfig.config.max_open_tabs"' in config_html
-    assert "normalizeMaxOpenTabs()" in config_html
-    assert "BROWSER_TAB_SCOPES" in config_store
-    assert "HARD_MAX_OPEN_TABS = 50" in config_store
     assert "extensionDeleteTitle(extension)" in config_html
     assert "deleteExtension(extension)" in config_html
     assert "Delete extension" in config_store
@@ -1161,7 +1014,6 @@ def test_browser_viewer_uses_tabs_for_session_switching():
     assert 'class="browser-session-tabs" role="tablist"' in main_html
     assert 'class="browser-tab"' in main_html
     assert 'class="browser-new-tab"' in main_html
-    assert 'browser in $store.browserPage.visibleBrowsers()' in main_html
     assert ':key="$store.browserPage.browserTabKey(browser)"' in main_html
     assert "browser.context_id" in main_html
     assert ':title="$store.browserPage.browserTabTooltip(browser)"' in main_html
@@ -1174,10 +1026,6 @@ def test_browser_viewer_uses_tabs_for_session_switching():
     assert "async syncViewerToSelectedContext" in browser_store
     assert "isVisibleBrowserSurface()" in browser_store
     assert "firstBrowserInContext(selectedContextId)" in browser_store
-    assert "visibleBrowsers()" in browser_store
-    assert 'tabScope: "per_context"' in browser_store
-    assert "applyTabScope(data)" in browser_store
-    assert 'if (this.tabScope === "shared") return browsers;' in browser_store
     assert "requestedContextId && requestedContextId !== inFlightContextId" in browser_store
     assert "create_browser: Boolean(options.createBrowser || options.create_browser)" in browser_store
     assert "browserTabTooltip(browser)" in browser_store
@@ -1217,7 +1065,7 @@ def test_browser_tabs_close_without_confirmation_or_busy_lock():
     assert "_commandInFlightCount" in browser_store
 
 
-def test_browser_viewer_defaults_to_live_screencast_with_snapshot_fallback():
+def test_browser_viewer_uses_cdp_screencast_transport():
     ws_browser = (PROJECT_ROOT / "plugins" / "_browser" / "api" / "ws_browser.py").read_text(
         encoding="utf-8"
     )
@@ -1235,37 +1083,15 @@ def test_browser_viewer_defaults_to_live_screencast_with_snapshot_fallback():
     ).read_text(encoding="utf-8")
 
     assert 'runtime.call("screenshot"' in ws_browser
-    assert 'VIEWER_TRANSPORT_SNAPSHOT = "snapshot"' in ws_browser
-    assert 'VIEWER_TRANSPORT_SCREENCAST = "screencast"' in ws_browser
-    assert "def _viewer_transport(data: dict[str, Any])" in ws_browser
-    assert "return VIEWER_TRANSPORT_SNAPSHOT" in ws_browser
-    assert "self._stream_state" in ws_browser
-    assert "SCREENCAST_STREAM_QUALITY = 80" in ws_browser
-    assert "SCREENSHOT_QUALITY = 92" in ws_browser
+    assert "SCREENCAST_QUALITY = 92" in ws_browser
     assert "initial_viewport = self._viewport_from_data(data)" in ws_browser
     assert '"set_viewport"' in ws_browser
     assert "start_screencast" in ws_browser
-    assert '"attach_screencast_consumer"' in ws_browser
-    assert "asyncio.run_coroutine_threadsafe" in ws_browser
-    assert 'runtime.call(\n                            "read_screencast_frame"' not in ws_browser
-    assert "read_screencast_frame" in runtime
-    assert "FRAME_READ_TIMEOUT_SECONDS" in ws_browser
-    assert "FRAME_IDLE_POLL_SECONDS" not in ws_browser
-    assert "except TimeoutError:" in ws_browser
+    assert "pop_screencast_frame" in ws_browser
     assert "stop_screencast" in ws_browser
-    assert "viewer_transport == VIEWER_TRANSPORT_SCREENCAST" in ws_browser
-    assert '"viewer_transport": viewer_transport' in ws_browser
-    assert "viewer_transport: str = VIEWER_TRANSPORT_SNAPSHOT" in ws_browser
     assert '"Page.startScreencast"' in runtime
     assert '"Page.screencastFrame"' in runtime
     assert '"Page.screencastFrameAck"' in runtime
-    assert "async def attach_screencast_consumer" in runtime
-    assert "async def attach_consumer" in runtime
-    assert "stop_callback: Any | None = None" in runtime
-    assert "def _notify_stopped(self) -> None:" in runtime
-    assert "server_loop.call_soon_threadsafe(stop_event.set)" in ws_browser
-    assert "await self._deliver_frame(" in runtime
-    assert "await asyncio.wrap_future(future)" in runtime
     assert '"Page.stopScreencast"' in runtime
     assert '"Emulation.setDeviceMetricsOverride"' in runtime
     assert '"Emulation.setVisibleSize"' in runtime
@@ -1273,46 +1099,9 @@ def test_browser_viewer_defaults_to_live_screencast_with_snapshot_fallback():
     assert "await self._stop_screencasts_for_browser(resolved_id)" in runtime
     assert "queueFrameRender" in browser_store
     assert "requestAnimationFrame" in browser_store
-    assert "function frameImageSource(data = {})" in browser_store
-    assert "const BROWSER_BINARY_FRAME_REQUESTS_ENABLED = false;" in browser_store
-    assert "const BROWSER_BINARY_PAYLOADS_SUPPORTED = typeof Blob" in browser_store
-    assert "const BROWSER_CANVAS_FRAMES_SUPPORTED = typeof globalThis.createImageBitmap" in browser_store
-    assert "if (data.encoding === \"binary\") return null;" in browser_store
-    assert "async function loadFrameBitmap(src, options = {})" in browser_store
-    assert "return await globalThis.createImageBitmap(blob);" in browser_store
-    assert 'const BROWSER_VIEWER_TRANSPORT_SNAPSHOT = "snapshot";' in browser_store
-    assert 'const BROWSER_VIEWER_TRANSPORT_SCREENCAST = "screencast";' in browser_store
-    assert "viewerTransport: BROWSER_VIEWER_TRANSPORT_SCREENCAST" in browser_store
-    assert "liveScreencastEnabled: true" in browser_store
-    assert "requestedViewerTransport()" in browser_store
-    assert "normalizeViewerTransport(value = \"\")" in browser_store
-    assert "usesScreencastTransport()" in browser_store
-    assert "supportsBinaryFrames()" in browser_store
-    assert "captureDevicePixelRatio()" in browser_store
-    assert "frameDimensionsFromData(data = null)" in browser_store
-    assert "frameDimensionsFromMetadata(metadata = null)" in browser_store
-    assert "metadata.expectedWidth || metadata.deviceWidth || metadata.jpegWidth" in browser_store
-    assert "dimensions: this.frameDimensionsFromData(data)" in browser_store
-    assert "useCanvas: true" in browser_store
-    assert "let dimensions = options?.dimensions || null" in browser_store
-    assert "dimensions ||= await loadFrameDimensions(frameSrc)" in browser_store
-    assert "paintFrameBitmap(bitmap)" in browser_store
-    assert "if (canvas.width !== bitmap.width) canvas.width = bitmap.width;" in browser_store
-    assert "freezeCanvasFrameToImage()" in browser_store
-    assert "currentFrameCanvas()" in browser_store
-    assert 'this._stageElement?.querySelector?.(".browser-frame-canvas")' in browser_store
-    assert 'canvas.toDataURL("image/jpeg", 0.86)' in browser_store
-    assert "this.frameSrc = frameSrc;" in browser_store
-    assert "hasFrame()" in browser_store
-    assert "frameCanvasReady: false" in browser_store
-    assert "attachFrameCanvas(canvas = null)" in browser_store
-    assert "viewer_transport: this.requestedViewerTransport()" in browser_store
-    assert "binary_frames: this.supportsBinaryFrames()" in browser_store
-    assert "slim_frames: true" in browser_store
-    assert "device_pixel_ratio: this.captureDevicePixelRatio()" in browser_store
     assert "viewport_width: initialViewport?.width" in browser_store
     assert "viewport_height: initialViewport?.height" in browser_store
-    assert "restart_stream: restartStream && this.usesScreencastTransport()" in browser_store
+    assert "restart_stream: restartStream" in browser_store
     assert 'restart_screencast=bool(data.get("restart_stream"))' in ws_browser
     assert "restart_screencast: bool = False" in runtime
     assert "should_remount_viewport = changed or restart_screencast" in runtime
@@ -1322,69 +1111,28 @@ def test_browser_viewer_defaults_to_live_screencast_with_snapshot_fallback():
     assert "await self._remount_viewport(page, viewport)" in runtime
     assert "await asyncio.sleep(VIEWPORT_REMOUNT_PAUSE_SECONDS)" in runtime
     assert "def _nudged_viewport(viewport: dict[str, int])" in runtime
-    assert 'restartStream: this._mode === "canvas" && this.usesScreencastTransport()' in browser_store
+    assert 'await this.syncViewport(true, { restartStream: this._mode === "canvas" });' in browser_store
     assert "this.frameState = data.state || null" not in browser_store
     assert "function loadFrameDimensions(src)" in browser_store
     assert "frameMatchesViewport(dimensions = null, viewport = null)" in browser_store
     assert "shouldAcceptMismatchedFrame(dimensions = null)" in browser_store
     assert "requestViewportSyncAfterRejectedFrame()" in browser_store
     assert "this.applySnapshot(data.snapshot);" in browser_store
-    assert "if (!this.frameCanvasReady || !this.usesScreencastTransport())" in browser_store
     assert "else if (!data.state)" in browser_store
     assert '"snapshot": snapshot' in ws_browser
-    assert '"binary_frames": binary_frames' in ws_browser
-    assert '"slim_frames": slim_frames' in ws_browser
-    assert "capture_scale=capture_scale" in ws_browser
-    assert "base64.b64decode(image, validate=False)" in ws_browser
-    assert '"encoding"] = "binary"' in ws_browser
-    assert "def _frame_payload(" in ws_browser
-    assert "def _emit_viewer_state(" in ws_browser
     assert 'const BROWSER_SNAPSHOT_META_KEY = "browser_snapshot";' in browser_tool_handler
     assert "staticScreenshotUri(kvps)" in browser_tool_handler
-    assert "/components/modals/image-viewer/image-viewer-store.js" in browser_tool_handler
-    assert "function openStaticScreenshot(uri = \"\")" in browser_tool_handler
-    assert "imageViewerStore.open(src, { name: \"Browser screenshot\" });" in browser_tool_handler
-    assert "if (staticUri) {" in browser_tool_handler
-    assert "openStaticScreenshot(staticUri);" in browser_tool_handler
     assert "delete displayKvps[BROWSER_SNAPSHOT_META_KEY];" in browser_tool_handler
     assert "startBrowserScreenshotPreview(button, image, resolveBrowserPayload)" in browser_tool_handler
     assert "FRAME_FALLBACK_SCREENSHOT_SECONDS" not in ws_browser
-    assert '"browser_viewer_state"' in ws_browser
-    assert '"frame_source": VIEWER_TRANSPORT_SCREENCAST' in ws_browser
-    assert '"viewer_transport": VIEWER_TRANSPORT_SCREENCAST' in ws_browser
+    assert '"frame_source": "state"' in ws_browser
+    assert '"frame_source"] = "screencast"' in ws_browser
     assert "fallback_screenshot" not in ws_browser
     assert "canvas_wheel_screenshot" not in ws_browser
     assert "surface_mode: this._mode" not in browser_store
-    assert '<canvas class="browser-frame browser-frame-canvas"' in main_html
-    assert 'x-init="$store.browserPage.attachFrameCanvas($el)"' in main_html
-    assert '<img class="browser-frame browser-frame-image"' in main_html
-    assert "$store.browserPage.hasFrame()" in main_html
     assert "overflow: hidden;" in main_html
-    assert "object-fit: contain;" in main_html
+    assert "object-fit: fill;" in main_html
     assert "image-rendering: auto;" in main_html
-
-
-def test_browser_viewer_frame_payload_supports_binary_slim_frames():
-    payload = ws_browser_module.WsBrowser._frame_payload(
-        {
-            "image": SMALL_JPEG_10X10,
-            "mime": "image/jpeg",
-            "metadata": {"expectedWidth": 900, "expectedHeight": 600},
-        },
-        context_id="ctx",
-        viewer_id="viewer",
-        browser_id=1,
-        sequence=3,
-        binary_frames=True,
-    )
-
-    assert payload["encoding"] == "binary"
-    assert payload["image"] == __import__("base64").b64decode(SMALL_JPEG_10X10)
-    assert payload["width"] == 900
-    assert payload["height"] == 600
-    assert payload["seq"] == 3
-    assert "browsers" not in payload
-    assert "state" not in payload
 
 
 def test_browser_navigation_errors_stay_inside_native_browser_page():
@@ -1472,13 +1220,7 @@ def test_browser_runtime_and_content_helper_expose_annotation_target():
     helper = (
         PROJECT_ROOT / "plugins" / "_browser" / "assets" / "browser-page-content.js"
     ).read_text(encoding="utf-8")
-    dom_helper = (
-        PROJECT_ROOT / "plugins" / "_browser" / "assets" / "browser-dom-helper.js"
-    ).read_text(encoding="utf-8")
 
-    assert "DOM_HELPER_PATH" in runtime
-    assert "browser-dom-helper.js" in runtime
-    assert "globalThis.__spaceBrowserDomHelper__?.captureDocument" in runtime
     assert "async def annotation_target" in runtime
     assert "globalThis.__spaceBrowserPageContent__.annotate(payload || null)" in runtime
     assert "function annotate(payload = null)" in helper
@@ -1490,11 +1232,6 @@ def test_browser_runtime_and_content_helper_expose_annotation_target():
     assert "fileInputFor," in helper
     assert "sanitizeAnnotationDom" in helper
     assert "password" in helper
-    assert "__spaceBrowserDomHelper__" in dom_helper
-    assert "captureDocument(payload)" in dom_helper
-    assert "clickNode(frameChain, nodeId)" in dom_helper
-    assert "requestChildFrameOperation" in dom_helper
-    assert "data-space-browser-frame-chain" in dom_helper
 
 
 def test_browser_content_helper_keeps_label_wrapped_controls_referenceable():
@@ -1502,7 +1239,7 @@ def test_browser_content_helper_keeps_label_wrapped_controls_referenceable():
         PROJECT_ROOT / "plugins" / "_browser" / "assets" / "browser-page-content.js"
     ).read_text(encoding="utf-8")
 
-    assert 'const VERSION = "13"' in helper
+    assert 'const VERSION = "12"' in helper
     assert "function patchOpenShadowDom" in helper
     assert "Element.prototype.attachShadow = patched" in helper
     assert "const REQUIRED_API_NAMES = Object.freeze([" in helper
@@ -1517,9 +1254,6 @@ def test_browser_content_helper_keeps_label_wrapped_controls_referenceable():
     assert "function isGlobalOrDelegatedEventBinding" in helper
     assert 'parts.includes("window")' in helper
     assert 'parts.includes("outside")' in helper
-    assert 'actionStrategy: entry.helperBacked ? "frame_chain_ref" : "dom_ref"' in helper
-    assert 'actionStrategy: "frame_chain_ref"' in helper
-    assert "frameChain: Array.isArray(entry?.frameChain)" in helper
 
 
 def test_browser_panel_exposes_agent_friendly_address_input():
@@ -1531,103 +1265,12 @@ def test_browser_panel_exposes_agent_friendly_address_input():
     assert 'class="browser-address" aria-label="Browser address" name="browser_address"' in panel
 
 
-def test_browser_panel_groups_mobile_toolbar_controls_above_address():
-    panel = (
-        PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html"
-    ).read_text(encoding="utf-8")
-
-    toolbar_index = panel.index('<div class="browser-toolbar">')
-    nav_index = panel.index('<div class="browser-navigation">', toolbar_index)
-    controls_index = panel.index('<div class="browser-session-controls">', toolbar_index)
-    address_index = panel.index('<form class="browser-address-form"', toolbar_index)
-
-    assert nav_index < controls_index < address_index
-    assert ".browser-panel {\n      --browser-chrome-surface:" in panel
-    assert "container-type: inline-size;" in panel
-    assert "@container (max-width: 460px)" in panel
-    assert ".browser-toolbar {\n        grid-template-columns: auto minmax(0, 1fr) auto;" in panel
-    assert '          "nav . controls"\n          "address address address";' in panel
-    assert ".browser-session-controls {\n        width: auto;" in panel
-    assert ".browser-address-form {\n        width: 100%;" in panel
-
-
 def test_browser_runtime_requires_current_content_helper_for_modifier_clicks():
     runtime = (
         PROJECT_ROOT / "plugins" / "_browser" / "helpers" / "runtime.py"
     ).read_text(encoding="utf-8")
 
     assert "__spaceBrowserPageContent__?.ready?.()" in runtime
-
-
-@pytest.mark.anyio
-async def test_browser_dom_helper_clicks_content_ref_inside_iframe():
-    pytest.importorskip("playwright.async_api")
-    from playwright.async_api import async_playwright
-
-    browser_binary = get_playwright_binary()
-    if not browser_binary:
-        pytest.skip("Playwright Chromium binary is not installed")
-
-    dom_helper = (
-        PROJECT_ROOT / "plugins" / "_browser" / "assets" / "browser-dom-helper.js"
-    ).read_text(encoding="utf-8")
-    content_helper = (
-        PROJECT_ROOT / "plugins" / "_browser" / "assets" / "browser-page-content.js"
-    ).read_text(encoding="utf-8")
-
-    async with async_playwright() as playwright:
-        try:
-            browser = await playwright.chromium.launch(
-                executable_path=str(browser_binary),
-                headless=True,
-                args=["--no-sandbox"],
-            )
-        except Exception as exc:
-            pytest.skip(f"Playwright Chromium could not launch: {exc}")
-
-        try:
-            context = await browser.new_context()
-            await context.add_init_script(dom_helper)
-            await context.add_init_script(content_helper)
-            page = await context.new_page()
-            await page.set_content(
-                """
-                <html>
-                  <body>
-                    <iframe srcdoc="
-                      <html>
-                        <body>
-                          <button id='inside' onclick=&quot;document.body.dataset.clicked = 'yes'; this.textContent = 'Clicked inside frame'&quot;>
-                            Frame Launch
-                          </button>
-                        </body>
-                      </html>
-                    "></iframe>
-                  </body>
-                </html>
-                """
-            )
-            await page.wait_for_function(
-                "() => Boolean(document.querySelector('iframe')?.contentWindow?.__spaceBrowserDomHelper__)"
-            )
-
-            captured = await page.evaluate(
-                "(payload) => globalThis.__spaceBrowserPageContent__.capture(payload || null)",
-                None,
-            )
-            document_content = str(captured.get("document") or "")
-            match = re.search(r"\[button (\d+)\]\s*Frame Launch", document_content)
-            assert match, document_content
-
-            action = await page.evaluate(
-                "(ref) => globalThis.__spaceBrowserPageContent__.click(ref)",
-                match.group(1),
-            )
-            frame = next(frame for frame in page.frames if frame != page.main_frame)
-            assert await frame.evaluate("() => document.body.dataset.clicked") == "yes"
-            assert action["status"]["reacted"] is True
-        finally:
-            await browser.close()
 
 
 @pytest.mark.anyio
@@ -1657,12 +1300,7 @@ async def test_browser_screencast_acknowledges_and_drops_stale_frames():
         mime="image/jpeg",
     )
 
-    await screencast.start(
-        quality=92,
-        every_nth_frame=1,
-        viewport={"width": 1118, "height": 662},
-        capture_scale=2,
-    )
+    await screencast.start(quality=92, every_nth_frame=1, viewport={"width": 1118, "height": 662})
     session.handlers["Page.screencastFrame"](
         {"data": first_image, "metadata": {"deviceWidth": 10}, "sessionId": 1}
     )
@@ -1721,10 +1359,6 @@ async def test_browser_screencast_acknowledges_and_drops_stale_frames():
         for index, (method, _params) in enumerate(session.sent)
         if method == "Page.startScreencast"
     )
-    start_params = session.sent[start_index][1]
-    assert start_params["quality"] == 92
-    assert start_params["maxWidth"] == 2236
-    assert start_params["maxHeight"] == 1324
     cdp_viewport_indices = [
         index
         for index, (method, _params) in enumerate(session.sent)
@@ -1738,181 +1372,6 @@ async def test_browser_screencast_acknowledges_and_drops_stale_frames():
 
     assert ("Page.stopScreencast", {}) in session.sent
     assert session.detached is True
-
-
-@pytest.mark.anyio
-async def test_browser_screencast_acks_after_consumer_settles():
-    class FakeSession:
-        def __init__(self):
-            self.handlers = {}
-            self.sent = []
-
-        def on(self, event, handler):
-            self.handlers[event] = handler
-
-        async def send(self, method, params=None):
-            self.sent.append((method, params or {}))
-
-        async def detach(self):
-            pass
-
-    session = FakeSession()
-    delivered = []
-    delivery = concurrent.futures.Future()
-    screencast = _BrowserScreencast(
-        stream_id="stream",
-        browser_id=7,
-        session=session,
-        mime="image/jpeg",
-    )
-    screencast.frame_consumer = lambda frame: delivered.append(frame) or delivery
-
-    await screencast.start(quality=92, every_nth_frame=1, viewport={"width": 640, "height": 480})
-    session.handlers["Page.screencastFrame"](
-        {"data": SMALL_JPEG_10X10, "metadata": {}, "sessionId": 21}
-    )
-    await asyncio.sleep(0)
-
-    assert delivered
-    assert ("Page.screencastFrameAck", {"sessionId": 21}) not in session.sent
-
-    delivery.set_result(None)
-    await asyncio.sleep(0)
-    await asyncio.sleep(0)
-
-    assert ("Page.screencastFrameAck", {"sessionId": 21}) in session.sent
-
-    await screencast.stop()
-
-
-@pytest.mark.anyio
-async def test_browser_screencast_notifies_consumer_when_frame_task_stops_before_delivery():
-    class FakeSession:
-        def __init__(self):
-            self.handlers = {}
-            self.sent = []
-            self.detached = False
-
-        def on(self, event, handler):
-            self.handlers[event] = handler
-
-        async def send(self, method, params=None):
-            self.sent.append((method, params or {}))
-
-        async def detach(self):
-            self.detached = True
-
-    session = FakeSession()
-    delivered = []
-    stopped = []
-    screencast = _BrowserScreencast(
-        stream_id="stream",
-        browser_id=7,
-        session=session,
-        mime="image/jpeg",
-    )
-
-    await screencast.start(quality=92, every_nth_frame=1, viewport={"width": 640, "height": 480})
-    await screencast.attach_consumer(
-        lambda frame: delivered.append(frame),
-        lambda: stopped.append(True),
-    )
-
-    def fail_jpeg_probe(_data):
-        raise RuntimeError("jpeg probe failed")
-
-    screencast._jpeg_size = fail_jpeg_probe
-    session.handlers["Page.screencastFrame"](
-        {"data": SMALL_JPEG_10X10, "metadata": {}, "sessionId": 29}
-    )
-    await asyncio.sleep(0)
-    await asyncio.sleep(0)
-
-    assert delivered == []
-    assert stopped == [True]
-    assert screencast.stopped is True
-    assert ("Page.screencastFrameAck", {"sessionId": 29}) in session.sent
-
-    await screencast.stop()
-
-    assert ("Page.stopScreencast", {}) in session.sent
-    assert session.detached is True
-
-
-@pytest.mark.anyio
-async def test_browser_screencast_stop_notifies_consumer_once():
-    class FakeSession:
-        def __init__(self):
-            self.handlers = {}
-            self.sent = []
-
-        def on(self, event, handler):
-            self.handlers[event] = handler
-
-        async def send(self, method, params=None):
-            self.sent.append((method, params or {}))
-
-        async def detach(self):
-            pass
-
-    session = FakeSession()
-    stopped = []
-    screencast = _BrowserScreencast(
-        stream_id="stream",
-        browser_id=7,
-        session=session,
-        mime="image/jpeg",
-    )
-
-    await screencast.start(quality=92, every_nth_frame=1, viewport={"width": 640, "height": 480})
-    await screencast.attach_consumer(lambda frame: None, lambda: stopped.append(True))
-    await screencast.stop()
-    await screencast.stop()
-
-    assert stopped == [True]
-    assert ("Page.stopScreencast", {}) in session.sent
-
-
-@pytest.mark.anyio
-async def test_browser_screencast_attach_consumer_flushes_queued_frame():
-    class FakeSession:
-        def __init__(self):
-            self.handlers = {}
-            self.sent = []
-
-        def on(self, event, handler):
-            self.handlers[event] = handler
-
-        async def send(self, method, params=None):
-            self.sent.append((method, params or {}))
-
-        async def detach(self):
-            pass
-
-    session = FakeSession()
-    delivered = []
-    delivery = concurrent.futures.Future()
-    delivery.set_result(None)
-    screencast = _BrowserScreencast(
-        stream_id="stream",
-        browser_id=7,
-        session=session,
-        mime="image/jpeg",
-    )
-
-    await screencast.start(quality=92, every_nth_frame=1, viewport={"width": 640, "height": 480})
-    session.handlers["Page.screencastFrame"](
-        {"data": SMALL_JPEG_10X10, "metadata": {}, "sessionId": 31}
-    )
-    await asyncio.sleep(0)
-
-    await screencast.attach_consumer(lambda frame: delivered.append(frame) or delivery)
-
-    assert delivered
-    assert delivered[0]["image"] == SMALL_JPEG_10X10
-    assert await screencast.pop_frame() is None
-
-    await screencast.stop()
 
 
 @pytest.mark.anyio
@@ -2114,39 +1573,6 @@ def test_browser_save_plugin_config_does_not_restart_runtimes_for_preset_only(mo
     )
 
     assert result["model_preset"] == "Research"
-    assert restarted == []
-
-
-def test_browser_save_plugin_config_does_not_restart_runtimes_for_viewer_settings(monkeypatch):
-    restarted = []
-
-    monkeypatch.setattr(
-        browser_hooks_module,
-        "_load_saved_browser_config",
-        lambda project_name="", agent_profile="": {
-            "extension_paths": [],
-            "browser_tab_scope": "per_context",
-            "max_open_tabs": 32,
-        },
-    )
-    monkeypatch.setattr(
-        browser_hooks_module,
-        "close_all_runtimes_sync",
-        lambda: restarted.append(True),
-    )
-
-    result = browser_hooks_module.save_plugin_config(
-        {
-            "extension_paths": [],
-            "browser_tab_scope": "shared",
-            "max_open_tabs": 12,
-        },
-        project_name="",
-        agent_profile="",
-    )
-
-    assert result["browser_tab_scope"] == "shared"
-    assert result["max_open_tabs"] == 12
     assert restarted == []
 
 
@@ -2377,10 +1803,12 @@ async def test_browser_tool_records_static_history_screenshot(monkeypatch, tmp_p
                     },
                 }
             if method == "screenshot_file":
+                Path(kwargs["path"]).parent.mkdir(parents=True, exist_ok=True)
+                Path(kwargs["path"]).write_bytes(b"jpeg")
                 return {
                     "browser_id": args[0],
-                    "ephemeral": True,
-                    "ephemeral_ref": "a0-ephemeral-image://fake",
+                    "path": kwargs["path"],
+                    "a0_path": "/a0/usr/chats/chat/browser/screenshots/open.jpg",
                     "mime": "image/jpeg",
                     "state": {"id": args[0], "context_id": "browser-context"},
                 }
@@ -2428,13 +1856,11 @@ async def test_browser_tool_records_static_history_screenshot(monkeypatch, tmp_p
     assert calls[1][1] == (1,)
     assert calls[1][2]["quality"] == browser_tool_module.HISTORY_SCREENSHOT_QUALITY
     assert calls[1][2]["full_page"] is False
-    assert calls[1][2]["path"] == ""
-    assert "Screenshot" not in log.updates[-1]
+    assert Path(calls[1][2]["path"]).parent == tmp_path / "usr" / "chats" / "chat" / "browser" / "screenshots"
+    assert Path(calls[1][2]["path"]).read_bytes() == b"jpeg"
+    assert log.updates[-1]["Screenshot"].startswith("img://")
     assert log.updates[-1]["browser_snapshot"]["browser_id"] == 1
-    assert log.updates[-1]["browser_snapshot"]["context_id"] == "chat"
-    assert log.updates[-1]["browser_snapshot"]["browser_context_id"] == "browser-context"
-    assert log.updates[-1]["browser_snapshot"]["ephemeral"] is True
-    assert log.updates[-1]["browser_snapshot"]["ephemeral_ref"] == "a0-ephemeral-image://fake"
+    assert log.updates[-1]["browser_snapshot"]["context_id"] == "browser-context"
 
 
 @pytest.mark.anyio
@@ -2525,7 +1951,6 @@ async def test_browser_viewer_subscribe_unregisters_stream(monkeypatch):
         return fake_runtime
 
     monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "per_context"})
     monkeypatch.setattr(
         ws_browser_module.AgentContext,
         "get",
@@ -2581,7 +2006,6 @@ async def test_browser_viewer_subscribe_can_create_blank_tab_when_requested(monk
         return fake_runtime
 
     monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "per_context"})
     monkeypatch.setattr(
         ws_browser_module.AgentContext,
         "get",
@@ -2634,8 +2058,11 @@ async def test_browser_viewer_subscribe_returns_initial_snapshot(monkeypatch):
         assert create is False
         return FakeRuntime()
 
+    async def fake_all_browser_tabs():
+        return [{"id": 1, "context_id": "ctx", "currentUrl": "https://example.com/"}]
+
     monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "per_context"})
+    monkeypatch.setattr(ws_browser_module, "list_runtime_sessions", fake_all_browser_tabs)
     monkeypatch.setattr(
         ws_browser_module.AgentContext,
         "get",
@@ -2656,10 +2083,7 @@ async def test_browser_viewer_subscribe_returns_initial_snapshot(monkeypatch):
 
     assert result["active_browser_id"] == 1
     assert result["snapshot"]["image"] == "jpeg-data"
-    assert result["browsers"] == [{"id": 1, "context_id": "ctx", "currentUrl": "https://example.com/"}]
-    assert result["all_browsers"] is False
-    assert result["tab_scope"] == "per_context"
-    assert ("screenshot", (1,), {"quality": ws_browser_module.SCREENSHOT_QUALITY}) in calls
+    assert ("screenshot", (1,), {"quality": ws_browser_module.SCREENCAST_QUALITY}) in calls
 
     await handler.on_disconnect("sid-snapshot")
 
@@ -2672,7 +2096,6 @@ async def test_browser_viewer_subscribe_without_runtime_does_not_create_runtime(
         return None
 
     monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "per_context"})
     monkeypatch.setattr(
         ws_browser_module.AgentContext,
         "get",
@@ -2749,43 +2172,7 @@ async def test_browser_runtime_refuses_new_tabs_when_context_limit_is_reached(mo
 
 
 @pytest.mark.anyio
-async def test_browser_viewer_command_returns_only_requested_context_tabs(monkeypatch):
-    class FakeRuntime:
-        async def call(self, method, *args, **kwargs):
-            if method == "list":
-                return {
-                    "browsers": [{"id": 1, "context_id": "ctx-a", "currentUrl": "about:blank"}],
-                    "last_interacted_browser_id": 1,
-                }
-            raise AssertionError(method)
-
-    async def fake_get_runtime(context_id, create=True):
-        assert context_id == "ctx-a"
-        return FakeRuntime()
-
-    monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "per_context"})
-
-    handler = ws_browser_module.WsBrowser(
-        SimpleNamespace(),
-        threading.RLock(),
-        manager=None,
-    )
-
-    result = await handler.process(
-        "browser_viewer_command",
-        {"context_id": "ctx-a", "command": "list"},
-        "sid-1",
-    )
-
-    assert result["all_browsers"] is False
-    assert result["tab_scope"] == "per_context"
-    assert result["active_browser_context_id"] == "ctx-a"
-    assert result["browsers"] == [{"id": 1, "context_id": "ctx-a", "currentUrl": "about:blank"}]
-
-
-@pytest.mark.anyio
-async def test_browser_viewer_command_can_return_shared_context_tabs(monkeypatch):
+async def test_browser_viewer_command_returns_tabs_from_all_contexts(monkeypatch):
     class FakeRuntime:
         async def call(self, method, *args, **kwargs):
             if method == "list":
@@ -2813,7 +2200,6 @@ async def test_browser_viewer_command_can_return_shared_context_tabs(monkeypatch
             },
         ]
 
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "shared"})
     monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
     monkeypatch.setattr(ws_browser_module, "list_runtime_sessions", fake_list_runtime_sessions)
 
@@ -2830,69 +2216,24 @@ async def test_browser_viewer_command_can_return_shared_context_tabs(monkeypatch
     )
 
     assert result["all_browsers"] is True
-    assert result["tab_scope"] == "shared"
     assert result["active_browser_context_id"] == "ctx-a"
     assert [browser["context_id"] for browser in result["browsers"]] == ["ctx-a", "ctx-b"]
 
 
 @pytest.mark.anyio
-async def test_browser_viewer_sessions_lists_only_requested_context_without_creating(monkeypatch):
-    class FakeRuntime:
-        async def call(self, method, *args, **kwargs):
-            assert method == "list"
-            return {
-                "browsers": [{"id": 1, "context_id": "ctx-b", "currentUrl": "about:blank"}],
-                "last_interacted_browser_id": 1,
-            }
-
-    async def fake_get_runtime(context_id, create=True):
-        assert context_id == "ctx-b"
-        assert create is False
-        return FakeRuntime()
-
-    monkeypatch.setattr(ws_browser_module, "get_runtime", fake_get_runtime)
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "per_context"})
-
-    handler = ws_browser_module.WsBrowser(
-        SimpleNamespace(),
-        threading.RLock(),
-        manager=None,
-    )
-
-    result = await handler.process(
-        "browser_viewer_sessions",
-        {"context_id": "ctx-b"},
-        "sid-1",
-    )
-
-    assert result == {
-        "context_id": "ctx-b",
-        "browsers": [{"id": 1, "context_id": "ctx-b", "currentUrl": "about:blank"}],
-        "all_browsers": False,
-        "tab_scope": "per_context",
-    }
-
-
-@pytest.mark.anyio
-async def test_browser_viewer_sessions_can_list_shared_context_tabs(monkeypatch):
+async def test_browser_viewer_sessions_lists_without_creating_runtime(monkeypatch):
     async def fake_list_runtime_sessions():
         return [
             {
                 "context_id": "ctx-a",
                 "browsers": [{"id": 1, "context_id": "ctx-a", "currentUrl": "about:blank"}],
                 "last_interacted_browser_id": 1,
-            },
-            {
-                "context_id": "ctx-b",
-                "browsers": [{"id": 1, "context_id": "ctx-b", "currentUrl": "https://example.org/"}],
-                "last_interacted_browser_id": 1,
-            },
+            }
         ]
 
     async def fail_get_runtime(*args, **kwargs):
-        raise AssertionError("shared sessions refresh must not fetch one runtime")
+        raise AssertionError("sessions refresh must not create or fetch one runtime")
 
-    monkeypatch.setattr(ws_browser_module, "get_browser_config", lambda: {"browser_tab_scope": "shared"})
     monkeypatch.setattr(ws_browser_module, "list_runtime_sessions", fake_list_runtime_sessions)
     monkeypatch.setattr(ws_browser_module, "get_runtime", fail_get_runtime)
 
@@ -2910,12 +2251,8 @@ async def test_browser_viewer_sessions_can_list_shared_context_tabs(monkeypatch)
 
     assert result == {
         "context_id": "ctx-b",
-        "browsers": [
-            {"id": 1, "context_id": "ctx-a", "currentUrl": "about:blank"},
-            {"id": 1, "context_id": "ctx-b", "currentUrl": "https://example.org/"},
-        ],
+        "browsers": [{"id": 1, "context_id": "ctx-a", "currentUrl": "about:blank"}],
         "all_browsers": True,
-        "tab_scope": "shared",
     }
 
 
@@ -3051,7 +2388,7 @@ async def test_browser_runtime_remounts_initial_changed_viewport():
 
 
 @pytest.mark.anyio
-async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(monkeypatch, tmp_path):
+async def test_browser_runtime_screenshot_file_writes_without_base64(monkeypatch, tmp_path):
     screenshot_calls = []
 
     def fake_get_abs_path(*parts):
@@ -3069,9 +2406,8 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
 
         async def screenshot(self, **kwargs):
             screenshot_calls.append(kwargs)
-            if kwargs.get("path"):
-                Path(kwargs["path"]).parent.mkdir(parents=True, exist_ok=True)
-                Path(kwargs["path"]).write_bytes(b"image-bytes")
+            Path(kwargs["path"]).parent.mkdir(parents=True, exist_ok=True)
+            Path(kwargs["path"]).write_bytes(b"image-bytes")
             return b"image-bytes"
 
         async def title(self):
@@ -3086,22 +2422,21 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
 
     result = await core.screenshot_file(5, quality=500)
 
-    assert Path(result["path"]).read_bytes() == b"image-bytes"
-    assert result["a0_path"].startswith("/a0/usr/chats/ctx_id/screenshots/browser/browser-5-")
-    assert result["context_id"] == "ctx/id"
+    path = Path(result["path"])
+    assert path.exists()
+    assert path.parent == tmp_path / "tmp" / "browser" / "screenshots" / "ctx_id"
+    assert path.name.startswith("browser-5-")
+    assert path.suffix == ".jpg"
+    assert result["a0_path"].startswith("/a0/tmp/browser/screenshots/ctx_id/browser-5-")
     assert result["mime"] == "image/jpeg"
-    assert result["ephemeral"] is False
-    assert result["chat_scoped"] is True
     assert result["vision_load"] == {
         "tool_name": "vision_load",
-        "tool_args": {"paths": [result["a0_path"]]},
+        "tool_args": {"paths": [result["path"]]},
     }
     assert "image" not in result
-    assert not list((tmp_path / "tmp" / "browser" / "screenshots").rglob("*.jpg"))
     assert screenshot_calls[-1]["type"] == "jpeg"
     assert screenshot_calls[-1]["quality"] == 95
     assert screenshot_calls[-1]["full_page"] is False
-    assert "path" not in screenshot_calls[-1]
 
     png_path = tmp_path / "custom.png"
     png_result = await core.screenshot_file(5, quality=1, full_page=True, path=str(png_path))
@@ -3113,72 +2448,6 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
         "type": "png",
         "full_page": True,
     }
-
-
-@pytest.mark.anyio
-async def test_vision_load_materializes_ephemeral_browser_refs(monkeypatch, tmp_path):
-    monkeypatch.setitem(sys.modules, "helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool))
-    history_stub = ModuleType("helpers.history")
-
-    class _RawMessage(dict):
-        def __init__(self, raw_content, preview):
-            super().__init__(raw_content=raw_content, preview=preview)
-
-    history_stub.RawMessage = _RawMessage
-    monkeypatch.setitem(sys.modules, "helpers.history", history_stub)
-    monkeypatch.delitem(sys.modules, "tools.vision_load", raising=False)
-    import tools.vision_load as vision_load_module
-
-    def fake_get_abs_path(*parts):
-        return str(tmp_path.joinpath(*parts))
-
-    def fake_normalize_a0_path(path):
-        return "/a0/" + str(Path(path).relative_to(tmp_path)).replace("\\", "/")
-
-    monkeypatch.setattr(vision_load_module.chat_media.files, "get_abs_path", fake_get_abs_path)
-    monkeypatch.setattr(vision_load_module.chat_media.files, "normalize_a0_path", fake_normalize_a0_path)
-    monkeypatch.setattr(
-        vision_load_module.plugins,
-        "get_plugin_config",
-        lambda *args, **kwargs: {"chat_model": {"max_embeds": 10}},
-    )
-
-    tool_results = []
-    messages = []
-    updates = []
-    agent = SimpleNamespace(
-        context=SimpleNamespace(id="ctx-vision"),
-        agent_name="Agent 0",
-        hist_add_tool_result=lambda *args, **kwargs: tool_results.append((args, kwargs)),
-        hist_add_message=lambda *args, **kwargs: messages.append((args, kwargs)),
-    )
-    ref = vision_load_module.ephemeral_images.put_image(
-        context_id="ctx-vision",
-        mime="image/jpeg",
-        data=SMALL_JPEG_10X10,
-        name="browser-shot.jpg",
-    )
-    tool = vision_load_module.VisionLoad(
-        agent=agent,
-        name="vision_load",
-        method=None,
-        args={"paths": [ref]},
-        message="",
-        loop_data=None,
-    )
-    tool.log = SimpleNamespace(id="vision-log", update=lambda **kwargs: updates.append(kwargs))
-
-    response = await tool.execute(paths=[ref])
-    await tool.after_execution(response)
-
-    assert vision_load_module.ephemeral_images.get_image(ref, context_id="ctx-vision") is None
-    assert tool.loaded_paths == ["browser-shot.jpg"]
-    raw_message = messages[0][1]["content"]
-    stored_ref = raw_message["raw_content"][0]["image_url"]["url"]
-    assert stored_ref.startswith("/a0/usr/chats/ctx-vision/screenshots/browser/browser-shot-")
-    stored_path = tmp_path / stored_ref.removeprefix("/a0/")
-    assert stored_path.read_bytes() == __import__("base64").b64decode(SMALL_JPEG_10X10)
-    assert updates[-1]["result"] == "1 images loaded, 0 skipped"
 
 
 @pytest.mark.anyio

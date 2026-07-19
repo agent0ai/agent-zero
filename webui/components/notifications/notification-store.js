@@ -1,7 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as API from "/js/api.js";
 import { openModal } from "/js/modals.js";
-import { formatDateTime, getCurrentUserISOString } from "/js/time-utils.js";
 
 export const NotificationType = {
   INFO: "info",
@@ -198,16 +197,6 @@ const model = {
   // called by UI
   dismissToast(toastId) {
     this.removeFromToastStack(toastId, true);
-  },
-
-  async dismissToastAndReload(toastId) {
-    const toast = this.toastStack.find((item) => item.toastId === toastId);
-    if (!toast?.id) return;
-
-    const response = await API.callJsonApi("notifications_mark_read", {
-      notification_ids: [toast.id],
-    });
-    if (response?.success) window.location.reload();
   },
 
   async afterToastRemoved(toast, removedByUser = false) {
@@ -419,7 +408,7 @@ const model = {
     else if (diffHours < 24) return `${Math.round(diffHours)}h ago`;
     else if (diffDays < 7) return `${Math.round(diffDays)}d ago`;
 
-    return formatDateTime(timestamp, "date");
+    return date.toLocaleDateString();
   },
 
   // Get CSS class for notification type
@@ -626,7 +615,7 @@ const model = {
     group = "",
     priority = defaultPriority
   ) {
-    const timestamp = getCurrentUserISOString();
+    const timestamp = new Date().toISOString();
     const notification = {
       id: `frontend-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: type,

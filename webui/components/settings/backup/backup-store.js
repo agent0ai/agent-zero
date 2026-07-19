@@ -1,11 +1,4 @@
 import { createStore } from "/js/AlpineStore.js";
-import {
-  formatDateTime,
-  getCurrentUserDateString,
-  getCurrentUserISOString,
-  getUserHour12,
-  getUserTimezone,
-} from "/js/time-utils.js";
 
 // Global function references
 const sendJsonData = globalThis.sendJsonData;
@@ -77,11 +70,7 @@ const model = {
 
   // File operations logging
   addFileOperation(message) {
-    const timestamp = new Intl.DateTimeFormat(undefined, {
-      timeStyle: "medium",
-      hour12: getUserHour12(),
-      timeZone: getUserTimezone(),
-    }).format(new Date());
+    const timestamp = new Date().toLocaleTimeString();
     this.fileOperationsLog += `[${timestamp}] ${message}\n`;
 
     // Auto-scroll to bottom - use setTimeout since $nextTick is not available in stores
@@ -128,7 +117,7 @@ const model = {
 
   // Get default backup metadata with resolved patterns from backend
   async getDefaultBackupMetadata() {
-    const timestamp = getCurrentUserISOString();
+    const timestamp = new Date().toISOString();
 
     try {
       // Get resolved default patterns from backend
@@ -140,7 +129,7 @@ const model = {
         const exclude_patterns = response.default_patterns.exclude_patterns;
 
         return {
-          backup_name: `agent-zero-backup-${getCurrentUserDateString()}`,
+          backup_name: `agent-zero-backup-${timestamp.slice(0, 10)}`,
           include_hidden: true,
           include_patterns: include_patterns,
           exclude_patterns: exclude_patterns,
@@ -852,7 +841,7 @@ const model = {
   // Utility
   formatTimestamp(timestamp) {
     if (!timestamp) return 'Unknown';
-    return formatDateTime(timestamp, "full");
+    return new Date(timestamp).toLocaleString();
   },
 
   formatFileSize(bytes) {
@@ -864,7 +853,7 @@ const model = {
 
   formatDate(dateString) {
     if (!dateString) return 'Unknown';
-    return formatDateTime(dateString, "date");
+    return new Date(dateString).toLocaleDateString();
   }
 };
 

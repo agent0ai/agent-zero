@@ -19,14 +19,12 @@ skill-name/
 └── assets/       # optional output resources or templates
 ```
 
-The frontmatter should contain `name`, `description`, and optional `triggers` when lexical discovery needs phrases that do not fit naturally in the description:
+The frontmatter should contain only `name` and `description`:
 
 ```yaml
 ---
 name: skill-name
-description: What the skill does and when to use it.
-triggers:
-  - "user phrase that should surface this skill"
+description: What the skill does and when to use it. Include trigger wording here because this is the part visible before the skill loads.
 ---
 ```
 
@@ -36,7 +34,7 @@ Use lowercase letters, digits, and hyphens. Prefer short verb-led names such as 
 
 1. Identify two or three real user requests that should trigger the skill.
 2. Decide whether the skill belongs in core `skills/` or inside a plugin's `plugins/<plugin>/skills/` directory.
-3. Write the frontmatter description with the core trigger condition and key context; add `triggers` for short user phrases that should rank highly in skill search or relevant-skill recall.
+3. Write the frontmatter description with all trigger conditions and key contexts.
 4. Keep the body focused on procedure, contracts, failure handling, and the files/scripts to load next.
 5. Move long examples, schemas, policies, or variant-specific detail to one-level-deep `references/` files.
 6. Add scripts only for deterministic or repeatedly rewritten operations, and test representative scripts.
@@ -50,7 +48,7 @@ Use root `skills/` for Agent Zero framework workflows that are not owned by one 
 
 ## Writing Rules
 
-- Put trigger language in frontmatter, not in a body section. Use `description` for the compact always-visible purpose and `triggers` for phrase matches used by search and relevant-skill recall.
+- Put trigger language in `description`, not in a body section. The body is loaded only after the skill is already selected.
 - Do not add README, changelog, quick reference, or install guide files inside the skill.
 - Avoid compatibility aliases in prompts or skill bodies when renaming; update references to the new name.
 - Prefer concise examples over long prose.

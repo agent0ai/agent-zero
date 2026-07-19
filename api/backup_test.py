@@ -47,13 +47,12 @@ class BackupTest(ApiHandler):
 
             backup_service = BackupService()
             matched_files = await backup_service.test_patterns(metadata, max_files=max_files)
-            truncated = max_files is not None and len(matched_files) >= max_files
 
             return {
                 "success": True,
                 "files": matched_files,
                 "total_count": len(matched_files),
-                "truncated": truncated
+                "truncated": len(matched_files) >= max_files
             }
 
         except Exception as e:

@@ -1,20 +1,18 @@
 import asyncio
-from helpers import runtime
+from helpers import runtime, whisper, settings
 from helpers.print_style import PrintStyle
+from helpers import kokoro_tts
 import models
-from plugins._kokoro_tts.helpers import runtime as kokoro_tts_runtime
-from plugins._whisper_stt.helpers import runtime as whisper_stt_runtime
 
 
 async def preload():
     try:
+        set = settings.get_default_settings()
+
         # preload whisper model
         async def preload_whisper():
-            if not whisper_stt_runtime.is_globally_enabled():
-                return None
             try:
-                config = whisper_stt_runtime.get_config()
-                return await whisper_stt_runtime.preload(str(config["model_size"]))
+                return await whisper.preload(set["stt_model_size"])
             except Exception as e:
                 PrintStyle().error(f"Error in preload_whisper: {e}")
 
@@ -34,12 +32,11 @@ async def preload():
 
         # preload kokoro tts model if enabled
         async def preload_kokoro():
-            if not kokoro_tts_runtime.is_globally_enabled():
-                return None
-            try:
-                return await kokoro_tts_runtime.preload()
-            except Exception as e:
-                PrintStyle().error(f"Error in preload_kokoro: {e}")
+            if set["tts_kokoro"]:
+                try:
+                    return await kokoro_tts.preload()
+                except Exception as e:
+                    PrintStyle().error(f"Error in preload_kokoro: {e}")
 
         # async tasks to preload
         tasks = [

@@ -22,7 +22,7 @@ class MCPToolsPrompt(Extension):
 
 @extensible
 async def build_prompt(agent: Agent) -> str:
-    mcp_config = MCPConfig.get_for_agent(agent)
+    mcp_config = MCPConfig.get_instance()
     if not mcp_config.servers:
         return ""
 

@@ -1,7 +1,7 @@
 import { showButtonFeedback } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { open as openSurface } from "/js/surfaces.js";
 
-const DESKTOP_FORMATS = ["odt", "ods", "odp", "docx", "xlsx", "pptx"];
+const DESKTOP_FORMATS = ["md", "odt", "ods", "odp", "docx", "xlsx", "pptx"];
 
 function basename(path = "") {
   const value = String(path || "").split("?")[0].split("#")[0];
@@ -104,7 +104,7 @@ export async function openDocumentInDesktop(document = {}) {
   });
 }
 
-export async function openOfficeArtifact(document = {}) {
+export async function openDocumentArtifact(document = {}) {
   await openDocumentInDesktop(document);
 }
 
@@ -118,6 +118,7 @@ function canvasActionTitle(doc = {}) {
   if (["odt", "docx"].includes(format)) return "Open in canvas with Writer";
   if (["ods", "xlsx"].includes(format)) return "Open in canvas with Calc";
   if (["odp", "pptx"].includes(format)) return "Open in canvas with Impress";
+  if (format === "md") return "Open Markdown in canvas";
   return "Open in canvas";
 }
 
@@ -125,6 +126,7 @@ function documentIcon(doc = {}) {
   const format = String(doc.format || doc.extension || "").toLowerCase();
   if (["ods", "xlsx"].includes(format)) return "table_chart";
   if (["odp", "pptx"].includes(format)) return "slideshow";
+  if (format === "md") return "article";
   return usesDesktop(doc) ? "description" : "draft";
 }
 
@@ -158,7 +160,7 @@ export function buildDocumentFileCard(document = {}) {
 
   const detail = globalThis.document.createElement("span");
   detail.className = "document-file-card-path";
-  detail.textContent = statusLine(document) || "Office artifact";
+  detail.textContent = statusLine(document) || "Document artifact";
   meta.appendChild(detail);
   card.appendChild(meta);
 
@@ -170,11 +172,11 @@ export function buildDocumentFileCard(document = {}) {
   }
 
   if (document.path || document.file_id) {
-    card.addEventListener("click", () => openOfficeArtifact(document));
+    card.addEventListener("click", () => openDocumentArtifact(document));
     card.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
-      void openOfficeArtifact(document);
+      void openDocumentArtifact(document);
     });
   } else {
     card.setAttribute("aria-disabled", "true");
@@ -237,7 +239,7 @@ export function buildDocumentFileActionButtons(document = {}) {
       createDocumentActionButton(
         "open_in_new",
         "Open in canvas",
-        () => openOfficeArtifact(document),
+        () => openDocumentArtifact(document),
         {
           className: "document-file-action-primary",
           title: canvasActionTitle(document),

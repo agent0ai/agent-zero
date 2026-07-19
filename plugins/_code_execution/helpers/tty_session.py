@@ -1,23 +1,14 @@
-import asyncio, os, sys, platform, errno, signal
+import asyncio, os, sys, platform, errno
 
 _IS_WIN = platform.system() == "Windows"
 if _IS_WIN:
     import winpty  # pip install pywinpty # type: ignore
     import msvcrt
 
-_CLOSE_TIMEOUT_SECONDS = 2
-
-
-def _reconfigure_stream_errors(stream) -> None:
-    reconfigure = getattr(stream, "reconfigure", None)
-    if not callable(reconfigure):
-        return
-    reconfigure(errors="replace")
-
 
 #  Make stdin / stdout tolerant to broken UTF-8 so input() never aborts
-_reconfigure_stream_errors(sys.stdin)
-_reconfigure_stream_errors(sys.stdout)
+sys.stdin.reconfigure(errors="replace")  # type: ignore
+sys.stdout.reconfigure(errors="replace")  # type: ignore
 
 
 # ──────────────────────────── PUBLIC CLASS ────────────────────────────
@@ -79,44 +70,21 @@ class TTYSession:
 
         # Terminate the process if it exists
         if self._proc:
-            if getattr(self._proc, "returncode", None) is None:
-                self._signal_process(signal.SIGTERM)
             try:
-                await asyncio.wait_for(self._proc.wait(), _CLOSE_TIMEOUT_SECONDS)
-            except asyncio.TimeoutError:
-                self._signal_process(signal.SIGKILL)
-                try:
-                    await asyncio.wait_for(self._proc.wait(), _CLOSE_TIMEOUT_SECONDS)
-                except Exception:
-                    pass
+                if getattr(self._proc, "returncode", None) is None:
+                    self._proc.terminate()
+            except ProcessLookupError:
+                pass
+            except Exception:
+                pass
+            try:
+                await self._proc.wait()
             except Exception:
                 pass
 
         self._release_pty_master()
         self._proc = None
         self._pump_task = None
-
-    def _signal_process(self, sig):
-        if self._proc is None:
-            return
-        try:
-            if _IS_WIN:
-                if sig == signal.SIGKILL:
-                    self._proc.kill()
-                else:
-                    self._proc.terminate()
-                return
-            os.killpg(self._proc.pid, sig)
-        except ProcessLookupError:
-            pass
-        except Exception:
-            try:
-                if sig == signal.SIGKILL:
-                    self._proc.kill()
-                else:
-                    self._proc.terminate()
-            except Exception:
-                pass
 
     def _release_pty_master(self):
         """Release the POSIX PTY master exactly once.
@@ -191,7 +159,11 @@ class TTYSession:
 
         # Only attempt to kill if the process is still running
         if getattr(self._proc, "returncode", None) is None:
-            self._signal_process(signal.SIGKILL)
+            try:
+                self._proc.kill()
+            except ProcessLookupError:
+                # Child already gone – treat as successfully killed
+                pass
         self._release_pty_master()
 
     async def read(self, timeout=None):
@@ -262,7 +234,6 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
         cwd=cwd,
         env=env,
         close_fds=True,
-        start_new_session=True,
     )
     os.close(slave)
 

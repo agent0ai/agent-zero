@@ -19,6 +19,14 @@
                                  @click="$store.discoveryStore.executeCta(card.cta_action)"
                                  @keydown.enter.prevent="$store.discoveryStore.executeCta(card.cta_action)"
                                  @keydown.space.prevent="$store.discoveryStore.executeCta(card.cta_action)">
+                            <button class="discovery-dismiss discovery-dismiss-small"
+                                    type="button"
+                                    x-show="card.dismissible"
+                                    @click.stop="$store.discoveryStore.dismissCard(card.id)"
+                                    :aria-label="`Dismiss ${card.title}`"
+                                    title="Dismiss">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
 
                             <div class="discovery-feature-head">
                                 <div class="discovery-feature-thumb">
@@ -32,6 +40,8 @@
                                 <h4 class="discovery-feature-title" x-text="card.title"></h4>
                             </div>
 
+                            <p class="discovery-feature-desc" x-text="card.description"></p>
+
                             <button class="btn btn primary"
                                     type="button"
                                     @click.stop="$store.discoveryStore.executeCta(card.cta_action)">
@@ -43,7 +53,7 @@
                 </div>
 
 
-                <template x-for="card in $store.discoveryStore.heroCards.filter(card => !['discovery-codex-oauth', 'discovery-oauth-accounts'].includes(card.id))" :key="card.id">
+                <template x-for="card in $store.discoveryStore.heroCards.filter(card => card.id !== 'discovery-codex-oauth')" :key="card.id">
                     <article class="discovery-hero"
                              role="button"
                              tabindex="0"
@@ -250,11 +260,11 @@
         }
 
         .discovery-feature-card {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 0.75rem;
-            align-items: center;
-            padding: 0.72rem 0.9rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-height: 142px;
+            padding: 0.82rem 0.9rem;
             background:
                 linear-gradient(
                     180deg,
@@ -275,8 +285,8 @@
 
         .discovery-feature-thumb {
             flex: 0 0 auto;
-            width: 32px;
-            height: 32px;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -307,7 +317,16 @@
             line-height: 1.25;
         }
 
+        .discovery-feature-desc {
+            margin: 0.42rem 0 0;
+            padding-bottom: 0.6rem;
+            color: var(--color-text);
+            font-size: 0.77rem;
+            line-height: 1.34;
+        }
+
         .discovery-feature-card > .btn {
+            margin-top: auto;
             min-height: 36px;
             padding: 0.44rem 0.78rem;
         }
@@ -544,6 +563,36 @@
                 gap: 0.75rem;
             }
 
+            .discovery-feature-card {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 0.75rem;
+                min-height: 0;
+                align-items: center;
+                padding: 0.85rem 1rem;
+            }
+
+            .discovery-feature-head {
+                grid-column: 1;
+                min-width: 0;
+            }
+
+            .discovery-feature-thumb {
+                width: 46px;
+                height: 46px;
+            }
+
+            .discovery-feature-desc {
+                display: none;
+            }
+
+            .discovery-feature-card > .btn {
+                grid-column: 2;
+                grid-row: 1;
+                align-self: center;
+                margin-top: 0;
+            }
+
             .discovery-cta-link {
                 margin-top: 0;
             }
@@ -583,6 +632,15 @@
 
             .discovery-hero-title {
                 font-size: 1rem;
+            }
+
+            .discovery-feature-card {
+                grid-template-columns: minmax(0, 1fr) auto;
+                padding-right: 3rem;
+            }
+
+            .discovery-feature-card > .btn {
+                justify-self: end;
             }
 
             .discovery-cli-title {

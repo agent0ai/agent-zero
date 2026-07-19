@@ -2,7 +2,6 @@ from helpers import notification
 from helpers.extension import Extension
 from agent import LoopData
 from helpers import files, settings, update_check
-from helpers.localization import Localization
 import datetime
 import json
 
@@ -12,16 +11,12 @@ import json
 # do not check too often, use cooldown
 # do not notify too often
 
-last_check = datetime.datetime.fromtimestamp(0, tz=Localization.get().get_tzinfo())
+last_check = datetime.datetime.fromtimestamp(0)
 check_cooldown_seconds = 60
 last_notification_id = None
-last_notification_time = datetime.datetime.fromtimestamp(0, tz=Localization.get().get_tzinfo())
+last_notification_time = datetime.datetime.fromtimestamp(0)
 notification_cooldown_seconds = 60 * 60 * 24
 notification_state_file = "usr/update-check-state.json"
-
-
-def _now() -> datetime.datetime:
-    return Localization.get().now()
 
 
 def _load_notification_state() -> dict:
@@ -39,13 +34,13 @@ def _parse_timestamp(value: str | None) -> datetime.datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo:
-        return parsed.astimezone(Localization.get().get_tzinfo())
-    return Localization.get().localize_naive_datetime(parsed)
+        return parsed.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def _remember_notification(notif: dict, now: datetime.datetime):
     state = {
-        "last_notification_at": now.isoformat(),
+        "last_notification_at": now.replace(tzinfo=datetime.timezone.utc).isoformat(),
         "last_notification_id": notif.get("id") or "",
         "last_notification_group": notif.get("group", "update_check"),
     }
@@ -67,17 +62,16 @@ class UpdateCheck(Extension):
                 return
             
             # check if cooldown has passed
-            now = _now()
-            if (now - last_check).total_seconds() < check_cooldown_seconds:
+            if (datetime.datetime.now() - last_check).total_seconds() < check_cooldown_seconds:
                 return
-            last_check = now
+            last_check = datetime.datetime.now()
             
             # check for updates
             version = await update_check.check_version()
 
             # if the user should update, send notification
             if notif := version.get("notification"):
-                now = _now()
+                now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
                 stored_state = _load_notification_state()
                 stored_notification_time = _parse_timestamp(stored_state.get("last_notification_at"))
                 effective_notification_time = stored_notification_time or last_notification_time
@@ -98,25 +92,13 @@ class UpdateCheck(Extension):
         if not self.agent:
             return
 
-        message = notif.get(
-            "message",
-            "A newer version of Agent Zero is available. Please update to the latest version.",
-        )
-        message = message.replace(
-            '<a href="#" @click.prevent="$store.selfUpdateStore.openModal()">Open updater</a>.',
-            '<div class="toast-action-row">'
-            '<button type="button" class="button confirm" '
-            '@click="$store.selfUpdateStore.openModal(); '
-            '$store.notificationStore.dismissToast(toast.toastId)">'
-            "Open updater</button></div>",
-        )
         notifs = self.agent.context.get_notification_manager()
         notifs.send_notification(
             title=notif.get("title", "Newer version available"),
-            message=message,
+            message=notif.get("message", "A newer version of Agent Zero is available. Please update to the latest version."),
             type=notif.get("type", "info"),
             detail=notif.get("detail", ""),
-            display_time=0,
+            display_time=notif.get("display_time", 10),
             group=notif.get("group", "update_check"),
             priority=notif.get("priority", notification.NotificationPriority.NORMAL),
             id=notif.get("id", "update_check_available"),

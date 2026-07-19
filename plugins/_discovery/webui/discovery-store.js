@@ -64,25 +64,6 @@ const model = {
     this.hasDismissedCards = true;
   },
 
-  dismissFeatureCards() {
-    const featureIds = this.featureCards
-      .filter((card) => card.dismissible !== false)
-      .map((card) => card.id)
-      .filter(Boolean);
-
-    if (!featureIds.length) return;
-
-    const dismissed = this._getDismissedIds();
-    const dismissSet = new Set(featureIds);
-    for (const id of dismissSet) {
-      dismissed.add(id);
-    }
-    this._persistDismissedIds(dismissed);
-
-    this.cards = this.cards.filter((card) => !dismissSet.has(card.id));
-    this.hasDismissedCards = true;
-  },
-
   undismissCards() {
     localStorage.removeItem(STORAGE_KEY);
     this.refreshCards();
@@ -117,36 +98,6 @@ const model = {
     }
   },
 
-  usageWidth(window) {
-    const value = Math.max(0, Math.min(100, this.remainingPercent(window)));
-    return `${value}%`;
-  },
-
-  remainingPercent(window) {
-    const remaining = Number(window?.remaining_percent);
-    if (Number.isFinite(remaining)) return remaining;
-    const used = Number(window?.used_percent);
-    if (Number.isFinite(used)) return 100 - used;
-    return Number.NaN;
-  },
-
-  formatRemainingPercent(window) {
-    const number = this.remainingPercent(window);
-    if (!Number.isFinite(number)) return "0%";
-    return `${Math.round(number * 10) / 10}% left`;
-  },
-
-  formatReset(window) {
-    const seconds = Number(window?.reset_at || 0);
-    if (!Number.isFinite(seconds) || seconds <= 0) return "";
-    const remainingMs = Math.max(0, seconds * 1000 - Date.now());
-    const minutes = Math.round(remainingMs / 60000);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.round(minutes / 60);
-    if (hours < 48) return `${hours}h`;
-    return `${Math.round(hours / 24)}d`;
-  },
-
   // --- Helpers (Private-ish) ---
 
   _getDismissedIds() {
@@ -171,10 +122,6 @@ const model = {
 
   get bottomHeroCards() {
     return this.cards.filter((card) => card.type === "hero" && card.placement === "after-features");
-  },
-
-  get oauthAccountCards() {
-    return this.bottomHeroCards.filter((card) => card.id === "discovery-oauth-accounts");
   },
 
   get heroCards() {

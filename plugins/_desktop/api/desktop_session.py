@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from helpers.api import ApiHandler, Request
 from plugins._desktop.helpers import desktop_session
-from plugins._office.helpers import document_store
+from plugins._office.helpers import document_store, markdown_sessions
 from plugins._office.helpers import libreoffice
 
 
@@ -74,13 +74,8 @@ class DesktopSession(ApiHandler):
             return {"ok": False, "error": str(exc)}
 
         ext = str(doc.get("extension") or "").lower()
-        if ext in document_store.EDITOR_TEXT_EXTENSIONS:
-            return {
-                "ok": False,
-                "error": "Text documents use the Editor surface.",
-                "requires_editor": True,
-                "document": _public_doc(doc),
-            }
+        if ext == "md":
+            return self._open_markdown(doc, input, request)
         if ext not in desktop_session.OFFICIAL_EXTENSIONS:
             return {"ok": False, "error": f".{ext} documents do not use the Desktop surface."}
 
@@ -113,6 +108,26 @@ class DesktopSession(ApiHandler):
             "desktop": desktop,
             "store_session_id": store_session["session_id"],
             "mode": "edit",
+        }
+
+    def _open_markdown(self, doc: dict, input: dict, request: Request) -> dict:
+        mode = "edit" if str(input.get("mode") or "edit").lower() == "edit" else "view"
+        store_session = document_store.create_session(
+            doc["file_id"],
+            user_id=str(input.get("user_id") or "agent-zero-user"),
+            permission="write" if mode == "edit" else "read",
+            origin=self._origin(request),
+        )
+        try:
+            editor = markdown_sessions.get_manager().open(doc, sid="")
+        except ValueError as exc:
+            document_store.close_session(session_id=store_session["session_id"])
+            return {"ok": False, "error": str(exc)}
+        return {
+            **editor,
+            "store_session_id": store_session["session_id"],
+            "session_id": editor["session_id"],
+            "mode": mode,
         }
 
     def _save(self, input: dict) -> dict:

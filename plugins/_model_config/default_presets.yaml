@@ -1,0 +1,48 @@
+- name: "Max Power"
+  chat:
+    provider: "openrouter"
+    name: "anthropic/claude-opus-4.6"
+    api_key: ""
+    api_base: ""
+    ctx_length: 200000
+    ctx_history: 0.7
+    vision: true
+  utility:
+    provider: "openrouter"
+    name: "openai/gpt-5.4-mini"
+    api_key: ""
+    api_base: ""
+    ctx_length: 128000
+    ctx_input: 0.7
+- name: "Balance"
+  chat:
+    provider: "openrouter"
+    name: "anthropic/claude-sonnet-4.6"
+    api_key: ""
+    api_base: ""
+    ctx_length: 200000
+    ctx_history: 0.7
+    vision: true
+  utility:
+    provider: "openrouter"
+    name: "google/gemini-3.1-flash-lite-preview"
+    api_key: ""
+    api_base: ""
+    ctx_length: 128000
+    ctx_input: 0.7
+- name: "Cost Efficient"
+  chat:
+    provider: "openrouter"
+    name: "moonshotai/kimi-k2.5"
+    api_key: ""
+    api_base: ""
+    ctx_length: 128000
+    ctx_history: 0.7
+    vision: false
+  utility:
+    provider: "openrouter"
+    name: "openai/gpt-5.4-nano"
+    api_key: ""
+    api_base: ""
+    ctx_length: 128000
+    ctx_input: 0.7

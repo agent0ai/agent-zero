@@ -4,7 +4,6 @@ import { openModal } from "/js/modals.js";
 import { renderSafeMarkdown } from "/js/safe-markdown.js";
 import { toastFrontendSuccess, toastFrontendError } from "/components/notifications/notification-store.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
-import { formatDateTime } from "/js/time-utils.js";
 import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
 import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
 import { store as pluginExecuteStore } from "/components/plugins/list/plugin-execute-store.js";
@@ -777,7 +776,14 @@ const model = {
     const date = new Date(normalizedValue);
     if (Number.isNaN(date.getTime())) return value;
 
-    return formatDateTime(normalizedValue, "full");
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(date);
   },
 
   getRepoCommitUrl(plugin, commitHash) {

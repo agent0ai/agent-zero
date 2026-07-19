@@ -1,2 +1,0 @@
-[PROTOCOL]
-{{protocol}}

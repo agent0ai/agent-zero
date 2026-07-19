@@ -1,27 +1,84 @@
 <html>
 <head>
-  <title>Model Preset</title>
+  <title>Model Configuration</title>
   <script type="module">
     import { store } from "/plugins/_model_config/webui/model-config-store.js";
   </script>
 </head>
 
 <body>
-  <div x-data="$store.modelConfig.createScopedPresetSelector(context)"
-       x-init="await init()">
-    <div class="section-title">Model Preset</div>
-    <div class="section-description">
-      This scope stores only a preset selection. Edit the preset once and every scope using it stays in sync.
-    </div>
-    <div class="scoped-preset-overview">
-      <x-component path="/plugins/_model_config/webui/preset-overview.html"></x-component>
-    </div>
+  <div x-data
+       x-init="
+         await $store.modelConfig.ensureLoaded();
+         $store.modelConfig.resetApiKeyDrafts();
+         await $store.modelConfig.refreshApiKeyStatus();
+         $store.modelConfig.initConfigFields(config);
+         $store.modelConfig.installSettingsHooks(context, config);
+       ">
+    <template x-if="config && $store.modelConfig._loaded">
+      <div class="model-config-sections">
+
+        <!-- Model Sections (Main, Utility, Embedding) -->
+        <template x-for="section in $store.modelConfig.MODEL_SECTIONS" :key="section.key">
+          <div class="model-section"
+               x-data="{ model: config[section.key], modelType: section.key.replace('_model', ''), providers: $store.modelConfig.getProviders(section.key), searchType: $store.modelConfig.getSearchType(section.key), apiKeyMode: 'store' }">
+            <div class="section-title" x-text="section.title"></div>
+            <div class="section-description" x-text="section.desc"></div>
+            <x-component path="/plugins/_model_config/webui/model-field.html"></x-component>
+          </div>
+        </template>
+
+
+        <!-- Per-Chat Override -->
+        <div class="model-section">
+          <div class="section-title">Per-Chat Override</div>
+          <div class="section-description">Allow switching model presets from the chat navigation bar. New chats inherit the active preset.</div>
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Enable model switcher</div>
+              <div class="field-description">Show a preset switcher in the chat navigation bar. Overrides main and utility model for the current chat.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="config.allow_chat_override" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+          <div class="override-presets-link" x-show="config.allow_chat_override">
+            <button class="text-button" @click="openModal('/plugins/_model_config/webui/main.html')">
+              <span class="material-symbols-outlined">tune</span>
+              <span>Edit Presets</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </template>
   </div>
 
-  <style>
-    .scoped-preset-overview {
-      margin-top: 1rem;
-    }
-  </style>
+<style>
+  .model-config-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .model-section {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .model-section .section-title {
+    margin-top: 0;
+  }
+  .override-presets-link {
+    margin-top: 4px;
+  }
+  .override-presets-link .text-button {
+    font-size: 0.78rem !important;
+    gap: 4px;
+  }
+
+</style>
 </body>
 </html>

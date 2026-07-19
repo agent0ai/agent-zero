@@ -1,5 +1,4 @@
 from typing import Any
-from agent import AgentContextType
 from helpers.extension import Extension
 from helpers import files, persist_chat
 import os, re
@@ -9,9 +8,6 @@ LEN_MIN = 500
 class SaveToolCallFile(Extension):
     def execute(self, data: dict[str, Any] | None = None, **kwargs):
         if not self.agent:
-            return
-
-        if self.agent.context.type == AgentContextType.BACKGROUND:
             return
             
         if not data:

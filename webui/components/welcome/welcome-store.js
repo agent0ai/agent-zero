@@ -1,10 +1,10 @@
 import { createStore } from "/js/AlpineStore.js";
+import { getContext } from "/index.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as memoryStore } from "/plugins/_memory/webui/memory-dashboard-store.js";
 import { store as projectsStore } from "/components/projects/projects-store.js";
-import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
+import { store as chatInputStore } from "/components/chat/input/input-store.js";
 import * as API from "/js/api.js";
-import { getCurrentUserISOString } from "/js/time-utils.js";
 
 const model = {
   // State
@@ -44,7 +44,7 @@ const model = {
       hostname: window.location.hostname,
       port: window.location.port,
       browser: navigator.userAgent,
-      timestamp: getCurrentUserISOString(),
+      timestamp: new Date().toISOString(),
     };
   },
 
@@ -142,61 +142,8 @@ const model = {
 
   get sortedBanners() {
     return [...this.banners]
-      .filter((b) => b.id !== "system-resources")
-      .filter((b) => b.id !== "missing-api-key")
       .filter((b) => b.type !== "hero" && b.type !== "feature")
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-  },
-
-  get systemResourceBanner() {
-    return this.banners.find((b) => b.id === "system-resources") || null;
-  },
-
-  get heroSubtitle() {
-    return "How can I help you today?";
-  },
-
-  executeBannerAction(action) {
-    if (!action) return;
-
-    if (action.startsWith("open-modal:")) {
-      const path = action.slice("open-modal:".length);
-      this.openModalPath(path);
-      return;
-    }
-
-    if (action.startsWith("open-url:")) {
-      const url = action.slice("open-url:".length);
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-    }
-  },
-
-  handleBannerHtmlClick(event) {
-    const actionTarget = event?.target?.closest?.("[data-banner-action]");
-    if (!actionTarget) return;
-    const action = actionTarget.getAttribute("data-banner-action");
-    if (!action) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    this.executeBannerAction(action);
-  },
-
-  openModalPath(path) {
-    if (!path) return;
-
-    let modalPath = path;
-    let hash = "";
-    const hashIndex = path.indexOf("#");
-    if (hashIndex !== -1) {
-      modalPath = path.slice(0, hashIndex);
-      hash = path.slice(hashIndex + 1);
-    }
-
-    if (hash) {
-      history.replaceState(null, "", `#${hash}`);
-    }
-    if (modalPath) window.openModal(modalPath);
   },
 
   /**
@@ -271,7 +218,7 @@ const model = {
         memoryStore.openModal();
         break;
       case "files":
-        fileBrowserStore.open();
+        chatInputStore.browseFiles();
         break;
       case "website":
         window.open("https://agent-zero.ai", "_blank");

@@ -1,9 +1,9 @@
-# Generic OAuth connection settings.
+# Generic OAuth connection settings. Only Codex is implemented for now.
 codex:
   enabled: true
 
-  # Empty stores credentials in Agent Zero's private OAuth directory.
-  # Never share a rotating refresh-token file with Codex CLI or another client.
+  # Empty means auto-discover CODEX_HOME/auth.json, ~/.codex/auth.json,
+  # CHATGPT_LOCAL_HOME/auth.json, then ~/.chatgpt-local/auth.json.
   auth_file_path: ""
 
   issuer: "https://auth.openai.com"
@@ -31,25 +31,3 @@ codex:
   callback_path: "/auth/callback"
   require_proxy_token: false
   proxy_token: ""
-
-github_copilot:
-  enabled: true
-  enterprise_domain: ""
-
-gemini_api:
-  enabled: true
-  client_id: ""
-  client_secret: ""
-  quota_project_id: ""
-  scopes:
-    - openid
-    - email
-    - profile
-    - https://www.googleapis.com/auth/cloud-platform
-    - https://www.googleapis.com/auth/generative-language.retriever
-  api_base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
-  proxy_base_path: "/oauth/gemini-api"
-  callback_path: "/oauth/gemini-api/callback"
-
-xai_grok:
-  enabled: true

@@ -29,17 +29,6 @@ const DOMPURIFY_CONFIG = Object.freeze({
   FORBID_TAGS: ["script", "iframe", "object", "embed", "svg", "math"],
 });
 
-const DATA_IMAGE_URL_PATTERN =
-  /^data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[a-z0-9+/=\s]+$/i;
-
-function getDompurifyConfig(options = {}) {
-  const config = { ...DOMPURIFY_CONFIG };
-  if (options.allowLatex) {
-    config.ADD_TAGS = ["latex"];
-  }
-  return config;
-}
-
 function parseGithubRepoContext(githubUrl) {
   if (!githubUrl || typeof githubUrl !== "string") return null;
 
@@ -88,16 +77,9 @@ function isGithubRepoRoutePath(repoPath) {
   return GITHUB_REPO_ROUTE_PREFIXES.has(firstSegment);
 }
 
-function isSafeUrlValue(value, attributeName, options = {}) {
+function isSafeUrlValue(value, attributeName) {
   const normalized = String(value || "").trim();
   if (!normalized) return true;
-  if (
-    options.allowDataImages &&
-    attributeName === "src" &&
-    DATA_IMAGE_URL_PATTERN.test(normalized)
-  ) {
-    return true;
-  }
   if (
     normalized.startsWith("#") ||
     normalized.startsWith("/") ||
@@ -126,14 +108,14 @@ function isSafeUrlValue(value, attributeName, options = {}) {
   return false;
 }
 
-function stripUnsafeUrlAttributes(html, options = {}) {
+function stripUnsafeUrlAttributes(html) {
   const doc = new DOMParser().parseFromString(html, "text/html");
 
   doc.querySelectorAll("[href], [src]").forEach((element) => {
     for (const attributeName of ["href", "src"]) {
       if (!element.hasAttribute(attributeName)) continue;
       const value = element.getAttribute(attributeName) || "";
-      if (!isSafeUrlValue(value, attributeName, options)) {
+      if (!isSafeUrlValue(value, attributeName)) {
         element.removeAttribute(attributeName);
       }
     }
@@ -142,10 +124,10 @@ function stripUnsafeUrlAttributes(html, options = {}) {
   return doc.body.innerHTML;
 }
 
-export function sanitizeHtml(html, options = {}) {
+export function sanitizeHtml(html) {
   if (!html || typeof html !== "string") return "";
-  const sanitized = DOMPurify.sanitize(html, getDompurifyConfig(options));
-  return stripUnsafeUrlAttributes(sanitized, options);
+  const sanitized = DOMPurify.sanitize(html, DOMPURIFY_CONFIG);
+  return stripUnsafeUrlAttributes(sanitized);
 }
 
 export function rebaseGithubReadmeHtml(html, githubUrl, branch) {
@@ -190,7 +172,7 @@ export function renderSafeMarkdown(markdown, options = {}) {
     html = rebaseGithubReadmeHtml(html, githubUrl, branch);
   }
 
-  html = sanitizeHtml(html, options);
+  html = sanitizeHtml(html);
 
   if (openExternalLinksInNewTab) {
     html = addBlankTargetsToLinks(html);

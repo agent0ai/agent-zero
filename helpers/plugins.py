@@ -44,7 +44,7 @@ _META_TARGET_RE = re.compile(
 )
 
 
-type ToggleState = Literal["enabled", "disabled"]
+type ToggleState = Literal["enabled", "disabled", "advanced"]
 
 
 class PluginAssetFile(TypedDict):
@@ -517,14 +517,29 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
     if meta.always_enabled:
         return "enabled"
 
-    # List-level activation is the global/root state. Scoped project/profile
-    # overrides are managed inside the plugin config modal.
+    # root plugin paths
     plugin_paths = get_plugin_roots(plugin_name)
-    return (
+    state = (
         "enabled"
         if determined_toggle_from_paths(True, reversed(plugin_paths))
         else "disabled"
     )
+
+    # additional toggles in project/agent directories, return advanced
+    if meta.per_agent_config or meta.per_project_config:
+        configs = find_plugin_assets(
+            TOGGLE_FILE_PATTERN,
+            plugin_name=plugin_name,
+            project_name="*" if meta.per_project_config else "",
+            agent_profile="*" if meta.per_agent_config else "",
+            only_first=False,
+        )
+
+        # Advanced if there are specific overrides (project or agent specific)
+        if any(c.get("project_name") or c.get("agent_profile") for c in configs):
+            state = "advanced"
+
+    return state
 
 
 @extension.extensible
@@ -840,9 +855,9 @@ def send_frontend_reload_notification(plugin_names: list[str] | None = None):
             type=notification.NotificationType.INFO,
             priority=notification.NotificationPriority.NORMAL,
             title="Plugins with frontend extensions updated, page reload recommended",
-            message="""<div class="toast-action-row"><button type="button" class="button confirm" @click.stop="$store.notificationStore.dismissToastAndReload(toast.toastId)"><span class="icon material-symbols-outlined">refresh</span>Reload page</button></div>""",
+            message="""<button type="button" class="button confirm" onclick="window.location.reload()"><span class="icon material-symbols-outlined">refresh</span>Reload page</button>""",
             detail="",
-            display_time=0,
+            display_time=display_time,
             group="plugins_changed",
             id="plugins_frontend_reload",
         )

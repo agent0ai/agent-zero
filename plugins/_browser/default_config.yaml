@@ -8,11 +8,6 @@ default_homepage: "about:blank"
 # When the Browser surface is already open, keep it synced to agent Browser tool results.
 autofocus_active_page: true
 
-# Browser tab visibility in the WebUI:
-# - per_context: each chat shows only its own Browser tabs.
-# - shared: show Browser tabs from all active chats.
-browser_tab_scope: "per_context"
-
 # Maximum number of Browser tabs/pages a single chat context may keep open.
 # Raise this only for deliberate parallel browsing workflows.
 max_open_tabs: 32
@@ -32,11 +27,6 @@ host_browser_privacy_policy: "allow"
 # - existing: use the user's authorized existing browser profile when available.
 # - agent: use a clean A0-controlled browser profile on the host.
 host_browser_profile_mode: "existing"
-
-# Optional host browser target when using an existing browser.
-# Empty means A0 CLI chooses the first supported/active browser.
-# Values may be browser family ids (chrome, edge, chromium) or CLI-advertised ids/endpoints.
-host_browser_selection: ""
 
 # Optional _model_config preset used by Browser-owned model helpers.
 # Empty uses the effective Main Model.

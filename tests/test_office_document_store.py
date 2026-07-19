@@ -21,16 +21,12 @@ from helpers import system_packages
 from plugins._office import hooks
 from plugins._desktop import hooks as desktop_hooks
 from plugins._desktop.helpers import desktop_session
-from plugins._editor.helpers import (
-    markdown_sessions as editor_markdown_sessions,
-    open_files_context,
-)
-from plugins._editor.api.editor_session import EditorSession
 from plugins._office.helpers import (
     artifact_editor,
     canvas_context,
     document_store,
     libreoffice,
+    markdown_sessions,
 )
 
 
@@ -55,12 +51,6 @@ def office_state(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(document_store, "_settings", lambda: settings_helpers)
     monkeypatch.setattr(document_store, "_projects", lambda: project_helpers)
-    monkeypatch.setattr(
-        editor_markdown_sessions,
-        "_manager",
-        editor_markdown_sessions.MarkdownSessionManager(),
-        raising=False,
-    )
 
     workdir.mkdir(parents=True, exist_ok=True)
     documents.mkdir(parents=True, exist_ok=True)
@@ -76,62 +66,12 @@ def office_state(tmp_path, monkeypatch):
     )
 
 
-def test_document_store_create_defaults_to_markdown(office_state):
+def test_document_artifact_create_defaults_to_markdown(office_state):
     doc = document_store.create_document("document", "Research Note", content="A precise note.")
 
     assert doc["extension"] == "md"
     assert Path(doc["path"]).parent == office_state.workdir
     assert Path(doc["path"]).read_text(encoding="utf-8").startswith("# Research Note")
-
-
-def test_text_files_register_as_editor_documents(office_state):
-    path = office_state.workdir / "plain-note.txt"
-    path.write_text("Plain text belongs in the Editor surface.\n", encoding="utf-8")
-
-    doc = document_store.register_document(path)
-
-    assert doc["extension"] == "txt"
-    assert "txt" in document_store.EDITOR_TEXT_EXTENSIONS
-    assert "txt" not in desktop_session.OFFICIAL_EXTENSIONS
-
-
-def test_file_browser_can_register_runtime_root_markdown(office_state, monkeypatch):
-    runtime_root = office_state.state.parent / "runtime-root"
-    runtime_root.mkdir()
-    path = runtime_root / "AGENTS.md"
-    path.write_text("# Runtime Instructions\n", encoding="utf-8")
-    monkeypatch.setattr(document_store.files, "get_base_dir", lambda: str(runtime_root))
-
-    with pytest.raises(PermissionError, match="active project or workdir"):
-        document_store.register_document(path)
-
-    doc = document_store.register_document(path, allow_base_dir=True)
-
-    assert doc["basename"] == "AGENTS.md"
-    assert doc["path"] == str(path)
-
-
-def test_editor_file_browser_source_opens_runtime_root_markdown(office_state, monkeypatch):
-    runtime_root = office_state.state.parent / "runtime-root"
-    runtime_root.mkdir()
-    path = runtime_root / "AGENTS.md"
-    path.write_text("# Runtime Instructions\n", encoding="utf-8")
-    monkeypatch.setattr(document_store.files, "get_base_dir", lambda: str(runtime_root))
-    handler = EditorSession(app=None, thread_lock=None)
-    request = types.SimpleNamespace(headers={}, host_url="http://localhost/")
-
-    blocked = asyncio.run(handler.process({"action": "open", "path": str(path)}, request))
-    opened = asyncio.run(handler.process({
-        "action": "open",
-        "path": str(path),
-        "source": "file-browser",
-    }, request))
-
-    assert blocked["ok"] is False
-    assert "active project or workdir" in blocked["error"]
-    assert opened["ok"] is True
-    assert opened["title"] == "AGENTS.md"
-    assert opened["text"] == "# Runtime Instructions\n"
 
 
 @pytest.mark.parametrize(
@@ -219,16 +159,44 @@ def test_odf_and_ooxml_creation_and_direct_edits_still_work(office_state):
     assert ods_rows[2][0] == "Research"
 
 
-def test_office_artifact_helpers_reject_markdown_inputs(office_state):
+def test_document_artifact_markdown_append_accepts_common_model_shapes(office_state):
     doc = document_store.create_document("document", "Append Shapes", "md", "# Title\n\nBase")
 
-    with pytest.raises(ValueError, match="use text_editor"):
-        artifact_editor.read_artifact(doc)
-    with pytest.raises(ValueError, match="use text_editor"):
-        artifact_editor.edit_artifact(doc, operation="set_text", content="# Updated")
+    updated, payload = artifact_editor.edit_artifact(
+        doc,
+        operation="append_text",
+        value="Added line 1\nAdded line 2",
+    )
+    assert payload["changed"] is True
+    assert payload["lines_appended"] == 2
+    assert artifact_editor.read_artifact(updated)["text"].endswith("Added line 1\nAdded line 2")
+
+    updated, payload = artifact_editor.edit_artifact(
+        updated,
+        update={"add_lines": ["Added line 3", "Added line 4"]},
+    )
+    assert payload["operation"] == "append_text"
+    assert payload["lines_appended"] == 2
+    assert artifact_editor.read_artifact(updated)["text"].endswith(
+        "Added line 1\nAdded line 2\nAdded line 3\nAdded line 4",
+    )
+
+    updated, payload = artifact_editor.edit_artifact(
+        updated,
+        edits=[{"op": "append_lines", "value": ["Added line 5", "Added line 6"]}],
+    )
+    assert payload["operation"] == "append_text"
+    assert payload["lines_appended"] == 2
+    assert artifact_editor.read_artifact(updated)["text"].endswith(
+        "Added line 3\nAdded line 4\nAdded line 5\nAdded line 6",
+    )
 
 
-def test_office_artifact_direct_edits_cover_presentations_spreadsheets_and_decks(office_state):
+def test_document_artifact_markdown_append_rejects_empty_content(office_state):
+    doc = document_store.create_document("document", "Empty Append", "md", "# Title")
+
+    with pytest.raises(ValueError, match="content is required for append_text"):
+        artifact_editor.edit_artifact(doc, operation="append_text")
 
     odp = document_store.create_document(
         "presentation",
@@ -320,7 +288,7 @@ def test_ods_direct_edit_preserves_rows_beyond_preview_window_and_blank_separato
     assert parsed[0]["rows"][89][1] == 9000
 
 
-def test_office_artifact_creates_ods_with_action_contract(office_state, monkeypatch):
+def test_document_artifact_accepts_method_alias_for_ods_create(office_state, monkeypatch):
     tool_module = types.ModuleType("helpers.tool")
 
     class Response:
@@ -342,17 +310,17 @@ def test_office_artifact_creates_ods_with_action_contract(office_state, monkeypa
     tool_module.Tool = Tool
     monkeypatch.setitem(sys.modules, "helpers.tool", tool_module)
     spec = importlib.util.spec_from_file_location(
-        "test_office_artifact_tool",
-        PROJECT_ROOT / "plugins" / "_office" / "tools" / "office_artifact.py",
+        "test_document_artifact_tool",
+        PROJECT_ROOT / "plugins" / "_office" / "tools" / "document_artifact.py",
     )
-    office_artifact_module = importlib.util.module_from_spec(spec)
+    document_artifact_module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
-    spec.loader.exec_module(office_artifact_module)
-    OfficeArtifact = office_artifact_module.OfficeArtifact
+    spec.loader.exec_module(document_artifact_module)
+    DocumentArtifact = document_artifact_module.DocumentArtifact
 
-    tool = OfficeArtifact(
+    tool = DocumentArtifact(
         agent=None,
-        name="office_artifact",
+        name="document_artifact",
         method=None,
         args={},
         message="",
@@ -361,7 +329,7 @@ def test_office_artifact_creates_ods_with_action_contract(office_state, monkeypa
 
     response = asyncio.run(
         tool.execute(
-            action="create",
+            method="create",
             kind="document",
             title="New Calc Workbook",
             format="ods",
@@ -377,12 +345,11 @@ def test_office_artifact_creates_ods_with_action_contract(office_state, monkeypa
 
 
 def test_odf_is_advertised_and_docx_remains_explicit_compatibility(office_state):
-    prompt = (PROJECT_ROOT / "plugins" / "_office" / "prompts" / "agent.system.tool.office_artifact.md").read_text(
+    prompt = (PROJECT_ROOT / "plugins" / "_office" / "prompts" / "agent.system.tool.document_artifact.md").read_text(
         encoding="utf-8",
     )
 
-    assert "formats: odt ods odp docx xlsx pptx" in prompt
-    assert "use `text_editor` for Markdown and plain text files" in prompt
+    assert "formats: md odt ods odp docx xlsx pptx" in prompt
     assert "ODF is first-class for LibreOffice" in prompt
     assert "DOCX/XLSX/PPTX are compatibility formats" in prompt
     assert "`method` is accepted as an alias for action" not in prompt
@@ -423,44 +390,17 @@ def test_non_project_creation_uses_configured_workdir(office_state):
 
 
 def test_sessions_and_canvas_context_are_neutral(office_state):
-    doc = document_store.create_document("document", "Canvas Context", "odt", "Private body text.")
+    doc = document_store.create_document("document", "Canvas Context", "md", "Private body text.")
     session = document_store.create_session(doc["file_id"], "user-a", "write", "http://localhost:32080")
 
     open_docs = document_store.get_open_documents()
     context = canvas_context.build_context()
 
     assert open_docs[0]["file_id"] == doc["file_id"]
-    assert "Office artifacts" in context
+    assert "document artifacts" in context
     assert "Private body text" not in context
     assert document_store.close_session(session_id=session["session_id"]) == 1
     assert document_store.get_open_documents() == []
-
-
-def test_editor_open_files_are_scoped_to_active_context(office_state):
-    first = document_store.create_document("document", "First Editor Note", "md", "First private body.")
-    second = document_store.create_document("document", "Second Editor Note", "md", "Second private body.")
-    manager = editor_markdown_sessions.get_manager()
-
-    first_session = manager.open(first, context_id="ctx-a")
-    second_session = manager.open(second, context_id="ctx-b")
-    manager.input(first_session["session_id"], text="Unsaved ctx-a text")
-    reopened_first = manager.open(first, context_id="ctx-a")
-
-    ctx_a_files = manager.list_open("ctx-a")
-    ctx_b_files = manager.list_open("ctx-b")
-    prompt_context = open_files_context.build_context("ctx-a")
-
-    assert reopened_first["session_id"] == first_session["session_id"]
-    assert reopened_first["text"] == "Unsaved ctx-a text"
-    assert [item["file_id"] for item in ctx_a_files] == [first["file_id"]]
-    assert [item["file_id"] for item in ctx_b_files] == [second["file_id"]]
-    assert ctx_a_files[0]["dirty"] is True
-    assert ctx_a_files[0]["active"] is True
-    assert ctx_a_files[0]["open_sessions"] == 1
-    assert "First Editor Note.md" in prompt_context
-    assert "Second Editor Note.md" not in prompt_context
-    assert "First private body" not in prompt_context
-    assert "Unsaved ctx-a text" not in prompt_context
 
 
 def test_markdown_save_tracks_version_history(office_state):
@@ -521,118 +461,19 @@ def test_document_rename_saves_dirty_markdown_and_removes_original(office_state)
     assert renamed.read_text(encoding="utf-8") == "# Clean Rename\n\nFresh text"
 
 
-def test_text_session_save_as_creates_new_file_without_mutating_original(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "Original Note", "md", "# Original Note\n")
-    original = Path(doc["path"])
-    session = manager.open(doc, context_id="ctx-a")
-    target = office_state.workdir / "notes" / "Saved Copy.txt"
+def test_direct_markdown_edits_refresh_open_canvas_session(office_state, monkeypatch):
+    manager = markdown_sessions.MarkdownSessionManager()
+    monkeypatch.setattr(markdown_sessions, "_manager", manager, raising=False)
+    doc = document_store.create_document("document", "Receiver", "md", "First")
+    session = manager.open(doc)
 
-    result = manager.save_as(
-        session["session_id"],
-        str(target),
-        text="Saved Copy\n\nExact body\n",
-    )
+    artifact_editor.edit_artifact(doc, operation="set_text", content="# Receiver\n\nSecond")
 
-    saved_session = manager._sessions[session["session_id"]]
-    assert result["ok"] is True
-    assert result["document"]["file_id"] != doc["file_id"]
-    assert result["previous_file_id"] == doc["file_id"]
-    assert saved_session.file_id == result["document"]["file_id"]
-    assert saved_session.path == str(target)
-    assert saved_session.extension == "txt"
-    assert saved_session.dirty is False
-    assert original.read_text(encoding="utf-8") == "# Original Note"
-    assert target.read_text(encoding="utf-8") == "Saved Copy\n\nExact body\n"
-
-
-def test_editor_session_opens_and_saves_txt_documents(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "Plain Note", "txt", "First line")
-    session = manager.open(doc, context_id="ctx-a")
-
-    assert session["extension"] == "txt"
-    assert session["text"] == "First line"
-
-    result = manager.save(session["session_id"], text="Second line\n")
-
-    assert result["ok"] is True
-    assert result["document"]["extension"] == "txt"
-    assert Path(result["document"]["path"]).read_text(encoding="utf-8") == "Second line\n"
-
-
-def test_refresh_open_markdown_session_reloads_external_file_edits(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "External Refresh", "md", "First")
-    session = manager.open(doc, context_id="ctx-a")
-
-    Path(doc["path"]).write_text("# External Refresh\n\nSecond\n", encoding="utf-8")
-    refreshed = manager.open(doc, context_id="ctx-a", refresh=True)
-
-    assert refreshed["session_id"] == session["session_id"]
-    assert refreshed["text"] == "# External Refresh\n\nSecond\n"
-    assert manager._sessions[session["session_id"]].dirty is False
-
-
-def test_refresh_open_markdown_session_preserves_dirty_editor_text(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "Dirty External Refresh", "md", "First")
-    session = manager.open(doc, context_id="ctx-a")
-    manager.input(session["session_id"], text="Unsaved editor text")
-
-    Path(doc["path"]).write_text("External disk text\n", encoding="utf-8")
-    refreshed = manager.open(doc, context_id="ctx-a", refresh=True)
-
-    assert refreshed["text"] == "Unsaved editor text"
-    assert manager._sessions[session["session_id"]].dirty is True
-
-
-def test_external_text_editor_mutation_refreshes_clean_open_markdown_session(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "Synced External Edit", "md", "First")
-    session = manager.open(doc, context_id="ctx-a")
-
-    Path(doc["path"]).write_text("# Synced External Edit\n\nSecond\n", encoding="utf-8")
-    result = manager.sync_external_file_mutations([doc["path"]])
-
-    assert result["matched"] == 1
-    assert manager._sessions[session["session_id"]].text == "# Synced External Edit\n\nSecond\n"
-    assert manager._sessions[session["session_id"]].dirty is False
-    assert manager._sessions[session["session_id"]].external_modified is False
-
-
-def test_external_text_editor_mutation_marks_dirty_markdown_session_pending(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "Dirty Synced External Edit", "md", "First")
-    session = manager.open(doc, context_id="ctx-a")
-    manager.input(session["session_id"], text="Unsaved editor text")
-
-    Path(doc["path"]).write_text("External disk text\n", encoding="utf-8")
-    result = manager.sync_external_file_mutations([doc["path"]])
-
-    dirty_session = manager._sessions[session["session_id"]]
-    assert result["matched"] == 1
-    assert dirty_session.text == "Unsaved editor text"
-    assert dirty_session.dirty is True
-    assert dirty_session.external_modified is True
-
-
-def test_markdown_editor_save_rejects_stale_canvas_overwrite(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
-    doc = document_store.create_document("document", "Stale Save Guard", "md", "First")
-    session = manager.open(doc, context_id="ctx-a")
-
-    Path(doc["path"]).write_text("# Stale Save Guard\n\nExternal newer text\n", encoding="utf-8")
-    result = manager.save(session["session_id"], text="# Stale Save Guard\n\nOlder canvas text\n")
-
-    assert result["ok"] is False
-    assert result["code"] == "external_change_conflict"
-    assert "External newer text" in Path(doc["path"]).read_text(encoding="utf-8")
-    assert "Older canvas text" not in Path(doc["path"]).read_text(encoding="utf-8")
+    assert manager._sessions[session["session_id"]].text == "# Receiver\n\nSecond"
 
 
 def test_markdown_session_rejects_office_binaries(office_state):
-    manager = editor_markdown_sessions.MarkdownSessionManager()
+    manager = markdown_sessions.MarkdownSessionManager()
     doc = document_store.create_document("document", "Desktop Only", "odt", "Native text")
 
     with pytest.raises(ValueError, match="Open .odt files in the Desktop"):
@@ -746,6 +587,102 @@ def test_desktop_gateway_patches_xpra_menu_script():
     assert 'upstream_path.endswith("/index.html")' in source
     assert 'upstream_path.endswith("/js/Window.js")' in source
     assert "window does not fit in canvas, offsets:" in source
+
+
+def test_office_session_desktop_state_action_defaults_without_screenshot(monkeypatch):
+    api_module = types.ModuleType("helpers.api")
+
+    class ApiHandler:
+        def __init__(self, app=None, thread_lock=None):
+            self.app = app
+            self.thread_lock = thread_lock
+
+    api_module.ApiHandler = ApiHandler
+    api_module.Request = object
+    monkeypatch.setitem(sys.modules, "helpers.api", api_module)
+    monkeypatch.delitem(sys.modules, "plugins._office.api.office_session", raising=False)
+
+    from plugins._office.api import office_session
+
+    calls = []
+
+    class FakeManager:
+        def state(self, *, include_screenshot=False, context_id=""):
+            calls.append((include_screenshot, context_id))
+            return {
+                "ok": True,
+                "display": ":120",
+                "profile_dir": "/a0/usr/plugins/_desktop/profiles/agent-zero-desktop",
+                "size": {"width": 1440, "height": 900},
+                "pointer": {"x": 0, "y": 0, "screen": 0, "window": 0},
+                "active_window": None,
+                "windows": [],
+                "screenshot": {"ok": False, "path": ""},
+                "capabilities": {},
+                "errors": [],
+            }
+
+    monkeypatch.setattr(office_session.desktop_session, "get_manager", lambda: FakeManager())
+    handler = office_session.OfficeSession(app=None, thread_lock=None)
+    request = types.SimpleNamespace(headers={}, host_url="http://localhost:32080")
+
+    default_result = asyncio.run(handler.process({"action": "desktop_state"}, request))
+    screenshot_result = asyncio.run(
+        handler.process({"action": "desktop_state", "include_screenshot": True}, request),
+    )
+
+    assert default_result["ok"] is True
+    assert screenshot_result["ok"] is True
+    assert calls == [(False, ""), (True, "")]
+    monkeypatch.delitem(sys.modules, "plugins._office.api.office_session", raising=False)
+    api_package = sys.modules.get("plugins._office.api")
+    if api_package is not None:
+        monkeypatch.delattr(api_package, "office_session", raising=False)
+
+
+def test_office_session_desktop_shutdown_action_calls_manager(monkeypatch):
+    api_module = types.ModuleType("helpers.api")
+
+    class ApiHandler:
+        def __init__(self, app=None, thread_lock=None):
+            self.app = app
+            self.thread_lock = thread_lock
+
+    api_module.ApiHandler = ApiHandler
+    api_module.Request = object
+    monkeypatch.setitem(sys.modules, "helpers.api", api_module)
+    monkeypatch.delitem(sys.modules, "plugins._office.api.office_session", raising=False)
+
+    from plugins._office.api import office_session
+
+    calls = []
+
+    class FakeManager:
+        def shutdown_system_desktop(self, *, save_first=True, source="api"):
+            calls.append({"save_first": save_first, "source": source})
+            return {
+                "ok": True,
+                "closed": 1,
+                "shutdown": True,
+                "intentional_shutdown": True,
+                "source": source,
+            }
+
+    monkeypatch.setattr(office_session.desktop_session, "get_manager", lambda: FakeManager())
+    handler = office_session.OfficeSession(app=None, thread_lock=None)
+    request = types.SimpleNamespace(headers={}, host_url="http://localhost:32080")
+
+    result = asyncio.run(
+        handler.process({"action": "desktop_shutdown", "save_first": False, "source": "ui"}, request),
+    )
+
+    assert result["ok"] is True
+    assert result["intentional_shutdown"] is True
+    assert calls == [{"save_first": False, "source": "ui"}]
+    monkeypatch.delitem(sys.modules, "plugins._office.api.office_session", raising=False)
+    api_package = sys.modules.get("plugins._office.api")
+    if api_package is not None:
+        monkeypatch.delattr(api_package, "office_session", raising=False)
 
 
 def test_office_binary_open_requires_explicit_desktop_without_cold_session(office_state, monkeypatch):
@@ -1037,123 +974,6 @@ def test_official_desktop_session_manager_opens_binary_session(office_state, tmp
     assert manager.close(payload["session_id"], save_first=False)["persistent"] is True
 
 
-def test_desktop_save_targets_requested_libreoffice_window(office_state, tmp_path, monkeypatch):
-    doc = document_store.create_document("spreadsheet", "Targeted Save", "ods", "Name,Value\nA,1")
-    session = desktop_session.DesktopSession(
-        session_id=desktop_session.SYSTEM_SESSION_ID,
-        file_id=doc["file_id"],
-        extension=doc["extension"],
-        path=doc["path"],
-        title=doc["basename"],
-        display=desktop_session.DISPLAY_BASE,
-        xpra_port=desktop_session.XPRA_PORT_BASE,
-        token=desktop_session.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
-        profile_dir=tmp_path / "profile",
-        processes={"xpra": types.SimpleNamespace(poll=lambda: None)},
-    )
-    manager = desktop_session.DesktopSessionManager()
-    manager._sessions[session.session_id] = session
-    commands = []
-
-    monkeypatch.setattr(desktop_session.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(desktop_session.time, "sleep", lambda _seconds: None)
-
-    def fake_run(command, **_kwargs):
-        commands.append(command)
-        if command[1] == "search":
-            assert command == ["/usr/bin/xdotool", "search", "--onlyvisible", "--class", "libreoffice"]
-            return subprocess.CompletedProcess(command, 0, "222\n", "")
-        if command[1] == "getwindowname":
-            return subprocess.CompletedProcess(command, 0, f"{doc['basename']} — LibreOffice Calc\n", "")
-        Path(doc["path"]).write_bytes(Path(doc["path"]).read_bytes() + b"changed")
-        return subprocess.CompletedProcess(command, 0, "", "")
-
-    monkeypatch.setattr(desktop_session.subprocess, "run", fake_run)
-
-    result = manager.save(session.session_id, doc["file_id"])
-
-    assert result["ok"] is True
-    assert result["changed"] is True
-    assert commands[-1] == [
-        "/usr/bin/xdotool",
-        "windowactivate",
-        "--sync",
-        "222",
-        "key",
-        "--clearmodifiers",
-        "ctrl+s",
-    ]
-
-    session.file_id = desktop_session.SYSTEM_FILE_ID
-    command_count = len(commands)
-    assert manager.save(session.session_id)["changed"] is False
-    assert len(commands) == command_count
-
-
-def test_desktop_startup_waiters_probe_display_and_reject_dead_xfce(tmp_path, monkeypatch):
-    session = desktop_session.DesktopSession(
-        session_id=desktop_session.SYSTEM_SESSION_ID,
-        file_id=desktop_session.SYSTEM_FILE_ID,
-        extension="desktop",
-        path=str(tmp_path),
-        title=desktop_session.SYSTEM_TITLE,
-        display=desktop_session.DISPLAY_BASE,
-        xpra_port=desktop_session.XPRA_PORT_BASE,
-        token=desktop_session.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
-        profile_dir=tmp_path / "profile",
-        processes={"xvfb": types.SimpleNamespace(poll=lambda: None)},
-    )
-    manager = desktop_session.DesktopSessionManager()
-    probes = iter((None, (1920, 1080)))
-    monkeypatch.setattr(
-        desktop_session.virtual_desktop,
-        "current_display_size",
-        lambda *_args, **_kwargs: next(probes),
-    )
-    monkeypatch.setattr(desktop_session.time, "sleep", lambda _seconds: None)
-
-    manager._wait_for_display(session)
-
-    session.processes = {"xfce": types.SimpleNamespace(poll=lambda: 1)}
-    with pytest.raises(RuntimeError, match="XFCE desktop session exited"):
-        manager._wait_for_xfce(session)
-
-
-def test_desktop_manifest_is_replaced_atomically(tmp_path, monkeypatch):
-    session_dir = tmp_path / "sessions"
-    session_dir.mkdir()
-    manifest = session_dir / f"{desktop_session.SYSTEM_SESSION_ID}.json"
-    manifest.write_text('{"old": true}', encoding="utf-8")
-    session = desktop_session.DesktopSession(
-        session_id=desktop_session.SYSTEM_SESSION_ID,
-        file_id=desktop_session.SYSTEM_FILE_ID,
-        extension="desktop",
-        path=str(tmp_path),
-        title=desktop_session.SYSTEM_TITLE,
-        display=desktop_session.DISPLAY_BASE,
-        xpra_port=desktop_session.XPRA_PORT_BASE,
-        token=desktop_session.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
-        profile_dir=tmp_path / "profile",
-    )
-    real_replace = os.replace
-
-    def assert_atomic_replace(source, destination):
-        assert json.loads(Path(destination).read_text(encoding="utf-8")) == {"old": True}
-        assert json.loads(Path(source).read_text(encoding="utf-8"))["display"] == session.display
-        real_replace(source, destination)
-
-    monkeypatch.setattr(desktop_session, "SESSION_DIR", session_dir)
-    monkeypatch.setattr(desktop_session.os, "replace", assert_atomic_replace)
-
-    desktop_session.DesktopSessionManager()._write_manifest(session)
-
-    assert json.loads(manifest.read_text(encoding="utf-8"))["session_id"] == session.session_id
-    assert list(session_dir.glob(".*.tmp")) == []
-
-
 def test_shutdown_panel_launcher_requires_second_click(tmp_path):
     profile_dir = tmp_path / "desktop" / "profiles" / desktop_session.SYSTEM_SESSION_ID
     profile_dir.mkdir(parents=True)
@@ -1344,6 +1164,8 @@ def test_cleanup_hook_moves_retired_office_state_to_plugin_state(tmp_path, monke
     (retired_state / "stale-cleanup-v3.done").write_text("ok\n", encoding="utf-8")
     plugin_state.mkdir(parents=True)
 
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", lambda installed, removed, migrated, warnings, errors: None)
+
     result = hooks.cleanup_stale_runtime_state(force=True)
 
     assert result["ok"] is True
@@ -1364,6 +1186,8 @@ def test_cleanup_hook_migrates_legacy_document_state_without_removing_source(tmp
 
     monkeypatch.setattr(hooks, "DOCUMENT_STATE_DIR", document_state)
     monkeypatch.setattr(hooks, "LEGACY_DOCUMENT_STATE_DIRS", [legacy_documents])
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", lambda installed, removed, migrated, warnings, errors: None)
+
     result = hooks.cleanup_stale_runtime_state(force=True)
 
     assert result["ok"] is True
@@ -1384,6 +1208,8 @@ def test_cleanup_hook_prefers_existing_new_document_state_without_merge(tmp_path
 
     monkeypatch.setattr(hooks, "DOCUMENT_STATE_DIR", document_state)
     monkeypatch.setattr(hooks, "LEGACY_DOCUMENT_STATE_DIRS", [legacy_documents])
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", lambda installed, removed, migrated, warnings, errors: None)
+
     result = hooks.cleanup_stale_runtime_state(force=True)
 
     assert result["ok"] is True
@@ -1393,6 +1219,33 @@ def test_cleanup_hook_prefers_existing_new_document_state_without_merge(tmp_path
     ]
     assert (legacy_documents / "documents.sqlite3").read_text(encoding="utf-8") == "legacy-db\n"
     assert (document_state / "documents.sqlite3").read_text(encoding="utf-8") == "new-db\n"
+
+
+def test_office_hook_desktop_compat_forwards_runtime_result(monkeypatch):
+    monkeypatch.setattr(
+        desktop_hooks,
+        "cleanup_stale_runtime_state",
+        lambda: {
+            "installed": ["xpra-server"],
+            "removed": ["firefox-esr"],
+            "migrated": ["desktop state"],
+            "warnings": ["desktop warning"],
+            "errors": ["desktop error"],
+        },
+    )
+    installed = []
+    removed = []
+    migrated = []
+    warnings = []
+    errors = []
+
+    hooks._ensure_desktop_runtime_compat(installed, removed, migrated, warnings, errors)
+
+    assert installed == ["xpra-server"]
+    assert removed == ["firefox-esr"]
+    assert migrated == ["desktop state"]
+    assert warnings == ["desktop warning"]
+    assert errors == ["desktop error"]
 
 
 def test_cleanup_hook_targets_legacy_collabora_runtime_artifacts():
@@ -1441,6 +1294,30 @@ def test_installed_retired_web_packages_discovers_collabora_split_packages(monke
     ]
 
 
+def test_cleanup_hook_delegates_desktop_runtime_for_legacy_self_update(tmp_path, monkeypatch):
+    _isolate_office_cleanup_hook(monkeypatch, tmp_path)
+    monkeypatch.setattr(hooks, "DOCUMENT_STATE_DIR", tmp_path / "usr" / "plugins" / "_office" / "documents")
+    monkeypatch.setattr(hooks, "LEGACY_DOCUMENT_STATE_DIRS", [])
+    calls = []
+
+    def fake_desktop_compat(installed, removed, migrated, warnings, errors):
+        calls.append("desktop")
+        installed.append("xpra-server")
+        removed.append("firefox-esr")
+        migrated.append("desktop state migrated")
+        warnings.append("desktop runtime prepared through office compatibility hook")
+
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", fake_desktop_compat)
+
+    result = hooks.cleanup_stale_runtime_state(force=True)
+
+    assert calls == ["desktop"]
+    assert result["installed"] == ["xpra-server"]
+    assert result["removed"] == ["firefox-esr"]
+    assert result["migrated"] == ["desktop state migrated"]
+    assert result["warnings"] == ["desktop runtime prepared through office compatibility hook"]
+
+
 def test_cleanup_hook_removes_stale_runtime_state_idempotently(tmp_path, monkeypatch):
     source = tmp_path / "sources.list.d" / "retired.sources"
     keyring = tmp_path / "keyrings" / "retired.gpg"
@@ -1470,6 +1347,8 @@ def test_cleanup_hook_removes_stale_runtime_state_idempotently(tmp_path, monkeyp
     monkeypatch.setattr(hooks, "_installed_retired_web_packages", lambda: [])
     monkeypatch.setattr(hooks, "_installed_packages", lambda packages: [])
     monkeypatch.setattr(hooks, "_kill_old_processes", lambda errors: None)
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", lambda installed, removed, migrated, warnings, errors: None)
+
     def fake_ensure(installed, errors):
         assert not source.exists()
         installed.append("libreoffice-core")
@@ -1562,6 +1441,8 @@ def test_cleanup_hook_reruns_when_stale_packages_exist_after_old_marker(tmp_path
     monkeypatch.setattr(hooks, "_installed_packages", lambda packages: [])
     monkeypatch.setattr(hooks, "_ensure_runtime_dependencies", lambda installed, errors: None)
     monkeypatch.setattr(hooks, "_kill_old_processes", lambda errors: None)
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", lambda installed, removed, migrated, warnings, errors: None)
+
     def fake_purge(removed, errors, **kwargs):
         removed.extend(kwargs["installed_packages"])
 
@@ -1589,6 +1470,7 @@ def test_cleanup_hook_removes_retired_supervisor_program_after_marker(tmp_path, 
     monkeypatch.setattr(hooks, "_installed_retired_web_packages", lambda: [])
     monkeypatch.setattr(hooks, "_installed_packages", lambda packages: [])
     monkeypatch.setattr(hooks, "_ensure_runtime_dependencies", lambda installed, errors: None)
+    monkeypatch.setattr(hooks, "_ensure_desktop_runtime_compat", lambda installed, removed, migrated, warnings, errors: None)
     monkeypatch.setattr(hooks.shutil, "which", lambda name: "/usr/bin/supervisorctl" if name == "supervisorctl" else "")
 
     def fake_supervisorctl(*args):
@@ -1687,8 +1569,7 @@ def test_desktop_cleanup_moves_retired_state_to_plugin_state(tmp_path, monkeypat
     assert result["ok"] is True
     assert (plugin_state / "profiles" / "agent-zero-desktop" / "profile.txt").read_text(encoding="utf-8") == "profile\n"
     assert (plugin_state / "sessions" / "agent-zero-desktop.json").read_text(encoding="utf-8") == "{}\n"
-    assert not (plugin_state / "screenshots").exists()
-    assert any("Removed retired persistent Desktop screenshots" in warning for warning in result["warnings"])
+    assert (plugin_state / "screenshots" / "default" / "desktop.png").read_bytes() == b"png"
     assert not retired_state.exists()
 
 

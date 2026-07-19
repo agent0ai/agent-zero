@@ -1,0 +1,64 @@
+/* MIC BUTTON */
+
+/* Only apply hover effects on devices that support hover */
+@media (hover: hover) {
+  #microphone-button:hover {
+    background-color: #636363;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 6px 14px rgba(0, 0, 0, 0.18);
+  }
+}
+
+#microphone-button:active {
+  background-color: #444444;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+#microphone-button.recording {
+  background-color: #ff4136; /* Red color for recording */
+  transition: background-color 0.3s ease;
+}
+
+@keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+.mic-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+
+.mic-inactive{
+    background-color: grey;
+}
+
+.mic-activating{
+    background-color: silver;
+    animation: pulse 0.8s infinite;
+}
+
+.mic-listening {
+  background-color: red;
+}
+
+.mic-recording {
+  background-color: green;
+}
+
+.mic-waiting {
+  background-color: teal;
+}
+
+.mic-processing {
+  background-color: darkcyan;
+  animation: pulse 0.8s infinite;
+  transform-origin: center;
+}

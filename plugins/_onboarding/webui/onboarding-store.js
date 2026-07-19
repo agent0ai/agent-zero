@@ -11,23 +11,25 @@ import {
 
 const MODEL_CONFIG_API = "/plugins/_model_config";
 const OAUTH_STATUS_API = "/plugins/_oauth/status";
-const OAUTH_START_API = "/plugins/_oauth/start_login";
+const OAUTH_START_API = "/plugins/_oauth/start_device_login";
 const OAUTH_POLL_API = "/plugins/_oauth/poll_device_login";
-const OAUTH_MANUAL_CALLBACK_API = "/plugins/_oauth/manual_callback";
 const OAUTH_MODELS_API = "/plugins/_oauth/models";
 const MAX_OAUTH_POLL_MS = 120000;
 
 const TOP_CLOUD_IDS = TOP_CLOUD_PROVIDER_IDS;
 const MORE_CLOUD_IDS = MORE_CLOUD_PROVIDER_IDS;
 
-const OAUTH_MARKS = {
-  github: "terminal",
-  google: "cloud",
-  openai: "key",
-  xai: "neurology",
-};
-
 const FALLBACKS = {
+  codex_oauth: {
+    id: "codex_oauth",
+    name: "ChatGPT/Codex Account",
+    logo: "https://openai.com/favicon.ico",
+    onboarding_category: "account",
+    api_key_mode: "oauth",
+    short_description: "Use your connected ChatGPT or Codex account.",
+    setup_url: "https://chatgpt.com/",
+    docs_url: "https://platform.openai.com/docs/codex",
+  },
   other: {
     id: "other",
     name: "Other OpenAI-compatible",
@@ -78,15 +80,17 @@ function safeProviderName(provider) {
 }
 
 export const store = createStore("onboarding", {
-  step: "connect",
-  providerMode: "cloud",
-  presetMode: "",
+  step: "path",
+  pathChoice: "",
   loading: true,
   saving: false,
   config: null,
   providerDetails: {},
   selectedProviderId: "",
   selectedProviderOrigin: "cloud",
+  moreProviderQuery: "",
+  moreCloudOpen: false,
+  sameAsMain: true,
   userTouchedModel: {
     chat_model: false,
     utility_model: false,
@@ -98,16 +102,13 @@ export const store = createStore("onboarding", {
   oauthStatus: null,
   oauthLoading: false,
   oauthConnecting: false,
-  oauthConnectingProvider: "",
   oauthDevice: null,
   oauthPollTimer: null,
-  oauthCallbackPollTimer: null,
   oauthPollStartedAt: 0,
-  oauthModels: {},
-  oauthProviderUi: {},
+  oauthModels: [],
 
   steps: [
-    { step: "connect", label: "Choose provider" },
+    { step: "path", label: "Choose path" },
     { step: "setup", label: "Connect" },
     { step: "utility", label: "Utility" },
     { step: "ready", label: "Ready" },
@@ -118,15 +119,17 @@ export const store = createStore("onboarding", {
   },
 
   resetState() {
-    this.step = "connect";
-    this.providerMode = ["local", "account"].includes(this.presetMode) ? this.presetMode : "cloud";
-    this.presetMode = "";
+    this.step = "path";
+    this.pathChoice = "";
     this.loading = true;
     this.saving = false;
     this.config = null;
     this.providerDetails = {};
     this.selectedProviderId = "";
     this.selectedProviderOrigin = "cloud";
+    this.moreProviderQuery = "";
+    this.moreCloudOpen = false;
+    this.sameAsMain = true;
     this.userTouchedModel = { chat_model: false, utility_model: false };
     this.modelDropdown = {
       chat_model: { models: [], open: false, loading: false, error: "", source: "" },
@@ -135,12 +138,9 @@ export const store = createStore("onboarding", {
     this.oauthStatus = null;
     this.oauthLoading = false;
     this.oauthConnecting = false;
-    this.oauthConnectingProvider = "";
     this.oauthDevice = null;
-    this.oauthModels = {};
-    this.oauthProviderUi = {};
+    this.oauthModels = [];
     this.stopOauthPolling();
-    this.stopOauthCallbackPolling();
   },
 
   async onOpen() {
@@ -181,26 +181,6 @@ export const store = createStore("onboarding", {
     const fromDetails = this.providerDetails[providerId] || {};
     const fallback = FALLBACKS[providerId] || {};
     const override = ONBOARDING_PROVIDER_OVERRIDES[providerId] || {};
-    const oauth = this.oauthProviderStatus(providerId);
-    if (oauth) {
-      const defaultModels = Array.isArray(oauth.default_models) ? oauth.default_models : [];
-      return {
-        ...fallback,
-        ...fromDetails,
-        ...override,
-        id: providerId,
-        name: oauth.display_name || fromDetails.name || override.name || providerId,
-        short_description: oauth.connected
-          ? (oauth.account_label || "Connected")
-          : (oauth.note || oauth.warning || "Connect this account-backed provider."),
-        logo: override.logo || fromDetails.logo || "/public/darkSymbol.svg",
-        api_key_mode: "oauth",
-        default_chat_model: oauth.default_model || defaultModels[0] || fromDetails.default_chat_model || "",
-        default_utility_model: defaultModels[1] || oauth.default_model || fromDetails.default_utility_model || "",
-        model_list_autoload: Boolean(oauth.connected),
-        auth_flow: oauth.auth_flow || "",
-      };
-    }
     return {
       ...fallback,
       ...fromDetails,
@@ -213,8 +193,22 @@ export const store = createStore("onboarding", {
     };
   },
 
-  cloudProviders() {
-    return [...TOP_CLOUD_IDS, ...MORE_CLOUD_IDS].map((id) => this.providerMeta(id));
+  topCloudProviders() {
+    return TOP_CLOUD_IDS.map((id) => this.providerMeta(id));
+  },
+
+  moreCloudProviders() {
+    return MORE_CLOUD_IDS.map((id) => this.providerMeta(id));
+  },
+
+  filteredMoreCloudProviders() {
+    const query = this.moreProviderQuery.trim().toLowerCase();
+    const providers = this.moreCloudProviders();
+    if (!query) return providers;
+    return providers.filter((provider) => {
+      const haystack = `${provider.name} ${provider.short_description} ${provider.id}`.toLowerCase();
+      return haystack.includes(query);
+    });
   },
 
   localProviderCards() {
@@ -233,56 +227,12 @@ export const store = createStore("onboarding", {
     });
   },
 
-  oauthProviderStatus(providerId) {
-    const key = String(providerId || "").trim();
-    if (!key) return null;
-    return this.oauthStatus?.provider_map?.[key] || null;
+  accountMeta() {
+    return this.providerMeta("codex_oauth");
   },
 
-  oauthProviderCards() {
-    const providers = Array.isArray(this.oauthStatus?.providers) ? this.oauthStatus.providers : [];
-    return providers.filter((provider) => provider?.provider_id);
-  },
-
-  oauthProviderUiFor(providerId) {
-    const key = String(providerId || "").trim();
-    if (!key) return {};
-    if (!this.oauthProviderUi[key]) {
-      this.oauthProviderUi = {
-        ...this.oauthProviderUi,
-        [key]: {
-          enterprise_domain: "",
-          client_id: "",
-          client_secret: "",
-          quota_project_id: "",
-          manualCallback: "",
-        },
-      };
-    }
-    return this.oauthProviderUi[key];
-  },
-
-  oauthMark(provider) {
-    return provider?.connected ? "check" : (provider?.mark || OAUTH_MARKS[provider?.icon] || "account_circle");
-  },
-
-  oauthCardTitle(provider) {
-    return provider?.display_name || provider?.short_name || provider?.provider_id || "Account";
-  },
-
-  oauthCardSubtitle(provider) {
-    if (this.oauthLoading) return "Checking";
-    if (provider?.connected) return provider.account_label || provider.email || "Connected";
-    if (!this.oauthSetupReady(provider?.provider_id)) return "Needs OAuth client details";
-    if (provider?.warning) return "Available with restrictions";
-    return "Not connected";
-  },
-
-  oauthAccountActionLabel(providerId) {
-    const provider = this.oauthProviderStatus(providerId);
-    if (provider?.connected) return "Use account";
-    if (this.oauthConnectingProvider === providerId) return "Waiting for sign-in";
-    return this.oauthSetupReady(providerId) ? "Connect account" : "Configure";
+  accountActionLabel() {
+    return this.oauthConnected() ? "Use connected account" : "Connect via device code";
   },
 
   selectedProvider() {
@@ -297,7 +247,12 @@ export const store = createStore("onboarding", {
     if (this.step === "setup") return "Choose your main model";
     if (this.step === "utility") return "Choose your utility model";
     if (this.step === "ready") return "Agent Zero is ready";
-    return "Choose your AI provider";
+    if (this.step === "path") return "Choose how to use AI models in Agent Zero";
+    if (this.step === "cloud") return "Choose your cloud AI provider";
+    if (this.step === "local") {
+      return "Choose your local LLM provider";
+    }
+    return "Choose how to use AI models in Agent Zero";
   },
 
   stepNumber(stepName) {
@@ -306,6 +261,7 @@ export const store = createStore("onboarding", {
   },
 
   currentStepNumber() {
+    if (this.step === "cloud" || this.step === "local") return 1;
     return this.stepNumber(this.step);
   },
 
@@ -313,13 +269,18 @@ export const store = createStore("onboarding", {
     return this.step === name;
   },
 
-  setProviderMode(mode) {
-    this.providerMode = ["local", "account"].includes(mode) ? mode : "cloud";
+  choosePath(path) {
+    this.pathChoice = path;
+    this.step = path === "local" ? "local" : "cloud";
   },
 
   goBack() {
+    if (this.step === "cloud" || this.step === "local") {
+      this.step = "path";
+      return;
+    }
     if (this.step === "setup") {
-      this.step = "connect";
+      this.step = this.pathChoice === "local" ? "local" : "cloud";
       return;
     }
     if (this.step === "utility") {
@@ -332,7 +293,7 @@ export const store = createStore("onboarding", {
   },
 
   showBackButton() {
-    return !["connect", "ready"].includes(this.step);
+    return !["path", "ready"].includes(this.step);
   },
 
   showPrimaryButton() {
@@ -349,15 +310,11 @@ export const store = createStore("onboarding", {
   primaryDisabled() {
     if (this.loading || this.saving) return true;
     if (this.step === "setup") {
-      if (this.isOAuthProvider() && !this.oauthConnected(this.selectedProviderId)) return true;
+      if (this.isOAuthProvider() && !this.oauthConnected()) return true;
       if (this.providerNeedsKey(this.selectedProviderId) && !this.hasProviderKey(this.selectedProviderId)) return true;
       return !this.config?.chat_model?.provider || !this.config?.chat_model?.name;
     }
-    if (this.step === "utility") {
-      const utilityProvider = this.config?.utility_model?.provider || "";
-      if (this.isOAuthProvider(utilityProvider) && !this.oauthConnected(utilityProvider)) return true;
-      return !utilityProvider || !this.config?.utility_model?.name;
-    }
+    if (this.step === "utility") return !this.config?.utility_model?.provider || !this.config?.utility_model?.name;
     return false;
   },
 
@@ -381,24 +338,21 @@ export const store = createStore("onboarding", {
   async selectProvider(providerId, origin = "cloud") {
     this.selectedProviderId = providerId;
     this.selectedProviderOrigin = origin;
-    this.providerMode = ["local", "account"].includes(origin) ? origin : "cloud";
+    this.pathChoice = origin;
     const meta = this.providerMeta(providerId);
     this.applyProviderToSlot("chat_model", providerId, meta, { forceApiBase: origin === "local" });
-    if (this.isOAuthProvider(providerId)) {
+    if (providerId === "codex_oauth") {
       await this.loadOauthStatus({ silent: true });
     }
     this.step = "setup";
-    if (this.isOAuthProvider(providerId)) {
-      if (this.oauthConnected(providerId)) {
-        await this.loadModels("chat_model", { openDropdown: false });
-      }
-    } else if (meta.model_list_autoload !== false) {
+    if (meta.model_list_autoload !== false) {
       await this.loadModels("chat_model", { openDropdown: false });
     }
   },
 
-  async selectOAuthProvider(providerId) {
-    await this.selectProvider(providerId, "account");
+  async selectCodexAccount() {
+    this.pathChoice = "cloud";
+    await this.selectProvider("codex_oauth", "cloud");
   },
 
   applyProviderToSlot(slotKey, providerId, meta, options = {}) {
@@ -432,7 +386,7 @@ export const store = createStore("onboarding", {
   },
 
   setupPurpose() {
-    if (this.isOAuthProvider()) return "Connect this account, then choose the account-backed model Agent Zero should use.";
+    if (this.isOAuthProvider()) return "Connect once, then Agent Zero can use the local Codex/ChatGPT account bridge without an API key.";
     if (this.selectedProviderOrigin === "local") return "Choose a local model and confirm where Agent Zero can reach it.";
     return "Choose a model and add the key Agent Zero will use for this provider.";
   },
@@ -467,38 +421,21 @@ export const store = createStore("onboarding", {
     return Boolean(draft.trim() || modelConfigStore.apiKeyStatus?.[providerId]);
   },
 
-  isOAuthProvider(providerId = "") {
-    const key = String(providerId || this.selectedProviderId || this.config?.chat_model?.provider || "").trim();
-    if (!key) return false;
-    return Boolean(this.oauthProviderStatus(key) || this.providerMeta(key).api_key_mode === "oauth");
+  isOAuthProvider() {
+    return this.selectedProviderId === "codex_oauth" || this.config?.chat_model?.provider === "codex_oauth";
   },
 
-  oauthConnected(providerId = "") {
-    const key = String(providerId || this.selectedProviderId || this.config?.chat_model?.provider || "").trim();
-    return Boolean(this.oauthProviderStatus(key)?.connected);
+  oauthConnected() {
+    return Boolean(this.oauthStatus?.codex?.connected);
   },
 
-  oauthEmail(providerId = "") {
-    const status = this.oauthProviderStatus(providerId || this.selectedProviderId) || {};
-    return status.account_label || status.email || status.account_email || status.account_id || "";
+  oauthEmail() {
+    return this.oauthStatus?.codex?.email || this.oauthStatus?.codex?.account_email || this.oauthStatus?.codex?.account_id || "";
   },
 
-  oauthStatusLabel(providerId = "") {
+  oauthStatusLabel() {
     if (this.oauthLoading) return "Checking";
-    const status = this.oauthProviderStatus(providerId || this.selectedProviderId);
-    if (!status) return "Not connected";
-    if (status.connected) return this.oauthEmail(status.provider_id) || "Connected";
-    if (!this.oauthSetupReady(status.provider_id)) return "Needs OAuth client details";
-    return "Not connected";
-  },
-
-  oauthSetupReady(providerId = "") {
-    const status = this.oauthProviderStatus(providerId || this.selectedProviderId);
-    if (!status?.supports_oauth_client_config) return true;
-    const ui = this.oauthProviderUiFor(status.provider_id);
-    const clientId = ui.client_id || status.client_id || "";
-    const hasSecret = Boolean(ui.client_secret || status.client_secret_configured);
-    return Boolean(String(clientId).trim() && hasSecret);
+    return this.oauthConnected() ? "Connected" : "Not connected";
   },
 
   async loadOauthStatus({ silent = false } = {}) {
@@ -506,12 +443,6 @@ export const store = createStore("onboarding", {
     this.oauthLoading = true;
     try {
       this.oauthStatus = await callJsonApi(OAUTH_STATUS_API, {});
-      for (const provider of this.oauthProviderCards()) {
-        const ui = this.oauthProviderUiFor(provider.provider_id);
-        if (provider.enterprise_domain && !ui.enterprise_domain) ui.enterprise_domain = provider.enterprise_domain;
-        if (provider.client_id && !ui.client_id) ui.client_id = provider.client_id;
-        if (provider.quota_project_id && !ui.quota_project_id) ui.quota_project_id = provider.quota_project_id;
-      }
     } catch (error) {
       if (!silent) globalThis.justToast?.("Could not check account connection", "error");
     } finally {
@@ -519,74 +450,37 @@ export const store = createStore("onboarding", {
     }
   },
 
-  async connectOAuth(providerId = "") {
-    const selectedProvider = String(providerId || this.selectedProviderId || "").trim();
-    if (!selectedProvider || this.oauthConnecting) return;
+  async connectCodex() {
+    if (this.oauthConnecting) return;
     this.oauthConnecting = true;
-    this.oauthConnectingProvider = selectedProvider;
     const popup = window.open("about:blank", "_blank");
     if (popup) popup.opener = null;
     try {
-      const payload = this.oauthLoginPayload(selectedProvider);
-      const response = await callJsonApi(OAUTH_START_API, payload);
-      if (!response?.ok) {
+      const response = await callJsonApi(OAUTH_START_API, {});
+      if (!response?.ok || !response.verification_url || !response.attempt_id) {
         throw new Error(response?.error || "Could not start account connection.");
       }
       this.oauthDevice = response;
-      if (response.flow === "device_code" && response.verification_url && response.attempt_id) {
-        if (popup && !popup.closed) {
-          popup.location.assign(response.verification_url);
-        } else {
-          window.open(response.verification_url, "_blank", "noopener,noreferrer");
-        }
-        this.startOauthPolling(selectedProvider);
-        return;
+      if (popup && !popup.closed) {
+        popup.location.assign(response.verification_url);
+      } else {
+        window.open(response.verification_url, "_blank", "noopener,noreferrer");
       }
-      if (response.flow === "browser_pkce" && response.auth_url) {
-        if (popup && !popup.closed) {
-          popup.location.assign(response.auth_url);
-        } else {
-          window.open(response.auth_url, "_blank", "noopener,noreferrer");
-        }
-        this.startOauthCallbackPolling(selectedProvider);
-        return;
-      }
-      throw new Error(response?.error || "Could not start account connection.");
+      this.startOauthPolling();
     } catch (error) {
       if (popup && !popup.closed) popup.close();
       this.oauthConnecting = false;
-      this.oauthConnectingProvider = "";
       globalThis.justToast?.(error?.message || "Could not connect account", "error");
     }
   },
 
-  oauthLoginPayload(providerId) {
-    const status = this.oauthProviderStatus(providerId) || {};
-    const ui = this.oauthProviderUiFor(providerId);
-    const payload = { provider_id: providerId };
-    if (status.supports_enterprise_domain) {
-      payload.enterprise_domain = ui.enterprise_domain || "";
-    }
-    if (status.supports_oauth_client_config) {
-      payload.client_id = ui.client_id || "";
-      payload.client_secret = ui.client_secret || "";
-    }
-    if (status.supports_quota_project) {
-      payload.quota_project_id = ui.quota_project_id || "";
-    }
-    return payload;
-  },
-
-  startOauthPolling(providerId = "") {
+  startOauthPolling() {
     this.stopOauthPolling();
     this.oauthPollStartedAt = Date.now();
     const tick = async () => {
       if (!this.oauthDevice?.attempt_id) return;
       try {
-        const response = await callJsonApi(OAUTH_POLL_API, {
-          provider_id: providerId,
-          attempt_id: this.oauthDevice.attempt_id,
-        });
+        const response = await callJsonApi(OAUTH_POLL_API, { attempt_id: this.oauthDevice.attempt_id });
         if (!response?.ok) {
           if (response?.expired) {
             this.oauthDevice = null;
@@ -595,24 +489,21 @@ export const store = createStore("onboarding", {
         }
         if (response.completed) {
           this.oauthConnecting = false;
-          this.oauthConnectingProvider = "";
           this.oauthDevice = null;
           this.stopOauthPolling();
           await this.loadOauthStatus();
-          this.applyProviderToSlot("chat_model", providerId, this.providerMeta(providerId));
-          await this.loadOauthModels(providerId, "chat_model");
+          this.applyProviderToSlot("chat_model", "codex_oauth", this.providerMeta("codex_oauth"));
+          await this.loadOauthModels();
           return;
         }
       } catch (error) {
         this.oauthConnecting = false;
-        this.oauthConnectingProvider = "";
         this.stopOauthPolling();
         globalThis.justToast?.(error?.message || "Could not connect account", "error");
         return;
       }
       if (Date.now() - this.oauthPollStartedAt > MAX_OAUTH_POLL_MS) {
         this.oauthConnecting = false;
-        this.oauthConnectingProvider = "";
         this.oauthDevice = null;
         this.stopOauthPolling();
       }
@@ -629,113 +520,28 @@ export const store = createStore("onboarding", {
     this.oauthPollTimer = null;
   },
 
-  startOauthCallbackPolling(providerId = "") {
-    this.stopOauthCallbackPolling();
-    this.oauthPollStartedAt = Date.now();
-    const tick = async () => {
-      await this.loadOauthStatus({ silent: true });
-      if (this.oauthConnected(providerId)) {
-        this.oauthConnecting = false;
-        this.oauthConnectingProvider = "";
-        this.oauthDevice = null;
-        this.stopOauthCallbackPolling();
-        this.applyProviderToSlot("chat_model", providerId, this.providerMeta(providerId));
-        await this.loadOauthModels(providerId, "chat_model");
-        return;
-      }
-      if (Date.now() - this.oauthPollStartedAt > MAX_OAUTH_POLL_MS) {
-        this.oauthConnecting = false;
-        this.oauthConnectingProvider = "";
-        this.oauthDevice = null;
-        this.stopOauthCallbackPolling();
-      }
-    };
-    void tick();
-    this.oauthCallbackPollTimer = window.setInterval(tick, 2500);
-  },
-
-  stopOauthCallbackPolling() {
-    if (this.oauthCallbackPollTimer) window.clearInterval(this.oauthCallbackPollTimer);
-    this.oauthCallbackPollTimer = null;
-  },
-
-  async submitOAuthManualCallback(providerId = "") {
-    const selectedProvider = String(providerId || this.selectedProviderId || "").trim();
-    const callback = String(this.oauthProviderUiFor(selectedProvider).manualCallback || "").trim();
-    if (!selectedProvider || !callback) {
-      globalThis.justToast?.("Paste callback URL, query string, or code.", "error");
-      return;
-    }
-    this.oauthConnecting = true;
-    this.oauthConnectingProvider = selectedProvider;
+  async loadOauthModels() {
     try {
-      const response = await callJsonApi(OAUTH_MANUAL_CALLBACK_API, {
-        provider_id: selectedProvider,
-        callback,
-      });
-      if (!response?.ok) {
-        throw new Error(response?.error || "Could not finish account connection.");
+      const response = await callJsonApi(OAUTH_MODELS_API, {});
+      this.oauthModels = Array.isArray(response?.models) ? response.models : [];
+      if (this.oauthModels.length && !this.userTouchedModel.chat_model) {
+        this.config.chat_model.name = this.oauthModels[0];
       }
-      this.oauthProviderUiFor(selectedProvider).manualCallback = "";
-      this.oauthDevice = null;
-      this.stopOauthCallbackPolling();
-      await this.loadOauthStatus();
-      this.applyProviderToSlot("chat_model", selectedProvider, this.providerMeta(selectedProvider));
-      await this.loadOauthModels(selectedProvider, "chat_model");
-    } catch (error) {
-      globalThis.justToast?.(error?.message || "Could not connect account", "error");
-    } finally {
-      this.oauthConnecting = false;
-      this.oauthConnectingProvider = "";
-    }
-  },
-
-  async loadOauthModels(providerId = "", slotKey = "chat_model", { openDropdown = true } = {}) {
-    const selectedProvider = String(providerId || this.config?.[slotKey]?.provider || this.selectedProviderId || "").trim();
-    if (!selectedProvider) return;
-    const dropdown = this.modelDropdown[slotKey];
-    dropdown.loading = true;
-    dropdown.error = "";
-    dropdown.source = "";
-    try {
-      const response = await callJsonApi(OAUTH_MODELS_API, { provider_id: selectedProvider });
-      if (!response?.ok) {
-        throw new Error(response?.error || "Could not load account models.");
-      }
-      const models = Array.isArray(response?.models) ? response.models : [];
-      this.oauthModels = { ...this.oauthModels, [selectedProvider]: models };
-      dropdown.models = models;
-      dropdown.source = "oauth";
-      dropdown.open = openDropdown && models.length > 0;
-      if (models.length && !this.userTouchedModel[slotKey]) {
-        const meta = this.providerMeta(selectedProvider);
-        const preferred = slotKey === "utility_model" ? meta.default_utility_model : meta.default_chat_model;
-        this.config[slotKey].name = preferred && models.includes(preferred) ? preferred : models[0];
-      }
-    } catch (error) {
-      this.oauthModels = { ...this.oauthModels, [selectedProvider]: [] };
-      dropdown.models = [];
-      dropdown.error = error?.message || "Could not load account models.";
-      dropdown.open = false;
-    } finally {
-      dropdown.loading = false;
+      this.modelDropdown.chat_model.models = this.oauthModels;
+      this.modelDropdown.chat_model.source = "oauth";
+    } catch {
+      this.oauthModels = [];
     }
   },
 
   cancelOauthConnect() {
     this.oauthConnecting = false;
-    this.oauthConnectingProvider = "";
     this.oauthDevice = null;
     this.stopOauthPolling();
-    this.stopOauthCallbackPolling();
   },
 
   async loadModels(slotKey, { openDropdown = true } = {}) {
     if (!this.config?.[slotKey]?.provider) return;
-    if (this.isOAuthProvider(this.config[slotKey].provider)) {
-      await this.loadOauthModels(this.config[slotKey].provider, slotKey, { openDropdown });
-      return;
-    }
     const dropdown = this.modelDropdown[slotKey];
     dropdown.loading = true;
     dropdown.error = "";
@@ -803,34 +609,50 @@ export const store = createStore("onboarding", {
     this.config[slotKey].name = modelName;
     this.userTouchedModel[slotKey] = true;
     this.modelDropdown[slotKey].open = false;
+    if (slotKey === "chat_model" && this.sameAsMain) {
+      this.syncUtilityWithMain();
+    }
   },
 
   markModelTouched(slotKey) {
     this.userTouchedModel[slotKey] = true;
+    if (slotKey === "chat_model" && this.sameAsMain) {
+      this.syncUtilityWithMain();
+    }
   },
 
   prepareUtilityDefaults() {
-    const mainProvider = this.config.chat_model.provider;
-    this.applyProviderToSlot("utility_model", mainProvider, this.providerMeta(mainProvider));
-    if (!this.config.utility_model.api_base) {
-      this.config.utility_model.api_base = this.config.chat_model.api_base || "";
+    ensureSlot(this.config, "utility_model");
+    if (this.sameAsMain) {
+      this.syncUtilityWithMain();
+      return;
     }
+    const mainProvider = this.config.chat_model.provider;
+    const meta = this.providerMeta(mainProvider);
+    this.applyProviderToSlot("utility_model", mainProvider, meta);
+  },
+
+  syncUtilityWithMain() {
+    ensureSlot(this.config, "utility_model");
+    if (!this.sameAsMain || !this.config?.chat_model) return;
+    this.config.utility_model.provider = this.config.chat_model.provider;
+    this.config.utility_model.name = this.config.chat_model.name;
+    this.config.utility_model.api_base = this.config.chat_model.api_base || "";
+    this.config.utility_model.kwargs = clone(this.config.chat_model.kwargs || {});
   },
 
   async utilityProviderChanged() {
     const providerId = this.config.utility_model.provider;
+    this.sameAsMain = providerId === this.config.chat_model.provider;
     this.userTouchedModel.utility_model = false;
-    this.config.utility_model.api_base = "";
     this.applyProviderToSlot("utility_model", providerId, this.providerMeta(providerId));
-    if (!this.config.utility_model.api_base && providerId === this.config.chat_model.provider) {
-      this.config.utility_model.api_base = this.config.chat_model.api_base || "";
-    }
     await this.loadModels("utility_model");
   },
 
   async completeSetup() {
     this.saving = true;
     try {
+      if (this.sameAsMain) this.syncUtilityWithMain();
       await modelConfigStore.persistApiKeysForConfig(this.config);
       const response = await fetchApi(`${MODEL_CONFIG_API}/model_config_set`, {
         method: "POST",
@@ -860,8 +682,7 @@ export const store = createStore("onboarding", {
 
   async openAdvancedSettings() {
     window.closeModal?.();
-    await modelConfigStore.openPresetEditor(
-      this.config?.model_preset || "Default"
-    );
+    const { store: pluginSettingsStore } = await import("/components/plugins/plugin-settings-store.js");
+    await pluginSettingsStore.openConfig("_model_config");
   },
 });

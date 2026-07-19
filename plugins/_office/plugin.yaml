@@ -1,8 +1,7 @@
 name: _office
 title: LibreOffice
-description: ODF-first LibreOffice Office artifacts for Writer, Calc, and Impress files.
+description: Markdown writing and ODF-first LibreOffice document artifacts.
 version: "0.1"
-always_enabled: false
 settings_sections:
   - developer
 per_project_config: false

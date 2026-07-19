@@ -169,6 +169,24 @@ const model = {
         }
     },
 
+    async openConfigWithScope() {
+        if (!this.pluginName) return;
+        this.error = null;
+        try {
+            await settingsStore.openConfig(
+                this.pluginName,
+                this.projectName || "",
+                this.agentProfileKey || ""
+            );
+        } catch (e) {
+            this.error = e?.message || "Failed to open plugin config";
+        }
+    },
+
+    async openConfigListModal() {
+        await window.openModal?.("/components/plugins/toggle/plugin-toggles.html");
+    },
+
     async switchToConfig(projectName, agentProfile) {
         this.projectName = projectName || "";
         this.agentProfileKey = agentProfile || "";
@@ -199,14 +217,8 @@ const model = {
         }
     },
 
-    async setEnabled(enabled, { projectName = this.projectName, agentProfileKey = this.agentProfileKey } = {}) {
+    async setEnabled(enabled) {
         if (!this.pluginName || this.alwaysEnabled) return;
-        const previousStatus = this.status;
-        const previousProjectName = this.projectName;
-        const previousAgentProfileKey = this.agentProfileKey;
-        this.projectName = projectName || "";
-        this.agentProfileKey = agentProfileKey || "";
-        this.status = enabled ? 'enabled' : 'disabled';
         this.isSaving = true;
         try {
             const response = await fetchApi("/plugins", {
@@ -225,11 +237,7 @@ const model = {
             await new Promise(r => setTimeout(r, 100));
             await this.loadConfigs();
         } catch (e) {
-            this.status = previousStatus;
-            this.projectName = previousProjectName;
-            this.agentProfileKey = previousAgentProfileKey;
             this.error = e.message || "Failed to save";
-            throw e;
         } finally {
             this.isSaving = false;
         }

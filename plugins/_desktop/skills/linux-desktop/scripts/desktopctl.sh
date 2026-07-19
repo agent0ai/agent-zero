@@ -60,7 +60,7 @@ Commands:
   observe --json [--screenshot] [--context-id ID]
                               Return structured state, optionally with a fresh screenshot.
   screenshot [PATH] [--context-id ID]
-                              Capture the Desktop to PATH, or to the chat screenshot directory when context-id is set.
+                              Capture the Desktop to PATH, or to the default screenshot directory.
   active-window               Print the active window name.
   geometry PATTERN            Print the first matching visible window geometry.
   wait-window PATTERN         Wait for a visible matching window and print its id.
@@ -71,8 +71,7 @@ Commands:
   drag X1 Y1 X2 Y2            Drag from X1,Y1 to X2,Y2 in Desktop coordinates.
   right-click X Y             Move and right-click at X,Y in Desktop coordinates.
   paste-text TEXT             Put TEXT on the Desktop clipboard and paste it with an app-native shortcut.
-  sequence FILE|-             Run a newline-delimited command sequence in this process.
-  batch FILE|-                Alias for sequence.
+  sequence FILE|-             Run a newline-delimited command sequence.
   key KEY...                  Send one or more xdotool key names.
   type TEXT                   Type text into the focused window.
   click X Y                   Move and click at X,Y in Desktop coordinates.
@@ -229,7 +228,7 @@ run_sequence_line() {
     \#*) return 0 ;;
   esac
   # shellcheck disable=SC2086
-  dispatch_command $line
+  "$0" $line
 }
 
 run_sequence() {
@@ -280,11 +279,7 @@ launch_app() {
   esac
 }
 
-dispatch_command() {
-  local command_name="${1:-help}"
-  shift || true
-
-  case "$command_name" in
+case "$command_name" in
   help|-h|--help)
     usage
     ;;
@@ -392,7 +387,7 @@ dispatch_command() {
     fi
     paste_text "$@"
     ;;
-  sequence|batch)
+  sequence)
     source_file="${1:?sequence requires FILE or -}"
     run_sequence "$source_file"
     ;;
@@ -453,7 +448,4 @@ dispatch_command() {
     usage >&2
     exit 2
     ;;
-  esac
-}
-
-dispatch_command "$command_name" "$@"
+esac

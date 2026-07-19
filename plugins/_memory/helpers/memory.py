@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, List, Sequence
 from langchain.storage import InMemoryByteStore, LocalFileStore
 from langchain.embeddings import CacheBackedEmbeddings
@@ -23,7 +24,6 @@ import numpy as np
 
 from helpers.print_style import PrintStyle
 from helpers import files, plugins, projects
-from helpers.localization import Localization
 from langchain_core.documents import Document
 from . import knowledge_import
 from helpers.log import Log, LogItem
@@ -609,7 +609,7 @@ class Memory:
 
     @staticmethod
     def get_timestamp():
-        return Localization.get().now_iso(timespec="seconds")
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def get_custom_knowledge_subdir_abs(agent: Agent) -> str:

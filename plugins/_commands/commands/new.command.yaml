@@ -1,4 +1,0 @@
-name: new
-description: Create a brand-new empty chat context.
-type: script
-script_path: connector_commands.py

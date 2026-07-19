@@ -8,7 +8,6 @@ from helpers.defer import DeferredTask, THREAD_BACKGROUND
 
 # Direct import - this extension lives inside the memory plugin
 from plugins._memory.helpers.memory import Memory
-from plugins._memory.helpers.memory_quality import filter_auto_memory_fragments
 from plugins._memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
@@ -105,24 +104,9 @@ class MemorizeMemories(Extension):
             if not isinstance(memories, list) or len(memories) == 0:
                 log_item.update(heading="No useful information to memorize.")
                 return
-
-            raw_memories_count = len(memories)
-            memories = filter_auto_memory_fragments(memories)
-            filtered_memories_count = raw_memories_count - len(memories)
-
-            if not memories:
-                log_item.update(
-                    heading="No durable information to memorize.",
-                    filtered_memories_count=filtered_memories_count,
-                )
-                return
-
-            memories_txt = "\n\n".join(memories).strip()
-            log_item.update(
-                heading=f"{len(memories)} durable entries to memorize.",
-                memories=memories_txt,
-                filtered_memories_count=filtered_memories_count,
-            )
+            else:
+                memories_txt = "\n\n".join([str(memory) for memory in memories]).strip()
+                log_item.update(heading=f"{len(memories)} entries to memorize.", memories=memories_txt)
 
             # Process memories with intelligent consolidation
             total_processed = 0

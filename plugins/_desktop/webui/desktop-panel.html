@@ -54,14 +54,44 @@
           </div>
         </div>
 
+        <div class="office-toolbar" x-show="$store.desktop.session && $store.desktop.isMarkdown()" style="display: none;">
+          <div class="office-toolbar-row">
+            <div class="office-tool-group office-editor-tools" x-show="$store.desktop.session && $store.desktop.isMarkdown()" style="display: none;">
+              <button type="button" class="office-icon-button" title="Undo" aria-label="Undo" :disabled="!$store.desktop.canUndo()" @click="$store.desktop.undo()">
+                <span class="material-symbols-outlined">undo</span>
+              </button>
+              <button type="button" class="office-icon-button" title="Redo" aria-label="Redo" :disabled="!$store.desktop.canRedo()" @click="$store.desktop.redo()">
+                <span class="material-symbols-outlined">redo</span>
+              </button>
+              <button type="button" class="office-icon-button" title="Bold" aria-label="Bold" @click="$store.desktop.format('bold')">
+                <span class="material-symbols-outlined">format_bold</span>
+              </button>
+              <button type="button" class="office-icon-button" title="Italic" aria-label="Italic" @click="$store.desktop.format('italic')">
+                <span class="material-symbols-outlined">format_italic</span>
+              </button>
+              <button type="button" class="office-icon-button" title="List" aria-label="List" @click="$store.desktop.format('list')">
+                <span class="material-symbols-outlined">format_list_bulleted</span>
+              </button>
+              <button type="button" class="office-icon-button" title="Numbered list" aria-label="Numbered list" @click="$store.desktop.format('numbered')">
+                <span class="material-symbols-outlined">format_list_numbered</span>
+              </button>
+              <button type="button" class="office-icon-button" title="Table" aria-label="Table" @click="$store.desktop.format('table')">
+                <span class="material-symbols-outlined">table</span>
+              </button>
+            </div>
+
+            <span class="office-toolbar-spacer"></span>
+          </div>
+        </div>
+
         <div class="office-state-line" x-show="$store.desktop.message || $store.desktop.error || $store.desktop.loading" style="display: none;">
           <span class="material-symbols-outlined" :class="{ spinning: $store.desktop.loading }" x-text="$store.desktop.loading ? 'progress_activity' : ($store.desktop.error ? 'error' : 'check_circle')"></span>
           <span x-text="$store.desktop.error || $store.desktop.message || 'Working'"></span>
         </div>
 
-        <div class="office-body">
+        <div class="office-body" :class="{ 'is-source': $store.desktop.isMarkdown() }">
           <div class="office-editor-wrap" x-show="$store.desktop.session" style="display: none;">
-            <div class="office-editor-scroll" :class="{ 'is-desktop': $store.desktop.hasOfficialOffice() }" @click.self="$store.desktop.focusEditor()">
+            <div class="office-editor-scroll" :class="{ 'is-desktop': $store.desktop.hasOfficialOffice(), 'is-source': $store.desktop.isMarkdown() }" @click.self="$store.desktop.focusEditor()">
               <template x-if="$store.desktop.hasOfficialOffice()">
                 <div
                   class="office-desktop-wrap"
@@ -70,6 +100,19 @@
                 >
                 </div>
               </template>
+
+              <textarea
+                class="office-source-editor"
+                data-office-source
+                aria-label="Markdown source"
+                x-show="$store.desktop.isMarkdown()"
+                x-model="$store.desktop.editorText"
+                @input="$store.desktop.onSourceInput()"
+                @blur="$store.desktop.flushInput()"
+                spellcheck="true"
+                style="display: none;"
+              ></textarea>
+
             </div>
           </div>
 
@@ -137,7 +180,7 @@
     }
 
     .modal-inner.office-modal .modal-header {
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) repeat(5, auto);
     }
 
     .office-modal-input-shield {
@@ -688,6 +731,30 @@
       aspect-ratio: auto;
       border: 0;
       background: #20242a;
+    }
+
+    .office-source-editor {
+      box-sizing: border-box;
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      outline: none;
+      background: transparent;
+      box-shadow: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      resize: none;
+    }
+
+    textarea:focus {
+      background: transparent;
+      filter: brightness(1) !important;
     }
 
     .office-panel .spinning {

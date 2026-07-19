@@ -2,32 +2,8 @@ chat:
   codex_oauth:
     name: Codex/ChatGPT Account
     litellm_provider: openai
-    api_key_mode: oauth
     models_list:
       endpoint_url: "/models"
     kwargs:
       api_base: "http://127.0.0.1/oauth/codex/v1"
-  github_copilot_oauth:
-    name: GitHub Copilot Account
-    litellm_provider: openai
-    api_key_mode: oauth
-    models_list:
-      endpoint_url: "/models"
-    kwargs:
-      api_base: "http://127.0.0.1/oauth/github-copilot/v1"
-  gemini_api_oauth:
-    name: Google Cloud Gemini Account
-    litellm_provider: openai
-    api_key_mode: oauth
-    models_list:
-      endpoint_url: "/models"
-    kwargs:
-      api_base: "http://127.0.0.1/oauth/gemini-api/v1"
-  xai_grok_oauth:
-    name: xAI Grok Account
-    litellm_provider: openai
-    api_key_mode: oauth
-    models_list:
-      endpoint_url: "/models"
-    kwargs:
-      api_base: "http://127.0.0.1/oauth/xai-grok/v1"
+      api_key: "oauth"

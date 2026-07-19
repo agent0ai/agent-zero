@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from helpers import chat_media, files
+from helpers import files
 from helpers.defer import DeferredTask
 from helpers.errors import RepairableException
 from helpers.print_style import PrintStyle
@@ -32,7 +32,6 @@ from plugins._browser.helpers.url import normalize_url
 
 
 PLUGIN_DIR = Path(__file__).resolve().parents[1]
-DOM_HELPER_PATH = PLUGIN_DIR / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = PLUGIN_DIR / "assets" / "browser-page-content.js"
 RUNTIME_DATA_KEY = "_browser_runtime"
 DEFAULT_VIEWPORT = {"width": 1024, "height": 768}
@@ -317,11 +316,8 @@ class _BrowserScreencast:
         self.browser_id = browser_id
         self.session = session
         self.mime = mime
-        self.frame_consumer: Any | None = None
-        self.stop_callback: Any | None = None
         self.queue = asyncio.Queue(maxsize=1)
         self.stopped = False
-        self._closed = False
         self._ack_tasks: set[asyncio.Task] = set()
         self._expected_width = 0
         self._expected_height = 0
@@ -332,14 +328,10 @@ class _BrowserScreencast:
         quality: int,
         every_nth_frame: int,
         viewport: dict[str, int],
-        capture_scale: float = 1.0,
     ) -> None:
         self.session.on("Page.screencastFrame", self._on_frame)
         width = max(320, min(4096, int(viewport.get("width") or DEFAULT_VIEWPORT["width"])))
         height = max(200, min(4096, int(viewport.get("height") or DEFAULT_VIEWPORT["height"])))
-        scale = max(1.0, min(2.0, float(capture_scale or 1.0)))
-        max_width = max(320, min(SCREENCAST_MAX_WIDTH, int(round(width * scale))))
-        max_height = max(200, min(SCREENCAST_MAX_HEIGHT, int(round(height * scale))))
         self._expected_width = width
         self._expected_height = height
         with contextlib.suppress(Exception):
@@ -350,8 +342,8 @@ class _BrowserScreencast:
             {
                 "format": "jpeg",
                 "quality": max(20, min(95, int(quality))),
-                "maxWidth": max_width,
-                "maxHeight": max_height,
+                "maxWidth": SCREENCAST_MAX_WIDTH,
+                "maxHeight": SCREENCAST_MAX_HEIGHT,
                 "everyNthFrame": max(1, int(every_nth_frame)),
             },
         )
@@ -401,21 +393,10 @@ class _BrowserScreencast:
             raise RuntimeError("Browser screencast stopped.")
         return frame
 
-    async def attach_consumer(self, frame_consumer: Any, stop_callback: Any | None = None) -> None:
-        self.frame_consumer = frame_consumer
-        self.stop_callback = stop_callback
-        frame = await self.pop_frame()
-        if frame:
-            await self._deliver_frame(frame)
-
     async def stop(self) -> None:
-        if self._closed:
+        if self.stopped:
             return
-        was_stopped = self.stopped
-        self._closed = True
         self.stopped = True
-        if not was_stopped:
-            self._notify_stopped()
         self._drop_queued_frames()
         with contextlib.suppress(asyncio.QueueFull):
             self.queue.put_nowait(None)
@@ -437,8 +418,6 @@ class _BrowserScreencast:
         task.add_done_callback(self._ack_tasks.discard)
 
     async def _handle_frame(self, params: dict[str, Any]) -> None:
-        stop_after_ack = False
-        notify_stop = False
         try:
             data = params.get("data") or ""
             if data:
@@ -448,7 +427,7 @@ class _BrowserScreencast:
                     metadata["jpegWidth"], metadata["jpegHeight"] = size
                 metadata["expectedWidth"] = self._expected_width
                 metadata["expectedHeight"] = self._expected_height
-                await self._deliver_frame(
+                self._queue_latest(
                     {
                         "browser_id": self.browser_id,
                         "mime": self.mime,
@@ -456,14 +435,6 @@ class _BrowserScreencast:
                         "metadata": metadata,
                     }
                 )
-        except asyncio.CancelledError:
-            stop_after_ack = True
-        except Exception:
-            if self.frame_consumer:
-                stop_after_ack = True
-                notify_stop = True
-            else:
-                raise
         finally:
             session_id = params.get("sessionId")
             if session_id is not None and not self.stopped:
@@ -472,24 +443,6 @@ class _BrowserScreencast:
                         "Page.screencastFrameAck",
                         {"sessionId": int(session_id)},
                     )
-            if stop_after_ack:
-                self.stopped = True
-                if notify_stop:
-                    self._notify_stopped()
-
-    def _notify_stopped(self) -> None:
-        if not self.stop_callback:
-            return
-        with contextlib.suppress(Exception):
-            self.stop_callback()
-
-    async def _deliver_frame(self, frame: dict[str, Any]) -> None:
-        if not self.frame_consumer:
-            self._queue_latest(frame)
-            return
-        future = self.frame_consumer(frame)
-        if future is not None:
-            await asyncio.wrap_future(future)
 
     def _queue_latest(self, frame: dict[str, Any]) -> None:
         self._drop_queued_frames()
@@ -605,7 +558,6 @@ class _BrowserRuntimeCore:
         self.screencasts: dict[str, _BrowserScreencast] = {}
         self.next_browser_id = 1
         self.last_interacted_browser_id: int | None = None
-        self._dom_helper_source: str | None = None
         self._content_helper_source: str | None = None
         self._start_lock: asyncio.Lock | None = None
         self._registry_lock: asyncio.Lock | None = None
@@ -859,7 +811,6 @@ class _BrowserRuntimeCore:
         self.context.set_default_navigation_timeout(30000)
         self.context.on("close", self._on_context_closed)
         self.context.on("page", self._on_new_page_sync)
-        await self.context.add_init_script(path=str(DOM_HELPER_PATH))
         await self.context.add_init_script(path=str(CONTENT_HELPER_PATH))
 
         for page in list(self.context.pages):
@@ -1597,38 +1548,6 @@ class _BrowserRuntimeCore:
         await self.ensure_started()
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
-        raw_path = str(path or "").strip()
-        if not raw_path:
-            image = await page.screenshot(
-                type="jpeg",
-                quality=max(20, min(95, int(quality))),
-                full_page=bool(full_page),
-            )
-            saved = chat_media.save_image_bytes(
-                context_id=self.context_id,
-                payload=image,
-                mime_type="image/jpeg",
-                category="screenshots",
-                source="browser",
-                preferred_name=f"browser-{resolved_id}.jpg",
-            )
-            return {
-                "browser_id": resolved_id,
-                "context_id": self.context_id,
-                "path": saved.path,
-                "a0_path": saved.a0_path,
-                "mime": "image/jpeg",
-                "ephemeral": False,
-                "chat_scoped": True,
-                "state": await self._state(resolved_id),
-                "vision_load": {
-                    "tool_name": "vision_load",
-                    "tool_args": {
-                        "paths": [saved.a0_path],
-                    },
-                },
-            }
-
         output_path, image_type, mime = self._screenshot_output_path(resolved_id, path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         clamped_quality = max(20, min(95, int(quality)))
@@ -1643,7 +1562,6 @@ class _BrowserRuntimeCore:
         local_path = str(output_path)
         return {
             "browser_id": resolved_id,
-            "context_id": self.context_id,
             "path": local_path,
             "a0_path": files.normalize_a0_path(local_path),
             "mime": mime,
@@ -1662,7 +1580,6 @@ class _BrowserRuntimeCore:
         *,
         quality: int = 78,
         every_nth_frame: int = 1,
-        capture_scale: float = 1.0,
     ) -> dict[str, Any]:
         await self.ensure_started()
         resolved_id = self._resolve_browser_id(browser_id)
@@ -1681,7 +1598,6 @@ class _BrowserRuntimeCore:
                 quality=quality,
                 every_nth_frame=every_nth_frame,
                 viewport=page.viewport_size or DEFAULT_VIEWPORT,
-                capture_scale=capture_scale,
             )
         except Exception:
             self.screencasts.pop(stream_id, None)
@@ -1710,17 +1626,6 @@ class _BrowserRuntimeCore:
         if not screencast:
             raise KeyError("Browser screencast is not active.")
         return await screencast.pop_frame()
-
-    async def attach_screencast_consumer(
-        self,
-        stream_id: str,
-        frame_consumer: Any,
-        stop_callback: Any | None = None,
-    ) -> None:
-        screencast = self.screencasts.get(str(stream_id or ""))
-        if not screencast:
-            raise KeyError("Browser screencast is not active.")
-        await screencast.attach_consumer(frame_consumer, stop_callback)
 
     async def stop_screencast(self, stream_id: str) -> None:
         screencast = self.screencasts.pop(str(stream_id or ""), None)
@@ -2391,7 +2296,6 @@ class _BrowserRuntimeCore:
             await self.stop_screencast(stream_id)
 
     async def _ensure_content_helper(self, page: Any) -> None:
-        await self._ensure_dom_helper(page)
         has_helper = await page.evaluate(
             "() => Boolean(globalThis.__spaceBrowserPageContent__?.ready?.())"
         )
@@ -2400,30 +2304,6 @@ class _BrowserRuntimeCore:
         if self._content_helper_source is None:
             self._content_helper_source = CONTENT_HELPER_PATH.read_text(encoding="utf-8")
         await page.evaluate(self._content_helper_source)
-
-    async def _ensure_dom_helper(self, page: Any) -> None:
-        if self._dom_helper_source is None:
-            self._dom_helper_source = DOM_HELPER_PATH.read_text(encoding="utf-8")
-        await self._ensure_helper_source(
-            page,
-            self._dom_helper_source,
-            "() => Boolean(globalThis.__spaceBrowserDomHelper__?.captureDocument)",
-        )
-
-    async def _ensure_helper_source(self, page: Any, source: str, ready_script: str) -> None:
-        targets = [page]
-        frames = getattr(page, "frames", None)
-        if isinstance(frames, list) and frames:
-            targets = frames
-        for target in targets:
-            try:
-                has_helper = await target.evaluate(ready_script)
-            except Exception:
-                continue
-            if has_helper:
-                continue
-            with contextlib.suppress(Exception):
-                await target.evaluate(source)
 
 _runtimes: dict[str, BrowserRuntime] = {}
 _runtime_lock = threading.RLock()

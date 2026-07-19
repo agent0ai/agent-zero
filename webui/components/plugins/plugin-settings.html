@@ -29,7 +29,7 @@
 
                 <!-- Context toolbar: Project + Agent profile (only when at least one scope is configurable) -->
                 <div class="plugin-settings-scope-section"
-                     x-show="(context.perProjectConfig || context.perAgentConfig) && !context.hideSettingsActions">
+                     x-show="context.perProjectConfig || context.perAgentConfig">
                     <div class="plugin-settings-scope-header">
                         <div class="plugin-settings-scope-header-copy">
                             <div class="plugin-settings-scope-title">Settings scope</div>
@@ -49,8 +49,8 @@
                             <label class="toggle">
                                 <input type="checkbox"
                                        :checked="$store.pluginToggle?.status === 'enabled'"
-                                       :disabled="$store.pluginToggle?.isSaving || context.isLoading"
-                                       @change="context.setPluginEnabled($event.target.checked)">
+                                       :disabled="$store.pluginToggle?.isSaving"
+                                       @change="$store.pluginToggle.setEnabled($event.target.checked)">
                                 <span class="toggler"></span>
                             </label>
                             <span class="plugin-toggle-status-text" x-text="$store.pluginToggle?.statusLabel"></span>
@@ -136,10 +136,9 @@
 
                 <div class="plugin-settings-footer-actions">
                     <button class="btn"
-                            x-show="!context.hideSettingsActions"
                             @click="context.resetToDefault()"
                             :disabled="context?.isSaving || context?.isLoading">
-                        Reset to default
+                        Default
                     </button>
                     <button class="btn btn-field"
                             x-show="context.wizardFooter?.showNext?.()"
@@ -148,7 +147,7 @@
                         <span x-text="context.wizardFooter?.nextLabel?.() || 'Next'"></span>
                     </button>
                     <button class="btn btn-ok"
-                            x-show="!context.hideSettingsActions && (!context.wizardFooter || context.wizardFooter?.showSave?.())"
+                            x-show="!context.wizardFooter || context.wizardFooter?.showSave?.()"
                             @click="context.save()"
                             :disabled="context?.isSaving || context?.isLoading">
                         Save

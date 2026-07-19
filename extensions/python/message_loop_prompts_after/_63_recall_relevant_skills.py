@@ -8,13 +8,9 @@ class RecallRelevantSkills(Extension):
         if not self.agent or loop_data.iteration != 0:
             return
 
-        content = loop_data.user_message.content if loop_data.user_message else ""
-        if isinstance(content, dict):
-            user_instruction = str(content.get("user_message") or "").strip()
-        else:
-            user_instruction = (
-                loop_data.user_message.output_text() if loop_data.user_message else ""
-            ).strip()
+        user_instruction = (
+            loop_data.user_message.output_text() if loop_data.user_message else ""
+        ).strip()
         if len(user_instruction) < 8:
             return
 

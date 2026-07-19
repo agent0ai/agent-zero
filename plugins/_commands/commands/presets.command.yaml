@@ -1,4 +1,0 @@
-name: presets
-description: Open preset picker with Main/Utility model details.
-type: script
-script_path: connector_commands.py

@@ -1,15 +1,10 @@
-import json
-import os
-import tempfile
-import uuid
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any
-
+import uuid
 from agent import Agent, AgentConfig, AgentContext, AgentContextType
 from helpers import files, history
-from helpers.litellm_transport import delete_stored_response_ids
-from helpers.localization import Localization
+import json
 from initialize import initialize_agent
 
 from helpers.log import Log, LogItem
@@ -17,19 +12,6 @@ from helpers.log import Log, LogItem
 CHATS_FOLDER = "usr/chats"
 LOG_SIZE = 1000
 CHAT_FILE_NAME = "chat.json"
-SAVED_CHAT_CONTEXT_DATA_KEY = "_persist_chat_saved"
-
-
-def _fallback_datetime_iso() -> str:
-    return datetime.fromtimestamp(0, tz=Localization.get().get_tzinfo()).isoformat()
-
-
-def _parse_persisted_datetime(value: str | None) -> datetime:
-    raw_value = value or _fallback_datetime_iso()
-    dt = datetime.fromisoformat(raw_value)
-    if dt.tzinfo is None:
-        dt = Localization.get().localize_naive_datetime(dt)
-    return dt
 
 
 def get_chat_folder_path(ctxid: str):
@@ -54,10 +36,10 @@ def save_tmp_chat(context: AgentContext):
         return
 
     path = _get_chat_file_path(context.id)
+    files.make_dirs(path)
     data = _serialize_context(context)
     js = _safe_json_serialize(data, ensure_ascii=False)
-    _write_atomic(path, js)
-    mark_chat_saved(context)
+    files.write_file(path, js)
 
 
 def save_tmp_chats():
@@ -75,9 +57,7 @@ def load_tmp_chats():
     folders = files.list_files(CHATS_FOLDER, "*")
     json_files = []
     for folder_name in folders:
-        chat_file = _get_chat_file_path(folder_name)
-        if files.exists(chat_file):
-            json_files.append(chat_file)
+        json_files.append(_get_chat_file_path(folder_name))
 
     ctxids = []
     for file in json_files:
@@ -85,7 +65,6 @@ def load_tmp_chats():
             js = files.read_file(file)
             data = json.loads(js)
             ctx = _deserialize_context(data)
-            mark_chat_saved(ctx)
             ctxids.append(ctx.id)
         except Exception as e:
             print(f"Error loading chat {file}: {e}")
@@ -94,41 +73,6 @@ def load_tmp_chats():
 
 def _get_chat_file_path(ctxid: str):
     return files.get_abs_path(CHATS_FOLDER, ctxid, CHAT_FILE_NAME)
-
-
-def _write_atomic(path: str, content: str) -> None:
-    directory = os.path.dirname(path)
-    os.makedirs(directory, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(
-        prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content.encode("utf-8", "replace").decode("utf-8"))
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_path, path)
-        directory_fd = os.open(directory, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-
-
-def mark_chat_saved(context: AgentContext) -> None:
-    context.data[SAVED_CHAT_CONTEXT_DATA_KEY] = True
-
-
-def saved_chat_ids() -> set[str]:
-    return {
-        files.basename(files.dirname(path))
-        for path in files.find_existing_paths_by_pattern(
-            files.get_abs_path(CHATS_FOLDER, "*", CHAT_FILE_NAME)
-        )
-    }
 
 
 def _convert_v080_chats():
@@ -161,7 +105,6 @@ def export_json_chat(context: AgentContext):
 
 def remove_chat(ctxid):
     """Remove a chat or task context"""
-    _delete_provider_responses_for_chat(ctxid)
     path = get_chat_folder_path(ctxid)
     files.delete_dir(path)
 
@@ -174,8 +117,8 @@ def remove_msg_files(ctxid):
 
 def _serialize_context(context: AgentContext):
     profile = str(
-        getattr(context.agent0.config, "profile", None)
-        or getattr(context.config, "profile", None)
+        getattr(context.config, "profile", None)
+        or getattr(context.agent0.config, "profile", None)
         or ""
     )
 
@@ -194,15 +137,15 @@ def _serialize_context(context: AgentContext):
         "id": context.id,
         "name": context.name,
         "created_at": (
-            Localization.get().serialize_datetime(context.created_at)
+            context.created_at.isoformat()
             if context.created_at
-            else _fallback_datetime_iso()
+            else datetime.fromtimestamp(0).isoformat()
         ),
         "type": context.type.value,
         "last_message": (
-            Localization.get().serialize_datetime(context.last_message)
+            context.last_message.isoformat()
             if context.last_message
-            else _fallback_datetime_iso()
+            else datetime.fromtimestamp(0).isoformat()
         ),
         "agents": agents,
         "streaming_agent": (
@@ -222,7 +165,6 @@ def _serialize_agent(agent: Agent):
 
     return {
         "number": agent.number,
-        "agent_profile": str(getattr(agent.config, "profile", "") or ""),
         "data": data,
         "history": history,
     }
@@ -254,11 +196,16 @@ def _deserialize_context(data):
         id=data.get("id", None),  # get new id
         name=data.get("name", None),
         created_at=(
-            _parse_persisted_datetime(data.get("created_at"))
+            datetime.fromisoformat(
+                # older chats may not have created_at - backcompat
+                data.get("created_at", datetime.fromtimestamp(0).isoformat())
+            )
         ),
         type=AgentContextType(data.get("type", AgentContextType.USER.value)),
         last_message=(
-            _parse_persisted_datetime(data.get("last_message"))
+            datetime.fromisoformat(
+                data.get("last_message", datetime.fromtimestamp(0).isoformat())
+            )
         ),
         log=log,
         paused=False,
@@ -275,21 +222,9 @@ def _deserialize_context(data):
         streaming_agent = streaming_agent.data.get(Agent.DATA_NAME_SUBORDINATE, None)
 
     context.agent0 = agent0
-    context.config = agent0.config
     context.streaming_agent = streaming_agent
 
     return context
-
-
-def _deserialize_agent_config(
-    agent_data: dict[str, Any], fallback_config: AgentConfig
-) -> AgentConfig:
-    fallback_profile = str(getattr(fallback_config, "profile", "") or "")
-    profile = str(agent_data.get("agent_profile") or fallback_profile).strip()
-    if profile == fallback_profile:
-        return fallback_config
-    override_settings = {"agent_profile": profile} if profile else None
-    return initialize_agent(override_settings=override_settings)
 
 
 def _deserialize_agents(
@@ -301,7 +236,7 @@ def _deserialize_agents(
     for ag in agents:
         current = Agent(
             number=ag["number"],
-            config=_deserialize_agent_config(ag, config),
+            config=config,
             context=context,
         )
         current.data = ag.get("data", {})
@@ -381,70 +316,3 @@ def _safe_json_serialize(obj, **kwargs):
             return False
 
     return json.dumps(obj, default=serializer, **kwargs)
-
-
-def _delete_provider_responses_for_chat(ctxid: str) -> None:
-    try:
-        data = json.loads(files.read_file(_get_chat_file_path(ctxid)))
-    except Exception:
-        return
-    if _responses_delete_disabled(data):
-        return
-    response_ids = _collect_response_ids(data)
-    if not response_ids:
-        return
-    delete_stored_response_ids(response_ids)
-
-
-def _responses_delete_disabled(data: dict[str, Any]) -> bool:
-    if data.get("responses_delete_on_chat_delete") is False:
-        return True
-    context_data = data.get("data")
-    if isinstance(context_data, dict) and context_data.get("responses_delete_on_chat_delete") is False:
-        return True
-    for agent_data in data.get("agents", []) or []:
-        if not isinstance(agent_data, dict):
-            continue
-        state = agent_data.get("data")
-        if isinstance(state, dict) and state.get("responses_delete_on_chat_delete") is False:
-            return True
-    return False
-
-
-def _collect_response_ids(data: Any) -> list[str]:
-    found: list[str] = []
-    seen: set[str] = set()
-
-    def add(value: Any) -> None:
-        response_id = str(value or "").strip()
-        if response_id and response_id not in seen:
-            seen.add(response_id)
-            found.append(response_id)
-
-    def walk(obj: Any) -> None:
-        if isinstance(obj, dict):
-            state = obj.get(Agent.DATA_NAME_RESPONSES_STATE)
-            if isinstance(state, dict):
-                add(state.get("response_id"))
-                for response_id in state.get("response_ids") or []:
-                    add(response_id)
-
-            metadata = obj.get("metadata")
-            if isinstance(metadata, dict):
-                responses = metadata.get("responses")
-                if isinstance(responses, dict):
-                    add(responses.get("response_id"))
-
-            for value in obj.values():
-                walk(value)
-        elif isinstance(obj, list):
-            for value in obj:
-                walk(value)
-        elif isinstance(obj, str) and '"response_id"' in obj:
-            try:
-                walk(json.loads(obj))
-            except Exception:
-                return
-
-    walk(data)
-    return found

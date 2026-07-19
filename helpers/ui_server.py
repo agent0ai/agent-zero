@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import timedelta
 import asyncio
-import json
 import logging
 import os
 import secrets
@@ -27,7 +26,7 @@ from werkzeug.wrappers.request import Request as WerkzeugRequest
 import socketio  # type: ignore[import-untyped]
 
 from helpers import dotenv, fasta2a_server, files, git, login, mcp_server, runtime
-from helpers.api import get_safe_next_url, register_api_route, requires_auth
+from helpers.api import register_api_route, requires_auth
 from helpers.extension import extensible
 from helpers.files import get_abs_path
 from helpers.print_style import PrintStyle
@@ -38,27 +37,14 @@ from helpers.ws_manager import WsManager, set_shared_ws_manager
 
 
 UPLOAD_LIMIT_BYTES = 5 * 1024 * 1024 * 1024
-SOCKETIO_PING_INTERVAL_SECONDS = 45
-SOCKETIO_PING_TIMEOUT_SECONDS = 120
-
-
-def _positive_int_env(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
 
 
 def configure_process_environment() -> None:
     logging.getLogger().setLevel(logging.WARNING)
+    os.environ["TZ"] = "UTC"
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    from helpers.localization import Localization
-
-    Localization.get().apply_process_timezone()
+    if hasattr(time, "tzset"):
+        time.tzset()
 
 
 @dataclass
@@ -99,14 +85,8 @@ class UiServerRuntime:
             cors_allowed_origins=lambda _origin, environ: validate_ws_origin(environ)[0],
             logger=False,
             engineio_logger=False,
-            ping_interval=_positive_int_env(
-                "A0_SOCKETIO_PING_INTERVAL_SECONDS",
-                SOCKETIO_PING_INTERVAL_SECONDS,
-            ),
-            ping_timeout=_positive_int_env(
-                "A0_SOCKETIO_PING_TIMEOUT_SECONDS",
-                SOCKETIO_PING_TIMEOUT_SECONDS,
-            ),
+            ping_interval=25,
+            ping_timeout=20,
             max_http_buffer_size=50 * 1024 * 1024,
         )
 
@@ -220,25 +200,19 @@ class UiRouteHandlers:
     @extensible
     async def login_handler(self):
         error = None
-        fallback_url = url_for("serve_index")
-        next_url = get_safe_next_url(
-            request.form.get("next") if request.method == "POST" else request.args.get("next"),
-            fallback_url,
-        )
-
         if request.method == "POST":
             user = dotenv.get_dotenv_value("AUTH_LOGIN")
             password = dotenv.get_dotenv_value("AUTH_PASSWORD")
 
             if request.form["username"] == user and request.form["password"] == password:
                 session["authentication"] = login.get_credentials_hash()
-                return redirect(next_url or fallback_url)
+                return redirect(url_for("serve_index"))
             else:
                 await asyncio.sleep(1)
                 error = "Invalid Credentials. Please try again."
 
         login_page_content = files.read_file("webui/login.html")
-        return render_template_string(login_page_content, error=error, next=next_url)
+        return render_template_string(login_page_content, error=error)
 
     @extensible
     async def logout_handler(self):
@@ -255,21 +229,6 @@ class UiRouteHandlers:
                 "version": "unknown",
                 "commit_time": "unknown",
             }
-        try:
-            user_timezone_setting = str(settings_helper.get_settings().get("timezone", "auto"))
-        except Exception:
-            user_timezone_setting = "auto"
-        try:
-            user_time_format_setting = str(settings_helper.get_settings().get("time_format", "12h"))
-        except Exception:
-            user_time_format_setting = "12h"
-        try:
-            user_ui_control_visibility = json.dumps(
-                settings_helper.get_settings()["ui_control_visibility"],
-                separators=(",", ":"),
-            )
-        except Exception:
-            user_ui_control_visibility = json.dumps(settings_helper.UI_CONTROL_VISIBILITY_DEFAULTS)
 
         index = files.read_file("webui/index.html")
         return files.replace_placeholders_text(
@@ -279,9 +238,6 @@ class UiRouteHandlers:
             runtime_id=runtime.get_runtime_id(),
             runtime_is_development=("true" if runtime.is_development() else "false"),
             logged_in=("true" if login.get_credentials_hash() else "false"),
-            user_timezone_setting=user_timezone_setting,
-            user_time_format_setting=user_time_format_setting,
-            user_ui_control_visibility=user_ui_control_visibility,
         )
 
     @requires_auth

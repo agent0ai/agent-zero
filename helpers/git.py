@@ -8,7 +8,6 @@ import base64
 import re
 from urllib.parse import urlparse, urlunparse
 from helpers import files
-from helpers.localization import Localization
 
 
 def strip_auth_from_url(url: str) -> str:
@@ -99,10 +98,7 @@ class GitRepoReleaseInfo:
 
 
 def _format_git_timestamp(timestamp: int) -> str:
-    return datetime.fromtimestamp(
-        timestamp,
-        tz=Localization.get().get_tzinfo(),
-    ).strftime('%Y-%m-%d %H:%M:%S %Z')
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def _split_describe_version(describe: str) -> tuple[str, int]:
@@ -521,10 +517,7 @@ def get_repo_status(repo_path: str) -> dict:
                 "hash": commit.hexsha[:7],
                 "message": str(commit.message).split("\n")[0][:80],
                 "author": str(commit.author),
-                "date": datetime.fromtimestamp(
-                    commit.committed_date,
-                    tz=Localization.get().get_tzinfo(),
-                ).strftime('%Y-%m-%d %H:%M %Z')
+                "date": datetime.fromtimestamp(commit.committed_date).strftime('%Y-%m-%d %H:%M')
             }
         except Exception:
             pass

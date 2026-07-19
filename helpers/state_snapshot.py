@@ -140,20 +140,6 @@ def _apply_agent_profile_metadata(
     context_data["agent_profile_label"] = labels.get(profile, profile) if profile else ""
 
 
-def _prune_missing_saved_contexts() -> None:
-    from helpers import persist_chat
-
-    saved_ids = persist_chat.saved_chat_ids()
-    for ctx in AgentContext.all():
-        if ctx.type == AgentContextType.BACKGROUND or ctx.is_running():
-            continue
-        if (
-            ctx.data.get(persist_chat.SAVED_CHAT_CONTEXT_DATA_KEY)
-            and ctx.id not in saved_ids
-        ):
-            AgentContext.remove(ctx.id)
-
-
 def parse_state_request_payload(payload: Mapping[str, Any]) -> StateRequestV1:
     context = payload.get("context")
     log_from = payload.get("log_from")
@@ -214,7 +200,7 @@ def _coerce_state_request_inputs(
     timezone: Any,
 ) -> StateRequestV1:
     tz = timezone if isinstance(timezone, str) and timezone else None
-    tz = tz or get_dotenv_value("DEFAULT_USER_TIMEZONE", Localization.get().get_timezone())
+    tz = tz or get_dotenv_value("DEFAULT_USER_TIMEZONE", "UTC")
 
     ctxid: str | None = context.strip() if isinstance(context, str) else None
     if ctxid == "":
@@ -256,20 +242,13 @@ def advance_state_request_after_snapshot(
 async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
     """Build a poll-shaped snapshot for both /poll and state_push."""
 
-    localization = Localization.get()
-    previous_timezone = localization.get_timezone()
-    localization.set_timezone(request.timezone)
-    current_timezone = localization.get_timezone()
-    if current_timezone != previous_timezone:
-        _notify_timezone_changed(previous_timezone, current_timezone)
+    Localization.get().set_timezone(request.timezone)
 
     ctxid = request.context if isinstance(request.context, str) else ""
     ctxid = ctxid.strip()
 
     from_no = _coerce_non_negative_int(request.log_from, default=0)
     notifications_from_no = _coerce_non_negative_int(request.notifications_from, default=0)
-
-    _prune_missing_saved_contexts()
 
     active_context = AgentContext.get(ctxid) if ctxid else None
 
@@ -282,9 +261,7 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
         log_end = 0
 
     notification_manager = AgentContext.get_notification_manager()
-    notifications, notifications_guid, notifications_version = (
-        notification_manager.output_with_state(start=notifications_from_no)
-    )
+    notifications = notification_manager.output(start=notifications_from_no)
 
     scheduler = TaskScheduler.get()
 
@@ -354,27 +331,12 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
         "log_progress_active": bool(active_context.log.progress_active) if active_context else False,
         "paused": active_context.paused if active_context else False,
         "notifications": notifications,
-        "notifications_guid": notifications_guid,
-        "notifications_version": notifications_version,
+        "notifications_guid": notification_manager.guid,
+        "notifications_version": len(notification_manager.updates),
     }
 
     validate_snapshot_schema_v1(snapshot)
     return snapshot
-
-
-def _notify_timezone_changed(previous_timezone: str, current_timezone: str) -> None:
-    try:
-        from helpers import plugins
-
-        plugins.call_plugin_hook(
-            "_office",
-            "timezone_changed",
-            None,
-            previous_timezone=previous_timezone,
-            timezone=current_timezone,
-        )
-    except Exception:
-        return
 
 
 async def build_snapshot(

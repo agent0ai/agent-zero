@@ -16,7 +16,7 @@
         <div class="browser-meta">
           <div class="browser-meta-top">
             <div class="browser-session-tabs" role="tablist" aria-label="Browser sessions">
-              <template x-for="browser in $store.browserPage.visibleBrowsers()" :key="$store.browserPage.browserTabKey(browser)">
+              <template x-for="browser in $store.browserPage.browsers" :key="$store.browserPage.browserTabKey(browser)">
                 <div class="browser-tab-shell" :class="{ 'is-active': $store.browserPage.isActiveBrowser(browser) }">
 	                  <button type="button" class="browser-tab" role="tab"
 	                    :aria-selected="$store.browserPage.isActiveBrowser(browser).toString()"
@@ -42,6 +42,118 @@
               </button>
             </div>
 
+            <div class="browser-session-controls">
+              <button type="button" class="btn browser-annotate-toggle" title="Annotate" aria-label="Annotate"
+                :aria-pressed="$store.browserPage.annotating.toString()"
+                :class="{ 'is-active': $store.browserPage.annotating }"
+                :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
+                @click="$store.browserPage.toggleAnnotationMode()">
+                <span class="material-symbols-outlined" aria-hidden="true"
+                  x-text="$store.browserPage.annotating ? 'rate_review' : 'edit_note'"></span>
+                <span x-text="$store.browserPage.annotating ? 'Annotating' : 'Annotate'"></span>
+              </button>
+              <div class="browser-extension-menu" @click.outside="$store.browserPage.closeExtensionsMenu()"
+                @keydown.escape.window="$store.browserPage.closeExtensionsMenu()">
+                <button type="button" class="btn btn-icon-action browser-extensions" title="Browser settings"
+                  aria-label="Browser settings" @click.stop="$store.browserPage.toggleExtensionsMenu()"
+                  :aria-expanded="$store.browserPage.extensionMenuOpen.toString()"
+                  :class="{ 'is-active': $store.browserPage.status?.extensions?.active }">
+                  <span class="material-symbols-outlined">tune</span>
+                </button>
+                <div class="browser-extension-dropdown" x-show="$store.browserPage.extensionMenuOpen" x-transition
+                  style="display: none;">
+                  <div class="browser-extension-preset">
+                    <label for="browser-model-preset">Browser LLM Preset</label>
+                    <select id="browser-model-preset" x-model="$store.browserPage.modelPreset"
+                      @change="$store.browserPage.setBrowserModelPreset($event.target.value)"
+                      :disabled="$store.browserPage.modelPresetSaving">
+                      <option value="">Default Main Model</option>
+                      <template x-for="preset in $store.browserPage.modelPresetOptions" :key="preset.name">
+                        <option :value="preset.name" x-text="preset.label"></option>
+                      </template>
+                    </select>
+                    <div class="browser-extension-preset-summary" x-text="$store.browserPage.modelPresetSummary()">
+                    </div>
+                  </div>
+                  <div class="browser-extension-section-title">Chrome Extensions</div>
+                  <button type="button" class="dropdown-item" @click="$store.browserPage.createExtensionWithAgent()">
+                    <span class="material-symbols-outlined">add_circle</span>
+                    <span>Create New Extension with A0</span>
+                  </button>
+                  <div class="browser-extension-url">
+                    <label for="browser-extension-url">Input a Chrome Web Store URL</label>
+                    <input id="browser-extension-url" type="url" x-model="$store.browserPage.extensionInstallUrl"
+                      @keydown.enter.prevent="$store.browserPage.installExtensionFromUrl()"
+                      placeholder="https://chromewebstore.google.com/detail/..." />
+                    <div class="browser-extension-url-actions">
+                      <button type="button" class="btn btn-ok" @click="$store.browserPage.installExtensionFromUrl()"
+                        :disabled="$store.browserPage.extensionActionLoading">
+                        <span class="material-symbols-outlined"
+                          :class="{ spinning: $store.browserPage.extensionActionLoading }"
+                          x-text="$store.browserPage.extensionActionLoading ? 'progress_activity' : 'download'"></span>
+                        <span>Install URL</span>
+                      </button>
+                      <button type="button" class="btn btn-field"
+                        @click="$store.browserPage.askAgentInstallExtension()">
+                        <span class="material-symbols-outlined">psychology_alt</span>
+                        <span x-text="$store.browserPage.extensionAssistantActionLabel()">Scan with A0</span>
+                      </button>
+                    </div>
+                    <div class="browser-extension-warning" x-show="$store.browserPage.hasExtensionInstallUrl()"
+                      x-transition style="display: none;">
+                      <span class="material-symbols-outlined">warning</span>
+                      <span>
+                        Extensions run inside the Docker browser sandbox, but malicious or buggy extensions can still
+                        damage that environment. Review what you install.
+                      </span>
+                    </div>
+                  </div>
+                  <div class="browser-extension-list"
+                    x-show="$store.browserPage.extensionsListLoading || $store.browserPage.extensionsList.length"
+                    style="display: none;">
+                    <div class="browser-extension-list-header">
+                      <span>Installed extensions</span>
+                      <span class="material-symbols-outlined spinning"
+                        x-show="$store.browserPage.extensionsListLoading">progress_activity</span>
+                    </div>
+                    <template x-for="extension in $store.browserPage.extensionsList" :key="extension.path">
+                      <div class="browser-extension-row" :title="extension.path">
+                        <span class="browser-extension-row-text">
+                          <span class="browser-extension-name" x-text="extension.name || 'Unnamed extension'"></span>
+                          <span class="browser-extension-meta"
+                            x-text="$store.browserPage.extensionVersionLabel(extension)"></span>
+                        </span>
+                        <span class="browser-extension-row-actions">
+                          <button type="button" class="browser-extension-open"
+                            x-show="$store.browserPage.extensionHasOpenUi(extension)"
+                            :title="$store.browserPage.extensionOpenTitle(extension)"
+                            :aria-label="$store.browserPage.extensionOpenTitle(extension)"
+                            :disabled="!extension.enabled || $store.browserPage.isBusy()"
+                            @click.stop="$store.browserPage.openExtensionUi(extension)">
+                            <span class="material-symbols-outlined">open_in_new</span>
+                            <span>Open</span>
+                          </button>
+                          <label class="browser-extension-toggle">
+                            <input type="checkbox" :checked="extension.enabled"
+                              :disabled="$store.browserPage.extensionToggleLoadingPath === extension.path"
+                              @change="$store.browserPage.setExtensionEnabled(extension, $event.target.checked, $event.target)" />
+                            <span class="browser-extension-switch"></span>
+                          </label>
+                        </span>
+                      </div>
+                    </template>
+                  </div>
+                  <button type="button" class="dropdown-item" @click="$store.browserPage.openExtensionsSettings()">
+                    <span class="material-symbols-outlined">tune</span>
+                    <span>Settings</span>
+                  </button>
+                  <div class="browser-extension-message" x-show="$store.browserPage.extensionActionMessage"
+                    x-text="$store.browserPage.extensionActionMessage"></div>
+                  <div class="browser-extension-error" x-show="$store.browserPage.extensionActionError"
+                    x-text="$store.browserPage.extensionActionError"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -61,124 +173,10 @@
             </button>
           </div>
 
-          <div class="browser-session-controls">
-            <button type="button" class="btn browser-annotate-toggle" title="Annotate" aria-label="Annotate"
-              :aria-pressed="$store.browserPage.annotating.toString()"
-              :class="{ 'is-active': $store.browserPage.annotating }"
-              :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
-              @click="$store.browserPage.toggleAnnotationMode()">
-              <span class="material-symbols-outlined" aria-hidden="true"
-                x-text="$store.browserPage.annotating ? 'rate_review' : 'edit_note'"></span>
-              <span x-text="$store.browserPage.annotating ? 'Annotating' : 'Annotate'"></span>
-            </button>
-            <div class="browser-extension-menu" @click.outside="$store.browserPage.closeExtensionsMenu()"
-              @keydown.escape.window="$store.browserPage.closeExtensionsMenu()">
-              <button type="button" class="btn btn-icon-action browser-extensions" title="Browser settings"
-                aria-label="Browser settings" @click.stop="$store.browserPage.toggleExtensionsMenu()"
-                :aria-expanded="$store.browserPage.extensionMenuOpen.toString()"
-                :class="{ 'is-active': $store.browserPage.status?.extensions?.active }">
-                <span class="material-symbols-outlined">tune</span>
-              </button>
-              <div class="browser-extension-dropdown" x-show="$store.browserPage.extensionMenuOpen" x-transition
-                style="display: none;">
-                <div class="browser-extension-preset">
-                  <label for="browser-model-preset">Browser LLM Preset</label>
-                  <select id="browser-model-preset" x-model="$store.browserPage.modelPreset"
-                    @change="$store.browserPage.setBrowserModelPreset($event.target.value)"
-                    :disabled="$store.browserPage.modelPresetSaving">
-                    <option value="">Default Main Model</option>
-                    <template x-for="preset in $store.browserPage.modelPresetOptions" :key="preset.name">
-                      <option :value="preset.name" x-text="preset.label"></option>
-                    </template>
-                  </select>
-                  <div class="browser-extension-preset-summary" x-text="$store.browserPage.modelPresetSummary()">
-                  </div>
-                </div>
-                <div class="browser-extension-section-title">Chrome Extensions</div>
-                <button type="button" class="dropdown-item" @click="$store.browserPage.createExtensionWithAgent()">
-                  <span class="material-symbols-outlined">add_circle</span>
-                  <span>Create New Extension with A0</span>
-                </button>
-                <div class="browser-extension-url">
-                  <label for="browser-extension-url">Input a Chrome Web Store URL</label>
-                  <input id="browser-extension-url" type="url" x-model="$store.browserPage.extensionInstallUrl"
-                    @keydown.enter.prevent="$store.browserPage.installExtensionFromUrl()"
-                    placeholder="https://chromewebstore.google.com/detail/..." />
-                  <div class="browser-extension-url-actions">
-                    <button type="button" class="btn btn-ok" @click="$store.browserPage.installExtensionFromUrl()"
-                      :disabled="$store.browserPage.extensionActionLoading">
-                      <span class="material-symbols-outlined"
-                        :class="{ spinning: $store.browserPage.extensionActionLoading }"
-                        x-text="$store.browserPage.extensionActionLoading ? 'progress_activity' : 'download'"></span>
-                      <span>Install URL</span>
-                    </button>
-                    <button type="button" class="btn btn-field"
-                      @click="$store.browserPage.askAgentInstallExtension()">
-                      <span class="material-symbols-outlined">psychology_alt</span>
-                      <span x-text="$store.browserPage.extensionAssistantActionLabel()">Scan with A0</span>
-                    </button>
-                  </div>
-                  <div class="browser-extension-warning" x-show="$store.browserPage.hasExtensionInstallUrl()"
-                    x-transition style="display: none;">
-                    <span class="material-symbols-outlined">warning</span>
-                    <span>
-                      Extensions run inside the Docker browser sandbox, but malicious or buggy extensions can still
-                      damage that environment. Review what you install.
-                    </span>
-                  </div>
-                </div>
-                <div class="browser-extension-list"
-                  x-show="$store.browserPage.extensionsListLoading || $store.browserPage.extensionsList.length"
-                  style="display: none;">
-                  <div class="browser-extension-list-header">
-                    <span>Installed extensions</span>
-                    <span class="material-symbols-outlined spinning"
-                      x-show="$store.browserPage.extensionsListLoading">progress_activity</span>
-                  </div>
-                  <template x-for="extension in $store.browserPage.extensionsList" :key="extension.path">
-                    <div class="browser-extension-row" :title="extension.path">
-                      <span class="browser-extension-row-text">
-                        <span class="browser-extension-name" x-text="extension.name || 'Unnamed extension'"></span>
-                        <span class="browser-extension-meta"
-                          x-text="$store.browserPage.extensionVersionLabel(extension)"></span>
-                      </span>
-                      <span class="browser-extension-row-actions">
-                        <button type="button" class="browser-extension-open"
-                          x-show="$store.browserPage.extensionHasOpenUi(extension)"
-                          :title="$store.browserPage.extensionOpenTitle(extension)"
-                          :aria-label="$store.browserPage.extensionOpenTitle(extension)"
-                          :disabled="!extension.enabled || $store.browserPage.isBusy()"
-                          @click.stop="$store.browserPage.openExtensionUi(extension)">
-                          <span class="material-symbols-outlined">open_in_new</span>
-                          <span>Open</span>
-                        </button>
-                        <label class="browser-extension-toggle">
-                          <input type="checkbox" :checked="extension.enabled"
-                            :disabled="$store.browserPage.extensionToggleLoadingPath === extension.path"
-                            @change="$store.browserPage.setExtensionEnabled(extension, $event.target.checked, $event.target)" />
-                          <span class="browser-extension-switch"></span>
-                        </label>
-                      </span>
-                    </div>
-                  </template>
-                </div>
-                <button type="button" class="dropdown-item" @click="$store.browserPage.openExtensionsSettings()">
-                  <span class="material-symbols-outlined">tune</span>
-                  <span>Settings</span>
-                </button>
-                <div class="browser-extension-message" x-show="$store.browserPage.extensionActionMessage"
-                  x-text="$store.browserPage.extensionActionMessage"></div>
-                <div class="browser-extension-error" x-show="$store.browserPage.extensionActionError"
-                  x-text="$store.browserPage.extensionActionError"></div>
-              </div>
-            </div>
-          </div>
-
           <form class="browser-address-form" aria-label="Browser navigation" @submit.prevent="$store.browserPage.go()">
             <span class="material-symbols-outlined browser-address-icon">language</span>
 	            <input class="browser-address" aria-label="Browser address" name="browser_address" x-model="$store.browserPage.address"
 	              @focus="$store.browserPage.onAddressFocus()" @blur="$store.browserPage.onAddressBlur()"
-	              @keydown.enter.prevent="$store.browserPage.go()"
 	              :disabled="$store.browserPage.isBusy()"
 	              placeholder="https://example.com" autocomplete="off" />
           </form>
@@ -187,17 +185,12 @@
 	        <div class="browser-stage" tabindex="0" @click="$el.focus()"
 	          :class="{ 'is-annotating': $store.browserPage.annotating }"
 	          @wheel.prevent="$store.browserPage.handleStageWheel($event)">
-	          <canvas class="browser-frame browser-frame-canvas"
-	            x-show="$store.browserPage.frameCanvasReady"
-	            x-init="$store.browserPage.attachFrameCanvas($el)"
-	            @click="$store.browserPage.sendMouse('click', $event)"
-	            @mousemove.throttle.250ms="$store.browserPage.sendMouse('move', $event)"></canvas>
 	          <template x-if="$store.browserPage.frameSrc">
-            <img class="browser-frame browser-frame-image" :src="$store.browserPage.frameSrc"
+            <img class="browser-frame" :src="$store.browserPage.frameSrc"
               @click="$store.browserPage.sendMouse('click', $event)"
               @mousemove.throttle.250ms="$store.browserPage.sendMouse('move', $event)" draggable="false" />
           </template>
-	          <template x-if="$store.browserPage.annotating && $store.browserPage.hasFrame()">
+	          <template x-if="$store.browserPage.annotating && $store.browserPage.frameSrc">
 	            <div class="browser-annotation-layer"
 	              :class="{ 'is-busy': $store.browserPage.annotationBusy }"
 	              @pointerdown.stop.prevent="$store.browserPage.startAnnotationSelection($event)"
@@ -272,7 +265,7 @@
 	                @click="$store.browserPage.sendAnnotationsToChat()">Send now</button>
 	            </div>
 	          </div>
-	          <template x-if="!$store.browserPage.hasFrame() && !$store.browserPage.isBusy()">
+	          <template x-if="!$store.browserPage.frameSrc && !$store.browserPage.isBusy()">
             <div class="browser-empty">
               <span class="material-symbols-outlined">captive_portal</span>
               <button class="btn btn-field" @click="$store.browserPage.command('open')">Open
@@ -390,7 +383,6 @@
       --browser-tab-close-size: 32px;
       --browser-control-radius: 0.55rem;
       box-sizing: border-box;
-      container-type: inline-size;
       display: flex;
       flex: 1 1 auto;
 	      flex-direction: column;
@@ -402,8 +394,8 @@
 
     .browser-toolbar {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      grid-template-areas: "nav address controls";
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas: "nav address";
       gap: 8px;
       align-items: center;
       padding: 8px 10px 9px;
@@ -482,7 +474,7 @@
 
     .browser-meta-top {
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
       align-items: end;
     }
@@ -654,12 +646,11 @@
     }
 
     .browser-session-controls {
-      grid-area: controls;
       display: flex;
-      align-items: center;
-      justify-content: flex-end;
+      align-items: end;
       gap: 6px;
       min-width: 0;
+      padding-bottom: 7px;
     }
 
     .browser-annotate-toggle {
@@ -1004,7 +995,7 @@
 	      height: 100%;
 	      min-width: 0;
 	      min-height: 0;
-	      object-fit: contain;
+	      object-fit: fill;
 	      image-rendering: auto;
 	      user-select: none;
 	      background: #fff;
@@ -1286,29 +1277,12 @@
     }
 
     @container (max-width: 460px) {
-      .browser-toolbar {
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        grid-template-areas:
-          "nav . controls"
-          "address address address";
-        align-items: center;
-        gap: 7px;
-      }
-
-      .browser-navigation {
-        justify-content: flex-start;
-      }
-
-      .browser-address-form {
-        width: 100%;
-      }
-
       .browser-meta-top {
         grid-template-columns: minmax(0, 1fr);
       }
 
       .browser-session-controls {
-        width: auto;
+        width: 100%;
         justify-content: flex-end;
       }
 
@@ -1340,7 +1314,6 @@
       .browser-extension-dropdown {
         right: 0;
         left: auto;
-        top: calc(var(--browser-control-size) + var(--browser-address-height) + 13px);
         width: min(296px, calc(100vw - 72px));
       }
 

@@ -5,7 +5,7 @@ common args: action skill_name query file_path
 workflow:
 - action `search`: find candidate skills by keywords or trigger phrases from the current task
 - action `list`: discover available skills
-- action `load`: append one skill's full instructions to chat history by `skill_name`
+- action `load`: load one skill by `skill_name`
 - action `read_file`: open one file inside a loaded skill directory
 if the user says "find/search a skill", call `search` before `load` even when the likely skill name seems obvious
 `read_file` requires both `skill_name` and `file_path`; load the skill first, then read `SKILL.md` or the named relative file

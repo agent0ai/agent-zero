@@ -2,23 +2,20 @@ import { store as officeStore } from "/plugins/_office/webui/office-store.js";
 import { store as desktopStore } from "/plugins/_desktop/webui/desktop-store.js";
 import { open as openSurface } from "/js/surfaces.js";
 
-const OFFICE_FORMATS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 const SYNC_WINDOW_MS = 10 * 60 * 1000;
 const syncedDocumentResults = new Set();
 
-export default async function syncDocumentResultsIntoOpenSurfaces(context) {
+export default async function syncDocumentResultsIntoOpenOfficeModal(context) {
   if (!context?.results?.length || context.historyEmpty) return;
 
   for (const { args } of context.results) {
     const payload = getDocumentPayload(args);
-    const toolName = getToolName(payload);
-    if (toolName !== "office_artifact") continue;
+    if (getToolName(payload) !== "document_artifact") continue;
     if (!shouldSyncOpenOfficeModal(args, payload)) continue;
 
     const document = payload.document && typeof payload.document === "object" ? payload.document : {};
-    const target = documentTarget(payload, document);
-    const path = target.path || "";
-    const fileId = target.file_id || "";
+    const path = payload.path || document.path || "";
+    const fileId = payload.file_id || document.file_id || "";
     if (!path && !fileId) continue;
 
     const key = [
@@ -26,35 +23,22 @@ export default async function syncDocumentResultsIntoOpenSurfaces(context) {
       payload.action || "",
       fileId || "",
       path || "",
-      target.version || "",
+      payload.version || document.version || "",
     ].join(":");
     if (syncedDocumentResults.has(key)) continue;
     syncedDocumentResults.add(key);
 
     if (shouldOpenDocumentUiFromResult(payload, document)) {
       globalThis.setTimeout(() => {
-        void openDocumentUiFromResult(target, payload, document);
+        void openDocumentUiFromResult({ path, file_id: fileId }, payload, document);
       }, 0);
       continue;
     }
 
     globalThis.setTimeout(() => {
-      void syncOpenDocumentSurfaces(target);
+      void syncOpenDocumentSurfaces({ path, file_id: fileId });
     }, 0);
   }
-}
-
-function documentTarget(payload = {}, document = {}) {
-  const extension = documentExtension(payload, document);
-  return {
-    ...document,
-    path: payload.path || document.path || "",
-    file_id: payload.file_id || document.file_id || "",
-    format: payload.format || document.format || extension,
-    extension,
-    version: payload.version || document.version || "",
-    last_modified: payload.last_modified || document.last_modified || "",
-  };
 }
 
 function getDocumentPayload(args = {}) {
@@ -105,7 +89,7 @@ function shouldSyncOpenOfficeModal(args = {}, payload = {}) {
 
 function shouldOpenDocumentUiFromResult(payload = {}, document = {}) {
   if (!isExplicitDocumentUiRequest(payload)) return false;
-  return OFFICE_FORMATS.has(documentExtension(payload, document));
+  return Boolean(documentExtension(payload, document));
 }
 
 function isExplicitDocumentUiRequest(payload = {}) {
@@ -119,7 +103,7 @@ function isExplicitDocumentUiRequest(payload = {}) {
 }
 
 async function openDocumentUiFromResult(target = {}, payload = {}, document = {}) {
-  await openSurface(surfaceForDocument(payload, document), {
+  await openSurface("desktop", {
     path: target.path || "",
     file_id: target.file_id || "",
     refresh: true,
@@ -135,10 +119,6 @@ function documentExtension(payload = {}, document = {}) {
       || document.format
       || "",
   ).toLowerCase();
-}
-
-function surfaceForDocument(_payload = {}, _document = {}) {
-  return "desktop";
 }
 
 function isOfficeModalOpen() {
@@ -162,7 +142,6 @@ function isDesktopSurfaceOpen() {
 }
 
 async function syncOpenDocumentSurfaces(document = {}) {
-  if (!OFFICE_FORMATS.has(documentExtension({}, document))) return;
   await syncOpenDesktopCanvas(document);
   await syncOpenOfficeModal(document);
 }
@@ -209,7 +188,7 @@ function isDirtySameDocument(store, document = {}) {
   return documentEntries(store).some((entry) => {
     if (!documentsMatch(entry, document)) return false;
     const isActive = entry === store?.session || (entry.tab_id && entry.tab_id === store?.activeTabId);
-    return Boolean(entry.dirty || (isActive && (store?.dirty || store?.previewEditDirty)));
+    return Boolean(entry.dirty || (isActive && store?.dirty));
   });
 }
 

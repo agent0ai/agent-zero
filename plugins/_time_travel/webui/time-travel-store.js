@@ -2,7 +2,6 @@ import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getContext } from "/index.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
-import { formatDateTime } from "/js/time-utils.js";
 
 const REFRESH_DEBOUNCE_MS = 180;
 
@@ -29,13 +28,10 @@ function apiPath(name) {
 
 const model = {
   loading: false,
-  workspaceLoading: false,
   busy: false,
   error: "",
   payload: null,
   contextId: "",
-  workspaces: [],
-  selectedWorkspaceId: "",
   workspacePath: "",
   fileFilter: "",
   selectedHash: "",
@@ -66,20 +62,15 @@ const model = {
     if (this._mode !== "modal") {
       this.setupCanvasSurface(element);
     }
-    const nextContextId = this.resolveContextId();
-    const resetWorkspace = this._mode === "modal" || this.contextId !== nextContextId || !this.selectedWorkspaceId;
-    this.contextId = nextContextId;
-    await this.loadWorkspaces({ contextId: this.contextId, reset: resetWorkspace });
-    if (this._mode === "modal" || !this.payload || resetWorkspace) {
-      await this.refresh({ contextId: this.contextId, keepSelection: !resetWorkspace, skipWorkspaceLoad: true });
+    this.contextId = this.resolveContextId();
+    if (!this.payload && !this.loading) {
+      await this.refresh({ contextId: this.contextId });
     }
   },
 
   async onOpen(payload = {}) {
     const nextContextId = String(payload.contextId || payload.context_id || this.resolveContextId() || "");
-    this.contextId = nextContextId;
-    await this.loadWorkspaces({ contextId: nextContextId, reset: true });
-    await this.refresh({ contextId: nextContextId, skipWorkspaceLoad: true });
+    await this.refresh({ contextId: nextContextId });
   },
 
   cleanup() {
@@ -114,45 +105,18 @@ const model = {
     if (this._filterTimer) clearTimeout(this._filterTimer);
     this._filterTimer = setTimeout(() => {
       this._filterTimer = null;
-      this.refresh({ keepSelection: false, skipWorkspaceLoad: true });
+      this.refresh({ keepSelection: false });
     }, 240);
-  },
-
-  async loadWorkspaces(options = {}) {
-    const contextId = String(options.contextId || options.context_id || this.resolveContextId() || "");
-    this.workspaceLoading = true;
-    try {
-      const response = await callJsonApi(apiPath("history_workspaces"), {
-        context_id: contextId,
-      });
-      if (!response?.ok) throw new Error(response?.error || "Could not load workspaces.");
-      this.workspaces = Array.isArray(response.workspaces) ? response.workspaces : [];
-      const defaultWorkspaceId = String(response.default_workspace_id || "");
-      const hasSelected = this.workspaces.some((workspace) => workspace?.id === this.selectedWorkspaceId);
-      if (options.reset || !this.selectedWorkspaceId || !hasSelected) {
-        this.selectedWorkspaceId = defaultWorkspaceId || String(this.workspaces[0]?.id || "");
-      }
-    } catch (error) {
-      this.workspaces = [];
-      this.selectedWorkspaceId = "";
-      this.error = error instanceof Error ? error.message : String(error);
-    } finally {
-      this.workspaceLoading = false;
-    }
   },
 
   async refresh(options = {}) {
     const contextId = String(options.contextId || options.context_id || this.resolveContextId() || "");
-    if (!options.skipWorkspaceLoad && (options.reloadWorkspaces || this.workspaces.length === 0)) {
-      await this.loadWorkspaces({ contextId, reset: Boolean(options.resetWorkspace) });
-    }
     const seq = ++this._requestSeq;
     this.loading = true;
     this.error = "";
     try {
       const response = await callJsonApi(apiPath("history_list"), {
         context_id: contextId,
-        workspace_id: this.selectedWorkspaceId,
         limit: 100,
         offset: 0,
         file_filter: this.fileFilter,
@@ -161,17 +125,7 @@ const model = {
       if (!response?.ok) throw new Error(response?.error || "Could not load history.");
       this.payload = response;
       this.contextId = String(response.context_id || contextId || "");
-      if (response.workspace?.id && !this.selectedWorkspaceId) {
-        this.selectedWorkspaceId = String(response.workspace.id);
-      }
-      const selectedWorkspace = this.selectedWorkspace();
-      this.workspacePath = String(
-        response.workspace?.display_path
-          || response.workspace?.path
-          || selectedWorkspace?.display_path
-          || selectedWorkspace?.path
-          || ""
-      );
+      this.workspacePath = String(response.workspace?.display_path || response.workspace?.path || "");
       this.reconcileSelection(Boolean(options.keepSelection));
     } catch (error) {
       if (seq !== this._requestSeq) return;
@@ -188,7 +142,6 @@ const model = {
     try {
       const response = await callJsonApi(apiPath("history_list"), {
         context_id: this.contextId,
-        workspace_id: this.selectedWorkspaceId,
         limit: 100,
         offset: this.commits().length,
         file_filter: this.fileFilter,
@@ -234,31 +187,6 @@ const model = {
 
   isLocked() {
     return Boolean(this.payload?.workspace?.locked || this.payload?.workspace?.available === false);
-  },
-
-  selectedWorkspace() {
-    return (this.workspaces || []).find((workspace) => workspace?.id === this.selectedWorkspaceId) || null;
-  },
-
-  workspaceOptionLabel(workspace) {
-    const label = String(workspace?.label || workspace?.title || workspace?.name || "Workspace");
-    const path = String(workspace?.display_path || workspace?.path || "");
-    const suffix = workspace?.locked || workspace?.available === false ? " (unavailable)" : "";
-    return path ? `${label} - ${path}${suffix}` : `${label}${suffix}`;
-  },
-
-  async selectWorkspace(workspaceId) {
-    const nextWorkspaceId = String(workspaceId || "");
-    if (!nextWorkspaceId || nextWorkspaceId === this.selectedWorkspaceId || this.busy) return;
-    this.selectedWorkspaceId = nextWorkspaceId;
-    this.fileFilter = "";
-    this.selectedHash = "";
-    this.selectedPath = "";
-    this.selectedDiff = null;
-    this.diffError = "";
-    this.previewOpen = false;
-    this.preview = null;
-    await this.refresh({ keepSelection: false, skipWorkspaceLoad: true });
   },
 
   hasHistory() {
@@ -333,7 +261,6 @@ const model = {
     try {
       const response = await callJsonApi(apiPath("history_diff"), {
         context_id: this.contextId,
-        workspace_id: this.selectedWorkspaceId,
         commit_hash: row.kind === "present" ? this.payload?.current_hash || "" : row.hash,
         path: file.path || file.old_path,
         mode: row.kind === "present" ? "present" : "commit",
@@ -356,7 +283,6 @@ const model = {
     try {
       const response = await callJsonApi(apiPath("history_snapshot"), {
         context_id: this.contextId,
-        workspace_id: this.selectedWorkspaceId,
         trigger: "manual",
       });
       if (!response?.ok) throw new Error(response?.error || "Snapshot failed.");
@@ -382,7 +308,6 @@ const model = {
     try {
       const response = await callJsonApi(apiPath("history_preview"), {
         context_id: this.contextId,
-        workspace_id: this.selectedWorkspaceId,
         operation,
         commit_hash: target.hash,
       });
@@ -414,7 +339,6 @@ const model = {
     try {
       const response = await callJsonApi(apiPath(endpoint), {
         context_id: this.contextId,
-        workspace_id: this.selectedWorkspaceId,
         commit_hash: this.preview.commit_hash,
         metadata: { source: "time_travel_ui" },
       });
@@ -468,7 +392,12 @@ const model = {
     if (!value) return "";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
-    return formatDateTime(value, "short");
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   },
 
   formatSigned(value, sign) {

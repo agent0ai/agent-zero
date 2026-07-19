@@ -7,7 +7,6 @@ import {
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js";
-import { getCurrentUserISOString, getUserTimezone } from "/js/time-utils.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024;
 const TOAST_DURATION = 5;
@@ -17,7 +16,7 @@ websocket.addHandlers(["ws_dev_test"]);
 const stateSocket = websocket; // same /ws namespace client
 
 function now() {
-  return getCurrentUserISOString();
+  return new Date().toISOString();
 }
 
 function payloadSize(value) {
@@ -460,7 +459,7 @@ const model = {
       await this.ensureSubscribed("state_push", true);
       this.appendLog("Subscribed to state_push.");
 
-      const timezone = getUserTimezone();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const response = await stateSocket.request(
         "state_request",
         {

@@ -168,7 +168,7 @@ Fix required: version missing in plugin.yaml, inline error box in webui/settings
 ## References
 
 - Detailed pattern checklists: read `checklists.md` in this skill directory
-- Plugin architecture: `/a0/plugins/AGENTS.md`
+- Plugin architecture: `/a0/docs/agents/AGENTS.plugins.md`
 - Developer lifecycle guide: `/a0/docs/developer/plugins.md`
-- Component system: `/a0/webui/components/AGENTS.md`
+- Component system: `/a0/docs/agents/AGENTS.components.md`
 - If review passes and user wants to publish: read `/a0/skills/a0-contribute-plugin/SKILL.md`

@@ -9,17 +9,111 @@
     <template x-if="$store.office">
       <div class="office-panel" x-create="$store.office.onMount($el, xAttrs($el) || {})" x-destroy="$store.office.cleanup()">
         <div class="office-shell">
+          <div class="office-document-header" x-show="$store.office.hasActiveFile()" style="display: none;">
+            <div class="office-document-title" :title="$store.office.tabLabel($store.office.session)">
+              <span class="material-symbols-outlined office-document-icon" aria-hidden="true" x-text="$store.office.tabIcon($store.office.session)"></span>
+              <span class="office-document-name" x-text="$store.office.tabTitle($store.office.session)"></span>
+              <span class="office-document-dirty" x-show="$store.office.dirty" aria-hidden="true">*</span>
+            </div>
+
+            <button
+              type="button"
+              class="office-icon-button office-document-save-button"
+              title="Save"
+              aria-label="Save"
+              :class="{ 'is-primary': $store.office.dirty }"
+              :disabled="$store.office.saving"
+              @click="$store.office.save()"
+            >
+              <span class="material-symbols-outlined" :class="{ spinning: $store.office.saving }" x-text="$store.office.saving ? 'progress_activity' : 'save'"></span>
+            </button>
+
+            <div class="office-file-actions" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+              <button
+                type="button"
+                class="office-icon-button office-file-menu-button"
+                title="File actions"
+                aria-label="File actions"
+                aria-haspopup="menu"
+                :aria-expanded="open.toString()"
+                :disabled="$store.office.saving"
+                @click.stop="open = !open"
+              >
+                <span class="material-symbols-outlined">more_vert</span>
+              </button>
+              <div class="office-new-menu office-file-menu" role="menu" x-show="open" @click.stop>
+                <button type="button" class="office-new-menu-item" role="menuitem" :disabled="$store.office.saving" @click="open = false; $store.office.renameActiveFile()">
+                  <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                  <span>Rename</span>
+                </button>
+                <button type="button" class="office-new-menu-item" role="menuitem" :disabled="$store.office.loading" @click="open = false; $store.office.closeActiveFile()">
+                  <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                  <span>Close File</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="office-toolbar" x-show="$store.office.session && $store.office.isMarkdown()" style="display: none;">
+            <div class="office-toolbar-row">
+              <div class="office-tool-group office-editor-tools">
+                <button type="button" class="office-icon-button" title="Undo" aria-label="Undo" :disabled="!$store.office.canUndo()" @click="$store.office.undo()">
+                  <span class="material-symbols-outlined">undo</span>
+                </button>
+                <button type="button" class="office-icon-button" title="Redo" aria-label="Redo" :disabled="!$store.office.canRedo()" @click="$store.office.redo()">
+                  <span class="material-symbols-outlined">redo</span>
+                </button>
+                <button type="button" class="office-icon-button" title="Bold" aria-label="Bold" @click="$store.office.format('bold')">
+                  <span class="material-symbols-outlined">format_bold</span>
+                </button>
+                <button type="button" class="office-icon-button" title="Italic" aria-label="Italic" @click="$store.office.format('italic')">
+                  <span class="material-symbols-outlined">format_italic</span>
+                </button>
+                <button type="button" class="office-icon-button" title="List" aria-label="List" @click="$store.office.format('list')">
+                  <span class="material-symbols-outlined">format_list_bulleted</span>
+                </button>
+                <button type="button" class="office-icon-button" title="Numbered list" aria-label="Numbered list" @click="$store.office.format('numbered')">
+                  <span class="material-symbols-outlined">format_list_numbered</span>
+                </button>
+                <button type="button" class="office-icon-button" title="Table" aria-label="Table" @click="$store.office.format('table')">
+                  <span class="material-symbols-outlined">table</span>
+                </button>
+              </div>
+              <span class="office-toolbar-spacer"></span>
+            </div>
+          </div>
+
           <div class="office-state-line" x-show="$store.office.message || $store.office.error || $store.office.loading" style="display: none;">
             <span class="material-symbols-outlined" :class="{ spinning: $store.office.loading }" x-text="$store.office.loading ? 'progress_activity' : ($store.office.error ? 'error' : 'check_circle')"></span>
             <span x-text="$store.office.error || $store.office.message || 'Working'"></span>
           </div>
 
-          <div class="office-body">
-            <div class="office-empty" x-show="!$store.office.loading" style="display: none;">
+          <div class="office-body" :class="{ 'is-source': $store.office.isMarkdown() }">
+            <div class="office-editor-wrap" x-show="$store.office.session" style="display: none;">
+              <div class="office-editor-scroll is-source" @click.self="$store.office.focusEditor()">
+                <textarea
+                  class="office-source-editor"
+                  data-office-source
+                  aria-label="Markdown source"
+                  x-show="$store.office.isMarkdown()"
+                  x-model="$store.office.editorText"
+                  @input="$store.office.onSourceInput()"
+                  @blur="$store.office.flushInput()"
+                  spellcheck="true"
+                  style="display: none;"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="office-empty" x-show="!$store.office.session && !$store.office.loading" style="display: none;">
               <div class="office-empty-actions">
                 <button type="button" class="office-icon-button office-command-button" @click="$store.office.runNewMenuAction('open')">
                   <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
                   <span class="office-button-label">Open</span>
+                </button>
+                <button type="button" class="office-icon-button office-command-button" @click="$store.office.runNewMenuAction('markdown')">
+                  <span class="material-symbols-outlined" aria-hidden="true">article</span>
+                  <span class="office-button-label">Markdown</span>
                 </button>
                 <button type="button" class="office-icon-button office-command-button" @click="$store.office.runNewMenuAction('writer')">
                   <span class="material-symbols-outlined" aria-hidden="true">description</span>
@@ -83,6 +177,8 @@
       grid-template-columns: minmax(0, 1fr) auto auto;
     }
 
+    .office-document-header,
+    .office-toolbar,
     .office-state-line {
       display: flex;
       align-items: center;
@@ -90,8 +186,26 @@
       border-bottom: 1px solid var(--color-border);
       padding: 8px 10px;
       min-width: 0;
-      font-size: 13px;
-      color: var(--color-muted);
+    }
+
+    .office-document-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .office-document-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .office-document-dirty {
+      color: var(--color-accent);
     }
 
     .office-icon-button {
@@ -115,6 +229,15 @@
     .office-icon-button:disabled {
       cursor: default;
       opacity: 0.55;
+    }
+
+    .office-document-save-button.is-primary {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+
+    .office-file-actions {
+      position: relative;
     }
 
     .office-new-menu {
@@ -149,6 +272,15 @@
       background: var(--color-surface);
     }
 
+    .office-toolbar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .office-tool-group,
     .office-empty-actions {
       display: flex;
       align-items: center;
@@ -156,10 +288,42 @@
       gap: 6px;
     }
 
+    .office-toolbar-spacer {
+      flex: 1 1 auto;
+    }
+
+    .office-state-line {
+      font-size: 13px;
+      color: var(--color-muted);
+    }
+
     .office-body {
       display: flex;
       flex: 1 1 auto;
       min-height: 0;
+    }
+
+    .office-editor-wrap,
+    .office-editor-scroll {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .office-source-editor {
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      resize: none;
+      border: 0;
+      outline: none;
+      padding: 16px;
+      background: var(--color-background);
+      color: var(--color-text);
+      font: 14px/1.55 var(--font-mono, monospace);
     }
 
     .office-empty {
@@ -200,6 +364,8 @@
     }
 
     @container (max-width: 560px) {
+      .office-document-header,
+      .office-toolbar,
       .office-state-line {
         padding: 7px;
       }

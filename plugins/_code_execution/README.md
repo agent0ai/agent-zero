@@ -17,15 +17,12 @@ This plugin provides the code execution tool used by agents for development task
 
 - **Persistent shells**
   - Maintains per-session shell state in agent data so subsequent calls can reuse the same terminal session.
-  - Groups multi-line terminal input in the current shell so only the final prompt marks the command complete.
 - **Multiple runtimes**
   - Dispatches requests based on `runtime`: `terminal`, `python`, `nodejs`, `output`, or `reset`.
 - **Remote execution support**
   - Can open SSH interactive sessions instead of local shells when configured.
 - **Streaming output**
   - Continuously reads shell output, updates the current log item, and detects progress while commands are running.
-- **Long-running work**
-  - Keeps normal command execution responsive while giving the `output` runtime longer polling windows for builds, installs, servers, tests, and training jobs.
 - **Safety around running sessions**
   - Tracks whether a shell is currently busy and can prevent overlapping commands unless explicitly allowed.
 

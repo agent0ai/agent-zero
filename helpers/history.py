@@ -40,12 +40,9 @@ MessageContent = Union[
 ]
 
 
-class OutputMessage(TypedDict, total=False):
+class OutputMessage(TypedDict):
     ai: bool
     content: MessageContent
-    metadata: dict[str, Any]
-    id: str
-    sequence: int
 
 
 class Record:
@@ -85,20 +82,10 @@ class Record:
 
 
 class Message(Record):
-    def __init__(
-        self,
-        ai: bool,
-        content: MessageContent,
-        tokens: int = 0,
-        id: str = "",
-        metadata: dict[str, Any] | None = None,
-        sequence: int = 0,
-    ):
+    def __init__(self, ai: bool, content: MessageContent, tokens: int = 0, id: str = ""):
         self.id = id or str(uuid.uuid4())
         self.ai = ai
         self.content = content
-        self.metadata = metadata or {}
-        self.sequence = sequence
         self.summary: str = ""
         self.tokens: int = tokens or self.calculate_tokens()
 
@@ -119,15 +106,7 @@ class Message(Record):
         return False
 
     def output(self):
-        return [
-            OutputMessage(
-                ai=self.ai,
-                content=self.summary or self.content,
-                metadata=self.metadata,
-                id=self.id,
-                sequence=self.sequence,
-            )
-        ]
+        return [OutputMessage(ai=self.ai, content=self.summary or self.content)]
 
     def output_langchain(self):
         return output_langchain(self.output())
@@ -141,8 +120,6 @@ class Message(Record):
             "id": self.id,
             "ai": self.ai,
             "content": self.content,
-            "metadata": self.metadata,
-            "sequence": self.sequence,
             "summary": self.summary,
             "tokens": self.tokens,
         }
@@ -150,21 +127,7 @@ class Message(Record):
     @staticmethod
     def from_dict(data: dict, history: "History"):
         content = data.get("content", "Content lost")
-        metadata = data.get("metadata", {})
-        metadata = metadata if isinstance(metadata, dict) else {}
-        if data["ai"]:
-            from helpers.llm_result import result_from_metadata
-
-            result = result_from_metadata(metadata)
-            if result:
-                metadata = {**metadata, **result.metadata()}
-        msg = Message(
-            ai=data["ai"],
-            content=content,
-            id=data.get("id", ""),
-            metadata=metadata,
-            sequence=int(data.get("sequence", 0) or 0),
-        )
+        msg = Message(ai=data["ai"], content=content, id=data.get("id", ""))
         msg.summary = data.get("summary", "")
         msg.tokens = data.get("tokens", 0)
         return msg
@@ -183,22 +146,9 @@ class Topic(Record):
             return sum(msg.get_tokens() for msg in self.messages)
 
     def add_message(
-        self,
-        ai: bool,
-        content: MessageContent,
-        tokens: int = 0,
-        id: str = "",
-        metadata: dict[str, Any] | None = None,
-        sequence: int = 0,
+        self, ai: bool, content: MessageContent, tokens: int = 0, id: str = ""
     ) -> Message:
-        msg = Message(
-            ai=ai,
-            content=content,
-            tokens=tokens,
-            id=id,
-            metadata=metadata,
-            sequence=sequence,
-        )
+        msg = Message(ai=ai, content=content, tokens=tokens, id=id)
         self.messages.append(msg)
         return msg
 
@@ -385,22 +335,10 @@ class History(Record):
         return self.current.get_tokens()
 
     def add_message(
-        self,
-        ai: bool,
-        content: MessageContent,
-        tokens: int = 0,
-        id: str = "",
-        metadata: dict[str, Any] | None = None,
+        self, ai: bool, content: MessageContent, tokens: int = 0, id: str = ""
     ) -> Message:
         self.counter += 1
-        return self.current.add_message(
-            ai,
-            content=content,
-            tokens=tokens,
-            id=id,
-            metadata=metadata,
-            sequence=self.counter,
-        )
+        return self.current.add_message(ai, content=content, tokens=tokens, id=id)
 
     def new_topic(self):
         if self.current.messages:
@@ -414,35 +352,6 @@ class History(Record):
         result += [m for t in self.topics for m in t.output()]
         result += self.current.output()
         return result
-
-    def messages_since(self, sequence: int) -> list[Message]:
-        return [
-            message
-            for message in self.all_messages()
-            if int(message.sequence or 0) > int(sequence or 0)
-        ]
-
-    def all_messages(self) -> list[Message]:
-        messages: list[Message] = []
-        for bulk in self.bulks:
-            messages.extend(_messages_from_record(bulk))
-        for topic in self.topics:
-            messages.extend(topic.messages)
-        messages.extend(self.current.messages)
-        return messages
-
-    def latest_llm_result_for_model(self, provider_model_key: str):
-        from helpers.llm_result import result_from_metadata
-
-        for message in reversed(self.all_messages()):
-            if not message.ai:
-                continue
-            result = result_from_metadata(message.metadata)
-            if not result:
-                continue
-            if result.provider_model_key == provider_model_key and result.response_id:
-                return result
-        return None
 
     def trim_embeds(self, max_embeds: int) -> int:
         if max_embeds == -1:
@@ -731,28 +640,6 @@ def output_text(messages: list[OutputMessage], ai_label="ai", human_label="human
     return "\n".join(_stringify_output(o, ai_label, human_label) for o in messages)
 
 
-def clear_responses_provider_state(agent) -> None:
-    key = getattr(agent, "DATA_NAME_RESPONSES_STATE", "responses_state")
-    get_data = getattr(agent, "get_data", None)
-    set_data = getattr(agent, "set_data", None)
-    if not callable(get_data) or not callable(set_data):
-        return
-
-    state = get_data(key)
-    if not isinstance(state, dict):
-        return
-
-    state = dict(state)
-    removed = False
-    for field in ("response_id", "previous_response_id"):
-        if field in state:
-            state.pop(field, None)
-            removed = True
-
-    if removed:
-        set_data(key, state)
-
-
 def _merge_outputs(a: MessageContent, b: MessageContent) -> MessageContent:
     if isinstance(a, str) and isinstance(b, str):
         return a + "\n" + b
@@ -790,19 +677,6 @@ def _is_raw_message(obj: object) -> bool:
 
 def _is_embedded_data(obj: object) -> bool:
     return isinstance(obj, Mapping) and obj.get("type") == "image_url"
-
-
-def _messages_from_record(record: Record) -> list[Message]:
-    if isinstance(record, Message):
-        return [record]
-    if isinstance(record, Topic):
-        return list(record.messages)
-    if isinstance(record, Bulk):
-        messages: list[Message] = []
-        for nested in record.records:
-            messages.extend(_messages_from_record(nested))
-        return messages
-    return []
 
 
 def _json_dumps(obj):

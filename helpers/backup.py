@@ -9,7 +9,6 @@ from typing import List, Dict, Any, Optional
 from pathspec import PathSpec
 
 from helpers import files, runtime, git
-from helpers.localization import Localization
 from helpers.print_style import PrintStyle
 
 
@@ -36,7 +35,7 @@ class BackupService:
 
     def get_default_backup_metadata(self) -> Dict[str, Any]:
         """Get default backup patterns and metadata"""
-        timestamp = Localization.get().now_iso()
+        timestamp = datetime.datetime.now().isoformat()
 
         default_patterns = self._get_default_patterns()
         include_patterns, exclude_patterns = self._parse_patterns(default_patterns)
@@ -63,7 +62,6 @@ class BackupService:
         return f"""# User data
 # All persistent user data is now centralized in /usr for easier backup and restore
 {agent_root}/usr/**
-!{agent_root}/usr/.time_travel/**
 """
 
     def _get_agent_zero_version(self) -> str:
@@ -146,7 +144,7 @@ class BackupService:
                 "home": os.environ.get("HOME", "unknown"),
                 "shell": os.environ.get("SHELL", "unknown"),
                 "path": os.environ.get("PATH", "")[:200] + "..." if len(os.environ.get("PATH", "")) > 200 else os.environ.get("PATH", ""),
-                "timezone": Localization.get().get_timezone(),
+                "timezone": str(datetime.datetime.now().astimezone().tzinfo),
                 "working_directory": os.getcwd(),
                 "agent_zero_root": files.get_abs_path(""),
                 "runtime_mode": "development" if runtime.is_development() else "production"
@@ -241,12 +239,8 @@ class BackupService:
 
         return translated_patterns
 
-    async def test_patterns(self, metadata: Dict[str, Any], max_files: Optional[int] = 1000) -> List[Dict[str, Any]]:
-        """Test backup patterns and return list of matched files.
-
-        Pass max_files=None for internal flows that must process the complete
-        match set, such as backup creation and restore cleanup.
-        """
+    async def test_patterns(self, metadata: Dict[str, Any], max_files: int = 1000) -> List[Dict[str, Any]]:
+        """Test backup patterns and return list of matched files"""
         include_patterns = metadata.get("include_patterns", [])
         exclude_patterns = metadata.get("exclude_patterns", [])
         include_hidden = metadata.get("include_hidden", True)
@@ -263,7 +257,6 @@ class BackupService:
         # Get explicit patterns for hidden file handling
         explicit_patterns = self._get_explicit_patterns(include_patterns)
 
-        has_limit = max_files is not None
         matched_files = []
         processed_count = 0
 
@@ -291,7 +284,7 @@ class BackupService:
                         dirs[:] = dirs_to_keep
 
                     for file in files_list:
-                        if has_limit and processed_count >= max_files:
+                        if processed_count >= max_files:
                             break
 
                         file_path = os.path.join(root, file)
@@ -312,10 +305,7 @@ class BackupService:
                                     "path": pattern_path,
                                     "real_path": file_path,
                                     "size": stat.st_size,
-                                    "modified": datetime.datetime.fromtimestamp(
-                                        stat.st_mtime,
-                                        tz=Localization.get().get_tzinfo(),
-                                    ).isoformat(),
+                                    "modified": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
                                     "type": "file"
                                 })
                                 processed_count += 1
@@ -323,10 +313,10 @@ class BackupService:
                                 # Skip files we can't access
                                 continue
 
-                    if has_limit and processed_count >= max_files:
+                    if processed_count >= max_files:
                         break
 
-                if has_limit and processed_count >= max_files:
+                if processed_count >= max_files:
                     break
 
         except Exception as e:
@@ -350,10 +340,8 @@ class BackupService:
             "include_hidden": include_hidden
         }
 
-        # Get the complete matched file set. Preview and dry-run callers may
-        # cap their scans for UI responsiveness, but the archive itself must be
-        # complete.
-        matched_files = await self.test_patterns(metadata, max_files=None)
+        # Get matched files
+        matched_files = await self.test_patterns(metadata, max_files=50000)
 
         if not matched_files:
             raise Exception("No files matched the backup patterns")
@@ -368,7 +356,7 @@ class BackupService:
                 metadata = {
                     # Basic backup information
                     "agent_zero_version": self.agent_zero_version,
-                    "timestamp": Localization.get().now_iso(),
+                    "timestamp": datetime.datetime.now().isoformat(),
                     "backup_name": backup_name,
                     "include_hidden": include_hidden,
 
@@ -710,7 +698,7 @@ class BackupService:
                                 })
                                 continue
                             elif overwrite_policy == "backup":
-                                timestamp = Localization.get().now().strftime('%Y%m%d_%H%M%S')
+                                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                                 backup_path = f"{target_path}.backup.{timestamp}"
                                 import shutil
                                 shutil.move(target_path, backup_path)
@@ -832,7 +820,7 @@ class BackupService:
 
         # Find existing files that match the translated user-edited patterns
         try:
-            existing_files = await self.test_patterns(metadata, max_files=None)
+            existing_files = await self.test_patterns(metadata, max_files=10000)
 
             # Convert to delete operations format
             files_to_delete = []

@@ -3,12 +3,6 @@ import { getContext } from "/index.js";
 import * as API from "/js/api.js";
 import { openModal, closeModal } from "/js/modals.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
-import {
-  getCurrentUserDateString,
-  getCurrentUserISOString,
-  getUserHour12,
-  getUserTimezone,
-} from "/js/time-utils.js";
 const MEMORY_DASHBOARD_API = "/plugins/_memory/memory_dashboard";
 
 // Helper function for toasts
@@ -413,7 +407,7 @@ ${memory.content_full}
     if (selectedMemories.length === 0) return;
 
     const exportData = {
-      export_timestamp: getCurrentUserISOString(),
+      export_timestamp: new Date().toISOString(),
       memory_subdir: this.selectedMemorySubdir,
       total_memories: selectedMemories.length,
       memories: selectedMemories.map((memory) => ({
@@ -432,7 +426,7 @@ ${memory.content_full}
     const blob = new Blob([jsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
-    const timestamp = getCurrentUserDateString();
+    const timestamp = new Date().toISOString().split("T")[0];
     const filename = `memories_${this.selectedMemorySubdir}_selected_${selectedMemories.length}_${timestamp}.json`;
 
     const a = document.createElement("a");
@@ -474,28 +468,34 @@ ${memory.content_full}
     }
 
     if (compact) {
-      const hour12 = getUserHour12();
       // For table display: MM/DD HH:mm
-      return new Intl.DateTimeFormat("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        hour12,
-        hour: hour12 ? "numeric" : "2-digit",
-        minute: "2-digit",
-        timeZone: getUserTimezone(),
-      }).format(date);
+      return (
+        date.toLocaleDateString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+        }) +
+        " " +
+        date.toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
     } else {
-      const hour12 = getUserHour12();
       // For details: Full format
-      return new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour12,
-        hour: hour12 ? "numeric" : "2-digit",
-        minute: "2-digit",
-        timeZone: getUserTimezone(),
-      }).format(date);
+      return (
+        date.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }) +
+        " at " +
+        date.toLocaleTimeString("en-US", {
+          hour12: true,
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      );
     }
   },
 
@@ -593,7 +593,7 @@ ${memory.content_full}
     try {
       const exportData = {
         memory_subdir: this.selectedMemorySubdir,
-        export_timestamp: getCurrentUserISOString(),
+        export_timestamp: new Date().toISOString(),
         total_memories: this.memories.length,
         search_query: this.searchQuery,
         area_filter: this.areaFilter,
@@ -613,7 +613,7 @@ ${memory.content_full}
       const a = document.createElement("a");
       a.href = url;
       a.download = `memory-export-${this.selectedMemorySubdir}-${
-        getCurrentUserDateString()
+        new Date().toISOString().split("T")[0]
       }.json`;
       document.body.appendChild(a);
       a.click();

@@ -1,11 +1,12 @@
 """Core compaction logic for the compaction plugin."""
 import os
 from collections import deque
+from datetime import datetime
 
 import models as models_module
 from agent import Agent
-from helpers import files, tokens
-from helpers.history import History, clear_responses_provider_state, output_text
+from helpers import tokens
+from helpers.history import History, output_text
 from helpers.persist_chat import (
     export_json_chat,
     get_chat_folder_path,
@@ -13,7 +14,6 @@ from helpers.persist_chat import (
     remove_msg_files,
 )
 from helpers.state_monitor_integration import mark_dirty_all
-from helpers.localization import Localization
 
 MIN_COMPACTION_TOKENS = 1000
 COMPACTION_CHUNK_TARGET_RATIO = 0.9
@@ -34,7 +34,7 @@ def _save_pre_compaction_backup(context, full_text: str) -> dict[str, str]:
 
     Returns dict with 'json' and 'txt' absolute file paths.
     """
-    timestamp = Localization.get().now().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_dir = os.path.join(get_chat_folder_path(context.id), "backups")
     os.makedirs(backup_dir, exist_ok=True)
 
@@ -42,8 +42,11 @@ def _save_pre_compaction_backup(context, full_text: str) -> dict[str, str]:
     txt_path = os.path.join(backup_dir, f"pre-compact-{timestamp}.txt")
 
     json_content = export_json_chat(context)
-    files.write_file(json_path, json_content)
-    files.write_file(txt_path, full_text)
+    with open(json_path, "w", encoding="utf-8") as f:
+        f.write(json_content)
+
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(full_text)
 
     return {"json": json_path, "txt": txt_path}
 
@@ -145,7 +148,6 @@ async def run_compaction(
 
         agent.history = History(agent=agent)
         agent.history.add_message(ai=True, content=compacted_content)
-        clear_responses_provider_state(agent)
         
         # Clear subordinate chain
         agent.data.pop(Agent.DATA_NAME_SUBORDINATE, None)

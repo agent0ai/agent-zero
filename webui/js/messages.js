@@ -3,23 +3,17 @@ import { store as imageViewerStore } from "../components/modals/image-viewer/ima
 import { marked } from "../vendor/marked/marked.esm.js";
 import { store as _messageResizeStore } from "/components/messages/resize/message-resize-store.js"; // keep here, required in html
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
-import { ttsService } from "/js/tts-service.js";
+import { store as speechStore } from "/components/chat/speech/speech-store.js";
 import {
   createActionButton,
   copyToClipboard,
 } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as stepDetailStore } from "/components/modals/process-step-detail/step-detail-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
-import {
-  formatDateTime,
-  formatDuration,
-  getUserHour12,
-  getUserTimezone,
-} from "./time-utils.js";
+import { formatDuration } from "./time-utils.js";
 import { Scroller } from "./scroller.js";
 import { callJsExtensions } from "/js/extensions.js";
 import { addBlankTargetsToLinks } from "/js/html-links.js";
-import { sanitizeHtml } from "/js/safe-markdown.js";
 
 // Delay before collapsing previous steps when a new step is added
 const STEP_COLLAPSE_DELAY = {
@@ -119,8 +113,6 @@ export async function getMessageHandler(type) {
       return drawMessageUtil;
     case "hint":
       return drawMessageHint;
-    case "model_setup_gate":
-      return drawMessageModelSetupGate;
     default:
       return await getHandlerFromExtensions(type);
   }
@@ -139,9 +131,6 @@ export async function getMessageHandler(type) {
 // entrypoint called from poll/WS communication, this is how all messages are rendered and updated
 // input is raw log format
 export async function setMessages(messages) {
-  messages = Array.isArray(messages) ? [...messages].filter(Boolean) : [];
-  messages.sort((a, b) => (a.no ?? Number.MAX_SAFE_INTEGER) - (b.no ?? Number.MAX_SAFE_INTEGER));
-
   const context = {
     messages,
     history: getChatHistoryEl(),
@@ -696,7 +685,7 @@ export function _drawMessage({
   const scroller = new Scroller(bodyDiv, { smooth: !isMassRender() });
 
   // Handle KVPs incrementally
-  drawKvpsIncremental(bodyDiv, kvps);
+  drawKvpsIncremental(bodyDiv, kvps, false);
 
   // Handle content
   if (content && content.trim().length > 0) {
@@ -715,15 +704,10 @@ export function _drawMessage({
       // }
 
       let processedContent = content;
-      if (latex) processedContent = convertLatexDelimiters(processedContent);
       processedContent = convertImageTags(processedContent);
       processedContent = convertImgFilePaths(processedContent);
       processedContent = convertFilePaths(processedContent);
       processedContent = marked.parse(processedContent, { breaks: true });
-      processedContent = sanitizeHtml(processedContent, {
-        allowDataImages: true,
-        allowLatex: latex,
-      });
       processedContent = convertPathsToLinks(processedContent);
       processedContent = addBlankTargetsToLinks(processedContent);
 
@@ -733,7 +717,11 @@ export function _drawMessage({
 
       // KaTeX rendering for markdown
       if (latex) {
-        renderLatexElements(contentDiv);
+        contentDiv.querySelectorAll("latex").forEach((element) => {
+          globalThis.katex.render(element.innerHTML, element, {
+            throwOnError: false,
+          });
+        });
       }
 
       adjustMarkdownRender(contentDiv);
@@ -791,7 +779,7 @@ export function drawMessageDefault({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -844,14 +832,14 @@ export function drawMessageAgent({
 
   if (thoughtsText.trim()) {
     actionButtons.push(
-      createActionButton("speak", "", () => ttsService.speak(thoughtsText)),
+      createActionButton("speak", "", () => speechStore.speak(thoughtsText)),
     );
     actionButtons.push(
       createActionButton("copy", "", () => copyToClipboard(thoughtsText)),
     );
   }
 
-  const result = drawProcessStep({
+  return drawProcessStep({
     id,
     title,
     code: "GEN",
@@ -860,8 +848,6 @@ export function drawMessageAgent({
     actionButtons,
     log: arguments[0],
   });
-  if (result.kvpsTable) renderLatexText(result.kvpsTable);
-  return result;
 }
 
 /**
@@ -884,7 +870,7 @@ export function drawMessageResponse({
     const contentText = String(content ?? "");
     const actionButtons = contentText.trim()
       ? [
-          createActionButton("speak", "", () => ttsService.speak(contentText)),
+          createActionButton("speak", "", () => speechStore.speak(contentText)),
           createActionButton("copy", "", () => copyToClipboard(contentText)),
         ].filter(Boolean)
       : [];
@@ -951,7 +937,7 @@ export function drawMessageResponse({
   const responseText = String(content ?? "");
   const responseActionButtons = responseText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(responseText)),
+        createActionButton("speak", "", () => speechStore.speak(responseText)),
         createActionButton("copy", "", () => copyToClipboard(responseText)),
       ].filter(Boolean)
     : [];
@@ -963,22 +949,6 @@ export function drawMessageResponse({
   );
 
   if (group) updateProcessGroupHeader(group);
-
-  return { element: container };
-}
-
-export function drawMessageModelSetupGate({ id }) {
-  const container = getOrCreateMessageContainer(id, "left");
-  container.classList.add("model-setup-gate-container");
-  container.innerHTML = "";
-
-  const messageDiv = document.createElement("div");
-  messageDiv.className = "message message-agent-response model-setup-gate-message";
-
-  const component = document.createElement("x-component");
-  component.setAttribute("path", "chat/model-setup-gate.html");
-  messageDiv.appendChild(component);
-  container.appendChild(messageDiv);
 
   return { element: container };
 }
@@ -1110,7 +1080,7 @@ export function drawMessageUser({
   const userText = String(content ?? "");
   const userActionButtons = userText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(userText)),
+        createActionButton("speak", "", () => speechStore.speak(userText)),
         createActionButton("copy", "", () => copyToClipboard(userText)),
       ].filter(Boolean)
     : [];
@@ -1200,7 +1170,7 @@ export function drawMessageToolSimple({
             buildDetailPayload(arguments[0], { headerLabels }),
           ),
         ),
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1245,7 +1215,7 @@ export function drawMessageMcp({
             buildDetailPayload(arguments[0], { headerLabels }),
           ),
         ),
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1290,7 +1260,7 @@ export function drawMessageSubagent({
             buildDetailPayload(arguments[0], { headerLabels }),
           ),
         ),
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1324,7 +1294,7 @@ export function drawMessageInfo({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1360,7 +1330,7 @@ export function drawMessageUtil({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1399,7 +1369,7 @@ export function drawMessageHint({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1467,7 +1437,7 @@ export function drawMessageWarning({
   const contentText = String(content ?? "");
   const actionButtons = contentText.trim()
     ? [
-        createActionButton("speak", "", () => ttsService.speak(contentText)),
+        createActionButton("speak", "", () => speechStore.speak(contentText)),
         createActionButton("copy", "", () => copyToClipboard(contentText)),
       ].filter(Boolean)
     : [];
@@ -1547,7 +1517,7 @@ export function drawMessageError({
   return { element };
 }
 
-function drawKvpsIncremental(container, kvps) {
+function drawKvpsIncremental(container, kvps, latex) {
   // existing KVPS table
   let table = container.querySelector(".msg-kvps");
   if (kvps) {
@@ -1643,6 +1613,15 @@ function drawKvpsIncremental(container, kvps) {
         const span = document.createElement("p");
         span.innerHTML = convertHTML(value);
         tdiv.appendChild(span);
+
+        // KaTeX rendering for markdown
+        if (latex) {
+          span.querySelectorAll("latex").forEach((element) => {
+            globalThis.katex.render(element.innerHTML, element, {
+              throwOnError: false,
+            });
+          });
+        }
       }
     }
   } else {
@@ -1684,41 +1663,6 @@ function convertHTML(str) {
   result = convertImageTags(result);
   result = convertPathsToLinks(result);
   return result;
-}
-
-function convertLatexDelimiters(content) {
-  return content.replace(
-    /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)|\$\$([\s\S]*?)\$\$/g,
-    (match, code, display, inline, dollars) => {
-      if (code) return code;
-      const tex = display ?? inline ?? dollars;
-      const displayAttribute =
-        display !== undefined || dollars !== undefined
-          ? ' data-display="true"'
-          : "";
-      const encodedTex = Array.from(
-        tex.trim(),
-        (char) => `&#${char.codePointAt(0)};`,
-      ).join("");
-      return `<latex${displayAttribute}>${encodedTex}</latex>`;
-    },
-  );
-}
-
-function renderLatexElements(container) {
-  container.querySelectorAll("latex").forEach((element) => {
-    globalThis.katex.render(element.textContent, element, {
-      displayMode: element.dataset.display === "true",
-      throwOnError: false,
-    });
-  });
-}
-
-function renderLatexText(container) {
-  globalThis.renderMathInElement(container, {
-    throwOnError: false,
-    errorCallback: () => {},
-  });
 }
 
 function convertImgFilePaths(str) {
@@ -2147,15 +2091,14 @@ function updateProcessGroupHeader(group) {
   const startTimestamp = group.getAttribute("data-start-timestamp");
   if (timeMetricEl && startTimestamp) {
     const date = new Date(parseFloat(startTimestamp) * 1000);
-    const hour12 = getUserHour12();
-    timeMetricEl.textContent = new Intl.DateTimeFormat(undefined, {
-      hour: hour12 ? "numeric" : "2-digit",
-      minute: "2-digit",
-      hour12,
-      timeZone: getUserTimezone(),
-    }).format(date);
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    timeMetricEl.textContent = `${hours}:${minutes}`;
     if (timeMetricContainerEl) {
-      const fullDateTime = formatDateTime(date.toISOString(), "short");
+      const fullDateTime = date.toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
       timeMetricContainerEl.title =
         timeMetricContainerEl.dataset.bsOriginalTitle = fullDateTime;
     }

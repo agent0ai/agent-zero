@@ -1,6 +1,5 @@
 import { io } from "/vendor/socket.io.esm.min.js";
 import { getCsrfToken, getRuntimeId, invalidateCsrfToken } from "/js/api.js";
-import { getCurrentUserISOString } from "/js/time-utils.js";
 
 const MAX_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB hard cap per contract
 const DEFAULT_TIMEOUT_MS = 0;
@@ -334,7 +333,7 @@ class WebSocketClient {
   }
 
   buildPayload(data) {
-    const ts = getCurrentUserISOString();
+    const ts = new Date().toISOString();
     if (data == null) {
       return { ts, data: {} };
     }

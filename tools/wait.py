@@ -1,5 +1,5 @@
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from helpers.tool import Tool, Response
 from helpers.print_style import PrintStyle
 from helpers.wait import managed_wait
@@ -18,7 +18,7 @@ class WaitTool(Tool):
 
         is_duration_wait = not bool(until_timestamp_str)
 
-        now = Localization.get().now()
+        now = datetime.now(timezone.utc)
         target_time = None
 
         if until_timestamp_str:
@@ -47,11 +47,11 @@ class WaitTool(Tool):
         
         if target_time <= now:
             return Response(
-                message=f"Target time {Localization.get().serialize_datetime(target_time)} is in the past.",
+                message=f"Target time {target_time.isoformat()} is in the past.",
                 break_loop=False,
             )
 
-        PrintStyle.info(f"Waiting until {Localization.get().serialize_datetime(target_time)}...")
+        PrintStyle.info(f"Waiting until {target_time.isoformat()}...")
 
         target_time = await managed_wait(
             agent=self.agent,
@@ -66,7 +66,7 @@ class WaitTool(Tool):
 
         message = self.agent.read_prompt(
             "fw.wait_complete.md",
-            target_time=Localization.get().serialize_datetime(target_time)
+            target_time=target_time.isoformat()
         )
 
         return Response(

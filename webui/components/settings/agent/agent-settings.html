@@ -22,33 +22,15 @@
                 </a>
               </li>
               <li>
-                <a href="#section-voice">
-                  <img src="/public/speech.svg" alt="Voice" />
-                  <span>Voice</span>
+                <a href="#section-speech">
+                  <img src="/public/speech.svg" alt="Speech" />
+                  <span>Speech</span>
                 </a>
               </li>
               <li>
                 <a href="#section-workdir">
                   <img src="/public/folder.svg" alt="Workdir" />
                   <span>Workdir</span>
-                </a>
-              </li>
-              <li>
-                <a href="#section-locale">
-                  <span class="material-symbols-outlined" aria-hidden="true">language</span>
-                  <span>Locale</span>
-                </a>
-              </li>
-              <li>
-                <a href="#section-interface">
-                  <span class="material-symbols-outlined" aria-hidden="true">dashboard_customize</span>
-                  <span>Interface</span>
-                </a>
-              </li>
-              <li>
-                <a href="#section-agent-plugins">
-                  <span class="material-symbols-outlined" aria-hidden="true">extension</span>
-                  <span>Plugins</span>
                 </a>
               </li>
             </ul>
@@ -62,20 +44,12 @@
             <x-component path="/plugins/_model_config/webui/models-summary.html"></x-component>
           </div>
 
-          <div id="section-voice" class="section">
-            <x-component path="settings/agent/voice.html"></x-component>
+          <div id="section-speech" class="section">
+            <x-component path="settings/agent/speech.html"></x-component>
           </div>
 
           <div id="section-workdir" class="section">
             <x-component path="settings/agent/workdir.html"></x-component>
-          </div>
-
-          <div id="section-locale" class="section">
-            <x-component path="settings/agent/locale.html"></x-component>
-          </div>
-
-          <div id="section-interface" class="section">
-            <x-component path="settings/agent/interface.html"></x-component>
           </div>
 
           <!-- Plugin settings subsection: shows plugins tagged with "agent" -->

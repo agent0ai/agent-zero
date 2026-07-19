@@ -120,11 +120,11 @@ class CloudflareTunnel:
                 return
 
     def start(self):
-        """Starts Cloudflare Tunnel"""
+        """Starts the cloudflare tunnel"""
         if not self.cloudflared_path:
             self.download_cloudflared()
             
-        PrintStyle().print("\nStarting Cloudflare Tunnel...")
+        PrintStyle().print("\nStarting Cloudflare tunnel...")
         # Start tunnel process
         self.tunnel_process = subprocess.Popen(
             [
@@ -147,10 +147,10 @@ class CloudflareTunnel:
         ).start()
 
     def stop(self):
-        """Stops Cloudflare Tunnel"""
+        """Stops the cloudflare tunnel"""
         self._stop_event.set()
         if self.tunnel_process:
-            PrintStyle().print("\nStopping Cloudflare Tunnel...")
+            PrintStyle().print("\nStopping Cloudflare tunnel...")
             self.tunnel_process.terminate()
             self.tunnel_process.wait()
             self.tunnel_process = None

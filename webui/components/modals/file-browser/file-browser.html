@@ -1,30 +1,14 @@
-<html
-  class="surface-modal file-browser-modal modal-no-backdrop"
-  data-surface-id="files"
-  data-surface-modal-path="modals/file-browser/file-browser.html"
-  data-surface-dock-title="Open Files in canvas"
-  data-surface-dock-icon="dock_to_right"
-  data-canvas-surface="files"
-  data-canvas-modal-path="modals/file-browser/file-browser.html"
-  data-canvas-dock-title="Open Files in canvas"
-  data-canvas-dock-icon="dock_to_right"
->
+<html>
 <head>
   <title>File Browser</title>
   <script type="module">
     import { store } from "/components/modals/file-browser/file-browser-store.js";
   </script>
 </head>
-<body class="file-browser-modal-body">
-  <div
-    x-data
-    class="file-browser-shell"
-    :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }"
-    x-create="$store.fileBrowser.onMount($el, xAttrs($el) || {})"
-    x-destroy="$store.fileBrowser.onUnmount(xAttrs($el) || {})"
-  >
+<body>
+  <div x-data>
     <template x-if="$store.fileBrowser">
-      <div class="file-browser-root" :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }">
+      <div class="file-browser-root">
         
         <!-- Loading State -->
         <div x-show="$store.fileBrowser.isLoading" class="loading-state">
@@ -35,45 +19,14 @@
         <!-- File Browser Content -->
         <div x-show="!$store.fileBrowser.isLoading" class="file-browser-content">
                 <!-- Path navigator -->
-              <div class="path-navigator-wrap">
-                <form class="path-navigator" @submit.prevent="$store.fileBrowser.submitPath()">
-                  <button
-                    type="button"
-                    class="nav-button back-button"
-                    @click="$store.fileBrowser.navigateUp()"
-                    :disabled="!$store.fileBrowser.browser.parentPath || $store.fileBrowser.isLoading"
-                    aria-label="Navigate up"
-                    title="Navigate up"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
-                    <span class="nav-button-label">Up</span>
-                  </button>
-                  <div class="path-input-shell" :class="{ 'has-error': $store.fileBrowser.pathError }">
-                    <input
-                      id="current-path"
-                      class="path-input"
-                      type="text"
-                      x-model="$store.fileBrowser.pathInput"
-                      @focus="$event.target.select()"
-                      @keydown.escape.stop.prevent="$store.fileBrowser.resetPathInput()"
-                      :aria-invalid="$store.fileBrowser.pathError ? 'true' : 'false'"
-                      aria-label="Directory path"
-                      spellcheck="false"
-                      autocomplete="off"
-                    />
-                    <button
-                      type="submit"
-                      class="btn-icon-action path-submit"
-                      :disabled="$store.fileBrowser.isPathSubmitting || $store.fileBrowser.isLoading"
-                      aria-label="Go to directory"
-                    >
-                      <span class="material-symbols-outlined">arrow_forward</span>
-                    </button>
-                  </div>
-                </form>
-                <template x-if="$store.fileBrowser.pathError">
-                  <div class="path-error" x-text="$store.fileBrowser.pathError"></div>
-                </template>
+              <div class="path-navigator">
+                <button class="text-button back-button" @click="$store.fileBrowser.navigateUp()" aria-label="Navigate Up">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10.5 15">
+                    <path d="m.75,5.25L5.25.75m0,0l4.5,4.5M5.25.75v13.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
+                  </svg>
+                  Up
+                </button>
+                <div id="current-path"><span id="path-text" x-text="$store.fileBrowser.browser.currentPath"></span></div>
               </div>
               <div class="file-browser-toolbar">
                 <div class="file-search-shell">
@@ -99,25 +52,13 @@
                 </div>
 
                 <div class="new-item-buttons">
-                  <button
-                    type="button"
-                    class="btn btn-ok btn-new-item"
-                    x-show="!$store.fileBrowser.isPickerMode()"
-                    @click="$store.fileBrowser.openNewFile()"
-                    aria-label="New file"
-                    title="New file"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
+                  <button class="btn btn-ok btn-new-item" @click="$store.fileBrowser.openNewFile()">
+                    <span class="material-symbols-outlined">note_add</span>
+                    New File
                   </button>
-                  <button
-                    type="button"
-                    class="btn btn-ok btn-new-item"
-                    x-show="!$store.fileBrowser.isTextOpenPicker()"
-                    @click="$store.fileBrowser.openNewFolderModal()"
-                    aria-label="New folder"
-                    title="New folder"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">create_new_folder</span>
+                  <button class="btn btn-ok btn-new-item" @click="$store.fileBrowser.openNewFolderModal()">
+                    <span class="material-symbols-outlined">create_new_folder</span>
+                    New Folder
                   </button>
                 </div>
               </div>
@@ -143,7 +84,7 @@
                 </div>
               </div>
 
-              <div x-show="$store.fileBrowser.selectedCount > 0 && !$store.fileBrowser.isPickerMode()" class="mass-action-toolbar file-mass-toolbar">
+              <div x-show="$store.fileBrowser.selectedCount > 0" class="mass-action-toolbar file-mass-toolbar">
                 <div class="selection-info" x-text="$store.fileBrowser.selectedCountLabel"></div>
 
                 <div class="mass-actions">
@@ -194,7 +135,7 @@
               </div>
 
               <!-- Files list -->
-              <div class="files-list" @scroll="$store.fileBrowser.closeDropdown()">
+              <div class="files-list">
                 <div class="file-header">
                   <div class="file-cell-select">
                     <input
@@ -202,7 +143,6 @@
                       :checked="$store.fileBrowser.allVisibleSelected"
                       :indeterminate="$store.fileBrowser.someVisibleSelected && !$store.fileBrowser.allVisibleSelected"
                       @change="$store.fileBrowser.toggleSelectAllVisible()"
-                      :disabled="$store.fileBrowser.selectableEntries.length === 0"
                       title="Select visible items"
                       aria-label="Select visible items"
                     />
@@ -221,29 +161,17 @@
                         <input
                           type="checkbox"
                           x-model="file.selected"
-                          :disabled="!$store.fileBrowser.isSelectableEntry(file)"
                           :aria-label="`Select ${file.name}`"
                         />
                       </label>
-                      <div class="file-name" @click="$store.fileBrowser.handleFileNameClick(file)">
+                      <div class="file-name" @click="file.is_dir && $store.fileBrowser.navigateToFolder(file.path)">
                         <img :src="'/public/' + (file.type === 'unknown' ? 'file' : ($store.fileBrowser.isArchive(file.name) ? 'archive' : file.type)) + '.svg'" class="file-icon" :alt="file.type" />
                         <span x-text="file.name"></span>
                       </div>
                       <div class="file-size" x-text="$store.fileBrowser.formatFileSize(file.size)"></div>
                       <div class="file-date" x-text="$store.fileBrowser.formatDate(file.modified)"></div>
-                      <div class="file-actions" x-show="!$store.fileBrowser.isPickerMode()">
-                        <button
-                          type="button"
-                          class="btn-icon-action file-editor-open-action"
-                          x-show="$store.fileBrowser.isEditorSurface(file)"
-                          @click.stop="$store.fileBrowser.openInSurface(file)"
-                          :title="$store.fileBrowser.surfaceActionTitle(file)"
-                          aria-label="Open in Editor"
-                        >
-                          <span class="material-symbols-outlined" aria-hidden="true" x-text="$store.fileBrowser.surfaceActionIcon(file)"></span>
-                        </button>
-
-                        <!-- Secondary single-item actions (Rename/...) are grouped under a dropdown -->
+                      <div class="file-actions">
+                        <!-- Single-item actions (Edit/Rename/...) are grouped under a dropdown -->
                         <div
                           class="dropdown file-actions-dropdown"
                           @click.outside="$store.fileBrowser.closeDropdown()"
@@ -252,7 +180,7 @@
                           <button
                             type="button"
                             class="btn-icon-action dropdown-trigger"
-                            @click.stop="$store.fileBrowser.toggleDropdown(file.path, $event.currentTarget)"
+                            @click.stop="$store.fileBrowser.toggleDropdown(file.path)"
                             :aria-expanded="$store.fileBrowser.isDropdownOpen(file.path).toString()"
                             aria-label="More actions"
                             title="More actions"
@@ -260,66 +188,43 @@
                             <span class="material-symbols-outlined">more_vert</span>
                           </button>
 
-                          <template x-teleport="body">
-                            <div
-                              class="dropdown-menu file-actions-menu"
-                              x-show="$store.fileBrowser.isDropdownOpen(file.path)"
-                              x-transition
-                              :style="$store.fileBrowser.dropdownStyle"
-                              style="display: none;"
-                              @click.stop="$store.fileBrowser.closeDropdown()"
+                          <div
+                            class="dropdown-menu"
+                            x-show="$store.fileBrowser.isDropdownOpen(file.path)"
+                            x-transition
+                            :class="{ 'bottom': $el.getBoundingClientRect().bottom > window.innerHeight - 100 }"
+                            style="display: none;"
+                            @click="$store.fileBrowser.closeDropdown()"
+                          >
+                            <button
+                              type="button"
+                              class="dropdown-item"
+                              x-show="!file.is_dir && file.size <= 1048576"
+                              @click="$store.fileBrowser.openFileEditor(file)"
                             >
-                              <button
-                                type="button"
-                                class="dropdown-item"
-                                x-show="$store.fileBrowser.canOpenInActionMenu(file)"
-                                @click="$store.fileBrowser.openInSurface(file)"
-                                :title="$store.fileBrowser.surfaceActionTitle(file)"
-                              >
-                                <span class="material-symbols-outlined" x-text="$store.fileBrowser.surfaceActionIcon(file)"></span>
-                                <span x-text="$store.fileBrowser.surfaceActionLabel(file)"></span>
-                              </button>
+                              <span class="material-symbols-outlined">file_open</span>
+                              <span>Edit</span>
+                            </button>
 
-                              <button
-                                type="button"
-                                class="dropdown-item"
-                                x-show="!file.is_dir && file.size <= 1048576 && !$store.fileBrowser.canOpenInSurface(file)"
-                                @click="$store.fileBrowser.openFileEditor(file)"
-                              >
-                                <span class="material-symbols-outlined">file_open</span>
-                                <span>Edit</span>
-                              </button>
+                            <button
+                              type="button"
+                              class="dropdown-item"
+                              x-show="file.is_dir"
+                              @click="$store.fileBrowser.downloadFile(file)"
+                            >
+                              <span class="material-symbols-outlined">folder_zip</span>
+                              <span>Download ZIP</span>
+                            </button>
 
-                              <button
-                                type="button"
-                                class="dropdown-item"
-                                x-show="file.is_dir"
-                                @click="$store.fileBrowser.downloadFile(file)"
-                              >
-                                <span class="material-symbols-outlined">folder_zip</span>
-                                <span>Download ZIP</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                class="dropdown-item"
-                                x-show="!file.is_dir && $store.fileBrowser.isArchive(file.name)"
-                                @click="$store.fileBrowser.extractArchive(file)"
-                              >
-                                <span class="material-symbols-outlined">unarchive</span>
-                                <span>Extract</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                class="dropdown-item"
-                                @click="$store.fileBrowser.openRenameModal(file)"
-                              >
-                                <span class="material-symbols-outlined">drive_file_rename_outline</span>
-                                <span>Rename</span>
-                              </button>
-                            </div>
-                          </template>
+                            <button
+                              type="button"
+                              class="dropdown-item"
+                              @click="$store.fileBrowser.openRenameModal(file)"
+                            >
+                              <span class="material-symbols-outlined">drive_file_rename_outline</span>
+                              <span>Rename</span>
+                            </button>
+                          </div>
                         </div>
                         <button class="btn-icon-action" x-show="!file.is_dir" @click.stop="$store.fileBrowser.downloadFile(file)" title="Download file">
                           <span class="material-symbols-outlined">download</span>
@@ -354,129 +259,25 @@
     
     <!-- Modal Footer (outside template x-if so it exists immediately) -->
     <template x-if="$store.fileBrowser">
-      <div class="modal-footer file-browser-footer" data-modal-footer :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }">
-        <div class="file-browser-picker-actions" x-show="$store.fileBrowser.isPickerMode()" style="display: none;">
-          <template x-if="$store.fileBrowser.isSaveAsPicker()">
-            <div class="picker-filename-field">
-              <span class="material-symbols-outlined" aria-hidden="true">article</span>
-              <input
-                type="text"
-                class="picker-filename-input"
-                x-model="$store.fileBrowser.pickerFilename"
-                @input="$store.fileBrowser.onPickerFilenameInput()"
-                @keydown.enter.prevent="$store.fileBrowser.confirmPicker()"
-                placeholder="File name"
-                aria-label="File name"
-                spellcheck="false"
-              />
-            </div>
-          </template>
-          <span
-            class="picker-selection-label"
-            x-show="$store.fileBrowser.isTextOpenPicker()"
-            x-text="$store.fileBrowser.pickerSelectionLabel()"
-          ></span>
-          <template x-if="$store.fileBrowser.pickerFilenameError">
-            <span class="picker-inline-error" x-text="$store.fileBrowser.pickerFilenameError"></span>
-          </template>
-          <button
-            type="button"
-            class="btn btn-ok picker-confirm-button"
-            :disabled="!$store.fileBrowser.canConfirmPicker() || $store.fileBrowser.isBulkBusy"
-            @click="$store.fileBrowser.confirmPicker()"
-            x-text="$store.fileBrowser.pickerConfirmLabel"
-          ></button>
-          <button type="button" class="btn btn-cancel" :disabled="$store.fileBrowser.isBulkBusy" @click="$store.fileBrowser.cancelPicker()">Cancel</button>
-        </div>
-        <label class="btn btn-upload" x-show="!$store.fileBrowser.isPickerMode()">
+      <div class="modal-footer" data-modal-footer>
+        <label class="btn btn-upload">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
           Upload Files
           <input type="file" multiple accept="*" @change="$store.fileBrowser.handleFileUpload" style="display:none;" />
         </label>
-        <button class="btn btn-cancel" x-show="xAttrs($el)?.mode !== 'canvas' && !$store.fileBrowser.isPickerMode()" @click="$store.fileBrowser.handleClose()">Close Browser</button>
+        <button class="btn btn-cancel" @click="$store.fileBrowser.handleClose()">Close Browser</button>
       </div>
     </template>
   </div>
 
   <style>
-    .file-browser-shell {
-      width: 100%;
-      min-width: 0;
-    }
-
-    .modal-inner.file-browser-modal {
-      box-sizing: border-box;
-      width: min(78vw, 1040px);
-      height: min(82vh, 820px);
-      min-width: min(420px, calc(100vw - 16px));
-      min-height: min(360px, calc(100vh - 16px));
-      max-width: calc(100vw - 16px);
-      max-height: calc(100vh - 16px);
-      resize: both;
-      overflow: hidden;
-    }
-
-    .modal-inner.file-browser-modal.is-focus-mode {
-      resize: none;
-      border-radius: 6px;
-    }
-
-    .modal-inner.file-browser-modal .modal-header {
-      min-height: 34px;
-      padding: 0.35rem 0.75rem 0.35rem 1rem;
-      background: color-mix(in srgb, var(--color-background) 92%, #000 8%);
-      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-    }
-
-    .modal-inner.file-browser-modal .modal-scroll,
-    .modal-inner.file-browser-modal .modal-bd.file-browser-modal-body {
-      display: flex;
-      flex: 1 1 auto;
-      width: 100%;
-      height: 100%;
-      min-width: 0;
-      min-height: 0;
-      max-height: none;
-      overflow: hidden;
-      padding: 0;
-    }
-
-    .modal-inner.file-browser-modal .modal-bd.file-browser-modal-body > div[x-data],
-    .modal-inner.file-browser-modal .file-browser-shell {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      height: 100%;
-      min-width: 0;
-      min-height: 0;
-    }
-
-    .file-browser-shell.is-surface {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      height: 100%;
-      min-height: 0;
-    }
-
     /* File Browser Root */
     .file-browser-root {
-      container: file-browser / inline-size;
       display: flex;
       flex-direction: column;
       width: 100%;
       height: 100%;
       min-height: 400px;
-    }
-
-    .file-browser-root.is-surface {
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-
-    .modal-inner.file-browser-modal .file-browser-root {
-      flex: 1 1 auto;
-      min-height: 0;
     }
 
     /* Loading State */
@@ -515,51 +316,13 @@
       flex-direction: column;
       padding: var(--spacing-sm) var(--spacing-sm);
       gap: var(--spacing-sm);
-      min-height: 0;
-    }
-
-    .file-browser-shell.is-surface .file-browser-content {
-      flex: 1 1 auto;
-      overflow: hidden;
-    }
-
-    .modal-inner.file-browser-modal .file-browser-content {
-      flex: 1 1 auto;
-      overflow: hidden;
     }
 
     /* File Browser Styles */
     .files-list {
       width: 100%;
       border-radius: 4px;
-    }
-
-    .file-browser-shell.is-surface .files-list {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: auto;
-      border: 1px solid var(--color-border);
-      background: color-mix(in srgb, var(--color-panel) 82%, transparent);
-    }
-
-    .modal-inner.file-browser-modal .files-list {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: auto;
-      border: 1px solid var(--color-border);
-      background: color-mix(in srgb, var(--color-panel) 82%, transparent);
-    }
-
-    .file-browser-shell.is-surface .file-header {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-
-    .modal-inner.file-browser-modal .file-header {
-      position: sticky;
-      top: 0;
-      z-index: 2;
+      /* Removed overflow: hidden to allow dropdown menus to be visible */
     }
 
     /* Header Styles */
@@ -568,11 +331,11 @@
       border-radius: 4px;
       overflow: hidden;
       display: grid;
-      grid-template-columns: 2.5rem minmax(0, 1.5fr) minmax(5.5rem, 0.7fr) minmax(9rem, 1fr) 8.75rem;
-      background: color-mix(in srgb, var(--color-panel) 88%, var(--color-background) 12%);
+      grid-template-columns: 2.5rem minmax(0, 1.5fr) minmax(5.5rem, 0.7fr) minmax(9rem, 1fr) 7.5rem;
+      background: var(--secondary-bg);
       padding: 8px 0;
       font-weight: bold;
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border-color);
       color: var(--color-primary);
     }
     .file-cell-select,
@@ -592,7 +355,7 @@
     /* File Item Styles */
     .file-item {
     display: grid;
-    grid-template-columns: 2.5rem minmax(0, 1.5fr) minmax(5.5rem, 0.7fr) minmax(9rem, 1fr) 8.75rem;
+    grid-template-columns: 2.5rem minmax(0, 1.5fr) minmax(5.5rem, 0.7fr) minmax(9rem, 1fr) 7.5rem;
     align-items: center;
     padding: 8px 0;
     font-size: 0.875rem;
@@ -648,13 +411,13 @@
     }
     .file-size,
     .file-date {
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
     }
     /* No Files Message */
     .no-files {
     padding: 32px;
     text-align: center;
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
     }
     .no-files .btn-clear-search {
     display: inline-flex;
@@ -668,82 +431,16 @@
     }
 
     /* Path Navigator Styles */
-    .path-navigator-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    }
-
     .path-navigator {
     overflow: hidden;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 24px;
     background-color: var(--color-message-bg);
     padding: 0.5rem var(--spacing-sm);
     margin: 0;
     border: 1px solid var(--color-border);
     border-radius: 8px;
-    }
-
-    .path-navigator .back-button {
-    flex: 0 0 auto;
-    }
-
-    .path-input-shell {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1;
-    min-width: 0;
-    }
-
-    .path-input {
-    width: 100%;
-    height: 2.25rem;
-    min-width: 0;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--color-input) 78%, transparent);
-    color: var(--color-text);
-    padding: 0 2.5rem 0 0.75rem;
-    font: inherit;
-    font-family: 'Roboto Mono', monospace;
-    -webkit-font-optical-sizing: auto;
-    font-optical-sizing: auto;
-    line-height: 1;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-    }
-
-    .path-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    background: var(--color-input-focus);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
-    }
-
-    .path-input-shell.has-error .path-input {
-    border-color: var(--color-error);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-error) 18%, transparent);
-    }
-
-    .path-submit {
-    position: absolute;
-    right: 0.35rem;
-    width: 1.75rem;
-    height: 1.75rem;
-    color: var(--color-text);
-    }
-
-    .path-submit:disabled {
-    opacity: 0.5;
-    cursor: wait;
-    }
-
-    .path-error {
-    color: var(--color-error);
-    font-size: 0.8rem;
-    padding: 0 0.25rem;
     }
 
     .file-browser-toolbar {
@@ -803,7 +500,7 @@
     gap: 0.5em;
     }
     .new-item-buttons button {
-    margin-left: 0;
+    margin-left: 0.5em;
     }
 
     .file-status-bar {
@@ -823,52 +520,34 @@
     }
     
     .nav-button {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.1rem;
-    min-height: 2.35rem;
-    padding: 0.22rem 0.62rem 0.24rem;
+    padding: 4px 12px;
     border: 1px solid var(--color-border);
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--color-input) 86%, var(--color-panel) 14%);
+    border-radius: 4px;
+    background: var(--color-background);
     color: var(--color-text);
-    font: inherit;
-    line-height: 1;
-    box-shadow: none;
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    transition: background-color 0.2s;
+    }
+    .nav-button:hover {
+    background: var(--hover-bg);
     }
     .nav-button.back-button {
-    flex: 0 0 auto;
-    flex-direction: column;
-    min-width: 3.1rem;
-    }
-    .nav-button .material-symbols-outlined {
-    font-size: 1.05rem;
-    line-height: 1;
-    }
-    .nav-button-label {
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0;
-    line-height: 1;
-    }
-    .nav-button:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border));
-    background: color-mix(in srgb, var(--color-input-focus) 84%, var(--color-primary) 16%);
+    background-color: var(--color-secondary);
     color: var(--color-text);
     }
-    .nav-button:focus-visible {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 22%, transparent);
+    .nav-button.back-button:hover {
+    background-color: var(--color-secondary-dark);
     }
-    .nav-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+    #current-path {
+    opacity: 0.9;
     }
+    #path-text {
+    font-family: 'Roboto Mono', monospace;
+    -webkit-font-optical-sizing: auto;
+    font-optical-sizing: auto;
+    opacity: 0.9;
+    }
+
     /* Folder Specific Styles */
     .file-item[data-is-dir="true"] {
     cursor: pointer;
@@ -899,81 +578,6 @@
     background-color: #2b309c;
     }
 
-    .file-browser-footer.is-surface {
-    display: flex;
-    flex: 0 0 auto;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    border-top: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-panel) 90%, var(--color-background) 10%);
-    }
-
-    .file-browser-picker-actions {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
-    min-width: 0;
-    }
-
-    .picker-filename-field {
-    display: flex;
-    align-items: center;
-    flex: 1 1 16rem;
-    max-width: 24rem;
-    min-width: 10rem;
-    height: 2.35rem;
-    border: 1px solid var(--color-border);
-    border-radius: 7px;
-    background: var(--color-input);
-    color: var(--color-text);
-    }
-
-    .picker-filename-field .material-symbols-outlined {
-    flex: 0 0 auto;
-    padding-left: 0.65rem;
-    color: var(--color-primary);
-    font-size: 1.1rem;
-    opacity: 0.78;
-    }
-
-    .picker-filename-input {
-    flex: 1 1 auto;
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--color-text);
-    padding: 0 0.7rem;
-    font: inherit;
-    }
-
-    .picker-selection-label,
-    .picker-inline-error {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    }
-
-    .picker-selection-label {
-    color: var(--color-text-secondary);
-    }
-
-    .picker-inline-error {
-    color: var(--color-error);
-    }
-
-    .picker-confirm-button {
-    min-width: 7.6rem;
-    }
-
     /* File Actions */
     .file-actions {
     display: flex;
@@ -981,27 +585,17 @@
     justify-content: flex-end;
     padding-right: 0.5rem;
     }
-    .file-editor-open-action {
-    border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
-    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-    }
-    .file-actions-menu {
-    margin: 0;
+    .file-actions .dropdown-menu {
+    top: auto !important;
+    bottom: 100% !important;
+    margin-top: 0;
+    margin-bottom: var(--spacing-xs);
     }
     .btn-new-item {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 0.4rem;
-    width: 2.8rem;
-    height: 2.8rem;
-    min-width: 2.8rem;
-    padding: 0;
-    border-radius: 8px;
-    }
-    .btn-new-item .material-symbols-outlined {
-    font-size: 1.35rem;
-    line-height: 1;
+    padding: 8px 14px;
     }
     .btn-secondary {
     background: var(--color-secondary);
@@ -1016,88 +610,42 @@
     }
     /* Responsive Design */
     @media (max-width: 768px) {
-    .path-navigator {
-      align-items: center;
-      flex-direction: row;
-      gap: 0.5rem;
-    }
-    .path-navigator .back-button {
-      align-self: stretch;
-    }
     .file-browser-toolbar {
-      align-items: center;
-      flex-direction: row;
-      gap: 0.5rem;
+      align-items: stretch;
+      flex-direction: column;
     }
     .file-search-shell {
-      flex: 1 1 auto;
       min-width: 0;
-      width: auto;
+      width: 100%;
     }
     .new-item-buttons {
-      flex: 0 0 auto;
-      gap: 0.4rem;
+      width: 100%;
     }
-    .btn-new-item {
-      width: 2.5rem;
-      min-width: 2.5rem;
-      height: 2.5rem;
+    .new-item-buttons .btn-new-item {
+      flex: 1;
+      justify-content: center;
     }
     .file-header {
-      grid-template-columns: 2.25rem minmax(0, 1fr) minmax(5rem, 0.52fr) 8.75rem;
+      grid-template-columns: 2.25rem minmax(0, 1fr) minmax(5rem, 0.52fr) 7.5rem;
     }
     .file-item {
-        grid-template-columns: 2.25rem minmax(0, 1fr) minmax(5rem, 0.5fr) 8.75rem;
+        grid-template-columns: 2.25rem minmax(0, 1fr) minmax(5rem, 0.5fr) 7.5rem;
     }
     .file-cell-date,
     .file-date {
         display: none;
-    }
-    .file-actions {
-        gap: 0.2rem;
-        padding-right: 0.2rem;
     }
     }
     @media (max-width: 540px) {
-    .path-navigator .back-button {
-        min-width: 2.45rem;
-        padding-inline: 0.5rem;
-    }
-    .path-navigator .nav-button-label {
-        display: none;
-    }
     .file-header,
     .file-item {
-        grid-template-columns: 2.25rem minmax(0, 1fr) minmax(4.25rem, max-content) 8rem;
+        grid-template-columns: 2.25rem minmax(0, 1fr) 7.5rem;
     }
+    .file-cell-size,
+    .file-size,
     .file-cell-date,
     .file-date {
         display: none;
-    }
-    }
-    @container file-browser (max-width: 620px) {
-    .file-header,
-    .file-item {
-        grid-template-columns: 2.25rem minmax(0, 1fr) minmax(4.25rem, max-content) 8rem;
-    }
-    .file-cell-date,
-    .file-date {
-        display: none;
-    }
-    .file-actions {
-        gap: 0.2rem;
-        padding-right: 0.2rem;
-    }
-    .file-browser-picker-actions {
-        flex-wrap: wrap;
-        justify-content: stretch;
-    }
-    .picker-filename-field {
-        flex-basis: 100%;
-        max-width: none;
-    }
-    .picker-confirm-button {
-        flex: 1 1 auto;
     }
     }
   </style>

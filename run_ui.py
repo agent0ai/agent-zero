@@ -1,13 +1,14 @@
 import initialize
 from helpers import dotenv, extension, runtime
-from helpers.api import csrf_protect, requires_auth
 from helpers.print_style import PrintStyle
 from helpers.server_startup import run_uvicorn_with_retries
 from helpers.ui_server import UiServerRuntime, configure_process_environment
 
 
+configure_process_environment()
+
+
 def run():
-    configure_process_environment()
     PrintStyle().print("Initializing Python framework...")
     PrintStyle().print("Checking for data migration...")
     run_migration_checks()

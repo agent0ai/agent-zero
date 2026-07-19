@@ -20,22 +20,6 @@
   pointer-events: auto;
 }
 
-.modal-inner.surface-modal.is-draggable-surface-modal .modal-header {
-  cursor: move;
-  user-select: none;
-}
-
-.modal-inner.surface-modal.is-focus-mode {
-  resize: none;
-}
-
-.modal-inner.surface-modal.is-focus-mode .surface-modal-focus-button,
-.surface-modal-focus-button.is-active {
-  color: var(--color-text);
-  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
-  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-background));
-}
-
 .surface-switcher,
 .modal-surface-switcher {
   display: grid;
@@ -43,42 +27,6 @@
   grid-auto-columns: 34px;
   align-items: center;
   gap: 5px;
-}
-
-.surface-modal-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.surface-modal-action-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.surface-modal-action-group[hidden],
-.surface-modal-action-separator[hidden] {
-  display: none;
-}
-
-.surface-modal-action-separator {
-  display: block;
-  flex: 0 0 1px;
-  width: 1px;
-  height: 20px;
-  margin: 0 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-border) 72%, transparent);
-}
-
-.surface-modal-new-action {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
 }
 
 .surface-dock-button,
@@ -118,79 +66,6 @@
 .modal-dock-button .material-symbols-outlined,
 .modal-surface-button .material-symbols-outlined {
   font-size: 19px;
-}
-
-.surface-modal-new-button {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 34px;
-  min-height: 34px;
-  padding: 0 9px 0 8px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: 0;
-  line-height: 1;
-  opacity: 0.82;
-  white-space: nowrap;
-  transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
-}
-
-.surface-modal-new-button:hover:not(:disabled),
-.surface-modal-new-action.is-open .surface-modal-new-button {
-  opacity: 1;
-  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
-  background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
-}
-
-.surface-modal-new-button:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.surface-modal-new-button .material-symbols-outlined {
-  font-size: 18px;
-  line-height: 1;
-}
-
-@media (max-width: 560px) {
-  .surface-modal-actions,
-  .surface-modal-action-group {
-    gap: 3px;
-  }
-
-  .surface-modal-action-separator {
-    margin: 0 3px;
-  }
-
-  .surface-modal-new-button span:not(.material-symbols-outlined) {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .modal-inner.surface-modal .surface-modal-action-group-surfaces,
-  .modal-inner.surface-modal .surface-modal-action-group-window,
-  .modal-inner.surface-modal .surface-modal-action-separator,
-  .modal-inner.surface-modal .surface-modal-action-group-new {
-    display: none !important;
-  }
-
-  .modal-inner.editor-modal .surface-modal-action-group-new {
-    display: inline-flex !important;
-  }
-
-  .modal-inner.editor-modal .surface-modal-action-group-new .surface-modal-new-action:not(.editor-header-actions) {
-    display: none !important;
-  }
 }
 
 .surface-image,

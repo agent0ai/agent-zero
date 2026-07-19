@@ -41,35 +41,6 @@ def normalize_schedule_timezone(timezone_name: str | None) -> str:
         return Localization.get().get_timezone()
     return name
 
-
-def _now() -> datetime:
-    localization = Localization.get()
-    now = getattr(localization, "now", None)
-    if callable(now):
-        return now()
-
-    try:
-        tzinfo = pytz.timezone(localization.get_timezone())
-    except Exception:
-        tzinfo = pytz.timezone("UTC")
-    return datetime.now(tzinfo)
-
-
-def _localize_task_datetime(dt: datetime) -> datetime:
-    if dt.tzinfo is not None:
-        return dt
-
-    localization = Localization.get()
-    localize = getattr(localization, "localize_naive_datetime", None)
-    if callable(localize):
-        return localize(dt)
-
-    try:
-        tzinfo = pytz.timezone(localization.get_timezone())
-    except Exception:
-        tzinfo = pytz.timezone("UTC")
-    return tzinfo.localize(dt)
-
 # ----------------------
 # Task Models
 # ----------------------
@@ -106,31 +77,29 @@ class TaskPlan(BaseModel):
     done: list[datetime] = Field(default_factory=list)
 
     @classmethod
-    def create(
-        cls,
-        todo: list[datetime] | None = None,
-        in_progress: datetime | None = None,
-        done: list[datetime] | None = None,
-    ):
-        todo = list(todo or [])
-        done = list(done or [])
+    def create(cls, todo: list[datetime] = list(), in_progress: datetime | None = None, done: list[datetime] = list()):
         if todo:
             for idx, dt in enumerate(todo):
-                todo[idx] = _localize_task_datetime(dt)
+                if dt.tzinfo is None:
+                    todo[idx] = pytz.timezone("UTC").localize(dt)
         if in_progress:
-            in_progress = _localize_task_datetime(in_progress)
+            if in_progress.tzinfo is None:
+                in_progress = pytz.timezone("UTC").localize(in_progress)
         if done:
             for idx, dt in enumerate(done):
-                done[idx] = _localize_task_datetime(dt)
+                if dt.tzinfo is None:
+                    done[idx] = pytz.timezone("UTC").localize(dt)
         return cls(todo=todo, in_progress=in_progress, done=done)
 
     def add_todo(self, launch_time: datetime):
-        launch_time = _localize_task_datetime(launch_time)
+        if launch_time.tzinfo is None:
+            launch_time = pytz.timezone("UTC").localize(launch_time)
         self.todo.append(launch_time)
         self.todo = sorted(self.todo)
 
     def set_in_progress(self, launch_time: datetime):
-        launch_time = _localize_task_datetime(launch_time)
+        if launch_time.tzinfo is None:
+            launch_time = pytz.timezone("UTC").localize(launch_time)
         if launch_time not in self.todo:
             raise ValueError(f"Launch time {launch_time} not in todo list")
         self.todo.remove(launch_time)
@@ -138,7 +107,8 @@ class TaskPlan(BaseModel):
         self.in_progress = launch_time
 
     def set_done(self, launch_time: datetime):
-        launch_time = _localize_task_datetime(launch_time)
+        if launch_time.tzinfo is None:
+            launch_time = pytz.timezone("UTC").localize(launch_time)
         if launch_time != self.in_progress:
             raise ValueError(f"Launch time {launch_time} is not the same as in progress time {self.in_progress}")
         if launch_time in self.done:
@@ -154,7 +124,8 @@ class TaskPlan(BaseModel):
         next_launch_time = self.get_next_launch_time()
         if next_launch_time is None:
             return None
-        if _now() > next_launch_time:
+        # return next launch time if current datetime utc is later than next launch time
+        if datetime.now(timezone.utc) > next_launch_time:
             return next_launch_time
         return None
 
@@ -169,8 +140,8 @@ class BaseTask(BaseModel):
     attachments: list[str] = Field(default_factory=list)
     project_name: str | None = Field(default=None)
     project_color: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=_now)
-    updated_at: datetime = Field(default_factory=_now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_run: datetime | None = None
     last_result: str | None = None
 
@@ -193,32 +164,32 @@ class BaseTask(BaseModel):
         with self._lock:
             if name is not None:
                 self.name = name
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if state is not None:
                 self.state = state
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if system_prompt is not None:
                 self.system_prompt = system_prompt
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if prompt is not None:
                 self.prompt = prompt
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if attachments is not None:
                 self.attachments = attachments
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if last_run is not None:
                 self.last_run = last_run
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if last_result is not None:
                 self.last_result = last_result
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             if context_id is not None:
                 self.context_id = context_id
-                self.updated_at = _now()
+                self.updated_at = datetime.now(timezone.utc)
             for key, value in kwargs.items():
                 if value is not None:
                     setattr(self, key, value)
-                    self.updated_at = _now()
+                    self.updated_at = datetime.now(timezone.utc)
 
     def check_schedule(self, frequency_seconds: float = 60.0) -> bool:
         return False
@@ -233,7 +204,7 @@ class BaseTask(BaseModel):
         next_run = self.get_next_run()
         if next_run is None:
             return None
-        return int((next_run - _now()).total_seconds() / 60)
+        return int((next_run - datetime.now(timezone.utc)).total_seconds() / 60)
 
     async def on_run(self):
         pass
@@ -243,7 +214,7 @@ class BaseTask(BaseModel):
         # This helps track when the task actually finished, regardless of success/error
         await TaskScheduler.get().update_task(
             self.uuid,
-            updated_at=_now()
+            updated_at=datetime.now(timezone.utc)
         )
 
     async def on_error(self, error: str):
@@ -253,7 +224,7 @@ class BaseTask(BaseModel):
         updated_task = await scheduler.update_task(
             self.uuid,
             state=TaskState.ERROR,
-            last_run=_now(),
+            last_run=datetime.now(timezone.utc),
             last_result=f"ERROR: {error}"
         )
         if not updated_task:
@@ -269,7 +240,7 @@ class BaseTask(BaseModel):
         updated_task = await scheduler.update_task(
             self.uuid,
             state=TaskState.IDLE,
-            last_run=_now(),
+            last_run=datetime.now(timezone.utc),
             last_result=result
         )
         if not updated_task:
@@ -290,7 +261,7 @@ class AdHocTask(BaseTask):
         system_prompt: str,
         prompt: str,
         token: str,
-        attachments: list[str] | None = None,
+        attachments: list[str] = list(),
         context_id: str | None = None,
         project_name: str | None = None,
         project_color: str | None = None
@@ -298,7 +269,7 @@ class AdHocTask(BaseTask):
         return cls(name=name,
                    system_prompt=system_prompt,
                    prompt=prompt,
-                   attachments=list(attachments or []),
+                   attachments=attachments,
                    token=token,
                    context_id=context_id,
                    project_name=project_name,
@@ -338,7 +309,7 @@ class ScheduledTask(BaseTask):
         system_prompt: str,
         prompt: str,
         schedule: TaskSchedule,
-        attachments: list[str] | None = None,
+        attachments: list[str] = list(),
         context_id: str | None = None,
         timezone: str | None = None,
         project_name: str | None = None,
@@ -353,7 +324,7 @@ class ScheduledTask(BaseTask):
         return cls(name=name,
                    system_prompt=system_prompt,
                    prompt=prompt,
-                   attachments=list(attachments or []),
+                   attachments=attachments,
                    schedule=schedule,
                    context_id=context_id,
                    project_name=project_name,
@@ -390,7 +361,8 @@ class ScheduledTask(BaseTask):
             task_timezone = pytz.timezone(self.schedule.timezone)
 
             # Get reference time in task's timezone (by default now - frequency_seconds)
-            reference_time = (_now() - timedelta(seconds=frequency_seconds)).astimezone(task_timezone)
+            reference_time = datetime.now(timezone.utc) - timedelta(seconds=frequency_seconds)
+            reference_time = reference_time.astimezone(task_timezone)
 
             # Get next run time as seconds until next execution
             next_run_seconds: Optional[float] = crontab.next(  # type: ignore
@@ -428,7 +400,7 @@ class PlannedTask(BaseTask):
         system_prompt: str,
         prompt: str,
         plan: TaskPlan,
-        attachments: list[str] | None = None,
+        attachments: list[str] = list(),
         context_id: str | None = None,
         project_name: str | None = None,
         project_color: str | None = None
@@ -437,7 +409,7 @@ class PlannedTask(BaseTask):
                    system_prompt=system_prompt,
                    prompt=prompt,
                    plan=plan,
-                   attachments=list(attachments or []),
+                   attachments=attachments,
                    context_id=context_id,
                    project_name=project_name,
                    project_color=project_color)
@@ -1123,9 +1095,9 @@ def parse_task_plan(plan_data: Dict[str, Any]) -> TaskPlan:
             if dt_str:
                 parsed_dt = parse_datetime(dt_str)
                 if parsed_dt:
-                    # Ensure datetime is timezone-aware (use the user's timezone if not specified)
+                    # Ensure datetime is timezone-aware (use UTC if not specified)
                     if parsed_dt.tzinfo is None:
-                        parsed_dt = _localize_task_datetime(parsed_dt)
+                        parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
                     todo_dates.append(parsed_dt)
 
         # Parse in_progress with validation
@@ -1134,7 +1106,7 @@ def parse_task_plan(plan_data: Dict[str, Any]) -> TaskPlan:
             in_progress = parse_datetime(plan_data.get('in_progress'))
             # Ensure datetime is timezone-aware
             if in_progress and in_progress.tzinfo is None:
-                in_progress = _localize_task_datetime(in_progress)
+                in_progress = in_progress.replace(tzinfo=timezone.utc)
 
         # Parse done items with validation
         done_dates = []
@@ -1144,7 +1116,7 @@ def parse_task_plan(plan_data: Dict[str, Any]) -> TaskPlan:
                 if parsed_dt:
                     # Ensure datetime is timezone-aware
                     if parsed_dt.tzinfo is None:
-                        parsed_dt = _localize_task_datetime(parsed_dt)
+                        parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
                     done_dates.append(parsed_dt)
 
         # Sort dates for better usability

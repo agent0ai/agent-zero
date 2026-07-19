@@ -1,8 +1,8 @@
-import asyncio, json, random, re, string, threading
+import asyncio, random, string, threading
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Coroutine, Dict, Literal
 from enum import Enum
 import models
@@ -32,15 +32,6 @@ from typing import Callable
 from helpers.localization import Localization
 from helpers import extension
 from helpers.errors import RepairableException, InterventionException, HandledException
-from helpers.llm_result import (
-    LLMResult,
-    RESPONSE_METADATA_KEY,
-    function_call_output_item,
-    metadata_from_llm_result,
-    result_from_metadata,
-)
-from helpers.litellm_transport import ResponsesTransport
-from helpers.responses_tools import build_responses_function_tools, original_tool_name
 
 class AgentContextType(Enum):
     USER = "user"
@@ -95,11 +86,11 @@ class AgentContext:
         self.paused = paused
         self.streaming_agent = streaming_agent
         self.task: DeferredTask | None = None
-        self.created_at = created_at or Localization.get().now()
+        self.created_at = created_at or datetime.now(timezone.utc)
         self.type = type
         AgentContext._counter += 1
         self.no = AgentContext._counter
-        self.last_message = last_message or Localization.get().now()
+        self.last_message = last_message or datetime.now(timezone.utc)
 
         # initialize agent at last (context is complete now)
         self.agent0 = agent0 or Agent(0, self.config, self)
@@ -338,8 +329,6 @@ class LoopData:
         self.system = []
         self.user_message: history.Message | None = None
         self.history_output: list[history.OutputMessage] = []
-        self.protocol_temporary: OrderedDict[str, history.MessageContent] = OrderedDict()
-        self.protocol_persistent: OrderedDict[str, history.MessageContent] = OrderedDict()
         self.extras_temporary: OrderedDict[str, history.MessageContent] = OrderedDict()
         self.extras_persistent: OrderedDict[str, history.MessageContent] = OrderedDict()
         self.last_response = ""
@@ -357,9 +346,6 @@ class Agent:
     DATA_NAME_SUPERIOR = "_superior"
     DATA_NAME_SUBORDINATE = "_subordinate"
     DATA_NAME_CTX_WINDOW = "ctx_window"
-    DATA_NAME_RESPONSES_STATE = "responses_state"
-    DATA_NAME_RESPONSES_TOOL_NAME_MAP = "responses_tool_name_map"
-    DATA_NAME_RESPONSES_COMPUTER_SESSION = "responses_computer_session_id"
 
     @extension.extensible
     def __init__(
@@ -482,12 +468,11 @@ class Agent:
                                 return stop_response
 
                         # call main LLM
-                        llm_result = await self.call_chat_model_turn(
+                        agent_response, _reasoning = await self.call_chat_model(
                             messages=prompt,
                             response_callback=stream_callback,
                             reasoning_callback=reasoning_callback,
                         )
-                        agent_response = llm_result.response
                         await self.handle_intervention(agent_response)
 
                         # Notify extensions to finalize their stream filters
@@ -507,12 +492,7 @@ class Agent:
                         ):  # if assistant_response is the same as last message in history, let him know
                             # Append the assistant's response to the history
                             log_item = self.loop_data.params_temporary.get("log_item_generating")
-                            assistant_message = self.hist_add_ai_response(
-                                agent_response,
-                                id=log_item.id if log_item else "",
-                                llm_result=llm_result,
-                            )
-                            self._remember_llm_result_state(llm_result, assistant_message)
+                            self.hist_add_ai_response(agent_response, id=log_item.id if log_item else "")
                             # Append warning message to the history
                             warning_msg = self.read_prompt("fw.msg_repeat.md")
                             wmsg = self.hist_add_warning(message=warning_msg)
@@ -524,16 +504,9 @@ class Agent:
                         else:  # otherwise proceed with tool
                             # Append the assistant's response to the history
                             log_item = self.loop_data.params_temporary.get("log_item_generating")
-                            assistant_message = self.hist_add_ai_response(
-                                agent_response,
-                                id=log_item.id if log_item else "",
-                                llm_result=llm_result,
-                            )
-                            self._remember_llm_result_state(llm_result, assistant_message)
+                            self.hist_add_ai_response(agent_response, id=log_item.id if log_item else "")
                             # process tools requested in agent message
-                            tools_result = await self.process_llm_result_tools(
-                                llm_result
-                            )
+                            tools_result = await self.process_tools(agent_response)
                             if tools_result:  # final response of message loop available
                                 return tools_result  # break the execution if the task is done
 
@@ -582,28 +555,24 @@ class Agent:
         # concatenate system prompt
         system_text = "\n\n".join(loop_data.system)
 
-        # join protocol and extras
-        protocol = self._build_context_message(
-            "agent.context.protocol.md",
-            "protocol",
-            {**loop_data.protocol_persistent, **loop_data.protocol_temporary},
-            include_empty=False,
-        )
-        extras = self._build_context_message(
-            "agent.context.extras.md",
-            "extras",
-            {**loop_data.extras_persistent, **loop_data.extras_temporary},
-            include_empty=True,
-        )
-        loop_data.protocol_temporary.clear()
+        # join extras
+        extras = history.Message(  # type: ignore[abstract]
+            False,
+            content=self.read_prompt(
+                "agent.context.extras.md",
+                extras=dirty_json.stringify(
+                    {**loop_data.extras_persistent, **loop_data.extras_temporary}
+                ),
+            ),
+        ).output()
         loop_data.extras_temporary.clear()
 
-        # convert protocol + history + extras to LLM format
+        # convert history + extras to LLM format
         history_langchain: list[BaseMessage] = history.output_langchain(
-            protocol + loop_data.history_output + extras
+            loop_data.history_output + extras
         )
 
-        # build full prompt from system prompt, protocol, message history and extras
+        # build full prompt from system prompt, message history and extrS
         full_prompt: list[BaseMessage] = [
             SystemMessage(content=system_text),
             *history_langchain,
@@ -615,29 +584,11 @@ class Agent:
             Agent.DATA_NAME_CTX_WINDOW,
             {
                 "text": full_text,
-                "tokens": tokens.approximate_prompt_tokens(full_text),
+                "tokens": tokens.approximate_tokens(full_text),
             },
         )
 
         return full_prompt
-
-    def _build_context_message(
-        self,
-        prompt_file: str,
-        variable_name: str,
-        values: dict[str, history.MessageContent],
-        include_empty: bool,
-    ) -> list[history.OutputMessage]:
-        if not include_empty and not values:
-            return []
-
-        return history.Message(  # type: ignore[abstract]
-            False,
-            content=self.read_prompt(
-                prompt_file,
-                **{variable_name: dirty_json.stringify(values)},
-            ),
-        ).output()
 
     @extension.extensible
     async def handle_exception(self, location: str, exception: Exception):
@@ -713,25 +664,16 @@ class Agent:
 
     @extension.extensible
     def hist_add_message(
-        self,
-        ai: bool,
-        content: history.MessageContent,
-        tokens: int = 0,
-        id: str = "",
-        metadata: dict[str, Any] | None = None,
+        self, ai: bool, content: history.MessageContent, tokens: int = 0, id: str = ""
     ):
-        self.last_message = Localization.get().now()
+        self.last_message = datetime.now(timezone.utc)
         # Allow extensions to process content before adding to history
         content_data = {"content": content}
         extension.call_extensions_sync(
             "hist_add_before", self, content_data=content_data, ai=ai
         )
         return self.history.add_message(
-            ai=ai,
-            content=content_data["content"],
-            tokens=tokens,
-            id=id,
-            metadata=metadata,
+            ai=ai, content=content_data["content"], tokens=tokens, id=id
         )
 
     @extension.extensible
@@ -764,17 +706,10 @@ class Agent:
         return msg
 
     @extension.extensible
-    def hist_add_ai_response(
-        self, message: str, id: str = "", llm_result: LLMResult | None = None
-    ):
+    def hist_add_ai_response(self, message: str, id: str = ""):
         self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
-        return self.hist_add_message(
-            True,
-            content=content,
-            id=id,
-            metadata=metadata_from_llm_result(llm_result),
-        )
+        return self.hist_add_message(True, content=content, id=id)
 
     @extension.extensible
     def hist_add_warning(self, message: history.MessageContent, id: str = ""):
@@ -784,28 +719,13 @@ class Agent:
     @extension.extensible
     def hist_add_tool_result(self, tool_name: str, tool_result: str, **kwargs):
         msg_id = kwargs.pop("id", "")
-        responses_item = kwargs.pop("_responses_output_item", None) or kwargs.pop(
-            "responses_item", None
-        )
-        metadata = (
-            {
-                RESPONSE_METADATA_KEY: {
-                    "input_items": [responses_item],
-                    "output_items": [],
-                    "mode": "responses",
-                    "state": "provider",
-                }
-            }
-            if isinstance(responses_item, dict)
-            else None
-        )
         data = {
             "tool_name": tool_name,
             "tool_result": tool_result,
             **kwargs,
         }
         extension.call_extensions_sync("hist_add_tool_result", self, data=data)
-        return self.hist_add_message(False, content=data, id=msg_id, metadata=metadata)
+        return self.hist_add_message(False, content=data, id=msg_id)
 
     def concat_messages(
         self, messages
@@ -911,164 +831,6 @@ class Agent:
         return response, reasoning
 
     @extension.extensible
-    async def call_chat_model_turn(
-        self,
-        messages: list[BaseMessage],
-        response_callback: Callable[[str, str], Awaitable[str | None]] | None = None,
-        reasoning_callback: Callable[[str, str], Awaitable[None]] | None = None,
-        background: bool = False,
-        explicit_caching: bool = True,
-    ) -> LLMResult:
-        model = self.get_chat_model()
-        model_kwargs = getattr(model, "kwargs", {}) if model else {}
-        if isinstance(model_kwargs, dict) and model_kwargs.get("responses_delete_on_chat_delete") is False:
-            self.set_data("responses_delete_on_chat_delete", False)
-        response_tools, name_map = build_responses_function_tools(self)
-        self.set_data(Agent.DATA_NAME_RESPONSES_TOOL_NAME_MAP, name_map)
-
-        call_data = {
-            "model": model,
-            "messages": messages,
-            "response_callback": response_callback,
-            "reasoning_callback": reasoning_callback,
-            "background": background,
-            "explicit_caching": explicit_caching,
-            "a0_responses_function_tools": response_tools,
-        }
-
-        previous_state = self._responses_state_for_model(model)
-        if previous_state:
-            history_counter = int(previous_state.get("history_counter", 0) or 0)
-            call_data["previous_response_id"] = previous_state.get("response_id", "")
-            call_data["responses_input_items"] = self._responses_input_items_since(
-                model,
-                history_counter,
-            )
-        call_data["responses_local_input_items"] = self._responses_prompt_input_items(
-            model,
-            messages,
-        )
-
-        await extension.call_extensions_async(
-            "chat_model_call_before", self, call_data=call_data
-        )
-
-        turn_kwargs = {
-            "a0_responses_function_tools": call_data.get(
-                "a0_responses_function_tools"
-            ),
-            "responses_local_input_items": call_data.get(
-                "responses_local_input_items"
-            ),
-        }
-        for key in (
-            "responses_builtin_tools",
-            "responses_state",
-            "previous_response_id",
-            "responses_input_items",
-        ):
-            if call_data.get(key) is not None:
-                turn_kwargs[key] = call_data.get(key)
-
-        llm_result = await call_data["model"].unified_turn(
-            messages=call_data["messages"],
-            reasoning_callback=call_data["reasoning_callback"],
-            response_callback=call_data["response_callback"],
-            rate_limiter_callback=(
-                self.rate_limiter_callback if not call_data["background"] else None
-            ),
-            explicit_caching=call_data["explicit_caching"],
-            **turn_kwargs,
-        )
-
-        downgraded = llm_result.capability.get("builtin_tool_downgrades")
-        if downgraded:
-            self.context.log.log(
-                type="info",
-                heading="Responses capability downgrade",
-                content=(
-                    "Provider rejected Responses built-in tool(s); omitted: "
-                    + ", ".join(str(item) for item in downgraded)
-                ),
-            )
-
-        await extension.call_extensions_async(
-            "chat_model_call_after",
-            self,
-            call_data=call_data,
-            response=llm_result.response,
-            reasoning=llm_result.reasoning,
-        )
-
-        return llm_result
-
-    def _responses_state_for_model(self, model: Any) -> dict[str, Any]:
-        state = self.get_data(Agent.DATA_NAME_RESPONSES_STATE)
-        if not isinstance(state, dict):
-            return {}
-        provider_model_key = str(getattr(model, "model_name", "") or "")
-        if state.get("provider_model_key") != provider_model_key:
-            return {}
-        if not state.get("response_id"):
-            return {}
-        return state
-
-    def _responses_input_items_since(
-        self, model: Any, sequence: int
-    ) -> list[dict[str, Any]]:
-        items: list[dict[str, Any]] = []
-        for message in self.history.messages_since(sequence):
-            items.extend(self._responses_input_items_for_message(model, message))
-        return items
-
-    def _responses_input_items_for_message(
-        self, model: Any, message: history.Message
-    ) -> list[dict[str, Any]]:
-        result = result_from_metadata(message.metadata)
-        if result:
-            if message.ai and result.output_items:
-                return [item.to_dict() for item in result.output_items]
-            if not message.ai and result.input_items:
-                return [dict(item) for item in result.input_items]
-
-        output = message.output()
-        langchain_messages = history.output_langchain(output)
-        if hasattr(model, "_convert_messages"):
-            converted = model._convert_messages(langchain_messages)
-            return ResponsesTransport.input_from_messages(converted)
-        return []
-
-    def _responses_prompt_input_items(
-        self, model: Any, messages: list[BaseMessage]
-    ) -> list[dict[str, Any]]:
-        if not hasattr(model, "_convert_messages"):
-            return []
-        converted = model._convert_messages(messages)
-        return ResponsesTransport.input_from_messages(converted)
-
-    def _remember_llm_result_state(
-        self, llm_result: LLMResult, history_message: history.Message
-    ) -> None:
-        if not llm_result.response_id:
-            return
-        current = self.get_data(Agent.DATA_NAME_RESPONSES_STATE)
-        response_ids = []
-        if isinstance(current, dict) and isinstance(current.get("response_ids"), list):
-            response_ids = [str(item) for item in current["response_ids"] if item]
-        if llm_result.response_id not in response_ids:
-            response_ids.append(llm_result.response_id)
-        self.set_data(
-            Agent.DATA_NAME_RESPONSES_STATE,
-            {
-                "response_id": llm_result.response_id,
-                "previous_response_id": llm_result.previous_response_id,
-                "provider_model_key": llm_result.provider_model_key,
-                "history_counter": history_message.sequence,
-                "response_ids": response_ids,
-            },
-        )
-
-    @extension.extensible
     async def rate_limiter_callback(
         self, message: str, key: str, total: int, limit: int
     ):
@@ -1100,310 +862,6 @@ class Agent:
     async def wait_if_paused(self):
         while self.context.paused:
             await asyncio.sleep(0.1)
-
-    async def process_llm_result_tools(self, llm_result: LLMResult):
-        await self._log_response_builtin_items(llm_result)
-        if llm_result.function_calls:
-            for function_call in llm_result.function_calls:
-                name_map = self.get_data(Agent.DATA_NAME_RESPONSES_TOOL_NAME_MAP)
-                tool_name = original_tool_name(function_call.name, name_map)
-                response_item_factory = lambda response, call=function_call: function_call_output_item(
-                    call.call_id,
-                    response.message,
-                )
-                result = await self._execute_tool_request(
-                    tool_name=tool_name,
-                    tool_args=function_call.arguments,
-                    message=llm_result.response,
-                    raw_tool_name=tool_name,
-                    responses_item_factory=response_item_factory,
-                )
-                if result:
-                    return result
-            return None
-        if llm_result.builtin_items and not llm_result.response:
-            return None
-        if (
-            llm_result.mode == "responses"
-            and llm_result.response
-            and extract_tools.json_parse_dirty(llm_result.response) is None
-        ):
-            return llm_result.response
-        return await self.process_tools(llm_result.response)
-
-    async def _execute_tool_request(
-        self,
-        tool_name: str,
-        tool_args: dict,
-        message: str,
-        raw_tool_name: str = "",
-        responses_item_factory: Callable[[Any], dict[str, Any]] | None = None,
-    ):
-        raw_tool_name = raw_tool_name or tool_name
-        tool_method = None
-        tool = None
-
-        try:
-            import helpers.mcp_handler as mcp_helper
-
-            mcp_tool_candidate = mcp_helper.MCPConfig.get_instance().get_tool(
-                self, tool_name
-            )
-            if mcp_tool_candidate:
-                tool = mcp_tool_candidate
-        except ImportError:
-            PrintStyle(
-                background_color="black", font_color="yellow", padding=True
-            ).print("MCP helper module not found. Skipping MCP tool lookup.")
-        except Exception as e:
-            PrintStyle(background_color="black", font_color="red", padding=True).print(
-                f"Failed to get MCP tool '{tool_name}': {e}"
-            )
-
-        if not tool:
-            tool = self.get_tool(
-                name=tool_name,
-                method=tool_method,
-                args=tool_args,
-                message=message,
-                loop_data=self.loop_data,
-            )
-
-        if not tool:
-            error_detail = (
-                f"Tool '{raw_tool_name}' not found or could not be initialized."
-            )
-            wmsg = self.hist_add_warning(error_detail)
-            PrintStyle(font_color="red", padding=True).print(error_detail)
-            self.context.log.log(
-                type="warning",
-                content=f"{self.agent_name}: {error_detail}",
-                id=wmsg.id,
-            )
-            return None
-
-        self.loop_data.current_tool = tool  # type: ignore
-        try:
-            await self.handle_intervention()
-
-            await tool.before_execution(**tool_args)
-            await self.handle_intervention()
-
-            await extension.call_extensions_async(
-                "tool_execute_before",
-                self,
-                tool_args=tool_args or {},
-                tool_name=tool_name,
-            )
-
-            response = await tool.execute(**tool_args)
-            await self.handle_intervention()
-
-            await extension.call_extensions_async(
-                "tool_execute_after",
-                self,
-                response=response,
-                tool_name=tool_name,
-            )
-
-            if responses_item_factory:
-                response.additional = {
-                    **(response.additional or {}),
-                    "_responses_output_item": responses_item_factory(response),
-                }
-
-            await tool.after_execution(response)
-            await self.handle_intervention()
-
-            if response.break_loop:
-                self._clear_responses_pending_state()
-                return response.message
-        finally:
-            self.loop_data.current_tool = None
-        return None
-
-    async def _log_response_builtin_items(self, llm_result: LLMResult) -> None:
-        for item in llm_result.builtin_items:
-            if item.type == "computer_call":
-                await self._handle_responses_computer_call(item.data)
-                continue
-            if item.type == "mcp_approval_request":
-                self._handle_responses_mcp_approval_request(item.data)
-                continue
-            self.context.log.log(
-                type="info",
-                heading=f"Responses tool item: {item.type}",
-                content=json.dumps(item.data, ensure_ascii=False, default=str),
-            )
-
-    async def _handle_responses_computer_call(self, item: dict[str, Any]) -> None:
-        safety_checks = item.get("pending_safety_checks") or item.get("safety_checks")
-        if safety_checks:
-            message = (
-                "Responses computer_call requested safety-check acknowledgement. "
-                "Agent Zero requires explicit user acknowledgement before executing it."
-            )
-            output_item = {
-                "type": "computer_call_output",
-                "call_id": str(item.get("call_id") or item.get("id") or ""),
-                "output": {"type": "input_text", "text": message},
-            }
-            self.hist_add_tool_result(
-                "computer_call",
-                message,
-                responses_item=output_item,
-            )
-            self.context.log.log(type="warning", content=message)
-            return
-
-        args = self._computer_call_args(item)
-        if not args:
-            message = "Responses computer_call action is unsupported by Agent Zero."
-            output_item = {
-                "type": "computer_call_output",
-                "call_id": str(item.get("call_id") or item.get("id") or ""),
-                "output": {"type": "input_text", "text": message},
-            }
-            self.hist_add_tool_result(
-                "computer_call",
-                message,
-                responses_item=output_item,
-            )
-            self.context.log.log(type="warning", content=message)
-            return
-
-        if args.get("action") != "start_session" and not args.get("session_id"):
-            session_id = str(
-                self.get_data(Agent.DATA_NAME_RESPONSES_COMPUTER_SESSION) or ""
-            )
-            if session_id:
-                args["session_id"] = session_id
-
-        response_item_factory = lambda response: self._computer_call_output_item(
-            item,
-            response,
-        )
-        result = await self._execute_tool_request(
-            tool_name="computer_use_remote",
-            tool_args=args,
-            message=json.dumps(item, ensure_ascii=False, default=str),
-            raw_tool_name="computer_call",
-            responses_item_factory=response_item_factory,
-        )
-        _ = result
-
-    def _handle_responses_mcp_approval_request(self, item: dict[str, Any]) -> None:
-        request_id = str(
-            item.get("approval_request_id") or item.get("id") or item.get("call_id") or ""
-        )
-        message = (
-            "Responses MCP approval request received. Agent Zero denied it because "
-            "provider-hosted MCP approval requires explicit user approval."
-        )
-        output_item = {
-            "type": "mcp_approval_response",
-            "approval_request_id": request_id,
-            "approve": False,
-        }
-        self.hist_add_tool_result(
-            "mcp_approval_request",
-            message,
-            responses_item=output_item,
-        )
-        self.context.log.log(
-            type="warning",
-            heading="Responses MCP approval required",
-            content=message,
-        )
-
-    def _computer_call_args(self, item: dict[str, Any]) -> dict[str, Any]:
-        action = item.get("action")
-        action_data = dict(action) if isinstance(action, dict) else {}
-        action_type = str(
-            action_data.get("type")
-            or action_data.get("action")
-            or item.get("action_type")
-            or ""
-        ).strip().lower()
-        args: dict[str, Any] = {}
-
-        if action_type in {"screenshot", "capture"}:
-            args["action"] = "capture"
-        elif action_type in {"move", "mousemove"}:
-            args.update({"action": "move", "x": action_data.get("x"), "y": action_data.get("y")})
-        elif action_type in {"click", "double_click"}:
-            args.update(
-                {
-                    "action": "click",
-                    "x": action_data.get("x"),
-                    "y": action_data.get("y"),
-                    "button": action_data.get("button", "left"),
-                    "count": 2 if action_type == "double_click" else action_data.get("count", 1),
-                }
-            )
-        elif action_type == "scroll":
-            args.update(
-                {
-                    "action": "scroll",
-                    "dx": action_data.get("dx", action_data.get("scroll_x", 0)),
-                    "dy": action_data.get("dy", action_data.get("scroll_y", 0)),
-                }
-            )
-        elif action_type in {"keypress", "key"}:
-            args.update(
-                {
-                    "action": "key",
-                    "keys": action_data.get("keys") or action_data.get("key"),
-                }
-            )
-        elif action_type in {"type", "input_text"}:
-            args.update({"action": "type", "text": action_data.get("text", "")})
-        else:
-            return {}
-
-        session_id = item.get("session_id") or action_data.get("session_id")
-        if session_id:
-            args["session_id"] = session_id
-        return args
-
-    def _computer_call_output_item(
-        self, source_item: dict[str, Any], response: Any
-    ) -> dict[str, Any]:
-        output: dict[str, Any] = {
-            "type": "input_text",
-            "text": str(getattr(response, "message", "") or ""),
-        }
-        additional = getattr(response, "additional", None)
-        raw_content = additional.get("raw_content") if isinstance(additional, dict) else None
-        if isinstance(raw_content, list):
-            for content in raw_content:
-                if not isinstance(content, dict):
-                    continue
-                if content.get("type") != "image_url":
-                    continue
-                image_url = content.get("image_url")
-                url = image_url.get("url") if isinstance(image_url, dict) else image_url
-                if url:
-                    output = {"type": "input_image", "image_url": url}
-                    break
-
-        session_id_match = re_search_session_id(str(getattr(response, "message", "") or ""))
-        if session_id_match:
-            self.set_data(Agent.DATA_NAME_RESPONSES_COMPUTER_SESSION, session_id_match)
-
-        return {
-            "type": "computer_call_output",
-            "call_id": str(source_item.get("call_id") or source_item.get("id") or ""),
-            "output": output,
-        }
-
-    def _clear_responses_pending_state(self) -> None:
-        state = self.get_data(Agent.DATA_NAME_RESPONSES_STATE)
-        if isinstance(state, dict):
-            state = dict(state)
-            state.pop("response_id", None)
-            state.pop("previous_response_id", None)
-            self.set_data(Agent.DATA_NAME_RESPONSES_STATE, state)
 
     @extension.extensible
     async def process_tools(self, msg: str):
@@ -1579,8 +1037,3 @@ class Agent:
             loop_data=loop_data,
             **kwargs,
         )
-
-
-def re_search_session_id(text: str) -> str:
-    match = re.search(r"session_id=([A-Za-z0-9_.:-]+)", text or "")
-    return match.group(1) if match else ""

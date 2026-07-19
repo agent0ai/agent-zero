@@ -2,7 +2,6 @@
 <head>
   <script type="module">
     import { store } from "/components/canvas/right-canvas-store.js";
-    import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
   </script>
 </head>
 <body>
@@ -25,7 +24,7 @@
       >
         <div class="right-canvas-resize-handle" title="Resize canvas" @pointerdown="$store.rightCanvas.startResize($event)"></div>
 
-        <nav class="right-canvas-rail" aria-label="Canvas surfaces" x-show="$store.preferences.isUiControlVisible('rightCanvasRail')">
+        <nav class="right-canvas-rail" aria-label="Canvas surfaces">
           <button
             type="button"
             class="right-canvas-rail-button right-canvas-toggle-button"
@@ -47,7 +46,7 @@
               :class="{ 'is-active': $store.rightCanvas.isSurfaceActive(surface.id) && $store.rightCanvas.isOpen }"
               :title="surface.title"
               :aria-label="surface.title"
-              @click="$store.rightCanvas.open(surface.id)"
+              @click="$store.rightCanvas.openLatest(surface.id)"
             >
               <template x-if="surface.image">
                 <img class="right-canvas-surface-image" :src="surface.image" alt="" aria-hidden="true">

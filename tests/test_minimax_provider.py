@@ -1,4 +1,11 @@
-"""Tests for MiniMax provider entries and the Responses temperature clamp."""
+"""Tests for MiniMax provider entries and the temperature clamp.
+
+MiniMax's OpenAI-compatible endpoint rejects ``temperature <= 0`` or
+``> 1`` with HTTP 400, so ``_adjust_call_args`` clamps the value when
+talking to the ``minimax`` / ``minimax-cn`` providers (or any custom
+"openai" provider repointed at ``api.minimax.io`` / ``api.minimaxi.com``
+via ``api_base``).
+"""
 
 from __future__ import annotations
 
@@ -24,7 +31,6 @@ def test_minimax_global_provider_registered():
     entry = providers["minimax"]
     assert entry["litellm_provider"] == "openai"
     assert entry["kwargs"]["api_base"] == "https://api.minimax.io/v1"
-    assert entry["kwargs"]["a0_api_mode"] == "responses"
 
 
 def test_minimax_cn_provider_registered():
@@ -33,23 +39,22 @@ def test_minimax_cn_provider_registered():
     entry = providers["minimax-cn"]
     assert entry["litellm_provider"] == "openai"
     assert entry["kwargs"]["api_base"] == "https://api.minimaxi.com/v1"
-    assert entry["kwargs"]["a0_api_mode"] == "responses"
 
 
 @pytest.mark.parametrize(
     ("provider_name", "model_name", "api_base", "input_temp", "expected_temp"),
     [
         # provider name match
-        ("minimax", "MiniMax-M3", None, 0.0, 0.01),
-        ("minimax", "MiniMax-M3", None, 1.5, 1.0),
-        ("minimax-cn", "MiniMax-M3", None, -0.5, 0.01),
+        ("minimax", "MiniMax-M2.7", None, 0.0, 0.01),
+        ("minimax", "MiniMax-M2.7", None, 1.5, 1.0),
+        ("minimax-cn", "MiniMax-M2.7", None, -0.5, 0.01),
         # api_base match (custom "openai" provider repointed at MiniMax)
         ("openai", "gpt-4", "https://api.minimax.io/v1", 0.0, 0.01),
         # model_name match (caller forgot to set provider correctly)
-        ("openai", "MiniMax-M3", None, 2.0, 1.0),
+        ("openai", "MiniMax-M2.7-highspeed", None, 2.0, 1.0),
         # in-range values pass through unchanged
-        ("minimax", "MiniMax-M3", None, 0.7, 0.7),
-        ("minimax", "MiniMax-M3", None, 1.0, 1.0),
+        ("minimax", "MiniMax-M2.7", None, 0.7, 0.7),
+        ("minimax", "MiniMax-M2.7", None, 1.0, 1.0),
     ],
 )
 def test_minimax_temperature_clamp(provider_name, model_name, api_base, input_temp, expected_temp):
@@ -72,14 +77,3 @@ def test_non_minimax_provider_temperature_untouched():
 
     _, _, adjusted = _adjust_call_args("anthropic", "claude-3-opus", {"temperature": 1.5})
     assert adjusted["temperature"] == 1.5  # not clamped
-
-
-def test_minimax_chat_temperature_uses_chat_api_range():
-    from models import _adjust_call_args
-
-    _, _, adjusted = _adjust_call_args(
-        "openai",
-        "MiniMax-M3",
-        {"a0_api_mode": "chat", "temperature": 1.5},
-    )
-    assert adjusted["temperature"] == 1.5

@@ -57,7 +57,6 @@ class NotificationCreate(ApiHandler):
             return {
                 "success": True,
                 "notification_id": notification.id,
-                "notification": notification.output(),
                 "message": "Notification created successfully",
             }
 

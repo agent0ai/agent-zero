@@ -31,23 +31,23 @@ Return ONLY a JSON array of strings containing the extracted keywords/phrases:
 
 ## Examples
 
-**Memory Content**: "User prefers Linux shell examples and ./.venv/bin/python paths instead of Windows-only virtualenv commands."
+**Memory Content**: "Successfully implemented OAuth authentication using JWT tokens for the user login system. The solution handles token refresh and validation properly."
 
 **Output**:
 ```json
-["Linux shell examples", "virtualenv paths", "user preference", "Python commands"]
+["OAuth authentication", "JWT tokens", "user login", "token refresh", "authentication implementation"]
 ```
 
-**Memory Content**: "Project uses a configured Dockerized live runtime for smoke checks."
+**Memory Content**: "Fixed the database connection timeout issue by increasing the connection pool size and optimizing slow queries with proper indexing."
 
 **Output**:
 ```json
-["Dockerized runtime", "live runtime", "smoke checks", "project runtime"]
+["database connection", "timeout issue", "connection pool", "query optimization", "indexing"]
 ```
 
-**Memory Content**: "Agent Zero WebUI stores use Alpine.js createStore from /js/AlpineStore.js."
+**Memory Content**: "Learned that Alpine.js x-data components should use camelCase for method names and snake_case for data properties to follow best practices."
 
 **Output**:
 ```json
-["Agent Zero WebUI", "Alpine.js", "createStore", "AlpineStore.js"]
+["Alpine.js", "x-data components", "camelCase methods", "naming conventions"]
 ```

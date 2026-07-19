@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 
 LOGIN_TTL_SECONDS = 10 * 60
@@ -15,8 +14,6 @@ class LoginAttempt:
     verifier: str
     redirect_uri: str
     created_at: float
-    provider_id: str = "codex_oauth"
-    extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def expires_at(self) -> float:
@@ -33,8 +30,6 @@ class DeviceAttempt:
     user_code: str
     interval: int
     expires_at_value: float
-    provider_id: str = "codex_oauth"
-    extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def expires_at(self) -> float:
@@ -49,34 +44,16 @@ _attempts: dict[str, LoginAttempt] = {}
 _device_attempts: dict[str, DeviceAttempt] = {}
 
 
-def put_attempt(
-    state: str,
-    verifier: str,
-    redirect_uri: str,
-    *,
-    provider_id: str = "codex_oauth",
-    extra: dict[str, Any] | None = None,
-) -> LoginAttempt:
+def put_attempt(state: str, verifier: str, redirect_uri: str) -> LoginAttempt:
     cleanup_expired()
     attempt = LoginAttempt(
         state=state,
         verifier=verifier,
         redirect_uri=redirect_uri,
         created_at=time.time(),
-        provider_id=provider_id,
-        extra=dict(extra or {}),
     )
     with _lock:
         _attempts[state] = attempt
-    return attempt
-
-
-def get_attempt(state: str) -> LoginAttempt | None:
-    cleanup_expired()
-    with _lock:
-        attempt = _attempts.get(state)
-    if attempt is None or attempt.expired():
-        return None
     return attempt
 
 
@@ -95,9 +72,6 @@ def put_device_attempt(
     user_code: str,
     interval: int,
     expires_at: float,
-    *,
-    provider_id: str = "codex_oauth",
-    extra: dict[str, Any] | None = None,
 ) -> DeviceAttempt:
     cleanup_expired()
     attempt = DeviceAttempt(
@@ -106,8 +80,6 @@ def put_device_attempt(
         user_code=user_code,
         interval=interval,
         expires_at_value=expires_at,
-        provider_id=provider_id,
-        extra=dict(extra or {}),
     )
     with _lock:
         _device_attempts[attempt_id] = attempt
