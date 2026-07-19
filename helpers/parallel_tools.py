@@ -216,7 +216,7 @@ async def start_parallel_jobs(
         try:
             job.state = "running"
             job.started_at = time.time()
-            task = DeferredTask(thread_name=THREAD_BACKGROUND)
+            task = DeferredTask(thread_name=f"parallel-{job.id}")
             job.deferred_task = task
             task.start_task(_run_parallel_job, context.id, job.id)
         except Exception as exc:
@@ -252,6 +252,10 @@ async def await_parallel_jobs(
 
         if time.time() >= deadline:
             wait_timed_out_job_ids = {job.id for job in active}
+            for job in active:
+                if job.deferred_task:
+                    job.deferred_task.kill(terminate_thread=True)
+                _finish_job(job, "timeout", error="Job exceeded timeout and was killed.")
             break
 
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
@@ -316,7 +320,7 @@ async def refresh_parallel_jobs(agent: "Agent") -> list[ParallelJob]:
 
 async def cleanup_parallel_job(agent: "Agent", job: ParallelJob) -> None:
     if job.deferred_task and job.deferred_task.is_alive():
-        job.deferred_task.kill()
+        job.deferred_task.kill(terminate_thread=True)
     if job.kind == "tool":
         await _remove_context(job.worker_context_id)
 
@@ -604,7 +608,7 @@ async def _cancel_job(
     message: str = "Parallel job was cancelled.",
 ) -> None:
     if job.deferred_task and job.deferred_task.is_alive():
-        job.deferred_task.kill()
+        job.deferred_task.kill(terminate_thread=True)
     _finish_job(job, state, error=message)
 
 
