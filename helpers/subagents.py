@@ -319,7 +319,7 @@ def get_available_agents_dict(
     project_name: str | None,
 ) -> dict[str, SubAgentListItem]:
     # all available agents
-    all_agents = get_agents_dict()
+    all_agents = get_agents_dict(project_name)
     # filter by project settings
     from helpers import projects
 
