@@ -12,11 +12,6 @@ from urllib.parse import urlparse
 from helpers import chat_media, media_artifacts
 
 try:
-    from helpers.ws import NAMESPACE
-except Exception:
-    NAMESPACE = "/ws"
-
-try:
     from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 except Exception:
     class ConnectionNotFoundError(RuntimeError):
@@ -27,6 +22,7 @@ except Exception:
 
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_browser_op,
+    emit_connector_event,
     host_browser_metadata_for_context,
     host_browser_metadata_for_sid,
     select_host_browser_candidate_sid,
@@ -341,12 +337,12 @@ class ConnectorBrowserRuntime:
             context_id=self.context_id,
         )
         try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
+            await emit_connector_event(
                 sid,
                 BROWSER_OP_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             response = await asyncio.wait_for(future, timeout=BROWSER_OP_TIMEOUT)
         except ConnectionNotFoundError as exc:
