@@ -46,21 +46,28 @@ class ApiFilesGet(ApiHandler):
 
             for path in paths:
                 try:
-                    # Convert internal paths to external paths
+                    # CVE-2026-4307: `path` comes from the request body, so it is never
+                    # trusted. Only /a0/... paths are addressable, each is resolved through
+                    # the containment check, and the old "assume it's already an
+                    # external/absolute path" branch -- which read ANY file on disk and
+                    # returned it base64-encoded -- is gone.
+                    if not isinstance(path, str) or not path.startswith("/a0/"):
+                        PrintStyle.warning(
+                            f"Refused path outside the Agent Zero directory: {path}"
+                        )
+                        continue
                     if path.startswith("/a0/tmp/uploads/"):
-                        # Internal path - convert to external
-                        filename = path.replace("/a0/tmp/uploads/", "")
-                        external_path = files.get_abs_path("usr/uploads", filename)
-                        filename = os.path.basename(external_path)
-                    elif path.startswith("/a0/"):
-                        # Other internal Agent Zero paths
-                        relative_path = path.replace("/a0/", "")
-                        external_path = files.get_abs_path(relative_path)
-                        filename = os.path.basename(external_path)
+                        relative_path = os.path.join(
+                            "usr/uploads", path.replace("/a0/tmp/uploads/", "", 1)
+                        )
                     else:
-                        # Assume it's already an external/absolute path
-                        external_path = path
-                        filename = os.path.basename(path)
+                        relative_path = path.replace("/a0/", "", 1)
+                    try:
+                        external_path = files.get_abs_path_contained(relative_path)
+                    except files.PathEscapesBaseDirError as exc:
+                        PrintStyle.warning(f"Refused traversal attempt: {exc}")
+                        continue
+                    filename = os.path.basename(external_path)
 
                     # Check if file exists
                     if not os.path.exists(external_path):
