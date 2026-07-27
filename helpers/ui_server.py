@@ -32,6 +32,7 @@ from helpers.extension import extensible
 from helpers.files import get_abs_path
 from helpers.print_style import PrintStyle
 from helpers.server_startup import StartupMonitor
+from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
 from helpers import settings as settings_helper
 from helpers.ws import register_ws_namespace, validate_ws_origin
 from helpers.ws_manager import WsManager, set_shared_ws_manager
@@ -107,7 +108,7 @@ class UiServerRuntime:
                 "A0_SOCKETIO_PING_TIMEOUT_SECONDS",
                 SOCKETIO_PING_TIMEOUT_SECONDS,
             ),
-            max_http_buffer_size=50 * 1024 * 1024,
+            max_http_buffer_size=A0_WS_MAX_PAYLOAD_BYTES,
         )
 
         ws_manager = WsManager(socketio_server, lock)

@@ -7,6 +7,8 @@ import sys
 from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
 from plugins._a0_connector.helpers.version import agent_zero_version
+from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
+from plugins._a0_connector.helpers.ws_runtime import TRANSFER_PROTOCOL_VERSION
 
 
 _BASE_FEATURES = [
@@ -88,6 +90,10 @@ class Capabilities(connector_base.PublicConnectorApiHandler):
             "auth_required": bool(login.is_login_required()),
             "transports": ["http", "websocket"],
             "streaming": True,
+            "capabilities": {
+                "ws_max_payload_bytes": A0_WS_MAX_PAYLOAD_BYTES,
+                "transfer_protocol": TRANSFER_PROTOCOL_VERSION,
+            },
             "websocket_namespace": "/ws",
             "websocket_handlers": ["plugins/_a0_connector/ws_connector"],
             "attachments": {

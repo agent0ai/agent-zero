@@ -28,13 +28,14 @@
 - Top-level functions:
 - `_positive_int_env(name: str, default: int) -> int`
 - `configure_process_environment() -> None`
-- Notable constants/configuration names: `UPLOAD_LIMIT_BYTES`, `SOCKETIO_PING_INTERVAL_SECONDS`, `SOCKETIO_PING_TIMEOUT_SECONDS`, `A0_SOCKETIO_PING_INTERVAL_SECONDS`, `A0_SOCKETIO_PING_TIMEOUT_SECONDS`.
+- Notable constants/configuration names: `UPLOAD_LIMIT_BYTES`, `SOCKETIO_PING_INTERVAL_SECONDS`, `SOCKETIO_PING_TIMEOUT_SECONDS`, `A0_SOCKETIO_PING_INTERVAL_SECONDS`, `A0_SOCKETIO_PING_TIMEOUT_SECONDS`, and the shared `A0_WS_MAX_PAYLOAD_BYTES` import.
 
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Socket.IO heartbeat defaults are intentionally longer than Engine.IO's short defaults so CLI sessions survive long prompt/context work; environment overrides must remain positive integers and fall back to source defaults when invalid.
+- Engine.IO's inbound buffer ceiling uses the shared WebSocket payload limit from `helpers.ws_limits`.
 - Observed side-effect areas: filesystem reads, network calls, subprocess/runtime control, WebSocket state, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `asyncio`, `dataclasses`, `datetime`, `flask`, `helpers`, `helpers.api`, `helpers.extension`, `helpers.files`, `helpers.print_style`, `helpers.server_startup`, `helpers.ws`, `helpers.ws_manager`, `logging`, `os`, `secrets`, `socketio`.
 
