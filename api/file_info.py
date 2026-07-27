@@ -26,7 +26,19 @@ class FileInfo(TypedDict):
     message: str
 
 async def get_file_info(path: str) -> FileInfo:
-    abs_path = files.get_abs_path(path)
+    # CVE-2026-4307: `path` is request-supplied. Stat-ing an arbitrary absolute path leaks
+    # whether host files exist plus their size, mtime and permission bits, so the path is
+    # contained to the Agent Zero directory before anything touches the disk.
+    try:
+        abs_path = files.get_abs_path_contained(path)
+    except files.PathEscapesBaseDirError:
+        return {
+            "input_path": path, "abs_path": "", "exists": False,
+            "is_dir": False, "is_file": False, "is_link": False,
+            "size": 0, "modified": 0, "created": 0, "permissions": 0,
+            "dir_path": "", "file_name": "", "file_ext": "",
+            "message": "Path is outside the Agent Zero directory and was refused.",
+        }
     exists = os.path.exists(abs_path)
     message = ""
 
