@@ -1,4 +1,5 @@
 import base64
+import hashlib
 from io import BytesIO
 import mimetypes
 import os
@@ -9,6 +10,29 @@ from helpers.api import ApiHandler, Input, Output, Request
 from helpers import files, runtime
 from api import file_info
 from urllib.parse import quote
+
+
+_HASH_CHUNK_BYTES = 1024 * 1024
+
+
+def file_size_and_sha256(file_source: str | BytesIO) -> tuple[int, str]:
+    digest = hashlib.sha256()
+    if isinstance(file_source, str):
+        size = os.path.getsize(file_source)
+        with open(file_source, "rb") as handle:
+            for chunk in iter(lambda: handle.read(_HASH_CHUNK_BYTES), b""):
+                digest.update(chunk)
+        return size, digest.hexdigest()
+    if isinstance(file_source, BytesIO):
+        current_pos = file_source.tell()
+        file_source.seek(0)
+        size = 0
+        while chunk := file_source.read(_HASH_CHUNK_BYTES):
+            size += len(chunk)
+            digest.update(chunk)
+        file_source.seek(current_pos)
+        return size, digest.hexdigest()
+    raise ValueError(f"Unsupported file source type: {type(file_source)}")
 
 
 
@@ -24,18 +48,7 @@ def stream_file_download(file_source, download_name, chunk_size=8192):
     Returns:
         Flask Response object with streaming content
     """
-    # Calculate file size for Content-Length header
-    if isinstance(file_source, str):
-        # File path - get size from filesystem
-        file_size = os.path.getsize(file_source)
-    elif isinstance(file_source, BytesIO):
-        # BytesIO object - get size from buffer
-        current_pos = file_source.tell()
-        file_source.seek(0, 2)  # Seek to end
-        file_size = file_source.tell()
-        file_source.seek(current_pos)  # Restore original position
-    else:
-        raise ValueError(f"Unsupported file source type: {type(file_source)}")
+    file_size, sha256 = file_size_and_sha256(file_source)
 
     def generate():
         if isinstance(file_source, str):
@@ -68,6 +81,7 @@ def stream_file_download(file_source, download_name, chunk_size=8192):
         headers={
             'Content-Disposition': make_disposition(download_name),
             'Content-Length': str(file_size),  # Critical for browser progress bars
+            'X-Content-SHA256': sha256,
             'Cache-Control': 'no-cache',
             'X-Accel-Buffering': 'no',  # Disable nginx buffering
             'Accept-Ranges': 'bytes'  # Allow browser to resume downloads

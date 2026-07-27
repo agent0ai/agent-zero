@@ -15,6 +15,9 @@
   - `get_methods(cls)`
   - `async process(self, input: Input, request: Request) -> Output`
 - Top-level functions:
+- `file_size_and_sha256(file_source) -> tuple[int, str]`: Stream a disk file or
+  `BytesIO` source to produce download integrity metadata without loading a disk
+  file into memory.
 - `stream_file_download(file_source, download_name, chunk_size=...)`: Create a streaming response for file downloads that shows progress in browser.
 - `make_disposition(download_name: str) -> str`
 - `resolve_download_path(path: str) -> str`: Resolve a requested download path and keep it within the runtime base dir.
@@ -27,6 +30,8 @@
 - `DownloadFile` is an `ApiHandler`.
 - `DownloadFile` defines `process(...)`.
 - `DownloadFile` defines `get_methods(...)`.
+- Every streamed response carries `Content-Length` and `X-Content-SHA256`; the
+  CLI verifies both before atomically exposing a host destination.
 - Observed side-effect areas: filesystem reads, network calls.
 - Imported dependency areas include: `api`, `base64`, `flask`, `helpers`, `helpers.api`, `io`, `mimetypes`, `os`, `pathlib`, `urllib.parse`.
 
