@@ -577,6 +577,28 @@ def get_abs_path(*relative_paths):
     return _resolve_path(*relative_paths)
 
 
+class PathEscapesBaseDirError(ValueError):
+    """A caller-supplied path resolved outside the Agent Zero base directory."""
+
+
+def get_abs_path_contained(*relative_paths):
+    """Resolve a path and REFUSE it if it escapes the base directory.
+
+    Patch for CVE-2026-4307. ``get_abs_path`` is used all over the codebase, including
+    with trusted absolute paths, so it cannot be made strict without breaking internals.
+    This is the variant every handler that accepts a path from an HTTP request must use:
+    it normalizes ``..`` and symlinks via ``realpath`` and then requires the result to sit
+    inside the base dir, so neither ``/etc/passwd`` nor ``../../etc/passwd`` survives.
+    """
+    resolved = os.path.realpath(_resolve_path(*relative_paths))
+    base = os.path.realpath(get_base_dir())
+    if not (resolved == base or resolved.startswith(base + os.sep)):
+        raise PathEscapesBaseDirError(
+            f"path escapes the Agent Zero directory: {os.path.join(*relative_paths)}"
+        )
+    return resolved
+
+
 def get_abs_path_dockerized(*relative_paths):
     "Ensures the abs path is dockerized (i.e. /a0/... path)"
     abs = get_abs_path(*relative_paths)
