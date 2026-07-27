@@ -13,8 +13,10 @@ from typing import Awaitable, Callable
 from urllib.parse import urlparse
 
 import aiohttp
+from yarl import URL
 
 from helpers import files
+from helpers.net_guard import MAX_REDIRECTS, BlockedRequestError, assert_public_url
 
 
 InterventionCallback = Callable[[], Awaitable[None]]
@@ -137,13 +139,40 @@ async def _fetch_http(
     if encoding:
         raise ValueError(f"Compressed documents are unsupported '{encoding}' ({uri})")
 
+    # CVE-2026-4308: validate the target before the first byte leaves the process. A
+    # blocked target is a hard stop -- never retried, never masked by the generic error
+    # path below (see the BlockedRequestError re-raise in the retry loop).
+    assert_public_url(uri)
+
     last_error = ""
     for attempt in range(retries):
         try:
             async with aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=timeout)
             ) as session:
-                async with session.get(uri, allow_redirects=True) as response:
+                # Redirects are followed manually so every hop is re-validated. Delegating
+                # to allow_redirects would let a public URL bounce us into the private
+                # network on hop two, which is the whole point of the CVE.
+                current_uri = uri
+                response = None
+                for _hop in range(MAX_REDIRECTS + 1):
+                    response = await session.get(current_uri, allow_redirects=False)
+                    if response.status not in (301, 302, 303, 307, 308):
+                        break
+                    location = response.headers.get("location", "")
+                    redirect_from = response.url
+                    response.release()
+                    if not location:
+                        raise ValueError("redirect without a location header")
+                    current_uri = str(redirect_from.join(URL(location)))
+                    assert_public_url(current_uri)
+                else:
+                    if response is not None:
+                        response.release()
+                    raise ValueError(f"too many redirects (> {MAX_REDIRECTS})")
+
+                assert response is not None
+                try:
                     if response.status > 399:
                         raise ValueError(f"HTTP {response.status}")
 
@@ -187,6 +216,11 @@ async def _fetch_http(
                         charset=charset,
                         content=b"".join(chunks),
                     )
+                finally:
+                    response.release()
+        except BlockedRequestError:
+            # A refused target is a security decision, not a transient failure.
+            raise
         except Exception as e:
             last_error = str(e)
             if attempt < retries - 1:
