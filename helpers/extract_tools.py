@@ -38,6 +38,13 @@ def is_misformatted_tool_request(content: str) -> bool:
         return False
 
     content = content.strip()
+
+    # Multiple top-level roots are unusable. Fail closed here so the existing
+    # repair warning and unusable-response circuit breaker handle the turn,
+    # instead of the response-mode path rendering raw tool protocol as text.
+    if has_multiple_tool_roots(content):
+        return True
+
     for fenced_content in re.findall(
         r"```(?:json)?\s*(.*?)```", content, flags=re.IGNORECASE | re.DOTALL
     ):
@@ -193,6 +200,29 @@ def _is_tool_request(data: dict[str, Any]) -> bool:
     except ValueError:
         return False
     return True
+
+
+def has_multiple_tool_roots(content: str) -> bool:
+    """True when content holds several top-level JSON roots and at least one of
+    them parses as a tool request.
+
+    A turn carries exactly one tool envelope. When a model emits several
+    concatenated roots the message is unusable as a whole: picking one and
+    discarding the others would execute an action the model did not request in
+    isolation. Callers must treat this as misformatted and repair it.
+    """
+    if not content or not isinstance(content, str):
+        return False
+
+    roots = extract_json_root_strings(content.strip())
+    if len(roots) < 2:
+        return False
+
+    for root in roots:
+        data = _parse_json_root_object(root)
+        if data is not None and _is_tool_request(data):
+            return True
+    return False
 
 
 def extract_json_object_string(content):
