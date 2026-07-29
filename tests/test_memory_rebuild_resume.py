@@ -46,12 +46,17 @@ class FakeModelConfig:
     """Minimal stand-in for models.ModelConfig -- memory.py only reads
     .provider, .name and calls .build_kwargs()."""
 
-    def __init__(self, provider: str, name: str):
+    def __init__(self, provider: str, name: str, kwargs: dict | None = None, api_key: str = ""):
         self.provider = provider
         self.name = name
+        self.kwargs = kwargs or {}
+        self.api_key = api_key
 
     def build_kwargs(self):
-        return {}
+        kwargs = dict(self.kwargs)
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        return kwargs
 
 
 class FakeEmbeddings(Embeddings):
@@ -125,7 +130,7 @@ def test_write_then_load_rebuild_checkpoint_round_trips(tmp_path):
     assert (tmp_path / "index.rebuilding.faiss").exists()
     assert (tmp_path / "index.rebuilding.pkl").exists()
     meta = json.loads((tmp_path / "index.rebuilding.json").read_text())
-    assert meta == {"model_provider": "other", "model_name": "model-a"}
+    assert meta == {"model_provider": "other", "model_name": "model-a", "model_kwargs": {}}
 
     loaded_db, resumed_ids = Memory._load_rebuild_checkpoint(
         str(tmp_path), model_config, embedder
@@ -382,3 +387,123 @@ def test_initialize_discards_stale_checkpoint_when_model_changed_again(tmp_path,
     assert db.index.d == 6
     final_meta = json.loads((tmp_path / "embedding.json").read_text())
     assert final_meta == {"model_provider": "other", "model_name": "model-b"}
+
+
+def test_checkpoint_signature_excludes_api_key(tmp_path):
+    """A credential rotation alone (same provider/name/other-kwargs, only
+    api_key differs) must not invalidate an otherwise-matching checkpoint --
+    it has no bearing on the embedding output, and the signature is
+    persisted to disk in the memory dir where a plaintext key doesn't
+    belong."""
+    embedder = FakeEmbeddings(4)
+    index = memory_module.faiss.IndexFlatIP(embedder.dim)
+    from langchain_community.docstore.in_memory import InMemoryDocstore
+    from langchain_community.vectorstores.utils import DistanceStrategy
+
+    db = MyFaiss(
+        embedding_function=embedder,
+        index=index,
+        docstore=InMemoryDocstore(),
+        index_to_docstore_id={},
+        distance_strategy=DistanceStrategy.COSINE,
+        relevance_score_fn=Memory._cosine_normalizer,
+    )
+    docs = _make_docs(2)
+    db.add_documents(documents=list(docs.values()), ids=list(docs.keys()))
+    Memory._write_rebuild_checkpoint(
+        db, str(tmp_path), FakeModelConfig("other", "model-a", api_key="old-secret-123")
+    )
+
+    meta = json.loads((tmp_path / "index.rebuilding.json").read_text())
+    assert "old-secret-123" not in json.dumps(meta)
+
+    loaded_db, resumed_ids = Memory._load_rebuild_checkpoint(
+        str(tmp_path),
+        FakeModelConfig("other", "model-a", api_key="rotated-secret-456"),
+        embedder,
+    )
+    assert loaded_db is not None
+    assert resumed_ids == set(docs.keys())
+
+
+def test_checkpoint_signature_rejects_dimension_affecting_kwarg_change(tmp_path):
+    """The bug the automated review caught: provider+name alone aren't
+    enough to key the checkpoint on. A kwarg that changes the embedder's
+    actual output (e.g. an OpenAI-style `dimensions` override) must be part
+    of the signature, or a checkpoint built under the old kwargs gets
+    resumed into under the new ones -- silently mixing embedding spaces."""
+    embedder = FakeEmbeddings(4)
+    index = memory_module.faiss.IndexFlatIP(embedder.dim)
+    from langchain_community.docstore.in_memory import InMemoryDocstore
+    from langchain_community.vectorstores.utils import DistanceStrategy
+
+    db = MyFaiss(
+        embedding_function=embedder,
+        index=index,
+        docstore=InMemoryDocstore(),
+        index_to_docstore_id={},
+        distance_strategy=DistanceStrategy.COSINE,
+        relevance_score_fn=Memory._cosine_normalizer,
+    )
+    docs = _make_docs(2)
+    db.add_documents(documents=list(docs.values()), ids=list(docs.keys()))
+    Memory._write_rebuild_checkpoint(
+        db, str(tmp_path), FakeModelConfig("other", "model-a", kwargs={"dimensions": 1536})
+    )
+
+    loaded_db, resumed_ids = Memory._load_rebuild_checkpoint(
+        str(tmp_path),
+        FakeModelConfig("other", "model-a", kwargs={"dimensions": 512}),
+        embedder,
+    )
+    assert loaded_db is None
+    assert resumed_ids == set()
+
+
+def test_initialize_does_not_clear_checkpoint_before_final_save_succeeds(
+    tmp_path, monkeypatch
+):
+    """The other bug the automated review caught: clearing the rebuild
+    checkpoint must happen strictly AFTER the final index/meta are durably
+    written. If `_save_db_file` (or anything after it) fails or the process
+    is killed first, the checkpoint must still be there to resume from --
+    otherwise that crash loses both the checkpoint and the final index."""
+    monkeypatch.setattr(memory_module, "abs_db_dir", lambda subdir: str(tmp_path))
+
+    # A genuine reindex has to be triggered for the batch loop (and its
+    # checkpoint writes) to run at all -- set up a stale-model existing
+    # index, same as the other end-to-end tests.
+    from langchain_community.docstore.in_memory import InMemoryDocstore
+    from langchain_community.vectorstores.utils import DistanceStrategy
+
+    old_docs = _make_docs(2)
+    old_index = memory_module.faiss.IndexFlatIP(4)
+    old_db = MyFaiss(
+        embedding_function=FakeEmbeddings(4),
+        index=old_index,
+        docstore=InMemoryDocstore(),
+        index_to_docstore_id={},
+        distance_strategy=DistanceStrategy.COSINE,
+        relevance_score_fn=Memory._cosine_normalizer,
+    )
+    old_db.add_documents(documents=list(old_docs.values()), ids=list(old_docs.keys()))
+    Memory._save_db_file(old_db, "default")
+    memory_module.files.write_file(
+        memory_module.files.get_abs_path(str(tmp_path), "embedding.json"),
+        json.dumps({"model_provider": "other", "model_name": "stale-model"}),
+    )
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated crash during final save")
+
+    monkeypatch.setattr(Memory, "_save_db_file", staticmethod(boom))
+
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        Memory.initialize(
+            _NullLogItem(), FakeModelConfig("other", "model-a"), "default", False
+        )
+
+    # The rebuild checkpoint (written by the batch loop before the crash)
+    # must still be on disk -- it's the only resumable state left.
+    assert (tmp_path / "index.rebuilding.faiss").exists()
+    assert (tmp_path / "index.rebuilding.json").exists()

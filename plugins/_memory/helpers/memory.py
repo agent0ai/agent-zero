@@ -75,22 +75,43 @@ class Memory:
         return files.get_abs_path(db_dir, f"{Memory._REBUILD_INDEX_NAME}.json")
 
     @staticmethod
+    def _rebuild_model_signature(model_config: "models.ModelConfig") -> dict:
+        """Everything about model_config that can change what the embedder
+        actually produces, excluding secrets. provider/name alone aren't
+        enough: some providers accept kwargs (e.g. an OpenAI `dimensions`
+        override, or an `api_base` pointed at a different backend/model
+        version) that change the output dimension/semantics without
+        changing provider or name. api_key is deliberately excluded --
+        this signature is persisted to disk in the memory dir, and a
+        credential rotation alone must not be treated as "a different
+        model"."""
+        kwargs = {
+            k: v for k, v in model_config.build_kwargs().items() if k != "api_key"
+        }
+        return {
+            "model_provider": model_config.provider,
+            "model_name": model_config.name,
+            "model_kwargs": kwargs,
+        }
+
+    @staticmethod
     def _load_rebuild_checkpoint(
         db_dir: str,
         model_config: "models.ModelConfig",
         embedder: Any,
     ) -> tuple["MyFaiss | None", set[str]]:
         """Load a partially-rebuilt index left behind by an interrupted
-        reindex, but only if it was built with the SAME embedding model as
-        the one we're about to (re)index with.
+        reindex, but only if it was built under the SAME effective embedding
+        configuration as the one we're about to (re)index with.
 
-        A stale checkpoint left over from a *different* model (e.g. the
-        model was switched again while the previous rebuild was interrupted)
-        holds vectors of a possibly different dimension/semantics and must
-        not be reused: resuming into it would raise a FAISS dimension
-        assertion the moment a new document is added, rather than making
-        progress. Returns (db, resumed_ids); db is None (and resumed_ids
-        empty) if there is nothing usable to resume from.
+        A stale checkpoint left over from a *different* configuration (the
+        model was switched again, or a dimension-affecting kwarg changed,
+        while the previous rebuild was interrupted) holds vectors of a
+        possibly different dimension/semantics and must not be reused:
+        resuming into it would raise a FAISS dimension assertion the moment
+        a new document is added, rather than making progress. Returns (db,
+        resumed_ids); db is None (and resumed_ids empty) if there is
+        nothing usable to resume from.
         """
         name = Memory._REBUILD_INDEX_NAME
         if not (
@@ -112,12 +133,9 @@ class Memory:
             )
             return None, set()
 
-        if (
-            meta.get("model_provider") != model_config.provider
-            or meta.get("model_name") != model_config.name
-        ):
+        if meta != Memory._rebuild_model_signature(model_config):
             PrintStyle.standard(
-                "Partial memory rebuild was for a different embedding model "
+                "Partial memory rebuild was for a different embedding configuration "
                 f"({meta.get('model_provider')}/{meta.get('model_name')}) -- "
                 "discarding it and starting fresh"
             )
@@ -148,12 +166,7 @@ class Memory:
         db.save_local(folder_path=db_dir, index_name=name)
         files.write_file(
             Memory._rebuild_meta_path(db_dir),
-            json.dumps(
-                {
-                    "model_provider": model_config.provider,
-                    "model_name": model_config.name,
-                }
-            ),
+            json.dumps(Memory._rebuild_model_signature(model_config)),
         )
 
     @staticmethod
@@ -369,8 +382,6 @@ class Memory:
                     PrintStyle.standard(f"Indexed {done}/{total} memories...")
                     Memory._write_rebuild_checkpoint(db, db_dir, model_config)
 
-                Memory._clear_rebuild_checkpoint(db_dir)
-
             # save DB
             Memory._save_db_file(db, memory_subdir)
             # save meta file
@@ -384,6 +395,15 @@ class Memory:
                     }
                 ),
             )
+
+            # Only drop the rebuild checkpoint once the final index and meta
+            # file are durably written. Clearing it any earlier (e.g. right
+            # after the batch loop) leaves a window where a crash between
+            # "checkpoint cleared" and "final save complete" loses BOTH the
+            # resumable checkpoint and the persisted index -- reintroducing
+            # the full re-embed-from-scratch failure mode this exists to fix.
+            if docs:
+                Memory._clear_rebuild_checkpoint(db_dir)
 
             created = True
 
