@@ -26,18 +26,27 @@ def save_dotenv_value(key: str, value: str):
         value = ""
     dotenv_path = get_dotenv_file_path()
     if not os.path.isfile(dotenv_path):
-        with open(dotenv_path, "w") as f:
+        with open(dotenv_path, "w", encoding="utf-8") as f:
             f.write("")
-    with open(dotenv_path, "r+") as f:
+    # UTF-8 explicitly: without it `open()` uses the platform's preferred encoding,
+    # a legacy codepage on a stock Windows install. `helpers/secrets.py` reads and
+    # writes this same file through `files.read_file`/`files.write_file`, which
+    # default to UTF-8, so the two paths must agree.
+    with open(dotenv_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
-        found = False
-        for i, line in enumerate(lines):
-            if re.match(rf"^\s*{key}\s*=", line):
-                lines[i] = f"{key}={value}\n"
-                found = True
-        if not found:
-            lines.append(f"\n{key}={value}\n")
-        f.seek(0)
+    # The key is interpolated into a pattern, so escape it: an unescaped "." or "|"
+    # would match a *different* line and rewrite its name, discarding that entry's
+    # value. Keys reach here from request payloads (`API_KEY_{provider.upper()}`).
+    key_pattern = re.compile(rf"^\s*{re.escape(key)}\s*=")
+    found = False
+    for i, line in enumerate(lines):
+        if key_pattern.match(line):
+            lines[i] = f"{key}={value}\n"
+            found = True
+    if not found:
+        lines.append(f"\n{key}={value}\n")
+    # newline="" keeps the LF endings written above from being translated to CRLF
+    # on Windows; this file is also sourced by shells and read by Docker.
+    with open(dotenv_path, "w", encoding="utf-8", newline="") as f:
         f.writelines(lines)
-        f.truncate()
     load_dotenv()
