@@ -60,6 +60,113 @@ class Memory:
 
     index: dict[str, "MyFaiss"] = {}
 
+    # Name (without extension) of the on-disk checkpoint a reindex writes
+    # after every batch, so an interrupted rebuild can resume instead of
+    # re-embedding everything from scratch.
+    _REBUILD_INDEX_NAME = "index.rebuilding"
+    # Documents embedded per batch during a reindex. Keeping this modest
+    # bounds how much work a crash mid-batch can lose, and how large a single
+    # embeddings-API call gets (a large batch of long documents can make one
+    # call take a very long time on a slow/shared backend).
+    _REBUILD_BATCH_SIZE = 20
+
+    @staticmethod
+    def _rebuild_meta_path(db_dir: str) -> str:
+        return files.get_abs_path(db_dir, f"{Memory._REBUILD_INDEX_NAME}.json")
+
+    @staticmethod
+    def _load_rebuild_checkpoint(
+        db_dir: str,
+        model_config: "models.ModelConfig",
+        embedder: Any,
+    ) -> tuple["MyFaiss | None", set[str]]:
+        """Load a partially-rebuilt index left behind by an interrupted
+        reindex, but only if it was built with the SAME embedding model as
+        the one we're about to (re)index with.
+
+        A stale checkpoint left over from a *different* model (e.g. the
+        model was switched again while the previous rebuild was interrupted)
+        holds vectors of a possibly different dimension/semantics and must
+        not be reused: resuming into it would raise a FAISS dimension
+        assertion the moment a new document is added, rather than making
+        progress. Returns (db, resumed_ids); db is None (and resumed_ids
+        empty) if there is nothing usable to resume from.
+        """
+        name = Memory._REBUILD_INDEX_NAME
+        if not (
+            files.exists(db_dir, f"{name}.faiss") and files.exists(db_dir, f"{name}.pkl")
+        ):
+            return None, set()
+
+        meta_path = Memory._rebuild_meta_path(db_dir)
+        if not os.path.exists(meta_path):
+            PrintStyle.standard(
+                "Found a partial memory rebuild with no model marker -- discarding it and starting fresh"
+            )
+            return None, set()
+        try:
+            meta = json.loads(files.read_file(meta_path))
+        except Exception:
+            PrintStyle.standard(
+                "Partial memory rebuild marker is unreadable -- discarding it and starting fresh"
+            )
+            return None, set()
+
+        if (
+            meta.get("model_provider") != model_config.provider
+            or meta.get("model_name") != model_config.name
+        ):
+            PrintStyle.standard(
+                "Partial memory rebuild was for a different embedding model "
+                f"({meta.get('model_provider')}/{meta.get('model_name')}) -- "
+                "discarding it and starting fresh"
+            )
+            return None, set()
+
+        try:
+            db = MyFaiss.load_local(
+                folder_path=db_dir,
+                index_name=name,
+                embeddings=embedder,
+                allow_dangerous_deserialization=True,
+                distance_strategy=DistanceStrategy.COSINE,
+                relevance_score_fn=Memory._cosine_normalizer,
+            )
+        except Exception as e:
+            PrintStyle.standard(
+                f"Could not load partial memory rebuild ({e}) -- starting fresh"
+            )
+            return None, set()
+
+        return db, set(db.get_all_docs().keys())
+
+    @staticmethod
+    def _write_rebuild_checkpoint(
+        db: "MyFaiss", db_dir: str, model_config: "models.ModelConfig"
+    ) -> None:
+        name = Memory._REBUILD_INDEX_NAME
+        db.save_local(folder_path=db_dir, index_name=name)
+        files.write_file(
+            Memory._rebuild_meta_path(db_dir),
+            json.dumps(
+                {
+                    "model_provider": model_config.provider,
+                    "model_name": model_config.name,
+                }
+            ),
+        )
+
+    @staticmethod
+    def _clear_rebuild_checkpoint(db_dir: str) -> None:
+        name = Memory._REBUILD_INDEX_NAME
+        for ext in ("faiss", "pkl", "json"):
+            path = files.get_abs_path(db_dir, f"{name}.{ext}")
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception:
+                pass
+
     @staticmethod
     def _get_embedding_config(agent=None):
         from plugins._model_config.helpers.model_config import get_embedding_model_config_object
@@ -211,24 +318,58 @@ class Memory:
 
         # DB not loaded, create one
         if not db:
-            index = faiss.IndexFlatIP(len(embedder.embed_query("example")))
+            resumed_db: MyFaiss | None = None
+            resumed_ids: set[str] = set()
+            if docs:
+                resumed_db, resumed_ids = Memory._load_rebuild_checkpoint(
+                    db_dir, model_config, embedder
+                )
 
-            db = MyFaiss(
-                embedding_function=embedder,
-                index=index,
-                docstore=InMemoryDocstore(),
-                index_to_docstore_id={},
-                distance_strategy=DistanceStrategy.COSINE,
-                # normalize_L2=True,
-                relevance_score_fn=Memory._cosine_normalizer,
-            )
+            if resumed_ids:
+                db = resumed_db  # type: ignore
+                PrintStyle.standard(
+                    f"Resuming memory rebuild: {len(resumed_ids)}/{len(docs)} already embedded"
+                )
+            else:
+                index = faiss.IndexFlatIP(len(embedder.embed_query("example")))
+
+                db = MyFaiss(
+                    embedding_function=embedder,
+                    index=index,
+                    docstore=InMemoryDocstore(),
+                    index_to_docstore_id={},
+                    distance_strategy=DistanceStrategy.COSINE,
+                    # normalize_L2=True,
+                    relevance_score_fn=Memory._cosine_normalizer,
+                )
 
             # insert docs if reindexing
             if docs:
                 PrintStyle.standard("Indexing memories...")
                 if log_item:
                     log_item.stream(progress="\nIndexing memories")
-                db.add_documents(documents=list(docs.values()), ids=list(docs.keys()))
+
+                # Embed in small batches, checkpointing to disk after each
+                # one, so an interrupted rebuild (crash, restart, a slow/
+                # shared embeddings backend timing out) resumes from where
+                # it left off instead of re-embedding everything -- which,
+                # for a large memory store on a slow backend, can otherwise
+                # cost hours of redone work every time it's interrupted.
+                remaining = [(k, v) for k, v in docs.items() if k not in resumed_ids]
+                batch_size = Memory._REBUILD_BATCH_SIZE
+                done = len(resumed_ids)
+                total = len(docs)
+                for i in range(0, len(remaining), batch_size):
+                    chunk = remaining[i : i + batch_size]
+                    db.add_documents(
+                        documents=[d for _, d in chunk],
+                        ids=[k for k, _ in chunk],
+                    )
+                    done += len(chunk)
+                    PrintStyle.standard(f"Indexed {done}/{total} memories...")
+                    Memory._write_rebuild_checkpoint(db, db_dir, model_config)
+
+                Memory._clear_rebuild_checkpoint(db_dir)
 
             # save DB
             Memory._save_db_file(db, memory_subdir)
