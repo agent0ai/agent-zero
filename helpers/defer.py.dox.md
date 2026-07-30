@@ -12,6 +12,8 @@
 - `defer.py.dox.md` owns durable notes about responsibilities, contracts, side effects, and verification for that implementation.
 - Classes:
 - `EventLoopThread` (no explicit base class)
+  - `acquire(self) -> None`
+  - `release(self, terminate: bool) -> bool`
   - `terminate(self)`
   - `run_coroutine(self, coro)`
 - `ChildTask` (no explicit base class)
@@ -24,13 +26,17 @@
   - `kill_children(self) -> None`
   - `is_alive(self) -> bool`
   - `restart(self, terminate_thread: bool=...) -> None`
-- Notable constants/configuration names: `T`, `THREAD_BACKGROUND`.
+- Notable constants/configuration names: `T`, `THREAD_BACKGROUND`, `DRAIN_TIMEOUT`.
 
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - `DeferredTask` retains its callable and arguments only while an invocation is active; completion and `kill()` clear those references after the running coroutine has taken its own snapshot.
 - Task results remain available after completion. `restart()` can restart an active invocation, but a completed invocation has no retained call recipe and must be started again explicitly.
+- `EventLoopThread` instances are shared per thread name, so a name is a shared resource rather than a private one. Every `DeferredTask` registers with `acquire()` on construction and drops its claim in `kill()`; `kill(terminate_thread=True)` tears the loop down only once the count reaches zero. Ignoring the count cancels every sibling task on the same name, and the cancellation surfaces only on the abandoned task's own future, so it is otherwise silent. `TaskScheduler` shares one name across all scheduled tasks and `THREAD_BACKGROUND` is shared process-wide.
+- `kill()` and `terminate()` may run on the loop's own thread, since a task's done callback runs there and kills its children. Neither may join that thread or wait on a coroutine that only that thread can advance; the in-loop path chains the drain and the stop onto the loop instead and leaves the loop to close itself as `run_forever` returns.
+- Because the in-loop path cannot clear the instance's `loop`/`thread` attributes, `_start` treats a closed loop or a dead thread as absent and rebuilds both together, so reusing a torn-down thread name yields a working loop.
+- Waits on teardown are bounded by `DRAIN_TIMEOUT`: `kill(terminate_thread=True)` is reached from request handlers (chat deletion, scheduler task deletion), so a task that ignores cancellation must not hang them.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: scheduler state.
 - Imported dependency areas include: `asyncio`, `concurrent.futures`, `dataclasses`, `threading`, `typing`.
@@ -49,7 +55,9 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
+- Shared-thread and teardown behavior is covered by `tests/test_defer_lifecycle.py`. Run those tests with a per-test timeout: a regression in the in-loop teardown path wedges the loop thread permanently rather than failing, which stalls the run instead of reporting.
 - Related tests observed by source search:
+  - `tests/test_defer_lifecycle.py`
   - `tests/test_office_document_store.py`
 
 ## Child DOX Index
