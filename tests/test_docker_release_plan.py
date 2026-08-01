@@ -50,8 +50,10 @@ def test_docker_publish_workflow_tracks_branch_promotions():
     assert "inputs:" in content
     assert "tag:" in content
     # The build job no longer checks out the tag ref directly; it re-resolves
-    # the source tag through the plan script's TARGET_TAG env var instead.
-    assert "TARGET_TAG: ${{ matrix.source_tag }}" in content
+    # the source tag through the plan script's TARGET_TAG env var instead,
+    # in both the resolve-build and resolve-release steps.
+    assert content.count("TARGET_TAG: ${{ matrix.source_tag }}") == 2
+    assert 'ALLOWED_BRANCHES: "testing ready main"' in content
     assert "SOURCE_REF_TYPE: ${{ github.ref_type }}" in content
     assert "BEFORE_SHA: ${{ github.event_name == 'push' && github.event.before || '' }}" in content
 

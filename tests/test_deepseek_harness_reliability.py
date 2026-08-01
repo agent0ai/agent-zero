@@ -89,6 +89,145 @@ def test_recover_embedded_tool_request_rejects_non_tool_json() -> None:
     assert recover_embedded_tool_request('Here is the status: {"status":"ok"}') is None
 
 
+def test_recover_embedded_tool_request_rejects_quoted_example() -> None:
+    # An envelope quoted inside prose is an example being discussed, not a
+    # tool request the model is issuing; it must never be executed.
+    content = (
+        'I must reply in the format "{"thoughts":["x"],"tool_name":"response",'
+        '"tool_args":{"text":"hi"}}" exactly.'
+    )
+
+    assert recover_embedded_tool_request(content) is None
+
+
+def test_recover_embedded_tool_request_rejects_fenced_example() -> None:
+    content = (
+        "The protocol looks like this:\n```json\n"
+        + TOOL_REQUEST
+        + "\n```\nI will follow it now."
+    )
+
+    assert recover_embedded_tool_request(content) is None
+
+
+def test_recover_embedded_tool_request_rejects_inline_code_example() -> None:
+    content = (
+        'Use `{"thoughts":["x"],"tool_name":"response","tool_args":{"text":"hi"}}`'
+        " to reply."
+    )
+
+    assert recover_embedded_tool_request(content) is None
+
+
+def test_recover_embedded_tool_request_rejects_dirty_json_envelope() -> None:
+    # Lenient (dirty) JSON forms such as single-quoted keys are not a valid
+    # executable envelope even when embedded in prose.
+    content = (
+        "Let me try: {'thoughts':['x'],'tool_name':'response',"
+        "'tool_args':{'text':'hi'}}"
+    )
+
+    assert recover_embedded_tool_request(content) is None
+
+
+def test_recover_embedded_tool_request_accepts_bare_envelope_with_quoted_prose() -> None:
+    # Masking prose quotes must not destroy a real bare envelope that itself
+    # contains quoted strings.
+    content = (
+        'The user said "please list files", so I will run the command.\n\n'
+        + TOOL_REQUEST
+    )
+
+    recovered = recover_embedded_tool_request(content)
+    assert recovered is not None
+    assert recovered["tool_name"] == "code_execution_tool"
+
+
+# --- transient classification precision --------------------------------------
+
+
+def _litellm_style_error(message: str, status_code: int | None = None) -> Exception:
+    exc = Exception(message)
+    exc.status_code = status_code  # type: ignore[attr-defined]
+    return exc
+
+
+def test_transient_classification_does_not_retry_permanent_body_parse_failures() -> None:
+    from models import _is_transient_litellm_error
+
+    # A 400 whose body is an HTML proxy/WAF error page surfaces as
+    # "unable to get json response" but is a permanent request error.
+    exc = _litellm_style_error("Unable to get json response: <html>…</html>", 400)
+
+    assert _is_transient_litellm_error(exc) is False
+
+
+def test_transient_classification_retries_mid_body_disconnect_with_200() -> None:
+    from models import _is_transient_litellm_error
+
+    exc = _litellm_style_error("Unable to get json response: …", 200)
+
+    assert _is_transient_litellm_error(exc) is True
+
+
+def test_transient_classification_retries_body_parse_failure_without_status() -> None:
+    from models import _is_transient_litellm_error
+
+    exc = _litellm_style_error("Unable to get json response: …", None)
+
+    assert _is_transient_litellm_error(exc) is True
+
+
+def test_deepseek_retry_predicates_ignore_third_party_deepseek_models() -> None:
+    from models import _should_retry_empty_completion, _should_retry_truncated_stream
+
+    class _Policy:
+        using_responses = False
+
+    class _Transport:
+        policy = _Policy()
+        model = "openrouter/deepseek/deepseek-v4-flash"
+        last_finish_reason = ""
+
+    # Only the direct DeepSeek API omits terminal finish_reason / returns
+    # empty completions in the observed way; third-party-hosted
+    # deepseek-* models must not pay duplicate-generation retries.
+    assert _should_retry_truncated_stream(_Transport(), stream=True, stopped_early=False) is False
+    assert _should_retry_empty_completion(_Transport(), "  ", stopped_early=False) is False
+
+
+def test_deepseek_retry_predicates_apply_to_direct_deepseek_api() -> None:
+    from models import _should_retry_empty_completion, _should_retry_truncated_stream
+
+    class _Policy:
+        using_responses = False
+
+    class _Transport:
+        policy = _Policy()
+        model = "deepseek/deepseek-v4-flash"
+        last_finish_reason = ""
+
+    assert _should_retry_truncated_stream(_Transport(), stream=True, stopped_early=False) is True
+    assert _should_retry_empty_completion(_Transport(), "  ", stopped_early=False) is True
+
+
+def test_memorize_lock_rebinds_to_new_event_loop() -> None:
+    async def _acquire_once() -> None:
+        lock = get_memorize_lock()
+        await lock.acquire()
+        lock.release()
+
+    asyncio.run(_acquire_once())
+    first_lock = get_memorize_lock()
+
+    # A new event loop (e.g. after EventLoopThread.terminate()) must get a
+    # usable lock instead of one bound to the dead loop.
+    asyncio.run(_acquire_once())
+    second_lock = get_memorize_lock()
+
+    assert first_lock is not second_lock
+
+
 # --- failure diagnostics -----------------------------------------------------
 
 

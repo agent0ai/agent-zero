@@ -34,8 +34,15 @@ def _make_tool(args: dict) -> CodeExecutionRemote:
 
 @pytest.fixture(autouse=True)
 def _fast_reconnect_grace(monkeypatch):
-    monkeypatch.setattr(code_execution_remote, "NO_CLI_RECONNECT_GRACE_SECONDS", 0.4)
+    monkeypatch.setattr(code_execution_remote, "NO_CLI_RECONNECT_GRACE_SECONDS", 0.6)
     monkeypatch.setattr(code_execution_remote, "NO_CLI_RECONNECT_POLL_SECONDS", 0.05)
+    # set_progress drives the extension chain, which needs a real Agent; the
+    # reconnect behavior under test does not depend on progress reporting.
+    monkeypatch.setattr(
+        CodeExecutionRemote,
+        "set_progress",
+        lambda self, content: asyncio.sleep(0),
+    )
 
 
 @pytest.fixture
@@ -117,6 +124,33 @@ async def test_connected_cli_with_exec_disabled_does_not_wait_and_breaks_loop(
     response = await tool.execute()
     elapsed = time.monotonic() - started
 
+    assert elapsed < code_execution_remote.NO_CLI_RECONNECT_GRACE_SECONDS
+    assert response.break_loop is True
+    assert "F4" in response.message
+
+
+@pytest.mark.asyncio
+async def test_cli_reconnect_with_exec_disabled_exits_grace_early(
+    registered_sid,
+) -> None:
+    sid = registered_sid
+    tool = _make_tool({"runtime": "output", "session": 0})
+
+    async def _register_later() -> None:
+        await asyncio.sleep(0.2)
+        ws_runtime.register_sid(sid)
+        ws_runtime.store_sid_remote_exec_metadata(sid, {"enabled": False})
+
+    registration = asyncio.create_task(_register_later())
+    try:
+        started = time.monotonic()
+        response = await tool.execute()
+        elapsed = time.monotonic() - started
+    finally:
+        await registration
+
+    # The CLI became visible mid-grace with exec disabled: the tool must not
+    # stall for the full grace period before emitting the F4 guidance.
     assert elapsed < code_execution_remote.NO_CLI_RECONNECT_GRACE_SECONDS
     assert response.break_loop is True
     assert "F4" in response.message

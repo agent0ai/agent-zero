@@ -43,6 +43,11 @@ def recover_embedded_tool_request(content: str) -> dict[str, Any] | None:
     enabled) that occasionally wrap a single valid JSON tool envelope in
     planning prose. Returns None when zero or multiple *distinct* tool
     requests are found, so arbitrary prose is never treated as a tool call.
+
+    Envelopes appearing inside quoted spans, inline code, or fenced code
+    blocks are examples being discussed, not requests being issued, and are
+    masked before scanning. Candidates must parse as strict JSON, so lenient
+    dirty-JSON forms (single-quoted keys, etc.) are not executable either.
     """
     if not content or not isinstance(content, str):
         return None
@@ -51,15 +56,66 @@ def recover_embedded_tool_request(content: str) -> dict[str, Any] | None:
     if extract_tool_request(content) is not None:
         return None  # strict path handles clean responses; recovery is failure-only
 
+    masked = _mask_non_executable_regions(content)
     distinct: dict[str, dict[str, Any]] = {}
-    for root in extract_json_root_strings(content):
-        data = _parse_json_root_object(root)
+    for root in extract_json_root_strings(masked):
+        data = _parse_json_root_object_strict(root)
         if data is None or not _is_tool_request(data):
             continue
         distinct.setdefault(json.dumps(data, sort_keys=True, default=str), data)
         if len(distinct) > 1:
             return None
     return next(iter(distinct.values()), None)
+
+
+def _mask_non_executable_regions(content: str) -> str:
+    """Blank out fenced code blocks, inline code and top-level quoted spans.
+
+    Quoted/fenced regions in prose contain examples under discussion, not a
+    tool request the model is issuing. Masking them (to spaces, preserving
+    newlines and offsets) prevents the root scanner from starting a JSON
+    object inside them. Quotes inside an actual JSON object (depth > 0) are
+    left untouched, so a legitimate bare envelope survives masking.
+    """
+    chars = list(content)
+
+    for match in re.finditer(r"```.*?```", content, flags=re.DOTALL):
+        for index in range(match.start(), match.end()):
+            if chars[index] != "\n":
+                chars[index] = " "
+
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for index, char in enumerate(chars):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            if char != "\n":
+                chars[index] = " "
+            continue
+
+        if char in "{[":
+            depth += 1
+        elif char in "}]":
+            depth = max(0, depth - 1)
+        elif depth == 0 and char in ('"', "`"):
+            quote = char
+            chars[index] = " "
+
+    return "".join(chars)
+
+
+def _parse_json_root_object_strict(root: str) -> dict[str, Any] | None:
+    try:
+        data = json.loads(root)
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def explain_tool_request_failure(content: str, finish_reason: str = "") -> str:

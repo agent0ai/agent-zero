@@ -300,13 +300,7 @@ def get_rate_limiter(
 
 def _is_transient_litellm_error(exc: Exception) -> bool:
     """Uses status_code when available, else falls back to exception types"""
-    # Provider closed the connection mid-body; LiteLLM then reports the
-    # truncated response with the *original* 200 status code, which is
-    # transient even though the HTTP status says success.
     exc_text = str(getattr(exc, "message", "") or exc).lower()
-    if "unable to get json response" in exc_text:
-        return True
-    # Prefer explicit status codes if present
     status_code = getattr(exc, "status_code", None)
     if isinstance(status_code, int):
         if status_code in (408, 429, 500, 502, 503, 504):
@@ -314,7 +308,18 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         # Treat other 5xx as retriable
         if status_code >= 500:
             return True
-        return False
+        # A body-parse failure ("unable to get json response") with a
+        # non-2xx status (e.g. a 400 whose body is an HTML proxy/WAF error
+        # page) is a permanent request error, not a dropped connection.
+        if not 200 <= status_code < 300:
+            return False
+        # 2xx: the provider closed the connection mid-body; LiteLLM then
+        # reports the truncated response with the *original* success status,
+        # which is transient even though the HTTP status says success.
+        return "unable to get json response" in exc_text
+
+    if "unable to get json response" in exc_text:
+        return True
 
     # Fallback to exception classes mapped by LiteLLM/OpenAI
     transient_types = (
@@ -329,6 +334,17 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
     return isinstance(exc, transient_types)
 
 
+def _is_direct_deepseek_model(transport: Any) -> bool:
+    """True only for the direct DeepSeek API (litellm `deepseek/...` models).
+
+    Third-party hosts serving deepseek-* weights (openrouter/deepseek/...,
+    ollama/deepseek-r1, ...) have different streaming/empty-completion
+    behavior and must not pay the duplicate-generation retries.
+    """
+    model = str(getattr(transport, "model", "")).lower()
+    return model.startswith("deepseek/")
+
+
 def _should_retry_truncated_stream(
     transport: Any, *, stream: bool, stopped_early: bool
 ) -> bool:
@@ -341,15 +357,15 @@ def _should_retry_truncated_stream(
 
     Exempted: non-stream calls, the agent's own early-stop (which breaks the
     stream before finish_reason arrives by design), the responses API, and
-    non-DeepSeek providers that may legitimately omit finish_reason.
+    third-party-hosted deepseek-* models that may legitimately omit
+    finish_reason.
     """
     if not stream or stopped_early:
         return False
     policy = getattr(transport, "policy", None)
     if policy is None or getattr(policy, "using_responses", False):
         return False
-    model = str(getattr(transport, "model", "")).lower()
-    if "deepseek" not in model:
+    if not _is_direct_deepseek_model(transport):
         return False
     return not getattr(transport, "last_finish_reason", "")
 
@@ -369,8 +385,7 @@ def _should_retry_empty_completion(
     policy = getattr(transport, "policy", None)
     if policy is None or getattr(policy, "using_responses", False):
         return False
-    model = str(getattr(transport, "model", "")).lower()
-    if "deepseek" not in model:
+    if not _is_direct_deepseek_model(transport):
         return False
     return not response.strip()
 

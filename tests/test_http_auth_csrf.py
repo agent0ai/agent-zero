@@ -181,6 +181,7 @@ def test_auth_redirect_includes_original_path_and_query(monkeypatch) -> None:
     # url_for no longer encodes "/" and "?" inside query values, and both
     # encodings carry the same semantics.
     parsed = urlsplit(location)
+    assert not parsed.scheme and not parsed.netloc  # never an external origin
     assert parsed.path == "/login"
     next_params = parse_qs(parsed.query)
     assert next_params["next"] == [

@@ -7,6 +7,7 @@
 - Excludes legacy manual scripts that are not automated tests.
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -30,7 +31,14 @@ try:
     )
 
     ensure_dependencies()
-except Exception:
-    # aiogram unavailable (e.g. offline environment): exclude the telegram
-    # tests at collection time rather than failing the whole suite.
+except (RuntimeError, subprocess.CalledProcessError) as exc:
+    # Dependency installation failed (e.g. offline environment): exclude the
+    # telegram tests at collection time rather than failing the whole suite,
+    # but say so loudly - silently erasing five test files would mask real
+    # plugin regressions in CI. Import errors from plugin code itself are
+    # intentionally NOT caught here and will fail the run.
+    print(
+        f"WARNING: telegram dependencies unavailable ({exc}); "
+        "excluding test_telegram_* from collection."
+    )
     collect_ignore_glob = ["test_telegram_*.py"]
