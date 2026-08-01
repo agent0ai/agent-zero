@@ -300,6 +300,12 @@ def get_rate_limiter(
 
 def _is_transient_litellm_error(exc: Exception) -> bool:
     """Uses status_code when available, else falls back to exception types"""
+    # Provider closed the connection mid-body; LiteLLM then reports the
+    # truncated response with the *original* 200 status code, which is
+    # transient even though the HTTP status says success.
+    exc_text = str(getattr(exc, "message", "") or exc).lower()
+    if "unable to get json response" in exc_text:
+        return True
     # Prefer explicit status codes if present
     status_code = getattr(exc, "status_code", None)
     if isinstance(status_code, int):
@@ -321,6 +327,31 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         getattr(openai, "APIStatusError", Exception),
     )
     return isinstance(exc, transient_types)
+
+
+def _should_retry_truncated_stream(
+    transport: Any, *, stream: bool, stopped_early: bool
+) -> bool:
+    """Detect provider-dropped chat-completions streams.
+
+    DeepSeek intermittently closes streaming connections mid-response; the
+    HTTP layer then ends the iterator without an error, so the completion
+    never delivers a terminal finish_reason. Partial output from such a
+    stream (typically unterminated JSON) must be retried, not parsed.
+
+    Exempted: non-stream calls, the agent's own early-stop (which breaks the
+    stream before finish_reason arrives by design), the responses API, and
+    non-DeepSeek providers that may legitimately omit finish_reason.
+    """
+    if not stream or stopped_early:
+        return False
+    policy = getattr(transport, "policy", None)
+    if policy is None or getattr(policy, "using_responses", False):
+        return False
+    model = str(getattr(transport, "model", "")).lower()
+    if "deepseek" not in model:
+        return False
+    return not getattr(transport, "last_finish_reason", "")
 
 
 async def apply_rate_limiter(
@@ -579,9 +610,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
         attempt = 0
         while True:
             got_any_chunk = False
+            stop_response: str | None = None
             try:
                 if stream:
-                    stop_response: str | None = None
                     async for parsed in transport.astream():
                         got_any_chunk = True
                         output = result.add_chunk(parsed)
@@ -625,6 +656,18 @@ class LiteLLMChatWrapper(SimpleChatModel):
                             limiter.add(output=approximate_tokens(output["response_delta"]))
                         if output["reasoning_delta"]:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+
+                # provider dropped the stream mid-response: discard the partial
+                # output and retry the whole turn instead of parsing broken JSON
+                if _should_retry_truncated_stream(
+                    transport, stream=stream, stopped_early=stop_response is not None
+                ) and attempt < max_retries:
+                    import asyncio
+
+                    attempt += 1
+                    result = ChatGenerationResult()
+                    await asyncio.sleep(retry_delay_s)
+                    continue
 
                 # Successful completion of stream
                 return result.response, result.reasoning
@@ -698,9 +741,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
         attempt = 0
         while True:
             got_any_chunk = False
+            stop_response: str | None = None
             try:
                 if stream:
-                    stop_response: str | None = None
                     async for parsed in transport.astream():
                         got_any_chunk = True
                         output = result.add_chunk(parsed)
@@ -757,12 +800,25 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                 output=approximate_tokens(output["reasoning_delta"])
                             )
 
+                # provider dropped the stream mid-response: discard the partial
+                # output and retry the whole turn instead of parsing broken JSON
+                if _should_retry_truncated_stream(
+                    transport, stream=stream, stopped_early=stop_response is not None
+                ) and attempt < max_retries:
+                    import asyncio
+
+                    attempt += 1
+                    result = ChatGenerationResult()
+                    await asyncio.sleep(retry_delay_s)
+                    continue
+
                 llm_result = transport.last_result or LLMResult.from_chat(
                     response=result.output()["response_delta"],
                     reasoning=result.output()["reasoning_delta"],
                     input_items=ResponsesTransport.input_from_messages(msgs_conv),
                     provider_model_key=self.model_name,
                     capability=transport._capability_metadata(),
+                    finish_reason=transport.last_finish_reason,
                 )
                 if result.output()["response_delta"] and not llm_result.function_calls:
                     llm_result.response = result.output()["response_delta"]

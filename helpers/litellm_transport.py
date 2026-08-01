@@ -192,6 +192,9 @@ class LiteLLMTransport:
     last_result: LLMResult | None = field(init=False, default=None)
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
+    # terminal finish_reason of the last chat-completions call/stream; ""
+    # means the stream ended without one (provider dropped the connection)
+    last_finish_reason: str = field(init=False, default="")
 
     def __post_init__(self) -> None:
         self.kwargs = _without_stream_kwarg(dict(self.kwargs))
@@ -217,6 +220,7 @@ class LiteLLMTransport:
                     parsed = ChatCompletionsTransport.parse(
                         completion(**self._chat_request(stream=False))
                     )
+                    self.last_finish_reason = str(parsed.get("finish_reason") or "")
                     self.last_result = self._llm_result_from_chat(parsed)
                     return parsed
                 request = self._responses_request(stream=False)
@@ -238,6 +242,7 @@ class LiteLLMTransport:
                     parsed = ChatCompletionsTransport.parse(
                         await acompletion(**self._chat_request(stream=False))
                     )
+                    self.last_finish_reason = str(parsed.get("finish_reason") or "")
                     self.last_result = self._llm_result_from_chat(parsed)
                     return parsed
                 request = self._responses_request(stream=False)
@@ -257,6 +262,7 @@ class LiteLLMTransport:
             iterator = None
             exhausted = False
             got_any_chunk = False
+            self.last_finish_reason = ""
             try:
                 if self.policy.mode is TransportMode.CHAT_COMPLETIONS:
                     iterator = completion(**self._chat_request(stream=True))
@@ -270,6 +276,7 @@ class LiteLLMTransport:
                     if _has_chunk_delta(parsed):
                         got_any_chunk = True
                         yield parsed
+                    self.last_finish_reason = parser.finish_reason
                     self.last_result = self._stream_result_from_chat_parser(parser)
                 else:
                     request = self._responses_request(stream=True)
@@ -298,6 +305,7 @@ class LiteLLMTransport:
             iterator = None
             exhausted = False
             got_any_chunk = False
+            self.last_finish_reason = ""
             try:
                 if self.policy.mode is TransportMode.CHAT_COMPLETIONS:
                     iterator = await acompletion(**self._chat_request(stream=True))
@@ -311,6 +319,7 @@ class LiteLLMTransport:
                     if _has_chunk_delta(parsed):
                         got_any_chunk = True
                         yield parsed
+                    self.last_finish_reason = parser.finish_reason
                     self.last_result = self._stream_result_from_chat_parser(parser)
                 else:
                     request = self._responses_request(stream=True)
@@ -408,6 +417,7 @@ class LiteLLMTransport:
             output_items=parsed.get("_output_items"),
             provider_model_key=self.model,
             capability=self._capability_metadata(),
+            finish_reason=str(parsed.get("finish_reason") or ""),
         )
 
     def _llm_result_from_response(
@@ -442,6 +452,7 @@ class LiteLLMTransport:
             output_items=output_items,
             provider_model_key=self.model,
             capability=self._capability_metadata(),
+            finish_reason=parser.finish_reason,
         )
 
     def _capability_metadata(self) -> dict[str, Any]:
@@ -516,7 +527,11 @@ class ChatCompletionsTransport:
         reasoning_delta = _get_value(delta, "reasoning_content") or _get_value(
             message, "reasoning_content"
         ) or ""
-        parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
+        parsed = {
+            "reasoning_delta": reasoning_delta,
+            "response_delta": response_delta,
+            "finish_reason": str(_get_value(choice, "finish_reason") or ""),
+        }
         if not response_delta:
             tool_calls = _as_list(_get_value(message, "tool_calls"))
             response_delta = ChatCompletionsTransport.tool_calls_text(tool_calls)
@@ -583,6 +598,7 @@ class ChatCompletionsStreamParser:
         self.tool_calls: dict[str, dict[str, Any]] = {}
         self.order: list[str] = []
         self.emitted = False
+        self.finish_reason = ""
 
     def parse(self, chunk: Any) -> ChatChunk:
         parsed = ChatCompletionsTransport.parse(chunk)
@@ -591,7 +607,11 @@ class ChatCompletionsStreamParser:
         self._append_tool_calls(_get_value(delta, "tool_calls"))
         self._append_legacy_function_call(_get_value(delta, "function_call"))
 
-        if _get_value(choice, "finish_reason") in {"tool_calls", "function_call"}:
+        finish_reason = _get_value(choice, "finish_reason")
+        if finish_reason:
+            self.finish_reason = str(finish_reason)
+
+        if finish_reason in {"tool_calls", "function_call"}:
             text = self._emit()
             if text and not parsed["response_delta"]:
                 parsed["response_delta"] = text

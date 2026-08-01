@@ -1133,7 +1133,7 @@ class Agent:
                 tool_args={"text": message},
                 message=message,
             )
-        return await self.process_tools(message)
+        return await self.process_tools(message, finish_reason=llm_result.finish_reason)
 
     async def _execute_tool_request(
         self,
@@ -1410,9 +1410,14 @@ class Agent:
             self.set_data(Agent.DATA_NAME_RESPONSES_STATE, state)
 
     @extension.extensible
-    async def process_tools(self, msg: str):
+    async def process_tools(self, msg: str, finish_reason: str = ""):
         # search for tool usage requests in agent message
         tool_request = extract_tools.extract_tool_request(msg)
+
+        if tool_request is None:
+            # narrowly scoped repair: accept exactly one valid tool request
+            # embedded in planning prose (DeepSeek V4 Flash thinking output)
+            tool_request = extract_tools.recover_embedded_tool_request(msg)
 
         raw_tool_name = ""
         tool_args = {}
@@ -1511,9 +1516,10 @@ class Agent:
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             wmsg = self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
+            reason = extract_tools.explain_tool_request_failure(msg, finish_reason)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found.",
+                content=f"{self.agent_name}: Message misformat, no valid tool request found. Reason: {reason}.",
                 id=wmsg.id,
             )
 

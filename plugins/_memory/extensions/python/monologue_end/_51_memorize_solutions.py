@@ -8,6 +8,7 @@ from helpers.defer import DeferredTask, THREAD_BACKGROUND
 
 # Direct import - this extension lives inside the memory plugin
 from plugins._memory.helpers.memory import Memory
+from plugins._memory.helpers.memorize_lock import format_utility_error, get_memorize_lock
 from plugins._memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 class MemorizeSolutions(Extension):
@@ -39,6 +40,9 @@ class MemorizeSolutions(Extension):
         if not self.agent:
             return
 
+        # serialize with _50_memorize_fragments: one utility job at a time
+        lock = get_memorize_lock()
+        await lock.acquire()
         try:
 
             set = plugins.get_plugin_config("_memory", self.agent)
@@ -211,7 +215,9 @@ class MemorizeSolutions(Extension):
 
 
         except Exception as e:
-            err = errors.format_error(e)
+            err = format_utility_error(e)
             self.agent.context.log.log(
                 type="warning", heading="Memorize solutions extension error", content=err
             )
+        finally:
+            lock.release()

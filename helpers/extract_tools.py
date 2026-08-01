@@ -1,4 +1,6 @@
 
+import json
+
 from .dirty_json import DirtyJson
 import regex, re
 from helpers.modules import load_classes_from_file, load_classes_from_folder # keep here for backwards compatibility
@@ -31,6 +33,59 @@ def extract_tool_request(content: str) -> dict[str, Any] | None:
 
     request = _parse_json_root_object(root)
     return request if request is not None and _is_tool_request(request) else None
+
+
+def recover_embedded_tool_request(content: str) -> dict[str, Any] | None:
+    """Recover exactly one valid tool request embedded in surrounding prose.
+
+    Strict extraction (extract_tool_request) stays unchanged; this is a
+    narrowly scoped repair for models (e.g. DeepSeek V4 Flash with thinking
+    enabled) that occasionally wrap a single valid JSON tool envelope in
+    planning prose. Returns None when zero or multiple *distinct* tool
+    requests are found, so arbitrary prose is never treated as a tool call.
+    """
+    if not content or not isinstance(content, str):
+        return None
+
+    content = content.strip()
+    if extract_tool_request(content) is not None:
+        return None  # strict path handles clean responses; recovery is failure-only
+
+    distinct: dict[str, dict[str, Any]] = {}
+    for root in extract_json_root_strings(content):
+        data = _parse_json_root_object(root)
+        if data is None or not _is_tool_request(data):
+            continue
+        distinct.setdefault(json.dumps(data, sort_keys=True, default=str), data)
+        if len(distinct) > 1:
+            return None
+    return next(iter(distinct.values()), None)
+
+
+def explain_tool_request_failure(content: str, finish_reason: str = "") -> str:
+    """Sanitized classification of why no tool request could be extracted.
+
+    Never includes response content; only a reason and the output length.
+    """
+    prefix = ""
+    if finish_reason == "length":
+        prefix = "provider truncated the response (finish_reason=length); "
+
+    if not isinstance(content, str) or not content.strip():
+        return f"{prefix}empty response from the model"
+
+    stripped = content.strip()
+    length = len(stripped)
+    if "{" not in stripped:
+        return f"{prefix}plain prose with no JSON tool object ({length} chars)"
+
+    if extract_json_root_strings(stripped):
+        return (
+            f"{prefix}JSON object without a valid tool_name/tool_args envelope "
+            f"({length} chars)"
+        )
+
+    return f"{prefix}truncated or unterminated JSON tool request ({length} chars)"
 
 
 def is_misformatted_tool_request(content: str) -> bool:
