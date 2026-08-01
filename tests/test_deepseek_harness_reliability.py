@@ -531,3 +531,89 @@ def test_truncated_json_body_is_classified_transient_despite_http_200() -> None:
             self.status_code = 200
 
     assert _is_transient_litellm_error(FakeProviderError()) is True
+
+
+# --- empty completions (DeepSeek JSON/thinking mode) ---------------------------
+
+
+def test_should_retry_empty_completion_flags_whitespace_stop() -> None:
+    """Reproduces seq 1082: full reasoning stream, finish_reason=stop, and a
+    message body of 45 spaces — the provider completed but returned nothing."""
+    from types import SimpleNamespace
+
+    from models import _should_retry_empty_completion
+
+    transport = SimpleNamespace(
+        policy=SimpleNamespace(using_responses=False),
+        model="deepseek/deepseek-v4-flash",
+    )
+    assert _should_retry_empty_completion(transport, " " * 45, stopped_early=False) is True
+    assert _should_retry_empty_completion(transport, "", stopped_early=False) is True
+
+
+def test_should_retry_empty_completion_accepts_real_content() -> None:
+    from types import SimpleNamespace
+
+    from models import _should_retry_empty_completion
+
+    transport = SimpleNamespace(
+        policy=SimpleNamespace(using_responses=False),
+        model="deepseek/deepseek-v4-flash",
+    )
+    assert _should_retry_empty_completion(transport, '{"tool_name":"x"}', stopped_early=False) is False
+    assert _should_retry_empty_completion(transport, "", stopped_early=True) is False
+
+    other = SimpleNamespace(
+        policy=SimpleNamespace(using_responses=False),
+        model="openai/gpt-5.4",
+    )
+    assert _should_retry_empty_completion(other, "", stopped_early=False) is False
+
+    responses_transport = SimpleNamespace(
+        policy=SimpleNamespace(using_responses=True),
+        model="deepseek/deepseek-v4-flash",
+    )
+    assert _should_retry_empty_completion(responses_transport, "", stopped_early=False) is False
+
+
+@pytest.mark.asyncio
+async def test_unified_turn_retries_empty_completion_with_reasoning(monkeypatch) -> None:
+    """Mirror of the production failure: reasoning streams fully, content is
+    whitespace, finish_reason=stop; the retry must deliver the real envelope."""
+    import models
+    from helpers import litellm_transport as lt
+
+    empty_completion = [
+        {"choices": [{"delta": {"reasoning_content": "Let me plan the patch carefully."}}]},
+        {"choices": [{"delta": {"content": " " * 45}}]},
+        {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+    ]
+    complete = [
+        {"choices": [{"delta": {"content": '{"tool_name":"response","tool_args":{"text":"ok"}}'}}]},
+        {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+    ]
+    streams = [_FakeAsyncStream(empty_completion), _FakeAsyncStream(complete)]
+    calls = 0
+
+    async def fake_acompletion(**kwargs):
+        nonlocal calls
+        stream = streams[min(calls, len(streams) - 1)]
+        calls += 1
+        return stream
+
+    monkeypatch.setattr(lt, "acompletion", fake_acompletion)
+    monkeypatch.setattr(models, "configure_litellm", lambda: None)
+
+    model = models.LiteLLMChatWrapper(
+        model="deepseek-v4-flash", provider="deepseek",
+        a0_api_mode="chat", a0_retry_delay_seconds=0,
+    )
+
+    async def on_chunk(chunk: str, full: str):
+        return None
+
+    result = await model.unified_turn(user_message="hi", response_callback=on_chunk)
+
+    assert calls == 2, "whitespace-only completion must trigger exactly one retry"
+    assert result.response == '{"tool_name":"response","tool_args":{"text":"ok"}}'
+    assert result.finish_reason == "stop"
