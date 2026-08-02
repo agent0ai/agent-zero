@@ -6,15 +6,20 @@
   are excluded from collection instead of erroring the whole suite.
 - Excludes legacy manual scripts that are not automated tests.
 - Guards the live usr tree: any test that tries to write under <repo>/usr
-  fails loudly. Inside the deployed container that path is the persistent
-  volume holding real chats, model presets, .env secrets and time-travel
-  history, and suite runs have corrupted it in the past. Tests that need a
-  usr tree must redirect helpers.files._base_dir to tmp_path.
+  via the helpers.files write/delete functions or the helpers.dotenv save
+  path fails loudly. Inside the deployed container that path is the
+  persistent volume holding real chats, model presets, .env secrets and
+  time-travel history, and suite runs have corrupted it in the past. Tests
+  that need a usr tree must redirect helpers.files._base_dir to tmp_path.
+  Scope note: only those helpers.files / helpers.dotenv write paths are
+  intercepted. Direct open(), Path.write_text(), shutil, os.makedirs() or
+  subprocess writes from test or helper code are NOT guarded.
 """
 
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -78,13 +83,23 @@ def _guard_live_usr_writes(monkeypatch):
         return original_save(key, value)
 
     monkeypatch.setattr(a0_dotenv, "save_dotenv_value", guarded_save_dotenv_value)
-    # helpers.localization imported save_dotenv_value by value, so it needs
-    # its own patch; tests that stub it themselves simply replace this one.
-    from helpers import localization as a0_localization
 
-    monkeypatch.setattr(
-        a0_localization, "save_dotenv_value", guarded_save_dotenv_value
-    )
+    # Modules that did `from helpers.files/dotenv import ...` at their own
+    # import time (i.e. before this fixture ran) hold the ORIGINAL unguarded
+    # function object, bypassing the guard - e.g. helpers.task_scheduler
+    # imported at collection time by test_task_scheduler_timezone.py would
+    # write usr/scheduler/tasks.json straight through. Re-bind those names
+    # to the guarded versions. Modules not imported yet are skipped: a later
+    # `from helpers.files import write_file` picks up the already-guarded
+    # attribute. Tests that stub one of these names themselves simply
+    # replace this patch.
+    for module_name, attr, source in (
+        ("helpers.localization", "save_dotenv_value", a0_dotenv),
+        ("helpers.task_scheduler", "write_file", a0_files),
+    ):
+        module = sys.modules.get(module_name)
+        if module is not None:
+            monkeypatch.setattr(module, attr, getattr(source, attr))
     yield
 
 collect_ignore = [
@@ -102,15 +117,20 @@ try:
         ensure_dependencies,
     )
 
+    # Intentional collection-time side effect: the telegram plugin installs
+    # its runtime dependencies lazily (uv pip install), so doing it up front
+    # here lets the test_telegram_* modules import cleanly.
     ensure_dependencies()
-except (RuntimeError, subprocess.CalledProcessError) as exc:
-    # Dependency installation failed (e.g. offline environment): exclude the
-    # telegram tests at collection time rather than failing the whole suite,
-    # but say so loudly - silently erasing five test files would mask real
-    # plugin regressions in CI. Import errors from plugin code itself are
-    # intentionally NOT caught here and will fail the run.
-    print(
-        f"WARNING: telegram dependencies unavailable ({exc}); "
-        "excluding test_telegram_* from collection."
+except (RuntimeError, subprocess.CalledProcessError, OSError) as exc:
+    # Dependency installation failed (e.g. offline environment, or a
+    # missing/broken uv binary): exclude the telegram tests at collection
+    # time rather than failing the whole suite, but say so loudly in the
+    # pytest warnings summary - silently erasing five test files would mask
+    # real plugin regressions in CI. Import errors from plugin code itself
+    # are intentionally NOT caught here and will fail the run.
+    warnings.warn(
+        f"telegram dependencies unavailable ({exc}); "
+        "excluding test_telegram_* from collection.",
+        stacklevel=2,
     )
     collect_ignore_glob = ["test_telegram_*.py"]

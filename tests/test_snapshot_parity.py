@@ -14,6 +14,17 @@ from initialize import initialize_agent
 from api.poll import Poll
 
 
+@pytest.fixture(autouse=True)
+def _stub_env_persistence(monkeypatch):
+    """build_snapshot applies the request timezone via Localization.set_timezone,
+    which persists DEFAULT_USER_TIMEZONE into usr/.env. That file is the live
+    container volume, so stub the persistence call out; the snapshot payloads
+    under comparison are unaffected."""
+    from helpers import localization
+
+    monkeypatch.setattr(localization, "save_dotenv_value", lambda key, value: None)
+
+
 @pytest.mark.asyncio
 async def test_snapshot_builder_matches_poll_output_for_null_context():
     app = Flask("snapshot-parity-test")
