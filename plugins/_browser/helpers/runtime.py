@@ -36,6 +36,20 @@ DOM_HELPER_PATH = PLUGIN_DIR / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = PLUGIN_DIR / "assets" / "browser-page-content.js"
 RUNTIME_DATA_KEY = "_browser_runtime"
 DEFAULT_VIEWPORT = {"width": 1024, "height": 768}
+
+
+def _is_navigation_context_error(message: str) -> bool:
+    # Match Playwright's specific navigation-race phrases only. A bare
+    # "navigation" substring would also swallow genuine script/tool errors
+    # (e.g. "navigation is not allowed here") and misreport them as navigations.
+    lower = str(message or "").lower()
+    return any(
+        token in lower
+        for token in (
+            "execution context was destroyed",
+            "most likely because of a navigation",
+        )
+    )
 CHROME_SINGLETON_FILES = ("SingletonLock", "SingletonCookie", "SingletonSocket")
 SCREENCAST_MAX_WIDTH = 4096
 SCREENCAST_MAX_HEIGHT = 4096
@@ -2194,16 +2208,31 @@ class _BrowserRuntimeCore:
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
         await self._ensure_content_helper(page)
-        if text is None:
-            action = await page.evaluate(
-                "(args) => globalThis.__spaceBrowserPageContent__[args.method](args.ref)",
-                {"method": helper_method, "ref": reference_id},
-            )
-        else:
-            action = await page.evaluate(
-                "(args) => globalThis.__spaceBrowserPageContent__[args.method](args.ref, args.text)",
-                {"method": helper_method, "ref": reference_id, "text": text},
-            )
+        try:
+            if text is None:
+                action = await page.evaluate(
+                    "(args) => globalThis.__spaceBrowserPageContent__[args.method](args.ref)",
+                    {"method": helper_method, "ref": reference_id},
+                )
+            else:
+                action = await page.evaluate(
+                    "(args) => globalThis.__spaceBrowserPageContent__[args.method](args.ref, args.text)",
+                    {"method": helper_method, "ref": reference_id, "text": text},
+                )
+        except Exception as exc:
+            if _is_navigation_context_error(str(exc)):
+                await self._settle(page, short=True)
+                self._maybe_promote(resolved_id)
+                return {
+                    "action": {
+                        "navigation": True,
+                        "message": "Navigation occurred during action",
+                        "helper_method": helper_method,
+                        "reference_id": reference_id,
+                    },
+                    "state": await self._state(resolved_id),
+                }
+            raise
         await self._settle(page, short=False)
         self._maybe_promote(resolved_id)
         return {"action": action or {}, "state": await self._state(resolved_id)}
@@ -2244,10 +2273,19 @@ class _BrowserRuntimeCore:
         if not browser_page:
             raise KeyError(f"Browser {browser_id} is not open.")
         page = browser_page.page
+        current_url = page.url
+        error_page = bool(
+            current_url.startswith("chrome-error://")
+            or current_url.startswith("edge-error://")
+            or "chromewebdata" in current_url
+        )
         try:
             title = await page.title()
         except Exception:
             title = ""
+        original_title = title
+        if error_page:
+            title = "Browser error page"
         try:
             history_length = await page.evaluate("() => globalThis.history?.length || 0")
         except Exception:
@@ -2255,8 +2293,11 @@ class _BrowserRuntimeCore:
         return {
             "id": browser_page.id,
             "context_id": self.context_id,
-            "currentUrl": page.url,
+            "currentUrl": current_url,
             "title": title,
+            "original_title": original_title if error_page else "",
+            "error_page": error_page,
+            "error": "browser_error_page" if error_page else None,
             "canGoBack": bool(history_length and int(history_length) > 1),
             "canGoForward": False,
             "loading": False,
