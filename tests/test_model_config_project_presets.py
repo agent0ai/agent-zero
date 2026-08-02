@@ -64,6 +64,18 @@ def _clear_runtime_caches():
     modules.purge_namespace("usr.plugins")
 
 
+@pytest.fixture(autouse=True)
+def _restore_runtime_caches_after_test():
+    # Tests in this module point helpers.files._base_dir at a tmp dir, so
+    # extension/plugin scans during the test repopulate the runtime caches
+    # with tmp-dir results. monkeypatch restores _base_dir at teardown but
+    # leaves the poisoned caches behind, which breaks subsequently collected
+    # modules (e.g. test_default_prompt_budget, test_browser_agent_regressions)
+    # whenever this module runs in the same process.
+    yield
+    _clear_runtime_caches()
+
+
 def _prepare_a0_tree(monkeypatch, tmp_path: Path):
     from helpers import files, plugins
 
