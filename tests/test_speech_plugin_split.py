@@ -183,7 +183,7 @@ def test_chat_bar_keeps_existing_send_and_mic_icon_contract() -> None:
     ).read_text(encoding="utf-8")
 
     assert 'id="send-button"' in chat_bar
-    assert 'x-text="$store.chatInput.sendButtonIcon"' in chat_bar
+    assert '<x-icon :name="$store.chatInput.sendButtonIcon"></x-icon>' in chat_bar
     assert ':class="$store.chatInput.sendButtonClass"' in chat_bar
     assert ':title="$store.chatInput.sendButtonTitle"' in chat_bar
 
