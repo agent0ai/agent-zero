@@ -168,6 +168,7 @@ def test_settings_auto_timezone_does_not_persist_browser_timezone(isolated_local
 
 
 def test_settings_fixed_timezone_ignores_browser_timezone(isolated_localization, monkeypatch):
+    saved = isolated_localization
     set_test_timezone("Europe/Rome")
     base_settings = settings_module.get_default_settings()
     monkeypatch.setattr(
@@ -176,6 +177,7 @@ def test_settings_fixed_timezone_ignores_browser_timezone(isolated_localization,
         {**base_settings, "timezone": "America/New_York"},
     )
     monkeypatch.setattr(plugins_module, "call_plugin_hook", lambda *args, **kwargs: None)
+    saved.clear()
 
     settings_module._apply_timezone_setting(
         {**base_settings, "timezone": settings_module.TIMEZONE_AUTO},
@@ -183,9 +185,12 @@ def test_settings_fixed_timezone_ignores_browser_timezone(isolated_localization,
     )
 
     assert Localization.get().get_timezone() == "America/New_York"
+    # An explicit (non-auto) timezone choice must still persist to .env.
+    assert ("DEFAULT_USER_TIMEZONE", "America/New_York") in saved
 
 
 def test_settings_fixed_timezone_reapplies_when_runtime_drifted(isolated_localization, monkeypatch):
+    saved = isolated_localization
     set_test_timezone("Europe/Rome")
     base_settings = settings_module.get_default_settings()
     fixed_settings = {**base_settings, "timezone": "America/New_York"}
@@ -202,6 +207,7 @@ def test_settings_fixed_timezone_reapplies_when_runtime_drifted(isolated_localiz
             }
         ),
     )
+    saved.clear()
 
     settings_module._apply_timezone_setting(
         {**base_settings, "timezone": "America/New_York"},
@@ -209,6 +215,8 @@ def test_settings_fixed_timezone_reapplies_when_runtime_drifted(isolated_localiz
     )
 
     assert Localization.get().get_timezone() == "America/New_York"
+    # An explicit (non-auto) timezone choice must still persist to .env.
+    assert ("DEFAULT_USER_TIMEZONE", "America/New_York") in saved
     assert hooks[0]["plugin_name"] == "_office"
     assert hooks[0]["hook_name"] == "timezone_changed"
     assert hooks[0]["kwargs"]["previous_timezone"] == "Europe/Rome"
@@ -366,3 +374,107 @@ def test_desktop_timezone_sync_restarts_active_system_desktop(
         "timezone": "America/New_York",
     }
     assert restarted == [old_session]
+
+
+@pytest.mark.asyncio
+async def test_poll_snapshot_applies_timezone_without_persisting(isolated_localization, monkeypatch):
+    saved = isolated_localization
+    set_test_timezone("UTC")
+    calls: list[dict] = []
+    original_set_timezone = Localization.set_timezone
+
+    def recording_set_timezone(self, timezone, persist=True):
+        calls.append({"timezone": timezone, "persist": persist})
+        return original_set_timezone(self, timezone, persist=persist)
+
+    monkeypatch.setattr(Localization, "set_timezone", recording_set_timezone)
+    saved.clear()
+
+    from helpers import state_snapshot
+
+    await state_snapshot.build_snapshot(
+        context=None,
+        log_from=0,
+        notifications_from=0,
+        timezone="Europe/Rome",
+    )
+
+    # The poll path must apply the browser timezone runtime-only.
+    assert calls == [{"timezone": "Europe/Rome", "persist": False}]
+    assert not any(key == "DEFAULT_USER_TIMEZONE" for key, _ in saved)
+
+
+class _StubScheduler:
+    """Minimal TaskScheduler stand-in for scheduler endpoint tests."""
+
+    @classmethod
+    def get(cls):
+        return cls()
+
+    async def reload(self):
+        return None
+
+    async def add_task(self, task):
+        return None
+
+    async def tick(self):
+        return None
+
+    def get_task_by_uuid(self, task_id):
+        return None
+
+    def get_tasks(self):
+        return []
+
+    def serialize_all_tasks(self):
+        return []
+
+
+# Behavioral coverage: every scheduler endpoint receives a browser-reported
+# timezone from the WebUI scheduler store, so each must call set_timezone with
+# persist=False to avoid clobbering the saved DEFAULT_USER_TIMEZONE default.
+SCHEDULER_ENDPOINT_CASES = [
+    ("api.scheduler_task_create", "SchedulerTaskCreate", {"name": "demo", "prompt": "run it"}),
+    ("api.scheduler_task_delete", "SchedulerTaskDelete", {}),
+    ("api.scheduler_task_run", "SchedulerTaskRun", {}),
+    ("api.scheduler_task_update", "SchedulerTaskUpdate", {}),
+    ("api.scheduler_tasks_list", "SchedulerTasksList", {}),
+    ("api.scheduler_tick", "SchedulerTick", {}),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "module_name,class_name,extra_input",
+    SCHEDULER_ENDPOINT_CASES,
+    ids=[case[1] for case in SCHEDULER_ENDPOINT_CASES],
+)
+async def test_scheduler_endpoint_does_not_persist_browser_timezone(
+    isolated_localization,
+    monkeypatch,
+    module_name,
+    class_name,
+    extra_input,
+):
+    import importlib
+
+    from flask import Flask
+
+    saved = isolated_localization
+    set_test_timezone("UTC")
+    calls: list[dict] = []
+
+    def recording_set_timezone(self, timezone, persist=True):
+        calls.append({"timezone": timezone, "persist": persist})
+
+    monkeypatch.setattr(Localization, "set_timezone", recording_set_timezone)
+    saved.clear()
+
+    module = importlib.import_module(module_name)
+    monkeypatch.setattr(module, "TaskScheduler", _StubScheduler)
+    handler = getattr(module, class_name)(Flask("scheduler-tz-test"), threading.RLock())
+
+    await handler.process({"timezone": "Europe/Rome", **extra_input}, None)
+
+    assert calls == [{"timezone": "Europe/Rome", "persist": False}]
+    assert saved == []
