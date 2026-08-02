@@ -144,6 +144,43 @@ def test_recover_embedded_tool_request_accepts_bare_envelope_with_quoted_prose()
     assert recovered["tool_name"] == "code_execution_tool"
 
 
+def test_recover_embedded_tool_request_refuses_response_tool_in_deliberating_prose() -> None:
+    # Adversarial case from review: hedged deliberation about how the model
+    # *could* reply is not a completed task and must not execute "response".
+    content = (
+        'I could reply {"thoughts":["x"],"tool_name":"response",'
+        '"tool_args":{"text":"hi"}} but let me think'
+    )
+    assert recover_embedded_tool_request(content) is None
+
+
+def test_recover_embedded_tool_request_refuses_response_tool_in_long_prose() -> None:
+    envelope = (
+        '{"thoughts":["x"],"tool_name":"response","tool_args":{"text":"hi"}}'
+    )
+    prose = "Let me carefully consider the best way to answer this question. "
+    assert len("".join(prose.split())) > 40  # precondition: substantial prose
+    assert recover_embedded_tool_request(prose + envelope) is None
+
+
+def test_recover_embedded_tool_request_accepts_response_tool_with_minimal_leadin() -> None:
+    envelope = (
+        '{"thoughts":["x"],"tool_name":"response","tool_args":{"text":"hi"}}'
+    )
+    recovered = recover_embedded_tool_request("Reply: " + envelope)
+    assert recovered is not None
+    assert recovered["tool_name"] == "response"
+
+
+def test_recover_embedded_tool_request_keeps_hedged_prose_for_operational_tools() -> None:
+    # Hedged prose only disqualifies the "response" tool; executing a valid
+    # operational envelope is the protocol's intent.
+    content = "I could run " + TOOL_REQUEST + " but let me check first"
+    recovered = recover_embedded_tool_request(content)
+    assert recovered is not None
+    assert recovered["tool_name"] == "code_execution_tool"
+
+
 # --- transient classification precision --------------------------------------
 
 
@@ -332,6 +369,8 @@ def test_memorize_lock_is_shared_and_serializes_jobs() -> None:
 
 @pytest.mark.asyncio
 async def test_process_tools_recovers_embedded_tool_request(monkeypatch) -> None:
+    from types import SimpleNamespace
+
     import agent as agent_module
     from agent import Agent, LoopData
     from helpers import mcp_handler
@@ -371,6 +410,16 @@ async def test_process_tools_recovers_embedded_tool_request(monkeypatch) -> None
     agent.loop_data = LoopData()
     agent.handle_intervention = no_intervention
     agent.get_tool = lambda **kwargs: tool
+    warnings: list[str] = []
+    agent.agent_name = "A0"
+    agent.read_prompt = lambda name, **kw: name
+    agent.hist_add_warning = lambda msg: (
+        warnings.append(msg),
+        SimpleNamespace(id=None),
+    )[1]
+    agent.context = SimpleNamespace(
+        log=SimpleNamespace(log=lambda **entry: None)
+    )
 
     content = (
         "I'll first verify whether the patch helper survived, then apply the fix.\n\n"
@@ -379,6 +428,8 @@ async def test_process_tools_recovers_embedded_tool_request(monkeypatch) -> None
 
     assert await Agent.process_tools(agent, content) == "ran:ls"
     assert tool.args == {"code": "ls"}
+    # successful recovery adds the corrective note teaching bare-JSON output
+    assert warnings == ["fw.msg_recovered_request.md"]
 
 
 @pytest.mark.asyncio
@@ -760,6 +811,118 @@ async def test_unified_turn_retries_empty_completion_with_reasoning(monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_unified_call_allow_empty_completion_skips_retry(monkeypatch) -> None:
+    """Utility regime: with a0_allow_empty_completion an empty DeepSeek
+    completion is a benign answer (e.g. 'nothing to memorize'), not a
+    provider failure - no retry must fire."""
+    import models
+    from helpers import litellm_transport as lt
+
+    empty_completion = [
+        {"choices": [{"delta": {"content": "   "}}]},
+        {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+    ]
+    calls = 0
+
+    async def fake_acompletion(**kwargs):
+        nonlocal calls
+        calls += 1
+        return _FakeAsyncStream(empty_completion)
+
+    monkeypatch.setattr(lt, "acompletion", fake_acompletion)
+    monkeypatch.setattr(models, "configure_litellm", lambda: None)
+
+    model = models.LiteLLMChatWrapper(
+        model="deepseek-v4-flash", provider="deepseek",
+        a0_api_mode="chat", a0_retry_delay_seconds=0,
+    )
+
+    async def on_chunk(chunk: str, full: str):
+        return None
+
+    response, _reasoning = await model.unified_call(
+        user_message="hi", response_callback=on_chunk,
+        a0_allow_empty_completion=True,
+    )
+
+    assert calls == 1, "utility-style call must not retry an empty completion"
+    assert not response.strip()
+
+
+@pytest.mark.asyncio
+async def test_unified_call_retries_empty_completion_by_default(monkeypatch) -> None:
+    """Main-turn regime unchanged: without the opt-out flag an empty DeepSeek
+    completion is retried and the retry's content is returned."""
+    import models
+    from helpers import litellm_transport as lt
+
+    empty_completion = [
+        {"choices": [{"delta": {"content": "   "}}]},
+        {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+    ]
+    complete = [
+        {"choices": [{"delta": {"content": '{"tool_name":"response","tool_args":{"text":"ok"}}'}}]},
+        {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+    ]
+    streams = [_FakeAsyncStream(empty_completion), _FakeAsyncStream(complete)]
+    calls = 0
+
+    async def fake_acompletion(**kwargs):
+        nonlocal calls
+        stream = streams[min(calls, len(streams) - 1)]
+        calls += 1
+        return stream
+
+    monkeypatch.setattr(lt, "acompletion", fake_acompletion)
+    monkeypatch.setattr(models, "configure_litellm", lambda: None)
+
+    model = models.LiteLLMChatWrapper(
+        model="deepseek-v4-flash", provider="deepseek",
+        a0_api_mode="chat", a0_retry_delay_seconds=0,
+    )
+
+    async def on_chunk(chunk: str, full: str):
+        return None
+
+    response, _reasoning = await model.unified_call(
+        user_message="hi", response_callback=on_chunk,
+    )
+
+    assert calls == 2, "empty completion must trigger exactly one retry by default"
+    assert response == '{"tool_name":"response","tool_args":{"text":"ok"}}'
+
+
+@pytest.mark.asyncio
+async def test_call_utility_model_opts_out_of_empty_completion_retry(monkeypatch) -> None:
+    """Wiring: Agent.call_utility_model passes a0_allow_empty_completion so a
+    benign empty utility reply (e.g. 'nothing to memorize') is not retried."""
+    import agent as agent_module
+    from agent import Agent
+
+    async def no_extension(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(agent_module.extension, "call_extensions_async", no_extension)
+
+    captured: dict = {}
+
+    class _StubModel:
+        async def unified_call(self, **kwargs):
+            captured.update(kwargs)
+            return "", ""
+
+    instance = object.__new__(Agent)
+    instance.get_utility_model = lambda: _StubModel()
+
+    result = await Agent.call_utility_model.__wrapped__(
+        instance, system="sys", message="msg", background=True
+    )
+
+    assert result == ""
+    assert captured.get("a0_allow_empty_completion") is True
+
+
+@pytest.mark.asyncio
 async def test_process_llm_result_tools_forwards_truncated_reasoning(monkeypatch) -> None:
     from agent import Agent
 
@@ -871,3 +1034,87 @@ async def test_process_tools_keeps_misformat_warning_for_balanced_invalid_json(
     await Agent.process_tools(agent, balanced_invalid)
 
     assert warnings == ["MISFORMAT_REPROMPT"]
+
+
+@pytest.mark.asyncio
+async def test_process_tools_refuses_deliberating_response_envelope(monkeypatch) -> None:
+    """Adversarial case from review: hedged deliberation containing a
+    'response' envelope must NOT complete the task; the message takes the
+    standard misformat warning path instead."""
+    from types import SimpleNamespace
+
+    import agent as agent_module
+    from agent import Agent, LoopData
+
+    async def no_extension(*args, **kwargs):
+        return None
+
+    async def no_intervention(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(agent_module.extension, "call_extensions_async", no_extension)
+
+    warnings: list[str] = []
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.handle_intervention = no_intervention
+    agent.read_prompt = lambda name, **kw: (
+        "TRUNCATED_REPROMPT"
+        if name == "fw.msg_truncated_request.md"
+        else "MISFORMAT_REPROMPT"
+    )
+    agent.hist_add_warning = lambda msg: (warnings.append(msg), SimpleNamespace(id=None))[1]
+    agent.context = SimpleNamespace(
+        log=SimpleNamespace(log=lambda **entry: None)
+    )
+
+    content = (
+        'I could reply {"thoughts":["x"],"tool_name":"response",'
+        '"tool_args":{"text":"hi"}} but let me think'
+    )
+
+    result = await Agent.process_tools(agent, content)
+
+    assert result is None  # task NOT completed by embedded prose
+    assert warnings == ["MISFORMAT_REPROMPT"]
+
+
+@pytest.mark.asyncio
+async def test_process_tools_adds_corrective_warning_after_recovery(monkeypatch) -> None:
+    """Successful embedded-envelope recovery adds the
+    fw.msg_recovered_request.md corrective note so the model learns to emit
+    bare JSON next time."""
+    from types import SimpleNamespace
+
+    import agent as agent_module
+    from agent import Agent, LoopData
+
+    async def no_extension(*args, **kwargs):
+        return None
+
+    async def no_intervention(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(agent_module.extension, "call_extensions_async", no_extension)
+
+    warnings: list[str] = []
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.handle_intervention = no_intervention
+    agent.read_prompt = lambda name, **kw: name
+    agent.hist_add_warning = lambda msg: (warnings.append(msg), SimpleNamespace(id=None))[1]
+    agent.context = SimpleNamespace(
+        log=SimpleNamespace(log=lambda **entry: None)
+    )
+    # stop before execution; the corrective note is added before tool lookup
+    agent.get_tool = lambda **kw: None
+
+    msg = "Let me check the current state first.\n\n" + TOOL_REQUEST
+
+    await Agent.process_tools(agent, msg)
+
+    assert warnings[0] == "fw.msg_recovered_request.md"

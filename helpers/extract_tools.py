@@ -58,6 +58,7 @@ def recover_embedded_tool_request(content: str) -> dict[str, Any] | None:
 
     masked = _mask_non_executable_regions(content)
     distinct: dict[str, dict[str, Any]] = {}
+    root_for_request = ""
     for root in extract_json_root_strings(masked):
         data = _parse_json_root_object_strict(root)
         if data is None or not _is_tool_request(data):
@@ -65,7 +66,41 @@ def recover_embedded_tool_request(content: str) -> dict[str, Any] | None:
         distinct.setdefault(json.dumps(data, sort_keys=True, default=str), data)
         if len(distinct) > 1:
             return None
-    return next(iter(distinct.values()), None)
+        root_for_request = root
+    request = next(iter(distinct.values()), None)
+    if request is None:
+        return None
+    if str(request.get("tool_name") or "") == "response" and _has_prose_around(
+        masked, root_for_request
+    ):
+        # A "response" envelope buried in deliberating prose is the model
+        # thinking out loud about how it *could* reply, not a completed task.
+        # Refuse recovery so the message takes the standard misformat path
+        # instead of ending the task. Operational tools keep being recovered:
+        # executing a valid operational envelope is the protocol's intent.
+        return None
+    return request
+
+
+_RESPONSE_PROSE_HEDGE_RE = re.compile(
+    r"\b(could|might|maybe|option|alternatively|but)\b", re.IGNORECASE
+)
+
+
+def _has_prose_around(masked_content: str, root: str) -> bool:
+    """Heuristic: True when substantial prose surrounds the extracted root.
+
+    Deliberately simple and deterministic: prose is substantial when the
+    non-whitespace text outside the JSON root exceeds 40 characters, or when
+    it contains hedging language ("could", "but", ...) that marks the
+    envelope as a possibility under discussion rather than the final answer.
+    Quoted/fenced spans are already blanked by _mask_non_executable_regions,
+    so examples under discussion do not count as prose.
+    """
+    prose = masked_content.replace(root, " ", 1)
+    if len("".join(prose.split())) > 40:
+        return True
+    return bool(_RESPONSE_PROSE_HEDGE_RE.search(prose))
 
 
 def _mask_non_executable_regions(content: str) -> str:
@@ -135,7 +170,17 @@ def explain_tool_request_failure(content: str, finish_reason: str = "") -> str:
     if "{" not in stripped:
         return f"{prefix}plain prose with no JSON tool object ({length} chars)"
 
-    if extract_json_root_strings(stripped):
+    roots = extract_json_root_strings(stripped)
+    if roots:
+        # A complete (non-tool) root followed by an unterminated fragment
+        # (odd quote count, or a new "{") is trailing truncation, not a
+        # clean-but-invalid envelope.
+        tail = stripped.split(roots[-1], 1)[1].lstrip(" \t\r\n,")
+        if tail and (tail.startswith("{") or tail.count('"') % 2 == 1):
+            return (
+                f"{prefix}truncated or unterminated JSON tool request "
+                f"({length} chars)"
+            )
         return (
             f"{prefix}JSON object without a valid tool_name/tool_args envelope "
             f"({length} chars)"
@@ -186,7 +231,13 @@ def is_misformatted_tool_request(content: str) -> bool:
         )
     )
 
-def _json_root_object_balanced(content: str) -> bool:
+def _json_scan_final_depth(content: str) -> int:
+    """Return the unclosed-brace depth after scanning JSON-ish text.
+
+    Tracks quote/escape state so braces inside strings do not count. Shared
+    by _json_root_object_balanced and is_truncated_tool_request so the two
+    scans cannot drift apart. Depth > 0 means the text is unterminated.
+    """
     depth = 0
     quote = None
     escaped = False
@@ -207,7 +258,11 @@ def _json_root_object_balanced(content: str) -> bool:
             depth += 1
         elif depth and char in ("}", "]"):
             depth -= 1
-    return depth == 0
+    return depth
+
+
+def _json_root_object_balanced(content: str) -> bool:
+    return _json_scan_final_depth(content) == 0
 
 
 def is_truncated_tool_request(content: str) -> bool:
@@ -225,31 +280,19 @@ def is_truncated_tool_request(content: str) -> bool:
     if content.endswith("}") and _json_root_object_balanced(content):
         return False
 
-    depth = 0
-    quote = None
-    escaped = False
-    for char in content:
-        if quote:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == quote:
-                quote = None
-            continue
-        if depth and char in ('"', "'", "`"):
-            quote = char
-        elif char == "{":
-            depth += 1
-        elif depth and char == "[":
-            depth += 1
-        elif depth and char in ("}", "]"):
-            depth -= 1
-    if depth <= 0:
+    if _json_scan_final_depth(content) <= 0:
         return False
-    if any(key in content for key in ("tool_name", "tool", "actions", "function")):
-        return True
-    return False
+    # Structural gate: the payload must open like a JSON tool envelope
+    # ({"thoughts"/"headline"/"tool_name"/"tool_args": ...) or a Responses
+    # function_call-style payload ({"type":"function", ...). A prose sentence
+    # that merely mentions "tool"/"actions"/"function" after a stray "{" is
+    # not a truncated request. "type" is included because in responses mode a
+    # truncated function-call payload must take the repair-prompt path instead
+    # of being shown to the user as a plain-text reply.
+    return (
+        re.match(r'^\{\s*"(thoughts|headline|tool_name|tool_args|type)"', content)
+        is not None
+    )
 
 def normalize_tool_request(tool_request: Any) -> tuple[str, dict]:
     if not isinstance(tool_request, dict):
@@ -316,6 +359,9 @@ def extract_json_root_strings(content: str) -> list[str]:
         return []
 
     if content.lstrip().startswith("["):
+        # Blind spot, by design: content starting with "[" is treated as a
+        # JSON array and never scanned for object roots, so embedded-envelope
+        # recovery can never fire for it.
         return []
 
     roots: list[str] = []

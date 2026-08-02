@@ -633,6 +633,10 @@ class LiteLLMChatWrapper(SimpleChatModel):
             call_kwargs["a0_explicit_prompt_caching"] = True
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        # Main chat turns retry provider-completed empty responses; utility
+        # callers (e.g. memory post-processing) pass a0_allow_empty_completion
+        # because an empty reply is a benign answer for them.
+        allow_empty: bool = bool(call_kwargs.pop("a0_allow_empty_completion", False))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
         transport = LiteLLMTransport(
             model=self.model_name,
@@ -699,8 +703,13 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 truncated = _should_retry_truncated_stream(
                     transport, stream=stream, stopped_early=stop_response is not None
                 )
-                empty = _should_retry_empty_completion(
-                    transport, result.response, stopped_early=stop_response is not None
+                empty = (
+                    not allow_empty
+                    and _should_retry_empty_completion(
+                        transport,
+                        result.response,
+                        stopped_early=stop_response is not None,
+                    )
                 )
                 if (truncated or empty) and attempt < max_retries:
                     import asyncio
@@ -766,6 +775,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
             call_kwargs["a0_explicit_prompt_caching"] = True
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        # See unified_call: utility callers opt out of the empty-completion
+        # retry via a0_allow_empty_completion.
+        allow_empty: bool = bool(call_kwargs.pop("a0_allow_empty_completion", False))
         stream = (
             reasoning_callback is not None
             or response_callback is not None
@@ -847,8 +859,13 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 truncated = _should_retry_truncated_stream(
                     transport, stream=stream, stopped_early=stop_response is not None
                 )
-                empty = _should_retry_empty_completion(
-                    transport, result.response, stopped_early=stop_response is not None
+                empty = (
+                    not allow_empty
+                    and _should_retry_empty_completion(
+                        transport,
+                        result.response,
+                        stopped_early=stop_response is not None,
+                    )
                 )
                 if (truncated or empty) and attempt < max_retries:
                     import asyncio

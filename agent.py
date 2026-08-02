@@ -849,6 +849,10 @@ class Agent:
             rate_limiter_callback=(
                 self.rate_limiter_callback if not call_data["background"] else None
             ),
+            # Utility prompts (e.g. memory post-processing) treat an empty
+            # reply as a benign "nothing to do", so the main-turn
+            # empty-completion retry must not fire here.
+            a0_allow_empty_completion=True,
         )
 
         await extension.call_extensions_async(
@@ -1416,10 +1420,12 @@ class Agent:
         # search for tool usage requests in agent message
         tool_request = extract_tools.extract_tool_request(msg)
 
+        recovered_embedded = False
         if tool_request is None:
             # narrowly scoped repair: accept exactly one valid tool request
             # embedded in planning prose (DeepSeek V4 Flash thinking output)
             tool_request = extract_tools.recover_embedded_tool_request(msg)
+            recovered_embedded = tool_request is not None
 
         raw_tool_name = ""
         tool_args = {}
@@ -1434,6 +1440,21 @@ class Agent:
                 )
             except ValueError:
                 tool_request = None  # treat structural validation errors as misformat
+                recovered_embedded = False
+
+        if recovered_embedded:
+            # Corrective note: recovery succeeded, but teach the model to emit
+            # bare JSON next time. Deliberately NOT one of the prompts tracked
+            # by the unusable-response-loop guard - a recovered request is a
+            # usable response.
+            warning_msg = self.read_prompt("fw.msg_recovered_request.md")
+            wmsg = self.hist_add_warning(warning_msg)
+            PrintStyle(font_color="orange", padding=True).print(warning_msg)
+            self.context.log.log(
+                type="warning",
+                content=f"{self.agent_name}: Tool request embedded in prose was recovered.",
+                id=wmsg.id,
+            )
 
         if tool_request is not None:
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name

@@ -210,3 +210,23 @@ def test_is_truncated_tool_request_rejects_balanced_function_envelope() -> None:
     """Responses-API function_call text is balanced and must not be treated as truncated."""
     balanced = '{"type":"function","name":"search_engine","arguments":{"query":"x"}}'
     assert is_truncated_tool_request(balanced) is False
+
+
+def test_is_truncated_tool_request_rejects_prose_with_stray_brace() -> None:
+    """Prose mentioning 'actions'/'tool' after a stray '{' is not a truncated
+    envelope; in responses mode such text must reach the user as a reply,
+    not be swallowed into a truncation repair loop."""
+    assert is_truncated_tool_request("{here are the actions I plan to take") is False
+    assert is_truncated_tool_request("{ let me use the tool now") is False
+
+
+def test_is_truncated_tool_request_rejects_extra_closing_brace() -> None:
+    assert is_truncated_tool_request('{"tool_name":"x"}}') is False
+
+
+def test_is_truncated_tool_request_accepts_unterminated_function_payload() -> None:
+    """Responses-mode truncation: a function_call-style payload cut mid-body
+    must classify as truncated so it takes the repair-prompt path instead of
+    being shown to the user as a plain-text reply."""
+    truncated = '{"type":"function","name":"search_engine","arguments":{"query":"x'
+    assert is_truncated_tool_request(truncated) is True
