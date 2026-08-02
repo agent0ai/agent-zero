@@ -1,5 +1,5 @@
 import asyncio
-from helpers import errors, plugins
+from helpers import plugins
 from helpers.extension import Extension
 from helpers.dirty_json import DirtyJson
 from agent import LoopData

@@ -170,7 +170,9 @@ class CodeExecutionRemote(Tool):
                 message=(
                     "code_execution_remote: no connected CLI currently allows "
                     "shell-backed execution that may modify local files. Press F3 to switch "
-                    "the CLI to Read&Write, then ask the agent to continue."
+                    "the CLI to Read&Write, then ask the agent to continue. "
+                    "`runtime=output` and `runtime=reset` remain available for "
+                    "existing sessions."
                     if candidates and require_writes and exec_enabled and write_blocked
                     else "code_execution_remote: no connected CLI currently has "
                     "remote execution enabled. Press F4 in the CLI to switch exec on, "
