@@ -3801,6 +3801,7 @@ async def test_browser_tool_evaluate_accepts_expression_alias(monkeypatch):
     tool = browser_tool_module.Browser(
         agent=SimpleNamespace(context=SimpleNamespace(id="ctx")),
         name="browser",
+        method=None,
         args={},
         message="",
         loop_data=None,
