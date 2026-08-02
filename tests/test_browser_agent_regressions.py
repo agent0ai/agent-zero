@@ -3667,8 +3667,8 @@ class TestBrowserHarnessFixSourceMarkers:
 
     def test_reference_normalization_accepts_descriptive_labels(self):
         helper = self._read("browser-page-content.js")
-        assert "if (/^\[[^\]]+\]$/.test(trimmed)) {" in helper
-        assert "const trailing = trimmed.match(/(?:^|\s)(\d+)$/u);" in helper
+        assert r"if (/^\[[^\]]+\]$/.test(trimmed)) {" in helper
+        assert r"const trailing = trimmed.match(/(?:^|\s)(\d+)$/u);" in helper
         assert "return trailing[1];" in helper
 
     def test_set_checked_delegates_to_dom_helper_for_helper_backed(self):
