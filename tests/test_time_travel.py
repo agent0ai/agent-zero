@@ -24,6 +24,7 @@ from plugins._time_travel.helpers.time_travel import (
     _workspace_from_display,
     resolve_workspace,
 )
+from helpers import files as a0_files
 
 
 def run_git(repo_dir: Path, *args: str, check: bool = True) -> str:
@@ -37,9 +38,13 @@ def run_git(repo_dir: Path, *args: str, check: bool = True) -> str:
 
 
 @pytest.fixture
-def workspace():
+def workspace(tmp_path, monkeypatch):
+    # Redirect the framework base dir so /a0/usr display paths resolve into
+    # tmp_path instead of the live usr tree. Inside the deployed container
+    # the live tree is the persistent volume with real user data.
+    monkeypatch.setattr(a0_files, "_base_dir", str(tmp_path))
     name = f"tt-{uuid.uuid4().hex}"
-    root = PROJECT_ROOT / "usr" / "time-travel-tests" / name
+    root = tmp_path / "usr" / "time-travel-tests" / name
     root.mkdir(parents=True)
     service = TimeTravelService(_workspace_from_display(f"/a0/usr/time-travel-tests/{name}"))
     try:
@@ -169,9 +174,10 @@ def test_shadow_repo_empty_head_is_repaired_without_losing_history(workspace):
     ]
 
 
-def test_workspace_identity_canonicalizes_symlink_aliases():
+def test_workspace_identity_canonicalizes_symlink_aliases(tmp_path, monkeypatch):
+    monkeypatch.setattr(a0_files, "_base_dir", str(tmp_path))
     name = f"tt-{uuid.uuid4().hex}"
-    root = PROJECT_ROOT / "usr" / "time-travel-tests" / name
+    root = tmp_path / "usr" / "time-travel-tests" / name
     target = root / "target"
     alias = root / "alias"
     target.mkdir(parents=True)

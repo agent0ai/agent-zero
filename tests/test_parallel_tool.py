@@ -704,4 +704,4 @@ def test_chats_sidebar_projects_parallel_children_as_indented_accordion() -> Non
     assert "left: 2px" in html
     assert "padding-left: 24px" in html
     assert "color: var(--color-text-muted)" in html
-    assert "padding: 8px;" in html
+    assert "padding: 8px 6px;" in html

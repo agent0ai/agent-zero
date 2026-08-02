@@ -67,10 +67,24 @@ class _TestWsResult(dict):
         )
 
 
-sys.modules.setdefault("agent", SimpleNamespace(AgentContext=_TestAgentContext))
-sys.modules.setdefault("helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool))
-sys.modules.setdefault("helpers.ws", SimpleNamespace(WsHandler=_TestWsHandler))
-sys.modules.setdefault("helpers.ws_manager", SimpleNamespace(WsResult=_TestWsResult))
+def _import_or_stub(module_name: str, stub: object) -> None:
+    """Use the real module when it imports cleanly; only fall back to a stub
+    in environments where the real import chain is unavailable.
+
+    Unconditional sys.modules stubs poison every test module collected after
+    this one: they see the stub instead of the real module, and whether the
+    stub or the real module wins depends on collection order.
+    """
+    try:
+        __import__(module_name)
+    except Exception:
+        sys.modules.setdefault(module_name, stub)
+
+
+_import_or_stub("agent", SimpleNamespace(AgentContext=_TestAgentContext))
+_import_or_stub("helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool))
+_import_or_stub("helpers.ws", SimpleNamespace(WsHandler=_TestWsHandler))
+_import_or_stub("helpers.ws_manager", SimpleNamespace(WsResult=_TestWsResult))
 _model_config_stub = ModuleType("plugins._model_config.helpers.model_config")
 _model_config_stub.get_presets = lambda: []
 _model_config_stub.get_preset_by_name = lambda name: None
@@ -2902,6 +2916,16 @@ async def test_browser_viewer_command_returns_only_requested_context_tabs(monkey
         manager=None,
     )
 
+    # emit_to requires a bound WsManager when the real helpers.ws module is
+    # in use (instead of the lightweight stub above); shadow it on the
+    # instance so the test behaves identically in both regimes.
+    emissions = []
+
+    async def _record_emit(sid, event, data, correlation_id=None):
+        emissions.append((sid, event, data))
+
+    handler.emit_to = _record_emit
+
     result = await handler.process(
         "browser_viewer_command",
         {"context_id": "ctx-a", "command": "list"},
@@ -2952,6 +2976,16 @@ async def test_browser_viewer_command_can_return_shared_context_tabs(monkeypatch
         threading.RLock(),
         manager=None,
     )
+
+    # emit_to requires a bound WsManager when the real helpers.ws module is
+    # in use (instead of the lightweight stub above); shadow it on the
+    # instance so the test behaves identically in both regimes.
+    emissions = []
+
+    async def _record_emit(sid, event, data, correlation_id=None):
+        emissions.append((sid, event, data))
+
+    handler.emit_to = _record_emit
 
     result = await handler.process(
         "browser_viewer_command",

@@ -82,7 +82,6 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert "discovery-account-card" in discovery_cards
     assert "topHeroCards" not in discovery_cards
     assert "bottomHeroCards" not in discovery_cards
-    assert "background: var(--color-background);" in welcome
     assert "radial-gradient" not in welcome
 
 

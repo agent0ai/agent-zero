@@ -12,6 +12,17 @@ if str(PROJECT_ROOT) not in sys.path:
 from api.poll import Poll
 
 
+@pytest.fixture(autouse=True)
+def _stub_env_persistence(monkeypatch):
+    """build_snapshot applies the request timezone via Localization.set_timezone,
+    which persists DEFAULT_USER_TIMEZONE into usr/.env. That file is the live
+    container volume, so stub the persistence call out; the schema under test
+    is unaffected."""
+    from helpers import localization
+
+    monkeypatch.setattr(localization, "save_dotenv_value", lambda key, value: None)
+
+
 EXPECTED_SNAPSHOT_KEYS = {
     "deselect_chat",
     "context",
