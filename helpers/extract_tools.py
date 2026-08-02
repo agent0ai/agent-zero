@@ -186,6 +186,70 @@ def is_misformatted_tool_request(content: str) -> bool:
         )
     )
 
+def _json_root_object_balanced(content: str) -> bool:
+    depth = 0
+    quote = None
+    escaped = False
+    for char in content:
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if depth and char in ('"', "'", "`"):
+            quote = char
+        elif char == "{":
+            depth += 1
+        elif depth and char == "[":
+            depth += 1
+        elif depth and char in ("}", "]"):
+            depth -= 1
+    return depth == 0
+
+
+def is_truncated_tool_request(content: str) -> bool:
+    """Return True when content is an unterminated JSON tool envelope.
+
+    Used by the harness to give a targeted retry prompt instead of a generic
+    misformat warning when providers cut a streaming/completion response
+    mid-object.
+    """
+    if not content or not isinstance(content, str):
+        return False
+    content = content.strip()
+    if not content.startswith("{"):
+        return False
+    if content.endswith("}") and _json_root_object_balanced(content):
+        return False
+
+    depth = 0
+    quote = None
+    escaped = False
+    for char in content:
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if depth and char in ('"', "'", "`"):
+            quote = char
+        elif char == "{":
+            depth += 1
+        elif depth and char == "[":
+            depth += 1
+        elif depth and char in ("}", "]"):
+            depth -= 1
+    if depth <= 0:
+        return False
+    if any(key in content for key in ("tool_name", "tool", "actions", "function")):
+        return True
+    return False
 
 def normalize_tool_request(tool_request: Any) -> tuple[str, dict]:
     if not isinstance(tool_request, dict):

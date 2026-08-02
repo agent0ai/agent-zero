@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from helpers.extract_tools import (
     extract_tool_request,
     is_misformatted_tool_request,
+    is_truncated_tool_request,
     json_parse_dirty,
     normalize_tool_request,
 )
@@ -183,3 +184,29 @@ def test_parallel_prompt_encourages_mixed_independent_batches() -> None:
     assert "Do not split by tool type" in prompt
     assert "Never include `document_query`" in prompt
     assert "Call `response` only as a top-level tool" in prompt
+
+
+
+def test_is_truncated_tool_request_accepts_unterminated_envelope() -> None:
+    truncated = (
+        '{"thoughts":["apply the patch"],"headline":"Applying patch",'
+        '"tool_name":"code_execution_tool","tool_args":{"code":"echo'
+    )
+    assert is_truncated_tool_request(truncated) is True
+
+
+def test_is_truncated_tool_request_rejects_balanced_json() -> None:
+    balanced = '{"tool_name":"response","tool_args":{"text":"ok"}}'
+    assert is_truncated_tool_request(balanced) is False
+
+
+def test_is_truncated_tool_request_rejects_plain_prose() -> None:
+    assert is_truncated_tool_request("I will call a tool now") is False
+    assert is_truncated_tool_request("") is False
+    assert is_truncated_tool_request(None) is False
+
+
+def test_is_truncated_tool_request_rejects_balanced_function_envelope() -> None:
+    """Responses-API function_call text is balanced and must not be treated as truncated."""
+    balanced = '{"type":"function","name":"search_engine","arguments":{"query":"x"}}'
+    assert is_truncated_tool_request(balanced) is False

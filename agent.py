@@ -1119,6 +1119,7 @@ class Agent:
             if (
                 extract_tools.extract_tool_request(llm_result.reasoning) is not None
                 or extract_tools.is_misformatted_tool_request(llm_result.reasoning)
+                or extract_tools.is_truncated_tool_request(llm_result.reasoning)
             ):
                 message = llm_result.reasoning
         if (
@@ -1127,6 +1128,7 @@ class Agent:
             and bool(message.strip())
             and extract_tools.extract_tool_request(message) is None
             and not extract_tools.is_misformatted_tool_request(message)
+            and not extract_tools.is_truncated_tool_request(message)
         ):
             return await self._execute_tool_request(
                 tool_name="response",
@@ -1513,13 +1515,21 @@ class Agent:
                     type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
                 )
         else:
-            warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
-            wmsg = self.hist_add_warning(warning_msg_misformat)
-            PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             reason = extract_tools.explain_tool_request_failure(msg, finish_reason)
+            if extract_tools.is_truncated_tool_request(msg):
+                warning_msg = self.read_prompt("fw.msg_truncated_request.md")
+                log_reason = (
+                    f"truncated or unterminated JSON tool request; "
+                    f"reason: {reason}"
+                )
+            else:
+                warning_msg = self.read_prompt("fw.msg_misformat.md")
+                log_reason = f"no valid tool request found; reason: {reason}"
+            wmsg = self.hist_add_warning(warning_msg)
+            PrintStyle(font_color="red", padding=True).print(warning_msg)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found. Reason: {reason}.",
+                content=f"{self.agent_name}: Message misformat, {log_reason}.",
                 id=wmsg.id,
             )
 

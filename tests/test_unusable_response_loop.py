@@ -20,6 +20,7 @@ class FakeLog:
 def _agent():
     prompts = {
         "fw.msg_misformat.md": "misformatted",
+        "fw.msg_truncated_request.md": "truncated_request",
         "fw.msg_repeat.md": "repeated",
     }
 
@@ -97,3 +98,21 @@ def test_general_settings_expose_the_default_failure_limit():
     assert "after 3 consecutive" in read_prompt_file(
         "fw.msg_unusable_response_limit.md", ["prompts"], limit=3
     )
+
+
+
+def test_truncated_request_warning_tracks_misformat_loop(monkeypatch):
+    monkeypatch.setattr(
+        response_loop,
+        "get_settings",
+        lambda: {"max_consecutive_unusable_responses": 2},
+    )
+    agent = _agent()
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    assert _run(extension, agent, "truncated_request")["exception"] is None
+    agent.loop_data.iteration = 1
+    data = _run(extension, agent, "truncated_request")
+
+    assert isinstance(data["exception"], HandledException)
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 2

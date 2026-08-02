@@ -22,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from helpers.extract_tools import (
     explain_tool_request_failure,
     extract_tool_request,
+    is_truncated_tool_request,
     recover_embedded_tool_request,
 )
 from helpers.litellm_transport import (
@@ -756,3 +757,117 @@ async def test_unified_turn_retries_empty_completion_with_reasoning(monkeypatch)
     assert calls == 2, "whitespace-only completion must trigger exactly one retry"
     assert result.response == '{"tool_name":"response","tool_args":{"text":"ok"}}'
     assert result.finish_reason == "stop"
+
+
+@pytest.mark.asyncio
+async def test_process_llm_result_tools_forwards_truncated_reasoning(monkeypatch) -> None:
+    from agent import Agent
+
+    agent = object.__new__(Agent)
+    captured: list[dict] = []
+
+    async def log_builtin_items(result):
+        return None
+
+    async def process_tools(message, **kwargs):
+        captured.append({"message": message, **kwargs})
+        return None
+
+    agent._log_response_builtin_items = log_builtin_items
+    agent.process_tools = process_tools
+
+    truncated = (
+        '{"thoughts":["apply the patch"],"headline":"Applying patch",'
+        '"tool_name":"code_execution_tool","tool_args":{"code":"echo'
+    )
+    result = LLMResult(response="", reasoning=truncated)
+
+    assert await Agent.process_llm_result_tools(agent, result) is None
+    assert captured == [{"message": truncated, "finish_reason": ""}]
+
+
+@pytest.mark.asyncio
+async def test_process_tools_uses_truncated_request_warning_for_truncated_json(
+    monkeypatch,
+) -> None:
+    from types import SimpleNamespace
+
+    import agent as agent_module
+    from agent import Agent, LoopData
+
+    async def no_extension(*args, **kwargs):
+        return None
+
+    async def no_intervention(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(agent_module.extension, "call_extensions_async", no_extension)
+
+    warnings: list[str] = []
+    logged: list[dict] = []
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.handle_intervention = no_intervention
+    agent.read_prompt = lambda name, **kw: (
+        "TRUNCATED_REPROMPT"
+        if name == "fw.msg_truncated_request.md"
+        else "misformatted"
+    )
+    agent.hist_add_warning = lambda msg: (warnings.append(msg), SimpleNamespace(id=None))[1]
+    agent.context = SimpleNamespace(
+        log=SimpleNamespace(log=lambda **entry: logged.append(entry))
+    )
+
+    truncated = (
+        '{"thoughts":["apply the patch"],"headline":"Applying patch",'
+        '"tool_name":"code_execution_tool","tool_args":{"code":"echo'
+    )
+
+    await Agent.process_tools(agent, truncated)
+
+    assert warnings == ["TRUNCATED_REPROMPT"]
+    warning_entries = [e for e in logged if e.get("type") == "warning"]
+    assert warning_entries
+    assert "truncated or unterminated JSON tool request" in warning_entries[-1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_process_tools_keeps_misformat_warning_for_balanced_invalid_json(
+    monkeypatch,
+) -> None:
+    from types import SimpleNamespace
+
+    import agent as agent_module
+    from agent import Agent, LoopData
+
+    async def no_extension(*args, **kwargs):
+        return None
+
+    async def no_intervention(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(agent_module.extension, "call_extensions_async", no_extension)
+
+    warnings: list[str] = []
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.handle_intervention = no_intervention
+    agent.read_prompt = lambda name, **kw: (
+        "TRUNCATED_REPROMPT"
+        if name == "fw.msg_truncated_request.md"
+        else "MISFORMAT_REPROMPT"
+    )
+    agent.hist_add_warning = lambda msg: (warnings.append(msg), SimpleNamespace(id=None))[1]
+    agent.context = SimpleNamespace(
+        log=SimpleNamespace(log=lambda **entry: None)
+    )
+
+    balanced_invalid = '{"status":"planning","note":"no tool envelope here"}'
+
+    await Agent.process_tools(agent, balanced_invalid)
+
+    assert warnings == ["MISFORMAT_REPROMPT"]
