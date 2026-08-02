@@ -1,5 +1,5 @@
 import asyncio
-from helpers import errors, plugins
+from helpers import errors, persist_chat, plugins
 from helpers.extension import Extension
 from helpers.dirty_json import DirtyJson
 from agent import LoopData
@@ -244,3 +244,10 @@ class MemorizeMemories(Extension):
                 content=err,
                 update_progress="none",
             )
+        finally:
+            # Persist the terminal state of this post-turn utility item. The
+            # regular save hook (message_loop_end/_90_save_chat) runs before
+            # monologue_end, so without this save the memorize log entries and
+            # their finished marker only reach chat.json on the next turn, and
+            # are lost if the server restarts in between.
+            persist_chat.save_tmp_chat(self.agent.context)

@@ -94,6 +94,7 @@ def _make_agent(utility_response=None, utility_error: Exception | None = None):
 
 def _patch_plugin_config(monkeypatch, mod, consolidation: bool):
     import helpers.plugins as plugins_mod
+    import helpers.persist_chat as persist_chat_mod
 
     monkeypatch.setattr(
         plugins_mod,
@@ -104,6 +105,10 @@ def _patch_plugin_config(monkeypatch, mod, consolidation: bool):
             "memory_memorize_replace_threshold": 0,
         },
     )
+    # chat persistence is exercised separately in
+    # tests/test_post_turn_chat_persistence.py; no-op it here so the fake
+    # contexts above do not need the full AgentContext surface
+    monkeypatch.setattr(persist_chat_mod, "save_tmp_chat", lambda context: None)
 
 
 def _patch_memory_db(monkeypatch, mod):
