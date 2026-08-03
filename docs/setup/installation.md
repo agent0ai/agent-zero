@@ -481,7 +481,7 @@ Configure API keys for various service providers directly within the Web UI. Cli
 > **OpenAI API vs Plus subscription:** A ChatGPT Plus subscription does not include API credits. You must provide a separate API key for OpenAI usage in Agent Zero.
 
 > [!TIP]
-> For OpenAI-compatible providers (e.g., custom gateways or Z.AI/GLM), add the API key under **External Services -> Other OpenAI-compatible API keys**, then select **OpenAI Compatible** as the provider in model settings.
+> For OpenAI-compatible providers (e.g., custom gateways or Z.AI/GLM), add the API key under **External Services -> Other OpenAI-compatible API keys**, then select **OpenAI Compatible** as the provider in model settings. One concrete multi-model gateway example is [DaoXE](https://daoxe.com/?utm_source=github&utm_medium=organic&utm_campaign=agent-zero&utm_content=openai) at `https://api.daoxe.com/v1` (set as the API URL / base URL).
 
 > [!CAUTION]
 > **GitHub Copilot Provider:** When using the GitHub Copilot provider, after selecting the model and entering your first prompt, the OAuth login procedure will begin. You'll find the authentication code and link in the output logs. Complete the authentication process by following the provided link and entering the code, then you may continue using Agent Zero.
