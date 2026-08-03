@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from helpers.extract_tools import (
+    classify_tool_request_failure,
     explain_tool_request_failure,
     extract_tool_request,
     is_truncated_tool_request,
@@ -1118,3 +1119,116 @@ async def test_process_tools_adds_corrective_warning_after_recovery(monkeypatch)
     await Agent.process_tools(agent, msg)
 
     assert warnings[0] == "fw.msg_recovered_request.md"
+
+
+# --- unified failure classification (arc-10) ----------------------------------
+
+
+def test_classify_tool_request_failure_categories() -> None:
+    assert classify_tool_request_failure("") == "empty"
+    assert classify_tool_request_failure("  \n  ") == "empty"
+    assert classify_tool_request_failure(None) == "empty"
+    assert classify_tool_request_failure("Let me plan the next steps first.") == "prose"
+    assert classify_tool_request_failure('{"status":"planning"}') == "invalid_envelope"
+    truncated = (
+        '{"thoughts":["apply the patch"],"headline":"Applying patch",'
+        '"tool_name":"code_execution_tool","tool_args":{"code":"echo'
+    )
+    assert classify_tool_request_failure(truncated) == "truncated"
+
+
+def test_classify_tool_request_failure_matches_explain_for_divergent_shapes() -> None:
+    """Regression for the live 2026-08-04 divergence (chat qZE6fC0g): the log
+    reason said "truncated or unterminated JSON tool request" while routing
+    took the generic misformat branch because is_truncated_tool_request()
+    gated on the raw content starting with "{". One classifier must drive
+    both the log reason and the retry-prompt routing."""
+    divergent = [
+        # ```json-fenced payload cut mid-string (21702 chars live)
+        "```json\n"
+        '{"thoughts":["write patch"],"headline":"Writing patch",'
+        '"tool_name":"text_editor_remote","tool_args":{"content":"def x():',
+        # prose prefix + truncated envelope
+        "Writing the patch script now.\n"
+        '{"thoughts":["x"],"tool_name":"text_editor_remote",'
+        '"tool_args":{"content":"y',
+        # complete non-tool root + truncated tail
+        '{"status":"ready"}\n'
+        '{"thoughts":["x"],"tool_name":"code_execution_tool",'
+        '"tool_args":{"code":"echo',
+    ]
+    for payload in divergent:
+        assert classify_tool_request_failure(payload) == "truncated"
+        assert "truncated or unterminated" in explain_tool_request_failure(payload)
+        assert is_truncated_tool_request(payload) is True
+
+
+def test_classify_tool_request_failure_keeps_invalid_envelope_off_truncated_path() -> None:
+    # Balanced but envelope-less JSON is a format problem, not truncation;
+    # it must keep the generic misformat reprompt.
+    assert classify_tool_request_failure(
+        '{"status":"planning","note":"no tool envelope here"}'
+    ) == "invalid_envelope"
+    assert "without a valid tool_name/tool_args envelope" in explain_tool_request_failure(
+        '{"status":"planning","note":"no tool envelope here"}'
+    )
+
+
+def test_truncated_request_prompt_includes_size_guidance() -> None:
+    """The reprompt must tell the model to split oversized payloads; after a
+    generic nudge the live model retried with an even larger request
+    (21702 -> 31446 chars)."""
+    prompt = (PROJECT_ROOT / "prompts" / "fw.msg_truncated_request.md").read_text()
+    assert "split" in prompt.lower()
+    assert "smaller" in prompt.lower()
+
+
+@pytest.mark.asyncio
+async def test_process_tools_uses_truncated_request_warning_for_fenced_truncation(
+    monkeypatch,
+) -> None:
+    """Agent-level regression for the divergent routing: a fenced truncated
+    payload must get fw.msg_truncated_request.md, not the generic misformat
+    reprompt."""
+    from types import SimpleNamespace
+
+    import agent as agent_module
+    from agent import Agent, LoopData
+
+    async def no_extension(*args, **kwargs):
+        return None
+
+    async def no_intervention(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(agent_module.extension, "call_extensions_async", no_extension)
+
+    warnings: list[str] = []
+    logged: list[dict] = []
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.handle_intervention = no_intervention
+    agent.read_prompt = lambda name, **kw: (
+        "TRUNCATED_REPROMPT"
+        if name == "fw.msg_truncated_request.md"
+        else "MISFORMAT_REPROMPT"
+    )
+    agent.hist_add_warning = lambda msg: (warnings.append(msg), SimpleNamespace(id=None))[1]
+    agent.context = SimpleNamespace(
+        log=SimpleNamespace(log=lambda **entry: logged.append(entry))
+    )
+
+    fenced = (
+        "```json\n"
+        '{"thoughts":["write patch"],"headline":"Writing patch",'
+        '"tool_name":"text_editor_remote","tool_args":{"content":"def apply():'
+    )
+
+    await Agent.process_tools(agent, fenced)
+
+    assert warnings == ["TRUNCATED_REPROMPT"]
+    warning_entries = [e for e in logged if e.get("type") == "warning"]
+    assert warning_entries
+    assert "truncated or unterminated JSON tool request" in warning_entries[-1]["content"]

@@ -1536,8 +1536,9 @@ class Agent:
                     type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
                 )
         else:
+            category = extract_tools.classify_tool_request_failure(msg)
             reason = extract_tools.explain_tool_request_failure(msg, finish_reason)
-            if extract_tools.is_truncated_tool_request(msg):
+            if category == "truncated":
                 warning_msg = self.read_prompt("fw.msg_truncated_request.md")
                 log_reason = (
                     f"truncated or unterminated JSON tool request; "

@@ -153,6 +153,41 @@ def _parse_json_root_object_strict(root: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+_TOOL_FAILURE_REASONS = {
+    "empty": "empty response from the model",
+    "prose": "plain prose with no JSON tool object",
+    "truncated": "truncated or unterminated JSON tool request",
+    "invalid_envelope": "JSON object without a valid tool_name/tool_args envelope",
+}
+
+
+def classify_tool_request_failure(content: Any) -> str:
+    """Single classification of an unusable model response.
+
+    Drives both the sanitized log reason (explain_tool_request_failure) and
+    the retry-prompt routing in Agent.process_tools, so the log label and the
+    reprompt choice can never diverge. Returns one of: "empty", "prose",
+    "truncated", "invalid_envelope".
+    """
+    if not isinstance(content, str) or not content.strip():
+        return "empty"
+    stripped = content.strip()
+    if "{" not in stripped:
+        return "prose"
+
+    roots = extract_json_root_strings(stripped)
+    if roots:
+        # A complete (non-tool) root followed by an unterminated fragment
+        # (odd quote count, or a new "{") is trailing truncation, not a
+        # clean-but-invalid envelope.
+        tail = stripped.split(roots[-1], 1)[1].lstrip(" \t\r\n,")
+        if tail and (tail.startswith("{") or tail.count('"') % 2 == 1):
+            return "truncated"
+        return "invalid_envelope"
+
+    return "truncated"
+
+
 def explain_tool_request_failure(content: str, finish_reason: str = "") -> str:
     """Sanitized classification of why no tool request could be extracted.
 
@@ -162,31 +197,12 @@ def explain_tool_request_failure(content: str, finish_reason: str = "") -> str:
     if finish_reason == "length":
         prefix = "provider truncated the response (finish_reason=length); "
 
-    if not isinstance(content, str) or not content.strip():
-        return f"{prefix}empty response from the model"
-
-    stripped = content.strip()
-    length = len(stripped)
-    if "{" not in stripped:
-        return f"{prefix}plain prose with no JSON tool object ({length} chars)"
-
-    roots = extract_json_root_strings(stripped)
-    if roots:
-        # A complete (non-tool) root followed by an unterminated fragment
-        # (odd quote count, or a new "{") is trailing truncation, not a
-        # clean-but-invalid envelope.
-        tail = stripped.split(roots[-1], 1)[1].lstrip(" \t\r\n,")
-        if tail and (tail.startswith("{") or tail.count('"') % 2 == 1):
-            return (
-                f"{prefix}truncated or unterminated JSON tool request "
-                f"({length} chars)"
-            )
-        return (
-            f"{prefix}JSON object without a valid tool_name/tool_args envelope "
-            f"({length} chars)"
-        )
-
-    return f"{prefix}truncated or unterminated JSON tool request ({length} chars)"
+    category = classify_tool_request_failure(content)
+    reason = _TOOL_FAILURE_REASONS[category]
+    if category == "empty":
+        return f"{prefix}{reason}"
+    length = len(content.strip())
+    return f"{prefix}{reason} ({length} chars)"
 
 
 def is_misformatted_tool_request(content: str) -> bool:
@@ -265,34 +281,39 @@ def _json_root_object_balanced(content: str) -> bool:
     return _json_scan_final_depth(content) == 0
 
 
+# Structural gate: an unterminated payload only counts as a truncated tool
+# request when it opens like a JSON tool envelope
+# ({"thoughts"/"headline"/"tool_name"/"tool_args": ...) or a Responses
+# function_call-style payload ({"type":"function", ...). A prose sentence
+# that merely mentions "tool"/"actions"/"function" after a stray "{" is
+# not a truncated request. "type" is included because in responses mode a
+# truncated function-call payload must take the repair-prompt path instead
+# of being shown to the user as a plain-text reply.
+_TRUNCATION_ENVELOPE_OPEN_RE = re.compile(
+    r'\{\s*"(thoughts|headline|tool_name|tool_args|type)"'
+)
+
+
 def is_truncated_tool_request(content: str) -> bool:
-    """Return True when content is an unterminated JSON tool envelope.
+    """Return True when content contains an unterminated JSON tool envelope.
 
     Used by the harness to give a targeted retry prompt instead of a generic
     misformat warning when providers cut a streaming/completion response
-    mid-object.
+    mid-object. The scan starts at the first envelope-shaped opening brace,
+    so a truncated payload wrapped in a ```json fence or preceded by prose
+    (or following a complete non-tool JSON object) is still recognized.
     """
     if not content or not isinstance(content, str):
         return False
     content = content.strip()
-    if not content.startswith("{"):
+    match = _TRUNCATION_ENVELOPE_OPEN_RE.search(content)
+    if not match:
         return False
-    if content.endswith("}") and _json_root_object_balanced(content):
+    candidate = content[match.start():]
+    if candidate.endswith("}") and _json_root_object_balanced(candidate):
         return False
 
-    if _json_scan_final_depth(content) <= 0:
-        return False
-    # Structural gate: the payload must open like a JSON tool envelope
-    # ({"thoughts"/"headline"/"tool_name"/"tool_args": ...) or a Responses
-    # function_call-style payload ({"type":"function", ...). A prose sentence
-    # that merely mentions "tool"/"actions"/"function" after a stray "{" is
-    # not a truncated request. "type" is included because in responses mode a
-    # truncated function-call payload must take the repair-prompt path instead
-    # of being shown to the user as a plain-text reply.
-    return (
-        re.match(r'^\{\s*"(thoughts|headline|tool_name|tool_args|type)"', content)
-        is not None
-    )
+    return _json_scan_final_depth(candidate) > 0
 
 def normalize_tool_request(tool_request: Any) -> tuple[str, dict]:
     if not isinstance(tool_request, dict):

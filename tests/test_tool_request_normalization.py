@@ -230,3 +230,44 @@ def test_is_truncated_tool_request_accepts_unterminated_function_payload() -> No
     being shown to the user as a plain-text reply."""
     truncated = '{"type":"function","name":"search_engine","arguments":{"query":"x'
     assert is_truncated_tool_request(truncated) is True
+
+
+def test_is_truncated_tool_request_accepts_fenced_truncated_envelope() -> None:
+    """Live failure shape (DeepSeek V4 Flash, 2026-08-04): a ```json-fenced
+    tool request cut mid-string must classify as truncated; gating on the raw
+    content starting with "{" routed it to the generic misformat prompt
+    instead."""
+    fenced = (
+        "```json\n"
+        '{"thoughts":["write patch"],"headline":"Writing patch",'
+        '"tool_name":"text_editor_remote","tool_args":{"path":"/tmp/x.py",'
+        '"content":"import os\\n\\ndef main():'
+    )
+    assert is_truncated_tool_request(fenced) is True
+
+
+def test_is_truncated_tool_request_accepts_prose_prefixed_truncated_envelope() -> None:
+    payload = (
+        "I'll write the patch script now.\n"
+        '{"thoughts":["write patch"],"tool_name":"text_editor_remote",'
+        '"tool_args":{"content":"def apply_patch():'
+    )
+    assert is_truncated_tool_request(payload) is True
+
+
+def test_is_truncated_tool_request_accepts_truncated_envelope_after_complete_root() -> None:
+    payload = (
+        '{"status":"ready"}\n'
+        '{"thoughts":["go"],"tool_name":"code_execution_tool",'
+        '"tool_args":{"code":"echo'
+    )
+    assert is_truncated_tool_request(payload) is True
+
+
+def test_is_truncated_tool_request_rejects_balanced_fenced_envelope() -> None:
+    fenced = (
+        '```json\n'
+        '{"thoughts":["x"],"tool_name":"response","tool_args":{"text":"ok"}}\n'
+        '```'
+    )
+    assert is_truncated_tool_request(fenced) is False
