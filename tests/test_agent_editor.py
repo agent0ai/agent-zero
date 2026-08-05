@@ -1,0 +1,750 @@
+from __future__ import annotations
+
+from io import BytesIO
+import json
+from pathlib import Path
+import stat
+
+import pytest
+from werkzeug.datastructures import FileStorage
+
+from helpers import yaml as yaml_helper
+from plugins._agent_editor.api.agent_editor import AgentEditor
+from plugins._agent_editor.api.agent_editor_avatar import AgentEditorAvatar
+from plugins._agent_editor.helpers import editor
+
+
+@pytest.fixture
+def user_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = tmp_path / "usr" / "agents"
+    real_determine_path = editor.plugins.determine_plugin_asset_path
+
+    def determine_plugin_asset_path(
+        plugin_name: str,
+        project_name: str,
+        profile_id: str,
+        *parts: str,
+    ) -> str:
+        if profile_id and not project_name:
+            return str(
+                root
+                / profile_id
+                / editor.files.PLUGINS_DIR
+                / plugin_name
+                / Path(*parts)
+            )
+        return real_determine_path(plugin_name, project_name, profile_id, *parts)
+
+    monkeypatch.setattr(editor, "USER_AGENTS_ROOT", root)
+    monkeypatch.setattr(editor, "STAGED_AVATAR_ROOT", tmp_path / "staged")
+    monkeypatch.setattr(
+        editor.plugins,
+        "determine_plugin_asset_path",
+        determine_plugin_asset_path,
+    )
+    monkeypatch.setattr(editor.plugins, "clear_plugin_cache", lambda _names: None)
+    return root
+
+
+def _write_manual_files(root: Path) -> dict[Path, bytes]:
+    manual_files = {
+        root / "prompts" / "manual.md": b"prompt",
+        root / "tools" / "manual.py": b"tool",
+        root / "extensions" / "manual.py": b"extension",
+        root / "skills" / "manual" / "SKILL.md": b"skill",
+        root / "assets" / "manual.bin": b"asset",
+        root / "plugins" / "manual" / "config.json": b"{}",
+        root / "unknown.bin": b"unknown",
+    }
+    for path, payload in manual_files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    return manual_files
+
+
+def test_new_easy_profile_writes_only_minimum_exact_files(user_root: Path) -> None:
+    instructions = "Keep this exact.  \n\nNo rewrite."
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "legal-research",
+            "creating": True,
+            "editor_mode": "easy",
+            "metadata": {"set": {"title": "Legal Research"}, "reset": []},
+            "prompts": {
+                "set": {editor.SPECIFICS_FILE: instructions},
+                "reset": [],
+            },
+            "tool_policy": {"mode": "inherit"},
+        }
+    )
+
+    assert {path.relative_to(user_root).as_posix() for path in plan.changes} == {
+        "legal-research/agent.yaml",
+        f"legal-research/prompts/{editor.SPECIFICS_FILE}",
+    }
+    editor.apply_change_plan(plan)
+
+    profile = user_root / "legal-research"
+    assert yaml_helper.loads((profile / "agent.yaml").read_text()) == {
+        "title": "Legal Research"
+    }
+    assert (profile / "prompts" / editor.SPECIFICS_FILE).read_text() == instructions
+    assert not list(profile.rglob("*.json"))
+    assert stat.S_IMODE((profile / "agent.yaml").stat().st_mode) == 0o644
+    assert (
+        stat.S_IMODE((profile / "prompts" / editor.SPECIFICS_FILE).stat().st_mode)
+        == 0o644
+    )
+
+
+def test_editor_lifecycle_needs_no_model_or_utility_configuration(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import litellm
+    from plugins._model_config.helpers import model_config
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("the Agent Editor attempted a model request")
+
+    for name in ("completion", "acompletion", "embedding", "aembedding"):
+        monkeypatch.setattr(litellm, name, forbidden, raising=False)
+    monkeypatch.setattr(model_config, "get_presets", lambda: [{"name": "No utility"}])
+    monkeypatch.setattr(
+        model_config,
+        "resolve_config_settings",
+        lambda _settings: {
+            "chat_model": {"provider": "offline", "name": "main"},
+            "utility_model": {},
+            "embedding_model": {},
+        },
+    )
+    monkeypatch.setattr(
+        model_config,
+        "get_configured_preset_name",
+        lambda **_kwargs: "No utility",
+    )
+    monkeypatch.setattr(editor.tool_policy, "get_tool_catalog", lambda _agent: [])
+    monkeypatch.setattr(editor.skills, "list_skill_catalog", lambda agent=None: [])
+
+    state = editor.build_editor_state("offline-editor")
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "offline-editor",
+            "creating": True,
+            "editor_mode": "easy",
+            "metadata": {"set": {"title": "Offline Editor"}, "reset": []},
+            "prompts": {"set": {editor.SPECIFICS_FILE: "Exact text."}, "reset": []},
+        }
+    )
+    receipt = plan.response()
+
+    assert state["model_presets"][0]["utility"] == {"provider": "", "name": ""}
+    assert editor.apply_change_plan(plan) == receipt
+
+
+def test_state_catalog_is_complete_truthful_and_omits_internal_tools() -> None:
+    state = editor.build_editor_state("researcher")
+
+    assert all(
+        preset[slot]["provider"] and preset[slot]["name"]
+        for preset in state["model_presets"]
+        for slot in ("main", "utility", "embedding")
+    )
+    assert {prompt["group"] for prompt in state["prompts"]} == {
+        f"2.{index}" for index in range(1, 11)
+    }
+    assert all(
+        {
+            "effective",
+            "override",
+            "has_override",
+            "source",
+            "source_chain",
+            "state",
+        }.issubset(prompt)
+        for prompt in state["prompts"]
+    )
+    assert "AGENTS.md" not in {prompt["filename"] for prompt in state["prompts"]}
+    specifics = next(
+        prompt for prompt in state["prompts"]
+        if prompt["filename"] == editor.SPECIFICS_FILE
+    )
+    assert specifics["source_chain"] == ["Framework", "Researcher"]
+    assert any(
+        any(source.startswith("Plugin ·") for source in prompt["source_chain"])
+        for prompt in state["prompts"]
+    )
+    assert not {
+        item["name"] for item in state["tools"]["catalog"]
+    }.intersection({"response", "vision_load"})
+
+
+def test_builtin_prompt_override_never_touches_bundled_profile(user_root: Path) -> None:
+    bundled = Path("agents/researcher")
+    before = {path: path.read_bytes() for path in bundled.rglob("*") if path.is_file()}
+    content = "Only the user-layer instructions change."
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "prompts": {
+                "set": {editor.SPECIFICS_FILE: content},
+                "reset": [],
+            },
+        }
+    )
+
+    assert list(plan.changes) == [
+        user_root / "researcher" / "prompts" / editor.SPECIFICS_FILE
+    ]
+    editor.apply_change_plan(plan)
+    assert all(path.read_bytes() == payload for path, payload in before.items())
+
+    reset = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "prompts": {"set": {}, "reset": [editor.SPECIFICS_FILE]},
+        }
+    )
+    editor.apply_change_plan(reset)
+    assert not (user_root / "researcher" / "prompts" / editor.SPECIFICS_FILE).exists()
+
+
+def test_unrelated_empty_user_directory_survives_save(user_root: Path) -> None:
+    manual = user_root / "researcher" / "tools" / "reserved-for-manual-use"
+    manual.mkdir(parents=True)
+
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "prompts": {
+                "set": {editor.SPECIFICS_FILE: "Sparse change only."},
+                "reset": [],
+            },
+        }
+    )
+    editor.apply_change_plan(plan)
+
+    assert manual.is_dir()
+
+
+def test_profile_collision_includes_disabled_plugin_profiles(
+    user_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin_profile = tmp_path / "disabled-plugin" / "agents" / "reserved-agent"
+    plugin_profile.mkdir(parents=True)
+    monkeypatch.setattr(
+        editor.plugins,
+        "get_plugin_paths",
+        lambda *parts: [str(plugin_profile)] if parts == ("agents", "reserved-agent") else [],
+    )
+
+    assert editor.profile_exists("reserved-agent") is True
+
+
+def test_metadata_empty_values_and_unknown_keys_survive(user_root: Path) -> None:
+    profile = user_root / "researcher"
+    profile.mkdir(parents=True)
+    metadata = profile / "agent.yaml"
+    metadata.write_text("custom_key: keep\ndescription: old\n", encoding="utf-8")
+
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "metadata": {
+                "set": {"description": "", "context": ""},
+                "reset": [],
+            },
+        }
+    )
+    editor.apply_change_plan(plan)
+
+    saved = yaml_helper.loads(metadata.read_text())
+    assert saved == {"custom_key": "keep", "description": "", "context": ""}
+
+
+def test_plugin_configs_preserve_unowned_keys_and_use_json(user_root: Path) -> None:
+    profile = user_root / "researcher" / "plugins"
+    model = profile / "_model_config" / "config.json"
+    tools = profile / "_tool_access" / "config.json"
+    skill = profile / "_skills" / "config.json"
+    for path, value in (
+        (model, {"manual": 1}),
+        (tools, {"manual": 2}),
+        (skill, {"active_skills": [{"name": "existing"}]}),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value), encoding="utf-8")
+
+    preset = editor.build_editor_state("researcher")["model_presets"][0]["name"]
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "model_preset": {"mode": "preset", "name": preset},
+            "tool_policy": {
+                "mode": "custom",
+                "default": "block",
+                "allowed": ["local:search_engine"],
+                "blocked": ["local:shell"],
+            },
+            "skill_policy": {
+                "mode": "custom",
+                "default": "block",
+                "allowed": ["a0-development"],
+                "blocked": [],
+            },
+        }
+    )
+    editor.apply_change_plan(plan)
+
+    assert json.loads(model.read_text())["manual"] == 1
+    assert set(json.loads(tools.read_text())) >= {
+        "manual", "mode", "default", "allowed", "blocked"
+    }
+    skill_data = json.loads(skill.read_text())
+    assert skill_data["active_skills"] == [{"name": "existing"}]
+    assert skill_data["visibility_policy"]["default"] == "block"
+
+
+def test_model_and_off_tool_choices_write_only_their_json_contracts(
+    user_root: Path,
+) -> None:
+    preset = editor.build_editor_state("researcher")["model_presets"][1]["name"]
+    model_path = user_root / "researcher" / "plugins" / "_model_config" / "config.json"
+    tool_path = user_root / "researcher" / "plugins" / "_tool_access" / "config.json"
+
+    inherit = editor.build_change_plan(
+        {"profile_id": "researcher", "model_preset": {"mode": "inherit"}}
+    )
+    assert inherit.changes == {}
+
+    selected = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "model_preset": {"mode": "preset", "name": preset},
+        }
+    )
+    assert list(selected.changes) == [model_path]
+    assert json.loads(selected.changes[model_path].content) == {"model_preset": preset}
+
+    off = editor.build_change_plan(
+        {"profile_id": "researcher", "tool_policy": {"mode": "off"}}
+    )
+    assert list(off.changes) == [tool_path]
+    assert json.loads(off.changes[tool_path].content) == {
+        "mode": "custom",
+        "default": "block",
+        "allowed": [],
+        "blocked": [],
+    }
+
+
+def test_project_tool_policy_is_visible_but_editor_plan_stays_in_user_profile(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_find = editor.plugins.find_plugin_asset
+
+    def find_plugin_asset(plugin_name, *parts, **scope):
+        if plugin_name == editor.tool_policy.PLUGIN_NAME:
+            return {
+                "path": "/project/.a0proj/plugins/_tool_access/config.json",
+                "project_name": "demo",
+                "agent_profile": "",
+            }
+        return real_find(plugin_name, *parts, **scope)
+
+    monkeypatch.setattr(editor.plugins, "find_plugin_asset", find_plugin_asset)
+    monkeypatch.setattr(editor.tool_policy, "get_tool_catalog", lambda _agent: [])
+    monkeypatch.setattr(editor.skills, "list_skill_catalog", lambda agent=None: [])
+    context = editor._EditorContext("demo")
+
+    state = editor.build_editor_state("researcher", context)
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "tool_policy": {"mode": "off"},
+        },
+        context,
+    )
+
+    assert state["tools"]["project_override_active"] is True
+    assert list(plan.changes) == [
+        user_root / "researcher" / "plugins" / "_tool_access" / "config.json"
+    ]
+
+
+def test_unavailable_skill_policy_ids_are_retained_in_editor_state(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = user_root / "researcher" / "plugins" / "_skills" / "config.json"
+    config.parent.mkdir(parents=True)
+    config.write_text(
+        json.dumps(
+            {
+                "visibility_policy": {
+                    "mode": "custom",
+                    "default": "allow",
+                    "allowed": [],
+                    "blocked": ["removed-skill"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(editor.skills, "list_skill_catalog", lambda agent=None: [])
+    monkeypatch.setattr(
+        editor.skills,
+        "get_visibility_policy",
+        lambda _agent: {
+            "mode": "custom",
+            "default": "allow",
+            "allowed": [],
+            "blocked": ["removed-skill"],
+        },
+    )
+
+    state = editor.build_editor_state("researcher")
+
+    assert state["skills"]["policy"]["blocked"] == ["removed-skill"]
+    assert state["skills"]["catalog"] == [
+        {
+            "name": "removed-skill",
+            "description": "",
+            "path": "removed-skill",
+            "origin": "Unavailable",
+            "hidden": True,
+            "tags": [],
+            "allowed_tools": [],
+            "available": False,
+        }
+    ]
+
+
+def test_display_title_change_keeps_profile_id_and_builtin_delete_is_rejected(
+    user_root: Path,
+) -> None:
+    with pytest.raises(ValueError, match="cannot be deleted"):
+        editor.plan_delete_custom("researcher")
+
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "metadata": {"set": {"title": "Renamed Display"}, "reset": []},
+        }
+    )
+    assert list(plan.changes) == [user_root / "researcher" / "agent.yaml"]
+    editor.apply_change_plan(plan)
+
+    assert (user_root / "researcher" / "agent.yaml").is_file()
+    assert not (user_root / "renamed-display").exists()
+
+
+def test_save_rolls_back_every_file_after_commit_failure(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = user_root / "rollback-agent"
+    first = root / "agent.yaml"
+    second = root / "prompts" / editor.SPECIFICS_FILE
+    second.parent.mkdir(parents=True)
+    first.write_bytes(b"title: Before\n")
+    second.write_bytes(b"before")
+    plan = editor.ChangePlan(profile_id="rollback-agent")
+    plan.write(first, b"title: After\n")
+    plan.write(second, b"after")
+
+    original_replace = editor.os.replace
+    calls = 0
+    invalidations: list[bool] = []
+    monkeypatch.setattr(
+        editor,
+        "_invalidate_profile_caches",
+        lambda: invalidations.append(True),
+    )
+
+    def fail_second(source, destination):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated commit failure")
+        return original_replace(source, destination)
+
+    monkeypatch.setattr(editor.os, "replace", fail_second)
+    with pytest.raises(OSError, match="simulated"):
+        editor.apply_change_plan(plan)
+
+    assert first.read_bytes() == b"title: Before\n"
+    assert second.read_bytes() == b"before"
+    assert invalidations == []
+
+
+def test_remove_my_changes_preserves_manual_and_unknown_files(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = user_root / "researcher"
+    prompt = root / "prompts" / editor.SPECIFICS_FILE
+    manual_files = _write_manual_files(root)
+    prompt.parent.mkdir(parents=True, exist_ok=True)
+    prompt.write_text("override", encoding="utf-8")
+    (root / "agent.yaml").write_text(
+        "title: Mine\nunknown_key: keep\n", encoding="utf-8"
+    )
+    tool_config = root / "plugins" / "_tool_access" / "config.json"
+    tool_config.parent.mkdir(parents=True)
+    tool_config.write_text(
+        json.dumps({"mode": "custom", "default": "block", "manual": True}),
+        encoding="utf-8",
+    )
+
+    real_catalog = editor.prompt_catalog
+
+    def catalog(agent):
+        items = real_catalog(agent)
+        for item in items:
+            if item["filename"] == editor.SPECIFICS_FILE:
+                item.update({"has_override": True, "inherited_source": "agents/researcher"})
+        return items
+
+    monkeypatch.setattr(editor, "prompt_catalog", catalog)
+    plan = editor.plan_remove_changes("researcher")
+    assert set(manual_files).isdisjoint(plan.changes)
+    editor.apply_change_plan(plan)
+
+    assert all(path.read_bytes() == payload for path, payload in manual_files.items())
+    assert yaml_helper.loads((root / "agent.yaml").read_text()) == {
+        "unknown_key": "keep"
+    }
+    assert json.loads(tool_config.read_text()) == {"manual": True}
+
+
+def test_mixed_save_matches_plan_preserves_every_unrelated_family_and_refreshes_cache(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = user_root / "researcher"
+    manual_files = _write_manual_files(root)
+    preset = editor.build_editor_state("researcher")["model_presets"][1]["name"]
+    cleared: list[object] = []
+    monkeypatch.setattr(editor.cache, "clear", lambda area: cleared.append(area))
+    monkeypatch.setattr(
+        editor.plugins,
+        "clear_plugin_cache",
+        lambda names: cleared.append(tuple(names)),
+    )
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "metadata": {"set": {"description": "Scoped"}, "reset": []},
+            "prompts": {
+                "set": {editor.SPECIFICS_FILE: "Only this prompt."},
+                "reset": [],
+            },
+            "model_preset": {"mode": "preset", "name": preset},
+        }
+    )
+    expected = plan.response()
+
+    assert {
+        path.relative_to(user_root).as_posix()
+        for path, change in plan.changes.items()
+        if change.action == "write"
+    } == {
+        "researcher/agent.yaml",
+        f"researcher/prompts/{editor.SPECIFICS_FILE}",
+        "researcher/plugins/_model_config/config.json",
+    }
+    assert editor.apply_change_plan(plan) == expected
+    assert cleared == [
+        editor.subagents.PATHS_CACHE_AREA,
+        ("_agent_editor", "_model_config", "_tool_access", "_skills"),
+    ]
+    assert all(path.read_bytes() == payload for path, payload in manual_files.items())
+
+
+def test_empty_prompt_override_and_project_precedence_are_distinct(
+    user_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    framework = tmp_path / "framework"
+    user_prompts = user_root / "researcher" / "prompts"
+    project_meta = tmp_path / "project" / ".a0proj"
+    project_prompts = project_meta / "agents" / "researcher" / "prompts"
+    for path, text in (
+        (framework / editor.SPECIFICS_FILE, "framework"),
+        (user_prompts / editor.SPECIFICS_FILE, ""),
+        (project_prompts / editor.SPECIFICS_FILE, "project"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(
+        editor.subagents,
+        "get_paths",
+        lambda _agent, *parts: (
+            [str(user_prompts), str(framework)]
+            if not editor.projects.get_context_project_name(_agent.context)
+            else [str(project_prompts), str(user_prompts), str(framework)]
+        ),
+    )
+    original_meta = editor.projects.get_project_meta
+    monkeypatch.setattr(
+        editor.projects,
+        "get_project_meta",
+        lambda name, *parts: str(project_meta.joinpath(*parts))
+        if name == "acceptance-project"
+        else original_meta(name, *parts),
+    )
+
+    empty = next(
+        item
+        for item in editor.prompt_catalog(editor.EditorAgent("researcher"))
+        if item["filename"] == editor.SPECIFICS_FILE
+    )
+    project = next(
+        item
+        for item in editor.prompt_catalog(
+            editor.EditorAgent(
+                "researcher",
+                editor._EditorContext("acceptance-project"),
+            )
+        )
+        if item["filename"] == editor.SPECIFICS_FILE
+    )
+
+    assert empty["state"] == "Overridden here (empty)"
+    assert empty["has_override"] is True
+    assert empty["effective"] == ""
+    assert project["state"] == "Project override active"
+    assert project["project_override_active"] is True
+    assert project["effective"] == "project"
+    assert project["source_chain"][-2:] == ["Your override", "Project · project"]
+
+    reset = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "prompts": {"set": {}, "reset": [editor.SPECIFICS_FILE]},
+        }
+    )
+    assert list(reset.changes) == [user_prompts / editor.SPECIFICS_FILE]
+    assert next(iter(reset.changes.values())).action == "delete"
+
+
+def test_avatar_is_normalized_and_avatar_only_edit_is_sparse(user_root: Path) -> None:
+    from PIL import Image
+
+    source = BytesIO()
+    Image.new("RGB", (800, 400), "red").save(source, format="PNG")
+    upload = FileStorage(stream=BytesIO(source.getvalue()), filename="avatar.png")
+    staged = editor.stage_avatar(upload)
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "researcher",
+            "metadata": {
+                "set": {"avatar": {"kind": "image", "token": staged["token"]}},
+                "reset": [],
+            },
+        }
+    )
+
+    assert {path.relative_to(user_root).as_posix() for path in plan.changes} == {
+        "researcher/agent.yaml",
+        "researcher/assets/avatar.webp",
+    }
+    editor.apply_change_plan(plan)
+    avatar = user_root / "researcher" / "assets" / "avatar.webp"
+    with Image.open(avatar) as normalized:
+        assert normalized.format == "WEBP"
+        assert normalized.size == (editor.AVATAR_SIZE, editor.AVATAR_SIZE)
+        assert not normalized.getexif()
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "patch", "label"),
+    (
+        (
+            "agent.yaml",
+            {"metadata": {"set": {"description": "new"}, "reset": []}},
+            "profile metadata",
+        ),
+        (
+            "plugins/_tool_access/config.json",
+            {"tool_policy": {"mode": "off"}},
+            "tool policy configuration",
+        ),
+    ),
+)
+def test_invalid_existing_authored_files_are_never_overwritten(
+    user_root: Path,
+    relative_path: str,
+    patch: dict,
+    label: str,
+) -> None:
+    path = user_root / "researcher" / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    original = b"{ definitely not valid\n"
+    path.write_bytes(original)
+
+    with pytest.raises(ValueError, match=label):
+        editor.build_change_plan({"profile_id": "researcher", **patch})
+
+    assert path.read_bytes() == original
+
+
+def test_editor_preview_raw_reads_markdown_without_running_dynamic_processor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prompt_root = tmp_path / "prompts"
+    prompt_root.mkdir()
+    (prompt_root / editor.SPECIFICS_FILE).write_text(
+        "Raw {{value}}", encoding="utf-8"
+    )
+    (prompt_root / "agent.system.main.specifics.py").write_text(
+        "raise RuntimeError('must not run')\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        editor.subagents,
+        "get_paths",
+        lambda *_args, **_kwargs: [str(prompt_root)],
+    )
+    monkeypatch.setattr(
+        editor.files,
+        "read_prompt_file",
+        lambda *_args, **_kwargs: pytest.fail("dynamic prompt loader ran"),
+    )
+
+    item = next(
+        item
+        for item in editor.prompt_catalog(editor.EditorAgent("researcher"))
+        if item["filename"] == editor.SPECIFICS_FILE
+    )
+
+    assert item["effective"] == "Raw {{value}}"
+    assert item["preview"] == "Raw {{value}}"
+    assert item["dynamic_processor"] is True
+
+
+def test_editor_api_keeps_default_auth_and_csrf_protection() -> None:
+    for handler in (AgentEditor, AgentEditorAvatar):
+        assert handler.requires_auth() is True
+        assert handler.requires_csrf() is True
+
+
+def test_backend_has_no_legacy_save_or_model_request_path() -> None:
+    sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            Path(editor.__file__),
+            Path("plugins/_agent_editor/api/agent_editor.py"),
+            Path("plugins/_agent_editor/api/agent_editor_avatar.py"),
+        )
+    )
+
+    assert "save_agent_data" not in sources
+    assert "call_llm" not in sources
+    assert "call_utility_model" not in sources
+    assert "litellm" not in sources

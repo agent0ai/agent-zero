@@ -1,0 +1,5 @@
+name: _agent_editor
+title: Agent Editor
+description: Deterministic sparse editor for Agent Zero profiles.
+version: 1.0.0
+always_enabled: true
