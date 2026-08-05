@@ -28,11 +28,12 @@ class SubAgentListItem(BaseModel):
     path: str = ""
     origin: list[Origin] = []
     enabled: bool = True
+    avatar: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def post_validator(self):
-        if self.title == "":
-            self.title = self.name
+        if "title" not in self.model_fields_set and self.name:
+            object.__setattr__(self, "title", self.name)
         return self
 
 
@@ -55,7 +56,7 @@ def get_agents_dict(
         for name, override in overrides.items():
             base_agent = merged.get(name)
             merged[name] = (
-                _merge_agent_list_items(base_agent, override)
+                _merge_agent_list_item(base_agent, override)
                 if base_agent
                 else override
             )
@@ -92,15 +93,15 @@ def _get_agents_list_from_dir(dir: str, origin: Origin) -> dict[str, SubAgentLis
 
     for subdir in subdirs:
         try:
-            agent_yaml_path = files.get_abs_path(dir, subdir, "agent.yaml")
-            if files.exists(agent_yaml_path):
-                agent_yaml = files.read_file(agent_yaml_path)
-                agent_data = SubAgentListItem.model_validate(yaml_helper.loads(agent_yaml) or {})
-            else:
-                agent_json = files.read_file(files.get_abs_path(dir, subdir, "agent.json"))
-                agent_data = SubAgentListItem.model_validate_json(agent_json)
+            try:
+                raw = _read_agent_definition(dir, subdir)
+            except FileNotFoundError:
+                raw = {}
+            agent_data = SubAgentListItem.model_validate(raw)
             name = agent_data.name or subdir
             agent_data.name = name
+            if "title" not in agent_data.model_fields_set:
+                object.__setattr__(agent_data, "title", name)
             agent_data.path = files.get_abs_path(dir, subdir)
             agent_data.origin = [origin]
             result[name] = agent_data
@@ -111,15 +112,6 @@ def _get_agents_list_from_dir(dir: str, origin: Origin) -> dict[str, SubAgentLis
 
 
 def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
-    def _merge_agent(
-        original: SubAgent | None, override: SubAgent | None = None
-    ) -> SubAgent | None:
-        if original and override:
-            return _merge_agents(original, override)
-        elif original:
-            return original
-        return override
-
     from helpers import plugins
 
     # load default, plugin, and user agents and merge
@@ -184,31 +176,26 @@ def delete_agent_data(name: str) -> None:
 
 
 def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent | None:
+    agent_dir = files.get_abs_path(dir, name)
+    if not os.path.isdir(agent_dir):
+        return None
+
     try:
-        agent_yaml_path = files.get_abs_path(dir, name, "agent.yaml")
-        if files.exists(agent_yaml_path):
-            agent_yaml = files.read_file(agent_yaml_path)
-            subagent = SubAgent.model_validate(yaml_helper.loads(agent_yaml) or {})
-        else:
-            subagent_json = files.read_file(files.get_abs_path(dir, name, "agent.json"))
-            subagent = SubAgent.model_validate_json(subagent_json)
+        subagent = SubAgent.model_validate(_read_agent_definition(dir, name))
     except Exception:
         # backward compatibility (before agent.json existed)
         try:
-            context_file = files.read_file(files.get_abs_path(dir, name, "_context.md"))
+            subagent = SubAgent(
+                context=files.read_file(files.get_abs_path(dir, name, "_context.md"))
+            )
         except Exception:
-            context_file = ""
-        subagent = SubAgent(
-            name=name,
-            title=name,
-            description="",
-            context=context_file,
-            origin=[origin],
-            prompts={},
-        )
+            subagent = SubAgent()
 
     # non-stored fields
     subagent.name = name
+    if "title" not in subagent.model_fields_set:
+        object.__setattr__(subagent, "title", name)
+    subagent.path = agent_dir
     subagent.origin = [origin]
 
     prompts_dir = f"{dir}/{name}/prompts"
@@ -221,37 +208,48 @@ def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent |
     return subagent
 
 
-def _merge_agents(base: SubAgent | None, override: SubAgent | None) -> SubAgent | None:
+def _read_agent_definition(dir: str, name: str) -> dict:
+    yaml_path = files.get_abs_path(dir, name, "agent.yaml")
+    if files.exists(yaml_path):
+        return yaml_helper.loads(files.read_file(yaml_path)) or {}
+    json_path = files.get_abs_path(dir, name, "agent.json")
+    if files.exists(json_path):
+        return json.loads(files.read_file(json_path)) or {}
+    raise FileNotFoundError
+
+
+def _merge_agent(base: SubAgent | None, override: SubAgent | None) -> SubAgent | None:
     if base is None:
         return override
     if override is None:
         return base
 
-    merged_prompts: dict[str, str] = {}
-    merged_prompts.update(base.prompts or {})
-    merged_prompts.update(override.prompts or {})
-
-    return SubAgent(
-        name=override.name,
-        title=override.title,
-        description=override.description,
-        context=override.context,
-        origin=_merge_origins(base.origin, override.origin),
-        prompts=merged_prompts,
-    )
+    data = _merge_agent_metadata(base, override)
+    data["prompts"] = {**(base.prompts or {}), **(override.prompts or {})}
+    return SubAgent.model_validate(data)
 
 
-def _merge_agent_list_items(
+def _merge_agent_list_item(
     base: SubAgentListItem, override: SubAgentListItem
 ) -> SubAgentListItem:
-    return SubAgentListItem(
-        name=override.name or base.name,
-        title=override.title or base.title,
-        description=override.description or base.description,
-        context=override.context or base.context,
-        path=override.path or base.path,
-        origin=_merge_origins(base.origin, override.origin),
+    return SubAgentListItem.model_validate(_merge_agent_metadata(base, override))
+
+
+def _merge_agent_metadata(
+    base: SubAgentListItem, override: SubAgentListItem
+) -> dict:
+    data = base.model_dump()
+    data.update(
+        override.model_dump(
+            exclude_unset=True, exclude={"name", "path", "origin", "prompts"}
+        )
     )
+    data.update(
+        name=override.name or base.name,
+        path=override.path or base.path,
+        origin=[*base.origin, *override.origin],
+    )
+    return data
 
 
 def get_agents_roots() -> list[str]:
@@ -296,7 +294,7 @@ def get_all_agents_list() -> list[dict[str, str]]:
         items = _get_agents_list_from_dir(root, origin=origin)
         for name, item in items.items():
             if name in merged:
-                merged[name] = _merge_agent_list_items(merged[name], item)
+                merged[name] = _merge_agent_list_item(merged[name], item)
             else:
                 merged[name] = item
 
@@ -305,10 +303,6 @@ def get_all_agents_list() -> list[dict[str, str]]:
         item = merged[key]
         result.append({"key": key, "label": item.title or key})
     return result
-
-
-def _merge_origins(base: list[Origin], override: list[Origin]) -> list[Origin]:
-    return base + override
 
 
 def get_default_promp_file_names() -> list[str]:

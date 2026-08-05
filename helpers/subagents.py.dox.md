@@ -14,6 +14,8 @@
 - `SubAgentListItem` (`BaseModel`)
   - `post_validator(self)`
 - `SubAgent` (`SubAgentListItem`)
+- Profile metadata includes optional avatar metadata and merges by key presence:
+  a missing key inherits, while a present empty value explicitly clears it.
 - Top-level functions:
 - `get_agents_list(project_name: str | None=...) -> list[SubAgentListItem]`
 - `get_agents_dict(project_name: str | None=...) -> dict[str, SubAgentListItem]`
@@ -22,11 +24,12 @@
 - `save_agent_data(name: str, subagent: SubAgent) -> None`
 - `delete_agent_data(name: str) -> None`
 - `_load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent | None`
-- `_merge_agents(base: SubAgent | None, override: SubAgent | None) -> SubAgent | None`
-- `_merge_agent_list_items(base: SubAgentListItem, override: SubAgentListItem) -> SubAgentListItem`
+- `_read_agent_definition(dir: str, name: str) -> dict`
+- `_merge_agent(base: SubAgent | None, override: SubAgent | None) -> SubAgent | None`
+- `_merge_agent_list_item(base: SubAgentListItem, override: SubAgentListItem) -> SubAgentListItem`
+- `_merge_agent_metadata(base: SubAgentListItem, override: SubAgentListItem) -> dict`
 - `get_agents_roots() -> list[str]`
 - `get_all_agents_list() -> list[dict[str, str]]`
-- `_merge_origins(base: list[Origin], override: list[Origin]) -> list[Origin]`
 - `get_default_promp_file_names() -> list[str]`
 - `get_available_agents_dict(project_name: str | None) -> dict[str, SubAgentListItem]`
 - `get_paths(agent: 'Agent|None', *subpaths, must_exist_completely: bool=..., include_project: bool=..., include_user: bool=..., include_default: bool=..., include_plugins: bool=..., default_root: str=...) -> list[str]`: Returns list of file paths for the given agent and subpaths, searched in order of priority:
@@ -37,10 +40,15 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, plugin state, settings/state persistence.
+- Nonexistent profile layers return `None` instead of synthesizing empty overrides.
 - Imported dependency areas include: `helpers`, `json`, `os`, `pydantic`, `typing`.
 
 ## Key Concepts
 
+- Presence-aware merging uses Pydantic's `model_dump(exclude_unset=True)` so
+  missing keys inherit while explicitly empty values remain overrides. Runtime
+  `name`, `path`, `origin`, and `prompts` fields are handled separately; derived
+  title fallbacks do not become authored overrides.
 - Important called helpers/classes observed in the source: `cache.toggle_area`, `model_validator`, `_get_agents_list_from_dir`, `plugins.get_enabled_plugin_paths`, `_merge_agent_dicts`, `files.get_subdirectories`, `_load_agent_data_from_dir`, `_merge_agent`, `files.write_file`, `files.delete_dir`, `SubAgent`, `SubAgentListItem`, `files.find_existing_paths_by_pattern`, `get_agents_roots`, `files.list_files`, `get_agents_dict`, `cache.determine_cache_key`, `cache.add`, `projects.get_project_meta`, `FileNotFoundError`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
@@ -55,6 +63,7 @@
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_skills_runtime.py`
+  - `tests/test_subagent_metadata_merge.py`
 
 ## Child DOX Index
 

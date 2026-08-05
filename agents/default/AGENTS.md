@@ -8,7 +8,7 @@
 ## Ownership
 
 - `agent.yaml` owns default profile metadata.
-- `agent.system.main.specifics.md` owns default profile-specific system prompt content.
+- `prompts/agent.system.main.specifics.md` owns default profile-specific system prompt content.
 - Additional prompt overrides under this directory become shared defaults unless a child profile overrides them.
 
 ## Local Contracts
