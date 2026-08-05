@@ -1,10 +1,6 @@
-import { fetchApi } from "/js/api.js";
+import { callJsonApi, fetchApi } from "/js/api.js";
 
 const API_BASE = "/plugins/_model_config";
-const CREATE_AGENT_PROFILE_PROMPT = `I want to create a new Agent Zero agent profile.
-
-Use the a0-create-agent skill. Guide me gently with one or two questions per turn. Start by asking what this agent should be excellent at, infer sensible defaults, and only produce the AgentProfileBlueprint JSON after we confirm the compact profile summary. Prefer a normal user profile in /a0/usr/agents unless I choose another scope.`;
-
 function normalizeModelIdentity(value) {
   if (!value || typeof value !== "object") return null;
   const provider = String(value.provider || "").trim();
@@ -29,31 +25,33 @@ export const switcherState = {
   switcherLoading: true,
   agentProfiles: [],
   agentProfilesLoading: true,
-  agentProfileSettings: null,
+  agentProfilesLoaded: false,
   agentProfileSaving: false,
 };
 
 export const switcherMethods = {
   async loadAgentProfiles(force = false) {
-    if (!force && this.agentProfiles.length > 0 && this.agentProfileSettings) return this.agentProfiles;
+    if (!force && this.agentProfilesLoaded) return this.agentProfiles;
     this.agentProfilesLoading = true;
     try {
-      const res = await fetchApi("/settings_get", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+      const contextId = window.Alpine?.store("chats")?.selected || "";
+      const data = await callJsonApi("/plugins/_agent_editor/agent_editor", {
+        action: "list",
+        context_id: contextId,
       });
-      const data = await res.json();
-      this.agentProfileSettings = data.settings || {};
-      this.agentProfiles = (data.additional?.agent_subdirs || [])
+      this.agentProfiles = (data.profiles || [])
+        .filter(profile => profile.id && profile.id !== "_example")
         .map(profile => ({
-          key: profile.value || profile.key || "",
-          label: profile.label || profile.value || profile.key || "",
-        }))
-        .filter(profile => profile.key && profile.key !== "_example");
+          key: profile.id,
+          label: profile.title || profile.id,
+          avatar: profile.avatar || null,
+          avatarUrl: profile.avatar_url || "",
+        }));
+      this.agentProfilesLoaded = true;
     } catch (e) {
       console.error("Agent profile list load failed:", e);
       this.agentProfiles = [];
+      this.agentProfilesLoaded = false;
     } finally {
       this.agentProfilesLoading = false;
     }
@@ -121,38 +119,17 @@ export const switcherMethods = {
     return profiles;
   },
 
-  async createAgentProfileChat(currentContextId = "") {
-    try {
-      const res = await fetchApi("/chat_create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_context: currentContextId || "" }),
-      });
-      const data = await res.json();
-      if (!data.ok || !data.ctxid) return false;
-
-      const chatsStore = window.Alpine?.store("chats");
-      if (chatsStore?.selectChat) {
-        await chatsStore.selectChat(data.ctxid);
-      } else {
-        window.setContext?.(data.ctxid);
-      }
-
-      const chatInputStore = window.Alpine?.store("chatInput");
-      if (chatInputStore) {
-        chatInputStore.message = CREATE_AGENT_PROFILE_PROMPT;
-        setTimeout(() => {
-          chatInputStore.adjustTextareaHeight?.();
-          chatInputStore.focus?.();
-        }, 0);
-      }
-
-      return true;
-    } catch (e) {
-      console.error("Failed to create agent profile chat:", e);
-      window.toastFetchError?.("Failed to start profile creator", e);
-      return false;
-    }
+  getAgentProfileVisual(profileKey, profileLabel = "") {
+    const profile = this.agentProfiles.find(item => item.key === profileKey) || {};
+    const label = profile.label || profileLabel || profileKey || "Agent";
+    const palette = ["#6C5CE7", "#0984E3", "#00A884", "#D35400", "#C0392B", "#8E44AD"];
+    let hash = 0;
+    for (const char of profileKey || label) hash = ((hash * 31) + char.charCodeAt(0)) >>> 0;
+    return {
+      url: profile.avatarUrl || "",
+      color: profile.avatar?.kind === "color" ? profile.avatar.value : palette[hash % palette.length],
+      initials: label.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase() || "A",
+    };
   },
 
   async selectAgentProfile(contextId, agentProfile) {

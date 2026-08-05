@@ -32,6 +32,8 @@ def test_modals_are_generic_and_surfaces_own_live_surface_paths():
     assert "backdrop.style.display" in modals_js
     assert "modalSurfaceMetadata" not in modals_js
     assert "modal-content-loaded" in modals_js
+    assert "modal.returnFocus = returnFocus" in modals_js
+    assert "modal.returnFocus?.isConnected" in modals_js
     assert ".surface-floating" not in modals_css
     assert ".surface-switcher" not in modals_css
 

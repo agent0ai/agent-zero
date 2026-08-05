@@ -28,7 +28,7 @@
         <div class="preset-editor-toolbar">
           <label class="preset-editor-select">
             <span class="field-title">Preset</span>
-            <select x-model.number="selectedKey">
+            <select x-model.number="selectedKey" x-init="$nextTick(() => $el.focus())">
               <template x-for="preset in presets" :key="preset._key">
                 <option :value="preset._key" x-text="preset.name"></option>
               </template>

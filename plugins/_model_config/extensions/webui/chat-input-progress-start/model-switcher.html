@@ -11,7 +11,10 @@
          $store.modelConfig.refreshSwitcher($store.chats?.selected || ''),
          $store.modelConfig.loadAgentProfiles(),
        ]);
-       $watch('$store.chats.selected', v => $store.modelConfig.refreshSwitcher(v || ''));
+       $watch('$store.chats.selected', v => Promise.all([
+         $store.modelConfig.refreshSwitcher(v || ''),
+         $store.modelConfig.loadAgentProfiles(true),
+       ]));
      ">
   <template x-if="($store.modelConfig.switcherAllowed && !$store.modelConfig.switcherLoading) || $store.chats?.selectedContext?.agent_profile">
     <div class="model-switcher-container">
@@ -110,7 +113,14 @@
             <button class="btn-icon-action agent-profile-btn"
                     title="Active agent profile"
                     @click="showProfileDropdown = !showProfileDropdown; showDropdown = false">
-              <x-icon style="font-size: 15px;" name="assignment_ind"></x-icon>
+              <span class="agent-profile-avatar"
+                    :style="`background:${$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).color}`">
+                <img x-show="$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).url"
+                     :src="$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).url"
+                     alt="">
+                <span x-show="!$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).url"
+                      x-text="$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).initials"></span>
+              </span>
               <span class="agent-profile-label"
                     x-text="$store.chats.selectedContext.agent_profile_label || $store.chats.selectedContext.agent_profile"></span>
               <x-icon style="font-size: 0.7rem;"
@@ -119,11 +129,23 @@
 
             <div class="agent-profile-dropdown" x-show="showProfileDropdown" x-transition.opacity style="display: none;">
               <button class="model-switcher-item agent-profile-create" @click="
-                $store.modelConfig.createAgentProfileChat($store.chats?.selected || '')
-                  .then(ok => { if (ok) showProfileDropdown = false; });
+                window.openAgentEditor?.({ view: 'create', contextId: $store.chats?.selected || '' });
+                showProfileDropdown = false;
               ">
                 <x-icon style="font-size: 15px;" name="add"></x-icon>
-                <span>Create new Agent Profile</span>
+                <span>Create agent</span>
+              </button>
+
+              <button class="model-switcher-item agent-profile-edit" @click="
+                window.openAgentEditor?.({
+                  view: 'edit',
+                  profileId: $store.chats.selectedContext.agent_profile,
+                  contextId: $store.chats?.selected || ''
+                });
+                showProfileDropdown = false;
+              ">
+                <x-icon style="font-size: 15px;" name="edit"></x-icon>
+                <span>Edit agent</span>
               </button>
 
               <div class="model-switcher-divider" style="opacity:0.2;"></div>
@@ -146,17 +168,21 @@
                            .then(ok => { if (ok) showProfileDropdown = false; });
                        }
                      ">
+                  <span class="agent-profile-avatar" :style="`background:${$store.modelConfig.getAgentProfileVisual(profile.key, profile.label).color}`">
+                    <img x-show="$store.modelConfig.getAgentProfileVisual(profile.key, profile.label).url" :src="$store.modelConfig.getAgentProfileVisual(profile.key, profile.label).url" alt="">
+                    <span x-show="!$store.modelConfig.getAgentProfileVisual(profile.key, profile.label).url" x-text="$store.modelConfig.getAgentProfileVisual(profile.key, profile.label).initials"></span>
+                  </span>
                   <div class="model-switcher-preset-name" x-text="profile.label || profile.key"></div>
                 </div>
               </template>
 
               <div class="model-switcher-divider" style="opacity:0.2;"></div>
               <button class="model-switcher-item agent-profile-settings" @click="
-                openModal('settings/settings.html');
+                window.openAgentEditor?.({ view: 'manage', contextId: $store.chats?.selected || '' });
                 showProfileDropdown = false;
               ">
-                <x-icon style="font-size: 14px;" name="settings"></x-icon>
-                <span>Agent Config</span>
+                <x-icon style="font-size: 14px;" name="manage_accounts"></x-icon>
+                <span>Manage agents</span>
               </button>
             </div>
           </div>
@@ -179,6 +205,23 @@
     gap: 8px;
     min-width: 0;
     flex-wrap: wrap;
+  }
+  .agent-profile-avatar {
+    width: 1.35rem;
+    height: 1.35rem;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border-radius: 50%;
+    color: #fff;
+    font-size: .58rem;
+    font-weight: 700;
+  }
+  .agent-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .model-switcher-anchor {
     position: relative;
@@ -272,6 +315,11 @@
   }
   .model-switcher-item.active {
     background: color-mix(in srgb, var(--color-highlight) 12%, transparent);
+  }
+  .agent-profile-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
   }
   .model-switcher-item.revert {
     display: flex;

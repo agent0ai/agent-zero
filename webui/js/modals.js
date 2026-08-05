@@ -272,9 +272,11 @@ export async function openModal(modalPath, beforeClose = null) {
         currentTopModal.savedScrollSnapshot = captureModalScrollSnapshot(currentTopModal);
       }
 
+      const returnFocus = document.activeElement;
       // Create new modal instance
       const modal = createModalElement(modalPath);
       modal.beforeClose = beforeClose;
+      modal.returnFocus = returnFocus;
       openCtx.modal = modal;
 
       new MutationObserver(
@@ -435,6 +437,7 @@ export async function closeModal(modalPath = null) {
     // Just get the last modal (removal happens after beforeClose)
     modal = modalStack[modalStack.length - 1];
   }
+  const wasTop = modalIndex === modalStack.length - 1;
 
   const closeCtx = { modalPath: modalPath ?? null, modal, cancel: false };
   await callJsExtensions("close_modal_before", closeCtx);
@@ -507,6 +510,7 @@ export async function closeModal(modalPath = null) {
     } else {
       activateModal(modalStack[modalStack.length - 1]);
     }
+    if (wasTop && modal.returnFocus?.isConnected) modal.returnFocus.focus();
 
     document.dispatchEvent(
       new CustomEvent("modal-closed", {

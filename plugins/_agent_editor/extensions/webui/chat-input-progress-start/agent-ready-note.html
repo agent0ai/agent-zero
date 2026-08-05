@@ -1,0 +1,26 @@
+<script type="module">
+  import { store } from "/plugins/_agent_editor/webui/agent-editor-store.js";
+</script>
+
+<div x-data x-show="$store.agentEditor?.readyNoteVisible()" class="agent-ready-note" role="status" style="display:none">
+  <x-icon name="celebration" aria-hidden="true"></x-icon>
+  <span>Your agent is ready. You can refine it anytime from Edit agent.</span>
+  <button type="button" class="button icon" aria-label="Dismiss agent ready note" @click="$store.agentEditor.dismissReadyNote()"><x-icon name="close"></x-icon></button>
+</div>
+
+<style>
+  .agent-ready-note {
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    width:min(100%,46rem);
+    margin:.25rem auto .45rem;
+    padding:.55rem .7rem;
+    border:1px solid color-mix(in srgb,var(--color-accent) 45%,var(--color-border));
+    border-radius:9px;
+    background:color-mix(in srgb,var(--color-accent) 8%,var(--color-panel));
+    color:var(--color-text);
+    font-size:.82rem;
+  }
+  .agent-ready-note > span { flex:1; }
+</style>

@@ -28,6 +28,7 @@
 - `modelConfig.createPresetEditor()` owns local preset drafts, row actions, and stable UI-only row keys so deletion or renaming cannot rebind nested model fields.
 - The preset editor maps each model provider's API-key field to the shared API-key store; saving the editor persists dirty keys separately and never writes secrets into preset YAML.
 - The compact chat selector label combines the effective preset with only the leaf name of its main model; utility and provider text stay out of the closed selector.
+- The adjacent agent-profile selector reads the always-enabled Agent Editor list endpoint directly so the active profile shows its effective title and avatar.
 - Preset editor reset actions must remove the user override through the preset API and refresh the open draft from bundled defaults.
 - Preset rename, delete, and reset actions must repair scoped config and durable/live chat references; removed definitions fall back to `Default`.
 - Migration must preserve existing definitions and distinct scoped model choices, back up replaced user files once, strip inline secrets, and remain idempotent.

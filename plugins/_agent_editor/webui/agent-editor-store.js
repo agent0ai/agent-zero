@@ -1,0 +1,923 @@
+import { createStore } from "/js/AlpineStore.js";
+import { callJsonApi, fetchApi } from "/js/api.js";
+import { closeModal, openModal } from "/js/modals.js";
+import { showConfirmDialog } from "/js/confirmDialog.js";
+import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
+
+const API = "/plugins/_agent_editor/agent_editor";
+const AVATAR_API = "/plugins/_agent_editor/agent_editor_avatar";
+const MODAL = "/plugins/_agent_editor/webui/main.html";
+const SPECIFICS = "agent.system.main.specifics.md";
+const LAST_SECTION_KEY = "agent-editor-last-section";
+const READY_NOTE_KEY = "agent-editor-ready-note";
+const PROFILE_ID = /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/;
+
+const clone = (value) => JSON.parse(JSON.stringify(value));
+const unique = (values) => [...new Set((values || []).map(String).filter(Boolean))];
+const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+
+export function slugifyProfileName(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/[-_]{2,}/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "")
+    .slice(0, 64)
+    .replace(/[-_]+$/g, "");
+}
+
+function policyFromState(value, hasOverride) {
+  const policy = value && typeof value === "object" ? value : {};
+  const normalized = {
+    mode: policy.mode === "custom" ? "custom" : "inherit",
+    default: policy.default === "block" ? "block" : "allow",
+    allowed: unique(policy.allowed),
+    blocked: unique(policy.blocked),
+  };
+  if (!hasOverride || normalized.mode !== "custom") normalized.mode = "inherit";
+  return normalized;
+}
+
+function easyToolMode(policy) {
+  if (policy.mode !== "custom") return "inherit";
+  return policy.default === "block" && policy.allowed.length === 0 ? "off" : "custom";
+}
+
+function policyAllows(policy, id) {
+  if (policy.mode !== "custom") return true;
+  if (policy.blocked.includes(id)) return false;
+  if (policy.allowed.includes(id)) return true;
+  return policy.default === "allow";
+}
+
+function movePolicyItem(policy, id, allow) {
+  policy.allowed = policy.allowed.filter((item) => item !== id);
+  policy.blocked = policy.blocked.filter((item) => item !== id);
+  const exceptions = allow ? "allowed" : "blocked";
+  const matchesDefault = allow === (policy.default === "allow");
+  if (!matchesDefault) policy[exceptions].push(id);
+}
+
+function escapeHtml(value) {
+  const element = document.createElement("div");
+  element.textContent = String(value || "");
+  return element.innerHTML;
+}
+
+const model = {
+  intent: { view: "create", profileId: "", contextId: "" },
+  view: "editor",
+  mode: "easy",
+  section: "1",
+  loading: false,
+  saving: false,
+  avatarUploading: false,
+  error: "",
+  state: null,
+  profiles: [],
+  draft: null,
+  initialDraft: null,
+  selectedPrompt: SPECIFICS,
+  promptGroup: "2.1",
+  promptFileSearch: "",
+  promptTextSearch: "",
+  comparePrompt: "",
+  toolSearch: "",
+  toolCategory: "all",
+  toolOrigin: "all",
+  selectedAllowedTools: [],
+  selectedBlockedTools: [],
+  skillSearch: "",
+  skillOrigin: "all",
+  selectedAllowedSkills: [],
+  selectedBlockedSkills: [],
+  editingPrompts: [],
+  easyToolsOpen: false,
+  plan: { written: [], deleted: [], warnings: [] },
+  planLoading: false,
+  pendingMutation: null,
+  readyNoteContext: "",
+  suppressClosePrompt: false,
+  root: null,
+  previewObjectUrl: "",
+
+  init() {
+    try {
+      this.readyNoteContext = sessionStorage.getItem(READY_NOTE_KEY) || "";
+    } catch {
+      this.readyNoteContext = "";
+    }
+  },
+
+  async open(options = {}) {
+    this.intent = {
+      view: options.view || (options.profileId ? "edit" : "create"),
+      profileId: String(options.profileId || ""),
+      contextId: String(options.contextId || chatsStore.selected || ""),
+    };
+    this.suppressClosePrompt = false;
+    return await openModal(MODAL, () => this.beforeClose());
+  },
+
+  async mount(root) {
+    this.revokePreview();
+    this.root = root;
+    this.error = "";
+    this.pendingMutation = null;
+    this.plan = { written: [], deleted: [], warnings: [] };
+    this.view = this.intent.view === "manage" ? "manage" : "editor";
+    this.mode = "easy";
+    this.section = this.savedSection();
+    this.syncSurface();
+    await this.loadProfiles();
+    if (this.view === "manage") {
+      this.setModalTitle("Manage agents");
+      return;
+    }
+    await this.loadEditor(
+      this.intent.view === "create" ? "new-agent" : this.intent.profileId,
+      this.intent.view === "create",
+    );
+  },
+
+  async loadProfiles() {
+    try {
+      const data = await callJsonApi(API, {
+        action: "list",
+        context_id: this.intent.contextId,
+      });
+      this.profiles = data.profiles || [];
+    } catch (error) {
+      this.error = error.message || String(error);
+      this.profiles = [];
+    }
+  },
+
+  async loadEditor(profileId, creating = false) {
+    this.loading = true;
+    this.error = "";
+    try {
+      const data = await callJsonApi(API, {
+        action: "load",
+        profile_id: profileId,
+        context_id: this.intent.contextId,
+      });
+      this.state = data.state;
+      this.intent = { ...this.intent, view: creating ? "create" : "edit", profileId };
+      this.view = "editor";
+      this.makeDraft(creating);
+      this.setModalTitle(creating ? "Create agent" : "Edit agent");
+      this.mode = "easy";
+      this.syncSurface();
+      requestAnimationFrame(() => this.root?.querySelector("#agent-editor-name")?.focus());
+    } catch (error) {
+      this.error = error.message || String(error);
+    } finally {
+      this.loading = false;
+    }
+  },
+
+  makeDraft(creating) {
+    const metadata = this.state.profile.metadata;
+    const prompts = {};
+    for (const item of this.state.prompts || []) {
+      const value = creating && item.filename === SPECIFICS ? "" : String(item.effective || "");
+      prompts[item.filename] = {
+        ...item,
+        value,
+        initialValue: value,
+        reset: false,
+      };
+    }
+    if (!prompts[SPECIFICS]) {
+      prompts[SPECIFICS] = {
+        filename: SPECIFICS,
+        group: "2.1",
+        group_label: "Agent instructions",
+        value: "",
+        initialValue: "",
+        inherited: "",
+        source_chain: [],
+        state: "Unavailable",
+        reset: false,
+      };
+    }
+
+    const avatar = metadata.avatar?.effective || null;
+    this.draft = {
+      creating,
+      profileId: creating ? "" : this.state.profile.id,
+      title: creating ? "" : String(metadata.title?.effective || this.state.profile.id),
+      description: creating ? "" : String(metadata.description?.effective || ""),
+      context: creating ? "" : String(metadata.context?.effective || ""),
+      metadataResets: [],
+      avatar: avatar ? clone(avatar) : null,
+      avatarToken: "",
+      avatarPreview: this.state.profile.avatar_url || "",
+      prompts,
+      modelPreset: this.state.model_preset.has_override
+        ? String(this.state.model_preset.override || "")
+        : "",
+      toolPolicy: policyFromState(this.state.tools.policy, this.state.tools.has_override),
+      skillPolicy: policyFromState(this.state.skills.policy, this.state.skills.has_override),
+    };
+    this.initialDraft = clone(this.draft);
+    this.selectedPrompt = SPECIFICS;
+    this.promptGroup = "2.1";
+    this.comparePrompt = "";
+    this.easyToolsOpen = false;
+    this.selectedAllowedTools = [];
+    this.selectedBlockedTools = [];
+    this.selectedAllowedSkills = [];
+    this.selectedBlockedSkills = [];
+    this.editingPrompts = Object.values(prompts)
+      .filter((prompt) => prompt.has_override || prompt.filename === SPECIFICS)
+      .map((prompt) => prompt.filename);
+  },
+
+  get dirty() {
+    return Boolean(this.draft && this.initialDraft && !same(this.draft, this.initialDraft));
+  },
+
+  get title() {
+    return this.draft?.creating ? "Create agent" : "Edit agent";
+  },
+
+  get profileConflict() {
+    if (!this.draft?.creating || !this.draft.profileId) return null;
+    return this.profiles.find((profile) => profile.id === this.draft.profileId) || null;
+  },
+
+  get instructions() {
+    return this.draft?.prompts?.[SPECIFICS] || null;
+  },
+
+  get toolMode() {
+    return this.draft ? easyToolMode(this.draft.toolPolicy) : "inherit";
+  },
+
+  get toolOrigins() {
+    return unique((this.state?.tools?.catalog || []).map((item) => item.origin)).sort();
+  },
+
+  get skillOrigins() {
+    return unique((this.state?.skills?.catalog || []).map((item) => item.origin)).sort();
+  },
+
+  get promptGroups() {
+    const groups = new Map();
+    for (const prompt of Object.values(this.draft?.prompts || {})) {
+      groups.set(prompt.group, prompt.group_label);
+    }
+    return [...groups.entries()]
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => Number(a.id.split(".")[1]) - Number(b.id.split(".")[1]));
+  },
+
+  get selectedPromptDraft() {
+    return this.draft?.prompts?.[this.selectedPrompt] || null;
+  },
+
+  sectionDirty(section) {
+    if (!this.draft || !this.initialDraft) return false;
+    if (String(section) === "1") {
+      return !same(
+        [this.draft.title, this.draft.description, this.draft.context, this.draft.avatar, this.draft.avatarToken, this.draft.metadataResets, this.draft.modelPreset],
+        [this.initialDraft.title, this.initialDraft.description, this.initialDraft.context, this.initialDraft.avatar, this.initialDraft.avatarToken, this.initialDraft.metadataResets, this.initialDraft.modelPreset],
+      );
+    }
+    if (String(section) === "2") return Object.values(this.draft.prompts).some((prompt) => this.promptDirty(prompt));
+    if (String(section) === "3") return !same(this.draft.toolPolicy, this.initialDraft.toolPolicy);
+    if (String(section) === "4") return !same(this.draft.skillPolicy, this.initialDraft.skillPolicy);
+    return this.dirty;
+  },
+
+  beforeClose() {
+    if (this.suppressClosePrompt || !this.dirty) return true;
+    return window.confirm("You have unsaved changes that will be lost. Continue?");
+  },
+
+  setModalTitle(value) {
+    const modal = this.root?.closest(".modal") || this.root?.parentElement?.closest(".modal");
+    const title = modal?.querySelector(".modal-title");
+    if (title) title.textContent = value;
+  },
+
+  syncSurface() {
+    const inner = this.root?.closest(".modal-inner");
+    inner?.classList.toggle("agent-editor-advanced", this.mode === "advanced");
+    inner?.classList.toggle("agent-editor-easy", this.mode !== "advanced");
+  },
+
+  setMode(mode, section = "") {
+    this.mode = mode === "advanced" ? "advanced" : "easy";
+    if (section) this.setSection(section);
+    this.syncSurface();
+    if (this.mode === "advanced") {
+      requestAnimationFrame(() => {
+        this.root?.querySelector(`[data-agent-editor-section="${this.section}"]`)?.focus();
+      });
+    }
+  },
+
+  setSection(section) {
+    this.section = String(section || "1");
+    try {
+      localStorage.setItem(LAST_SECTION_KEY, this.section);
+    } catch {}
+    if (this.section === "5") this.previewPlan();
+  },
+
+  savedSection() {
+    try {
+      return localStorage.getItem(LAST_SECTION_KEY) || "1";
+    } catch {
+      return "1";
+    }
+  },
+
+  onNameInput() {
+    if (this.draft?.creating) this.draft.profileId = slugifyProfileName(this.draft.title);
+  },
+
+  openConflictingProfile() {
+    if (!this.profileConflict) return;
+    this.loadEditor(this.profileConflict.id, false);
+  },
+
+  initials() {
+    const words = String(this.draft?.title || this.draft?.profileId || "Agent")
+      .trim().split(/\s+/).filter(Boolean);
+    return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "A";
+  },
+
+  fallbackColor() {
+    const source = this.draft?.profileId || this.draft?.title || "agent";
+    const palette = ["#6C5CE7", "#0984E3", "#00A884", "#D35400", "#C0392B", "#8E44AD"];
+    let hash = 0;
+    for (const char of source) hash = ((hash * 31) + char.charCodeAt(0)) >>> 0;
+    return palette[hash % palette.length];
+  },
+
+  avatarColor() {
+    return this.draft?.avatar?.kind === "color"
+      ? this.draft.avatar.value
+      : this.fallbackColor();
+  },
+
+  chooseAvatarColor(value) {
+    const color = String(value || "").toUpperCase();
+    this.revokePreview();
+    this.draft.avatar = { kind: "color", value: color };
+    this.draft.avatarToken = "";
+    this.draft.avatarPreview = "";
+    this.draft.metadataResets = this.draft.metadataResets.filter((key) => key !== "avatar");
+  },
+
+  resetAvatar() {
+    this.revokePreview();
+    const inherited = this.state.profile.metadata.avatar?.inherited || null;
+    this.draft.avatar = inherited ? clone(inherited) : null;
+    this.draft.avatarToken = "";
+    this.draft.avatarPreview = "";
+    if (!this.draft.metadataResets.includes("avatar")) this.draft.metadataResets.push("avatar");
+  },
+
+  async uploadAvatar(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    this.revokePreview();
+    this.previewObjectUrl = URL.createObjectURL(file);
+    this.draft.avatarPreview = this.previewObjectUrl;
+    this.avatarUploading = true;
+    this.error = "";
+    try {
+      const body = new FormData();
+      body.append("avatar", file);
+      const response = await fetchApi(AVATAR_API, { method: "POST", body });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      this.draft.avatar = { kind: "image", value: "assets/avatar.webp" };
+      this.draft.avatarToken = data.token;
+      this.draft.metadataResets = this.draft.metadataResets.filter((key) => key !== "avatar");
+    } catch (error) {
+      this.error = error.message || String(error);
+      this.revokePreview();
+      this.draft.avatar = clone(this.initialDraft.avatar);
+      this.draft.avatarToken = this.initialDraft.avatarToken;
+      this.draft.avatarPreview = this.initialDraft.avatarPreview;
+      this.draft.metadataResets = clone(this.initialDraft.metadataResets);
+    } finally {
+      this.avatarUploading = false;
+    }
+  },
+
+  revokePreview() {
+    if (this.previewObjectUrl) URL.revokeObjectURL(this.previewObjectUrl);
+    this.previewObjectUrl = "";
+  },
+
+  resetMetadata(key) {
+    if (!["title", "description", "context"].includes(key)) return;
+    this.draft[key] = String(this.state.profile.metadata[key]?.inherited || "");
+    if (!this.draft.metadataResets.includes(key)) this.draft.metadataResets.push(key);
+  },
+
+  metadataResetPending(key) {
+    return Boolean(this.draft?.metadataResets?.includes(key));
+  },
+
+  canResetMetadata(key) {
+    const metadata = this.state?.profile?.metadata?.[key];
+    return Boolean(
+      !this.draft?.creating
+      && metadata?.has_override
+      && !this.metadataResetPending(key)
+      && (key !== "title" || String(metadata?.inherited || "").trim()),
+    );
+  },
+
+  metadataProvenance(key) {
+    const metadata = this.state?.profile?.metadata?.[key] || {};
+    if (this.metadataResetPending(key)) {
+      return `Inherited source: ${metadata.inherited_source || "none"}`;
+    }
+    return metadata.has_override
+      ? `Your override · ${metadata.source || "user layer"}`
+      : `Inherited · ${metadata.source || "no lower value"}`;
+  },
+
+  markMetadataSet(key) {
+    this.draft.metadataResets = this.draft.metadataResets.filter((item) => item !== key);
+  },
+
+  restoreInstructions() {
+    const prompt = this.instructions;
+    if (!prompt) return;
+    prompt.value = String(prompt.inherited || "");
+    prompt.reset = true;
+  },
+
+  markPromptSet(filename) {
+    const prompt = this.draft?.prompts?.[filename];
+    if (prompt) {
+      prompt.reset = false;
+      if (!this.editingPrompts.includes(filename)) this.editingPrompts.push(filename);
+    }
+  },
+
+  isPromptEditing(filename) {
+    return this.editingPrompts.includes(filename);
+  },
+
+  beginPromptEdit(filename) {
+    if (!this.editingPrompts.includes(filename)) this.editingPrompts.push(filename);
+    requestAnimationFrame(() => this.root?.querySelector("#agent-editor-prompt-text")?.focus());
+  },
+
+  resetPrompt(filename) {
+    const prompt = this.draft?.prompts?.[filename];
+    if (!prompt) return;
+    prompt.value = prompt.inherited;
+    prompt.reset = true;
+    this.editingPrompts = this.editingPrompts.filter((item) => item !== filename);
+  },
+
+  promptDisplayState(prompt) {
+    if (prompt?.reset) return "Reset to inherited";
+    if (this.promptDirty(prompt)) return prompt.value === "" ? "Overridden here (empty)" : "Overridden here";
+    return prompt?.state || "Unavailable";
+  },
+
+  promptSourceChain(prompt) {
+    const chain = [...(prompt?.source_chain || [])].filter((item) => item !== "Your override");
+    if (!prompt?.reset && (prompt?.has_override || this.promptDirty(prompt))) chain.push("Your override");
+    return chain.join(" → ") || "No inherited source";
+  },
+
+  selectPrompt(filename) {
+    if (!this.draft?.prompts?.[filename]) return;
+    this.selectedPrompt = filename;
+    this.promptTextSearch = "";
+    this.comparePrompt = "";
+  },
+
+  filteredPromptFiles() {
+    const query = this.promptFileSearch.trim().toLowerCase();
+    return Object.values(this.draft?.prompts || {}).filter((prompt) =>
+      prompt.group === this.promptGroup && (!query || [prompt.filename, prompt.state, prompt.source]
+        .join(" ").toLowerCase().includes(query)),
+    );
+  },
+
+  promptDirty(prompt) {
+    return Boolean(prompt?.reset || prompt?.value !== prompt?.initialValue);
+  },
+
+  promptMatchCount() {
+    const query = this.promptTextSearch;
+    const text = this.selectedPromptDraft?.value || "";
+    if (!query) return 0;
+    return text.toLowerCase().split(query.toLowerCase()).length - 1;
+  },
+
+  findInPrompt(direction = 1) {
+    const textarea = this.root?.querySelector("#agent-editor-prompt-text");
+    const query = this.promptTextSearch;
+    const text = this.selectedPromptDraft?.value || "";
+    if (!textarea || !query) return;
+    const lower = text.toLowerCase();
+    const needle = query.toLowerCase();
+    const start = direction > 0 ? textarea.selectionEnd : Math.max(0, textarea.selectionStart - 1);
+    let index = direction > 0 ? lower.indexOf(needle, start) : lower.lastIndexOf(needle, start);
+    if (index < 0) index = direction > 0 ? lower.indexOf(needle) : lower.lastIndexOf(needle);
+    if (index < 0) return;
+    textarea.focus();
+    textarea.setSelectionRange(index, index + query.length);
+  },
+
+  copyPromptPath() {
+    const path = `usr/agents/${this.draft.profileId}/prompts/${this.selectedPrompt}`;
+    navigator.clipboard?.writeText(path);
+    globalThis.justToast?.("Path copied", "success", 1200, "agent-editor-copy");
+  },
+
+  setEasyToolMode(mode) {
+    if (mode === "inherit") {
+      this.draft.toolPolicy = { mode: "inherit", default: "allow", allowed: [], blocked: [] };
+    } else if (mode === "off") {
+      this.draft.toolPolicy = { mode: "custom", default: "block", allowed: [], blocked: [] };
+    }
+  },
+
+  chooseTools() {
+    if (this.draft.toolPolicy.mode !== "custom") {
+      this.draft.toolPolicy = { mode: "custom", default: "allow", allowed: [], blocked: [] };
+    }
+    this.setMode("advanced", "3");
+  },
+
+  setPolicyDefault(kind, nextDefault) {
+    const policy = kind === "tool" ? this.draft.toolPolicy : this.draft.skillPolicy;
+    const catalog = kind === "tool" ? this.state.tools.catalog : this.state.skills.catalog;
+    const ids = catalog.map((item) =>
+      kind === "tool" ? item.id : item.name,
+    );
+    const current = new Map(ids.map((id) => [id, policyAllows(policy, id)]));
+    policy.default = nextDefault === "block" ? "block" : "allow";
+    policy.allowed = [];
+    policy.blocked = [];
+    for (const [id, allowed] of current) movePolicyItem(policy, id, allowed);
+  },
+
+  isToolAllowed(item) {
+    return policyAllows(this.draft.toolPolicy, item.id);
+  },
+
+  isSkillAllowed(item) {
+    return policyAllows(this.draft.skillPolicy, item.name);
+  },
+
+  filteredTools(allowed) {
+    const query = this.toolSearch.trim().toLowerCase();
+    return (this.state?.tools?.catalog || []).filter((item) => {
+      if (this.isToolAllowed(item) !== allowed) return false;
+      const category = item.id.split(":", 1)[0];
+      if (this.toolCategory !== "all" && category !== this.toolCategory) return false;
+      if (this.toolOrigin !== "all" && item.origin !== this.toolOrigin) return false;
+      return !query || [item.label, item.name, item.id, item.description, item.origin]
+        .join(" ").toLowerCase().includes(query);
+    });
+  },
+
+  moveTools(ids, allow) {
+    for (const id of unique(ids)) movePolicyItem(this.draft.toolPolicy, id, allow);
+    this.selectedAllowedTools = [];
+    this.selectedBlockedTools = [];
+  },
+
+  moveAllVisibleTools(allow) {
+    this.moveTools(this.filteredTools(!allow).map((item) => item.id), allow);
+  },
+
+  filteredSkills(allowed) {
+    const query = this.skillSearch.trim().toLowerCase();
+    return (this.state?.skills?.catalog || []).filter((item) => {
+      if (this.isSkillAllowed(item) !== allowed) return false;
+      if (this.skillOrigin !== "all" && item.origin !== this.skillOrigin) return false;
+      return !query || [item.name, item.description, item.origin, ...(item.tags || [])]
+        .join(" ").toLowerCase().includes(query);
+    });
+  },
+
+  moveSkills(ids, allow) {
+    for (const id of unique(ids)) movePolicyItem(this.draft.skillPolicy, id, allow);
+    this.selectedAllowedSkills = [];
+    this.selectedBlockedSkills = [];
+  },
+
+  moveAllVisibleSkills(allow) {
+    this.moveSkills(this.filteredSkills(!allow).map((item) => item.name), allow);
+  },
+
+  skillWarnings(skill) {
+    const warnings = [];
+    for (const toolName of skill.allowed_tools || []) {
+      const tool = (this.state?.tools?.catalog || []).find((item) => item.name === toolName);
+      if (tool && !this.isToolAllowed(tool)) warnings.push(toolName);
+    }
+    return warnings;
+  },
+
+  async openPresetManager() {
+    await modelConfigStore.openPresetEditor(this.draft.modelPreset || this.state.model_preset.effective);
+    try {
+      const data = await callJsonApi(API, {
+        action: "load",
+        profile_id: this.draft.profileId || "new-agent",
+        context_id: this.intent.contextId,
+      });
+      this.state.model_presets = data.state.model_presets;
+    } catch (error) {
+      this.error = error.message || String(error);
+    }
+  },
+
+  validationErrors() {
+    const errors = [];
+    if (!this.draft?.title.trim()) errors.push("Agent name is required.");
+    if (this.draft?.creating) {
+      if (!this.draft.profileId || !PROFILE_ID.test(this.draft.profileId)) {
+        errors.push("Enter a name that produces a valid profile ID.");
+      }
+      if (this.profileConflict) errors.push(`An agent with profile ID ${this.draft.profileId} already exists.`);
+      if (!this.instructions?.value.trim()) errors.push("Instructions are required for a new agent.");
+    } else if (this.mode === "easy" && !this.instructions?.value.trim()) {
+      errors.push("Instructions can’t be empty. To remove your changes, use Restore original instructions.");
+    }
+    if (this.avatarUploading) errors.push("Wait for the avatar upload to finish.");
+    return errors;
+  },
+
+  buildPatch() {
+    const patch = {
+      profile_id: this.draft.profileId,
+      creating: this.draft.creating,
+      editor_mode: this.mode,
+    };
+    const metadata = { set: {}, reset: unique(this.draft.metadataResets) };
+    for (const key of ["title", "description", "context"]) {
+      if (this.draft.creating ? key === "title" : this.draft[key] !== this.initialDraft[key]) {
+        if (!metadata.reset.includes(key)) metadata.set[key] = this.draft[key];
+      }
+    }
+    const avatarChanged = !same(
+      [this.draft.avatar, this.draft.avatarToken],
+      [this.initialDraft.avatar, this.initialDraft.avatarToken],
+    );
+    if (avatarChanged && !metadata.reset.includes("avatar") && this.draft.avatar) {
+      metadata.set.avatar = this.draft.avatar.kind === "image" && this.draft.avatarToken
+        ? { kind: "image", token: this.draft.avatarToken }
+        : clone(this.draft.avatar);
+    }
+    if (Object.keys(metadata.set).length || metadata.reset.length) patch.metadata = metadata;
+
+    const prompts = { set: {}, reset: [] };
+    for (const prompt of Object.values(this.draft.prompts)) {
+      if (prompt.reset) prompts.reset.push(prompt.filename);
+      else if ((this.draft.creating && prompt.filename === SPECIFICS) || prompt.value !== prompt.initialValue) {
+        prompts.set[prompt.filename] = prompt.value;
+      }
+    }
+    if (Object.keys(prompts.set).length || prompts.reset.length) patch.prompts = prompts;
+
+    if (this.draft.modelPreset !== this.initialDraft.modelPreset) {
+      patch.model_preset = this.draft.modelPreset
+        ? { mode: "preset", name: this.draft.modelPreset }
+        : { mode: "inherit" };
+    }
+    if (!same(this.draft.toolPolicy, this.initialDraft.toolPolicy)) {
+      const mode = easyToolMode(this.draft.toolPolicy);
+      patch.tool_policy = mode === "inherit"
+        ? { mode: "inherit" }
+        : mode === "off"
+          ? { mode: "off" }
+          : clone(this.draft.toolPolicy);
+    }
+    if (!same(this.draft.skillPolicy, this.initialDraft.skillPolicy)) {
+      patch.skill_policy = this.draft.skillPolicy.mode === "inherit"
+        ? { mode: "inherit" }
+        : clone(this.draft.skillPolicy);
+    }
+    return patch;
+  },
+
+  async previewPlan() {
+    if (!this.draft) return false;
+    const errors = this.validationErrors();
+    if (errors.length) {
+      this.error = errors[0];
+      this.plan = { written: [], deleted: [], warnings: [] };
+      return false;
+    }
+    this.planLoading = true;
+    this.error = "";
+    this.pendingMutation = null;
+    try {
+      const data = await callJsonApi(API, {
+        action: "plan",
+        patch: this.buildPatch(),
+        context_id: this.intent.contextId,
+      });
+      this.plan = data;
+      return true;
+    } catch (error) {
+      this.error = error.message || String(error);
+      return false;
+    } finally {
+      this.planLoading = false;
+    }
+  },
+
+  async save(test = false) {
+    if (this.saving || !this.draft) return false;
+    const errors = this.validationErrors();
+    if (errors.length) {
+      this.error = errors[0];
+      return false;
+    }
+    this.saving = true;
+    this.error = "";
+    const profileId = this.draft.profileId;
+    const creating = this.draft.creating;
+    try {
+      const data = await callJsonApi(API, {
+        action: "save",
+        patch: this.buildPatch(),
+        context_id: this.intent.contextId,
+      });
+      this.plan = data;
+      this.initialDraft = clone(this.draft);
+      this.revokePreview();
+      await modelConfigStore.loadAgentProfiles(true);
+      this.suppressClosePrompt = true;
+      await closeModal(MODAL);
+      if (creating || test) {
+        await this.openFreshChat(profileId, creating);
+      } else {
+        globalThis.justToast?.(
+          `Agent saved. <button class="toast-link" type="button" onclick="window.testAgentProfile('${profileId}')">Test in new chat</button>`,
+          "success", 8000, "agent-editor-saved",
+        );
+      }
+      return true;
+    } catch (error) {
+      this.error = error.message || String(error);
+      return false;
+    } finally {
+      this.saving = false;
+    }
+  },
+
+  async openFreshChat(profileId, showReadyNote = false) {
+    try {
+      const created = await callJsonApi("/chat_create", {
+        current_context: this.intent.contextId || chatsStore.selected || "",
+      });
+      await callJsonApi("/agent_profile_set", {
+        context_id: created.ctxid,
+        agent_profile: profileId,
+      });
+      await callJsonApi("/plugins/_model_config/model_override", {
+        action: "clear",
+        context_id: created.ctxid,
+      });
+      if (showReadyNote) {
+        this.readyNoteContext = created.ctxid;
+        try { sessionStorage.setItem(READY_NOTE_KEY, created.ctxid); } catch {}
+      }
+      await chatsStore.selectChat(created.ctxid);
+      document.dispatchEvent(new CustomEvent("chat-created", { detail: { ctxid: created.ctxid } }));
+      return created.ctxid;
+    } catch (error) {
+      globalThis.toastFetchError?.("Failed to open a test chat", error);
+      return "";
+    }
+  },
+
+  dismissReadyNote() {
+    this.readyNoteContext = "";
+    try { sessionStorage.removeItem(READY_NOTE_KEY); } catch {}
+  },
+
+  readyNoteVisible() {
+    return Boolean(this.readyNoteContext && chatsStore.selected === this.readyNoteContext);
+  },
+
+  async planRemoval(destructive = false) {
+    this.planLoading = true;
+    this.error = "";
+    try {
+      const data = await callJsonApi(API, {
+        action: "plan_remove_changes",
+        profile_id: this.draft.profileId,
+        destructive,
+        context_id: this.intent.contextId,
+      });
+      this.plan = data;
+      this.pendingMutation = { destructive };
+      this.setMode("advanced", "5");
+    } catch (error) {
+      this.error = error.message || String(error);
+    } finally {
+      this.planLoading = false;
+    }
+  },
+
+  async applyPendingMutation() {
+    if (!this.pendingMutation) return;
+    const count = (this.plan.written?.length || 0) + (this.plan.deleted?.length || 0);
+    const confirmed = await showConfirmDialog({
+      title: this.pendingMutation.destructive ? "Delete the entire user override?" : "Remove my changes?",
+      message: `${count} planned file change${count === 1 ? "" : "s"}. Bundled files are not touched.`,
+      confirmText: "Apply",
+      type: this.pendingMutation.destructive ? "danger" : "warning",
+    });
+    if (!confirmed) return;
+    try {
+      await callJsonApi(API, {
+        action: "remove_changes",
+        profile_id: this.draft.profileId,
+        destructive: this.pendingMutation.destructive,
+        context_id: this.intent.contextId,
+      });
+      this.pendingMutation = null;
+      await this.loadEditor(this.draft.profileId);
+      globalThis.justToast?.("Your agent overrides were removed.", "success", 2200);
+    } catch (error) {
+      this.error = error.message || String(error);
+    }
+  },
+
+  async deleteProfile(profileId) {
+    try {
+      const data = await callJsonApi(API, {
+        action: "plan_delete",
+        profile_id: profileId,
+        context_id: this.intent.contextId,
+      });
+      const confirmed = await showConfirmDialog({
+        title: `Delete ${escapeHtml(profileId)}?`,
+        message: `${this.deletionImpactHtml(data)}<p>This removes only the custom user profile and cannot be undone.</p>`,
+        confirmText: "Delete agent",
+        type: "danger",
+      });
+      if (!confirmed) return;
+      await callJsonApi(API, {
+        action: "delete",
+        profile_id: profileId,
+        confirm: true,
+        context_id: this.intent.contextId,
+      });
+      await this.loadProfiles();
+      await modelConfigStore.loadAgentProfiles(true);
+      this.view = "manage";
+      this.setModalTitle("Manage agents");
+      globalThis.justToast?.("Agent deleted.", "success", 1800);
+    } catch (error) {
+      this.error = error.message || String(error);
+    }
+  },
+
+  deletionImpactHtml(data) {
+    const impact = data?.impact || {};
+    const list = (values, empty) => values?.length
+      ? `<ul>${values.map((value) => `<li><code>${escapeHtml(value)}</code></li>`).join("")}</ul>`
+      : `<span>${empty}</span>`;
+    const contents = Object.entries(impact.contains || {})
+      .filter(([, present]) => present)
+      .map(([name]) => name);
+    return [
+      `<p><strong>Files</strong>${list(impact.files || data?.deleted || [], "None")}</p>`,
+      `<p><strong>Model preset</strong><br>${escapeHtml(impact.model_preset || "None")}</p>`,
+      `<p><strong>Project references</strong>${list(impact.project_references, "None found")}</p>`,
+      `<p><strong>Active sessions</strong>${list(impact.active_sessions, "None found")}</p>`,
+      `<p><strong>Profile content</strong><br>${escapeHtml(contents.length ? contents.join(", ") : "No tools, extensions, skills, assets, or plugin data")}</p>`,
+    ].join("");
+  },
+
+  showManager() {
+    if (this.dirty && !window.confirm("You have unsaved changes that will be lost. Continue?")) return;
+    this.view = "manage";
+    this.mode = "easy";
+    this.syncSurface();
+    this.setModalTitle("Manage agents");
+    this.loadProfiles();
+  },
+};
+
+export const store = createStore("agentEditor", model);
