@@ -39,6 +39,8 @@ class CatalogSkill(TypedDict):
     path: str
     origin: str
     hidden: bool
+    tags: list[str]
+    allowed_tools: list[str]
 
 
 @dataclass(slots=True)
@@ -739,7 +741,68 @@ def normalize_skills_config(config: dict[str, Any] | None) -> dict[str, Any]:
     normalized["hidden_skills"] = normalize_hidden_skills(
         normalized.get("hidden_skills")
     )
+    if "visibility_policy" in normalized:
+        normalized["visibility_policy"] = normalize_visibility_policy(
+            normalized.get("visibility_policy")
+        )
     return normalized
+
+
+def normalize_visibility_policy(raw: Any) -> dict[str, Any]:
+    policy = dict(raw) if isinstance(raw, dict) else {}
+    mode = str(policy.get("mode") or "inherit").strip().lower()
+    default = str(policy.get("default") or "allow").strip().lower()
+    policy["mode"] = "custom" if mode == "custom" else "inherit"
+    policy["default"] = "block" if default == "block" else "allow"
+    for key in ("allowed", "blocked"):
+        policy[key] = [
+            str(entry.get("name") or entry.get("path") or "")
+            for entry in normalize_hidden_skills(policy.get(key))
+        ]
+    return policy
+
+
+def get_visibility_policy(agent: Agent | None) -> dict[str, Any]:
+    if not agent:
+        return normalize_visibility_policy(None)
+    config = plugin_helpers.get_plugin_config(
+        ACTIVE_SKILLS_PLUGIN_NAME,
+        agent=agent,
+    ) or {}
+    return normalize_visibility_policy(config.get("visibility_policy"))
+
+
+def is_skill_allowed(
+    policy: dict[str, Any],
+    skill_or_entry: Skill | ActiveSkillEntry | str,
+) -> bool:
+    if policy["mode"] != "custom":
+        return True
+
+    aliases = _skill_visibility_aliases(skill_or_entry)
+    if any(
+        aliases & _skill_visibility_aliases(value)
+        for value in policy["blocked"]
+    ):
+        return False
+    if any(
+        aliases & _skill_visibility_aliases(value)
+        for value in policy["allowed"]
+    ):
+        return True
+    return policy["default"] == "allow"
+
+
+def ensure_skill_visible(agent: Agent, entry: ActiveSkillEntry | str) -> None:
+    if is_skill_allowed(get_visibility_policy(agent), entry):
+        return
+    name = (
+        str(entry.get("name") or entry.get("path") or "").strip()
+        if isinstance(entry, dict)
+        else str(entry or "").strip()
+    )
+    profile = str(getattr(getattr(agent, "config", None), "profile", "") or "default")
+    raise ValueError(f'Skill "{name}" is blocked for agent profile "{profile}".')
 
 
 def normalize_active_skills(
@@ -795,6 +858,7 @@ def list_skill_catalog(
     catalog: list[CatalogSkill] = []
     seen_paths: set[str] = set()
     hidden_entries = get_hidden_skills(agent) if agent else []
+    visibility_policy = get_visibility_policy(agent)
 
     for root in _get_catalog_roots(project_name=project_name, agent=agent):
         root_path = Path(root)
@@ -808,6 +872,7 @@ def list_skill_catalog(
                 continue
 
             seen_paths.add(runtime_path)
+            allowed = is_skill_allowed(visibility_policy, skill)
             catalog.append(
                 {
                     "name": skill.name or skill.path.name,
@@ -817,7 +882,11 @@ def list_skill_catalog(
                         runtime_path,
                         project_name=project_name,
                     ),
-                    "hidden": _skill_matches_entries(skill, hidden_entries),
+                    "hidden": _skill_matches_entries(
+                        skill, hidden_entries
+                    ) or not allowed,
+                    "tags": list(skill.tags),
+                    "allowed_tools": list(skill.allowed_tools),
                 }
             )
 
@@ -932,12 +1001,16 @@ def _build_active_skills(
         current_hidden_entries,
         current_visible_entries,
     )
-    return _merge_active_skill_entries(
+    merged = _merge_active_skill_entries(
         scope_entries,
         current_chat_entries,
         effective_hidden_entries,
         limit=effective_limit,
     )
+    visibility_policy = get_visibility_policy(agent)
+    return [
+        entry for entry in merged if is_skill_allowed(visibility_policy, entry)
+    ]
 
 
 def get_active_skills(agent: Agent | None) -> list[ActiveSkillEntry]:
@@ -1040,6 +1113,7 @@ def activate_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
     normalized = _normalize_active_skill_entry(entry)
     if not normalized:
         raise ValueError("A skill name or path is required.")
+    ensure_skill_visible(agent, normalized)
 
     context = getattr(agent, "context", None)
     if not context:
@@ -1195,6 +1269,7 @@ def show_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
     normalized = _normalize_active_skill_entry(entry)
     if not normalized:
         raise ValueError("A skill name or path is required.")
+    ensure_skill_visible(agent, normalized)
 
     context = getattr(agent, "context", None)
     if not context:
@@ -1540,7 +1615,9 @@ def _skill_matches_entries(
 def _skill_is_hidden_for_agent(agent: Agent | None, skill: Skill) -> bool:
     if not agent:
         return False
-    return _skill_matches_entries(skill, get_hidden_skills(agent))
+    return _skill_matches_entries(
+        skill, get_hidden_skills(agent)
+    ) or not is_skill_allowed(get_visibility_policy(agent), skill)
 
 
 def _filter_hidden_skills(
@@ -1551,8 +1628,38 @@ def _filter_hidden_skills(
         return skills
 
     hidden_entries = get_hidden_skills(agent)
-    if not hidden_entries:
-        return skills
+    visibility_policy = get_visibility_policy(agent)
     return [
-        skill for skill in skills if not _skill_matches_entries(skill, hidden_entries)
+        skill
+        for skill in skills
+        if not _skill_matches_entries(skill, hidden_entries)
+        and is_skill_allowed(visibility_policy, skill)
     ]
+
+
+def _skill_visibility_aliases(
+    skill_or_entry: Skill | ActiveSkillEntry | str,
+) -> set[str]:
+    if isinstance(skill_or_entry, Skill):
+        values = (
+            skill_or_entry.name,
+            skill_or_entry.path.name,
+            files.normalize_a0_path(str(skill_or_entry.path)),
+        )
+    elif isinstance(skill_or_entry, dict):
+        values = (
+            str(skill_or_entry.get("name") or ""),
+            str(skill_or_entry.get("path") or ""),
+        )
+    else:
+        values = (str(skill_or_entry or ""),)
+
+    aliases: set[str] = set()
+    for value in values:
+        fixed = value.strip().replace("\\", "/").rstrip("/")
+        if not fixed:
+            continue
+        aliases.add(fixed.casefold())
+        if "/" in fixed:
+            aliases.add(fixed.rsplit("/", 1)[-1].casefold())
+    return aliases

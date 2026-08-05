@@ -6,4 +6,4 @@ always_enabled: true
 settings_sections:
   - agent
 per_project_config: true
-per_agent_config: false
+per_agent_config: true

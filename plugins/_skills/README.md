@@ -1,6 +1,7 @@
 # Skills
 
-Skills is a built-in Agent Zero plugin that manages skill loading and visibility for the current chat.
+Skills is a built-in Agent Zero plugin that manages current-chat skill loading
+and layered skill visibility, including profile-level policy from Agent Editor.
 
 ## What It Does
 
@@ -8,7 +9,7 @@ Skills is a built-in Agent Zero plugin that manages skill loading and visibility
 - hides noisy skills from the model-facing available catalog, skill search, and load access
 - shows loaded skills without offering removal, because loaded skill bodies are part of chat history
 - lets users hide or show skills live per conversation
-- supports global and project scoped configurations without agent-profile variants
+- supports global/project settings plus profile-level Agent Editor visibility policy
 - links directly to the built-in Skills list
 - links directly to the active project's Skills section when a project is active
 
@@ -26,3 +27,5 @@ The shared skill discovery and loaded-skill ledger live in `helpers/skills.py`, 
 - hidden skills are stored as control data, not injected into the prompt
 - hidden skill paths are stored in normalized `/a0/...` form so configs stay portable across development and Docker-style layouts
 - if a configured hidden skill is not visible in the current agent scope, it is skipped quietly instead of breaking catalog builds
+- profile visibility uses sparse Allowed/Blocked exceptions with an explicit
+  default for future skills; allowing a skill does not load or pin it
