@@ -6,7 +6,7 @@ import os
 import re
 from typing import Any
 
-from helpers import files, subagents
+from helpers import files, subagents, tool_policy
 
 
 FUNCTION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -35,18 +35,32 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
     name_map: dict[str, str] = {}
 
     for tool_name, prompt in _local_tool_prompts(agent):
+        if not tool_policy.resolve_tool(agent, tool_name).allowed:
+            continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
         tools.append(
             {
                 "type": "function",
                 "name": native_name,
-                "description": _description_from_prompt(prompt, fallback=tool_name),
+                "description": _truncate(
+                    tool_policy.tool_prompt_description(
+                        prompt,
+                        tool_name,
+                        fallback=tool_name,
+                    )
+                ),
                 "parameters": _schema_from_prompt(prompt),
             }
         )
 
     for tool_name, tool in _mcp_tools(agent):
+        if not tool_policy.resolve_tool(
+            agent,
+            tool_name,
+            canonical_id=tool_policy.canonical_mcp_id(tool_name),
+        ).allowed:
+            continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
         tools.append(
@@ -124,7 +138,7 @@ def _mcp_tools(agent: Any) -> list[tuple[str, dict[str, Any]]]:
     try:
         import helpers.mcp_handler as mcp_helper
 
-        raw_tools = mcp_helper.MCPConfig.get_instance().get_tools()
+        raw_tools = mcp_helper.MCPConfig.get_for_agent(agent).get_tools()
     except Exception:
         return []
 
@@ -139,7 +153,9 @@ def _mcp_tools(agent: Any) -> list[tuple[str, dict[str, Any]]]:
 
 
 def _tool_name_from_prompt_basename(basename: str) -> str:
-    if not basename.startswith(TOOL_PROMPT_PREFIX) or not basename.endswith(TOOL_PROMPT_SUFFIX):
+    if not basename.startswith(TOOL_PROMPT_PREFIX) or not basename.endswith(
+        TOOL_PROMPT_SUFFIX
+    ):
         return ""
     name = basename[len(TOOL_PROMPT_PREFIX) : -len(TOOL_PROMPT_SUFFIX)]
     if not name or name in {"tools", "tools_vision"}:
@@ -187,25 +203,6 @@ def _native_tool_name(tool_name: str) -> str:
     return native[:64]
 
 
-def _description_from_prompt(prompt: str, *, fallback: str) -> str:
-    for match in TOOL_DECLARATION_PATTERN.finditer(prompt or ""):
-        if match.group(1) == fallback:
-            return _truncate(match.group(2))
-
-    in_fence = False
-    for raw_line in (prompt or "").splitlines():
-        line = raw_line.strip()
-        if line.startswith(("```", "~~~")):
-            in_fence = not in_fence
-            continue
-        if in_fence or not line:
-            continue
-        if line.startswith("#"):
-            continue
-        return _truncate(line)
-    return fallback
-
-
 def _schema_from_prompt(prompt: str) -> dict[str, Any]:
     schema = _schema_from_embedded_json(prompt)
     if schema:
@@ -226,8 +223,7 @@ def _schema_from_embedded_json(prompt: str) -> dict[str, Any]:
     if index == -1:
         return {}
     tail = prompt[index + len(marker) :].strip()
-    match = re.search(r"\{(?:[^{}]|(?R))*\}", tail, flags=re.DOTALL) if hasattr(re, "VERSION1") else None
-    candidate = match.group(0) if match else _balanced_json_object(tail)
+    candidate = _balanced_json_object(tail)
     if not candidate:
         return {}
     try:

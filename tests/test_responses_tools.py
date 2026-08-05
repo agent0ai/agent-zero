@@ -1,18 +1,21 @@
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from helpers import responses_tools
+from helpers import responses_tools, tool_policy
 
 
 class FakeAgent:
     def __init__(self, prompt_root: Path, data=None):
         self.prompt_root = prompt_root
         self.data = data or {}
+        self.config = SimpleNamespace(profile="default")
+        self.context = SimpleNamespace(get_data=lambda *args, **kwargs: None)
 
     def read_prompt(self, file: str, **kwargs) -> str:
         prompt = (self.prompt_root / file).read_text(encoding="utf-8")
@@ -170,7 +173,11 @@ def test_response_tool_native_contract_omits_wrapper_and_exposes_text():
         encoding="utf-8"
     )
 
-    description = responses_tools._description_from_prompt(prompt, fallback="response")
+    description = tool_policy.tool_prompt_description(
+        prompt,
+        "response",
+        fallback="response",
+    )
     schema = responses_tools._schema_from_prompt(prompt)
 
     assert description == "final answer to user"
@@ -259,3 +266,14 @@ def test_local_tool_prompts_use_registered_render_kwargs(monkeypatch, tmp_path):
 
     assert "{{default_line_count}}" not in prompts["text_editor"]
     assert "read 200 lines by default" in prompts["text_editor"]
+
+
+def test_explicit_tool_name_precedes_a_generic_heading():
+    prompt = """## memory tools
+durable memory operations
+{"tool_name": "memory_load", "tool_args": {}}
+"""
+
+    assert responses_tools._tool_names_from_prompt(
+        prompt, fallback="memory"
+    ) == ["memory_load"]

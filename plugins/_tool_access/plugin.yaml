@@ -1,0 +1,7 @@
+name: _tool_access
+title: Tool Access
+description: Enforces sparse project and agent tool visibility and execution policy.
+version: 1.0.0
+always_enabled: true
+per_project_config: true
+per_agent_config: true

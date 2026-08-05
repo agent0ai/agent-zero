@@ -14,6 +14,8 @@
 - Preserve ordering where sections depend on earlier context.
 - Keep secret-related prompt sections masked and scoped.
 - Prompt additions must be bounded and compatible with tool-call contracts.
+- Discover local tool prompts through `helpers.subagents.get_paths` and apply
+  `helpers.tool_policy` before including their text.
 
 ## Work Guidance
 

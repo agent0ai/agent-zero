@@ -434,6 +434,10 @@ class MCPTool(Tool):
         return message, additional
 
     async def execute(self, **kwargs: Any):
+        from helpers.tool_policy import ensure_tool_allowed
+
+        if "." in self.name:
+            ensure_tool_allowed(self.agent, self.name)
         error = ""
         additional: dict[str, Any] | None = None
         try:
@@ -1141,7 +1145,7 @@ class MCPConfig(BaseModel):
                     tools.append({f"{server.name}.{tool['name']}": tool_copy})
             return tools
 
-    def get_tools_prompt(self, server_name: str = "") -> str:
+    def get_tools_prompt(self, server_name: str = "", agent: Any | None = None) -> str:
         """Get a prompt for all tools"""
 
         # just to wait for pending initialization
@@ -1165,8 +1169,18 @@ class MCPConfig(BaseModel):
                 tools = server.get_tools()
 
                 for tool in tools:
+                    qualified_name = f"{server_name}.{tool['name']}"
+                    if agent is not None:
+                        from helpers.tool_policy import canonical_mcp_id, resolve_tool
+
+                        if not resolve_tool(
+                            agent,
+                            qualified_name,
+                            canonical_id=canonical_mcp_id(qualified_name),
+                        ).allowed:
+                            continue
                     prompt += (
-                        f"\n### {server_name}.{tool['name']}:\n"
+                        f"\n### {qualified_name}:\n"
                         f"{tool['description']}\n\n"
                         # f"#### Categories:\n"
                         # f"* kind: MCP Server Tool\n"
@@ -1188,7 +1202,7 @@ class MCPConfig(BaseModel):
                         # f'    "observations": ["..."],\n' # TODO: this should be a prompt file with placeholders
                         f'    "thoughts": ["..."],\n'
                         # f'    "reflection": ["..."],\n' # TODO: this should be a prompt file with placeholders
-                        f"    \"tool_name\": \"{server_name}.{tool['name']}\",\n"
+                        f"    \"tool_name\": \"{qualified_name}\",\n"
                         f'    "tool_args": !follow schema above\n'
                         f"}}\n"
                     )

@@ -20,6 +20,8 @@
   prompts, remote file metadata enables `text_editor_remote`, F4-enabled remote
   execution metadata enables `code_execution_remote`, and supported enabled
   Computer Use that does not need re-arming enables `computer_use_remote`.
+- Never re-add a connector prompt that the effective project/profile tool policy
+  blocks.
 - Do not bypass WebSocket authentication or leak connector session data.
 - Advertise Launcher gateways additively through HTTP capability
   `launcher_gateway` and WebSocket feature `launcher_gateway_control`. Older

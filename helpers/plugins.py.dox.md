@@ -21,6 +21,7 @@
 - `refresh_plugin_modules(plugin_names: list[str] | None=...)`
 - `clear_plugin_cache(plugin_names: list[str] | None=...)`
 - `get_plugin_roots(plugin_name: str=...) -> List[str]`: Plugin root directories, ordered by priority (user first).
+- `get_plugin_name_from_path(path: str | Path) -> str`: Return the plugin directory name only for paths below a canonical user or bundled plugin root.
 - `get_plugins_list()`
 - `get_enhanced_plugins_list(custom: bool=..., builtin: bool=..., plugin_names: list[str] | None=...) -> List[PluginListItem]`: Discover plugins by directory convention. First root wins on ID conflict.
 - `get_custom_plugins_updates(plugin_names: list[str] | None=...) -> List[PluginUpdateInfo]`
@@ -54,7 +55,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `re.compile`, `Field`, `watchdog.add_watchdog`, `clear_plugin_cache`, `send_frontend_reload_notification`, `DeferredTask.start_task`, `get_plugin_roots`, `result.sort`, `cache.add`, `get_enhanced_plugins_list`, `find_plugin_dir`, `files.get_abs_path`, `files.exists`, `call_plugin_hook`, `delete_plugin`, `files.delete_dir`, `after_plugin_change`, `get_enabled_plugins`, `get_plugins_list`, `get_plugin_meta`.
+- Important called helpers/classes observed in the source: `re.compile`, `Field`, `watchdog.add_watchdog`, `clear_plugin_cache`, `send_frontend_reload_notification`, `DeferredTask.start_task`, `get_plugin_roots`, `get_plugin_name_from_path`, `result.sort`, `cache.add`, `get_enhanced_plugins_list`, `find_plugin_dir`, `files.get_abs_path`, `files.exists`, `call_plugin_hook`, `delete_plugin`, `files.delete_dir`, `after_plugin_change`, `get_enabled_plugins`, `get_plugins_list`, `get_plugin_meta`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -75,6 +76,7 @@
   - `tests/test_document_query_plugin.py`
   - `tests/test_error_retry_plugin.py`
   - `tests/test_host_browser_connector.py`
+  - `tests/test_tool_policy.py`
 
 ## Child DOX Index
 

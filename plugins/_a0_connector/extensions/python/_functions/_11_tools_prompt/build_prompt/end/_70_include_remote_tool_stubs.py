@@ -4,15 +4,11 @@ import re
 from typing import Any
 
 from helpers.extension import Extension
+from helpers.tool_policy import resolve_tool
 from plugins._a0_connector.helpers.remote_tool_prompts import (
     REMOTE_TOOL_PROMPTS,
     remote_tool_prompt_availability,
 )
-
-
-_TOOL_MARKERS = {
-    tool_name: f'"tool_name": "{tool_name}"' for tool_name in REMOTE_TOOL_PROMPTS
-}
 
 
 class IncludeRemoteToolStubs(Extension):
@@ -40,8 +36,8 @@ class IncludeRemoteToolStubs(Extension):
             if not prompt:
                 continue
 
-            if available.get(tool_name):
-                marker = _TOOL_MARKERS[tool_name]
+            if available.get(tool_name) and resolve_tool(self.agent, tool_name).allowed:
+                marker = f'"tool_name": "{tool_name}"'
                 if marker not in result:
                     result = f"{result.rstrip()}\n\n{prompt}"
                 continue
@@ -55,12 +51,4 @@ def _remove_prompt(result: str, prompt: str) -> str:
     if prompt not in result:
         return result
 
-    for needle, replacement in (
-        (f"\n\n{prompt}\n\n", "\n\n"),
-        (f"\n\n{prompt}", ""),
-        (f"{prompt}\n\n", ""),
-        (prompt, ""),
-    ):
-        result = result.replace(needle, replacement)
-
-    return re.sub(r"\n{3,}", "\n\n", result).rstrip()
+    return re.sub(r"\n{3,}", "\n\n", result.replace(prompt, "")).rstrip()

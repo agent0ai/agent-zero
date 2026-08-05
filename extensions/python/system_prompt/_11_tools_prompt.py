@@ -2,7 +2,7 @@ import os
 from typing import Any
 
 from helpers.extension import Extension, extensible
-from helpers import files, subagents
+from helpers import files, subagents, tool_policy
 from helpers.print_style import PrintStyle
 from agent import Agent, LoopData
 
@@ -41,7 +41,9 @@ async def build_prompt(agent: Agent) -> str:
             basename = os.path.basename(tool_file)
             extra = all_tool_kwargs.get(basename, {})
             tool = agent.read_prompt(basename, **extra)
-            tools.append(tool)
+            tool = tool_policy.filter_tool_prompt(agent, basename, tool)
+            if tool:
+                tools.append(tool)
         except Exception as e:
             PrintStyle().error(f"Error loading tool '{tool_file}': {e}")
 

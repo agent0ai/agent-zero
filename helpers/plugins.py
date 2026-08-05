@@ -220,6 +220,17 @@ def get_plugin_roots(plugin_name: str = "") -> List[str]:
     ]
 
 
+def get_plugin_name_from_path(path: str | Path) -> str:
+    """Return the plugin directory name for a path under a canonical plugin root."""
+    candidate = Path(path).absolute()
+    for root in get_plugin_roots():
+        try:
+            return candidate.relative_to(Path(root).absolute()).parts[0]
+        except (IndexError, ValueError):
+            continue
+    return ""
+
+
 def get_plugins_list():
     if cached := cache.get(PLUGINS_LIST_CACHE_AREA, ""):
         return cached

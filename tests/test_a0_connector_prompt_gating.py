@@ -3,6 +3,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 
@@ -13,7 +14,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 def _restore_real_helpers_package() -> None:
     helpers_module = sys.modules.get("helpers")
-    if helpers_module is None or getattr(helpers_module, "__file__", ""):
+    if (
+        helpers_module is None
+        or getattr(helpers_module, "__file__", "")
+        or list(getattr(helpers_module, "__path__", []))
+    ):
         return
 
     for name in list(sys.modules):
@@ -65,10 +70,14 @@ class FakeContext:
     def __init__(self, context_id: str):
         self.id = context_id
 
+    def get_data(self, key: str, recursive: bool = True):
+        return None
+
 
 class FakeAgent:
     def __init__(self, context_id: str):
         self.context = FakeContext(context_id)
+        self.config = SimpleNamespace(profile="default")
 
     def read_prompt(self, file: str, **kwargs) -> str:
         text = (PROMPT_ROOT / file).read_text(encoding="utf-8")
@@ -216,6 +225,24 @@ def test_remote_tool_gate_appends_available_prompt_when_standard_prompt_missing(
     assert '"tool_name": "text_editor_remote"' in prompt
     _assert_remote_tool_absent(prompt, "code_execution_remote")
     _assert_remote_tool_absent(prompt, "computer_use_remote")
+
+
+def test_remote_tool_gate_does_not_readd_a_policy_blocked_prompt(monkeypatch):
+    context_id = _context_id()
+    sid = _sid()
+    monkeypatch.setitem(
+        IncludeRemoteToolStubs.execute.__globals__,
+        "resolve_tool",
+        lambda _agent, name: SimpleNamespace(allowed=name != "text_editor_remote"),
+    )
+    ws_runtime.register_sid(sid)
+    ws_runtime.store_sid_remote_file_metadata(sid, {"enabled": True})
+    try:
+        prompt = _apply_gate(context_id, include_standard_remote_prompts=False)
+    finally:
+        ws_runtime.unregister_sid(sid)
+
+    _assert_remote_tool_absent(prompt, "text_editor_remote")
 
 
 def test_responses_function_tools_follow_remote_prompt_gate(monkeypatch):
