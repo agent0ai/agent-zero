@@ -14,10 +14,12 @@ const model = {
   config: {
     voice: "",
     speed: 1.1,
+    remote_url: "",
+    response_format: "mp3",
   },
   modelReady: false,
   modelLoading: false,
-  packageVersion: "",
+  remoteHealthy: false,
   providerCleanup: null,
 
   async initRuntime() {
@@ -42,10 +44,12 @@ const model = {
       this.config = {
         voice: status?.config?.voice || "",
         speed: Number(status?.config?.speed || 1.1),
+        remote_url: status?.config?.remote_url || "",
+        response_format: status?.config?.response_format || "mp3",
       };
       this.modelReady = !!status?.model?.ready;
       this.modelLoading = !!status?.model?.loading;
-      this.packageVersion = status?.package?.version || "";
+      this.remoteHealthy = !!status?.remote?.healthy;
 
       if (this.enabled) {
         this.registerProvider();
@@ -77,7 +81,7 @@ const model = {
 
         return {
           audioBase64: result.audio || "",
-          mimeType: result.mime_type || "audio/wav",
+          mimeType: result.mime_type || "audio/mpeg",
         };
       },
     });

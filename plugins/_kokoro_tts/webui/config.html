@@ -9,17 +9,43 @@
       <div class="plugin-config-page">
         <div class="section-title">Kokoro TTS</div>
         <div class="section-description">
-          Configure the built-in Kokoro voice provider. When this plugin is disabled,
-          spoken output falls back to the browser speech API.
+          Configure the Kokoro voice provider. Supports both local model synthesis
+          and a remote Kokoro-FastAPI service. When disabled, spoken output falls
+          back to the browser speech API.
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Remote URL</div>
+            <div class="field-description">URL of a remote Kokoro-FastAPI service (e.g. http://localhost:18890). Leave empty to use local model synthesis.</div>
+          </div>
+          <div class="field-control">
+            <input type="text" x-model="config.remote_url" />
+          </div>
         </div>
 
         <div class="field">
           <div class="field-label">
             <div class="field-title">Voice</div>
-            <div class="field-description">Kokoro voice identifier passed to the backend pipeline.</div>
+            <div class="field-description">Kokoro voice identifier (e.g. am_puck, am_onyx, or blend voices with + like am_puck+am_onyx).</div>
           </div>
           <div class="field-control">
             <input type="text" x-model="config.voice" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Audio Format</div>
+            <div class="field-description">Output format for remote synthesis. Local synthesis always outputs WAV.</div>
+          </div>
+          <div class="field-control">
+            <select x-model="config.response_format">
+              <option value="mp3">MP3 (recommended)</option>
+              <option value="wav">WAV (uncompressed)</option>
+              <option value="opus">Opus (low bitrate)</option>
+              <option value="flac">FLAC (lossless)</option>
+            </select>
           </div>
         </div>
 

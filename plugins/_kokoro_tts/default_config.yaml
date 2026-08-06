@@ -1,2 +1,4 @@
 voice: am_puck,am_onyx
 speed: 1.1
+remote_url:
+response_format: mp3

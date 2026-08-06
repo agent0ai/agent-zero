@@ -6,6 +6,7 @@ import io
 import warnings
 from typing import Any
 
+import aiohttp
 import soundfile as sf
 
 from helpers import plugins
@@ -26,6 +27,16 @@ PLUGIN_NAME = "_kokoro_tts"
 DEFAULT_CONFIG = {
     "voice": "am_puck,am_onyx",
     "speed": 1.1,
+    "remote_url": "",
+    "response_format": "mp3",
+}
+
+VALID_FORMATS = {"wav", "mp3", "opus", "flac"}
+MIME_TYPES = {
+    "wav": "audio/wav",
+    "mp3": "audio/mpeg",
+    "opus": "audio/opus",
+    "flac": "audio/flac",
 }
 
 _pipeline = None
@@ -47,6 +58,14 @@ def normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
             normalized["speed"] = speed
     except (TypeError, ValueError):
         pass
+
+    remote_url = str(config.get("remote_url", normalized["remote_url"]) or "").strip()
+    if remote_url:
+        normalized["remote_url"] = remote_url.rstrip("/")
+
+    response_format = str(config.get("response_format", normalized["response_format"]) or "").strip().lower()
+    if response_format in VALID_FORMATS:
+        normalized["response_format"] = response_format
 
     return normalized
 
@@ -106,20 +125,89 @@ async def is_downloaded() -> bool:
     return _pipeline is not None
 
 
+async def is_remote_healthy() -> tuple[bool, str]:
+    """Check if the remote Kokoro-FastAPI server is reachable.
+
+    Returns (healthy, error_message). If no remote_url is configured,
+    returns (False, "Not configured").
+    """
+    cfg = get_config()
+    remote_url = cfg.get("remote_url", "")
+    if not remote_url:
+        return False, "Not configured"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{remote_url}/health",
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                if resp.status == 200:
+                    return True, ""
+                return False, f"HTTP {resp.status}"
+    except Exception as e:
+        return False, str(e)
+
+
 async def synthesize_sentences(
     sentences: list[str], config: dict[str, Any] | None = None
-) -> str:
+) -> tuple[str, str]:
     cfg = normalize_config(config or get_config())
-    return await _synthesize_sentences(
+    remote_url = str(cfg.get("remote_url", ""))
+
+    if remote_url:
+        return await _synthesize_remote(
+            sentences,
+            voice=str(cfg["voice"]),
+            speed=float(cfg["speed"]),
+            remote_url=remote_url,
+            response_format=str(cfg["response_format"]),
+        )
+
+    return await _synthesize_local(
         sentences,
         voice=str(cfg["voice"]),
         speed=float(cfg["speed"]),
     )
 
 
-async def _synthesize_sentences(
+async def _synthesize_remote(
+    sentences: list[str],
+    *,
+    voice: str,
+    speed: float,
+    remote_url: str,
+    response_format: str,
+) -> tuple[str, str]:
+    text = " ".join(s.strip() for s in sentences if s.strip())
+    if not text:
+        return "", MIME_TYPES.get(response_format, "audio/mpeg")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{remote_url}/v1/audio/speech",
+                json={
+                    "model": "kokoro",
+                    "input": text,
+                    "voice": voice,
+                    "response_format": response_format,
+                    "speed": speed,
+                },
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                resp.raise_for_status()
+                audio_bytes = await resp.read()
+                mime_type = MIME_TYPES.get(response_format, "audio/mpeg")
+                return base64.b64encode(audio_bytes).decode("utf-8"), mime_type
+    except Exception as e:
+        PrintStyle.error(f"Error in remote Kokoro TTS synthesis: {e}")
+        raise
+
+
+async def _synthesize_local(
     sentences: list[str], *, voice: str, speed: float
-) -> str:
+) -> tuple[str, str]:
     await _preload()
 
     combined_audio: list[float] = []
@@ -136,11 +224,11 @@ async def _synthesize_sentences(
                 combined_audio.extend(audio_numpy.tolist())
 
         if not combined_audio:
-            return ""
+            return "", "audio/wav"
 
         buffer = io.BytesIO()
         sf.write(buffer, combined_audio, 24000, format="WAV")
-        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+        return base64.b64encode(buffer.getvalue()).decode("utf-8"), "audio/wav"
     except Exception as e:
-        PrintStyle.error(f"Error in Kokoro TTS synthesis: {e}")
+        PrintStyle.error(f"Error in local Kokoro TTS synthesis: {e}")
         raise

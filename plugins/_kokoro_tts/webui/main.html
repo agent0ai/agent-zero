@@ -16,9 +16,8 @@
       <div>
         <div class="section-title">Kokoro TTS</div>
         <div class="section-description">
-          Built-in Kokoro speech synthesis. Dependency installation remains on the
-          Docker/bootstrap path; disabling this plugin returns spoken output to the
-          browser fallback.
+          Built-in Kokoro speech synthesis. When disabled, spoken output falls back
+          to the browser speech API.
         </div>
 
         <div class="speech-plugin-grid">
@@ -29,13 +28,15 @@
               <span class="status-badge" :class="$store.kokoroTts.enabled ? 'ok' : 'warn'" x-text="$store.kokoroTts.enabled ? 'Yes' : 'No'"></span>
             </div>
             <div class="status-row">
-              <span class="status-key">Model</span>
+              <span class="status-key">Local Model</span>
               <span class="status-badge" :class="$store.kokoroTts.statusClass" x-text="$store.kokoroTts.statusText"></span>
             </div>
-            <div class="status-row" x-show="$store.kokoroTts.packageVersion">
-              <span class="status-key">Package</span>
-              <span class="status-value" x-text="$store.kokoroTts.packageVersion"></span>
-            </div>
+            <template x-if="$store.kokoroTts.config.remote_url">
+              <div class="status-row">
+                <span class="status-key">Remote</span>
+                <span class="status-badge" :class="$store.kokoroTts.remoteHealthy ? 'ok' : 'warn'" x-text="$store.kokoroTts.remoteHealthy ? 'Healthy' : 'Unreachable'"></span>
+              </div>
+            </template>
           </div>
 
           <div class="speech-plugin-card">
@@ -48,6 +49,18 @@
               <span class="status-key">Speed</span>
               <span class="status-value" x-text="$store.kokoroTts.config.speed"></span>
             </div>
+            <template x-if="$store.kokoroTts.config.remote_url">
+              <div>
+                <div class="status-row">
+                  <span class="status-key">Remote URL</span>
+                  <span class="status-value mono" x-text="$store.kokoroTts.config.remote_url"></span>
+                </div>
+                <div class="status-row">
+                  <span class="status-key">Format</span>
+                  <span class="status-value" x-text="$store.kokoroTts.config.response_format?.toUpperCase()"></span>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
