@@ -42,10 +42,22 @@ function policyFromState(value, hasOverride) {
 }
 
 function policyAllows(policy, id) {
-  if (policy.mode !== "custom") return true;
+  if (!policy || policy.mode !== "custom") return true;
   if (policy.blocked.includes(id)) return false;
   if (policy.allowed.includes(id)) return true;
   return policy.default === "allow";
+}
+
+function policyBehavior(policy) {
+  const value = policy || {};
+  if (value.mode !== "custom") {
+    return { default: "allow", allowed: [], blocked: [] };
+  }
+  return {
+    default: value.default === "block" ? "block" : "allow",
+    allowed: unique(value.allowed).sort(),
+    blocked: unique(value.blocked).sort(),
+  };
 }
 
 function movePolicyItem(policy, id, allow) {
@@ -63,7 +75,7 @@ function escapeHtml(value) {
 }
 
 const model = {
-  intent: { view: "create", profileId: "", contextId: "" },
+  intent: { view: "create", profileId: "", contextId: "", projectName: "" },
   view: "editor",
   mode: "easy",
   section: "1",
@@ -72,6 +84,8 @@ const model = {
   avatarUploading: false,
   error: "",
   state: null,
+  projects: [],
+  projectName: "",
   profiles: [],
   draft: null,
   initialDraft: null,
@@ -107,10 +121,17 @@ const model = {
   },
 
   async open(options = {}) {
+    const contextProject = chatsStore.selectedContext?.project;
+    const currentProjectName = typeof contextProject === "object"
+      ? String(contextProject?.name || "")
+      : String(contextProject || "");
     this.intent = {
       view: options.view || (options.profileId ? "edit" : "create"),
       profileId: String(options.profileId || ""),
       contextId: String(options.contextId || chatsStore.selected || ""),
+      projectName: options.projectName === undefined
+        ? currentProjectName
+        : String(options.projectName || ""),
     };
     this.suppressClosePrompt = false;
     return await openModal(MODAL, () => this.beforeClose());
@@ -128,6 +149,7 @@ const model = {
     this.plan = { written: [], deleted: [], warnings: [] };
     this.planStatus = "idle";
     this.view = this.intent.view === "manage" ? "manage" : "editor";
+    this.projectName = this.intent.projectName || "";
     const modalTitle =
       this.view === "manage"
         ? "Manage agents"
@@ -145,6 +167,12 @@ const model = {
     this.mode = "easy";
     this.section = this.savedSection();
     this.syncSurface();
+    await this.loadProjects();
+    if (this.projectName && this.projects.length
+      && !this.projects.some((project) => project.key === this.projectName)) {
+      this.projectName = "";
+      this.intent = { ...this.intent, projectName: "" };
+    }
     await this.loadProfiles();
     if (this.view === "manage") {
       this.loading = false;
@@ -161,12 +189,46 @@ const model = {
     try {
       const data = await callJsonApi(API, {
         action: "list",
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.profiles = data.profiles || [];
     } catch (error) {
       this.error = error.message || String(error);
       this.profiles = [];
+    }
+  },
+
+  async loadProjects() {
+    try {
+      const data = await callJsonApi("/projects", { action: "list_options" });
+      this.projects = data.ok ? (data.data || []) : [];
+    } catch {
+      this.projects = [];
+    }
+  },
+
+  scopeInput() {
+    return { project_name: this.projectName || "" };
+  },
+
+  get scopeLabel() {
+    if (!this.projectName) return "Global";
+    return this.projects.find((project) => project.key === this.projectName)?.label
+      || this.projectName;
+  },
+
+  get inheritedLabel() {
+    return this.projectName ? "Inherited" : "Default";
+  },
+
+  async onScopeChanged() {
+    this.intent = { ...this.intent, projectName: this.projectName || "" };
+    this.loading = true;
+    this.error = "";
+    try {
+      await this.loadProfiles();
+    } finally {
+      this.loading = false;
     }
   },
 
@@ -177,7 +239,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: profileId,
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.state = data.state;
       this.intent = { ...this.intent, view: creating ? "create" : "edit", profileId };
@@ -468,6 +530,7 @@ const model = {
   metadataProvenance(key) {
     const metadata = this.state?.profile?.metadata?.[key] || {};
     if (metadata.has_override && !this.metadataResetPending(key)) return "Customized by you";
+    if (this.projectName) return "Inherited from Global";
     const match = String(metadata.inherited_source || metadata.source || "")
       .match(/(?:^|\/)agents\/([^/]+)/);
     const sourceId = match?.[1] || "";
@@ -536,13 +599,15 @@ const model = {
   },
 
   promptDisplayState(prompt) {
-    if (prompt?.reset) return "Will use the default";
+    if (prompt?.reset) return this.projectName ? "Will use inherited" : "Will use the default";
     if (prompt?.has_override || this.promptDirty(prompt)) return "Customized by you";
-    return prompt?.state === "Unavailable" ? "Unavailable" : "Default";
+    if (prompt?.state === "Unavailable") return "Unavailable";
+    return this.projectName ? "Inherited" : "Default";
   },
 
   promptSourceChain(prompt) {
     if (!prompt?.reset && (prompt?.has_override || this.promptDirty(prompt))) return "Customized by you";
+    if (this.projectName) return "Inherited from Global";
     const source = [...(prompt?.source_chain || [])]
       .filter((item) => item !== "Your override")
       .at(-1);
@@ -596,7 +661,10 @@ const model = {
   },
 
   copyPromptPath() {
-    const path = `usr/agents/${this.draft.profileId}/prompts/${this.selectedPrompt}`;
+    const root = this.projectName
+      ? `usr/projects/${this.projectName}/.a0proj/agents`
+      : "usr/agents";
+    const path = `${root}/${this.draft.profileId}/prompts/${this.selectedPrompt}`;
     navigator.clipboard?.writeText(path);
     globalThis.justToast?.("Path copied", "success", 1200, "agent-editor-copy");
   },
@@ -607,21 +675,26 @@ const model = {
     this.selectedBlockedTools = [];
   },
 
+  customizePolicy(kind) {
+    const key = kind === "tool" ? "toolPolicy" : "skillPolicy";
+    if (this.draft[key].mode === "custom") return;
+    const state = kind === "tool" ? this.state.tools : this.state.skills;
+    this.draft[key] = { mode: "custom", ...policyBehavior(state.effective_policy) };
+  },
+
   chooseTools() {
-    if (this.draft.toolPolicy.mode !== "custom") {
-      this.draft.toolPolicy = { mode: "custom", default: "allow", allowed: [], blocked: [] };
-    }
+    this.customizePolicy("tool");
     this.setMode("advanced", "3");
   },
 
   setEasyToolAllowed(id, allow) {
-    if (this.draft.toolPolicy.mode !== "custom") {
-      this.draft.toolPolicy = { mode: "custom", default: "allow", allowed: [], blocked: [] };
-    }
+    this.customizePolicy("tool");
     this.moveTools([id], allow);
     const policy = this.draft.toolPolicy;
-    if (this.initialDraft?.toolPolicy.mode !== "custom" && policy.default === "allow"
-      && !policy.allowed.length && !policy.blocked.length) this.useStandardTools();
+    if (this.initialDraft?.toolPolicy.mode !== "custom"
+      && same(policyBehavior(policy), policyBehavior(this.state.tools.effective_policy))) {
+      this.useStandardTools();
+    }
   },
 
   useStandardSkills() {
@@ -631,9 +704,7 @@ const model = {
   },
 
   chooseSkills() {
-    if (this.draft.skillPolicy.mode !== "custom") {
-      this.draft.skillPolicy = { mode: "custom", default: "allow", allowed: [], blocked: [] };
-    }
+    this.customizePolicy("skill");
   },
 
   setPolicyDefault(kind, nextDefault) {
@@ -650,11 +721,17 @@ const model = {
   },
 
   isToolAllowed(item) {
-    return policyAllows(this.draft.toolPolicy, item.id);
+    const policy = this.draft.toolPolicy.mode === "custom"
+      ? this.draft.toolPolicy
+      : this.state?.tools?.effective_policy;
+    return policyAllows(policy, item.id);
   },
 
   isSkillAllowed(item) {
-    return policyAllows(this.draft.skillPolicy, item.name);
+    const policy = this.draft.skillPolicy.mode === "custom"
+      ? this.draft.skillPolicy
+      : this.state?.skills?.effective_policy;
+    return policyAllows(policy, item.name);
   },
 
   filteredTools(allowed) {
@@ -739,7 +816,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: this.draft.profileId || "new-agent",
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.state.model_presets = data.state.model_presets;
     } catch (error) {
@@ -854,7 +931,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "plan",
         patch: this.buildPatch(),
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.plan = data;
       this.planStatus = "ready";
@@ -883,7 +960,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "save",
         patch: this.buildPatch(),
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.plan = data;
       this.initialDraft = clone(this.draft);
@@ -912,6 +989,11 @@ const model = {
     try {
       const created = await callJsonApi("/chat_create", {
         current_context: this.intent.contextId || chatsStore.selected || "",
+      });
+      await callJsonApi("/projects", {
+        action: this.projectName ? "activate" : "deactivate",
+        context_id: created.ctxid,
+        ...(this.projectName ? { name: this.projectName } : {}),
       });
       await callJsonApi("/agent_profile_set", {
         context_id: created.ctxid,
@@ -951,7 +1033,7 @@ const model = {
         action: "plan_remove_changes",
         profile_id: this.draft.profileId,
         destructive,
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.plan = data;
       this.planStatus = "ready";
@@ -985,7 +1067,7 @@ const model = {
         action: "remove_changes",
         profile_id: this.draft.profileId,
         destructive: this.pendingMutation.destructive,
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       this.pendingMutation = null;
       await this.loadEditor(this.draft.profileId);
@@ -1000,11 +1082,11 @@ const model = {
       const data = await callJsonApi(API, {
         action: "plan_delete",
         profile_id: profileId,
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       const confirmed = await showConfirmDialog({
         title: `Delete ${escapeHtml(profileId)}?`,
-        message: `${this.deletionImpactHtml(data)}<p>This permanently removes this custom agent.</p>`,
+        message: `${this.deletionImpactHtml(data)}<p>This permanently removes this custom agent from ${escapeHtml(this.scopeLabel)}.</p>`,
         confirmText: "Delete agent",
         type: "danger",
       });
@@ -1013,13 +1095,13 @@ const model = {
         action: "delete",
         profile_id: profileId,
         confirm: true,
-        context_id: this.intent.contextId,
+        ...this.scopeInput(),
       });
       await this.loadProfiles();
       await modelConfigStore.loadAgentProfiles(true);
       this.view = "manage";
       this.setModalTitle("Manage agents");
-      globalThis.justToast?.("Agent deleted.", "success", 1800);
+      globalThis.justToast?.(`Agent deleted from ${this.scopeLabel}.`, "success", 1800);
     } catch (error) {
       this.error = error.message || String(error);
     }

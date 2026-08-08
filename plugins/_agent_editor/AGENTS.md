@@ -16,16 +16,19 @@
 ## Local Contracts
 
 - The editor performs zero model calls.
-- Writes are limited to `usr/agents/<profile-id>` and only to paths or config
-  keys listed in the validated change plan.
+- Writes are limited to the selected profile layer — global
+  `usr/agents/<profile-id>` or project
+  `usr/projects/<project>/.a0proj/agents/<profile-id>` — and only to paths or
+  config keys listed in the validated change plan.
 - Never call `helpers.subagents.save_agent_data`.
 - Authored profile definitions remain YAML; editor-written plugin configs remain
   JSON.
-- Profile config paths use `helpers.plugins.determine_plugin_asset_path` while
-  remaining rooted in the editor's validated user-profile boundary.
-- Active project tool policy is resolved through the standard plugin asset
-  provenance and shown as higher priority; the editor still writes only the
-  user-profile scope.
+- Profile config paths use `helpers.plugins.determine_plugin_asset_path` for the
+  selected Global or project scope and remain rooted in that exact validated
+  profile boundary.
+- Project profiles inherit the existing global, plugin, and bundled layers.
+  Removing or deleting in project scope never mutates those inherited layers;
+  only agents created in the selected scope are deletable.
 - Bundled `agents/` files are read-only.
 - Advanced prompt text is directly editable; per-file close/check actions
   discard or accept the current edit checkpoint, while the editor's global save
@@ -37,6 +40,8 @@
   tools remain absent from the tool catalog.
 - Model selection reuses `_model_config`'s compact preset dropdown and preset
   editor; Agent Editor persists only the scoped preset reference.
+- Manage agents reuses the plugin-settings project vocabulary: Global or one
+  existing project. Save & test activates that same scope in the fresh chat.
 - The WebUI uses the shared modal stack, labeled prompt scroll regions, and
   24px-or-larger policy and text-action targets.
 

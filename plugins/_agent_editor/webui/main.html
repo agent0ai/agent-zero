@@ -26,7 +26,28 @@
 
   <template x-if="!$store.agentEditor.loading && $store.agentEditor.view === 'manage'">
     <section class="agent-manager" aria-label="Manage agents">
-      <p class="agent-manager-intro">Edits to built-in agents are saved as your own changes — originals are never modified.</p>
+      <div class="agent-scope-selector">
+        <div class="agent-scope-header">
+          <div class="agent-scope-copy">
+            <strong>Agent scope</strong>
+            <p>Choose whether agents and customizations apply globally or only to one project.</p>
+          </div>
+        </div>
+        <div class="agent-scope-toolbar">
+          <label class="agent-scope-field">
+            <span>Project</span>
+            <select x-model="$store.agentEditor.projectName"
+                    x-init="$nextTick(() => $el.value = $store.agentEditor.projectName)"
+                    @change="$store.agentEditor.onScopeChanged()">
+              <option value="">Global</option>
+              <template x-for="project in $store.agentEditor.projects" :key="project.key">
+                <option :value="project.key" x-text="project.label"></option>
+              </template>
+            </select>
+          </label>
+        </div>
+      </div>
+      <p class="agent-manager-intro" x-text="$store.agentEditor.projectName ? `Create agents and customize inherited profiles only for ${$store.agentEditor.scopeLabel}. Global and original files are never modified.` : 'Create agents and customize inherited profiles for every project. Originals are never modified.'"></p>
       <div class="agent-manager-list">
         <template x-for="profile in $store.agentEditor.profiles" :key="profile.id">
           <article class="agent-manager-card">
@@ -38,17 +59,16 @@
               <div class="agent-manager-name">
                 <strong x-text="profile.title || profile.id"></strong>
                 <span class="agent-origin" x-text="profile.origin"></span>
-                <span class="agent-status-badge is-customized" x-show="profile.has_user_overrides">
+                <span class="agent-status-badge is-customized" x-show="profile.scope_has_overrides">
                   <x-icon name="edit_note"></x-icon><span>Customized by you</span>
                 </span>
               </div>
               <p x-text="profile.description || 'No description'"></p>
               <code x-text="profile.id"></code>
-              <div class="agent-project-notice" x-show="profile.project_override_active">This project’s customization takes priority here.</div>
             </div>
             <div class="agent-manager-actions">
               <button type="button" class="button" @click="$store.agentEditor.loadEditor(profile.id, false)"><x-icon name="edit"></x-icon>Edit</button>
-              <button type="button" class="button danger" x-show="profile.origin === 'Custom'" @click="$store.agentEditor.deleteProfile(profile.id)"><x-icon name="delete"></x-icon>Delete</button>
+              <button type="button" class="button danger" x-show="profile.deletable" @click="$store.agentEditor.deleteProfile(profile.id)"><x-icon name="delete"></x-icon>Delete</button>
             </div>
           </article>
         </template>
@@ -59,8 +79,9 @@
   <template x-if="!$store.agentEditor.loading && $store.agentEditor.view === 'editor' && $store.agentEditor.draft">
     <div class="agent-editor-workspace">
       <header class="agent-editor-topbar">
-        <div class="agent-editor-heading" x-show="$store.agentEditor.intent.view === 'manage' || (!$store.agentEditor.draft.creating && $store.agentEditor.dirty)">
+        <div class="agent-editor-heading">
           <button type="button" class="button icon" x-show="$store.agentEditor.intent.view === 'manage'" aria-label="Back to agents" @click="$store.agentEditor.showManager()"><x-icon name="arrow_back"></x-icon></button>
+          <span class="agent-scope-indicator"><x-icon :name="$store.agentEditor.projectName ? 'folder' : 'public'"></x-icon><span>Scope:</span><strong x-text="$store.agentEditor.scopeLabel"></strong></span>
           <div class="agent-editor-subtitle" x-show="$store.agentEditor.dirty">
             <span class="agent-status-badge is-unsaved"><x-icon name="edit_note"></x-icon><span>Unsaved changes</span></span>
           </div>
@@ -102,7 +123,7 @@
           <div>
             <textarea id="agent-editor-instructions" rows="9" x-model="$store.agentEditor.instructions.value" @input="$store.agentEditor.markPromptSet('agent.system.main.specifics.md')" placeholder="Research technical topics, verify important claims with reliable sources, and return concise reports with links." :aria-invalid="$store.agentEditor.fieldIssue('instructions') ? 'true' : null" :aria-describedby="$store.agentEditor.fieldIssue('instructions') ? 'agent-editor-instructions-error' : null"></textarea>
             <span id="agent-editor-instructions-error" class="field-error" role="alert" x-show="$store.agentEditor.fieldIssue('instructions')" x-text="$store.agentEditor.fieldIssue('instructions')?.message"></span>
-            <button type="button" class="text-button restore-action" x-show="$store.agentEditor.instructions.has_override && !$store.agentEditor.instructions.reset" @click="$store.agentEditor.restoreInstructions()"><x-icon name="restart_alt"></x-icon>Use default instructions</button>
+            <button type="button" class="text-button restore-action" x-show="$store.agentEditor.instructions.has_override && !$store.agentEditor.instructions.reset" @click="$store.agentEditor.restoreInstructions()"><x-icon name="restart_alt"></x-icon><span x-text="$store.agentEditor.projectName ? 'Use inherited instructions' : 'Use default instructions'"></span></button>
           </div>
         </section>
 
@@ -117,7 +138,6 @@
             <p class="policy-empty" x-show="!$store.agentEditor.toolCatalog.length">No configurable tools are available.</p>
           </div>
           <p class="easy-skills-hint">To enable or disable skills, click Advanced.</p>
-          <div class="agent-project-notice" x-show="$store.agentEditor.state.tools.project_override_active">This project has different tool settings. Your changes apply wherever a project has not chosen its own settings.</div>
         </section>
       </main>
 
@@ -136,8 +156,7 @@
             <header class="advanced-section-heading"><h3 id="agent-section-1-title">Identity & models</h3><p>Set the agent’s identity, delegation guidance, and model preset.</p></header>
             <div class="origin-row">
               <span class="agent-origin" x-text="$store.agentEditor.state.profile.origin"></span>
-              <span class="agent-status-badge is-customized" x-show="$store.agentEditor.state.profile.has_user_overrides"><x-icon name="edit_note"></x-icon><span>Customized by you</span></span>
-              <span class="agent-project-notice" x-show="$store.agentEditor.state.profile.project_override_active">This project’s customization takes priority here.</span>
+              <span class="agent-status-badge is-customized" x-show="$store.agentEditor.state.profile.scope_has_overrides"><x-icon name="edit_note"></x-icon><span>Customized by you</span></span>
             </div>
             <p class="built-in-note" x-show="$store.agentEditor.state.profile.built_in">Your changes override the built-in profile. The original files stay unchanged.</p>
             <div class="advanced-identity-grid">
@@ -174,7 +193,7 @@
           </section>
 
           <section x-show="$store.agentEditor.section === '2'" data-agent-editor-section="2" tabindex="-1" aria-labelledby="agent-section-2-title">
-            <header class="advanced-section-heading"><h3 id="agent-section-2-title">Prompt files</h3><p>Customize this agent’s prompt files. You always see the default next to your version.</p></header>
+            <header class="advanced-section-heading"><h3 id="agent-section-2-title">Prompt files</h3><p>Customize this agent’s prompt files. You always see the inherited version next to your version.</p></header>
             <div class="prompt-workspace">
               <aside class="prompt-browser">
                 <label class="compact-search"><span class="sr-only">Search prompt files</span><x-icon name="search"></x-icon><input type="search" x-model="$store.agentEditor.promptFileSearch" placeholder="Search files"></label>
@@ -198,21 +217,20 @@
                   <div class="prompt-actions">
                     <button type="button" class="btn btn-action-header cancel" x-show="$store.agentEditor.promptEditPending($store.agentEditor.selectedPromptDraft)" title="Discard current edit" aria-label="Discard current edit" @click="$store.agentEditor.discardPromptEdit($store.agentEditor.selectedPrompt)"><x-icon name="close"></x-icon></button>
                     <button type="button" class="btn btn-action-header confirm" x-show="$store.agentEditor.promptEditPending($store.agentEditor.selectedPromptDraft)" title="Accept current edit" aria-label="Accept current edit" @click="$store.agentEditor.acceptPromptEdit($store.agentEditor.selectedPrompt)"><x-icon name="check"></x-icon></button>
-                    <button type="button" class="button" x-show="$store.agentEditor.selectedPromptDraft.has_override || $store.agentEditor.promptDirty($store.agentEditor.selectedPromptDraft)" @click="$store.agentEditor.resetPrompt($store.agentEditor.selectedPrompt)">Use default</button>
+                    <button type="button" class="button" x-show="$store.agentEditor.selectedPromptDraft.has_override || $store.agentEditor.promptDirty($store.agentEditor.selectedPromptDraft)" @click="$store.agentEditor.resetPrompt($store.agentEditor.selectedPrompt)" x-text="`Use ${$store.agentEditor.inheritedLabel.toLowerCase()}`"></button>
                     <button type="button" class="button icon" title="Copy customization path" aria-label="Copy customization path" @click="$store.agentEditor.copyPromptPath()"><x-icon name="content_copy"></x-icon></button>
                   </div>
                 </div>
-                <div class="agent-project-notice" x-show="$store.agentEditor.selectedPromptDraft.project_override_active">This project has its own version of this file. Your customization applies wherever a project has not supplied one.</div>
-                <div class="agent-project-notice" x-show="$store.agentEditor.selectedPromptDraft.dynamic_processor">This file is generated dynamically at runtime. Python processors are read-only and are not executed by the editor.</div>
+                <div class="agent-editor-note" x-show="$store.agentEditor.selectedPromptDraft.dynamic_processor">This file is generated dynamically at runtime. Python processors are read-only and are not executed by the editor.</div>
                 <div class="prompt-view-tabs" role="tablist" aria-label="Prompt view">
                   <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === ''" :class="{ active: $store.agentEditor.comparePrompt === '' }" @click="$store.agentEditor.comparePrompt = ''">Your version</button>
-                  <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === 'inherited'" :class="{ active: $store.agentEditor.comparePrompt === 'inherited' }" @click="$store.agentEditor.comparePrompt = 'inherited'">Default</button>
+                  <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === 'inherited'" :class="{ active: $store.agentEditor.comparePrompt === 'inherited' }" @click="$store.agentEditor.comparePrompt = 'inherited'" x-text="$store.agentEditor.inheritedLabel"></button>
                   <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === 'compare'" :class="{ active: $store.agentEditor.comparePrompt === 'compare' }" @click="$store.agentEditor.comparePrompt = 'compare'">Compare</button>
                 </div>
                 <div class="prompt-find"><label><span class="sr-only">Search within prompt</span><input type="search" x-model="$store.agentEditor.promptTextSearch" placeholder="Find in file" @keydown.enter.prevent="$store.agentEditor.findInPrompt($event.shiftKey ? -1 : 1)"></label><span x-text="`${$store.agentEditor.promptMatchCount()} matches`"></span><button type="button" class="button icon" aria-label="Previous match" @click="$store.agentEditor.findInPrompt(-1)"><x-icon name="keyboard_arrow_up"></x-icon></button><button type="button" class="button icon" aria-label="Next match" @click="$store.agentEditor.findInPrompt(1)"><x-icon name="keyboard_arrow_down"></x-icon></button></div>
                 <div class="prompt-panes" :class="{ compare: $store.agentEditor.comparePrompt === 'compare' }">
                   <div class="prompt-pane" x-show="$store.agentEditor.comparePrompt !== 'inherited'"><label for="agent-editor-prompt-text">Your version</label><textarea id="agent-editor-prompt-text" spellcheck="false" x-model="$store.agentEditor.selectedPromptDraft.value" @input="$store.agentEditor.onPromptInput($store.agentEditor.selectedPrompt)" aria-label="Prompt Markdown" :aria-invalid="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions') ? 'true' : null" :aria-describedby="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions') ? 'agent-editor-prompt-error' : null"></textarea><span id="agent-editor-prompt-error" class="field-error" role="alert" x-show="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions')" x-text="$store.agentEditor.fieldIssue('instructions')?.message"></span></div>
-                  <div class="prompt-pane inherited" x-show="$store.agentEditor.comparePrompt"><div class="prompt-pane-title">Default</div><pre x-text="$store.agentEditor.selectedPromptDraft.inherited || '(empty)'" tabindex="0"></pre></div>
+                  <div class="prompt-pane inherited" x-show="$store.agentEditor.comparePrompt"><div class="prompt-pane-title" x-text="$store.agentEditor.inheritedLabel"></div><pre x-text="$store.agentEditor.selectedPromptDraft.inherited || '(empty)'" tabindex="0"></pre></div>
                 </div>
                 <details class="effective-preview"><summary>Preview combined prompt</summary><p>Static preview only. Runtime variables, projects, skills, tools, secrets, time, and dynamic extensions can differ.</p><pre x-text="$store.agentEditor.selectedPromptDraft.preview || '(empty)'" tabindex="0"></pre></details>
               </div>
@@ -221,8 +239,7 @@
 
           <section x-show="$store.agentEditor.section === '3'" data-agent-editor-section="3" tabindex="-1" aria-labelledby="agent-section-3-title">
             <header class="advanced-section-heading"><h3 id="agent-section-3-title">Tools</h3><p>Choose which tools this agent can use.</p></header>
-            <div class="agent-project-notice" x-show="$store.agentEditor.state.tools.project_override_active">This project has different tool settings. Your changes apply wherever a project has not chosen its own settings.</div>
-            <div class="policy-mode-row"><label><input type="radio" name="tool-policy-mode" :checked="$store.agentEditor.draft.toolPolicy.mode === 'inherit'" @change="$store.agentEditor.useStandardTools()"><span>Use standard tool access <small x-text="`(${$store.agentEditor.toolCatalog.length} tools)`"></small></span></label><label><input type="radio" name="tool-policy-mode" :checked="$store.agentEditor.draft.toolPolicy.mode === 'custom'" @change="$store.agentEditor.chooseTools()">Choose tools</label></div>
+            <div class="policy-mode-row"><label><input type="radio" name="tool-policy-mode" :checked="$store.agentEditor.draft.toolPolicy.mode === 'inherit'" @change="$store.agentEditor.useStandardTools()"><span><span x-text="$store.agentEditor.projectName ? 'Use inherited tool access' : 'Use standard tool access'"></span> <small x-text="`(${$store.agentEditor.toolCatalog.length} tools)`"></small></span></label><label><input type="radio" name="tool-policy-mode" :checked="$store.agentEditor.draft.toolPolicy.mode === 'custom'" @change="$store.agentEditor.chooseTools()">Choose tools</label></div>
             <fieldset class="policy-editor" :disabled="$store.agentEditor.draft.toolPolicy.mode !== 'custom'">
               <legend class="sr-only">Tool access selection</legend>
               <div class="policy-filters tools"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search tools</span><input type="search" x-model="$store.agentEditor.toolSearch" placeholder="Search tools"></label><label>Category <select x-model="$store.agentEditor.toolCategory"><option value="all">All</option><option value="local">Local</option><option value="plugin">Plugin</option><option value="mcp">MCP</option></select></label><label>Origin <select x-model="$store.agentEditor.toolOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.toolOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
@@ -237,7 +254,7 @@
 
           <section x-show="$store.agentEditor.section === '4'" data-agent-editor-section="4" tabindex="-1" aria-labelledby="agent-section-4-title">
             <header class="advanced-section-heading"><h3 id="agent-section-4-title">Skills</h3><p>Choose which skills this agent can find and use.</p></header>
-            <div class="policy-mode-row"><label><input type="radio" name="skill-policy-mode" :checked="$store.agentEditor.draft.skillPolicy.mode === 'inherit'" @change="$store.agentEditor.useStandardSkills()"><span>Use standard skill access <small x-text="`(${$store.agentEditor.skillCatalog.length} skills)`"></small></span></label><label><input type="radio" name="skill-policy-mode" :checked="$store.agentEditor.draft.skillPolicy.mode === 'custom'" @change="$store.agentEditor.chooseSkills()">Choose skills</label></div>
+            <div class="policy-mode-row"><label><input type="radio" name="skill-policy-mode" :checked="$store.agentEditor.draft.skillPolicy.mode === 'inherit'" @change="$store.agentEditor.useStandardSkills()"><span><span x-text="$store.agentEditor.projectName ? 'Use inherited skill access' : 'Use standard skill access'"></span> <small x-text="`(${$store.agentEditor.skillCatalog.length} skills)`"></small></span></label><label><input type="radio" name="skill-policy-mode" :checked="$store.agentEditor.draft.skillPolicy.mode === 'custom'" @change="$store.agentEditor.chooseSkills()">Choose skills</label></div>
             <fieldset class="policy-editor" :disabled="$store.agentEditor.draft.skillPolicy.mode !== 'custom'">
               <legend class="sr-only">Skill access selection</legend>
               <div class="policy-filters skills"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search skills</span><input type="search" x-model="$store.agentEditor.skillSearch" placeholder="Search skills"></label><label>Origin <select x-model="$store.agentEditor.skillOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.skillOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
@@ -266,11 +283,11 @@
               <template x-if="$store.agentEditor.plan.warnings?.length"><section><h4>Notices</h4><ul><template x-for="warning in $store.agentEditor.plan.warnings" :key="warning"><li x-text="warning"></li></template></ul></section></template>
             </div>
             <div class="review-actions" x-show="$store.agentEditor.pendingMutation"><button type="button" class="button danger" @click="$store.agentEditor.applyPendingMutation()"><x-icon name="delete"></x-icon>Apply removal plan</button><button type="button" class="text-button" @click="$store.agentEditor.pendingMutation = null; $store.agentEditor.previewPlan()">Cancel removal</button></div>
-            <div class="profile-maintenance" x-show="!$store.agentEditor.draft.creating && $store.agentEditor.state.profile.origin !== 'Custom'">
-              <h4>Built-in or plugin profile</h4><p>Remove only the customizations shown in this editor. Other files stay in place.</p><button type="button" class="button danger" @click="$store.agentEditor.planRemoval(false)"><x-icon name="delete_sweep"></x-icon>Remove my changes</button>
-              <details><summary>Delete all customizations for this profile</summary><p>This removes every customization saved for this profile after showing each affected file. Agent Zero’s defaults remain untouched.</p><button type="button" class="button danger" @click="$store.agentEditor.planRemoval(true)"><x-icon name="delete_forever"></x-icon>Review files to delete</button></details>
+            <div class="profile-maintenance" x-show="!$store.agentEditor.draft.creating && $store.agentEditor.state.profile.scope_has_overrides && !$store.agentEditor.state.profile.deletable">
+              <h4>Customized by you</h4><p x-text="`Remove only the customizations shown in this editor from ${$store.agentEditor.scopeLabel}. Other files stay in place.`"></p><button type="button" class="button danger" @click="$store.agentEditor.planRemoval(false)"><x-icon name="delete_sweep"></x-icon>Remove my changes</button>
+              <details><summary x-text="`Delete all customizations in ${$store.agentEditor.scopeLabel}`"></summary><p>This removes every customization saved in this scope after showing each affected file. Inherited files remain untouched.</p><button type="button" class="button danger" @click="$store.agentEditor.planRemoval(true)"><x-icon name="delete_forever"></x-icon>Review files to delete</button></details>
             </div>
-            <div class="profile-maintenance" x-show="!$store.agentEditor.draft.creating && $store.agentEditor.state.profile.origin === 'Custom'"><h4>Delete custom agent</h4><p>Projects and open chats that use this agent are shown before confirmation, together with its files and settings.</p><button type="button" class="button danger" @click="$store.agentEditor.deleteProfile($store.agentEditor.draft.profileId)">Delete agent</button></div>
+            <div class="profile-maintenance" x-show="!$store.agentEditor.draft.creating && $store.agentEditor.state.profile.deletable"><h4>Delete custom agent</h4><p>Projects and open chats that use this agent are shown before confirmation, together with its files and settings.</p><button type="button" class="button danger" @click="$store.agentEditor.deleteProfile($store.agentEditor.draft.profileId)">Delete agent</button></div>
           </section>
         </div>
       </div>
@@ -285,8 +302,8 @@
     </div>
     <div class="footer-actions">
       <button type="button" class="btn btn-ok" x-show="$store.agentEditor.view === 'manage'" @click="$store.agentEditor.loadEditor('new-agent', true)">Create agent</button>
-      <button type="button" class="btn agent-editor-secondary-action" x-show="$store.agentEditor.view === 'editor' && !$store.agentEditor.draft?.creating" @click="$store.agentEditor.save(true)" :disabled="$store.agentEditor.saving || $store.agentEditor.validationIssues().length">Save & test</button>
-      <button type="button" class="btn btn-ok" x-show="$store.agentEditor.view === 'editor'" @click="$store.agentEditor.save(false)" :disabled="$store.agentEditor.saving || $store.agentEditor.avatarUploading || $store.agentEditor.validationIssues().length" :title="$store.agentEditor.validationIssues().length ? 'Fix the highlighted issues before saving' : ''"><span x-text="$store.agentEditor.saving ? 'Saving…' : $store.agentEditor.draft?.creating ? 'Create agent' : 'Save changes'"></span></button>
+      <button type="button" class="btn agent-editor-secondary-action" x-show="$store.agentEditor.view === 'editor' && !$store.agentEditor.draft?.creating" @click="$store.agentEditor.save(true)" :disabled="$store.agentEditor.saving || $store.agentEditor.validationIssues().length > 0">Save & test</button>
+      <button type="button" class="btn btn-ok" x-show="$store.agentEditor.view === 'editor'" @click="$store.agentEditor.save(false)" :disabled="$store.agentEditor.saving || $store.agentEditor.avatarUploading || $store.agentEditor.validationIssues().length > 0" :title="$store.agentEditor.validationIssues().length ? 'Fix the highlighted issues before saving' : ''"><span x-text="$store.agentEditor.saving ? 'Saving…' : $store.agentEditor.draft?.creating ? 'Create agent' : 'Save changes'"></span></button>
     </div>
   </div>
 </div>
@@ -318,6 +335,9 @@
   .agent-editor-loading { min-height:20rem; display:grid; place-content:center; justify-items:center; gap:.65rem; color:var(--color-text-secondary); }
   .agent-editor-topbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
   .agent-editor-heading { display:flex; align-items:center; gap:.6rem; }
+  .agent-scope-indicator { display:inline-flex; align-items:center; gap:.3rem; min-width:0; color:var(--color-text-secondary); font-size:.78rem; }
+  .agent-scope-indicator strong { max-width:18rem; overflow:hidden; color:var(--color-text); text-overflow:ellipsis; white-space:nowrap; }
+  .agent-scope-indicator x-icon { font-size:1rem; }
   .agent-editor-subtitle { margin-top:.2rem; font-size:.78rem; color:var(--color-text-secondary); }
   .agent-status-badge { display:inline-flex; align-items:center; gap:.25rem; max-width:100%; padding:.2rem .45rem; border:1px solid var(--color-border); border-radius:999px; font-size:.7rem; font-weight:500; line-height:1.2; white-space:normal; }
   .agent-status-badge x-icon { flex:0 0 auto; font-size:.85rem; }
@@ -367,7 +387,7 @@
   .origin-row { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
   .built-in-note,.field-provenance { color:var(--color-text-secondary); font-size:.76rem; }
   .agent-origin { padding:.2rem .45rem; border:1px solid var(--color-border); border-radius:999px; font-size:.72rem; color:var(--color-text-secondary); }
-  .agent-project-notice { padding:.55rem .7rem; border-left:3px solid var(--color-warning); background:color-mix(in srgb,var(--color-warning) 8%,transparent); color:var(--color-text-secondary); font-size:.8rem; }
+  .agent-editor-note { padding:.55rem .7rem; border-left:3px solid var(--color-warning); background:color-mix(in srgb,var(--color-warning) 8%,transparent); color:var(--color-text-secondary); font-size:.8rem; }
   .advanced-identity-grid { display:grid; grid-template-columns:9rem minmax(0,1fr); gap:1.2rem; }
   .advanced-avatar { align-self:start; }
   .identity-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.9rem; }
@@ -462,6 +482,15 @@
   .agent-editor .button.danger { display:inline-flex; align-items:center; gap:.35rem; border-color:color-mix(in srgb,var(--agent-editor-danger) 60%,var(--color-border)); color:var(--agent-editor-danger); background:color-mix(in srgb,var(--agent-editor-danger) 7%,var(--color-panel)); }
   .agent-editor .button.danger:hover { background:color-mix(in srgb,var(--agent-editor-danger) 15%,var(--color-panel)); }
   .agent-manager { display:flex; flex-direction:column; gap:1rem; }
+  .agent-scope-selector { overflow:hidden; border:1px solid var(--color-border); border-radius:4px; }
+  .agent-scope-header { padding:.75rem 1rem; border-bottom:1px solid var(--color-border); background:var(--color-bg-secondary); }
+  .agent-scope-copy { min-width:0; }
+  .agent-scope-copy strong { color:var(--color-text-primary); font-size:var(--font-size-normal); font-weight:600; }
+  .agent-scope-copy p { margin-top:.25rem; color:var(--color-text-secondary); font-size:var(--font-size-small); }
+  .agent-scope-toolbar { display:flex; padding:1rem; }
+  .agent-scope-field { display:flex; flex:1 1 0; align-items:center; gap:.5rem; min-width:12rem; margin:0; }
+  .agent-scope-field span { color:var(--color-text-secondary); font-weight:600; white-space:nowrap; }
+  .agent-scope-field select { flex:1 1 auto; min-width:0; }
   .agent-manager-intro,.agent-manager-copy p { color:var(--color-text-secondary); font-size:.82rem; }
   .agent-manager-list { display:flex; flex-direction:column; gap:.55rem; }
   .agent-manager-card { display:grid; grid-template-columns:3rem minmax(0,1fr) auto; gap:.75rem; align-items:center; padding:.75rem; border:1px solid var(--color-border); border-radius:10px; }
@@ -499,6 +528,7 @@
     .policy-list { min-height:20rem; }
     .agent-manager-card { grid-template-columns:3rem minmax(0,1fr); }
     .agent-manager-actions { grid-column:1/-1; justify-content:flex-end; }
+    .agent-scope-field { flex-basis:100%; min-width:0; }
     .agent-editor-footer { flex-wrap:wrap; }
     .footer-actions { width:100%; }
     .footer-actions .btn { flex:1; }

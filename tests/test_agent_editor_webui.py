@@ -93,7 +93,16 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert tool_section.count('class="policy-item-description"') == 2
     assert skill_section.count('class="policy-item-description"') == 2
     assert "Your changes override the built-in profile. The original files stay unchanged." in modal
-    assert "This project has different tool settings." in modal
+    assert 'x-model="$store.agentEditor.projectName"' in modal
+    assert 'x-init="$nextTick(() => $el.value = $store.agentEditor.projectName)"' in modal
+    assert '@change="$store.agentEditor.onScopeChanged()"' in modal
+    assert '<option value="">Global</option>' in modal
+    assert 'x-for="project in $store.agentEditor.projects"' in modal
+    assert 'x-show="profile.deletable"' in modal
+    assert 'x-show="profile.scope_has_overrides"' in modal
+    assert "project_override_active" not in modal
+    assert "profile.origin === 'Custom'" not in modal
+    assert "Scope:" in modal
     assert "Unavailable — kept in your settings" in modal
     assert "Customize this file" not in modal
     assert 'role="tablist" aria-label="Prompt view"' in modal
@@ -118,11 +127,12 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'class="prompt-editor" role="region" aria-label="Selected prompt file" tabindex="0"' in modal
     assert 'width:1.5rem; height:1.5rem' in modal
     assert "moveAllVisibleTools(false)" in modal and "moveAllVisibleSkills(false)" in modal
-    assert "!$store.agentEditor.draft.creating && $store.agentEditor.dirty" in modal
+    assert 'class="agent-editor-heading"' in modal
     assert ':aria-invalid=' in modal
     assert modal.count('role="alert"') >= 4
     assert "Fix ${$store.agentEditor.validationIssues().length}" in modal
-    assert "Delete all customizations for this profile" in modal
+    assert modal.count("$store.agentEditor.validationIssues().length > 0") == 2
+    assert "Delete all customizations in" in modal
     assert 'input[type="checkbox"]' in modal and "appearance:none" in modal
     assert 'promptDisplayState(prompt)' in modal
     assert 'promptSourceChain($store.agentEditor.selectedPromptDraft)' in modal
@@ -240,8 +250,8 @@ store.state = {
     { filename: "agent.system.main.communication.md", group: "2.4", group_label: "Communication", effective: "Inherited comm", inherited: "Inherited comm", source_chain: ["Framework", "Researcher"], state: "Inherited", has_override: false },
   ],
   model_preset: { has_override: false },
-  tools: { policy: { mode: "inherit" }, has_override: false, catalog: [] },
-  skills: { policy: { mode: "inherit" }, has_override: false, catalog: [] },
+  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [] },
+  skills: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [] },
 };
 store.makeDraft(true);
 if (await store.previewPlan()) throw new Error("invalid plan unexpectedly succeeded");
@@ -283,6 +293,20 @@ if (store.isToolAllowed(store.state.tools.catalog[0]) || store.draft.toolPolicy.
 store.useStandardTools();
 store.chooseTools();
 if (store.draft.toolPolicy.mode !== "custom" || store.draft.toolPolicy.default !== "allow" || store.section !== "3") throw new Error("custom tool editor did not open");
+store.useStandardTools();
+store.state.tools.effective_policy = { mode: "inherit", default: "block", allowed: [], blocked: ["local:shell"] };
+store.chooseTools();
+if (store.draft.toolPolicy.default !== "allow" || store.draft.toolPolicy.blocked.length) throw new Error("inactive inherited exceptions leaked into custom policy");
+store.projectName = "demo";
+store.state.tools.effective_policy = { mode: "custom", default: "allow", allowed: [], blocked: ["local:shell"] };
+store.useStandardTools();
+if (store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope ignored inherited tool restriction");
+store.setEasyToolAllowed("local:shell", true);
+if (store.draft.toolPolicy.mode !== "custom" || !store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope did not customize inherited policy");
+store.setEasyToolAllowed("local:shell", false);
+if (store.draft.toolPolicy.mode !== "inherit" || store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope did not restore inherited policy");
+store.projectName = "";
+store.state.tools.effective_policy = { mode: "inherit", default: "allow", allowed: [], blocked: [] };
 store.state.skills.catalog = [
   { name: "Research", path: "skills/research/SKILL.md", origin: "Agent Zero", description: "Research sources", available: true, tags: [], allowed_tools: [] },
   { name: "Gone", path: "skills/gone/SKILL.md", origin: "Unavailable", description: "Missing skill", available: false, tags: [], allowed_tools: [] },
@@ -338,14 +362,20 @@ calls.length = 0;
 store.intent = { contextId: "source-chat" };
 await store.openFreshChat("researcher", true);
 const endpoints = calls.map((item) => item.endpoint);
-const expected = ["/chat_create", "/agent_profile_set", "/plugins/_model_config/model_override", "selectChat", "event"];
+const expected = ["/chat_create", "/projects", "/agent_profile_set", "/plugins/_model_config/model_override", "selectChat", "event"];
 if (JSON.stringify(endpoints) !== JSON.stringify(expected)) throw new Error(JSON.stringify(calls));
-if (calls[1].payload.agent_profile !== "researcher") throw new Error("profile not selected");
-if (calls[2].payload.action !== "clear") throw new Error("chat preset override not cleared");
+if (calls[1].payload.action !== "deactivate") throw new Error("global test chat kept a project");
+if (calls[2].payload.agent_profile !== "researcher") throw new Error("profile not selected");
+if (calls[3].payload.action !== "clear") throw new Error("chat preset override not cleared");
 if (store.readyNoteContext !== "fresh-chat") throw new Error("ready note missing");
+calls.length = 0;
+store.projectName = "demo";
+await store.openFreshChat("researcher", false);
+if (calls[1].endpoint !== "/projects" || calls[1].payload.action !== "activate" || calls[1].payload.name !== "demo") throw new Error("project test chat did not activate selected scope");
 await store.planRemoval(true);
 if (!store.pendingMutation?.destructive || store.section !== "5" || store.planStatus !== "ready") throw new Error("removal plan was replaced");
 if (calls.at(-1).payload.action !== "plan_remove_changes") throw new Error("removal plan request missing");
+if (calls.at(-1).payload.project_name !== "demo") throw new Error("removal request lost selected scope");
 store.plan = { written: ["usr/agents/researcher/agent.yaml"], deleted: ["usr/agents/researcher/prompts/old.md"], warnings: [] };
 await store.applyPendingMutation();
 if (confirmations.length !== 1 || confirmations[0].type !== "danger") throw new Error("danger confirmation missing");

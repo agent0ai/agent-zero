@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from agent import AgentContext
@@ -76,4 +77,6 @@ def _context(input: dict[str, Any]) -> Any:
     project_name = str(input.get("project_name") or "").strip()
     if project_name:
         project_name = projects.validate_project_name(project_name)
+        if not Path(projects.get_project_folder(project_name)).is_dir():
+            raise ValueError("Project not found.")
     return editor._EditorContext(project_name)

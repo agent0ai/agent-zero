@@ -81,6 +81,7 @@ class ChangePlan:
     warnings: list[str] = field(default_factory=list)
     staged_tokens: set[str] = field(default_factory=set)
     profile_id: str = ""
+    project_name: str = ""
     remove_empty_root: bool = False
 
     def write(self, path: Path, content: str | bytes) -> None:
@@ -118,6 +119,34 @@ def validate_profile_id(profile_id: Any) -> str:
     return value
 
 
+def _context_project_name(context: Any | None) -> str:
+    return str(projects.get_context_project_name(context) or "") if context else ""
+
+
+def _profile_root(profile_id: str, project_name: str = "") -> Path:
+    return (
+        Path(projects.get_project_meta(project_name, "agents", profile_id))
+        if project_name
+        else USER_AGENTS_ROOT / profile_id
+    )
+
+
+def _scope_has_files(root: Path) -> bool:
+    return root.is_dir() and any(
+        path.is_file() or path.is_symlink() for path in root.rglob("*")
+    )
+
+
+def _scope_owns_custom_profile(profile_id: str, project_name: str) -> bool:
+    if not _profile_root(profile_id, project_name).is_dir():
+        return False
+    if (Path(files.get_abs_path(subagents.DEFAULT_AGENTS_DIR)) / profile_id).is_dir():
+        return False
+    if any(Path(path).is_dir() for path in plugins.get_plugin_paths("agents", profile_id)):
+        return False
+    return not project_name or not (USER_AGENTS_ROOT / profile_id).is_dir()
+
+
 def profile_exists(profile_id: str, context: Any | None = None) -> bool:
     agent = EditorAgent(profile_id, context)
     if (Path(files.get_abs_path(subagents.DEFAULT_AGENTS_DIR)) / profile_id).is_dir():
@@ -126,7 +155,7 @@ def profile_exists(profile_id: str, context: Any | None = None) -> bool:
         return True
     if any(Path(path).is_dir() for path in plugins.get_plugin_paths("agents", profile_id)):
         return True
-    project_name = projects.get_context_project_name(agent.context) or ""
+    project_name = _context_project_name(agent.context)
     return bool(
         project_name
         and Path(projects.get_project_meta(project_name, "agents", profile_id)).is_dir()
@@ -134,10 +163,13 @@ def profile_exists(profile_id: str, context: Any | None = None) -> bool:
 
 
 def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
-    project_name = projects.get_context_project_name(context) if context else None
+    project_name = _context_project_name(context)
     resolved = subagents.get_agents_dict(project_name)
     names = set(resolved)
-    for root in (Path(files.get_abs_path("agents")), USER_AGENTS_ROOT):
+    roots = [Path(files.get_abs_path("agents")), USER_AGENTS_ROOT]
+    if project_name:
+        roots.append(Path(projects.get_project_meta(project_name, "agents")))
+    for root in roots:
         if root.is_dir():
             names.update(path.name for path in root.iterdir() if path.is_dir())
 
@@ -154,10 +186,10 @@ def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
                 "origin": state["origin"],
                 "origin_chain": state["origin_chain"],
                 "built_in": state["built_in"],
-                "has_user_overrides": state["has_user_overrides"],
+                "scope_has_overrides": state["scope_has_overrides"],
+                "deletable": state["deletable"],
                 "avatar": state["avatar"]["effective"],
                 "avatar_url": effective_avatar_url(profile_id, context),
-                "project_override_active": state["project_override_active"],
                 "enabled": bool(getattr(resolved.get(profile_id), "enabled", True)),
                 "available": profile_exists(profile_id, context),
             }
@@ -191,27 +223,21 @@ def build_editor_state(
                 "embedding": _model_identity(resolved.get("embedding_model")),
             }
         )
-    model_path = _profile_config_path(profile_id, "_model_config")
-    model_user = _read_mapping(model_path)
+    project_name = _context_project_name(agent.context)
+    model_path = _profile_config_path(profile_id, "_model_config", project_name)
+    model_scope = _read_mapping(model_path)
     selected = model_config.get_configured_preset_name(agent=agent)
 
-    tool_path = _profile_config_path(profile_id, tool_policy.PLUGIN_NAME)
-    skill_path = _profile_config_path(profile_id, skills.ACTIVE_SKILLS_PLUGIN_NAME)
-    tool_user = _read_mapping(tool_path)
-    project_name = projects.get_context_project_name(agent.context) or ""
-    tool_source = (
-        plugins.find_plugin_asset(
-            tool_policy.PLUGIN_NAME,
-            plugins.CONFIG_FILE_NAME,
-            project_name=project_name,
-            agent_profile=profile_id,
-        )
-        if project_name
-        else None
+    tool_path = _profile_config_path(profile_id, tool_policy.PLUGIN_NAME, project_name)
+    skill_path = _profile_config_path(
+        profile_id,
+        skills.ACTIVE_SKILLS_PLUGIN_NAME,
+        project_name,
     )
-    skill_user = _read_mapping(skill_path)
+    tool_scope = _read_mapping(tool_path)
+    skill_scope = _read_mapping(skill_path)
     skill_policy = skills.normalize_visibility_policy(
-        skill_user.get("visibility_policy")
+        skill_scope.get("visibility_policy")
     )
     effective_skill_policy = skills.get_visibility_policy(agent)
     skill_catalog = [
@@ -255,23 +281,22 @@ def build_editor_state(
         "profile": build_profile_state(profile_id, context),
         "prompts": prompt_files,
         "tools": {
-            "policy": tool_policy.normalize_policy(tool_user),
-            "has_override": any(key in tool_user for key in _POLICY_KEYS),
-            "project_override_active": bool(
-                tool_source and tool_source.get("project_name")
-            ),
+            "policy": tool_policy.normalize_policy(tool_scope),
+            "effective_policy": tool_policy.get_policy(agent),
+            "has_override": any(key in tool_scope for key in _POLICY_KEYS),
             "catalog": tool_catalog,
         },
         "skills": {
             "policy": skill_policy,
-            "has_override": "visibility_policy" in skill_user,
+            "effective_policy": effective_skill_policy,
+            "has_override": "visibility_policy" in skill_scope,
             "catalog": skill_catalog,
         },
         "model_presets": presets,
         "model_preset": {
             "effective": selected,
-            "override": model_user.get(model_config.MODEL_PRESET_CONFIG_KEY),
-            "has_override": model_config.MODEL_PRESET_CONFIG_KEY in model_user,
+            "override": model_scope.get(model_config.MODEL_PRESET_CONFIG_KEY),
+            "has_override": model_config.MODEL_PRESET_CONFIG_KEY in model_scope,
         },
     }
 
@@ -287,8 +312,8 @@ def build_profile_state(
         "origin": metadata.pop("origin"),
         "origin_chain": metadata.pop("origin_chain"),
         "built_in": metadata.pop("built_in"),
-        "has_user_overrides": metadata.pop("has_user_overrides"),
-        "project_override_active": metadata.pop("project_override_active"),
+        "scope_has_overrides": metadata.pop("scope_has_overrides"),
+        "deletable": metadata.pop("deletable"),
         "metadata": metadata,
         "avatar_url": effective_avatar_url(profile_id, context),
     }
@@ -296,29 +321,28 @@ def build_profile_state(
 
 def metadata_state(profile_id: str, context: Any | None = None) -> dict[str, Any]:
     layers = _metadata_layers(profile_id, context)
-    user_layer = next((layer for layer in layers if layer.kind == "user"), None)
-    lower_layers = [
-        layer for layer in layers if layer.kind not in {"user", "project"}
-    ]
+    project_name = _context_project_name(context)
+    scope_kind = "project" if project_name else "user"
+    scope_layer = next((layer for layer in layers if layer.kind == scope_kind), None)
+    lower_layers = [layer for layer in layers if layer.kind != scope_kind]
     state: dict[str, Any] = {}
     for key in METADATA_KEYS:
-        effective, source, source_kind = _layer_value(layers, key)
+        effective, source, _ = _layer_value(layers, key)
         inherited, inherited_source, _ = _layer_value(lower_layers, key)
         state[key] = {
             "effective": effective,
             "override": (
-                user_layer.data.get(key)
-                if user_layer and key in user_layer.data
+                scope_layer.data.get(key)
+                if scope_layer and key in scope_layer.data
                 else None
             ),
-            "has_override": bool(user_layer and key in user_layer.data),
+            "has_override": bool(scope_layer and key in scope_layer.data),
             "source": _relative_source(source),
             "inherited": inherited,
             "inherited_source": _relative_source(inherited_source),
-            "project_override_active": source_kind == "project",
         }
 
-    user_dir = USER_AGENTS_ROOT / profile_id
+    scope_root = _profile_root(profile_id, project_name)
     built_in = (Path(files.get_abs_path("agents")) / profile_id).is_dir()
     plugin_origin = any(layer.kind == "plugin" for layer in layers)
     state.update(
@@ -326,10 +350,8 @@ def metadata_state(profile_id: str, context: Any | None = None) -> dict[str, Any
             "origin": "Built-in" if built_in else "Plugin" if plugin_origin else "Custom",
             "origin_chain": list(dict.fromkeys(layer.kind for layer in layers)),
             "built_in": built_in,
-            "has_user_overrides": user_dir.is_dir() and any(user_dir.iterdir()),
-            "project_override_active": any(
-                layer.kind == "project" for layer in layers
-            ),
+            "scope_has_overrides": _scope_has_files(scope_root),
+            "deletable": _scope_owns_custom_profile(profile_id, project_name),
         }
     )
     return state
@@ -345,8 +367,8 @@ def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
         if path.is_file() and path.name not in NON_PROMPT_MARKDOWN
     }
     names.add(SPECIFICS_FILE)
-    user_prompt_dir = USER_AGENTS_ROOT / agent.config.profile / "prompts"
-    project_name = projects.get_context_project_name(agent.context) or ""
+    project_name = _context_project_name(agent.context)
+    scope_prompt_dir = _profile_root(agent.config.profile, project_name) / "prompts"
     project_root = (
         Path(projects.get_project_meta(project_name)) if project_name else None
     )
@@ -356,34 +378,32 @@ def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
         for root in roots:
             path = root / name
             if path.is_file():
-                kind, label = _prompt_source(root, user_prompt_dir, project_root)
+                kind, label = _prompt_source(root, scope_prompt_dir, project_root)
                 occurrences.append((path, kind, label))
 
         effective = occurrences[0] if occurrences else None
-        user = next((item for item in occurrences if item[1] == "user"), None)
+        override = next((item for item in occurrences if item[1] == "scope"), None)
         inherited = next(
             (
                 item
                 for item in occurrences
-                if item[1] not in {"user", "project"}
+                if item[1] != "scope"
             ),
             None,
         )
         effective_text, effective_error = _prompt_text(effective[0] if effective else None)
-        user_text, user_error = _prompt_text(user[0] if user else None)
+        override_text, override_error = _prompt_text(override[0] if override else None)
         inherited_text, inherited_error = _prompt_text(
             inherited[0] if inherited else None
         )
         group_number, group_label = _prompt_group(name)
         source_kind = effective[1] if effective else ""
-        if effective_error or user_error or inherited_error:
+        if effective_error or override_error or inherited_error:
             state = "Conflict"
-        elif source_kind == "project":
-            state = "Project override active"
-        elif user:
+        elif override:
             state = (
                 "Overridden here (empty)"
-                if user_text == ""
+                if override_text == ""
                 else "Overridden here"
             )
         elif source_kind == "plugin":
@@ -402,8 +422,8 @@ def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
                 "group_label": group_label,
                 "state": state,
                 "effective": effective_text,
-                "override": user_text if user else None,
-                "has_override": bool(user),
+                "override": override_text if override else None,
+                "has_override": bool(override),
                 "inherited": inherited_text,
                 "source": _relative_source(effective[0] if effective else None),
                 "inherited_source": _relative_source(
@@ -412,9 +432,8 @@ def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
                 "source_chain": [
                     label for _, _, label in reversed(occurrences)
                 ],
-                "project_override_active": source_kind == "project",
                 "preview": preview,
-                "error": effective_error or user_error or inherited_error,
+                "error": effective_error or override_error or inherited_error,
                 "dynamic_processor": any(
                     (root / f"{Path(name).stem}.py").is_file() for root in roots
                 ),
@@ -443,7 +462,7 @@ def effective_avatar_url(profile_id: str, context: Any | None = None) -> str:
         "profile_id": profile_id,
         "v": str(path.stat().st_mtime_ns),
     }
-    project_name = projects.get_context_project_name(context) if context else ""
+    project_name = _context_project_name(context)
     if project_name:
         query["project_name"] = project_name
     return "/api/plugins/_agent_editor/agent_editor_avatar?" + urlencode(query)
@@ -461,7 +480,7 @@ def _metadata_layers(profile_id: str, context: Any | None) -> list[ProfileLayer]
         directories.append(("plugin", Path(directory)))
     directories.append(("user", USER_AGENTS_ROOT / profile_id))
 
-    project_name = projects.get_context_project_name(agent.context) or ""
+    project_name = _context_project_name(agent.context)
     if project_name:
         directories.append(
             (
@@ -511,10 +530,10 @@ def _layer_value(
 
 
 def _prompt_source(
-    root: Path, user_prompt_dir: Path, project_root: Path | None
+    root: Path, scope_prompt_dir: Path, project_root: Path | None
 ) -> tuple[str, str]:
-    if root.resolve() == user_prompt_dir.resolve():
-        return "user", "Your override"
+    if root.resolve() == scope_prompt_dir.resolve():
+        return "scope", "Your override"
     if project_root and files.is_in_dir(str(root), str(project_root)):
         return "project", f"Project · {project_root.parent.name}"
     plugin = plugins.get_plugin_name_from_path(root)
@@ -558,11 +577,15 @@ def _model_identity(value: Any) -> dict[str, str]:
     }
 
 
-def _profile_config_path(profile_id: str, plugin_name: str) -> Path:
+def _profile_config_path(
+    profile_id: str,
+    plugin_name: str,
+    project_name: str = "",
+) -> Path:
     return Path(
         plugins.determine_plugin_asset_path(
             plugin_name,
-            "",
+            project_name,
             profile_id,
             plugins.CONFIG_FILE_NAME,
         )
@@ -639,6 +662,8 @@ def build_change_plan(
         raise ValueError("The save patch must be an object.")
 
     profile_id = validate_profile_id(patch.get("profile_id"))
+    project_name = _context_project_name(context)
+    profile_root = _profile_root(profile_id, project_name)
     creating = bool(patch.get("creating"))
     easy = str(patch.get("editor_mode") or "advanced").lower() == "easy"
     exists = profile_exists(profile_id, context)
@@ -650,7 +675,7 @@ def build_change_plan(
     if not creating and not exists:
         raise ValueError(f'Agent profile "{profile_id}" does not exist.')
 
-    plan = ChangePlan(profile_id=profile_id)
+    plan = ChangePlan(profile_id=profile_id, project_name=project_name)
     if "metadata" in patch:
         _plan_metadata(plan, patch["metadata"], context, creating=creating)
     if "prompts" in patch:
@@ -669,10 +694,10 @@ def build_change_plan(
         _plan_skill_policy(plan, patch["skill_policy"])
 
     if creating:
-        metadata = _planned_mapping(plan, USER_AGENTS_ROOT / profile_id / "agent.yaml")
+        metadata = _planned_mapping(plan, profile_root / "agent.yaml")
         if not str(metadata.get("title") or "").strip():
             raise ValueError("Agent name is required.")
-        specifics = USER_AGENTS_ROOT / profile_id / "prompts" / SPECIFICS_FILE
+        specifics = profile_root / "prompts" / SPECIFICS_FILE
         change = plan.changes.get(specifics)
         if not change or change.action != "write" or not (change.content or b"").strip():
             raise ValueError("Instructions are required for a new agent.")
@@ -697,8 +722,9 @@ def _plan_metadata(
         raise ValueError("A metadata field cannot be set and reset in one save.")
 
     profile_id = plan.profile_id
-    yaml_path = USER_AGENTS_ROOT / profile_id / "agent.yaml"
-    legacy_path = USER_AGENTS_ROOT / profile_id / "agent.json"
+    profile_root = _profile_root(profile_id, plan.project_name)
+    yaml_path = profile_root / "agent.yaml"
+    legacy_path = profile_root / "agent.json"
     data = _read_mapping_strict(
         yaml_path if yaml_path.is_file() else legacy_path,
         "profile metadata",
@@ -709,7 +735,7 @@ def _plan_metadata(
     for key in reset_values:
         data.pop(key, None)
         if key == "avatar" and _editor_image_avatar(current_user_avatar):
-            plan.delete(USER_AGENTS_ROOT / profile_id / "assets" / "avatar.webp")
+            plan.delete(profile_root / "assets" / "avatar.webp")
 
     for key, raw in set_values.items():
         if key in {"title", "description", "context"}:
@@ -723,7 +749,7 @@ def _plan_metadata(
             if normalized.get("kind") == "color" and _editor_image_avatar(
                 current_user_avatar
             ):
-                plan.delete(USER_AGENTS_ROOT / profile_id / "assets" / "avatar.webp")
+                plan.delete(profile_root / "assets" / "avatar.webp")
 
         inherited = state[key]["inherited"]
         if not creating and normalized == inherited:
@@ -773,7 +799,7 @@ def _plan_prompts(
                 "Restore original instructions."
             )
         item = catalog[filename]
-        path = USER_AGENTS_ROOT / plan.profile_id / "prompts" / filename
+        path = _profile_root(plan.profile_id, plan.project_name) / "prompts" / filename
         if (
             not creating
             and item.get("inherited_source")
@@ -786,13 +812,15 @@ def _plan_prompts(
     if total > MAX_PROMPTS_BYTES:
         raise ValueError("The combined prompt changes are too large.")
     for filename in reset_values:
-        plan.delete(USER_AGENTS_ROOT / plan.profile_id / "prompts" / filename)
+        plan.delete(
+            _profile_root(plan.profile_id, plan.project_name) / "prompts" / filename
+        )
 
 
 def _plan_model_preset(plan: ChangePlan, value: Any) -> None:
     section = _mapping(value, "model_preset")
     mode = str(section.get("mode") or "inherit").strip().lower()
-    path = _profile_config_path(plan.profile_id, "_model_config")
+    path = _profile_config_path(plan.profile_id, "_model_config", plan.project_name)
     data = _read_mapping_strict(path, "model preset configuration")
 
     from plugins._model_config.helpers import model_config
@@ -813,7 +841,11 @@ def _plan_model_preset(plan: ChangePlan, value: Any) -> None:
 def _plan_tool_policy(plan: ChangePlan, value: Any) -> None:
     section = _mapping(value, "tool_policy")
     mode = str(section.get("mode") or "inherit").strip().lower()
-    path = _profile_config_path(plan.profile_id, tool_policy.PLUGIN_NAME)
+    path = _profile_config_path(
+        plan.profile_id,
+        tool_policy.PLUGIN_NAME,
+        plan.project_name,
+    )
     data = _read_mapping_strict(path, "tool policy configuration")
 
     if mode == "inherit":
@@ -840,7 +872,11 @@ def _plan_tool_policy(plan: ChangePlan, value: Any) -> None:
 def _plan_skill_policy(plan: ChangePlan, value: Any) -> None:
     section = _mapping(value, "skill_policy")
     mode = str(section.get("mode") or "inherit").strip().lower()
-    path = _profile_config_path(plan.profile_id, skills.ACTIVE_SKILLS_PLUGIN_NAME)
+    path = _profile_config_path(
+        plan.profile_id,
+        skills.ACTIVE_SKILLS_PLUGIN_NAME,
+        plan.project_name,
+    )
     data = _read_mapping_strict(path, "skill policy configuration")
 
     if mode == "inherit":
@@ -878,7 +914,9 @@ def _normalize_avatar(plan: ChangePlan, value: Any) -> dict[str, str]:
             if not source.is_file():
                 raise ValueError("The staged avatar has expired. Upload it again.")
             plan.write(
-                USER_AGENTS_ROOT / plan.profile_id / "assets" / "avatar.webp",
+                _profile_root(plan.profile_id, plan.project_name)
+                / "assets"
+                / "avatar.webp",
                 source.read_bytes(),
             )
             plan.staged_tokens.add(token)
@@ -949,7 +987,15 @@ def _editor_image_avatar(value: Any) -> bool:
 
 
 def apply_change_plan(plan: ChangePlan) -> dict[str, Any]:
-    root = USER_AGENTS_ROOT / validate_profile_id(plan.profile_id)
+    project_name = (
+        projects.validate_project_name(plan.project_name) if plan.project_name else ""
+    )
+    if project_name and not Path(projects.get_project_folder(project_name)).is_dir():
+        raise ValueError("Project not found.")
+    root = _profile_root(
+        validate_profile_id(plan.profile_id),
+        project_name,
+    )
     changes = sorted(plan.changes.values(), key=lambda item: str(item.path))
     _validate_plan_paths(root, changes)
     receipt = plan.response()
@@ -1011,7 +1057,7 @@ def plan_remove_changes(
     if not profile_exists(profile_id, context):
         raise ValueError(f'Agent profile "{profile_id}" does not exist.')
     if destructive:
-        return _full_delete_plan(profile_id)
+        return _full_delete_plan(profile_id, context)
 
     catalog = prompt_catalog(EditorAgent(profile_id, context))
     prompt_resets = [
@@ -1036,21 +1082,22 @@ def plan_remove_changes(
 def plan_delete_custom(profile_id: str, context: Any | None = None) -> ChangePlan:
     profile_id = validate_profile_id(profile_id)
     state = metadata_state(profile_id, context)
-    if state["origin"] != "Custom":
-        raise ValueError("Built-in and plugin-provided agents cannot be deleted.")
-    return _full_delete_plan(profile_id)
+    if not state["deletable"]:
+        raise ValueError("Only custom agents created in this scope can be deleted.")
+    return _full_delete_plan(profile_id, context)
 
 
 def delete_impact(profile_id: str, context: Any | None = None) -> dict[str, Any]:
     profile_id = validate_profile_id(profile_id)
     state = metadata_state(profile_id, context)
-    root = USER_AGENTS_ROOT / profile_id
+    project_name = _context_project_name(context)
+    root = _profile_root(profile_id, project_name)
     file_paths = [
         _relative_source(path)
         for path in sorted(root.rglob("*"))
         if path.is_file() or path.is_symlink()
     ] if root.is_dir() else []
-    references = _profile_reference_paths(profile_id)
+    references = _profile_reference_paths(profile_id, project_name)
     sessions: list[str] = []
     try:
         from agent import AgentContext
@@ -1060,15 +1107,22 @@ def delete_impact(profile_id: str, context: Any | None = None) -> dict[str, Any]
             for item in AgentContext.all()
             if str(getattr(getattr(item.agent0, "config", None), "profile", ""))
             == profile_id
+            and (
+                not project_name
+                or projects.get_context_project_name(item) == project_name
+            )
         ]
     except Exception:
         pass
 
-    model_config = _read_mapping(_profile_config_path(profile_id, "_model_config"))
+    model_config = _read_mapping(
+        _profile_config_path(profile_id, "_model_config", project_name)
+    )
     return {
         "profile_id": profile_id,
-        "deletable": state["origin"] == "Custom",
+        "deletable": state["deletable"],
         "origin": state["origin"],
+        "project_name": project_name,
         "files": file_paths,
         "project_references": references,
         "active_sessions": sessions,
@@ -1128,9 +1182,17 @@ def staged_avatar_path(token: str) -> Path:
     return STAGED_AVATAR_ROOT / f"{token}.webp"
 
 
-def _full_delete_plan(profile_id: str) -> ChangePlan:
-    root = USER_AGENTS_ROOT / profile_id
-    plan = ChangePlan(profile_id=profile_id, remove_empty_root=True)
+def _full_delete_plan(
+    profile_id: str,
+    context: Any | None = None,
+) -> ChangePlan:
+    project_name = _context_project_name(context)
+    root = _profile_root(profile_id, project_name)
+    plan = ChangePlan(
+        profile_id=profile_id,
+        project_name=project_name,
+        remove_empty_root=True,
+    )
     if not root.is_dir():
         return plan
     for path in sorted(root.rglob("*")):
@@ -1150,7 +1212,7 @@ def _validate_plan_paths(root: Path, changes: list[FileChange]) -> None:
             raise ValueError("Invalid change-plan action.")
         resolved = change.path.resolve(strict=False)
         if not files.is_in_dir(str(resolved), str(intended_root)):
-            raise ValueError("A planned path is outside the user profile directory.")
+            raise ValueError("A planned path is outside the selected profile directory.")
         cursor = change.path.parent
         while files.is_in_dir(str(cursor), str(intended_root)):
             if cursor.is_symlink():
@@ -1248,13 +1310,18 @@ def _cleanup_staged_avatars() -> None:
             pass
 
 
-def _profile_reference_paths(profile_id: str) -> list[str]:
-    roots = Path(files.get_abs_path("usr", "projects"))
-    if not roots.is_dir():
+def _profile_reference_paths(profile_id: str, project_name: str = "") -> list[str]:
+    root = (
+        Path(projects.get_project_meta(project_name))
+        if project_name
+        else Path(files.get_abs_path("usr", "projects"))
+    )
+    if not root.is_dir():
         return []
     references: list[str] = []
     for suffix in ("*.json", "*.yaml", "*.yml"):
-        for path in roots.glob(f"*/.a0proj/**/{suffix}"):
+        pattern = f"**/{suffix}" if project_name else f"*/.a0proj/**/{suffix}"
+        for path in root.glob(pattern):
             try:
                 if profile_id in path.read_text(encoding="utf-8"):
                     references.append(_relative_source(path))

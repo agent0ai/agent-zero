@@ -10,6 +10,7 @@ from werkzeug.datastructures import FileStorage
 
 from helpers import yaml as yaml_helper
 from plugins._agent_editor.api.agent_editor import AgentEditor
+from plugins._agent_editor.api.agent_editor import _context as editor_context
 from plugins._agent_editor.api.agent_editor_avatar import AgentEditorAvatar
 from plugins._agent_editor.helpers import editor
 
@@ -44,6 +45,34 @@ def user_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     monkeypatch.setattr(editor.plugins, "clear_plugin_cache", lambda _names: None)
     return root
+
+
+@pytest.fixture
+def project_scope(
+    user_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[editor._EditorContext, Path]:
+    project_folder = tmp_path / "usr" / "projects" / "demo"
+    project_meta = project_folder / ".a0proj"
+    project_meta.mkdir(parents=True)
+    real_folder = editor.projects.get_project_folder
+    real_meta = editor.projects.get_project_meta
+    monkeypatch.setattr(
+        editor.projects,
+        "get_project_folder",
+        lambda name: str(project_folder) if name == "demo" else real_folder(name),
+    )
+    monkeypatch.setattr(
+        editor.projects,
+        "get_project_meta",
+        lambda name, *parts: (
+            str(project_meta.joinpath(*parts))
+            if name == "demo"
+            else real_meta(name, *parts)
+        ),
+    )
+    return editor._EditorContext("demo"), project_meta / "agents"
 
 
 def _write_manual_files(root: Path) -> dict[Path, bytes]:
@@ -339,25 +368,20 @@ def test_model_and_off_tool_choices_write_only_their_json_contracts(
     }
 
 
-def test_project_tool_policy_is_visible_but_editor_plan_stays_in_user_profile(
-    user_root: Path,
+def test_project_tool_policy_reads_effective_access_and_writes_project_scope(
+    project_scope: tuple[editor._EditorContext, Path],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    real_find = editor.plugins.find_plugin_asset
-
-    def find_plugin_asset(plugin_name, *parts, **scope):
-        if plugin_name == editor.tool_policy.PLUGIN_NAME:
-            return {
-                "path": "/project/.a0proj/plugins/_tool_access/config.json",
-                "project_name": "demo",
-                "agent_profile": "",
-            }
-        return real_find(plugin_name, *parts, **scope)
-
-    monkeypatch.setattr(editor.plugins, "find_plugin_asset", find_plugin_asset)
     monkeypatch.setattr(editor.tool_policy, "get_tool_catalog", lambda _agent: [])
+    effective_policy = {
+        "mode": "custom",
+        "default": "allow",
+        "allowed": [],
+        "blocked": ["local:shell"],
+    }
+    monkeypatch.setattr(editor.tool_policy, "get_policy", lambda _agent: effective_policy)
     monkeypatch.setattr(editor.skills, "list_skill_catalog", lambda agent=None: [])
-    context = editor._EditorContext("demo")
+    context, project_agents = project_scope
 
     state = editor.build_editor_state("researcher", context)
     plan = editor.build_change_plan(
@@ -368,10 +392,104 @@ def test_project_tool_policy_is_visible_but_editor_plan_stays_in_user_profile(
         context,
     )
 
-    assert state["tools"]["project_override_active"] is True
+    assert state["tools"]["has_override"] is False
+    assert state["tools"]["effective_policy"] == effective_policy
     assert list(plan.changes) == [
-        user_root / "researcher" / "plugins" / "_tool_access" / "config.json"
+        project_agents
+        / "researcher"
+        / "plugins"
+        / "_tool_access"
+        / "config.json"
     ]
+
+
+def test_project_agents_are_scope_owned_and_never_leak_global_writes(
+    user_root: Path,
+    project_scope: tuple[editor._EditorContext, Path],
+) -> None:
+    context, project_agents = project_scope
+    profile_id = "project-helper"
+    plan = editor.build_change_plan(
+        {
+            "profile_id": profile_id,
+            "creating": True,
+            "editor_mode": "easy",
+            "metadata": {"set": {"title": "Project Helper"}, "reset": []},
+            "prompts": {
+                "set": {editor.SPECIFICS_FILE: "Help only this project."},
+                "reset": [],
+            },
+        },
+        context,
+    )
+
+    assert plan.project_name == "demo"
+    assert all(path.is_relative_to(project_agents / profile_id) for path in plan.changes)
+    assert not (user_root / profile_id).exists()
+    editor.apply_change_plan(plan)
+
+    state = editor.build_profile_state(profile_id, context)
+    assert state["scope_has_overrides"] is True
+    assert state["deletable"] is True
+    assert any(item["id"] == profile_id for item in editor.list_profiles(context))
+    assert all(item["id"] != profile_id for item in editor.list_profiles())
+
+    delete = editor.plan_delete_custom(profile_id, context)
+    assert delete.project_name == "demo"
+    editor.apply_change_plan(delete)
+    assert not (project_agents / profile_id).exists()
+
+
+def test_project_customizations_inherit_global_agent_and_remove_only_project_files(
+    user_root: Path,
+    project_scope: tuple[editor._EditorContext, Path],
+) -> None:
+    context, project_agents = project_scope
+    global_profile = user_root / "shared-helper"
+    global_profile.mkdir(parents=True)
+    (global_profile / "agent.yaml").write_text(
+        "title: Shared Helper\ndescription: Global description\n",
+        encoding="utf-8",
+    )
+
+    inherited = editor.build_profile_state("shared-helper", context)
+    assert inherited["metadata"]["description"]["effective"] == "Global description"
+    assert inherited["scope_has_overrides"] is False
+    assert inherited["deletable"] is False
+    with pytest.raises(ValueError, match="created in this scope"):
+        editor.plan_delete_custom("shared-helper", context)
+
+    plan = editor.build_change_plan(
+        {
+            "profile_id": "shared-helper",
+            "metadata": {"set": {"description": "Project description"}, "reset": []},
+        },
+        context,
+    )
+    project_yaml = project_agents / "shared-helper" / "agent.yaml"
+    assert list(plan.changes) == [project_yaml]
+    editor.apply_change_plan(plan)
+    assert editor.build_profile_state("shared-helper", context)["deletable"] is False
+
+    reset = editor.plan_remove_changes("shared-helper", context)
+    assert list(reset.changes) == [project_yaml]
+    editor.apply_change_plan(reset)
+    assert yaml_helper.loads((global_profile / "agent.yaml").read_text())["description"] == "Global description"
+
+
+def test_project_scope_is_validated_at_api_and_apply_boundaries(
+    user_root: Path,
+    project_scope: tuple[editor._EditorContext, Path],
+) -> None:
+    context, _project_agents = project_scope
+    assert editor.projects.get_context_project_name(editor_context({"project_name": "demo"})) == "demo"
+    with pytest.raises(ValueError, match="Project not found"):
+        editor_context({"project_name": "missing-agent-editor-project"})
+
+    forged = editor.ChangePlan(profile_id="researcher", project_name="demo")
+    forged.write(user_root / "researcher" / "agent.yaml", "title: Wrong scope\n")
+    with pytest.raises(ValueError, match="outside the selected profile directory"):
+        editor.apply_change_plan(forged)
 
 
 def test_unavailable_skill_policy_ids_are_retained_in_editor_state(
@@ -425,7 +543,7 @@ def test_unavailable_skill_policy_ids_are_retained_in_editor_state(
 def test_display_title_change_keeps_profile_id_and_builtin_delete_is_rejected(
     user_root: Path,
 ) -> None:
-    with pytest.raises(ValueError, match="cannot be deleted"):
+    with pytest.raises(ValueError, match="created in this scope"):
         editor.plan_delete_custom("researcher")
 
     plan = editor.build_change_plan(
@@ -584,7 +702,7 @@ def test_mixed_save_matches_plan_preserves_every_unrelated_family_and_refreshes_
     assert all(path.read_bytes() == payload for path, payload in manual_files.items())
 
 
-def test_empty_prompt_override_and_project_precedence_are_distinct(
+def test_empty_prompt_override_and_selected_project_scope_are_distinct(
     user_root: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -637,10 +755,9 @@ def test_empty_prompt_override_and_project_precedence_are_distinct(
     assert empty["state"] == "Overridden here (empty)"
     assert empty["has_override"] is True
     assert empty["effective"] == ""
-    assert project["state"] == "Project override active"
-    assert project["project_override_active"] is True
+    assert project["state"] == "Overridden here"
     assert project["effective"] == "project"
-    assert project["source_chain"][-2:] == ["Your override", "Project · project"]
+    assert project["source_chain"][-2:] == ["Global", "Your override"]
 
     reset = editor.build_change_plan(
         {
