@@ -245,7 +245,7 @@ export const ONBOARDING_PROVIDER_OVERRIDES = {
   trustedrouter: {
     logo: "https://trustedrouter.com/favicon.ico",
     setup_url: "https://trustedrouter.com/",
-    api_key_url: "https://trustedrouter.com/console/keys",
+    api_key_url: "https://trustedrouter.com/console/api-keys",
     docs_url: "https://trustedrouter.com/docs",
     default_chat_model: "trustedrouter/auto",
     default_utility_model: "trustedrouter/auto",
