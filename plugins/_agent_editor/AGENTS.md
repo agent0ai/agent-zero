@@ -27,6 +27,18 @@
   provenance and shown as higher priority; the editor still writes only the
   user-profile scope.
 - Bundled `agents/` files are read-only.
+- Advanced prompt text is directly editable; per-file close/check actions
+  discard or accept the current edit checkpoint, while the editor's global save
+  remains the only persistence boundary.
+- The configurable tool catalog is visible in both modes; Easy provides direct
+  allow/block checkboxes and points to Advanced for skill access. Skills remain
+  Advanced-only. Advanced keeps both complete selectors visible but disabled
+  for inherited access and interactive for custom access. Framework-required
+  tools remain absent from the tool catalog.
+- Model selection reuses `_model_config`'s compact preset dropdown and preset
+  editor; Agent Editor persists only the scoped preset reference.
+- The WebUI uses the shared modal stack, labeled prompt scroll regions, and
+  24px-or-larger policy and text-action targets.
 
 ## Verification
 

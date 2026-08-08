@@ -520,6 +520,26 @@ def test_remove_my_changes_preserves_manual_and_unknown_files(
     assert json.loads(tool_config.read_text()) == {"manual": True}
 
 
+def test_destructive_cleanup_deletes_only_its_enumerated_plan(
+    user_root: Path,
+) -> None:
+    root = user_root / "researcher"
+    planned_files = _write_manual_files(root)
+    agent_yaml = root / "agent.yaml"
+    agent_yaml.write_text("title: Mine\n", encoding="utf-8")
+    planned_files[agent_yaml] = agent_yaml.read_bytes()
+
+    plan = editor.plan_remove_changes("researcher", destructive=True)
+    assert set(plan.changes) == set(planned_files)
+
+    unplanned = root / "created-after-plan.txt"
+    unplanned.write_text("keep", encoding="utf-8")
+    editor.apply_change_plan(plan)
+
+    assert all(not path.exists() for path in planned_files)
+    assert unplanned.read_text(encoding="utf-8") == "keep"
+
+
 def test_mixed_save_matches_plan_preserves_every_unrelated_family_and_refreshes_cache(
     user_root: Path,
     monkeypatch: pytest.MonkeyPatch,

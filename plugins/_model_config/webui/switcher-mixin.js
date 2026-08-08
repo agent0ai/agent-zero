@@ -1,6 +1,14 @@
 import { callJsonApi, fetchApi } from "/js/api.js";
 
 const API_BASE = "/plugins/_model_config";
+const BUILT_IN_AGENT_COLORS = {
+  agent0: "#8E44AD",
+  default: "#D35400",
+  developer: "#202124",
+  hacker: "#C0392B",
+  researcher: "#6C5CE7",
+  "tiny-local": "#E67E22",
+};
 function normalizeModelIdentity(value) {
   if (!value || typeof value !== "object") return null;
   const provider = String(value.provider || "").trim();
@@ -127,7 +135,9 @@ export const switcherMethods = {
     for (const char of profileKey || label) hash = ((hash * 31) + char.charCodeAt(0)) >>> 0;
     return {
       url: profile.avatarUrl || "",
-      color: profile.avatar?.kind === "color" ? profile.avatar.value : palette[hash % palette.length],
+      color: profile.avatar?.kind === "color"
+        ? profile.avatar.value
+        : BUILT_IN_AGENT_COLORS[profileKey] || palette[hash % palette.length],
       initials: label.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase() || "A",
     };
   },
