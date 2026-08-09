@@ -1,17 +1,9 @@
 from agent import AgentContext
-from helpers import subagents
+from helpers import projects, subagents
 from helpers.api import ApiHandler, Request, Response
 from helpers.persist_chat import save_tmp_chat
 from helpers.state_monitor_integration import mark_dirty_for_context
 from initialize import initialize_agent
-
-
-def _agent_profile_labels() -> dict[str, str]:
-    return {
-        str(item.get("key") or ""): str(item.get("label") or item.get("key") or "")
-        for item in subagents.get_all_agents_list()
-        if item.get("key")
-    }
 
 
 class SetAgentProfile(ApiHandler):
@@ -33,8 +25,11 @@ class SetAgentProfile(ApiHandler):
                 response="Agent profile can be changed after the current run finishes.",
             )
 
-        labels = _agent_profile_labels()
-        if profile not in labels:
+        profiles = subagents.get_available_agents_dict(
+            projects.get_context_project_name(context)
+        )
+        selected_profile = profiles.get(profile)
+        if selected_profile is None:
             return Response(status=404, response=f"Agent profile '{profile}' not found")
 
         config = initialize_agent(override_settings={"agent_profile": profile})
@@ -46,5 +41,5 @@ class SetAgentProfile(ApiHandler):
         return {
             "ok": True,
             "agent_profile": profile,
-            "agent_profile_label": labels.get(profile, profile),
+            "agent_profile_label": selected_profile.title or profile,
         }

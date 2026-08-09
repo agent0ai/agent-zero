@@ -26,6 +26,7 @@ SWITCHER_MIXIN = ROOT / "plugins" / "_model_config" / "webui" / "switcher-mixin.
 
 def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls() -> None:
     modal = MODAL.read_text(encoding="utf-8")
+    store = STORE.read_text(encoding="utf-8")
     switcher = SWITCHER.read_text(encoding="utf-8")
     tool_section = re.search(
         r'data-agent-editor-section="3".*?(?=<section x-show="\$store\.agentEditor\.section === \'4\'")',
@@ -55,7 +56,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert all(
         label in modal
         for label in (
-            "Identity & models",
+            "Identity",
             "Prompt files",
             "Tools",
             "Skills",
@@ -100,9 +101,31 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'x-for="project in $store.agentEditor.projects"' in modal
     assert 'x-show="profile.deletable"' in modal
     assert 'x-show="profile.scope_has_overrides"' in modal
+    assert 'class="agent-customized-indicator"' in modal
+    assert 'title="Customized"' in modal
+    assert 'class="button agent-manager-create"' in modal
+    assert 'class="active-agent-display"' in modal
+    assert 'class="button icon-button" title="Edit"' in modal
+    assert 'class="text-button agent-manager-inline-action"' in modal
+    inline_action_style = re.search(
+        r"\.agent-editor \.agent-manager-inline-action\s*\{([^}]*)\}", modal
+    ).group(1)
+    assert "color:var(--color-message-text)" in inline_action_style
+    assert ".agent-editor .agent-manager-inline-action:hover:not(:disabled)" in modal
+    assert ':disabled="!!$store.agentEditor.duplicatingProfile"' in modal
+    assert ':aria-label="`Duplicate ${profile.title || profile.id}`"' in modal
+    assert "$store.agentEditor.duplicateProfile(profile)" in modal
+    assert 'class="toggle agent-profile-availability"' in modal
+    assert ':disabled="$store.agentEditor.profileAvailabilitySaving"' in modal
+    assert "Default is always available" not in modal
+    assert "$store.agentEditor.setProfileEnabled(profile, $event.target.checked)" in modal
+    assert "agent-profile-availability" not in store
+    assert "activateProfile(profile.id)" not in modal
+    assert 'class="button cancel icon-button" x-show="profile.deletable"' in modal
     assert "project_override_active" not in modal
     assert "profile.origin === 'Custom'" not in modal
-    assert "Scope:" in modal
+    assert "Agent scope" not in modal
+    assert "Create agents and customize inherited profiles" not in modal
     assert "Unavailable — kept in your settings" in modal
     assert "Customize this file" not in modal
     assert 'role="tablist" aria-label="Prompt view"' in modal
@@ -143,15 +166,9 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'aria-label="Accept current edit"' in modal
     assert ':readonly="!$store.agentEditor.isPromptEditing' not in modal
     assert ".prompt-pane textarea:focus-visible { outline-offset:-2px; }" in modal
-    assert all(
-        label in STORE.read_text(encoding="utf-8")
-        for label in (
-            "Model preset",
-            "Projects using this agent",
-            "Open chats using this agent",
-            "Saved settings",
-        )
-    )
+    store_source = STORE.read_text(encoding="utf-8")
+    assert "cannot be recovered" in store_source
+    assert "deletionImpactHtml" not in store_source
     assert "agent-profile-avatar" in switcher
     assert '<button type="button" class="model-switcher-item agent-profile-item"' in switcher
     assert '<div class="model-switcher-item agent-profile-item"' not in switcher
@@ -163,15 +180,16 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert ".easy-tool-summary" not in modal
     assert "grid-template-columns:minmax(0,1fr) 2.5rem minmax(0,1fr)" in modal
     assert ".policy-lists .policy-transfer-actions { flex-direction:row; }" in modal
-    store_source = STORE.read_text(encoding="utf-8")
     assert "easyToolsOpen" not in store_source
     assert "easySkills" not in store_source
     assert "get toolMode" not in store_source
     assert "get easyTools" not in store_source
     assert "firstSentence" not in store_source
     assert '.agent-editor [aria-invalid="true"]' not in modal
-    assert ".field-error { display:block; color:var(--color-text-secondary)" in modal
+    assert ".field-error { display:block; color:var(--color-text)" in modal
+    assert ".prompt-pane { min-width:0; min-height:0;" in modal
     assert 'callJsonApi("/plugins/_agent_editor/agent_editor"' in switcher_mixin
+    assert "profile.enabled !== false" in switcher_mixin
     assert "@keydown.ctrl.s.prevent" in modal
     assert "@media (max-width: 760px)" in modal
     assert modal.count("data-modal-footer") == 1
@@ -199,9 +217,19 @@ def test_local_slugging_and_fresh_chat_profile_selection_are_deterministic() -> 
     harness = r"""
 const calls = [];
 const confirmations = [];
+let setEnabledHandler = null;
 const createStore = (_name, value) => value;
 const callJsonApi = async (endpoint, payload) => {
   calls.push({ endpoint, payload });
+  if (payload?.action === "set_enabled") return setEnabledHandler
+    ? setEnabledHandler(payload)
+    : { ok: true, active_profile: "default", active_profile_label: "Default" };
+  if (payload?.action === "duplicate") return {
+    ok: true,
+    profile_id: "researcher-1",
+    title: "Researcher 1",
+    profiles: [{ id: "researcher" }, { id: "researcher-1" }],
+  };
   return endpoint === "/chat_create" ? { ok: true, ctxid: "fresh-chat" } : { ok: true };
 };
 const fetchApi = async () => ({ ok: true, json: async () => ({}) });
@@ -210,10 +238,15 @@ const openModal = async () => {};
 const showConfirmDialog = async options => { confirmations.push(options); return false; };
 const chatsStore = {
   selected: "old-chat",
+  selectedContext: { project: { name: "demo" }, agent_profile: "researcher" },
   selectChat: async (id) => calls.push({ endpoint: "selectChat", payload: id }),
 };
 const modelConfigStore = {
-  loadAgentProfiles: async () => {},
+  loadAgentProfiles: async force => calls.push({ endpoint: "loadAgentProfiles", payload: force }),
+  selectAgentProfile: async (contextId, profileId) => {
+    calls.push({ endpoint: "selectAgentProfile", payload: { contextId, profileId } });
+    return true;
+  },
   getAgentProfileVisual: (_id, label) => ({ color: "#123456", url: "", initials: label?.[0] || "A" }),
 };
 globalThis.window = globalThis;
@@ -298,6 +331,43 @@ store.state.tools.effective_policy = { mode: "inherit", default: "block", allowe
 store.chooseTools();
 if (store.draft.toolPolicy.default !== "allow" || store.draft.toolPolicy.blocked.length) throw new Error("inactive inherited exceptions leaked into custom policy");
 store.projectName = "demo";
+store.intent = { ...store.intent, projectName: "demo" };
+if (!store.currentChatUsesScope() || !store.isProfileActive("researcher")) throw new Error("active project profile state mismatch");
+store.profiles = [{ id: "researcher", title: "Researcher", enabled: true }, { id: "default", title: "Default", enabled: true }];
+if (store.activeProfile()?.id !== "researcher") throw new Error("active profile summary mismatch");
+await store.setProfileEnabled(store.profiles[0], false);
+if (!calls.some(item => item.payload?.action === "set_enabled" && item.payload.profile_id === "researcher") || chatsStore.selectedContext.agent_profile !== "default") throw new Error("profile availability did not reconcile the active chat");
+if (!calls.some(item => item.endpoint === "loadAgentProfiles" && item.payload === true)) throw new Error("profile switcher did not refresh eagerly");
+let releaseFirstToggle;
+const firstToggleResponse = new Promise(resolve => { releaseFirstToggle = resolve; });
+let toggleRequest = 0;
+setEnabledHandler = () => {
+  toggleRequest += 1;
+  return toggleRequest === 1
+    ? firstToggleResponse
+    : Promise.resolve({ ok: true });
+};
+const rapidProfiles = [
+  { id: "agent0", title: "Agent 0", enabled: true },
+  { id: "developer", title: "Developer", enabled: true },
+];
+store.profiles = rapidProfiles;
+const firstToggle = store.setProfileEnabled(rapidProfiles[0], false);
+while (!toggleRequest) await Promise.resolve();
+const secondToggle = store.setProfileEnabled(rapidProfiles[1], false);
+await secondToggle;
+if (toggleRequest !== 1 || rapidProfiles[1].enabled !== true || !store.profileAvailabilitySaving) throw new Error("availability saves were not serialized");
+releaseFirstToggle({ ok: true });
+await firstToggle;
+if (store.profiles !== rapidProfiles || rapidProfiles[0].enabled || rapidProfiles[1].enabled !== true || store.profileAvailabilitySaving) throw new Error("first availability save did not settle cleanly");
+await store.setProfileEnabled(rapidProfiles[1], false);
+if (toggleRequest !== 2 || rapidProfiles[1].enabled || store.profileAvailabilitySaving) throw new Error("availability gate did not reopen after save");
+setEnabledHandler = null;
+await store.duplicateProfile({ id: "researcher", title: "Researcher" });
+if (!calls.some(item => item.payload?.action === "duplicate" && item.payload.profile_id === "researcher") || !store.profiles.some(profile => profile.id === "researcher-1")) throw new Error("profile duplication failed");
+store.projectName = "other";
+if (store.currentChatUsesScope() || store.isProfileActive("default")) throw new Error("foreign project profile appeared active");
+store.projectName = "demo";
 store.state.tools.effective_policy = { mode: "custom", default: "allow", allowed: [], blocked: ["local:shell"] };
 store.useStandardTools();
 if (store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope ignored inherited tool restriction");
@@ -381,6 +451,13 @@ await store.applyPendingMutation();
 if (confirmations.length !== 1 || confirmations[0].type !== "danger") throw new Error("danger confirmation missing");
 if (!confirmations[0].message.includes("agent.yaml") || !confirmations[0].message.includes("old.md")) throw new Error("planned paths missing from confirmation");
 if (confirmations[0].title !== "Delete all customizations for this profile?") throw new Error("cleanup confirmation title mismatch");
+confirmations.length = 0;
+calls.length = 0;
+store.projectName = "";
+await store.deleteProfile("custom-agent");
+if (calls.length) throw new Error("cancelled deletion made an API request");
+if (confirmations.length !== 1 || confirmations[0].title !== "Delete custom-agent?") throw new Error("delete confirmation mismatch");
+if (confirmations[0].message !== "<p>This agent profile will be permanently deleted from Global and cannot be recovered.</p>") throw new Error("delete confirmation is not concise");
 """
     module_source = harness + "\n" + source + "\n" + checks
     module_url = "data:text/javascript;base64," + base64.b64encode(

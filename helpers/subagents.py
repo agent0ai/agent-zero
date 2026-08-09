@@ -96,6 +96,8 @@ def _get_agents_list_from_dir(dir: str, origin: Origin) -> dict[str, SubAgentLis
             try:
                 raw = _read_agent_definition(dir, subdir)
             except FileNotFoundError:
+                if origin == "default":
+                    continue
                 raw = {}
             agent_data = SubAgentListItem.model_validate(raw)
             name = agent_data.name or subdir
@@ -312,9 +314,7 @@ def get_default_promp_file_names() -> list[str]:
 def get_available_agents_dict(
     project_name: str | None,
 ) -> dict[str, SubAgentListItem]:
-    # all available agents
-    all_agents = get_agents_dict()
-    # filter by project settings
+    all_agents = get_agents_dict(project_name)
     from helpers import projects
 
     project_settings = (
@@ -323,6 +323,8 @@ def get_available_agents_dict(
 
     filtered_agents: dict[str, SubAgentListItem] = {}
     for name, agent in all_agents.items():
+        if name == "_example":
+            continue
         if name in project_settings:
             agent.enabled = project_settings[name]["enabled"]
         if agent.enabled:

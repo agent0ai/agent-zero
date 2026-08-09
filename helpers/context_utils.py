@@ -8,6 +8,7 @@ ThreadLockType = Union[threading.Lock, threading.RLock]
 
 def use_context(lock: ThreadLockType, ctxid: str, create_if_not_exists: bool = True):
     from agent import AgentContext
+    from helpers import projects
     from initialize import initialize_agent
 
     with lock:
@@ -17,6 +18,9 @@ def use_context(lock: ThreadLockType, ctxid: str, create_if_not_exists: bool = T
                 AgentContext.use(first.id)
                 return first
             context = AgentContext(config=initialize_agent(), set_current=True)
+            projects.reconcile_agent_profile(
+                context, projects.get_context_project_name(context)
+            )
             return context
         got = AgentContext.use(ctxid)
         if got:
@@ -25,6 +29,8 @@ def use_context(lock: ThreadLockType, ctxid: str, create_if_not_exists: bool = T
             context = AgentContext(
                 config=initialize_agent(), id=ctxid, set_current=True
             )
+            projects.reconcile_agent_profile(
+                context, projects.get_context_project_name(context)
+            )
             return context
-        else:
-            raise Exception(f"Context {ctxid} not found")
+        raise Exception(f"Context {ctxid} not found")

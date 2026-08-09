@@ -7,7 +7,8 @@
 
 ## Ownership
 
-- `agent.yaml` owns the example profile metadata.
+- This reference intentionally has no `agent.yaml`, so it is not discovered as
+  a selectable profile.
 - `prompts/` owns prompt override examples.
 - `tools/` owns profile-local tool examples.
 - `extensions/` owns profile-local lifecycle extension examples.

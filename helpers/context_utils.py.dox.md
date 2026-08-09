@@ -22,7 +22,10 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `AgentContext.use`, `AgentContext.first`, `AgentContext`, `Exception`, `initialize_agent`.
+- Newly constructed contexts reconcile their active profile against Global
+  availability before returning. Existing context lookups return the stored
+  context unchanged; explicit profile and project transitions own any repair.
+- Important called helpers/classes observed in the source: `AgentContext.use`, `AgentContext.first`, `AgentContext`, `Exception`, `initialize_agent`, `projects.get_context_project_name`, `projects.reconcile_agent_profile`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -34,7 +37,8 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- `tests/test_projects.py` verifies that lookup is read-only while context
+  creation reconciles once.
 
 ## Child DOX Index
 

@@ -8,7 +8,8 @@
 ## Ownership
 
 - Each direct profile directory owns its `agent.yaml`, optional `prompts/`, optional `tools/`, and optional `extensions/`.
-- `_example/` demonstrates profile layout and should stay suitable as a reference.
+- `_example/` demonstrates profile layout, is not selectable, and should stay
+  suitable as a reference.
 - User-created local profiles belong under `usr/agents/`, not here, unless they are intended to ship with the product.
 
 ## Local Contracts

@@ -13,8 +13,6 @@
 - Classes:
 - `SetAgentProfile` (`ApiHandler`)
   - `async process(self, input: dict, request: Request) -> dict | Response`
-- Top-level functions:
-- `_agent_profile_labels() -> dict[str, str]`
 
 ## Runtime Contracts
 
@@ -24,11 +22,13 @@
 - `SetAgentProfile` defines `process(...)`.
 - Observed side-effect areas: filesystem writes, settings/state persistence.
 - Switching a chat profile updates the context and top-level agent profile only; existing subordinate agents keep their own profile configs.
+- A profile can be selected only when it is available in the chat's active
+  project scope; profiles owned by other projects are not valid candidates.
 - Imported dependency areas include: `agent`, `helpers`, `helpers.api`, `helpers.persist_chat`, `helpers.state_monitor_integration`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `str.strip`, `context.is_running`, `_agent_profile_labels`, `initialize_agent`, `context.agent0.config`, `save_tmp_chat`, `mark_dirty_for_context`, `subagents.get_all_agents_list`, `Response`.
+- Important called helpers/classes observed in the source: `str.strip`, `context.is_running`, `initialize_agent`, `context.agent0.config`, `save_tmp_chat`, `mark_dirty_for_context`, `projects.get_context_project_name`, `subagents.get_available_agents_dict`, `Response`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

@@ -165,6 +165,7 @@ def profile_exists(profile_id: str, context: Any | None = None) -> bool:
 def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
     project_name = _context_project_name(context)
     resolved = subagents.get_agents_dict(project_name)
+    enabled = subagents.get_available_agents_dict(project_name)
     names = set(resolved)
     roots = [Path(files.get_abs_path("agents")), USER_AGENTS_ROOT]
     if project_name:
@@ -190,7 +191,7 @@ def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
                 "deletable": state["deletable"],
                 "avatar": state["avatar"]["effective"],
                 "avatar_url": effective_avatar_url(profile_id, context),
-                "enabled": bool(getattr(resolved.get(profile_id), "enabled", True)),
+                "enabled": profile_id in enabled,
                 "available": profile_exists(profile_id, context),
             }
         )
@@ -468,7 +469,9 @@ def effective_avatar_url(profile_id: str, context: Any | None = None) -> str:
     return "/api/plugins/_agent_editor/agent_editor_avatar?" + urlencode(query)
 
 
-def _metadata_layers(profile_id: str, context: Any | None) -> list[ProfileLayer]:
+def _profile_directories(
+    profile_id: str, context: Any | None
+) -> list[tuple[str, Path]]:
     agent = EditorAgent(profile_id, context)
     directories: list[tuple[str, Path]] = [
         (
@@ -488,10 +491,13 @@ def _metadata_layers(profile_id: str, context: Any | None) -> list[ProfileLayer]
                 Path(projects.get_project_meta(project_name, "agents", profile_id)),
             )
         )
+    return directories
 
+
+def _metadata_layers(profile_id: str, context: Any | None) -> list[ProfileLayer]:
     return [
         layer
-        for kind, directory in directories
+        for kind, directory in _profile_directories(profile_id, context)
         if (layer := _load_profile_layer(kind, directory)) is not None
     ]
 
@@ -703,6 +709,127 @@ def build_change_plan(
             raise ValueError("Instructions are required for a new agent.")
 
     return plan
+
+
+def plan_profile_enabled(
+    profile_id: str,
+    enabled: bool,
+    context: Any | None = None,
+) -> ChangePlan:
+    profile_id = validate_profile_id(profile_id)
+    if _context_project_name(context):
+        raise ValueError("Project availability is stored in project settings.")
+    if not profile_exists(profile_id, context):
+        raise ValueError(f'Agent profile "{profile_id}" does not exist.')
+
+    root = _profile_root(profile_id)
+    yaml_path = root / "agent.yaml"
+    legacy_path = root / "agent.json"
+    data = _read_mapping_strict(
+        yaml_path if yaml_path.is_file() else legacy_path,
+        "profile metadata",
+    )
+    lower_layers = [
+        layer for layer in _metadata_layers(profile_id, context)
+        if layer.kind != "user"
+    ]
+    inherited, _, _ = _layer_value(lower_layers, "enabled")
+    inherited = True if inherited is None else bool(inherited)
+    if enabled == inherited:
+        data.pop("enabled", None)
+    else:
+        data["enabled"] = enabled
+
+    plan = ChangePlan(profile_id=profile_id)
+    if data:
+        plan.write(yaml_path, yaml_helper.dumps(data))
+    else:
+        plan.delete(yaml_path)
+    return plan
+
+
+def set_profile_enabled(
+    profile_id: str,
+    enabled: bool,
+    context: Any | None = None,
+) -> dict[str, Any]:
+    profile_id = validate_profile_id(profile_id)
+    project_name = _context_project_name(context)
+    if not profile_exists(profile_id, context):
+        raise ValueError(f'Agent profile "{profile_id}" does not exist.')
+
+    available = subagents.get_available_agents_dict(project_name or None)
+    if not enabled and profile_id in available and len(available) == 1:
+        raise ValueError("At least one agent profile must remain available.")
+
+    if project_name:
+        settings = projects.load_project_subagents(project_name)
+        settings[profile_id] = {"enabled": enabled}
+        projects.save_project_subagents(project_name, settings)
+        receipt = {
+            "written": [
+                _relative_source(
+                    Path(projects.get_project_meta(project_name, "agents.json"))
+                )
+            ],
+            "deleted": [],
+            "warnings": [],
+        }
+    else:
+        receipt = apply_change_plan(plan_profile_enabled(profile_id, enabled, context))
+
+    if not enabled:
+        projects.reconcile_agent_profiles(
+            project_name or None, all_scopes=not project_name
+        )
+    return receipt
+
+
+def plan_duplicate_profile(
+    profile_id: str,
+    context: Any | None = None,
+) -> tuple[ChangePlan, str]:
+    profile_id = validate_profile_id(profile_id)
+    if not profile_exists(profile_id, context):
+        raise ValueError(f'Agent profile "{profile_id}" does not exist.')
+
+    state = metadata_state(profile_id, context)
+    source_title = str(state["title"]["effective"] or profile_id).strip() or profile_id
+    index = 1
+    while True:
+        suffix = f"-{index}"
+        stem = profile_id[: 64 - len(suffix)].rstrip("-_")
+        target_id = f"{stem}{suffix}"
+        if not profile_exists(target_id, context):
+            break
+        index += 1
+
+    target_title = f"{source_title} {index}"
+    project_name = _context_project_name(context)
+    target_root = _profile_root(target_id, project_name)
+    plan = ChangePlan(profile_id=target_id, project_name=project_name)
+
+    metadata: dict[str, Any] = {}
+    for layer in _metadata_layers(profile_id, context):
+        metadata.update(layer.data)
+    for key in ("name", "path", "origin", "prompts", "enabled"):
+        metadata.pop(key, None)
+    metadata["title"] = target_title
+    plan.write(target_root / "agent.yaml", yaml_helper.dumps(metadata))
+
+    skipped = {"agent.yaml", "agent.json", "AGENTS.md"}
+    for _, source_root in _profile_directories(profile_id, context):
+        if not source_root.is_dir():
+            continue
+        if source_root.is_symlink():
+            raise ValueError("Profile symlinks must be removed before duplication.")
+        for source in sorted(source_root.rglob("*")):
+            if source.is_symlink():
+                raise ValueError("Profile symlinks must be removed before duplication.")
+            if source.is_file() and source.name not in skipped:
+                plan.write(target_root / source.relative_to(source_root), source.read_bytes())
+
+    return plan, target_title
 
 
 def _plan_metadata(

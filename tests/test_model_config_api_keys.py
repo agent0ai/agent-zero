@@ -206,6 +206,7 @@ def test_model_switcher_frontend_renders_custom_overrides():
     assert "_model_config_override_revision" in refresh_extension_content
     assert "activeContext?.agent_profile" in refresh_extension_content
     assert "activeContext?.project" in refresh_extension_content
+    assert "modelConfigStore.loadAgentProfiles(true)" in refresh_extension_content
     assert "modelConfigStore.refreshSwitcher(contextId)" in refresh_extension_content
 
 

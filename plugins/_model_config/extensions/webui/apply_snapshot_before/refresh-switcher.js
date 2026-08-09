@@ -26,6 +26,7 @@ export default async function refreshSwitcherOnOverrideRevision(ctx) {
     String(projectName),
     String(activeContext?.agent_profile || ""),
   ]);
+  const scopeChanged = contextId !== lastContextId || scopeKey !== lastScopeKey;
 
   if (
     contextId === lastContextId
@@ -36,5 +37,6 @@ export default async function refreshSwitcherOnOverrideRevision(ctx) {
   lastContextId = contextId;
   lastRevision = revision;
   lastScopeKey = scopeKey;
+  if (scopeChanged) await modelConfigStore.loadAgentProfiles(true);
   await modelConfigStore.refreshSwitcher(contextId);
 }

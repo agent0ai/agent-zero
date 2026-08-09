@@ -5,7 +5,7 @@
 <div x-data x-show="$store.agentEditor?.readyNoteVisible()" class="agent-ready-note" role="status" style="display:none">
   <x-icon name="celebration" aria-hidden="true"></x-icon>
   <span>Your agent is ready. You can refine it anytime from Edit agent.</span>
-  <button type="button" class="button icon" aria-label="Dismiss agent ready note" @click="$store.agentEditor.dismissReadyNote()"><x-icon name="close"></x-icon></button>
+  <button type="button" class="agent-ready-dismiss" aria-label="Dismiss agent ready note" @click="$store.agentEditor.dismissReadyNote()"><x-icon name="close"></x-icon></button>
 </div>
 
 <style>
@@ -23,4 +23,17 @@
     font-size:.82rem;
   }
   .agent-ready-note > span { flex:1; }
+  .agent-ready-dismiss {
+    display:grid;
+    flex:0 0 2rem;
+    height:2rem;
+    place-items:center;
+    padding:0;
+    border:0;
+    background:transparent;
+    color:inherit;
+    cursor:pointer;
+    opacity:.75;
+  }
+  .agent-ready-dismiss:hover { opacity:1; }
 </style>

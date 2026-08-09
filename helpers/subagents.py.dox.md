@@ -49,6 +49,11 @@
   missing keys inherit while explicitly empty values remain overrides. Runtime
   `name`, `path`, `origin`, and `prompts` fields are handled separately; derived
   title fallbacks do not become authored overrides.
+- Available-profile resolution includes definitions from the selected project,
+  then applies that project's sparse `agents.json` availability overrides.
+- Bundled directories require an authored profile definition; the `_example`
+  reference directory is never selectable. Every real profile, including
+  `Default`, follows the same Global and project availability rules.
 - Important called helpers/classes observed in the source: `cache.toggle_area`, `model_validator`, `_get_agents_list_from_dir`, `plugins.get_enabled_plugin_paths`, `_merge_agent_dicts`, `files.get_subdirectories`, `_load_agent_data_from_dir`, `_merge_agent`, `files.write_file`, `files.delete_dir`, `SubAgent`, `SubAgentListItem`, `files.find_existing_paths_by_pattern`, `get_agents_roots`, `files.list_files`, `get_agents_dict`, `cache.determine_cache_key`, `cache.add`, `projects.get_project_meta`, `FileNotFoundError`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 

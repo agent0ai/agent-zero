@@ -19,7 +19,13 @@
 - Writes are limited to the selected profile layer — global
   `usr/agents/<profile-id>` or project
   `usr/projects/<project>/.a0proj/agents/<profile-id>` — and only to paths or
-  config keys listed in the validated change plan.
+  config keys listed in the validated change plan. The availability toggle
+  reuses the existing project `.a0proj/agents.json` load/save owner; the WebUI
+  permits one availability save at a time. Global availability remains a sparse
+  `enabled` profile override.
+- Every profile, including `Default`, can be made unavailable. The backend
+  rejects only the change that would leave the selected scope with no available
+  profile, then reconciles loaded chats through the shared project owner.
 - Never call `helpers.subagents.save_agent_data`.
 - Authored profile definitions remain YAML; editor-written plugin configs remain
   JSON.
@@ -41,7 +47,16 @@
 - Model selection reuses `_model_config`'s compact preset dropdown and preset
   editor; Agent Editor persists only the scoped preset reference.
 - Manage agents reuses the plugin-settings project vocabulary: Global or one
-  existing project. Save & test activates that same scope in the fresh chat.
+  existing project. The active chat profile appears once above the list; each
+  row exposes scoped availability, duplication, icon-only Edit, and Delete for
+  profiles owned by that scope. Duplicate materializes the effective source
+  profile into the selected writable layer with a collision-free ID and title.
+  Availability changes quietly refresh the adjacent profile switcher catalog
+  without a success toast.
+- The same project selector is available inside Create and Edit. Create keeps
+  the in-progress draft when its destination changes; Edit reloads the selected
+  profile from the new scope after guarding unsaved changes.
+- Save & test activates the saved profile in a fresh chat using that same scope.
 - The WebUI uses the shared modal stack, labeled prompt scroll regions, and
   24px-or-larger policy and text-action targets.
 

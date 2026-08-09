@@ -87,6 +87,8 @@ const model = {
   projects: [],
   projectName: "",
   profiles: [],
+  profileAvailabilitySaving: false,
+  duplicatingProfile: "",
   draft: null,
   initialDraft: null,
   selectedPrompt: SPECIFICS,
@@ -146,6 +148,8 @@ const model = {
     this.loading = true;
     this.error = "";
     this.pendingMutation = null;
+    this.profileAvailabilitySaving = false;
+    this.duplicatingProfile = "";
     this.plan = { written: [], deleted: [], warnings: [] };
     this.planStatus = "idle";
     this.view = this.intent.view === "manage" ? "manage" : "editor";
@@ -221,12 +225,114 @@ const model = {
     return this.projectName ? "Inherited" : "Default";
   },
 
+  activeProjectName() {
+    const project = chatsStore.selectedContext?.project;
+    return typeof project === "object"
+      ? String(project?.name || "")
+      : String(project || "");
+  },
+
+  currentChatUsesScope() {
+    return Boolean(
+      chatsStore.selected
+      && (!this.projectName || this.projectName === this.activeProjectName())
+    );
+  },
+
+  isProfileActive(profileId) {
+    return this.currentChatUsesScope()
+      && chatsStore.selectedContext?.agent_profile === profileId;
+  },
+
+  activeProfile() {
+    return this.profiles.find((profile) => this.isProfileActive(profile.id)) || null;
+  },
+
+  async setProfileEnabled(profile, enabled) {
+    if (!profile?.id || this.profileAvailabilitySaving) return;
+    const previous = !!profile.enabled;
+    profile.enabled = enabled;
+    this.profileAvailabilitySaving = true;
+    try {
+      const data = await callJsonApi(API, {
+        action: "set_enabled",
+        profile_id: profile.id,
+        enabled,
+        active_context_id: chatsStore.selected || "",
+        ...this.scopeInput(),
+      });
+      if (data.active_profile && chatsStore.selectedContext) {
+        chatsStore.selectedContext.agent_profile = data.active_profile;
+        chatsStore.selectedContext.agent_profile_label = data.active_profile_label || data.active_profile;
+      }
+      await modelConfigStore.loadAgentProfiles(true);
+    } catch (error) {
+      profile.enabled = previous;
+      this.error = error.message || String(error);
+    } finally {
+      this.profileAvailabilitySaving = false;
+    }
+  },
+
+  async duplicateProfile(profile) {
+    if (!profile?.id || this.duplicatingProfile) return;
+    this.duplicatingProfile = profile.id;
+    this.error = "";
+    try {
+      const data = await callJsonApi(API, {
+        action: "duplicate",
+        profile_id: profile.id,
+        ...this.scopeInput(),
+      });
+      this.profiles = data.profiles || [];
+      await modelConfigStore.loadAgentProfiles(true);
+      globalThis.justToast?.(
+        `${data.title || profile.title || profile.id} created.`,
+        "success", 1800, "agent-profile-duplicate",
+      );
+    } catch (error) {
+      this.error = error.message || String(error);
+    } finally {
+      this.duplicatingProfile = "";
+    }
+  },
+
   async onScopeChanged() {
-    this.intent = { ...this.intent, projectName: this.projectName || "" };
+    const previous = this.intent.projectName || "";
+    const next = this.projectName || "";
+    if (previous === next) return;
+    if (this.view === "editor" && !this.draft?.creating && this.dirty
+      && !window.confirm("Changing project will discard your unsaved changes. Continue?")) {
+      this.projectName = previous;
+      return;
+    }
+    this.intent = { ...this.intent, projectName: next };
     this.loading = true;
     this.error = "";
     try {
       await this.loadProfiles();
+      if (this.view !== "editor" || !this.draft) return;
+      if (!this.draft.creating
+        && !this.profiles.some((profile) => profile.id === this.draft.profileId)) {
+        this.projectName = previous;
+        this.intent = { ...this.intent, projectName: previous };
+        await this.loadProfiles();
+        throw new Error("This agent is not available in the selected scope.");
+      }
+      const data = await callJsonApi(API, {
+        action: "load",
+        profile_id: this.draft.creating ? "new-agent" : this.draft.profileId,
+        ...this.scopeInput(),
+      });
+      this.state = data.state;
+      if (!this.draft.creating) this.makeDraft(false);
+    } catch (error) {
+      if (this.view === "editor" && this.projectName !== previous) {
+        this.projectName = previous;
+        this.intent = { ...this.intent, projectName: previous };
+        await this.loadProfiles();
+      }
+      this.error = error.message || String(error);
     } finally {
       this.loading = false;
     }
@@ -1079,14 +1185,9 @@ const model = {
 
   async deleteProfile(profileId) {
     try {
-      const data = await callJsonApi(API, {
-        action: "plan_delete",
-        profile_id: profileId,
-        ...this.scopeInput(),
-      });
       const confirmed = await showConfirmDialog({
         title: `Delete ${escapeHtml(profileId)}?`,
-        message: `${this.deletionImpactHtml(data)}<p>This permanently removes this custom agent from ${escapeHtml(this.scopeLabel)}.</p>`,
+        message: `<p>This agent profile will be permanently deleted from ${escapeHtml(this.scopeLabel)} and cannot be recovered.</p>`,
         confirmText: "Delete agent",
         type: "danger",
       });
@@ -1105,23 +1206,6 @@ const model = {
     } catch (error) {
       this.error = error.message || String(error);
     }
-  },
-
-  deletionImpactHtml(data) {
-    const impact = data?.impact || {};
-    const list = (values, empty) => values?.length
-      ? `<ul>${values.map((value) => `<li><code>${escapeHtml(value)}</code></li>`).join("")}</ul>`
-      : `<span>${empty}</span>`;
-    const contents = Object.entries(impact.contains || {})
-      .filter(([, present]) => present)
-      .map(([name]) => name);
-    return [
-      `<p><strong>Files</strong>${list(impact.files || data?.deleted || [], "None")}</p>`,
-      `<p><strong>Model preset</strong><br>${escapeHtml(impact.model_preset || "None")}</p>`,
-      `<p><strong>Projects using this agent</strong>${list(impact.project_references, "None found")}</p>`,
-      `<p><strong>Open chats using this agent</strong>${list(impact.active_sessions, "None found")}</p>`,
-      `<p><strong>Saved settings</strong><br>${escapeHtml(contents.length ? contents.join(", ") : "No additional settings or assets")}</p>`,
-    ].join("");
   },
 
   showManager() {

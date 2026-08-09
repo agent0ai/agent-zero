@@ -25,6 +25,10 @@ class CreateChat(ApiHandler):
             if current_data_2:
                 new_context.set_output_data(projects.CONTEXT_DATA_KEY_PROJECT, current_data_2)
 
+        projects.reconcile_agent_profile(
+            new_context, projects.get_context_project_name(new_context)
+        )
+
         # copy model override from current context (only if override is allowed)
         if current_context:
             model_override = current_context.get_data("chat_model_override")

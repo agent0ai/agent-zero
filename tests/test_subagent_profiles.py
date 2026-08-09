@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from agent import Agent, AgentConfig, AgentContext
-from helpers import persist_chat
+from helpers import persist_chat, projects
 from helpers.errors import RepairableException
 
 
@@ -182,14 +182,19 @@ def test_persist_chat_roundtrip_preserves_each_agent_profile(monkeypatch) -> Non
         AgentContext.remove(context_id)
 
 
+@pytest.mark.parametrize("project_name", [None, "demo"], ids=["global", "project"])
 @pytest.mark.asyncio
-async def test_agent_profile_set_preserves_subagent_profile(monkeypatch) -> None:
+async def test_agent_profile_set_uses_scope_and_preserves_subagent_profile(
+    monkeypatch, project_name
+) -> None:
     import api.agent_profile_set as agent_profile_set
 
+    requested_scopes = []
     monkeypatch.setattr(
-        agent_profile_set,
-        "_agent_profile_labels",
-        lambda: {"researcher": "Researcher"},
+        agent_profile_set.subagents,
+        "get_agents_dict",
+        lambda scope: requested_scopes.append(scope)
+        or {"researcher": SimpleNamespace(title="Researcher", enabled=True)},
     )
     monkeypatch.setattr(
         agent_profile_set,
@@ -216,6 +221,8 @@ async def test_agent_profile_set_preserves_subagent_profile(monkeypatch) -> None
     child = Agent(1, AgentConfig(mcp_servers="", profile="developer"), context)
     context.agent0.set_data(Agent.DATA_NAME_SUBORDINATE, child)
     child.set_data(Agent.DATA_NAME_SUPERIOR, context.agent0)
+    if project_name:
+        context.set_data(projects.CONTEXT_DATA_KEY_PROJECT, project_name)
 
     try:
         handler = agent_profile_set.SetAgentProfile.__new__(
@@ -230,5 +237,6 @@ async def test_agent_profile_set_preserves_subagent_profile(monkeypatch) -> None
         assert context.config.profile == "researcher"
         assert context.agent0.config.profile == "researcher"
         assert child.config.profile == "developer"
+        assert requested_scopes == [project_name]
     finally:
         AgentContext.remove(context_id)

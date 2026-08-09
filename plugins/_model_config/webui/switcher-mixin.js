@@ -48,7 +48,7 @@ export const switcherMethods = {
         context_id: contextId,
       });
       this.agentProfiles = (data.profiles || [])
-        .filter(profile => profile.id && profile.id !== "_example")
+        .filter(profile => profile.id && profile.id !== "_example" && profile.enabled !== false)
         .map(profile => ({
           key: profile.id,
           label: profile.title || profile.id,

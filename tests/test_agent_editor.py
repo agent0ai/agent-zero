@@ -559,6 +559,135 @@ def test_display_title_change_keeps_profile_id_and_builtin_delete_is_rejected(
     assert not (user_root / "renamed-display").exists()
 
 
+def test_profile_availability_is_a_sparse_global_override(user_root: Path) -> None:
+    disabled = editor.plan_profile_enabled("researcher", False)
+
+    assert list(disabled.changes) == [user_root / "researcher" / "agent.yaml"]
+    editor.apply_change_plan(disabled)
+    assert yaml_helper.loads(
+        (user_root / "researcher" / "agent.yaml").read_text(encoding="utf-8")
+    ) == {"enabled": False}
+
+    restored = editor.plan_profile_enabled("researcher", True)
+    editor.apply_change_plan(restored)
+    assert not (user_root / "researcher" / "agent.yaml").exists()
+
+
+def test_default_profile_can_be_disabled_when_another_profile_is_available(
+    user_root: Path,
+    project_scope: tuple[editor._EditorContext, Path],
+) -> None:
+    context, _ = project_scope
+
+    editor.set_profile_enabled("default", False)
+    assert yaml_helper.loads(
+        (user_root / "default" / "agent.yaml").read_text(encoding="utf-8")
+    ) == {"enabled": False}
+    editor.set_profile_enabled("default", True)
+    assert not (user_root / "default" / "agent.yaml").exists()
+
+    editor.set_profile_enabled("default", False, context)
+    assert editor.projects.load_project_subagents("demo") == {
+        "default": {"enabled": False}
+    }
+
+
+def test_last_available_profile_cannot_be_disabled(
+    user_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        editor.subagents,
+        "get_available_agents_dict",
+        lambda _project=None: {
+            "default": editor.subagents.SubAgentListItem(name="default")
+        },
+    )
+
+    with pytest.raises(ValueError, match="At least one agent profile"):
+        editor.set_profile_enabled("default", False)
+
+    assert not (user_root / "default").exists()
+
+
+def test_duplicate_profile_materializes_the_effective_profile(
+    user_root: Path,
+) -> None:
+    plan, title = editor.plan_duplicate_profile("developer")
+
+    assert plan.profile_id == "developer-1"
+    assert title == "Developer 1"
+    assert all(path.is_relative_to(user_root / "developer-1") for path in plan.changes)
+    editor.apply_change_plan(plan)
+
+    duplicate = user_root / "developer-1"
+    metadata = yaml_helper.loads(
+        (duplicate / "agent.yaml").read_text(encoding="utf-8")
+    )
+    assert metadata["title"] == "Developer 1"
+    assert metadata["description"] == "Agent specialized in complex software development."
+    assert "enabled" not in metadata
+    assert (duplicate / "prompts" / editor.SPECIFICS_FILE).read_bytes() == (
+        Path("agents/developer/prompts") / editor.SPECIFICS_FILE
+    ).read_bytes()
+    assert not (duplicate / "AGENTS.md").exists()
+
+    next_plan, next_title = editor.plan_duplicate_profile("developer")
+    assert next_plan.profile_id == "developer-2"
+    assert next_title == "Developer 2"
+
+
+def test_duplicate_profile_targets_the_selected_project(
+    project_scope: tuple[editor._EditorContext, Path],
+) -> None:
+    context, project_agents = project_scope
+
+    plan, title = editor.plan_duplicate_profile("developer", context)
+
+    assert plan.project_name == "demo"
+    assert plan.profile_id == "developer-1"
+    assert title == "Developer 1"
+    assert all(
+        path.is_relative_to(project_agents / "developer-1")
+        for path in plan.changes
+    )
+
+
+def test_project_profile_availability_uses_project_settings(
+    project_scope: tuple[editor._EditorContext, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _ = project_scope
+    reconciled: list[tuple[tuple, dict]] = []
+    monkeypatch.setattr(
+        editor.projects,
+        "reconcile_agent_profiles",
+        lambda *args, **kwargs: reconciled.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        editor.subagents,
+        "get_agents_dict",
+        lambda _project=None: {
+            "default": editor.subagents.SubAgentListItem(
+                name="default", enabled=True
+            ),
+            "researcher": editor.subagents.SubAgentListItem(
+                name="researcher", enabled=True
+            )
+        },
+    )
+
+    editor.set_profile_enabled("researcher", False, context)
+
+    assert editor.projects.load_project_subagents("demo") == {
+        "researcher": {"enabled": False}
+    }
+
+    editor.set_profile_enabled("researcher", True, context)
+
+    assert editor.projects.load_project_subagents("demo") == {}
+    assert reconciled == [(("demo",), {"all_scopes": False})]
+
+
 def test_save_rolls_back_every_file_after_commit_failure(
     user_root: Path,
     monkeypatch: pytest.MonkeyPatch,

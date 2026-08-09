@@ -405,6 +405,52 @@ def _get_projects_list(parent_dir):
     return projects
 
 
+def reconcile_agent_profile(
+    context: "AgentContext", project_name: str | None, available: dict | None = None
+) -> bool:
+    from helpers import subagents
+    from initialize import initialize_agent
+
+    if available is None:
+        available = subagents.get_available_agents_dict(project_name)
+    if getattr(context.config, "profile", "") in available:
+        return False
+
+    config = initialize_agent()
+    if config.profile not in available:
+        fallback = "agent0" if "agent0" in available else next(iter(available), "agent0")
+        config = initialize_agent(override_settings={"agent_profile": fallback})
+    context.config = config
+    context.agent0.config = config
+    return True
+
+
+def reconcile_agent_profiles(
+    project_name: str | None, *, all_scopes: bool = False
+) -> None:
+    from agent import AgentContext
+    from helpers import subagents
+    from helpers.state_monitor_integration import mark_dirty_for_context
+
+    available_by_project: dict[str | None, dict] = {}
+    for context in AgentContext.all():
+        context_project = get_context_project_name(context)
+        if not all_scopes and context_project != project_name:
+            continue
+        if context_project not in available_by_project:
+            available_by_project[context_project] = (
+                subagents.get_available_agents_dict(context_project)
+            )
+        if not reconcile_agent_profile(
+            context, context_project, available_by_project[context_project]
+        ):
+            continue
+        persist_chat.save_tmp_chat(context)
+        mark_dirty_for_context(
+            context.id, reason="projects.reconcile_agent_profiles"
+        )
+
+
 def activate_project(context_id: str, name: str, *, mark_dirty: bool = True):
     from agent import AgentContext
 
@@ -419,6 +465,7 @@ def activate_project(context_id: str, name: str, *, mark_dirty: bool = True):
         CONTEXT_DATA_KEY_PROJECT,
         {"name": name, "title": display_name, "color": data.get("color", "")},
     )
+    reconcile_agent_profile(context, name)
 
     # persist
     persist_chat.save_tmp_chat(context)
@@ -436,6 +483,7 @@ def deactivate_project(context_id: str, *, mark_dirty: bool = True):
         raise Exception("Context not found")
     context.set_data(CONTEXT_DATA_KEY_PROJECT, None)
     context.set_output_data(CONTEXT_DATA_KEY_PROJECT, None)
+    reconcile_agent_profile(context, None)
 
     # persist
     persist_chat.save_tmp_chat(context)
@@ -648,7 +696,7 @@ def load_project_subagents(name: str) -> dict[str, SubAgentSettings]:
         abs_path = files.get_abs_path(get_project_meta(name), "agents.json")
         data = dirty_json.parse(files.read_file(abs_path))
         if isinstance(data, dict):
-            return _normalize_subagents(data)  # type: ignore[arg-type,return-value]
+            return _normalize_subagents(data, name)  # type: ignore[arg-type,return-value]
         return {}
     except Exception:
         return {}
@@ -656,21 +704,21 @@ def load_project_subagents(name: str) -> dict[str, SubAgentSettings]:
 
 def save_project_subagents(name: str, subagents_data: dict[str, SubAgentSettings]):
     abs_path = files.get_abs_path(get_project_meta(name), "agents.json")
-    normalized = _normalize_subagents(subagents_data)
+    normalized = _normalize_subagents(subagents_data, name)
     content = dirty_json.stringify(normalized)
     files.write_file(abs_path, content)
 
 
 def _normalize_subagents(
-    subagents_data: dict[str, SubAgentSettings]
+    subagents_data: dict[str, SubAgentSettings], project_name: str = ""
 ) -> dict[str, SubAgentSettings]:
     from helpers import subagents
 
-    agents_dict = subagents.get_agents_dict()
+    scoped_agents = subagents.get_agents_dict(project_name or None)
 
     normalized: dict[str, SubAgentSettings] = {}
     for key, value in subagents_data.items():
-        agent = agents_dict.get(key)
+        agent = scoped_agents.get(key)
         if not agent:
             continue
 

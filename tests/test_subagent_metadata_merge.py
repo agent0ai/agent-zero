@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from helpers import subagents
+from helpers import projects, subagents
 
 
 def _write_profile(root: Path, name: str, metadata: str = "") -> Path:
@@ -76,6 +76,13 @@ def test_nonexistent_layer_is_not_an_override(tmp_path: Path) -> None:
     )
 
 
+def test_bundled_directory_without_definition_is_not_a_profile(tmp_path: Path) -> None:
+    root = tmp_path / "agents"
+    _write_profile(root, "_example")
+
+    assert subagents._get_agents_list_from_dir(str(root), "default") == {}
+
+
 def test_default_specifics_uses_only_the_canonical_prompt_path() -> None:
     root = Path(__file__).resolve().parents[1]
     legacy = root / "agents" / "default" / "agent.system.main.specifics.md"
@@ -90,3 +97,38 @@ def test_default_specifics_uses_only_the_canonical_prompt_path() -> None:
     assert not legacy.exists()
     assert canonical.is_file()
     assert canonical.read_bytes() == b""
+
+
+def test_available_agents_include_project_profiles_and_project_overrides(
+    monkeypatch,
+) -> None:
+    requested = []
+    monkeypatch.setattr(
+        subagents,
+        "get_agents_dict",
+        lambda project_name=None: requested.append(project_name) or {
+            "_example": subagents.SubAgentListItem(
+                name="_example", enabled=True
+            ),
+            "default": subagents.SubAgentListItem(
+                name="default", enabled=False
+            ),
+            "global": subagents.SubAgentListItem(name="global", enabled=True),
+            "project-only": subagents.SubAgentListItem(
+                name="project-only", enabled=True
+            ),
+        },
+    )
+    monkeypatch.setattr(
+        projects,
+        "load_project_subagents",
+        lambda _name: {
+            "default": {"enabled": False},
+            "global": {"enabled": False},
+        },
+    )
+
+    available = subagents.get_available_agents_dict("demo")
+
+    assert requested == ["demo"]
+    assert list(available) == ["project-only"]
