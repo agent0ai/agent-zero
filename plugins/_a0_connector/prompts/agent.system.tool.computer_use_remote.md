@@ -1,5 +1,6 @@
 ### computer_use_remote
 
+Control the desktop on a connected A0 CLI or Launcher host.
 Shown when a connected A0 CLI or Launcher host gateway advertises enabled Computer Use (`/computer-use on`) and does not need re-arming. Runtime-gated beta desktop control through that host bridge on the user's machine. Availability, backend support, and trust mode are checked when the tool runs, together with host-bridge presence, local enablement, and re-arm state. Computer Use enablement is scoped to the current CLI session or Launcher Host access lease, not scoped to a single chat context.
 
 Use this for native host desktop UI inspection, screenshots, background-safe window/element actions when supported, clicking, scrolling, typing, key presses, and status checks. Do not use it for ordinary web-page navigation or host-browser control; use the browser tool for web pages unless browser automation cannot express the task. For complex desktop workflows, load and follow skill `host-computer-use` before proceeding.

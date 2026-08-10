@@ -248,9 +248,12 @@ class Plugins(ApiHandler):
         if enabled is None:
             return Response(status=400, response="Missing enabled state")
 
-        plugins.toggle_plugin(
-            plugin_name, bool(enabled), project_name, agent_profile, clear_overrides
-        )
+        try:
+            plugins.toggle_plugin(
+                plugin_name, bool(enabled), project_name, agent_profile, clear_overrides
+            )
+        except ValueError as exc:
+            return Response(status=400, response=str(exc))
         return {"ok": True}
 
     @extension.extensible

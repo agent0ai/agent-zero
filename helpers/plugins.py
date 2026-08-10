@@ -475,6 +475,11 @@ def get_enabled_plugins(agent: Agent | None):
     active = []
 
     for plugin in plugins:
+        meta = get_plugin_meta(plugin)
+        if meta and meta.always_enabled:
+            active.append(plugin)
+            continue
+
         # plugins are toggled via .enabled / .disabled files
         # every plugin is on by default, unless disabled in usr dir
         enabled = True
@@ -546,6 +551,10 @@ def toggle_plugin(
     agent_profile: str = "",
     clear_overrides: bool = False,
 ):
+    meta = get_plugin_meta(plugin_name)
+    if meta and meta.always_enabled and not enabled:
+        raise ValueError(f'Plugin "{plugin_name}" is always enabled.')
+
     if clear_overrides:
         all_toggles = find_plugin_assets(
             TOGGLE_FILE_PATTERN,

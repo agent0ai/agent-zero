@@ -10,21 +10,27 @@
 - `normalize_policy` owns the sparse allow/block configuration shape.
 - `get_tool_catalog` owns canonical local, plugin, and MCP identities plus
   unavailable-policy retention; local entries come from executable `tools/*.py`
-  files in the runtime path hierarchy. Catalog entries describe tools; the
-  editor applies the current draft policy instead of receiving duplicated
+  files in the runtime path hierarchy. The catalog describes installed
+  capabilities independently of transient transport availability; connector
+  prompt/schema extensions remain responsible for live remote-tool exposure.
+  The editor applies the current draft policy instead of receiving duplicated
   allowed/required flags from the backend.
 - `tool_prompt_description` owns the shared compact description extracted for
   the editor catalog and provider-native schemas; transport-specific names and
   schemas remain with their transports.
 - `resolve_tool` returns the effective decision and provenance.
-- `ensure_tool_allowed` raises the stable repairable runtime policy error.
-- `filter_tool_prompt` removes denied local capabilities from the text protocol
-  without taking ownership of provider-native naming rules.
+- `ensure_tool_allowed` raises the stable repairable runtime policy error and
+  accepts an explicit canonical ID from transports that already resolved one.
+- `filter_tool_prompt` removes denied local capabilities from the text protocol,
+  including complete fenced JSON examples that reference them, without taking
+  ownership of provider-native naming rules.
 
 ## Runtime Contracts
 
-- Scoped config resolution is delegated to `helpers.plugins`: active project
-  profile, active project, user profile, bundled/plugin profile, then default.
+- Scoped asset precedence comes from `helpers.plugins`: active project profile,
+  active project, user profile, bundled/plugin profile, then default.
+  `get_policy` selects the first custom policy; unknown-only and
+  explicit-inherit files remain on disk but defer to the next lower layer.
 - Missing policy inherits standard access; custom policy always records whether
   future tools default to allowed or blocked.
 - The `response` capability is a framework-required invariant: profile policy
@@ -33,6 +39,8 @@
   it is not exposed as a profile-policy choice and legacy policy IDs cannot
   suppress the chat-configured capability.
 - Policy IDs are namespaced as `local:`, `plugin:<id>:`, or `mcp:<server>:`.
+  Generic execution resolves canonical IDs from executable paths; MCP
+  invocation supplies its explicit namespaced ID.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that

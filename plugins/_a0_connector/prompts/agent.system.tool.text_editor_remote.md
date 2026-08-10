@@ -1,5 +1,6 @@
 # text_editor_remote tool
 
+Read, write, and patch files on a connected A0 CLI host.
 Shown when a connected A0 CLI advertises remote file access. Reads, writes, and
 patches files on the machine where that CLI is running. Use this tool, not
 server-side file tools, when the user asks for files on the connected local

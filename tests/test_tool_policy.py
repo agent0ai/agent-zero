@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -58,6 +60,14 @@ def _custom_policy(*, default: str, allowed=(), blocked=()):
         "allowed": list(allowed),
         "blocked": list(blocked),
     }
+
+
+def test_agent_import_does_not_cycle_through_tool_policy() -> None:
+    subprocess.run(
+        [sys.executable, "-c", "import agent"],
+        cwd=Path(__file__).parents[1],
+        check=True,
+    )
 
 
 @pytest.fixture
@@ -197,6 +207,39 @@ def test_catalog_comes_from_executable_tools_not_prompt_names(
     assert catalog[0]["description"] == "Actual description"
 
 
+def test_catalog_keeps_installed_remote_tools_without_live_connector(
+    monkeypatch, tmp_path: Path
+) -> None:
+    tool_root = tmp_path / "tools"
+    tool_root.mkdir()
+    (tool_root / "code_execution_remote.py").write_text("", encoding="utf-8")
+    (tool_root / "shell.py").write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        tool_policy.subagents,
+        "get_paths",
+        lambda *args, **kwargs: [str(tool_root)],
+    )
+    monkeypatch.setattr(
+        mcp_handler.MCPConfig,
+        "get_for_agent",
+        lambda agent: _NoMCPTools(),
+    )
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: {
+            "mode": "inherit",
+            "default": "allow",
+            "allowed": [],
+            "blocked": [],
+        },
+    )
+
+    catalog = tool_policy.get_tool_catalog(_Agent(tmp_path))
+
+    assert [item["name"] for item in catalog] == ["code_execution_remote", "shell"]
+
+
 def test_tool_prompt_description_skips_fenced_examples() -> None:
     prompt = """### example
 ~~~json
@@ -206,6 +249,62 @@ Visible summary
 """
 
     assert tool_policy.tool_prompt_description(prompt, "example") == "Visible summary"
+
+
+def test_tool_prompt_description_prefers_declared_summary() -> None:
+    prompt = """## tools
+- `memory_load`: search stored memories by meaning and metadata
+  args: `query`, optional `limit`
+"""
+
+    assert (
+        tool_policy.tool_prompt_description(prompt, "memory_load")
+        == "search stored memories by meaning and metadata"
+    )
+
+
+def test_prompt_filter_removes_complete_blocked_json_example(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        tool_policy,
+        "_policy_tool_names",
+        lambda agent: {"memory_load", "memory_save"},
+    )
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: _custom_policy(
+            default="allow", blocked=["local:memory_load"]
+        ),
+    )
+    prompt = """## memory tools
+- `memory_load`: load memory
+- `memory_save`: save memory
+~~~json
+{
+  "tool_name": "memory_load",
+  "tool_args": {"query": "blocked example"}
+}
+~~~
+~~~json
+{
+  "tool_name": "memory_save",
+  "tool_args": {"text": "allowed example"}
+}
+~~~
+"""
+
+    filtered = tool_policy.filter_tool_prompt(
+        _Agent(tmp_path), "agent.system.tool.memory.md", prompt
+    )
+
+    assert "blocked example" not in filtered
+    assert "memory_load" not in filtered
+    assert "allowed example" in filtered
+    assert filtered.count("~~~json") == 1
+    assert filtered.count("~~~") == 2
 
 
 def test_plugin_tool_identity_uses_canonical_plugin_roots(
@@ -248,6 +347,34 @@ def test_plugin_tool_identity_uses_canonical_plugin_roots(
         lambda *args, **kwargs: [str(lookalike)],
     )
     assert tool_policy.resolve_tool(agent, "actual").tool_id == "local:actual"
+
+
+def test_dotted_local_tool_keeps_local_identity_at_execution_gate(
+    monkeypatch, tmp_path: Path
+) -> None:
+    tool_path = tmp_path / "docs.read.py"
+    tool_path.write_text("class Tool: pass\n", encoding="utf-8")
+    monkeypatch.setattr(
+        tool_policy.subagents,
+        "get_paths",
+        lambda *args, **kwargs: [str(tool_path)],
+    )
+    monkeypatch.setattr(
+        mcp_handler.MCPConfig,
+        "get_for_agent",
+        lambda agent: _NoMCPTools(),
+    )
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: _custom_policy(
+            default="allow", blocked=["local:docs.read"]
+        ),
+    )
+    agent = _Agent(tmp_path)
+
+    with pytest.raises(RepairableException, match='Tool "docs.read" is blocked'):
+        tool_policy.ensure_tool_allowed(agent, "docs.read")
 
 
 def test_legacy_response_and_vision_policy_ids_stay_out_of_catalog(
@@ -424,12 +551,12 @@ async def test_delegated_agent_uses_its_own_profile_policy_at_execution_gate(
     child = _Agent(tmp_path, profile="researcher")
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
 
-    def config_for_profile(plugin_name, agent=None, **kwargs):
+    def policy_for_profile(agent):
         if agent.config.profile == "researcher":
             return _custom_policy(default="block")
         return {"mode": "inherit"}
 
-    monkeypatch.setattr(tool_policy.plugins, "get_plugin_config", config_for_profile)
+    monkeypatch.setattr(tool_policy, "get_policy", policy_for_profile)
 
     assert tool_policy.resolve_tool(parent, "shell").allowed is True
     assert tool_policy.resolve_tool(child, "shell").allowed is False
@@ -506,7 +633,17 @@ def test_project_policy_precedes_profile_policy(
     assert decision.allowed is False
     assert decision.source == "scoped-policy"
 
-    project_profile_path.unlink()
+    project_profile_path.write_text('{"manual": true}\n', encoding="utf-8")
+    decision = tool_policy.resolve_tool(agent, "shell")
+    assert decision.allowed is True
+    assert decision.source == "scoped-default"
+    assert project_profile_path.read_text(encoding="utf-8") == '{"manual": true}\n'
+
+    project_profile_path.write_text(
+        '{"manual": true, "mode": "inherit", "default": "block", '
+        '"allowed": [], "blocked": ["local:shell"]}\n',
+        encoding="utf-8",
+    )
     decision = tool_policy.resolve_tool(agent, "shell")
     assert decision.allowed is True
     assert decision.source == "scoped-default"

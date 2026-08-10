@@ -20,6 +20,8 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Plugins` is an `ApiHandler`.
 - `Plugins` defines `process(...)`.
+- Toggle requests that try to disable an `always_enabled` plugin return HTTP
+  400 without changing plugin state.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, plugin state, settings/state persistence.
 - Imported dependency areas include: `helpers`, `helpers.api`, `helpers.localization`, `json`, `os`, `subprocess`, `sys`.
 

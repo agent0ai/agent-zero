@@ -1,4 +1,5 @@
 ### input:
+send keyboard input to an interactive terminal program
 use keyboard arg for terminal program input
 use session arg for terminal session number
 answer dialogues enter passwords etc

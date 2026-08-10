@@ -36,7 +36,26 @@ def normalize_policy(config: Any) -> dict[str, Any]:
 
 
 def get_policy(agent: Any) -> dict[str, Any]:
-    return normalize_policy(plugins.get_plugin_config(PLUGIN_NAME, agent=agent))
+    from helpers import projects
+
+    project_name = projects.get_context_project_name(agent.context) or ""
+    profile = str(getattr(agent.config, "profile", "") or "")
+    for asset in plugins.find_plugin_assets(
+        plugins.CONFIG_FILE_NAME,
+        plugin_name=PLUGIN_NAME,
+        project_name=project_name,
+        agent_profile=profile,
+        only_first=False,
+    ):
+        config = files.read_file_json(asset["path"])
+        if not isinstance(config, dict) or not any(
+            key in config for key in ("mode", "default", "allowed", "blocked")
+        ):
+            continue
+        policy = normalize_policy(config)
+        if policy["mode"] == "custom":
+            return policy
+    return normalize_policy(plugins.get_default_plugin_config(PLUGIN_NAME))
 
 
 def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
@@ -162,12 +181,13 @@ def resolve_tool(
     )
 
 
-def ensure_tool_allowed(agent: Any, tool_name: str) -> ToolPolicyDecision:
-    decision = resolve_tool(
-        agent,
-        tool_name,
-        canonical_id=canonical_mcp_id(tool_name),
-    )
+def ensure_tool_allowed(
+    agent: Any,
+    tool_name: str,
+    *,
+    canonical_id: str = "",
+) -> ToolPolicyDecision:
+    decision = resolve_tool(agent, tool_name, canonical_id=canonical_id)
     if decision.allowed:
         return decision
     profile = str(getattr(getattr(agent, "config", None), "profile", "") or "default")
@@ -197,6 +217,17 @@ def filter_tool_prompt(agent: Any, prompt_file: str, prompt: str) -> str:
         )
         for name in sorted(blocked_names, key=len, reverse=True)
     ]
+    prompt = re.sub(
+        r"^[ \t]*(?P<fence>`{3,}|~{3,})[ \t]*json\b[^\r\n]*\r?\n"
+        r".*?^[ \t]*(?P=fence)[ \t]*(?:\r?\n|$)",
+        lambda match: (
+            ""
+            if any(pattern.search(match.group(0)) for pattern in patterns)
+            else match.group(0)
+        ),
+        prompt,
+        flags=re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
     return "".join(
         line
         for line in prompt.splitlines(keepends=True)
@@ -301,7 +332,7 @@ def tool_prompt_description(
     fallback: str = "",
 ) -> str:
     declaration = re.search(
-        rf"^\s*-\s+`{re.escape(name)}`:\s+(args?\b.*)$",
+        rf"^\s*-\s+`{re.escape(name)}`:\s+(.+)$",
         prompt or "",
         re.IGNORECASE | re.MULTILINE,
     )

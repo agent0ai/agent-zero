@@ -1,5 +1,6 @@
 # code_execution_remote tool
 
+Run shell-backed commands on a connected A0 CLI host.
 Shown when a connected A0 CLI advertises remote execution, which the user enables
 with F4 in the CLI. Runs shell-backed execution on the machine where that CLI is
 running. Use this tool, not `code_execution_tool`, when the user asks for the

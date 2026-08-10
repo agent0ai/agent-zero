@@ -412,17 +412,23 @@ async def _run_parallel_job(parent_context_id: str, job_id: str) -> None:
 async def _run_subordinate_context_job(parent_context_id: str, job: ParallelJob) -> str:
     from agent import AgentContext, AgentContextType, UserMessage
     from helpers import message_queue, persist_chat
+    from helpers.tool_policy import ensure_tool_allowed
+    from tools.call_subordinate import _validate_subordinate_profile
 
     parent_context = AgentContext.get(parent_context_id)
     if not parent_context:
         raise ValueError("Parent context not found.")
+    ensure_tool_allowed(parent_context.agent0, "call_subordinate")
 
     args = job.tool_args
     message = str(args.get("message") or "").strip()
     if not message:
         raise ValueError("call_subordinate requires `tool_args.message`.")
 
-    profile = str(args.get("profile") or args.get("agent_profile") or "").strip()
+    profile = _validate_subordinate_profile(
+        parent_context.agent0,
+        str(args.get("profile") or args.get("agent_profile") or ""),
+    )
     attachments = args.get("attachments") if isinstance(args.get("attachments"), list) else []
     attachments = [str(item) for item in attachments]
 

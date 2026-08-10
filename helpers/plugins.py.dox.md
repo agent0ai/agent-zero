@@ -49,6 +49,8 @@
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
+- Plugins marked `always_enabled` remain in runtime discovery regardless of
+  stale global or scoped disable files, and disable attempts are rejected.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, WebSocket state, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `__future__`, `asyncio`, `glob`, `helpers`, `helpers.defer`, `helpers.watchdog`, `json`, `pathlib`, `pydantic`, `re`, `regex`, `time`, `typing`.

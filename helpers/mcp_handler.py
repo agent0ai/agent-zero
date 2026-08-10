@@ -434,10 +434,14 @@ class MCPTool(Tool):
         return message, additional
 
     async def execute(self, **kwargs: Any):
-        from helpers.tool_policy import ensure_tool_allowed
+        from helpers.tool_policy import canonical_mcp_id, ensure_tool_allowed
 
         if "." in self.name:
-            ensure_tool_allowed(self.agent, self.name)
+            ensure_tool_allowed(
+                self.agent,
+                self.name,
+                canonical_id=canonical_mcp_id(self.name),
+            )
         error = ""
         additional: dict[str, Any] | None = None
         try:

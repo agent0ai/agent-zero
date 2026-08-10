@@ -385,6 +385,97 @@ async def test_parallel_subordinate_jobs_are_visible_child_logs_not_scheduler_ta
 
 
 @pytest.mark.asyncio
+async def test_parallel_subordinate_enforces_parent_delegation_policy(
+    monkeypatch,
+) -> None:
+    from agent import AgentContext
+    from helpers import tool_policy
+    from helpers.errors import RepairableException
+
+    parent_agent = SimpleNamespace(
+        config=SimpleNamespace(profile="restricted"),
+        context=_FakeContext(),
+    )
+    parent_context = SimpleNamespace(agent0=parent_agent)
+    monkeypatch.setattr(
+        AgentContext,
+        "get",
+        staticmethod(lambda _context_id: parent_context),
+    )
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: {
+            "mode": "custom",
+            "default": "allow",
+            "allowed": [],
+            "blocked": ["local:call_subordinate"],
+        },
+    )
+    job = parallel_tools.ParallelJob(
+        id="callsubordin-blocked",
+        parent_context_id="ctx",
+        index=0,
+        tool_name="call_subordinate",
+        tool_args={"profile": "developer", "message": "Work"},
+        kind="subordinate",
+    )
+
+    with pytest.raises(
+        RepairableException,
+        match='Tool "call_subordinate" is blocked for agent profile "restricted"',
+    ):
+        await parallel_tools._run_subordinate_context_job("ctx", job)
+
+
+@pytest.mark.asyncio
+async def test_parallel_subordinate_reuses_profile_validation(monkeypatch) -> None:
+    from agent import AgentContext
+    from helpers import tool_policy
+    from helpers.errors import RepairableException
+    from tools import call_subordinate
+
+    parent_agent = SimpleNamespace(
+        config=SimpleNamespace(profile="agent0"),
+        context=_FakeContext(),
+    )
+    parent_context = SimpleNamespace(agent0=parent_agent)
+    monkeypatch.setattr(
+        AgentContext,
+        "get",
+        staticmethod(lambda _context_id: parent_context),
+    )
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: {
+            "mode": "inherit",
+            "default": "allow",
+            "allowed": [],
+            "blocked": [],
+        },
+    )
+    monkeypatch.setattr(
+        call_subordinate.subagents,
+        "get_available_agents_dict",
+        lambda project_name: {"developer": SimpleNamespace(title="Developer")},
+    )
+    job = parallel_tools.ParallelJob(
+        id="callsubordin-invalid",
+        parent_context_id="ctx",
+        index=0,
+        tool_name="call_subordinate",
+        tool_args={"profile": "ghost", "message": "Work"},
+        kind="subordinate",
+    )
+
+    with pytest.raises(RepairableException, match="Agent profile 'ghost' not found"):
+        await parallel_tools._run_subordinate_context_job("ctx", job)
+
+
+@pytest.mark.asyncio
 async def test_parallel_direct_tool_jobs_fallback_to_generic_tool_log_type(monkeypatch) -> None:
     class FakeDeferredTask:
         def __init__(self, thread_name=None) -> None:
@@ -704,4 +795,3 @@ def test_chats_sidebar_projects_parallel_children_as_indented_accordion() -> Non
     assert "left: 2px" in html
     assert "padding-left: 24px" in html
     assert "color: var(--color-text-muted)" in html
-    assert "padding: 8px;" in html

@@ -2,11 +2,13 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from api.plugins import Plugins
 from helpers import files, plugins
 
 
@@ -55,6 +57,50 @@ def test_list_toggle_state_is_global_even_when_scoped_rules_exist(monkeypatch):
     monkeypatch.setattr(plugins, "find_plugin_assets", fail_on_scoped_lookup)
 
     assert plugins.get_toggle_state("example") == "disabled"
+
+
+def test_always_enabled_plugin_ignores_disable_files_at_runtime(monkeypatch):
+    monkeypatch.setattr(plugins.cache, "get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(plugins.cache, "add", lambda *args, **kwargs: None)
+    monkeypatch.setattr(plugins, "get_plugins_list", lambda: ["_required"])
+    monkeypatch.setattr(
+        plugins,
+        "get_plugin_meta",
+        lambda _plugin_name: SimpleNamespace(always_enabled=True),
+    )
+
+    def fail_on_toggle_lookup(*_args, **_kwargs):
+        raise AssertionError("always-enabled plugins must ignore toggle files")
+
+    monkeypatch.setattr(plugins, "determined_toggle_from_paths", fail_on_toggle_lookup)
+
+    assert plugins.get_enabled_plugins(None) == ["_required"]
+
+
+def test_always_enabled_plugin_rejects_disable_attempt(monkeypatch):
+    monkeypatch.setattr(
+        plugins,
+        "get_plugin_meta",
+        lambda _plugin_name: SimpleNamespace(always_enabled=True),
+    )
+
+    with pytest.raises(ValueError, match="always enabled"):
+        plugins.toggle_plugin.__wrapped__("_required", False)
+
+
+def test_plugin_api_returns_bad_request_for_rejected_disable(monkeypatch):
+    def reject(*_args, **_kwargs):
+        raise ValueError('Plugin "_required" is always enabled.')
+
+    monkeypatch.setattr(plugins, "toggle_plugin", reject)
+
+    response = Plugins._toggle_plugin.__wrapped__(
+        object.__new__(Plugins),
+        {"plugin_name": "_required", "enabled": False},
+    )
+
+    assert response.status_code == 400
+    assert "always enabled" in response.get_data(as_text=True)
 
 
 def test_config_scope_activation_toggle_saves_immediately_for_selected_scope():
