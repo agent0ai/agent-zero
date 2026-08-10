@@ -299,10 +299,16 @@ const model = {
 
   async restoreProfile(profile) {
     if (!profile?.id || profile.deletable || !profile.scope_has_overrides || this.saving) return;
+    const editorState = this.view === "editor"
+      ? { mode: this.mode, section: this.section }
+      : null;
+    const unsaved = editorState && this.dirty
+      ? "<p>Unsaved edits will also be discarded.</p>"
+      : "";
     const confirmed = await showConfirmDialog({
-      title: `Restore ${escapeHtml(profile.title || profile.id)}?`,
-      message: `<p>This removes your Agent Editor customizations from ${escapeHtml(this.scopeLabel)}. Other files stay in place.</p>`,
-      confirmText: "Restore original",
+      title: `Reset ${escapeHtml(profile.title || profile.id)} to default?`,
+      message: `<p>This removes your Agent Editor customizations from ${escapeHtml(this.scopeLabel)}. Other files stay in place.</p>${unsaved}`,
+      confirmText: "Reset to default",
       type: "danger",
     });
     if (!confirmed) return;
@@ -317,6 +323,10 @@ const model = {
       });
       await this.loadProfiles();
       await modelConfigStore.loadAgentProfiles(true);
+      if (editorState) {
+        await this.loadEditor(profile.id, false);
+        this.setMode(editorState.mode, editorState.section, false);
+      }
     } catch (error) {
       this.error = error.message || String(error);
     } finally {
@@ -892,12 +902,15 @@ const model = {
     textarea.setSelectionRange(index, index + query.length);
   },
 
-  copyPromptPath() {
+  promptCustomizationPath() {
     const root = this.projectName
       ? `usr/projects/${this.projectName}/.a0proj/agents`
       : "usr/agents";
-    const path = `${root}/${this.draft.profileId}/prompts/${this.selectedPrompt}`;
-    navigator.clipboard?.writeText(path);
+    return `${root}/${this.draft.profileId}/prompts/${this.selectedPrompt}`;
+  },
+
+  copyPromptPath() {
+    navigator.clipboard?.writeText(this.promptCustomizationPath());
     globalThis.justToast?.("Path copied", "success", 1200, "agent-editor-copy");
   },
 

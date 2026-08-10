@@ -117,8 +117,24 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert ':aria-label="`Duplicate ${profile.title || profile.id}`"' in modal
     assert "$store.agentEditor.duplicateProfile(profile)" in modal
     assert 'x-show="profile.scope_has_overrides && !profile.deletable"' in modal
-    assert ':aria-label="`Restore original ${profile.title || profile.id}`"' in modal
+    assert ':aria-label="`Reset ${profile.title || profile.id} to default`"' in modal
+    assert "Restore original" not in modal
+    assert modal.count("Reset to default") >= 6
     assert "$store.agentEditor.restoreProfile(profile)" in modal
+    assert "$store.agentEditor.restoreProfile($store.agentEditor.state.profile)" in modal
+    assert 'class="agent-editor-topbar-actions"' in modal
+    topbar = modal.split('class="agent-editor-topbar-actions"', 1)[1].split("</header>", 1)[0]
+    footer = modal.split('class="modal-footer agent-editor-footer"', 1)[1]
+    assert "Reset to default" not in topbar
+    assert "$store.agentEditor.restoreProfile($store.agentEditor.state.profile)" in footer
+    assert 'class="btn btn-cancel agent-reset-profile"' in footer
+    assert '<x-icon name="restore"></x-icon><span>Reset to default</span>' not in footer
+    assert "x-show=\"$store.agentEditor.draft && !$store.agentEditor.draft.creating" in footer
+    assert ':disabled="$store.agentEditor.saving || !$store.agentEditor.state?.profile?.scope_has_overrides"' in footer
+    avatar_reset = 'x-show="$store.agentEditor.state.profile.metadata.avatar.has_override || $store.agentEditor.draft.avatar" @click="$store.agentEditor.resetAvatar()">Reset</button>'
+    assert modal.count(avatar_reset) == 2
+    assert '@click="$store.agentEditor.resetAvatar()">Remove</button>' not in modal
+    assert 'class="btn btn-cancel" @click="window.closeModal?.()">Cancel</button>' not in modal
     assert 'class="toggle agent-profile-availability"' in modal
     assert ':disabled="$store.agentEditor.profileAvailabilitySaving"' in modal
     assert "Default is always available" not in modal
@@ -152,7 +168,19 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "policy-description" not in modal and "-webkit-line-clamp:2" not in modal
     assert 'class="prompt-file-list" role="region" aria-label="Prompt file list" tabindex="0"' in modal
     assert 'class="prompt-editor" role="region" aria-label="Selected prompt file" tabindex="0"' in modal
+    assert "Preview combined prompt" not in modal
+    assert 'class="prompt-customization-path"' in modal
+    assert "$store.agentEditor.promptCustomizationPath()" in modal
+    assert 'class="review-identity"' in modal
+    assert 'aria-label="Agent identity"' in modal
+    assert 'id="review-identity-title"' not in modal
+    review_identity = modal[modal.index('class="review-identity"'):modal.index('class="change-plan"')]
+    assert "draft.profileId\"></code>" not in review_identity
+    assert "width:92vw" in modal
+    assert ".modal-inner.agent-editor-advanced .modal-scroll { max-height:none; }" in modal
     assert 'width:1.5rem; height:1.5rem' in modal
+    assert modal.count('class="button icon prompt-match-action"') == 2
+    assert "min-height:3rem" in modal and "font-size:.72rem" in modal
     assert "moveAllVisibleTools(false)" in modal and "moveAllVisibleSkills(false)" in modal
     assert 'class="agent-editor-heading"' in modal
     assert ':aria-invalid=' in modal
@@ -166,9 +194,9 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'input[type="checkbox"]' in modal and "appearance:none" in modal
     assert 'promptDisplayState(prompt)' in modal
     assert 'promptSourceChain($store.agentEditor.selectedPromptDraft)' in modal
-    assert "Will reset to inherited on save." in modal
-    for key in ("title", "description"):
-        assert f'x-show="$store.agentEditor.metadataProvenance(\'{key}\')"' in modal
+    assert "Will reset to default on save." in modal
+    assert "metadataProvenance('description')" not in modal
+    assert 'x-show="$store.agentEditor.metadataProvenance(\'title\')"' in modal
     assert 'metadataProvenance(\'context\')' not in modal
     assert ':title="prompt.filename"' not in modal
     assert "promptEditPending($store.agentEditor.selectedPromptDraft)" in modal
@@ -211,6 +239,13 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'x-show="!$store.modelConfig.agentProfilesLoading"' in switcher
     assert "@keydown.ctrl.s.prevent" in modal
     assert "@media (max-width: 760px)" in modal
+    assert modal.count('<label class="policy-item"><input type="checkbox"') == 4
+    assert '<div class="policy-item"><input type="checkbox"' not in modal
+    assert ".agent-manager-card { grid-template-columns:3rem minmax(0,1fr) auto; align-items:start; }" in modal
+    assert ".agent-manager-actions { grid-column:auto; align-self:stretch; display:grid;" in modal
+    assert ".agent-manager-actions .agent-profile-availability { grid-column:1/-1; }" in modal
+    assert ".footer-actions { width:auto; max-width:100%; flex-wrap:wrap; justify-content:flex-end; }" in modal
+    assert ".footer-actions .btn { flex:0 1 auto; text-align:center; }" in modal
     assert modal.count("data-modal-footer") == 1
     assert ">Close</button>" not in modal
 
@@ -336,6 +371,13 @@ if (store.metadataProvenance("title") !== "Inherited from Researcher") throw new
 store.state.profile.metadata.title.has_override = true;
 if (store.metadataProvenance("title") !== "Customized by you") throw new Error("custom provenance mismatch");
 store.draft.creating = true;
+store.draft.profileId = "researcher";
+store.selectedPrompt = "agent.system.main.specifics.md";
+store.projectName = "";
+if (store.promptCustomizationPath() !== "usr/agents/researcher/prompts/agent.system.main.specifics.md") throw new Error("Global prompt customization path mismatch");
+store.projectName = "demo";
+if (store.promptCustomizationPath() !== "usr/projects/demo/.a0proj/agents/researcher/prompts/agent.system.main.specifics.md") throw new Error("project prompt customization path mismatch");
+store.projectName = "";
 store.state.tools.catalog = [
   { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
   { id: "local:gone", name: "gone", label: "Gone", origin: "Unavailable", available: false },
@@ -403,11 +445,24 @@ if (!calls.some(item => item.payload?.action === "duplicate" && item.payload.pro
 calls.length = 0;
 confirmResult = false;
 await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
-if (calls.length || confirmations.at(-1)?.title !== "Restore Researcher?") throw new Error("restore cancellation failed");
+if (calls.length || confirmations.at(-1)?.title !== "Reset Researcher to default?") throw new Error("restore cancellation failed");
 confirmResult = true;
 await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
-if (!calls.some(item => item.payload?.action === "remove_changes" && item.payload.profile_id === "researcher" && item.payload.destructive === false)) throw new Error("restore original did not use sparse removal");
-if (!calls.some(item => item.endpoint === "loadAgentProfiles" && item.payload === true) || store.saving) throw new Error("restore original did not refresh profile state");
+if (!calls.some(item => item.payload?.action === "remove_changes" && item.payload.profile_id === "researcher" && item.payload.destructive === false)) throw new Error("reset to default did not use sparse removal");
+if (!calls.some(item => item.endpoint === "loadAgentProfiles" && item.payload === true) || store.saving) throw new Error("reset to default did not refresh profile state");
+let editorReload = null;
+const loadEditor = store.loadEditor;
+const setMode = store.setMode;
+store.view = "editor";
+store.mode = "advanced";
+store.section = "3";
+store.loadEditor = async (...args) => { editorReload = { args }; };
+store.setMode = (...args) => { editorReload.mode = args; };
+await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
+if (editorReload?.args.join(":") !== "researcher:false" || editorReload.mode.join(":") !== "advanced:3:false") throw new Error("editor reset did not restore its surface");
+store.loadEditor = loadEditor;
+store.setMode = setMode;
+store.view = "manage";
 confirmations.length = 0;
 confirmResult = false;
 store.projectName = "other";
