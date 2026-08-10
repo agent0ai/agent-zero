@@ -4,6 +4,7 @@ from io import BytesIO
 import json
 from pathlib import Path
 import stat
+from types import SimpleNamespace
 
 import pytest
 from werkzeug.datastructures import FileStorage
@@ -480,11 +481,20 @@ def test_project_customizations_inherit_global_agent_and_remove_only_project_fil
 def test_project_scope_is_validated_at_api_and_apply_boundaries(
     user_root: Path,
     project_scope: tuple[editor._EditorContext, Path],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     context, _project_agents = project_scope
     assert editor.projects.get_context_project_name(editor_context({"project_name": "demo"})) == "demo"
     with pytest.raises(ValueError, match="Project not found"):
         editor_context({"project_name": "missing-agent-editor-project"})
+    monkeypatch.setattr(
+        "plugins._agent_editor.api.agent_editor.AgentContext.get",
+        lambda _context_id: SimpleNamespace(
+            get_data=lambda _key, recursive=True: "../outside"
+        ),
+    )
+    with pytest.raises(ValueError, match="Invalid project name"):
+        editor_context({"context_id": "unsafe-project-context"})
 
     forged = editor.ChangePlan(profile_id="researcher", project_name="demo")
     forged.write(user_root / "researcher" / "agent.yaml", "title: Wrong scope\n")
@@ -925,6 +935,154 @@ def test_avatar_is_normalized_and_avatar_only_edit_is_sparse(user_root: Path) ->
         assert normalized.format == "WEBP"
         assert normalized.size == (editor.AVATAR_SIZE, editor.AVATAR_SIZE)
         assert not normalized.getexif()
+
+
+@pytest.mark.asyncio
+async def test_truncated_avatar_is_a_validation_error(user_root: Path) -> None:
+    from PIL import Image
+
+    source = BytesIO()
+    Image.new("RGB", (32, 32), "red").save(source, format="PNG")
+    upload = FileStorage(
+        stream=BytesIO(source.getvalue()[:-24]),
+        filename="truncated.png",
+    )
+    response = await AgentEditorAvatar(None, None).process(  # type: ignore[arg-type]
+        {},
+        SimpleNamespace(method="POST", files={"avatar": upload}),
+    )
+
+    assert response.status_code == 400
+    assert "valid PNG, JPEG, or WebP" in response.get_data(as_text=True)
+
+
+@pytest.mark.asyncio
+async def test_destructive_removal_requires_a_boolean_and_confirmation(
+    user_root: Path,
+) -> None:
+    profile_root = user_root / "researcher"
+    manual = profile_root / "manual.txt"
+    manual.parent.mkdir(parents=True)
+    manual.write_text("keep until confirmed", encoding="utf-8")
+    handler = AgentEditor(None, None)  # type: ignore[arg-type]
+
+    malformed = await handler.process(
+        {
+            "action": "remove_changes",
+            "profile_id": "researcher",
+            "destructive": "false",
+        },
+        None,  # type: ignore[arg-type]
+    )
+    unconfirmed = await handler.process(
+        {
+            "action": "remove_changes",
+            "profile_id": "researcher",
+            "destructive": True,
+        },
+        None,  # type: ignore[arg-type]
+    )
+
+    assert malformed.status_code == 400
+    assert unconfirmed.status_code == 400
+    assert manual.read_text(encoding="utf-8") == "keep until confirmed"
+
+    applied = await handler.process(
+        {
+            "action": "remove_changes",
+            "profile_id": "researcher",
+            "destructive": True,
+            "confirm": True,
+        },
+        None,  # type: ignore[arg-type]
+    )
+    assert applied["ok"] is True
+    assert not manual.exists()
+
+
+@pytest.mark.asyncio
+async def test_running_custom_profile_cannot_be_deleted(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    profile_root = user_root / "running-custom"
+    profile_root.mkdir(parents=True)
+    (profile_root / "agent.yaml").write_text(
+        "title: Running custom\n",
+        encoding="utf-8",
+    )
+    running = SimpleNamespace(
+        config=SimpleNamespace(profile="running-custom"),
+        is_running=lambda: True,
+    )
+    monkeypatch.setattr(
+        "plugins._agent_editor.api.agent_editor.AgentContext.all",
+        lambda: [running],
+    )
+
+    response = await AgentEditor(None, None).process(  # type: ignore[arg-type]
+        {
+            "action": "delete",
+            "profile_id": "running-custom",
+            "confirm": True,
+        },
+        None,  # type: ignore[arg-type]
+    )
+
+    assert response.status_code == 400
+    assert "running" in response.get_data(as_text=True)
+    assert profile_root.is_dir()
+
+
+def test_stale_create_plan_cannot_overwrite_a_new_profile(user_root: Path) -> None:
+    patch = {
+        "profile_id": "create-race",
+        "creating": True,
+        "editor_mode": "easy",
+        "metadata": {"set": {"title": "Create race"}, "reset": []},
+        "prompts": {
+            "set": {editor.SPECIFICS_FILE: "First writer wins."},
+            "reset": [],
+        },
+    }
+    first = editor.build_change_plan(patch)
+    stale = editor.build_change_plan(patch)
+
+    editor.apply_change_plan(first)
+    with pytest.raises(ValueError, match="created before this save completed"):
+        editor.apply_change_plan(stale)
+
+    assert yaml_helper.loads(
+        (user_root / "create-race" / "agent.yaml").read_text(encoding="utf-8")
+    ) == {"title": "Create race"}
+
+
+def test_settings_default_profile_catalog_uses_global_availability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from helpers import settings
+
+    monkeypatch.setattr(
+        settings.subagents,
+        "get_available_agents_dict",
+        lambda _project: {
+            "default": settings.subagents.SubAgentListItem(
+                name="default", title="Default"
+            )
+        },
+    )
+    configured = settings.get_default_settings().copy()
+    configured["agent_profile"] = "disabled-profile"
+
+    options = settings.convert_out(configured)["additional"]["agent_subdirs"]
+
+    assert options == [
+        {"value": "default", "label": "Default"},
+        {
+            "value": "disabled-profile",
+            "label": "disabled-profile (unavailable)",
+        },
+    ]
 
 
 @pytest.mark.parametrize(

@@ -258,9 +258,12 @@ def convert_out(settings: Settings) -> SettingsOutput:
             chat_providers=get_providers("chat"),
             embedding_providers=get_providers("embedding"),
             is_dockerized=runtime.is_dockerized(),
-            agent_subdirs=[{"value": item["key"], "label": item["label"]}
-                for item in subagents.get_all_agents_list()
-                if item["key"] != "_example"],
+            agent_subdirs=[
+                {"value": key, "label": item.title or key}
+                for key, item in sorted(
+                    subagents.get_available_agents_dict(None).items()
+                )
+            ],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
             timezones=_timezone_options(),
@@ -284,7 +287,14 @@ def convert_out(settings: Settings) -> SettingsOutput:
         ),
     }
 
-    additional["agent_subdirs"] = _ensure_option_present(additional.get("agent_subdirs"), current.get("agent_profile"))
+    current_profile = current.get("agent_profile")
+    if current_profile and not any(
+        option["value"] == current_profile
+        for option in additional["agent_subdirs"]
+    ):
+        additional["agent_subdirs"].append(
+            {"value": current_profile, "label": f"{current_profile} (unavailable)"}
+        )
     additional["knowledge_subdirs"] = _ensure_option_present(additional.get("knowledge_subdirs"), current.get("agent_knowledge_subdir"))
     if current.get("timezone") != TIMEZONE_AUTO:
         additional["timezones"] = _ensure_option_present(additional.get("timezones"), current.get("timezone"))

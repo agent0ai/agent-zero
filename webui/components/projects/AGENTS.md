@@ -17,6 +17,9 @@
 - Do not expose project secrets in logs, URLs, or long-lived frontend state unnecessarily.
 - Preserve scoped settings interactions with plugins, models, skills, and MCP servers.
 - Project model settings select a global `_model_config` preset; they do not own copied model dictionaries or project-local preset definitions.
+- Agent Editor owns profile-scoped availability mutations. Project edit payloads
+  do not include that state, so unrelated project saves cannot restore stale
+  toggle values.
 
 ## Work Guidance
 

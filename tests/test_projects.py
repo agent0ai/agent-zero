@@ -107,6 +107,79 @@ def test_project_agent_availability_retains_project_only_profiles(
     ) == {"project-only": {"enabled": False}}
 
 
+def test_project_profile_toggle_preserves_other_entries_and_refuses_bad_json(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    _prepare_project_tree(monkeypatch, tmp_path)
+    meta = tmp_path / "usr" / "projects" / "demo" / ".a0proj"
+    meta.mkdir(parents=True)
+    availability = meta / "agents.json"
+    monkeypatch.setattr(
+        subagents,
+        "get_agents_dict",
+        lambda _project=None: {
+            "default": subagents.SubAgentListItem(name="default", enabled=True),
+            "researcher": subagents.SubAgentListItem(
+                name="researcher", enabled=True
+            ),
+        },
+    )
+    availability.write_text(
+        '{"default":{"enabled":false}}',
+        encoding="utf-8",
+    )
+
+    projects.set_project_subagent_enabled("demo", "researcher", False)
+
+    assert dirty_json.parse(availability.read_text(encoding="utf-8")) == {
+        "default": {"enabled": False},
+        "researcher": {"enabled": False},
+    }
+    broken = b'{"default":'
+    availability.write_bytes(broken)
+
+    with pytest.raises(ValueError, match="Project agent availability"):
+        projects.set_project_subagent_enabled("demo", "researcher", True)
+
+    assert availability.read_bytes() == broken
+
+
+def test_project_edit_ignores_stale_agent_availability(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    _prepare_project_tree(monkeypatch, tmp_path)
+    meta = tmp_path / "usr" / "projects" / "demo" / ".a0proj"
+    meta.mkdir(parents=True)
+    (meta / "project.json").write_text('{"title":"Demo"}', encoding="utf-8")
+    availability = meta / "agents.json"
+    original = b'{"default":{"enabled":false}}'
+    availability.write_bytes(original)
+    monkeypatch.setattr("helpers.git.get_repo_status", lambda _path: {})
+    monkeypatch.setattr(projects, "reactivate_project_in_chats", lambda _name: None)
+    extended: list[dict] = []
+    monkeypatch.setattr(
+        projects,
+        "save_project_extended_data",
+        lambda _name, data: extended.append(data),
+    )
+
+    loaded = projects.load_edit_project_data("demo")
+    projects.update_project(
+        "demo",
+        {
+            **loaded,
+            "title": "Renamed",
+            "subagents": {"default": {"enabled": True}},
+        },
+    )
+
+    assert "subagents" not in loaded
+    assert availability.read_bytes() == original
+    assert extended and all("subagents" not in data for data in extended)
+
+
 def test_profile_reconciliation_uses_an_available_fallback(monkeypatch) -> None:
     context_id = "ctx-profile-availability-fallback"
     AgentContext.remove(context_id)

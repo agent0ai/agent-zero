@@ -41,20 +41,7 @@ class AgentEditor(ApiHandler):
                 if not isinstance(enabled, bool):
                     raise ValueError("Agent availability must be true or false.")
                 if not enabled:
-                    project_name = editor._context_project_name(context)
-                    for live_context in AgentContext.all():
-                        if (
-                            getattr(live_context.config, "profile", "") == profile_id
-                            and live_context.is_running()
-                            and (
-                                not project_name
-                                or projects.get_context_project_name(live_context)
-                                == project_name
-                            )
-                        ):
-                            raise ValueError(
-                                "This agent is running. Disable it after the run finishes."
-                            )
+                    _reject_running_profile(profile_id, context, "Disable")
                 receipt = editor.set_profile_enabled(profile_id, enabled, context)
                 return {
                     "ok": True,
@@ -74,10 +61,21 @@ class AgentEditor(ApiHandler):
                 }
             if action in {"plan_remove_changes", "remove_changes"}:
                 profile_id = editor.validate_profile_id(input.get("profile_id"))
+                destructive = input.get("destructive", False)
+                if not isinstance(destructive, bool):
+                    raise ValueError("Destructive removal must be true or false.")
+                if (
+                    action == "remove_changes"
+                    and destructive
+                    and input.get("confirm") is not True
+                ):
+                    raise ValueError(
+                        "Deleting all profile customizations requires confirmation."
+                    )
                 plan = editor.plan_remove_changes(
                     profile_id,
                     context,
-                    destructive=bool(input.get("destructive")),
+                    destructive=destructive,
                 )
                 if action == "plan_remove_changes":
                     return {"ok": True, **plan.response()}
@@ -89,6 +87,12 @@ class AgentEditor(ApiHandler):
                 }
             if action in {"plan_delete", "delete"}:
                 profile_id = editor.validate_profile_id(input.get("profile_id"))
+                if action == "delete":
+                    if input.get("confirm") is not True:
+                        raise ValueError(
+                            "Deleting a custom agent requires confirmation."
+                        )
+                    _reject_running_profile(profile_id, context, "Delete")
                 plan = editor.plan_delete_custom(profile_id, context)
                 if action == "plan_delete":
                     return {
@@ -96,8 +100,6 @@ class AgentEditor(ApiHandler):
                         **plan.response(),
                         "impact": editor.delete_impact(profile_id, context),
                     }
-                if input.get("confirm") is not True:
-                    raise ValueError("Deleting a custom agent requires confirmation.")
                 receipt = editor.apply_change_plan(plan)
                 project_name = editor._context_project_name(context)
                 projects.reconcile_agent_profiles(
@@ -115,13 +117,36 @@ def _context(input: dict[str, Any]) -> Any:
         context = AgentContext.get(context_id)
         if not context:
             raise ValueError("Chat context not found.")
+        _validate_project_scope(projects.get_context_project_name(context))
         return context
-    project_name = str(input.get("project_name") or "").strip()
-    if project_name:
-        project_name = projects.validate_project_name(project_name)
-        if not Path(projects.get_project_folder(project_name)).is_dir():
-            raise ValueError("Project not found.")
+    project_name = _validate_project_scope(input.get("project_name"))
     return editor._EditorContext(project_name)
+
+
+def _validate_project_scope(project_name: Any) -> str:
+    value = str(project_name or "").strip()
+    if not value:
+        return ""
+    value = projects.validate_project_name(value)
+    if not Path(projects.get_project_folder(value)).is_dir():
+        raise ValueError("Project not found.")
+    return value
+
+
+def _reject_running_profile(profile_id: str, context: Any, action: str) -> None:
+    project_name = editor._context_project_name(context)
+    for live_context in AgentContext.all():
+        if (
+            getattr(live_context.config, "profile", "") == profile_id
+            and live_context.is_running()
+            and (
+                not project_name
+                or projects.get_context_project_name(live_context) == project_name
+            )
+        ):
+            raise ValueError(
+                f"This agent is running. {action} it after the run finishes."
+            )
 
 
 def _active_profile(input: dict[str, Any]) -> dict[str, str]:

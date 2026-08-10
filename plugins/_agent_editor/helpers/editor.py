@@ -82,6 +82,7 @@ class ChangePlan:
     staged_tokens: set[str] = field(default_factory=set)
     profile_id: str = ""
     project_name: str = ""
+    creating: bool = False
     remove_empty_root: bool = False
 
     def write(self, path: Path, content: str | bytes) -> None:
@@ -681,7 +682,11 @@ def build_change_plan(
     if not creating and not exists:
         raise ValueError(f'Agent profile "{profile_id}" does not exist.')
 
-    plan = ChangePlan(profile_id=profile_id, project_name=project_name)
+    plan = ChangePlan(
+        profile_id=profile_id,
+        project_name=project_name,
+        creating=creating,
+    )
     if "metadata" in patch:
         _plan_metadata(plan, patch["metadata"], context, creating=creating)
     if "prompts" in patch:
@@ -758,25 +763,26 @@ def set_profile_enabled(
     if not profile_exists(profile_id, context):
         raise ValueError(f'Agent profile "{profile_id}" does not exist.')
 
-    available = subagents.get_available_agents_dict(project_name or None)
-    if not enabled and profile_id in available and len(available) == 1:
-        raise ValueError("At least one agent profile must remain available.")
+    with _MUTATION_LOCK:
+        available = subagents.get_available_agents_dict(project_name or None)
+        if not enabled and profile_id in available and len(available) == 1:
+            raise ValueError("At least one agent profile must remain available.")
 
-    if project_name:
-        settings = projects.load_project_subagents(project_name)
-        settings[profile_id] = {"enabled": enabled}
-        projects.save_project_subagents(project_name, settings)
-        receipt = {
-            "written": [
-                _relative_source(
-                    Path(projects.get_project_meta(project_name, "agents.json"))
-                )
-            ],
-            "deleted": [],
-            "warnings": [],
-        }
-    else:
-        receipt = apply_change_plan(plan_profile_enabled(profile_id, enabled, context))
+        if project_name:
+            projects.set_project_subagent_enabled(project_name, profile_id, enabled)
+            receipt = {
+                "written": [
+                    _relative_source(
+                        Path(projects.get_project_meta(project_name, "agents.json"))
+                    )
+                ],
+                "deleted": [],
+                "warnings": [],
+            }
+        else:
+            receipt = apply_change_plan(
+                plan_profile_enabled(profile_id, enabled, context)
+            )
 
     if not enabled:
         projects.reconcile_agent_profiles(
@@ -807,7 +813,11 @@ def plan_duplicate_profile(
     target_title = f"{source_title} {index}"
     project_name = _context_project_name(context)
     target_root = _profile_root(target_id, project_name)
-    plan = ChangePlan(profile_id=target_id, project_name=project_name)
+    plan = ChangePlan(
+        profile_id=target_id,
+        project_name=project_name,
+        creating=True,
+    )
 
     metadata: dict[str, Any] = {}
     for layer in _metadata_layers(profile_id, context):
@@ -1128,6 +1138,13 @@ def apply_change_plan(plan: ChangePlan) -> dict[str, Any]:
     receipt = plan.response()
 
     with _MUTATION_LOCK:
+        if plan.creating and profile_exists(
+            plan.profile_id,
+            _EditorContext(project_name),
+        ):
+            raise ValueError(
+                f'Agent profile "{plan.profile_id}" was created before this save completed.'
+            )
         snapshots = {
             change.path: change.path.read_bytes() if change.path.is_file() else None
             for change in changes
@@ -1293,6 +1310,8 @@ def stage_avatar(upload: Any) -> dict[str, Any]:
         raise ValueError("Avatar must be a valid PNG, JPEG, or WebP image.") from exc
     except Image.DecompressionBombError as exc:
         raise ValueError("Avatar dimensions are too large.") from exc
+    except OSError as exc:
+        raise ValueError("Avatar must be a valid PNG, JPEG, or WebP image.") from exc
 
     _cleanup_staged_avatars()
     STAGED_AVATAR_ROOT.mkdir(parents=True, exist_ok=True)

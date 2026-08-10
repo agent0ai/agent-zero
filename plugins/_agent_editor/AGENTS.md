@@ -26,6 +26,11 @@
 - Every profile, including `Default`, can be made unavailable. The backend
   rejects only the change that would leave the selected scope with no available
   profile, then reconciles loaded chats through the shared project owner.
+- Destructive cleanup and custom-profile deletion require an explicit confirmed
+  apply request. Profile creation and availability invariants are rechecked at
+  the existing editor mutation boundary; project availability refuses malformed
+  `agents.json` and changes only the requested profile entry through the existing
+  project storage owner.
 - Never call `helpers.subagents.save_agent_data`.
 - Authored profile definitions remain YAML; editor-written plugin configs remain
   JSON.
@@ -39,6 +44,8 @@
 - Advanced prompt text is directly editable; per-file close/check actions
   discard or accept the current edit checkpoint, while the editor's global save
   remains the only persistence boundary.
+- New profiles require a display name and non-empty agent instructions in both
+  Easy and Advanced; existing Advanced prompt edits retain per-file semantics.
 - The configurable tool catalog is visible in both modes; Easy provides direct
   allow/block checkboxes and points to Advanced for skill access. Skills remain
   Advanced-only. Advanced keeps both complete selectors visible but disabled

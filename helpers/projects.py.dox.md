@@ -58,6 +58,7 @@
 - `_normalize_include_agents_md(value: object) -> bool`
 - `load_project_subagents(name: str) -> dict[str, SubAgentSettings]`
 - `save_project_subagents(name: str, subagents_data: dict[str, SubAgentSettings])`
+- `set_project_subagent_enabled(name: str, profile_id: str, enabled: bool) -> None`
 - `_normalize_subagents(subagents_data: dict[str, SubAgentSettings], project_name: str=...) -> dict[str, SubAgentSettings]`
 - Notable constants/configuration names: `PROJECTS_PARENT_DIR`, `PROJECT_META_DIR`, `PROJECT_INSTRUCTIONS_DIR`, `PROJECT_KNOWLEDGE_DIR`, `PROJECT_SKILLS_DIR`, `PROJECT_HEADER_FILE`, `PROJECT_MCP_SERVERS_FILE`, `PROJECT_AGENTS_MD_FILES`, `DEFAULT_MCP_SERVERS_CONFIG`, `CONTEXT_DATA_KEY_PROJECT`.
 
@@ -79,7 +80,11 @@
   configured default profile, then `agent0`, then the first available profile.
 - Per-project profile availability is persisted sparsely in `.a0proj/agents.json`;
   entries matching the profile definition's scoped default are omitted. The
-  helper retains the established plain load/save contract for project settings.
+  helper retains the established tolerant load contract for read-only settings.
+  Profile-scoped mutations re-read the file strictly, preserve unrelated
+  entries, refuse malformed data, and write through `helpers.files`. General
+  project edit payloads neither expose nor mutate profile availability; legacy
+  `subagents` input is ignored.
 - Profile reconciliation treats `None` as the Global scope. Callers must pass
   `all_scopes=True` to check every loaded chat after a Global availability
   change. Each pass resolves the available profile catalog once per encountered

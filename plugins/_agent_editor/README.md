@@ -16,4 +16,4 @@ and can be removed without changing it.
 Manage agents can duplicate the effective profile into the selected scope and
 toggle whether each profile is available there. Project availability reuses
 `.a0proj/agents.json`; Global availability is a sparse profile override.
-The Default profile always remains available.
+The selected scope must always keep at least one profile available.
