@@ -297,6 +297,33 @@ const model = {
     }
   },
 
+  async restoreProfile(profile) {
+    if (!profile?.id || profile.deletable || !profile.scope_has_overrides || this.saving) return;
+    const confirmed = await showConfirmDialog({
+      title: `Restore ${escapeHtml(profile.title || profile.id)}?`,
+      message: `<p>This removes your Agent Editor customizations from ${escapeHtml(this.scopeLabel)}. Other files stay in place.</p>`,
+      confirmText: "Restore original",
+      type: "danger",
+    });
+    if (!confirmed) return;
+    this.saving = true;
+    this.error = "";
+    try {
+      await callJsonApi(API, {
+        action: "remove_changes",
+        profile_id: profile.id,
+        destructive: false,
+        ...this.scopeInput(),
+      });
+      await this.loadProfiles();
+      await modelConfigStore.loadAgentProfiles(true);
+    } catch (error) {
+      this.error = error.message || String(error);
+    } finally {
+      this.saving = false;
+    }
+  },
+
   async onScopeChanged() {
     const previous = this.intent.projectName || "";
     const next = this.projectName || "";

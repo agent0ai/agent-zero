@@ -55,9 +55,10 @@
   editor; Agent Editor persists only the scoped preset reference.
 - Manage agents reuses the plugin-settings project vocabulary: Global or one
   existing project. The active chat profile appears once above the list; each
-  row exposes scoped availability, duplication, icon-only Edit, and Delete for
-  profiles owned by that scope. Duplicate materializes the effective source
-  profile into the selected writable layer with a collision-free ID and title.
+  row exposes scoped availability, duplication, restore for inherited profiles,
+  icon-only Edit, and Delete for profiles owned by that scope. Duplicate
+  materializes the effective source profile into the selected writable layer
+  with a collision-free ID and title.
   Availability changes quietly refresh the adjacent profile switcher catalog
   without a success toast.
 - The same project selector is available inside Create and Edit. Create keeps

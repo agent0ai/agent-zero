@@ -66,7 +66,6 @@
               <div class="agent-manager-name">
                 <strong x-text="profile.title || profile.id"></strong>
                 <span class="agent-origin" x-text="profile.origin"></span>
-                <span class="agent-customized-indicator" x-show="profile.scope_has_overrides" title="Customized" aria-label="Customized" role="img"><x-icon name="edit_note"></x-icon></span>
               </div>
               <p x-text="profile.description || 'No description'"></p>
               <button type="button" class="text-button agent-manager-inline-action"
@@ -74,6 +73,13 @@
                       :aria-label="`Duplicate ${profile.title || profile.id}`"
                       @click="$store.agentEditor.duplicateProfile(profile)">
                 <x-icon name="content_copy"></x-icon><span>Duplicate</span>
+              </button>
+              <button type="button" class="text-button agent-manager-inline-action"
+                      x-show="profile.scope_has_overrides && !profile.deletable"
+                      :disabled="$store.agentEditor.saving"
+                      :aria-label="`Restore original ${profile.title || profile.id}`"
+                      @click="$store.agentEditor.restoreProfile(profile)">
+                <x-icon name="restore"></x-icon><span>Restore original</span>
               </button>
             </div>
             <div class="agent-manager-actions">
@@ -218,7 +224,7 @@
                   </div>
                   <small>Use the current preset or choose another setup for this agent.</small>
                 </div>
-                <div class="agent-field wide"><label for="agent-editor-context" class="agent-field-label">When should other agents use this agent?</label><textarea id="agent-editor-context" rows="3" x-model="$store.agentEditor.draft.context" @input="$store.agentEditor.markMetadataSet('context')"></textarea><small>Helps Agent Zero decide when to delegate work to this profile.</small><small class="field-provenance" x-show="$store.agentEditor.metadataProvenance('context')" x-text="$store.agentEditor.metadataProvenance('context')"></small><button type="button" class="text-button" x-show="$store.agentEditor.canResetMetadata('context')" @click="$store.agentEditor.resetMetadata('context')">Reset to inherited</button><small class="field-status" x-show="$store.agentEditor.metadataResetPending('context')">Will reset to inherited on save.</small><span class="field-status" x-show="!$store.agentEditor.draft.context">Delegation quality can be lower while this is empty.</span></div>
+                <div class="agent-field wide"><label for="agent-editor-context" class="agent-field-label">When should other agents use this agent?</label><textarea id="agent-editor-context" rows="3" x-model="$store.agentEditor.draft.context" @input="$store.agentEditor.markMetadataSet('context')"></textarea><small>Helps Agent Zero decide when to delegate work; leaving this empty may reduce delegation quality.</small><button type="button" class="text-button" x-show="$store.agentEditor.canResetMetadata('context')" @click="$store.agentEditor.resetMetadata('context')">Reset to inherited</button><small class="field-status" x-show="$store.agentEditor.metadataResetPending('context')">Will reset to inherited on save.</small></div>
               </div>
             </div>
           </section>
@@ -326,10 +332,9 @@
     </div>
   </template>
 
-  <div class="modal-footer agent-editor-footer" data-modal-footer x-show="!$store.agentEditor.loading && !($store.agentEditor.view === 'editor' && $store.agentEditor.pendingMutation)">
+  <div class="modal-footer agent-editor-footer" data-modal-footer x-show="!$store.agentEditor.loading && $store.agentEditor.view === 'editor' && !$store.agentEditor.pendingMutation">
     <div class="footer-left">
-      <button type="button" class="btn btn-cancel" x-show="$store.agentEditor.view === 'manage'" @click="window.closeModal?.()">Close</button>
-      <button type="button" class="btn btn-cancel" x-show="$store.agentEditor.view === 'editor'" @click="window.closeModal?.()">Cancel</button>
+      <button type="button" class="btn btn-cancel" @click="window.closeModal?.()">Cancel</button>
     </div>
     <div class="footer-actions">
       <button type="button" class="btn agent-editor-secondary-action" x-show="$store.agentEditor.view === 'editor' && !$store.agentEditor.draft?.creating" @click="$store.agentEditor.save(true)" :disabled="$store.agentEditor.saving || $store.agentEditor.validationIssues().length > 0">Save & test</button>
@@ -380,7 +385,7 @@
   .agent-avatar { width:5rem; aspect-ratio:1; position:relative; display:grid; place-items:center; border-radius:16px; overflow:hidden; color:white; font-size:1.35rem; font-weight:700; box-shadow:inset 0 0 0 1px rgba(255,255,255,.15); }
   .agent-avatar img { width:100%; height:100%; object-fit:cover; }
   .avatar-progress { position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.5); }
-  .agent-avatar-actions { display:flex; align-items:center; justify-content:center; gap:.35rem; font-size:.76rem; white-space:nowrap; }
+  .agent-avatar-actions { --agent-editor-action:var(--color-primary); display:flex; align-items:center; justify-content:center; gap:.35rem; font-size:.76rem; white-space:nowrap; }
   .avatar-color-action,.avatar-upload-action { position:relative; cursor:pointer; }
   .avatar-action-icon { display:grid; place-items:center; width:1.75rem; height:1.75rem; border-radius:6px; color:var(--agent-editor-action); }
   .avatar-action-icon x-icon { font-size:1.05rem; }
@@ -399,7 +404,7 @@
   .agent-editor .text-button { display:inline-flex; align-items:center; min-height:1.5rem; border:0; padding:0; background:transparent; color:var(--agent-editor-action); cursor:pointer; font-size:.82rem; text-align:left; }
   .agent-editor .text-button:hover { text-decoration:underline; }
   .agent-easy textarea { min-height:11rem; resize:vertical; }
-  .restore-action { display:inline-flex; align-items:center; gap:.25rem; margin-top:.4rem; }
+  .restore-action { --agent-editor-action:var(--color-primary); display:inline-flex; align-items:center; gap:.25rem; margin-top:.4rem; }
   .easy-tool-list { display:flex; flex-direction:column; padding:.2rem .35rem .2rem 0; }
   .easy-tool-list .policy-item { cursor:pointer; }
   .easy-skills-hint { margin:.55rem 0 0; color:var(--color-text-secondary); font-size:.79rem; }
@@ -521,16 +526,16 @@
   .active-agent-avatar { width:1.5rem; aspect-ratio:1; display:grid; flex:0 0 auto; place-items:center; overflow:hidden; border-radius:6px; color:#fff; font-size:.65rem; font-weight:700; }
   .active-agent-avatar img { width:100%; height:100%; object-fit:cover; }
   .agent-manager-create { flex:0 0 auto; display:inline-flex; align-items:center; gap:.35rem; }
-  .agent-manager-list { display:flex; flex-direction:column; gap:.55rem; }
-  .agent-manager-card { display:grid; grid-template-columns:3rem minmax(0,1fr) auto; gap:.75rem; align-items:center; padding:.75rem; border:1px solid var(--color-border); border-radius:10px; }
+  .agent-manager-list { display:flex; flex-direction:column; }
+  .agent-manager-card { display:grid; grid-template-columns:3rem minmax(0,1fr) auto; gap:.75rem; align-items:center; padding:.65rem .25rem; }
+  .agent-manager-card + .agent-manager-card { border-top:1px solid var(--color-border); }
   .agent-manager-avatar { width:3rem; aspect-ratio:1; display:grid; place-items:center; border-radius:10px; color:white; font-weight:700; overflow:hidden; }
   .agent-manager-avatar img { width:100%; height:100%; object-fit:cover; }
   .agent-manager-copy { min-width:0; }
   .agent-manager-name { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
   .agent-manager-name strong,.agent-manager-copy p { overflow-wrap:anywhere; }
-  .agent-customized-indicator { display:inline-grid; place-items:center; color:var(--color-text-secondary); }
-  .agent-customized-indicator x-icon { font-size:1rem; }
   .agent-editor .agent-manager-inline-action { gap:.25rem; margin-top:.15rem; color:var(--color-message-text); opacity:.7; }
+  .agent-editor .agent-manager-inline-action + .agent-manager-inline-action { margin-left:.5rem; }
   .agent-editor .agent-manager-inline-action:hover:not(:disabled) { background:transparent; color:var(--color-text); text-decoration:none; opacity:1; }
   .agent-manager-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
   .agent-profile-availability input { width:0; height:0; margin:0; border:0; }

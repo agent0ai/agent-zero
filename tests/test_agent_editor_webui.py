@@ -103,9 +103,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert '<option value="">Global</option>' in modal
     assert 'x-for="project in $store.agentEditor.projects"' in modal
     assert 'x-show="profile.deletable"' in modal
-    assert 'x-show="profile.scope_has_overrides"' in modal
-    assert 'class="agent-customized-indicator"' in modal
-    assert 'title="Customized"' in modal
+    assert 'class="agent-customized-indicator"' not in modal
     assert 'class="button agent-manager-create"' in modal
     assert 'class="active-agent-display"' in modal
     assert 'class="button icon-button" title="Edit"' in modal
@@ -118,6 +116,9 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert ':disabled="!!$store.agentEditor.duplicatingProfile"' in modal
     assert ':aria-label="`Duplicate ${profile.title || profile.id}`"' in modal
     assert "$store.agentEditor.duplicateProfile(profile)" in modal
+    assert 'x-show="profile.scope_has_overrides && !profile.deletable"' in modal
+    assert ':aria-label="`Restore original ${profile.title || profile.id}`"' in modal
+    assert "$store.agentEditor.restoreProfile(profile)" in modal
     assert 'class="toggle agent-profile-availability"' in modal
     assert ':disabled="$store.agentEditor.profileAvailabilitySaving"' in modal
     assert "Default is always available" not in modal
@@ -158,7 +159,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert modal.count('role="alert"') >= 4
     assert "Fix ${$store.agentEditor.validationIssues().length}" in modal
     assert modal.count("$store.agentEditor.validationIssues().length > 0") == 2
-    assert "!($store.agentEditor.view === 'editor' && $store.agentEditor.pendingMutation)" in modal
+    assert "$store.agentEditor.view === 'editor' && !$store.agentEditor.pendingMutation" in modal
     assert 'x-show="$store.agentEditor.view === \'editor\' && !$store.agentEditor.draft?.creating"' in modal
     assert 'class="btn btn-ok" x-show="$store.agentEditor.view === \'editor\'"' in modal
     assert "Delete all customizations in" in modal
@@ -166,8 +167,9 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'promptDisplayState(prompt)' in modal
     assert 'promptSourceChain($store.agentEditor.selectedPromptDraft)' in modal
     assert "Will reset to inherited on save." in modal
-    for key in ("title", "description", "context"):
+    for key in ("title", "description"):
         assert f'x-show="$store.agentEditor.metadataProvenance(\'{key}\')"' in modal
+    assert 'metadataProvenance(\'context\')' not in modal
     assert ':title="prompt.filename"' not in modal
     assert "promptEditPending($store.agentEditor.selectedPromptDraft)" in modal
     assert 'aria-label="Discard current edit"' in modal
@@ -210,6 +212,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "@keydown.ctrl.s.prevent" in modal
     assert "@media (max-width: 760px)" in modal
     assert modal.count("data-modal-footer") == 1
+    assert ">Close</button>" not in modal
 
 
 def test_agent_editor_store_has_no_conversational_or_model_builder_path() -> None:
@@ -397,6 +400,16 @@ if (toggleRequest !== 2 || rapidProfiles[1].enabled || store.profileAvailability
 setEnabledHandler = null;
 await store.duplicateProfile({ id: "researcher", title: "Researcher" });
 if (!calls.some(item => item.payload?.action === "duplicate" && item.payload.profile_id === "researcher") || !store.profiles.some(profile => profile.id === "researcher-1")) throw new Error("profile duplication failed");
+calls.length = 0;
+confirmResult = false;
+await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
+if (calls.length || confirmations.at(-1)?.title !== "Restore Researcher?") throw new Error("restore cancellation failed");
+confirmResult = true;
+await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
+if (!calls.some(item => item.payload?.action === "remove_changes" && item.payload.profile_id === "researcher" && item.payload.destructive === false)) throw new Error("restore original did not use sparse removal");
+if (!calls.some(item => item.endpoint === "loadAgentProfiles" && item.payload === true) || store.saving) throw new Error("restore original did not refresh profile state");
+confirmations.length = 0;
+confirmResult = false;
 store.projectName = "other";
 if (store.currentChatUsesScope() || store.isProfileActive("default")) throw new Error("foreign project profile appeared active");
 store.projectName = "demo";
