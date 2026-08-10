@@ -134,6 +134,7 @@
 
               <template x-for="profile in $store.modelConfig.getAgentProfileList($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label)" :key="profile.key">
                 <div class="agent-profile-row"
+                     x-show="!$store.modelConfig.agentProfilesLoading"
                      :class="{ 'active': profile.key === $store.chats.selectedContext.agent_profile }">
                   <button type="button" class="model-switcher-item agent-profile-item"
                        :disabled="$store.chats.selectedContext.running || $store.modelConfig.agentProfileSaving"

@@ -306,6 +306,49 @@ const model = {
       this.projectName = previous;
       return;
     }
+    const reviewActive = this.mode === "advanced" && this.section === "5";
+    const creatingDraft = this.draft?.creating ? this.draft : null;
+    const creatingInitial = creatingDraft ? this.initialDraft : null;
+    const creatingState = creatingDraft ? this.state : null;
+    const selectedPrompt = this.selectedPrompt;
+    const comparePrompt = this.comparePrompt;
+    const promptChanges = creatingDraft
+      ? Object.values(creatingDraft.prompts).flatMap((prompt) => {
+        const initial = creatingInitial?.prompts?.[prompt.filename];
+        if (!initial || prompt.reset || prompt.value === initial.value) return [];
+        const baseline = this.promptEditBaselines[prompt.filename];
+        const initialBaseline = { value: initial.value, reset: initial.reset };
+        return [{
+          filename: prompt.filename,
+          value: prompt.value,
+          baseline: baseline && !same(baseline, initialBaseline) ? clone(baseline) : null,
+        }];
+      })
+      : [];
+    const policyChanges = [];
+    if (creatingDraft) {
+      for (const [kind, key, idKey] of [
+        ["tools", "toolPolicy", "id"],
+        ["skills", "skillPolicy", "name"],
+      ]) {
+        const policy = creatingDraft[key];
+        if (policy.mode !== "custom" || same(policy, creatingInitial[key])) continue;
+        const oldState = creatingState[kind];
+        policyChanges.push({
+          kind: kind === "tools" ? "tool" : "skill",
+          key,
+          idKey,
+          default: policy.default,
+          choices: (oldState.catalog || [])
+            .map((item) => [
+              item[idKey],
+              policyAllows(policy, item[idKey]),
+              policyAllows(oldState.effective_policy, item[idKey]),
+            ])
+            .filter(([, allowed, inherited]) => allowed !== inherited),
+        });
+      }
+    }
     this.intent = { ...this.intent, projectName: next };
     this.loading = true;
     this.error = "";
@@ -325,7 +368,48 @@ const model = {
         ...this.scopeInput(),
       });
       this.state = data.state;
-      if (!this.draft.creating) this.makeDraft(false);
+      if (!creatingDraft) {
+        this.makeDraft(false);
+      } else {
+        const avatarChanged = !same(
+          [creatingDraft.avatar, creatingDraft.avatarToken, creatingDraft.metadataResets.includes("avatar")],
+          [creatingInitial.avatar, creatingInitial.avatarToken, creatingInitial.metadataResets.includes("avatar")],
+        );
+        const modelPresetChanged = creatingDraft.modelPreset !== creatingInitial.modelPreset;
+        this.makeDraft(true);
+        this.draft.profileId = creatingDraft.profileId;
+        this.draft.title = creatingDraft.title;
+        this.draft.description = creatingDraft.description;
+        this.draft.context = creatingDraft.context;
+        for (const change of promptChanges) {
+          const prompt = this.draft.prompts[change.filename];
+          if (!prompt) continue;
+          prompt.value = change.value;
+          prompt.reset = false;
+          if (change.baseline) this.promptEditBaselines[change.filename] = change.baseline;
+        }
+        if (this.draft.prompts[selectedPrompt]) this.selectedPrompt = selectedPrompt;
+        this.comparePrompt = comparePrompt;
+        if (avatarChanged) {
+          this.draft.avatar = clone(creatingDraft.avatar);
+          this.draft.avatarToken = creatingDraft.avatarToken;
+          this.draft.avatarPreview = creatingDraft.avatarPreview;
+          if (creatingDraft.metadataResets.includes("avatar")) {
+            this.draft.metadataResets.push("avatar");
+          }
+        }
+        if (modelPresetChanged) this.draft.modelPreset = creatingDraft.modelPreset;
+        for (const change of policyChanges) {
+          this.customizePolicy(change.kind);
+          this.setPolicyDefault(change.kind, change.default);
+          const catalog = this.state[change.kind === "tool" ? "tools" : "skills"].catalog || [];
+          const nextIds = new Set(catalog.map((item) => item[change.idKey]));
+          for (const [id, allowed] of change.choices) {
+            if (nextIds.has(id)) movePolicyItem(this.draft[change.key], id, allowed);
+          }
+        }
+      }
+      if (reviewActive) await this.previewPlan();
     } catch (error) {
       if (this.view === "editor" && this.projectName !== previous) {
         this.projectName = previous;
@@ -500,6 +584,20 @@ const model = {
     inner?.classList.toggle("agent-editor-easy", this.mode !== "advanced");
   },
 
+  enterManager() {
+    this.revokePreview();
+    this.draft = null;
+    this.initialDraft = null;
+    this.promptEditBaselines = {};
+    this.pendingMutation = null;
+    this.plan = { written: [], deleted: [], warnings: [] };
+    this.planStatus = "idle";
+    this.view = "manage";
+    this.mode = "easy";
+    this.syncSurface();
+    this.setModalTitle("Manage agents");
+  },
+
   setMode(mode, section = "", preview = true) {
     this.mode = mode === "advanced" ? "advanced" : "easy";
     if (section) this.setSection(section, preview);
@@ -634,6 +732,7 @@ const model = {
   },
 
   metadataProvenance(key) {
+    if (this.draft?.creating) return "";
     const metadata = this.state?.profile?.metadata?.[key] || {};
     if (metadata.has_override && !this.metadataResetPending(key)) return "Customized by you";
     if (this.projectName) return "Inherited from Global";
@@ -942,9 +1041,16 @@ const model = {
       if (this.profileConflict) {
         issues.push({ key: "name", section: "1", field: "agent-editor-advanced-name", label: "Agent name", message: `An agent with profile ID ${this.draft.profileId} already exists.` });
       }
-      if (!this.instructions?.value.trim()) {
-        issues.push({ key: "instructions", section: "2", field: "agent-editor-prompt-text", label: "Instructions", message: "Instructions are required for a new agent." });
-      }
+    }
+    const instructions = this.instructions;
+    if (!instructions?.reset && !instructions?.value.trim()
+      && (this.draft?.creating
+        || (this.mode === "easy" && instructions?.value !== instructions?.initialValue))) {
+      const fallback = this.projectName ? "inherited" : "default";
+      const message = this.draft.creating
+        ? "Instructions are required for a new agent."
+        : `Instructions can’t be empty. Use ${fallback} instructions instead.`;
+      issues.push({ key: "instructions", section: "2", field: "agent-editor-prompt-text", label: "Instructions", message });
     }
     if (this.avatarUploading) {
       issues.push({ key: "avatar", section: "1", field: "agent-editor-advanced-name", label: "Avatar", message: "Wait for the avatar upload to finish." });
@@ -978,7 +1084,8 @@ const model = {
     };
     const metadata = { set: {}, reset: unique(this.draft.metadataResets) };
     for (const key of ["title", "description", "context"]) {
-      if (this.draft.creating ? key === "title" : this.draft[key] !== this.initialDraft[key]) {
+      if ((this.draft.creating && key === "title")
+        || this.draft[key] !== this.initialDraft[key]) {
         if (!metadata.reset.includes(key)) metadata.set[key] = this.draft[key];
       }
     }
@@ -1052,7 +1159,7 @@ const model = {
   },
 
   async save(test = false) {
-    if (this.saving || !this.draft) return false;
+    if (this.saving || !this.draft || this.pendingMutation) return false;
     const errors = this.validationErrors();
     if (errors.length) {
       this.error = "";
@@ -1132,6 +1239,10 @@ const model = {
   },
 
   async planRemoval(destructive = false) {
+    if (this.dirty) {
+      this.error = "Save or discard your changes before removing customizations.";
+      return false;
+    }
     this.planLoading = true;
     this.error = "";
     try {
@@ -1154,6 +1265,10 @@ const model = {
 
   async applyPendingMutation() {
     if (!this.pendingMutation) return;
+    if (this.dirty) {
+      this.error = "Save or discard your changes before applying the removal plan.";
+      return false;
+    }
     const planned = [
       ["Will update", this.plan.written || []],
       ["Will delete", this.plan.deleted || []],
@@ -1173,6 +1288,7 @@ const model = {
         action: "remove_changes",
         profile_id: this.draft.profileId,
         destructive: this.pendingMutation.destructive,
+        confirm: this.pendingMutation.destructive ? true : undefined,
         ...this.scopeInput(),
       });
       this.pendingMutation = null;
@@ -1184,6 +1300,7 @@ const model = {
   },
 
   async deleteProfile(profileId) {
+    this.error = "";
     try {
       const confirmed = await showConfirmDialog({
         title: `Delete ${escapeHtml(profileId)}?`,
@@ -1200,8 +1317,7 @@ const model = {
       });
       await this.loadProfiles();
       await modelConfigStore.loadAgentProfiles(true);
-      this.view = "manage";
-      this.setModalTitle("Manage agents");
+      this.enterManager();
       globalThis.justToast?.(`Agent deleted from ${this.scopeLabel}.`, "success", 1800);
     } catch (error) {
       this.error = error.message || String(error);
@@ -1210,10 +1326,8 @@ const model = {
 
   showManager() {
     if (this.dirty && !window.confirm("You have unsaved changes that will be lost. Continue?")) return;
-    this.view = "manage";
-    this.mode = "easy";
-    this.syncSurface();
-    this.setModalTitle("Manage agents");
+    this.error = "";
+    this.enterManager();
     this.loadProfiles();
   },
 };

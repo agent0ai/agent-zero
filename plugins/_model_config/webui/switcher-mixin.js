@@ -34,12 +34,14 @@ export const switcherState = {
   agentProfiles: [],
   agentProfilesLoading: true,
   agentProfilesLoaded: false,
+  agentProfilesLoadSeq: 0,
   agentProfileSaving: false,
 };
 
 export const switcherMethods = {
   async loadAgentProfiles(force = false) {
     if (!force && this.agentProfilesLoaded) return this.agentProfiles;
+    const requestSeq = ++this.agentProfilesLoadSeq;
     this.agentProfilesLoading = true;
     try {
       const contextId = window.Alpine?.store("chats")?.selected || "";
@@ -47,6 +49,7 @@ export const switcherMethods = {
         action: "list",
         context_id: contextId,
       });
+      if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
       this.agentProfiles = (data.profiles || [])
         .filter(profile => profile.id && profile.id !== "_example" && profile.enabled !== false)
         .map(profile => ({
@@ -57,11 +60,14 @@ export const switcherMethods = {
         }));
       this.agentProfilesLoaded = true;
     } catch (e) {
+      if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
       console.error("Agent profile list load failed:", e);
       this.agentProfiles = [];
       this.agentProfilesLoaded = false;
     } finally {
-      this.agentProfilesLoading = false;
+      if (requestSeq === this.agentProfilesLoadSeq) {
+        this.agentProfilesLoading = false;
+      }
     }
     return this.agentProfiles;
   },

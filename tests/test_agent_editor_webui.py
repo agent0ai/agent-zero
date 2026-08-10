@@ -76,6 +76,9 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "model-preset-row" not in modal
     assert 'class="easy-tool-details"' not in modal
     assert 'x-for="tool in $store.agentEditor.toolCatalog"' in easy_surface
+    assert 'class="field-count"' in easy_surface
+    assert "toolCatalog.length === 1 ? 'tool' : 'tools'" in modal
+    assert "skillCatalog.length === 1 ? 'skill' : 'skills'" in modal
     assert ':checked="$store.agentEditor.isToolAllowed(tool)"' in easy_surface
     assert "$store.agentEditor.setEasyToolAllowed(tool.id, $event.target.checked)" in easy_surface
     assert "Choose tools in Advanced" not in modal
@@ -155,11 +158,16 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert modal.count('role="alert"') >= 4
     assert "Fix ${$store.agentEditor.validationIssues().length}" in modal
     assert modal.count("$store.agentEditor.validationIssues().length > 0") == 2
+    assert "!($store.agentEditor.view === 'editor' && $store.agentEditor.pendingMutation)" in modal
+    assert 'x-show="$store.agentEditor.view === \'editor\' && !$store.agentEditor.draft?.creating"' in modal
+    assert 'class="btn btn-ok" x-show="$store.agentEditor.view === \'editor\'"' in modal
     assert "Delete all customizations in" in modal
     assert 'input[type="checkbox"]' in modal and "appearance:none" in modal
     assert 'promptDisplayState(prompt)' in modal
     assert 'promptSourceChain($store.agentEditor.selectedPromptDraft)' in modal
     assert "Will reset to inherited on save." in modal
+    for key in ("title", "description", "context"):
+        assert f'x-show="$store.agentEditor.metadataProvenance(\'{key}\')"' in modal
     assert ':title="prompt.filename"' not in modal
     assert "promptEditPending($store.agentEditor.selectedPromptDraft)" in modal
     assert 'aria-label="Discard current edit"' in modal
@@ -178,6 +186,11 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "customized: !!profile.has_user_overrides" not in switcher_mixin
     assert 'name="palette"' in modal and 'name="add_photo_alternate"' in modal
     assert ".easy-tool-summary" not in modal
+    easy_tool_list_style = re.search(
+        r"\.easy-tool-list\s*\{([^}]*)\}", modal
+    ).group(1)
+    assert "max-height" not in easy_tool_list_style
+    assert "overflow-y" not in easy_tool_list_style
     assert "grid-template-columns:minmax(0,1fr) 2.5rem minmax(0,1fr)" in modal
     assert ".policy-lists .policy-transfer-actions { flex-direction:row; }" in modal
     assert "easyToolsOpen" not in store_source
@@ -186,10 +199,14 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "get easyTools" not in store_source
     assert "firstSentence" not in store_source
     assert '.agent-editor [aria-invalid="true"]' not in modal
+    assert "color-scheme:dark" not in modal
+    assert "#fff 82%" not in modal
+    assert ".agent-manager-name strong,.agent-manager-copy p { overflow-wrap:anywhere; }" in modal
     assert ".field-error { display:block; color:var(--color-text)" in modal
     assert ".prompt-pane { min-width:0; min-height:0;" in modal
     assert 'callJsonApi("/plugins/_agent_editor/agent_editor"' in switcher_mixin
     assert "profile.enabled !== false" in switcher_mixin
+    assert 'x-show="!$store.modelConfig.agentProfilesLoading"' in switcher
     assert "@keydown.ctrl.s.prevent" in modal
     assert "@media (max-width: 760px)" in modal
     assert modal.count("data-modal-footer") == 1
@@ -218,12 +235,23 @@ def test_local_slugging_and_fresh_chat_profile_selection_are_deterministic() -> 
 const calls = [];
 const confirmations = [];
 let setEnabledHandler = null;
+let loadHandler = null;
+let confirmResult = false;
 const createStore = (_name, value) => value;
 const callJsonApi = async (endpoint, payload) => {
   calls.push({ endpoint, payload });
+  if (payload?.action === "load" && loadHandler) return loadHandler(payload);
   if (payload?.action === "set_enabled") return setEnabledHandler
     ? setEnabledHandler(payload)
     : { ok: true, active_profile: "default", active_profile_label: "Default" };
+  if (payload?.action === "plan") return {
+    ok: true,
+    written: [payload.project_name
+      ? `usr/projects/${payload.project_name}/.a0proj/agents/${payload.patch.profile_id}/agent.yaml`
+      : `usr/agents/${payload.patch.profile_id}/agent.yaml`],
+    deleted: [],
+    warnings: [],
+  };
   if (payload?.action === "duplicate") return {
     ok: true,
     profile_id: "researcher-1",
@@ -235,7 +263,7 @@ const callJsonApi = async (endpoint, payload) => {
 const fetchApi = async () => ({ ok: true, json: async () => ({}) });
 const closeModal = async () => {};
 const openModal = async () => {};
-const showConfirmDialog = async options => { confirmations.push(options); return false; };
+const showConfirmDialog = async options => { confirmations.push(options); return confirmResult; };
 const chatsStore = {
   selected: "old-chat",
   selectedContext: { project: { name: "demo" }, agent_profile: "researcher" },
@@ -260,6 +288,7 @@ globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
 globalThis.sessionStorage = { setItem: () => {}, getItem: () => "", removeItem: () => {} };
 globalThis.localStorage = { setItem: () => {}, getItem: () => "" };
 globalThis.requestAnimationFrame = callback => callback();
+globalThis.confirm = () => true;
 """
     checks = r"""
 if (slugifyProfileName("  Crème Brûlée__Lab  ") !== "creme-brulee-lab") throw new Error("slug mismatch");
@@ -295,12 +324,15 @@ if (store.error) throw new Error("validation leaked into dismissible error banne
 store.state.profile.id = "new-agent";
 store.state.profile.origin = "Built-in";
 store.state.profile.metadata.title = { inherited_source: "agents/new-agent/agent.yaml" };
+if (store.metadataProvenance("title") !== "") throw new Error("new profile showed misleading provenance");
+store.draft.creating = false;
 if (store.metadataProvenance("title") !== "Using the default") throw new Error("default provenance mismatch");
 store.profiles = [{ id: "researcher", title: "Researcher" }];
 store.state.profile.metadata.title = { inherited_source: "agents/researcher/agent.yaml" };
 if (store.metadataProvenance("title") !== "Inherited from Researcher") throw new Error("inherited provenance mismatch");
 store.state.profile.metadata.title.has_override = true;
 if (store.metadataProvenance("title") !== "Customized by you") throw new Error("custom provenance mismatch");
+store.draft.creating = true;
 store.state.tools.catalog = [
   { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
   { id: "local:gone", name: "gone", label: "Gone", origin: "Unavailable", available: false },
@@ -391,18 +423,103 @@ if (store.draft.skillPolicy.mode !== "custom" || store.draft.skillPolicy.default
 store.draft.title = "Preserved Agent";
 store.onNameInput();
 store.instructions.value = "Preserved instructions";
-store.draft.creating = false;
+store.draft.description = "Created description";
+store.draft.context = "Delegate created work";
+const createdMetadata = store.buildPatch().metadata.set;
+if (createdMetadata.description !== "Created description" || createdMetadata.context !== "Delegate created work") throw new Error("Advanced create metadata was omitted");
+store.mode = "advanced";
 store.instructions.value = "";
-if (store.fieldIssue("instructions")) throw new Error("existing empty instructions were rejected");
+const callsBeforeInvalidAdvancedCreate = calls.length;
+if (!store.fieldIssue("instructions")) throw new Error("Advanced create accepted empty instructions");
+await store.save();
+if (calls.length !== callsBeforeInvalidAdvancedCreate) throw new Error("Advanced create submitted empty instructions");
+store.instructions.value = "Preserved instructions";
+store.draft.creating = false;
+store.mode = "easy";
+store.instructions.initialValue = "Preserved instructions";
+store.instructions.value = "";
+if (!store.fieldIssue("instructions")) throw new Error("existing empty Easy instructions were accepted");
+store.instructions.value = "Preserved instructions";
+if (store.fieldIssue("instructions")) throw new Error("corrected Easy instructions kept a validation error");
+store.mode = "advanced";
+store.instructions.value = "";
+if (store.fieldIssue("instructions")) throw new Error("Advanced empty instructions were rejected");
 store.instructions.value = "Preserved instructions";
 store.markPromptSet("agent.system.main.specifics.md");
 if (store.instructions.reset || store.promptEditPending(store.instructions)) throw new Error("Easy instructions did not update its edit checkpoint");
 store.restoreInstructions();
 if (!store.instructions.reset || store.instructions.value !== "" || store.promptEditPending(store.instructions)) throw new Error("default instructions were not restored");
-store.draft.creating = true;
-store.instructions.value = "Preserved instructions";
-store.instructions.reset = false;
+store.state = {
+  profile: { id: "new-agent", avatar_url: "", metadata: { title: {}, description: {}, context: {}, avatar: { effective: { kind: "color", value: "#111111" } } } },
+  prompts: [
+    { filename: "agent.system.main.specifics.md", group: "2.1", group_label: "Agent instructions", effective: "", inherited: "Old instructions", source: "old-source", source_chain: ["Old"] },
+    { filename: "agent.system.main.communication.md", group: "2.4", group_label: "Communication", effective: "Old comm", inherited: "Old comm", source: "old-source", source_chain: ["Old"], state: "Inherited", has_override: false },
+  ],
+  model_preset: { has_override: false, effective: "Default" },
+  model_presets: [],
+  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
+    { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
+    { id: "local:old", name: "old", label: "Old", origin: "Old scope", available: true },
+  ] },
+  skills: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
+    { name: "Research", path: "skills/research/SKILL.md", origin: "Agent Zero", description: "Research", available: true, tags: [], allowed_tools: [] },
+    { name: "Old skill", path: "skills/old/SKILL.md", origin: "Old scope", description: "Old", available: true, tags: [], allowed_tools: [] },
+  ] },
+};
+store.view = "editor";
+store.intent = { ...store.intent, view: "create", projectName: "" };
+store.makeDraft(true);
+store.draft.title = "Scoped Agent";
+store.onNameInput();
+store.draft.description = "Scoped description";
+store.draft.context = "Use for scoped work";
+store.instructions.value = "Authored instructions";
+store.markPromptSet("agent.system.main.specifics.md");
+store.draft.prompts["agent.system.main.communication.md"].value = "Authored communication";
+store.acceptPromptEdit("agent.system.main.communication.md");
+store.chooseAvatarColor("#ABCDEF");
+store.setEasyToolAllowed("local:shell", false);
+store.setPolicyDefault("tool", "block");
+store.chooseSkills();
+store.moveSkills(["Research"], false);
+const projectState = {
+  profile: { id: "new-agent", avatar_url: "", metadata: { title: {}, description: {}, context: {}, avatar: { effective: { kind: "color", value: "#222222" } } } },
+  prompts: [
+    { filename: "agent.system.main.specifics.md", group: "2.1", group_label: "Agent instructions", effective: "", inherited: "Project instructions", source: "project-source", source_chain: ["Project"] },
+    { filename: "agent.system.main.communication.md", group: "2.4", group_label: "Communication", effective: "Inherited comm", inherited: "Inherited comm", source: "project-source", source_chain: ["Project"], state: "Inherited", has_override: false },
+  ],
+  model_preset: { has_override: false, effective: "Default" },
+  model_presets: [],
+  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
+    { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
+    { id: "local:new", name: "new", label: "New", origin: "Project", available: true },
+  ] },
+  skills: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
+    { name: "Research", path: "skills/research/SKILL.md", origin: "Agent Zero", description: "Research", available: true, tags: [], allowed_tools: [] },
+    { name: "New skill", path: "skills/new/SKILL.md", origin: "Project", description: "New", available: true, tags: [], allowed_tools: [] },
+  ] },
+};
+loadHandler = () => ({ ok: true, state: projectState });
+store.mode = "advanced";
+store.section = "5";
+store.projectName = "demo";
+store.intent = { ...store.intent, projectName: "" };
+calls.length = 0;
+await store.onScopeChanged();
+if (store.state !== projectState || store.draft.title !== "Scoped Agent" || store.draft.profileId !== "scoped-agent") throw new Error("create scope rebase lost identity");
+if (store.draft.description !== "Scoped description" || store.draft.context !== "Use for scoped work") throw new Error("create scope rebase lost authored metadata");
+if (store.instructions.value !== "Authored instructions" || store.instructions.source !== "project-source") throw new Error("create scope rebase kept stale prompt provenance");
+if (store.draft.avatar?.value !== "#ABCDEF" || store.isToolAllowed(projectState.tools.catalog[0]) || !store.isToolAllowed(projectState.tools.catalog[1]) || store.draft.toolPolicy.default !== "block") throw new Error("create scope rebase lost avatar or explicit tool decision");
+if (store.isSkillAllowed(projectState.skills.catalog[0]) || !store.isSkillAllowed(projectState.skills.catalog[1])) throw new Error("create scope rebase lost explicit skill decision");
+if (store.draft.prompts["agent.system.main.communication.md"].value !== "Authored communication" || store.draft.prompts["agent.system.main.communication.md"].source !== "project-source" || store.promptEditPending(store.draft.prompts["agent.system.main.communication.md"])) throw new Error("create scope rebase lost an accepted prompt edit or kept stale provenance");
+if (calls.at(-1)?.payload?.action !== "plan" || calls.at(-1)?.payload?.project_name !== "demo" || store.planStatus !== "ready" || !store.plan.written[0].startsWith("usr/projects/demo/.a0proj/agents/scoped-agent/")) throw new Error("Review plan was not recomputed after scope change");
+loadHandler = null;
+store.projectName = "";
+store.intent = { ...store.intent, projectName: "" };
 const communication = store.draft.prompts["agent.system.main.communication.md"];
+communication.value = communication.initialValue;
+communication.reset = false;
+store.acceptPromptEdit(communication.filename);
 if (store.filteredPromptFiles("2.4")[0] !== communication) throw new Error("grouped prompt filter mismatch");
 if (store.promptEditPending(communication) || store.promptDisplayState(communication) !== "Default") throw new Error("default prompt checkpoint mismatch");
 communication.value += "\nNew rule";
@@ -442,15 +559,33 @@ calls.length = 0;
 store.projectName = "demo";
 await store.openFreshChat("researcher", false);
 if (calls[1].endpoint !== "/projects" || calls[1].payload.action !== "activate" || calls[1].payload.name !== "demo") throw new Error("project test chat did not activate selected scope");
+store.draft.title = `${store.draft.title} dirty`;
+calls.length = 0;
+if (await store.planRemoval(true)) throw new Error("removal plan accepted unsaved edits");
+if (calls.length || !store.error.includes("Save or discard")) throw new Error("dirty removal plan was not blocked locally");
+store.initialDraft = clone(store.draft);
+store.error = "";
 await store.planRemoval(true);
 if (!store.pendingMutation?.destructive || store.section !== "5" || store.planStatus !== "ready") throw new Error("removal plan was replaced");
 if (calls.at(-1).payload.action !== "plan_remove_changes") throw new Error("removal plan request missing");
 if (calls.at(-1).payload.project_name !== "demo") throw new Error("removal request lost selected scope");
+const callsBeforePendingSave = calls.length;
+if (await store.save() || calls.length !== callsBeforePendingSave) throw new Error("ordinary save ran over a pending removal plan");
+store.draft.title += " changed after planning";
+if (await store.applyPendingMutation() !== false || confirmations.length || calls.length !== callsBeforePendingSave || !store.error.includes("before applying")) throw new Error("removal plan discarded edits made after planning");
+store.draft.title = store.initialDraft.title;
+store.error = "";
 store.plan = { written: ["usr/agents/researcher/agent.yaml"], deleted: ["usr/agents/researcher/prompts/old.md"], warnings: [] };
+confirmResult = true;
+loadHandler = () => ({ ok: true, state: store.state });
 await store.applyPendingMutation();
 if (confirmations.length !== 1 || confirmations[0].type !== "danger") throw new Error("danger confirmation missing");
 if (!confirmations[0].message.includes("agent.yaml") || !confirmations[0].message.includes("old.md")) throw new Error("planned paths missing from confirmation");
 if (confirmations[0].title !== "Delete all customizations for this profile?") throw new Error("cleanup confirmation title mismatch");
+const removalCall = calls.find(item => item.payload?.action === "remove_changes");
+if (!removalCall || removalCall.payload.confirm !== true || removalCall.payload.destructive !== true) throw new Error("destructive removal omitted explicit confirmation");
+loadHandler = null;
+confirmResult = false;
 confirmations.length = 0;
 calls.length = 0;
 store.projectName = "";
@@ -458,6 +593,58 @@ await store.deleteProfile("custom-agent");
 if (calls.length) throw new Error("cancelled deletion made an API request");
 if (confirmations.length !== 1 || confirmations[0].title !== "Delete custom-agent?") throw new Error("delete confirmation mismatch");
 if (confirmations[0].message !== "<p>This agent profile will be permanently deleted from Global and cannot be recovered.</p>") throw new Error("delete confirmation is not concise");
+confirmResult = true;
+store.view = "editor";
+store.mode = "advanced";
+store.draft = { title: "dirty", avatar: null, avatarToken: "", metadataResets: [] };
+store.initialDraft = { title: "clean", avatar: null, avatarToken: "", metadataResets: [] };
+store.promptEditBaselines = { stale: { value: "stale", reset: false } };
+await store.deleteProfile("custom-agent");
+if (store.view !== "manage" || store.mode !== "easy" || store.draft !== null || store.initialDraft !== null || Object.keys(store.promptEditBaselines).length) throw new Error("delete did not enter a clean Manage state");
+store.view = "editor";
+store.mode = "advanced";
+store.draft = { title: "dirty" };
+store.initialDraft = { title: "clean" };
+store.promptEditBaselines = { stale: { value: "stale", reset: false } };
+store.error = "stale";
+store.showManager();
+if (store.view !== "manage" || store.mode !== "easy" || store.draft !== null || store.initialDraft !== null || store.error || Object.keys(store.promptEditBaselines).length) throw new Error("Back did not discard editor state before Manage");
+"""
+    module_source = harness + "\n" + source + "\n" + checks
+    module_url = "data:text/javascript;base64," + base64.b64encode(
+        module_source.encode("utf-8")
+    ).decode("ascii")
+    subprocess.run(
+        ["node", "--input-type=module", "-e", f"await import('{module_url}')"],
+        check=True,
+        text=True,
+    )
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node is required")
+def test_latest_agent_profile_load_owns_switcher_state() -> None:
+    source = SWITCHER_MIXIN.read_text(encoding="utf-8")
+    source = re.sub(r"^import .*?;\n", "", source, flags=re.MULTILINE)
+    harness = r"""
+const pending = [];
+const callJsonApi = async () => await new Promise(resolve => pending.push(resolve));
+const fetchApi = async () => ({ ok: true, json: async () => ({}) });
+globalThis.window = { Alpine: { store: () => ({ selected: "ctx" }) } };
+"""
+    checks = r"""
+const store = { ...switcherState, ...switcherMethods };
+const older = store.loadAgentProfiles(true);
+const newer = store.loadAgentProfiles(true);
+if (pending.length !== 2 || !store.agentProfilesLoading) throw new Error("overlapping profile loads did not start");
+pending[1]({ profiles: [{ id: "new", title: "New", enabled: true }] });
+await newer;
+if (store.agentProfiles[0]?.key !== "new" || store.agentProfilesLoading || !store.agentProfilesLoaded) throw new Error("newest profile load did not settle");
+pending[0]({ profiles: [{ id: "old", title: "Old", enabled: true }] });
+await older;
+if (store.agentProfiles[0]?.key !== "new" || store.agentProfilesLoading || !store.agentProfilesLoaded) throw new Error("stale profile load replaced newer state");
+const requestCount = pending.length;
+await store.loadAgentProfiles();
+if (pending.length !== requestCount) throw new Error("cached profile catalog unexpectedly reloaded");
 """
     module_source = harness + "\n" + source + "\n" + checks
     module_url = "data:text/javascript;base64," + base64.b64encode(
