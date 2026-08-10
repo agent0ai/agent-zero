@@ -431,6 +431,23 @@ const model = {
         if (path) await window.openModal?.(path);
         continue;
       }
+      if (type === "open_agent_editor") {
+        await globalThis.openAgentEditor?.({
+          view: String(effect.view || "manage"),
+          profileId: String(effect.profile_id || ""),
+        });
+        continue;
+      }
+      if (type === "test_agent_profile") {
+        const profileId = String(effect.profile_id || "").trim();
+        if (profileId) {
+          await globalThis.testAgentProfile?.(
+            profileId,
+            String(effect.project_name || ""),
+          );
+        }
+        continue;
+      }
       if (type === "show_markdown") {
         hadToast = true;
         notifyInfo(

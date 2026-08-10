@@ -33,6 +33,8 @@
 - Commands accept prefix syntax (`/goal objective`) and exact postfix syntax (`objective /goal`); ordinary mid-sentence mentions are not invocations. The composer picker opens only for prefix syntax, while postfix commands resolve when sent.
 - WebUI sends resolve through the picker effect path, while backend-originated messages resolve before reaching the agent.
 - `/stop` uses the same shared cancellation operation as the composer Stop button, including progress cleanup and terminal logging.
+- `/profile` opens Manage agents without arguments, keeps existing profile
+  selection, and creates through Agent Editor when given a name and instructions.
 - Built-in `/computer-use on|off` emits a bounded `computer_use` effect. WebUI
   only directs the user to Host access in A0 Launcher or the same command in A0
   CLI; it never changes a Launcher gateway lease from Agent Zero page content.

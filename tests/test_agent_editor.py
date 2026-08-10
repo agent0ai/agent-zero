@@ -127,6 +127,20 @@ def test_new_easy_profile_writes_only_minimum_exact_files(user_root: Path) -> No
     )
 
 
+def test_quick_create_uses_the_easy_sparse_save_path(user_root: Path) -> None:
+    profile_id, receipt = editor.save_easy_profile(
+        "Café Research",
+        "Verify sources and return concise citations.",
+    )
+
+    assert profile_id == "cafe-research"
+    assert len(receipt["written"]) == 2
+    assert yaml_helper.loads(
+        (user_root / profile_id / "agent.yaml").read_text(encoding="utf-8")
+    ) == {"title": "Café Research"}
+    assert not list((user_root / profile_id).rglob("*.json"))
+
+
 def test_editor_lifecycle_needs_no_model_or_utility_configuration(
     user_root: Path,
     monkeypatch: pytest.MonkeyPatch,

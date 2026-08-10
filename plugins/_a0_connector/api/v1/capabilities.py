@@ -36,6 +36,7 @@ _OPTIONAL_FEATURES: dict[str, tuple[str, ...]] = {
     "settings_get": ("helpers.settings", "helpers.subagents"),
     "settings_set": ("helpers.settings", "helpers.subagents"),
     "agent_profile_set": ("api.agent_profile_set",),
+    "agent_editor": ("plugins._agent_editor.api.agent_editor",),
     "agents_list": ("helpers.subagents",),
     "skills_list": ("helpers.skills", "helpers.files", "helpers.projects", "helpers.runtime"),
     "skills_activate": ("helpers.skills", "helpers.persist_chat"),

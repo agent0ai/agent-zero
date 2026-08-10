@@ -32,6 +32,9 @@
   `agents.json` and changes only the requested profile entry through the existing
   project storage owner.
 - Never call `helpers.subagents.save_agent_data`.
+- Fast creation from slash commands and connector clients calls
+  `helpers/editor.py:save_easy_profile`, so profile IDs, validation, sparse
+  writes, and the mutation boundary stay identical to Easy mode.
 - Authored profile definitions remain YAML; editor-written plugin configs remain
   JSON.
 - Profile config paths use `helpers.plugins.determine_plugin_asset_path` for the

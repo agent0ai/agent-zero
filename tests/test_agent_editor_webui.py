@@ -723,3 +723,15 @@ if (pending.length !== requestCount) throw new Error("cached profile catalog une
         check=True,
         text=True,
     )
+
+
+def test_profile_slash_effects_reuse_the_agent_editor_entry_points() -> None:
+    slash_store = (
+        ROOT / "plugins" / "_commands" / "webui" / "commands-slash-store.js"
+    ).read_text(encoding="utf-8")
+
+    assert 'type === "open_agent_editor"' in slash_store
+    assert "globalThis.openAgentEditor?." in slash_store
+    assert 'type === "test_agent_profile"' in slash_store
+    assert "globalThis.testAgentProfile?." in slash_store
+    assert "String(effect.project_name || \"\")" in slash_store

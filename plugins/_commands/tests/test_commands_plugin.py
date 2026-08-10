@@ -296,6 +296,63 @@ def test_models_command_always_opens_modal():
     }
 
 
+def test_profile_command_opens_agent_manager() -> None:
+    result = connector_commands.run(
+        {
+            "invocation": {"command_name": "profile", "raw_arguments": ""},
+            "context": {"context_id": ""},
+        }
+    )
+
+    assert result == {
+        "text": "",
+        "effects": [{"type": "open_agent_editor", "view": "manage"}],
+    }
+
+
+def test_profile_command_quick_creates_with_the_agent_editor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from plugins._agent_editor.helpers import editor
+
+    context = SimpleNamespace()
+    saved: list[tuple[str, str, object]] = []
+    monkeypatch.setattr(connector_commands, "_context", lambda _context_id: context)
+    monkeypatch.setattr(connector_commands.projects, "get_context_project_name", lambda _context: "")
+    monkeypatch.setattr(connector_commands.subagents, "get_available_agents_dict", lambda _project: {})
+    monkeypatch.setattr(
+        editor,
+        "save_easy_profile",
+        lambda title, instructions, profile_context: (
+            saved.append((title, instructions, profile_context)) or "source-scout",
+            {},
+        ),
+    )
+
+    result = connector_commands.run(
+        {
+            "invocation": {
+                "command_name": "profile",
+                "raw_arguments": '"Source Scout" "Verify every claim"',
+                "arguments": {
+                    "positional": ["Source Scout", "Verify every claim"],
+                },
+            },
+            "context": {"context_id": "ctx-1"},
+        }
+    )
+
+    assert saved == [("Source Scout", "Verify every claim", context)]
+    assert result["effects"] == [
+        {"type": "toast", "message": "Created agent Source Scout.", "level": "success"},
+        {
+            "type": "test_agent_profile",
+            "profile_id": "source-scout",
+            "project_name": "",
+        },
+    ]
+
+
 def test_stop_command_uses_the_composer_stop_operation(monkeypatch):
     class Log:
         def __init__(self):

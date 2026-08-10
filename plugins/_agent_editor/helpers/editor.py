@@ -11,6 +11,7 @@ import threading
 import time
 from types import SimpleNamespace
 from typing import Any
+import unicodedata
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -118,6 +119,39 @@ def validate_profile_id(profile_id: Any) -> str:
             "Profile ID must be 1–64 lowercase letters, numbers, hyphens, or underscores."
         )
     return value
+
+
+def profile_id_from_title(title: Any) -> str:
+    if not isinstance(title, str) or not title.strip():
+        raise ValueError("Agent name is required.")
+    value = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
+    value = re.sub(r"[^a-z0-9_-]+", "-", value.lower())
+    value = re.sub(r"[-_]{2,}", "-", value).strip("-_")[:64].rstrip("-_")
+    if not value:
+        raise ValueError("Agent name must contain at least one letter or number.")
+    return validate_profile_id(value)
+
+
+def save_easy_profile(
+    title: Any,
+    instructions: Any,
+    context: Any | None = None,
+    *,
+    tool_policy: Any | None = None,
+) -> tuple[str, dict[str, Any]]:
+    if not isinstance(instructions, str) or not instructions.strip():
+        raise ValueError("Instructions are required for a new agent.")
+    profile_id = profile_id_from_title(title)
+    patch: dict[str, Any] = {
+        "profile_id": profile_id,
+        "creating": True,
+        "editor_mode": "easy",
+        "metadata": {"set": {"title": title}, "reset": []},
+        "prompts": {"set": {SPECIFICS_FILE: instructions}, "reset": []},
+    }
+    if tool_policy is not None:
+        patch["tool_policy"] = _mapping(tool_policy, "tool_policy")
+    return profile_id, apply_change_plan(build_change_plan(patch, context))
 
 
 def _context_project_name(context: Any | None) -> str:

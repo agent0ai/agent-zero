@@ -1238,15 +1238,16 @@ const model = {
     }
   },
 
-  async openFreshChat(profileId, showReadyNote = false) {
+  async openFreshChat(profileId, showReadyNote = false, projectName = this.projectName) {
+    const scopeProject = String(projectName || "");
     try {
       const created = await callJsonApi("/chat_create", {
         current_context: this.intent.contextId || chatsStore.selected || "",
       });
       await callJsonApi("/projects", {
-        action: this.projectName ? "activate" : "deactivate",
+        action: scopeProject ? "activate" : "deactivate",
         context_id: created.ctxid,
-        ...(this.projectName ? { name: this.projectName } : {}),
+        ...(scopeProject ? { name: scopeProject } : {}),
       });
       await callJsonApi("/agent_profile_set", {
         context_id: created.ctxid,

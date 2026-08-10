@@ -23,6 +23,19 @@ class AgentEditor(ApiHandler):
                     "ok": True,
                     "state": editor.build_editor_state(profile_id, context),
                 }
+            if action == "quick_create":
+                profile_id, receipt = editor.save_easy_profile(
+                    input.get("title"),
+                    input.get("instructions"),
+                    context,
+                    tool_policy=input.get("tool_policy"),
+                )
+                return {
+                    "ok": True,
+                    **receipt,
+                    "profile_id": profile_id,
+                    "effective_profile": editor.build_profile_state(profile_id, context),
+                }
             if action in {"plan", "save"}:
                 patch = input.get("patch")
                 plan = editor.build_change_plan(patch, context)

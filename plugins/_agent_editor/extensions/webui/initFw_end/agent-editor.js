@@ -6,5 +6,7 @@ export default async function initAgentEditor() {
   if (initialized) return;
   initialized = true;
   globalThis.openAgentEditor = (options = {}) => store.open(options);
-  globalThis.testAgentProfile = (profileId) => store.openFreshChat(String(profileId || ""), false);
+  globalThis.testAgentProfile = (profileId, projectName) => (
+    store.openFreshChat(String(profileId || ""), false, projectName)
+  );
 }
