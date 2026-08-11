@@ -75,6 +75,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "No optional tools" not in modal
     assert 'class="agent-model-preset-picker"' in modal
     assert modal.count('x-model="$store.agentEditor.draft.modelPreset"') == 2
+    assert modal.count('$el.value = $store.agentEditor.draft.modelPreset') == 2
     assert 'id="agent-editor-easy-model-preset"' in easy_surface
     easy_identity = easy_surface[easy_surface.index('<section class="agent-easy-identity">'):easy_surface.index('<section class="agent-easy-field">')]
     assert easy_identity.index('id="agent-editor-name"') < easy_identity.index('id="agent-editor-easy-model-preset"')
@@ -304,13 +305,18 @@ def test_local_slugging_and_fresh_chat_profile_selection_are_deterministic() -> 
     harness = r"""
 const calls = [];
 const confirmations = [];
+const toasts = [];
 let setEnabledHandler = null;
 let loadHandler = null;
+let profilesHandler = null;
 let confirmResult = false;
 const createStore = (_name, value) => value;
 const callJsonApi = async (endpoint, payload) => {
   calls.push({ endpoint, payload });
   if (payload?.action === "load" && loadHandler) return loadHandler(payload);
+  if (payload?.action === "list") return profilesHandler
+    ? profilesHandler(payload)
+    : { ok: true, profiles: [] };
   if (payload?.action === "set_enabled") return setEnabledHandler
     ? setEnabledHandler(payload)
     : { ok: true, active_profile: "default", active_profile_label: "Default" };
@@ -328,6 +334,11 @@ const callJsonApi = async (endpoint, payload) => {
     title: "Researcher 1",
     profiles: [{ id: "researcher" }, { id: "researcher-1" }],
   };
+  if (endpoint === "/agent_profile_set") return {
+    ok: true,
+    agent_profile: payload.agent_profile,
+    agent_profile_label: "Researcher",
+  };
   return endpoint === "/chat_create" ? { ok: true, ctxid: "fresh-chat" } : { ok: true };
 };
 const fetchApi = async () => ({ ok: true, json: async () => ({}) });
@@ -337,7 +348,11 @@ const showConfirmDialog = async options => { confirmations.push(options); return
 const chatsStore = {
   selected: "old-chat",
   selectedContext: { project: { name: "demo" }, agent_profile: "researcher" },
-  selectChat: async (id) => calls.push({ endpoint: "selectChat", payload: id }),
+  selectChat: async (id) => {
+    calls.push({ endpoint: "selectChat", payload: id });
+    chatsStore.selected = id;
+    chatsStore.selectedContext = { agent_profile: "default", agent_profile_label: "Default" };
+  },
 };
 const modelConfigStore = {
   loadAgentProfiles: async force => calls.push({ endpoint: "loadAgentProfiles", payload: force }),
@@ -382,6 +397,7 @@ globalThis.sessionStorage = { setItem: () => {}, getItem: () => "", removeItem: 
 globalThis.localStorage = { setItem: () => {}, getItem: () => "" };
 globalThis.requestAnimationFrame = callback => callback();
 globalThis.confirm = () => true;
+globalThis.justToast = (...args) => toasts.push(args);
 """
     checks = r"""
 if (slugifyProfileName("  Crème Brûlée__Lab  ") !== "creme-brulee-lab") throw new Error("slug mismatch");
@@ -519,9 +535,15 @@ confirmResult = false;
 await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
 if (calls.length || confirmations.at(-1)?.title !== "Reset Researcher to default?") throw new Error("restore cancellation failed");
 confirmResult = true;
+profilesHandler = () => ({
+  ok: true,
+  profiles: [{ id: "researcher", title: "Researcher", scope_has_overrides: false }],
+});
 await store.restoreProfile({ id: "researcher", title: "Researcher", scope_has_overrides: true, deletable: false });
 if (!calls.some(item => item.payload?.action === "remove_changes" && item.payload.profile_id === "researcher" && item.payload.destructive === false)) throw new Error("reset to default did not use sparse removal");
 if (!calls.some(item => item.endpoint === "loadAgentProfiles" && item.payload === true) || store.saving) throw new Error("reset to default did not refresh profile state");
+if (store.profiles[0]?.scope_has_overrides || toasts.at(-1)?.[0] !== "Researcher reset to default.") throw new Error("reset to default kept its action or omitted feedback");
+profilesHandler = null;
 let editorReload = null;
 const loadEditor = store.loadEditor;
 const setMode = store.setMode;
@@ -716,6 +738,7 @@ if (calls[1].payload.action !== "deactivate") throw new Error("global test chat 
 if (calls[2].payload.agent_profile !== "researcher") throw new Error("profile not selected");
 if (calls[3].payload.action !== "clear") throw new Error("chat preset override not cleared");
 if (store.readyNoteContext !== "fresh-chat") throw new Error("ready note missing");
+if (chatsStore.selectedContext.agent_profile !== "researcher" || chatsStore.selectedContext.agent_profile_label !== "Researcher") throw new Error("fresh chat showed a stale profile");
 calls.length = 0;
 store.projectName = "demo";
 await store.openFreshChat("researcher", false);

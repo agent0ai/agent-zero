@@ -124,7 +124,10 @@ const model = {
     if (!id || this.deletedContextIds[id]) return;
 
     const currentContext = getContext();
-    if (id === currentContext) return; // already selected
+    if (id === currentContext) {
+      this.setSelected(id);
+      return;
+    }
 
     // Proceed with context selection
     setContext(id);

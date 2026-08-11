@@ -351,6 +351,15 @@ def test_plugin_configs_preserve_unowned_keys_and_use_json(user_root: Path) -> N
     assert skill_data["active_skills"] == [{"name": "existing"}]
     assert skill_data["visibility_policy"]["default"] == "block"
 
+    editor.apply_change_plan(editor.plan_remove_changes("researcher"))
+
+    assert json.loads(model.read_text()) == {"manual": 1}
+    assert json.loads(tools.read_text()) == {"manual": 2}
+    assert json.loads(skill.read_text()) == {
+        "active_skills": [{"name": "existing"}]
+    }
+    assert editor.build_profile_state("researcher")["scope_has_overrides"] is False
+
 
 def test_model_and_off_tool_choices_write_only_their_json_contracts(
     user_root: Path,

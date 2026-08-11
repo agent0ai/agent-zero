@@ -68,7 +68,8 @@
   row exposes scoped availability, duplication, restore for inherited profiles,
   icon-only Edit, and Delete for profiles owned by that scope. Duplicate
   materializes the effective source profile into the selected writable layer
-  with a collision-free ID and title.
+  with a collision-free ID and title. Restore visibility follows the sparse
+  removal plan, ignores unrelated profile files, and reports successful reset.
   Availability changes quietly refresh the adjacent profile switcher catalog
   without a success toast.
 - The same project selector is available inside Create and Edit. Create keeps

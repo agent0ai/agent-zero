@@ -346,6 +346,10 @@ const model = {
         ...this.scopeInput(),
       });
       await this.loadProfiles();
+      globalThis.justToast?.(
+        `${profile.title || profile.id} reset to default.`,
+        "success", 1800, "agent-profile-reset",
+      );
       await modelConfigStore.loadAgentProfiles(true);
       if (editorState) {
         await this.loadEditor(profile.id, false);
@@ -1275,7 +1279,7 @@ const model = {
         context_id: created.ctxid,
         ...(scopeProject ? { name: scopeProject } : {}),
       });
-      await callJsonApi("/agent_profile_set", {
+      const selectedProfile = await callJsonApi("/agent_profile_set", {
         context_id: created.ctxid,
         agent_profile: profileId,
       });
@@ -1288,6 +1292,10 @@ const model = {
         try { sessionStorage.setItem(READY_NOTE_KEY, created.ctxid); } catch {}
       }
       await chatsStore.selectChat(created.ctxid);
+      if (chatsStore.selectedContext) {
+        chatsStore.selectedContext.agent_profile = selectedProfile.agent_profile || profileId;
+        chatsStore.selectedContext.agent_profile_label = selectedProfile.agent_profile_label || profileId;
+      }
       document.dispatchEvent(new CustomEvent("chat-created", { detail: { ctxid: created.ctxid } }));
       return created.ctxid;
     } catch (error) {

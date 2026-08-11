@@ -166,12 +166,6 @@ def _profile_root(profile_id: str, project_name: str = "") -> Path:
     )
 
 
-def _scope_has_files(root: Path) -> bool:
-    return root.is_dir() and any(
-        path.is_file() or path.is_symlink() for path in root.rglob("*")
-    )
-
-
 def _scope_owns_custom_profile(profile_id: str, project_name: str) -> bool:
     if not _profile_root(profile_id, project_name).is_dir():
         return False
@@ -222,7 +216,10 @@ def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
                 "origin": state["origin"],
                 "origin_chain": state["origin_chain"],
                 "built_in": state["built_in"],
-                "scope_has_overrides": state["scope_has_overrides"],
+                "scope_has_overrides": bool(
+                    profile_exists(profile_id, context)
+                    and plan_remove_changes(profile_id, context).changes
+                ),
                 "deletable": state["deletable"],
                 "avatar": state["avatar"]["effective"],
                 "avatar_url": effective_avatar_url(profile_id, context),
@@ -348,7 +345,10 @@ def build_profile_state(
         "origin": metadata.pop("origin"),
         "origin_chain": metadata.pop("origin_chain"),
         "built_in": metadata.pop("built_in"),
-        "scope_has_overrides": metadata.pop("scope_has_overrides"),
+        "scope_has_overrides": bool(
+            profile_exists(profile_id, context)
+            and plan_remove_changes(profile_id, context).changes
+        ),
         "deletable": metadata.pop("deletable"),
         "metadata": metadata,
         "avatar_url": effective_avatar_url(profile_id, context),
@@ -378,7 +378,6 @@ def metadata_state(profile_id: str, context: Any | None = None) -> dict[str, Any
             "inherited_source": _relative_source(inherited_source),
         }
 
-    scope_root = _profile_root(profile_id, project_name)
     built_in = (Path(files.get_abs_path("agents")) / profile_id).is_dir()
     plugin_origin = any(layer.kind == "plugin" for layer in layers)
     state.update(
@@ -386,7 +385,6 @@ def metadata_state(profile_id: str, context: Any | None = None) -> dict[str, Any
             "origin": "Built-in" if built_in else "Plugin" if plugin_origin else "Custom",
             "origin_chain": list(dict.fromkeys(layer.kind for layer in layers)),
             "built_in": built_in,
-            "scope_has_overrides": _scope_has_files(scope_root),
             "deletable": _scope_owns_custom_profile(profile_id, project_name),
         }
     )

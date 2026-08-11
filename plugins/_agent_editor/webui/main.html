@@ -156,7 +156,7 @@
             <div class="agent-field agent-model-preset">
               <label for="agent-editor-easy-model-preset" class="agent-field-label">Model preset</label>
               <div class="agent-model-preset-picker">
-                <select id="agent-editor-easy-model-preset" x-model="$store.agentEditor.draft.modelPreset">
+                <select id="agent-editor-easy-model-preset" x-model="$store.agentEditor.draft.modelPreset" x-effect="$nextTick(() => { $el.value = $store.agentEditor.draft.modelPreset })">
                   <option value="" x-text="`Use current preset (${$store.agentEditor.state.model_preset.effective})`"></option>
                   <template x-for="preset in $store.agentEditor.state.model_presets" :key="preset.name">
                     <option :value="preset.name" x-text="preset.name"></option>
@@ -259,7 +259,7 @@
                 <div class="agent-field wide agent-model-preset">
                   <label for="agent-editor-model-preset" class="agent-field-label">Model preset</label>
                   <div class="agent-model-preset-picker">
-                    <select id="agent-editor-model-preset" x-model="$store.agentEditor.draft.modelPreset">
+                    <select id="agent-editor-model-preset" x-model="$store.agentEditor.draft.modelPreset" x-effect="$nextTick(() => { $el.value = $store.agentEditor.draft.modelPreset })">
                       <option value="" x-text="`Use current preset (${$store.agentEditor.state.model_preset.effective})`"></option>
                       <template x-for="preset in $store.agentEditor.state.model_presets" :key="preset.name">
                         <option :value="preset.name" x-text="preset.name"></option>

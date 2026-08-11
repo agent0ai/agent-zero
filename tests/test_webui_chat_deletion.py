@@ -69,6 +69,14 @@ const chats = [
   {{ id: "c", created_at: 10 }},
 ];
 
+reset(chats, "b");
+globalThis.__context = "a";
+await model.selectChat("a");
+assert(
+  model.selected === "a" && model.selectedContext?.id === "a",
+  "selection state must catch up when the low-level context already switched",
+);
+
 let resolveDelete;
 globalThis.__sendJsonData = () => new Promise((resolve) => {{ resolveDelete = resolve; }});
 reset(chats, "a");
