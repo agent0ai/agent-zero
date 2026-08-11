@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING, Any, ClassVar
+from urllib.parse import unquote, urlsplit
 
 from helpers.print_style import PrintStyle
 from helpers.ws import WsHandler
@@ -73,6 +74,35 @@ WS_FEATURES = [
 _SNAPSHOT_REPLAY_PAGE_SIZE = 50
 _TAIL_HISTORY_PAGE_SIZE = 100
 _LIVE_STREAM_PAGE_SIZE = 100
+_ATTACHMENT_METADATA_DECODE_LIMIT = 3
+
+
+def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
+    names: list[str] = []
+    for attachment in attachments:
+        normalized = str(attachment or "").strip().replace("\\", "/")
+        if not normalized:
+            continue
+        try:
+            parsed = urlsplit(normalized)
+        except ValueError:
+            continue
+        path = parsed.path if parsed.scheme else normalized.split("?", 1)[0].split("#", 1)[0]
+        for _ in range(_ATTACHMENT_METADATA_DECODE_LIMIT):
+            decoded_path = unquote(path)
+            if decoded_path == path:
+                break
+            path = decoded_path
+        else:
+            continue
+        path = path.replace("\\", "/")
+        path = path.split("?", 1)[0].split("#", 1)[0]
+        if path.endswith("/"):
+            continue
+        name = path.rstrip("/").rsplit("/", 1)[-1]
+        if name and name not in {".", ".."}:
+            names.append(name)
+    return {"attachments": names} if names else {}
 
 
 class WsConnector(WsHandler):
@@ -468,7 +498,7 @@ class WsConnector(WsHandler):
             type="user",
             heading="",
             content=message,
-            kvps={},
+            kvps=_attachment_log_metadata(attachments),
             id=message_id,
         )
 

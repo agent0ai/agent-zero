@@ -59,6 +59,7 @@
 - The protected v1 `agents_list` response uses the shared agent presentation
   catalog rather than applying connector-specific visibility rules.
 - Computer Use receipts describe transport success unless the connector returns explicit effect evidence. Linux target-bound typing requires a verified active/focused `window_id`; window activation uses focus, never a press action on an application or window node. Do not retry an identical failed Computer Use call.
+- Accepted WebSocket user-message replay metadata may include attachment basenames only; strip paths, query strings, fragments, and bytes before logging them in `kvps`.
 
 ## Work Guidance
 
