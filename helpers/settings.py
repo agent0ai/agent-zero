@@ -434,6 +434,9 @@ def normalize_settings(settings: Settings) -> Settings:
             except (ValueError, TypeError):
                 copy[key] = value  # make default instead
 
+    if copy["agent_profile"] == "default":
+        copy["agent_profile"] = "agent0"
+
     # mcp server token is set automatically
     copy["mcp_server_token"] = create_auth_token()
     copy["max_consecutive_unusable_responses"] = max(

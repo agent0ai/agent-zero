@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from agent import Agent, AgentConfig, AgentContext
-from helpers import persist_chat, projects
+from helpers import persist_chat, projects, settings
 from helpers.errors import RepairableException
 
 
@@ -32,6 +32,13 @@ class _FakeParentAgent:
 
     def read_prompt(self, _file: str, **_kwargs) -> str:
         return ""
+
+
+def test_hidden_default_profile_normalizes_to_agent0() -> None:
+    configured = settings.get_default_settings()
+    configured["agent_profile"] = "default"
+
+    assert settings.normalize_settings(configured)["agent_profile"] == "agent0"
 
 
 class _FakeSubAgent:

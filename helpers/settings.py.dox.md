@@ -71,6 +71,8 @@
   A currently configured unavailable profile remains visible with an explicit
   unavailable label so settings can round-trip it truthfully, except that the
   exact `default` utility profile is never offered as a selectable option.
+- Legacy settings that still name the hidden `default` utility profile normalize
+  to `agent0`, so newly created chats always start with a selectable profile.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
