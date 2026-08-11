@@ -13,6 +13,7 @@ const model = {
   enabled: false,
   config: {
     voice: "",
+    voice_weights: {},
     speed: 1.1,
   },
   modelReady: false,
@@ -41,6 +42,7 @@ const model = {
       this.enabled = !!status?.enabled;
       this.config = {
         voice: status?.config?.voice || "",
+        voice_weights: status?.config?.voice_weights || {},
         speed: Number(status?.config?.speed || 1.1),
       };
       this.modelReady = !!status?.model?.ready;
@@ -101,6 +103,17 @@ const model = {
     if (this.modelLoading) return "warn";
     if (this.modelReady) return "ok";
     return "warn";
+  },
+
+  get voiceSummary() {
+    const entries = Object.entries(this.config.voice_weights || {});
+    if (!entries.length) return this.config.voice || "";
+
+    const total = entries.reduce((sum, [, weight]) => sum + Number(weight || 0), 0);
+    if (total <= 0) return this.config.voice || "";
+    return entries
+      .map(([voice, weight]) => `${voice} ${Math.round((Number(weight) / total) * 100)}%`)
+      .join(" · ");
   },
 
   async openConfig() {

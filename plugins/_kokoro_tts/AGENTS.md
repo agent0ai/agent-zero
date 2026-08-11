@@ -17,6 +17,7 @@
 - Keep Kokoro dependencies on Docker/bootstrap paths, not opportunistic runtime installs.
 - Preserve browser-native fallback when the plugin is disabled or unavailable.
 - Do not expose generated speech artifacts outside intended response paths.
+- Preserve `voice` and `speed` configuration compatibility; weighted blends stay in memory and use positive finite weights.
 
 ## Work Guidance
 

@@ -4,36 +4,332 @@
 </head>
 
 <body>
-  <div x-data>
+  <div x-data="{
+    catalog: [
+      { id: 'af_alloy', label: 'Alloy', group: 'American Female' },
+      { id: 'af_aoede', label: 'Aoede', group: 'American Female' },
+      { id: 'af_bella', label: 'Bella', group: 'American Female' },
+      { id: 'af_heart', label: 'Heart', group: 'American Female' },
+      { id: 'af_jessica', label: 'Jessica', group: 'American Female' },
+      { id: 'af_kore', label: 'Kore', group: 'American Female' },
+      { id: 'af_nicole', label: 'Nicole', group: 'American Female' },
+      { id: 'af_nova', label: 'Nova', group: 'American Female' },
+      { id: 'af_river', label: 'River', group: 'American Female' },
+      { id: 'af_sarah', label: 'Sarah', group: 'American Female' },
+      { id: 'af_sky', label: 'Sky', group: 'American Female' },
+      { id: 'am_adam', label: 'Adam', group: 'American Male' },
+      { id: 'am_echo', label: 'Echo', group: 'American Male' },
+      { id: 'am_eric', label: 'Eric', group: 'American Male' },
+      { id: 'am_fenrir', label: 'Fenrir', group: 'American Male' },
+      { id: 'am_liam', label: 'Liam', group: 'American Male' },
+      { id: 'am_michael', label: 'Michael', group: 'American Male' },
+      { id: 'am_onyx', label: 'Onyx', group: 'American Male' },
+      { id: 'am_puck', label: 'Puck', group: 'American Male' },
+      { id: 'am_santa', label: 'Santa', group: 'American Male' },
+    ],
+    initConfig() {
+      if (!config.voice) config.voice = 'am_puck,am_onyx';
+      const sanitized = {};
+      const weights = config.voice_weights;
+      if (weights && typeof weights === 'object' && !Array.isArray(weights)) {
+        for (const [id, rawWeight] of Object.entries(weights)) {
+          const weight = Number(rawWeight);
+          if (/^[a-z]{2}_[a-z0-9_]+$/.test(id) && Number.isFinite(weight) && weight > 0) {
+            sanitized[id] = weight;
+          }
+        }
+      }
+      config.voice_weights = sanitized;
+      if (Object.keys(sanitized).length) this.syncVoice(Object.keys(sanitized));
+      const speed = Number(config.speed);
+      config.speed = Number.isFinite(speed) && speed > 0 ? speed : 1.1;
+    },
+    voiceIds() {
+      const weighted = Object.keys(config.voice_weights || {});
+      if (weighted.length) return weighted;
+      return String(config.voice || '')
+        .split(',')
+        .map(id => id.trim())
+        .filter(id => /^[a-z]{2}_[a-z0-9_]+$/.test(id));
+    },
+    hasWeights() {
+      return Object.keys(config.voice_weights || {}).length > 0;
+    },
+    voiceInfo(id) {
+      return this.catalog.find(voice => voice.id === id) || {
+        id,
+        label: id,
+        group: 'Custom voice',
+      };
+    },
+    availableVoices(group) {
+      const selected = new Set(this.voiceIds());
+      return this.catalog.filter(voice => voice.group === group && !selected.has(voice.id));
+    },
+    weightFor(id) {
+      const weight = Number(config.voice_weights?.[id]);
+      return Number.isFinite(weight) && weight > 0 ? weight : 1;
+    },
+    weightPercent(id) {
+      const ids = this.voiceIds();
+      const total = ids.reduce((sum, voiceId) => sum + this.weightFor(voiceId), 0);
+      return total > 0 ? Math.round((this.weightFor(id) / total) * 100) : 0;
+    },
+    setWeight(id, rawWeight) {
+      const next = {};
+      for (const voiceId of this.voiceIds()) next[voiceId] = this.weightFor(voiceId);
+      next[id] = Math.min(10, Math.max(0.1, Number(rawWeight) || 1));
+      config.voice_weights = next;
+      this.syncVoice(Object.keys(next));
+    },
+    useEqualWeights() {
+      config.voice_weights = {};
+    },
+    addVoice(id) {
+      if (!id || !/^[a-z]{2}_[a-z0-9_]+$/.test(id)) return;
+      const ids = this.voiceIds();
+      if (!ids.includes(id)) ids.push(id);
+      if (this.hasWeights()) {
+        const next = {};
+        for (const voiceId of ids) next[voiceId] = this.weightFor(voiceId);
+        config.voice_weights = next;
+      }
+      this.syncVoice(ids);
+    },
+    removeVoice(id) {
+      const ids = this.voiceIds();
+      if (ids.length <= 1) return;
+      const remaining = ids.filter(voiceId => voiceId !== id);
+      if (this.hasWeights()) {
+        const next = {};
+        for (const voiceId of remaining) next[voiceId] = this.weightFor(voiceId);
+        config.voice_weights = next;
+      }
+      this.syncVoice(remaining);
+    },
+    syncVoice(ids) {
+      config.voice = ids.join(',');
+    },
+  }">
     <template x-if="config">
-      <div class="plugin-config-page">
+      <div class="plugin-config-page" x-init="initConfig()">
         <div class="section-title">Kokoro TTS</div>
         <div class="section-description">
-          Configure the built-in Kokoro voice provider. When this plugin is disabled,
-          spoken output falls back to the browser speech API.
+          Choose a voice or blend several voices in memory. Disabling this plugin
+          returns spoken output to the browser speech API.
         </div>
 
         <div class="field">
           <div class="field-label">
-            <div class="field-title">Voice</div>
-            <div class="field-description">Kokoro voice identifier passed to the backend pipeline.</div>
+            <div class="field-title">Voice expression</div>
+            <div class="field-description">
+              Pick a voice below or enter Kokoro voice identifiers separated by commas for an equal blend.
+            </div>
           </div>
           <div class="field-control">
-            <input type="text" x-model="config.voice" />
+            <input
+              type="text"
+              list="kokoro-voice-catalog"
+              x-model.trim="config.voice"
+              @input="config.voice_weights = {}"
+              placeholder="am_puck,am_onyx"
+            />
+            <datalist id="kokoro-voice-catalog">
+              <template x-for="voice in catalog" :key="voice.id">
+                <option :value="voice.id" :label="`${voice.label} — ${voice.group}`"></option>
+              </template>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Voice blend</div>
+            <div class="field-description">
+              Adjusting a weight enables a weighted blend. Voice packs remain in Kokoro's normal cache; no blend files are created.
+            </div>
+          </div>
+          <div class="field-control kokoro-blend-editor">
+            <div class="kokoro-blend-toolbar">
+              <span class="kokoro-mode" x-text="hasWeights() ? 'Weighted' : 'Equal weights'"></span>
+              <button
+                type="button"
+                class="button"
+                x-show="hasWeights()"
+                @click="useEqualWeights()"
+              >
+                Use equal weights
+              </button>
+            </div>
+
+            <template x-if="voiceIds().length === 0">
+              <div class="kokoro-empty">
+                Enter a standard Kokoro voice identifier to use the blend editor.
+              </div>
+            </template>
+
+            <div class="kokoro-voice-list">
+              <template x-for="id in voiceIds()" :key="id">
+                <div class="kokoro-voice-row">
+                  <div class="kokoro-voice-copy">
+                    <strong x-text="voiceInfo(id).label"></strong>
+                    <span x-text="`${id} · ${voiceInfo(id).group}`"></span>
+                  </div>
+                  <label class="kokoro-weight">
+                    <span x-text="`${weightPercent(id)}%`"></span>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                      :value="weightFor(id)"
+                      :aria-label="`Weight for ${voiceInfo(id).label}`"
+                      @input="setWeight(id, $event.target.value)"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    class="button icon-button"
+                    :disabled="voiceIds().length <= 1"
+                    :title="`Remove ${voiceInfo(id).label}`"
+                    :aria-label="`Remove ${voiceInfo(id).label}`"
+                    @click="removeVoice(id)"
+                  >
+                    <x-icon name="close"></x-icon>
+                  </button>
+                </div>
+              </template>
+            </div>
+
+            <select @change="addVoice($event.target.value); $event.target.value = ''">
+              <option value="">Add a voice...</option>
+              <optgroup label="American Female">
+                <template x-for="voice in availableVoices('American Female')" :key="voice.id">
+                  <option :value="voice.id" x-text="`${voice.label} (${voice.id})`"></option>
+                </template>
+              </optgroup>
+              <optgroup label="American Male">
+                <template x-for="voice in availableVoices('American Male')" :key="voice.id">
+                  <option :value="voice.id" x-text="`${voice.label} (${voice.id})`"></option>
+                </template>
+              </optgroup>
+            </select>
           </div>
         </div>
 
         <div class="field">
           <div class="field-label">
             <div class="field-title">Speed</div>
-            <div class="field-description">Playback speed multiplier for Kokoro synthesis.</div>
+            <div class="field-description">Speech rate from 0.5× to 3.0×.</div>
           </div>
-          <div class="field-control">
-            <input type="number" min="0.1" step="0.1" x-model.number="config.speed" />
+          <div class="field-control kokoro-speed">
+            <input
+              type="range"
+              min="0.5"
+              max="3"
+              step="0.1"
+              x-model.number="config.speed"
+              aria-label="Kokoro speech speed"
+            />
+            <output x-text="`${Number(config.speed || 1.1).toFixed(1)}×`"></output>
           </div>
         </div>
       </div>
     </template>
   </div>
+
+  <style>
+    .kokoro-blend-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .kokoro-blend-toolbar,
+    .kokoro-voice-row,
+    .kokoro-speed {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .kokoro-blend-toolbar {
+      justify-content: space-between;
+    }
+
+    .kokoro-mode {
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+    }
+
+    .kokoro-voice-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .kokoro-voice-row,
+    .kokoro-empty {
+      padding: 0.65rem;
+      border: 1px solid var(--color-border);
+      border-radius: 0.5rem;
+      background: var(--color-input);
+    }
+
+    .kokoro-voice-copy {
+      display: flex;
+      flex: 1 1 11rem;
+      min-width: 0;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .kokoro-voice-copy span,
+    .kokoro-empty {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+    }
+
+    .kokoro-weight {
+      display: flex;
+      flex: 1 1 10rem;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .kokoro-weight span {
+      width: 2.7rem;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kokoro-weight input,
+    .kokoro-speed input {
+      min-width: 7rem;
+      flex: 1;
+    }
+
+    .kokoro-speed output {
+      min-width: 3rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    @media (max-width: 620px) {
+      .kokoro-voice-row {
+        align-items: stretch;
+        flex-wrap: wrap;
+      }
+
+      .kokoro-weight {
+        order: 3;
+        flex-basis: 100%;
+      }
+    }
+  </style>
 </body>
 </html>
