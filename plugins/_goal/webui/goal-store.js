@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
+import { formatDuration } from "/js/time-utils.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import {
   toastFrontendError,
@@ -68,13 +69,7 @@ const model = {
   },
 
   get elapsedLabel() {
-    const seconds = this.elapsedSeconds;
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-    if (hours) return `${hours}h ${minutes}m`;
-    if (minutes) return `${minutes}m ${remainingSeconds}s`;
-    return `${remainingSeconds}s`;
+    return formatDuration(this.elapsedSeconds * 1000);
   },
 
   onMount() {

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import shutil
+import subprocess
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -106,6 +109,23 @@ def test_goal_webui_uses_state_revisions_instead_of_polling():
     assert "$watch('$store.chats.selected'" not in strip
     assert "_goal_revision" in refresh
     assert "goalStore.refresh(true)" in refresh
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node is required")
+def test_goal_webui_uses_shared_hour_aware_duration_formatter():
+    project_root = Path(__file__).resolve().parents[3]
+    time_utils = (project_root / "webui" / "js" / "time-utils.js").read_bytes()
+    module_url = "data:text/javascript;base64," + base64.b64encode(time_utils).decode("ascii")
+    script = f"""
+import {{ formatDuration }} from {module_url!r};
+if (formatDuration(3_782_000) !== "1h3m2s") throw new Error("hours");
+if (formatDuration(62_000) !== "1m2s") throw new Error("minutes");
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True)
+
+    store = (project_root / "plugins" / "_goal" / "webui" / "goal-store.js").read_text()
+    assert 'import { formatDuration } from "/js/time-utils.js";' in store
+    assert "return formatDuration(this.elapsedSeconds * 1000);" in store
 
 
 def test_goal_command_sets_pauses_resumes_and_deletes(context_id: str):

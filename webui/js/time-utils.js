@@ -292,7 +292,7 @@ export function withUserTimeFormatOptions(options = {}) {
 /**
  * Format a duration in milliseconds to a human-readable string
  * @param {number} durationMs - Duration in milliseconds
- * @returns {string} Formatted duration (e.g., '45s', '2m30s')
+ * @returns {string} Formatted duration (e.g., '45s', '2m30s', '1h3m2s')
  */
 export function formatDuration(durationMs) {
   if (durationMs == null || durationMs < 0) return '0s';
@@ -304,7 +304,8 @@ export function formatDuration(durationMs) {
     return `${totalSecs}s`;
   }
 
-  const mins = Math.floor(totalSecs / 60);
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
   const secs = totalSecs % 60;
-  return `${mins}m${secs}s`;
+  return hours ? `${hours}h${mins}m${secs}s` : `${mins}m${secs}s`;
 }
