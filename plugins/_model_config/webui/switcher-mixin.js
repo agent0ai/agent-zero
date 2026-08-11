@@ -38,38 +38,53 @@ export const switcherState = {
   agentProfileSaving: false,
 };
 
+let agentProfilesRequest = null;
+let agentProfilesRequestContext = "";
+
 export const switcherMethods = {
   async loadAgentProfiles(force = false) {
+    const contextId = window.Alpine?.store("chats")?.selected || "";
+    if (agentProfilesRequest && agentProfilesRequestContext === contextId) {
+      return agentProfilesRequest;
+    }
     if (!force && this.agentProfilesLoaded) return this.agentProfiles;
     const requestSeq = ++this.agentProfilesLoadSeq;
     this.agentProfilesLoading = true;
-    try {
-      const contextId = window.Alpine?.store("chats")?.selected || "";
-      const data = await callJsonApi("/plugins/_agent_editor/agent_editor", {
-        action: "list",
-        context_id: contextId,
-      });
-      if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
-      this.agentProfiles = (data.profiles || [])
-        .filter(profile => profile.id && !["_example", "default"].includes(profile.id) && profile.enabled !== false)
-        .map(profile => ({
-          key: profile.id,
-          label: profile.title || profile.id,
-          avatar: profile.avatar || null,
-          avatarUrl: profile.avatar_url || "",
-        }));
-      this.agentProfilesLoaded = true;
-    } catch (e) {
-      if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
-      console.error("Agent profile list load failed:", e);
-      this.agentProfiles = [];
-      this.agentProfilesLoaded = false;
-    } finally {
-      if (requestSeq === this.agentProfilesLoadSeq) {
-        this.agentProfilesLoading = false;
+    const request = (async () => {
+      try {
+        const data = await callJsonApi("/plugins/_agent_editor/agent_editor", {
+          action: "list",
+          context_id: contextId,
+        });
+        if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
+        this.agentProfiles = (data.profiles || [])
+          .filter(profile => profile.id && !["_example", "default"].includes(profile.id) && profile.enabled !== false)
+          .map(profile => ({
+            key: profile.id,
+            label: profile.title || profile.id,
+            avatar: profile.avatar || null,
+            avatarUrl: profile.avatar_url || "",
+          }));
+        this.agentProfilesLoaded = true;
+      } catch (e) {
+        if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
+        console.error("Agent profile list load failed:", e);
+        this.agentProfiles = [];
+        this.agentProfilesLoaded = false;
+      } finally {
+        if (requestSeq === this.agentProfilesLoadSeq) {
+          this.agentProfilesLoading = false;
+        }
       }
+      return this.agentProfiles;
+    })();
+    agentProfilesRequest = request;
+    agentProfilesRequestContext = contextId;
+    try {
+      return await request;
+    } finally {
+      if (agentProfilesRequest === request) agentProfilesRequest = null;
     }
-    return this.agentProfiles;
   },
 
   async loadSwitcherState(contextId) {

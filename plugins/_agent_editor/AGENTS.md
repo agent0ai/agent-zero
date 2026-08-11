@@ -16,6 +16,8 @@
 ## Local Contracts
 
 - The editor performs zero model calls.
+- Profile list requests stay lightweight: summary rows inspect only sparse
+  editor-owned keys and files and never construct full save or removal plans.
 - Writes are limited to the selected profile layer — global
   `usr/agents/<profile-id>` or project
   `usr/projects/<project>/.a0proj/agents/<profile-id>` — and only to paths or

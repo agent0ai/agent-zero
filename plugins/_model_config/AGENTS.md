@@ -35,8 +35,9 @@
   current status without adding a selectable or editable row.
 - Reload the agent-profile selector catalog when a chat changes project or
   active profile so project-only profiles never linger in the visible choices.
-- When forced agent-profile catalog loads overlap, only the newest request may
-  replace selector state or finish its loading lifecycle.
+- Concurrent agent-profile catalog loads for the same chat share one request;
+  across chats, only the newest request may replace selector state or finish
+  its loading lifecycle.
 - Preset editor reset actions must remove the user override through the preset API and refresh the open draft from bundled defaults.
 - Preset rename, delete, and reset actions must repair scoped config and durable/live chat references; removed definitions fall back to `Default`.
 - Migration must preserve existing definitions and distinct scoped model choices, back up replaced user files once, strip inline secrets, and remain idempotent.

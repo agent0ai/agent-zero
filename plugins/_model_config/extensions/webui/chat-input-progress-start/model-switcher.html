@@ -11,10 +11,7 @@
          $store.modelConfig.refreshSwitcher($store.chats?.selected || ''),
          $store.modelConfig.loadAgentProfiles(),
        ]);
-       $watch('$store.chats.selected', v => Promise.all([
-         $store.modelConfig.refreshSwitcher(v || ''),
-         $store.modelConfig.loadAgentProfiles(true),
-       ]));
+       $watch('$store.chats.selected', v => $store.modelConfig.refreshSwitcher(v || ''));
      ">
   <template x-if="($store.modelConfig.switcherAllowed && !$store.modelConfig.switcherLoading) || $store.chats?.selectedContext?.agent_profile">
     <div class="model-switcher-container">

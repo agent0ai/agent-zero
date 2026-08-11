@@ -806,30 +806,38 @@ if (store.view !== "manage" || store.mode !== "easy" || store.draft !== null || 
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="node is required")
-def test_latest_agent_profile_load_owns_switcher_state() -> None:
+def test_agent_profile_loads_dedupe_same_context_and_ignore_stale_context() -> None:
     source = SWITCHER_MIXIN.read_text(encoding="utf-8")
     source = re.sub(r"^import .*?;\n", "", source, flags=re.MULTILINE)
     harness = r"""
 const pending = [];
 const callJsonApi = async () => await new Promise(resolve => pending.push(resolve));
 const fetchApi = async () => ({ ok: true, json: async () => ({}) });
-globalThis.window = { Alpine: { store: () => ({ selected: "ctx" }) } };
+let selectedContextId = "ctx";
+globalThis.window = { Alpine: { store: () => ({ selected: selectedContextId }) } };
 """
     checks = r"""
 const store = { ...switcherState, ...switcherMethods };
 const older = store.loadAgentProfiles(true);
 const newer = store.loadAgentProfiles(true);
-if (pending.length !== 2 || !store.agentProfilesLoading) throw new Error("overlapping profile loads did not start");
-pending[1]({ profiles: [
+if (pending.length !== 1 || !store.agentProfilesLoading) throw new Error("same-context profile loads were not deduplicated");
+pending[0]({ profiles: [
   { id: "default", title: "Default", enabled: true },
   { id: "new", title: "New", enabled: true },
 ] });
-await newer;
+await Promise.all([older, newer]);
 if (store.agentProfiles[0]?.key !== "new" || store.agentProfilesLoading || !store.agentProfilesLoaded) throw new Error("newest profile load did not settle");
 if (store.agentProfiles.length !== 1 || store.getAgentProfileList("default", "Default").some(profile => profile.key === "default")) throw new Error("Default profile remained selectable in the chat popover");
-pending[0]({ profiles: [{ id: "old", title: "Old", enabled: true }] });
-await older;
-if (store.agentProfiles[0]?.key !== "new" || store.agentProfilesLoading || !store.agentProfilesLoaded) throw new Error("stale profile load replaced newer state");
+selectedContextId = "older-context";
+const stale = store.loadAgentProfiles(true);
+selectedContextId = "newer-context";
+const fresh = store.loadAgentProfiles(true);
+if (pending.length !== 3) throw new Error("different-context profile loads were incorrectly deduplicated");
+pending[2]({ profiles: [{ id: "fresh", title: "Fresh", enabled: true }] });
+await fresh;
+pending[1]({ profiles: [{ id: "stale", title: "Stale", enabled: true }] });
+await stale;
+if (store.agentProfiles[0]?.key !== "fresh" || store.agentProfilesLoading) throw new Error("stale profile load replaced newer state");
 const requestCount = pending.length;
 await store.loadAgentProfiles();
 if (pending.length !== requestCount) throw new Error("cached profile catalog unexpectedly reloaded");

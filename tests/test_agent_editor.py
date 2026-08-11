@@ -395,6 +395,30 @@ def test_model_and_off_tool_choices_write_only_their_json_contracts(
     }
 
 
+def test_profile_summaries_do_not_build_removal_plans(
+    user_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    profile = user_root / "researcher"
+    (profile / "plugins" / "manual").mkdir(parents=True)
+    (profile / "plugins" / "manual" / "config.json").write_text("{}")
+    monkeypatch.setattr(
+        editor,
+        "plan_remove_changes",
+        lambda *_args, **_kwargs: pytest.fail("profile summaries built a removal plan"),
+    )
+
+    assert editor.build_profile_state("researcher")["scope_has_overrides"] is False
+    assert next(
+        item for item in editor.list_profiles() if item["id"] == "researcher"
+    )["scope_has_overrides"] is False
+
+    prompts = profile / "prompts"
+    prompts.mkdir()
+    (prompts / editor.SPECIFICS_FILE).write_text("Scoped instructions")
+    assert editor.build_profile_state("researcher")["scope_has_overrides"] is True
+
+
 def test_project_tool_policy_reads_effective_access_and_writes_project_scope(
     project_scope: tuple[editor._EditorContext, Path],
     monkeypatch: pytest.MonkeyPatch,

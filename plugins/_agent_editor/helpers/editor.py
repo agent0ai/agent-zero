@@ -216,10 +216,7 @@ def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
                 "origin": state["origin"],
                 "origin_chain": state["origin_chain"],
                 "built_in": state["built_in"],
-                "scope_has_overrides": bool(
-                    profile_exists(profile_id, context)
-                    and plan_remove_changes(profile_id, context).changes
-                ),
+                "scope_has_overrides": _scope_has_overrides(profile_id, context),
                 "deletable": state["deletable"],
                 "avatar": state["avatar"]["effective"],
                 "avatar_url": effective_avatar_url(profile_id, context),
@@ -345,10 +342,7 @@ def build_profile_state(
         "origin": metadata.pop("origin"),
         "origin_chain": metadata.pop("origin_chain"),
         "built_in": metadata.pop("built_in"),
-        "scope_has_overrides": bool(
-            profile_exists(profile_id, context)
-            and plan_remove_changes(profile_id, context).changes
-        ),
+        "scope_has_overrides": _scope_has_overrides(profile_id, context),
         "deletable": metadata.pop("deletable"),
         "metadata": metadata,
         "avatar_url": effective_avatar_url(profile_id, context),
@@ -389,6 +383,54 @@ def metadata_state(profile_id: str, context: Any | None = None) -> dict[str, Any
         }
     )
     return state
+
+
+def _scope_has_overrides(profile_id: str, context: Any | None = None) -> bool:
+    project_name = _context_project_name(context)
+    root = _profile_root(profile_id, project_name)
+    metadata = _read_mapping(
+        root / "agent.yaml" if (root / "agent.yaml").is_file() else root / "agent.json"
+    )
+    if any(key in metadata for key in METADATA_KEYS):
+        return True
+
+    scope_prompts = root / "prompts"
+    if scope_prompts.is_dir():
+        inherited_roots = [
+            directory / "prompts"
+            for _, directory in _profile_directories(profile_id, context)
+            if directory.absolute() != root.absolute()
+        ]
+        inherited_roots.append(Path(files.get_abs_path("prompts")))
+        if any(
+            path.name not in NON_PROMPT_MARKDOWN
+            and any((inherited / path.name).is_file() for inherited in inherited_roots)
+            for path in scope_prompts.glob("*.md")
+            if path.is_file()
+        ):
+            return True
+
+    from plugins._model_config.helpers import model_config
+
+    checks = (
+        (
+            _profile_config_path(profile_id, "_model_config", project_name),
+            (model_config.MODEL_PRESET_CONFIG_KEY,),
+        ),
+        (
+            _profile_config_path(profile_id, tool_policy.PLUGIN_NAME, project_name),
+            _TOOL_POLICY_KEYS,
+        ),
+        (
+            _profile_config_path(
+                profile_id,
+                skills.ACTIVE_SKILLS_PLUGIN_NAME,
+                project_name,
+            ),
+            ("visibility_policy",),
+        ),
+    )
+    return any(any(key in _read_mapping(path) for key in keys) for path, keys in checks)
 
 
 def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
