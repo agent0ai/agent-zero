@@ -34,6 +34,15 @@ def test_attachment_log_metadata_omits_empty_metadata() -> None:
     assert _attachment_log_metadata(["", "/"]) == {}
 
 
+def test_attachment_log_metadata_decodes_encoded_separators() -> None:
+    assert _attachment_log_metadata(
+        [
+            "https://host/%2Fhome%2Falice%2Fsecret.png",
+            "https://host/C:%5CUsers%5CAlice%5Csecret.png",
+        ]
+    ) == {"attachments": ["secret.png", "secret.png"]}
+
+
 class RecordingLog:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
@@ -136,6 +145,52 @@ async def test_websocket_text_only_message_keeps_empty_kvps(
         {"context_id": "ctx-1", "message": "Text only"},
         "sid-cli",
     )
+    assert log.calls[0]["kvps"] == {}
+
+
+@pytest.mark.asyncio
+async def test_websocket_malformed_attachment_url_keeps_message_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    log = RecordingLog()
+    context = SimpleNamespace(log=log)
+    handler = WsConnector(None, None)
+    monkeypatch.setattr(
+        handler,
+        "_resolve_context",
+        AsyncMock(return_value=(context, "ctx-1")),
+    )
+    monkeypatch.setattr(
+        ws_module,
+        "subscribed_contexts_for_sid",
+        lambda sid: {"ctx-1"} if sid == "sid-cli" else set(),
+    )
+
+    scheduled: list[bool] = []
+
+    def close_scheduled(coroutine: object) -> SimpleNamespace:
+        getattr(coroutine, "close")()
+        scheduled.append(True)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(asyncio, "create_task", close_scheduled)
+
+    result = await handler._handle_send_message(
+        {
+            "context_id": "ctx-1",
+            "message": "Review this",
+            "attachments": ["http://["],
+            "client_message_id": "client-malformed",
+        },
+        "sid-cli",
+    )
+
+    assert result == {
+        "context_id": "ctx-1",
+        "status": "accepted",
+        "client_message_id": "client-malformed",
+    }
+    assert scheduled == [True]
     assert log.calls[0]["kvps"] == {}
 
 

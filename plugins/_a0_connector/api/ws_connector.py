@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING, Any, ClassVar
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from helpers.print_style import PrintStyle
 from helpers.ws import WsHandler
@@ -82,8 +82,12 @@ def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
         normalized = str(attachment or "").strip().replace("\\", "/")
         if not normalized:
             continue
-        parsed = urlsplit(normalized)
+        try:
+            parsed = urlsplit(normalized)
+        except ValueError:
+            continue
         path = parsed.path if parsed.scheme else normalized.split("?", 1)[0].split("#", 1)[0]
+        path = unquote(path).replace("\\", "/")
         if path.endswith("/"):
             continue
         name = path.rstrip("/").rsplit("/", 1)[-1]
