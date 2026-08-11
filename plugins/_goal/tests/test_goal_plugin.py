@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -55,6 +56,56 @@ def test_goal_storage_round_trip(context_id: str):
 
     goal.delete_goal(context_id)
     assert goal.get_goal(context_id) is None
+
+
+def test_goal_changes_publish_state_revision(context_id: str, monkeypatch):
+    from agent import AgentContext
+    from helpers import state_monitor_integration
+
+    revisions = iter([1.0, 2.0, 3.0])
+    output_data = {}
+    dirty = []
+    context = SimpleNamespace(
+        set_output_data=lambda key, value: output_data.__setitem__(key, value)
+    )
+    monkeypatch.setattr(AgentContext, "get", lambda _context_id: context)
+    monkeypatch.setattr(goal.time, "time", lambda: next(revisions))
+    monkeypatch.setattr(
+        state_monitor_integration,
+        "mark_dirty_for_context",
+        lambda context_id, *, reason: dirty.append((context_id, reason)),
+    )
+
+    goal.create_goal(context_id, "Publish changes")
+    goal.update_goal(context_id, status="paused")
+    goal.delete_goal(context_id)
+
+    assert output_data["_goal_revision"] == 3.0
+    assert dirty == [(context_id, "plugins._goal")] * 3
+
+
+def test_goal_webui_uses_state_revisions_instead_of_polling():
+    plugin_root = Path(__file__).resolve().parents[1]
+    store = (plugin_root / "webui" / "goal-store.js").read_text()
+    strip = (
+        plugin_root
+        / "extensions"
+        / "webui"
+        / "chat-input-progress-start"
+        / "goal-strip.html"
+    ).read_text()
+    refresh = (
+        plugin_root
+        / "extensions"
+        / "webui"
+        / "apply_snapshot_before"
+        / "refresh-goal.js"
+    ).read_text()
+
+    assert "setInterval(() => this.refresh" not in store
+    assert "$watch('$store.chats.selected'" not in strip
+    assert "_goal_revision" in refresh
+    assert "goalStore.refresh(true)" in refresh
 
 
 def test_goal_command_sets_pauses_resumes_and_deletes(context_id: str):

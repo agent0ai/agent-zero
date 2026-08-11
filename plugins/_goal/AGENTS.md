@@ -27,6 +27,9 @@
 - `/goal auto` fills the composer with a prompt asking the agent to create and manage its own goal instead of silently sending a message.
 - While a goal is active, response-tool calls are intermediate updates; only completing or blocking the goal restores normal loop termination.
 - Goal UI feedback uses toast notifications and inline controls, not modal dialogs.
+- Goal state changes publish a context revision through the shared state-push
+  lifecycle; the WebUI refreshes on context or revision changes and never polls
+  the Goal API while idle.
 
 ## Work Guidance
 

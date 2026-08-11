@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -141,7 +142,9 @@ def update_goal(
 
 
 def delete_goal(context_id: str) -> None:
-    files.delete_file(_goal_path(_require_context_id(context_id)))
+    context_id = _require_context_id(context_id)
+    files.delete_file(_goal_path(context_id))
+    _notify_goal_changed(context_id)
 
 
 def public_goal(goal: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -182,6 +185,23 @@ def _write_goal(goal: dict[str, Any]) -> None:
         _goal_path(str(goal["context_id"])),
         json.dumps(public_goal(goal), indent=2, ensure_ascii=False) + "\n",
     )
+    _notify_goal_changed(str(goal["context_id"]))
+
+
+def _notify_goal_changed(context_id: str) -> None:
+    from agent import AgentContext
+
+    context = AgentContext.get(context_id)
+    if context is None:
+        return
+    context.set_output_data("_goal_revision", time.time())
+
+    try:
+        from helpers.state_monitor_integration import mark_dirty_for_context
+
+        mark_dirty_for_context(context_id, reason="plugins._goal")
+    except Exception:
+        pass
 
 
 def _normalize_goal(raw: dict[str, Any], *, context_id: str) -> dict[str, Any]:

@@ -15,7 +15,6 @@ const model = {
   editing: false,
   draft: "",
   lastContextId: "",
-  intervalId: null,
   clockIntervalId: null,
   goalChangedHandler: null,
   now: Date.now(),
@@ -82,17 +81,15 @@ const model = {
     document.getElementById("progress-bar-box")?.classList.add("has-goal-bar");
     this.goalChangedHandler = (event) => {
       const detail = event?.detail || {};
-      if (detail.goal === null) {
-        this.goal = null;
-      }
-      void this.refresh(true);
+      if (detail.context_id && detail.context_id !== this.contextId) return;
+      this.goal = detail.goal || null;
+      this.now = Date.now();
+      if (!this.goal) this.editing = false;
     };
     window.addEventListener("goal:changed", this.goalChangedHandler);
     this.clockIntervalId = window.setInterval(() => {
       this.now = Date.now();
     }, 1000);
-    this.intervalId = window.setInterval(() => this.refresh(), 3000);
-    void this.refresh(true);
   },
 
   cleanup() {
@@ -100,14 +97,10 @@ const model = {
     if (this.goalChangedHandler) {
       window.removeEventListener("goal:changed", this.goalChangedHandler);
     }
-    if (this.intervalId) {
-      window.clearInterval(this.intervalId);
-    }
     if (this.clockIntervalId) {
       window.clearInterval(this.clockIntervalId);
     }
     this.goalChangedHandler = null;
-    this.intervalId = null;
     this.clockIntervalId = null;
   },
 

@@ -5,7 +5,6 @@
 <div x-data
      class="goal-strip-root"
      x-create="$store.goalBar.onMount()"
-     x-init="$watch('$store.chats.selected', () => $store.goalBar.refresh(true))"
      x-destroy="$store.goalBar.cleanup()">
   <template x-if="$store.goalBar && $store.goalBar.visible">
     <div class="goal-strip" :class="`is-${$store.goalBar.goal?.status || 'active'}`">
