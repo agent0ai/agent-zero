@@ -53,10 +53,11 @@ def _prompt_paths(root: Path):
     return get_paths
 
 
-def _custom_policy(*, default: str, allowed=(), blocked=()):
+def _custom_policy(*, default: str, mcp_default: str = "allow", allowed=(), blocked=()):
     return {
         "mode": "custom",
         "default": default,
+        "mcp_default": mcp_default,
         "allowed": list(allowed),
         "blocked": list(blocked),
     }
@@ -155,6 +156,25 @@ def test_required_response_survives_default_block(monkeypatch, tmp_path: Path) -
     assert decision.allowed is True
     assert decision.source == "framework-required"
     assert tool_policy.get_tool_catalog(agent) == []
+
+
+def test_tool_and_mcp_defaults_are_independent(monkeypatch, tmp_path: Path) -> None:
+    agent = _Agent(tmp_path)
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda _agent: _custom_policy(
+            default="block",
+            mcp_default="allow",
+            allowed=["local:pinned"],
+            blocked=["mcp:docs:delete"],
+        ),
+    )
+
+    assert tool_policy.resolve_tool(agent, "shell", canonical_id="local:shell").allowed is False
+    assert tool_policy.resolve_tool(agent, "read", canonical_id="mcp:docs:read").allowed is True
+    assert tool_policy.resolve_tool(agent, "pinned", canonical_id="local:pinned").allowed is True
+    assert tool_policy.resolve_tool(agent, "delete", canonical_id="mcp:docs:delete").allowed is False
 
 
 def test_catalog_comes_from_executable_tools_not_prompt_names(

@@ -33,8 +33,13 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
         modal,
         re.DOTALL,
     ).group(0)
-    skill_section = re.search(
+    mcp_section = re.search(
         r'data-agent-editor-section="4".*?(?=<section x-show="\$store\.agentEditor\.section === \'5\'")',
+        modal,
+        re.DOTALL,
+    ).group(0)
+    skill_section = re.search(
+        r'data-agent-editor-section="5".*?(?=<section x-show="\$store\.agentEditor\.section === \'6\'")',
         modal,
         re.DOTALL,
     ).group(0)
@@ -59,43 +64,50 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
             "Identity",
             "Prompt files",
             "Tools",
+            "MCPs",
             "Skills",
             "Review",
             "Save & test",
         )
     )
     assert 'aria-label="Editor mode"' in modal
-    assert "Allow selected" in modal and "Block selected" in modal
+    assert "Allow selected" not in modal and "Block selected" not in modal
     assert "No optional tools" not in modal
     assert 'class="agent-model-preset-picker"' in modal
-    assert 'x-model="$store.agentEditor.draft.modelPreset"' in modal
+    assert modal.count('x-model="$store.agentEditor.draft.modelPreset"') == 2
+    assert 'id="agent-editor-easy-model-preset"' in easy_surface
+    easy_identity = easy_surface[easy_surface.index('<section class="agent-easy-identity">'):easy_surface.index('<section class="agent-easy-field">')]
+    assert easy_identity.index('id="agent-editor-name"') < easy_identity.index('id="agent-editor-easy-model-preset"')
+    assert easy_surface.index('id="agent-editor-easy-model-preset"') < easy_surface.index('id="agent-editor-instructions"')
     assert '`Use current preset (${$store.agentEditor.state.model_preset.effective})`' in modal
     assert 'x-for="preset in $store.agentEditor.state.model_presets"' in modal
-    assert "Edit Presets" in modal
+    assert modal.count("Edit Presets") == 2
     assert "Manage presets" not in modal
     assert "model-preset-row" not in modal
-    assert 'class="easy-tool-details"' not in modal
-    assert 'x-for="tool in $store.agentEditor.toolCatalog"' in easy_surface
-    assert 'class="field-count"' in easy_surface
-    assert "toolCatalog.length === 1 ? 'tool' : 'tools'" in modal
-    assert "skillCatalog.length === 1 ? 'skill' : 'skills'" in modal
-    assert ':checked="$store.agentEditor.isToolAllowed(tool)"' in easy_surface
-    assert "$store.agentEditor.setEasyToolAllowed(tool.id, $event.target.checked)" in easy_surface
+    assert easy_surface.count('<details class="capability-accordion">') == 3
+    assert re.findall(r'<summary><span>(Choose individual (?:tools|MCPs|skills))</span><x-icon name="expand_more"></x-icon></summary>', easy_surface) == ["Choose individual tools", "Choose individual MCPs", "Choose individual skills"]
+    assert '<details class="capability-accordion" open' not in easy_surface
+    assert 'x-for="tool in $store.agentEditor.standardToolCatalog"' in easy_surface
+    assert 'x-for="skill in $store.agentEditor.skillCatalog"' in easy_surface
+    assert 'x-for="tool in $store.agentEditor.mcpCatalog"' in easy_surface
     assert "Choose tools in Advanced" not in modal
-    assert "To enable or disable skills, click Advanced." in easy_surface
-    assert 'x-for="skill in $store.agentEditor' not in easy_surface
-    assert 'class="easy-tool-actions"' not in modal
-    assert 'class="policy-editor" :disabled="$store.agentEditor.draft.toolPolicy.mode !== \'custom\'"' in tool_section
-    assert 'class="policy-editor" :disabled="$store.agentEditor.draft.skillPolicy.mode !== \'custom\'"' in skill_section
-    assert 'class="policy-lists"' in tool_section and 'class="policy-lists"' in skill_section
-    assert 'aria-label="Block selected tools"' in tool_section
-    assert 'aria-label="Allow selected tools"' in tool_section
-    assert 'aria-label="Block selected skills"' in skill_section
-    assert 'aria-label="Allow selected skills"' in skill_section
+    assert "Use standard tool access" not in modal
+    assert "Use standard skill access" not in modal
+    assert 'class="policy-lists"' not in modal
+    assert "policy-transfer-actions" not in modal
+    assert tool_section.count('class="policy-group"') == 1
+    assert mcp_section.count('class="policy-group"') == 1
+    assert skill_section.count('class="policy-group"') == 1
+    assert '<label>Category ' not in tool_section
+    assert "indeterminate" not in modal
+    assert modal.count('class="policy-state-control" role="group"') == 6
+    assert modal.count(':aria-pressed="$store.agentEditor.policyItemState') == 18
     assert '<details class="policy-description"' not in tool_section
+    assert '<details class="policy-description"' not in mcp_section
     assert '<details class="policy-description"' not in skill_section
-    assert tool_section.count('class="policy-item-description"') == 2
-    assert skill_section.count('class="policy-item-description"') == 2
+    assert tool_section.count('class="policy-item-description"') == 1
+    assert mcp_section.count('class="policy-item-description"') == 1
+    assert skill_section.count('class="policy-item-description"') == 1
     assert "Your changes override the built-in profile. The original files stay unchanged." in modal
     assert 'x-model="$store.agentEditor.projectName"' in modal
     assert 'x-init="$nextTick(() => $el.value = $store.agentEditor.projectName)"' in modal
@@ -148,7 +160,11 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "Create agents and customize inherited profiles" not in modal
     assert "Unavailable — kept in your settings" in modal
     assert "Customize this file" not in modal
-    assert 'role="tablist" aria-label="Prompt view"' in modal
+    assert "Choose a file and edit its prompt." in modal
+    assert "inherited version next to your version" not in modal
+    assert 'role="tablist" aria-label="Prompt view"' not in modal
+    assert "Your version" not in modal and ">Compare</button>" not in modal
+    assert "Find in file" not in modal and "prompt-match-action" not in modal
     assert "No prompt files match your search." in modal
     assert "Saving will change exactly these files — nothing else." in modal
     assert "Review & test" not in modal
@@ -161,15 +177,21 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "<h2" not in modal
     assert "Section 1" not in modal
     assert '<textarea id="agent-editor-description" rows="2"' in modal
-    assert "When new tools are installed later" in modal
-    assert "When new skills are installed later" in modal
-    assert "Block until reviewed" in modal
-    assert "No blocked tools" in modal and "No blocked skills" in modal
+    assert "Allow newly installed" not in modal
+    assert modal.count("<strong>Allow tools by default</strong>") == 2
+    assert modal.count("<strong>Allow MCPs by default</strong>") == 2
+    assert modal.count("<strong>Allow skills by default</strong>") == 2
+    assert "Allow tools and MCPs by default" not in modal
+    assert "Applies to Tools and MCPs left on Default." not in modal
+    assert "Applies to Skills left on Default." not in modal
+    assert "No blocked tools" not in modal and "No blocked skills" not in modal
     assert "policy-description" not in modal and "-webkit-line-clamp:2" not in modal
     assert 'class="prompt-file-list" role="region" aria-label="Prompt file list" tabindex="0"' in modal
     assert 'class="prompt-editor" role="region" aria-label="Selected prompt file" tabindex="0"' in modal
     assert "Preview combined prompt" not in modal
     assert 'class="prompt-customization-path"' in modal
+    assert '<strong x-text="$store.agentEditor.selectedPrompt"></strong>\n                    <div class="prompt-customization-path">' in modal
+    assert "source-chain" not in modal and "promptSourceChain" not in store
     assert "$store.agentEditor.promptCustomizationPath()" in modal
     assert 'class="review-identity"' in modal
     assert 'aria-label="Agent identity"' in modal
@@ -178,10 +200,16 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "draft.profileId\"></code>" not in review_identity
     assert "width:92vw" in modal
     assert ".modal-inner.agent-editor-advanced .modal-scroll { max-height:none; }" in modal
+    assert '.agent-advanced-content > section[data-agent-editor-section="2"] { height:100%; min-height:0; }' in modal
+    assert ".prompt-workspace { flex:1 1 auto;" in modal
     assert 'width:1.5rem; height:1.5rem' in modal
-    assert modal.count('class="button icon prompt-match-action"') == 2
-    assert "min-height:3rem" in modal and "font-size:.72rem" in modal
-    assert "moveAllVisibleTools(false)" in modal and "moveAllVisibleSkills(false)" in modal
+    assert 'id="agent-editor-prompt-ace"' in modal
+    assert 'id="agent-editor-prompt-text"' not in modal
+    assert "globalThis.ace.edit(container)" in store
+    assert 'editor.session.setMode("ace/mode/markdown")' in store
+    assert "editor.session.setUseWrapMode(true)" in store
+    assert "showPrintMargin: false" in store and "useWorker: false" in store
+    assert "findInPrompt" not in store and "promptTextSearch" not in store
     assert 'class="agent-editor-heading"' in modal
     assert ':aria-invalid=' in modal
     assert modal.count('role="alert"') >= 4
@@ -191,9 +219,8 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'x-show="$store.agentEditor.view === \'editor\' && !$store.agentEditor.draft?.creating"' in modal
     assert 'class="btn btn-ok" x-show="$store.agentEditor.view === \'editor\'"' in modal
     assert "Delete all customizations in" in modal
-    assert 'input[type="checkbox"]' in modal and "appearance:none" in modal
+    assert '.agent-editor input[type="checkbox"]' not in modal
     assert 'promptDisplayState(prompt)' in modal
-    assert 'promptSourceChain($store.agentEditor.selectedPromptDraft)' in modal
     assert "Will reset to default on save." in modal
     assert "metadataProvenance('description')" not in modal
     assert 'x-show="$store.agentEditor.metadataProvenance(\'title\')"' in modal
@@ -203,7 +230,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert 'aria-label="Discard current edit"' in modal
     assert 'aria-label="Accept current edit"' in modal
     assert ':readonly="!$store.agentEditor.isPromptEditing' not in modal
-    assert ".prompt-pane textarea:focus-visible { outline-offset:-2px; }" in modal
+    assert ".prompt-ace { flex:1; min-height:0;" in modal
     store_source = STORE.read_text(encoding="utf-8")
     assert "cannot be recovered" in store_source
     assert "deletionImpactHtml" not in store_source
@@ -213,34 +240,39 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     switcher_mixin = SWITCHER_MIXIN.read_text(encoding="utf-8")
     assert "avatar_url" in switcher_mixin
     assert "BUILT_IN_AGENT_COLORS" in switcher_mixin
+    assert '!["_example", "default"].includes(profile.id)' in switcher_mixin
+    assert 'activeKey !== "default"' in switcher_mixin
     assert "customized: !!profile.has_user_overrides" not in switcher_mixin
+    assert 'x-for="profile in $store.agentEditor.visibleProfiles"' in modal
+    assert "$store.agentEditor.activeProfile().id !== 'default'" in modal
     assert 'name="palette"' in modal and 'name="add_photo_alternate"' in modal
-    assert ".easy-tool-summary" not in modal
-    easy_tool_list_style = re.search(
-        r"\.easy-tool-list\s*\{([^}]*)\}", modal
+    assert ".capability-accordion .policy-items { max-height:none; overflow:visible;" in modal
+    assert ".capability-policy-group + .capability-policy-group { border-top:1px solid var(--color-border);" in modal
+    assert "font-weight:500" in re.search(
+        r"\.capability-accordion summary\s*\{([^}]*)\}", modal
     ).group(1)
-    assert "max-height" not in easy_tool_list_style
-    assert "overflow-y" not in easy_tool_list_style
-    assert "grid-template-columns:minmax(0,1fr) 2.5rem minmax(0,1fr)" in modal
-    assert ".policy-lists .policy-transfer-actions { flex-direction:row; }" in modal
-    assert "easyToolsOpen" not in store_source
-    assert "easySkills" not in store_source
-    assert "get toolMode" not in store_source
-    assert "get easyTools" not in store_source
-    assert "firstSentence" not in store_source
+    assert ".capability-accordion[open] summary x-icon { transform:rotate(180deg); }" in modal
+    assert "toolCategory" not in store_source
+    assert "selectedAllowed" not in store_source and "selectedBlocked" not in store_source
+    assert "moveAllVisible" not in store_source and "confirmBulkMove" not in store_source
+    assert "setPolicyItemState" in store_source and "collapsePolicy" in store_source
     assert '.agent-editor [aria-invalid="true"]' not in modal
     assert "color-scheme:dark" not in modal
     assert "#fff 82%" not in modal
     assert ".agent-manager-name strong,.agent-manager-copy p { overflow-wrap:anywhere; }" in modal
     assert ".field-error { display:block; color:var(--color-text)" in modal
-    assert ".prompt-pane { min-width:0; min-height:0;" in modal
+    assert ".prompt-pane" not in modal
     assert 'callJsonApi("/plugins/_agent_editor/agent_editor"' in switcher_mixin
     assert "profile.enabled !== false" in switcher_mixin
     assert 'x-show="!$store.modelConfig.agentProfilesLoading"' in switcher
     assert "@keydown.ctrl.s.prevent" in modal
     assert "@media (max-width: 760px)" in modal
-    assert modal.count('<label class="policy-item"><input type="checkbox"') == 4
-    assert '<div class="policy-item"><input type="checkbox"' not in modal
+    assert "tri-state-item" not in modal
+    assert "policy-state-legend" not in modal
+    assert "policy-item-state" not in modal
+    assert modal.count("Default (${$store.agentEditor.policyDefault") == 6
+    assert "border-radius:var(--border-radius-sm)" in modal
+    assert "cyclePolicyItem" not in store_source and "policyAriaChecked" not in store_source
     assert ".agent-manager-card { grid-template-columns:3rem minmax(0,1fr) auto; align-items:start; }" in modal
     assert ".agent-manager-actions { grid-column:auto; align-self:stretch; display:grid;" in modal
     assert ".agent-manager-actions .agent-profile-availability { grid-column:1/-1; }" in modal
@@ -309,12 +341,35 @@ const chatsStore = {
 };
 const modelConfigStore = {
   loadAgentProfiles: async force => calls.push({ endpoint: "loadAgentProfiles", payload: force }),
+  openPresetEditor: async preset => calls.push({ endpoint: "openPresetEditor", payload: preset }),
   selectAgentProfile: async (contextId, profileId) => {
     calls.push({ endpoint: "selectAgentProfile", payload: { contextId, profileId } });
     return true;
   },
   getAgentProfileVisual: (_id, label) => ({ color: "#123456", url: "", initials: label?.[0] || "A" }),
 };
+const aceState = { change: null, find: null, destroyed: false, value: "" };
+const aceContainer = { textContent: "" };
+const aceSession = {
+  setMode: value => { aceState.mode = value; },
+  setUseWrapMode: value => { aceState.wrap = value; },
+  on: (name, callback) => { if (name === "change") aceState.change = callback; },
+  off: (name, callback) => { if (name === "change" && aceState.change === callback) aceState.change = null; },
+};
+const aceEditor = {
+  container: aceContainer,
+  session: aceSession,
+  textInput: { getElement: () => ({ setAttribute: (key, value) => { aceState[key] = value; } }) },
+  setTheme: value => { aceState.theme = value; },
+  setOptions: value => { aceState.options = value; },
+  setValue: value => { aceState.value = value; aceState.change?.(); },
+  getValue: () => aceState.value,
+  find: (query, options) => { aceState.find = { query, options }; },
+  focus: () => { aceState.focused = true; },
+  resize: () => { aceState.resized = true; },
+  destroy: () => { aceState.destroyed = true; },
+};
+globalThis.ace = { edit: container => { aceState.container = container; return aceEditor; } };
 globalThis.window = globalThis;
 globalThis.document = {
   dispatchEvent: (event) => calls.push({ endpoint: "event", payload: event.type }),
@@ -350,13 +405,14 @@ store.state = {
     { filename: "agent.system.main.communication.md", group: "2.4", group_label: "Communication", effective: "Inherited comm", inherited: "Inherited comm", source_chain: ["Framework", "Researcher"], state: "Inherited", has_override: false },
   ],
   model_preset: { has_override: false },
-  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [] },
+  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", mcp_default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [] },
   skills: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [] },
 };
 store.makeDraft(true);
 if (await store.previewPlan()) throw new Error("invalid plan unexpectedly succeeded");
 if (store.planStatus !== "blocked" || store.error || store.validationIssues().length !== 2) throw new Error("blocked plan state mismatch");
 if (store.fieldIssue("name")?.message !== "Agent name is required.") throw new Error("inline name issue missing");
+if (store.fieldIssue("instructions")?.field !== "agent-editor-instructions") throw new Error("Easy validation targeted the wrong input");
 await store.save();
 if (store.error) throw new Error("validation leaked into dismissible error banner");
 store.state.profile.id = "new-agent";
@@ -365,7 +421,8 @@ store.state.profile.metadata.title = { inherited_source: "agents/new-agent/agent
 if (store.metadataProvenance("title") !== "") throw new Error("new profile showed misleading provenance");
 store.draft.creating = false;
 if (store.metadataProvenance("title") !== "Using the default") throw new Error("default provenance mismatch");
-store.profiles = [{ id: "researcher", title: "Researcher" }];
+store.profiles = [{ id: "researcher", title: "Researcher" }, { id: "default", title: "Default" }];
+if (store.visibleProfiles.length !== 1 || store.visibleProfiles[0].id !== "researcher") throw new Error("Default profile remained selectable in Agent Editor");
 store.state.profile.metadata.title = { inherited_source: "agents/researcher/agent.yaml" };
 if (store.metadataProvenance("title") !== "Inherited from Researcher") throw new Error("inherited provenance mismatch");
 store.state.profile.metadata.title.has_override = true;
@@ -378,35 +435,50 @@ if (store.promptCustomizationPath() !== "usr/agents/researcher/prompts/agent.sys
 store.projectName = "demo";
 if (store.promptCustomizationPath() !== "usr/projects/demo/.a0proj/agents/researcher/prompts/agent.system.main.specifics.md") throw new Error("project prompt customization path mismatch");
 store.projectName = "";
+store.state.model_preset.effective = "Current";
+store.state.model_presets = [{ name: "Codex" }];
+store.draft.modelPreset = "Codex";
+if (store.buildPatch().model_preset?.name !== "Codex") throw new Error("Easy model preset was not saved");
+loadHandler = () => ({ ok: true, state: { model_presets: [{ name: "Codex" }] } });
+await store.openPresetManager();
+loadHandler = null;
+if (!calls.some(call => call.endpoint === "openPresetEditor" && call.payload === "Codex")) throw new Error("Easy preset editor action did not reuse Model Configuration");
+store.draft.modelPreset = "";
 store.state.tools.catalog = [
   { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
   { id: "local:gone", name: "gone", label: "Gone", origin: "Unavailable", available: false },
+  { id: "mcp:docs:read", name: "read", label: "Docs read", origin: "MCP", available: true },
 ];
-store.draft.toolPolicy = { mode: "custom", default: "allow", allowed: [], blocked: ["local:shell"] };
+store.draft.toolPolicy = { mode: "inherit", default: "allow", mcp_default: "allow", allowed: [], blocked: [] };
+store.initialDraft.toolPolicy = clone(store.draft.toolPolicy);
+if (store.standardToolCatalog.length !== 1 || store.mcpCatalog.length !== 1 || store.toolCatalog.length !== 2) throw new Error("Easy tool/MCP grouping mismatch");
+if (store.filteredTools("tool").length !== 2 || store.filteredTools("mcp").length !== 1) throw new Error("Advanced retained catalog grouping mismatch");
+if (store.policyItemState("tool", "local:shell") !== "default") throw new Error("initial segmented state mismatch");
+store.setPolicyItem("tool", "local:shell", "allow");
+if (store.policyItemState("tool", "local:shell") !== "allow" || !store.draft.toolPolicy.allowed.includes("local:shell")) throw new Error("On selection failed");
+store.setPolicyItem("tool", "local:shell", "block");
+if (store.policyItemState("tool", "local:shell") !== "block" || !store.draft.toolPolicy.blocked.includes("local:shell")) throw new Error("Off selection failed");
 if (JSON.stringify(store.skillWarnings({ allowed_tools: ["shell"] })) !== JSON.stringify(["shell"])) throw new Error("live skill warning missing");
-if (store.toolCatalog.length !== 1 || store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("Easy custom tool state mismatch");
-await store.moveAllVisibleTools(true);
-if (confirmations.at(-1)?.title !== "Allow 1 shown tool?" || store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("filtered bulk confirmation mismatch");
-confirmations.length = 0;
-store.selectedAllowedTools = ["local:shell"];
-store.useStandardTools();
-if (store.draft.toolPolicy.mode !== "inherit" || !store.isToolAllowed(store.state.tools.catalog[0]) || store.filteredTools(true).length !== 1 || store.selectedAllowedTools.length) throw new Error("standard tool state mismatch");
-store.setEasyToolAllowed("local:shell", false);
-if (store.draft.toolPolicy.mode !== "custom" || store.draft.toolPolicy.default !== "allow" || store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("Easy uncheck did not block tool");
-store.setEasyToolAllowed("local:shell", true);
-if (store.draft.toolPolicy.mode !== "inherit" || !store.isToolAllowed(store.state.tools.catalog[0]) || store.draft.toolPolicy.blocked.length) throw new Error("Easy recheck did not restore standard access");
-store.draft.toolPolicy = { mode: "custom", default: "block", allowed: [], blocked: [] };
-store.setEasyToolAllowed("local:shell", true);
-if (!store.isToolAllowed(store.state.tools.catalog[0]) || !store.draft.toolPolicy.allowed.includes("local:shell")) throw new Error("Easy check ignored block-by-default policy");
-store.setEasyToolAllowed("local:shell", false);
-if (store.isToolAllowed(store.state.tools.catalog[0]) || store.draft.toolPolicy.allowed.length) throw new Error("Easy uncheck ignored block-by-default policy");
-store.useStandardTools();
-store.chooseTools();
-if (store.draft.toolPolicy.mode !== "custom" || store.draft.toolPolicy.default !== "allow" || store.section !== "3") throw new Error("custom tool editor did not open");
-store.useStandardTools();
-store.state.tools.effective_policy = { mode: "inherit", default: "block", allowed: [], blocked: ["local:shell"] };
-store.chooseTools();
-if (store.draft.toolPolicy.default !== "allow" || store.draft.toolPolicy.blocked.length) throw new Error("inactive inherited exceptions leaked into custom policy");
+store.setPolicyItem("tool", "local:shell", "default");
+if (store.draft.toolPolicy.mode !== "inherit" || store.policyItemState("tool", "local:shell") !== "default") throw new Error("segmented undo did not collapse to inherit");
+store.setPolicyDefault("tool", "block");
+store.setPolicyItem("tool", "local:shell", "allow");
+store.setPolicyDefault("tool", "allow");
+if (!store.draft.toolPolicy.allowed.includes("local:shell")) throw new Error("explicit On was lost when the default changed");
+store.setPolicyItem("tool", "local:shell", "block");
+store.setPolicyDefault("tool", "block");
+if (!store.draft.toolPolicy.blocked.includes("local:shell")) throw new Error("explicit Off was lost when the default changed");
+store.setPolicyItem("tool", "local:shell", "default");
+store.setPolicyDefault("tool", "allow");
+if (store.draft.toolPolicy.mode !== "inherit") throw new Error("default undo did not collapse to inherit");
+store.setPolicyDefault("mcp", "block");
+if (store.policyDefault("tool") !== "allow" || store.policyDefault("mcp") !== "block") throw new Error("tool and MCP defaults were not independent");
+if (!store.isToolAllowed(store.state.tools.catalog[0]) || store.isToolAllowed(store.state.tools.catalog[2])) throw new Error("MCP default affected the wrong catalog group");
+store.setPolicyItem("mcp", "mcp:docs:read", "allow");
+store.setPolicyDefault("mcp", "allow");
+if (!store.draft.toolPolicy.allowed.includes("mcp:docs:read")) throw new Error("explicit MCP On was lost when its default changed");
+store.setPolicyItem("mcp", "mcp:docs:read", "default");
+if (store.draft.toolPolicy.mode !== "inherit") throw new Error("MCP default undo did not collapse to inherit");
 store.projectName = "demo";
 store.intent = { ...store.intent, projectName: "demo" };
 if (!store.currentChatUsesScope() || !store.isProfileActive("researcher")) throw new Error("active project profile state mismatch");
@@ -468,26 +540,29 @@ confirmResult = false;
 store.projectName = "other";
 if (store.currentChatUsesScope() || store.isProfileActive("default")) throw new Error("foreign project profile appeared active");
 store.projectName = "demo";
-store.state.tools.effective_policy = { mode: "custom", default: "allow", allowed: [], blocked: ["local:shell"] };
-store.useStandardTools();
+store.state.tools.effective_policy = { mode: "custom", default: "allow", mcp_default: "allow", allowed: [], blocked: ["local:shell"] };
 if (store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope ignored inherited tool restriction");
-store.setEasyToolAllowed("local:shell", true);
+store.setPolicyItem("tool", "local:shell", "default");
 if (store.draft.toolPolicy.mode !== "custom" || !store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope did not customize inherited policy");
-store.setEasyToolAllowed("local:shell", false);
+store.setPolicyItem("tool", "local:shell", "allow");
+if (!store.draft.toolPolicy.allowed.includes("local:shell")) throw new Error("project scope did not pin explicit On");
+store.setPolicyItem("tool", "local:shell", "block");
 if (store.draft.toolPolicy.mode !== "inherit" || store.isToolAllowed(store.state.tools.catalog[0])) throw new Error("project scope did not restore inherited policy");
 store.projectName = "";
-store.state.tools.effective_policy = { mode: "inherit", default: "allow", allowed: [], blocked: [] };
+store.state.tools.effective_policy = { mode: "inherit", default: "allow", mcp_default: "allow", allowed: [], blocked: [] };
 store.state.skills.catalog = [
   { name: "Research", path: "skills/research/SKILL.md", origin: "Agent Zero", description: "Research sources", available: true, tags: [], allowed_tools: [] },
   { name: "Gone", path: "skills/gone/SKILL.md", origin: "Unavailable", description: "Missing skill", available: false, tags: [], allowed_tools: [] },
 ];
-store.draft.skillPolicy = { mode: "custom", default: "allow", allowed: [], blocked: ["Research"] };
-if (store.skillCatalog.length !== 1 || store.filteredSkills(false).length !== 1 || store.filteredSkills(true).length !== 1) throw new Error("custom skill catalog mismatch");
-store.selectedBlockedSkills = ["Research"];
-store.useStandardSkills();
-if (store.draft.skillPolicy.mode !== "inherit" || store.filteredSkills(true).length !== 1 || store.filteredSkills(false).length || store.selectedBlockedSkills.length) throw new Error("standard skill summary mismatch");
-store.chooseSkills();
-if (store.draft.skillPolicy.mode !== "custom" || store.draft.skillPolicy.default !== "allow") throw new Error("custom skill editor did not open");
+store.draft.skillPolicy = { mode: "inherit", default: "allow", allowed: [], blocked: [] };
+store.initialDraft.skillPolicy = clone(store.draft.skillPolicy);
+if (store.skillCatalog.length !== 1 || store.filteredSkills().length !== 2) throw new Error("Easy/Advanced skill catalog mismatch");
+store.setPolicyItem("skill", "Research", "allow");
+if (!store.draft.skillPolicy.allowed.includes("Research")) throw new Error("skill On selection failed");
+store.setPolicyItem("skill", "Research", "block");
+if (!store.draft.skillPolicy.blocked.includes("Research")) throw new Error("skill Off selection failed");
+store.setPolicyItem("skill", "Research", "default");
+if (store.draft.skillPolicy.mode !== "inherit") throw new Error("skill sparse undo did not collapse");
 store.draft.title = "Preserved Agent";
 store.onNameInput();
 store.instructions.value = "Preserved instructions";
@@ -499,6 +574,7 @@ store.mode = "advanced";
 store.instructions.value = "";
 const callsBeforeInvalidAdvancedCreate = calls.length;
 if (!store.fieldIssue("instructions")) throw new Error("Advanced create accepted empty instructions");
+if (store.fieldIssue("instructions")?.field !== "agent-editor-prompt-ace") throw new Error("Advanced validation targeted the wrong editor");
 await store.save();
 if (calls.length !== callsBeforeInvalidAdvancedCreate) throw new Error("Advanced create submitted empty instructions");
 store.instructions.value = "Preserved instructions";
@@ -525,7 +601,7 @@ store.state = {
   ],
   model_preset: { has_override: false, effective: "Default" },
   model_presets: [],
-  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
+  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", mcp_default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
     { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
     { id: "local:old", name: "old", label: "Old", origin: "Old scope", available: true },
   ] },
@@ -537,6 +613,25 @@ store.state = {
 store.view = "editor";
 store.intent = { ...store.intent, view: "create", projectName: "" };
 store.makeDraft(true);
+store.root = {
+  querySelector: selector => selector === "#agent-editor-prompt-ace" ? aceContainer : null,
+  contains: node => node === aceContainer,
+  closest: () => null,
+};
+store.mode = "advanced";
+store.section = "2";
+const draftBeforeAce = JSON.stringify(store.draft);
+store.initPromptEditor();
+if (aceState.mode !== "ace/mode/markdown" || aceState.wrap !== true || aceState.options?.showPrintMargin !== false || aceState.options?.useWorker !== false) throw new Error("ACE configuration mismatch");
+if (aceState["aria-label"] !== "Prompt Markdown" || JSON.stringify(store.draft) !== draftBeforeAce) throw new Error("ACE initialization created a false edit");
+aceState.value = "Edited in ACE";
+aceState.change();
+if (store.instructions.value !== "Edited in ACE" || !store.promptEditPending(store.instructions)) throw new Error("ACE change did not update the prompt draft");
+store.selectPrompt("agent.system.main.communication.md");
+if (aceState.value !== "Old comm" || store.instructions.value !== "Edited in ACE") throw new Error("ACE file switch lost a draft");
+store.selectPrompt("agent.system.main.specifics.md");
+store.destroyPromptEditor();
+if (!aceState.destroyed || aceState.change) throw new Error("ACE instance was not destroyed cleanly");
 store.draft.title = "Scoped Agent";
 store.onNameInput();
 store.draft.description = "Scoped description";
@@ -546,10 +641,9 @@ store.markPromptSet("agent.system.main.specifics.md");
 store.draft.prompts["agent.system.main.communication.md"].value = "Authored communication";
 store.acceptPromptEdit("agent.system.main.communication.md");
 store.chooseAvatarColor("#ABCDEF");
-store.setEasyToolAllowed("local:shell", false);
+store.setPolicyItem("tool", "local:shell", "block");
 store.setPolicyDefault("tool", "block");
-store.chooseSkills();
-store.moveSkills(["Research"], false);
+store.setPolicyItem("skill", "Research", "block");
 const projectState = {
   profile: { id: "new-agent", avatar_url: "", metadata: { title: {}, description: {}, context: {}, avatar: { effective: { kind: "color", value: "#222222" } } } },
   prompts: [
@@ -558,7 +652,7 @@ const projectState = {
   ],
   model_preset: { has_override: false, effective: "Default" },
   model_presets: [],
-  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
+  tools: { policy: { mode: "inherit" }, effective_policy: { mode: "inherit", default: "allow", mcp_default: "allow", allowed: [], blocked: [] }, has_override: false, catalog: [
     { id: "local:shell", name: "shell", label: "Shell", origin: "Agent Zero", available: true },
     { id: "local:new", name: "new", label: "New", origin: "Project", available: true },
   ] },
@@ -569,7 +663,7 @@ const projectState = {
 };
 loadHandler = () => ({ ok: true, state: projectState });
 store.mode = "advanced";
-store.section = "5";
+store.section = "6";
 store.projectName = "demo";
 store.intent = { ...store.intent, projectName: "" };
 calls.length = 0;
@@ -577,7 +671,7 @@ await store.onScopeChanged();
 if (store.state !== projectState || store.draft.title !== "Scoped Agent" || store.draft.profileId !== "scoped-agent") throw new Error("create scope rebase lost identity");
 if (store.draft.description !== "Scoped description" || store.draft.context !== "Use for scoped work") throw new Error("create scope rebase lost authored metadata");
 if (store.instructions.value !== "Authored instructions" || store.instructions.source !== "project-source") throw new Error("create scope rebase kept stale prompt provenance");
-if (store.draft.avatar?.value !== "#ABCDEF" || store.isToolAllowed(projectState.tools.catalog[0]) || !store.isToolAllowed(projectState.tools.catalog[1]) || store.draft.toolPolicy.default !== "block") throw new Error("create scope rebase lost avatar or explicit tool decision");
+if (store.draft.avatar?.value !== "#ABCDEF" || store.isToolAllowed(projectState.tools.catalog[0]) || store.isToolAllowed(projectState.tools.catalog[1]) || store.draft.toolPolicy.default !== "block") throw new Error("create scope rebase lost avatar or tool policy");
 if (store.isSkillAllowed(projectState.skills.catalog[0]) || !store.isSkillAllowed(projectState.skills.catalog[1])) throw new Error("create scope rebase lost explicit skill decision");
 if (store.draft.prompts["agent.system.main.communication.md"].value !== "Authored communication" || store.draft.prompts["agent.system.main.communication.md"].source !== "project-source" || store.promptEditPending(store.draft.prompts["agent.system.main.communication.md"])) throw new Error("create scope rebase lost an accepted prompt edit or kept stale provenance");
 if (calls.at(-1)?.payload?.action !== "plan" || calls.at(-1)?.payload?.project_name !== "demo" || store.planStatus !== "ready" || !store.plan.written[0].startsWith("usr/projects/demo/.a0proj/agents/scoped-agent/")) throw new Error("Review plan was not recomputed after scope change");
@@ -602,14 +696,13 @@ store.onPromptInput(communication.filename);
 store.acceptPromptEdit(communication.filename);
 if (store.promptEditPending(communication)) throw new Error("prompt edit was not accepted");
 if (store.promptDisplayState(communication) !== "Customized by you") throw new Error("customized state missing");
-if (store.promptSourceChain(communication) !== "Customized by you") throw new Error("customized provenance missing");
 store.resetPrompt(communication.filename);
 if (store.promptEditPending(communication) || store.promptDisplayState(communication) !== "Will use the default") throw new Error("reset state mismatch");
 const draftBeforeModes = JSON.stringify(store.draft);
 store.setMode("advanced", "2");
 store.setMode("easy");
 if (store.section !== "2" || JSON.stringify(store.draft) !== draftBeforeModes) throw new Error("mode switch lost draft");
-store.setMode("advanced", "5");
+store.setMode("advanced", "6");
 await Promise.resolve();
 await Promise.resolve();
 if (store.planStatus !== "ready" || calls.at(-1).payload.action !== "plan") throw new Error("review plan was not computed on entry");
@@ -634,7 +727,7 @@ if (calls.length || !store.error.includes("Save or discard")) throw new Error("d
 store.initialDraft = clone(store.draft);
 store.error = "";
 await store.planRemoval(true);
-if (!store.pendingMutation?.destructive || store.section !== "5" || store.planStatus !== "ready") throw new Error("removal plan was replaced");
+if (!store.pendingMutation?.destructive || store.section !== "6" || store.planStatus !== "ready") throw new Error("removal plan was replaced");
 if (calls.at(-1).payload.action !== "plan_remove_changes") throw new Error("removal plan request missing");
 if (calls.at(-1).payload.project_name !== "demo") throw new Error("removal request lost selected scope");
 const callsBeforePendingSave = calls.length;
@@ -704,9 +797,13 @@ const store = { ...switcherState, ...switcherMethods };
 const older = store.loadAgentProfiles(true);
 const newer = store.loadAgentProfiles(true);
 if (pending.length !== 2 || !store.agentProfilesLoading) throw new Error("overlapping profile loads did not start");
-pending[1]({ profiles: [{ id: "new", title: "New", enabled: true }] });
+pending[1]({ profiles: [
+  { id: "default", title: "Default", enabled: true },
+  { id: "new", title: "New", enabled: true },
+] });
 await newer;
 if (store.agentProfiles[0]?.key !== "new" || store.agentProfilesLoading || !store.agentProfilesLoaded) throw new Error("newest profile load did not settle");
+if (store.agentProfiles.length !== 1 || store.getAgentProfileList("default", "Default").some(profile => profile.key === "default")) throw new Error("Default profile remained selectable in the chat popover");
 pending[0]({ profiles: [{ id: "old", title: "Old", enabled: true }] });
 await older;
 if (store.agentProfiles[0]?.key !== "new" || store.agentProfilesLoading || !store.agentProfilesLoaded) throw new Error("stale profile load replaced newer state");

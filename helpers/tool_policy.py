@@ -28,8 +28,10 @@ def normalize_policy(config: Any) -> dict[str, Any]:
     raw = dict(config) if isinstance(config, dict) else {}
     mode = str(raw.get("mode") or "inherit").strip().lower()
     default = str(raw.get("default") or "allow").strip().lower()
+    mcp_default = str(raw.get("mcp_default") or "allow").strip().lower()
     raw["mode"] = "custom" if mode == "custom" else "inherit"
     raw["default"] = "block" if default == "block" else "allow"
+    raw["mcp_default"] = "block" if mcp_default == "block" else "allow"
     raw["allowed"] = _normalize_ids(raw.get("allowed"))
     raw["blocked"] = _normalize_ids(raw.get("blocked"))
     return raw
@@ -49,7 +51,8 @@ def get_policy(agent: Any) -> dict[str, Any]:
     ):
         config = files.read_file_json(asset["path"])
         if not isinstance(config, dict) or not any(
-            key in config for key in ("mode", "default", "allowed", "blocked")
+            key in config
+            for key in ("mode", "default", "mcp_default", "allowed", "blocked")
         ):
             continue
         policy = normalize_policy(config)
@@ -171,7 +174,8 @@ def resolve_tool(
     if tool_id in policy["allowed"]:
         return ToolPolicyDecision(True, tool_id, "scoped-policy", "custom")
 
-    is_allowed = policy["default"] == "allow"
+    default_key = "mcp_default" if tool_id.startswith("mcp:") else "default"
+    is_allowed = policy[default_key] == "allow"
     return ToolPolicyDecision(
         is_allowed,
         tool_id,

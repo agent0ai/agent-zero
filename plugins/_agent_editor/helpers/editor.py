@@ -32,7 +32,7 @@ RESERVED_PROFILE_IDS = {"_example"}
 NON_PROMPT_MARKDOWN = {"AGENTS.md"}
 USER_AGENTS_ROOT = Path(files.get_abs_path(subagents.USER_AGENTS_DIR))
 STAGED_AVATAR_ROOT = Path(files.get_abs_path("tmp", "agent-editor"))
-_POLICY_KEYS = ("mode", "default", "allowed", "blocked")
+_TOOL_POLICY_KEYS = ("mode", "default", "mcp_default", "allowed", "blocked")
 _MUTATION_LOCK = threading.RLock()
 
 
@@ -319,7 +319,7 @@ def build_editor_state(
         "tools": {
             "policy": tool_policy.normalize_policy(tool_scope),
             "effective_policy": tool_policy.get_policy(agent),
-            "has_override": any(key in tool_scope for key in _POLICY_KEYS),
+            "has_override": any(key in tool_scope for key in _TOOL_POLICY_KEYS),
             "catalog": tool_catalog,
         },
         "skills": {
@@ -1020,11 +1020,17 @@ def _plan_tool_policy(plan: ChangePlan, value: Any) -> None:
     data = _read_mapping_strict(path, "tool policy configuration")
 
     if mode == "inherit":
-        for key in _POLICY_KEYS:
+        for key in _TOOL_POLICY_KEYS:
             data.pop(key, None)
     else:
         if mode == "off":
-            policy = {"mode": "custom", "default": "block", "allowed": [], "blocked": []}
+            policy = {
+                "mode": "custom",
+                "default": "block",
+                "mcp_default": "block",
+                "allowed": [],
+                "blocked": [],
+            }
         elif mode == "custom":
             policy = tool_policy.normalize_policy(section)
             allowed = set(policy["allowed"])
@@ -1036,7 +1042,7 @@ def _plan_tool_policy(plan: ChangePlan, value: Any) -> None:
                     raise ValueError(f'Invalid canonical tool ID "{tool_id}".')
         else:
             raise ValueError("Tool policy mode must be inherit, off, or custom.")
-        data.update({key: policy[key] for key in _POLICY_KEYS})
+        data.update({key: policy[key] for key in _TOOL_POLICY_KEYS})
     _plan_json_mapping(plan, path, data)
 
 

@@ -16,6 +16,8 @@
   profile `config.json` files, projects may own project or project-profile
   configs through the standard plugin scope paths, and the runtime remains
   authoritative.
+- Custom configuration stores independent `default` and `mcp_default`
+  fallbacks; explicit canonical IDs remain shared in `allowed` and `blocked`.
 - Required final-response capability is never disabled.
 
 ## Verification

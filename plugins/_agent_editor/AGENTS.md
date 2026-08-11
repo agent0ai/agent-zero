@@ -44,18 +44,25 @@
   Removing or deleting in project scope never mutates those inherited layers;
   only agents created in the selected scope are deletable.
 - Bundled `agents/` files are read-only.
-- Advanced prompt text is directly editable; per-file close/check actions
-  discard or accept the current edit checkpoint, while the editor's global save
-  remains the only persistence boundary.
+- Advanced prompt text is edited with a full-height bundled ACE editor in
+  Markdown mode. The selected file's customization path sits below its name;
+  per-file close/check actions discard or accept the current edit checkpoint,
+  while the editor's global save remains the only persistence boundary.
 - New profiles require a display name and non-empty agent instructions in both
   Easy and Advanced; existing Advanced prompt edits retain per-file semantics.
-- The configurable tool catalog is visible in both modes; Easy provides direct
-  allow/block checkboxes and points to Advanced for skill access. Skills remain
-  Advanced-only. Advanced keeps both complete selectors visible but disabled
-  for inherited access and interactive for custom access. Framework-required
-  tools remain absent from the tool catalog.
-- Model selection reuses `_model_config`'s compact preset dropdown and preset
-  editor; Agent Editor persists only the scoped preset reference.
+- Easy and Advanced share the same segmented capability controls: Default
+  removes the item from `allowed` and `blocked`, On stores it in `allowed`, and
+  Off stores it in `blocked`. Tools, canonical MCP entries, and Skills expose
+  independent default switches; explicit choices remain pinned when a default
+  changes, and opening then undoing an inherited policy produces no write. Easy
+  places each initially closed native accordion directly below its default
+  switch. Advanced gives Tools, MCPs, and Skills separate sections while keeping
+  unavailable retained IDs reviewable. Framework-required tools remain absent.
+- Model selection in both modes reuses `_model_config`'s compact preset dropdown
+  and preset editor; Agent Editor persists only the scoped preset reference.
+- The exact `default` profile is an internal baseline and is omitted only from
+  selectable and editable UI rows. Runtime discovery remains unchanged, and an
+  existing chat using it may still report it as current status.
 - Manage agents reuses the plugin-settings project vocabulary: Global or one
   existing project. The active chat profile appears once above the list; each
   row exposes scoped availability, duplication, restore for inherited profiles,

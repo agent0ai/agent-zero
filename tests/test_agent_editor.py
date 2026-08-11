@@ -329,6 +329,7 @@ def test_plugin_configs_preserve_unowned_keys_and_use_json(user_root: Path) -> N
             "tool_policy": {
                 "mode": "custom",
                 "default": "block",
+                "mcp_default": "allow",
                 "allowed": ["local:search_engine"],
                 "blocked": ["local:shell"],
             },
@@ -344,7 +345,7 @@ def test_plugin_configs_preserve_unowned_keys_and_use_json(user_root: Path) -> N
 
     assert json.loads(model.read_text())["manual"] == 1
     assert set(json.loads(tools.read_text())) >= {
-        "manual", "mode", "default", "allowed", "blocked"
+        "manual", "mode", "default", "mcp_default", "allowed", "blocked"
     }
     skill_data = json.loads(skill.read_text())
     assert skill_data["active_skills"] == [{"name": "existing"}]
@@ -379,6 +380,7 @@ def test_model_and_off_tool_choices_write_only_their_json_contracts(
     assert json.loads(off.changes[tool_path].content) == {
         "mode": "custom",
         "default": "block",
+        "mcp_default": "block",
         "allowed": [],
         "blocked": [],
     }
@@ -417,6 +419,44 @@ def test_project_tool_policy_reads_effective_access_and_writes_project_scope(
         / "_tool_access"
         / "config.json"
     ]
+
+
+def test_tri_state_tool_mcp_and_skill_policies_write_at_both_scopes(
+    user_root: Path,
+    project_scope: tuple[editor._EditorContext, Path],
+) -> None:
+    tool_policy = {
+        "mode": "custom",
+        "default": "block",
+        "mcp_default": "allow",
+        "allowed": ["local:shell"],
+        "blocked": ["mcp:docs:write"],
+    }
+    skill_policy = {
+        "mode": "custom",
+        "default": "allow",
+        "allowed": ["Research"],
+        "blocked": ["Unsafe"],
+    }
+    patch = {
+        "profile_id": "researcher",
+        "tool_policy": tool_policy,
+        "skill_policy": skill_policy,
+    }
+    context, project_agents = project_scope
+
+    for plan, root in (
+        (editor.build_change_plan(patch), user_root),
+        (editor.build_change_plan(patch, context), project_agents),
+    ):
+        editor.apply_change_plan(plan)
+        profile_root = root / "researcher" / "plugins"
+        assert json.loads(
+            (profile_root / "_tool_access" / "config.json").read_text()
+        ) == tool_policy
+        assert json.loads(
+            (profile_root / "_skills" / "config.json").read_text()
+        )["visibility_policy"] == skill_policy
 
 
 def test_project_agents_are_scope_owned_and_never_leak_global_writes(

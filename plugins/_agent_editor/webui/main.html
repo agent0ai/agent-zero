@@ -50,13 +50,13 @@
               </span>
               <strong x-text="$store.agentEditor.activeProfile().title || $store.agentEditor.activeProfile().id"></strong>
             </span>
-            <button type="button" class="button icon-button" title="Edit" :aria-label="`Edit ${$store.agentEditor.activeProfile().title || $store.agentEditor.activeProfile().id}`" @click="$store.agentEditor.loadEditor($store.agentEditor.activeProfile().id, false)"><x-icon class="icon" name="edit"></x-icon></button>
+            <button type="button" class="button icon-button" x-show="$store.agentEditor.activeProfile().id !== 'default'" title="Edit" :aria-label="`Edit ${$store.agentEditor.activeProfile().title || $store.agentEditor.activeProfile().id}`" @click="$store.agentEditor.loadEditor($store.agentEditor.activeProfile().id, false)"><x-icon class="icon" name="edit"></x-icon></button>
           </div>
         </template>
         <button type="button" class="button agent-manager-create" @click="$store.agentEditor.loadEditor('new-agent', true)"><x-icon class="icon" name="add"></x-icon>Create agent</button>
       </div>
       <div class="agent-manager-list">
-        <template x-for="profile in $store.agentEditor.profiles" :key="profile.id">
+        <template x-for="profile in $store.agentEditor.visibleProfiles" :key="profile.id">
           <article class="agent-manager-card">
             <div class="agent-manager-avatar" :style="`background:${$store.agentEditor.profileVisual(profile).color}`">
               <img x-show="$store.agentEditor.profileVisual(profile).url" :src="$store.agentEditor.profileVisual(profile).url" :alt="`${profile.title || profile.id} avatar`">
@@ -144,12 +144,26 @@
               <button type="button" class="text-button" x-show="$store.agentEditor.state.profile.metadata.avatar.has_override || $store.agentEditor.draft.avatar" @click="$store.agentEditor.resetAvatar()">Reset</button>
             </div>
           </div>
-          <div class="agent-field agent-name-field">
-            <label for="agent-editor-name" class="agent-field-label">Agent name</label>
-            <input id="agent-editor-name" type="text" x-model="$store.agentEditor.draft.title" @input="$store.agentEditor.onNameInput(); $store.agentEditor.markMetadataSet('title')" required autocomplete="off" :aria-invalid="$store.agentEditor.fieldIssue('name') ? 'true' : null" :aria-describedby="$store.agentEditor.fieldIssue('name') ? 'agent-editor-name-error' : null">
-            <div class="agent-id-feedback" x-show="$store.agentEditor.fieldIssue('name')">
-              <span id="agent-editor-name-error" class="field-error" role="alert" x-text="$store.agentEditor.fieldIssue('name')?.message"></span>
-              <button type="button" class="text-button" x-show="$store.agentEditor.profileConflict" @click="$store.agentEditor.openConflictingProfile()">Open existing agent</button>
+          <div class="agent-easy-identity-fields">
+            <div class="agent-field agent-name-field">
+              <label for="agent-editor-name" class="agent-field-label">Agent name</label>
+              <input id="agent-editor-name" type="text" x-model="$store.agentEditor.draft.title" @input="$store.agentEditor.onNameInput(); $store.agentEditor.markMetadataSet('title')" required autocomplete="off" :aria-invalid="$store.agentEditor.fieldIssue('name') ? 'true' : null" :aria-describedby="$store.agentEditor.fieldIssue('name') ? 'agent-editor-name-error' : null">
+              <div class="agent-id-feedback" x-show="$store.agentEditor.fieldIssue('name')">
+                <span id="agent-editor-name-error" class="field-error" role="alert" x-text="$store.agentEditor.fieldIssue('name')?.message"></span>
+                <button type="button" class="text-button" x-show="$store.agentEditor.profileConflict" @click="$store.agentEditor.openConflictingProfile()">Open existing agent</button>
+              </div>
+            </div>
+            <div class="agent-field agent-model-preset">
+              <label for="agent-editor-easy-model-preset" class="agent-field-label">Model preset</label>
+              <div class="agent-model-preset-picker">
+                <select id="agent-editor-easy-model-preset" x-model="$store.agentEditor.draft.modelPreset">
+                  <option value="" x-text="`Use current preset (${$store.agentEditor.state.model_preset.effective})`"></option>
+                  <template x-for="preset in $store.agentEditor.state.model_presets" :key="preset.name">
+                    <option :value="preset.name" x-text="preset.name"></option>
+                  </template>
+                </select>
+                <button type="button" class="button" @click="$store.agentEditor.openPresetManager()"><x-icon class="icon" name="tune"></x-icon>Edit Presets</button>
+              </div>
             </div>
           </div>
         </section>
@@ -165,23 +179,52 @@
           </div>
         </section>
 
-        <section class="agent-easy-field agent-easy-tools">
-          <div class="agent-field-heading">
-            <div><div class="agent-field-label">Tools <span class="field-count" x-text="`— ${$store.agentEditor.toolCatalog.length} ${$store.agentEditor.toolCatalog.length === 1 ? 'tool' : 'tools'}`"></span></div><p>Choose which tools this agent can use.</p></div>
+        <section class="agent-easy-field agent-easy-capabilities">
+          <div class="agent-field-heading"><div><div class="agent-field-label">Capabilities</div><p>Choose the default access, or set individual items On or Off.</p></div></div>
+          <div class="capability-policy-group">
+            <div class="future-policy-control"><strong>Allow tools by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('tool') === 'allow'" @change="$store.agentEditor.setPolicyDefault('tool', $event.target.checked ? 'allow' : 'block')" aria-label="Allow tools by default"><span class="toggler"></span></label></div>
+            <details class="capability-accordion">
+            <summary><span>Choose individual tools</span><x-icon name="expand_more"></x-icon></summary>
+            <div class="policy-items" role="list" aria-label="Tools this agent can use">
+              <template x-for="tool in $store.agentEditor.standardToolCatalog" :key="tool.id">
+                <div class="policy-item" role="listitem"><div class="policy-item-copy"><strong x-text="tool.label"></strong><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('tool') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'block')">Off</button></div></div>
+              </template>
+              <p class="policy-empty" x-show="!$store.agentEditor.standardToolCatalog.length">No configurable tools are available.</p>
+            </div>
+            </details>
           </div>
-          <div class="easy-tool-list" role="list" aria-label="Tools this agent can use">
-            <template x-for="tool in $store.agentEditor.toolCatalog" :key="tool.id">
-              <label class="policy-item" role="listitem"><input type="checkbox" :checked="$store.agentEditor.isToolAllowed(tool)" :aria-label="`Allow ${tool.label}`" @change="$store.agentEditor.setEasyToolAllowed(tool.id, $event.target.checked)"><div><strong x-text="tool.label"></strong><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p></div></label>
-            </template>
-            <p class="policy-empty" x-show="!$store.agentEditor.toolCatalog.length">No configurable tools are available.</p>
+
+          <div class="capability-policy-group">
+            <div class="future-policy-control"><strong>Allow MCPs by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('mcp') === 'allow'" @change="$store.agentEditor.setPolicyDefault('mcp', $event.target.checked ? 'allow' : 'block')" aria-label="Allow MCPs by default"><span class="toggler"></span></label></div>
+            <details class="capability-accordion">
+            <summary><span>Choose individual MCPs</span><x-icon name="expand_more"></x-icon></summary>
+            <div class="policy-items" role="list" aria-label="MCP tools this agent can use">
+              <template x-for="tool in $store.agentEditor.mcpCatalog" :key="tool.id">
+                <div class="policy-item" role="listitem"><div class="policy-item-copy"><strong x-text="tool.label"></strong><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('mcp') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'block')">Off</button></div></div>
+              </template>
+              <p class="policy-empty" x-show="!$store.agentEditor.mcpCatalog.length">No MCP tools are available.</p>
+            </div>
+            </details>
           </div>
-          <p class="easy-skills-hint">To enable or disable skills, click Advanced.</p>
+
+          <div class="capability-policy-group">
+            <div class="future-policy-control"><strong>Allow skills by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('skill') === 'allow'" @change="$store.agentEditor.setPolicyDefault('skill', $event.target.checked ? 'allow' : 'block')" aria-label="Allow skills by default"><span class="toggler"></span></label></div>
+            <details class="capability-accordion">
+            <summary><span>Choose individual skills</span><x-icon name="expand_more"></x-icon></summary>
+            <div class="policy-items" role="list" aria-label="Skills this agent can use">
+              <template x-for="skill in $store.agentEditor.skillCatalog" :key="skill.path">
+                <div class="policy-item" role="listitem"><div class="policy-item-copy"><strong x-text="skill.name"></strong><p class="policy-item-description" x-show="skill.description" x-text="skill.description"></p><em x-show="$store.agentEditor.skillWarnings(skill).length" x-text="`Expects blocked tool: ${$store.agentEditor.skillWarnings(skill).join(', ')}`"></em></div><div class="policy-state-control" role="group" :aria-label="`${skill.name} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'allow'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'default'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('skill') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'block'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'block')">Off</button></div></div>
+              </template>
+              <p class="policy-empty" x-show="!$store.agentEditor.skillCatalog.length">No configurable skills are available.</p>
+            </div>
+            </details>
+          </div>
         </section>
       </main>
 
       <div class="agent-advanced" x-show="$store.agentEditor.mode === 'advanced'">
         <nav class="agent-advanced-nav" aria-label="Advanced editor sections">
-          <template x-for="item in [{id:'1',label:'Identity'},{id:'2',label:'Prompt files'},{id:'3',label:'Tools'},{id:'4',label:'Skills'},{id:'5',label:'Review'}]" :key="item.id">
+          <template x-for="item in [{id:'1',label:'Identity'},{id:'2',label:'Prompt files'},{id:'3',label:'Tools'},{id:'4',label:'MCPs'},{id:'5',label:'Skills'},{id:'6',label:'Review'}]" :key="item.id">
             <button type="button" :class="{ active: $store.agentEditor.section === item.id }" :aria-current="$store.agentEditor.section === item.id ? 'step' : null" @click="$store.agentEditor.setSection(item.id)">
               <span class="section-number" x-text="item.id"></span><span x-text="item.label"></span>
               <span class="agent-status-badge compact" :class="$store.agentEditor.sectionIssues(item.id).length ? 'is-error' : 'is-unsaved'" x-show="$store.agentEditor.sectionIssues(item.id).length || $store.agentEditor.sectionDirty(item.id)"><x-icon :name="$store.agentEditor.sectionIssues(item.id).length ? 'error' : 'edit_note'"></x-icon><span x-text="$store.agentEditor.sectionIssues(item.id).length ? 'Needs attention' : 'Changed'"></span></span>
@@ -232,7 +275,7 @@
           </section>
 
           <section x-show="$store.agentEditor.section === '2'" data-agent-editor-section="2" tabindex="-1" aria-labelledby="agent-section-2-title">
-            <header class="advanced-section-heading"><h3 id="agent-section-2-title">Prompt files</h3><p>Customize this agent’s prompt files. You always see the inherited version next to your version.</p></header>
+            <header class="advanced-section-heading"><h3 id="agent-section-2-title">Prompt files</h3><p>Choose a file and edit its prompt.</p></header>
             <div class="prompt-workspace">
               <aside class="prompt-browser">
                 <label class="compact-search"><span class="sr-only">Search prompt files</span><x-icon name="search"></x-icon><input type="search" x-model="$store.agentEditor.promptFileSearch" placeholder="Search files"></label>
@@ -252,61 +295,47 @@
               </aside>
               <div class="prompt-editor" role="region" aria-label="Selected prompt file" tabindex="0" x-show="$store.agentEditor.selectedPromptDraft">
                 <div class="prompt-editor-header">
-                  <div><strong x-text="$store.agentEditor.selectedPrompt"></strong><div class="source-chain" x-text="$store.agentEditor.promptSourceChain($store.agentEditor.selectedPromptDraft)"></div></div>
+                  <div class="prompt-file-heading">
+                    <strong x-text="$store.agentEditor.selectedPrompt"></strong>
+                    <div class="prompt-customization-path"><code x-text="$store.agentEditor.promptCustomizationPath()"></code><button type="button" class="button" title="Copy customization path" aria-label="Copy customization path" @click="$store.agentEditor.copyPromptPath()"><x-icon name="content_copy"></x-icon></button></div>
+                  </div>
                   <div class="prompt-actions">
                     <button type="button" class="btn btn-action-header cancel" x-show="$store.agentEditor.promptEditPending($store.agentEditor.selectedPromptDraft)" title="Discard current edit" aria-label="Discard current edit" @click="$store.agentEditor.discardPromptEdit($store.agentEditor.selectedPrompt)"><x-icon name="close"></x-icon></button>
                     <button type="button" class="btn btn-action-header confirm" x-show="$store.agentEditor.promptEditPending($store.agentEditor.selectedPromptDraft)" title="Accept current edit" aria-label="Accept current edit" @click="$store.agentEditor.acceptPromptEdit($store.agentEditor.selectedPrompt)"><x-icon name="check"></x-icon></button>
                     <button type="button" class="button" x-show="$store.agentEditor.selectedPromptDraft.has_override || $store.agentEditor.promptDirty($store.agentEditor.selectedPromptDraft)" @click="$store.agentEditor.resetPrompt($store.agentEditor.selectedPrompt)">Reset to default</button>
                   </div>
                 </div>
-                <div class="prompt-customization-path"><code x-text="$store.agentEditor.promptCustomizationPath()"></code><button type="button" class="button" title="Copy customization path" aria-label="Copy customization path" @click="$store.agentEditor.copyPromptPath()"><x-icon name="content_copy"></x-icon></button></div>
                 <div class="agent-editor-note" x-show="$store.agentEditor.selectedPromptDraft.dynamic_processor">This file is generated dynamically at runtime. Python processors are read-only and are not executed by the editor.</div>
-                <div class="prompt-view-tabs" role="tablist" aria-label="Prompt view">
-                  <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === ''" :class="{ active: $store.agentEditor.comparePrompt === '' }" @click="$store.agentEditor.comparePrompt = ''">Your version</button>
-                  <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === 'inherited'" :class="{ active: $store.agentEditor.comparePrompt === 'inherited' }" @click="$store.agentEditor.comparePrompt = 'inherited'" x-text="$store.agentEditor.inheritedLabel"></button>
-                  <button type="button" role="tab" :aria-selected="$store.agentEditor.comparePrompt === 'compare'" :class="{ active: $store.agentEditor.comparePrompt === 'compare' }" @click="$store.agentEditor.comparePrompt = 'compare'">Compare</button>
-                </div>
-                <div class="prompt-find"><label><x-icon name="search"></x-icon><span class="sr-only">Search within prompt</span><input type="search" x-model="$store.agentEditor.promptTextSearch" placeholder="Find in file" @keydown.enter.prevent="$store.agentEditor.findInPrompt($event.shiftKey ? -1 : 1)"></label><span x-text="`${$store.agentEditor.promptMatchCount()} matches`"></span><button type="button" class="button icon prompt-match-action" aria-label="Previous match" @click="$store.agentEditor.findInPrompt(-1)"><x-icon name="keyboard_arrow_up"></x-icon></button><button type="button" class="button icon prompt-match-action" aria-label="Next match" @click="$store.agentEditor.findInPrompt(1)"><x-icon name="keyboard_arrow_down"></x-icon></button></div>
-                <div class="prompt-panes" :class="{ compare: $store.agentEditor.comparePrompt === 'compare' }">
-                  <div class="prompt-pane" x-show="$store.agentEditor.comparePrompt !== 'inherited'"><label for="agent-editor-prompt-text">Your version</label><textarea id="agent-editor-prompt-text" spellcheck="false" x-model="$store.agentEditor.selectedPromptDraft.value" @input="$store.agentEditor.onPromptInput($store.agentEditor.selectedPrompt)" aria-label="Prompt Markdown" :aria-invalid="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions') ? 'true' : null" :aria-describedby="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions') ? 'agent-editor-prompt-error' : null"></textarea><span id="agent-editor-prompt-error" class="field-error" role="alert" x-show="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions')" x-text="$store.agentEditor.fieldIssue('instructions')?.message"></span></div>
-                  <div class="prompt-pane inherited" x-show="$store.agentEditor.comparePrompt"><div class="prompt-pane-title" x-text="$store.agentEditor.inheritedLabel"></div><pre x-text="$store.agentEditor.selectedPromptDraft.inherited || '(empty)'" tabindex="0"></pre></div>
-                </div>
+                <div id="agent-editor-prompt-ace" class="prompt-ace" :aria-invalid="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions') ? 'true' : null" :aria-describedby="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions') ? 'agent-editor-prompt-error' : null"></div>
+                <div class="agent-editor-note" role="alert" x-show="$store.agentEditor.aceUnavailable">Prompt editor is unavailable. Reload Agent Zero and try again.</div>
+                <span id="agent-editor-prompt-error" class="field-error" role="alert" x-show="$store.agentEditor.selectedPrompt === 'agent.system.main.specifics.md' && $store.agentEditor.fieldIssue('instructions')" x-text="$store.agentEditor.fieldIssue('instructions')?.message"></span>
               </div>
             </div>
           </section>
 
           <section x-show="$store.agentEditor.section === '3'" data-agent-editor-section="3" tabindex="-1" aria-labelledby="agent-section-3-title">
             <header class="advanced-section-heading"><h3 id="agent-section-3-title">Tools</h3><p>Choose which tools this agent can use.</p></header>
-            <div class="policy-mode-row"><label><input type="radio" name="tool-policy-mode" :checked="$store.agentEditor.draft.toolPolicy.mode === 'inherit'" @change="$store.agentEditor.useStandardTools()"><span><span x-text="$store.agentEditor.projectName ? 'Use inherited tool access' : 'Use standard tool access'"></span> <small x-text="`(${$store.agentEditor.toolCatalog.length} ${$store.agentEditor.toolCatalog.length === 1 ? 'tool' : 'tools'})`"></small></span></label><label><input type="radio" name="tool-policy-mode" :checked="$store.agentEditor.draft.toolPolicy.mode === 'custom'" @change="$store.agentEditor.chooseTools()">Choose tools</label></div>
-            <fieldset class="policy-editor" :disabled="$store.agentEditor.draft.toolPolicy.mode !== 'custom'">
-              <legend class="sr-only">Tool access selection</legend>
-              <div class="policy-filters tools"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search tools</span><input type="search" x-model="$store.agentEditor.toolSearch" placeholder="Search tools"></label><label>Category <select x-model="$store.agentEditor.toolCategory"><option value="all">All</option><option value="local">Local</option><option value="plugin">Plugin</option><option value="mcp">MCP</option></select></label><label>Origin <select x-model="$store.agentEditor.toolOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.toolOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
-              <div class="policy-lists">
-                <section class="policy-list" aria-labelledby="allowed-tools-title"><header><div><h4 id="allowed-tools-title">Allowed</h4><span x-text="`${$store.agentEditor.filteredTools(true).length} ${$store.agentEditor.filteredTools(true).length === 1 ? 'tool' : 'tools'}`"></span></div><button type="button" class="button policy-bulk" x-show="$store.agentEditor.draft.toolPolicy.mode === 'custom' && $store.agentEditor.filteredTools(true).length" @click="$store.agentEditor.moveAllVisibleTools(false)" x-text="`Block ${$store.agentEditor.filteredTools(true).length} shown`"></button></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredTools(true).length">No allowed tools — select items on the right, or allow new tools automatically.</p><template x-for="tool in $store.agentEditor.filteredTools(true)" :key="tool.id"><label class="policy-item"><input type="checkbox" :value="tool.id" x-model="$store.agentEditor.selectedAllowedTools" :aria-label="`Select ${tool.label}`"><div><strong x-text="tool.label"></strong><small x-text="tool.id"></small><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p><em x-show="!tool.available">Unavailable — kept in your settings</em></div></label></template></div></section>
-                <div class="policy-transfer-actions" role="group" aria-label="Move selected tools"><button type="button" class="button icon" :disabled="!$store.agentEditor.selectedAllowedTools.length" aria-label="Block selected tools" @click="$store.agentEditor.moveTools($store.agentEditor.selectedAllowedTools, false)"><x-icon name="arrow_forward"></x-icon></button><button type="button" class="button icon" :disabled="!$store.agentEditor.selectedBlockedTools.length" aria-label="Allow selected tools" @click="$store.agentEditor.moveTools($store.agentEditor.selectedBlockedTools, true)"><x-icon name="arrow_back"></x-icon></button></div>
-                <section class="policy-list" aria-labelledby="blocked-tools-title"><header><div><h4 id="blocked-tools-title">Blocked</h4><span x-text="`${$store.agentEditor.filteredTools(false).length} ${$store.agentEditor.filteredTools(false).length === 1 ? 'tool' : 'tools'}`"></span></div><button type="button" class="button policy-bulk" x-show="$store.agentEditor.draft.toolPolicy.mode === 'custom' && $store.agentEditor.filteredTools(false).length" @click="$store.agentEditor.moveAllVisibleTools(true)" x-text="`Allow ${$store.agentEditor.filteredTools(false).length} shown`"></button></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredTools(false).length" x-text="$store.agentEditor.draft.toolPolicy.mode === 'custom' ? 'No blocked tools — select items on the left, or block new tools until reviewed.' : 'Choose tools to customize standard access.'"></p><template x-for="tool in $store.agentEditor.filteredTools(false)" :key="tool.id"><label class="policy-item"><input type="checkbox" :value="tool.id" x-model="$store.agentEditor.selectedBlockedTools" :aria-label="`Select ${tool.label}`"><div><strong x-text="tool.label"></strong><small x-text="tool.id"></small><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p><em x-show="!tool.available">Unavailable — kept in your settings</em></div></label></template></div></section>
-              </div>
-              <fieldset class="future-default"><legend>When new tools are installed later</legend><label><input type="radio" name="tool-future-default" value="allow" :checked="$store.agentEditor.draft.toolPolicy.default === 'allow'" @change="$store.agentEditor.setPolicyDefault('tool','allow')">Allow automatically</label><label><input type="radio" name="tool-future-default" value="block" :checked="$store.agentEditor.draft.toolPolicy.default === 'block'" @change="$store.agentEditor.setPolicyDefault('tool','block')">Block until reviewed</label></fieldset>
-            </fieldset>
+            <div class="future-policy-control"><strong>Allow tools by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('tool') === 'allow'" @change="$store.agentEditor.setPolicyDefault('tool', $event.target.checked ? 'allow' : 'block')" aria-label="Allow tools by default"><span class="toggler"></span></label></div>
+            <div class="policy-filters tools"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search tools</span><input type="search" x-model="$store.agentEditor.toolSearch" placeholder="Search tools"></label><label>Origin <select x-model="$store.agentEditor.toolOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.toolOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
+            <section class="policy-group" aria-labelledby="tools-title"><header><h4 id="tools-title">Tools</h4><span x-text="$store.agentEditor.filteredTools('tool').length"></span></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredTools('tool').length">No tools match these filters.</p><template x-for="tool in $store.agentEditor.filteredTools('tool')" :key="tool.id"><div class="policy-item"><div class="policy-item-copy"><strong x-text="tool.label"></strong><small x-text="tool.id"></small><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p><em x-show="tool.available === false">Unavailable — kept in your settings</em></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('tool') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'block')">Off</button></div></div></template></div></section>
           </section>
 
           <section x-show="$store.agentEditor.section === '4'" data-agent-editor-section="4" tabindex="-1" aria-labelledby="agent-section-4-title">
-            <header class="advanced-section-heading"><h3 id="agent-section-4-title">Skills</h3><p>Choose which skills this agent can find and use.</p></header>
-            <div class="policy-mode-row"><label><input type="radio" name="skill-policy-mode" :checked="$store.agentEditor.draft.skillPolicy.mode === 'inherit'" @change="$store.agentEditor.useStandardSkills()"><span><span x-text="$store.agentEditor.projectName ? 'Use inherited skill access' : 'Use standard skill access'"></span> <small x-text="`(${$store.agentEditor.skillCatalog.length} ${$store.agentEditor.skillCatalog.length === 1 ? 'skill' : 'skills'})`"></small></span></label><label><input type="radio" name="skill-policy-mode" :checked="$store.agentEditor.draft.skillPolicy.mode === 'custom'" @change="$store.agentEditor.chooseSkills()">Choose skills</label></div>
-            <fieldset class="policy-editor" :disabled="$store.agentEditor.draft.skillPolicy.mode !== 'custom'">
-              <legend class="sr-only">Skill access selection</legend>
-              <div class="policy-filters skills"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search skills</span><input type="search" x-model="$store.agentEditor.skillSearch" placeholder="Search skills"></label><label>Origin <select x-model="$store.agentEditor.skillOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.skillOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
-              <div class="policy-lists">
-                <section class="policy-list" aria-labelledby="allowed-skills-title"><header><div><h4 id="allowed-skills-title">Allowed</h4><span x-text="`${$store.agentEditor.filteredSkills(true).length} ${$store.agentEditor.filteredSkills(true).length === 1 ? 'skill' : 'skills'}`"></span></div><button type="button" class="button policy-bulk" x-show="$store.agentEditor.draft.skillPolicy.mode === 'custom' && $store.agentEditor.filteredSkills(true).length" @click="$store.agentEditor.moveAllVisibleSkills(false)" x-text="`Block ${$store.agentEditor.filteredSkills(true).length} shown`"></button></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredSkills(true).length">No allowed skills — select items on the right, or allow new skills automatically.</p><template x-for="skill in $store.agentEditor.filteredSkills(true)" :key="skill.path"><label class="policy-item"><input type="checkbox" :value="skill.name" x-model="$store.agentEditor.selectedAllowedSkills" :aria-label="`Select ${skill.name}`"><div><strong x-text="skill.name"></strong><small x-text="skill.origin"></small><p class="policy-item-description" x-show="skill.description" x-text="skill.description"></p><em x-show="skill.available === false">Unavailable — kept in your settings</em><em x-show="$store.agentEditor.skillWarnings(skill).length" x-text="`Expects blocked tool: ${$store.agentEditor.skillWarnings(skill).join(', ')}`"></em></div></label></template></div></section>
-                <div class="policy-transfer-actions" role="group" aria-label="Move selected skills"><button type="button" class="button icon" :disabled="!$store.agentEditor.selectedAllowedSkills.length" aria-label="Block selected skills" @click="$store.agentEditor.moveSkills($store.agentEditor.selectedAllowedSkills, false)"><x-icon name="arrow_forward"></x-icon></button><button type="button" class="button icon" :disabled="!$store.agentEditor.selectedBlockedSkills.length" aria-label="Allow selected skills" @click="$store.agentEditor.moveSkills($store.agentEditor.selectedBlockedSkills, true)"><x-icon name="arrow_back"></x-icon></button></div>
-                <section class="policy-list" aria-labelledby="blocked-skills-title"><header><div><h4 id="blocked-skills-title">Blocked</h4><span x-text="`${$store.agentEditor.filteredSkills(false).length} ${$store.agentEditor.filteredSkills(false).length === 1 ? 'skill' : 'skills'}`"></span></div><button type="button" class="button policy-bulk" x-show="$store.agentEditor.draft.skillPolicy.mode === 'custom' && $store.agentEditor.filteredSkills(false).length" @click="$store.agentEditor.moveAllVisibleSkills(true)" x-text="`Allow ${$store.agentEditor.filteredSkills(false).length} shown`"></button></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredSkills(false).length" x-text="$store.agentEditor.draft.skillPolicy.mode === 'custom' ? 'No blocked skills — select items on the left, or block new skills until reviewed.' : 'Choose skills to customize standard access.'"></p><template x-for="skill in $store.agentEditor.filteredSkills(false)" :key="skill.path"><label class="policy-item"><input type="checkbox" :value="skill.name" x-model="$store.agentEditor.selectedBlockedSkills" :aria-label="`Select ${skill.name}`"><div><strong x-text="skill.name"></strong><small x-text="skill.origin"></small><p class="policy-item-description" x-show="skill.description" x-text="skill.description"></p><em x-show="skill.available === false">Unavailable — kept in your settings</em></div></label></template></div></section>
-              </div>
-              <fieldset class="future-default"><legend>When new skills are installed later</legend><label><input type="radio" name="skill-future-default" :checked="$store.agentEditor.draft.skillPolicy.default === 'allow'" @change="$store.agentEditor.setPolicyDefault('skill','allow')">Allow automatically</label><label><input type="radio" name="skill-future-default" :checked="$store.agentEditor.draft.skillPolicy.default === 'block'" @change="$store.agentEditor.setPolicyDefault('skill','block')">Block until reviewed</label></fieldset>
-            </fieldset>
+            <header class="advanced-section-heading"><h3 id="agent-section-4-title">MCPs</h3><p>Choose which MCP tools this agent can use.</p></header>
+            <div class="future-policy-control"><strong>Allow MCPs by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('mcp') === 'allow'" @change="$store.agentEditor.setPolicyDefault('mcp', $event.target.checked ? 'allow' : 'block')" aria-label="Allow MCPs by default"><span class="toggler"></span></label></div>
+            <div class="policy-filters tools"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search MCPs</span><input type="search" x-model="$store.agentEditor.toolSearch" placeholder="Search MCPs"></label><label>Origin <select x-model="$store.agentEditor.toolOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.toolOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
+            <section class="policy-group" aria-labelledby="mcps-title"><header><h4 id="mcps-title">MCPs</h4><span x-text="$store.agentEditor.filteredTools('mcp').length"></span></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredTools('mcp').length">No MCP tools match these filters.</p><template x-for="tool in $store.agentEditor.filteredTools('mcp')" :key="tool.id"><div class="policy-item"><div class="policy-item-copy"><strong x-text="tool.label"></strong><small x-text="tool.id"></small><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p><em x-show="tool.available === false">Unavailable — kept in your settings</em></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('mcp') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'block')">Off</button></div></div></template></div></section>
           </section>
 
           <section x-show="$store.agentEditor.section === '5'" data-agent-editor-section="5" tabindex="-1" aria-labelledby="agent-section-5-title">
-            <header class="advanced-section-heading"><h3 id="agent-section-5-title">Review</h3><p>Saving will change exactly these files — nothing else.</p></header>
+            <header class="advanced-section-heading"><h3 id="agent-section-5-title">Skills</h3><p>Choose which skills this agent can find and use.</p></header>
+            <div class="future-policy-control"><strong>Allow skills by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('skill') === 'allow'" @change="$store.agentEditor.setPolicyDefault('skill', $event.target.checked ? 'allow' : 'block')" aria-label="Allow skills by default"><span class="toggler"></span></label></div>
+            <div class="policy-filters skills"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search skills</span><input type="search" x-model="$store.agentEditor.skillSearch" placeholder="Search skills"></label><label>Origin <select x-model="$store.agentEditor.skillOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.skillOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
+            <section class="policy-group" aria-labelledby="skills-title"><header><h4 id="skills-title">Skills</h4><span x-text="$store.agentEditor.filteredSkills().length"></span></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredSkills().length">No skills match these filters.</p><template x-for="skill in $store.agentEditor.filteredSkills()" :key="skill.path"><div class="policy-item"><div class="policy-item-copy"><strong x-text="skill.name"></strong><small x-text="skill.origin"></small><p class="policy-item-description" x-show="skill.description" x-text="skill.description"></p><em x-show="skill.available === false">Unavailable — kept in your settings</em><em x-show="$store.agentEditor.skillWarnings(skill).length" x-text="`Expects blocked tool: ${$store.agentEditor.skillWarnings(skill).join(', ')}`"></em></div><div class="policy-state-control" role="group" :aria-label="`${skill.name} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'allow'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'default'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('skill') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'block'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'block')">Off</button></div></div></template></div></section>
+          </section>
+
+          <section x-show="$store.agentEditor.section === '6'" data-agent-editor-section="6" tabindex="-1" aria-labelledby="agent-section-6-title">
+            <header class="advanced-section-heading"><h3 id="agent-section-6-title">Review</h3><p>Saving will change exactly these files — nothing else.</p></header>
             <div class="review-plan-status" role="status" x-show="$store.agentEditor.planStatus === 'loading'"><x-icon class="spinning" name="progress_activity"></x-icon><span>Computing the exact change plan…</span></div>
             <div class="review-plan-status" x-show="$store.agentEditor.planStatus === 'error'"><span>The change plan could not be computed.</span><button type="button" class="text-button" @click="$store.agentEditor.previewPlan()">Retry</button></div>
             <div class="review-blocked" role="alert" x-show="$store.agentEditor.planStatus === 'blocked'">
@@ -366,11 +395,7 @@
   .agent-editor h2,.agent-editor h3,.agent-editor h4,.agent-editor p { margin: 0; }
   .agent-editor button,.agent-editor input,.agent-editor textarea,.agent-editor select { font: inherit; }
   .agent-editor input[type="search"],.agent-editor select { min-width:0; min-height:2.25rem; box-sizing:border-box; padding:.5rem .6rem; border:1px solid var(--color-border); border-radius:7px; background:var(--color-input); color:var(--color-text); }
-  .agent-editor input[type="checkbox"],.agent-editor input[type="radio"] { appearance:none; flex:0 0 auto; width:1.5rem; height:1.5rem; margin:.05rem 0; border:1px solid var(--color-border); background:var(--color-input); }
-  .agent-editor input[type="checkbox"] { display:grid; place-content:center; border-radius:4px; }
-  .agent-editor input[type="checkbox"]::before { content:""; width:.55rem; height:.3rem; border:solid white; border-width:0 0 2px 2px; opacity:0; transform:translateY(-1px) rotate(-45deg); }
-  .agent-editor input[type="checkbox"]:checked { border-color:var(--agent-editor-action); background:var(--agent-editor-action); }
-  .agent-editor input[type="checkbox"]:checked::before { opacity:1; }
+  .agent-editor input[type="radio"] { appearance:none; flex:0 0 auto; width:1.5rem; height:1.5rem; margin:.05rem 0; border:1px solid var(--color-border); background:var(--color-input); }
   .agent-editor input[type="radio"] { border-radius:50%; }
   .agent-editor input[type="radio"]:checked { border-color:var(--agent-editor-action); box-shadow:inset 0 0 0 4px var(--color-input); background:var(--agent-editor-action); }
   .agent-editor-error { display:flex; gap:.55rem; align-items:flex-start; margin:0 0 .8rem; padding:.7rem .8rem; border:1px solid color-mix(in srgb,var(--agent-editor-danger) 55%,var(--color-border)); border-radius:8px; background:color-mix(in srgb,var(--agent-editor-danger) 10%,var(--color-panel)); }
@@ -390,7 +415,8 @@
   .agent-mode-switch button { border:0; border-radius:6px; padding:.42rem .8rem; color:var(--color-text-secondary); background:transparent; }
   .agent-mode-switch button.active { color:var(--color-text); background:var(--color-panel); box-shadow:0 1px 4px rgba(0,0,0,.2); }
   .agent-easy { max-width:43rem; margin:0 auto; display:flex; flex-direction:column; gap:1.35rem; padding:.25rem .25rem 1rem; }
-  .agent-easy-identity { position:relative; display:grid; grid-template-columns:7.2rem 1fr; gap:1rem; align-items:center; }
+  .agent-easy-identity { position:relative; display:grid; grid-template-columns:7.2rem 1fr; gap:1rem; align-items:start; }
+  .agent-easy-identity-fields { width:100%; min-width:0; display:flex; flex-direction:column; gap:.9rem; }
   .agent-avatar-wrap { display:flex; flex-direction:column; align-items:center; gap:.45rem; }
   .agent-avatar { width:5rem; aspect-ratio:1; position:relative; display:grid; place-items:center; border-radius:16px; overflow:hidden; color:white; font-size:1.35rem; font-weight:700; box-shadow:inset 0 0 0 1px rgba(255,255,255,.15); }
   .agent-avatar img { width:100%; height:100%; object-fit:cover; }
@@ -401,9 +427,9 @@
   .avatar-action-icon x-icon { font-size:1.05rem; }
   .avatar-color-action input,.avatar-upload-action input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
   .agent-field { display:flex; flex-direction:column; gap:.35rem; min-width:0; }
-  .agent-name-field { align-self:start; }
+  .agent-name-field { width:100%; }
   .agent-field-label { font-weight:650; font-size:.92rem; }
-  .agent-field input,.agent-field textarea,.agent-easy textarea,.prompt-find input,.policy-filters input,.policy-filters select,.compact-search input { width:100%; box-sizing:border-box; }
+  .agent-field input,.agent-field textarea,.agent-easy textarea,.policy-filters input,.policy-filters select,.compact-search input { width:100%; box-sizing:border-box; }
   .agent-field small,.agent-field-heading p,.field-status { color:var(--color-text-secondary); font-size:.79rem; }
   .field-count { color:var(--color-text-secondary); font-size:.79rem; font-weight:400; }
   .field-status { display:block; margin-top:.15rem; }
@@ -415,16 +441,22 @@
   .agent-editor .text-button:hover { text-decoration:underline; }
   .agent-easy textarea { min-height:11rem; resize:vertical; }
   .restore-action { --agent-editor-action:var(--color-primary); display:inline-flex; align-items:center; gap:.25rem; margin-top:.4rem; }
-  .easy-tool-list { display:flex; flex-direction:column; padding:.2rem .35rem .2rem 0; }
-  .easy-tool-list .policy-item { cursor:pointer; }
-  .easy-skills-hint { margin:.55rem 0 0; color:var(--color-text-secondary); font-size:.79rem; }
-  .agent-advanced { display:grid; grid-template-columns:14rem minmax(0,1fr); gap:1rem; min-height:0; }
+  .agent-easy-capabilities { display:flex; flex-direction:column; gap:.65rem; }
+  .future-policy-control { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.45rem .2rem; }
+  .capability-policy-group + .capability-policy-group { border-top:1px solid var(--color-border); padding-top:.55rem; }
+  .capability-accordion summary { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.65rem .2rem .75rem; cursor:pointer; color:var(--color-text-secondary); font-weight:500; }
+  .capability-accordion summary x-icon { color:var(--color-text-secondary); transition:transform .15s ease; }
+  .capability-accordion[open] summary x-icon { transform:rotate(180deg); }
+  .capability-accordion .policy-items { max-height:none; overflow:visible; padding:0 0 .45rem; }
+  .agent-advanced { flex:1 1 auto; display:grid; grid-template-columns:14rem minmax(0,1fr); gap:1rem; min-height:0; }
   .agent-advanced-nav { display:flex; flex-direction:column; gap:.3rem; padding:.45rem; border:1px solid var(--color-border); border-radius:10px; background:var(--color-input); align-self:start; position:sticky; top:0; }
   .agent-advanced-nav button { display:grid; grid-template-columns:1.7rem 1fr auto; align-items:center; gap:.45rem; border:0; border-radius:7px; padding:.65rem; color:var(--color-text-secondary); background:transparent; text-align:left; }
   .agent-advanced-nav button.active { color:var(--color-text); background:var(--color-panel); }
   .section-number { display:grid; place-items:center; width:1.55rem; height:1.55rem; border:1px solid var(--color-border); border-radius:50%; font-size:.75rem; }
   .agent-advanced-content,.agent-editor-workspace,.agent-manager { min-width:0; }
+  .agent-advanced-content { min-height:0; overflow:auto; }
   .agent-advanced-content > section { outline:none; display:flex; flex-direction:column; gap:1rem; }
+  .agent-advanced-content > section[data-agent-editor-section="2"] { height:100%; min-height:0; }
   .advanced-section-heading { display:flex; flex-direction:column; gap:.25rem; padding-bottom:.8rem; border-bottom:1px solid var(--color-border); }
   .advanced-section-heading h3 { font-size:1.2rem; }
   .advanced-section-heading p { max-width:48rem; color:var(--color-text-secondary); font-size:.84rem; }
@@ -439,12 +471,12 @@
   .agent-model-preset-picker { width:100%; display:grid; grid-template-columns:minmax(13rem,18rem) auto; align-items:center; justify-content:space-between; gap:1rem; }
   .agent-model-preset-picker select { width:100%; }
   .agent-model-preset-picker > .button { display:inline-flex; align-items:center; gap:.35rem; }
-  .prompt-workspace { display:grid; grid-template-columns:minmax(13rem,16rem) minmax(0,1fr); gap:.8rem; min-width:0; height:clamp(34rem,65vh,58rem); }
+  .prompt-workspace { flex:1 1 auto; display:grid; grid-template-columns:minmax(13rem,16rem) minmax(0,1fr); gap:.8rem; min-width:0; min-height:0; }
   .prompt-browser { display:flex; flex-direction:column; min-width:0; min-height:0; height:100%; border:1px solid var(--color-border); border-radius:10px; overflow:hidden; }
-  .compact-search,.policy-search,.prompt-find label { display:grid; grid-template-columns:1.25rem minmax(0,1fr); align-items:center; gap:.3rem; min-width:0; height:2.125rem; padding:0 .45rem; border:1px solid color-mix(in srgb,var(--color-border) 42%,transparent); border-radius:7px; background:color-mix(in srgb,var(--color-text) 10%,transparent); color:var(--color-text-secondary); }
+  .compact-search,.policy-search { display:grid; grid-template-columns:1.25rem minmax(0,1fr); align-items:center; gap:.3rem; min-width:0; height:2.125rem; padding:0 .45rem; border:1px solid color-mix(in srgb,var(--color-border) 42%,transparent); border-radius:7px; background:color-mix(in srgb,var(--color-text) 10%,transparent); color:var(--color-text-secondary); }
   .compact-search { margin:.45rem; }
-  .compact-search:focus-within,.policy-search:focus-within,.prompt-find label:focus-within { border-color:color-mix(in srgb,var(--color-primary) 46%,var(--color-border)); background:color-mix(in srgb,var(--color-text) 13%,transparent); }
-  .agent-editor .compact-search input,.agent-editor .policy-search input,.agent-editor .prompt-find label input { height:100%; min-height:0; padding:0; border:0; outline:0; appearance:none; background:transparent; }
+  .compact-search:focus-within,.policy-search:focus-within { border-color:color-mix(in srgb,var(--color-primary) 46%,var(--color-border)); background:color-mix(in srgb,var(--color-text) 13%,transparent); }
+  .agent-editor .compact-search input,.agent-editor .policy-search input { height:100%; min-height:0; padding:0; border:0; outline:0; appearance:none; background:transparent; }
   .prompt-file-list { flex:1; overflow:auto; padding:.35rem; }
   .prompt-file-group { min-width:0; margin-bottom:.55rem; }
   .prompt-file-group h4 { padding:.35rem .5rem .25rem; color:var(--color-text-secondary); font-size:.7rem; font-weight:650; letter-spacing:.03em; text-transform:uppercase; }
@@ -453,57 +485,36 @@
   .prompt-file-name { grid-column:1/-1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:monospace; font-size:.76rem; }
   .prompt-file-state { color:var(--color-text-secondary); font-size:.7rem; }
   .prompt-empty { padding:.65rem; color:var(--color-text-secondary); font-size:.78rem; }
-  .prompt-editor { display:flex; flex-direction:column; gap:.55rem; min-width:0; max-width:100%; max-height:100%; overflow:auto; }
+  .prompt-editor { display:flex; flex-direction:column; gap:.55rem; min-width:0; min-height:0; max-width:100%; overflow:hidden; }
   .prompt-editor-header { display:flex; justify-content:space-between; gap:.7rem; align-items:flex-start; }
   .prompt-editor-header > div:first-child { min-width:0; overflow-wrap:anywhere; }
-  .source-chain { margin-top:.2rem; color:var(--color-text-secondary); font-size:.75rem; }
+  .prompt-file-heading { display:flex; flex-direction:column; gap:.25rem; }
   .prompt-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.35rem; min-width:0; }
   .prompt-actions .button { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
-  .prompt-customization-path { display:flex; align-items:center; justify-content:flex-end; gap:.4rem; min-width:0; }
-  .prompt-customization-path code { min-width:0; color:var(--color-text-secondary); font-size:.72rem; overflow-wrap:anywhere; text-align:right; }
+  .prompt-customization-path { display:flex; align-items:center; gap:.4rem; min-width:0; }
+  .prompt-customization-path code { min-width:0; color:var(--color-text-secondary); font-size:.72rem; overflow-wrap:anywhere; }
   .prompt-customization-path .button { width:2.125rem; height:2.125rem; flex:0 0 auto; padding:0; }
-  .prompt-view-tabs { display:flex; flex-wrap:wrap; gap:.25rem; padding-bottom:.35rem; border-bottom:1px solid var(--color-border); }
-  .prompt-view-tabs button { min-height:2rem; padding:.35rem .65rem; border:0; border-radius:6px; background:transparent; color:var(--color-text-secondary); }
-  .prompt-view-tabs button.active { background:var(--color-input); color:var(--color-text); }
-  .prompt-find { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; min-width:0; }
-  .prompt-find label { flex:1 1 10rem; min-width:0; }
-  .prompt-find span { color:var(--color-text-secondary); font-size:.75rem; white-space:nowrap; }
-  .prompt-find .prompt-match-action { flex:0 0 2.125rem; width:2.125rem; height:2.125rem; min-height:2.125rem; padding:0; border-radius:7px; justify-content:center; }
-  .prompt-panes { display:grid; grid-template-columns:1fr; gap:.65rem; min-height:18rem; }
-  .prompt-panes.compare { grid-template-columns:1fr 1fr; }
-  .prompt-pane { min-width:0; min-height:0; display:flex; flex-direction:column; gap:.35rem; }
-  .prompt-pane label,.prompt-pane-title { color:var(--color-text-secondary); font-size:.75rem; }
-  .prompt-pane textarea,.prompt-pane pre { flex:1; box-sizing:border-box; width:100%; min-height:0; margin:0; padding:.75rem; overflow:auto; border:1px solid var(--color-border); border-radius:8px; background:var(--color-input); color:var(--color-text); font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; tab-size:2; resize:vertical; }
-  .prompt-pane textarea:focus-visible { outline-offset:-2px; }
-  .prompt-pane.inherited pre { opacity:.86; }
+  .prompt-ace { flex:1; min-height:0; border:1px solid var(--color-border); border-radius:8px; overflow:hidden; font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; }
   .profile-maintenance summary { display:flex; align-items:center; min-height:1.5rem; cursor:pointer; }
-  .policy-mode-row,.future-default { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem 1rem; padding:.7rem; border:1px solid var(--color-border); border-radius:9px; }
-  .policy-mode-row label,.future-default label { display:flex; gap:.35rem; align-items:center; }
-  .policy-mode-row small { color:var(--color-text-secondary); }
-  .policy-editor { min-width:0; margin:.75rem 0 0; padding:0; border:0; transition:opacity .15s ease; }
-  .policy-editor:disabled { opacity:.48; }
-  .future-default { margin-top:.8rem; }
-  .future-default legend { padding:0 .35rem; color:var(--color-text-secondary); font-size:.8rem; }
-  .policy-filters { display:grid; grid-template-columns:minmax(12rem,1fr) minmax(8rem,auto) minmax(8rem,auto); gap:.6rem; margin-bottom:.7rem; }
+  .policy-filters { display:grid; grid-template-columns:minmax(12rem,1fr) minmax(8rem,auto); gap:.6rem; }
   .policy-filters.skills { grid-template-columns:minmax(12rem,1fr) minmax(8rem,auto); }
   .policy-filters label { display:flex; align-items:center; gap:.35rem; font-size:.78rem; color:var(--color-text-secondary); }
   .policy-filters select { flex:1; }
-  .policy-lists { display:grid; grid-template-columns:minmax(0,1fr) 2.5rem minmax(0,1fr); gap:.55rem; }
-  .policy-transfer-actions { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; }
-  .policy-transfer-actions .button { width:2.5rem; height:2.5rem; padding:0; justify-content:center; }
-  .policy-list { display:flex; flex-direction:column; min-width:0; min-height:28rem; border:1px solid var(--color-border); border-radius:10px; overflow:hidden; }
-  .policy-list header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem; min-height:3rem; box-sizing:border-box; padding:.7rem; border-bottom:1px solid var(--color-border); background:var(--color-input); }
-  .policy-list h4 { display:inline; margin-right:.35rem; }
-  .policy-list header span { color:var(--color-text-secondary); font-size:.72rem; }
-  .policy-items { flex:1; max-height:32rem; overflow:auto; padding:.35rem; }
-  .policy-item { display:flex; gap:.55rem; align-items:flex-start; padding:.55rem; border-radius:7px; }
+  .policy-group { display:flex; flex-direction:column; min-width:0; border:1px solid var(--color-border); border-radius:10px; overflow:hidden; }
+  .policy-group header { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .8rem; border-bottom:1px solid var(--color-border); background:var(--color-input); }
+  .policy-group header span { color:var(--color-text-secondary); font-size:.72rem; }
+  .policy-items { flex:1; max-height:24rem; overflow:auto; padding:.35rem; }
+  .policy-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; align-items:start; padding:.55rem; border-radius:7px; }
   .policy-item:hover { background:var(--color-input); }
-  .policy-item > div { display:flex; flex:1; flex-direction:column; gap:.15rem; min-width:0; }
+  .policy-item-copy { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
   .policy-items small { color:var(--color-text-secondary); overflow-wrap:anywhere; }
   .policy-items em { color:var(--color-warning); font-size:.72rem; font-style:normal; }
   .policy-item-description { margin:0; color:var(--color-text-secondary); font-size:.75rem; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .policy-state-control { display:inline-flex; align-self:center; overflow:hidden; border:1px solid var(--color-border); border-radius:var(--border-radius-sm); background:var(--color-input); }
+  .policy-state-control button { min-height:2rem; padding:.35rem .6rem; border:0; border-left:1px solid var(--color-border); border-radius:0; background:transparent; color:var(--color-text-secondary); cursor:pointer; font-size:.74rem; white-space:nowrap; }
+  .policy-state-control button:first-child { border-left:0; }
+  .policy-state-control button.active { color:var(--color-text); background:color-mix(in srgb,var(--agent-editor-action) 16%,var(--color-input)); box-shadow:inset 0 0 0 1px var(--agent-editor-action); }
   .policy-empty { padding:1rem .7rem; color:var(--color-text-secondary); font-size:.8rem; text-align:center; }
-  .agent-editor .policy-bulk { min-height:1.5rem; padding:.1rem .45rem; font-size:.72rem; line-height:1.15; white-space:normal; }
   .review-identity { display:grid; grid-template-columns:3.25rem minmax(0,1fr); align-items:center; gap:.8rem; padding:.8rem; border-bottom:1px solid var(--color-border); }
   .review-identity-avatar { width:3.25rem; aspect-ratio:1; display:grid; place-items:center; overflow:hidden; border-radius:10px; color:#fff; font-weight:700; }
   .review-identity-avatar img { width:100%; height:100%; object-fit:cover; }
@@ -562,9 +573,9 @@
   .agent-editor :focus-visible { outline:2px solid var(--agent-editor-action); outline-offset:2px; }
   .modal-inner.agent-editor-easy { width:min(720px,calc(100vw - 2rem)); max-width:720px; }
   .modal-inner.agent-editor-advanced { width:92vw; max-width:none; height:min(calc(100vh - 4rem),80rem); max-height:calc(100vh - 4rem); }
+  .modal-inner.agent-editor-advanced .modal-scroll,.modal-inner.agent-editor-advanced .modal-bd,.modal-inner.agent-editor-advanced .agent-editor,.modal-inner.agent-editor-advanced .agent-editor-workspace { display:flex; flex:1 1 auto; min-height:0; }
   .modal-inner.agent-editor-advanced .modal-scroll { max-height:none; }
-  .modal-inner.agent-editor-advanced .modal-bd { min-height:0; }
-  .modal-inner.agent-editor-advanced .agent-editor,.modal-inner.agent-editor-advanced .agent-editor-workspace { min-height:100%; }
+  .modal-inner.agent-editor-advanced .agent-editor,.modal-inner.agent-editor-advanced .agent-editor-workspace { flex-direction:column; }
   @media (max-width: 760px) {
     .modal-inner.agent-editor-easy,.modal-inner.agent-editor-advanced { width:100vw; max-width:none; height:100vh; max-height:none; border-radius:0; }
     .agent-editor-topbar { align-items:flex-start; flex-wrap:wrap; }
@@ -572,21 +583,22 @@
     .agent-editor-topbar-actions { width:100%; flex-wrap:wrap; justify-content:flex-end; }
     .agent-editor-scope { flex:1 1 14rem; }
     .agent-easy-identity { grid-template-columns:1fr; justify-items:center; padding-top:1.8rem; }
-    .agent-name-field { width:100%; }
     .agent-id-feedback { width:100%; }
     .agent-advanced { grid-template-columns:1fr; }
     .agent-advanced-nav { position:static; flex-direction:row; overflow-x:auto; }
     .agent-advanced-nav button { grid-template-columns:auto auto auto; white-space:nowrap; }
-    .agent-model-preset-picker { grid-template-columns:1fr; gap:.5rem; }
-    .prompt-workspace { grid-template-columns:1fr; height:auto; }
+    .agent-model-preset-picker { grid-template-columns:minmax(0,1fr) auto; gap:.5rem; }
+    .prompt-workspace { grid-template-columns:1fr; }
     .prompt-browser { height:22rem; max-height:22rem; }
     .prompt-editor { max-height:none; overflow:visible; }
-    .prompt-panes.compare,.policy-lists,.change-plan,.advanced-identity-grid,.identity-fields { grid-template-columns:1fr; }
-    .policy-lists .policy-transfer-actions { flex-direction:row; }
-    .policy-lists .policy-transfer-actions x-icon { transform:rotate(90deg); }
+    .prompt-ace { min-height:18rem; }
+    .change-plan,.advanced-identity-grid,.identity-fields { grid-template-columns:1fr; }
     .identity-fields .agent-field.wide { grid-column:1; }
     .policy-filters { grid-template-columns:1fr; }
-    .policy-list { min-height:20rem; }
+    .future-policy-control { align-items:flex-start; }
+    .policy-item { grid-template-columns:1fr; }
+    .policy-state-control { width:100%; align-self:stretch; }
+    .policy-state-control button { flex:1; }
     .agent-manager-list-header { flex-wrap:wrap; }
     .active-agent-display { width:100%; }
     .agent-manager-create { margin-left:auto; }

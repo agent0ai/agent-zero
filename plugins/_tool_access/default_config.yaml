@@ -1,4 +1,5 @@
 mode: inherit
 default: allow
+mcp_default: allow
 allowed: []
 blocked: []

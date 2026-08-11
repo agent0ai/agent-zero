@@ -31,8 +31,9 @@
   active project, user profile, bundled/plugin profile, then default.
   `get_policy` selects the first custom policy; unknown-only and
   explicit-inherit files remain on disk but defer to the next lower layer.
-- Missing policy inherits standard access; custom policy always records whether
-  future tools default to allowed or blocked.
+- Missing policy inherits standard access. A custom policy records independent
+  defaults for local/plugin tools and canonical MCP tools; explicit allowed or
+  blocked IDs take precedence over either default.
 - The `response` capability is a framework-required invariant: profile policy
   cannot disable it, and the editor does not list it as a configurable tool.
 - `vision_load` remains owned by the active chat model's vision configuration;

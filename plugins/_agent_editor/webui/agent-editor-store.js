@@ -29,7 +29,7 @@ export function slugifyProfileName(value) {
     .replace(/[-_]+$/g, "");
 }
 
-function policyFromState(value, hasOverride) {
+function policyFromState(value, hasOverride, includeMcpDefault = false) {
   const policy = value && typeof value === "object" ? value : {};
   const normalized = {
     mode: policy.mode === "custom" ? "custom" : "inherit",
@@ -37,6 +37,9 @@ function policyFromState(value, hasOverride) {
     allowed: unique(policy.allowed),
     blocked: unique(policy.blocked),
   };
+  if (includeMcpDefault) {
+    normalized.mcp_default = policy.mcp_default === "block" ? "block" : "allow";
+  }
   if (!hasOverride || normalized.mode !== "custom") normalized.mode = "inherit";
   return normalized;
 }
@@ -45,27 +48,42 @@ function policyAllows(policy, id) {
   if (!policy || policy.mode !== "custom") return true;
   if (policy.blocked.includes(id)) return false;
   if (policy.allowed.includes(id)) return true;
-  return policy.default === "allow";
+  const fallback = String(id || "").startsWith("mcp:") ? policy.mcp_default : policy.default;
+  return fallback === "allow";
 }
 
-function policyBehavior(policy) {
+function policyItemState(policy, id) {
+  if (!policy || policy.mode !== "custom") return "default";
+  if (policy?.blocked?.includes(id)) return "block";
+  if (policy?.allowed?.includes(id)) return "allow";
+  return "default";
+}
+
+function policyBehavior(policy, includeMcpDefault = false) {
   const value = policy || {};
   if (value.mode !== "custom") {
-    return { default: "allow", allowed: [], blocked: [] };
+    return {
+      default: "allow",
+      ...(includeMcpDefault ? { mcp_default: "allow" } : {}),
+      allowed: [],
+      blocked: [],
+    };
   }
   return {
     default: value.default === "block" ? "block" : "allow",
+    ...(includeMcpDefault
+      ? { mcp_default: value.mcp_default === "block" ? "block" : "allow" }
+      : {}),
     allowed: unique(value.allowed).sort(),
     blocked: unique(value.blocked).sort(),
   };
 }
 
-function movePolicyItem(policy, id, allow) {
+function setPolicyItemState(policy, id, state) {
   policy.allowed = policy.allowed.filter((item) => item !== id);
   policy.blocked = policy.blocked.filter((item) => item !== id);
-  const exceptions = allow ? "allowed" : "blocked";
-  const matchesDefault = allow === (policy.default === "allow");
-  if (!matchesDefault) policy[exceptions].push(id);
+  if (state === "allow") policy.allowed.push(id);
+  if (state === "block") policy.blocked.push(id);
 }
 
 function escapeHtml(value) {
@@ -93,17 +111,14 @@ const model = {
   initialDraft: null,
   selectedPrompt: SPECIFICS,
   promptFileSearch: "",
-  promptTextSearch: "",
-  comparePrompt: "",
   toolSearch: "",
-  toolCategory: "all",
   toolOrigin: "all",
-  selectedAllowedTools: [],
-  selectedBlockedTools: [],
   skillSearch: "",
   skillOrigin: "all",
-  selectedAllowedSkills: [],
-  selectedBlockedSkills: [],
+  promptEditor: null,
+  promptEditorChangeHandler: null,
+  settingPromptEditorValue: false,
+  aceUnavailable: false,
   promptEditBaselines: {},
   plan: { written: [], deleted: [], warnings: [] },
   planLoading: false,
@@ -136,10 +151,15 @@ const model = {
         : String(options.projectName || ""),
     };
     this.suppressClosePrompt = false;
-    return await openModal(MODAL, () => this.beforeClose());
+    try {
+      return await openModal(MODAL, () => this.beforeClose());
+    } finally {
+      this.destroyPromptEditor();
+    }
   },
 
   async mount(root) {
+    this.destroyPromptEditor();
     this.revokePreview();
     this.root = root;
     this.draft = null;
@@ -248,6 +268,10 @@ const model = {
     return this.profiles.find((profile) => this.isProfileActive(profile.id)) || null;
   },
 
+  get visibleProfiles() {
+    return this.profiles.filter((profile) => profile.id !== "default");
+  },
+
   async setProfileEnabled(profile, enabled) {
     if (!profile?.id || this.profileAvailabilitySaving) return;
     const previous = !!profile.enabled;
@@ -343,12 +367,11 @@ const model = {
       this.projectName = previous;
       return;
     }
-    const reviewActive = this.mode === "advanced" && this.section === "5";
+    const reviewActive = this.mode === "advanced" && this.section === "6";
     const creatingDraft = this.draft?.creating ? this.draft : null;
     const creatingInitial = creatingDraft ? this.initialDraft : null;
     const creatingState = creatingDraft ? this.state : null;
     const selectedPrompt = this.selectedPrompt;
-    const comparePrompt = this.comparePrompt;
     const promptChanges = creatingDraft
       ? Object.values(creatingDraft.prompts).flatMap((prompt) => {
         const initial = creatingInitial?.prompts?.[prompt.filename];
@@ -376,13 +399,14 @@ const model = {
           key,
           idKey,
           default: policy.default,
+          mcpDefault: policy.mcp_default,
           choices: (oldState.catalog || [])
             .map((item) => [
               item[idKey],
-              policyAllows(policy, item[idKey]),
-              policyAllows(oldState.effective_policy, item[idKey]),
+              policyItemState(policy, item[idKey]),
+              policyItemState(oldState.effective_policy, item[idKey]),
             ])
-            .filter(([, allowed, inherited]) => allowed !== inherited),
+            .filter(([, state, inherited]) => state !== inherited),
         });
       }
     }
@@ -426,7 +450,6 @@ const model = {
           if (change.baseline) this.promptEditBaselines[change.filename] = change.baseline;
         }
         if (this.draft.prompts[selectedPrompt]) this.selectedPrompt = selectedPrompt;
-        this.comparePrompt = comparePrompt;
         if (avatarChanged) {
           this.draft.avatar = clone(creatingDraft.avatar);
           this.draft.avatarToken = creatingDraft.avatarToken;
@@ -438,12 +461,16 @@ const model = {
         if (modelPresetChanged) this.draft.modelPreset = creatingDraft.modelPreset;
         for (const change of policyChanges) {
           this.customizePolicy(change.kind);
-          this.setPolicyDefault(change.kind, change.default);
+          this.draft[change.key].default = change.default;
+          if (change.kind === "tool") {
+            this.draft[change.key].mcp_default = change.mcpDefault;
+          }
           const catalog = this.state[change.kind === "tool" ? "tools" : "skills"].catalog || [];
           const nextIds = new Set(catalog.map((item) => item[change.idKey]));
-          for (const [id, allowed] of change.choices) {
-            if (nextIds.has(id)) movePolicyItem(this.draft[change.key], id, allowed);
+          for (const [id, state] of change.choices) {
+            if (nextIds.has(id)) setPolicyItemState(this.draft[change.key], id, state);
           }
+          this.collapsePolicy(change.kind);
         }
       }
       if (reviewActive) await this.previewPlan();
@@ -524,23 +551,19 @@ const model = {
       modelPreset: this.state.model_preset.has_override
         ? String(this.state.model_preset.override || "")
         : "",
-      toolPolicy: policyFromState(this.state.tools.policy, this.state.tools.has_override),
+      toolPolicy: policyFromState(this.state.tools.policy, this.state.tools.has_override, true),
       skillPolicy: policyFromState(this.state.skills.policy, this.state.skills.has_override),
     };
     this.initialDraft = clone(this.draft);
     this.selectedPrompt = SPECIFICS;
-    this.comparePrompt = "";
     this.planStatus = "idle";
-    this.selectedAllowedTools = [];
-    this.selectedBlockedTools = [];
-    this.selectedAllowedSkills = [];
-    this.selectedBlockedSkills = [];
     this.promptEditBaselines = Object.fromEntries(
       Object.values(prompts).map((prompt) => [prompt.filename, {
         value: prompt.value,
         reset: prompt.reset,
       }]),
     );
+    this.schedulePromptEditor();
   },
 
   get dirty() {
@@ -562,6 +585,14 @@ const model = {
 
   get toolCatalog() {
     return (this.state?.tools?.catalog || []).filter((item) => item.available !== false);
+  },
+
+  get standardToolCatalog() {
+    return this.toolCatalog.filter((item) => !String(item.id || "").startsWith("mcp:"));
+  },
+
+  get mcpCatalog() {
+    return this.toolCatalog.filter((item) => String(item.id || "").startsWith("mcp:"));
   },
 
   get toolOrigins() {
@@ -599,8 +630,8 @@ const model = {
       );
     }
     if (String(section) === "2") return Object.values(this.draft.prompts).some((prompt) => this.promptDirty(prompt));
-    if (String(section) === "3") return !same(this.draft.toolPolicy, this.initialDraft.toolPolicy);
-    if (String(section) === "4") return !same(this.draft.skillPolicy, this.initialDraft.skillPolicy);
+    if (["3", "4"].includes(String(section))) return !same(this.draft.toolPolicy, this.initialDraft.toolPolicy);
+    if (String(section) === "5") return !same(this.draft.skillPolicy, this.initialDraft.skillPolicy);
     return this.dirty;
   },
 
@@ -622,6 +653,7 @@ const model = {
   },
 
   enterManager() {
+    this.destroyPromptEditor();
     this.revokePreview();
     this.draft = null;
     this.initialDraft = null;
@@ -638,12 +670,13 @@ const model = {
   setMode(mode, section = "", preview = true) {
     this.mode = mode === "advanced" ? "advanced" : "easy";
     if (section) this.setSection(section, preview);
-    else if (preview && this.mode === "advanced" && this.section === "5") this.previewPlan();
+    else if (preview && this.mode === "advanced" && this.section === "6") this.previewPlan();
     this.syncSurface();
     if (this.mode === "advanced") {
       requestAnimationFrame(() => {
         this.root?.querySelector(`[data-agent-editor-section="${this.section}"]`)?.focus();
       });
+      this.schedulePromptEditor();
     }
   },
 
@@ -652,7 +685,8 @@ const model = {
     try {
       localStorage.setItem(LAST_SECTION_KEY, this.section);
     } catch {}
-    if (preview && this.section === "5") this.previewPlan();
+    if (preview && this.section === "6") this.previewPlan();
+    if (this.section === "2") this.schedulePromptEditor();
   },
 
   savedSection() {
@@ -791,6 +825,7 @@ const model = {
     prompt.value = String(prompt.inherited || "");
     prompt.reset = true;
     this.acceptPromptEdit(prompt.filename);
+    this.syncPromptEditor();
   },
 
   markPromptSet(filename) {
@@ -830,6 +865,7 @@ const model = {
     if (!prompt || !baseline) return;
     prompt.value = baseline.value;
     prompt.reset = baseline.reset;
+    this.syncPromptEditor();
   },
 
   resetPrompt(filename) {
@@ -838,6 +874,7 @@ const model = {
     prompt.value = prompt.inherited;
     prompt.reset = true;
     this.acceptPromptEdit(filename);
+    this.syncPromptEditor();
   },
 
   promptDisplayState(prompt) {
@@ -847,25 +884,10 @@ const model = {
     return this.projectName ? "Inherited" : "Default";
   },
 
-  promptSourceChain(prompt) {
-    if (!prompt?.reset && (prompt?.has_override || this.promptDirty(prompt))) return "Customized by you";
-    if (this.projectName) return "Inherited from Global";
-    const source = [...(prompt?.source_chain || [])]
-      .filter((item) => item !== "Your override")
-      .at(-1);
-    const current = String(
-      this.state?.profile?.metadata?.title?.effective || this.state?.profile?.id || "",
-    );
-    return !source || source.toLowerCase() === current.toLowerCase()
-      ? "Default"
-      : `Inherited from ${source}`;
-  },
-
   selectPrompt(filename) {
     if (!this.draft?.prompts?.[filename]) return;
     this.selectedPrompt = filename;
-    this.promptTextSearch = "";
-    this.comparePrompt = "";
+    this.schedulePromptEditor();
   },
 
   filteredPromptFiles(group = "") {
@@ -880,26 +902,68 @@ const model = {
     return Boolean(prompt?.reset || prompt?.value !== prompt?.initialValue);
   },
 
-  promptMatchCount() {
-    const query = this.promptTextSearch;
-    const text = this.selectedPromptDraft?.value || "";
-    if (!query) return 0;
-    return text.toLowerCase().split(query.toLowerCase()).length - 1;
+  schedulePromptEditor() {
+    if (this.mode !== "advanced" || this.section !== "2") return;
+    requestAnimationFrame(() => requestAnimationFrame(() => this.initPromptEditor()));
   },
 
-  findInPrompt(direction = 1) {
-    const textarea = this.root?.querySelector("#agent-editor-prompt-text");
-    const query = this.promptTextSearch;
-    const text = this.selectedPromptDraft?.value || "";
-    if (!textarea || !query) return;
-    const lower = text.toLowerCase();
-    const needle = query.toLowerCase();
-    const start = direction > 0 ? textarea.selectionEnd : Math.max(0, textarea.selectionStart - 1);
-    let index = direction > 0 ? lower.indexOf(needle, start) : lower.lastIndexOf(needle, start);
-    if (index < 0) index = direction > 0 ? lower.indexOf(needle) : lower.lastIndexOf(needle);
-    if (index < 0) return;
-    textarea.focus();
-    textarea.setSelectionRange(index, index + query.length);
+  initPromptEditor() {
+    const container = this.root?.querySelector("#agent-editor-prompt-ace");
+    if (!container) return;
+    if (this.promptEditor && !this.root?.contains?.(this.promptEditor.container)) {
+      this.destroyPromptEditor();
+    }
+    if (this.promptEditor) {
+      this.syncPromptEditor();
+      this.promptEditor.resize?.(true);
+      return;
+    }
+    if (!globalThis.ace?.edit) {
+      this.aceUnavailable = true;
+      return;
+    }
+    const editor = globalThis.ace.edit(container);
+    const darkMode = globalThis.localStorage?.getItem("darkMode");
+    editor.setTheme(darkMode !== "false" ? "ace/theme/github_dark" : "ace/theme/github");
+    editor.session.setMode("ace/mode/markdown");
+    editor.session.setUseWrapMode(true);
+    editor.setOptions({ showPrintMargin: false, useWorker: false });
+    editor.setValue(this.selectedPromptDraft?.value || "", -1);
+    this.promptEditorChangeHandler = () => {
+      if (this.settingPromptEditorValue || !this.selectedPromptDraft) return;
+      this.selectedPromptDraft.value = editor.getValue();
+      this.onPromptInput(this.selectedPrompt);
+    };
+    editor.session.on("change", this.promptEditorChangeHandler);
+    editor.textInput?.getElement?.()?.setAttribute("aria-label", "Prompt Markdown");
+    this.promptEditor = editor;
+    this.aceUnavailable = false;
+  },
+
+  syncPromptEditor() {
+    if (!this.promptEditor) {
+      this.schedulePromptEditor();
+      return;
+    }
+    const value = String(this.selectedPromptDraft?.value || "");
+    if (this.promptEditor.getValue() !== value) {
+      this.settingPromptEditorValue = true;
+      this.promptEditor.setValue(value, -1);
+      this.settingPromptEditorValue = false;
+    }
+    this.promptEditor.resize?.(true);
+  },
+
+  destroyPromptEditor() {
+    if (this.promptEditor?.session && this.promptEditorChangeHandler) {
+      this.promptEditor.session.off?.("change", this.promptEditorChangeHandler);
+    }
+    const container = this.promptEditor?.container;
+    this.promptEditor?.destroy?.();
+    if (container) container.textContent = "";
+    this.promptEditor = null;
+    this.promptEditorChangeHandler = null;
+    this.settingPromptEditorValue = false;
   },
 
   promptCustomizationPath() {
@@ -914,55 +978,61 @@ const model = {
     globalThis.justToast?.("Path copied", "success", 1200, "agent-editor-copy");
   },
 
-  useStandardTools() {
-    this.draft.toolPolicy = { mode: "inherit", default: "allow", allowed: [], blocked: [] };
-    this.selectedAllowedTools = [];
-    this.selectedBlockedTools = [];
-  },
-
   customizePolicy(kind) {
-    const key = kind === "tool" ? "toolPolicy" : "skillPolicy";
+    const isSkill = kind === "skill";
+    const key = isSkill ? "skillPolicy" : "toolPolicy";
     if (this.draft[key].mode === "custom") return;
-    const state = kind === "tool" ? this.state.tools : this.state.skills;
-    this.draft[key] = { mode: "custom", ...policyBehavior(state.effective_policy) };
+    const state = isSkill ? this.state.skills : this.state.tools;
+    this.draft[key] = {
+      mode: "custom",
+      ...policyBehavior(state.effective_policy, !isSkill),
+    };
   },
 
-  chooseTools() {
-    this.customizePolicy("tool");
-    this.setMode("advanced", "3");
+  activePolicy(kind) {
+    const isSkill = kind === "skill";
+    const key = isSkill ? "skillPolicy" : "toolPolicy";
+    const state = isSkill ? this.state?.skills : this.state?.tools;
+    return this.draft?.[key]?.mode === "custom" ? this.draft[key] : state?.effective_policy;
   },
 
-  setEasyToolAllowed(id, allow) {
-    this.customizePolicy("tool");
-    this.moveTools([id], allow);
-    const policy = this.draft.toolPolicy;
-    if (this.initialDraft?.toolPolicy.mode !== "custom"
-      && same(policyBehavior(policy), policyBehavior(this.state.tools.effective_policy))) {
-      this.useStandardTools();
+  policyItemState(kind, id) {
+    return policyItemState(this.activePolicy(kind), id);
+  },
+
+  setPolicyItem(kind, id, state) {
+    this.customizePolicy(kind);
+    const key = kind === "skill" ? "skillPolicy" : "toolPolicy";
+    setPolicyItemState(this.draft[key], id, state);
+    this.collapsePolicy(kind);
+  },
+
+  collapsePolicy(kind) {
+    const isSkill = kind === "skill";
+    const key = isSkill ? "skillPolicy" : "toolPolicy";
+    const state = isSkill ? this.state.skills : this.state.tools;
+    if (this.initialDraft?.[key]?.mode !== "custom"
+      && same(
+        policyBehavior(this.draft[key], !isSkill),
+        policyBehavior(state.effective_policy, !isSkill),
+      )) {
+      this.draft[key] = clone(this.initialDraft[key]);
     }
   },
 
-  useStandardSkills() {
-    this.draft.skillPolicy = { mode: "inherit", default: "allow", allowed: [], blocked: [] };
-    this.selectedAllowedSkills = [];
-    this.selectedBlockedSkills = [];
-  },
-
-  chooseSkills() {
-    this.customizePolicy("skill");
-  },
-
   setPolicyDefault(kind, nextDefault) {
-    const policy = kind === "tool" ? this.draft.toolPolicy : this.draft.skillPolicy;
-    const catalog = kind === "tool" ? this.state.tools.catalog : this.state.skills.catalog;
-    const ids = catalog.map((item) =>
-      kind === "tool" ? item.id : item.name,
-    );
-    const current = new Map(ids.map((id) => [id, policyAllows(policy, id)]));
-    policy.default = nextDefault === "block" ? "block" : "allow";
-    policy.allowed = [];
-    policy.blocked = [];
-    for (const [id, allowed] of current) movePolicyItem(policy, id, allowed);
+    this.customizePolicy(kind);
+    const key = kind === "skill" ? "skillPolicy" : "toolPolicy";
+    const policy = this.draft[key];
+    const field = kind === "mcp" ? "mcp_default" : "default";
+    policy[field] = nextDefault === "block" ? "block" : "allow";
+    this.collapsePolicy(kind);
+  },
+
+  policyDefault(kind) {
+    const policy = this.activePolicy(kind);
+    const field = kind === "mcp" ? "mcp_default" : "default";
+    return policy?.mode === "custom" && policy[field] === "block" ? "block" : "allow";
   },
 
   isToolAllowed(item) {
@@ -979,71 +1049,24 @@ const model = {
     return policyAllows(policy, item.name);
   },
 
-  filteredTools(allowed) {
+  filteredTools(group = "tool") {
     const query = this.toolSearch.trim().toLowerCase();
     return (this.state?.tools?.catalog || []).filter((item) => {
-      if (this.draft.toolPolicy.mode !== "custom" && item.available === false) return false;
-      if (this.isToolAllowed(item) !== allowed) return false;
-      const category = item.id.split(":", 1)[0];
-      if (this.toolCategory !== "all" && category !== this.toolCategory) return false;
+      const isMcp = String(item.id || "").startsWith("mcp:");
+      if ((group === "mcp") !== isMcp) return false;
       if (this.toolOrigin !== "all" && item.origin !== this.toolOrigin) return false;
       return !query || [item.label, item.name, item.id, item.description, item.origin]
         .join(" ").toLowerCase().includes(query);
     });
   },
 
-  moveTools(ids, allow) {
-    for (const id of unique(ids)) movePolicyItem(this.draft.toolPolicy, id, allow);
-    this.selectedAllowedTools = [];
-    this.selectedBlockedTools = [];
-  },
-
-  moveAllVisibleTools(allow) {
-    return this.confirmBulkMove(
-      "tool",
-      this.filteredTools(!allow).map((item) => item.id),
-      allow,
-    );
-  },
-
-  filteredSkills(allowed) {
+  filteredSkills() {
     const query = this.skillSearch.trim().toLowerCase();
     return (this.state?.skills?.catalog || []).filter((item) => {
-      if (this.draft.skillPolicy.mode !== "custom" && item.available === false) return false;
-      if (this.isSkillAllowed(item) !== allowed) return false;
       if (this.skillOrigin !== "all" && item.origin !== this.skillOrigin) return false;
       return !query || [item.name, item.description, item.origin, ...(item.tags || [])]
         .join(" ").toLowerCase().includes(query);
     });
-  },
-
-  moveSkills(ids, allow) {
-    for (const id of unique(ids)) movePolicyItem(this.draft.skillPolicy, id, allow);
-    this.selectedAllowedSkills = [];
-    this.selectedBlockedSkills = [];
-  },
-
-  moveAllVisibleSkills(allow) {
-    return this.confirmBulkMove(
-      "skill",
-      this.filteredSkills(!allow).map((item) => item.name),
-      allow,
-    );
-  },
-
-  async confirmBulkMove(kind, ids, allow) {
-    if (!ids.length) return;
-    const action = allow ? "Allow" : "Block";
-    const plural = `${kind}${ids.length === 1 ? "" : "s"}`;
-    const confirmed = await showConfirmDialog({
-      title: `${action} ${ids.length} shown ${plural}?`,
-      message: `<p>This changes every ${kind} currently shown by your filters.</p>`,
-      confirmText: `${action} shown ${plural}`,
-      type: "warning",
-    });
-    if (!confirmed) return;
-    if (kind === "tool") this.moveTools(ids, allow);
-    else this.moveSkills(ids, allow);
   },
 
   skillWarnings(skill) {
@@ -1090,7 +1113,10 @@ const model = {
       const message = this.draft.creating
         ? "Instructions are required for a new agent."
         : `Instructions can’t be empty. Use ${fallback} instructions instead.`;
-      issues.push({ key: "instructions", section: "2", field: "agent-editor-prompt-text", label: "Instructions", message });
+      const field = this.mode === "advanced"
+        ? "agent-editor-prompt-ace"
+        : "agent-editor-instructions";
+      issues.push({ key: "instructions", section: "2", field, label: "Instructions", message });
     }
     if (this.avatarUploading) {
       issues.push({ key: "avatar", section: "1", field: "agent-editor-advanced-name", label: "Avatar", message: "Wait for the avatar upload to finish." });
@@ -1296,7 +1322,7 @@ const model = {
       this.plan = data;
       this.planStatus = "ready";
       this.pendingMutation = { destructive };
-      this.setMode("advanced", "5", false);
+      this.setMode("advanced", "6", false);
     } catch (error) {
       this.error = error.message || String(error);
     } finally {
