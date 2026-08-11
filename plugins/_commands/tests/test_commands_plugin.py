@@ -310,6 +310,52 @@ def test_profile_command_opens_agent_manager() -> None:
     }
 
 
+def test_permissions_command_edits_the_current_agent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = SimpleNamespace(config=SimpleNamespace(profile="developer"))
+    monkeypatch.setattr(connector_commands, "_context", lambda _context_id: context)
+    result = connector_commands.run(
+        {
+            "invocation": {"command_name": "permissions", "raw_arguments": ""},
+            "context": {"context_id": "ctx-1"},
+        }
+    )
+
+    assert result == {
+        "text": "",
+        "effects": [
+            {
+                "type": "open_agent_editor",
+                "view": "edit",
+                "profile_id": "developer",
+            }
+        ],
+    }
+
+
+def test_permissions_command_refuses_the_internal_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = SimpleNamespace(config=SimpleNamespace(profile="default"))
+    monkeypatch.setattr(connector_commands, "_context", lambda _context_id: context)
+
+    result = connector_commands.run(
+        {
+            "invocation": {"command_name": "permissions", "raw_arguments": ""},
+            "context": {"context_id": "ctx-1"},
+        }
+    )
+
+    assert result["effects"] == [
+        {
+            "type": "toast",
+            "message": "The Default utility profile has no editable permissions.",
+            "level": "error",
+        }
+    ]
+
+
 def test_profile_command_quick_creates_with_the_agent_editor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

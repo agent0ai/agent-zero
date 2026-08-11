@@ -35,6 +35,8 @@ def run(payload: dict[str, Any]) -> dict[str, Any]:
         return _handle_project(context, raw_args)
     if command == "profile":
         return _handle_profile(context, raw_args, arguments)
+    if command == "permissions":
+        return _handle_permissions(context)
     if command == "plugins":
         return _effects({"type": "open_modal", "path": "/components/plugins/list/plugin-list.html"})
     if command == "compact":
@@ -149,6 +151,29 @@ def _handle_profile(
             "profile_id": profile_id,
             "project_name": project_name or "",
         },
+    )
+
+
+def _handle_permissions(context: AgentContext | None) -> dict[str, Any]:
+    error = _require_context(context)
+    if error:
+        return _effects(_toast(error, level="error"))
+    profile_id = str(getattr(context.config, "profile", "") or "").strip()
+    if not profile_id:
+        return _effects(_toast("The current agent profile is unavailable.", level="error"))
+    if profile_id == "default":
+        return _effects(
+            _toast(
+                "The Default utility profile has no editable permissions.",
+                level="error",
+            )
+        )
+    return _effects(
+        {
+            "type": "open_agent_editor",
+            "view": "edit",
+            "profile_id": profile_id,
+        }
     )
 
 
