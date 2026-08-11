@@ -43,6 +43,15 @@ def test_attachment_log_metadata_decodes_encoded_separators() -> None:
     ) == {"attachments": ["secret.png", "secret.png"]}
 
 
+def test_attachment_log_metadata_strips_encoded_query_and_fragment_suffixes() -> None:
+    assert _attachment_log_metadata(
+        [
+            "https://host/report%3Ftoken%3Dsecret.png",
+            "https://host/image%23private-fragment.png",
+        ]
+    ) == {"attachments": ["report", "image"]}
+
+
 class RecordingLog:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []

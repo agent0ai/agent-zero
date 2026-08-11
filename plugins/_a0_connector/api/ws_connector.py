@@ -88,6 +88,7 @@ def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
             continue
         path = parsed.path if parsed.scheme else normalized.split("?", 1)[0].split("#", 1)[0]
         path = unquote(path).replace("\\", "/")
+        path = path.split("?", 1)[0].split("#", 1)[0]
         if path.endswith("/"):
             continue
         name = path.rstrip("/").rsplit("/", 1)[-1]
