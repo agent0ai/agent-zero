@@ -400,54 +400,6 @@ def list_skills(
     return _filter_hidden_skills(agent, result)
 
 
-def list_slash_commands(agent: Agent | None = None) -> list[dict[str, Any]]:
-    """List effective, picker-visible slash commands for the agent's project."""
-    # Local import avoids the commands helper's import of split_frontmatter above.
-    from plugins._commands.helpers import commands as commands_helper
-
-    commands, _ = commands_helper.list_effective_commands(
-        _get_agent_project_name(agent)
-    )
-    return [
-        command
-        for command in commands
-        if not bool((command.get("frontmatter_extra") or {}).get("webui_hidden"))
-    ]
-
-
-def find_slash_command(
-    command_name: str,
-    agent: Agent | None = None,
-) -> dict[str, Any] | None:
-    """Find one effective slash command by its canonical ``/name``."""
-    target = str(command_name or "").strip().lstrip("/").lower()
-    if not target:
-        return None
-    return next(
-        (command for command in list_slash_commands(agent) if command["name"] == target),
-        None,
-    )
-
-
-def format_slash_command(command: dict[str, Any]) -> str:
-    """Render a slash command definition for a skills-tool result."""
-    lines = [f"Slash command: /{command['name']}"]
-    if description := str(command.get("description") or "").strip():
-        lines.append(f"Description: {description}")
-    if argument_hint := str(command.get("argument_hint") or "").strip():
-        lines.append(f"Arguments: {argument_hint}")
-    lines.append(f"Type: {command.get('command_type') or 'text'}")
-    if scope := str(command.get("scope_label") or "").strip():
-        lines.append(f"Scope: {scope}")
-
-    body = str(command.get("body") or "").strip()
-    if body:
-        if len(body) > 24000:
-            body = body[:24000].rstrip() + "\n\n[truncated]"
-        lines.extend(["", "Definition:", body])
-    return "\n".join(lines)
-
-
 def delete_skill(
     skill_path: str,
 ) -> None:

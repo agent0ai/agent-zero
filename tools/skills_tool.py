@@ -18,7 +18,7 @@ class SkillsTool(Tool):
     Actions (tool_args.action):
       - list
       - search (query)
-      - load (skill_name, or /command)
+      - load (skill_name)
       - read_file (skill_name, file_path)
 
     Script execution is handled by code_execution_tool directly.
@@ -144,38 +144,20 @@ class SkillsTool(Tool):
             agent=self.agent,
             include_content=False,
         )
-        commands = skills_helper.list_slash_commands(agent=self.agent)
-        if not skills and not commands:
-            return "No skills or slash commands found."
+        if not skills:
+            return "No skills found."
 
-        lines: List[str] = []
-        if skills:
-            # Stable output: sort by name
-            skills_sorted = sorted(skills, key=lambda s: s.name.lower())
-            lines.append(f"Available skills ({len(skills_sorted)}):")
-            for s in skills_sorted:
-                tags = f" tags={','.join(s.tags)}" if s.tags else ""
-                ver = f" v{s.version}" if s.version else ""
-                desc = (s.description or "").strip()
-                if len(desc) > 200:
-                    desc = desc[:200].rstrip() + "..."
-                lines.append(f"- {s.name}{ver}{tags}: {desc}")
-
-        if commands:
-            if lines:
-                lines.append("")
-            lines.append(f"Available slash commands ({len(commands)}):")
-            for command in commands:
-                arguments = str(command.get("argument_hint") or "").strip()
-                desc = str(command.get("description") or "").strip()
-                if len(desc) > 200:
-                    desc = desc[:200].rstrip() + "..."
-                suffix = f" {arguments}" if arguments else ""
-                lines.append(f"- /{command['name']}{suffix}: {desc}")
+        skills_sorted = sorted(skills, key=lambda s: s.name.lower())
+        lines = [f"Available skills ({len(skills_sorted)}):"]
+        for s in skills_sorted:
+            tags = f" tags={','.join(s.tags)}" if s.tags else ""
+            ver = f" v{s.version}" if s.version else ""
+            desc = (s.description or "").strip()
+            if len(desc) > 200:
+                desc = desc[:200].rstrip() + "..."
+            lines.append(f"- {s.name}{ver}{tags}: {desc}")
         lines.append("")
-        lines.append(
-            "Tip: use skills_tool action=search for skills or action=load skill_name=/name to read a slash command."
-        )
+        lines.append("Tip: use skills_tool action=search or action=load for details.")
         return "\n".join(lines)
 
     def _search(self, query: str) -> str:
@@ -209,21 +191,6 @@ class SkillsTool(Tool):
         if not skill_name:
             return Response(
                 message="Error: 'skill_name' is required for action=load.",
-                break_loop=False,
-            )
-
-        if skill_name.startswith("/"):
-            command = skills_helper.find_slash_command(skill_name, agent=self.agent)
-            if not command:
-                return Response(
-                    message=(
-                        f"Error: slash command not found: {skill_name!r}. "
-                        "Try skills_tool action=list."
-                    ),
-                    break_loop=False,
-                )
-            return Response(
-                message=skills_helper.format_slash_command(command),
                 break_loop=False,
             )
 

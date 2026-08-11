@@ -141,63 +141,6 @@ def test_active_skills_cap_is_twenty():
     assert runtime.get_max_active_skills() == 20
 
 
-def test_slash_commands_use_agent_scope_and_hide_picker_hidden(monkeypatch):
-    plugins_pkg = types.ModuleType("plugins")
-    plugins_pkg.__path__ = []
-    commands_plugin_pkg = types.ModuleType("plugins._commands")
-    commands_plugin_pkg.__path__ = []
-    commands_helpers_pkg = types.ModuleType("plugins._commands.helpers")
-    commands_helpers_pkg.__path__ = []
-    commands = types.ModuleType("plugins._commands.helpers.commands")
-    calls = []
-    commands.list_effective_commands = lambda project_name: (
-        [
-            {
-                "name": "visible",
-                "description": "Visible command.",
-                "argument_hint": "<text>",
-                "command_type": "text",
-                "scope_label": "Project",
-                "body": "Template {text}",
-                "frontmatter_extra": {},
-            },
-            {
-                "name": "hidden",
-                "frontmatter_extra": {"webui_hidden": True},
-            },
-        ],
-        {"project_name": project_name},
-    )
-    commands_helpers_pkg.commands = commands
-    for name, module in (
-        ("plugins", plugins_pkg),
-        ("plugins._commands", commands_plugin_pkg),
-        ("plugins._commands.helpers", commands_helpers_pkg),
-        ("plugins._commands.helpers.commands", commands),
-    ):
-        monkeypatch.setitem(sys.modules, name, module)
-    monkeypatch.setattr(
-        runtime,
-        "_get_agent_project_name",
-        lambda _agent: calls.append("project") or "project",
-    )
-
-    command = runtime.find_slash_command("/visible", DummyAgent())
-
-    assert calls == ["project"]
-    assert command["name"] == "visible"
-    assert runtime.find_slash_command("/hidden", DummyAgent()) is None
-    assert runtime.format_slash_command(command) == (
-        "Slash command: /visible\n"
-        "Description: Visible command.\n"
-        "Arguments: <text>\n"
-        "Type: text\n"
-        "Scope: Project\n\n"
-        "Definition:\n"
-        "Template {text}"
-    )
-
-
 def test_skills_config_can_raise_active_cap_above_default():
     config = runtime.normalize_skills_config(
         {

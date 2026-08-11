@@ -27,9 +27,6 @@
 - `parse_frontmatter(frontmatter_text: str) -> Tuple[Dict[str, Any], List[str]]`: Parse YAML frontmatter with PyYAML when available,
 - `skill_from_markdown(skill_md_path: Path, include_content: bool=..., validate: bool=...) -> Optional[Skill]`
 - `list_skills(agent: Agent | None=..., include_content: bool=..., include_hidden: bool=...) -> List[Skill]`: List skills, optionally filtered by agent scope.
-- `list_slash_commands(agent: Agent | None=...) -> list[dict[str, Any]]`: List picker-visible effective slash commands for the agent project.
-- `find_slash_command(command_name: str, agent: Agent | None=...) -> dict[str, Any] | None`
-- `format_slash_command(command: dict[str, Any]) -> str`
 - `delete_skill(skill_path: str) -> None`: Delete a skill directory.
 - `find_skill(skill_name: str, agent: Agent | None=..., include_content: bool=..., include_hidden: bool=..., validate: bool=...) -> Optional[Skill]`
 - `load_skill_for_agent(skill_name: str, agent: Agent | None=...) -> str`: Load skill and format it as a complete string for agent context.

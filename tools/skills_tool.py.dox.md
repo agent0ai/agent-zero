@@ -30,7 +30,6 @@
 - Loaded skill IDs are stored in chat-wide context data.
 - Duplicate loads omit the full body when the same skill name remains visible in model history.
 - Missing or empty `action` defaults to `list`, and legacy `method` is accepted as a deprecated alias when `action` is absent.
-- `list` includes picker-visible slash commands for the active project. `load` with `skill_name=/name` reads the effective command definition without executing it or adding it to the loaded-skill ledger.
 - Observed side-effect areas: filesystem reads, filesystem deletion, settings/state persistence, chat history persistence.
 - Imported dependency areas include: `__future__`, `helpers`, `helpers.print_style`, `helpers.tool`, `pathlib`, `typing`.
 

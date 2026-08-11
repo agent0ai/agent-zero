@@ -130,20 +130,6 @@ def _load_skills_tool(monkeypatch, skill_root: Path):
         tags=[],
     )
     skills_stub.list_skills = lambda *args, **kwargs: [fake_skill]
-    fake_command = {
-        "name": "summarize",
-        "description": "Summarize the current work.",
-        "argument_hint": "[focus]",
-    }
-    skills_stub.list_slash_commands = lambda *args, **kwargs: [fake_command]
-    skills_stub.find_slash_command = (
-        lambda command_name, *args, **kwargs: (
-            fake_command if command_name == "/summarize" else None
-        )
-    )
-    skills_stub.format_slash_command = (
-        lambda command: f"Slash command: /{command['name']}\nDefinition: prompt"
-    )
     skills_stub.search_skills = lambda *args, **kwargs: [fake_skill]
     skills_stub.find_skill = lambda *args, **kwargs: fake_skill
     skills_stub.load_skill_for_agent = (
@@ -359,28 +345,7 @@ def test_skills_tool_defaults_missing_action_to_list(monkeypatch, tmp_path: Path
 
     assert "Available skills" in response.message
     assert "browser-form-workflows" in response.message
-    assert "Available slash commands" in response.message
-    assert "/summarize [focus]" in response.message
-
-
-def test_skills_tool_load_reads_slash_command_without_loading_a_skill(
-    monkeypatch, tmp_path: Path
-):
-    module = _load_skills_tool(monkeypatch, tmp_path)
-    agent = _FakeAgent()
-    tool = module.SkillsTool(
-        agent,
-        "skills_tool",
-        None,
-        {"action": "load", "skill_name": "/summarize"},
-        "",
-        None,
-    )
-
-    response = asyncio.run(tool.execute(**tool.args))
-
-    assert response.message == "Slash command: /summarize\nDefinition: prompt"
-    assert agent.context.get_data("loaded_skills") is None
+    assert "slash commands" not in response.message
 
 
 def test_skills_tool_load_appends_skill_instructions_as_tool_result(
