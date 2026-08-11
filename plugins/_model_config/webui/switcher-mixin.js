@@ -51,7 +51,7 @@ export const switcherMethods = {
       });
       if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
       this.agentProfiles = (data.profiles || [])
-        .filter(profile => profile.id && profile.id !== "_example" && profile.enabled !== false)
+        .filter(profile => profile.id && !["_example", "default"].includes(profile.id) && profile.enabled !== false)
         .map(profile => ({
           key: profile.id,
           label: profile.title || profile.id,
@@ -127,7 +127,7 @@ export const switcherMethods = {
 
   getAgentProfileList(activeKey = "", activeLabel = "") {
     const profiles = [...(this.agentProfiles || [])];
-    if (activeKey && !profiles.some(profile => profile.key === activeKey)) {
+    if (activeKey && activeKey !== "default" && !profiles.some(profile => profile.key === activeKey)) {
       profiles.unshift({ key: activeKey, label: activeLabel || activeKey });
     }
     return profiles;

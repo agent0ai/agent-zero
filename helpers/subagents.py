@@ -300,11 +300,11 @@ def get_all_agents_list() -> list[dict[str, str]]:
             else:
                 merged[name] = item
 
-    result: list[dict[str, str]] = []
-    for key in sorted(merged.keys()):
-        item = merged[key]
-        result.append({"key": key, "label": item.title or key})
-    return result
+    return [
+        {"key": key, "label": item.title or key}
+        for key, item in sorted(merged.items())
+        if key != "default"
+    ]
 
 
 def get_default_promp_file_names() -> list[str]:

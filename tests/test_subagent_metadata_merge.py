@@ -132,3 +132,15 @@ def test_available_agents_include_project_profiles_and_project_overrides(
 
     assert requested == ["demo"]
     assert list(available) == ["project-only"]
+
+
+def test_all_agents_list_omits_default_utility_profile(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "agents"
+    _write_profile(root, "default", "title: Default\n")
+    _write_profile(root, "agent0", "title: Agent 0\n")
+    monkeypatch.setattr(subagents, "get_agents_roots", lambda: [str(root)])
+
+    assert "default" in subagents._get_agents_list_from_dir(str(root), "default")
+    assert subagents.get_all_agents_list() == [{"key": "agent0", "label": "Agent 0"}]

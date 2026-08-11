@@ -51,6 +51,8 @@
   title fallbacks do not become authored overrides.
 - Available-profile resolution includes definitions from the selected project,
   then applies that project's sparse `agents.json` availability overrides.
+- `get_all_agents_list()` is the shared presentation catalog and omits the exact
+  `default` utility profile. Runtime discovery and loading remain unchanged.
 - Bundled directories require an authored profile definition; the `_example`
   reference directory is never selectable. Every real profile, including
   `Default`, follows the same Global and project availability rules.

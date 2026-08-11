@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from io import BytesIO
 import json
 from pathlib import Path
@@ -1082,7 +1083,10 @@ def test_settings_default_profile_catalog_uses_global_availability(
         lambda _project: {
             "default": settings.subagents.SubAgentListItem(
                 name="default", title="Default"
-            )
+            ),
+            "agent0": settings.subagents.SubAgentListItem(
+                name="agent0", title="Agent 0"
+            ),
         },
     )
     configured = settings.get_default_settings().copy()
@@ -1091,12 +1095,36 @@ def test_settings_default_profile_catalog_uses_global_availability(
     options = settings.convert_out(configured)["additional"]["agent_subdirs"]
 
     assert options == [
-        {"value": "default", "label": "Default"},
+        {"value": "agent0", "label": "Agent 0"},
         {
             "value": "disabled-profile",
             "label": "disabled-profile (unavailable)",
         },
     ]
+
+
+def test_shared_profile_catalog_drives_generic_and_web_selectors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from api import agents
+    from helpers import integration_commands, subagents
+
+    profiles = [{"key": "agent0", "label": "Agent 0"}]
+    monkeypatch.setattr(subagents, "get_all_agents_list", lambda: profiles)
+
+    handler = agents.Agents.__new__(agents.Agents)
+    response = asyncio.run(handler.process({"action": "list"}, None))
+    assert [item["key"] for item in response["data"]] == ["agent0"]
+
+    context = SimpleNamespace(
+        agent0=SimpleNamespace(config=SimpleNamespace(profile="default")),
+        is_running=lambda: False,
+    )
+    status = integration_commands._handle_agent(context, "")
+    assert "Current agent: default" in status
+    assert "Agent 0 (agent0)" in status
+    assert "Default (default)" not in status
+    assert "was not found" in integration_commands._handle_agent(context, "default")
 
 
 @pytest.mark.parametrize(

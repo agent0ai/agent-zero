@@ -263,6 +263,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
                 for key, item in sorted(
                     subagents.get_available_agents_dict(None).items()
                 )
+                if key != "default"
             ],
             knowledge_subdirs=[{"value": subdir, "label": subdir}
                 for subdir in files.get_subdirectories("knowledge", exclude="default")],
@@ -288,7 +289,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     }
 
     current_profile = current.get("agent_profile")
-    if current_profile and not any(
+    if current_profile and current_profile != "default" and not any(
         option["value"] == current_profile
         for option in additional["agent_subdirs"]
     ):

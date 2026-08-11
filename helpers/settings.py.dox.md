@@ -69,7 +69,8 @@
 - `ui_control_visibility` stores validated mobile and desktop visibility flags for the project selector, clock, connection status, and right canvas rail; missing or malformed values fall back per device.
 - The Global default-profile selector lists only globally available profiles.
   A currently configured unavailable profile remains visible with an explicit
-  unavailable label so settings can round-trip it truthfully.
+  unavailable label so settings can round-trip it truthfully, except that the
+  exact `default` utility profile is never offered as a selectable option.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

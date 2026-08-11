@@ -16,7 +16,10 @@
 - Treat bot tokens, chat IDs, attachments, and user data as sensitive.
 - Keep allowed-user, group-mode, project, model, and `/send` controls enforced.
 - Install Telegram dependencies into the framework runtime only when required.
-- Agent profile picker actions change the top-level chat profile and must preserve existing subordinate agent profiles.
+- Agent profile picker actions change the top-level chat profile and must
+  preserve existing subordinate agent profiles. Picker rows and direct matches
+  use the shared presentation catalog while current status may still report an
+  existing chat that uses the utility profile.
 - Model picker status shows the effective preset; clearing a chat override returns to its scoped preset rather than assuming `Default`.
 
 ## Work Guidance

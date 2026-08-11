@@ -20,7 +20,9 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem writes, model calls, plugin state, settings/state persistence.
 - Imported dependency areas include: `__future__`, `helpers`, `helpers.persist_chat`, `helpers.state_monitor_integration`, `plugins._model_config.helpers`, `re`, `typing`.
-- `/agent` switches the top-level chat profile and preserves existing subordinate agent profiles.
+- `/agent` switches the top-level chat profile and preserves existing
+  subordinate agent profiles. Choices come from the shared presentation
+  catalog, though status may report an existing chat using the utility profile.
 - `/model <preset>` stores a per-chat global preset reference, `/model inherit` clears it, and status always reports the effective scoped-or-chat preset. `Default` is a real selectable preset, not an alias for clearing the chat selection.
 
 ## Key Concepts

@@ -20,6 +20,8 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Agents` is an `ApiHandler`.
 - `Agents` defines `process(...)`.
+- The response uses the shared `subagents.get_all_agents_list()` presentation
+  catalog; profile visibility rules belong to that helper.
 - Imported dependency areas include: `helpers`, `helpers.api`.
 
 ## Key Concepts

@@ -28,7 +28,11 @@
 - `modelConfig.createPresetEditor()` owns local preset drafts, row actions, and stable UI-only row keys so deletion or renaming cannot rebind nested model fields.
 - The preset editor maps each model provider's API-key field to the shared API-key store; saving the editor persists dirty keys separately and never writes secrets into preset YAML.
 - The compact chat selector label combines the effective preset with only the leaf name of its main model; utility and provider text stay out of the closed selector.
-- The adjacent agent-profile selector reads the always-enabled Agent Editor list endpoint directly so the active profile shows its effective title and avatar, and omits profiles disabled in the chat's current scope.
+- The adjacent agent-profile selector reads the always-enabled Agent Editor list
+  endpoint directly so the active profile shows its effective title and avatar,
+  and omits profiles disabled in the chat's current scope plus the exact
+  `default` utility profile. A chat already using `default` may still show that
+  current status without adding a selectable or editable row.
 - Reload the agent-profile selector catalog when a chat changes project or
   active profile so project-only profiles never linger in the visible choices.
 - When forced agent-profile catalog loads overlap, only the newest request may

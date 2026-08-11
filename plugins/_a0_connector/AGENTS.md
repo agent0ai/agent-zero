@@ -56,6 +56,8 @@
 - Model preset definitions exposed through v1 are global; project arguments select scope but never create project-owned definitions. Model switcher state reports the effective main, utility, and embedding models and preserves embedding-change notifications.
 - The protected v1 `agent_editor` route delegates to the bundled Agent Editor
   API and must not define another profile schema or write profile files itself.
+- The protected v1 `agents_list` response uses the shared agent presentation
+  catalog rather than applying connector-specific visibility rules.
 - Computer Use receipts describe transport success unless the connector returns explicit effect evidence. Linux target-bound typing requires a verified active/focused `window_id`; window activation uses focus, never a press action on an application or window node. Do not retry an identical failed Computer Use call.
 
 ## Work Guidance
