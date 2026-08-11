@@ -124,6 +124,29 @@ def test_config_scope_activation_toggle_saves_immediately_for_selected_scope():
     assert "action: \"toggle_plugin\"" in toggle_store
 
 
+def test_scoped_plugin_without_settings_form_exposes_configuration_index():
+    list_html = (
+        PROJECT_ROOT / "webui/components/plugins/list/plugin-list.html"
+    ).read_text(encoding="utf-8")
+    list_store = (
+        PROJECT_ROOT / "webui/components/plugins/list/pluginListStore.js"
+    ).read_text(encoding="utf-8")
+    settings_html = (
+        PROJECT_ROOT / "webui/components/plugins/plugin-settings.html"
+    ).read_text(encoding="utf-8")
+    settings_store = (
+        PROJECT_ROOT / "webui/components/plugins/plugin-settings-store.js"
+    ).read_text(encoding="utf-8")
+
+    assert "canOpenPluginConfig(plugin)" in list_html
+    assert "plugin?.per_project_config" in list_store
+    assert "plugin?.per_agent_config" in list_store
+    assert "!pluginMeta.per_project_config" in settings_store
+    assert "!pluginMeta.per_agent_config" in settings_store
+    assert "Scoped configurations" in settings_html
+    assert "context.pluginMeta?.has_config_screen" in settings_html
+
+
 def test_toggle_plugin_writes_project_scope_file_immediately(tmp_path, monkeypatch):
     monkeypatch.setattr(files, "_base_dir", str(tmp_path))
     monkeypatch.setattr(plugins, "after_plugin_change", lambda *_args, **_kwargs: None)

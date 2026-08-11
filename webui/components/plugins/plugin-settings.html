@@ -117,6 +117,13 @@
                      class="plugin-settings-body"
                      x-html="context.settingsComponentHtml">
                 </div>
+                <div x-show="!context.isLoading && !context.pluginMeta?.has_config_screen"
+                     class="plugin-settings-body">
+                    <div class="section-title">Scoped configurations</div>
+                    <div class="section-description">
+                        Use the scope controls and list button above to review or remove existing configurations.
+                    </div>
+                </div>
 
             </div>
 
@@ -136,7 +143,7 @@
 
                 <div class="plugin-settings-footer-actions">
                     <button class="btn"
-                            x-show="!context.hideSettingsActions"
+                            x-show="!context.hideSettingsActions && context.pluginMeta?.has_config_screen"
                             @click="context.resetToDefault()"
                             :disabled="context?.isSaving || context?.isLoading">
                         Reset to default
@@ -148,7 +155,7 @@
                         <span x-text="context.wizardFooter?.nextLabel?.() || 'Next'"></span>
                     </button>
                     <button class="btn btn-ok"
-                            x-show="!context.hideSettingsActions && (!context.wizardFooter || context.wizardFooter?.showSave?.())"
+                            x-show="!context.hideSettingsActions && context.pluginMeta?.has_config_screen && (!context.wizardFooter || context.wizardFooter?.showSave?.())"
                             @click="context.save()"
                             :disabled="context?.isSaving || context?.isLoading">
                         Save

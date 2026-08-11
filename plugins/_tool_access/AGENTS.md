@@ -12,10 +12,9 @@
 
 ## Local Contracts
 
-- This plugin has no independent settings UI; the Agent Editor writes sparse
-  profile `config.json` files, projects may own project or project-profile
-  configs through the standard plugin scope paths, and the runtime remains
-  authoritative.
+- This plugin has no independent settings form; the generic plugin settings
+  shell exposes its scoped configuration index, while Agent Editor writes
+  sparse profile `config.json` files and the runtime remains authoritative.
 - Custom configuration stores independent `default` and `mcp_default`
   fallbacks; explicit canonical IDs remain shared in `allowed` and `blocked`.
 - Required final-response capability is never disabled.

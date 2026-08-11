@@ -93,14 +93,23 @@ const model = {
     pluginExecuteStore.open(plugin);
   },
 
+  canOpenPluginConfig(plugin) {
+    return !!(
+      plugin?.has_config_screen ||
+      plugin?.per_project_config ||
+      plugin?.per_agent_config
+    );
+  },
+
   async openPluginConfig(pluginOrName) {
     const pluginName =
       typeof pluginOrName === "string" ? pluginOrName : pluginOrName?.name;
     if (!pluginName) return;
 
-    // If it's an object, we can check has_config_screen.
-    // If it's a name, we just try to open it and let pluginSettingsStore handle errors.
-    if (typeof pluginOrName === "object" && !pluginOrName.has_config_screen)
+    if (
+      typeof pluginOrName === "object" &&
+      !this.canOpenPluginConfig(pluginOrName)
+    )
       return;
 
     try {

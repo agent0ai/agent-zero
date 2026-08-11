@@ -278,8 +278,12 @@ const model = {
         if (!pluginMeta) {
             throw new Error(`Plugin "${pluginName}" not found.`);
         }
-        if (!pluginMeta.has_config_screen) {
-            throw new Error(`Plugin "${pluginName}" has no config screen.`);
+        if (
+            !pluginMeta.has_config_screen &&
+            !pluginMeta.per_project_config &&
+            !pluginMeta.per_agent_config
+        ) {
+            throw new Error(`Plugin "${pluginName}" has no configurable scope.`);
         }
 
         await Promise.all([this.loadProjects(), this.loadAgentProfiles()]);
@@ -432,7 +436,7 @@ const model = {
 
     // Reactive URL for the plugin's settings component (used with x-html injection)
     get settingsComponentHtml() {
-        if (!this.pluginName) return "";
+        if (!this.pluginName || !this.pluginMeta?.has_config_screen) return "";
         return `<x-component path="/plugins/${this.pluginName}/webui/config.html"></x-component>`;
     },
 };
