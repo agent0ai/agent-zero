@@ -91,6 +91,8 @@
   scope; only chats whose active profile actually changes are persisted and
   marked dirty. Context creation uses the same reconciliation after resolving
   its scope, so a disabled configured profile cannot become invisibly active.
+- Project updates and deletion refresh only chats assigned to that project and
+  persist each affected chat once; unrelated chats are never rewritten.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `helpers`, `helpers.print_style`, `os`,
   `typing`.

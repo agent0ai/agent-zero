@@ -299,6 +299,40 @@ def test_bulk_profile_reconciliation_persists_only_changed_chats(
     assert catalog_lookups == ([None, "demo"] if all_scopes else [None])
 
 
+def test_project_refresh_touches_only_matching_chats(monkeypatch) -> None:
+    contexts = [
+        SimpleNamespace(id="matching", get_data=lambda _key: "demo"),
+        SimpleNamespace(id="unrelated", get_data=lambda _key: "other"),
+    ]
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        AgentContext, "all", staticmethod(lambda: contexts)
+    )
+    monkeypatch.setattr(
+        projects,
+        "activate_project",
+        lambda context_id, name, *, mark_dirty: calls.append(
+            ("activate", context_id, name, mark_dirty)
+        ),
+    )
+    monkeypatch.setattr(
+        projects,
+        "deactivate_project",
+        lambda context_id, *, mark_dirty: calls.append(
+            ("deactivate", context_id, mark_dirty)
+        ),
+    )
+    monkeypatch.setattr(state_monitor_integration, "mark_dirty_all", lambda **_kwargs: None)
+
+    projects.reactivate_project_in_chats("demo")
+    projects.deactivate_project_in_chats("demo")
+
+    assert calls == [
+        ("activate", "matching", "demo", False),
+        ("deactivate", "matching", False),
+    ]
+
+
 def test_project_include_agents_md_defaults_true_and_saves(monkeypatch, tmp_path):
     _prepare_project_tree(monkeypatch, tmp_path)
     meta = tmp_path / "usr" / "projects" / "demo" / ".a0proj"

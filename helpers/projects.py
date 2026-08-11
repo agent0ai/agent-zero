@@ -493,7 +493,6 @@ def reactivate_project_in_chats(name: str):
     for context in AgentContext.all():
         if context.get_data(CONTEXT_DATA_KEY_PROJECT) == name:
             activate_project(context.id, name, mark_dirty=False)
-        persist_chat.save_tmp_chat(context)
 
     from helpers.state_monitor_integration import mark_dirty_all
     mark_dirty_all(reason="projects.reactivate_project_in_chats")
@@ -505,7 +504,6 @@ def deactivate_project_in_chats(name: str):
     for context in AgentContext.all():
         if context.get_data(CONTEXT_DATA_KEY_PROJECT) == name:
             deactivate_project(context.id, mark_dirty=False)
-        persist_chat.save_tmp_chat(context)
 
     from helpers.state_monitor_integration import mark_dirty_all
     mark_dirty_all(reason="projects.deactivate_project_in_chats")
