@@ -17,6 +17,8 @@
 - Preserve ordering where later prompt extras depend on earlier recall or load results.
 - Do not expose secrets or private files from workdir extras.
 - Relevant-skill recall should search the raw user message when available, not the rendered history wrapper.
+- Relevant-skill hints must not advertise loading when profile policy blocks
+  `skills_tool`.
 
 ## Work Guidance
 

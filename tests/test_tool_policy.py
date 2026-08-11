@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from extensions.python.system_prompt import _11_tools_prompt
+from extensions.python.system_prompt import _11_tools_prompt, _13_skills_prompt
 from helpers import mcp_handler, responses_tools, tool_policy
 from helpers.errors import RepairableException
 from plugins._tool_access.extensions.python.tool_execute_before._10_enforce_tool_policy import (
@@ -258,6 +258,65 @@ def test_catalog_keeps_installed_remote_tools_without_live_connector(
     catalog = tool_policy.get_tool_catalog(_Agent(tmp_path))
 
     assert [item["name"] for item in catalog] == ["code_execution_remote", "shell"]
+
+
+def test_mcp_catalog_labels_include_humanized_server_and_tool(
+    monkeypatch, tmp_path: Path
+) -> None:
+    class MCPTools:
+        def get_tools(self):
+            return [
+                {
+                    "deep_wiki.ask_question": {
+                        "name": "ask_question",
+                        "description": "Ask DeepWiki",
+                        "server": "deep_wiki",
+                    }
+                }
+            ]
+
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
+    monkeypatch.setattr(mcp_handler.MCPConfig, "get_for_agent", lambda agent: MCPTools())
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: {
+            "mode": "inherit",
+            "default": "allow",
+            "allowed": [],
+            "blocked": [],
+        },
+    )
+
+    assert tool_policy.get_tool_catalog(_Agent(tmp_path)) == [
+        {
+            "id": "mcp:deep_wiki:ask_question",
+            "name": "deep_wiki.ask_question",
+            "label": "Deep Wiki · Ask Question",
+            "description": "Ask DeepWiki",
+            "origin": "MCP · deep_wiki",
+            "available": True,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_skills_catalog_prompt_is_absent_when_skills_tool_is_blocked(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: _custom_policy(default="allow", blocked=["local:skills_tool"]),
+    )
+    monkeypatch.setattr(
+        _13_skills_prompt.skills_helper,
+        "list_skills",
+        lambda **kwargs: pytest.fail("blocked skill discovery ran"),
+    )
+
+    assert await _13_skills_prompt.build_prompt(_Agent(tmp_path)) == ""
 
 
 def test_tool_prompt_description_skips_fenced_examples() -> None:

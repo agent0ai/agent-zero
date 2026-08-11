@@ -92,12 +92,20 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
             tool_id = canonical_mcp_id(qualified)
             if tool_id in seen:
                 continue
+            server_name, _, tool_name = qualified.partition(".")
             seen.add(tool_id)
             catalog.append(
                 {
                     "id": tool_id,
                     "name": qualified,
-                    "label": str(tool.get("name") or qualified),
+                    "label": " · ".join(
+                        part.replace("_", " ").strip().title()
+                        for part in (
+                            server_name,
+                            str(tool.get("title") or tool.get("name") or tool_name),
+                        )
+                        if part
+                    ),
                     "description": str(tool.get("description") or ""),
                     "origin": f"MCP · {str(tool.get('server') or '').strip()}",
                     "available": True,

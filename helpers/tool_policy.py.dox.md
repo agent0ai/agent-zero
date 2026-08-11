@@ -49,6 +49,8 @@
 - Catalog descriptions call the supplied agent's prompt loader instead of
   opening prompt files through a parallel path; the editor agent intentionally
   keeps its existing raw, no-processor implementation.
+- MCP catalog labels include a human-readable server and tool name while
+  canonical IDs retain the exact transport-qualified spelling.
 - Unknown policy IDs remain in the catalog as unavailable entries.
 - Resolution performs no model calls and logs no secrets.
 

@@ -1,7 +1,7 @@
 from typing import Any
 
 from helpers.extension import Extension, extensible
-from helpers import skills as skills_helper
+from helpers import skills as skills_helper, tool_policy
 from agent import Agent, LoopData
 
 
@@ -22,6 +22,9 @@ class SkillsPrompt(Extension):
 
 @extensible
 async def build_prompt(agent: Agent) -> str:
+    if not tool_policy.resolve_tool(agent, "skills_tool").allowed:
+        return ""
+
     available = skills_helper.list_skills(agent=agent)
     result: list[str] = []
     for skill in available:
