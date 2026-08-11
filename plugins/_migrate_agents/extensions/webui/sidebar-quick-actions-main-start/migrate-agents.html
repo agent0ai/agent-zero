@@ -1,0 +1,10 @@
+<div x-data>
+  <button x-move-after=".config-button#dashboard"
+          class="config-button"
+          id="migrate-agents"
+          title="Migrate Agents"
+          aria-label="Open Migrate Agents"
+          @click="openModal('/plugins/_migrate_agents/webui/main.html')">
+    <x-icon name="move_to_inbox"></x-icon>
+  </button>
+</div>

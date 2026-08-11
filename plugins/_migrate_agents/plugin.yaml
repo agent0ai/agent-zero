@@ -1,0 +1,8 @@
+name: _migrate_agents
+title: Migrate Agents
+description: Review and import chats, projects, memories, instructions, and skills from OpenClaw, Hermes Agent, OpenCode, Claude Code, and Codex.
+version: 0.1.0
+settings_sections: []
+always_enabled: false
+per_project_config: false
+per_agent_config: false

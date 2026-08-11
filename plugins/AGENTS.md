@@ -86,6 +86,7 @@ Direct child DOX files:
 | [_infection_check/AGENTS.md](_infection_check/AGENTS.md) | Prompt-injection safety analysis before tool execution. |
 | [_kokoro_tts/AGENTS.md](_kokoro_tts/AGENTS.md) | Kokoro text-to-speech integration. |
 | [_memory/AGENTS.md](_memory/AGENTS.md) | Optional persistent recall plugin, knowledge import, tools, and dashboard; do not assume it is enabled outside this plugin. |
+| [_migrate_agents/AGENTS.md](_migrate_agents/AGENTS.md) | Built-in migration of chats, projects, memories, instructions, and skills from supported agent harnesses. |
 | [_model_config/AGENTS.md](_model_config/AGENTS.md) | Model selection, presets, API-key checks, and scoped overrides. |
 | [_oauth/AGENTS.md](_oauth/AGENTS.md) | OAuth-backed model-provider connections and local proxy routes. |
 | [_office/AGENTS.md](_office/AGENTS.md) | LibreOffice office artifacts and office canvas sessions. |

@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Migrate Agents</title>
+  <script type="module" src="/plugins/_migrate_agents/webui/migrate-agents-store.js"></script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.migrationParty">
+      <main class="mp-shell"
+            x-create="$store.migrationParty.onOpen()"
+            x-destroy="$store.migrationParty.cleanup()">
+        <header class="mp-intro">
+          <p class="mp-kicker">Import from another agent</p>
+          <h1>Move your work into Agent Zero</h1>
+          <p class="mp-lede">Bring over chats, projects, memories, instructions, and skills from OpenClaw, Hermes Agent, OpenCode, Claude Code, or Codex. You will review what was found before anything is copied.</p>
+          <div class="mp-safety"><x-icon name="shield_lock"></x-icon><span>Credentials, authentication files, and hidden reasoning are excluded automatically.</span></div>
+        </header>
+
+        <section class="mp-section" aria-labelledby="mp-source-title">
+          <div class="mp-section-head">
+            <div><span class="mp-step">01</span><h2 id="mp-source-title">Choose the app you are importing from</h2></div>
+          </div>
+          <div class="mp-sources" role="radiogroup" aria-labelledby="mp-source-title">
+            <template x-for="source in $store.migrationParty.sources" :key="source.id">
+              <button type="button"
+                      class="mp-source"
+                      :class="[$store.migrationParty.source === source.id && 'is-selected', `is-${source.accent}`]"
+                      @click="$store.migrationParty.chooseSource(source.id)"
+                      role="radio"
+                      :aria-checked="$store.migrationParty.source === source.id">
+                <span class="mp-source-icon"><img :src="source.logo" alt="" aria-hidden="true"></span>
+                <span class="mp-source-copy"><strong x-text="source.name"></strong><small x-text="source.hint"></small></span>
+                <span class="mp-radio"><span></span></span>
+              </button>
+            </template>
+          </div>
+        </section>
+
+        <section class="mp-section" aria-labelledby="mp-prepare-title">
+          <div class="mp-section-head">
+            <div><span class="mp-step">02</span><h2 id="mp-prepare-title">Prepare your export</h2></div>
+          </div>
+
+          <div class="mp-export-guide">
+            <div class="mp-guide-head">
+              <img :src="$store.migrationParty.selectedSource.logo" alt="" aria-hidden="true">
+              <div><strong x-text="$store.migrationParty.selectedSource.guideTitle"></strong><span x-text="$store.migrationParty.selectedSource.guideLabel"></span></div>
+            </div>
+            <div class="mp-command">
+              <code x-text="$store.migrationParty.selectedSource.command"></code>
+              <button type="button" class="mp-copy" @click="$store.migrationParty.copyExportValue()" :aria-label="`Copy ${$store.migrationParty.selectedSource.guideLabel.toLowerCase()}`">
+                <x-icon :name="$store.migrationParty.copied ? 'check' : 'content_copy'"></x-icon>
+                <span x-text="$store.migrationParty.copied ? 'Copied' : 'Copy'"></span>
+              </button>
+            </div>
+            <p x-text="$store.migrationParty.selectedSource.guideNote"></p>
+          </div>
+        </section>
+
+        <section class="mp-section" aria-labelledby="mp-export-title">
+          <div class="mp-section-head">
+            <div><span class="mp-step">03</span><h2 id="mp-export-title">Select the export</h2></div>
+            <span class="mp-muted">Files stay on this Agent Zero instance</span>
+          </div>
+
+          <div class="mp-drop"
+               :class="$store.migrationParty.dragActive && 'is-dragging'"
+               @dragenter.prevent="$store.migrationParty.dragActive = true"
+               @dragover.prevent="$store.migrationParty.dragActive = true"
+               @dragleave.prevent="$store.migrationParty.dragActive = false"
+               @drop.prevent="$store.migrationParty.onDrop($event)">
+            <div class="mp-drop-icon"><x-icon name="move_to_inbox"></x-icon></div>
+            <strong>Drag the export here, or choose it from your computer</strong>
+            <span>Files, ZIP or TAR archives, and complete folders are supported · 256 MiB expanded limit</span>
+            <div class="mp-drop-actions">
+              <label class="btn btn-ok mp-file-button">
+                <x-icon name="attach_file"></x-icon> Choose files
+                <input type="file" multiple accept=".json,.jsonl,.db,.sqlite,.sqlite3,.zip,.tar,.gz,.tgz,.md" @change="$store.migrationParty.handleFiles($event)">
+              </label>
+              <label class="btn btn-cancel mp-file-button">
+                <x-icon name="folder_open"></x-icon> Choose folder
+                <input type="file" multiple webkitdirectory @change="$store.migrationParty.handleFiles($event)">
+              </label>
+            </div>
+          </div>
+
+          <template x-if="$store.migrationParty.files.length">
+            <div class="mp-files">
+              <div class="mp-files-head">
+                <span><strong x-text="$store.migrationParty.files.length"></strong> selected · <span x-text="$store.migrationParty.formatBytes($store.migrationParty.totalBytes)"></span></span>
+                <button class="text-button" type="button" @click="$store.migrationParty.clearFiles()">Clear</button>
+              </div>
+              <div class="mp-file-list">
+                <template x-for="(file, index) in $store.migrationParty.files.slice(0, 8)" :key="`${file.webkitRelativePath || file.name}:${file.size}`">
+                  <div class="mp-file-row">
+                    <x-icon name="draft"></x-icon>
+                    <span x-text="file.webkitRelativePath || file.name"></span>
+                    <small x-text="$store.migrationParty.formatBytes(file.size)"></small>
+                    <button type="button" @click="$store.migrationParty.removeFile(index)" :aria-label="`Remove ${file.name}`"><x-icon name="close"></x-icon></button>
+                  </div>
+                </template>
+                <div class="mp-more" x-show="$store.migrationParty.files.length > 8" x-text="`+ ${$store.migrationParty.files.length - 8} more files`"></div>
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <template x-if="$store.migrationParty.preview">
+          <section class="mp-section mp-review" aria-labelledby="mp-review-title">
+            <div class="mp-section-head">
+              <div><span class="mp-step">04</span><h2 id="mp-review-title">Review what will be imported</h2></div>
+              <span class="mp-ready"><x-icon name="check_circle"></x-icon> Export checked</span>
+            </div>
+
+            <div class="mp-stats">
+              <div><strong x-text="$store.migrationParty.preview.summary.chats"></strong><span>Chats</span></div>
+              <div><strong x-text="$store.migrationParty.preview.summary.projects"></strong><span>Projects</span></div>
+              <div><strong x-text="$store.migrationParty.preview.summary.memories"></strong><span>Memories</span></div>
+              <div><strong x-text="$store.migrationParty.preview.summary.instructions"></strong><span>Instructions</span></div>
+              <div><strong x-text="$store.migrationParty.preview.summary.skills"></strong><span>Skills</span></div>
+            </div>
+
+            <div class="mp-review-grid">
+              <div class="mp-manifest">
+                <h3>Found in this export</h3>
+                <template x-if="$store.migrationParty.preview.projects.length">
+                  <div class="mp-project-list">
+                    <template x-for="project in $store.migrationParty.preview.projects.slice(0, 8)" :key="project.id">
+                      <div><x-icon name="folder_open"></x-icon><span><strong x-text="project.title"></strong><small x-text="project.path"></small></span><em x-text="`${project.chats} chats`"></em></div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="$store.migrationParty.preview.chats.length">
+                  <div class="mp-chat-list">
+                    <template x-for="chat in $store.migrationParty.preview.chats.slice(0, 12)" :key="chat.id">
+                      <div><x-icon name="forum"></x-icon><span x-text="chat.title"></span><small x-text="`${chat.messages} events`"></small></div>
+                    </template>
+                  </div>
+                </template>
+                <p class="mp-empty" x-show="!$store.migrationParty.preview.projects.length && !$store.migrationParty.preview.chats.length">No projects or chats were found. Other selected data can still be imported.</p>
+              </div>
+
+              <div class="mp-options">
+                <h3>Choose what to import</h3>
+                <label :class="!$store.migrationParty.preview.summary.chats && 'is-empty'"><input type="checkbox" x-model="$store.migrationParty.includeChats" :disabled="!$store.migrationParty.preview.summary.chats"><span><strong>Chats</strong><small>Messages and inert historical tool records</small></span><em x-text="$store.migrationParty.preview.summary.chats"></em></label>
+                <label :class="!$store.migrationParty.preview.summary.projects && 'is-empty'"><input type="checkbox" x-model="$store.migrationParty.includeProjects" :disabled="!$store.migrationParty.preview.summary.projects"><span><strong>Projects</strong><small>Native projects from retained workspace context</small></span><em x-text="$store.migrationParty.preview.summary.projects"></em></label>
+                <label :class="!$store.migrationParty.preview.summary.memories && 'is-empty'"><input type="checkbox" x-model="$store.migrationParty.includeMemories" :disabled="!$store.migrationParty.preview.summary.memories"><span><strong>Memories</strong><small>Markdown memory with source provenance</small></span><em x-text="$store.migrationParty.preview.summary.memories"></em></label>
+                <label :class="!$store.migrationParty.preview.summary.instructions && 'is-empty'"><input type="checkbox" x-model="$store.migrationParty.includeInstructions" :disabled="!$store.migrationParty.preview.summary.instructions"><span><strong>Instructions</strong><small>AGENTS.md, CLAUDE.md, and related files</small></span><em x-text="$store.migrationParty.preview.summary.instructions"></em></label>
+                <label :class="!$store.migrationParty.preview.summary.skills && 'is-empty'"><input type="checkbox" x-model="$store.migrationParty.includeSkills" :disabled="!$store.migrationParty.preview.summary.skills"><span><strong>Skills</strong><small>Complete skill folders under a source namespace</small></span><em x-text="$store.migrationParty.preview.summary.skills"></em></label>
+              </div>
+            </div>
+
+            <div class="mp-boundary">
+              <x-icon name="shield_lock"></x-icon>
+              <div><strong>Always excluded</strong><p>Provider keys, credentials, authentication state, channel connections, schedules, hidden reasoning, and running services are not imported. Historical tool records are saved for reference and never replayed.</p><small x-show="$store.migrationParty.preview.summary.redactions" x-text="`${$store.migrationParty.preview.summary.redactions} sensitive value(s) were removed from imported text.`"></small></div>
+            </div>
+
+            <details class="mp-details" x-show="$store.migrationParty.preview.excluded.length || $store.migrationParty.preview.warnings.length">
+              <summary>Review exclusions and warnings <span x-text="`(${$store.migrationParty.preview.excluded.length + $store.migrationParty.preview.warnings.length})`"></span></summary>
+              <ul>
+                <template x-for="item in [...$store.migrationParty.preview.excluded, ...$store.migrationParty.preview.warnings]" :key="item"><li x-text="item"></li></template>
+              </ul>
+            </details>
+
+            <label class="mp-consent">
+              <input type="checkbox" x-model="$store.migrationParty.reviewed">
+              <span>I reviewed the preview and want to import the selected items.</span>
+            </label>
+          </section>
+        </template>
+
+        <footer class="modal-footer mp-footer" data-modal-footer>
+          <button class="btn btn-ok" type="button" @click="$store.migrationParty.primaryAction()" :disabled="$store.migrationParty.primaryDisabled">
+            <x-icon :name="$store.migrationParty.busy ? 'progress_activity' : ($store.migrationParty.preview ? 'move_to_inbox' : 'manage_search')" :class="$store.migrationParty.busy && 'mp-spin'"></x-icon>
+            <span x-text="$store.migrationParty.primaryLabel"></span>
+          </button>
+          <button class="btn btn-cancel" type="button" @click="$store.migrationParty.close()" :disabled="$store.migrationParty.busy">Cancel</button>
+        </footer>
+      </main>
+    </template>
+  </div>
+
+  <style>
+    .mp-shell { color: var(--color-text); padding: 0 var(--spacing-lg) var(--spacing-lg); }
+    .mp-intro { padding: 1.4rem 0 1.2rem; border-bottom: 1px solid var(--color-border); }
+    .mp-kicker { margin: 0 0 .35rem; color: var(--color-primary); font-size: .72rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+    .mp-intro h1 { margin: 0; font-size: clamp(1.55rem, 3vw, 2rem); line-height: 1.12; letter-spacing: -.025em; }
+    .mp-lede { max-width: 52rem; margin: .65rem 0 0; color: var(--color-text-secondary); font-size: .9rem; line-height: 1.55; }
+    .mp-safety { display: flex; align-items: flex-start; gap: .5rem; max-width: 52rem; margin-top: .9rem; color: var(--color-text-secondary); font-size: .76rem; line-height: 1.4; }
+    .mp-safety x-icon { flex: 0 0 auto; color: var(--color-success); }
+    .mp-section { margin-top: 1.45rem; }
+    .mp-section-head, .mp-section-head > div { display: flex; align-items: center; gap: .7rem; }
+    .mp-section-head { justify-content: space-between; margin-bottom: .75rem; }
+    .mp-section-head h2 { margin: 0; font-size: 1rem; letter-spacing: -.01em; }
+    .mp-step { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: 0 0 auto; border: 1px solid var(--color-border); border-radius: .48rem; color: var(--color-text-secondary); font-size: .66rem; font-weight: 750; }
+    .mp-muted { color: var(--color-text-secondary); font-size: .72rem; }
+    .mp-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+    .mp-source { --mp-accent: var(--color-primary); min-width: 0; min-height: 4.4rem; padding: .8rem; border: 1px solid var(--color-border); border-radius: .8rem; display: grid; grid-template-columns: auto 1fr auto; gap: .7rem; align-items: center; color: inherit; background: var(--color-bg); text-align: left; cursor: pointer; transition: border-color var(--transition-speed), background var(--transition-speed); }
+    .mp-source:hover { background: var(--color-bg-secondary); }
+    .mp-source:focus-visible, .mp-copy:focus-visible, .mp-file-row button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+    .mp-source.is-selected { border-color: color-mix(in srgb, var(--mp-accent) 72%, var(--color-border)); background: color-mix(in srgb, var(--mp-accent) 7%, var(--color-bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mp-accent) 16%, transparent); }
+    .mp-source.is-coral { --mp-accent: #ff5a57; } .mp-source.is-gold { --mp-accent: #d8a62e; } .mp-source.is-mint { --mp-accent: #42b997; } .mp-source.is-violet { --mp-accent: #d97757; } .mp-source.is-sky { --mp-accent: #7a9dff; }
+    .mp-source-icon, .mp-guide-head > img { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; box-sizing: border-box; padding: .48rem; border: 1px solid color-mix(in srgb, var(--mp-accent) 20%, var(--color-border)); border-radius: .68rem; background: #fff; object-fit: contain; }
+    .mp-source-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .mp-source-copy { min-width: 0; display: flex; flex-direction: column; gap: .22rem; }
+    .mp-source-copy strong { font-size: .84rem; }
+    .mp-source-copy small { color: var(--color-text-secondary); font-size: .69rem; line-height: 1.35; }
+    .mp-radio { width: .95rem; height: .95rem; border: 1px solid var(--color-border); border-radius: 50%; display: grid; place-items: center; }
+    .is-selected .mp-radio { border-color: var(--mp-accent); } .is-selected .mp-radio span { width: .5rem; height: .5rem; border-radius: 50%; background: var(--mp-accent); }
+    .mp-export-guide { padding: .85rem; border: 1px solid var(--color-border); border-radius: .85rem; background: var(--color-bg-secondary); }
+    .mp-guide-head { display: flex; align-items: center; gap: .65rem; margin-bottom: .7rem; }
+    .mp-guide-head > img { width: 2.2rem; height: 2.2rem; padding: .42rem; }
+    .mp-guide-head > div { display: flex; flex-direction: column; gap: .1rem; }
+    .mp-guide-head strong { font-size: .82rem; } .mp-guide-head span { color: var(--color-text-secondary); font-size: .69rem; }
+    .mp-command { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem; align-items: stretch; }
+    .mp-command code { min-width: 0; padding: .72rem .8rem; border: 1px solid var(--color-border); border-radius: .58rem; color: var(--color-text); background: var(--color-bg); overflow-wrap: anywhere; white-space: normal; font-size: .75rem; line-height: 1.45; }
+    .mp-copy { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-width: 5.4rem; padding: 0 .75rem; border: 1px solid var(--color-border); border-radius: .58rem; color: var(--color-text); background: var(--color-bg); cursor: pointer; font-size: .72rem; font-weight: 650; }
+    .mp-copy:hover { border-color: var(--color-primary); }
+    .mp-export-guide > p { margin: .6rem .1rem 0; color: var(--color-text-secondary); font-size: .71rem; line-height: 1.45; }
+    .mp-drop { padding: 1.35rem; border: 1px dashed color-mix(in srgb, var(--color-text-secondary) 45%, transparent); border-radius: .85rem; display: flex; flex-direction: column; align-items: center; gap: .45rem; background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent); text-align: center; transition: border-color var(--transition-speed), background var(--transition-speed); }
+    .mp-drop.is-dragging { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg)); }
+    .mp-drop-icon { width: 3rem; height: 3rem; display: grid; place-items: center; border-radius: .8rem; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+    .mp-drop-icon x-icon { font-size: 1.5rem; } .mp-drop > strong { font-size: .84rem; } .mp-drop > span { max-width: 38rem; color: var(--color-text-secondary); font-size: .71rem; line-height: 1.4; }
+    .mp-drop-actions { display: flex; gap: .55rem; margin-top: .45rem; }
+    .mp-file-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; cursor: pointer; } .mp-file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .mp-files { margin-top: .65rem; padding: .7rem; border: 1px solid var(--color-border); border-radius: .75rem; background: var(--color-bg); }
+    .mp-files-head { display: flex; justify-content: space-between; align-items: center; padding: 0 .2rem .55rem; color: var(--color-text-secondary); font-size: .72rem; }
+    .mp-file-list { display: grid; gap: .25rem; max-height: 12rem; overflow: auto; }
+    .mp-file-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; padding: .42rem .5rem; border-radius: .42rem; background: var(--color-bg-secondary); font-size: .72rem; }
+    .mp-file-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mp-file-row small { color: var(--color-text-secondary); } .mp-file-row button { border: 0; padding: 0; color: var(--color-text-secondary); background: none; cursor: pointer; }
+    .mp-more { padding: .4rem; color: var(--color-text-secondary); text-align: center; font-size: .7rem; }
+    .mp-review { padding: var(--spacing-lg); border: 1px solid var(--color-border); border-radius: .9rem; background: color-mix(in srgb, var(--color-success) 3%, var(--color-bg)); }
+    .mp-ready { display: inline-flex; align-items: center; gap: .35rem; color: var(--color-success); font-size: .72rem; font-weight: 650; }
+    .mp-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; margin-bottom: .75rem; }
+    .mp-stats > div { padding: .68rem; border: 1px solid var(--color-border); border-radius: .6rem; display: flex; flex-direction: column; background: var(--color-bg); } .mp-stats strong { font-size: 1.2rem; letter-spacing: -.035em; } .mp-stats span { color: var(--color-text-secondary); font-size: .62rem; text-transform: uppercase; letter-spacing: .07em; }
+    .mp-review-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: .7rem; }
+    .mp-manifest, .mp-options { padding: .8rem; border: 1px solid var(--color-border); border-radius: .68rem; background: var(--color-bg); }
+    .mp-manifest h3, .mp-options h3 { margin: 0 0 .6rem; font-size: .76rem; text-transform: uppercase; letter-spacing: .075em; }
+    .mp-project-list, .mp-chat-list { max-height: 12rem; overflow: auto; display: grid; gap: .26rem; }
+    .mp-project-list { margin-bottom: .35rem; }
+    .mp-project-list > div, .mp-chat-list > div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .48rem; align-items: center; padding: .42rem .46rem; border-radius: .4rem; background: var(--color-bg-secondary); font-size: .71rem; }
+    .mp-project-list > div > span { min-width: 0; display: flex; flex-direction: column; } .mp-project-list strong, .mp-project-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mp-project-list small, .mp-project-list em, .mp-chat-list small { color: var(--color-text-secondary); font-size: .64rem; font-style: normal; }
+    .mp-chat-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mp-options { display: grid; align-content: start; gap: .25rem; }
+    .mp-options label { display: grid; grid-template-columns: auto 1fr auto; gap: .5rem; align-items: center; padding: .45rem; border-radius: .42rem; cursor: pointer; } .mp-options label:hover { background: var(--color-bg-secondary); } .mp-options label.is-empty { opacity: .48; cursor: default; } .mp-options label span { display: flex; flex-direction: column; } .mp-options label strong { font-size: .73rem; } .mp-options label small { color: var(--color-text-secondary); font-size: .65rem; line-height: 1.35; } .mp-options em { min-width: 1.5rem; padding: .14rem .32rem; border-radius: 99px; color: var(--color-text-secondary); background: var(--color-bg-secondary); text-align: center; font-size: .64rem; font-style: normal; }
+    .mp-boundary { display: grid; grid-template-columns: auto 1fr; gap: .65rem; margin-top: .7rem; padding: .7rem; border: 1px solid color-mix(in srgb, var(--color-warning) 25%, var(--color-border)); border-radius: .62rem; background: color-mix(in srgb, var(--color-warning) 4%, var(--color-bg)); } .mp-boundary x-icon { color: var(--color-warning); } .mp-boundary strong { font-size: .73rem; } .mp-boundary p { margin: .12rem 0 0; color: var(--color-text-secondary); font-size: .68rem; line-height: 1.45; } .mp-boundary small { display: block; margin-top: .35rem; color: var(--color-warning); font-size: .66rem; }
+    .mp-details { margin-top: .6rem; color: var(--color-text-secondary); font-size: .7rem; } .mp-details summary { cursor: pointer; } .mp-details ul { max-height: 9rem; overflow: auto; padding-left: 1.2rem; }
+    .mp-consent { display: flex; gap: .5rem; align-items: center; margin-top: .7rem; font-size: .73rem; cursor: pointer; }
+    .mp-footer .btn { display: inline-flex; align-items: center; gap: .4rem; }
+    .mp-footer .btn:disabled { opacity: .48; cursor: not-allowed; filter: saturate(.35); }
+    .mp-spin { animation: mp-spin .8s linear infinite; } @keyframes mp-spin { to { transform: rotate(360deg); } }
+    .mp-empty { margin: .5rem 0; color: var(--color-text-secondary); font-size: .71rem; line-height: 1.4; }
+    @media (max-width: 800px) { .mp-stats { grid-template-columns: repeat(3, 1fr); } .mp-review-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .mp-shell { padding-inline: var(--spacing-sm); } .mp-intro { padding-top: 1rem; } .mp-intro h1 { font-size: 1.45rem; } .mp-lede { font-size: .82rem; } .mp-sources { grid-template-columns: 1fr; } .mp-section-head { align-items: flex-start; } .mp-muted { display: none; } .mp-command { grid-template-columns: 1fr; } .mp-copy { min-height: 2.35rem; } .mp-stats { grid-template-columns: repeat(2, 1fr); } .mp-drop { padding: 1rem; } .mp-drop-actions { flex-direction: column; width: 100%; } .mp-file-button { width: 100%; } .mp-file-row { grid-template-columns: auto minmax(0, 1fr) auto; } .mp-file-row small { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .mp-source { transition: none; } .mp-spin { animation: none; } }
+  </style>
+</body>
+</html>
