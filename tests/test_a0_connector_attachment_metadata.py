@@ -52,6 +52,30 @@ def test_attachment_log_metadata_strips_encoded_query_and_fragment_suffixes() ->
     ) == {"attachments": ["report", "image"]}
 
 
+def test_attachment_log_metadata_decodes_double_encoded_separators() -> None:
+    assert _attachment_log_metadata(
+        [
+            "https://host/%252Fhome%252Fuser%252Fsecret.png",
+            "https://host/C:%255CUsers%255CAlice%255Csecret.png",
+        ]
+    ) == {"attachments": ["secret.png", "secret.png"]}
+
+
+def test_attachment_log_metadata_strips_double_encoded_delimiter_suffixes() -> None:
+    assert _attachment_log_metadata(
+        [
+            "https://host/report%253Ftoken%253Dredacted.png",
+            "https://host/image%2523private-fragment.png",
+        ]
+    ) == {"attachments": ["report", "image"]}
+
+
+def test_attachment_log_metadata_omits_paths_exceeding_decode_limit() -> None:
+    assert _attachment_log_metadata(
+        ["https://host/%25252Fhome%25252Fuser%25252Fsecret.png"]
+    ) == {}
+
+
 class RecordingLog:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []

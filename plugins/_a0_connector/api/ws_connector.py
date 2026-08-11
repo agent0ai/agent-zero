@@ -74,6 +74,7 @@ WS_FEATURES = [
 _SNAPSHOT_REPLAY_PAGE_SIZE = 50
 _TAIL_HISTORY_PAGE_SIZE = 100
 _LIVE_STREAM_PAGE_SIZE = 100
+_ATTACHMENT_METADATA_DECODE_LIMIT = 3
 
 
 def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
@@ -87,7 +88,14 @@ def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
         except ValueError:
             continue
         path = parsed.path if parsed.scheme else normalized.split("?", 1)[0].split("#", 1)[0]
-        path = unquote(path).replace("\\", "/")
+        for _ in range(_ATTACHMENT_METADATA_DECODE_LIMIT):
+            decoded_path = unquote(path)
+            if decoded_path == path:
+                break
+            path = decoded_path
+        else:
+            continue
+        path = path.replace("\\", "/")
         path = path.split("?", 1)[0].split("#", 1)[0]
         if path.endswith("/"):
             continue
