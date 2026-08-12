@@ -147,6 +147,26 @@ def test_settings_auto_timezone_resolves_to_browser_timezone(isolated_localizati
     assert hooks[0]["kwargs"]["timezone"] == "Europe/Rome"
 
 
+def test_settings_auto_timezone_does_not_persist_browser_timezone(isolated_localization, monkeypatch):
+    saved = isolated_localization
+    set_test_timezone("America/New_York")
+    base_settings = settings_module.get_default_settings()
+    auto_settings = {**base_settings, "timezone": settings_module.TIMEZONE_AUTO}
+    monkeypatch.setattr(settings_module, "_settings", auto_settings)
+    monkeypatch.setattr(
+        plugins_module, "call_plugin_hook", lambda *args, **kwargs: None
+    )
+    saved.clear()
+
+    settings_module._apply_timezone_setting(
+        auto_settings,
+        browser_timezone="Europe/Rome",
+    )
+
+    assert Localization.get().get_timezone() == "Europe/Rome"
+    assert saved == []
+
+
 def test_settings_fixed_timezone_ignores_browser_timezone(isolated_localization, monkeypatch):
     set_test_timezone("Europe/Rome")
     base_settings = settings_module.get_default_settings()

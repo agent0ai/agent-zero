@@ -300,7 +300,7 @@ def get_rate_limiter(
 
 def _is_transient_litellm_error(exc: Exception) -> bool:
     """Uses status_code when available, else falls back to exception types"""
-    # Prefer explicit status codes if present
+    exc_text = str(getattr(exc, "message", "") or exc).lower()
     status_code = getattr(exc, "status_code", None)
     if isinstance(status_code, int):
         if status_code in (408, 429, 500, 502, 503, 504):
@@ -308,7 +308,18 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         # Treat other 5xx as retriable
         if status_code >= 500:
             return True
-        return False
+        # A body-parse failure ("unable to get json response") with a
+        # non-2xx status (e.g. a 400 whose body is an HTML proxy/WAF error
+        # page) is a permanent request error, not a dropped connection.
+        if not 200 <= status_code < 300:
+            return False
+        # 2xx: the provider closed the connection mid-body; LiteLLM then
+        # reports the truncated response with the *original* success status,
+        # which is transient even though the HTTP status says success.
+        return "unable to get json response" in exc_text
+
+    if "unable to get json response" in exc_text:
+        return True
 
     # Fallback to exception classes mapped by LiteLLM/OpenAI
     transient_types = (
@@ -321,6 +332,62 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         getattr(openai, "APIStatusError", Exception),
     )
     return isinstance(exc, transient_types)
+
+
+def _is_direct_deepseek_model(transport: Any) -> bool:
+    """True only for the direct DeepSeek API (litellm `deepseek/...` models).
+
+    Third-party hosts serving deepseek-* weights (openrouter/deepseek/...,
+    ollama/deepseek-r1, ...) have different streaming/empty-completion
+    behavior and must not pay the duplicate-generation retries.
+    """
+    model = str(getattr(transport, "model", "")).lower()
+    return model.startswith("deepseek/")
+
+
+def _should_retry_truncated_stream(
+    transport: Any, *, stream: bool, stopped_early: bool
+) -> bool:
+    """Detect provider-dropped chat-completions streams.
+
+    DeepSeek intermittently closes streaming connections mid-response; the
+    HTTP layer then ends the iterator without an error, so the completion
+    never delivers a terminal finish_reason. Partial output from such a
+    stream (typically unterminated JSON) must be retried, not parsed.
+
+    Exempted: non-stream calls, the agent's own early-stop (which breaks the
+    stream before finish_reason arrives by design), the responses API, and
+    third-party-hosted deepseek-* models that may legitimately omit
+    finish_reason.
+    """
+    if not stream or stopped_early:
+        return False
+    policy = getattr(transport, "policy", None)
+    if policy is None or getattr(policy, "using_responses", False):
+        return False
+    if not _is_direct_deepseek_model(transport):
+        return False
+    return not getattr(transport, "last_finish_reason", "")
+
+
+def _should_retry_empty_completion(
+    transport: Any, response: str, *, stopped_early: bool
+) -> bool:
+    """Detect provider-completed but empty completions.
+
+    DeepSeek V4 Flash in thinking/JSON mode occasionally finishes normally
+    (finish_reason=stop) with whitespace-only content after a full reasoning
+    stream. An empty response can never satisfy the tool protocol, so the
+    turn is retried instead of being reported as a misformat.
+    """
+    if stopped_early:
+        return False
+    policy = getattr(transport, "policy", None)
+    if policy is None or getattr(policy, "using_responses", False):
+        return False
+    if not _is_direct_deepseek_model(transport):
+        return False
+    return not response.strip()
 
 
 async def apply_rate_limiter(
@@ -566,6 +633,10 @@ class LiteLLMChatWrapper(SimpleChatModel):
             call_kwargs["a0_explicit_prompt_caching"] = True
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        # Main chat turns retry provider-completed empty responses; utility
+        # callers (e.g. memory post-processing) pass a0_allow_empty_completion
+        # because an empty reply is a benign answer for them.
+        allow_empty: bool = bool(call_kwargs.pop("a0_allow_empty_completion", False))
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
         transport = LiteLLMTransport(
             model=self.model_name,
@@ -579,9 +650,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
         attempt = 0
         while True:
             got_any_chunk = False
+            stop_response: str | None = None
             try:
                 if stream:
-                    stop_response: str | None = None
                     async for parsed in transport.astream():
                         got_any_chunk = True
                         output = result.add_chunk(parsed)
@@ -625,6 +696,28 @@ class LiteLLMChatWrapper(SimpleChatModel):
                             limiter.add(output=approximate_tokens(output["response_delta"]))
                         if output["reasoning_delta"]:
                             limiter.add(output=approximate_tokens(output["reasoning_delta"]))
+
+                # provider dropped the stream mid-response or completed with
+                # empty content: discard the partial output and retry the
+                # whole turn instead of parsing broken/empty JSON
+                truncated = _should_retry_truncated_stream(
+                    transport, stream=stream, stopped_early=stop_response is not None
+                )
+                empty = (
+                    not allow_empty
+                    and _should_retry_empty_completion(
+                        transport,
+                        result.response,
+                        stopped_early=stop_response is not None,
+                    )
+                )
+                if (truncated or empty) and attempt < max_retries:
+                    import asyncio
+
+                    attempt += 1
+                    result = ChatGenerationResult()
+                    await asyncio.sleep(retry_delay_s)
+                    continue
 
                 # Successful completion of stream
                 return result.response, result.reasoning
@@ -682,6 +775,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
             call_kwargs["a0_explicit_prompt_caching"] = True
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        # See unified_call: utility callers opt out of the empty-completion
+        # retry via a0_allow_empty_completion.
+        allow_empty: bool = bool(call_kwargs.pop("a0_allow_empty_completion", False))
         stream = (
             reasoning_callback is not None
             or response_callback is not None
@@ -698,9 +794,9 @@ class LiteLLMChatWrapper(SimpleChatModel):
         attempt = 0
         while True:
             got_any_chunk = False
+            stop_response: str | None = None
             try:
                 if stream:
-                    stop_response: str | None = None
                     async for parsed in transport.astream():
                         got_any_chunk = True
                         output = result.add_chunk(parsed)
@@ -757,12 +853,35 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                 output=approximate_tokens(output["reasoning_delta"])
                             )
 
+                # provider dropped the stream mid-response or completed with
+                # empty content: discard the partial output and retry the
+                # whole turn instead of parsing broken/empty JSON
+                truncated = _should_retry_truncated_stream(
+                    transport, stream=stream, stopped_early=stop_response is not None
+                )
+                empty = (
+                    not allow_empty
+                    and _should_retry_empty_completion(
+                        transport,
+                        result.response,
+                        stopped_early=stop_response is not None,
+                    )
+                )
+                if (truncated or empty) and attempt < max_retries:
+                    import asyncio
+
+                    attempt += 1
+                    result = ChatGenerationResult()
+                    await asyncio.sleep(retry_delay_s)
+                    continue
+
                 llm_result = transport.last_result or LLMResult.from_chat(
                     response=result.output()["response_delta"],
                     reasoning=result.output()["reasoning_delta"],
                     input_items=ResponsesTransport.input_from_messages(msgs_conv),
                     provider_model_key=self.model_name,
                     capability=transport._capability_metadata(),
+                    finish_reason=transport.last_finish_reason,
                 )
                 if result.output()["response_delta"] and not llm_result.function_calls:
                     llm_result.response = result.output()["response_delta"]

@@ -21,6 +21,7 @@ class StopUnusableResponseLoop(Extension):
             return
         if message not in {
             self.agent.read_prompt("fw.msg_misformat.md"),
+            self.agent.read_prompt("fw.msg_truncated_request.md"),
             self.agent.read_prompt("fw.msg_repeat.md"),
         }:
             return

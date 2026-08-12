@@ -1465,7 +1465,7 @@ def test_chat_completions_stream_parser_accumulates_tool_call_arguments():
                 }
             ]
         }
-    ) == {"reasoning_delta": "", "response_delta": ""}
+    ) == {"reasoning_delta": "", "response_delta": "", "finish_reason": ""}
     parsed = parser.parse(
         {
             "choices": [
@@ -1515,7 +1515,7 @@ def test_chat_completions_stream_parser_reads_dumped_tool_calls():
                 )
             ]
         )
-    ) == {"reasoning_delta": "", "response_delta": ""}
+    ) == {"reasoning_delta": "", "response_delta": "", "finish_reason": ""}
 
     parsed = parser.parse(
         _DumpOnly(choices=[_DumpOnly(delta=_DumpOnly(), finish_reason="tool_calls")])

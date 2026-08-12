@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flask import Flask, Response
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -14,6 +15,13 @@ def _make_app() -> Flask:
     @app.get("/login")
     def login_handler():
         return Response("login", status=200)
+
+    # helpers.api.get_current_request_next_url() falls back to
+    # url_for("serve_index"), so the harness app must register that endpoint
+    # just like the real UI server does.
+    @app.get("/")
+    def serve_index():
+        return Response("index", status=200)
 
     return app
 
@@ -169,8 +177,16 @@ def test_auth_redirect_includes_original_path_and_query(monkeypatch) -> None:
     response = client.get("/plugins/a0_voqualizer/webui/voqualizer.html?context=rlO1iMV7")
     assert response.status_code == 302
     location = response.headers["Location"]
-    assert location.startswith("/login?next=")
-    assert "%2Fplugins%2Fa0_voqualizer%2Fwebui%2Fvoqualizer.html%3Fcontext%3DrlO1iMV7" in location
+    # Parse instead of matching a raw percent-encoded string: Werkzeug's
+    # url_for no longer encodes "/" and "?" inside query values, and both
+    # encodings carry the same semantics.
+    parsed = urlsplit(location)
+    assert not parsed.scheme and not parsed.netloc  # never an external origin
+    assert parsed.path == "/login"
+    next_params = parse_qs(parsed.query)
+    assert next_params["next"] == [
+        "/plugins/a0_voqualizer/webui/voqualizer.html?context=rlO1iMV7"
+    ]
 
 
 def test_is_safe_next_url_rejects_backslash_open_redirects() -> None:

@@ -63,6 +63,7 @@ class LLMResult:
     usage: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
     capability: dict[str, Any] = field(default_factory=dict)
+    finish_reason: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "LLMResult":
@@ -82,6 +83,7 @@ class LLMResult:
             usage=object_to_dict(data.get("usage") or {}),
             raw=object_to_dict(data.get("raw") or {}),
             capability=object_to_dict(data.get("capability") or {}),
+            finish_reason=str(data.get("finish_reason") or ""),
         )
 
     @classmethod
@@ -128,6 +130,7 @@ class LLMResult:
         output_items: list[dict[str, Any]] | None = None,
         provider_model_key: str = "",
         capability: dict[str, Any] | None = None,
+        finish_reason: str = "",
     ) -> "LLMResult":
         items = [ResponseItem.from_any(item) for item in output_items or []]
         if response and not items:
@@ -161,6 +164,7 @@ class LLMResult:
             mode="chat_completions",
             state="off",
             capability=dict(capability or {}),
+            finish_reason=finish_reason,
         )
         if not result.response and result.function_calls:
             result.response = result.function_calls_text()
@@ -213,6 +217,7 @@ class LLMResult:
             "usage": self.usage,
             "raw": self.raw,
             "capability": self.capability,
+            "finish_reason": self.finish_reason,
         }
 
     def metadata(self) -> dict[str, Any]:
@@ -226,6 +231,7 @@ class LLMResult:
                 "state": self.state,
                 "usage": self.usage,
                 "capability": self.capability,
+                "finish_reason": self.finish_reason,
             }
         }
 

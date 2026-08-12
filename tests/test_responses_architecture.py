@@ -518,7 +518,7 @@ async def test_agent_routes_chat_retries_and_native_responses_text() -> None:
     async def log_builtin_items(result):
         return None
 
-    async def process_tools(message):
+    async def process_tools(message, **kwargs):
         processed.append(message)
         return None
 
@@ -595,7 +595,7 @@ async def test_agent_routes_misformatted_tool_intent_to_repair() -> None:
     async def log_builtin_items(result):
         return None
 
-    async def process_tools(message):
+    async def process_tools(message, **kwargs):
         processed.append(message)
         return None
 

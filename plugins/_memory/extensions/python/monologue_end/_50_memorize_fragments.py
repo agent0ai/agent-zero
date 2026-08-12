@@ -1,5 +1,5 @@
 import asyncio
-from helpers import errors, plugins
+from helpers import plugins
 from helpers.extension import Extension
 from helpers.dirty_json import DirtyJson
 from agent import LoopData
@@ -9,6 +9,7 @@ from helpers.defer import DeferredTask, THREAD_BACKGROUND
 # Direct import - this extension lives inside the memory plugin
 from plugins._memory.helpers.memory import Memory
 from plugins._memory.helpers.memory_quality import filter_auto_memory_fragments
+from plugins._memory.helpers.memorize_lock import format_utility_error, get_memorize_lock
 from plugins._memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
@@ -41,6 +42,9 @@ class MemorizeMemories(Extension):
         if not self.agent:
             return
 
+        # serialize with _51_memorize_solutions: one utility job at a time
+        lock = get_memorize_lock()
+        await lock.acquire()
         try:
             set = plugins.get_plugin_config("_memory", self.agent)
             if not set:
@@ -220,7 +224,9 @@ class MemorizeMemories(Extension):
 
 
         except Exception as e:
-            err = errors.format_error(e)
+            err = format_utility_error(e)
             self.agent.context.log.log(
                 type="warning", heading="Memorize memories extension error", content=err
             )
+        finally:
+            lock.release()

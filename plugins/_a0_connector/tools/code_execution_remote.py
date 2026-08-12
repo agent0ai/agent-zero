@@ -23,6 +23,11 @@ from plugins._a0_connector.helpers.ws_runtime import (
 EXEC_OP_TRANSPORT_GRACE = 15.0
 EXEC_OP_DEFAULT_TIMEOUT = 120.0
 EXEC_OP_EVENT = "connector_exec_op"
+# When no CLI is connected (for example right after an Agent Zero restart wiped
+# the in-memory /ws registry), give the CLI's automatic reconnect a chance to
+# re-register before failing the execution request.
+NO_CLI_RECONNECT_GRACE_SECONDS = 60.0
+NO_CLI_RECONNECT_POLL_SECONDS = 2.0
 _TIMEOUT_KEYS = (
     "first_output_timeout",
     "between_output_timeout",
@@ -78,6 +83,25 @@ class CodeExecutionRemote(Tool):
             return EXEC_OP_DEFAULT_TIMEOUT
         return max(float(value) for value in timeouts.values()) + EXEC_OP_TRANSPORT_GRACE
 
+    async def _await_cli_reconnect(
+        self, context_id: str, *, require_writes: bool
+    ) -> str | None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + NO_CLI_RECONNECT_GRACE_SECONDS
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return None
+            await asyncio.sleep(min(NO_CLI_RECONNECT_POLL_SECONDS, remaining))
+            sid = select_remote_exec_target_sid(context_id, require_writes=require_writes)
+            if sid:
+                return sid
+            if remote_tool_sids_for_context(context_id):
+                # A CLI is connected but currently unusable (exec disabled or
+                # writes blocked): stop waiting and let the caller classify
+                # it instead of stalling for the full grace period.
+                return None
+
     def get_log_object(self):
         import uuid
 
@@ -115,10 +139,17 @@ class CodeExecutionRemote(Tool):
             )
 
         context_id = self.agent.context.id
-        candidates = remote_tool_sids_for_context(context_id)
         require_writes = self._runtime_requires_write_access(runtime)
         sid = select_remote_exec_target_sid(context_id, require_writes=require_writes)
+        if not sid and not remote_tool_sids_for_context(context_id):
+            # No CLI is connected at all (typically right after a server restart):
+            # wait briefly for the CLI's automatic reconnect before giving up.
+            await self.set_progress(
+                "Waiting for the a0 CLI to reconnect..."
+            )
+            sid = await self._await_cli_reconnect(context_id, require_writes=require_writes)
         if not sid:
+            candidates = remote_tool_sids_for_context(context_id)
             exec_enabled = False
             write_blocked = False
             for candidate_sid in candidates:
@@ -139,16 +170,21 @@ class CodeExecutionRemote(Tool):
                 message=(
                     "code_execution_remote: no connected CLI currently allows "
                     "shell-backed execution that may modify local files. Press F3 to switch "
-                    "the CLI to Read&Write. `runtime=output` and `runtime=reset` remain "
-                    "available for existing sessions."
+                    "the CLI to Read&Write, then ask the agent to continue. "
+                    "`runtime=output` and `runtime=reset` remain available for "
+                    "existing sessions."
                     if candidates and require_writes and exec_enabled and write_blocked
                     else "code_execution_remote: no connected CLI currently has "
-                    "remote execution enabled. Connect the CLI and press F4 to switch exec on."
+                    "remote execution enabled. Press F4 in the CLI to switch exec on, "
+                    "then ask the agent to continue."
                     if candidates
-                    else "code_execution_remote: no CLI client connected to Agent Zero. "
-                    "Make sure the CLI is connected to this instance."
+                    else "code_execution_remote: no CLI client connected to Agent Zero "
+                    f"after waiting {NO_CLI_RECONNECT_GRACE_SECONDS:g}s for automatic "
+                    "reconnection. This is an infrastructure condition, not a task error, "
+                    "so this turn ends instead of retrying. Reconnect or restart the a0 "
+                    "CLI against this instance, then ask the agent to continue."
                 ),
-                break_loop=False,
+                break_loop=True,
             )
 
         try:
