@@ -1,0 +1,104 @@
+<html>
+
+<head>
+    <title>Time Travel</title>
+</head>
+
+<body>
+    <div x-data>
+        <template x-if="config">
+            <div>
+                <div class="section-title">Time Travel retention</div>
+                <div class="section-description">
+                    Time Travel keeps a hidden history of every workspace it snapshots. Retention
+                    keeps that storage bounded by cleaning up histories nothing can reach anymore
+                    (deleted chats and projects) and, optionally, aging out old history.
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Enable retention</div>
+                        <div class="field-description">
+                            Periodically clean up orphaned workspace histories, stale snapshot
+                            locks, and corrupt-repository backups. Turning this off means Time
+                            Travel storage grows without bound.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.retention_enabled"
+                                x-init="if (config.retention_enabled === undefined || config.retention_enabled === null) config.retention_enabled = true" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Sweep interval (hours)</div>
+                        <div class="field-description">
+                            How often the cleanup runs.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            x-init="if (config.retention_sweep_interval_hours === undefined || config.retention_sweep_interval_hours === null) config.retention_sweep_interval_hours = 6"
+                            x-model.number="config.retention_sweep_interval_hours" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Delete history older than (days)</div>
+                        <div class="field-description">
+                            Leave at 0 (the default) and workspace history is kept forever. Set a
+                            number — say 30 — and a workspace with no snapshot in that many days
+                            has its history deleted. Time Travel simply starts a fresh history on
+                            the workspace's next change.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="1"
+                            x-init="if (config.retention_max_age_days === undefined || config.retention_max_age_days === null) config.retention_max_age_days = 0"
+                            x-model.number="config.retention_max_age_days" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Orphan grace period (hours)</div>
+                        <div class="field-description">
+                            History belonging to a deleted chat or project is unreachable from the
+                            UI and gets cleaned up — but only after it has been inactive this long,
+                            so recent work is never raced.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="1" step="1"
+                            x-init="if (config.retention_orphan_grace_hours === undefined || config.retention_orphan_grace_hours === null) config.retention_orphan_grace_hours = 24"
+                            x-model.number="config.retention_orphan_grace_hours" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Stale snapshot lock age (minutes)</div>
+                        <div class="field-description">
+                            A leftover git index.lock older than this is removed so snapshots stop
+                            failing with "index.lock: File exists". Time Travel's own git
+                            operations are killed after 20 seconds, so no legitimate lock lives
+                            this long.
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="5" step="1"
+                            x-init="if (config.retention_stale_lock_minutes === undefined || config.retention_stale_lock_minutes === null) config.retention_stale_lock_minutes = 30"
+                            x-model.number="config.retention_stale_lock_minutes" />
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</body>
+
+</html>

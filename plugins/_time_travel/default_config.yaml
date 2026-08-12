@@ -1,0 +1,5 @@
+retention_enabled: true
+retention_sweep_interval_hours: 6
+retention_max_age_days: 0 # 0 = keep workspace history forever
+retention_orphan_grace_hours: 24
+retention_stale_lock_minutes: 30
