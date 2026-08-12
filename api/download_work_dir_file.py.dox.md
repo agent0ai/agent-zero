@@ -17,7 +17,7 @@
 - Top-level functions:
 - `stream_file_download(file_source, download_name, chunk_size=...)`: Create a streaming response for file downloads that shows progress in browser.
 - `make_disposition(download_name: str) -> str`
-- `resolve_download_path(path: str) -> str`: Resolve a requested download path and keep it within the runtime base dir.
+- `resolve_download_path(path: str) -> str`: Resolve a requested download path from the File Browser root.
 - `async fetch_file(path)`
 
 ## Runtime Contracts
@@ -27,6 +27,8 @@
 - `DownloadFile` is an `ApiHandler`.
 - `DownloadFile` defines `process(...)`.
 - `DownloadFile` defines `get_methods(...)`.
+- The endpoint retains the default authenticated and CSRF-protected browser contract.
+- Download paths use `/` as their root, matching the authenticated File Browser and editor filesystem scope.
 - Observed side-effect areas: filesystem reads, network calls.
 - Imported dependency areas include: `api`, `base64`, `flask`, `helpers`, `helpers.api`, `io`, `mimetypes`, `os`, `pathlib`, `urllib.parse`.
 

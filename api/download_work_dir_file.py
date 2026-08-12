@@ -87,8 +87,8 @@ def make_disposition(download_name: str) -> str:
 
 
 def resolve_download_path(path: str) -> str:
-    """Resolve a requested download path and keep it within the runtime base dir."""
-    base_dir = Path(files.get_base_dir()).resolve()
+    """Resolve a requested download path from the File Browser root."""
+    base_dir = Path("/")
     candidate = Path(path)
 
     if candidate.is_absolute():

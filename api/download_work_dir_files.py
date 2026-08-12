@@ -8,7 +8,7 @@ import zipfile
 from flask import Response
 
 from helpers.api import ApiHandler, Input, Output, Request
-from helpers import files, runtime
+from helpers import runtime
 from helpers.localization import Localization
 from api.download_work_dir_file import fetch_file, stream_file_download
 
@@ -70,7 +70,7 @@ def selected_archive_name(count: int) -> str:
 
 
 def create_selected_zip(paths: list[str], current_path: str = "") -> str:
-    base_dir = Path(files.get_base_dir()).resolve()
+    base_dir = Path("/")
     current_dir = resolve_download_path(current_path, base_dir) if current_path else None
     if current_dir and current_dir.is_file():
         current_dir = current_dir.parent
