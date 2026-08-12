@@ -648,7 +648,7 @@ def load_project_subagents(name: str) -> dict[str, SubAgentSettings]:
         abs_path = files.get_abs_path(get_project_meta(name), "agents.json")
         data = dirty_json.parse(files.read_file(abs_path))
         if isinstance(data, dict):
-            return _normalize_subagents(data)  # type: ignore[arg-type,return-value]
+            return _normalize_subagents(data, name)  # type: ignore[arg-type,return-value]
         return {}
     except Exception:
         return {}
@@ -656,17 +656,18 @@ def load_project_subagents(name: str) -> dict[str, SubAgentSettings]:
 
 def save_project_subagents(name: str, subagents_data: dict[str, SubAgentSettings]):
     abs_path = files.get_abs_path(get_project_meta(name), "agents.json")
-    normalized = _normalize_subagents(subagents_data)
+    normalized = _normalize_subagents(subagents_data, name)
     content = dirty_json.stringify(normalized)
     files.write_file(abs_path, content)
 
 
 def _normalize_subagents(
-    subagents_data: dict[str, SubAgentSettings]
+    subagents_data: dict[str, SubAgentSettings],
+    project_name: str,
 ) -> dict[str, SubAgentSettings]:
     from helpers import subagents
 
-    agents_dict = subagents.get_agents_dict()
+    agents_dict = subagents.get_agents_dict(project_name)
 
     normalized: dict[str, SubAgentSettings] = {}
     for key, value in subagents_data.items():
