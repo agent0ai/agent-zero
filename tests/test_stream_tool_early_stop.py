@@ -1366,6 +1366,20 @@ def test_responses_fallback_does_not_mask_rate_limits():
     )
 
 
+def test_responses_fallback_on_untyped_input_item_rejection():
+    class BadRequestError(RuntimeError):
+        status_code = 400
+
+    policy = litellm_transport.TransportPolicy(
+        mode=litellm_transport.TransportMode.RESPONSES
+    )
+
+    assert policy.recover(
+        BadRequestError("Cannot determine type of item"), got_any_chunk=False
+    ) is litellm_transport.TransportRecovery.FALLBACK_TO_CHAT
+    assert policy.mode is litellm_transport.TransportMode.CHAT_COMPLETIONS
+
+
 def test_responses_response_parser_extracts_text_reasoning_and_function_calls():
     text_response = {
         "output": [

@@ -1817,6 +1817,7 @@ def _looks_like_responses_request_rejected(text: str) -> bool:
             "failed to deserialize input",
             "failed to deserialize response",
             "failed to deserialize responses",
+            "cannot determine type",
         )
     )
 
