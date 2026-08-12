@@ -161,6 +161,8 @@ def export_json_chat(context: AgentContext):
 
 def remove_chat(ctxid):
     """Remove a chat or task context"""
+    if not isinstance(ctxid, str) or not ctxid.strip():
+        raise ValueError("remove_chat: context id must not be empty")
     _delete_provider_responses_for_chat(ctxid)
     path = get_chat_folder_path(ctxid)
     files.delete_dir(path)
@@ -168,6 +170,8 @@ def remove_chat(ctxid):
 
 def remove_msg_files(ctxid):
     """Remove all message files for a chat or task context"""
+    if not isinstance(ctxid, str) or not ctxid.strip():
+        raise ValueError("remove_msg_files: context id must not be empty")
     path = get_chat_msg_files_folder(ctxid)
     files.delete_dir(path)
 
