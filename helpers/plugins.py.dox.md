@@ -35,9 +35,9 @@
 - `determined_toggle_from_paths(default: bool, paths: Iterator[str])`
 - `get_toggle_state(plugin_name: str) -> ToggleState`
 - `toggle_plugin(plugin_name: str, enabled: bool, project_name: str=..., agent_profile: str=..., clear_overrides: bool=...)`
-- `get_plugin_config(plugin_name: str, agent: Agent | None=..., project_name: str | None=..., agent_profile: str | None=...)`
+- `get_plugin_config(plugin_name: str, agent: Agent | None=..., project_name: str | None=..., agent_profile: str | None=..., caller: CallerContext=...)`
 - `get_default_plugin_config(plugin_name: str)`
-- `save_plugin_config(plugin_name: str, project_name: str, agent_profile: str, settings: dict)`
+- `save_plugin_config(plugin_name: str, project_name: str, agent_profile: str, settings: dict, caller: CallerContext=...)`
 - `find_plugin_asset(plugin_name: str, *subpaths, project_name=..., agent_profile=...)`
 - `find_plugin_assets(*subpaths, plugin_name: str=..., project_name: str=..., agent_profile: str=..., only_first: bool=...) -> list[PluginAssetFile]`
 - `determine_plugin_asset_path(plugin_name: str, project_name: str, agent_profile: str, *subpaths)`
@@ -51,6 +51,8 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Plugins marked `always_enabled` remain in runtime discovery regardless of
   stale global or scoped disable files, and disable attempts are rejected.
+- Config hooks receive `hook_context={"caller": caller}` with one of `ui`,
+  `agent`, or `api`; this is behavioral context, not an authorization boundary.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, WebSocket state, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `__future__`, `asyncio`, `glob`, `helpers`, `helpers.defer`, `helpers.watchdog`, `json`, `pathlib`, `pydantic`, `re`, `regex`, `time`, `typing`.
