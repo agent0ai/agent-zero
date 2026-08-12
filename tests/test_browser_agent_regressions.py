@@ -3654,6 +3654,164 @@ def test_browser_cleanup_extensions_follow_extensible_path_layout():
     assert any(cls.__name__ == "CleanupBrowserRuntimeOnReset" for cls in reset_classes)
 
 
+
+
+# --- Harness fixes 1-6: browser interaction reliability ---------------------
+
+
+class TestBrowserHarnessFixSourceMarkers:
+    """Source-level regressions for the browser harness hardening."""
+
+    def _read(self, name):
+        return (PROJECT_ROOT / "plugins" / "_browser" / "assets" / name).read_text(encoding="utf-8")
+
+    def test_reference_normalization_accepts_descriptive_labels(self):
+        helper = self._read("browser-page-content.js")
+        assert r"if (/^\[[^\]]+\]$/.test(trimmed)) {" in helper
+        assert r"const trailing = trimmed.match(/(?:^|\s)(\d+)$/u);" in helper
+        assert "return trailing[1];" in helper
+
+    def test_set_checked_delegates_to_dom_helper_for_helper_backed(self):
+        content = self._read("browser-page-content.js")
+        dom = self._read("browser-dom-helper.js")
+        assert "await helper.setCheckedNode(" in content
+        assert "setCheckedNode(frameChain, nodeId, checked) {" in dom
+        assert "set_checked_node" in dom
+        assert "async function setCheckedLocalNode(payload = {}) {" in dom
+
+    def test_runtime_handles_navigation_context_error_and_error_pages(self):
+        runtime = (PROJECT_ROOT / "plugins" / "_browser" / "helpers" / "runtime.py").read_text(encoding="utf-8")
+        assert "def _is_navigation_context_error(message: str) -> bool:" in runtime
+        assert '"navigation": True' in runtime
+        assert "defaults and should not be attributed to the browser harness" not in runtime
+        assert "error_page" in runtime
+        assert '"error": "browser_error_page" if error_page else None' in runtime
+        assert "original_title" in runtime
+
+    def test_browser_tool_accepts_expression_alias(self):
+        tool = (PROJECT_ROOT / "plugins" / "_browser" / "tools" / "browser.py").read_text(encoding="utf-8")
+        assert "expression: str = """ in tool
+        assert "script or expression" in tool
+
+
+@pytest.mark.anyio
+async def test_browser_runtime_navigation_context_click_returns_navigation_marker(monkeypatch):
+    calls = []
+
+    class FakePage:
+        url = "https://example.com/"
+
+        async def evaluate(self, script, payload=None):
+            calls.append((script, payload))
+            raise Exception("Execution context was destroyed, most likely because of a navigation")
+
+    class FakeBrowserPage:
+        def __init__(self, page):
+            self.id = 9
+            self.page = page
+
+    core = _BrowserRuntimeCore("ctx")
+    core.context = object()
+    core.pages[9] = FakeBrowserPage(FakePage())
+    core._ensure_content_helper = lambda _page: asyncio.sleep(0)
+
+    settled = []
+    async def fake_settle(page, short=False):
+        settled.append(short)
+
+    async def fake_state(browser_id):
+        return {"id": browser_id, "currentUrl": "https://example.com/"}
+
+    core._settle = fake_settle
+    core._state = fake_state
+
+    result = await core._reference_action("click", 9, 1)
+
+    assert calls
+    assert result["action"]["navigation"] is True
+    assert result["state"] == {"id": 9, "currentUrl": "https://example.com/"}
+    assert settled == [True]
+
+
+@pytest.mark.anyio
+async def test_browser_runtime_reraises_generic_error_mentioning_navigation():
+    class FakePage:
+        url = "https://example.com/"
+
+        async def evaluate(self, script, payload=None):
+            raise ValueError("navigation is not allowed for this element")
+
+    class FakeBrowserPage:
+        def __init__(self, page):
+            self.id = 9
+            self.page = page
+
+    core = _BrowserRuntimeCore("ctx")
+    core.context = object()
+    core.pages[9] = FakeBrowserPage(FakePage())
+    core._ensure_content_helper = lambda _page: asyncio.sleep(0)
+
+    with pytest.raises(ValueError, match="navigation is not allowed"):
+        await core._reference_action("click", 9, 1)
+
+
+@pytest.mark.anyio
+async def test_browser_runtime_state_reports_error_page_on_chrome_error():
+    class FakePage:
+        url = "chrome-error://chromewebdata/"
+
+        async def title(self):
+            return "example.com"
+
+        async def evaluate(self, script, payload=None):
+            if "history?" in script:
+                return 1
+            return None
+
+    browser_page = BrowserPage(id=3, page=FakePage())
+    core = _BrowserRuntimeCore("ctx")
+    core.context = object()
+    core.pages[3] = browser_page
+
+    state = await core._state(3)
+
+    assert state["currentUrl"] == "chrome-error://chromewebdata/"
+    assert state["title"] == "Browser error page"
+    assert state["original_title"] == "example.com"
+    assert state["error_page"] is True
+    assert state["error"] == "browser_error_page"
+
+
+@pytest.mark.anyio
+async def test_browser_tool_evaluate_accepts_expression_alias(monkeypatch):
+    calls = []
+
+    class FakeRuntime:
+        async def call(self, method, *args, **kwargs):
+            calls.append((method, args, kwargs))
+            return {"result": 3, "state": {}}
+
+    async def fake_get_runtime(context_id, create=True, agent=None):
+        del create, agent
+        assert context_id == "ctx"
+        return FakeRuntime()
+
+    monkeypatch.setattr(browser_tool_module, "get_runtime", fake_get_runtime)
+
+    tool = browser_tool_module.Browser(
+        agent=SimpleNamespace(context=SimpleNamespace(id="ctx")),
+        name="browser",
+        method=None,
+        args={},
+        message="",
+        loop_data=None,
+    )
+    response = await tool.execute(action="evaluate", browser_id=1, expression="1+2")
+
+    assert calls == [("evaluate", (1, "1+2"), {})]
+    assert "3" in response.message
+
+
 def test_legacy_browser_dependency_is_removed():
     assert not (PROJECT_ROOT / "plugins" / ("_browser" + "_agent")).exists()
     assert ("browser" + "-use") not in (PROJECT_ROOT / "requirements.txt").read_text(

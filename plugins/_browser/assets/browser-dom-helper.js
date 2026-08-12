@@ -1174,6 +1174,84 @@
     };
   }
 
+  function checkedStateForElement(element) {
+    const tagName = getTagName(element);
+    const role = String(element.getAttribute?.("role") || "").trim().toLowerCase();
+    if (tagName === "INPUT") {
+      const inputType = String(element.getAttribute?.("type") || element.type || "").toLowerCase();
+      if (["checkbox", "radio"].includes(inputType)) {
+        return Boolean(element.checked);
+      }
+    }
+    if (["checkbox", "radio", "switch", "menuitemcheckbox", "menuitemradio"].includes(role)) {
+      return String(element.getAttribute?.("aria-checked") || "").trim().toLowerCase() === "true";
+    }
+    if (role === "button" && element.hasAttribute?.("aria-pressed")) {
+      return String(element.getAttribute?.("aria-pressed") || "").trim().toLowerCase() === "true";
+    }
+    return null;
+  }
+
+  async function setCheckedLocalNode(payload = {}) {
+    const element = getElementByNodeId(payload?.nodeId, "set_checked");
+    const desiredChecked = Boolean(payload?.checked);
+    const currentChecked = checkedStateForElement(element);
+    if (currentChecked === null) {
+      throw createNamedError(
+        "BrowserDomHelperActionError",
+        `Browser DOM helper cannot set checked state on <${getTagName(element).toLowerCase()}>.`,
+        { code: "browser_dom_helper_checked_unsupported" }
+      );
+    }
+    const beforeSnapshot = captureActionEffectSnapshot(element);
+    const tagName = getTagName(element);
+    const role = String(element.getAttribute?.("role") || "").trim().toLowerCase();
+    const { observedMutations } = await withObservedActionWindow(beforeSnapshot.observationRoot, async () => {
+      scrollElementIntoView(element);
+      focusElement(element);
+      if (tagName === "INPUT") {
+        element.checked = desiredChecked;
+        dispatchDomEvent(element, "input", "InputEvent", {
+          inputType: "insertReplacementText"
+        });
+        dispatchDomEvent(element, "change");
+      } else if (["checkbox", "radio", "switch", "menuitemcheckbox", "menuitemradio"].includes(role)) {
+        if (currentChecked !== desiredChecked) {
+          if (typeof element.click === "function") {
+            element.click();
+          } else {
+            dispatchDomEvent(element, "click", "MouseEvent", { button: 0 });
+          }
+          await new Promise((resolve) => globalThis.setTimeout(resolve, 40));
+        }
+        if (checkedStateForElement(element) !== desiredChecked) {
+          element.setAttribute("aria-checked", desiredChecked ? "true" : "false");
+          dispatchDomEvent(element, "input", "InputEvent", {
+            inputType: "insertReplacementText"
+          });
+          dispatchDomEvent(element, "change");
+        }
+      } else if (role === "button" && element.hasAttribute?.("aria-pressed")) {
+        if (currentChecked !== desiredChecked) {
+          if (typeof element.click === "function") {
+            element.click();
+          } else {
+            dispatchDomEvent(element, "click", "MouseEvent", { button: 0 });
+          }
+          await new Promise((resolve) => globalThis.setTimeout(resolve, 40));
+        }
+        if (checkedStateForElement(element) !== desiredChecked) {
+          element.setAttribute("aria-pressed", desiredChecked ? "true" : "false");
+        }
+      }
+    });
+    return {
+      ...collectActionResult(element),
+      ...buildActionEffectResult(beforeSnapshot, captureActionEffectSnapshot(element), observedMutations),
+      checked: checkedStateForElement(element)
+    };
+  }
+
   function scrollLocalNode(payload = {}) {
     const element = getElementByNodeId(payload?.nodeId, "scroll");
     const beforeSnapshot = captureActionEffectSnapshot(element);
@@ -1215,6 +1293,9 @@
     }
     if (type === "scroll_node") {
       return scrollLocalNode(payload);
+    }
+    if (type === "set_checked_node") {
+      return setCheckedLocalNode(payload);
     }
     throw createNamedError(
       "BrowserDomHelperActionError",
@@ -1321,6 +1402,9 @@
     },
     clickNode(frameChain, nodeId) {
       return routeOperation("click_node", { frameChain, nodeId });
+    },
+    setCheckedNode(frameChain, nodeId, checked) {
+      return routeOperation("set_checked_node", { frameChain, nodeId, checked });
     },
     detailNode(frameChain, nodeId) {
       return routeOperation("detail_node", { frameChain, nodeId });

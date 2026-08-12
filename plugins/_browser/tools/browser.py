@@ -37,6 +37,7 @@ class Browser(Tool):
         selector: str = "",
         selectors: list[str] | None = None,
         script: str = "",
+        expression: str = "",
         modifiers: list[str] | str | None = None,
         keys: list[str] | None = None,
         key: str = "",
@@ -173,7 +174,7 @@ class Browser(Tool):
                     await self._resolve_ref(runtime, browser_id, ref, selector, action),
                 )
             elif action == "evaluate":
-                result = await runtime.call("evaluate", browser_id, script)
+                result = await runtime.call("evaluate", browser_id, script or expression)
             elif action in {"key_chord", "keychord"}:
                 if not keys:
                     raise ValueError("key_chord requires non-empty 'keys' list")

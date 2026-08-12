@@ -535,7 +535,19 @@
     }
 
     if (typeof value === "string") {
-      return value.trim();
+      const trimmed = value.trim();
+      if (/^\[[^\]]+\]$/.test(trimmed)) {
+        const parts = trimmed.slice(1, -1).trim().split(/\s+/u);
+        const last = parts[parts.length - 1];
+        if (last && /^\d+$/u.test(last)) {
+          return last;
+        }
+      }
+      const trailing = trimmed.match(/(?:^|\s)(\d+)$/u);
+      if (trailing) {
+        return trailing[1];
+      }
+      return trimmed;
     }
 
     if (value && typeof value === "object") {
@@ -2607,13 +2619,17 @@
       actionLabel: "setChecked"
     });
     if (entry.helperBacked) {
-      throw createNamedError(
-        "BrowserPageContentActionError",
-        `Browser page content cannot set helper-backed reference "${entry.referenceId}".`,
-        {
-          code: "browser_page_content_checked_helper_backed"
-        }
+      const helper = requireDomHelper("set checked reference");
+      const checkedResult = await helper.setCheckedNode(
+        entry.frameChain,
+        entry.nodeId,
+        Boolean(checked)
       );
+      return buildHelperBackedActionResult(entry, checkedResult, {
+        checked: Boolean(checked),
+        effect: checkedResult?.effect || {},
+        status: checkedResult?.status || {}
+      });
     }
 
     const element = entry.element;
