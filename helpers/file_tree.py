@@ -507,7 +507,7 @@ def _resolve_ignore_patterns(ignore: str | None, root_abs_path: str) -> Optional
     if not lines:
         return None
 
-    return PathSpec.from_lines("gitwildmatch", lines)
+    return PathSpec.from_lines("gitignore", lines)
 
 
 def _list_directory_children(
