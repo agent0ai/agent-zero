@@ -30,7 +30,8 @@
 - `get_version()`
 - `is_official_agent_zero_repo() -> bool`: Return True when origin points to agent0ai/agent-zero.
 - `clone_repo(url: str, dest: str, token: str | None=...)`: Clone a git repository. Uses http.extraHeader for token auth (never stored in URL/config).
-- `update_repo(repo_path: str) -> Repo`
+- `DirtyTreeConflictError`: Reports a plugin update that was rolled back because its local edits conflict with upstream.
+- `update_repo(repo_path: str, auto_stash: bool = True) -> Repo`: Temporarily stashes tracked plugin edits for an update, then restores them; on conflict it restores the original checkout and edits before raising `DirtyTreeConflictError`.
 - `get_repo_status(repo_path: str) -> dict`: Get Git repository status, ignoring A0 project metadata files.
 - Notable constants/configuration names: `A0_IGNORE_PATTERNS`.
 

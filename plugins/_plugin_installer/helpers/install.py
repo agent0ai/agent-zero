@@ -250,6 +250,16 @@ def update_from_git(plugin_name: str) -> dict:
     try:
         repo = git.update_repo(plugin_dir)
         meta = plugins.get_plugin_meta(plugin_name)
+    except git.DirtyTreeConflictError as e:
+        print_style.PrintStyle.error(f"Failed to update plugin: {e}")
+        return {
+            "ok": False,
+            "success": False,
+            "error": str(e),
+            "error_kind": "dirty_tree_conflict",
+            "plugin_name": plugin_name,
+            "conflicting_files": e.conflicting_files,
+        }
     except Exception as e:
         print_style.PrintStyle.error(f"Failed to update plugin: {e}")
         raise
