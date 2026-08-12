@@ -12,9 +12,8 @@ from pathlib import Path
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
 
-import aiohttp
-
 from helpers import files
+from helpers.network import fetch_public_http_resource
 
 
 InterventionCallback = Callable[[], Awaitable[None]]
@@ -140,53 +139,36 @@ async def _fetch_http(
     last_error = ""
     for attempt in range(retries):
         try:
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=timeout)
-            ) as session:
-                async with session.get(uri, allow_redirects=True) as response:
-                    if response.status > 399:
-                        raise ValueError(f"HTTP {response.status}")
+            if intervention_callback:
+                await intervention_callback()
+            resource = await asyncio.to_thread(
+                fetch_public_http_resource,
+                uri,
+                max_bytes=max_remote_bytes,
+                timeout=(timeout, timeout),
+            )
+            if intervention_callback:
+                await intervention_callback()
 
-                    content_length = response.headers.get("content-length")
-                    if content_length and int(content_length) > max_remote_bytes:
-                        size_mb = int(content_length) / 1024 / 1024
-                        raise ValueError(
-                            f"Document exceeds max {max_remote_bytes / 1024 / 1024:.0f}MB: "
-                            f"{size_mb:.2f} MB ({uri})"
-                        )
+            mimetype = (
+                resource.content_type
+                or guessed_mimetype
+                or "application/octet-stream"
+            )
+            if mimetype == "application/octet-stream":
+                raise ValueError(
+                    f"Unsupported document mimetype '{mimetype}' ({uri})"
+                )
 
-                    chunks: list[bytes] = []
-                    downloaded = 0
-                    async for chunk in response.content.iter_chunked(64 * 1024):
-                        downloaded += len(chunk)
-                        if downloaded > max_remote_bytes:
-                            size_mb = downloaded / 1024 / 1024
-                            raise ValueError(
-                                f"Document exceeds max {max_remote_bytes / 1024 / 1024:.0f}MB: "
-                                f"{size_mb:.2f} MB ({uri})"
-                            )
-                        chunks.append(chunk)
-                        if intervention_callback:
-                            await intervention_callback()
-
-                    content_type = response.headers.get("content-type", "")
-                    mimetype, charset = _parse_content_type(content_type)
-                    if not mimetype or mimetype == "application/octet-stream":
-                        mimetype = guessed_mimetype or "application/octet-stream"
-                    if mimetype == "application/octet-stream":
-                        raise ValueError(
-                            f"Unsupported document mimetype '{mimetype}' ({uri})"
-                        )
-
-                    return FetchedDocument(
-                        uri=str(response.url),
-                        source_uri=uri,
-                        scheme=response.url.scheme or scheme,
-                        mimetype=mimetype,
-                        encoding=encoding,
-                        charset=charset,
-                        content=b"".join(chunks),
-                    )
+            return FetchedDocument(
+                uri=resource.url,
+                source_uri=uri,
+                scheme=urlparse(resource.url).scheme or scheme,
+                mimetype=mimetype,
+                encoding=encoding,
+                charset=resource.encoding,
+                content=resource.content,
+            )
         except Exception as e:
             last_error = str(e)
             if attempt < retries - 1:
@@ -195,20 +177,6 @@ async def _fetch_http(
                     await intervention_callback()
 
     raise ValueError(f"Document fetch error: {uri} ({last_error})")
-
-
-def _parse_content_type(value: str) -> tuple[str | None, str | None]:
-    if not value:
-        return None, None
-    parts = [part.strip() for part in value.split(";") if part.strip()]
-    mimetype = parts[0].lower() if parts else None
-    charset = None
-    for part in parts[1:]:
-        if part.lower().startswith("charset="):
-            charset = part.split("=", 1)[1].strip("\"'")
-            break
-    return mimetype, charset
-
 
 register_protocol_handler("file", _fetch_file)
 register_protocol_handler("http", _fetch_http)

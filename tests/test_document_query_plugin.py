@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import sys
 from pathlib import Path
 
@@ -11,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from helpers import network as network_helper
 from plugins._document_query import hooks as document_query_hooks
 from plugins._document_query.helpers.fetch import FetchedDocument, fetch_public_resource
 import plugins._document_query.helpers.document_query as document_query_module
@@ -111,6 +113,124 @@ def test_fetch_file_detects_mimetype_and_reads_once(tmp_path):
     assert fetched.mimetype == "text/plain"
     assert fetched.local_path == str(document)
     assert fetched.text() == "hello\nworld\n"
+
+
+def test_fetch_http_blocks_non_public_destinations():
+    with pytest.raises(ValueError, match="Blocked non-public address"):
+        run_async(
+            fetch_public_resource(
+                "http://127.0.0.1/internal.txt",
+                {"fetch_retries": 1},
+            )
+        )
+
+
+def test_fetch_http_blocks_redirects_to_non_public_destinations(monkeypatch):
+    source = "https://public.example/start"
+    calls = []
+
+    class RedirectResponse:
+        status_code = 302
+        headers = {"Location": "http://127.0.0.1/internal.txt"}
+        encoding = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    class FakeSession:
+        trust_env = True
+
+        def get(self, url, **kwargs):
+            calls.append((url, kwargs, self.trust_env))
+            return RedirectResponse()
+
+    def resolve_host_ips(hostname):
+        address = "127.0.0.1" if hostname == "127.0.0.1" else "93.184.216.34"
+        return (ipaddress.ip_address(address),)
+
+    monkeypatch.setattr(network_helper, "resolve_host_ips", resolve_host_ips)
+    monkeypatch.setattr(network_helper.requests, "Session", FakeSession)
+
+    with pytest.raises(ValueError, match="Blocked non-public address"):
+        run_async(fetch_public_resource(source, {"fetch_retries": 1}))
+
+    assert [url for url, _kwargs, _trust_env in calls] == [source]
+
+
+def test_fetch_http_preserves_public_redirects_and_request_compatibility(monkeypatch):
+    source = "https://public.example/start"
+    destination = "https://public.example/report.txt"
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, status_code, headers, body=b""):
+            self.status_code = status_code
+            self.headers = headers
+            self.encoding = "utf-8"
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def iter_content(self, chunk_size):
+            assert chunk_size == 64 * 1024
+            yield self.body
+
+    class FakeSession:
+        trust_env = True
+
+        def get(self, url, **kwargs):
+            calls.append((url, kwargs, self.trust_env))
+            if url == source:
+                return FakeResponse(302, {"Location": "/report.txt"})
+            return FakeResponse(
+                200,
+                {
+                    "Content-Length": "9",
+                    "Content-Type": "text/plain; charset=utf-8",
+                },
+                b"public ok",
+            )
+
+    monkeypatch.setattr(
+        network_helper,
+        "resolve_host_ips",
+        lambda _hostname: (ipaddress.ip_address("93.184.216.34"),),
+    )
+    monkeypatch.setattr(network_helper.requests, "Session", FakeSession)
+    monkeypatch.setenv("USER_AGENT", "AgentZeroTest")
+
+    fetched = run_async(
+        fetch_public_resource(
+            source,
+            {
+                "fetch_retries": 1,
+                "fetch_timeout": 2,
+                "max_remote_bytes": 1024,
+            },
+        )
+    )
+
+    assert fetched.uri == destination
+    assert fetched.mimetype == "text/plain"
+    assert fetched.text() == "public ok"
+    assert [url for url, _kwargs, _trust_env in calls] == [source, destination]
+    assert all(not trust_env for _url, _kwargs, trust_env in calls)
+    assert all(
+        kwargs["allow_redirects"] is False
+        for _url, kwargs, _trust_env in calls
+    )
+    assert all(kwargs["timeout"] == (2.0, 2.0) for _url, kwargs, _trust_env in calls)
+    assert all(
+        kwargs["headers"] == {"User-Agent": "AgentZeroTest"}
+        for _url, kwargs, _trust_env in calls
+    )
 
 
 def test_parser_registry_prefers_liteparse_for_pdf():
