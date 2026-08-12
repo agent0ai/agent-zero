@@ -45,6 +45,7 @@ _META_TARGET_RE = re.compile(
 
 
 type ToggleState = Literal["enabled", "disabled"]
+type CallerContext = Literal["ui", "agent", "api"]
 
 
 class PluginAssetFile(TypedDict):
@@ -590,6 +591,7 @@ def get_plugin_config(
     agent: Agent | None = None,
     project_name: str | None = None,
     agent_profile: str | None = None,
+    caller: CallerContext = "api",
 ):
 
     default_used = False
@@ -635,6 +637,7 @@ def get_plugin_config(
         agent=agent,
         project_name=project_name,
         agent_profile=agent_profile,
+        hook_context={"caller": caller},
     )
 
     return result
@@ -663,7 +666,11 @@ def get_default_plugin_config(plugin_name: str):
 
 @extension.extensible
 def save_plugin_config(
-    plugin_name: str, project_name: str, agent_profile: str, settings: dict
+    plugin_name: str,
+    project_name: str,
+    agent_profile: str,
+    settings: dict,
+    caller: CallerContext = "api",
 ):
     file_path = determine_plugin_asset_path(
         plugin_name, project_name, agent_profile, CONFIG_FILE_NAME
@@ -677,6 +684,7 @@ def save_plugin_config(
         project_name=project_name,
         agent_profile=agent_profile,
         settings=settings,
+        hook_context={"caller": caller},
     )
 
     # or do standard load
