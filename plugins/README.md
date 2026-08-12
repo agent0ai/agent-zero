@@ -70,6 +70,29 @@ Plugins can also include an optional `hooks.py` at the plugin root. The framewor
 
 In Docker, `hooks.py` normally affects `/opt/venv-a0`; the agent execution runtime is `/opt/venv`.
 
+### Configuration Hook Context
+
+Configuration hooks can distinguish why settings are being read or saved. Pass
+`caller="ui"` or `caller="agent"` to `get_plugin_config(...)` or
+`save_plugin_config(...)`; calls without it keep the compatible default,
+`"api"`.
+
+The hook receives this as `hook_context={"caller": ...}`:
+
+```python
+def get_plugin_config(default=None, hook_context=None, **kwargs):
+    caller = (hook_context or {}).get("caller", "api")
+    if caller == "ui":
+        return redact_for_display(default)
+    return default
+```
+
+Existing hooks need no change: hooks that ignore `hook_context`, including
+strict signatures without `**kwargs`, retain their previous behavior. Use the
+context only for behavior selection in plugin-controlled flows; it is not an
+authorization boundary. A `config.html` alone does not set the caller; the
+backend code loading or saving that configuration must pass it explicitly.
+
 ## Plugin Index & Community Sharing
 
 The **Plugin Index** at https://github.com/agent0ai/a0-plugins is the community-maintained registry of plugins available to all Agent Zero users.

@@ -177,6 +177,33 @@ save_plugin_config(
 )
 ```
 
+### Configuration Hook Caller Context
+
+Use caller context only when the same settings need different behavior for a
+known origin. An unlabeled call remains compatible and uses `"api"`; a
+plugin-controlled runtime path can opt in explicitly:
+
+```python
+settings = get_plugin_config("my-plugin", agent=agent, caller="agent") or {}
+```
+
+Its `hooks.py` receives `hook_context={"caller": ...}`. For example, a plugin
+can redact a stored credential for a UI-specific path while preserving its
+normal runtime configuration:
+
+```python
+def get_plugin_config(default=None, hook_context=None, **kwargs):
+    caller = (hook_context or {}).get("caller", "api")
+    return redact_for_display(default) if caller == "ui" else default
+```
+
+The available values are `"ui"`, `"agent"`, and `"api"`. Existing hooks do
+not need to change: the framework safely ignores this new argument for hooks
+that do not accept it. This is behavior metadata, never authorization; do not
+use it to grant or deny access to secrets or other protected data. A
+`config.html` alone does not set the caller; its backend load/save path must
+pass it explicitly.
+
 ---
 
 ## Directory Layout
