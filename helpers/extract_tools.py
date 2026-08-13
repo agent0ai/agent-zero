@@ -4,6 +4,12 @@ import regex, re
 from helpers.modules import load_classes_from_file, load_classes_from_folder # keep here for backwards compatibility
 from typing import Any
 
+_JSON_TOOL_REQUEST_FENCE = re.compile(
+    r"```(?:json)?[^\S\r\n]*\r?\n(?P<content>.*?)\r?\n```",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+
 def json_parse_dirty(json: str) -> dict[str, Any] | None:
     if not json or not isinstance(json, str):
         return None
@@ -25,6 +31,10 @@ def extract_tool_request(content: str) -> dict[str, Any] | None:
         return None
 
     content = content.strip()
+    fence_match = _JSON_TOOL_REQUEST_FENCE.fullmatch(content)
+    if fence_match is not None:
+        content = fence_match.group("content").strip()
+
     root = extract_json_root_string(content)
     if root != content:
         return None

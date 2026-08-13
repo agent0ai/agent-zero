@@ -117,16 +117,62 @@ def test_normalize_tool_request_rejects_multiple_wrapped_actions() -> None:
         )
 
 
-def test_extract_tool_request_requires_a_complete_tool_message() -> None:
+def test_extract_tool_request_accepts_bare_json() -> None:
     request = '{"tool_name":"response","tool_args":{"text":"ok"}}'
 
     assert extract_tool_request(request) == {
         "tool_name": "response",
         "tool_args": {"text": "ok"},
     }
+
+
+@pytest.mark.parametrize("language", ["json", ""])
+def test_extract_tool_request_accepts_complete_fenced_json(language: str) -> None:
+    request = '{"tool_name":"response","tool_args":{"text":"ok"}}'
+
+    assert extract_tool_request(f"```{language}\n{request}\n```") == {
+        "tool_name": "response",
+        "tool_args": {"text": "ok"},
+    }
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'Example: {"tool_name":"response","tool_args":{"text":"ok"}}',
+        '{"tool_name":"response","tool_args":{"text":"ok"}} trailing text',
+        'Example:\n```json\n{"tool_name":"response","tool_args":{"text":"ok"}}\n```',
+        '```json\n{"tool_name":"response","tool_args":{"text":"ok"}}\n```\nDone.',
+        '```json\nRun this:\n{"tool_name":"response","tool_args":{"text":"ok"}}\n```',
+    ],
+)
+def test_extract_tool_request_rejects_mixed_natural_language(content: str) -> None:
+    assert extract_tool_request(content) is None
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '```json\n{"tool_name":"response","tool_args":{"text":"ok"}}',
+        '```json\n{"tool_name":"response","tool_args":{"text":"ok"}\n```',
+        (
+            '```json\n{"tool_name":"response","tool_args":{"text":"first"}}'
+            '{"tool_name":"response","tool_args":{"text":"second"}}\n```'
+        ),
+        (
+            '```json\n{"tool_name":"response","tool_args":{"text":"first"}}\n```\n'
+            '```json\n{"tool_name":"response","tool_args":{"text":"second"}}\n```'
+        ),
+    ],
+)
+def test_extract_tool_request_rejects_malformed_or_multiple_fences(
+    content: str,
+) -> None:
+    assert extract_tool_request(content) is None
+
+
+def test_extract_tool_request_rejects_non_tool_json() -> None:
     assert extract_tool_request('{"status":"ok"}') is None
-    assert extract_tool_request(f"Example: {request}") is None
-    assert extract_tool_request(f"{request} trailing text") is None
 
 
 def test_is_misformatted_tool_request_requires_agent_tool_envelope() -> None:
