@@ -1,3 +1,8 @@
 voice: am_puck,am_onyx
 voice_weights: {}
 speed: 1.1
+engine: kokoro_py  # kokoro_py | kokoro_onnx
+lang: en-us  # espeak-ng language code: en-us, de, fr, es, it, etc.
+onnx_hf_repo: ''  # HuggingFace repo ID, e.g. Godelaune/Kokoro-82M-ONNX-German-Martin
+onnx_model_file: ''  # filename in repo, e.g. kokoro-martin.onnx
+onnx_voices_file: ''  # filename in repo, e.g. voices-martin.npz

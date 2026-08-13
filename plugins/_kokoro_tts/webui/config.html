@@ -43,6 +43,12 @@
       if (Object.keys(sanitized).length) this.syncVoice(Object.keys(sanitized));
       const speed = Number(config.speed);
       config.speed = Number.isFinite(speed) && speed > 0 ? speed : 1.1;
+
+      // Engine selection (kokoro_py | kokoro_onnx)
+      if (!['kokoro_py', 'kokoro_onnx'].includes(config.engine)) config.engine = 'kokoro_py';
+
+      // espeak-ng language code
+      if (!config.lang) config.lang = 'en-us';
     },
     voiceIds() {
       const weighted = Object.keys(config.voice_weights || {});
@@ -234,6 +240,86 @@
             <output x-text="`${Number(config.speed || 1.1).toFixed(1)}×`"></output>
           </div>
         </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Engine</div>
+            <div class="field-description">
+              Kokoro engine: kokoro_py (PyTorch/KPipeline) or kokoro_onnx (ONNX runtime).
+            </div>
+          </div>
+          <div class="field-control">
+            <select x-model="config.engine" aria-label="TTS engine">
+              <option value="kokoro_py">kokoro_py (KPipeline / PyTorch)</option>
+              <option value="kokoro_onnx">kokoro_onnx (ONNX Runtime)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Language</div>
+            <div class="field-description">
+              espeak-ng language code, e.g. en-us, de, fr, es, it.
+            </div>
+          </div>
+          <div class="field-control">
+            <input
+              type="text"
+              x-model.trim="config.lang"
+              placeholder="en-us"
+              aria-label="espeak-ng language code"
+            />
+          </div>
+        </div>
+
+        <template x-if="config.engine === 'kokoro_onnx'">
+          <div class="kokoro-onnx-section">
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">ONNX HuggingFace repo</div>
+                <div class="field-description">
+                  HuggingFace repo ID for automatic model download, e.g. Godelaune/Kokoro-82M-ONNX-German-Martin.
+                </div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="text"
+                  x-model.trim="config.onnx_hf_repo"
+                  placeholder="Godelaune/Kokoro-82M-ONNX-German-Martin"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">ONNX model file</div>
+                <div class="field-description">Filename inside the repo, e.g. kokoro-martin.onnx.</div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="text"
+                  x-model.trim="config.onnx_model_file"
+                  placeholder="kokoro-martin.onnx"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">ONNX voices file</div>
+                <div class="field-description">Filename inside the repo, e.g. voices-martin.npz.</div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="text"
+                  x-model.trim="config.onnx_voices_file"
+                  placeholder="voices-martin.npz"
+                />
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </div>
