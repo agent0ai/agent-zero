@@ -160,6 +160,48 @@ async def _preload(config: dict[str, Any] | None = None):
         is_updating_model = False
 
 
+def _detect_hf_files(hf_repo: str) -> tuple[str, str]:
+    """Auto-detect ONNX model and voices filenames from a HuggingFace repo.
+
+    Returns ``(model_file, voices_file)``.  Raises :class:`ValueError` if
+    either file cannot be found.
+    """
+    import json
+
+    url = f"https://huggingface.co/api/models/{hf_repo}"
+    with urllib.request.urlopen(url, timeout=15) as resp:
+        data = json.loads(resp.read())
+
+    files = [s["rfilename"] for s in data.get("siblings", [])]
+
+    # Find model: prefer full-precision .onnx
+    onnx_files = [f for f in files if f.endswith(".onnx")]
+    if not onnx_files:
+        raise ValueError(f"No .onnx file found in {hf_repo}")
+    model_file = next(
+        (
+            f
+            for f in onnx_files
+            if not any(q in f.lower() for q in ("int8", "quantized", "fp16", "q8"))
+        ),
+        onnx_files[0],
+    )
+
+    # Find voices: .npz or .bin (but not .onnx)
+    voices_files = [
+        f
+        for f in files
+        if f.endswith(".npz") or (f.endswith(".bin") and not f.endswith(".onnx"))
+    ]
+    if not voices_files:
+        raise ValueError(f"No voices file (.npz or .bin) found in {hf_repo}")
+    # Prefer .npz over .bin
+    npz = [f for f in voices_files if f.endswith(".npz")]
+    voices_file = npz[0] if npz else voices_files[0]
+
+    return model_file, voices_file
+
+
 async def _ensure_onnx_model(cfg: dict[str, Any]) -> tuple[str, str]:
     """Ensure ONNX model and voices files are available locally.
 
@@ -173,6 +215,13 @@ async def _ensure_onnx_model(cfg: dict[str, Any]) -> tuple[str, str]:
 
     if not hf_repo:
         return "", ""
+
+    if hf_repo and (not model_file or not voices_file):
+        detected_model, detected_voices = _detect_hf_files(hf_repo)
+        if not model_file:
+            model_file = detected_model
+        if not voices_file:
+            voices_file = detected_voices
 
     sanitized = hf_repo.replace("/", "_")
     cache_dir = files.get_abs_path("usr/models", sanitized)

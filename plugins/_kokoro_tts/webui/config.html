@@ -49,6 +49,11 @@
 
       // espeak-ng language code
       if (!config.lang) config.lang = 'en-us';
+
+      // ONNX fields
+      if (!config.onnx_hf_repo) config.onnx_hf_repo = '';
+      if (!config.onnx_model_file) config.onnx_model_file = '';
+      if (!config.onnx_voices_file) config.onnx_voices_file = '';
     },
     voiceIds() {
       const weighted = Object.keys(config.voice_weights || {});
@@ -115,6 +120,31 @@
     },
     syncVoice(ids) {
       config.voice = ids.join(',');
+    },
+    resolving: false,
+    resolveError: '',
+    async resolveHfRepo() {
+      if (!config.onnx_hf_repo) return;
+      this.resolving = true;
+      this.resolveError = '';
+      try {
+        const resp = await fetch('/api/plugins/_kokoro_tts/resolve_hf_repo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo: config.onnx_hf_repo }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+          config.onnx_model_file = data.model_file;
+          config.onnx_voices_file = data.voices_file;
+        } else {
+          this.resolveError = data.error || 'Could not resolve repo files';
+        }
+      } catch (e) {
+        this.resolveError = String(e);
+      } finally {
+        this.resolving = false;
+      }
     },
   }">
     <template x-if="config">
@@ -279,28 +309,43 @@
               <div class="field-label">
                 <div class="field-title">ONNX HuggingFace repo</div>
                 <div class="field-description">
-                  HuggingFace repo ID for automatic model download, e.g. Godelaune/Kokoro-82M-ONNX-German-Martin.
+                  Enter a HuggingFace repo ID and click <em>Detect files</em> to auto-fill the
+                  model and voices filenames. E.g. Godelaune/Kokoro-82M-ONNX-German-Martin.
                 </div>
               </div>
-              <div class="field-control">
+              <div class="field-control kokoro-repo-row">
                 <input
                   type="text"
                   x-model.trim="config.onnx_hf_repo"
+                  @keydown.enter.prevent="resolveHfRepo()"
                   placeholder="Godelaune/Kokoro-82M-ONNX-German-Martin"
+                  aria-label="HuggingFace repo ID"
                 />
+                <button
+                  type="button"
+                  class="button"
+                  @click="resolveHfRepo()"
+                  :disabled="!config.onnx_hf_repo || resolving"
+                >
+                  <span x-show="!resolving">Detect files</span>
+                  <span x-show="resolving">Detecting…</span>
+                </button>
               </div>
+              <div class="kokoro-resolve-error" x-show="resolveError" x-text="resolveError"></div>
             </div>
 
             <div class="field">
               <div class="field-label">
                 <div class="field-title">ONNX model file</div>
-                <div class="field-description">Filename inside the repo, e.g. kokoro-martin.onnx.</div>
+                <div class="field-description">
+                  Auto-detected from repo if empty. Leave blank to auto-detect at runtime.
+                </div>
               </div>
               <div class="field-control">
                 <input
                   type="text"
                   x-model.trim="config.onnx_model_file"
-                  placeholder="kokoro-martin.onnx"
+                  placeholder="auto-detected, e.g. kokoro-martin.onnx"
                 />
               </div>
             </div>
@@ -308,13 +353,15 @@
             <div class="field">
               <div class="field-label">
                 <div class="field-title">ONNX voices file</div>
-                <div class="field-description">Filename inside the repo, e.g. voices-martin.npz.</div>
+                <div class="field-description">
+                  Auto-detected from repo if empty. Leave blank to auto-detect at runtime.
+                </div>
               </div>
               <div class="field-control">
                 <input
                   type="text"
                   x-model.trim="config.onnx_voices_file"
-                  placeholder="voices-martin.npz"
+                  placeholder="auto-detected, e.g. voices-martin.npz"
                 />
               </div>
             </div>
@@ -325,6 +372,35 @@
   </div>
 
   <style>
+    .kokoro-onnx-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .kokoro-repo-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .kokoro-repo-row input {
+      flex: 1;
+    }
+
+    .kokoro-repo-row button {
+      flex-shrink: 0;
+    }
+
+    .kokoro-resolve-error {
+      margin-top: 0.4rem;
+      padding: 0.4rem 0.65rem;
+      border-radius: 0.4rem;
+      background: var(--color-bg-danger, #fef2f2);
+      color: var(--color-text-danger, #b91c1c);
+      font-size: var(--font-size-small);
+    }
+
     .kokoro-blend-editor {
       display: flex;
       flex-direction: column;
