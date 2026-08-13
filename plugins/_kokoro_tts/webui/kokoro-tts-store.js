@@ -44,6 +44,11 @@ const model = {
         voice: status?.config?.voice || "",
         voice_weights: status?.config?.voice_weights || {},
         speed: Number(status?.config?.speed || 1.1),
+        engine: status?.config?.engine || "kokoro_py",
+        lang: status?.config?.lang || "en-us",
+        onnx_hf_repo: status?.config?.onnx_hf_repo || "",
+        onnx_model_file: status?.config?.onnx_model_file || "",
+        onnx_voices_file: status?.config?.onnx_voices_file || "",
       };
       this.modelReady = !!status?.model?.ready;
       this.modelLoading = !!status?.model?.loading;
