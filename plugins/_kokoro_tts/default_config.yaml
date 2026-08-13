@@ -6,3 +6,5 @@ lang: en-us  # espeak-ng language code: en-us, de, fr, es, it, etc.
 onnx_hf_repo: ''  # HuggingFace repo ID, e.g. Godelaune/Kokoro-82M-ONNX-German-Martin
 onnx_model_file: ''  # auto-detected from repo if empty; e.g. kokoro-martin.onnx
 onnx_voices_file: ''  # auto-detected from repo if empty; e.g. voices-martin.npz
+onnx_mixed_lang: en-us  # secondary espeak-ng language for matched terms
+onnx_mixed_lang_terms: ''  # comma/newline-separated terms to phonemize with secondary language

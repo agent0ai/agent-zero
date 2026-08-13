@@ -36,6 +36,8 @@ DEFAULT_CONFIG = {
     "onnx_hf_repo": "",          # HuggingFace repo ID for ONNX model download
     "onnx_model_file": "",       # filename in repo, e.g. kokoro-martin.onnx
     "onnx_voices_file": "",      # filename in repo, e.g. voices-martin.npz
+    "onnx_mixed_lang": "en-us",  # secondary espeak-ng language for matched terms
+    "onnx_mixed_lang_terms": "", # comma/newline-separated terms to phonemize with secondary language
 }
 VOICE_ID_PATTERN = re.compile(r"^[a-z]{2}_[a-z0-9_]+$")
 
@@ -100,6 +102,13 @@ def normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
     for key in ("onnx_hf_repo", "onnx_model_file", "onnx_voices_file"):
         val = str(config.get(key, normalized[key]) or "").strip()
         normalized[key] = val
+
+    mixed_lang = str(config.get("onnx_mixed_lang", normalized["onnx_mixed_lang"]) or "").strip().lower()
+    if mixed_lang:
+        normalized["onnx_mixed_lang"] = mixed_lang
+    normalized["onnx_mixed_lang_terms"] = str(
+        config.get("onnx_mixed_lang_terms", normalized["onnx_mixed_lang_terms"]) or ""
+    ).strip()
 
     return normalized
 
@@ -387,6 +396,35 @@ def _encode_wav_base64(samples: list[float]) -> str:
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
+def _parse_mixed_lang_terms(raw_terms: str) -> list[str]:
+    terms = [term.strip() for term in re.split(r"[,\n]", raw_terms) if term.strip()]
+    return sorted(dict.fromkeys(terms), key=len, reverse=True)
+
+
+def _mixed_lang_phonemes(
+    pipeline: Any, text: str, *, primary_lang: str, mixed_lang: str, terms: list[str]
+) -> str:
+    if not terms:
+        return pipeline.tokenizer.phonemize(text, primary_lang)
+
+    pattern = re.compile(
+        r"(?<![A-Za-z0-9_])(" + "|".join(re.escape(term) for term in terms) + r")(?![A-Za-z0-9_])",
+        re.IGNORECASE,
+    )
+    phoneme_parts: list[str] = []
+    last_end = 0
+    for match in pattern.finditer(text):
+        if match.start() > last_end:
+            phoneme_parts.append(
+                pipeline.tokenizer.phonemize(text[last_end : match.start()], primary_lang)
+            )
+        phoneme_parts.append(pipeline.tokenizer.phonemize(match.group(0), mixed_lang))
+        last_end = match.end()
+    if last_end < len(text):
+        phoneme_parts.append(pipeline.tokenizer.phonemize(text[last_end:], primary_lang))
+    return " ".join(part for part in phoneme_parts if part)
+
+
 async def _synthesize_onnx(
     sentences: list[str], *, cfg: dict[str, Any]
 ) -> str:
@@ -395,17 +433,32 @@ async def _synthesize_onnx(
     voice = str(cfg["voice"])
     speed = float(cfg["speed"])
     lang = str(cfg["lang"])
+    mixed_lang = str(cfg["onnx_mixed_lang"])
+    mixed_terms = _parse_mixed_lang_terms(str(cfg["onnx_mixed_lang_terms"]))
 
     combined_audio: list[float] = []
 
     try:
         for sentence in sentences:
-            if not sentence.strip():
+            text = sentence.strip()
+            if not text:
                 continue
 
-            samples, sample_rate = _onnx_pipeline.create(
-                sentence.strip(), voice=voice, speed=speed, lang=lang
-            )
+            if mixed_terms:
+                text = _mixed_lang_phonemes(
+                    _onnx_pipeline,
+                    text,
+                    primary_lang=lang,
+                    mixed_lang=mixed_lang,
+                    terms=mixed_terms,
+                )
+                samples, sample_rate = _onnx_pipeline.create(
+                    text, voice=voice, speed=speed, lang=lang, is_phonemes=True
+                )
+            else:
+                samples, sample_rate = _onnx_pipeline.create(
+                    text, voice=voice, speed=speed, lang=lang
+                )
             combined_audio.extend(samples.tolist())
 
         if not combined_audio:

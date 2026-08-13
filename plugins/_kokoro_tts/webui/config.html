@@ -54,6 +54,8 @@
       if (!config.onnx_hf_repo) config.onnx_hf_repo = '';
       if (!config.onnx_model_file) config.onnx_model_file = '';
       if (!config.onnx_voices_file) config.onnx_voices_file = '';
+      if (!config.onnx_mixed_lang) config.onnx_mixed_lang = 'en-us';
+      if (!config.onnx_mixed_lang_terms) config.onnx_mixed_lang_terms = '';
     },
     voiceIds() {
       const weighted = Object.keys(config.voice_weights || {});
@@ -362,6 +364,36 @@
                   type="text"
                   x-model.trim="config.onnx_voices_file"
                   placeholder="auto-detected, e.g. voices-martin.npz"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Mixed-language terms</div>
+                <div class="field-description">
+                  Optional: comma or newline-separated terms that should be phonemized with a secondary language before ONNX synthesis.
+                </div>
+              </div>
+              <div class="field-control">
+                <textarea
+                  x-model.trim="config.onnx_mixed_lang_terms"
+                  placeholder="Machine Learning, Kubernetes, Docker, React, TypeScript"
+                  rows="4"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Mixed-language code</div>
+                <div class="field-description">espeak-ng language code for matched terms, e.g. en-us.</div>
+              </div>
+              <div class="field-control">
+                <input
+                  type="text"
+                  x-model.trim="config.onnx_mixed_lang"
+                  placeholder="en-us"
                 />
               </div>
             </div>
