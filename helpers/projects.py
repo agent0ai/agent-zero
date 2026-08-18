@@ -423,9 +423,11 @@ def reconcile_agent_profile(
     if getattr(context.config, "profile", "") in available:
         # project default agent: switch only when the context still runs the
         # global default (i.e. no explicit per-chat selection has been made)
+        manually_set = context.get_data("agent_profile_manually_set")
         default_agent = get_project_default_agent(project_name)
         if (
-            default_agent
+            not manually_set
+            and default_agent
             and default_agent in available
             and default_agent != getattr(context.config, "profile", "")
         ):
@@ -442,8 +444,12 @@ def reconcile_agent_profile(
         return False
 
     config = initialize_agent()
-    if config.profile not in available:
-        default_agent = get_project_default_agent(project_name)
+    default_agent = get_project_default_agent(project_name)
+    if config.profile not in available or (
+        default_agent
+        and default_agent in available
+        and config.profile != default_agent
+    ):
         fallback = (
             default_agent
             if default_agent in available

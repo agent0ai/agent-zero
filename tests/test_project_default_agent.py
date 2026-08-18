@@ -155,3 +155,43 @@ def test_disabled_global_default_falls_back_to_project_default(monkeypatch, tmp_
         assert context.agent0.config.profile == CAPTAIN
     finally:
         AgentContext.remove(context.id)
+
+
+def test_manually_set_flag_blocks_default_agent_switch(monkeypatch, tmp_path: Path) -> None:
+    """Explicit per-chat selection (agent_profile_set) sets a manual flag;
+    reconcile must never override it with the project default."""
+    _prepare_project_tree(monkeypatch, tmp_path)
+    _write_default_agent_file(tmp_path, {"agent": CAPTAIN})
+    _stub_reconcile_deps(
+        monkeypatch, {GLOBAL_DEFAULT: GLOBAL_DEFAULT, CAPTAIN: CAPTAIN}
+    )
+    context = _make_context("ctx-default-agent-manual-flag", GLOBAL_DEFAULT)
+    context.set_data("agent_profile_manually_set", True)
+
+    try:
+        assert projects.reconcile_agent_profile(context, "demo") is False
+        assert context.config.profile == GLOBAL_DEFAULT
+        assert context.agent0.config.profile == GLOBAL_DEFAULT
+    finally:
+        AgentContext.remove(context.id)
+
+
+def test_unavailable_profile_with_available_global_default_switches_to_project_default(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Context runs an unavailable profile X while the global default IS
+    available; a configured+available project default must still win in the
+    fallback branch."""
+    _prepare_project_tree(monkeypatch, tmp_path)
+    _write_default_agent_file(tmp_path, {"agent": CAPTAIN})
+    _stub_reconcile_deps(
+        monkeypatch, {GLOBAL_DEFAULT: GLOBAL_DEFAULT, CAPTAIN: CAPTAIN}
+    )
+    context = _make_context("ctx-default-agent-unavailable-x", "profile-x")
+
+    try:
+        assert projects.reconcile_agent_profile(context, "demo") is True
+        assert context.config.profile == CAPTAIN
+        assert context.agent0.config.profile == CAPTAIN
+    finally:
+        AgentContext.remove(context.id)

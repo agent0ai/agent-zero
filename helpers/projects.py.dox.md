@@ -96,12 +96,14 @@
   agent from `.a0proj/default_agent.json` (read via
   `get_project_default_agent(...)`): when the context still runs the global
   default profile and the configured default agent is available in the current
-  scope, the context switches to that agent. Contexts running any other
-  profile (manual per-chat selections) are never overridden, and projects
+  scope, the context switches to that agent. The switch is skipped entirely
+  when the context carries a truthy `agent_profile_manually_set` data flag
+  (set by `api/agent_profile_set.py` on explicit per-chat selection), so
+  manual selections are never overridden by reconcile sweeps. Projects
   without the file behave exactly as before. The fallback branch (active
-  profile missing from the available catalog) also prefers the project
-  default agent over `agent0`/first-in-dict when the default is available;
-  fallback ordering is: project default, then `agent0`, then first available.
+  profile missing from the available catalog) prefers the project default
+  agent even over an available global default; fallback ordering is: project
+  default, then `agent0`, then first available.
 - Project updates and deletion refresh only chats assigned to that project and
   persist each affected chat once; unrelated chats are never rewritten.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, plugin state, settings/state persistence, secret handling.
