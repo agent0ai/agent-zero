@@ -4,6 +4,7 @@ from pathlib import Path
 import initialize
 from agent import AgentConfig, AgentContext
 from helpers import projects, settings, subagents
+from helpers import state_monitor_integration
 
 from tests.test_projects import _prepare_project_tree
 
@@ -234,5 +235,51 @@ def test_agent_command_sets_manual_flag_and_blocks_default_switch(
 
         assert projects.reconcile_agent_profile(context, "demo") is False
         assert context.config.profile == GLOBAL_DEFAULT
+    finally:
+        AgentContext.remove(context.id)
+
+
+def test_connector_create_context_sets_flag_before_activate_project(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The A0 connector's create_context is an explicit-selection path: with
+    agent_profile provided, the manual flag must be set BEFORE activate_project
+    triggers reconciliation."""
+    from plugins._a0_connector.helpers import chat_context
+    from plugins._model_config.helpers import model_config as mc_model_config
+
+    _prepare_project_tree(monkeypatch, tmp_path)
+    _stub_reconcile_deps(
+        monkeypatch, {GLOBAL_DEFAULT: GLOBAL_DEFAULT, CAPTAIN: CAPTAIN}
+    )
+    monkeypatch.setattr(
+        initialize, "initialize_agent", lambda override_settings=None: AgentConfig(
+            mcp_servers="",
+            profile=(override_settings or {}).get("agent_profile", GLOBAL_DEFAULT),
+        )
+    )
+    monkeypatch.setattr(settings, "get_settings", lambda: {})
+    monkeypatch.setattr(
+        state_monitor_integration, "mark_dirty_all", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(mc_model_config, "is_chat_override_allowed", lambda _agent: False)
+
+    flag_at_activate: list[bool] = []
+
+    def _record_activate(context_id, name, **_kwargs):
+        from agent import AgentContext as AC
+
+        ctx = AC.get(context_id)
+        flag_at_activate.append(bool(ctx and ctx.get_data("agent_profile_manually_set")))
+
+    monkeypatch.setattr(projects, "activate_project", _record_activate)
+
+    try:
+        context = chat_context.create_context(
+            agent_profile=CAPTAIN, project_name="demo"
+        )
+        assert context.config.profile == CAPTAIN
+        assert context.get_data("agent_profile_manually_set") is True
+        assert flag_at_activate == [True]
     finally:
         AgentContext.remove(context.id)
