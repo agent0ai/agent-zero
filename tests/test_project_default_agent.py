@@ -195,3 +195,44 @@ def test_unavailable_profile_with_available_global_default_switches_to_project_d
         assert context.agent0.config.profile == CAPTAIN
     finally:
         AgentContext.remove(context.id)
+
+
+def test_agent_command_sets_manual_flag_and_blocks_default_switch(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The /agent integration command is an explicit selection path: it must
+    set agent_profile_manually_set so a later reconcile sweep cannot override
+    the selection with the project default agent."""
+    from helpers import integration_commands
+
+    _prepare_project_tree(monkeypatch, tmp_path)
+    _write_default_agent_file(tmp_path, {"agent": CAPTAIN})
+    _stub_reconcile_deps(
+        monkeypatch, {GLOBAL_DEFAULT: GLOBAL_DEFAULT, CAPTAIN: CAPTAIN}
+    )
+    monkeypatch.setattr(
+        subagents,
+        "get_all_agents_list",
+        lambda: [{"key": GLOBAL_DEFAULT, "label": "Global"}],
+    )
+    monkeypatch.setattr(
+        integration_commands, "save_tmp_chat", lambda _context: None
+    )
+    monkeypatch.setattr(
+        integration_commands,
+        "mark_dirty_for_context",
+        lambda _context_id, **_kwargs: None,
+    )
+    context = _make_context("ctx-default-agent-slash-command", CAPTAIN)
+
+    try:
+        result = integration_commands._handle_agent(context, GLOBAL_DEFAULT)
+        assert "Global" in result
+        assert context.config.profile == GLOBAL_DEFAULT
+        assert context.agent0.config.profile == GLOBAL_DEFAULT
+        assert context.get_data("agent_profile_manually_set") is True
+
+        assert projects.reconcile_agent_profile(context, "demo") is False
+        assert context.config.profile == GLOBAL_DEFAULT
+    finally:
+        AgentContext.remove(context.id)
