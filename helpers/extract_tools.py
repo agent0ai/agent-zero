@@ -246,3 +246,35 @@ def fix_json_string(json_string):
         r'(?<=: ")(.*?)(?=")', replace_unescaped_newlines, json_string, flags=re.DOTALL
     )
     return fixed_string
+
+
+def ensure_valid_tool_response(raw_response: str) -> str:
+    """
+    Pre-flight checker: if the agent's own output isn't a valid tool-call
+    envelope, normalize it into one BEFORE the framework sees it.
+
+    Priority ladder:
+    1. Already valid {"tool_name":..., "tool_args":{...}} -> pass through
+    2. Has a parseable json_root with tool_name but missing args  -> wrap in response()
+    3. Completely non-JSON (plain prose) -> wrap entire output as response().text
+    4. Empty/null -> return valid empty response()
+    """
+    import json
+    if not raw_response or not isinstance(raw_response, str):
+        return json.dumps({"tool_name": "response", "tool_args": {"text": ""}})
+
+    stripped = raw_response.strip()
+
+    # Case 1: Already valid tool-call envelope
+    if stripped.startswith('{'):
+        parsed = json_parse_dirty(stripped)
+        if parsed and _is_tool_request(parsed):
+            return stripped  # pass through - safe
+        # Case 2: It's JSON but not a tool call - wrap in response()
+        if parsed and isinstance(parsed, dict):
+            content = json.dumps(parsed, ensure_ascii=False)
+            return json.dumps({"tool_name": "response", "tool_args": {"text": content}})
+
+    # Case 3: Not valid JSON at all - wrap entire output as response() text
+    safe_text = stripped.replace('\\', '\\\\').replace('"', '\\"')[:32000]
+    return json.dumps({"tool_name": "response", "tool_args": {"text": safe_text}})
