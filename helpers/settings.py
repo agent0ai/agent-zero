@@ -619,7 +619,12 @@ def _apply_timezone_setting(previous: Settings | None, browser_timezone: str | N
     ):
         return
 
-    localization.set_timezone(target_timezone)
+    # Auto mode follows the browser; do not persist the resolved value over
+    # the user's saved DEFAULT_USER_TIMEZONE default.
+    localization.set_timezone(
+        target_timezone,
+        persist=_settings["timezone"] != TIMEZONE_AUTO,
+    )
     current_timezone = localization.get_timezone()
     if current_timezone == previous_timezone:
         return

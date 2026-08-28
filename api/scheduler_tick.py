@@ -20,9 +20,11 @@ class SchedulerTick(ApiHandler):
         return False
 
     async def process(self, input: Input, request: Request) -> Output:
-        # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
+        # Get timezone from input (do not set if not provided, we then rely on poll() to set it).
+        # The value is browser-reported, so apply it runtime-only: persisting it
+        # would clobber the user's saved DEFAULT_USER_TIMEZONE default.
         if timezone := input.get("timezone", None):
-            Localization.get().set_timezone(timezone)
+            Localization.get().set_timezone(timezone, persist=False)
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         printer = PrintStyle(font_color="green", padding=False)
