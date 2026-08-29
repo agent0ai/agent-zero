@@ -5,13 +5,22 @@
     </script>
 </head>
 <body>
-    <div id="progress-bar-box" x-data>
+    <div id="progress-bar-box" x-data :class="{ 'is-collapsed': $store.chatInput?.composerCollapsed }">
         <x-extension id="chat-input-progress-start"></x-extension>
 
         <!-- Hidden legacy progress-bar element (keeps JS updater happy, not displayed) -->
         <span id="progress-bar" style="display:none;"></span>
 
         <div id="progress-bar-right">
+          <!-- Collapse / Expand Toggle Button (Sleek Chevron Arrow) -->
+          <button type="button"
+                  class="btn-icon-action composer-collapse-btn"
+                  @click="$store.chatInput?.toggleComposerCollapsed()"
+                  :data-tooltip="$store.chatInput?.composerCollapsed ? 'Show controls' : 'Hide controls'"
+                  :aria-label="$store.chatInput?.composerCollapsed ? 'Show controls' : 'Hide controls'">
+            <x-icon style="font-size: 18px;"
+                    :name="$store.chatInput?.composerCollapsed ? 'keyboard_arrow_down' : 'keyboard_arrow_up'"></x-icon>
+          </button>
           <h4
             id="progress-bar-stop-speech"
             x-data="{
@@ -45,11 +54,74 @@
 
 
     <style>
-    #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-xs) var(--spacing-md) 0 var(--spacing-md); display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; z-index: 1001; gap: var(--spacing-sm); min-height: 0; }
+    #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-xs) var(--spacing-md) 0 var(--spacing-md); display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; z-index: 1001; gap: var(--spacing-sm); min-height: 0; position: relative; transition: all 0.2s ease; }
+    #progress-bar-box.is-collapsed {
+      padding: 0 var(--spacing-md) 0 var(--spacing-md);
+      height: 0;
+      min-height: 0;
+      overflow: visible;
+      background: transparent;
+      z-index: 10010;
+    }
+    #progress-bar-box.is-collapsed > *:not(#progress-bar-right),
+    #progress-bar-box.is-collapsed x-extension,
+    #progress-bar-box.is-collapsed x-extension > * {
+      display: none;
+    }
+    #progress-bar-box.is-collapsed #progress-bar-right {
+      position: absolute;
+      right: var(--spacing-md);
+      top: 0px;
+      transform: translateY(-50%);
+      z-index: 10015;
+    }
+    #progress-bar-box.is-collapsed .composer-collapse-btn {
+      background-color: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 50%;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10020;
+    }
     #progress-bar-box > x-extension { display: contents; }
     #progress-bar-box h4 { margin: 0; }
-    #progress-bar-right { display: flex; align-items: center; gap: var(--spacing-sm); flex-shrink: 0; margin-left: auto;}
+    #progress-bar-right { display: flex; align-items: center; gap: var(--spacing-sm); flex-shrink: 0; margin-left: auto; position: relative; }
     #progress-bar-right > x-extension { display: contents; }
+    .composer-collapse-btn { position: relative; }
+    .composer-collapse-btn::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 6px);
+      top: auto;
+      white-space: nowrap;
+      background: var(--color-panel, #1e293b);
+      color: var(--color-text, #ffffff);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--color-border, rgba(255,255,255,0.15));
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      transform: translateY(4px);
+      z-index: 100000;
+    }
+    .composer-collapse-btn:hover::after {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    #progress-bar-box.is-collapsed .composer-collapse-btn::after {
+      bottom: calc(100% + 8px);
+    }
     .shiny-text { background: linear-gradient(to right, var(--color-primary-dark) 20%, var(--color-text) 40%, var(--color-text) 60%, var(--color-primary-dark) 60%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; animation: shine 1s linear infinite; }
     @keyframes shine { to { background-position: -200% center; } }
     </style>

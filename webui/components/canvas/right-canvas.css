@@ -324,8 +324,8 @@ body.right-canvas-mobile-mode .right-canvas {
   right: 0;
   bottom: 0;
   z-index: 3400;
-  display: flex !important;
-  width: 0 !important;
+  display: flex;
+  width: 0;
   min-width: 0;
   height: 100%;
   overflow: visible;
@@ -342,7 +342,7 @@ body.right-canvas-mobile-mode .right-canvas.is-open {
 
 body.right-canvas-mobile-mode .right-canvas-rail {
   position: fixed;
-  top: 50%;
+  top: 33%;
   right: max(0px, env(safe-area-inset-right));
   display: flex;
   transform: translateY(-50%);
@@ -351,13 +351,14 @@ body.right-canvas-mobile-mode .right-canvas-rail {
 
 body.right-canvas-mobile-mode .right-canvas-shell,
 body.right-canvas-mobile-mode .right-canvas-resize-handle {
-  display: none !important;
+  display: none;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   body.right-canvas-mobile-mode .right-canvas-rail {
     gap: 5px;
     padding: 8px 6px;
+    top: 33%;
     transform: translateY(-50%) scale(0.92);
     transform-origin: right center;
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.22);
@@ -375,9 +376,7 @@ body.right-canvas-mobile-mode .right-canvas-resize-handle {
   body.right-canvas-mobile-mode .right-canvas-icon-button .material-symbols-outlined {
     font-size: 18px;
   }
-}
 
-@media (max-width: 480px) {
   .right-canvas-tab-label {
     display: none;
   }

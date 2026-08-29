@@ -6,7 +6,7 @@
 </head>
 <body>
   <template x-if="$store.chatInput">
-    <div class="text-buttons-row chat-bottom-actions-bar">
+    <div class="text-buttons-row chat-bottom-actions-bar" x-show="!$store.chatInput?.composerCollapsed">
       <x-extension id="chat-input-bottom-actions-start"></x-extension>
       <button type="button" class="text-button" @click="$store.chatInput.pauseAgent(!$store.chatInput.paused)">
         <template x-if="!$store.chatInput.paused">

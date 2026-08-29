@@ -60,6 +60,7 @@ const model = {
   _draftCtxid: null,
   /** Composer + menu (bottom actions moved into dropdown) */
   chatMoreMenuOpen: false,
+  composerCollapsed: false,
   progressText: "",
   progressActive: false,
 
@@ -79,6 +80,10 @@ const model = {
 
   closeChatMoreMenu() {
     this.chatMoreMenuOpen = false;
+  },
+
+  toggleComposerCollapsed() {
+    this.composerCollapsed = !this.composerCollapsed;
   },
 
   _getSendState() {

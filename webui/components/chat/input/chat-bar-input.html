@@ -361,7 +361,7 @@
     #send-button {
       order: 2;
       border-radius: 12px;
-      background-color: #4248f1;
+      background-color: var(--color-highlight, #4248f1);
       box-shadow: none;
     }
 
@@ -376,7 +376,7 @@
     }
 
     #send-button:hover {
-      background-color: #353bc5;
+      background-color: color-mix(in srgb, var(--color-highlight, #4248f1) 85%, black 15%);
       filter: none;
       box-shadow: none;
     }
@@ -392,7 +392,7 @@
     }
 
     #send-button:active {
-      background-color: #2b309c;
+      background-color: color-mix(in srgb, var(--color-highlight, #4248f1) 72%, black 28%);
       transform: translateY(1px) scale(0.98);
       filter: brightness(0.96);
     }
@@ -438,9 +438,14 @@
       }
 
       .chat-button {
-        width: 2.75rem;
-        height: 2.75rem;
-        min-width: 2.75rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+      }
+
+      .chat-button svg {
+        width: 1.3rem;
+        height: 1.3rem;
       }
     }
 
