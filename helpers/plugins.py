@@ -66,6 +66,7 @@ HOOKS_CACHE_AREA = "plugin_hooks(plugins)"
 PLUGINS_LIST_CACHE_AREA = "plugins_list(plugins)"
 ENABLED_PLUGINS_LIST_CACHE_AREA = "enabled_plugins(plugins)"
 ENABLED_PLUGINS_PATHS_CACHE_AREA = "enabled_plugins_paths(plugins)"
+CUSTOM_PLUGIN_UPDATE_STATE_FILE = "usr/plugin-update-check-state.json"
 
 
 _last_frontend_reload_notification_at = 0.0
@@ -103,6 +104,8 @@ class PluginListItem(BaseModel):
     toggle_state: ToggleState = "disabled"
     current_commit: str = ""
     current_commit_timestamp: str = ""
+    update_available: bool = False
+    update_commits: int = 0
     thumbnail_url: str = ""
 
 
@@ -268,6 +271,7 @@ def get_enhanced_plugins_list(
     """Discover plugins by directory convention. First root wins on ID conflict."""
     results = []
     allowed_names = set(plugin_names) if plugin_names else None
+    _checked_at, custom_plugin_updates = get_custom_plugin_update_state() if custom else ("", {})
 
     def load_plugins(root_path: str, is_custom: bool):
         for d in sorted(Path(root_path).iterdir(), key=lambda p: p.name):
@@ -305,6 +309,7 @@ def get_enhanced_plugins_list(
                         if repo_info.head:
                             current_commit = repo_info.head.hash
                             current_commit_timestamp = repo_info.head.committed_at
+                update = custom_plugin_updates.get(d.name)
                 results.append(
                     PluginListItem(
                         name=d.name,
@@ -327,6 +332,8 @@ def get_enhanced_plugins_list(
                         toggle_state=toggle_state,
                         current_commit=current_commit,
                         current_commit_timestamp=current_commit_timestamp,
+                        update_available=bool(update and update.commits_since_local),
+                        update_commits=update.commits_since_local if update else 0,
                         thumbnail_url=thumbnail_url,
                     )
                 )
@@ -367,6 +374,50 @@ def get_custom_plugins_updates(
         )
 
     return results
+
+
+def get_custom_plugin_update_state() -> tuple[str, dict[str, PluginUpdateInfo]]:
+    try:
+        state = json.loads(files.read_file(CUSTOM_PLUGIN_UPDATE_STATE_FILE))
+        updates = state.get("updates", [])
+        if not isinstance(updates, list):
+            return "", {}
+
+        result: dict[str, PluginUpdateInfo] = {}
+        for update in updates:
+            try:
+                item = PluginUpdateInfo.model_validate(update)
+            except Exception:
+                continue
+            result[item.name] = item
+        return str(state.get("checked_at", "")), result
+    except Exception:
+        return "", {}
+
+
+def save_custom_plugin_updates(
+    updates: list[PluginUpdateInfo], checked_at: str
+) -> None:
+    files.write_file(
+        CUSTOM_PLUGIN_UPDATE_STATE_FILE,
+        json.dumps(
+            {
+                "checked_at": checked_at,
+                "updates": [update.model_dump(mode="json") for update in updates],
+            },
+            indent=2,
+        ),
+    )
+
+
+def clear_custom_plugin_update(plugin_name: str) -> None:
+    checked_at, updates = get_custom_plugin_update_state()
+    if plugin_name in updates:
+        del updates[plugin_name]
+        try:
+            save_custom_plugin_updates(list(updates.values()), checked_at)
+        except Exception:
+            pass
 
 
 def get_plugin_meta(plugin_name: str):

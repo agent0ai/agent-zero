@@ -816,13 +816,12 @@ const model = {
     return this.selectedPlugin?.["updated"] || "";
   },
 
-  async handleUpdatePlugin() {
-    const selectedPlugin = this["selectedPlugin"];
-    const pluginRecord = selectedPlugin && typeof selectedPlugin === "object" ? selectedPlugin : {};
-    const pluginKey = pluginRecord["key"] || pluginRecord["name"] || this.installedPluginInfo?.name || "";
+  async updatePlugin(plugin) {
+    const pluginRecord = plugin && typeof plugin === "object" ? plugin : {};
+    const pluginKey = pluginRecord["key"] || pluginRecord["name"] || "";
     if (!pluginKey) {
       void toastFrontendError("Plugin name is missing", "Plugin Installer");
-      return;
+      return null;
     }
 
     const confirmed = await showConfirmDialog({
@@ -835,9 +834,7 @@ const model = {
         gitUrl: pluginRecord["github"] || "",
       },
     });
-    if (!confirmed) return;
-
-    this.detailError = null;
+    if (!confirmed) return null;
 
     try {
       this.loading = true;
@@ -850,38 +847,53 @@ const model = {
 
       if (!(data?.ok && data?.success)) {
         const message = data?.error || "Update failed";
-        this.detailError = {
-          kind: data?.error_kind || "update_failed",
-          message,
-          conflicting_files: Array.isArray(data?.conflicting_files) ? data.conflicting_files : [],
-        };
         void toastFrontendError(message, "Plugin Installer");
-        return;
+        return data;
       }
-
-      await this.fetchIndex();
-
-      const installedPluginsSource = this["installedPlugins"];
-      const installedPlugins = Array.isArray(installedPluginsSource) ? Array.from(installedPluginsSource) : [];
-      if (!installedPlugins.some((installedKey) => installedKey === pluginKey)) {
-        installedPlugins.push(String(pluginKey));
-        Reflect.set(this, "installedPlugins", installedPlugins);
-      }
-
-      await this._refreshSelectedPluginState(pluginKey);
-      this.refreshPluginList();
 
       toastFrontendSuccess(
         `Plugin "${data.title || data.plugin_name}" updated`,
         "Plugin Installer"
       );
+      return data;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       void toastFrontendError(`Update error: ${message}`, "Plugin Installer");
+      return null;
     } finally {
       this.loading = false;
       this.loadingMessage = "";
     }
+  },
+
+  async handleUpdatePlugin() {
+    const selectedPlugin = this["selectedPlugin"];
+    const pluginRecord = selectedPlugin && typeof selectedPlugin === "object" ? selectedPlugin : {};
+    const pluginKey = pluginRecord["key"] || pluginRecord["name"] || this.installedPluginInfo?.name || "";
+    this.detailError = null;
+    const data = await this.updatePlugin({ ...pluginRecord, name: pluginKey });
+    if (!data) return;
+
+    if (!(data?.ok && data?.success)) {
+      this.detailError = {
+        kind: data?.error_kind || "update_failed",
+        message: data?.error || "Update failed",
+        conflicting_files: Array.isArray(data?.conflicting_files) ? data.conflicting_files : [],
+      };
+      return;
+    }
+
+    await this.fetchIndex();
+
+    const installedPluginsSource = this["installedPlugins"];
+    const installedPlugins = Array.isArray(installedPluginsSource) ? Array.from(installedPluginsSource) : [];
+    if (!installedPlugins.some((installedKey) => installedKey === pluginKey)) {
+      installedPlugins.push(String(pluginKey));
+      Reflect.set(this, "installedPlugins", installedPlugins);
+    }
+
+    await this._refreshSelectedPluginState(pluginKey);
+    this.refreshPluginList();
   },
 
   getThumbnailUrl(plugin) {

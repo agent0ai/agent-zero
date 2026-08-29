@@ -25,7 +25,8 @@ const model = {
 
   async open(tab = "custom") {
     await this.setTab(tab);
-    window.openModal?.(MODAL_PATH);
+    const openModal = window.ensureModalOpen || window.openModal;
+    await openModal?.(MODAL_PATH);
   },
 
   async init() {
@@ -218,6 +219,21 @@ const model = {
       "/plugins/_plugin_installer/webui/pluginInstallStore.js"
     );
     await pluginInstallStore.openPluginHubDetailByKey(pluginKey);
+  },
+
+  async updatePlugin(plugin) {
+    if (!plugin?.name || !plugin.update_available) return;
+
+    this.loading = true;
+    try {
+      const { store: pluginInstallStore } = await import(
+        "/plugins/_plugin_installer/webui/pluginInstallStore.js"
+      );
+      const data = await pluginInstallStore.updatePlugin(plugin);
+      if (data?.ok && data?.success) await this.refresh();
+    } finally {
+      this.loading = false;
+    }
   },
 
   async deletePlugin(plugin) {

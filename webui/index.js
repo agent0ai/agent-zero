@@ -15,6 +15,7 @@ import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
 import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js"
 import { store as welcomeStore } from "/components/welcome/welcome-store.js";
+import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
 import { store as modelGateStore } from "/components/chat/model-gate-store.js";
 import { getUserHour12, getUserTimezone } from "/js/time-utils.js";
 import { createThreeBubbleLoader } from "/js/loading-indicators.js";

@@ -273,6 +273,7 @@ def update_from_git(plugin_name: str) -> dict:
         raise
 
     after_plugin_change([plugin_name])
+    plugins.clear_custom_plugin_update(plugin_name)
     head = repo.head.commit
 
     return {
