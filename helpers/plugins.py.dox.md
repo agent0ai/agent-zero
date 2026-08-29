@@ -25,6 +25,7 @@
 - `get_plugins_list()`
 - `get_enhanced_plugins_list(custom: bool=..., builtin: bool=..., plugin_names: list[str] | None=...) -> List[PluginListItem]`: Discover plugins by directory convention. First root wins on ID conflict.
 - `get_custom_plugins_updates(plugin_names: list[str] | None=...) -> List[PluginUpdateInfo]`
+- `get_custom_plugin_update_state() -> tuple[str, dict[str, PluginUpdateInfo]]`, `save_custom_plugin_updates(...)`, and `clear_custom_plugin_update(...)`: persist the daily remote-commit status used by the Custom plugin list; clearing advisory status is best-effort after a successful update.
 - `get_plugin_meta(plugin_name: str)`
 - `find_plugin_dir(plugin_name: str)`
 - `uninstall_plugin(plugin_name)`
@@ -55,6 +56,8 @@
   `agent`, or `api`; this is behavioral context, not an authorization boundary.
 - Project- and agent-scoped plugin changes invalidate runtime caches without a
   frontend reload prompt because the loaded WebUI extension bundle is global.
+- Custom plugin list items expose the last daily remote-commit result as
+  `update_available` and `update_commits`; list rendering never fetches remotes.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, WebSocket state, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `__future__`, `asyncio`, `glob`, `helpers`, `helpers.defer`, `helpers.watchdog`, `json`, `pathlib`, `pydantic`, `re`, `regex`, `time`, `typing`.

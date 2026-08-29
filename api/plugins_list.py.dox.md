@@ -18,7 +18,8 @@
 
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
-- `PluginsList` is an `ApiHandler`.
+- `PluginsList` is an `ApiHandler`; custom plugin records include persisted daily
+  update availability and commit count without fetching remotes on list requests.
 - `PluginsList` defines `process(...)`.
 - Observed side-effect areas: plugin state, settings/state persistence.
 - Imported dependency areas include: `helpers`, `helpers.api`.

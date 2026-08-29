@@ -6,7 +6,7 @@
 
 ## Ownership
 
-- Ordered Python files own update-check messaging and future user-message UI hooks.
+- Ordered Python files own Agent Zero and daily custom-plugin update messaging, plus future user-message UI hooks.
 
 ## Local Contracts
 
@@ -17,6 +17,8 @@
 ## Work Guidance
 
 - Gate recurring messages so they do not repeat unnecessarily across chats or tabs.
+- Run remote plugin checks outside the user-message request path, preserve the
+  last good status on remote errors, and retry only failed plugins.
 
 ## Verification
 

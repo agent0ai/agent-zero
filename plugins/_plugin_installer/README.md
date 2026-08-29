@@ -13,7 +13,7 @@ This plugin provides the built-in installation workflow for third-party plugins.
 - **Git install**
   - Clones a repository to a temporary directory, validates the plugin, then installs it into `usr/plugins/`.
 - **Plugin update**
-  - Updates already installed Git-backed custom plugins and re-runs installation hooks.
+  - Checks Git-backed custom plugins daily during the normal update check, shows available updates in the Custom list, and re-runs installation hooks after an update.
 - **Safety checks**
   - Rejects archives with unsafe paths.
   - Rejects missing or invalid `plugin.yaml` files.
