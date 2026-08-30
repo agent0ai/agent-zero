@@ -667,12 +667,17 @@ def get_top_stash_ref(repo_dir: Path) -> str:
     return git_optional_output(repo_dir, "stash", "list", "--format=%gd", "-n", "1")
 
 
+def get_top_stash_commit(repo_dir: Path) -> str:
+    """Return the commit hash for the current top stash."""
+    return git_optional_output(repo_dir, "stash", "list", "--format=%H", "-n", "1")
+
+
 def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
     if not has_local_rollback_changes(repo_dir):
         logger.log("No tracked or non-ignored untracked changes need rollback protection.")
         return None
 
-    previous_top = get_top_stash_ref(repo_dir)
+    previous_top = get_top_stash_commit(repo_dir)
     message = f"a0-self-update rollback snapshot {now_iso()}"
     run_command(
         [
@@ -690,7 +695,8 @@ def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
         error_message="Failed to save local tracked/untracked changes before updating.",
     )
     stash_ref = get_top_stash_ref(repo_dir)
-    if not stash_ref or stash_ref == previous_top:
+    current_top = get_top_stash_commit(repo_dir)
+    if not stash_ref or not current_top or current_top == previous_top:
         raise RuntimeError("Failed to create the pre-update rollback stash.")
     logger.log(
         f"Saved local tracked/untracked changes into {stash_ref}. "
