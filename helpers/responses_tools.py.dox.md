@@ -27,6 +27,8 @@
 - Apply `helpers.tool_policy` before emitting local or MCP schemas; a blocked
   capability is absent from provider-native tool definitions. Vision routing
   is controlled by the effective model preset rather than Agent Editor.
+- Resolve a fresh policy once per schema build and reuse it only within that
+  build; runtime execution remains independently policy-gated.
 - Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 
 ## Work Guidance

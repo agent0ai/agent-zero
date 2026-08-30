@@ -163,6 +163,7 @@ def resolve_tool(
     tool_name: str,
     *,
     canonical_id: str = "",
+    _policy: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
     tool_id = canonical_id or _canonical_tool_id(agent, tool_name)
     requested = str(tool_name or "").strip()
@@ -171,7 +172,7 @@ def resolve_tool(
         source = "framework-required" if name == "response" else "runtime-config"
         return ToolPolicyDecision(True, tool_id, source, "invariant")
 
-    policy = get_policy(agent)
+    policy = _policy if _policy is not None else get_policy(agent)
     if policy["mode"] != "custom":
         return ToolPolicyDecision(True, tool_id, "inherited", "inherit")
 
@@ -209,19 +210,44 @@ def ensure_tool_allowed(
 
 
 def filter_tool_prompt(agent: Any, prompt_file: str, prompt: str) -> str:
-    if get_policy(agent)["mode"] != "custom":
-        return prompt
+    return filter_tool_prompts(agent, [(prompt_file, prompt)])[0]
 
-    known_names = _policy_tool_names(agent)
+
+def filter_tool_prompts(
+    agent: Any, prompts: list[tuple[str, str]]
+) -> list[str]:
+    policy = get_policy(agent)
+    if policy["mode"] != "custom":
+        return [prompt for _prompt_file, prompt in prompts]
+
+    known_names = _policy_tool_names(agent, policy)
+    prompt_names = {
+        name
+        for prompt_file, prompt in prompts
+        for name in _prompt_tool_names(prompt_file, prompt, known_names)
+    }
+    allowed_names = {
+        name
+        for name in known_names | prompt_names
+        if resolve_tool(agent, name, _policy=policy).allowed
+    }
+    return [
+        _filter_tool_prompt(prompt_file, prompt, known_names, allowed_names)
+        for prompt_file, prompt in prompts
+    ]
+
+
+def _filter_tool_prompt(
+    prompt_file: str,
+    prompt: str,
+    known_names: set[str],
+    allowed_names: set[str],
+) -> str:
     names = _prompt_tool_names(prompt_file, prompt, known_names)
-    if names and not any(resolve_tool(agent, name).allowed for name in names):
+    if names and not any(name in allowed_names for name in names):
         return ""
 
-    blocked_names = {
-        name
-        for name in known_names
-        if not resolve_tool(agent, name).allowed
-    }
+    blocked_names = known_names - allowed_names
     if not blocked_names:
         return prompt
     patterns = [
@@ -261,9 +287,8 @@ def _local_tool_paths(agent: Any) -> dict[str, str]:
     return result
 
 
-def _policy_tool_names(agent: Any) -> set[str]:
+def _policy_tool_names(agent: Any, policy: dict[str, Any]) -> set[str]:
     names = set(_local_tool_paths(agent))
-    policy = get_policy(agent)
     names.update(
         _tool_name_from_id(tool_id)
         for tool_id in [*policy["allowed"], *policy["blocked"]]

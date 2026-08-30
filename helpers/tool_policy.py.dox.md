@@ -24,6 +24,8 @@
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
   including complete fenced JSON examples that reference them, without taking
   ownership of provider-native naming rules.
+- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool
+  decisions to a complete prompt batch; it does not retain policy across calls.
 
 ## Runtime Contracts
 
@@ -55,6 +57,8 @@
   canonical IDs retain the exact transport-qualified spelling.
 - Unknown policy IDs remain in the catalog as unavailable entries.
 - Resolution performs no model calls and logs no secrets.
+- Prompt and native-schema batches reuse their freshly loaded policy while
+  runtime execution gates continue to resolve current policy independently.
 
 ## Verification
 

@@ -33,9 +33,10 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
 
     tools: list[dict[str, Any]] = []
     name_map: dict[str, str] = {}
+    policy = tool_policy.get_policy(agent)
 
     for tool_name, prompt in _local_tool_prompts(agent):
-        if not tool_policy.resolve_tool(agent, tool_name).allowed:
+        if not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
             continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
@@ -59,6 +60,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             agent,
             tool_name,
             canonical_id=tool_policy.canonical_mcp_id(tool_name),
+            _policy=policy,
         ).allowed:
             continue
         native_name = _native_tool_name(tool_name)

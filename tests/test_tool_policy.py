@@ -116,6 +116,29 @@ async def test_text_tool_prompt_omits_blocked_tool_and_description(
     assert "Blocked description" not in prompt
 
 
+@pytest.mark.asyncio
+async def test_policy_is_loaded_once_per_tool_surface(
+    monkeypatch, local_prompt_agent: _Agent
+) -> None:
+    reads = 0
+
+    def get_policy(_agent):
+        nonlocal reads
+        reads += 1
+        return _custom_policy(default="allow", blocked=["local:blocked"])
+
+    monkeypatch.setattr(tool_policy, "get_policy", get_policy)
+
+    await _11_tools_prompt.build_prompt(local_prompt_agent)
+    assert reads == 1
+
+    await _11_tools_prompt.build_prompt(local_prompt_agent)
+    assert reads == 2
+
+    responses_tools.build_responses_function_tools(local_prompt_agent)
+    assert reads == 3
+
+
 def test_provider_native_schemas_omit_blocked_local_tool(
     monkeypatch, local_prompt_agent: _Agent
 ) -> None:
@@ -130,6 +153,65 @@ def test_provider_native_schemas_omit_blocked_local_tool(
     )
 
     assert [tool["name"] for tool in tools] == ["allowed"]
+
+
+@pytest.mark.asyncio
+async def test_profile_policy_isolated_across_prompt_schema_and_execution(
+    monkeypatch, local_prompt_agent: _Agent
+) -> None:
+    restricted = _Agent(local_prompt_agent.prompt_root, profile="restricted")
+
+    monkeypatch.setattr(
+        tool_policy,
+        "get_policy",
+        lambda agent: _custom_policy(
+            default="allow",
+            blocked=(
+                ["local:allowed"]
+                if agent.config.profile == "restricted"
+                else []
+            ),
+        ),
+    )
+
+    allowed_prompt = await _11_tools_prompt.build_prompt(local_prompt_agent)
+    restricted_prompt = await _11_tools_prompt.build_prompt(restricted)
+    allowed_tools, _ = responses_tools.build_responses_function_tools(
+        local_prompt_agent
+    )
+    restricted_tools, _ = responses_tools.build_responses_function_tools(restricted)
+
+    assert "Allowed description" in allowed_prompt
+    assert "Allowed description" not in restricted_prompt
+    assert "allowed" in {tool["name"] for tool in allowed_tools}
+    assert "allowed" not in {tool["name"] for tool in restricted_tools}
+    await EnforceToolPolicy(local_prompt_agent).execute(tool_name="allowed")
+    with pytest.raises(
+        RepairableException,
+        match='Tool "allowed" is blocked for agent profile "restricted"',
+    ):
+        await EnforceToolPolicy(restricted).execute(tool_name="allowed")
+
+
+@pytest.mark.asyncio
+async def test_execution_rechecks_policy_after_tool_was_advertised(
+    monkeypatch, local_prompt_agent: _Agent
+) -> None:
+    disabled = False
+
+    def get_policy(_agent):
+        return _custom_policy(default="block" if disabled else "allow")
+
+    monkeypatch.setattr(tool_policy, "get_policy", get_policy)
+
+    prompt = await _11_tools_prompt.build_prompt(local_prompt_agent)
+    tools, _ = responses_tools.build_responses_function_tools(local_prompt_agent)
+    assert "Allowed description" in prompt
+    assert "allowed" in {tool["name"] for tool in tools}
+
+    disabled = True
+    with pytest.raises(RepairableException, match='Tool "allowed" is blocked'):
+        await EnforceToolPolicy(local_prompt_agent).execute(tool_name="allowed")
 
 
 def test_inherited_prompt_filter_skips_tool_inventory(monkeypatch, tmp_path: Path):
@@ -377,7 +459,7 @@ def test_prompt_filter_removes_complete_blocked_json_example(
     monkeypatch.setattr(
         tool_policy,
         "_policy_tool_names",
-        lambda agent: {"memory_load", "memory_save"},
+        lambda agent, policy: {"memory_load", "memory_save"},
     )
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args, **kwargs: [])
     monkeypatch.setattr(
@@ -644,12 +726,18 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
     config = mcp_handler.MCPConfig(servers_list=[])
     config.servers = [Server()]
-    agent = _Agent(tmp_path)
+    allowed_agent = _Agent(tmp_path, profile="agent0")
+    restricted_agent = _Agent(tmp_path, profile="researcher")
     monkeypatch.setattr(
         tool_policy,
         "get_policy",
         lambda agent: _custom_policy(
-            default="allow", blocked=["mcp:docs:write"]
+            default="allow",
+            blocked=(
+                ["mcp:docs:write"]
+                if agent.config.profile == "researcher"
+                else []
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -663,13 +751,18 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda *args: [])
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda agent: "")
 
-    prompt = config.get_tools_prompt(agent=agent)
-    schemas, name_map = responses_tools.build_responses_function_tools(agent)
+    allowed_prompt = config.get_tools_prompt(agent=allowed_agent)
+    restricted_prompt = config.get_tools_prompt(agent=restricted_agent)
+    allowed_schemas, _ = responses_tools.build_responses_function_tools(allowed_agent)
+    restricted_schemas, name_map = responses_tools.build_responses_function_tools(
+        restricted_agent
+    )
 
-    assert "docs.read" in prompt
-    assert "docs.write" not in prompt
-    assert len(schemas) == 1
-    assert name_map[schemas[0]["name"]] == "docs.read"
+    assert "docs.write" in allowed_prompt
+    assert "docs.write" not in restricted_prompt
+    assert len(allowed_schemas) == 2
+    assert len(restricted_schemas) == 1
+    assert name_map[restricted_schemas[0]["name"]] == "docs.read"
 
 
 @pytest.mark.asyncio
