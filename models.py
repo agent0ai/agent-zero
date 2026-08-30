@@ -400,9 +400,13 @@ class LiteLLMChatWrapper(SimpleChatModel):
             "system": "system",
             "tool": "tool",
         }
+        vision_enabled = self.a0_model_conf.vision if self.a0_model_conf else True
         for m in messages:
             role = role_mapping.get(m.type, m.type)
-            message_dict = {"role": role, "content": images.prepare_content(m.content)}
+            content = images.prepare_content(m.content)
+            if not vision_enabled:
+                content = images.strip_images(content)
+            message_dict = {"role": role, "content": content}
 
             # Handle tool calls for AI messages
             tool_calls = getattr(m, "tool_calls", None)

@@ -67,6 +67,51 @@ def _install_tool_stub(monkeypatch):
     monkeypatch.delitem(sys.modules, "tools.vision_load", raising=False)
 
 
+def test_strip_images_passthrough_string():
+    assert images.strip_images("hello") == "hello"
+    assert images.strip_images("") == ""
+
+
+def test_strip_images_image_only_returns_empty_string():
+    content = [{"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}}]
+    assert images.strip_images(content) == ""
+
+
+def test_strip_images_multi_image_only_returns_empty_string():
+    content = [
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,xyz"}},
+    ]
+    assert images.strip_images(content) == ""
+
+
+def test_strip_images_text_and_image_collapses_to_string():
+    content = [
+        {"type": "text", "text": "describe this"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+    ]
+    assert images.strip_images(content) == "describe this"
+
+
+def test_strip_images_multiple_text_blocks_preserved():
+    content = [
+        {"type": "text", "text": "first"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+        {"type": "text", "text": "second"},
+    ]
+    result = images.strip_images(content)
+    assert result == [{"type": "text", "text": "first"}, {"type": "text", "text": "second"}]
+
+
+def test_strip_images_no_images_unchanged():
+    content = [{"type": "text", "text": "plain text"}]
+    assert images.strip_images(content) == "plain text"
+
+
+def test_strip_images_plain_string_content_unchanged():
+    assert images.strip_images("no images here") == "no images here"
+
+
 def test_prepare_content_keeps_missing_local_image_refs_strict():
     missing_path = "/tmp/a0-missing-desktop-screenshot.png"
 

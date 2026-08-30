@@ -29,6 +29,19 @@ def prepare_content(content: Any) -> Any:
     return {key: prepare_content(value) for key, value in content.items()}
 
 
+def strip_images(content: Any) -> Any:
+    """Remove all image_url blocks from message content when vision is disabled."""
+    if isinstance(content, list):
+        filtered = [strip_images(item) for item in content if not (isinstance(item, dict) and item.get("type") == "image_url")]
+        if not filtered:
+            return ""  # image-only message; return empty string rather than []
+        # Collapse single-text-block list back to a plain string
+        if len(filtered) == 1 and isinstance(filtered[0], dict) and filtered[0].get("type") == "text":
+            return filtered[0].get("text", "")
+        return filtered
+    return content
+
+
 def is_local_ref(url: str) -> bool:
     if not url:
         return False
