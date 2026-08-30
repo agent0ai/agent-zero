@@ -36,7 +36,7 @@ def _sync_output(context: "AgentContext"):
             "id": item["id"],
             "seq": item.get("seq", 0),
             "text": item["text"][:100] + "..." if len(item["text"]) > 100 else item["text"],
-            "attachments": [a.split("/")[-1] for a in item.get("attachments", [])],
+            "attachments": [os.path.basename(a) for a in item.get("attachments", [])],
             "attachment_count": len(item.get("attachments", [])),
         })
     context.set_output_data(QUEUE_KEY, truncated)
