@@ -8,10 +8,21 @@ T = TypeVar("T")
 
 THREAD_BACKGROUND = "Background"
 
+# How long to wait for a loop's pending tasks to finish cancelling before it is
+# torn down. Reached only when a task ignores cancellation; the bound is what
+# keeps that from wedging the caller.
+DRAIN_TIMEOUT = 10.0
+
 
 class EventLoopThread:
     _instances: dict[str, "EventLoopThread"] = {}
     _lock = threading.Lock()
+
+    loop: Optional[asyncio.AbstractEventLoop]
+    thread: Optional[threading.Thread]
+    # How many live ``DeferredTask``s share this thread. Instances are keyed by
+    # name, so the count is what decides whether a task may stop the loop.
+    _users: int
 
     def __init__(self, thread_name: str = THREAD_BACKGROUND) -> None:
         """Initialize the event loop thread."""
@@ -22,23 +33,70 @@ class EventLoopThread:
         with cls._lock:
             if thread_name not in cls._instances:
                 instance = super(EventLoopThread, cls).__new__(cls)
+                # Set here rather than in ``__init__``: instances are shared by
+                # name, so ``__init__`` runs again for every task that joins an
+                # existing thread and would reset the count.
+                instance._users = 0
                 cls._instances[thread_name] = instance
             return cls._instances[thread_name]
 
+    def acquire(self) -> None:
+        """Registers a task as a user of this shared thread."""
+        with self.__class__._lock:
+            self._users += 1
+
+    def release(self, terminate: bool) -> bool:
+        """Drops a user, reporting whether the caller may tear the loop down.
+
+        Only the last user may: the instance is shared by name, so stopping the
+        loop while another task still runs on it would cancel that task's work.
+
+        Unregistering happens under the same lock that makes the decision, so a
+        task created after this point gets a fresh thread rather than one that
+        is on its way out.
+        """
+        with self.__class__._lock:
+            if self._users > 0:
+                self._users -= 1
+            if not (terminate and self._users == 0):
+                return False
+            if self.__class__._instances.get(self.thread_name) is self:
+                del self.__class__._instances[self.thread_name]
+            return True
+
     def _start(self):
-        if not hasattr(self, "loop") or not self.loop:
-            self.loop = asyncio.new_event_loop()
-        if not hasattr(self, "thread") or not self.thread:
+        loop = getattr(self, "loop", None)
+        thread = getattr(self, "thread", None)
+        # A closed loop counts as absent, not just a null one: ``terminate()``
+        # called from the loop's own thread cannot null these attributes out --
+        # it is running inside the callback the loop still has to return from --
+        # so a torn-down instance keeps a stale loop and thread attached.
+        #
+        # Both are rebuilt together. Replacing only the loop would leave it
+        # unattended, since the surviving thread runs the loop it was handed.
+        if loop is None or loop.is_closed() or thread is None or not thread.is_alive():
+            self.loop = loop = asyncio.new_event_loop()
             self.thread = threading.Thread(
-                target=self._run_event_loop, daemon=True, name=self.thread_name
+                target=self._run_event_loop,
+                args=(loop,),
+                daemon=True,
+                name=self.thread_name,
             )
             self.thread.start()
 
-    def _run_event_loop(self):
-        if not self.loop:
-            raise RuntimeError("Event loop is not initialized")
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_forever()
+    def _run_event_loop(self, loop: asyncio.AbstractEventLoop):
+        # The loop is passed in rather than read from ``self.loop``: a restarted
+        # instance replaces that attribute, and this thread must keep running
+        # the loop it was created for.
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_forever()
+        finally:
+            # Closed here rather than by ``terminate()``, which may itself be
+            # running *on* this thread, where ``close()`` would raise because
+            # the loop is still running.
+            if not loop.is_closed():
+                loop.close()
 
     def terminate(self):
         loop = getattr(self, "loop", None)
@@ -47,25 +105,32 @@ class EventLoopThread:
         if not loop:
             return
 
-        if loop.is_running():
-            if thread and thread is threading.current_thread():
-                loop.stop()
-            else:
-                loop.call_soon_threadsafe(loop.stop)
-                if thread:
-                    thread.join()
-        elif thread and thread.is_alive() and thread is not threading.current_thread():
-            thread.join()
+        # ``terminate()`` can reach here from inside its own loop, via a task's
+        # done-callback killing a child that shares this thread. Joining would
+        # then wait on the current thread and deadlock.
+        on_own_thread = thread is not None and thread is threading.current_thread()
 
-        if not loop.is_closed():
-            loop.close()
+        # Scheduled rather than conditional on ``is_running()``: a thread that
+        # has started but not yet entered ``run_forever`` reports False, and
+        # joining it would block for the full timeout.
+        if on_own_thread:
+            loop.call_soon(loop.stop)
+        else:
+            try:
+                loop.call_soon_threadsafe(loop.stop)
+            except RuntimeError:
+                # Already closed.
+                pass
+            if thread is not None and thread.is_alive():
+                thread.join(timeout=DRAIN_TIMEOUT)
 
         with self.__class__._lock:
-            if self.thread_name in self.__class__._instances:
+            if self.__class__._instances.get(self.thread_name) is self:
                 del self.__class__._instances[self.thread_name]
 
-        self.loop = None
-        self.thread = None
+        if not on_own_thread:
+            self.loop = None
+            self.thread = None
 
     def run_coroutine(self, coro):
         self._start()
@@ -86,6 +151,8 @@ class DeferredTask:
         thread_name: str = THREAD_BACKGROUND,
     ):
         self.event_loop_thread = EventLoopThread(thread_name)
+        self.event_loop_thread.acquire()
+        self._released = False
         self._future: Optional[Future] = None
         self.children: list[ChildTask] = []
         self.func: Optional[Callable[..., Coroutine[Any, Any, Any]]] = None
@@ -112,6 +179,14 @@ class DeferredTask:
     def _start_task(self):
         if self.func is None:
             raise RuntimeError("Task callable is no longer available")
+
+        if self._released:
+            # ``restart()`` goes through ``kill()``, which drops this task's
+            # claim on the thread. Re-register before using it again, or a
+            # sibling's later ``kill(terminate_thread=True)`` would see a count
+            # that no longer includes this task and stop the loop under it.
+            self._released = False
+            self.event_loop_thread.acquire()
 
         self._future = self.event_loop_thread.run_coroutine(
             self._run(self.func, self.args, self.kwargs)
@@ -166,23 +241,64 @@ class DeferredTask:
         return await loop.run_in_executor(None, _get_result)
 
     def kill(self, terminate_thread: bool = False) -> None:
-        """Kill the task and optionally terminate its thread."""
+        """Kill the task and optionally terminate its thread.
+
+        ``terminate_thread`` is honoured only once this is the *last* task using
+        the thread. ``EventLoopThread`` instances are shared by name, so
+        stopping the loop while a sibling task still runs on it would cancel
+        that sibling's work -- silently, since the cancellation surfaces only on
+        the abandoned task's own future.
+        """
         self.kill_children()
         if self._future and not self._future.done():
             self._future.cancel()
         self._clear_call()
 
-        if terminate_thread and self.event_loop_thread.loop:
-            if self.event_loop_thread.loop.is_running():
-                try:
-                    cleanup_future = asyncio.run_coroutine_threadsafe(
-                        self._drain_event_loop_tasks(), self.event_loop_thread.loop
-                    )
-                    cleanup_future.result()
-                except Exception:
-                    pass
+        # ``release`` is idempotent per task: killing twice must not drop the
+        # count twice and let the thread go while a sibling still needs it.
+        may_terminate = False
+        if not self._released:
+            self._released = True
+            may_terminate = self.event_loop_thread.release(terminate_thread)
 
-            self.event_loop_thread.terminate()
+        if not may_terminate:
+            return
+
+        event_loop_thread = self.event_loop_thread
+        loop = event_loop_thread.loop
+        if loop is None:
+            return
+
+        if event_loop_thread.thread is threading.current_thread():
+            # Waiting on the drain from inside the loop would deadlock: the
+            # coroutine can only advance on this thread, which the wait would be
+            # occupying. The drain and the teardown are chained into a task
+            # instead, so the loop is not stopped out from under the drain.
+            # ``release()`` has already unregistered the instance, so a task
+            # created before this finishes gets a fresh thread rather than this
+            # one on its way out.
+            async def drain_then_terminate() -> None:
+                try:
+                    await self._drain_event_loop_tasks()
+                finally:
+                    event_loop_thread.terminate()
+
+            loop.create_task(drain_then_terminate())
+            return
+
+        if loop.is_running():
+            try:
+                cleanup_future = asyncio.run_coroutine_threadsafe(
+                    self._drain_event_loop_tasks(), loop
+                )
+                # Bounded: an unbounded wait hangs the caller outright if a task
+                # swallows cancellation, and this runs on the request thread
+                # that serves chat deletion and task deletion.
+                cleanup_future.result(timeout=DRAIN_TIMEOUT)
+            except Exception:
+                pass
+
+        event_loop_thread.terminate()
 
     def kill_children(self) -> None:
         for child in self.children:
