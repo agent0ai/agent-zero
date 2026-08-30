@@ -84,7 +84,11 @@ class UiServerRuntime:
     @classmethod
     def create(cls) -> "UiServerRuntime":
         webapp = Flask("app", static_folder=get_abs_path("./webui"), static_url_path="/")
-        webapp.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
+        flask_secret_key = os.getenv("FLASK_SECRET_KEY")
+        if not flask_secret_key:
+            flask_secret_key = secrets.token_hex(32)
+            dotenv.save_dotenv_value("FLASK_SECRET_KEY", flask_secret_key)
+        webapp.secret_key = flask_secret_key
 
         WerkzeugRequest.max_form_memory_size = UPLOAD_LIMIT_BYTES
         webapp.config.update(
