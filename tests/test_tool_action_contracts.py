@@ -722,9 +722,10 @@ def test_behaviour_prompts_preserve_exact_rules_and_avoid_promptinclude():
 
     assert "exact-response rules" in behaviour_prompt
     assert "preserve it verbatim" in behaviour_prompt
+    assert "do not edit promptinclude files" in behaviour_prompt
     assert not Path("prompts/agent.system.tool.behaviour.md").exists()
     assert "respond exactly with a phrase" in merge_prompt
-    assert "use behaviour_adjustment, not promptinclude files" in promptinclude_prompt
+    assert "behaviour_adjustment" not in promptinclude_prompt
 
 
 def _load_a2a_chat_tool(monkeypatch):
@@ -803,6 +804,9 @@ def test_notify_user_prompt_documents_numeric_priority_values():
 
 def test_tool_prompts_prevent_top_level_multi_tool():
     tools_prompt = Path("prompts/agent.system.tools.md").read_text(encoding="utf-8")
+    parallel_prompt = Path("prompts/agent.system.tool.parallel.md").read_text(
+        encoding="utf-8"
+    )
     communication_prompt = Path("prompts/agent.system.main.communication.md").read_text(
         encoding="utf-8"
     )
@@ -811,9 +815,10 @@ def test_tool_prompts_prevent_top_level_multi_tool():
     )
 
     assert "Do not invent top-level `multi` or generic batch tools" in tools_prompt
-    assert "listed wrapper for independent concurrent calls is `parallel`" in tools_prompt
+    assert "`parallel`" not in tools_prompt
+    assert "run independent tool calls concurrently" in parallel_prompt
     assert "never an action name such as `read`, `write`, `terminal`, or `multi`" in communication_prompt
-    assert "independent operations concurrently" in communication_prompt
+    assert "independent operations concurrently" not in communication_prompt
     assert 'Never use `tool_name: "multi"`' in browser_prompt
 
 

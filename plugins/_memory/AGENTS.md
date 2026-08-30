@@ -20,6 +20,8 @@
 - `memory_load` accepts numeric `threshold` and `limit` values as native numbers or numeric strings and coerces them before vector search.
 - Grouped tool-prompt declarations must start with `arg` or `args` so native Responses models receive every memory tool.
 - Auto-recall embeds each prepared query once and reuses that vector for the memory and solution filters; manual `memory_load` keeps the ordinary text-query path.
+- Keep auto-recall context capability-neutral; memory-tool routing belongs in
+  the policy-filtered memory tool prompt.
 - Avoid storing transient action-history noise as durable memory.
 
 ## Work Guidance

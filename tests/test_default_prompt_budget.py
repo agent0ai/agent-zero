@@ -1,3 +1,4 @@
+import re
 import sys
 from pathlib import Path
 
@@ -8,7 +9,34 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from agent import AgentConfig, AgentContext, AgentContextType
-from helpers import runtime, tokens
+from helpers import runtime, tokens, tool_policy
+
+
+CONFIGURABLE_TOOL_NAMES = {
+    path.stem
+    for path in [
+        *PROJECT_ROOT.glob("tools/*.py"),
+        *PROJECT_ROOT.glob("agents/*/tools/*.py"),
+        *PROJECT_ROOT.glob("plugins/*/tools/*.py"),
+    ]
+    if path.stem not in {"__init__", "response", "unknown", "vision_load"}
+}
+
+
+def _advertised_configurable_tools(text: str) -> set[str]:
+    advertised: set[str] = set()
+    for name in CONFIGURABLE_TOOL_NAMES:
+        escaped = re.escape(name)
+        if "_" in name:
+            pattern = rf"(?<![A-Za-z0-9_]){escaped}(?![A-Za-z0-9_])"
+        else:
+            pattern = (
+                rf"`{escaped}`|[\"']{escaped}[\"']|"
+                rf"(?<![A-Za-z0-9_]){escaped}\s+tool\b"
+            )
+        if re.search(pattern, text, re.IGNORECASE):
+            advertised.add(name)
+    return advertised
 
 
 def _iter_prompt_files():
@@ -46,28 +74,25 @@ async def _build_system_text(profile: str = "agent0", rendered: bool = False) ->
 
 
 @pytest.mark.asyncio
-async def test_default_agent0_prompt_budget_and_guardrails():
+async def test_default_agent0_prompt_contracts():
     system_text = await _build_system_text()
     rendered_system_text = await _build_system_text(rendered=True)
     communication_prompt = (
         PROJECT_ROOT / "prompts" / "agent.system.main.communication.md"
     ).read_text(encoding="utf-8")
 
-    # The default prompt now intentionally includes the compact always-on tool
-    # surface plus skill metadata. Keep the guardrail close to the observed
-    # budget so prompt creep remains visible without pretending this surface is
-    # a tiny single-tool prompt.
-    assert tokens.approximate_tokens(system_text) <= 10000
     assert "`tool_name` must be one listed tool name" in system_text
     assert "- tool_args: key value pairs tool arguments" in system_text
+    assert '"*.promptinclude.md" files in workdir auto-injected' in system_text
     assert '"tool_name": "call_subordinate"' in system_text
+    assert "always use specialized subordinate agents" in system_text
+    assert "delegate them to separate subordinates" in system_text
     assert '"tool_name": "parallel"' in system_text
     assert "Each `tool_calls` item is a normal tool request object" in system_text
     assert '"reset": true' in system_text
     assert '"tool_name": "text_editor"' in system_text
     assert '"action": "read"' in system_text
     assert '"tool_name": "code_execution_tool"' in system_text
-    assert '"tool_name": "memory_load"' in system_text
     assert "informative but tight" in system_text
     assert "Your actual output starts with `{` and ends with `}`" in system_text
     assert "~~~json" in communication_prompt
@@ -80,6 +105,33 @@ async def test_default_agent0_prompt_budget_and_guardrails():
     assert '"tool_name": "text_editor_remote"' not in system_text
     assert '"tool_name": "computer_use_remote"' not in system_text
     assert "Computer Use enablement is scoped to the current CLI session" not in system_text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "profile",
+    ["agent0", "default", "developer", "hacker", "researcher", "tiny-local"],
+)
+async def test_block_all_policy_does_not_advertise_configurable_tools(
+    monkeypatch, profile: str
+):
+    policy = {
+        "mode": "custom",
+        "default": "block",
+        "mcp_default": "block",
+        "allowed": [],
+        "blocked": [],
+    }
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: policy)
+
+    system_text = await _build_system_text(profile)
+
+    assert _advertised_configurable_tools(system_text) == set()
+    assert "memory tools" not in system_text.casefold()
+    assert "using tools and subordinates" not in system_text.casefold()
+    assert "subordinate agent orchestration" not in system_text.casefold()
+    assert "always use specialized subordinate agents" not in system_text.casefold()
+    assert "delegate them to separate subordinates" not in system_text.casefold()
 
 
 @pytest.mark.asyncio

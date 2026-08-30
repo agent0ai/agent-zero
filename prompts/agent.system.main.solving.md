@@ -11,14 +11,8 @@ memories are stable preferences facts constraints not task history
 
 2 break task into subtasks if needed
 
-3 solve or delegate
+3 solve
 tools solve subtasks
-you can use subordinates for specific subtasks
-call_subordinate tool
-use prompt profiles to specialize subordinates
-never delegate full to subordinate of same profile as you
-always describe role for new subordinate
-they must execute their assigned tasks
 
 ### coding and terminal tasks
 
