@@ -12,6 +12,8 @@ import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as notificationsStore } from "/components/notifications/notification-store.js";
 
 const VIEW_MODE_STORAGE_KEY = "scheduler_view_mode";
+const SCHEDULER_MODAL_PATH = "modals/scheduler/scheduler-modal.html";
+const TASK_DETAIL_MODAL_PATH = "modals/scheduler/scheduler-task-detail.html";
 const NOTIFICATION_DURATION = {
   success: 3,
   info: 3,
@@ -470,6 +472,7 @@ const schedulerStoreModel = {
   sortDirection: "asc",
   viewMode: readPersistedViewMode(),
   selectedTaskForDetail: null,
+  closeSchedulerAfterTaskDetail: false,
 
   // Pagination ---------------------------------------------------------------
   currentPage: 1,
@@ -987,28 +990,39 @@ const schedulerStoreModel = {
     }
 
     this.selectedTaskForDetail = snapshot;
-    const closePromise = window.openModal("modals/scheduler/scheduler-task-detail.html");
+    this.closeSchedulerAfterTaskDetail = Boolean(window.isModalOpen?.(SCHEDULER_MODAL_PATH));
+
+    const closePromise = window.openModal(TASK_DETAIL_MODAL_PATH);
     if (closePromise && typeof closePromise.then === "function") {
-      closePromise.then(() => {
+      closePromise.then(async () => {
         if (this.selectedTaskForDetail?.uuid === snapshot.uuid) {
           this.selectedTaskForDetail = null;
+        }
+        if (this.closeSchedulerAfterTaskDetail) {
+          this.closeSchedulerAfterTaskDetail = false;
+          await window.closeModal?.(SCHEDULER_MODAL_PATH);
         }
       });
     }
   },
 
-  closeTaskDetail() {
+  async closeTaskDetail({ closeScheduler = this.closeSchedulerAfterTaskDetail } = {}) {
     this.selectedTaskForDetail = null;
-    window.closeModal();
+    this.closeSchedulerAfterTaskDetail = false;
+    await window.closeModal?.(TASK_DETAIL_MODAL_PATH);
+    if (closeScheduler) {
+      await window.closeModal?.(SCHEDULER_MODAL_PATH);
+    }
   },
 
   async editFromDetail() {
     const taskId = this.selectedTaskForDetail?.uuid;
     if (!taskId) return;
-    this.closeTaskDetail();
+    await this.closeTaskDetail({ closeScheduler: false });
     await this.startEditTask(taskId);
-    // Open main scheduler modal to show the editor
-    window.openModal("modals/scheduler/scheduler-modal.html");
+    // Open or focus the main scheduler modal to show the editor.
+    const openSchedulerModal = window.ensureModalOpen || window.openModal;
+    openSchedulerModal?.(SCHEDULER_MODAL_PATH);
   },
 
   async deleteFromDetail() {
