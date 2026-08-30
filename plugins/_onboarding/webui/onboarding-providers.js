@@ -24,6 +24,7 @@ export const MORE_CLOUD_PROVIDER_IDS = [
   "github_copilot",
   "sambanova",
   "cometapi",
+  "openpaths",
   "other",
 ];
 
@@ -240,6 +241,17 @@ export const ONBOARDING_PROVIDER_OVERRIDES = {
     api_key_mode: "required",
     model_list_autoload: true,
     short_description: "One key for many model families.",
+  },
+  openpaths: {
+    logo: "https://openpaths.io/favicon.png",
+    setup_url: "https://openpaths.io/",
+    api_key_url: "https://openpaths.io/account",
+    docs_url: "https://openpaths.io/works-with-openpaths",
+    default_chat_model: "openpaths/auto",
+    default_utility_model: "openpaths/auto-fast",
+    api_key_mode: "required",
+    model_list_autoload: true,
+    short_description: "One key, neural routing across many models.",
   },
   other: {
     logo: "/public/darkSymbol.svg",

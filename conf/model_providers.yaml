@@ -208,6 +208,13 @@ chat:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
         "X-OpenRouter-Categories": "personal-agent,cloud-agent"
+  openpaths:
+    name: OpenPaths
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "https://openpaths.io/v1/models"
+    kwargs:
+      api_base: https://openpaths.io/v1
   sambanova:
     name: Sambanova
     litellm_provider: sambanova
