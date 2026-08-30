@@ -19,6 +19,7 @@ from typing import (
 from litellm import embedding
 import litellm
 import openai
+import httpx
 
 from helpers import dotenv
 from helpers import settings, images
@@ -321,6 +322,10 @@ def _is_transient_litellm_error(exc: Exception) -> bool:
         getattr(openai, "InternalServerError", Exception),
         # Some providers map overloads to ServiceUnavailable-like errors
         getattr(openai, "APIStatusError", Exception),
+        # Streaming socket timeouts (aiohttp.SocketTimeoutError maps to these via LiteLLM transport)
+        httpx.ReadTimeout,
+        httpx.ConnectTimeout,
+        httpx.PoolTimeout,
     )
     return isinstance(exc, transient_types)
 
@@ -634,8 +639,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
             except Exception as e:
                 import asyncio
 
-                # Retry only if no chunks received and error is transient
-                if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
+                # Retry logic: allow retry for transient errors even with partial chunks
+                is_transient = _is_transient_litellm_error(e)
+                if attempt >= max_retries:
+                    raise
+                if not is_transient and got_any_chunk:
                     raise
                 attempt += 1
                 await asyncio.sleep(retry_delay_s)
@@ -775,11 +783,11 @@ class LiteLLMChatWrapper(SimpleChatModel):
             except Exception as e:
                 import asyncio
 
-                if (
-                    got_any_chunk
-                    or not _is_transient_litellm_error(e)
-                    or attempt >= max_retries
-                ):
+                # Retry logic: allow retry for transient errors even with partial chunks
+                is_transient = _is_transient_litellm_error(e)
+                if attempt >= max_retries:
+                    raise
+                if not is_transient and got_any_chunk:
                     raise
                 attempt += 1
                 await asyncio.sleep(retry_delay_s)

@@ -894,15 +894,37 @@ class Agent:
         )
 
         # call model
-        response, reasoning = await call_data["model"].unified_call(
-            messages=call_data["messages"],
-            reasoning_callback=call_data["reasoning_callback"],
-            response_callback=call_data["response_callback"],
-            rate_limiter_callback=(
-                self.rate_limiter_callback if not call_data["background"] else None
-            ),
-            explicit_caching=call_data["explicit_caching"],
-        )
+        # Keepalive heartbeat during long inference
+        _ka_stop = asyncio.Event()
+        async def _ka_heartbeat():
+            _ka_count = 0
+            while not _ka_stop.is_set():
+                try:
+                    await asyncio.wait_for(_ka_stop.wait(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    _ka_count += 1
+                    try:
+                        self.context.log.set_progress(f"Generating... ({_ka_count * 10}s)")
+                    except Exception:
+                        pass
+        _ka_task = asyncio.create_task(_ka_heartbeat())
+        try:
+            response, reasoning = await call_data["model"].unified_call(
+                messages=call_data["messages"],
+                reasoning_callback=call_data["reasoning_callback"],
+                response_callback=call_data["response_callback"],
+                rate_limiter_callback=(
+                    self.rate_limiter_callback if not call_data["background"] else None
+                ),
+                explicit_caching=call_data["explicit_caching"],
+            )
+        finally:
+            _ka_stop.set()
+            _ka_task.cancel()
+            try:
+                await _ka_task
+            except asyncio.CancelledError:
+                pass
 
         await extension.call_extensions_async(
             "chat_model_call_after", self, call_data=call_data, response=response, reasoning=reasoning
@@ -970,16 +992,38 @@ class Agent:
             if call_data.get(key) is not None:
                 turn_kwargs[key] = call_data.get(key)
 
-        llm_result = await call_data["model"].unified_turn(
-            messages=call_data["messages"],
-            reasoning_callback=call_data["reasoning_callback"],
-            response_callback=call_data["response_callback"],
-            rate_limiter_callback=(
-                self.rate_limiter_callback if not call_data["background"] else None
-            ),
-            explicit_caching=call_data["explicit_caching"],
-            **turn_kwargs,
-        )
+        # Keepalive heartbeat during long inference
+        _ka_stop_t = asyncio.Event()
+        async def _ka_heartbeat_t():
+            _ka_count = 0
+            while not _ka_stop_t.is_set():
+                try:
+                    await asyncio.wait_for(_ka_stop_t.wait(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    _ka_count += 1
+                    try:
+                        self.context.log.set_progress(f"Generating... ({_ka_count * 10}s)")
+                    except Exception:
+                        pass
+        _ka_task_t = asyncio.create_task(_ka_heartbeat_t())
+        try:
+            llm_result = await call_data["model"].unified_turn(
+                messages=call_data["messages"],
+                reasoning_callback=call_data["reasoning_callback"],
+                response_callback=call_data["response_callback"],
+                rate_limiter_callback=(
+                    self.rate_limiter_callback if not call_data["background"] else None
+                ),
+                explicit_caching=call_data["explicit_caching"],
+                **turn_kwargs,
+            )
+        finally:
+            _ka_stop_t.set()
+            _ka_task_t.cancel()
+            try:
+                await _ka_task_t
+            except asyncio.CancelledError:
+                pass
 
         downgraded = llm_result.capability.get("builtin_tool_downgrades")
         if downgraded:
