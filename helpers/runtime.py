@@ -10,7 +10,23 @@ import queue
 import sys
 import nest_asyncio
 
-nest_asyncio.apply()
+
+def _apply_nest_asyncio_if_supported() -> None:
+    """Apply nest_asyncio unless the running loop is uvloop."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        nest_asyncio.apply()
+        return
+
+    loop_module = type(loop).__module__
+    if loop_module == "uvloop" or loop_module.startswith("uvloop."):
+        return
+
+    nest_asyncio.apply(loop)
+
+
+_apply_nest_asyncio_if_supported()
 
 T = TypeVar("T")
 R = TypeVar("R")

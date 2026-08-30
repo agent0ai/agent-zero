@@ -10,7 +10,29 @@ from os.path import exists
 from typing import Any, Callable, Dict, Literal, Optional, Type, TypeVar, Union, cast, ClassVar
 
 import nest_asyncio
-nest_asyncio.apply()
+
+
+def _apply_nest_asyncio_if_supported() -> None:
+    """Apply nest_asyncio unless the running loop is uvloop.
+
+    nest_asyncio can only patch standard asyncio loops. Agent Zero's WebUI can
+    import this module while Uvicorn is running on uvloop; attempting to patch
+    that loop raises ValueError and breaks WebSocket connection setup.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        nest_asyncio.apply()
+        return
+
+    loop_module = type(loop).__module__
+    if loop_module == "uvloop" or loop_module.startswith("uvloop."):
+        return
+
+    nest_asyncio.apply(loop)
+
+
+_apply_nest_asyncio_if_supported()
 
 from crontab import CronTab
 from pydantic import BaseModel, Field, PrivateAttr
