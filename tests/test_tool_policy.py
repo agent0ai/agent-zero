@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -726,8 +727,9 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
     config = mcp_handler.MCPConfig(servers_list=[])
     config.servers = [Server()]
-    allowed_agent = _Agent(tmp_path, profile="agent0")
-    restricted_agent = _Agent(tmp_path, profile="researcher")
+    prompt_root = Path(__file__).parents[1] / "prompts"
+    allowed_agent = _Agent(prompt_root, profile="agent0")
+    restricted_agent = _Agent(prompt_root, profile="researcher")
     monkeypatch.setattr(
         tool_policy,
         "get_policy",
@@ -753,16 +755,85 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
     allowed_prompt = config.get_tools_prompt(agent=allowed_agent)
     restricted_prompt = config.get_tools_prompt(agent=restricted_agent)
-    allowed_schemas, _ = responses_tools.build_responses_function_tools(allowed_agent)
+    allowed_schemas, allowed_name_map = responses_tools.build_responses_function_tools(
+        allowed_agent
+    )
     restricted_schemas, name_map = responses_tools.build_responses_function_tools(
         restricted_agent
     )
 
     assert "docs.write" in allowed_prompt
     assert "docs.write" not in restricted_prompt
+    assert "### MCP server `docs` (group only; not a tool)" in allowed_prompt
+    assert "#### MCP tool `docs.read`" in allowed_prompt
+    assert "Context only: Documentation" in allowed_prompt
+    assert "Allowed operation (exhaustive): Read docs" in allowed_prompt
+    assert "Server descriptions are context, not callable capabilities" in allowed_prompt
+    assert "Never infer capabilities from tool names or input schemas" in allowed_prompt
+    assert "\n### docs\n" not in allowed_prompt
+    assert "\n### docs.read:" not in allowed_prompt
+    assert allowed_prompt.count("docs.read") == 2
+    assert allowed_prompt.count("docs.write") == 2
+    assert restricted_prompt.count("docs.read") == 2
     assert len(allowed_schemas) == 2
     assert len(restricted_schemas) == 1
+    assert set(allowed_name_map.values()) == {"docs.read", "docs.write"}
     assert name_map[restricted_schemas[0]["name"]] == "docs.read"
+
+    reads = 0
+
+    def get_policy(_agent):
+        nonlocal reads
+        reads += 1
+        return _custom_policy(default="allow", mcp_default="block")
+
+    monkeypatch.setattr(tool_policy, "get_policy", get_policy)
+
+    assert config.get_tools_prompt(agent=_Agent(tmp_path)) == ""
+    assert reads == 1
+
+
+@pytest.mark.asyncio
+async def test_browser_context_follows_profile_tool_policy(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from plugins._browser.extensions.python.system_prompt import _20_browser_context
+
+    runtime = SimpleNamespace(
+        call=AsyncMock(
+            return_value={
+                "browsers": [
+                    {
+                        "id": "browser-1",
+                        "currentUrl": "https://example.com",
+                        "title": "Example",
+                    }
+                ]
+            }
+        )
+    )
+    allowed = False
+    agent = _Agent(tmp_path)
+    agent.context.id = "ctx"
+    monkeypatch.setattr(
+        tool_policy,
+        "resolve_tool",
+        lambda *_args, **_kwargs: SimpleNamespace(allowed=allowed),
+    )
+    monkeypatch.setattr(
+        _20_browser_context, "get_runtime", AsyncMock(return_value=runtime)
+    )
+
+    system_prompt: list[str] = []
+    extension = _20_browser_context.BrowserContextPrompt(agent)
+    await extension.execute(system_prompt=system_prompt)
+    assert system_prompt == []
+    runtime.call.assert_not_awaited()
+
+    allowed = True
+    await extension.execute(system_prompt=system_prompt)
+    assert "currently open web browsers" in system_prompt[0]
+    runtime.call.assert_awaited_once_with("list")
 
 
 @pytest.mark.asyncio

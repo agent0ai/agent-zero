@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 import re
 from typing import (
     List,
@@ -41,7 +42,7 @@ from anyio.streams.memory import (
 )
 
 from pydantic import BaseModel, Field, Discriminator, Tag, PrivateAttr
-from helpers import dirty_json, media_artifacts
+from helpers import dirty_json, files, media_artifacts
 from helpers.print_style import PrintStyle
 from helpers.tool import Tool, Response
 from helpers.defer import DeferredTask
@@ -1156,7 +1157,15 @@ class MCPConfig(BaseModel):
         with self.__lock:
             pass
 
-        prompt = '## "Remote (MCP Server) Agent Tools" available:\n\n'
+        def render(file: str, **kwargs: Any) -> str:
+            if agent is not None:
+                return agent.read_prompt(file, **kwargs).strip()
+            return files.read_prompt_file(
+                file,
+                _directories=[str(Path(__file__).resolve().parents[1] / "prompts")],
+                **kwargs,
+            ).strip()
+
         server_names = []
         for server in self.servers:
             if not server_name or server.name == server_name:
@@ -1165,53 +1174,56 @@ class MCPConfig(BaseModel):
         if server_name and server_name not in server_names:
             raise ValueError(f"Server {server_name} not found")
 
+        policy = None
+        if agent is not None:
+            from helpers import tool_policy
+
+        server_prompts: list[str] = []
         for server in self.servers:
             if server.name in server_names:
-                server_name = server.name
-                prompt += f"### {server_name}\n"
-                prompt += f"{server.description}\n"
-                tools = server.get_tools()
+                selected_server_name = server.name
+                tool_prompts: list[str] = []
 
-                for tool in tools:
-                    qualified_name = f"{server_name}.{tool['name']}"
+                for tool in server.get_tools():
+                    qualified_name = f"{selected_server_name}.{tool['name']}"
                     if agent is not None:
-                        from helpers.tool_policy import canonical_mcp_id, resolve_tool
-
-                        if not resolve_tool(
+                        if policy is None:
+                            policy = tool_policy.get_policy(agent)
+                        if not tool_policy.resolve_tool(
                             agent,
                             qualified_name,
-                            canonical_id=canonical_mcp_id(qualified_name),
+                            canonical_id=tool_policy.canonical_mcp_id(qualified_name),
+                            _policy=policy,
                         ).allowed:
                             continue
-                    prompt += (
-                        f"\n### {qualified_name}:\n"
-                        f"{tool['description']}\n\n"
-                        # f"#### Categories:\n"
-                        # f"* kind: MCP Server Tool\n"
-                        # f'* server: "{server_name}" ({server.description})\n\n'
-                        # f"#### Arguments:\n"
-                    )
-
                     input_schema = (
                         json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
                     )
-
-                    prompt += f"#### Input schema for tool_args:\n{input_schema}\n"
-
-                    prompt += "\n"
-
-                    prompt += (
-                        f"#### Usage:\n"
-                        f"{{\n"
-                        # f'    "observations": ["..."],\n' # TODO: this should be a prompt file with placeholders
-                        f'    "thoughts": ["..."],\n'
-                        # f'    "reflection": ["..."],\n' # TODO: this should be a prompt file with placeholders
-                        f"    \"tool_name\": \"{qualified_name}\",\n"
-                        f'    "tool_args": !follow schema above\n'
-                        f"}}\n"
+                    tool_prompts.append(
+                        render(
+                            "agent.system.mcp_tool.md",
+                            qualified_name=qualified_name,
+                            description=tool["description"],
+                            input_schema=input_schema,
+                        )
                     )
 
-        return prompt
+                if tool_prompts:
+                    server_prompts.append(
+                        render(
+                            "agent.system.mcp_server.md",
+                            server_name=selected_server_name,
+                            server_description=server.description,
+                            tools="\n\n".join(tool_prompts),
+                        )
+                    )
+
+        if not server_prompts:
+            return ""
+        return render(
+            "agent.system.mcp_tools.md",
+            tools="\n".join(server_prompts),
+        ) + "\n"
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""

@@ -84,7 +84,16 @@
 - MCP tool names are qualified as `server_name.tool_name`; server names are normalized without dots, and the tool portion may contain dots.
 - Agent-facing MCP prompt descriptions filter through the central profile tool
   policy, and `MCPTool.execute()` rechecks the same policy with the explicit MCP
-  canonical ID before invocation.
+  canonical ID before invocation. Prompt construction uses one fresh policy
+  snapshot and omits server sections when none of their tools are allowed.
+  Server headings are explicitly non-callable groups; each tool heading exposes
+  the exact qualified name that Chat Completions must call. Prompt guidance
+  treats each allowed-operation description as exhaustive and rejects inferring
+  capabilities from names or schemas when no operation matches. Static MCP
+  framing is rendered from `prompts/agent.system.mcp_tools.md`,
+  `prompts/agent.system.mcp_server.md`, and
+  `prompts/agent.system.mcp_tool.md`; this helper supplies the policy-filtered
+  server names, exact qualified tool names, descriptions, and schemas.
 - `MCPConfig.get_tool()` tries the supplied qualified name first, then restores an advertised Responses alias from the calling agent's name map; names that still do not identify an MCP tool return `None` unchanged for downstream local-tool resolution.
 - Servers may define `disabled_tools` as a list of MCP tool names. Disabled tools are omitted from agent-facing prompts, status counts, `has_tool`, and calls, while detail views can still retrieve them through `get_all_tools()` with a `disabled` flag so users can re-enable them.
 - Server-specific `init_timeout` and `tool_timeout` override global MCP client timeout settings for list-tools and call-tool operations.

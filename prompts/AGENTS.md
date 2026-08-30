@@ -18,6 +18,12 @@
 - Keep placeholder names, include aliases, and template assumptions synchronized with prompt-loading code and extensions.
 - Prompt changes can alter agent behavior; keep edits narrow and intentional.
 - Maintain clear separation between core behavior prompts and profile/plugin-specific customization.
+- Keep configurable capability names and usage guidance in their
+  `agent.system.tool.*.md` prompts so tool policy removes the guidance together
+  with the capability; non-tool system fragments stay capability-neutral.
+- MCP prompt templates own the static outer, server, and tool framing;
+  `helpers/mcp_handler.py` supplies policy-filtered names, descriptions, and
+  schemas.
 - Summary prompts that compress history should preserve loaded skill names from `skill_instructions` metadata without copying full skill bodies.
 
 ## Work Guidance
