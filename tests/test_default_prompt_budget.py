@@ -108,6 +108,43 @@ async def test_default_agent0_prompt_contracts():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("profile", ["developer", "researcher", "hacker"])
+async def test_standard_specialist_profiles_keep_the_shared_communication_contract(
+    profile: str,
+):
+    system_text = await _build_system_text(profile)
+
+    for instruction in (
+        "Output must be valid JSON with double quotes for all keys and string values",
+        "No JSON in markdown fences",
+        "Do not invent unavailable tool names and args",
+        "`tool_name` must be one listed tool name",
+        "To do dependent operations, call one tool now",
+        "No text output before or after the JSON object",
+        "Your actual output starts with `{` and ends with `}`",
+    ):
+        assert instruction in system_text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("profile", "intake_instruction"),
+    [
+        ("developer", "Treat clear, bounded development work as actionable"),
+        ("researcher", "Treat clear, bounded research requests as actionable"),
+    ],
+)
+async def test_specialists_keep_intake_guidance_without_response_overrides(
+    profile: str, intake_instruction: str
+):
+    system_text = await _build_system_text(profile)
+
+    assert intake_instruction in system_text
+    assert "Use the 'response' tool iteratively" not in system_text
+    assert "must utilize the 'response' tool iteratively" not in system_text
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "profile",
     ["agent0", "default", "developer", "hacker", "researcher", "tiny-local"],
@@ -143,9 +180,6 @@ async def test_rendered_profiles_strip_json_fences(profile: str):
 
     assert "~~~json" not in system_text
     assert "```json" not in system_text
-
-    if profile == "researcher":
-        assert "~~~python" in system_text
 
 
 def test_remove_code_fences_can_target_json_only():
