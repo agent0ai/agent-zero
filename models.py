@@ -800,15 +800,14 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         self.model_name = f"{provider}/{model}"
         self.kwargs = kwargs
         self.a0_model_conf = model_config
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed(self, inputs: List[str]) -> List[List[float]]:
+        """Embed provider-ready inputs without assuming a text modality."""
         configure_litellm()
-        # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        apply_rate_limiter_sync(self.a0_model_conf, " ".join(inputs))
 
         resp = embedding(
             model=self.model_name,
-            input=texts,
+            input=inputs,
             **_merge_litellm_call_kwargs(self.kwargs),
         )
         return [
@@ -816,18 +815,11 @@ class LiteLLMEmbeddingWrapper(Embeddings):
             for item in resp.data  # type: ignore
         ]
 
-    def embed_query(self, text: str) -> List[float]:
-        configure_litellm()
-        # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, text)
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self.embed(texts)
 
-        resp = embedding(
-            model=self.model_name,
-            input=[text],
-            **_merge_litellm_call_kwargs(self.kwargs),
-        )
-        item = resp.data[0]  # type: ignore
-        return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
+    def embed_query(self, text: str) -> List[float]:
+        return self.embed([text])[0]
 
 
 _LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], SentenceTransformer] = {}
@@ -879,22 +871,18 @@ class LocalSentenceTransformerWrapper(Embeddings):
         self.model_name = model
         self.a0_model_conf = model_config
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed(self, inputs: List[str]) -> List[List[float]]:
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        apply_rate_limiter_sync(self.a0_model_conf, " ".join(inputs))
 
-        embeddings = self.model.encode(texts, convert_to_tensor=False)  # type: ignore
+        embeddings = self.model.encode(inputs, convert_to_tensor=False)  # type: ignore
         return embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings  # type: ignore
 
-    def embed_query(self, text: str) -> List[float]:
-        # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, text)
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self.embed(texts)
 
-        embedding = self.model.encode([text], convert_to_tensor=False)  # type: ignore
-        result = (
-            embedding[0].tolist() if hasattr(embedding[0], "tolist") else embedding[0]
-        )
-        return result  # type: ignore
+    def embed_query(self, text: str) -> List[float]:
+        return self.embed([text])[0]
 
 
 def _get_litellm_chat(
