@@ -37,7 +37,7 @@
               class="browser-config-field-help"
               x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
             >
-              Uses Chrome, Edge, Brave, Opera, Vivaldi, or Chromium on the A0 CLI host. Keep A0 CLI connected; the browser opens when the agent first needs it. For an already-open browser, use its inspect page, such as chrome://inspect/#remote-debugging or opera://inspect/#remote-debugging, and enable "Allow remote debugging for this browser instance".
+              Uses Safari, Chrome, Edge, Brave, Opera, Vivaldi, or Chromium on a computer connected through A0 CLI, directly or through Launcher. The browser opens when the agent first needs it.
             </span>
           </label>
 
@@ -130,7 +130,7 @@
                 <option :value="option.value" x-text="option.label"></option>
               </template>
             </select>
-            <span class="browser-config-field-help">Choose an allowed debug endpoint, or leave Automatic so A0 CLI picks.</span>
+            <span class="browser-config-field-help">Choose an available host browser, or leave Automatic so A0 CLI picks.</span>
           </label>
 
           <label
@@ -150,13 +150,81 @@
           </label>
 
           <div
-            class="browser-config-note"
+            class="browser-config-guide"
             x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
           >
-            <x-icon name="info"></x-icon>
-            <span>
-              For an already-open browser, Chrome, Edge, Brave, Vivaldi, and Chromium use chrome://inspect/#remote-debugging; Opera uses opera://inspect/#remote-debugging. Enable "Allow remote debugging for this browser instance", then restart or reconnect A0 CLI if the browser does not appear. If needed, launch the browser with --remote-debugging-port=9222 and --user-data-dir=&lt;profile-dir&gt;, then use localhost:9222 or the full ws://.../devtools/browser/... endpoint here or in A0_HOST_BROWSER_REMOTE_DEBUGGING_ENDPOINTS.
-            </span>
+            <div class="browser-config-guide-heading">
+              <x-icon name="tune"></x-icon>
+              <span>Browser setup</span>
+            </div>
+
+            <div class="browser-config-guide-grid">
+              <div class="browser-config-guide-item" aria-label="Chromium browser setup steps">
+                <div class="browser-config-guide-title">
+                  <x-icon name="developer_mode"></x-icon>
+                  <span>Chromium family</span>
+                </div>
+                <div class="browser-config-setup-buttons" role="group" aria-label="Open Chromium browser setup page">
+                  <button
+                    type="button"
+                    class="browser-config-setup-button"
+                    x-show="$store.browserConfig.hostBrowserSetupAvailable('chrome')"
+                    title="Open chrome://inspect/#remote-debugging in Chrome"
+                    :disabled="!!$store.browserConfig.hostBrowserSetupOpening"
+                    @click="$store.browserConfig.openHostBrowserSetup('chrome')"
+                  >
+                    <span>Chrome</span>
+                    <x-icon name="open_in_new"></x-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="browser-config-setup-button"
+                    x-show="$store.browserConfig.hostBrowserSetupAvailable('opera')"
+                    title="Open opera://inspect/#remote-debugging in Opera"
+                    :disabled="!!$store.browserConfig.hostBrowserSetupOpening"
+                    @click="$store.browserConfig.openHostBrowserSetup('opera')"
+                  >
+                    <span>Opera</span>
+                    <x-icon name="open_in_new"></x-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="browser-config-setup-button"
+                    x-show="$store.browserConfig.hostBrowserSetupAvailable('edge')"
+                    title="Open edge://inspect/#remote-debugging in Edge"
+                    :disabled="!!$store.browserConfig.hostBrowserSetupOpening"
+                    @click="$store.browserConfig.openHostBrowserSetup('edge')"
+                  >
+                    <span>Edge</span>
+                    <x-icon name="open_in_new"></x-icon>
+                  </button>
+                </div>
+                <p>Enable <strong>Allow remote debugging for this browser instance</strong>; reconnect A0 CLI if needed.</p>
+                <p class="browser-config-guide-support">Brave, Vivaldi, and Chromium are supported through their own inspect pages.</p>
+              </div>
+
+              <div class="browser-config-guide-item">
+                <div class="browser-config-guide-title">
+                  <x-icon name="web_asset"></x-icon>
+                  <span>Safari <small>macOS</small></span>
+                </div>
+                <ol aria-label="Safari setup steps">
+                  <li>Open <strong>Safari Settings &gt; Advanced</strong> and enable <strong>Show features for web developers</strong>.</li>
+                  <li>Open <strong>Developer</strong> and enable <strong>Allow remote automation</strong>.</li>
+                </ol>
+                <p>Safari uses a dedicated automation window and needs no debug endpoint.</p>
+              </div>
+            </div>
+
+            <details class="browser-config-guide-details">
+              <summary>Manual debug endpoint</summary>
+              <p>
+                Launch the browser with <code>--remote-debugging-port=9222</code> and
+                <code>--user-data-dir=&lt;profile-dir&gt;</code>, then use <code>localhost:9222</code> or the full
+                <code>ws://.../devtools/browser/...</code> endpoint in Custom endpoint or
+                <code>A0_HOST_BROWSER_REMOTE_DEBUGGING_ENDPOINTS</code>.
+              </p>
+            </details>
           </div>
 
           <div
@@ -630,6 +698,132 @@
     .browser-config-note.browser-config-success {
       background: color-mix(in srgb, #15803d 12%, var(--color-background));
       color: color-mix(in srgb, var(--color-text) 88%, #166534);
+    }
+
+    .browser-config-guide {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .browser-config-guide-heading,
+    .browser-config-guide-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--color-text);
+      font-size: 0.84rem;
+      font-weight: 650;
+    }
+
+    .browser-config-guide-heading .material-symbols-outlined,
+    .browser-config-guide-title .material-symbols-outlined {
+      color: var(--color-primary);
+      font-size: 19px;
+    }
+
+    .browser-config-guide-title small {
+      margin-left: 4px;
+      color: var(--color-text-secondary);
+      font-size: 0.68rem;
+      font-weight: 550;
+    }
+
+    .browser-config-guide-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 10px;
+    }
+
+    .browser-config-guide-item {
+      padding: 11px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-background) 82%, transparent);
+    }
+
+    .browser-config-guide-item ol {
+      margin: 9px 0 0;
+      padding-left: 1.2rem;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+      line-height: 1.45;
+    }
+
+    .browser-config-guide-item li + li {
+      margin-top: 5px;
+    }
+
+    .browser-config-guide-item p,
+    .browser-config-guide-details p {
+      margin: 8px 0 0;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+      line-height: 1.4;
+    }
+
+    .browser-config-setup-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .browser-config-setup-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid color-mix(in srgb, var(--color-primary) 36%, var(--color-border));
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--color-primary) 7%, var(--color-panel));
+      color: var(--color-text);
+      font: inherit;
+      font-size: var(--font-size-small);
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .browser-config-setup-button:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-border));
+      background: color-mix(in srgb, var(--color-primary) 13%, var(--color-panel));
+    }
+
+    .browser-config-setup-button:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--color-primary) 72%, transparent);
+      outline-offset: 2px;
+    }
+
+    .browser-config-setup-button:disabled {
+      cursor: wait;
+      opacity: 0.58;
+    }
+
+    .browser-config-setup-button .material-symbols-outlined {
+      color: var(--color-primary);
+      font-size: 15px;
+    }
+
+    .browser-config-guide-item .browser-config-guide-support {
+      color: color-mix(in srgb, var(--color-text-secondary) 88%, var(--color-primary));
+    }
+
+    .browser-config-guide-details {
+      border-top: 1px solid color-mix(in srgb, var(--color-border) 64%, transparent);
+    }
+
+    .browser-config-guide-details summary {
+      padding-top: 10px;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .browser-config-guide-details code {
+      color: var(--color-text);
     }
 
     .browser-config-warning {

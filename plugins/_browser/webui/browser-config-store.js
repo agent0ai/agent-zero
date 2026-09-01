@@ -1,8 +1,10 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
+import { store as notificationStore } from "/components/notifications/notification-store.js";
 
 const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
+const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup";
 const BROWSER_STATUS_API = "/plugins/_browser/status";
 const RUNTIME_BACKENDS = new Set(["container", "host_required"]);
 const BROWSER_TAB_SCOPES = new Set(["per_context", "shared"]);
@@ -155,6 +157,7 @@ function hostBrowserFamilyLabel(value) {
     "edge-dev": "Edge Dev",
     brave: "Brave",
     opera: "Opera",
+    safari: "Safari",
     vivaldi: "Vivaldi",
   };
   const label = labels[base] || "Host browser";
@@ -182,6 +185,7 @@ export const store = createStore("browserConfig", {
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
   hostBrowserStatusRefreshTimer: null,
+  hostBrowserSetupOpening: "",
   hostBrowserCustomEndpoint: "",
   hostBrowserCustomMode: false,
 
@@ -200,6 +204,7 @@ export const store = createStore("browserConfig", {
     this.extensionDeleteLoadingPath = "";
     this.hostBrowserStatus = null;
     this.hostBrowserStatusLoading = false;
+    this.hostBrowserSetupOpening = "";
     this.hostBrowserCustomEndpoint = "";
     this.hostBrowserCustomMode = false;
   },
@@ -284,9 +289,11 @@ export const store = createStore("browserConfig", {
         : [];
       for (const browser of advertised) {
         const endpoint = normalizeCustomHostBrowserEndpoint(browser?.cdp_endpoint);
+        const browserId = normalizeHostBrowserSelection(browser?.id || browser?.browser_id);
+        const family = normalizeHostBrowserSelection(browser?.family || browser?.browser_family);
         const value = endpoint
-          ? normalizeHostBrowserSelection(browser?.id) || endpoint
-          : "";
+          ? browserId || endpoint
+          : family === "safari" ? browserId : "";
         if (!value || seen.has(value)) continue;
         seen.add(value);
         const label = browser?.label || hostBrowserFamilyLabel(browser?.family || value);
@@ -389,6 +396,55 @@ export const store = createStore("browserConfig", {
     } finally {
       this.hostBrowserStatusLoading = false;
     }
+  },
+
+  async openHostBrowserSetup(browserFamily) {
+    if (this.hostBrowserSetupOpening) return;
+    const family = String(browserFamily || "").trim().toLowerCase();
+    if (!["chrome", "opera", "edge"].includes(family)) return;
+    this.hostBrowserSetupOpening = family;
+    try {
+      await callJsonApi(BROWSER_SETUP_API, { browser_family: family });
+      const label = family === "edge" ? "Edge" : `${family[0].toUpperCase()}${family.slice(1)}`;
+      notificationStore.addFrontendToastOnly(
+        "success",
+        `${label} remote-debugging setup opened on the connected host.`,
+        "",
+        4,
+      );
+    } catch (error) {
+      console.error("Failed to open host browser setup:", error);
+      notificationStore.addFrontendToastOnly(
+        "error",
+        "Connect or update A0 CLI, enable its Browser permission, and try again.",
+        "Could not open browser setup",
+        7,
+      );
+    } finally {
+      this.hostBrowserSetupOpening = "";
+    }
+  },
+
+  hostBrowserSetupAvailable(browserFamily) {
+    const family = String(browserFamily || "").trim().toLowerCase();
+    const connectors = Array.isArray(this.hostBrowserStatus?.connectors)
+      ? this.hostBrowserStatus.connectors
+      : [];
+    return connectors.some((connector) => {
+      if (!Array.isArray(connector?.features) || !connector.features.includes("open_remote_debugging")) {
+        return false;
+      }
+      const browsers = Array.isArray(connector?.available_browsers)
+        ? connector.available_browsers
+        : [];
+      return browsers.some((browser) => {
+        const available = String(browser?.family || browser?.browser_family || "")
+          .trim()
+          .toLowerCase()
+          .replace(/-(?:a0|cdp)$/, "");
+        return available === family || (family === "edge" && available === "edge-dev");
+      });
+    });
   },
 
   hostBrowserConnectorLabel() {

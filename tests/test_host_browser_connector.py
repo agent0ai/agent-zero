@@ -226,6 +226,54 @@ def test_pending_browser_op_resolves_and_disconnect_fails():
     asyncio.run(run())
 
 
+def test_host_browser_setup_api_dispatches_to_connected_cli(monkeypatch):
+    from plugins._browser.api import host_browser_setup
+
+    async def run() -> None:
+        sid = "sid-browser-setup"
+        emitted: list[dict[str, object]] = []
+
+        class FakeWsManager:
+            async def emit_to(self, namespace, target_sid, event, payload, handler_id=""):
+                del namespace, event, handler_id
+                assert target_sid == sid
+                emitted.append(dict(payload))
+                ws_runtime.resolve_pending_browser_op(
+                    payload["op_id"],
+                    sid=target_sid,
+                    payload={
+                        "op_id": payload["op_id"],
+                        "ok": True,
+                        "result": {"url": "chrome://inspect/#remote-debugging"},
+                    },
+                )
+
+        monkeypatch.setattr(host_browser_setup, "get_shared_ws_manager", lambda: FakeWsManager())
+        ws_runtime.register_sid(sid)
+        try:
+            ws_runtime.store_sid_host_browser_metadata(
+                sid,
+                {
+                    "supported": True,
+                    "enabled": False,
+                    "status": "disabled",
+                    "features": ["open_remote_debugging"],
+                },
+            )
+            result = await host_browser_setup.HostBrowserSetup(None, None).process(
+                {"browser_family": "chrome"},
+                SimpleNamespace(),
+            )
+
+            assert result["ok"] is True
+            assert emitted[0]["action"] == "open_remote_debugging"
+            assert emitted[0]["browser_family"] == "chrome"
+        finally:
+            ws_runtime.unregister_sid(sid)
+
+    asyncio.run(run())
+
+
 def test_host_browser_privacy_detects_local_model(monkeypatch):
     from plugins._model_config.helpers import model_config
 

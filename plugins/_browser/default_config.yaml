@@ -43,7 +43,8 @@ host_browser_profile_mode: "existing"
 
 # Optional host browser target when using an existing browser.
 # Empty means A0 CLI chooses the first supported/active browser.
-# Values may be browser family ids (chrome, edge, chromium) or CLI-advertised ids/endpoints.
+# Values may be browser family ids (chrome, edge, chromium), Safari's
+# CLI-advertised safari:default id, or other CLI-advertised ids/endpoints.
 host_browser_selection: ""
 
 # Optional _model_config preset used by Browser-owned model helpers.

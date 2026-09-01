@@ -308,6 +308,9 @@ def test_browser_config_normalizes_host_browser_selection():
         normalize_browser_config({"host_browser_choice": "chrome"})["host_browser_selection"]
         == "chrome"
     )
+    assert normalize_browser_config({"host_browser_selection": " Safari:Default "})[
+        "host_browser_selection"
+    ] == "safari:default"
     assert (
         normalize_browser_config({"host_browser_selection": "ws://127.0.0.1:9222/devtools/Browser/AbC?token=XyZ"})[
             "host_browser_selection"
@@ -326,7 +329,7 @@ def test_browser_config_normalizes_host_browser_selection():
     )
 
 
-def test_browser_config_store_migrates_advertised_endpoint_to_stable_id():
+def test_browser_config_store_lists_supported_host_targets_and_migrates_endpoint():
     path = PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-config-store.js"
     source = path.read_text(encoding="utf-8")
     source = re.sub(r"^import .*;\n", "", source, flags=re.M)
@@ -337,6 +340,7 @@ def test_browser_config_store_migrates_advertised_endpoint_to_stable_id():
             {
                 "browser_id": "chrome-cdp",
                 "cdp_endpoint": endpoint,
+                "features": ["open_remote_debugging"],
                 "available_browsers": [
                     {
                         "id": "chrome-cdp",
@@ -349,6 +353,13 @@ def test_browser_config_store_migrates_advertised_endpoint_to_stable_id():
                         "family": "chrome",
                         "label": "Chrome profile",
                         "cdp_endpoint": "",
+                    },
+                    {
+                        "id": "safari:default",
+                        "family": "safari",
+                        "label": "Safari - Automation window",
+                        "cdp_endpoint": "",
+                        "status": "ready",
                     },
                 ],
             }
@@ -367,8 +378,14 @@ def test_browser_config_store_migrates_advertised_endpoint_to_stable_id():
         + "if (store.config.host_browser_selection !== 'chrome-cdp') throw new Error('legacy endpoint was not migrated');\n"
         + "const values = store.hostBrowserOptions().map((option) => option.value);\n"
         + "if (!values.includes('chrome-cdp')) throw new Error('stable browser id is missing');\n"
+        + "if (!values.includes('safari:default')) throw new Error('Safari WebDriver id is missing');\n"
         + f"if (values.includes({json.dumps(endpoint)})) throw new Error('volatile endpoint was advertised');\n"
         + "if (values.includes('chrome:default')) throw new Error('local profiles leaked into the dropdown');\n"
+        + "if (!store.hostBrowserSetupAvailable('chrome')) throw new Error('installed Chrome setup is hidden');\n"
+        + "if (store.hostBrowserSetupAvailable('opera')) throw new Error('missing Opera setup is visible');\n"
+        + "if (store.hostBrowserSetupAvailable('edge')) throw new Error('missing Edge setup is visible');\n"
+        + "browserStatus.connectors[0].available_browsers.push({ family: 'edge-dev-a0' });\n"
+        + "if (!store.hostBrowserSetupAvailable('edge')) throw new Error('installed Edge Dev setup is hidden');\n"
         + "const custom = 'ws://localhost:9333/devtools/browser/custom';\n"
         + "if (stableHostBrowserSelection(custom, browserStatus) !== custom) throw new Error('custom endpoint changed');\n"
     )
@@ -1442,6 +1459,23 @@ def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
     assert "already-open Browser surface" in config_html
     assert "chrome://inspect/#remote-debugging" in config_html
     assert "opera://inspect/#remote-debugging" in config_html
+    assert "Safari Settings &gt; Advanced" in config_html
+    assert "Show features for web developers" in config_html
+    assert "Allow remote automation" in config_html
+    assert "dedicated automation window" in config_html
+    assert "Safari setup steps" in config_html
+    assert "Chromium browser setup steps" in config_html
+    assert "openHostBrowserSetup('chrome')" in config_html
+    assert "openHostBrowserSetup('opera')" in config_html
+    assert "openHostBrowserSetup('edge')" in config_html
+    assert "hostBrowserSetupAvailable('chrome')" in config_html
+    assert "hostBrowserSetupAvailable('opera')" in config_html
+    assert "hostBrowserSetupAvailable('edge')" in config_html
+    assert "Brave, Vivaldi, and Chromium are supported" in config_html
+    assert 'const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup"' in config_store_js
+    assert "openHostBrowserSetup(browserFamily)" in config_store_js
+    assert "hostBrowserSetupAvailable(browserFamily)" in config_store_js
+    assert "Manual debug endpoint" in config_html
     assert "A0_HOST_BROWSER_REMOTE_DEBUGGING_ENDPOINTS" in config_html
     assert "Custom endpoint" in config_html
     assert "localhost:9222" in config_html
