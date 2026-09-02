@@ -12,6 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 STORE = ROOT / "plugins" / "_agent_editor" / "webui" / "agent-editor-store.js"
 MODAL = ROOT / "plugins" / "_agent_editor" / "webui" / "main.html"
+TOOLTIP_STORE = ROOT / "webui" / "components" / "tooltips" / "tooltip-store.js"
 SWITCHER = (
     ROOT
     / "plugins"
@@ -175,6 +176,9 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "Replace with simple instructions" not in modal
     assert "easyInstructionsEditable" not in modal
     assert '<textarea id="agent-editor-instructions"' in modal
+    assert ':required="$store.agentEditor.draft?.creating"' in easy_surface
+    assert '>Instructions <span class="agent-status-badge compact"' in easy_surface
+    assert ">Required</span>" in easy_surface
     assert "<h2" not in modal
     assert "Section 1" not in modal
     assert '<textarea id="agent-editor-description" rows="2"' in modal
@@ -216,6 +220,8 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert modal.count('role="alert"') >= 4
     assert "Fix ${$store.agentEditor.validationIssues().length}" in modal
     assert modal.count("$store.agentEditor.validationIssues().length > 0") == 2
+    assert ':title="$store.agentEditor.validationErrors().join(\' \')"' in modal
+    assert "Fix the highlighted issues before saving" not in modal
     assert "$store.agentEditor.view === 'editor' && !$store.agentEditor.pendingMutation" in modal
     assert 'x-show="$store.agentEditor.view === \'editor\' && !$store.agentEditor.draft?.creating"' in modal
     assert 'class="btn btn-ok" x-show="$store.agentEditor.view === \'editor\'"' in modal
@@ -299,6 +305,46 @@ def test_agent_editor_store_has_no_conversational_or_model_builder_path() -> Non
     assert 'class="toast-action-row"' in source
     assert 'class="button confirm"' in source
     assert "toast-link" not in source and ".toast-link" not in modal
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node is required")
+def test_empty_dynamic_title_disposes_its_tooltip() -> None:
+    source = re.sub(
+        r"^import .*?;\n",
+        "",
+        TOOLTIP_STORE.read_text(encoding="utf-8"),
+        flags=re.MULTILINE,
+    )
+    source += "\nexport { ensureBootstrapTooltip };\n"
+    module_url = "data:text/javascript;base64," + base64.b64encode(
+        ("const createStore = (_name, value) => value;\n" + source).encode("utf-8")
+    ).decode("ascii")
+    script = f"""
+class FakeElement {{
+  constructor() {{ this.attributes = new Map([["title", "Instructions are required."]]); }}
+  getAttribute(name) {{ return this.attributes.has(name) ? this.attributes.get(name) : null; }}
+  hasAttribute(name) {{ return this.attributes.has(name); }}
+  setAttribute(name, value) {{ this.attributes.set(name, String(value)); }}
+  removeAttribute(name) {{ this.attributes.delete(name); }}
+}}
+globalThis.Element = FakeElement;
+let instance = null;
+class Tooltip {{
+  static getInstance(element) {{ return instance?.element === element ? instance : null; }}
+  constructor(element) {{ this.element = element; instance = this; }}
+  dispose() {{ instance = null; }}
+  setContent() {{}}
+}}
+globalThis.bootstrap = {{ Tooltip }};
+const {{ ensureBootstrapTooltip }} = await import({module_url!r});
+const element = new FakeElement();
+ensureBootstrapTooltip(element);
+if (!instance || element.getAttribute("data-bs-original-title") !== "Instructions are required.") throw new Error("tooltip was not initialized");
+element.setAttribute("title", "");
+ensureBootstrapTooltip(element);
+if (instance || element.hasAttribute("data-bs-original-title") || element.hasAttribute("data-bs-tooltip-initialized")) throw new Error("cleared title left a stale tooltip");
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True)
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="node is required")
