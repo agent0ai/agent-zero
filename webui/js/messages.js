@@ -1472,6 +1472,7 @@ export function drawProcessStep({
       kvps,
       content,
       contentClasses,
+      code,
     });
   } else {
     discardProcessStepDetail(step);
@@ -1509,6 +1510,7 @@ function renderProcessStepDetail({
   kvps,
   content,
   contentClasses,
+  code,
 }) {
   let stepDetailScroll = stepDetail.querySelector(
     ":scope > .process-step-detail-scroll",
@@ -1523,7 +1525,7 @@ function renderProcessStepDetail({
   }
 
   const detailScroller = new Scroller(stepDetailScroll, {
-    smooth: !isMassRender(),
+    smooth: code !== "GEN" && !isMassRender(),
     toleranceRem: 4,
   });
   const kvpsTable = drawKvpsIncremental(stepDetailScroll, kvps);
@@ -1884,6 +1886,15 @@ export function drawMessageAgent({
   const title = cleanStepTitle(heading);
   let displayKvps = {};
   if (kvps?.thoughts) displayKvps["icon://lightbulb[Thoughts]"] = kvps.thoughts;
+  if (preferencesStore.showToolArgs) {
+    if (kvps?.tool_name) displayKvps["icon://build[Tool]"] = kvps.tool_name;
+    const toolArgs = kvps?.tool_args ?? kvps?.args;
+    if (toolArgs) {
+      Object.entries(toolArgs).forEach(([key, value]) => {
+        if (kvps.tool_name !== "response") displayKvps[key] = value;
+      });
+    }
+  }
   if (kvps?.step) displayKvps["icon://step[Step]"] = kvps.step;
   const thoughtsText = String(kvps?.thoughts ?? "");
   const headerLabels = [
