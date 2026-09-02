@@ -38,12 +38,12 @@ class HostBrowserSetup(ApiHandler):
             sid = str(connectors[0]["sid"])
         elif connectors:
             return Response(
-                "Multiple A0 CLI hosts are connected; disconnect all but the host to configure",
+                "Multiple hosts are connected; disconnect all but the host to configure",
                 status=409,
             )
         else:
             return Response(
-                "Connect or update A0 CLI before opening a host browser setup page",
+                "Connect or update Launcher or A0 CLI before opening a host browser setup page",
                 status=409,
             )
 
@@ -67,15 +67,15 @@ class HostBrowserSetup(ApiHandler):
             )
             result = await asyncio.wait_for(future, timeout=_BROWSER_OP_TIMEOUT_SECONDS)
         except ConnectionNotFoundError:
-            return Response("The connected A0 CLI host disconnected", status=409)
+            return Response("The connected host disconnected", status=409)
         except asyncio.TimeoutError:
-            return Response("A0 CLI did not open the browser setup page in time", status=504)
+            return Response("The connected host did not open the browser setup page in time", status=504)
         finally:
             clear_pending_browser_op(op_id)
 
         if not result.get("ok", False):
             return Response(
-                str(result.get("error") or "A0 CLI could not open the browser setup page"),
+                str(result.get("error") or "The connected host could not open the browser setup page"),
                 status=409,
             )
         return {"ok": True, "result": result.get("result", {})}

@@ -281,7 +281,7 @@ export const store = createStore("browserConfig", {
     const connectors = Array.isArray(this.hostBrowserStatus?.connectors)
       ? this.hostBrowserStatus.connectors
       : [];
-    const options = [{ value: "", label: "Automatic (A0 CLI chooses)" }];
+    const options = [{ value: "", label: "Automatic (first available)" }];
     const seen = new Set([""]);
     for (const connector of connectors) {
       const advertised = Array.isArray(connector?.available_browsers)
@@ -416,7 +416,7 @@ export const store = createStore("browserConfig", {
       console.error("Failed to open host browser setup:", error);
       notificationStore.addFrontendToastOnly(
         "error",
-        "Connect or update A0 CLI, enable its Browser permission, and try again.",
+        "Connect or update Launcher or A0 CLI, enable host Browser access, and try again.",
         "Could not open browser setup",
         7,
       );
@@ -457,18 +457,18 @@ export const store = createStore("browserConfig", {
       return `${hostBrowserFamilyLabel(active.browser_family)}${profile}: ${hostBrowserStatusLabel(active.status)}`;
     }
     const preparable = connectors.find((item) => item?.can_prepare || item?.supported);
-    if (preparable) return "A0 CLI connected - browser will open on first use";
-    if (connectors.length) return "A0 CLI connected - host browser unavailable";
-    return "Connect A0 CLI to use a host browser";
+    if (preparable) return "Host connected - browser will open on first use";
+    if (connectors.length) return "Host connected - host browser unavailable";
+    return "Connect through Launcher or A0 CLI to use a host browser";
   },
 
   browserRuntimeStatusLabel() {
     if (this.config?.runtime_backend !== "host_required") {
-      return "Docker browser runs inside Agent Zero; A0 CLI host-browser status does not affect it.";
+      return "Docker browser runs inside Agent Zero; host-browser connection status does not affect it.";
     }
     const label = this.hostBrowserConnectorLabel();
-    if (label.startsWith("Connect A0 CLI") || label.includes("unavailable")) {
-      return `${label}. Switch Browser location to Internal Docker browser to browse without A0 CLI.`;
+    if (label.startsWith("Connect through Launcher") || label.includes("unavailable")) {
+      return `${label}. Switch Browser location to Internal Docker browser to browse without a host connection.`;
     }
     return label;
   },

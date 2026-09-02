@@ -18,26 +18,26 @@
         <div class="browser-config-card">
           <div class="section-title">Browser Runtime</div>
           <div class="section-description">
-            Choose the internal Docker browser or a browser on the computer running A0 CLI.
+            Choose the internal Docker browser or a host browser connected through Launcher or A0 CLI.
           </div>
 
           <label class="browser-config-field">
             <span class="browser-config-field-label">Browser location</span>
             <select x-model="$store.browserConfig.config.runtime_backend">
               <option value="container">Internal Docker browser</option>
-              <option value="host_required">Host browser through A0 CLI</option>
+              <option value="host_required">Host browser on connected computer</option>
             </select>
             <span
               class="browser-config-field-help"
               x-show="$store.browserConfig.config.runtime_backend !== 'host_required'"
             >
-              Runs inside Agent Zero's Docker environment. No A0 CLI connection or host browser setup is needed.
+              Runs inside Agent Zero's Docker environment. No host connection or browser setup is needed.
             </span>
             <span
               class="browser-config-field-help"
               x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
             >
-              Uses Safari, Chrome, Edge, Brave, Opera, Vivaldi, or Chromium on a computer connected through A0 CLI, directly or through Launcher. The browser opens when the agent first needs it.
+              Uses Safari, Chrome, Edge, Brave, Opera, Vivaldi, or Chromium on a computer connected through Launcher or A0 CLI. The browser opens when the agent first needs it.
             </span>
           </label>
 
@@ -46,7 +46,7 @@
             x-show="$store.browserConfig.config.runtime_backend !== 'host_required'"
           >
             <x-icon name="deployed_code"></x-icon>
-            <span>Internal Docker browser selected. Host-browser CLI settings are ignored for Browser tool runs.</span>
+            <span>Internal Docker browser selected. Host-browser connection settings are ignored for Browser tool runs.</span>
           </div>
 
           <details
@@ -130,7 +130,7 @@
                 <option :value="option.value" x-text="option.label"></option>
               </template>
             </select>
-            <span class="browser-config-field-help">Choose an available host browser, or leave Automatic so A0 CLI picks.</span>
+            <span class="browser-config-field-help">Choose an available host browser, or leave Automatic to use the first available one.</span>
           </label>
 
           <label
@@ -199,7 +199,7 @@
                     <x-icon name="open_in_new"></x-icon>
                   </button>
                 </div>
-                <p>Enable <strong>Allow remote debugging for this browser instance</strong>; reconnect A0 CLI if needed.</p>
+                <p>Enable <strong>Allow remote debugging for this browser instance</strong>; reconnect the host connection if needed.</p>
                 <p class="browser-config-guide-support">Brave, Vivaldi, and Chromium are supported through their own inspect pages.</p>
               </div>
 

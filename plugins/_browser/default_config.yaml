@@ -20,7 +20,7 @@ max_open_tabs: 32
 
 # Runtime used by the agent-facing browser tool:
 # - container: use Agent Zero's Docker/server Playwright browser.
-# - host_required: Bring Your Own Browser through A0 CLI and prepare it on first browser use when possible.
+# - host_required: use a host browser through Launcher or A0 CLI and prepare it on first use when possible.
 runtime_backend: "container"
 
 # Optional proxy used only by the internal Docker browser.
@@ -42,9 +42,9 @@ host_browser_privacy_policy: "allow"
 host_browser_profile_mode: "existing"
 
 # Optional host browser target when using an existing browser.
-# Empty means A0 CLI chooses the first supported/active browser.
+# Empty means the connected host chooses the first supported/active browser.
 # Values may be browser family ids (chrome, edge, chromium), Safari's
-# CLI-advertised safari:default id, or other CLI-advertised ids/endpoints.
+# host-advertised safari:default id, or other host-advertised ids/endpoints.
 host_browser_selection: ""
 
 # Optional _model_config preset used by Browser-owned model helpers.
