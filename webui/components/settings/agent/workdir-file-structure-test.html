@@ -12,6 +12,7 @@
       <template x-if="$store.settings && $store.settings.settings">
         <div>
           <h3>Workdir structure test - <span x-text="$store.settings.settings.workdir_path"></span></h3>
+          <div class="field-description">The agent receives this map in a token-compact 4-space indented form to save context; this preview shows the human-readable box-drawing variant.</div>
           <pre x-text="$store.settings.workdirFileStructureTestOutput"></pre>
         </div>
       </template>
