@@ -110,6 +110,24 @@ def transform_response(response: str, *, suppress_xml: bool) -> str:
     return _compact_json({"thoughts": [response]})
 
 
+def is_thoughts_fallback(response: str, transformed: str) -> bool:
+    """Check whether transform wrapped raw output as its only thoughts entry."""
+    if not response:
+        return False
+    try:
+        parsed = json.loads(transformed)
+    except ValueError:
+        return False
+    if (
+        not isinstance(parsed, dict)
+        or set(parsed.keys()) != {"thoughts"}
+        or not isinstance(parsed.get("thoughts"), list)
+        or len(parsed["thoughts"]) != 1
+    ):
+        return False
+    return parsed["thoughts"][0] == response
+
+
 def update_log_item(
     agent: Any,
     log_item: Any,

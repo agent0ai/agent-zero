@@ -7,7 +7,9 @@ from typing import Any, override
 
 from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
+from helpers.print_style import PrintStyle
 from plugins._context_doctor.helpers.context_doctor import (
+    is_thoughts_fallback,
     transform_response,
     update_log_item,
 )
@@ -31,6 +33,19 @@ class ContextDoctor(Extension):
             response, suppress_xml=config.get("suppress_xml", True)
         )
         llm_result.response = transformed
+
+        # Claim raw-text fallback turns with clear warnings before log refresh
+        if is_thoughts_fallback(response, transformed):
+            warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
+            warning_message = self.agent.hist_add_warning(message=warning)
+            PrintStyle(font_color="orange", padding=True).print(warning)
+            self.agent.context.log.log(
+                type="warning",
+                content=f"{self.agent.agent_name}: {self.agent.read_prompt('fw.msg_thoughts_fallback_response.md')}",
+                id=warning_message.id,
+            )
+            result_data["skip_default_processing"] = True
+            return
 
         # Suppressed XML does not update the generating log
         params = getattr(

@@ -4,6 +4,7 @@ from plugins._context_doctor.extensions.python.message_loop_result._10_context_d
     ContextDoctor,
 )
 from plugins._context_doctor.helpers.context_doctor import (
+    is_thoughts_fallback,
     transform_response,
     update_log_item,
 )
@@ -79,6 +80,23 @@ def test_updates_log_kvps_and_heading_while_preserving_raw_content():
     assert log_item.data["kvps"]["reasoning"] == "because"
     assert log_item.data["kvps"]["tool_name"] == "response"
     assert log_item.data["heading"] == "A0: Done"
+
+
+def test_converted_to_thoughts_detects_plain_text_wrap():
+    assert is_thoughts_fallback("plain text", '{"thoughts":["plain text"]}')
+    assert not is_thoughts_fallback("plain text", "{}")
+
+
+def test_converted_to_thoughts_ignores_native_thoughts_json():
+    response = '{"thoughts":["only thoughts"]}'
+
+    assert not is_thoughts_fallback(response, response)
+
+
+def test_converted_to_thoughts_ignores_tool_calls():
+    response = '{"tool_name":"response","tool_args":{"text":"ok"}}'
+
+    assert not is_thoughts_fallback(response, response)
 
 
 def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
