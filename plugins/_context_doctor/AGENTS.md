@@ -16,8 +16,7 @@
 
 - Repaired and fallback JSON is always minified.
 - Nonempty non-tool output becomes `{"thoughts":[raw]}`; XML-like output becomes `{}` only when suppression is enabled.
-- Log kvps retain streamed `reasoning` and normalized `thoughts`, then add
-  transformed output; `update_log` controls only View Details content.
+- Log kvps retain streamed `reasoning` and add transformed output; `update_log` controls only View Details content.
 - A repaired `response` tool call refreshes the response log item when streaming did not create it.
 - Runtime setup reads the `json_repair` pin from root `requirements.txt`; do not duplicate its version in plugin code.
 

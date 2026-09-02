@@ -61,7 +61,7 @@ def test_suppresses_xml_when_enabled():
 
 def test_updates_log_kvps_and_heading_while_preserving_raw_content():
     log_item = SimpleNamespace(
-        kvps={"reasoning": "because", "thoughts": ["because"]},
+        kvps={"reasoning": "because"},
         update=lambda **kwargs: setattr(log_item, "data", kwargs),
     )
     raw = '{"tool_name":"response","tool_args":{"text":"ok",},}'
@@ -77,7 +77,6 @@ def test_updates_log_kvps_and_heading_while_preserving_raw_content():
 
     assert log_item.data["content"] == raw
     assert log_item.data["kvps"]["reasoning"] == "because"
-    assert log_item.data["kvps"]["thoughts"] == ["because"]
     assert log_item.data["kvps"]["tool_name"] == "response"
     assert log_item.data["heading"] == "A0: Done"
 

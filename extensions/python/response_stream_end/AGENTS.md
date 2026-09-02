@@ -12,8 +12,6 @@
 
 - Preserve final masking before response content is considered complete.
 - Keep log state consistent with streamed chunks and final response text.
-- Preserve explicit planning fields; when `thoughts` are absent, expose native
-  reasoning summaries as thoughts after both streams finish.
 
 ## Work Guidance
 
