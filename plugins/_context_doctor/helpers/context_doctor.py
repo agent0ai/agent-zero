@@ -96,18 +96,43 @@ def _compact_json(value: dict[str, Any]) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
-def transform_response(response: str, *, suppress_xml: bool) -> str:
-    """Repair model output, falling back to compact thoughts JSON for raw text."""
+def _split_thoughts(value: dict[str, Any]) -> None:
+    """Expand blank-line-separated thought strings into separate entries in place."""
+    thoughts = value.get("thoughts")
+    if not isinstance(thoughts, list):
+        return
+    split: list[str] = []
+    for item in thoughts:
+        if isinstance(item, str) and "\n\n" in item:
+            split.extend(part for part in item.split("\n\n") if part)
+        else:
+            split.append(item)
+    value["thoughts"] = split
+
+
+def _select_value(response: str, *, suppress_xml: bool) -> dict[str, Any] | None:
+    """Pick the repaired tool call, partial result, or raw-text fallback."""
     if response:
         tool_call, partial_response = _repair(response)
         if tool_call is not None:
-            return _compact_json(tool_call)
+            return tool_call
         if partial_response is not None:
-            return _compact_json(partial_response)
-
+            return partial_response
     if suppress_xml and "<" in response and ">" in response:
+        return None
+    return {"thoughts": [response]}
+
+
+def transform_response(
+    response: str, *, suppress_xml: bool, split_thoughts: bool = True
+) -> str:
+    """Repair model output, falling back to compact thoughts JSON for raw text."""
+    value = _select_value(response, suppress_xml=suppress_xml)
+    if value is None:
         return "{}"
-    return _compact_json({"thoughts": [response]})
+    if split_thoughts:
+        _split_thoughts(value)
+    return _compact_json(value)
 
 
 def is_thoughts_fallback(response: str, transformed: str) -> bool:

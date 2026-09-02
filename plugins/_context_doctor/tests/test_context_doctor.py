@@ -60,6 +60,26 @@ def test_suppresses_xml_when_enabled():
     )
 
 
+def test_splits_blank_line_thoughts_after_repair():
+    response = '{"thoughts":["first\\n\\nsecond"]}'
+
+    assert transform_response(response, suppress_xml=True) == (
+        '{"thoughts":["first","second"]}'
+    )
+
+
+def test_splits_blank_lines_in_raw_text_fallback():
+    assert transform_response("first\n\nsecond", suppress_xml=False) == (
+        '{"thoughts":["first","second"]}'
+    )
+
+
+def test_keeps_blank_line_thoughts_when_split_disabled():
+    assert transform_response(
+        "first\n\nsecond", suppress_xml=False, split_thoughts=False
+    ) == '{"thoughts":["first\\n\\nsecond"]}'
+
+
 def test_updates_log_kvps_and_heading_while_preserving_raw_content():
     log_item = SimpleNamespace(
         kvps={"reasoning": "because"},

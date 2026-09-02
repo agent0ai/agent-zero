@@ -30,7 +30,9 @@ class ContextDoctor(Extension):
         # Repair response before default processing
         config = get_plugin_config("_context_doctor", agent=self.agent) or {}
         transformed = transform_response(
-            response, suppress_xml=config.get("suppress_xml", True)
+            response,
+            suppress_xml=config.get("suppress_xml", True),
+            split_thoughts=config.get("split_thoughts", True),
         )
         llm_result.response = transformed
 

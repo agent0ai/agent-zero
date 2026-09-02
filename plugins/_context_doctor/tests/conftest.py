@@ -7,6 +7,7 @@ import pytest
 _DEFAULT_CONFIG = {
     "update_log": False,
     "suppress_xml": True,
+    "split_thoughts": True,
 }
 
 
