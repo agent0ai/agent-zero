@@ -1,5 +1,6 @@
 
 ## Communication
+- Always reply through a tool call; plain-text output is invalid and never reaches the user
 - Output must be valid JSON with double quotes for all keys and string values
 - No JSON in markdown fences
 - Do not invent unavailable tool names and args
