@@ -183,7 +183,7 @@ export async function getMessageHandler(type) {
     // return handler from extensions
     if(typeof extData.handler == "function") return extData.handler;
     //not set by extensions, return default
-    return drawMessageDefault;
+    return drawMessageTool;
   }
 }
 

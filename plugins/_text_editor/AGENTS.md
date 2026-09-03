@@ -13,6 +13,8 @@
 
 ## Local Contracts
 
+- `tools/text_editor.py` overrides `get_log_object()` to log `type="text_editor"` so the WebUI `get_message_handler` extension hook can route messages to `_text_editor/extensions/webui/get_message_handler/_10_text_editor_handler.js` instead of the default `drawMessageTool` handler.
+
 - Preserve stale-read protection before patch operations.
 - Validate patch structures before applying edits.
 - Read back changed regions after writes or patches where the tool contract requires confirmation.
