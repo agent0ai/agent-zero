@@ -4541,7 +4541,9 @@ async def test_vision_load_materializes_ephemeral_browser_refs(monkeypatch, tmp_
     messages = []
     updates = []
     agent = SimpleNamespace(
-        context=SimpleNamespace(id="ctx-vision"),
+        context=SimpleNamespace(
+            id="ctx-vision", get_data=lambda *_args, **_kwargs: None
+        ),
         agent_name="Agent 0",
         hist_add_tool_result=lambda *args, **kwargs: tool_results.append((args, kwargs)),
         hist_add_message=lambda *args, **kwargs: messages.append((args, kwargs)),
