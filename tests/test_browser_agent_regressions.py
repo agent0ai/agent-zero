@@ -82,6 +82,11 @@ class _TestWsHandler:
         self.emitted.append((sid, event, data, correlation_id))
 
 
+class _TestWsManager:
+    async def emit_to(self, *args, **kwargs):
+        pass
+
+
 class _TestWsResult(dict):
     @staticmethod
     def error(code="", message="", correlation_id=None):
@@ -4095,7 +4100,7 @@ async def test_browser_viewer_command_returns_only_requested_context_tabs(monkey
     handler = ws_browser_module.WsBrowser(
         SimpleNamespace(),
         threading.RLock(),
-        manager=None,
+        manager=_TestWsManager(),
     )
 
     result = await handler.process(
@@ -4146,7 +4151,7 @@ async def test_browser_viewer_command_can_return_shared_context_tabs(monkeypatch
     handler = ws_browser_module.WsBrowser(
         SimpleNamespace(),
         threading.RLock(),
-        manager=None,
+        manager=_TestWsManager(),
     )
 
     result = await handler.process(
