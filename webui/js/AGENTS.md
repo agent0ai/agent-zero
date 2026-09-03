@@ -17,6 +17,8 @@
 - `initFw.js` owns Alpine bootstrap and custom lifecycle directives such as `x-create`, `x-destroy`, and periodic `x-every-*` hooks.
 - `icons.js` owns `<x-icon>`, icon-name validation, the name property/attribute bridge, and helpers that read or update both the first-party custom element and legacy plugin ligature spans.
 - `messages.js` owns native message/process-step rendering, safe Markdown and HTML conversion, and KaTeX delimiter handling.
+- `messages.js` routes unknown/non-tool message types through `drawMessageTool` (the same renderer used for explicit tool steps) instead of the legacy default renderer; visible text is unchanged but the tool-step chrome is reused for visual consistency and unified action-button placement.
+- `messages.js` disables `Scroller` smooth scrolling for `GEN` process steps (live agent responses) to prevent jumpiness during streamed content growth; non-`GEN` steps keep smooth scrolling.
 - `message-collapse.js` owns the layout-safe overflow measurement shared by collapsible user messages and responses.
 - `message-window.js` owns the bounded, tail-first raw-log window used by message rendering.
 - `loading-indicators.js` owns reusable DOM factories for shared loading visuals.
