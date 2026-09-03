@@ -170,6 +170,7 @@ def test_codex_fetch_model_catalog_preserves_model_metadata(monkeypatch):
 
 
 def test_prepare_responses_body_adds_codex_client_metadata(monkeypatch):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
     monkeypatch.setattr(
         codex,
         "build_client_metadata",
@@ -209,6 +210,7 @@ def test_prepare_responses_body_adds_codex_client_metadata(monkeypatch):
 
 
 def test_prepare_responses_body_tightens_existing_response_tool_only(monkeypatch):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
     monkeypatch.setattr(codex, "build_client_metadata", lambda: {})
     response_tool = {
         "type": "function",
@@ -263,6 +265,7 @@ def test_prepare_responses_body_tightens_existing_response_tool_only(monkeypatch
 def test_prepare_responses_body_normalizes_reasoning_effort(
     monkeypatch, request_reasoning, expected
 ):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
     monkeypatch.setattr(codex, "build_client_metadata", lambda: {})
 
     body = codex.prepare_responses_body(
@@ -324,6 +327,7 @@ def test_codex_config_validates_response_defaults():
 
 
 def test_prepare_responses_body_sends_empty_continuation_input_as_list(monkeypatch):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
     monkeypatch.setattr(codex, "build_client_metadata", lambda: {})
 
     body = codex.prepare_responses_body(
