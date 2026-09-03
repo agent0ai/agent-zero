@@ -45,6 +45,14 @@ class ContextDoctor(Extension):
                 id=log_item.id if log_item else "",
                 llm_result=llm_result,
             )
+            if log_item is not None:
+                update_log_item(
+                    self.agent,
+                    log_item,
+                    transformed,
+                    update_log=config.get("update_log", False),
+                    raw_response=response,
+                )
 
             warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
             warning_message = self.agent.hist_add_warning(message=warning)

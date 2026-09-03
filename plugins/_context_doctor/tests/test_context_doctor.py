@@ -204,7 +204,10 @@ def test_extension_handles_fallback_with_warning_and_skip(monkeypatch):
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
         lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
     )
-    log_item = SimpleNamespace(id="generating", update=lambda **kwargs: None)
+    log_item = SimpleNamespace(
+        id="generating", kvps={"reasoning": "thinking"},
+        update=lambda **kwargs: setattr(log_item, "data", kwargs),
+    )
     logs = []
     warnings = []
     ai_responses = []
@@ -230,3 +233,9 @@ def test_extension_handles_fallback_with_warning_and_skip(monkeypatch):
     assert warnings == ["fallback warning"]
     assert logs[0]["content"] == "A0: fallback notice"
     assert logs[0]["id"] == "warning"
+    assert log_item.data["kvps"]["thoughts"] == ["plain text"]
+    assert log_item.data["kvps"]["reasoning"] == "thinking"
+    assert log_item.data["content"] == "plain text"
+    assert log_item.data["kvps"]["thoughts"] == ["plain text"]
+    assert log_item.data["kvps"]["reasoning"] == "thinking"
+    assert log_item.data["content"] == "plain text"
