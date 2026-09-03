@@ -36,8 +36,16 @@ class ContextDoctor(Extension):
         )
         llm_result.response = transformed
 
-        # Claim raw-text fallback turns with clear warnings before log refresh
+        # Check if response is a plain text
         if is_thoughts_fallback(response, transformed):
+            # Manually add ai response and warnings
+            log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
+            self.agent.hist_add_ai_response(
+                transformed,
+                id=log_item.id if log_item else "",
+                llm_result=llm_result,
+            )
+
             warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
             warning_message = self.agent.hist_add_warning(message=warning)
             PrintStyle(font_color="orange", padding=True).print(warning)

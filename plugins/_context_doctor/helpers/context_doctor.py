@@ -136,21 +136,16 @@ def transform_response(
 
 
 def is_thoughts_fallback(response: str, transformed: str) -> bool:
-    """Check whether transform wrapped raw output as its only thoughts entry."""
+    """Check whether transform produced no usable tool call."""
     if not response:
         return False
     try:
         parsed = json.loads(transformed)
     except ValueError:
         return False
-    if (
-        not isinstance(parsed, dict)
-        or set(parsed.keys()) != {"thoughts"}
-        or not isinstance(parsed.get("thoughts"), list)
-        or len(parsed["thoughts"]) != 1
-    ):
+    if not isinstance(parsed, dict) or not parsed:
         return False
-    return parsed["thoughts"][0] == response
+    return "tool_name" not in parsed
 
 
 def update_log_item(
@@ -168,11 +163,10 @@ def update_log_item(
             return
 
         current_kvps = getattr(log_item, "kvps", None)
-        kvps = (
-            {"reasoning": current_kvps["reasoning"]}
-            if isinstance(current_kvps, dict) and "reasoning" in current_kvps
-            else {}
-        )
+        kvps = {}
+        if isinstance(current_kvps, dict):
+            if "reasoning" in current_kvps:
+                kvps["reasoning"] = current_kvps["reasoning"]
         kvps.update(parsed)
 
         heading = parsed.get("headline")

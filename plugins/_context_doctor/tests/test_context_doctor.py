@@ -104,13 +104,24 @@ def test_updates_log_kvps_and_heading_while_preserving_raw_content():
 
 def test_converted_to_thoughts_detects_plain_text_wrap():
     assert is_thoughts_fallback("plain text", '{"thoughts":["plain text"]}')
-    assert not is_thoughts_fallback("plain text", "{}")
 
 
-def test_converted_to_thoughts_ignores_native_thoughts_json():
+def test_converted_to_thoughts_detects_split_multi_paragraph_wrap():
+    response = "first\n\nsecond"
+    transformed = '{"thoughts":["first","second"]}'
+    assert is_thoughts_fallback(response, transformed)
+
+
+def test_transform_and_fallback_agree_on_multi_paragraph_raw_text():
+    response = "first\n\nsecond"
+    transformed = transform_response(response, suppress_xml=False)
+    assert is_thoughts_fallback(response, transformed)
+
+
+def test_converted_to_thoughts_detects_native_thoughts_json():
     response = '{"thoughts":["only thoughts"]}'
 
-    assert not is_thoughts_fallback(response, response)
+    assert is_thoughts_fallback(response, response)
 
 
 def test_converted_to_thoughts_ignores_tool_calls():
@@ -186,3 +197,36 @@ def test_extension_does_not_use_legacy_response_message_key(monkeypatch):
     ContextDoctor(agent).execute({"llm_result": llm_result})
 
     assert "log_item_response" not in agent.loop_data.params_temporary
+
+
+def test_extension_handles_fallback_with_warning_and_skip(monkeypatch):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
+    )
+    log_item = SimpleNamespace(id="generating", update=lambda **kwargs: None)
+    logs = []
+    warnings = []
+    ai_responses = []
+    agent = SimpleNamespace(
+        agent_name="A0",
+        context=SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: logs.append(kwargs))),
+        loop_data=SimpleNamespace(params_temporary={"log_item_generating": log_item}),
+        read_prompt=lambda name, **kwargs: {
+            "fw.msg_thoughts_fallback.md": "fallback warning",
+            "fw.msg_thoughts_fallback_response.md": "fallback notice",
+        }[name],
+        hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
+        hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
+    )
+    llm_result = SimpleNamespace(response="plain text")
+    result_data = {"llm_result": llm_result}
+
+    ContextDoctor(agent).execute(result_data)
+
+    assert result_data["skip_default_processing"] is True
+    assert llm_result.response == '{"thoughts":["plain text"]}'
+    assert ai_responses == ['{"thoughts":["plain text"]}']
+    assert warnings == ["fallback warning"]
+    assert logs[0]["content"] == "A0: fallback notice"
+    assert logs[0]["id"] == "warning"

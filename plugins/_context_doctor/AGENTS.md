@@ -10,7 +10,7 @@
 - `hooks.py` installs the exact root-pinned repair dependency in the framework runtime.
 - `extensions/python/startup_migration/` prepares that dependency after startup and self-update.
 - `extensions/python/message_loop_result/` normalizes completed model output before default processing.
-- `prompts/` owns fallback warning texts.
+- `prompts/` owns fallback warning texts (`fw.msg_thoughts_fallback.md`, `fw.msg_thoughts_fallback_response.md`).
 - `webui/config.html` exposes debug and repair-strategy settings.
 
 ## Local Contracts
@@ -18,8 +18,8 @@
 - Repaired and fallback JSON is always minified.
 - Nonempty non-tool output becomes `{"thoughts":[raw]}`; XML-like output becomes `{}` only when suppression is enabled.
 - Blank-line-separated thoughts expand into separate entries after repair when the split strategy is enabled (default on).
-- A raw-text fallback conversion owns the turn: `fw.msg_thoughts_fallback.md` history warning, separate `fw.msg_thoughts_fallback_response.md` user notice, one unusable-response failure counted by the stop-unusable-response-loop extension, and `skip_default_processing` set.
-- Log kvps retain streamed `reasoning` and add transformed output; `update_log` controls only View Details content.
+- A raw-text fallback conversion emits a `fw.msg_thoughts_fallback.md` history warning and a separate `fw.msg_thoughts_fallback_response.md` user notice, refreshes the generating log and response item with the transformed thoughts JSON, then sets `skip_default_processing` so the retry advances the unusable-response counter. The warning prompts are plugin-owned and are not counted by the core stop-unusable-response loop.
+- Log kvps retain streamed `reasoning` and `thoughts`, then add transformed output; `update_log` controls only View Details content.
 - A repaired `response` tool call refreshes the response log item when streaming did not create it.
 - Runtime setup reads the `json_repair` pin from root `requirements.txt`; do not duplicate its version in plugin code.
 
