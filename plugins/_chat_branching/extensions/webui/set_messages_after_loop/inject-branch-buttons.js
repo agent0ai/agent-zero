@@ -13,6 +13,7 @@ export default async function injectBranchButtons(context) {
 
     const logNo = args.no;
     for (const bar of result.element.querySelectorAll(".step-action-buttons")) {
+      if (bar.closest(".markdown-block-wrap")) continue;
       if (bar.querySelector(".action-fork_right")) continue;
       bar.appendChild(
         createActionButton("fork_right", "Branch chat", async () => {
