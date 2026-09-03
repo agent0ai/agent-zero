@@ -25,6 +25,7 @@
   `helpers/mcp_handler.py` supplies policy-filtered names, descriptions, and
   schemas.
 - Summary prompts that compress history should preserve loaded skill names from `skill_instructions` metadata without copying full skill bodies.
+- `Agent.read_prompt` and `Agent.parse_prompt` strip trailing newlines from returned content, so prompt template files may safely keep a final newline. Do not rely on trailing newlines for formatting; render-time joins in `output_text()` already separate turns.
 
 ## Work Guidance
 

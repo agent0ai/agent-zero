@@ -696,6 +696,8 @@ class Agent:
         prompt = files.parse_file(
             _prompt_file, _directories=dirs, _agent=self, **kwargs
         )
+        if isinstance(prompt, str):
+            prompt = prompt.rstrip("\n")
         return prompt
 
     @extension.extensible
@@ -705,6 +707,8 @@ class Agent:
         prompt = files.read_prompt_file(file, _directories=dirs, _agent=self, **kwargs)
         if files.is_full_json_template(prompt):
             prompt = files.remove_code_fences(prompt)
+        if isinstance(prompt, str):
+            prompt = prompt.rstrip("\n")
         return prompt
 
     def get_data(self, field: str):
