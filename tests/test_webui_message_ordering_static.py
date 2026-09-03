@@ -119,6 +119,19 @@ def test_utility_prefixed_process_groups_are_not_hidden_from_partial_dom_state()
     assert ".show-utility-messages .process-step.message-util" in process_group_css
 
 
+def test_unknown_message_types_fall_back_to_draw_message_tool():
+    messages_js = read("webui", "js", "messages.js")
+
+    assert "return drawMessageTool;" in messages_js
+    assert "return drawMessageDefault;" not in messages_js
+
+
+def test_gen_steps_disable_smooth_scrolling():
+    messages_js = read("webui", "js", "messages.js")
+
+    assert 'smooth: code !== "GEN" && !isMassRender()' in messages_js
+
+
 def test_message_actions_put_copy_before_speak():
     sources = [
         read("webui", "js", "messages.js"),
