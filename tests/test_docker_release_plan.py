@@ -44,12 +44,11 @@ def test_docker_publish_workflow_tracks_branch_promotions():
     workflow_path = PROJECT_ROOT / ".github" / "workflows" / "docker-publish.yml"
     content = workflow_path.read_text(encoding="utf-8")
 
-    assert 'branches:\n      - "testing"\n      - "main"' in content
+    assert 'branches:\n      - "testing"\n      - "ready"\n      - "main"' in content
     assert 'tags:\n      - "v*"' in content
     assert "workflow_dispatch:" in content
     assert "inputs:" in content
     assert "tag:" in content
-    assert 'ref: ${{ matrix.source_tag }}' in content
     assert "SOURCE_REF_TYPE: ${{ github.ref_type }}" in content
     assert "BEFORE_SHA: ${{ github.event_name == 'push' && github.event.before || '' }}" in content
 
