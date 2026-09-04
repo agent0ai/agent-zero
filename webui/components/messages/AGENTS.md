@@ -24,7 +24,7 @@
 - Message-window boundaries must not split process groups. Groups with more than 50 steps initially render their newest 50 steps and prepend earlier steps in 50-step increments through the group-local `Show more` control while retaining stable full-group header metrics.
 - The process-group `Show more` paging control uses the same understated, non-underlined typography and hover-opacity treatment as message-body expansion controls.
 - A root response may attach only to a substantive process render unit. Utility-prefixed units remain visible even while utility steps are hidden; standalone utility-only groups remain separate and hidden while utility messages are disabled, and completed groups must not absorb later utility records. Determine this from full-log render metadata, not partially mounted DOM children.
-- The `EXE` accent class for `code_exe` process steps was removed from `process-group.css`; `code_exe` items fall back to the default process-step accent. Plugin-local accent overrides (such as `TXT` for `text_editor`) continue to live next to their owning plugin.
+- Do not add an `EXE` accent class for `code_execution_tool` process steps to `process-group.css`; `code_execution_tool` items use the default process-step accent. Plugin-local accent overrides (such as `TXT` for `text_editor`) live next to their owning plugin.
 
 ## Work Guidance
 

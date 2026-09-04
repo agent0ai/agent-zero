@@ -14,8 +14,7 @@
 
 ## Local Contracts
 
-- `tools/text_editor_remote.py` overrides `get_log_object()` to log `type="text_editor"` so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension, keeping remote edits visually consistent with local edits.
-
+- `tools/text_editor_remote.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension; keep remote edits visually consistent with local edits.
 - Preserve session-auth and `auth.handlers` activation assumptions.
 - Keep remote tool prompts synchronized with remote tool behavior and disclose
   them only from connected CLI metadata: no connected CLI hides all remote tool
