@@ -1,2 +1,2 @@
-always deliver the final user-facing answer through this `response` tool's `text` arg; plain-text output without a tool call is invalid and never reaches the user
+always deliver the final user-facing answer through this `response` tool's `text` arg
 for long existing text, use `§§include(path)` instead of rewriting
