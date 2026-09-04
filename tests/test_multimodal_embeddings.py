@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import models
 
 
-def test_embed_forwards_provider_ready_inputs(monkeypatch):
+def test_embed_forwards_provider_ready_inputs_without_chat_api_mode(monkeypatch):
     calls: list[dict] = []
 
     def fake_embedding(**kwargs):
@@ -17,9 +17,11 @@ def test_embed_forwards_provider_ready_inputs(monkeypatch):
 
     monkeypatch.setattr(models, "embedding", fake_embedding)
     monkeypatch.setattr(models, "configure_litellm", lambda: None)
-    monkeypatch.setattr(models, "_merge_litellm_call_kwargs", lambda kwargs: kwargs)
+    monkeypatch.setattr(models, "_merge_litellm_call_kwargs", lambda kwargs: dict(kwargs))
     monkeypatch.setattr(models, "apply_rate_limiter_sync", lambda *_args: None)
-    wrapper = models.LiteLLMEmbeddingWrapper("gemini-embedding-2", "gemini")
+    wrapper = models.LiteLLMEmbeddingWrapper(
+        "gemini-embedding-2", "gemini", a0_api_mode="responses"
+    )
     inputs = [
         "plain text",
         "data:image/png;base64,image",

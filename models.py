@@ -805,10 +805,12 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         configure_litellm()
         apply_rate_limiter_sync(self.a0_model_conf, " ".join(inputs))
 
+        call_kwargs = _merge_litellm_call_kwargs(self.kwargs)
+        call_kwargs.pop("a0_api_mode", None)
         resp = embedding(
             model=self.model_name,
             input=inputs,
-            **_merge_litellm_call_kwargs(self.kwargs),
+            **call_kwargs,
         )
         return [
             item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
