@@ -65,6 +65,7 @@
 - `group_messages_abab(messages: list[BaseMessage]) -> list[BaseMessage]`
 - `output_langchain(messages: list[OutputMessage])`
 - `output_text(messages: list[OutputMessage], ai_label=..., human_label=...)`
+- `output_text_for_summary(messages: list[OutputMessage], ai_label=..., human_label=...)`
 - `clear_responses_provider_state(agent) -> None`
 - `_merge_outputs(a: MessageContent, b: MessageContent) -> MessageContent`
 - `_merge_properties(a: Dict[str, MessageContent], b: Dict[str, MessageContent]) -> Dict[str, MessageContent]`
@@ -82,6 +83,7 @@
 - `Message.from_dict()` normalizes legacy AI Responses metadata through `LLMResult.metadata()` so loaded chats shed transient payloads while unrelated metadata and non-AI tool-result inputs remain intact.
 - `output_langchain()` removes leading assistant messages after grouping so provider histories always begin with a user turn; the WebUI greeting remains persisted and displayed but is not sent as an orphaned assistant message.
 - `_json_dumps()` emits compact JSON (`","`, `":"` separators) for serialized history and generated non-string user-turn content.
+- `output_text_for_summary()` is a non-persistent utility-model view. It renders valid assistant tool envelopes as prose, preserves final response text, and omits reasoning plus tool arguments; `output_text()` remains the lossless text representation used by APIs and backups.
 - Observed side-effect areas: filesystem writes, filesystem deletion, model calls, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `abc`, `asyncio`, `collections`, `collections.abc`, `enum`, `helpers`, `json`, `langchain_core.messages`, `math`, `plugins._model_config.helpers.model_config`, `typing`, `uuid`.
 

@@ -5,7 +5,12 @@ from collections import deque
 import models as models_module
 from agent import Agent
 from helpers import files, tokens
-from helpers.history import History, clear_responses_provider_state, output_text
+from helpers.history import (
+    History,
+    clear_responses_provider_state,
+    output_text,
+    output_text_for_summary,
+)
 from helpers.persist_chat import (
     export_json_chat,
     get_chat_folder_path,
@@ -99,12 +104,15 @@ async def run_compaction(
         # Step 1: Extract full conversation text
         history_output = agent.history.output()
         full_text = output_text(history_output, ai_label="assistant", human_label="user")
+        summary_text = output_text_for_summary(
+            history_output, ai_label="assistant", human_label="user"
+        )
         
-        if not full_text.strip():
+        if not summary_text.strip():
             raise ValueError("No conversation content to compact")
         
         # Step 2: Estimate tokens, resolve model, and compute context budget
-        token_count = tokens.approximate_tokens(full_text)
+        token_count = tokens.approximate_tokens(summary_text)
 
         resolved_cfg, model = _build_model(use_chat_model, preset_name, agent)
         ctx_length = int(resolved_cfg.get("ctx_length", 128000)) if resolved_cfg else 128000
@@ -122,11 +130,11 @@ async def run_compaction(
         # Step 4: Handle large histories by chunking if necessary
         if token_count > max_input_tokens:
             summary = await _compact_large_history(
-                agent, full_text, token_count, max_input_tokens, log_item, model
+                agent, summary_text, token_count, max_input_tokens, log_item, model
             )
         else:
             summary = await _compact_single_pass(
-                agent, full_text, log_item, model
+                agent, summary_text, log_item, model
             )
         
         if not summary or not summary.strip():
@@ -347,8 +355,10 @@ async def get_compaction_stats(context) -> dict:
     
     # Estimate tokens
     history_output = agent.history.output()
-    full_text = output_text(history_output, ai_label="assistant", human_label="user")
-    token_count = tokens.approximate_tokens(full_text) if full_text else 0
+    summary_text = output_text_for_summary(
+        history_output, ai_label="assistant", human_label="user"
+    )
+    token_count = tokens.approximate_tokens(summary_text) if summary_text else 0
     
     # Get model names for both chat and utility
     chat_cfg = get_chat_model_config(agent)

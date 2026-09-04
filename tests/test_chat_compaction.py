@@ -49,6 +49,22 @@ class _CompactionHistory:
         return [{"ai": False, "content": "hello"}]
 
 
+class _StructuredCompactionHistory:
+    def output(self):
+        return [
+            {"ai": False, "content": "Inspect the service."},
+            {
+                "ai": True,
+                "content": (
+                    '{"thoughts":["Read the credentials"],'
+                    '"headline":"Checking service status",'
+                    '"tool_name":"code_execution_tool",'
+                    '"tool_args":{"code":"print(SECRET_VALUE)"}}'
+                ),
+            },
+        ]
+
+
 class _CompactionLog:
     def __init__(self):
         self.logs = []
@@ -231,3 +247,49 @@ async def test_manual_compaction_preserves_summary_and_clears_responses_state(
     assert "previous_response_id" not in state
     assert state["response_ids"] == ["resp_previous", "resp_current"]
     assert "ctx_window" not in agent.data
+
+
+@pytest.mark.asyncio
+async def test_manual_compaction_summarizes_plain_view_but_backs_up_raw_history(
+    monkeypatch,
+):
+    captured = {}
+
+    async def fake_single_pass(_agent, transcript, *_args, **_kwargs):
+        captured["summary_transcript"] = transcript
+        return "summary"
+
+    def fake_backup(_context, transcript):
+        captured["backup_transcript"] = transcript
+        return {"txt": "/tmp/pre.txt"}
+
+    agent = _CompactionAgent()
+    agent.history = _StructuredCompactionHistory()
+    context = SimpleNamespace(
+        id="compact-structured-chat",
+        agent0=agent,
+        log=_CompactionLog(),
+        streaming_agent=object(),
+    )
+
+    monkeypatch.setattr(
+        compactor,
+        "_build_model",
+        lambda *args: ({"ctx_length": 128000}, _RecordingModel()),
+    )
+    monkeypatch.setattr(compactor, "_compact_single_pass", fake_single_pass)
+    monkeypatch.setattr(compactor, "_save_pre_compaction_backup", fake_backup)
+    monkeypatch.setattr(compactor, "save_tmp_chat", lambda *args: None)
+    monkeypatch.setattr(compactor, "remove_msg_files", lambda *args: None)
+    monkeypatch.setattr(compactor, "mark_dirty_all", lambda *args, **kwargs: None)
+
+    await compactor.run_compaction(context)
+
+    assert captured["summary_transcript"] == (
+        "user: Inspect the service.\n"
+        "assistant: Checking service status (tool: code_execution_tool)"
+    )
+    assert "Read the credentials" not in captured["summary_transcript"]
+    assert "SECRET_VALUE" not in captured["summary_transcript"]
+    assert '"thoughts"' in captured["backup_transcript"]
+    assert "SECRET_VALUE" in captured["backup_transcript"]
