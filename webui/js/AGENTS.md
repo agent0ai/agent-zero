@@ -17,7 +17,8 @@
 - `initFw.js` owns Alpine bootstrap and custom lifecycle directives such as `x-create`, `x-destroy`, and periodic `x-every-*` hooks.
 - `icons.js` owns `<x-icon>`, icon-name validation, the name property/attribute bridge, and helpers that read or update both the first-party custom element and legacy plugin ligature spans.
 - `messages.js` owns native message/process-step rendering, safe Markdown and HTML conversion, and KaTeX delimiter handling.
-- `messages.js` owns routing of unknown/non-tool message types through `drawMessageTool` (the renderer shared with explicit tool steps) for unified tool-step chrome and action-button placement; the legacy default renderer is not used.
+- `messages.js` owns routing of unknown/non-tool message types through `drawMessageTool` (the renderer shared with explicit tool steps) for unified tool-step chrome and action-button placement; the legacy `drawMessageDefault` renderer has no remaining callers and is kept only for community-plugin compatibility. Do not call it from new code; do not remove it without a deprecation cycle.
+- `messages.js` owns `drawMessageAgent` kvps rendering order: `thoughts`, `tool_name`, `tool_args` keys (spread per-key under actual names, not a sub-table, skipping reserved keys), then `step` at the end. Reserved keys (`thoughts`, `step`, `reasoning`, `tool_name`, `tool_args`, `args`, `headline`) win over any colliding `tool_args` key. The `response` tool check is hoisted to skip arg rendering entirely for response turns.
 - `messages.js` owns `Scroller` smooth-scroll suppression for `GEN` process steps (live agent responses) to prevent streamed-content jumpiness; non-`GEN` steps keep smooth scrolling.
 - `message-collapse.js` owns the layout-safe overflow measurement shared by collapsible user messages and responses.
 - `message-window.js` owns the bounded, tail-first raw-log window used by message rendering.

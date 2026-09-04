@@ -1884,14 +1884,16 @@ export function drawMessageAgent({
   ...additional
 }) {
   const title = cleanStepTitle(heading);
+  const reservedKeys = new Set(["thoughts", "step", "reasoning", "tool_name", "tool_args", "args", "headline"]);
   let displayKvps = {};
   if (kvps?.thoughts) displayKvps["icon://lightbulb[Thoughts]"] = kvps.thoughts;
-  if (preferencesStore.showToolArgs) {
+  const isResponse = kvps?.tool_name === "response";
+  if (preferencesStore.showToolArgs && !isResponse) {
     if (kvps?.tool_name) displayKvps["icon://build[Tool]"] = kvps.tool_name;
     const toolArgs = kvps?.tool_args ?? kvps?.args;
     if (toolArgs) {
       Object.entries(toolArgs).forEach(([key, value]) => {
-        if (kvps.tool_name !== "response") displayKvps[key] = value;
+        if (!reservedKeys.has(key)) displayKvps[key] = value;
       });
     }
   }

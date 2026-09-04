@@ -4,7 +4,7 @@ from plugins._context_doctor.extensions.python.message_loop_result._10_context_d
     ContextDoctor,
 )
 from plugins._context_doctor.helpers.context_doctor import (
-    is_thoughts_fallback,
+    looks_like_tool_call,
     transform_response,
     update_log_item,
 )
@@ -103,31 +103,39 @@ def test_updates_log_kvps_and_heading_while_preserving_raw_content():
 
 
 def test_converted_to_thoughts_detects_plain_text_wrap():
-    assert is_thoughts_fallback("plain text", '{"thoughts":["plain text"]}')
+    assert looks_like_tool_call("plain text", '{"thoughts":["plain text"]}')
 
 
 def test_converted_to_thoughts_detects_split_multi_paragraph_wrap():
     response = "first\n\nsecond"
     transformed = '{"thoughts":["first","second"]}'
-    assert is_thoughts_fallback(response, transformed)
+    assert looks_like_tool_call(response, transformed)
 
 
 def test_transform_and_fallback_agree_on_multi_paragraph_raw_text():
     response = "first\n\nsecond"
     transformed = transform_response(response, suppress_xml=False)
-    assert is_thoughts_fallback(response, transformed)
+    assert looks_like_tool_call(response, transformed)
 
 
 def test_converted_to_thoughts_detects_native_thoughts_json():
     response = '{"thoughts":["only thoughts"]}'
 
-    assert is_thoughts_fallback(response, response)
+    assert looks_like_tool_call(response, response)
 
 
-def test_converted_to_thoughts_ignores_tool_calls():
+def test_looks_like_tool_call_detects_tool_calls():
     response = '{"tool_name":"response","tool_args":{"text":"ok"}}'
 
-    assert not is_thoughts_fallback(response, response)
+    assert looks_like_tool_call(response, response)
+
+
+def test_looks_like_tool_call_rejects_empty_dict():
+    assert not looks_like_tool_call("<x>y</x>", "{}")
+
+
+def test_looks_like_tool_call_rejects_non_a0_dict():
+    assert not looks_like_tool_call('{"foo":"bar"}', '{"foo":"bar"}')
 
 
 def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
@@ -222,20 +230,16 @@ def test_extension_handles_fallback_with_warning_and_skip(monkeypatch):
         hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
         hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
     )
-    llm_result = SimpleNamespace(response="plain text")
+    llm_result = SimpleNamespace(response="<xml>not a tool call</xml>")
     result_data = {"llm_result": llm_result}
 
     ContextDoctor(agent).execute(result_data)
 
     assert result_data["skip_default_processing"] is True
-    assert llm_result.response == '{"thoughts":["plain text"]}'
-    assert ai_responses == ['{"thoughts":["plain text"]}']
+    assert llm_result.response == "{}"
+    assert ai_responses == ["{}"]
     assert warnings == ["fallback warning"]
     assert logs[0]["content"] == "A0: fallback notice"
     assert logs[0]["id"] == "warning"
-    assert log_item.data["kvps"]["thoughts"] == ["plain text"]
     assert log_item.data["kvps"]["reasoning"] == "thinking"
-    assert log_item.data["content"] == "plain text"
-    assert log_item.data["kvps"]["thoughts"] == ["plain text"]
-    assert log_item.data["kvps"]["reasoning"] == "thinking"
-    assert log_item.data["content"] == "plain text"
+    assert log_item.data["content"] == "<xml>not a tool call</xml>"

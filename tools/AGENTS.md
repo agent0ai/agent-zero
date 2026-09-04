@@ -22,6 +22,7 @@
 - The `*.py.dox.md` file owns tool purpose, tool arguments/concepts, output and `break_loop` behavior, side effects, important helper dependencies, prompt-contract notes, and verification guidance.
 - When a tool module is added, removed, renamed, or behaviorally changed, update its matching `*.py.dox.md` in the same change.
 - Do not leave stale file-level DOX after tool deletion or rename.
+- Plugin tools may duplicate `get_log_object()` implementations across independently installable plugins; a shared helper cannot be used because plugins can be disabled independently. Tool headings must not include an `A0:` prefix; heading shape is per-tool.
 
 ## Work Guidance
 

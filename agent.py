@@ -1099,7 +1099,7 @@ class Agent:
                     self.hist_add_tool_result(last_tool.name, tool_progress)
                     last_tool.set_progress(None)
             if progress.strip():
-                self.hist_add_ai_response(progress, llm_result=LLMResult())
+                self.hist_add_ai_response(progress, llm_result=LLMResult.non_llm())
             # append the intervention message
             self.hist_add_user_message(msg, intervention=True)
             raise InterventionException(msg)

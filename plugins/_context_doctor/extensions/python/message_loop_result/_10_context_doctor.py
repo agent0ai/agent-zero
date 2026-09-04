@@ -9,7 +9,7 @@ from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
 from helpers.print_style import PrintStyle
 from plugins._context_doctor.helpers.context_doctor import (
-    is_thoughts_fallback,
+    looks_like_tool_call,
     transform_response,
     update_log_item,
 )
@@ -36,8 +36,8 @@ class ContextDoctor(Extension):
         )
         llm_result.response = transformed
 
-        # Check if response is a plain text
-        if is_thoughts_fallback(response, transformed):
+        # Treat as raw-text fallback when no usable tool call was extracted
+        if not looks_like_tool_call(response, transformed):
             # Manually add ai response and warnings
             log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
             self.agent.hist_add_ai_response(

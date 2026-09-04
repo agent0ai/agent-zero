@@ -135,8 +135,8 @@ def transform_response(
     return _compact_json(value)
 
 
-def is_thoughts_fallback(response: str, transformed: str) -> bool:
-    """Check whether transform produced no usable tool call."""
+def looks_like_tool_call(response: str, transformed: str) -> bool:
+    """Return True if transformed output is a valid A0 response JSON."""
     if not response:
         return False
     try:
@@ -145,7 +145,7 @@ def is_thoughts_fallback(response: str, transformed: str) -> bool:
         return False
     if not isinstance(parsed, dict) or not parsed:
         return False
-    return "tool_name" not in parsed
+    return any(k in parsed for k in ("thoughts", "headline", "tool_name", "tool_args"))
 
 
 def update_log_item(
