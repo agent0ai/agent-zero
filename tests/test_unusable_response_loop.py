@@ -101,6 +101,21 @@ def test_reasoning_only_warning_counts_toward_the_limit(monkeypatch):
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
 
 
+def test_thoughts_fallback_warning_counts_toward_the_limit(monkeypatch):
+    monkeypatch.setattr(
+        response_loop,
+        "get_settings",
+        lambda: {"max_consecutive_unusable_responses": 1},
+    )
+    agent = _agent()
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    data = _run(extension, agent, "thoughts fallback")
+
+    assert isinstance(data["exception"], HandledException)
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
+
+
 def test_general_settings_expose_the_default_failure_limit():
     settings = get_default_settings()
     assert settings["max_consecutive_unusable_responses"] == 5
