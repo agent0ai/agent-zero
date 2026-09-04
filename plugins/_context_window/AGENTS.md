@@ -54,7 +54,7 @@
 - Keep provider-reported usage separate from the six estimated context buckets.
 - Keep the API response limited to counts needed by the UI.
 - Preserve the upward, right-aligned popover geometry used beside the model and
-  profile selectors.
+  profile selectors, including its reserved footprint for short selector labels.
 
 ## Verification
 

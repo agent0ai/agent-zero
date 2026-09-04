@@ -155,6 +155,8 @@ def test_webui_and_accounting_are_plugin_owned():
     assert "contextUsage" not in model_store
     assert "Context window" in component
     assert "position: static" in component
+    assert "min-width: min(19rem, calc(100vw - 2rem))" in component
+    assert "min-width: min(calc(17rem + 1.25rem), calc(100vw - 2.5rem))" in component
     assert "width: min(19rem, calc(100vw - 2rem))" in component
     assert "right: 1.25rem" in component
     assert "width: min(17rem, calc(100vw - 3rem))" in component
