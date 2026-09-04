@@ -138,6 +138,30 @@ def test_looks_like_tool_call_rejects_non_a0_dict():
     assert not looks_like_tool_call('{"foo":"bar"}', '{"foo":"bar"}')
 
 
+def test_looks_like_tool_call_rejects_empty_thoughts_list():
+    assert not looks_like_tool_call('{"thoughts":[]}', '{"thoughts":[]}')
+
+
+def test_looks_like_tool_call_rejects_blank_thoughts_entries():
+    assert not looks_like_tool_call('{"thoughts":["","  "]}', '{"thoughts":["","  "]}')
+
+
+def test_looks_like_tool_call_rejects_empty_headline():
+    assert not looks_like_tool_call('{"headline":""}', '{"headline":""}')
+
+
+def test_looks_like_tool_call_rejects_empty_tool_name():
+    assert not looks_like_tool_call('{"tool_name":""}', '{"tool_name":""}')
+
+
+def test_looks_like_tool_call_rejects_empty_tool_args():
+    assert not looks_like_tool_call('{"tool_args":{}}', '{"tool_args":{}}')
+
+
+def test_looks_like_tool_call_rejects_wrong_thoughts_type():
+    assert not looks_like_tool_call('{"thoughts":"x"}', '{"thoughts":"x"}')
+
+
 def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",

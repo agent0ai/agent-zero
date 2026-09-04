@@ -24,7 +24,7 @@ class ContextDoctor(Extension):
         # Extract LLM response
         llm_result = result_data.get("llm_result")
         response = getattr(llm_result, "response", None)
-        if not isinstance(response, str) or not response:
+        if not isinstance(response, str) or not response.strip():
             return
 
         # Repair response before default processing

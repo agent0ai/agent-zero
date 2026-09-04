@@ -136,7 +136,7 @@ def transform_response(
 
 
 def looks_like_tool_call(response: str, transformed: str) -> bool:
-    """Return True if transformed output is a valid A0 response JSON."""
+    """Return True if transformed output is a JSON with usable A0 content."""
     if not response:
         return False
     try:
@@ -145,7 +145,25 @@ def looks_like_tool_call(response: str, transformed: str) -> bool:
         return False
     if not isinstance(parsed, dict) or not parsed:
         return False
-    return any(k in parsed for k in ("thoughts", "headline", "tool_name", "tool_args"))
+
+    for key in ("thoughts", "headline", "tool_name", "tool_args"):
+        if key not in parsed:
+            continue
+        value = parsed[key]
+        if key == "thoughts":
+            if (
+                isinstance(value, list)
+                and value
+                and all(isinstance(item, str) and item.strip() for item in value)
+            ):
+                return True
+        elif key in ("headline", "tool_name"):
+            if isinstance(value, str) and value.strip():
+                return True
+        elif key == "tool_args":
+            if isinstance(value, dict) and value:
+                return True
+    return False
 
 
 def update_log_item(
