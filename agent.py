@@ -532,7 +532,6 @@ class Agent:
                             id=log_item.id if log_item else "",
                             llm_result=llm_result,
                         )
-                        self._remember_llm_result_state(llm_result, assistant_message)
                         tools_result = await self.process_llm_result_tools(llm_result)
                         if tools_result:  # final response of message loop available
                             return tools_result  # break the execution if the task is done
@@ -771,16 +770,18 @@ class Agent:
 
     @extension.extensible
     def hist_add_ai_response(
-        self, message: str, id: str = "", llm_result: LLMResult | None = None
+        self, message: str, llm_result: LLMResult, id: str = ""
     ):
         self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
-        return self.hist_add_message(
+        msg = self.hist_add_message(
             True,
             content=content,
             id=id,
             metadata=metadata_from_llm_result(llm_result),
         )
+        self._remember_llm_result_state(llm_result, msg)
+        return msg
 
     @extension.extensible
     def hist_add_warning(self, message: history.MessageContent, id: str = ""):
@@ -1098,7 +1099,7 @@ class Agent:
                     self.hist_add_tool_result(last_tool.name, tool_progress)
                     last_tool.set_progress(None)
             if progress.strip():
-                self.hist_add_ai_response(progress)
+                self.hist_add_ai_response(progress, llm_result=LLMResult())
             # append the intervention message
             self.hist_add_user_message(msg, intervention=True)
             raise InterventionException(msg)

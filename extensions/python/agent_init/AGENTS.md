@@ -14,6 +14,7 @@
 - Preserve ordering between initial message creation and profile settings loading.
 - Keep a placeholder user turn (`fw.initial_user_message.md`) ahead of the AI greeting (`fw.initial_message.md`) so `output_langchain` never pops the greeting as a leading `AIMessage`; do not remove either prompt without replacing the turn-order guarantee.
 - Minify the initial AI message JSON before storage; preserve raw text as the displayed greeting when JSON parsing fails.
+- `_10_initial_message.py` passes an empty `LLMResult()` to `hist_add_ai_response` so the Responses-API state seam runs uniformly; the empty result carries no `response_id`, so state advancement is a no-op for the greeting turn.
 
 ## Work Guidance
 

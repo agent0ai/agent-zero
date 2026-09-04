@@ -27,7 +27,6 @@ class RepeatResponse(Extension):
             id=log_item.id if log_item else "",
             llm_result=llm_result,
         )
-        self.agent._remember_llm_result_state(llm_result, assistant_message)
         warning_message = self.agent.hist_add_warning(message=warning)
         PrintStyle(font_color="orange", padding=True).print(warning)
         self.agent.context.log.log(

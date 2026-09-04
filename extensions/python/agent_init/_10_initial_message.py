@@ -1,6 +1,7 @@
 import json
 from agent import LoopData, UserMessage
 from helpers.extension import Extension
+from helpers.llm_result import LLMResult
 
 
 class InitialMessage(Extension):
@@ -40,7 +41,7 @@ class InitialMessage(Extension):
         self.agent.loop_data = LoopData(user_message=None)
 
         # Add the message to history as an AI response
-        msg = self.agent.hist_add_ai_response(initial_message)
+        msg = self.agent.hist_add_ai_response(initial_message, llm_result=LLMResult())
 
         # Add to log (green bubble) for immediate UI display
         self.agent.context.log.log(

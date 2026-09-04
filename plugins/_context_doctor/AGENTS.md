@@ -19,6 +19,7 @@
 - Nonempty non-tool output becomes `{"thoughts":[raw]}`; XML-like output becomes `{}` only when suppression is enabled.
 - Blank-line-separated thoughts expand into separate entries after repair when the split strategy is enabled (default on).
 - A raw-text fallback conversion must emit a `fw.msg_thoughts_fallback.md` history warning and a separate `fw.msg_thoughts_fallback_response.md` user notice, refresh the generating log and response item with the transformed thoughts JSON, and set `skip_default_processing` so the retry advances the unusable-response counter.
+- The fallback passes the repaired `llm_result` to `hist_add_ai_response`, which owns Responses-API state advancement (`_remember_llm_result_state`); do not call the state method directly. The fallback turn's `response_id` is recorded so the next turn's `previous_response_id` chain stays intact.
 - The fallback warning is counted by the core stop-unusable-response loop alongside `fw.msg_misformat.md`, `fw.msg_repeat.md`, `fw.msg_empty_response.md`, and `fw.msg_reasoning_only.md`.
 - Log kvps retain streamed `reasoning` and `thoughts`, then add transformed output; `update_log` controls only View Details content.
 - A repaired `response` tool call refreshes the response log item when streaming did not create it.
