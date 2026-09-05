@@ -102,20 +102,20 @@ def test_updates_log_kvps_and_heading_while_preserving_raw_content():
     assert log_item.data["heading"] == "A0: Done"
 
 
-def test_converted_to_thoughts_detects_plain_text_wrap():
-    assert looks_like_tool_call("plain text", '{"thoughts":["plain text"]}')
+def test_converted_to_thoughts_rejects_plain_text_wrap():
+    assert not looks_like_tool_call("plain text", '{"thoughts":["plain text"]}')
 
 
-def test_converted_to_thoughts_detects_split_multi_paragraph_wrap():
+def test_converted_to_thoughts_rejects_split_multi_paragraph_wrap():
     response = "first\n\nsecond"
     transformed = '{"thoughts":["first","second"]}'
-    assert looks_like_tool_call(response, transformed)
+    assert not looks_like_tool_call(response, transformed)
 
 
 def test_transform_and_fallback_agree_on_multi_paragraph_raw_text():
     response = "first\n\nsecond"
     transformed = transform_response(response, suppress_xml=False)
-    assert looks_like_tool_call(response, transformed)
+    assert not looks_like_tool_call(response, transformed)
 
 
 def test_converted_to_thoughts_detects_native_thoughts_json():
@@ -231,7 +231,7 @@ def test_extension_does_not_use_legacy_response_message_key(monkeypatch):
     assert "log_item_response" not in agent.loop_data.params_temporary
 
 
-def test_extension_handles_fallback_with_warning_and_skip(monkeypatch):
+def test_extension_handles_raw_text_fallback_with_warning_and_skip(monkeypatch):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
         lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
@@ -254,16 +254,16 @@ def test_extension_handles_fallback_with_warning_and_skip(monkeypatch):
         hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
         hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
     )
-    llm_result = SimpleNamespace(response="<xml>not a tool call</xml>")
+    llm_result = SimpleNamespace(response="Hello there…")
     result_data = {"llm_result": llm_result}
 
     ContextDoctor(agent).execute(result_data)
 
     assert result_data["skip_default_processing"] is True
-    assert llm_result.response == "{}"
-    assert ai_responses == ["{}"]
+    assert llm_result.response == '{"thoughts":["Hello there…"]}'
+    assert ai_responses == ['{"thoughts":["Hello there…"]}']
     assert warnings == ["fallback warning"]
     assert logs[0]["content"] == "A0: fallback notice"
     assert logs[0]["id"] == "warning"
     assert log_item.data["kvps"]["reasoning"] == "thinking"
-    assert log_item.data["content"] == "<xml>not a tool call</xml>"
+    assert log_item.data["content"] == "Hello there…"

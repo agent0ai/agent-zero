@@ -110,26 +110,26 @@ def _split_thoughts(value: dict[str, Any]) -> None:
     value["thoughts"] = split
 
 
-def _select_value(response: str, *, suppress_xml: bool) -> dict[str, Any] | None:
-    """Pick the repaired tool call, partial result, or raw-text fallback."""
+def _select_value(response: str) -> dict[str, Any] | None:
+    """Pick the repaired tool call or partial result."""
     if response:
         tool_call, partial_response = _repair(response)
         if tool_call is not None:
             return tool_call
         if partial_response is not None:
             return partial_response
-    if suppress_xml and "<" in response and ">" in response:
-        return None
-    return {"thoughts": [response]}
+    return None
 
 
 def transform_response(
     response: str, *, suppress_xml: bool, split_thoughts: bool = True
 ) -> str:
     """Repair model output, falling back to compact thoughts JSON for raw text."""
-    value = _select_value(response, suppress_xml=suppress_xml)
+    value = _select_value(response)
     if value is None:
-        return "{}"
+        if suppress_xml and "<" in response and ">" in response:
+            return "{}"
+        value = {"thoughts": [response]}
     if split_thoughts:
         _split_thoughts(value)
     return _compact_json(value)
@@ -137,7 +137,7 @@ def transform_response(
 
 def looks_like_tool_call(response: str, transformed: str) -> bool:
     """Return True if transformed output is a JSON with usable A0 content."""
-    if not response:
+    if not response or _select_value(response) is None:
         return False
     try:
         parsed = json.loads(transformed)

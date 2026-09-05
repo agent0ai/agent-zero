@@ -27,7 +27,8 @@ def test_tool_args_preference_toggle_is_wired_in_webui() -> None:
 def test_message_stream_gates_tool_args_display_behind_preference() -> None:
     messages = read("webui/js/messages.js")
 
-    assert "if (preferencesStore.showToolArgs) {" in messages
+    assert "if (preferencesStore.showToolArgs && !isResponse) {" in messages
     assert "kvps?.tool_args ?? kvps?.args" in messages
-    assert 'kvps.tool_name !== "response"' in messages
+    assert 'const isResponse = kvps?.tool_name === "response";' in messages
+    assert "!reservedKeys.has(key)" in messages
     assert 'icon://build[Tool]' in messages
