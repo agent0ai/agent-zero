@@ -168,6 +168,11 @@ class LLMResult:
             result.response = result.function_calls_text()
         return result
 
+    @classmethod
+    def non_llm(cls) -> "LLMResult":
+        """Sentinel for non-LLM AI turns; no response_id, mode/state off."""
+        return cls(mode="", state="off")
+
     @property
     def function_calls(self) -> list[ResponseFunctionCall]:
         calls: list[ResponseFunctionCall] = []

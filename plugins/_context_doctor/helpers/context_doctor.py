@@ -96,18 +96,74 @@ def _compact_json(value: dict[str, Any]) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
-def transform_response(response: str, *, suppress_xml: bool) -> str:
-    """Repair model output, falling back to compact thoughts JSON for raw text."""
+def _split_thoughts(value: dict[str, Any]) -> None:
+    """Expand blank-line-separated thought strings into separate entries in place."""
+    thoughts = value.get("thoughts")
+    if not isinstance(thoughts, list):
+        return
+    split: list[str] = []
+    for item in thoughts:
+        if isinstance(item, str) and "\n\n" in item:
+            split.extend(part for part in item.split("\n\n") if part)
+        else:
+            split.append(item)
+    value["thoughts"] = split
+
+
+def _select_value(response: str) -> dict[str, Any] | None:
+    """Pick the repaired tool call or partial result."""
     if response:
         tool_call, partial_response = _repair(response)
         if tool_call is not None:
-            return _compact_json(tool_call)
+            return tool_call
         if partial_response is not None:
-            return _compact_json(partial_response)
+            return partial_response
+    return None
 
-    if suppress_xml and "<" in response and ">" in response:
-        return "{}"
-    return _compact_json({"thoughts": [response]})
+
+def transform_response(
+    response: str, *, suppress_xml: bool, split_thoughts: bool = True
+) -> str:
+    """Repair model output, falling back to compact thoughts JSON for raw text."""
+    value = _select_value(response)
+    if value is None:
+        if suppress_xml and "<" in response and ">" in response:
+            return "{}"
+        value = {"thoughts": [response]}
+    if split_thoughts:
+        _split_thoughts(value)
+    return _compact_json(value)
+
+
+def looks_like_tool_call(response: str, transformed: str) -> bool:
+    """Return True if transformed output is a JSON with usable A0 content."""
+    if not response or _select_value(response) is None:
+        return False
+    try:
+        parsed = json.loads(transformed)
+    except ValueError:
+        return False
+    if not isinstance(parsed, dict) or not parsed:
+        return False
+
+    for key in ("thoughts", "headline", "tool_name", "tool_args"):
+        if key not in parsed:
+            continue
+        value = parsed[key]
+        if key == "thoughts":
+            if (
+                isinstance(value, list)
+                and value
+                and all(isinstance(item, str) and item.strip() for item in value)
+            ):
+                return True
+        elif key in ("headline", "tool_name"):
+            if isinstance(value, str) and value.strip():
+                return True
+        elif key == "tool_args":
+            if isinstance(value, dict) and value:
+                return True
+    return False
 
 
 def update_log_item(
@@ -125,15 +181,10 @@ def update_log_item(
             return
 
         current_kvps = getattr(log_item, "kvps", None)
-        kvps = (
-            {
-                key: current_kvps[key]
-                for key in ("reasoning", "thoughts")
-                if key in current_kvps
-            }
-            if isinstance(current_kvps, dict)
-            else {}
-        )
+        kvps = {}
+        if isinstance(current_kvps, dict):
+            if "reasoning" in current_kvps:
+                kvps["reasoning"] = current_kvps["reasoning"]
         kvps.update(parsed)
 
         heading = parsed.get("headline")

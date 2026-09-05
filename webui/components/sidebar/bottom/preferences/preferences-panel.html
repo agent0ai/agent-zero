@@ -72,6 +72,13 @@
                 <span class="slider"></span>
               </label>
             </li>
+            <li x-data>
+              <span>Show verbose tool calls</span>
+              <label class="switch">
+                <input type="checkbox" x-model="$store.preferences.showToolArgs">
+                <span class="slider"></span>
+              </label>
+            </li>
           </ul>
         </span>
       </div>

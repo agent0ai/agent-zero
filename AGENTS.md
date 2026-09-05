@@ -15,6 +15,7 @@
 ## Root Ownership
 
 - `agent.py` owns `Agent`, `AgentContext`, and loop data.
+- `Agent.hist_add_ai_response` owns Responses-API state advancement: it calls `_remember_llm_result_state` internally and requires an `LLMResult` (empty for non-LLM turns like greetings or intervention progress). Callers must not invoke `_remember_llm_result_state` manually.
 - `initialize.py` owns framework initialization.
 - `models.py` owns model-provider configuration and LiteLLM integration.
 - `run_ui.py` is the WebUI entry point.

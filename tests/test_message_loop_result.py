@@ -34,6 +34,8 @@ class FakeAgent:
             "fw.msg_empty_response.md": "empty",
             "fw.msg_repeat.md": "repeat",
             "fw.msg_repeat_response.md": "Repeated response detected. Retrying.",
+            "fw.msg_reasoning_only.md": "reasoning only",
+            "fw.msg_reasoning_only_response.md": "Reasoning-only response detected. Retrying.",
         }[name]
 
     def hist_add_ai_response(self, response, **kwargs):
@@ -124,8 +126,17 @@ def test_repeat_ignores_reasoning():
     assert agent.warnings == ["repeat"]
 
 
-def test_result_with_reasoning_uses_default_processing():
+def test_reasoning_only_retries_with_agent_warning():
     agent = FakeAgent("", reasoning="thinking", last_response="previous")
 
-    assert "skip_default_processing" not in _run(agent)
-    assert agent.history == []
+    result = _run(agent)
+
+    assert result["skip_default_processing"] is True
+    assert agent.warnings == ["reasoning only"]
+    assert agent.logs == [
+        {
+            "type": "warning",
+            "content": "A0: Reasoning-only response detected. Retrying.",
+            "id": "warning",
+        }
+    ]

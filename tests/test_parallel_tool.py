@@ -840,6 +840,30 @@ async def test_parallel_direct_tool_jobs_fallback_to_generic_tool_log_type(monke
     assert agent.context.log.items[0].kvps == {"seconds": 1, "_tool_name": "wait"}
 
 
+def test_parallel_child_log_keeps_streamed_user_content() -> None:
+    agent = _FakeAgent()
+    job = parallel_tools.ParallelJob(
+        id="job-streamed",
+        parent_context_id=agent.context.id,
+        index=0,
+        tool_name="code_execution_tool",
+        tool_args={},
+        kind="tool",
+    )
+    job.log_item = agent.context.log.log(
+        type="code_exe",
+        heading="icon://terminal code_execution_tool - terminal",
+        content="streamed output visible to user",
+        kvps={},
+    )
+
+    parallel_tools._finish_job(job, "success", result="agent-view result")
+    assert job.log_item.content == "streamed output visible to user"
+
+    parallel_tools._finish_job(job, "error", error="boom")
+    assert job.log_item.content == "streamed output visible to user"
+
+
 @pytest.mark.asyncio
 async def test_parallel_code_execution_child_uses_code_exe_log_type(monkeypatch) -> None:
     class FakeDeferredTask:

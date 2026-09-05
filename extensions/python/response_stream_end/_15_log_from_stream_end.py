@@ -27,10 +27,5 @@ class LogFromStream(Extension):
         if log_item.kvps is not None and "step" in log_item.kvps:
             del log_item.kvps["step"]
 
-        if log_item.kvps is not None and "thoughts" not in log_item.kvps:
-            reasoning = log_item.kvps.get("reasoning")
-            if reasoning:
-                log_item.kvps["thoughts"] = [reasoning]
-
         # update the log item
         log_item.update(kvps=log_item.kvps)

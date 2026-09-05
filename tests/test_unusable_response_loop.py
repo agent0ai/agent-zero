@@ -22,6 +22,8 @@ def _agent():
         "fw.msg_misformat.md": "misformatted",
         "fw.msg_repeat.md": "repeated",
         "fw.msg_empty_response.md": "empty response",
+        "fw.msg_reasoning_only.md": "reasoning only",
+        "fw.msg_thoughts_fallback.md": "thoughts fallback",
     }
 
     def read_prompt(name, **kwargs):
@@ -81,6 +83,36 @@ def test_nonconsecutive_failure_starts_a_new_recovery_window(monkeypatch):
     data = _run(extension, agent, "repeated")
 
     assert data["exception"] is None
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
+
+
+def test_reasoning_only_warning_counts_toward_the_limit(monkeypatch):
+    monkeypatch.setattr(
+        response_loop,
+        "get_settings",
+        lambda: {"max_consecutive_unusable_responses": 1},
+    )
+    agent = _agent()
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    data = _run(extension, agent, "reasoning only")
+
+    assert isinstance(data["exception"], HandledException)
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
+
+
+def test_thoughts_fallback_warning_counts_toward_the_limit(monkeypatch):
+    monkeypatch.setattr(
+        response_loop,
+        "get_settings",
+        lambda: {"max_consecutive_unusable_responses": 1},
+    )
+    agent = _agent()
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    data = _run(extension, agent, "thoughts fallback")
+
+    assert isinstance(data["exception"], HandledException)
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
 
 
