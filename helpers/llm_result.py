@@ -67,6 +67,7 @@ class LLMResult:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "LLMResult":
         data = data or {}
+        mode = data.get("mode")
         return cls(
             response=str(data.get("response") or ""),
             reasoning=str(data.get("reasoning") or ""),
@@ -77,7 +78,7 @@ class LLMResult:
                 ResponseItem.from_any(item) for item in data.get("output_items") or []
             ],
             provider_model_key=str(data.get("provider_model_key") or ""),
-            mode=str(data.get("mode") or "responses"),
+            mode=str(mode if mode is not None else "responses"),
             state=str(data.get("state") or "provider"),
             usage=object_to_dict(data.get("usage") or {}),
             raw=object_to_dict(data.get("raw") or {}),

@@ -60,6 +60,21 @@ def test_responses_function_call_text_preserves_non_ascii_tool_args():
     assert result.function_calls_text() == '{"tool_name": "response", "tool_args": {"text": "привет"}}'
 
 
+@pytest.mark.parametrize("mode", ["", "chat_completions", "responses", "custom"])
+def test_llm_result_round_trip_preserves_explicit_mode(mode):
+    result = LLMResult.non_llm() if not mode else LLMResult(
+        mode=mode, response_id="resp_1", previous_response_id="resp_0",
+        usage={"input_tokens": 10},
+    )
+    assert LLMResult.from_dict(result.to_dict()) == result
+    assert result_from_metadata(result.metadata()).metadata() == result.metadata()
+
+
+@pytest.mark.parametrize("data", [None, {}, {"mode": None}])
+def test_llm_result_missing_mode_keeps_legacy_default(data):
+    assert LLMResult.from_dict(data).mode == "responses"
+
+
 def test_llm_result_persists_only_durable_responses_metadata():
     result = LLMResult.from_response(
         {
