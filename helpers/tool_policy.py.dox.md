@@ -15,17 +15,14 @@
   prompt/schema extensions remain responsible for live remote-tool exposure.
   The editor applies the current draft policy instead of receiving duplicated
   allowed/required flags from the backend.
-- `tool_prompt_description` owns the shared compact description extracted for
-  the editor catalog and provider-native schemas; transport-specific names and
-  schemas remain with their transports.
+- `tool_prompt_description` owns compact editor catalog summaries; Responses owns full native tool descriptions and schema projection.
 - `resolve_tool` returns the effective decision and provenance.
 - `ensure_tool_allowed` raises the stable repairable runtime policy error and
   accepts an explicit canonical ID from transports that already resolved one.
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
   including complete fenced JSON examples that reference them, without taking
   ownership of provider-native naming rules.
-- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool
-  decisions to a complete prompt batch; it does not retain policy across calls.
+- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool decisions to a complete prompt batch. Native schema construction may supply its current `_policy` snapshot; neither owner retains it across calls.
 
 ## Runtime Contracts
 

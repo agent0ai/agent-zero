@@ -154,6 +154,11 @@ def test_provider_native_schemas_omit_blocked_local_tool(
     )
 
     assert [tool["name"] for tool in tools] == ["allowed"]
+    description = tools[0]["description"]
+    assert "Keyboard input remains documented." in description
+    assert "blocked" not in description.lower()
+    assert "Arguments example:" in description
+    assert '"tool_name"' not in description
 
 
 @pytest.mark.asyncio
@@ -660,7 +665,8 @@ async def test_active_vision_model_uses_canonical_vision_prompt(
 
     assert prompt.count("canonical vision") == 1
     assert schemas[0]["name"] == "vision_load"
-    assert schemas[0]["description"] == "canonical vision"
+    assert "canonical vision" in schemas[0]["description"]
+    assert "args: `paths`, `query`" in schemas[0]["description"]
 
 
 def test_vision_prompt_stays_route_agnostic_and_batches_paths() -> None:

@@ -264,7 +264,8 @@ def test_responses_function_tools_include_vision_prompt(monkeypatch, tmp_path):
     tools, name_map = responses_tools.build_responses_function_tools(agent)
 
     assert [tool["name"] for tool in tools] == ["vision_load"]
-    assert tools[0]["description"] == "load images into the model for visual reasoning"
+    assert "load images into the model for visual reasoning" in tools[0]["description"]
+    assert "args: `paths` list of absolute image paths" in tools[0]["description"]
     assert tools[0]["parameters"]["properties"] == {}
     assert name_map == {"vision_load": "vision_load"}
 
@@ -330,3 +331,28 @@ def test_bundled_memory_prompt_exposes_every_memory_tool():
         "memory_delete",
         "memory_forget",
     ]
+
+
+def test_native_description_preserves_guidance_and_projects_only_tool_examples():
+    prompt = '''### example
+Keep every operational rule.
+~~~json
+{"thoughts":["think"],"headline":"execute","tool_name":"example","tool_args":{"text":"héllo","nested":{"value":true}},}
+~~~
+{"tool_name":"other","tool_args":{"query":"lookup"}}
+```python
+payload = {"tool_name":"example","tool_args":{"text":"literal code"}}
+```
+```json
+{"ordinary":"data"}
+```
+'''
+    description = responses_tools._native_tool_description(prompt, 'example')
+    assert 'Keep every operational rule.' in description
+    assert 'Arguments example:\n```json\n{"text": "héllo", "nested": {"value": true}}' in description
+    assert 'Call other with arguments:' in description
+    assert '"thoughts"' not in description and '"headline"' not in description
+    assert 'payload = {"tool_name":"example","tool_args":{"text":"literal code"}}' in description
+    assert '```json\n{"ordinary":"data"}\n```' in description
+    assert responses_tools._native_tool_description('rule\n' * 300, 'example').endswith('rule')
+    assert len(responses_tools._native_tool_description('rule\n' * 300, 'example')) > 1024

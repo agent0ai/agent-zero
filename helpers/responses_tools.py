@@ -7,7 +7,7 @@ import re
 from copy import deepcopy
 from typing import Any
 
-from helpers import files, subagents, tool_policy
+from helpers import extract_tools, files, subagents, tool_policy
 
 
 FUNCTION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -25,8 +25,12 @@ SIMPLE_ARGS_PATTERN = re.compile(
 )
 TOOL_PROMPT_PREFIX = "agent.system.tool."
 TOOL_PROMPT_SUFFIX = ".md"
-MAX_TOOL_DESCRIPTION_CHARS = 1024
 TOOL_PROMPT_KWARGS_KEY = "_tool_prompt_kwargs"
+FENCED_EXAMPLE_PATTERN = re.compile(
+    r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<language>[^\r\n]*)\r?\n"
+    r"(?P<body>.*?)^[ \t]*(?P=fence)[ \t]*(?:\r?\n|$)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
 
 # Canonical arguments for the resolved bundled implementations, not tool-name aliases.
 BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
@@ -112,7 +116,13 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
     name_map: dict[str, str] = {}
     policy = tool_policy.get_policy(agent)
 
-    for tool_name, prompt in _local_tool_prompts(agent):
+    local_prompts = _local_tool_prompts(agent)
+    descriptions = tool_policy.filter_tool_prompts(
+        agent,
+        [(f"{TOOL_PROMPT_PREFIX}{name}{TOOL_PROMPT_SUFFIX}", prompt) for name, prompt in local_prompts],
+        _policy=policy,
+    )
+    for (tool_name, prompt), description in zip(local_prompts, descriptions):
         if not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
             continue
         native_name = _native_tool_name(tool_name)
@@ -122,13 +132,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
                 "type": "function",
                 "name": native_name,
                 "strict": False,
-                "description": _truncate(
-                    tool_policy.tool_prompt_description(
-                        prompt,
-                        tool_name,
-                        fallback=tool_name,
-                    )
-                ),
+                "description": _native_tool_description(description, tool_name),
                 "parameters": _schema_for_tool(agent, tool_name, prompt),
             }
         )
@@ -148,7 +152,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
                 "type": "function",
                 "name": native_name,
                 "strict": False,
-                "description": _truncate(str(tool.get("description") or tool_name)),
+                "description": str(tool.get("description") or tool_name),
                 "parameters": _schema_from_any(tool.get("input_schema")),
             }
         )
@@ -393,7 +397,28 @@ def _dedupe_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def _truncate(text: str) -> str:
-    if len(text) <= MAX_TOOL_DESCRIPTION_CHARS:
+def _native_tool_description(prompt: str, tool_name: str) -> str:
+    def arguments_examples(text: str) -> str:
+        for root in extract_tools.extract_json_root_strings(text):
+            request = extract_tools.extract_tool_request(root)
+            if request is None:
+                continue
+            name = request.get("tool_name") or request.get("tool")
+            args = request.get("tool_args", request.get("args"))
+            if not isinstance(name, str) or not isinstance(args, dict):
+                continue
+            label = "Arguments example" if name == tool_name else f"Call {name} with arguments"
+            example = f"{label}:\n```json\n{json.dumps(args, ensure_ascii=False)}\n```"
+            text = text.replace(root, example)
         return text
-    return text[: MAX_TOOL_DESCRIPTION_CHARS - 3].rstrip() + "..."
+
+    parts = []
+    end = 0
+    for match in FENCED_EXAMPLE_PATTERN.finditer(prompt):
+        parts.append(arguments_examples(prompt[end:match.start()]))
+        body = match.group("body")
+        projected = arguments_examples(body) if match.group("language").strip().lower() == "json" else body
+        parts.append(projected + "\n" if projected != body else match.group(0))
+        end = match.end()
+    parts.append(arguments_examples(prompt[end:]))
+    return "".join(parts).strip() or tool_name

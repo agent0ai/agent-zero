@@ -214,9 +214,10 @@ def filter_tool_prompt(agent: Any, prompt_file: str, prompt: str) -> str:
 
 
 def filter_tool_prompts(
-    agent: Any, prompts: list[tuple[str, str]]
+    agent: Any, prompts: list[tuple[str, str]],
+    *, _policy: dict[str, Any] | None = None,
 ) -> list[str]:
-    policy = get_policy(agent)
+    policy = _policy if _policy is not None else get_policy(agent)
     if policy["mode"] != "custom":
         return [prompt for _prompt_file, prompt in prompts]
 
