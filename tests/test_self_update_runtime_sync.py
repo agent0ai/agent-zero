@@ -19,6 +19,10 @@ from pathlib import Path
 REPO_DIR = Path("/a0")
 
 
+def get_top_stash_oid(repo_dir):
+    return ""
+
+
 def should_include_usr_backup_entry(source_file, logger):
     logger.log("Skipping non-regular usr backup entry")
     return False
@@ -73,6 +77,21 @@ def test_self_update_runtime_sync_accepts_repository_manager_source(tmp_path):
     assert result["ok"] is True
     assert result["updated"] is True
     assert target.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")
+
+
+def test_self_update_runtime_sync_upgrades_moving_stash_selectors(tmp_path):
+    source = PROJECT_ROOT / "docker" / "run" / "fs" / "exe" / "self_update_manager.py"
+    target = tmp_path / "self_update_manager.py"
+    stale = SAFE_SOURCE.replace("get_top_stash_oid", "get_top_stash_ref")
+    target.write_text(stale, encoding="utf-8")
+
+    result = migration.ensure_self_update_manager_runtime_current(
+        target_path=target, source_path=source,
+    )
+
+    assert result["updated"] is True
+    assert target.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")
+    assert target.with_name(target.name + migration.BACKUP_SUFFIX).read_text() == stale
 
 
 def test_self_update_runtime_sync_starts_codex_refresh(monkeypatch, tmp_path):
