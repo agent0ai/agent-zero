@@ -85,7 +85,7 @@ def test_prepared_context_lifecycle_and_post_hook_changes(monkeypatch):
     agent = object.__new__(Agent)
     agent.context = SimpleNamespace()
     agent.loop_data = LoopData()
-    model = LiteLLMChatWrapper(model="test", provider="openai", model_config=None)
+    model = LiteLLMChatWrapper(model="test", provider="openai", model_config=None, a0_api_mode="responses")
     prompt = [SystemMessage("Rules"), HumanMessage("Question")]
     monkeypatch.setattr(secrets, "get_secrets_manager", lambda _: SimpleNamespace(mask_values=lambda text: text))
     history.remember_prompt(agent.loop_data, ChatPromptTemplate.from_messages(prompt).format(), prompt[0], [])
@@ -93,6 +93,12 @@ def test_prepared_context_lifecycle_and_post_hook_changes(monkeypatch):
     prepared = history.prepare_call(agent, call)
     assert prepared["responses_history_context"]["prompt"] == BASE
     assert prepared["responses_prompt_replacements"] == {"Rules": "Override"}
+    model.kwargs["a0_api_mode"] = "chat"
+    with monkeypatch.context() as chat:
+        chat.setattr(model, "_convert_messages", lambda _: pytest.fail("Chat must not prepare replay input"))
+        chat.setattr(secrets, "get_secrets_manager", lambda _: pytest.fail("Chat must not prepare replay masking"))
+        assert "responses_history_context" not in history.prepare_call(agent, call)
+    model.kwargs["a0_api_mode"] = "responses"
     for changed in (
         [SystemMessage("Changed by hook"), prompt[1]],
         [SystemMessage("Rules", additional_kwargs={"provider_control": True}), prompt[1]],

@@ -28,6 +28,7 @@ def remember_prompt(loop_data: Any, text: str, system_message: Any, protocol: li
 def prepare_call(agent: Any, call_data: dict) -> dict:
     from langchain_core.prompts import ChatPromptTemplate
     from helpers import history
+    from helpers.litellm_transport import ResponsesTransport, TransportMode
     from helpers.secrets import get_secrets_manager
 
     model, messages = call_data["model"], call_data["messages"]
@@ -37,21 +38,22 @@ def prepare_call(agent: Any, call_data: dict) -> dict:
     )}
     prepared = params.get("responses_history", {})
     if (
-        not prepared or not hasattr(model, "_convert_messages")
+        TransportMode.from_value(getattr(model, "kwargs", {}).get("a0_api_mode")) is not TransportMode.RESPONSES
+        or not prepared or not hasattr(model, "_convert_messages")
         or any(message.additional_kwargs or getattr(message, "tool_calls", None) for message in messages)
         or ChatPromptTemplate.from_messages(messages).format() != prepared["text"]
     ):
         return kwargs
 
     def render(record):
-        rendered = agent._responses_prompt_input_items(
+        rendered = ResponsesTransport.input_from_model_messages(
             model, history.output_langchain([{**record, "ai": False}]),
         )
         return rendered[0].get("content") if len(rendered) == 1 else None
 
     kwargs["responses_history_context"] = {
-        "prompt": agent._responses_prompt_input_items(model, messages),
-        "prefix": agent._responses_prompt_input_items(model, prepared["prefix"]),
+        "prompt": ResponsesTransport.input_from_model_messages(model, messages),
+        "prefix": ResponsesTransport.input_from_model_messages(model, prepared["prefix"]),
         "groups": prepare_groups(
             agent.loop_data.history_output, render,
             get_secrets_manager(agent.context).mask_values,

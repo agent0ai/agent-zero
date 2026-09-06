@@ -16,6 +16,8 @@
 - Preserve summaries, unmatched/custom layouts, attachments and all remaining prepared input. No execution or policy authorization occurs here.
 - Internal history context is removed before every provider request; Chat and fallback messages remain untouched.
 
+- Skip replay preparation for Chat mode after model-call hooks. Reuse the transport conversion primitive rather than private Agent methods; the actual request retains final fallback and input-validation checks.
+
 ## Verification
 
 - Run native history, Responses architecture/transport, prompt protocol, history and tool-policy tests. Verify named Codex and Venice presets live after integration changes.

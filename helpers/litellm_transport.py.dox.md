@@ -49,6 +49,8 @@
 - Treat fallback behavior as a shared transport contract, not a provider registry.
 - Keep tool conversion symmetric between Chat Completions and Responses requests.
 
+- TransportMode.from_value owns API-mode interpretation; input_from_model_messages owns model-message conversion shared with Agent and replay preparation.
+
 ## Verification
 
 - Run `pytest tests/test_stream_tool_early_stop.py tests/test_responses_architecture.py -q` after changing transport normalization or fallback behavior.

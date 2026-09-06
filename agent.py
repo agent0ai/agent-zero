@@ -961,7 +961,7 @@ class Agent:
                 model,
                 history_counter,
             )
-        call_data["responses_local_input_items"] = self._responses_prompt_input_items(
+        call_data["responses_local_input_items"] = ResponsesTransport.input_from_model_messages(
             model,
             messages,
         )
@@ -1051,18 +1051,7 @@ class Agent:
 
         output = message.output()
         langchain_messages = history.output_langchain(output)
-        if hasattr(model, "_convert_messages"):
-            converted = model._convert_messages(langchain_messages)
-            return ResponsesTransport.input_from_messages(converted)
-        return []
-
-    def _responses_prompt_input_items(
-        self, model: Any, messages: list[BaseMessage]
-    ) -> list[dict[str, Any]]:
-        if not hasattr(model, "_convert_messages"):
-            return []
-        converted = model._convert_messages(messages)
-        return ResponsesTransport.input_from_messages(converted)
+        return ResponsesTransport.input_from_model_messages(model, langchain_messages)
 
     def _remember_llm_result_state(
         self, llm_result: LLMResult, history_message: history.Message

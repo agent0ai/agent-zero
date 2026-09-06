@@ -28,6 +28,10 @@ class TransportMode(Enum):
     RESPONSES = "responses"
     CHAT_COMPLETIONS = "chat_completions"
 
+    @classmethod
+    def from_value(cls, value: Any) -> "TransportMode":
+        return cls.RESPONSES if str(value or "").lower().strip() in RESPONSES_ALIASES else cls.CHAT_COMPLETIONS
+
 
 class TransportRecovery(Enum):
     RAISE = "raise"
@@ -89,7 +93,7 @@ class TransportPolicy:
         kwargs: dict[str, Any],
         messages: list[dict[str, Any]] | None = None,
     ) -> "TransportPolicy":
-        mode = cls._pop_mode(kwargs)
+        mode = TransportMode.from_value(kwargs.pop("a0_api_mode", None))
         allow_fallback = _coerce_bool(
             kwargs.pop("a0_responses_fallback", True), default=True
         )
@@ -137,13 +141,6 @@ class TransportPolicy:
             cache_key=cache_key,
             state=state,
         )
-
-    @staticmethod
-    def _pop_mode(kwargs: dict[str, Any]) -> TransportMode:
-        value = str(kwargs.pop("a0_api_mode", "") or "").lower().strip()
-        if value in RESPONSES_ALIASES:
-            return TransportMode.RESPONSES
-        return TransportMode.CHAT_COMPLETIONS
 
     @property
     def using_responses(self) -> bool:
@@ -750,6 +747,12 @@ class ChatCompletionsStreamParser:
 
 
 class ResponsesTransport:
+    @staticmethod
+    def input_from_model_messages(model: Any, messages: list) -> list[dict[str, Any]]:
+        if not hasattr(model, "_convert_messages"):
+            return []
+        return ResponsesTransport.input_from_messages(model._convert_messages(messages))
+
     @classmethod
     def from_chat(
         cls,
