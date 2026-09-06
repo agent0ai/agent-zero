@@ -23,6 +23,9 @@ class ContextDoctor(Extension):
 
         # Extract LLM response
         llm_result = result_data.get("llm_result")
+        # Canonical calls already belong to the agent's policy-gated dispatcher.
+        if getattr(llm_result, "function_calls", None):
+            return
         response = getattr(llm_result, "response", None)
         if not isinstance(response, str) or not response.strip():
             return

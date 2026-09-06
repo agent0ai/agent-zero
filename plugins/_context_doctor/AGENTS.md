@@ -15,6 +15,7 @@
 
 ## Local Contracts
 
+- Leave canonical `LLMResult.function_calls` and their accompanying text untouched in either transport. The agent dispatches those calls through the normal tool-policy gate; text repair must not suppress them or reinterpret a textual follow-up as another call.
 - Repaired and fallback JSON is always minified.
 - Nonempty non-tool output becomes `{"thoughts":[raw]}`; XML-like output becomes `{}` only when suppression is enabled.
 - Blank-line-separated thoughts expand into separate entries after repair when the split strategy is enabled (default on). This rewrites model-authored thoughts for every repaired turn by design, not only the raw-text fallback branch.

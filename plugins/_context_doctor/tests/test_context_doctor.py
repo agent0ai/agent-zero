@@ -1,5 +1,10 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+import pytest
+
+from agent import Agent
+from helpers.llm_result import LLMResult
 from plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor import (
     ContextDoctor,
 )
@@ -160,6 +165,53 @@ def test_looks_like_tool_call_rejects_empty_tool_args():
 
 def test_looks_like_tool_call_rejects_wrong_thoughts_type():
     assert not looks_like_tool_call('{"thoughts":"x"}', '{"thoughts":"x"}')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["responses", "chat_completions"])
+@pytest.mark.parametrize("text", [
+    "Running the command now.",
+    '<tool>response</tool>',
+    '{"tool_name":"response","tool_args":{"text":"second call"}}',
+])
+async def test_extension_leaves_native_calls_and_accompanying_text_intact(monkeypatch, mode, text):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {},
+    )
+    llm_result = LLMResult.from_response({
+        "id": "resp_native",
+        "usage": {"input_tokens": 2048, "input_tokens_details": {"cached_tokens": 1024}},
+        "output": [
+            {"type": "message", "role": "assistant", "content": [
+                {"type": "output_text", "text": text},
+            ]},
+            {"type": "function_call", "name": "code_execution_tool",
+             "call_id": "call_native", "arguments": '{"runtime":"terminal","code":"echo hi"}'},
+        ],
+    }, mode=mode)
+    before = llm_result.to_dict()
+    result_data = {"llm_result": llm_result}
+
+    agent = SimpleNamespace(
+        agent_name="A0",
+        context=SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: None)),
+        loop_data=SimpleNamespace(params_temporary={}),
+        hist_add_ai_response=lambda *args, **kwargs: None,
+        hist_add_warning=lambda **kwargs: SimpleNamespace(id="warning"),
+        read_prompt=lambda name: name,
+        get_data=lambda key: {},
+        _log_response_builtin_items=AsyncMock(),
+        _execute_tool_request=AsyncMock(return_value=None),
+    )
+    ContextDoctor(agent).execute(result_data)
+
+    assert llm_result.to_dict() == before
+    assert not result_data.get("skip_default_processing")
+    assert [call.name for call in llm_result.function_calls] == ["code_execution_tool"]
+    await Agent.process_llm_result_tools(agent, llm_result)
+    agent._execute_tool_request.assert_awaited_once()
+    assert agent._execute_tool_request.call_args.kwargs["tool_name"] == "code_execution_tool"
 
 
 def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
