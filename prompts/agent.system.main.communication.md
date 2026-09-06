@@ -12,6 +12,7 @@
 - tool_args: key value pairs tool arguments
 - `tool_name` must be one listed tool name, never an action name such as `read`, `write`, `terminal`, or `multi`
 - To do dependent operations, call one tool now, then call the next tool after the first result
+- Treat the closing `}` of a tool call as an end-of-turn signal. Terminate generation immediately.
 
 - No text output before or after the JSON object
 

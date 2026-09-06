@@ -16,6 +16,7 @@
 
 - Do not include secrets, real API keys, or private user data in prompt templates.
 - Keep placeholder names, include aliases, and template assumptions synchronized with prompt-loading code and extensions.
+- `agent.system.main.communication.native.md` owns native function-call formatting; profiles may override it alongside the legacy communication template. Shared communication additions remain transport-neutral; the brace terminator belongs only to legacy JSON formatting.
 - Prompt changes can alter agent behavior; keep edits narrow and intentional.
 - Maintain clear separation between core behavior prompts and profile/plugin-specific customization.
 - Keep configurable capability names and usage guidance in their

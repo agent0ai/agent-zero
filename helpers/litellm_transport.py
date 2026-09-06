@@ -18,6 +18,7 @@ from litellm import (
 
 from helpers import images
 from helpers.llm_result import LLMResult
+from helpers.responses_tools import project_system_prompt
 
 
 ChatChunk = dict[str, str]
@@ -684,6 +685,8 @@ class ResponsesTransport:
         request = cls.prepare_kwargs(kwargs, stop=stop, model=model, messages=messages)
         state = _normalize_responses_state(kwargs.get("responses_state"))
         input_items = cls._select_input_items(kwargs, messages, state)
+        if _has_tools(kwargs.get("a0_responses_function_tools")):
+            input_items = project_system_prompt(input_items, kwargs.get("responses_prompt_replacements"))
         request["input"] = input_items or ""
         cls.apply_state(request, kwargs, state=state)
         return request
@@ -699,7 +702,10 @@ class ResponsesTransport:
     ) -> dict[str, Any]:
         request = cls.prepare_kwargs(kwargs, stop=stop, model=model, messages=messages)
         state = _normalize_responses_state(kwargs.get("responses_state"))
-        request["input"] = list(input_items or []) or ""
+        items = list(input_items or [])
+        if _has_tools(kwargs.get("a0_responses_function_tools")):
+            items = project_system_prompt(items, kwargs.get("responses_prompt_replacements"))
+        request["input"] = items or ""
         cls.apply_state(request, kwargs, state=state)
         return request
 
@@ -1362,6 +1368,7 @@ def _drop_responses_only_kwargs(kwargs: dict[str, Any]) -> None:
     kwargs.pop("responses_delete_on_chat_delete", None)
     kwargs.pop("responses_input_items", None)
     kwargs.pop("responses_local_input_items", None)
+    kwargs.pop("responses_prompt_replacements", None)
     kwargs.pop("previous_response_id", None)
     kwargs.pop("_a0_responses_builtin_downgrades", None)
 

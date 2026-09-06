@@ -535,6 +535,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
 
     async def fake_aresponses(*args, **kwargs):
         calls.append("responses")
+        assert kwargs["input"][0]["content"] == "Native instructions"
+        assert "responses_prompt_replacements" not in kwargs
         raise RuntimeError(
             "Client error '404 Not Found' for url "
             "'https://llm.agent-zero.ai/v1/responses'"
@@ -542,6 +544,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
 
     async def fake_acompletion(*args, **kwargs):
         calls.append("chat")
+        assert kwargs["messages"][0]["content"] == "Legacy instructions"
+        assert "responses_prompt_replacements" not in kwargs
         assert kwargs["stream"] is True
         assert kwargs["drop_params"] is True
         assert "tool_choice" not in kwargs
@@ -560,6 +564,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
         provider="openai",
         model_config=None,
         a0_api_mode="responses",
+        a0_responses_function_tools=[{"type": "function", "name": "response", "parameters": {"type": "object"}}],
+        responses_prompt_replacements={"Legacy instructions": "Native instructions"},
         tool_choice="auto",
         parallel_tool_calls=True,
     )
@@ -568,7 +574,7 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
         return None
 
     response, reasoning = await wrapper.unified_call(
-        messages=[],
+        messages=[SystemMessage(content="Legacy instructions")],
         response_callback=response_callback,
     )
 
@@ -577,7 +583,7 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
     assert calls == ["responses", "chat"]
 
     response, reasoning = await wrapper.unified_call(
-        messages=[],
+        messages=[SystemMessage(content="Legacy instructions")],
         response_callback=response_callback,
     )
 

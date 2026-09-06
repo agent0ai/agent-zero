@@ -16,6 +16,11 @@ class MainPrompt(Extension):
             return
         prompt = await build_prompt(self.agent)
         system_prompt.append(prompt)
+        communication = self.agent.read_prompt("agent.system.main.communication.md")
+        if communication in prompt:
+            loop_data.responses_prompt_replacements[communication] = self.agent.read_prompt(
+                "agent.system.main.communication.native.md"
+            )
 
 
 @extensible

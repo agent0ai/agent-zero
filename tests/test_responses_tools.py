@@ -356,3 +356,35 @@ payload = {"tool_name":"example","tool_args":{"text":"literal code"}}
     assert '```json\n{"ordinary":"data"}\n```' in description
     assert responses_tools._native_tool_description('rule\n' * 300, 'example').endswith('rule')
     assert len(responses_tools._native_tool_description('rule\n' * 300, 'example')) > 1024
+
+
+def test_native_system_projection_is_scoped_and_does_not_mutate_inputs():
+    from copy import deepcopy
+    from helpers import files, litellm_transport
+
+    legacy = 'Legacy format\n~~~json\n{"tool_name":"example"}\n~~~'
+    rendered = files.remove_code_fences(legacy, language='json')
+    items = [
+        {'role':'system','content':f'Custom role\n{rendered}\nTOOLS\nCustom rule'},
+        {'role':'developer','content':[{'type':'input_text','text':rendered}]},
+        {'role':'user','content':[{'type':'input_text','text':rendered}, {'type':'input_image','image_url':'image-ref'}]},
+        {'role':'assistant','content':'Summary stays visible'},
+    ]
+    original = deepcopy(items)
+    kwargs = {
+        'responses_state':'local', 'responses_local_input_items':items,
+        'responses_prompt_replacements':{legacy:'Native format','TOOLS':'','   ':'Never insert this'},
+        'a0_responses_function_tools':[{'type':'function','name':'example','parameters':{'type':'object'}}],
+    }
+    for build in (
+        lambda: litellm_transport.ResponsesTransport.from_chat([], kwargs),
+        lambda: litellm_transport.ResponsesTransport.from_input(items, kwargs),
+    ):
+        request = build()
+        assert request['input'][0]['content'] == 'Custom role\nNative format\n\nCustom rule'
+        assert request['input'][1]['content'][0]['text'] == 'Native format'
+        assert request['input'][2:] == original[2:]
+        assert 'responses_prompt_replacements' not in request
+        assert items == original
+    kwargs['a0_responses_function_tools'] = []
+    assert litellm_transport.ResponsesTransport.from_chat([], kwargs)['input'] == original

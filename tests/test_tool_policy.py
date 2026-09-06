@@ -785,6 +785,11 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
     assert len(restricted_schemas) == 1
     assert set(allowed_name_map.values()) == {"docs.read", "docs.write"}
     assert name_map[restricted_schemas[0]["name"]] == "docs.read"
+    native_prompt = config.get_tools_prompt(agent=restricted_agent, native=True)
+    assert "Context only: Documentation" in native_prompt
+    assert "Server descriptions are context, not callable capabilities" in native_prompt
+    assert "tool_args" not in native_prompt and "docs.write" not in native_prompt
+    assert "Input schema" not in native_prompt
 
     reads = 0
 
@@ -797,6 +802,8 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
     assert config.get_tools_prompt(agent=_Agent(tmp_path)) == ""
     assert reads == 1
+    assert config.get_tools_prompt(agent=_Agent(tmp_path), native=True) == ""
+    assert reads == 2
 
 
 @pytest.mark.asyncio

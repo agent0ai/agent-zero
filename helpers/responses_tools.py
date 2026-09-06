@@ -166,6 +166,37 @@ def original_tool_name(native_name: str, name_map: dict[str, str] | None) -> str
     return name_map.get(native_name, native_name)
 
 
+def project_system_prompt(
+    items: list[dict[str, Any]], replacements: dict[str, str] | None,
+) -> list[dict[str, Any]]:
+    if not replacements:
+        return items
+    pairs = []
+    for source, target in replacements.items():
+        source = files.remove_code_fences(source, language="json")
+        if source.strip():
+            pairs.append((source, files.remove_code_fences(target, language="json")))
+    pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
+
+    def replace(text: str) -> str:
+        for source, target in pairs:
+            text = text.replace(source, target)
+        return text
+
+    projected = deepcopy(items)
+    for item in projected:
+        if item.get("role") not in {"system", "developer"}:
+            continue
+        content = item.get("content")
+        if isinstance(content, str):
+            item["content"] = replace(content)
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and isinstance(block.get("text"), str):
+                    block["text"] = replace(block["text"])
+    return projected
+
+
 def _local_tool_prompts(agent: Any) -> list[tuple[str, str]]:
     prompt_dirs = subagents.get_paths(agent, "prompts")
     tool_files = files.get_unique_filenames_in_dirs(

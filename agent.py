@@ -342,6 +342,7 @@ class LoopData:
     def __init__(self, **kwargs):
         self.iteration = -1
         self.system = []
+        self.responses_prompt_replacements: dict[str, str] = {}
         self.user_message: history.Message | None = None
         self.history_output: list[history.OutputMessage] = []
         self.protocol_temporary: OrderedDict[str, history.MessageContent] = OrderedDict()
@@ -570,6 +571,7 @@ class Agent:
         )
 
         # set system prompt and message history
+        loop_data.responses_prompt_replacements.clear()
         loop_data.system = await self.get_system_prompt(self.loop_data)
         loop_data.history_output = self.history.output()
 
@@ -947,6 +949,7 @@ class Agent:
             "background": background,
             "explicit_caching": explicit_caching,
             "a0_responses_function_tools": response_tools,
+            "responses_prompt_replacements": dict(self.loop_data.responses_prompt_replacements),
         }
 
         previous_state = self._responses_state_for_model(model)
@@ -975,6 +978,7 @@ class Agent:
             ),
         }
         for key in (
+            "responses_prompt_replacements",
             "responses_builtin_tools",
             "responses_state",
             "previous_response_id",

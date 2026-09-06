@@ -18,6 +18,9 @@ class MCPToolsPrompt(Extension):
         prompt = await build_prompt(self.agent)
         if prompt:
             system_prompt.append(prompt)
+            loop_data.responses_prompt_replacements[prompt] = (
+                MCPConfig.get_for_agent(self.agent).get_tools_prompt(agent=self.agent, native=True)
+            )
 
 
 @extensible

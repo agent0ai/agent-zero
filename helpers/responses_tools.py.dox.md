@@ -28,6 +28,7 @@
   is controlled by the effective model preset rather than Agent Editor.
 - Resolve a fresh policy once per schema build and reuse it only within that
   build; runtime execution remains independently policy-gated.
+- `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
 - Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 
 ## Work Guidance

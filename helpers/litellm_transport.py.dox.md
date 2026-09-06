@@ -24,6 +24,7 @@
 
 - Keep provider selection and provider-specific defaults outside this helper; callers pass a resolved LiteLLM model name and kwargs.
 - Strip Agent Zero internal kwargs before sending requests to LiteLLM.
+- Apply `responses_prompt_replacements` only to Responses input when generated A0 functions are present; preserve original Chat/fallback messages and strip this internal control before either provider call.
 - Do not send orphan tool controls when no tools are present; strict OpenAI-compatible servers can reject empty `tools` arrays.
 - When Agent Zero function tools are present, default Responses requests to one required native call; explicit request-level `tool_choice` and `parallel_tool_calls` values still win.
 - Normalize function tool parameter schemas with an explicit object `properties` field before Responses requests so OpenAI-compatible chat backends reached through LiteLLM can validate them.

@@ -12,6 +12,7 @@
 ## Local Contracts
 
 - Preserve ordering where sections depend on earlier context.
+- Main, local-tool and MCP section owners register `LoopData.responses_prompt_replacements` while retaining normal text prompts. Responses applies these request-only substitutions when native A0 definitions are present; Chat and fallback keep the text protocol. MCP native framing preserves allowed-server context.
 - Keep secret-related prompt sections masked and scoped.
 - Prompt additions must be bounded and compatible with tool-call contracts.
 - Keep non-tool sections free of configurable capability guidance; tool-owned

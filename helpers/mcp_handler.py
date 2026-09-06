@@ -1150,7 +1150,7 @@ class MCPConfig(BaseModel):
                     tools.append({f"{server.name}.{tool['name']}": tool_copy})
             return tools
 
-    def get_tools_prompt(self, server_name: str = "", agent: Any | None = None) -> str:
+    def get_tools_prompt(self, server_name: str = "", agent: Any | None = None, *, native: bool = False) -> str:
         """Get a prompt for all tools"""
 
         # just to wait for pending initialization
@@ -1196,6 +1196,9 @@ class MCPConfig(BaseModel):
                             _policy=policy,
                         ).allowed:
                             continue
+                    if native:
+                        tool_prompts.append("")
+                        continue
                     input_schema = (
                         json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
                     )
@@ -1221,7 +1224,7 @@ class MCPConfig(BaseModel):
         if not server_prompts:
             return ""
         return render(
-            "agent.system.mcp_tools.md",
+            "agent.system.mcp_tools.native.md" if native else "agent.system.mcp_tools.md",
             tools="\n".join(server_prompts),
         ) + "\n"
 

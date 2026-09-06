@@ -22,6 +22,7 @@ class ToolsPrompt(Extension):
             return
         prompt = await build_prompt(self.agent)
         system_prompt.append(prompt)
+        loop_data.responses_prompt_replacements[prompt] = ""
 
 
 @extensible
