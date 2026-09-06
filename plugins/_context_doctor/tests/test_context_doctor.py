@@ -214,12 +214,37 @@ async def test_extension_leaves_native_calls_and_accompanying_text_intact(monkey
     assert agent._execute_tool_request.call_args.kwargs["tool_name"] == "code_execution_tool"
 
 
-def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["Done.", "First paragraph.\n\nSecond paragraph.", "<p>Done.</p>"])
+async def test_responses_text_reaches_core_response_dispatch(monkeypatch, text):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {},
+    )
+    result = LLMResult.from_response({"id": "resp_text", "output_text": text})
+    before = result.to_dict()
+    agent = SimpleNamespace(
+        _log_response_builtin_items=AsyncMock(),
+        _execute_tool_request=AsyncMock(return_value="finished"),
+    )
+    data = {"llm_result": result}
+    ContextDoctor(agent).execute(data)
+    assert result.to_dict() == before
+    assert not data.get("skip_default_processing")
+    assert await Agent.process_llm_result_tools(agent, result) == "finished"
+    agent._execute_tool_request.assert_awaited_once_with(
+        tool_name="response", tool_args={"text": text}, message=text,
+    )
+
+
+@pytest.mark.parametrize("mode", ["responses", "chat_completions"])
+def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch, mode):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
         lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
     )
     llm_result = SimpleNamespace(
+        mode=mode,
         response='{"tool_name":"response","tool_args":{"text":"ok",},}'
     )
     log_item = SimpleNamespace(
@@ -306,7 +331,7 @@ def test_extension_handles_raw_text_fallback_with_warning_and_skip(monkeypatch):
         hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
         hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
     )
-    llm_result = SimpleNamespace(response="Hello there…")
+    llm_result = LLMResult.from_chat(response="Hello there…")
     result_data = {"llm_result": llm_result}
 
     ContextDoctor(agent).execute(result_data)

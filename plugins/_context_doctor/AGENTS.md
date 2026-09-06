@@ -17,7 +17,7 @@
 
 - Leave canonical `LLMResult.function_calls` and their accompanying text untouched in either transport. The agent dispatches those calls through the normal tool-policy gate; text repair must not suppress them or reinterpret a textual follow-up as another call.
 - Repaired and fallback JSON is always minified.
-- Nonempty non-tool output becomes `{"thoughts":[raw]}`; XML-like output becomes `{}` only when suppression is enabled.
+- Usable Responses output text stays untouched for the core response-tool dispatcher. Recognizable tool intent still enters repair; Chat Completions non-tool output becomes `{"thoughts":[raw]}` and XML-like output becomes `{}` when suppression is enabled.
 - Blank-line-separated thoughts expand into separate entries after repair when the split strategy is enabled (default on). This rewrites model-authored thoughts for every repaired turn by design, not only the raw-text fallback branch.
 - `_select_value` returns only repaired tool calls or model-authored partial responses; `transform_response` wraps otherwise-raw output as thoughts afterward. `looks_like_tool_call` rejects that synthesized wrapper, so it reaches the fallback branch. Repaired output is usable only with a non-empty thoughts list, headline/tool name string, or tool-args dict.
 - A raw-text fallback conversion must emit a `fw.msg_thoughts_fallback.md` history warning and a separate `fw.msg_thoughts_fallback_response.md` user notice, refresh the generating log and response item with the transformed thoughts JSON, and set `skip_default_processing` so the retry advances the unusable-response counter.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, override
 
+from helpers import extract_tools
 from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
 from helpers.print_style import PrintStyle
@@ -37,10 +38,17 @@ class ContextDoctor(Extension):
             suppress_xml=config.get("suppress_xml", True),
             split_thoughts=config.get("split_thoughts", True),
         )
+        is_tool_call = looks_like_tool_call(response, transformed)
+        if (
+            getattr(llm_result, "mode", None) == "responses"
+            and not is_tool_call
+            and not extract_tools.is_misformatted_tool_request(response)
+        ):
+            return  # Core dispatches Responses output text through the response tool.
         llm_result.response = transformed
 
         # Treat as raw-text fallback when no usable tool call was extracted
-        if not looks_like_tool_call(response, transformed):
+        if not is_tool_call:
             # Manually add ai response and warnings
             log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
             self.agent.hist_add_ai_response(
