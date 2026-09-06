@@ -76,7 +76,7 @@ def test_llm_result_missing_mode_keeps_legacy_default(data):
 
 
 @pytest.mark.parametrize("call_form", [
-    "message", "legacy_id", "keyword_id", "result", "result_id", "keywords",
+    "message", "legacy_id", "keyword_id", "result", "result_id", "keywords", "native",
 ])
 def test_history_response_call_compatibility_preserves_state(monkeypatch, call_form):
     monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
@@ -94,6 +94,11 @@ def test_history_response_call_compatibility_preserves_state(monkeypatch, call_f
 
     agent._remember_llm_result_state = remember
     result = LLMResult(response_id="resp_1", provider_model_key="test/model")
+    if call_form == "native":
+        result = LLMResult.from_response({
+            "id": "resp_1", "output_text": "hello",
+            "output": [{"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": '{"q":"a0"}'}],
+        }, provider_model_key="test/model")
     args, kwargs = {
         "message": ((), {}),
         "legacy_id": (("message_id",), {}),
@@ -101,13 +106,17 @@ def test_history_response_call_compatibility_preserves_state(monkeypatch, call_f
         "result": ((result,), {}),
         "result_id": ((result, "message_id"), {}),
         "keywords": ((), {"llm_result": result, "id": "message_id"}),
+        "native": ((), {"llm_result": result, "id": "message_id"}),
     }[call_form]
     message = agent.hist_add_ai_response("hello", *args, **kwargs)
-    expected = result if call_form in {"result", "result_id", "keywords"} else LLMResult.non_llm()
+    expected = result if call_form in {"result", "result_id", "keywords", "native"} else LLMResult.non_llm()
     assert remembered == [expected]
-    assert result_from_metadata(message.metadata) == expected
+    assert result_from_metadata(message.metadata).metadata() == expected.metadata()
     assert agent.history.all_messages() == [message]
-    assert agent.loop_data.last_response == "hello"
+    assert message.content == (expected.function_calls_text() or "hello")
+    assert agent.loop_data.last_response == message.content
+    if call_form == "native":
+        assert result.response == "hello"
     if call_form not in {"message", "result"}:
         assert message.id == "message_id"
     state = agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)

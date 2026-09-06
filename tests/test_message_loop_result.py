@@ -140,3 +140,29 @@ def test_reasoning_only_retries_with_agent_warning():
             "id": "warning",
         }
     ]
+
+
+def test_native_repeat_detection_compares_calls_instead_of_commentary():
+    from helpers.llm_result import LLMResult
+
+    def result(query, commentary):
+        return LLMResult.from_response({
+            "output_text": commentary,
+            "output": [{
+                "type": "function_call", "name": "lookup", "call_id": "call",
+                "arguments": {"q": query},
+            }],
+        })
+
+    previous = result("first", "Working.")
+    agent = FakeAgent("", last_response=previous.function_calls_text())
+    changed_call = {"llm_result": result("second", "Working.")}
+    RepeatResponse(agent).execute(changed_call)
+    assert not changed_call.get("skip_default_processing")
+    assert agent.warnings == []
+
+    repeated_call = {"llm_result": result("first", "Different commentary.")}
+    RepeatResponse(agent).execute(repeated_call)
+    assert repeated_call["skip_default_processing"] is True
+    assert agent.history == [previous.function_calls_text()]
+    assert agent.warnings == ["repeat"]

@@ -17,6 +17,8 @@ class RepeatResponse(Extension):
 
         llm_result = result_data.get("llm_result")
         response = getattr(llm_result, "response", "")
+        if getattr(llm_result, "function_calls", None):
+            response = llm_result.function_calls_text()
         if not isinstance(response, str) or response != self.agent.loop_data.last_response:
             return
 
