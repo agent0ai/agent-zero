@@ -9,6 +9,7 @@ Rules:
 - do not use for one simple call, dependent steps, ordered steps, shared mutable state, or state/tool-availability changes that must happen in the parent context
 - never nest `parallel`
 - Never include `document_query` in `tool_calls`; it is too heavy for parallel workers, so call it sequentially.
+- Call `goal` sequentially in the owning chat; direct parallel workers have a temporary context and cannot read or update the parent goal.
 - Call `response` only as a top-level tool so it ends the message loop; never wrap it inside `parallel.tool_calls`.
 - `call_subordinate` uses the same child lifecycle here as it does top-level; fresh siblings are next-level agents, and each job's `context_id` can be continued later with `reset: false`
 - use `wait: false` only when you will collect results later with `job_ids`

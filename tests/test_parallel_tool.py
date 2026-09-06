@@ -181,7 +181,7 @@ def test_normalize_parallel_tool_calls_rejects_nested_parallel() -> None:
         )
 
 
-@pytest.mark.parametrize("tool_name", ["document_query", "response"])
+@pytest.mark.parametrize("tool_name", ["document_query", "response", "goal"])
 def test_normalize_parallel_tool_calls_rejects_disallowed_tools(tool_name: str) -> None:
     with pytest.raises(ValueError, match=rf"{tool_name}.*parallel"):
         parallel_tools.normalize_parallel_tool_calls(
@@ -1202,3 +1202,18 @@ def test_parallel_result_json_is_compact() -> None:
     )
 
     assert result == '{"status":"success","jobs":[{"job_id":"wait-1","tool_name":"wait","state":"success"}]}'
+
+
+@pytest.mark.asyncio
+async def test_parallel_rejects_context_owned_tools_before_starting_any_job():
+    agent = _FakeAgent()
+    calls = [
+        parallel_tools.NormalizedToolCall(0, "search_engine", {"query": "a0"}),
+        parallel_tools.NormalizedToolCall(1, "goal", {"action": "create", "objective": "wrong owner"}),
+    ]
+    with pytest.raises(ValueError, match="goal.*sequentially"):
+        await parallel_tools.start_parallel_jobs(agent, calls)
+    assert agent.context.log.items == []
+    assert not agent.context.get_data(parallel_tools.PARALLEL_JOBS_KEY)
+    with pytest.raises(ValueError, match="goal.*sequentially"):
+        await parallel_tools.execute_tool_call(agent, "goal", {"action": "get"})

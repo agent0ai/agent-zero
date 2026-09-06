@@ -32,7 +32,7 @@ CHILD_PARALLEL_TOOL_NAME_KEY = "parallel_tool_name"
 DEFAULT_MAX_CALLS = 8
 DEFAULT_TIMEOUT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 0.5
-DISALLOWED_PARALLEL_TOOLS = {"document_query", "response"}
+DISALLOWED_PARALLEL_TOOLS = {"document_query", "response", "goal"}
 
 TERMINAL_STATES = {"success", "error", "cancelled", "timeout"}
 JobState = Literal["pending", "running", "success", "error", "cancelled", "timeout"]
@@ -102,12 +102,7 @@ def normalize_parallel_tool_calls(raw_calls: Any) -> list[NormalizedToolCall]:
         except ValueError as exc:
             raise ValueError(f"tool_calls[{index}] is not a valid tool call: {exc}") from exc
 
-        if tool_name == "parallel":
-            raise ValueError("`parallel` cannot be nested inside another `parallel` call.")
-        if tool_name in DISALLOWED_PARALLEL_TOOLS:
-            raise ValueError(
-                f"`{tool_name}` cannot be used inside `parallel`; call it sequentially."
-            )
+        _ensure_parallel_tool_allowed(tool_name)
 
         calls.append(
             NormalizedToolCall(
@@ -117,6 +112,15 @@ def normalize_parallel_tool_calls(raw_calls: Any) -> list[NormalizedToolCall]:
             )
         )
     return calls
+
+
+def _ensure_parallel_tool_allowed(tool_name: str) -> None:
+    if tool_name == "parallel":
+        raise ValueError("`parallel` cannot be nested inside another `parallel` call.")
+    if tool_name in DISALLOWED_PARALLEL_TOOLS:
+        raise ValueError(
+            f"`{tool_name}` cannot be used inside `parallel`; call it sequentially."
+        )
 
 
 def normalize_job_ids(raw_job_ids: Any) -> list[str]:
@@ -218,6 +222,8 @@ async def start_parallel_jobs(
     agent: "Agent",
     calls: list[NormalizedToolCall],
 ) -> list[ParallelJob]:
+    for call in calls:
+        _ensure_parallel_tool_allowed(call.tool_name)
     jobs: list[ParallelJob] = []
     context = agent.context
     job_store = _jobs_for_context(context)
@@ -540,8 +546,7 @@ async def execute_tool_call(
     *,
     log_item: "LogItem | None" = None,
 ) -> str:
-    if tool_name == "parallel":
-        raise ValueError("`parallel` cannot be nested inside a parallel worker.")
+    _ensure_parallel_tool_allowed(tool_name)
 
     tool = _resolve_parallel_tool(agent, tool_name, tool_args, strict=True)
     if not tool:
