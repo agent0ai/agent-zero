@@ -1682,14 +1682,15 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
             },
         }
     ) == {"reasoning_delta": "", "response_delta": ""}
-    assert parser.parse(
+    partial = parser.parse(
         {
             "type": "response.function_call_arguments.delta",
             "item_id": "fc_1",
             "output_index": 0,
             "delta": '{"q":',
         }
-    ) == {"reasoning_delta": "", "response_delta": ""}
+    )
+    assert partial["response_delta"] == '{"tool_name":"lookup","tool_args":{"q":'
 
     parsed = parser.parse(
         {
@@ -1701,7 +1702,7 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
         }
     )
 
-    assert extract_tools.json_parse_dirty(parsed["response_delta"]) == {
+    assert extract_tools.json_parse_dirty(partial["response_delta"] + parsed["response_delta"]) == {
         "tool_name": "lookup",
         "tool_args": {"q": "a0"},
     }
@@ -1873,3 +1874,71 @@ def test_responses_stream_parser_preserves_non_ascii_function_call_arguments():
     )
 
     assert parsed["response_delta"] == '{"tool_name": "response", "tool_args": {"text": "привет"}}'
+
+
+@pytest.mark.asyncio
+async def test_native_argument_progress_keeps_interleaved_calls_and_terminal_metadata(monkeypatch):
+    arguments = '{"runtime":"python","code":"print(\\"日本\\")","nested":{"items":[1,2]}}'
+    first = {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "code_execution_tool", "arguments": arguments}
+    second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"a0"}'}
+    split = arguments.index('日本')
+    events = [
+        {"type": "response.output_item.added", "item": {**first, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": arguments[:split]},
+        {"type": "response.output_item.added", "item": {**second, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_2", "delta": second["arguments"]},
+        {"type": "response.output_item.done", "item": second},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": arguments[split:]},
+        {"type": "response.output_item.done", "item": first},
+        {"type": "response.completed", "response": {"id": "resp_1", "output": [first, second], "usage": {"input_tokens": 2048}}},
+    ]
+    stream = _AsyncChunkStream(events)
+
+    async def aresponses(**kwargs):
+        return stream
+
+    async def no_limiter(*args, **kwargs):
+        return None
+
+    snapshots = []
+
+    async def callback(chunk, full):
+        snapshots.append((stream.index, full))
+        return full  # Native turns must still consume completion metadata.
+
+    monkeypatch.setattr(litellm_transport, "aresponses", aresponses)
+    monkeypatch.setattr(models, "apply_rate_limiter", no_limiter)
+    wrapper = models.LiteLLMChatWrapper(model="test-model", provider="openai", model_config=None)
+    result = await wrapper.unified_turn(messages=[], response_callback=callback, a0_api_mode="responses")
+
+    assert snapshots[0][0] == 2
+    assert DirtyJson.parse_string(snapshots[0][1])["tool_args"]["runtime"] == "python"
+    roots = extract_tools.extract_json_root_strings(snapshots[-1][1])
+    assert [json.loads(root)["tool_name"] for root in roots] == ["code_execution_tool", "lookup"]
+    assert json.loads(roots[0])["tool_args"] == json.loads(arguments)
+    assert [call.call_id for call in result.function_calls] == ["call_1", "call_2"]
+    assert result.usage == {"input_tokens": 2048}
+    assert stream.index == len(events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("incomplete", [False, True])
+async def test_interrupted_native_argument_stream_cannot_become_a_text_tool(monkeypatch, incomplete):
+    events = [
+        {"type": "response.output_item.added", "item": {"type": "function_call", "id": "fc_1", "name": "lookup", "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": '{"q":"partial'},
+    ]
+    if incomplete:
+        events.append({"type": "response.incomplete", "response": {"status": "incomplete"}})
+    stream = _AsyncChunkStream(events)
+
+    async def aresponses(**kwargs):
+        return stream
+
+    monkeypatch.setattr(litellm_transport, "aresponses", aresponses)
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    with pytest.raises(RuntimeError, match="incomplete|before native tool calls completed"):
+        async for _ in transport.astream():
+            pass
+    assert transport.last_result is None
+    assert stream.closed

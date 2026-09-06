@@ -458,6 +458,12 @@ class Agent:
                                 printer.print("Response: ")  # start of response
                             # Pass chunk and full data to extensions for processing
                             stream_data = {"chunk": chunk, "full": full}
+                            await extension.call_extensions_async(
+                                "response_stream_chunk",
+                                self,
+                                loop_data=self.loop_data,
+                                stream_data=stream_data,
+                            )
                             tool_request = extract_tools.extract_tool_request(full)
                             if tool_request is not None:
                                 try:
@@ -465,16 +471,10 @@ class Agent:
                                 except Exception:
                                     pass
                                 else:
-                                    await self.handle_response_stream(full)
+                                    await self.handle_response_stream(stream_data["full"])
                                     response_stream_pending = False
                                     return full.strip()
 
-                            await extension.call_extensions_async(
-                                "response_stream_chunk",
-                                self,
-                                loop_data=self.loop_data,
-                                stream_data=stream_data,
-                            )
                             # Stream masked chunk after extensions processed it
                             if stream_data.get("chunk"):
                                 printer.stream(stream_data["chunk"])
@@ -1566,6 +1566,11 @@ class Agent:
                 return  # no reason to try
             response = DirtyJson.parse_string(stream)
             if isinstance(response, dict):
+                try:
+                    tool_name, tool_args = extract_tools.normalize_tool_request(response)
+                    response.update(tool_name=tool_name, tool_args=tool_args)
+                except ValueError:
+                    pass  # Tool fields may still be incomplete.
                 await extension.call_extensions_async(
                     "response_stream",
                     self,

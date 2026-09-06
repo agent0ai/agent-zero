@@ -36,7 +36,8 @@
 - Preserve Chat Completions tool calls from both non-streaming responses and streaming deltas as canonical `LLMResult` function-call items.
 - Preserve provider usage and LiteLLM response cost for both transports only when the response or stream actually supplies them; do not synthesize unavailable provider accounting.
 - Preserve Responses function calls collected from stream events when a terminal completed event omits them.
-- Stream native `response` function arguments through a canonical response-tool envelope while continuing to buffer other function calls until completion.
+- Stream named native function arguments through canonical tool envelopes for display. Buffer interleaved calls until the active envelope closes; preserve independent original call metadata. Native execution still waits for the completed model turn.
+- Fail incomplete Responses generations and native-call streams that end without completion; never promote partial call previews to a Chat result.
 - Serialize synthesized Responses function-call JSON with literal Unicode so streamed raw-response logs preserve tool arguments.
 - Preserve provider-state metadata when Responses API calls succeed, and fall back to local replay when provider state is unsupported.
 - Keep prompt-cache markers only for providers that accept them.

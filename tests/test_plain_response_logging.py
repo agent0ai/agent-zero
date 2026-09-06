@@ -213,3 +213,34 @@ async def test_stream_log_tolerates_partial_tool_arguments(
 
     item = loop_data.params_temporary["log_item_generating"]
     assert item.kvps["step"] == expected_step
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_request", [
+    {"tool": "code_execution_tool", "args": {"runtime": "python", "code": "print(1)"}},
+    {"actions": [{"tool": "code_execution_tool", "args": {"runtime": "python", "code": "print(1)"}}]},
+    {"type": "function", "name": "code_execution_tool", "parameters": {"runtime": "python", "code": "print(1)"}},
+])
+async def test_stream_aliases_reach_all_consumers_canonically(monkeypatch, tool_request):
+    import json
+    from agent import Agent
+    from helpers import extension
+
+    agent = object.__new__(Agent)
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.context = SimpleNamespace(log=Log())
+
+    async def no_intervention():
+        pass
+
+    async def consume(name, _agent, **kwargs):
+        assert name == "response_stream"
+        assert kwargs["parsed"]["tool_name"] == "code_execution_tool"
+        assert kwargs["parsed"]["tool_args"] == {"runtime": "python", "code": "print(1)"}
+        await StreamLog(agent=agent).execute(**kwargs)
+
+    agent.handle_intervention = no_intervention
+    monkeypatch.setattr(extension, "call_extensions_async", consume)
+    await agent.handle_response_stream(json.dumps(tool_request))
+    assert agent.loop_data.params_temporary["log_item_generating"].kvps["step"] == "Writing Python code... (8)"

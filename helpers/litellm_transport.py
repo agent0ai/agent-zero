@@ -428,6 +428,8 @@ class LiteLLMTransport:
         self, parser: "ResponsesEventParser", request: dict[str, Any]
     ) -> LLMResult | None:
         if parser.completed_response is None:
+            if parser.function_calls:
+                raise RuntimeError("Responses stream ended before native tool calls completed")
             return None
         response = _object_to_dict(parser.completed_response)
         output = _as_list(response.get("output"))
@@ -1163,7 +1165,8 @@ class ResponsesEventParser:
         self.function_calls: dict[str, dict[str, Any]] = {}
         self.output_index_keys: dict[str, str] = {}
         self.emitted_function_calls: set[str] = set()
-        self.streamed_response_calls: dict[str, str] = {}
+        self.streamed_function_calls: dict[str, str] = {}
+        self.pending_function_calls: dict[str, Any] = {}
         self.seen_response_delta = False
         self.seen_reasoning_delta = False
         self.completed_response: Any = None
@@ -1194,6 +1197,8 @@ class ResponsesEventParser:
             response_delta = self._complete_output_item(_get_value(event, "item"), event)
         elif event_type == "response.completed":
             response_delta, reasoning_delta = self._complete_response(event)
+        elif event_type == "response.incomplete":
+            raise RuntimeError("Responses generation incomplete; tool calls were not executed")
         elif event_type == "response.failed":
             raise RuntimeError(self._response_error_message(event))
         elif event_type == "error":
@@ -1229,14 +1234,20 @@ class ResponsesEventParser:
         current = self.function_calls.setdefault(key, {"type": "function_call"})
         delta = str(_get_value(event, "delta") or "")
         current["arguments"] = str(current.get("arguments") or "") + delta
-        if current.get("name") != "response":
+        if (
+            not current.get("name")
+            or key in self.emitted_function_calls
+            or key in self.pending_function_calls
+            or (self.streamed_function_calls and key not in self.streamed_function_calls)
+        ):
             return ""
-        if key not in self.streamed_response_calls:
-            self.streamed_response_calls[key] = str(current["arguments"])
-            return '{"tool_name":"response","tool_args":' + str(
-                current["arguments"]
+        if key not in self.streamed_function_calls:
+            self.streamed_function_calls[key] = str(current["arguments"])
+            return (
+                '{"tool_name":' + json.dumps(current["name"], ensure_ascii=False)
+                + ',"tool_args":' + str(current["arguments"])
             )
-        self.streamed_response_calls[key] += delta
+        self.streamed_function_calls[key] += delta
         return delta
 
     def _complete_function_call(self, event: Any) -> str:
@@ -1248,24 +1259,29 @@ class ResponsesEventParser:
             current["arguments"] = _get_value(event, "arguments")
         if _get_value(event, "name"):
             current["name"] = _get_value(event, "name")
-        if key in self.streamed_response_calls:
-            return self._finish_response_call(key, current)
+        if key in self.streamed_function_calls:
+            return self._finish_function_call(key, current)
         return self._emit_function_call(key, current)
 
     def _complete_output_item(self, item: Any, event: Any) -> str:
         key = self._remember_function_call(item, event)
         if not key:
             return ""
-        if key in self.streamed_response_calls:
-            return self._finish_response_call(key, self.function_calls[key])
+        if key in self.streamed_function_calls:
+            return self._finish_function_call(key, self.function_calls[key])
         return self._emit_function_call(key, self.function_calls[key])
 
-    def _finish_response_call(self, key: str, item: Any) -> str:
-        streamed = self.streamed_response_calls.pop(key)
+    def _finish_function_call(self, key: str, item: Any) -> str:
+        streamed = self.streamed_function_calls.pop(key)
         arguments = str(_get_value(item, "arguments") or "")
         self.emitted_function_calls.add(key)
         tail = arguments[len(streamed) :] if arguments.startswith(streamed) else ""
-        return tail + "}"
+        pending = self.pending_function_calls
+        self.pending_function_calls = {}
+        return tail + "}" + "".join(
+            self._emit_function_call(pending_key, pending_item)
+            for pending_key, pending_item in pending.items()
+        )
 
     def _complete_response(self, event: Any) -> tuple[str, str]:
         self.completed_response = _get_value(event, "response")
@@ -1278,6 +1294,9 @@ class ResponsesEventParser:
 
     def _emit_function_call(self, key: str, item: Any) -> str:
         if key in self.emitted_function_calls:
+            return ""
+        if self.streamed_function_calls:
+            self.pending_function_calls[key] = item
             return ""
         text = ResponsesTransport.function_call_text(item)
         if text:
