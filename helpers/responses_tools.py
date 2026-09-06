@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+from copy import deepcopy
 from typing import Any
 
 from helpers import files, subagents, tool_policy
@@ -27,9 +28,85 @@ TOOL_PROMPT_SUFFIX = ".md"
 MAX_TOOL_DESCRIPTION_CHARS = 1024
 TOOL_PROMPT_KWARGS_KEY = "_tool_prompt_kwargs"
 
+# Canonical arguments for the resolved bundled implementations, not tool-name aliases.
+BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
+    "tools/response.py": {
+        "text": {"type": "string", "minLength": 1},
+    },
+    "tools/search_engine.py": {"query": {"type": "string"}},
+    "tools/vision_load.py": {
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "query": {"type": "string"},
+    },
+    "tools/wait.py": {
+        "seconds": {"type": "number"},
+        "minutes": {"type": "number"},
+        "hours": {"type": "number"},
+        "days": {"type": "number"},
+        "until": {"type": "string"},
+    },
+    "tools/notify_user.py": {
+        "message": {"type": "string"},
+        "title": {"type": "string"},
+        "detail": {"type": "string"},
+        "type": {"type": "string", "enum": ["info", "success", "warning", "error", "progress"]},
+        "priority": {"type": "integer", "enum": [10, 20]},
+        "timeout": {"type": "integer"},
+    },
+    "tools/call_subordinate.py": {
+        "message": {"type": "string"},
+        "profile": {"type": "string"},
+        "name": {"type": "string"},
+        "reset": {"type": "boolean"},
+        "context_id": {"type": "string"},
+        "attachments": {"type": "array", "items": {"type": "string"}},
+    },
+    "tools/skills_tool.py": {
+        "action": {"type": "string", "enum": ["list", "search", "load", "read_file"]},
+        "query": {"type": "string"},
+        "skill_name": {"type": "string"},
+        "file_path": {"type": "string"},
+    },
+    "plugins/_code_execution/tools/code_execution_tool.py": {
+        "runtime": {"type": "string", "enum": ["terminal", "python", "nodejs", "output", "reset"]},
+        "code": {"type": "string"},
+        "session": {"type": "integer"},
+        "reset": {"type": "boolean"},
+        "allow_running": {"type": "boolean"},
+    },
+    "plugins/_code_execution/tools/input.py": {
+        "keyboard": {"type": "string"},
+        "session": {"type": "integer"},
+    },
+    "plugins/_memory/tools/memory_load.py": {
+        "query": {"type": "string"},
+        "threshold": {"type": "number"},
+        "limit": {"type": "integer"},
+        "filter": {"type": "string"},
+    },
+    "plugins/_memory/tools/memory_save.py": {
+        "text": {"type": "string"},
+        "area": {"type": "string"},
+    },
+    "plugins/_memory/tools/memory_delete.py": {"ids": {"type": "string"}},
+    "plugins/_memory/tools/memory_forget.py": {
+        "query": {"type": "string"},
+        "threshold": {"type": "number"},
+        "filter": {"type": "string"},
+    },
+    "plugins/_memory/tools/behaviour_adjustment.py": {"adjustments": {"type": "string"}},
+    "plugins/_goal/tools/goal.py": {
+        "action": {"type": "string", "enum": ["get", "create", "update"]},
+        "objective": {"type": "string"},
+        "status": {"type": "string", "enum": ["complete", "blocked"]},
+        "note": {"type": "string"},
+        "token_budget": {"type": "integer", "minimum": 1},
+    },
+}
+
 
 def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """Build permissive Responses function tools from A0 tool prompts and MCP schemas."""
+    """Build Responses function tools from available implementations and prompt/MCP schemas."""
 
     tools: list[dict[str, Any]] = []
     name_map: dict[str, str] = {}
@@ -44,6 +121,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             {
                 "type": "function",
                 "name": native_name,
+                "strict": False,
                 "description": _truncate(
                     tool_policy.tool_prompt_description(
                         prompt,
@@ -51,7 +129,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
                         fallback=tool_name,
                     )
                 ),
-                "parameters": _schema_from_prompt(prompt),
+                "parameters": _schema_for_tool(agent, tool_name, prompt),
             }
         )
 
@@ -69,6 +147,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             {
                 "type": "function",
                 "name": native_name,
+                "strict": False,
                 "description": _truncate(str(tool.get("description") or tool_name)),
                 "parameters": _schema_from_any(tool.get("input_schema")),
             }
@@ -223,6 +302,24 @@ def _schema_from_prompt(prompt: str) -> dict[str, Any]:
             "additionalProperties": True,
         }
     return _permissive_schema()
+
+
+def _schema_for_tool(agent: Any, tool_name: str, prompt: str) -> dict[str, Any]:
+    if schema := _schema_from_embedded_json(prompt):
+        return schema
+    for path in subagents.get_paths(agent, "tools", tool_name + ".py"):
+        if not files.exists(path):
+            continue
+        relative = os.path.relpath(os.path.realpath(path), files.get_abs_path())
+        properties = BUNDLED_TOOL_PARAMETERS.get(relative)
+        if properties is not None:
+            return {
+                "type": "object",
+                "properties": deepcopy(properties),
+                "additionalProperties": True,
+            }
+        break  # A custom implementation shadows the bundled contract.
+    return _schema_from_prompt(prompt)
 
 
 def _schema_from_embedded_json(prompt: str) -> dict[str, Any]:

@@ -17,8 +17,9 @@
   owns the Responses-specific prompt-name compatibility rules.
 - Local prompt-derived function names use existing bullet declarations that pair a backticked name with `arg` or `args` for multi-tool prompt files, otherwise prefer explicit `"tool_name"` examples, then the first prompt heading, and finally the prompt filename.
 - Apply registered tool-prompt render kwargs before deriving native metadata so descriptions never expose unresolved prompt templates.
-- Keep emitted schemas provider-neutral; provider-specific strictness belongs at the provider request boundary.
-- Use an explicitly embedded JSON input schema when present. Infer only an unambiguous single backticked argument on an otherwise empty `args:` line; all other local tools receive an honest permissive object schema instead of prose-guessed types.
+- Emit generated definitions with `strict: false` so Responses does not normalize optional or extensible arguments into required strict fields. Provider-specific strictness (such as Codex's final response) belongs at the provider request boundary.
+- Explicitly embedded JSON schemas take precedence. Otherwise use canonical argument properties only for a matching resolved bundled implementation in `BUNDLED_TOOL_PARAMETERS`; custom/profile overrides must not inherit a same-named bundled contract. Properties remain optional and extensible for action-dependent inputs and runtime aliases; runtime validation remains authoritative.
+- For unlisted implementations, infer only an unambiguous single backticked argument on an otherwise empty `args:` line; otherwise retain a permissive object instead of prose-guessed types.
 - Native local-tool descriptions reuse the tool catalog's compact prompt
   description; Responses retains native-name mapping, schema derivation, and
   provider description limits.

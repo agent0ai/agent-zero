@@ -158,6 +158,7 @@ def test_responses_function_tools_add_empty_properties_to_mcp_schemas(
         {
             "type": "function",
             "name": "remote_noop",
+            "strict": False,
             "description": "Remote noop",
             "parameters": {
                 "type": "object",
@@ -196,7 +197,7 @@ def test_response_tool_native_contract_stays_provider_neutral(monkeypatch):
 
     assert description == "final answer to user"
     assert response_tool["parameters"] == responses_tools._schema_from_prompt(prompt)
-    assert "strict" not in response_tool
+    assert response_tool["strict"] is False
 
 
 def test_complex_prompt_args_are_not_guessed_as_string_schemas():
@@ -211,6 +212,30 @@ def test_complex_prompt_args_are_not_guessed_as_string_schemas():
             "properties": {},
             "additionalProperties": True,
         }
+
+
+def test_bundled_schema_follows_implementation_and_explicit_overrides(monkeypatch, tmp_path):
+    tool_path = PROJECT_ROOT / "plugins/_code_execution/tools/code_execution_tool.py"
+    custom_path = tmp_path / "code_execution_tool.py"
+    monkeypatch.setattr(
+        responses_tools.subagents, "get_paths",
+        lambda *args: [str(custom_path), str(tool_path)],
+    )
+    schema = responses_tools._schema_for_tool(None, "code_execution_tool", "")
+    assert schema["properties"]["session"] == {"type": "integer"}
+    assert schema["properties"]["reset"] == {"type": "boolean"}
+    assert "output" in schema["properties"]["runtime"]["enum"]
+    assert "code" not in schema.get("required", [])  # Output polling needs no code.
+    schema["properties"]["runtime"]["enum"].clear()
+    assert responses_tools._schema_for_tool(None, "code_execution_tool", "")["properties"]["runtime"]["enum"]
+
+    custom_path.write_text("class CustomTool: pass\n")
+    assert responses_tools._schema_for_tool(None, "code_execution_tool", "") == responses_tools._permissive_schema()
+    explicit = 'Input schema for tool_args: {"type":"object","properties":{"custom":{"type":"boolean"}},"required":["custom"],"additionalProperties":false}'
+    assert responses_tools._schema_for_tool(None, "code_execution_tool", explicit) == {
+        "type": "object", "properties": {"custom": {"type": "boolean"}},
+        "required": ["custom"], "additionalProperties": False,
+    }
 
 
 def test_responses_function_tools_include_vision_prompt(monkeypatch, tmp_path):
