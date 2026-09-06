@@ -23,6 +23,7 @@ from plugins._a0_connector.helpers.ws_runtime import (
     select_remote_file_target_sid,
     store_pending_file_op,
 )
+from plugins._text_editor.helpers.log import create_editor_log
 from plugins._text_editor.helpers.patch_request import (
     exact_replace_to_patch_text,
     parse_patch_request,
@@ -41,22 +42,7 @@ class TextEditorRemote(Tool):
     """Send file-editing operations to the connected CLI machine."""
 
     def get_log_object(self):
-        action = str(self.args.get("action") or "")
-        path = str(self.args.get("path") or "")
-        verb = {"read": "Reading", "write": "Writing", "patch": "Patching"}.get(action)
-        heading = (
-            f"icon://construction {verb} {path} (remote)".strip()
-            if verb and path
-            else f"icon://construction {self.agent.agent_name}: Using tool '{self.name}' (remote)"
-        )
-        return self.agent.context.log.log(
-            type="text_editor",
-            heading=heading,
-            content="",
-            kvps=self.args,
-            _tool_name=self.name,
-            id=str(uuid.uuid4()),
-        )
+        return create_editor_log(self, remote=True)
 
     async def execute(self, **kwargs: Any) -> Response:
         op = (
