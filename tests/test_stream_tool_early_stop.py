@@ -1951,7 +1951,10 @@ def test_stream_metadata_recovers_reasoning_and_partial_terminal_call_lists():
     second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"second"}'}
     for index, item in reversed(list(enumerate([reasoning, first, second]))):
         parser.parse({"type": "response.output_item.done", "output_index": index, "item": item})
-    parser.parse({"type": "response.completed", "response": {"id": "resp_1", "output": [{**second, "status": "completed"}]}})
+    terminal = {"id": "resp_1", "output": [{**second, "status": "completed"}]}
+    parser.parse({"type": "response.completed", "response": terminal})
+    assert parser.finish() == parser.finish()
+    assert terminal == {"id": "resp_1", "output": [{**second, "status": "completed"}]}
     transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
     result = transport._stream_result_from_parser(parser, {})
     assert [item.to_dict() for item in result.output_items] == [reasoning, first, {**second, "status": "completed"}]

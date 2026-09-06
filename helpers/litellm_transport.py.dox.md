@@ -51,6 +51,8 @@
 
 - TransportMode.from_value owns API-mode interpretation; input_from_model_messages owns model-message conversion shared with Agent and replay preparation.
 
+- `ResponsesEventParser` owns the authoritative output-item store and final reconstruction through `finish()`. Function calls are a derived view; transport attaches request/provider metadata. Finalization must not mutate the supplied terminal envelope.
+
 ## Verification
 
 - Run `pytest tests/test_stream_tool_early_stop.py tests/test_responses_architecture.py -q` after changing transport normalization or fallback behavior.

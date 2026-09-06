@@ -442,37 +442,8 @@ class LiteLLMTransport:
     def _stream_result_from_parser(
         self, parser: "ResponsesEventParser", request: dict[str, Any]
     ) -> LLMResult | None:
-        if parser.completed_response is None:
-            if parser.function_calls:
-                raise RuntimeError("Responses stream ended before native tool calls completed")
-            return None
-        response = _object_to_dict(parser.completed_response)
-        output = _as_list(response.get("output"))
-        has_terminal_output = bool(output)
-        positions = {key: int(index) for index, key in parser.output_index_keys.items()}
-        streamed = sorted(
-            enumerate(parser.output_items.items()),
-            key=lambda entry: positions.get(entry[1][0], entry[0]),
-        )
-        for fallback_index, (key, item) in streamed:
-            if has_terminal_output and not item.get("id") and not item.get("call_id"):
-                continue  # An unidentified stream fragment cannot add another terminal call.
-            match = next((
-                index for index, final in enumerate(output)
-                if _get_value(final, "type") == item.get("type") and any(
-                    item.get(field) and item[field] == _get_value(final, field)
-                    for field in ("id", "call_id")
-                )
-            ), None)
-            if match is None:
-                output.insert(min(positions.get(key, fallback_index), len(output)), dict(item))
-            else:
-                output[match] = {
-                    **item,
-                    **{field: value for field, value in _object_to_dict(output[match]).items() if value is not None},
-                }
-        response["output"] = output
-        return self._llm_result_from_response(response, request)
+        response = parser.finish()
+        return self._llm_result_from_response(response, request) if response is not None else None
 
     def _stream_result_from_chat_parser(
         self, parser: "ChatCompletionsStreamParser"
@@ -1239,7 +1210,6 @@ class ResponsesEventParser:
     """Stateful parser for Responses streaming events."""
 
     def __init__(self) -> None:
-        self.function_calls: dict[str, dict[str, Any]] = {}
         self.output_items: dict[str, dict[str, Any]] = {}
         self.output_index_keys: dict[str, str] = {}
         self.emitted_function_calls: set[str] = set()
@@ -1248,6 +1218,43 @@ class ResponsesEventParser:
         self.seen_response_delta = False
         self.seen_reasoning_delta = False
         self.completed_response: Any = None
+
+    @property
+    def function_calls(self) -> dict[str, dict[str, Any]]:
+        return {key: item for key, item in self.output_items.items() if item.get("type") == "function_call"}
+
+    def finish(self) -> dict[str, Any] | None:
+        if self.completed_response is None:
+            if self.function_calls:
+                raise RuntimeError("Responses stream ended before native tool calls completed")
+            return None
+        response = _object_to_dict(self.completed_response)
+        output = list(_as_list(response.get("output")))
+        has_terminal_output = bool(output)
+        positions = {key: int(index) for index, key in self.output_index_keys.items()}
+        streamed = sorted(
+            enumerate(self.output_items.items()),
+            key=lambda entry: positions.get(entry[1][0], entry[0]),
+        )
+        for fallback_index, (key, item) in streamed:
+            if has_terminal_output and not item.get("id") and not item.get("call_id"):
+                continue  # An unidentified stream fragment cannot add another terminal call.
+            match = next((
+                index for index, final in enumerate(output)
+                if _get_value(final, "type") == item.get("type") and any(
+                    item.get(field) and item[field] == _get_value(final, field)
+                    for field in ("id", "call_id")
+                )
+            ), None)
+            if match is None:
+                output.insert(min(positions.get(key, fallback_index), len(output)), dict(item))
+            else:
+                output[match] = {
+                    **item,
+                    **{field: value for field, value in _object_to_dict(output[match]).items() if value is not None},
+                }
+        response["output"] = output
+        return response
 
     def parse(self, event: Any) -> ChatChunk:
         event_type = _get_value(event, "type") or ""
@@ -1298,11 +1305,9 @@ class ResponsesEventParser:
         key = self._event_key(event, item)
         if not key:
             return ""
-        current = self.output_items.get(key, self.function_calls.get(key, {}))
+        current = self.output_items.get(key, {})
         merged = {**current, **{field: value for field, value in _object_to_dict(item).items() if value is not None}}
         self.output_items[key] = merged
-        if item_type == "function_call":
-            self.function_calls[key] = merged
         output_index = _get_value(event, "output_index")
         if output_index is not None:
             self.output_index_keys[str(output_index)] = key
@@ -1312,8 +1317,7 @@ class ResponsesEventParser:
         key = self._event_key(event)
         if not key:
             return ""
-        current = self.function_calls.setdefault(key, {"type": "function_call"})
-        self.output_items.setdefault(key, current)
+        current = self.output_items.setdefault(key, {"type": "function_call"})
         delta = str(_get_value(event, "delta") or "")
         current["arguments"] = str(current.get("arguments") or "") + delta
         if (
@@ -1336,8 +1340,7 @@ class ResponsesEventParser:
         key = self._event_key(event)
         if not key:
             return ""
-        current = self.function_calls.setdefault(key, {"type": "function_call"})
-        self.output_items.setdefault(key, current)
+        current = self.output_items.setdefault(key, {"type": "function_call"})
         if _get_value(event, "arguments") is not None:
             current["arguments"] = _get_value(event, "arguments")
         if _get_value(event, "name"):
@@ -1348,11 +1351,12 @@ class ResponsesEventParser:
 
     def _complete_output_item(self, item: Any, event: Any) -> str:
         key = self._remember_output_item(item, event)
-        if key not in self.function_calls:
+        current = self.output_items.get(key, {})
+        if current.get("type") != "function_call":
             return ""
         if key in self.streamed_function_calls:
-            return self._finish_function_call(key, self.function_calls[key])
-        return self._emit_function_call(key, self.function_calls[key])
+            return self._finish_function_call(key, current)
+        return self._emit_function_call(key, current)
 
     def _finish_function_call(self, key: str, item: Any) -> str:
         streamed = self.streamed_function_calls.pop(key)
