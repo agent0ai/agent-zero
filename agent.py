@@ -770,8 +770,14 @@ class Agent:
 
     @extension.extensible
     def hist_add_ai_response(
-        self, message: str, llm_result: LLMResult, id: str = ""
+        self, message: str, llm_result: LLMResult | str | None = None, id: str = ""
     ):
+        if isinstance(llm_result, str):
+            if id:
+                raise TypeError("History message ID supplied twice")
+            id, llm_result = llm_result, None
+        if llm_result is None:
+            llm_result = LLMResult.non_llm()
         self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
         msg = self.hist_add_message(
