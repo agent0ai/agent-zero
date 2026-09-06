@@ -324,12 +324,12 @@
           <div class="field-label">
             <div class="field-title">Additional parameters</div>
             <div class="field-description">
-              Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines. Value can be JSON objects; unquoted is treated as object/number, quoted as string.
+              Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines. Values can be JSON objects, arrays, numbers, lowercase true/false/null, or text. Quote strings to keep values such as "true" as text.
             </div>
           </div>
           <div class="field-control">
             <textarea x-model="model._kwargs_text"
-                      @change="model.kwargs = $store.modelConfig.textToKwargs(model._kwargs_text)"></textarea>
+                      @change="$store.modelConfig.updateModelKwargs(model)"></textarea>
           </div>
         </div>
 

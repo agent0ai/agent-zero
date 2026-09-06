@@ -22,15 +22,23 @@ export function kwargsToText(obj) {
 
 export function textToKwargs(text) {
   const d = {};
-  (text || '').split('\n').forEach(l => {
+  (text || '').split('\n').forEach((l, line) => {
     l = l.trim();
     if (!l || l.startsWith('#')) return;
     const i = l.indexOf('=');
     if (i > 0) {
       const key = l.substring(0, i).trim();
       let val = l.substring(i + 1).trim();
-      try { val = JSON.parse(val); } catch {}
+      try {
+        val = JSON.parse(val);
+      } catch {
+        if (['{', '[', '"'].includes(val[0]) || ['True', 'False', 'None'].includes(val)) {
+          throw new Error(`Additional parameters line ${line + 1}: invalid JSON for ${key}. JSON uses lowercase true, false, and null; quote strings.`);
+        }
+      }
       d[key] = val;
+    } else {
+      throw new Error(`Additional parameters line ${line + 1}: use KEY=VALUE.`);
     }
   });
   return d;
@@ -407,10 +415,15 @@ export const store = createStore("modelConfig", {
           return false;
         }
         try {
+          for (const preset of this.presets) {
+            for (const key of ['chat', 'vision', 'utility', 'embedding']) {
+              const slot = preset[key];
+              if (typeof slot?._kwargs_text === 'string') slot.kwargs = textToKwargs(slot._kwargs_text);
+            }
+          }
           await store.persistAllDirtyApiKeys();
         } catch (e) {
-          console.error('Failed to save API keys:', e);
-          globalThis.justToast?.(e?.message || 'Failed to save API keys.', 'error');
+          globalThis.justToast?.(e?.message || 'Failed to save preset settings.', 'error');
           return false;
         }
         if (!await store.saveGlobalPresets(this.presets)) return false;
@@ -886,6 +899,14 @@ export const store = createStore("modelConfig", {
       await this.refreshApiKeyStatus().catch((e) => {
         console.error('Failed to refresh API key status:', e);
       });
+    }
+  },
+
+  updateModelKwargs(model) {
+    try {
+      model.kwargs = textToKwargs(model._kwargs_text);
+    } catch (e) {
+      globalThis.justToast?.(e.message, 'error');
     }
   },
 
