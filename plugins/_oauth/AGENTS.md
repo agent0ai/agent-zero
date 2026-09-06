@@ -50,6 +50,8 @@
 - Codex Responses proxy defaults for reasoning effort, reasoning summary, and text verbosity come from the `codex` plugin config; explicit native request values take precedence.
 - Codex request shaping tightens an already-advertised native `response` tool to a strict required `text` schema; it must not add tools omitted by the framework tool policy.
 - Non-streaming Codex proxy responses must retain completed SSE output items when the final `response.completed` envelope omits them.
+- The Codex Chat compatibility route maps real Responses usage to Chat token/detail fields. Honor `stream_options.include_usage` with a terminal empty-choices usage chunk; never fabricate missing totals. The Codex main-model hook requests usage in Chat mode unless the caller supplies stream options. Responses mode keeps its existing request shape.
+- Chat compatibility replies preserve incomplete finish reasons and do not turn failed responses into successful stops. Streaming forwards upstream errors, rejects premature EOF as an error, and closes the upstream stream on completion or cancellation.
 - OAuth providers intentionally using Responses must set `a0_api_mode: responses`; all others inherit the Chat Completions default, since a local proxy route alone does not prove upstream support.
 
 ## Work Guidance

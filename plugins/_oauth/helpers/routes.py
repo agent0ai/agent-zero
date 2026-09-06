@@ -176,7 +176,11 @@ def codex_chat_completions():
     if not upstream.ok:
         return _copy_upstream_response(upstream)
     if wants_stream:
-        return _stream_chat_completion(upstream, str(body.get("model") or response_body["model"]))
+        options = body.get("stream_options")
+        return _stream_chat_completion(
+            upstream, str(body.get("model") or response_body["model"]),
+            include_usage=isinstance(options, dict) and options.get("include_usage") is True,
+        )
 
     try:
         completed = codex.collect_completed_response(upstream)
@@ -184,6 +188,10 @@ def codex_chat_completions():
         return _json_error(str(exc), status=502, code="upstream_error")
 
     text = codex.response_text(completed)
+    finish_reason = _chat_finish_reason(completed)
+    if finish_reason is None:
+        error = completed.get("error") or {}
+        return _json_error(error.get("message") or "Codex did not complete the response.", status=502, code="upstream_error")
     return jsonify(
         {
             "id": f"chatcmpl_{int(time.time() * 1000)}",
@@ -194,10 +202,10 @@ def codex_chat_completions():
                 {
                     "index": 0,
                     "message": {"role": "assistant", "content": text},
-                    "finish_reason": "stop",
+                    "finish_reason": finish_reason,
                 }
             ],
-            "usage": completed.get("usage") or {},
+            "usage": _chat_usage(completed.get("usage")),
         }
     )
 
@@ -480,56 +488,87 @@ def _stream_upstream_sse(upstream):
     )
 
 
-def _stream_chat_completion(upstream, model: str):
-    created = int(time.time())
-    chunk_id = f"chatcmpl_{int(time.time() * 1000)}"
+def _chat_usage(usage: Any) -> dict[str, Any]:
+    if not isinstance(usage, dict):
+        return {}
+    names = {
+        "input_tokens": "prompt_tokens",
+        "output_tokens": "completion_tokens",
+        "input_tokens_details": "prompt_tokens_details",
+        "output_tokens_details": "completion_tokens_details",
+    }
+    return {names.get(key, key): value for key, value in usage.items()}
+
+
+def _chat_finish_reason(response: dict[str, Any]) -> str | None:
+    status = response.get("status")
+    if status == "incomplete":
+        reason = (response.get("incomplete_details") or {}).get("reason")
+        return {"max_output_tokens": "length", "content_filter": "content_filter"}.get(reason)
+    return "stop" if status in {None, "completed"} else None
+
+
+def _stream_chat_completion(upstream, model: str, *, include_usage: bool = False):
+    base = {
+        "id": f"chatcmpl_{int(time.time() * 1000)}",
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": model,
+        **({"usage": None} if include_usage else {}),
+    }
 
     def generate():
-        yield _sse_data(
-            {
-                "id": chunk_id,
-                "object": "chat.completion.chunk",
-                "created": created,
-                "model": model,
+        usage = {}
+        finish_reason = "stop"
+        terminal = False
+        try:
+            yield _sse_data({
+                **base,
                 "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
-            }
-        )
-        for event in codex.iter_sse_events(upstream):
-            data = event.get("data")
-            if not data:
-                continue
-            try:
-                parsed = json.loads(data)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(parsed, dict):
-                continue
-            for delta in codex.extract_sse_text_deltas(parsed, event.get("event", "")):
-                yield _sse_data(
-                    {
-                        "id": chunk_id,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {"content": delta},
-                                "finish_reason": None,
-                            }
-                        ],
+            })
+            for event in codex.iter_sse_events(upstream):
+                data = event.get("data")
+                if not data:
+                    continue
+                try:
+                    parsed = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                event_type = parsed.get("type") or event.get("event", "")
+                response = parsed.get("response")
+                response = response if isinstance(response, dict) else {}
+                if event_type in {"error", "response.failed"}:
+                    error = response.get("error") or parsed.get("error") or {
+                        "message": parsed.get("message") or "Codex response failed.",
+                        "type": "upstream_error",
                     }
-                )
-        yield _sse_data(
-            {
-                "id": chunk_id,
-                "object": "chat.completion.chunk",
-                "created": created,
-                "model": model,
-                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-            }
-        )
-        yield "data: [DONE]\n\n"
+                    yield _sse_data({"error": error})
+                    yield "data: [DONE]\n\n"
+                    return
+                if event_type in {"response.completed", "response.incomplete"}:
+                    terminal = True
+                    usage = _chat_usage(response.get("usage") or parsed.get("usage"))
+                    finish_reason = _chat_finish_reason({**response, "status": event_type.removeprefix("response.")})
+                for delta in codex.extract_sse_text_deltas(parsed, event.get("event", "")):
+                    yield _sse_data({
+                        **base,
+                        "choices": [{"index": 0, "delta": {"content": delta}, "finish_reason": None}],
+                    })
+            if not terminal or finish_reason is None:
+                yield _sse_data({"error": {"message": "Codex stream ended without a valid terminal response.", "type": "upstream_error"}})
+                yield "data: [DONE]\n\n"
+                return
+            yield _sse_data({
+                **base,
+                "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
+            })
+            if include_usage and usage:
+                yield _sse_data({**base, "choices": [], "usage": usage})
+            yield "data: [DONE]\n\n"
+        finally:
+            upstream.close()
 
     return Response(
         stream_with_context(generate()),

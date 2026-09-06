@@ -1156,3 +1156,99 @@ def test_codex_provider_preserves_configured_api_key():
     oauth_dummy_key.OAuthAccountDummyKey(agent=None).execute(data=data)
 
     assert data["result"] == "configured"
+
+
+@pytest.mark.parametrize('mode,options,expected', [
+    ('chat', None, {'include_usage': True}),
+    ('chat_completions', {'include_usage': False}, {'include_usage': False}),
+    ('responses', None, None),
+])
+def test_codex_chat_requests_usage_without_changing_responses_or_explicit_options(mode, options, expected):
+    kwargs = {'a0_api_mode': mode}
+    if options is not None:
+        kwargs['stream_options'] = options
+    model = SimpleNamespace(a0_model_conf=SimpleNamespace(provider='codex_oauth'), kwargs=kwargs)
+    agent = SimpleNamespace(context=SimpleNamespace(id='test'), number=0)
+    CodexSession(agent=agent).execute(call_data={'model':model})
+    assert model.kwargs.get('stream_options') == expected
+
+
+@pytest.mark.parametrize('include_usage', [True, False])
+@pytest.mark.parametrize('ending', ['completed', 'incomplete', 'failed', 'missing', 'no_usage'])
+def test_codex_chat_stream_usage_terminal_state_and_cleanup(monkeypatch, include_usage, ending):
+    from flask import Flask
+    from unittest.mock import Mock
+    usage = {'input_tokens': 2000, 'output_tokens': 20, 'total_tokens': 2020,
+             'input_tokens_details': {'cached_tokens': 1024},
+             'output_tokens_details': {'reasoning_tokens': 8}}
+    expected = {'prompt_tokens': 2000, 'completion_tokens': 20, 'total_tokens': 2020,
+                'prompt_tokens_details': {'cached_tokens': 1024},
+                'completion_tokens_details': {'reasoning_tokens': 8}}
+    events = [{'type':'response.output_text.delta', 'delta':'Hello'}]
+    if ending != 'missing':
+        event_type = ending if ending in {'incomplete','failed'} else 'completed'
+        response = {'usage': usage} if ending != 'no_usage' else {}
+        if ending == 'incomplete':
+            response['incomplete_details'] = {'reason':'max_output_tokens'}
+        if ending == 'failed':
+            response['error'] = {'message':'upstream failed', 'type':'server_error'}
+        events.append({'type':'response.'+event_type, 'response':response})
+    upstream = SimpleNamespace(close=Mock())
+    monkeypatch.setattr(codex, 'iter_sse_events', lambda response: ({'data':json.dumps(event)} for event in events))
+    app = Flask(__name__)
+    with app.test_request_context('/'):
+        result = routes._stream_chat_completion(upstream, 'test-model', include_usage=include_usage)
+        blocks = result.get_data(as_text=True).split('\n\n')
+        chunks = [json.loads(block[6:]) for block in blocks if block.startswith('data: ') and block != 'data: [DONE]']
+    upstream.close.assert_called_once()
+    assert chunks[1]['choices'][0]['delta']['content'] == 'Hello'
+    if ending in {'failed', 'missing'}:
+        assert 'error' in chunks[-1]
+        assert not any(c.get('choices') and c['choices'][0]['finish_reason'] for c in chunks)
+    else:
+        final_choices = [c for c in chunks if c.get('choices')][-1]['choices']
+        assert final_choices[0]['finish_reason'] == ('length' if ending == 'incomplete' else 'stop')
+        if include_usage and ending != 'no_usage':
+            assert chunks[-1]['choices'] == []
+            assert chunks[-1]['usage'] == expected
+        else:
+            assert not any(c.get('usage') for c in chunks)
+    assert routes._chat_usage(usage) == expected
+    assert routes._chat_usage(None) == {}
+
+
+@pytest.mark.parametrize('status,expected_reason', [('completed','stop'), ('incomplete','length'), ('failed',None)])
+def test_codex_chat_nonstream_maps_usage_and_terminal_state(monkeypatch, status, expected_reason):
+    from flask import Flask
+    monkeypatch.setattr(routes, '_proxy_denied_response', lambda: None)
+    monkeypatch.setattr(codex, 'chat_messages_to_response_body', lambda body: {'model':'test'})
+    monkeypatch.setattr(codex, 'prepare_responses_body', lambda body, **kwargs: body)
+    monkeypatch.setattr(codex, 'request_codex', lambda *args, **kwargs: SimpleNamespace(ok=True))
+    monkeypatch.setattr(codex, 'collect_completed_response', lambda upstream: {
+        'status':status, 'output_text':'partial answer',
+        'incomplete_details':{'reason':'max_output_tokens'},
+        'usage':{'input_tokens':2048,'output_tokens':10,'input_tokens_details':{'cached_tokens':1024}},
+    })
+    app = Flask(__name__)
+    with app.test_request_context('/chat', method='POST', json={'model':'test','messages':[]}):
+        response = app.make_response(routes.codex_chat_completions())
+        if expected_reason is None:
+            assert response.status_code == 502
+            assert 'error' in response.get_json()
+        else:
+            data = response.get_json()
+            assert data['choices'][0]['finish_reason'] == expected_reason
+            assert data['usage'] == {'prompt_tokens':2048,'completion_tokens':10,'prompt_tokens_details':{'cached_tokens':1024}}
+            assert 'total_tokens' not in data['usage']
+
+
+def test_codex_chat_stream_closes_upstream_when_consumer_stops():
+    from flask import Flask
+    from unittest.mock import Mock
+    upstream = SimpleNamespace(close=Mock())
+    with Flask(__name__).test_request_context('/'):
+        response = routes._stream_chat_completion(upstream, 'test')
+        iterator = iter(response.response)
+        next(iterator)
+        iterator.close()
+    upstream.close.assert_called_once()
