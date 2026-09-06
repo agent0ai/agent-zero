@@ -36,6 +36,20 @@
 
 ## Runtime Contracts
 
+- Non-session authentication is explicit opt-in through `WsHandler` principal
+  hooks. Defaults accept no restricted principal. Origin validation runs first;
+  the presence of `auth.principal` is authoritative even when malformed, and
+  never falls back to ambient session, CSRF or API credentials. Restricted
+  activation requires one authenticated handler and a manager; it rolls back
+  on failure. Ordinary no-principal authentication remains unchanged.
+- Restricted security contexts and handler instances retain only an immutable
+  `WsPrincipal`, not proof material. A bound handler rejects a different SID.
+  Each inbound request rechecks credential liveness and the server-derived
+  event set before manager dispatch. Global fan-out skips restricted SIDs.
+  Disconnect preserves the identity during plugin cleanup, then removes it;
+  restricted exceptions are logged without their raw text.
+- The connector's initial principal adapter is hello-only and unadvertised;
+  these shared primitives do not assert operational browser readiness.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - `WsHandler` defines `process(...)`.
@@ -59,6 +73,9 @@
 
 ## Verification
 
+- `tests/test_ws_restricted_principal.py` covers authoritative auth, origin
+  ordering, immutable identity, activation rollback, denial, redaction and
+  cleanup. Run alongside existing WebSocket security/CSRF/manager tests.
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_a0_connector_computer_use_metadata.py`

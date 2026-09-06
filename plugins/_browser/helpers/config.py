@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +37,76 @@ DEFAULT_MAX_OPEN_TABS = 32
 MIN_MAX_OPEN_TABS = 1
 HARD_MAX_OPEN_TABS = 50
 DEFAULT_HOST_BROWSER_PRIVACY_POLICY = "allow"
+EXTENSION_BROWSER_SELECTION_PREFIX = "extension:"
+INVALID_EXTENSION_BROWSER_SELECTION = EXTENSION_BROWSER_SELECTION_PREFIX
+DEVELOPMENT_EXTENSION_BROWSER_SELECTION_PREFIX = "development-extension:"
+INVALID_DEVELOPMENT_EXTENSION_BROWSER_SELECTION = (
+    DEVELOPMENT_EXTENSION_BROWSER_SELECTION_PREFIX
+)
+_EXTENSION_NAMESPACE_RE = re.compile(
+    r"^extension(?:[^A-Za-z0-9._/-]*:|$)",
+    re.IGNORECASE | re.ASCII,
+)
+_EXTENSION_BRIDGE_ID_RE = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$"
+)
+_DEVELOPMENT_EXTENSION_NAMESPACE_RE = re.compile(
+    r"^development-extension(?:[^A-Za-z0-9._/-]*:|$)",
+    re.IGNORECASE | re.ASCII,
+)
+_production_selection_write = ContextVar("browser_production_selection_write", default=False)
+
+
+@dataclass(frozen=True, slots=True)
+class ExtensionBrowserSelection:
+    value: str
+    bridge_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class DevelopmentExtensionBrowserSelection:
+    value: str
+    bridge_id: str
+
+
+def parse_development_extension_browser_selection(
+    value: Any,
+) -> DevelopmentExtensionBrowserSelection | None:
+    """Parse the separate development namespace without legacy fallback."""
+
+    selection = str(value or "").strip()
+    if not _DEVELOPMENT_EXTENSION_NAMESPACE_RE.match(selection):
+        return None
+    if not selection.startswith(DEVELOPMENT_EXTENSION_BROWSER_SELECTION_PREFIX):
+        raise ValueError(
+            "the reserved development extension prefix must be exactly "
+            "'development-extension:'"
+        )
+    bridge_id = selection.removeprefix(
+        DEVELOPMENT_EXTENSION_BROWSER_SELECTION_PREFIX
+    )
+    if not _EXTENSION_BRIDGE_ID_RE.fullmatch(bridge_id):
+        raise ValueError("the development extension bridge ID is invalid")
+    return DevelopmentExtensionBrowserSelection(selection, bridge_id)
+
+
+def parse_extension_browser_selection(value: Any) -> ExtensionBrowserSelection | None:
+    """Parse the reserved extension selection without accepting a legacy fallback."""
+    selection = str(value or "").strip()
+    if not _EXTENSION_NAMESPACE_RE.match(selection):
+        return None
+    if not selection.startswith(EXTENSION_BROWSER_SELECTION_PREFIX):
+        raise ValueError(
+            "the reserved extension browser prefix must be exactly 'extension:'"
+        )
+
+    bridge_id = selection.removeprefix(EXTENSION_BROWSER_SELECTION_PREFIX)
+    if not _EXTENSION_BRIDGE_ID_RE.fullmatch(bridge_id):
+        raise ValueError(
+            "the extension browser bridge ID must be 1-128 ASCII letters, digits, dots, "
+            "underscores, or hyphens"
+        )
+    return ExtensionBrowserSelection(value=selection, bridge_id=bridge_id)
 
 
 def _normalize_extension_paths(value: Any) -> list[str]:
@@ -65,13 +139,93 @@ def _normalize_host_browser_selection(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
+    try:
+        development_selection = parse_development_extension_browser_selection(raw)
+    except ValueError:
+        return INVALID_DEVELOPMENT_EXTENSION_BROWSER_SELECTION
+    if development_selection is not None:
+        return development_selection.value
+    try:
+        extension_selection = parse_extension_browser_selection(raw)
+    except ValueError:
+        # Keep malformed values in the reserved namespace so runtime selection
+        # rejects them instead of routing them through the legacy connector.
+        return INVALID_EXTENSION_BROWSER_SELECTION
+    if extension_selection is not None:
+        return extension_selection.value
     endpoint_like = "://" in raw or (
         raw.rpartition(":")[0] and raw.rpartition(":")[2].isdigit()
     )
     if endpoint_like:
         return "".join(ch for ch in raw if ch.isprintable() and not ch.isspace())[:2048]
     normalized = raw.lower().replace(" ", "_")
-    return "".join(ch for ch in normalized if ch.isalnum() or ch in {"_", "-", ":", ".", "/"})[:200]
+    return "".join(
+        ch for ch in normalized if ch.isalnum() or ch in {"_", "-", ":", ".", "/"}
+    )[:200]
+
+
+def normalize_host_browser_selection(value: Any) -> str:
+    """Normalize legacy selections while reserving extension values fail-closed."""
+
+    return _normalize_host_browser_selection(value)
+
+
+def validate_extension_browser_selection_change(
+    *,
+    proposed_value: Any,
+    current_value: Any,
+    proposed_runtime_backend: Any,
+    current_runtime_backend: Any,
+) -> None:
+    """Block new extension selections until the atomic activation flow exists."""
+
+    proposed = _normalize_host_browser_selection(proposed_value)
+    current = _normalize_host_browser_selection(current_value)
+    try:
+        development_selection = parse_development_extension_browser_selection(
+            proposed
+        )
+    except ValueError as exc:
+        raise ValueError(
+            "The reserved development extension browser selection is invalid."
+        ) from exc
+    if development_selection is not None:
+        proposed_backend = _normalize_runtime_backend(proposed_runtime_backend)
+        current_backend = _normalize_runtime_backend(current_runtime_backend)
+        if proposed == current and not (
+            proposed_backend == "host_required" and current_backend != "host_required"
+        ):
+            return
+        raise ValueError(
+            "Development Chrome extension selection is retired. Use the production "
+            "browser pairing flow."
+        )
+    try:
+        extension_selection = parse_extension_browser_selection(proposed)
+    except ValueError as exc:
+        raise ValueError("The reserved extension browser selection is invalid.") from exc
+    if extension_selection is not None:
+        proposed_backend = _normalize_runtime_backend(proposed_runtime_backend)
+        current_backend = _normalize_runtime_backend(current_runtime_backend)
+        if proposed == current and not (
+            proposed_backend == "host_required" and current_backend != "host_required"
+        ):
+            return
+        if _production_selection_write.get() is True:
+            return
+        raise ValueError(
+            "Choose this paired browser using the protected browser selection flow."
+        )
+
+
+@contextmanager
+def protected_production_selection_write():
+    """Lexical capability held only by the protected paired-browser selector."""
+    token = _production_selection_write.set(True)
+    try:
+        yield
+    finally:
+        _production_selection_write.reset(token)
 
 
 def _normalize_default_homepage(value: Any) -> str:

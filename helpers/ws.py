@@ -14,6 +14,7 @@ from helpers import files, cache
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
 from helpers.tunnel_origins import get_active_tunnel_origins, origin_key
+from helpers.ws_principal import WsPrincipal, WsScopeDeniedError, restricted_correlation_id
 
 if TYPE_CHECKING:
     from helpers.ws_manager import WsManager
@@ -176,6 +177,7 @@ class _SecurityContext:
     csrf_cookie: str | None
     remote_addr: str | None
     api_key: str | None
+    principal: WsPrincipal | None = None
 
 
 _ws_contexts: dict[str, _SecurityContext] = {}
@@ -204,6 +206,8 @@ class WsHandler:
         self.lock = lock
         self._manager = manager
         self._namespace = namespace
+        self._principal: WsPrincipal | None = None
+        self._principal_sid: str | None = None
 
     # Properties
 
@@ -247,6 +251,28 @@ class WsHandler:
     def requires_csrf(cls) -> bool:
         return cls.requires_auth()
 
+    @classmethod
+    def accepted_principal_types(cls) -> frozenset[str]:
+        return frozenset()
+
+    @classmethod
+    def authenticate_principal(cls, auth: dict) -> WsPrincipal | None:
+        """Plugin-owned proof verification, called only after origin validation."""
+        return None
+
+    @classmethod
+    def principal_is_active(cls, principal: WsPrincipal) -> bool:
+        return False
+
+    def principal_for_sid(self, sid: str) -> WsPrincipal | None:
+        if self._principal is not None:
+            if sid != self._principal_sid:
+                raise WsScopeDeniedError("Restricted WebSocket identity mismatch")
+            return self._principal
+        with _contexts_lock:
+            ctx = _ws_contexts.get(sid)
+            return ctx.principal if ctx else None
+
     # Lifecycle hooks
 
     async def on_connect(self, sid: str) -> None:
@@ -275,10 +301,13 @@ class WsHandler:
         *,
         correlation_id: str | None = None,
     ) -> None:
+        if self._principal is not None and self._principal_sid != sid:
+            raise WsScopeDeniedError("Restricted WebSocket identity mismatch")
         await self.manager.emit_to(
             self._namespace, sid, event, data,
             handler_id=self.identifier,
             correlation_id=correlation_id,
+            **({"expected_principal": self._principal} if self._principal else {}),
         )
 
     async def broadcast(
@@ -289,6 +318,8 @@ class WsHandler:
         exclude_sids: str | Iterable[str] | None = None,
         correlation_id: str | None = None,
     ) -> None:
+        if self._principal is not None:
+            raise WsScopeDeniedError("Restricted WebSocket broadcast denied")
         await self.manager.broadcast(
             self._namespace, event, data,
             exclude_sids=exclude_sids,
@@ -313,6 +344,8 @@ class WsHandler:
         ``WsManager.route_event_all`` so that existing frontend
         assertions remain valid.
         """
+        if self._principal is not None:
+            raise WsScopeDeniedError("Restricted WebSocket fan-out denied")
         cid = correlation_id or uuid.uuid4().hex
 
         with _contexts_lock:
@@ -328,6 +361,9 @@ class WsHandler:
             ctx = contexts_snapshot.get(sid)
             # Skip sids whose security context was removed (concurrent disconnect).
             if ctx is None:
+                continue
+            # Global fan-out must not invoke a restricted connection's handlers.
+            if ctx.principal is not None:
                 continue
             security_errors: list[dict[str, Any]] = []
             passing: list[WsHandler] = []
@@ -396,6 +432,18 @@ def _check_security(handler_cls: type[WsHandler], ctx: _SecurityContext) -> dict
     if handler_cls.requires_loopback():
         if not ctx.remote_addr or not is_loopback_address(ctx.remote_addr):
             return {"code": "FORBIDDEN", "error": "Access denied"}
+
+    if ctx.principal is not None:
+        principal = ctx.principal
+        try:
+            active = (
+                principal.principal_type in handler_cls.accepted_principal_types()
+                and principal.handler_id == f"{handler_cls.__module__}.{handler_cls.__name__}"
+                and handler_cls.principal_is_active(principal)
+            )
+        except Exception:
+            active = False
+        return None if active else {"code": "SCOPE_DENIED", "error": "Access denied"}
 
     if handler_cls.requires_auth():
         from helpers import login
@@ -475,31 +523,75 @@ def register_ws_namespace(
 
     @socketio_server.on("connect", namespace=NAMESPACE)  # type: ignore
     async def _on_connect(sid, environ, auth):
+        restricted = isinstance(auth, dict) and "principal" in auth
+        principal = None
+        restricted_cls = None
         with webapp.request_context(environ):
-            origin_ok, origin_reason = validate_ws_origin(environ)
+            try:
+                origin_ok, origin_reason = validate_ws_origin(environ)
+            except (TypeError, ValueError):
+                origin_ok, origin_reason = False, "invalid_origin"
             if not origin_ok:
                 PrintStyle.warning(
                     f"WS connect rejected for {sid}: {origin_reason or 'invalid'}"
                 )
                 return False
 
+            if restricted:
+                # Presence is authoritative, including null/malformed proofs.
+                # Never fall back to ambient session/CSRF/API credentials.
+                try:
+                    if manager is None or set(auth) != {"handlers", "principal"}:
+                        return False
+                    paths = auth["handlers"]
+                    envelope = auth["principal"]
+                    if (
+                        not isinstance(paths, list) or len(paths) != 1
+                        or not isinstance(paths[0], str)
+                        or len(paths[0]) > 256
+                        or any(p in paths[0] for p in ("..", "\\", ":"))
+                        or paths[0].startswith("/")
+                        or not isinstance(envelope, dict)
+                        or not isinstance(envelope.get("type"), str)
+                    ):
+                        return False
+                    restricted_cls = _resolve_cached(paths[0])
+                    if (
+                        restricted_cls is None
+                        or envelope["type"] not in restricted_cls.accepted_principal_types()
+                    ):
+                        return False
+                    principal = restricted_cls.authenticate_principal(auth)
+                    if (
+                        not isinstance(principal, WsPrincipal)
+                        or principal.handler_path != paths[0]
+                        or principal.principal_type != envelope["type"]
+                    ):
+                        return False
+                except Exception:
+                    PrintStyle.warning("WS restricted authentication failed")
+                    return False
+
             ctx = _SecurityContext(
-                auth_hash=session.get("authentication"),
-                csrf_token=session.get("csrf_token"),
+                auth_hash=None if restricted else session.get("authentication"),
+                csrf_token=None if restricted else session.get("csrf_token"),
                 client_csrf_token=(
                     (auth.get("csrf_token") or auth.get("csrfToken"))
-                    if isinstance(auth, dict) else None
+                    if isinstance(auth, dict) and not restricted else None
                 ),
-                csrf_cookie=request.cookies.get(
+                csrf_cookie=None if restricted else request.cookies.get(
                     f"csrf_token_{runtime.get_runtime_id()}"
                 ),
                 remote_addr=str(request.remote_addr) if request.remote_addr else None,
                 api_key=(
                     (auth.get("api_key") or auth.get("apiKey"))
-                    if isinstance(auth, dict) else None
+                    if isinstance(auth, dict) and not restricted else None
                 ),
+                principal=principal,
             )
-            user_id = session.get("user_id") or "single_user"
+            user_id = None if restricted else session.get("user_id") or "single_user"
+            if restricted and _check_security(restricted_cls, ctx) is not None:
+                return False
 
             with _contexts_lock:
                 _ws_contexts[sid] = ctx
@@ -508,7 +600,19 @@ def register_ws_namespace(
         # connection tracking are available before handler on_connect runs
         # (extensions like StateSync depend on manager._dispatcher_loop).
         if manager is not None:
-            await manager.handle_connect(NAMESPACE, sid, user_id=user_id)
+            if principal is not None:
+                try:
+                    await manager.handle_connect(
+                        NAMESPACE, sid, principal=principal,
+                        principal_validator=restricted_cls.principal_is_active,
+                    )
+                except Exception:
+                    with _contexts_lock:
+                        _ws_contexts.pop(sid, None)
+                    PrintStyle.warning("WS restricted registration failed")
+                    return False
+            else:
+                await manager.handle_connect(NAMESPACE, sid, user_id=user_id)
 
         # Activate handlers declared in auth.handlers
         handler_paths: list[str] = []
@@ -519,6 +623,7 @@ def register_ws_namespace(
 
         activated: dict[str, WsHandler] = {}
         for path in handler_paths:
+            instance = None
             try:
                 handler_cls = _resolve_cached(path)
                 if handler_cls is None:
@@ -530,10 +635,26 @@ def register_ws_namespace(
                     socketio_server, lock,
                     manager=manager, namespace=NAMESPACE,
                 )
+                instance._principal = principal
+                instance._principal_sid = sid if principal else None
                 await instance.on_connect(sid)
                 activated[path] = instance
             except Exception as e:
-                PrintStyle.error(f"WS on_connect error ({path}): {format_error(e)}")
+                if restricted:
+                    PrintStyle.error("WS restricted activation failed")
+                    if instance is not None:
+                        try:
+                            await instance.on_disconnect(sid)
+                        except Exception:
+                            PrintStyle.error("WS restricted activation cleanup failed")
+                else:
+                    PrintStyle.error(f"WS on_connect error ({path}): {format_error(e)}")
+
+        if restricted and len(activated) != 1:
+            with _contexts_lock:
+                _ws_contexts.pop(sid, None)
+            await manager.handle_disconnect(NAMESPACE, sid)
+            return False
 
         with _contexts_lock:
             _active_handlers[sid] = activated
@@ -544,13 +665,19 @@ def register_ws_namespace(
     async def _on_disconnect(sid, reason=None):
         with _contexts_lock:
             activated = _active_handlers.pop(sid, {})
-            _ws_contexts.pop(sid, None)
+            ctx = _ws_contexts.get(sid)
 
         for path, instance in activated.items():
             try:
                 await instance.on_disconnect(sid)
             except Exception as e:
-                PrintStyle.error(f"WS on_disconnect error ({path}): {format_error(e)}")
+                if ctx and ctx.principal:
+                    PrintStyle.error("WS restricted disconnect cleanup failed")
+                else:
+                    PrintStyle.error(f"WS on_disconnect error ({path}): {format_error(e)}")
+
+        with _contexts_lock:
+            _ws_contexts.pop(sid, None)
 
         if manager is not None:
             await manager.handle_disconnect(NAMESPACE, sid)
@@ -558,6 +685,7 @@ def register_ws_namespace(
     @socketio_server.on("*", namespace=NAMESPACE)  # type: ignore
     async def _dispatch(event, sid, data):
         incoming = data if isinstance(data, dict) else {}
+        ctx = None
 
         try:
             with _contexts_lock:
@@ -565,6 +693,14 @@ def register_ws_namespace(
                 activated = dict(_active_handlers.get(sid, {}))
 
             correlation_id = incoming.get("correlationId") or uuid.uuid4().hex
+
+            if ctx and ctx.principal:
+                correlation_id = restricted_correlation_id(incoming.get("correlationId"))
+                incoming = dict(incoming, correlationId=correlation_id)
+                if event not in ctx.principal.inbound_events:
+                    if manager is not None:
+                        manager.record_scope_denial()
+                    return _error_response("SCOPE_DENIED", "Access denied", correlation_id)
 
             if ctx is None:
                 return _error_response("AUTH_REQUIRED",
@@ -579,6 +715,8 @@ def register_ws_namespace(
             for path, instance in activated.items():
                 error = _check_security(type(instance), ctx)
                 if error is not None:
+                    if ctx.principal and manager is not None:
+                        manager.record_scope_denial()
                     security_errors.append({
                         "handlerId": instance.identifier,
                         "ok": False,
@@ -625,7 +763,7 @@ def register_ws_namespace(
                             "data": result,
                         })
                 except Exception as e:
-                    error_text = format_error(e)
+                    error_text = "Restricted handler failed" if ctx.principal else format_error(e)
                     PrintStyle.error(f"WS handler error ({path}/{event}): {error_text}")
                     results.append({
                         "handlerId": instance.identifier,
@@ -637,6 +775,9 @@ def register_ws_namespace(
             return {"correlationId": correlation_id, "results": results}
 
         except Exception as e:
+            if ctx and ctx.principal:
+                PrintStyle.error("WS restricted dispatch failed")
+                return _error_response("INTERNAL_ERROR", "Internal server error", "")
             error_text = format_error(e)
             PrintStyle.error(f"WS dispatch error ({event}): {error_text}")
             return _error_response(

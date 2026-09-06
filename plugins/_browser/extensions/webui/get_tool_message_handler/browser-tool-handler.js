@@ -89,6 +89,14 @@ function browserIdFromResult(result = {}, kvps = {}) {
   );
 }
 
+// Extension leases are not container viewer tab IDs. Never let the viewer's
+// fallback selection turn an extension tool result into container control.
+function isExtensionBrowserTarget(result = {}, kvps = {}) {
+  if (kvps._browser_backend === "chrome_extension") return true;
+  const id = browserIdFromResult(result, kvps);
+  return typeof id === "string" && (id.startsWith("a0t1.") || id.startsWith("extension:"));
+}
+
 function browserContextIdFromResult(result = {}, kvps = {}) {
   const snapshotMeta = browserSnapshotMeta(kvps);
   const browserId = browserIdFromResult(result, kvps);
@@ -131,6 +139,7 @@ const FOCUS_ACTIONS = new Set([
 ]);
 
 function shouldSyncOpenBrowserCanvas(args, result) {
+  if (isExtensionBrowserTarget(result, args?.kvps || {})) return false;
   if (!isBrowserCanvasAlreadyOpen()) return false;
   if (!isFreshToolMessage(args?.timestamp)) return false;
   const action = String(args?.kvps?.action || "").trim().toLowerCase().replace("-", "_");
@@ -166,6 +175,7 @@ function currentBrowserContextId(result = {}, kvps = {}) {
 }
 
 function buildBrowserCanvasPayload(result = {}, kvps = {}, source = "tool-kvp") {
+  if (isExtensionBrowserTarget(result, kvps)) return null;
   const browserId = browserIdFromResult(result, kvps);
   const contextId = currentBrowserContextId(result, kvps);
   if (!browserId && !contextId) return null;
@@ -244,6 +254,7 @@ function browserResultFromRenderedStep(step) {
 }
 
 function shouldRenderBrowserScreenshotKvp(result = {}, kvps = {}) {
+  if (isExtensionBrowserTarget(result, kvps)) return false;
   if (buildBrowserCanvasPayload(result, kvps)) return true;
   const action = normalizeBrowserAction(kvps);
   return Boolean(action && !NO_SCREENSHOT_ACTIONS.has(action));
@@ -500,6 +511,7 @@ function drawBrowserTool({
     displayKvps[BROWSER_SCREENSHOT_KVP_KEY] = screenshotUri;
   }
   delete displayKvps[BROWSER_SNAPSHOT_META_KEY];
+  delete displayKvps._browser_backend;
   const browserButton = createActionButton(
     "visibility",
     "Browser",
@@ -516,7 +528,7 @@ function drawBrowserTool({
   browserButton.setAttribute("aria-label", "Open Browser");
   browserButton.setAttribute("data-bs-placement", "top");
   browserButton.setAttribute("data-bs-trigger", "hover");
-  const actionButtons = [browserButton];
+  const actionButtons = isExtensionBrowserTarget(browserResult, kvps) ? [] : [browserButton];
 
   if (contentText.trim()) {
     actionButtons.push(

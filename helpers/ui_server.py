@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import timedelta
 import asyncio
+from contextlib import AsyncExitStack, asynccontextmanager
 import gzip
 import json
 import logging
@@ -30,7 +31,7 @@ import socketio  # type: ignore[import-untyped]
 
 from helpers import dotenv, fasta2a_server, files, git, login, mcp_server, runtime
 from helpers.api import get_safe_next_url, register_api_route, requires_auth
-from helpers.extension import extensible, get_webui_extension_manifest
+from helpers.extension import call_extensions_async, extensible, get_webui_extension_manifest
 from helpers.files import get_abs_path
 from helpers.print_style import PrintStyle
 from helpers.server_startup import StartupMonitor
@@ -82,6 +83,7 @@ class UiServerRuntime:
     _route_handlers: "UiRouteHandlers | None" = field(default=None, init=False)
 
     @classmethod
+    @extensible
     def create(cls) -> "UiServerRuntime":
         webapp = Flask("app", static_folder=get_abs_path("./webui"), static_url_path="/")
         webapp.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
@@ -226,6 +228,15 @@ class UiServerRuntime:
         self._transport_registered = True
 
     def build_asgi_app(self, startup_monitor: StartupMonitor):
+        monitor_lifespan = startup_monitor.lifespan()
+
+        @asynccontextmanager
+        async def server_lifespan(app):
+            async with AsyncExitStack() as shutdown:
+                await call_extensions_async("webui_server_start", runtime=self, shutdown=shutdown)
+                async with monitor_lifespan(app):
+                    yield
+
         with startup_monitor.stage("wsgi.middleware.create"):
             wsgi_app = WSGIMiddleware(self.webapp)
 
@@ -242,7 +253,7 @@ class UiServerRuntime:
                     Mount("/a2a", app=a2a_app),
                     Mount("/", app=wsgi_app),
                 ],
-                lifespan=startup_monitor.lifespan(),
+                lifespan=server_lifespan,
             )
             compressed_http_app = GZipMiddleware(
                 starlette_app,

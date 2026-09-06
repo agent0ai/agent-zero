@@ -4930,3 +4930,34 @@ def test_legacy_browser_dependency_is_removed():
     assert ("browser" + "-use") not in (PROJECT_ROOT / "requirements.txt").read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("code", ["ORIGIN_BLOCKED", "APPROVAL_REQUIRED", "APPROVAL_DENIED", "APPROVAL_EXPIRED"])
+async def test_extension_permission_failure_does_not_suggest_tool_workaround(monkeypatch, code):
+    class DeniedRuntime:
+        async def call(self, *_args, **_kwargs):
+            raise browser_tool_module.ExtensionBrowserError(code)
+
+    async def get_denied_runtime(*_args, **_kwargs):
+        return DeniedRuntime()
+
+    monkeypatch.setattr(browser_tool_module, "get_runtime", get_denied_runtime)
+    monkeypatch.setattr(browser_tool_module, "activate_browser_model", lambda _agent: None)
+    tool = browser_tool_module.Browser(
+        agent=SimpleNamespace(context=SimpleNamespace(id="ctx")), name="browser",
+        method=None, args={}, message="", loop_data=None,
+    )
+    result = await tool.execute(action="open", url="https://example.com/private-query")
+    assert code in result.message
+    assert "do not bypass it" in result.message
+    assert "Do not retry a denied request" in result.message
+    assert "private-query" not in result.message
+    assert result.break_loop is False  # Let the agent explain the blocker.
+
+
+def test_extension_prompt_requires_site_consent_without_alternate_tool_bypass():
+    prompt = (PROJECT_ROOT / "plugins/_browser/prompts/agent.system.tool.browser.md").read_text()
+    assert "never work around it" in prompt
+    assert "browser permission failure is not authorization to switch tools" in prompt
+    assert "Chrome extension does not need remote debugging" in prompt

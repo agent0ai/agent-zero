@@ -25,8 +25,34 @@ def _normalize_requested_backend(value: object) -> str:
 
 
 def _normalize_host_browser_selection(value: object) -> str:
-    raw = _string(value).lower().replace(" ", "_")
-    return "".join(ch for ch in raw if ch.isalnum() or ch in {"_", "-", ":", ".", "/"})[:200]
+    from plugins._browser.helpers.config import normalize_host_browser_selection
+
+    return normalize_host_browser_selection(value)
+
+
+def _extension_selection_kind(value: object) -> str:
+    from plugins._browser.helpers.config import parse_extension_browser_selection
+
+    try:
+        parsed = parse_extension_browser_selection(value)
+    except ValueError:
+        return "invalid"
+    return "valid" if parsed is not None else "not_extension"
+
+
+def _extension_selection_error(value: object) -> str:
+    selection_kind = _extension_selection_kind(value)
+    if selection_kind == "invalid":
+        return (
+            '{"error":"invalid_extension_browser_selection",'
+            '"message":"The reserved extension browser selection is invalid."}'
+        )
+    if selection_kind == "valid":
+        return (
+            '{"error":"browser_extension_bridge_unavailable",'
+            '"message":"Pairing and explicit activation are not available in this release."}'
+        )
+    return ""
 
 
 def _normalize_profile_mode(value: object) -> str:
@@ -65,6 +91,7 @@ class BrowserRuntime(connector_base.ProtectedConnectorApiHandler):
 
         settings = self._load_browser_config(project_name)
         if action == "set":
+            current_settings = dict(settings)
             runtime_backend = _normalize_requested_backend(input.get("runtime_backend"))
             if not runtime_backend:
                 return Response(
@@ -74,8 +101,11 @@ class BrowserRuntime(connector_base.ProtectedConnectorApiHandler):
                 )
             settings["runtime_backend"] = runtime_backend
             if "host_browser_selection" in input or "browser_selection" in input:
+                requested_selection = input.get(
+                    "host_browser_selection", input.get("browser_selection")
+                )
                 settings["host_browser_selection"] = _normalize_host_browser_selection(
-                    input.get("host_browser_selection", input.get("browser_selection"))
+                    requested_selection
                 )
             if "host_browser_profile_mode" in input or "profile_mode" in input:
                 profile_mode = _normalize_profile_mode(
@@ -91,6 +121,27 @@ class BrowserRuntime(connector_base.ProtectedConnectorApiHandler):
             settings["host_browser_profile_mode"] = (
                 _normalize_profile_mode(settings.get("host_browser_profile_mode")) or "existing"
             )
+            from plugins._browser.helpers.config import (
+                validate_extension_browser_selection_change,
+            )
+
+            try:
+                validate_extension_browser_selection_change(
+                    proposed_value=settings.get("host_browser_selection"),
+                    current_value=current_settings.get("host_browser_selection"),
+                    proposed_runtime_backend=runtime_backend,
+                    current_runtime_backend=current_settings.get("runtime_backend"),
+                )
+            except ValueError:
+                extension_selection_error = _extension_selection_error(
+                    settings.get("host_browser_selection")
+                )
+                return Response(
+                    response=extension_selection_error
+                    or '{"error":"invalid_extension_browser_selection"}',
+                    status=400,
+                    mimetype="application/json",
+                )
             self._save_browser_config(project_name, settings)
 
         runtime_backend = settings.get("runtime_backend") or "container"

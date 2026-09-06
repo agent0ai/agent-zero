@@ -10,6 +10,7 @@ For rendered browsing workflows, multi-step interaction, screenshots, downloads,
 Actions: tabs `open`, `list`, `state`, `set_active`, `navigate`, `back`, `forward`, `reload`, `close`, `close_all`; inspect `content`, `detail`, `screenshot`; interact `click`, `hover`, `double_click`, `right_click`, `drag`, `type`, `submit`, `type_submit`, `scroll`, `select_option`, `set_checked`, `upload_file`; advanced `evaluate`, `key_chord`, `mouse`, `wheel`, `keyboard`, `clipboard`, `set_viewport`, `multi`.
 
 Rules:
+- For Chrome extension browser use, site approval is explicit. A new-site request waits for the user's decision in the WebUI. If permission is denied, expires, or remains unavailable, explain that to the user; never work around it with `code_execution_tool`, curl, another browser, or another fetching tool. A browser permission failure is not authorization to switch tools. The Chrome extension does not need remote debugging setup.
 - If the user asks for an existing tab, page title, or already-open URL, call `list` first, match by `title` or `currentUrl`, then use `set_active` or `navigate` on that `browser_id`.
 - Prefer DOM/CDP actions: use refs from the latest `content`, including frame-chain refs, or same-page `selector`; use coordinates only when refs/selectors are unavailable or the user explicitly asks for visual manual control.
 - Screenshots are explicit only; the browser does not automatically load screenshots. Call `vision_load` with the returned `vision_load.tool_args.paths` value before reasoning visually.

@@ -1,0 +1,2 @@
+# Structural legacy fixture.
+

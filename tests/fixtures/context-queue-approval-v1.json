@@ -1,0 +1,79 @@
+{
+  "contract": "a0.browser-bridge.context-queue-approval.v1",
+  "queue_add": {
+    "native_method": "context.queue_add",
+    "connector_event": "connector_message_queue_add",
+    "params": {
+      "contract_version": 1,
+      "context_id": "context-A",
+      "client_message_id": "message-A",
+      "text": "private queue text"
+    }
+  },
+  "queue_item": {
+    "native_methods": [
+      "context.queue_remove",
+      "context.queue_send"
+    ],
+    "connector_events": [
+      "connector_message_queue_remove",
+      "connector_message_queue_send"
+    ],
+    "params": {
+      "contract_version": 1,
+      "context_id": "context-A",
+      "item_id": "queue-A"
+    }
+  },
+  "action_approval": {
+    "native_method": "browser.approval_decision",
+    "connector_event": "connector_browser_approval_decision",
+    "params": {
+      "contract_version": 1,
+      "challenge_id": "challenge-A",
+      "kind": "action",
+      "decision": "approve_once"
+    },
+    "result": {
+      "contract_version": 1,
+      "challenge_id": "challenge-A",
+      "decision": "approved",
+      "control_id": "control-A",
+      "status": "accepted"
+    }
+  },
+  "site_approval": {
+    "native_method": "browser.approval_decision",
+    "connector_event": "connector_browser_approval_decision",
+    "params": {
+      "contract_version": 1,
+      "challenge_id": "challenge-A",
+      "kind": "site",
+      "decision": "allow_once"
+    },
+    "result": {
+      "contract_version": 1,
+      "challenge_id": "challenge-A",
+      "decision": "allow_once",
+      "control_id": "control-A",
+      "status": "accepted",
+      "expires_at_ms": 1800000000000
+    }
+  },
+  "queue_notification": {
+    "native_method": "context.queue_updated",
+    "connector_event": "connector_message_queue_updated",
+    "params": {
+      "contract_version": 1,
+      "context_id": "context-A",
+      "message_queue": [
+        {
+          "id": "queue-A",
+          "text": "Preview",
+          "attachments": [],
+          "attachment_count": 0
+        }
+      ]
+    }
+  }
+}

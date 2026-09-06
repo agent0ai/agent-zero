@@ -1,0 +1,33 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/plugins/_browser/webui/browser-action-requests-store.js";
+  </script>
+</head>
+<body>
+  <!-- Inherit the existing site-request component's visual contract. This
+       panel is composed alongside it; no page-provided description is shown. -->
+  <section class="browser-site-requests" x-data x-init="$store.browserActionRequests.mount()"
+    x-destroy="$store.browserActionRequests.cleanup()" aria-label="Browser action requests" x-cloak
+    x-show="$store.browserActionRequests.visibleRequests().length || $store.browserActionRequests.visibleNotice()">
+    <template x-for="request in $store.browserActionRequests.visibleRequests()" :key="request.id">
+      <div class="browser-site-request" :aria-busy="$store.browserActionRequests.busyId === request.id">
+        <p class="browser-site-request-title" x-text="request.action === 'upload_file' ? 'Share this attachment?' : request.action === 'type' ? 'Allow text entry?' : 'Allow this click?'"></p>
+        <p class="browser-site-request-origin" x-text="request.origin"></p>
+        <p class="browser-site-request-help" x-text="request.action === 'upload_file' ? 'Check the highlighted file field and the attachment you asked Agent Zero to share. Selecting the file can immediately send it to this site. This approves one file selection, not future uploads.' : request.action === 'type' ? 'Check the highlighted empty field and the text you asked Agent Zero to enter. The page can read text as it is entered, including passwords. This approves one text entry, not submission or future actions.' : 'Inspect the highlighted target in Chrome before approving. Its effect could not be verified as reversible. This approves one click, not future actions.'"></p>
+        <div class="browser-site-request-actions">
+          <button type="button" :disabled="!$store.browserActionRequests.canDecide(request) || request.expires &lt;= $store.browserActionRequests.clock"
+            @click="$store.browserActionRequests.decide(request, 'decline')">Decline</button>
+          <button type="button" :disabled="!$store.browserActionRequests.canDecide(request) || request.expires &lt;= $store.browserActionRequests.clock"
+            @click="$store.browserActionRequests.decide(request, 'approve_once')" x-text="request.action === 'upload_file' ? 'Share once' : request.action === 'type' ? 'Allow text entry' : 'Allow this click'"></button>
+        </div>
+      </div>
+    </template>
+    <p class="browser-site-request-help" role="status" x-show="$store.browserActionRequests.visibleNotice()">
+      <span x-text="$store.browserActionRequests.visibleNotice()"></span>
+      <button type="button" x-show="$store.browserActionRequests.hasUnconfirmedDecision()" @click="$store.browserActionRequests.refresh()"
+        :disabled="$store.browserActionRequests.loading">Refresh requests</button>
+    </p>
+  </section>
+</body>
+</html>

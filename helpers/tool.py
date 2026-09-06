@@ -42,14 +42,19 @@ class Tool:
     async def before_execution(self, **kwargs):
         PrintStyle(font_color="#1B4F72", padding=True, background_color="white", bold=True).print(f"{self.agent.agent_name}: Using tool '{self.name}'")
         self.log = self.get_log_object()
-        if self.args and isinstance(self.args, dict):
-            for key, value in self.args.items():
+        display_args = self.get_display_args()
+        if display_args and isinstance(display_args, dict):
+            for key, value in display_args.items():
                 ctx = {"content": str(value) if not isinstance(value, str) else value}
                 await call_extensions_async("tool_output_update", self.agent, ctx=ctx)
                 display_value = ctx["content"]
                 PrintStyle(font_color="#85C1E9", bold=True).stream(self.nice_key(key)+": ")
                 PrintStyle(font_color="#85C1E9", padding=isinstance(value,str) and "\n" in value).stream(display_value)
                 PrintStyle().print()
+
+    def get_display_args(self):
+        """Presentation only; overrides must not mutate execution arguments."""
+        return self.args
 
     async def after_execution(self, response: Response, **kwargs):
         text = sanitize_string(response.message.strip())

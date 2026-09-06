@@ -33,6 +33,22 @@ _BASE_FEATURES = [
 ]
 
 _OPTIONAL_FEATURES: dict[str, tuple[str, ...]] = {
+    "browser_bridge_pairing_v1": (
+        "plugins._a0_connector.api.browser_bridge_pairing",
+        "plugins._a0_connector.api.browser_bridge_exchange",
+        "plugins._a0_connector.helpers.browser_bridge_pairing",
+    ),
+    "browser_companion_release_metadata": (
+        "plugins._a0_connector.api.v1.browser_companion_release",
+        "plugins._a0_connector.helpers.browser_companion_release",
+    ),
+    "browser_extension_bridge_foundation": (
+        "plugins._browser.helpers.bridge_foundation",
+        "plugins._a0_connector.helpers.browser_bridge_cutover",
+    ),
+    "browser_extension_mv3_runtime_foundation": (
+        "plugins._browser.helpers.mv3_runtime_foundation",
+    ),
     "settings_get": ("helpers.settings", "helpers.subagents"),
     "settings_set": ("helpers.settings", "helpers.subagents"),
     "agent_profile_set": ("api.agent_profile_set",),

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from agent import Agent, AgentConfig, AgentContext, AgentContextType
-from helpers import files, history
+from helpers import files, history, extension
 from helpers.litellm_transport import delete_stored_response_ids
 from helpers.localization import Localization
 from initialize import initialize_agent
@@ -176,6 +176,7 @@ def remove_msg_files(ctxid):
     files.delete_dir(path)
 
 
+@extension.extensible
 def _serialize_context(context: AgentContext):
     profile = str(
         getattr(context.agent0.config, "profile", None)
@@ -247,6 +248,7 @@ def _serialize_log(log: Log):
     }
 
 
+@extension.extensible
 def _deserialize_context(data):
     profile = data.get("agent_profile")
     override_settings = {"agent_profile": profile} if profile else None
