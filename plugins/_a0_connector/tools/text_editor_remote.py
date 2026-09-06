@@ -40,6 +40,24 @@ UNSUPPORTED_FRESHNESS_ERROR = (
 class TextEditorRemote(Tool):
     """Send file-editing operations to the connected CLI machine."""
 
+    def get_log_object(self):
+        action = str(self.args.get("action") or "")
+        path = str(self.args.get("path") or "")
+        verb = {"read": "Reading", "write": "Writing", "patch": "Patching"}.get(action)
+        heading = (
+            f"icon://construction {verb} {path} (remote)".strip()
+            if verb and path
+            else f"icon://construction {self.agent.agent_name}: Using tool '{self.name}' (remote)"
+        )
+        return self.agent.context.log.log(
+            type="text_editor",
+            heading=heading,
+            content="",
+            kvps=self.args,
+            _tool_name=self.name,
+            id=str(uuid.uuid4()),
+        )
+
     async def execute(self, **kwargs: Any) -> Response:
         op = (
             str(

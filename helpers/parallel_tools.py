@@ -711,8 +711,8 @@ def _log_parallel_child_started(agent: "Agent", job: ParallelJob) -> None:
 
 
 def _update_parallel_child_log(job: ParallelJob) -> None:
-    if not job.log_item:
-        return
+    if not job.log_item or job.log_item.content:
+        return  # streamed or tool-written content is user-visible; never replace it
     if job.state == "success":
         content = job.result if job.result else "(completed without textual output)"
     else:

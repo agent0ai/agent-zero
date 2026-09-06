@@ -25,7 +25,19 @@ class EmptyResponse(Extension):
         reasoning = getattr(llm_result, "reasoning", "")
         if not isinstance(response, str) or not isinstance(reasoning, str):
             return
-        if response.strip() or reasoning.strip():
+        if response.strip():
+            return
+
+        if reasoning.strip():
+            warning = self.agent.read_prompt("fw.msg_reasoning_only.md")
+            warning_message = self.agent.hist_add_warning(message=warning)
+            PrintStyle(font_color="orange", padding=True).print(warning)
+            self.agent.context.log.log(
+                type="warning",
+                content=f"{self.agent.agent_name}: {self.agent.read_prompt('fw.msg_reasoning_only_response.md')}",
+                id=warning_message.id,
+            )
+            result_data["skip_default_processing"] = True
             return
 
         warning = self.agent.read_prompt("fw.msg_empty_response.md")

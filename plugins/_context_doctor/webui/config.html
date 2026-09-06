@@ -23,6 +23,9 @@
                 </label>
               </div>
             </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Strategies</div>
             <div class="field">
               <div class="field-label">
                 <div class="field-title">Suppress XML output</div>
@@ -33,6 +36,20 @@
               <div class="field-control">
                 <label class="toggle">
                   <input type="checkbox" x-model="config.suppress_xml" />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Split thoughts on blank lines</div>
+                <div class="field-description">
+                  Replace blank lines inside thoughts with separate thought entries after JSON repair.
+                </div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input type="checkbox" x-model="config.split_thoughts" />
                   <span class="toggler"></span>
                 </label>
               </div>

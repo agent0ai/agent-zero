@@ -36,6 +36,7 @@
 - Direct tool background context cleanup removes both the in-memory context and any transient chat folder left on disk.
 - Parent-visible child log items are created for each wrapped call so the WebUI can inspect concurrent children separately while the wrapper result remains model-history-only.
 - Child tool logs mirror normal tool-call visible args; job ids remain available through wrapper results and prompt extras rather than visible process-step args.
+- Job completion fills child log content only when it is still empty; streamed or tool-written content is user-visible state and is never replaced by the job result or error string.
 - Wrapped tool child logs use each tool's native `get_log_object()` output when available, preserving special log rendering (for example: `code_execution_tool` uses `code_exe`, `wait` uses `progress`, MCP tools use `mcp`, and regular tools use `tool`).
 - Direct parallel worker execution reuses the parent-visible child log item so tool `before_execution()` cannot create a second generic worker log or lose the native badge type.
 - Direct tools may explicitly queue model-visible history for their parent. Terminal collection records the outer `parallel` result first, promotes queued messages in job order, and only then removes disposable worker state; background jobs retain queued history until they are collected.

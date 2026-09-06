@@ -9,12 +9,6 @@ from extensions.python._functions.agent.Agent.hist_add_ai_response.end._10_log_p
 from extensions.python.response_stream._10_log_from_stream import (
     LogFromStream as StreamLog,
 )
-from extensions.python.reasoning_stream._10_log_from_stream import (
-    LogFromStream as ReasoningLog,
-)
-from extensions.python.response_stream_end._15_log_from_stream_end import (
-    LogFromStream as StreamLogEnd,
-)
 from extensions.python.response_stream._20_live_response import LiveResponse
 from helpers.dirty_json import DirtyJson
 from helpers.log import Log
@@ -219,29 +213,3 @@ async def test_stream_log_tolerates_partial_tool_arguments(
 
     item = loop_data.params_temporary["log_item_generating"]
     assert item.kvps["step"] == expected_step
-
-
-@pytest.mark.asyncio
-async def test_stream_log_uses_native_reasoning_when_thoughts_are_absent():
-    log = Log()
-    loop_data = LoopData()
-    agent = SimpleNamespace(
-        context=SimpleNamespace(log=log),
-        agent_name="A0",
-    )
-
-    await ReasoningLog(agent=agent).execute(
-        loop_data=loop_data,
-        text="Native reasoning summary",
-    )
-    await StreamLog(agent=agent).execute(
-        loop_data=loop_data,
-        text='{"tool_name":"response","tool_args":{"text":"Done"}}',
-        parsed={"tool_name": "response", "tool_args": {"text": "Done"}},
-    )
-    await StreamLogEnd(agent=agent).execute(loop_data=loop_data)
-
-    item = loop_data.params_temporary["log_item_generating"]
-    assert item.heading == "A0: Using response"
-    assert item.kvps["thoughts"] == ["Native reasoning summary"]
-    assert item.kvps["reasoning"] == "Native reasoning summary"

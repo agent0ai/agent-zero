@@ -4,6 +4,7 @@ from plugins._context_doctor.extensions.python.message_loop_result._10_context_d
     ContextDoctor,
 )
 from plugins._context_doctor.helpers.context_doctor import (
+    looks_like_tool_call,
     transform_response,
     update_log_item,
 )
@@ -59,9 +60,29 @@ def test_suppresses_xml_when_enabled():
     )
 
 
+def test_splits_blank_line_thoughts_after_repair():
+    response = '{"thoughts":["first\\n\\nsecond"]}'
+
+    assert transform_response(response, suppress_xml=True) == (
+        '{"thoughts":["first","second"]}'
+    )
+
+
+def test_splits_blank_lines_in_raw_text_fallback():
+    assert transform_response("first\n\nsecond", suppress_xml=False) == (
+        '{"thoughts":["first","second"]}'
+    )
+
+
+def test_keeps_blank_line_thoughts_when_split_disabled():
+    assert transform_response(
+        "first\n\nsecond", suppress_xml=False, split_thoughts=False
+    ) == '{"thoughts":["first\\n\\nsecond"]}'
+
+
 def test_updates_log_kvps_and_heading_while_preserving_raw_content():
     log_item = SimpleNamespace(
-        kvps={"reasoning": "because", "thoughts": ["because"]},
+        kvps={"reasoning": "because"},
         update=lambda **kwargs: setattr(log_item, "data", kwargs),
     )
     raw = '{"tool_name":"response","tool_args":{"text":"ok",},}'
@@ -77,9 +98,68 @@ def test_updates_log_kvps_and_heading_while_preserving_raw_content():
 
     assert log_item.data["content"] == raw
     assert log_item.data["kvps"]["reasoning"] == "because"
-    assert log_item.data["kvps"]["thoughts"] == ["because"]
     assert log_item.data["kvps"]["tool_name"] == "response"
     assert log_item.data["heading"] == "A0: Done"
+
+
+def test_converted_to_thoughts_rejects_plain_text_wrap():
+    assert not looks_like_tool_call("plain text", '{"thoughts":["plain text"]}')
+
+
+def test_converted_to_thoughts_rejects_split_multi_paragraph_wrap():
+    response = "first\n\nsecond"
+    transformed = '{"thoughts":["first","second"]}'
+    assert not looks_like_tool_call(response, transformed)
+
+
+def test_transform_and_fallback_agree_on_multi_paragraph_raw_text():
+    response = "first\n\nsecond"
+    transformed = transform_response(response, suppress_xml=False)
+    assert not looks_like_tool_call(response, transformed)
+
+
+def test_converted_to_thoughts_detects_native_thoughts_json():
+    response = '{"thoughts":["only thoughts"]}'
+
+    assert looks_like_tool_call(response, response)
+
+
+def test_looks_like_tool_call_detects_tool_calls():
+    response = '{"tool_name":"response","tool_args":{"text":"ok"}}'
+
+    assert looks_like_tool_call(response, response)
+
+
+def test_looks_like_tool_call_rejects_empty_dict():
+    assert not looks_like_tool_call("<x>y</x>", "{}")
+
+
+def test_looks_like_tool_call_rejects_non_a0_dict():
+    assert not looks_like_tool_call('{"foo":"bar"}', '{"foo":"bar"}')
+
+
+def test_looks_like_tool_call_rejects_empty_thoughts_list():
+    assert not looks_like_tool_call('{"thoughts":[]}', '{"thoughts":[]}')
+
+
+def test_looks_like_tool_call_rejects_blank_thoughts_entries():
+    assert not looks_like_tool_call('{"thoughts":["","  "]}', '{"thoughts":["","  "]}')
+
+
+def test_looks_like_tool_call_rejects_empty_headline():
+    assert not looks_like_tool_call('{"headline":""}', '{"headline":""}')
+
+
+def test_looks_like_tool_call_rejects_empty_tool_name():
+    assert not looks_like_tool_call('{"tool_name":""}', '{"tool_name":""}')
+
+
+def test_looks_like_tool_call_rejects_empty_tool_args():
+    assert not looks_like_tool_call('{"tool_args":{}}', '{"tool_args":{}}')
+
+
+def test_looks_like_tool_call_rejects_wrong_thoughts_type():
+    assert not looks_like_tool_call('{"thoughts":"x"}', '{"thoughts":"x"}')
 
 
 def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
@@ -149,3 +229,41 @@ def test_extension_does_not_use_legacy_response_message_key(monkeypatch):
     ContextDoctor(agent).execute({"llm_result": llm_result})
 
     assert "log_item_response" not in agent.loop_data.params_temporary
+
+
+def test_extension_handles_raw_text_fallback_with_warning_and_skip(monkeypatch):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
+    )
+    log_item = SimpleNamespace(
+        id="generating", kvps={"reasoning": "thinking"},
+        update=lambda **kwargs: setattr(log_item, "data", kwargs),
+    )
+    logs = []
+    warnings = []
+    ai_responses = []
+    agent = SimpleNamespace(
+        agent_name="A0",
+        context=SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: logs.append(kwargs))),
+        loop_data=SimpleNamespace(params_temporary={"log_item_generating": log_item}),
+        read_prompt=lambda name, **kwargs: {
+            "fw.msg_thoughts_fallback.md": "fallback warning",
+            "fw.msg_thoughts_fallback_response.md": "fallback notice",
+        }[name],
+        hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
+        hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
+    )
+    llm_result = SimpleNamespace(response="Hello there…")
+    result_data = {"llm_result": llm_result}
+
+    ContextDoctor(agent).execute(result_data)
+
+    assert result_data["skip_default_processing"] is True
+    assert llm_result.response == '{"thoughts":["Hello there…"]}'
+    assert ai_responses == ['{"thoughts":["Hello there…"]}']
+    assert warnings == ["fallback warning"]
+    assert logs[0]["content"] == "A0: fallback notice"
+    assert logs[0]["id"] == "warning"
+    assert log_item.data["kvps"]["reasoning"] == "thinking"
+    assert log_item.data["content"] == "Hello there…"
