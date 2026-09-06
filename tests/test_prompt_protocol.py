@@ -79,8 +79,9 @@ async def test_prepare_prompt_places_protocol_before_history_and_extras(monkeypa
                 for message in messages
             ]
 
-    input_items = Agent._responses_prompt_input_items(
-        agent,
+    from helpers.litellm_transport import ResponsesTransport
+
+    input_items = ResponsesTransport.input_from_model_messages(
         FakeResponsesModel(),
         prompt,
     )
