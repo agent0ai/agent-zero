@@ -14,6 +14,7 @@ from plugins._browser.helpers.config import (
     PLUGIN_NAME,
     browser_runtime_config,
     normalize_browser_config,
+    validate_extension_browser_selection_change,
 )
 from plugins._browser.helpers.playwright import (
     ensure_playwright_binary,
@@ -62,6 +63,27 @@ def save_plugin_config(settings=None, project_name="", agent_profile="", **kwarg
     current = normalize_browser_config(
         _load_saved_browser_config(project_name=project_name, agent_profile=agent_profile)
     )
+    validate_extension_browser_selection_change(
+        proposed_value=normalized.get("host_browser_selection"),
+        current_value=current.get("host_browser_selection"),
+        proposed_runtime_backend=normalized.get("runtime_backend"),
+        current_runtime_backend=current.get("runtime_backend"),
+    )
+    from plugins._browser.helpers.config import parse_extension_browser_selection
+
+    try:
+        previous_extension = parse_extension_browser_selection(current.get("host_browser_selection"))
+    except ValueError:
+        previous_extension = None
+    if previous_extension is not None and (
+        normalized.get("host_browser_selection") != previous_extension.value
+        or normalized.get("runtime_backend") != "host_required"
+    ):
+        from plugins._a0_connector.helpers.browser_bridge_bootstrap import get_browser_bridge_application
+
+        application = get_browser_bridge_application()
+        if application is not None:
+            application.registry.retire_bridge(previous_extension.bridge_id)
     if browser_runtime_config(normalized) != browser_runtime_config(current):
         close_all_runtimes_sync()
     return normalized

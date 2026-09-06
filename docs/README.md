@@ -46,6 +46,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[Plugins](developer/plugins.md):** Compact plugin starting points and sharing checklist.
 - **[Extensions](developer/extensions.md):** Short guide for when an extension is the right tool.
 - **[Connectivity](developer/connectivity.md):** Choose between A0 CLI, MCP, A2A, and external APIs.
+- **[Chrome Browser Bridge](developer/browser-companion-release-metadata.md):** Pre-store setup, one-time pairing, signed release policy, and platform availability.
 - **[WebSockets](developer/websockets.md):** Short local handoff to DeepWiki and source files.
 - **[MCP Configuration](developer/mcp-configuration.md):** Compact reference for MCP JSON.
 - **[Notifications](developer/notifications.md):** Notification system architecture and setup.
@@ -137,6 +138,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [Plugins](developer/plugins.md)
   - [Extensions](developer/extensions.md)
   - [Connectivity](developer/connectivity.md)
+  - [Chrome Browser Bridge](developer/browser-companion-release-metadata.md)
   - [WebSockets](developer/websockets.md)
   - [MCP Configuration](developer/mcp-configuration.md)
   - [Notifications](developer/notifications.md)

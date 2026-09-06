@@ -1,4 +1,12 @@
 from helpers.api import ApiHandler, Request
+from plugins._a0_connector.helpers.browser_bridge_cutover import (
+    build_cutover_foundation_status,
+    detect_installed_legacy_browser_bridge,
+)
+from plugins._browser.helpers.bridge_foundation import (
+    build_browser_bridge_status,
+    get_browser_bridge_gate,
+)
 from plugins._browser.helpers.config import build_browser_launch_config, get_browser_config
 from plugins._browser.helpers.interactive_view import collect_status as collect_interactive_status
 from plugins._browser.helpers.playwright import (
@@ -21,6 +29,13 @@ class Status(ApiHandler):
             host_browser = {"connectors": []}
         else:
             host_browser = {"connectors": all_host_browser_metadata()}
+        extension_bridge = build_browser_bridge_status(
+            None,
+            get_browser_bridge_gate(),
+        )
+        extension_bridge["cutover"] = build_cutover_foundation_status(
+            detect_installed_legacy_browser_bridge()
+        )
         return {
             "plugin": "_browser",
             "playwright": {
@@ -40,4 +55,5 @@ class Status(ApiHandler):
             "host_browser": host_browser,
             "interactive_view": collect_interactive_status(),
             "contexts": known_context_ids(),
+            "extension_bridge": extension_bridge,
         }

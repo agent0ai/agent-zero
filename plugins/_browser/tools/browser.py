@@ -10,8 +10,11 @@ from typing import Any
 from helpers import files
 from helpers.print_style import PrintStyle
 from helpers.tool import Response, Tool
-from plugins._browser.helpers.config import activate_browser_model
+from plugins._browser.helpers.config import (
+    activate_browser_model, get_browser_config, parse_extension_browser_selection,
+)
 from plugins._browser.helpers.selector import get_tool_runtime
+from plugins._browser.helpers.extension_runtime import ExtensionBrowserError
 
 
 HISTORY_SCREENSHOT_QUALITY = 62
@@ -312,16 +315,50 @@ class Browser(Tool):
                 )
             await self._record_history_screenshot(runtime, action, result, browser_id)
         except Exception as exc:
+            if isinstance(exc, ExtensionBrowserError) and exc.code in {
+                "ORIGIN_BLOCKED", "APPROVAL_REQUIRED", "APPROVAL_DENIED", "APPROVAL_EXPIRED",
+            }:
+                return Response(
+                    message=(
+                        f"Browser {action} stopped: {exc} "
+                        "Site or action permission is missing, denied, or expired. "
+                        "Explain the permission issue to the user; do not bypass it with "
+                        "code_execution_tool, curl, another browser, or another fetching tool. "
+                        "Do not retry a denied request without new user approval."
+                    ),
+                    break_loop=False,
+                )
             return Response(message=f"Browser {action} failed: {exc}", break_loop=False)
 
         return Response(message=self._format_result(action, result), break_loop=False)
+
+    def _presentation_arguments(self):
+        kvps = dict(self.args)
+        kvps.pop("_browser_backend", None)
+        try:
+            config = get_browser_config(agent=self.agent)
+            if (config.get("runtime_backend") != "container"
+                    and parse_extension_browser_selection(config.get("host_browser_selection", "")) is not None):
+                # Presentation-only negative guard, including targetless calls
+                # and unavailable-runtime errors. It grants no browser access.
+                kvps["_browser_backend"] = "chrome_extension"
+                if "text" in kvps:
+                    kvps["text"] = "[Input text withheld]"
+        except Exception:
+            # Unavailable selection metadata is not permission to log input.
+            if "text" in kvps:
+                kvps["text"] = "[Input text withheld]"
+        return kvps
+
+    def get_display_args(self):
+        return {key: value for key, value in self._presentation_arguments().items() if key != "_browser_backend"}
 
     def get_log_object(self):
         return self.agent.context.log.log(
             type="tool",
             heading=f"icon://captive_portal {self.agent.agent_name}: Using browser",
             content="",
-            kvps=self.args,
+            kvps=self._presentation_arguments(),
             _tool_name=self.name,
         )
 

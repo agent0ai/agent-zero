@@ -19,6 +19,7 @@
   - `async before_execution(self, **kwargs)`
   - `async after_execution(self, response: Response, **kwargs)`
   - `get_log_object(self)`
+  - `get_display_args(self)`
   - `nice_key(self, key: str)`
 
 ## Runtime Contracts
@@ -26,6 +27,11 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - `Tool` defines `execute(...)`.
+- `get_display_args()` defaults to the original args, preserving existing tool
+  output. `before_execution` uses this projection for console output and
+  `tool_output_update` callbacks. Sensitive tools may return a redacted copy;
+  they must not mutate execution arguments and must separately project their
+  structured log. This is not a rewrite of the model's conversation history.
 - Observed side-effect areas: settings/state persistence.
 - Imported dependency areas include: `abc`, `agent`, `dataclasses`, `helpers.extension`, `helpers.print_style`, `helpers.strings`, `typing`.
 
@@ -46,6 +52,7 @@
 - Related tests observed by source search:
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
+  - `tests/test_browser_extension_viewer_boundary.py`
   - `tests/test_default_prompt_budget.py`
   - `tests/test_dirty_json.py`
   - `tests/test_document_query_plugin.py`

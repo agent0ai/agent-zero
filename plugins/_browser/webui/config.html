@@ -3,6 +3,9 @@
   <title>Browser Settings</title>
   <script type="module">
     import { store } from "/plugins/_browser/webui/browser-config-store.js";
+    import { store as bridgeAccess } from "/plugins/_browser/webui/browser-bridge-access-store.js";
+    import { store as bridgeSelection } from "/plugins/_browser/webui/browser-bridge-selection-store.js";
+    import { store as bridgeSetup } from "/plugins/_browser/webui/browser-bridge-setup-store.js";
   </script>
 </head>
 
@@ -11,21 +14,251 @@
     <template x-if="$store.browserConfig && config">
       <div
         class="browser-config-sections"
-        x-init="$store.browserConfig.init(config)"
+        x-init="$store.browserConfig.init(config); $store.browserBridgeSetup.mount()"
         x-effect="$store.browserConfig.bindConfig(config)"
-        x-destroy="$store.browserConfig.cleanup()"
+        x-destroy="$store.browserConfig.cleanup(); $store.browserBridgeSetup.cleanup()"
       >
-        <div class="browser-config-card">
-          <div class="section-title">Browser Runtime</div>
-          <div class="section-description">
-            Choose the internal Docker browser or a host browser connected through Launcher or A0 CLI.
+        <div
+          class="browser-config-card browser-pairing-card"
+          aria-labelledby="browser-pairing-title"
+          :aria-busy="$store.browserConfig.pairingActionLoading || $store.browserConfig.pairingStatusLoading"
+        >
+          <div class="browser-pairing-heading">
+            <div>
+              <div id="browser-pairing-title" class="section-title">Chrome extension</div>
+              <div class="section-description">
+                Use Chrome on your computer, including when Agent Zero runs in Docker. Connect it once as your default browser, then approve the sites it can use.
+              </div>
+            </div>
+
           </div>
 
+          <div class="browser-config-note" role="status" aria-live="polite">
+            <x-icon
+              :class="{ spinning: $store.browserConfig.pairingStatusLoading }"
+              :name="$store.browserConfig.pairingStatusLoading ? 'progress_activity' : 'link'"
+            ></x-icon>
+            <span x-text="$store.browserConfig.pairingStatusLabel()"></span>
+          </div>
+
+          <details class="browser-setup-steps" :open="$store.browserConfig.pairingStatus.state !== 'paired'">
+            <summary x-text="$store.browserConfig.pairingStatus.state === 'paired' ? 'Connect another browser' : 'Connect Chrome once'"></summary>
+            <ol class="browser-setup-list">
+              <li>
+                <span>Install the Agent Zero Chrome extension.</span>
+                <a class="browser-pairing-button" x-show="$store.browserBridgeSetup.setup?.extension_url"
+                  :href="$store.browserBridgeSetup.setup?.extension_url" target="_blank" rel="noopener noreferrer">Open Chrome Web Store</a>
+              </li>
+              <li>
+                <span>Install the companion on the computer running Chrome.</span>
+                <label class="browser-config-field">
+                  <span class="browser-config-field-label">Your computer</span>
+                  <select x-model="$store.browserBridgeSetup.platform">
+                    <option value="">Choose an operating system</option>
+                    <option value="macos">macOS</option><option value="windows">Windows</option><option value="linux">Linux</option>
+                  </select>
+                </label>
+                <p class="browser-config-field-help" role="status" x-text="$store.browserBridgeSetup.availabilityText()"></p>
+                <template x-for="installer in $store.browserBridgeSetup.installers()" :key="installer.platform + ':' + installer.arch">
+                  <a class="browser-pairing-button" :href="installer.url" target="_blank" rel="noopener noreferrer"
+                    x-text="$store.browserBridgeSetup.installerLabel(installer)"></a>
+                </template>
+                <p class="browser-config-field-help" x-show="$store.browserBridgeSetup.installers().length">Publisher-provided downloads. The companion installer verifies the signed release on your computer before installation. Never install it inside Docker.</p>
+              </li>
+              <li>Open the extension's Settings, enter this Agent Zero address and the pairing code below, then choose Pair browser. Select Use this Chrome browser below once; Agent Zero remembers it across chats.</li>
+            </ol>
+
           <label class="browser-config-field">
+            <span class="browser-config-field-label">Browser name</span>
+            <input
+              type="text"
+              maxlength="192"
+              autocomplete="off"
+              spellcheck="false"
+              x-model="$store.browserConfig.pairingDisplayName"
+              :disabled="$store.browserConfig.pairingActionLoading"
+            />
+            <span class="browser-config-field-help">
+              Choose a name you will recognize, such as “My laptop”.
+            </span>
+          </label>
+
+          <template x-if="$store.browserConfig.pairingCodeAvailable()">
+            <div class="browser-pairing-code-card">
+              <div class="browser-pairing-code-heading">
+                <span>Single-use pairing code</span>
+                <span x-text="$store.browserConfig.pairingExpiryLabel()"></span>
+              </div>
+              <code
+                class="browser-pairing-code"
+                tabindex="0"
+                aria-label="Single-use browser companion pairing code"
+                x-text="$store.browserConfig.pairingCode"
+              ></code>
+              <div class="browser-config-field-help">
+                Anyone with this code can pair during its five-minute lifetime. Enter it only in the Agent Zero browser companion. It cannot be shown again after this panel closes.
+              </div>
+              <div class="browser-pairing-server" x-show="$store.browserConfig.pairingServerBaseUrl">
+                <span>Agent Zero</span>
+                <span x-text="$store.browserConfig.pairingServerBaseUrl"></span>
+              </div>
+              <div class="browser-pairing-actions">
+                <button
+                  type="button"
+                  class="browser-pairing-button browser-pairing-button-primary"
+                  @click="$store.browserConfig.copyBrowserBridgePairingCode()"
+                >
+                  <x-icon name="content_copy"></x-icon>
+                  <span>Copy code</span>
+                </button>
+                <button
+                  type="button"
+                  class="browser-pairing-button"
+                  :disabled="!$store.browserConfig.canCreateBrowserBridgePairing()"
+                  @click="$store.browserConfig.createBrowserBridgePairing()"
+                >
+                  <x-icon name="refresh"></x-icon>
+                  <span>Regenerate</span>
+                </button>
+                <button
+                  type="button"
+                  class="browser-pairing-button browser-pairing-button-danger"
+                  :disabled="$store.browserConfig.pairingActionLoading"
+                  @click="$store.browserConfig.cancelBrowserBridgePairing()"
+                >
+                  <x-icon name="cancel"></x-icon>
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <div class="browser-pairing-actions" x-show="!$store.browserConfig.pairingCodeAvailable()">
+            <button
+              type="button"
+              class="browser-pairing-button browser-pairing-button-primary"
+              :disabled="!$store.browserConfig.canCreateBrowserBridgePairing()"
+              @click="$store.browserConfig.createBrowserBridgePairing()"
+            >
+              <x-icon :name="$store.browserConfig.pairingActionLoading ? 'progress_activity' : 'key'"></x-icon>
+              <span x-text="$store.browserConfig.pairingPrimaryActionLabel()"></span>
+            </button>
+            <button
+              type="button"
+              class="browser-pairing-button browser-pairing-button-danger"
+              x-show="$store.browserConfig.pairingStatus.state === 'pairing_pending' && $store.browserConfig.pairingStatus.pairingId"
+              :disabled="$store.browserConfig.pairingActionLoading"
+              @click="$store.browserConfig.cancelBrowserBridgePairing()"
+            >
+              <x-icon name="cancel"></x-icon>
+              <span>Cancel pending code</span>
+            </button>
+          </div>
+
+          <div class="browser-config-warning">
+            <x-icon name="computer"></x-icon>
+            <span>
+              Install the companion on the same computer as Chrome, not inside Docker. Your saved pairing stays on that computer; only revoking access or resetting its profile requires pairing again.
+            </span>
+          </div>
+          </details>
+          <template x-if="$store.browserBridgeAccess">
+            <section class="browser-bridge-access" aria-labelledby="browser-access-title"
+              x-init="$store.browserBridgeAccess.mount(); $store.browserBridgeSelection.mount(context)"
+              x-destroy="$store.browserBridgeAccess.cleanup(); $store.browserBridgeSelection.cleanup()"
+              :aria-busy="$store.browserBridgeAccess.loading || $store.browserBridgeAccess.busy">
+              <div class="browser-pairing-heading">
+                <h3 id="browser-access-title">Paired browsers &amp; site access</h3>
+                <button type="button" class="browser-pairing-button" @click="$store.browserConfig.refreshProductionBrowserStatus()"
+                  :disabled="$store.browserBridgeAccess.loading || $store.browserBridgeAccess.busy">
+                  <x-icon name="refresh"></x-icon><span>Check connection</span>
+                </button>
+              </div>
+              <p class="browser-config-field-help" role="status" x-show="$store.browserBridgeAccess.inventoryState === 'not_checked'">Checking paired browsers…</p>
+              <p class="browser-config-field-help" role="status" x-show="$store.browserBridgeAccess.inventoryState === 'unavailable'">Browser access could not be checked. Refresh to retry.</p>
+              <p class="browser-config-field-help" x-show="$store.browserBridgeAccess.inventoryState === 'loaded' &amp;&amp; !$store.browserBridgeAccess.bridges.length">No browsers paired yet. Use the pairing code above to connect your browser computer.</p>
+              <template x-if="$store.browserBridgeAccess.bridges.length">
+                <div>
+                  <label class="browser-config-field">
+                    <span class="browser-config-field-label">Paired browser</span>
+                    <select :value="$store.browserBridgeAccess.selectedId" @change="$store.browserBridgeAccess.selectBridge($event.target.value)"
+                      :disabled="$store.browserBridgeAccess.busy || $store.browserBridgeAccess.loading">
+                      <template x-for="bridge in $store.browserBridgeAccess.bridges" :key="bridge.id">
+                        <option :value="bridge.id" x-text="bridge.name + (bridge.state === 'revoked' ? ' — revoked' : '')"></option>
+                      </template>
+                    </select>
+                  </label>
+                  <p class="browser-config-field-help" x-show="$store.browserBridgeAccess.selectedBridge()?.state === 'revoked'">Access revoked. Pair this browser again to reconnect. Existing tabs are left open.</p>
+                  <template x-if="$store.browserBridgeAccess.selectedBridge()?.state === 'active'">
+                    <div>
+                      <p class="browser-config-field-help" role="status" x-text="$store.browserBridgeSelection.statusText()"></p>
+                      <p class="browser-config-field-help" x-show="$store.browserBridgeSelection.contextStatusText()" x-text="$store.browserBridgeSelection.contextStatusText()"></p>
+                      <div class="browser-pairing-actions">
+                        <button type="button" class="browser-pairing-button"
+                          @click="$store.browserBridgeSelection.useBrowser($store.browserBridgeAccess.selectedId)"
+                          :disabled="!$store.browserBridgeSelection.canSelect($store.browserBridgeAccess.selectedId)">
+                          <x-icon name="desktop_windows"></x-icon>
+                          <span x-text="$store.browserBridgeSelection.selectedDefault($store.browserBridgeAccess.selectedId) ? 'Default Chrome browser' : 'Use this Chrome browser'"></span>
+                        </button>
+                        <button type="button" class="browser-pairing-button" @click="$store.browserBridgeSelection.clear()"
+                          x-show="$store.browserBridgeSelection.defaultSelection?.selected"
+                          :disabled="$store.browserBridgeSelection.busy || $store.browserBridgeSelection.loading">Use internal browser</button>
+                      </div>
+                      <p class="browser-config-field-help">Saved permissions do not enable browser control or approve purchases, submissions, or other consequential actions. Chrome permissions are checked separately.</p>
+                      <div class="browser-config-switch-row">
+                        <span class="browser-config-switch-copy">
+                          <span class="browser-config-field-label">All websites</span>
+                          <span class="browser-config-field-help">Allow browsing once for this Chrome browser, across chats. Restricted pages and separate action approvals still apply.</span>
+                        </span>
+                        <button type="button" class="browser-pairing-button"
+                          :disabled="!$store.browserBridgeAccess.canManageSites() || $store.browserBridgeAccess.policyState !== 'loaded'"
+                          @click="$store.browserBridgeAccess.setAllWebsites($store.browserBridgeAccess.siteMode !== 'allow_all_websites')"
+                          x-text="$store.browserBridgeAccess.siteMode === 'allow_all_websites' ? 'Turn off all-websites access' : 'Allow all websites'"></button>
+                      </div>
+                      <p class="browser-config-field-help" x-show="$store.browserBridgeAccess.policyState === 'loaded' &amp;&amp; $store.browserBridgeAccess.siteMode === 'allow_all_websites'">All supported websites are allowed. Turning this off keeps the individually saved sites below.</p>
+                      <form class="browser-site-form" @submit.prevent="$store.browserBridgeAccess.allowSite()">
+                        <label class="browser-config-field">
+                          <span class="browser-config-field-label">Website address</span>
+                          <input type="url" placeholder="https://example.com" maxlength="2048" autocomplete="off" spellcheck="false"
+                            aria-describedby="browser-site-origin-help" x-model="$store.browserBridgeAccess.originDraft"
+                            :disabled="$store.browserBridgeAccess.busy" />
+                          <span id="browser-site-origin-help" class="browser-config-field-help">Enter a website address such as https://example.com, without a page path.</span>
+                        </label>
+                        <button type="submit" class="browser-pairing-button" :disabled="!$store.browserBridgeAccess.canAllowSite()">Allow site</button>
+                      </form>
+                      <p class="browser-config-field-help" role="status" x-show="$store.browserBridgeAccess.policyState === 'loading'">Checking saved site permissions…</p>
+                      <p class="browser-config-field-help" role="status" x-show="$store.browserBridgeAccess.policyState === 'unavailable'">Site permissions could not be checked. Check connection to retry.</p>
+                      <p class="browser-config-field-help" x-show="$store.browserBridgeAccess.policyState === 'loaded' &amp;&amp; $store.browserBridgeAccess.siteMode !== 'allow_all_websites' &amp;&amp; !$store.browserBridgeAccess.grants.length">No sites allowed. Site access is denied unless you grant permission.</p>
+                      <ul class="browser-site-grants" aria-label="Allowed sites">
+                        <template x-for="grant in $store.browserBridgeAccess.grants" :key="grant.id">
+                          <li><span x-text="grant.origin"></span><button type="button" class="browser-pairing-button"
+                            :aria-label="'Remove permission for ' + grant.origin" :disabled="$store.browserBridgeAccess.busy"
+                            @click="$store.browserBridgeAccess.revokeSite(grant.origin)">Remove</button></li>
+                        </template>
+                      </ul>
+                      <button type="button" class="browser-pairing-button browser-pairing-button-danger"
+                        :disabled="!$store.browserBridgeAccess.canManageSites()" @click="$store.browserBridgeAccess.revokeBridge()">
+                        <x-icon name="link_off"></x-icon><span>Revoke browser access</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </section>
+          </template>
+        </div>
+
+        <details class="browser-config-card browser-advanced-settings">
+          <summary class="section-title">Internal browser and advanced host connection</summary>
+          <div class="section-description">
+            The internal browser needs no Chrome setup. Launcher and A0 CLI host connections use the advanced browser setup below.
+          </div>
+
+          <label class="browser-config-field" x-show="!$store.browserConfig.isCompanionSelected()">
             <span class="browser-config-field-label">Browser location</span>
             <select x-model="$store.browserConfig.config.runtime_backend">
               <option value="container">Internal Docker browser</option>
-              <option value="host_required">Host browser on connected computer</option>
+              <option value="host_required">Advanced: Launcher or A0 CLI host browser</option>
             </select>
             <span
               class="browser-config-field-help"
@@ -35,9 +268,13 @@
             </span>
             <span
               class="browser-config-field-help"
-              x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
+              x-show="$store.browserConfig.config.runtime_backend === 'host_required' &amp;&amp; !$store.browserConfig.isCompanionSelected()"
             >
               Uses Safari, Chrome, Edge, Brave, Opera, Vivaldi, or Chromium on a computer connected through Launcher or A0 CLI. The browser opens when the agent first needs it.
+            </span>
+            <span class="browser-config-field-help"
+              x-show="$store.browserConfig.isDevelopmentBrowserSelected()">
+              This old development connection is retired. Pair and select the production Chrome extension above; no access is transferred automatically.
             </span>
           </label>
 
@@ -100,7 +337,7 @@
 
           <label
             class="browser-config-field"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' &amp;&amp; !$store.browserConfig.isCompanionSelected()"
           >
             <span class="browser-config-field-label">Host browser profile</span>
             <select x-model="$store.browserConfig.config.host_browser_profile_mode">
@@ -117,7 +354,7 @@
 
           <label
             class="browser-config-field"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && !$store.browserConfig.isCompanionSelected() && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
           >
             <span class="browser-config-field-label">Host browser</span>
             <select
@@ -135,7 +372,7 @@
 
           <label
             class="browser-config-field"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent' && $store.browserConfig.showCustomHostBrowserEndpoint()"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && !$store.browserConfig.isCompanionSelected() && $store.browserConfig.config.host_browser_profile_mode !== 'agent' && $store.browserConfig.showCustomHostBrowserEndpoint()"
           >
             <span class="browser-config-field-label">Custom endpoint</span>
             <input
@@ -151,7 +388,7 @@
 
           <div
             class="browser-config-guide"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && !$store.browserConfig.isCompanionSelected() && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
           >
             <div class="browser-config-guide-heading">
               <x-icon name="tune"></x-icon>
@@ -229,7 +466,7 @@
 
           <div
             class="browser-config-warning"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
+            x-show="$store.browserConfig.config.runtime_backend === 'host_required' && !$store.browserConfig.isCompanionSelected() && $store.browserConfig.config.host_browser_profile_mode !== 'agent'"
           >
             <x-icon name="warning"></x-icon>
             <span>
@@ -255,10 +492,10 @@
             <x-icon :class="{ spinning: $store.browserConfig.hostBrowserStatusLoading }" :name="$store.browserConfig.hostBrowserStatusLoading ? 'progress_activity' : 'captive_portal'"></x-icon>
             <span x-text="$store.browserConfig.browserRuntimeStatusLabel()"></span>
           </div>
-        </div>
+        </details>
 
-        <div class="browser-config-card">
-          <div class="section-title">Browsing</div>
+        <details class="browser-config-card">
+          <summary class="section-title">Internal browser preferences</summary>
           <div class="section-description">
             Set how new Browser sessions start and how an already-open Browser surface follows agent activity.
           </div>
@@ -345,7 +582,7 @@
           <label class="browser-config-switch-row">
             <span class="browser-config-switch-copy">
               <span class="browser-config-field-label">Autofocus active page</span>
-              <span class="browser-config-field-help">Update the visible Browser surface for pages opened or changed by Browser tool results.</span>
+              <span class="browser-config-field-help">Follow the active page, including Agent Zero's Chrome tab during browser actions. Turn off to stay in your current tab. Reading pages and background updates never switch Chrome tabs.</span>
             </span>
             <span class="browser-config-toggle-with-label">
               <span class="browser-config-toggle-label" x-text="$store.browserConfig.autofocusLabel()"></span>
@@ -359,10 +596,10 @@
               </span>
             </span>
           </label>
-        </div>
+        </details>
 
-        <div class="browser-config-card">
-          <div class="section-title">Extensions</div>
+        <details class="browser-config-card">
+          <summary class="section-title">Internal browser add-ons</summary>
           <div class="section-description">
             Choose which installed Chrome extensions Browser loads.
           </div>
@@ -431,7 +668,7 @@
               Ready
             </span>
           </div>
-        </div>
+        </details>
       </div>
     </template>
   </div>
@@ -457,6 +694,19 @@
       flex-direction: column;
       gap: 6px;
     }
+
+    .browser-pairing-card { border: 0; padding: 0; }
+    details.browser-config-card { display: block; }
+    details.browser-config-card[open] > :not(summary) { margin-top: 14px; }
+    .browser-setup-steps > summary,
+    details.browser-config-card > summary { cursor: pointer; padding-block: 8px; }
+    .browser-setup-steps > summary:focus-visible,
+    details.browser-config-card > summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+    .browser-setup-steps > :not(summary) { margin-block: 14px; }
+    .browser-setup-list { display: grid; gap: 18px; padding-left: 24px; }
+    .browser-setup-list li { padding-left: 4px; line-height: 1.5; }
+    .browser-setup-list li > * { margin-top: 8px; }
+    .browser-setup-list .browser-pairing-button { max-width: 100%; white-space: normal; text-decoration: none; }
 
     .browser-config-field-label {
       color: var(--color-text);
@@ -494,6 +744,7 @@
     .browser-config-field input[type="text"],
     .browser-config-field input[type="password"],
     .browser-config-field input[type="number"],
+    .browser-config-field input[type="url"],
     .browser-config-field select {
       width: 100%;
       min-height: 36px;
@@ -700,6 +951,143 @@
       color: color-mix(in srgb, var(--color-text) 88%, #166534);
     }
 
+    .browser-config-note.browser-config-error {
+      background: color-mix(in srgb, #be123c 10%, var(--color-background));
+      color: color-mix(in srgb, var(--color-text) 88%, #9f1239);
+    }
+
+    .browser-bridge-access {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .browser-bridge-access h3 { margin: 0; font-size: 1rem; }
+    .browser-site-form { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .browser-site-form > label { flex: 1 1 16rem; min-width: 0; }
+    .browser-site-grants { list-style: none; padding: 0; margin: 1rem 0; }
+    .browser-site-grants li { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; }
+    .browser-site-grants li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .browser-bridge-access input { caret-color: var(--color-primary); }
+    .browser-bridge-access ::selection { background: var(--color-primary); color: var(--color-background); }
+
+    .browser-pairing-heading,
+    .browser-pairing-code-heading,
+    .browser-pairing-server {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .browser-pairing-heading > div {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .browser-pairing-code-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid color-mix(in srgb, var(--color-primary) 38%, var(--color-border));
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--color-primary) 7%, var(--color-background));
+    }
+
+    .browser-pairing-code-heading {
+      color: var(--color-text-secondary);
+      font-size: 0.78rem;
+      font-weight: 650;
+    }
+
+    .browser-pairing-code {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      overflow-wrap: anywhere;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+      border-radius: 8px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: clamp(0.82rem, 2.2vw, 1rem);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1.45;
+      text-align: center;
+      user-select: all;
+    }
+
+    .browser-pairing-server {
+      color: var(--color-text-secondary);
+      font-size: 0.78rem;
+    }
+
+    .browser-pairing-server span:last-child {
+      overflow-wrap: anywhere;
+      color: var(--color-text);
+      text-align: right;
+    }
+
+    .browser-pairing-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .browser-pairing-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-panel) 88%, var(--color-background));
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .browser-pairing-button:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+      background: color-mix(in srgb, var(--color-primary) 10%, var(--color-background));
+    }
+
+    .browser-pairing-button:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .browser-pairing-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .browser-pairing-button-primary {
+      border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+      background: var(--color-primary);
+      color: var(--color-primary-text, #fff);
+    }
+
+    .browser-pairing-button-primary:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--color-primary) 86%, #000);
+    }
+
+    .browser-pairing-button-danger {
+      color: color-mix(in srgb, #be123c 78%, var(--color-text));
+    }
+
+    .browser-pairing-button .material-symbols-outlined {
+      font-size: 18px;
+    }
+
     .browser-config-guide {
       display: flex;
       flex-direction: column;
@@ -879,6 +1267,37 @@
       color: #1b5e20;
       border-color: rgba(27, 94, 32, 0.18);
       background: rgba(46, 125, 50, 0.12);
+    }
+
+    @media (max-width: 520px) {
+      .browser-pairing-heading,
+      .browser-pairing-code-heading,
+      .browser-pairing-server {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .browser-pairing-server span:last-child {
+        text-align: left;
+      }
+
+      .browser-pairing-button {
+        flex: 1 1 100%;
+      }
+
+      .browser-bridge-access .browser-pairing-button {
+        min-height: 44px;
+      }
+
+      .browser-site-grants li {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .browser-site-grants .browser-pairing-button {
+        flex: 0 0 auto;
+        width: 100%;
+      }
     }
   </style>
 </body>

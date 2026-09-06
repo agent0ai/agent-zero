@@ -37,6 +37,22 @@
 
 ## Runtime Contracts
 
+- `ConnectionInfo` retains an immutable restricted principal and a server-owned
+  liveness callback. Restricted connections do not join legacy user buckets,
+  global lifecycle/dispatch, diagnostic watchers, broadcast fan-out, or buffers.
+  New authentication for the same principal invalidates the old SID before
+  transport disconnect. Unknown/duplicate disconnect callbacks are no-ops.
+- Incoming per-SID requests require the exact bound handler and current
+  credential. Outgoing direct sends require both event and handler allowlists
+  plus current credential validation; denial raises `WsScopeDeniedError`.
+  Sends and queued handler work bind to a specific `ConnectionInfo` generation,
+  so delayed work cannot cross a disconnect/replacement boundary.
+- Restricted payloads and raw handler errors are excluded from developer
+  diagnostics. Denials retain only a typed code and timestamp in a bounded
+  128-entry local audit deque. Raised exceptions and `WsResult.error` details
+  are redacted. No restricted reconnect buffering is implemented or permitted.
+- `handle_connect(..., principal=..., principal_validator=...)` is additive;
+  callers without a principal retain ordinary session and buffering behavior.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem deletion, network calls, WebSocket state, settings/state persistence, scheduler state.
@@ -55,6 +71,11 @@
 
 ## Verification
 
+- `tests/test_ws_restricted_principal.py` covers direct/broadcast/replay denies,
+  duplicate disconnect, same-principal replacement, connection-generation
+  isolation, liveness, and error redaction. Run existing `test_ws_manager.py`
+  to prove legacy envelopes, diagnostics, buffers, filters and fan-out remain
+  compatible.
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_browser_agent_regressions.py`

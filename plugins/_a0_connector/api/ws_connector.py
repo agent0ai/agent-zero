@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import unquote, urlsplit
 
@@ -75,6 +76,7 @@ _SNAPSHOT_REPLAY_PAGE_SIZE = 50
 _TAIL_HISTORY_PAGE_SIZE = 100
 _LIVE_STREAM_PAGE_SIZE = 100
 _ATTACHMENT_METADATA_DECODE_LIMIT = 3
+_BRIDGE_ERROR_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 
 
 def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
@@ -105,6 +107,25 @@ def _attachment_log_metadata(attachments: list[str]) -> dict[str, list[str]]:
     return {"attachments": names} if names else {}
 
 
+def _browser_bridge_error(error: Exception, *, hello: bool) -> WsResult:
+    """Project only a bounded symbolic bridge failure, never exception text."""
+
+    candidate = getattr(error, "code", None)
+    code = (
+        candidate
+        if isinstance(candidate, str) and _BRIDGE_ERROR_CODE.fullmatch(candidate)
+        else ("INVALID_HELLO" if hello else "BRIDGE_REQUEST_FAILED")
+    )
+    return WsResult.error(
+        code=code,
+        message=(
+            "Browser bridge hello rejected"
+            if hello
+            else "Browser bridge request rejected"
+        ),
+    )
+
+
 class WsConnector(WsHandler):
     _streaming_tasks: ClassVar[dict[tuple[str, str], asyncio.Task[None]]] = {}
 
@@ -120,11 +141,42 @@ class WsConnector(WsHandler):
     def requires_api_key(cls) -> bool:
         return False
 
+    @classmethod
+    def accepted_principal_types(cls) -> frozenset[str]:
+        return frozenset({"browser_bridge"})
+
+    @classmethod
+    def authenticate_principal(cls, auth: dict):
+        from plugins._a0_connector.helpers.browser_bridge_session import authenticate
+        return authenticate(auth, handler_id=f"{cls.__module__}.{cls.__name__}")
+
+    @classmethod
+    def principal_is_active(cls, principal) -> bool:
+        from plugins._a0_connector.helpers.browser_bridge_session import is_active
+        return is_active(principal)
+
     async def on_connect(self, sid: str) -> None:
+        if self.principal_for_sid(sid) is not None:
+            return
         register_sid(sid)
         PrintStyle.debug(f"[a0-connector] /ws connected: {sid}")
 
     async def on_disconnect(self, sid: str) -> None:
+        principal = self.principal_for_sid(sid)
+        if principal is not None:
+            from plugins._a0_connector.helpers.browser_bridge_bootstrap import (
+                get_browser_bridge_application,
+            )
+
+            application = get_browser_bridge_application()
+            if application is not None:
+                try:
+                    await application.disconnect(principal, sid)
+                except Exception:
+                    # The shared manager owns socket teardown. Browser cleanup
+                    # is fail-isolated and can grant no authority on failure.
+                    pass
+            return
         contexts = unregister_sid(sid)
         for context_id in contexts:
             self._cancel_streaming(sid, context_id)
@@ -162,6 +214,54 @@ class WsConnector(WsHandler):
         data: dict[str, Any],
         sid: str,
     ) -> dict[str, Any] | WsResult | None:
+        principal = self.principal_for_sid(sid)
+        if principal is not None:
+            if (
+                self._principal_sid != sid
+                or self.manager.principal_for_sid(self.namespace, sid) is not principal
+                or not principal.permits_inbound(event, self.identifier)
+                or not self.principal_is_active(principal)
+            ):
+                return WsResult.error(code="SCOPE_DENIED", message="Access denied")
+            from plugins._a0_connector.helpers.browser_bridge_bootstrap import (
+                admitted_hello_projection,
+                get_browser_bridge_application,
+                register_browser_bridge_hello,
+            )
+            from plugins._a0_connector.helpers.browser_bridge_session import hello
+
+            # WsManager owns and sanitizes this transport correlation field.
+            # Strict bridge documents must not receive envelope metadata; keep
+            # the manager's original payload intact for the correlated ACK.
+            document = dict(data)
+            document.pop("correlationId", None)
+            application = get_browser_bridge_application()
+            if application is None:
+                if event == "connector_hello":
+                    return hello(document)
+                return WsResult.error(
+                    code="RUNTIME_NOT_ADMITTED",
+                    message="Browser bridge runtime is not admitted",
+                )
+            if event == "connector_hello":
+                try:
+                    route = register_browser_bridge_hello(
+                        principal=principal,
+                        connector_sid=sid,
+                        data=document,
+                    )
+                    if route is None:
+                        return hello(document)
+                    return admitted_hello_projection(route)
+                except Exception as error:
+                    from plugins._a0_connector.helpers.browser_bridge_application import record_production_browser_stage
+
+                    record_production_browser_stage("HELLO_REJECTED")
+                    return _browser_bridge_error(error, hello=True)
+            try:
+                return await application.dispatch(principal, sid, event, document)
+            except Exception as error:
+                return _browser_bridge_error(error, hello=False)
         if event == "connector_hello":
             self._store_remote_tool_metadata(data, sid)
             self._associate_declared_context(data, sid)

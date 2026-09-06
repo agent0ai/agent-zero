@@ -49,6 +49,13 @@
 - Authenticated extension asset routes serve root-contained files from both `extensions/webui/` and `usr/extensions/webui/`, matching the URLs emitted by the WebUI extension manifest.
 - The authenticated `/` route uses `serve_splash()` to return the no-store, self-contained bootstrap document. The authenticated extensionless `/ui/index` route renders the existing index and runtime/user placeholders for the splash to install into the current document without navigation; `/index.html` remains a direct fallback for the same rendering path. The authenticated `/safe` route first returns a no-store, self-contained document that unregisters all origin service workers, then renders the existing index through `serve_index()` when its internal `__direct=1` marker is present; it never initializes the asset bundle or a worker. The authenticated `serve_ui_asset_bundle()` endpoint passes the application entry URL to the generic recursive bundler and supports gzip transfer and payload-specific ETag revalidation while component, extension, and Alpine lifecycles remain unchanged.
 - The Starlette HTTP branch applies negotiated gzip to responses of at least 1 KiB at compression level 6 while preserving already encoded responses; Socket.IO remains outside that middleware branch.
+- `create` end hooks receive the constructed runtime before route registration.
+  Service installation belongs to `webui_server_start`, called inside each ASGI
+  lifespan with `runtime` and a fresh `shutdown` AsyncExitStack. Hooks register
+  cleanup on that stack; startup failure, serving failure and normal shutdown
+  all await it, even if plugins are subsequently disabled. Uvicorn retries can
+  reuse the server object without reusing retired services or a spent stack.
+  The shared server imports no plugin services.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

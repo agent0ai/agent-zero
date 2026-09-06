@@ -1,0 +1,80 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/plugins/_browser/webui/browser-site-requests-store.js";
+  </script>
+</head>
+<body>
+  <!-- Compact consent strip; secondary scopes stay discoverable without
+       competing with the explicit remembered-site choice. -->
+  <section class="browser-site-requests" x-data x-init="$store.browserSiteRequests.mount()"
+    x-destroy="$store.browserSiteRequests.cleanup()" aria-label="Browser site requests" x-cloak
+    x-show="$store.browserSiteRequests.visibleRequests().length || $store.browserSiteRequests.visibleNotice()">
+    <template x-for="request in $store.browserSiteRequests.visibleRequests()" :key="request.id">
+      <div class="browser-site-request" :aria-busy="$store.browserSiteRequests.busyId === request.id">
+        <div class="browser-site-request-main">
+          <x-icon class="browser-site-request-icon" name="language" aria-hidden="true"></x-icon>
+          <div class="browser-site-request-copy">
+            <p class="browser-site-request-origin" x-text="request.origin"></p>
+            <p class="browser-site-request-caption" x-text="request.canRemember ? 'Read and navigate. Remember for future chats.' : 'Allow navigation to this site?' "></p>
+          </div>
+          <div class="browser-site-request-actions">
+          <button type="button" class="button confirm" x-show="request.canRemember"
+            :disabled="!$store.browserSiteRequests.canDecide(request) || request.expires &lt;= $store.browserSiteRequests.clock"
+            @click="$store.browserSiteRequests.decide(request, 'allow_site')">Always allow site</button>
+          <button type="button" class="button confirm" x-show="!request.canRemember"
+            :disabled="!$store.browserSiteRequests.canDecide(request) || request.expires &lt;= $store.browserSiteRequests.clock"
+            @click="$store.browserSiteRequests.decide(request, 'allow_once')">Allow once</button>
+          <button type="button" class="text-button" :disabled="!$store.browserSiteRequests.canDecide(request) || request.expires &lt;= $store.browserSiteRequests.clock"
+            @click="$store.browserSiteRequests.decide(request, 'deny')">Deny</button>
+          </div>
+        </div>
+        <details class="browser-site-request-options">
+          <summary>More options</summary>
+          <div class="browser-site-request-secondary">
+            <button type="button" class="button" x-show="request.canRemember"
+              :disabled="!$store.browserSiteRequests.canDecide(request) || request.expires &lt;= $store.browserSiteRequests.clock"
+              @click="$store.browserSiteRequests.decide(request, 'allow_once')">Allow once</button>
+            <button type="button" class="button" :disabled="!$store.browserSiteRequests.canDecide(request) || request.expires &lt;= $store.browserSiteRequests.clock"
+              @click="$store.browserSiteRequests.decide(request, 'allow_turn')">Allow this turn</button>
+          </div>
+          <p class="browser-site-request-help">Purchases, submissions, and other consequential actions need separate approval.</p>
+          <p class="browser-site-request-help" x-show="request.canRemember">Saved access applies only to this exact site in this Chrome browser. Remove it in Browser settings.</p>
+        </details>
+      </div>
+    </template>
+    <p class="browser-site-request-help" role="status" x-show="$store.browserSiteRequests.visibleNotice()">
+      <span x-text="$store.browserSiteRequests.visibleNotice()"></span>
+      <button type="button" class="text-button" x-show="$store.browserSiteRequests.hasUnconfirmedDecision()" @click="$store.browserSiteRequests.refresh()"
+        :disabled="$store.browserSiteRequests.loading">Check status</button>
+    </p>
+  </section>
+  <style>
+    .browser-site-requests { flex: 0 0 auto; max-height: min(40vh, 320px); overflow: auto; color: var(--color-text); scrollbar-color: var(--color-border) transparent; }
+    .browser-site-requests ::selection { background: var(--color-primary); color: var(--color-background); }
+    .browser-site-request { padding: 12px; border-bottom: 1px solid var(--color-border); }
+    .browser-site-request-main { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .browser-site-request-icon { flex: 0 0 auto; font-size: 20px; color: var(--color-text-muted); }
+    .browser-site-request-copy { flex: 1 1 180px; min-width: 0; }
+    .browser-site-request p { margin: 0; }
+    .browser-site-request-origin { overflow-wrap: anywhere; font-size: .875rem; line-height: 1.4; font-weight: 500; }
+    .browser-site-request-caption { color: var(--color-text-muted); font-size: .75rem; line-height: 1.5; }
+    .browser-site-request-actions, .browser-site-request-secondary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .browser-site-requests .button { min-height: 36px; padding: 6px 12px; font-size: .8125rem; }
+    .browser-site-requests .text-button { min-height: 36px; font-size: .8125rem; }
+    .browser-site-request-options { margin: 4px 0 0 32px; font-size: .75rem; color: var(--color-text-muted); }
+    .browser-site-request-options summary { width: fit-content; padding: 4px 0; cursor: pointer; border-radius: 3px; }
+    .browser-site-request-options summary:hover { color: var(--color-text); }
+    .browser-site-request-secondary { padding: 8px 0; }
+    .browser-site-request .browser-site-request-help { max-width: 72ch; margin-top: 4px; font-size: .75rem; line-height: 1.5; }
+    .browser-site-requests > .browser-site-request-help { margin: 8px 12px; font-size: .75rem; }
+    .browser-site-requests :is(button, summary):focus-visible { outline: 2px solid var(--color-highlight); outline-offset: 2px; }
+    .browser-site-requests button:disabled { opacity: .5; cursor: not-allowed; }
+    @media (max-width: 480px) {
+      .browser-site-request-actions { margin-left: 32px; flex-basis: 100%; }
+      .browser-site-requests :is(button, summary) { min-height: 44px; }
+      .browser-site-request-options summary { display: flex; align-items: center; }
+    }
+  </style>
+</body>
+</html>

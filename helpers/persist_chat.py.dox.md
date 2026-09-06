@@ -47,6 +47,11 @@
 - Chat loading skips directories that do not contain `chat.json`; malformed existing chat files still report load errors.
 - Chat saves write and fsync a same-directory temporary file, atomically replace `chat.json`, and fsync the directory so an interrupted save cannot truncate the previous chat.
 - Contexts are marked with private `SAVED_CHAT_CONTEXT_DATA_KEY` only after a successful save or load from disk so snapshot code can detect deleted chat files without hiding fresh unsaved chats.
+- `_serialize_context` and `_deserialize_context` use generic synchronous
+  `extension.extensible` hooks. Plugin-owned migration may quarantine exact
+  owned fields before save/export or load/import; Core persistence contains no
+  plugin-specific imports, selectors, or redaction rules. A start-hook failure
+  prevents serialization/deserialization rather than persisting partial data.
 - Chat and message-file removal reject empty or whitespace-only context IDs before provider or filesystem deletion begins.
 
 ## Key Concepts
