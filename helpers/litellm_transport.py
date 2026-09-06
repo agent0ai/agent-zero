@@ -471,6 +471,29 @@ class LiteLLMTransport:
         }
 
 
+class _ChatReasoningFilter:
+    marker = "__ENCRYPTED_REASONING__"
+
+    def __init__(self) -> None:
+        self.pending = ""
+        self.encrypted = False
+
+    def feed(self, text: str, *, final: bool = False) -> str:
+        if self.encrypted:
+            return ""
+        text = self.pending + text
+        self.pending = ""
+        if self.marker in text:
+            self.encrypted = True
+            return text.partition(self.marker)[0]
+        if not final:
+            for length in range(min(len(text), len(self.marker) - 1), 0, -1):
+                if text.endswith(self.marker[:length]):
+                    self.pending = text[-length:]
+                    return text[:-length]
+        return text
+
+
 class ChatCompletionsTransport:
     @staticmethod
     def prepare_messages(
@@ -514,7 +537,9 @@ class ChatCompletionsTransport:
         return {key: value for key, value in chat_kwargs.items() if value is not None}
 
     @staticmethod
-    def parse(chunk: Any) -> ChatChunk:
+    def parse(
+        chunk: Any, *, reasoning_filter: _ChatReasoningFilter | None = None
+    ) -> ChatChunk:
         choice = _first_choice(chunk)
         delta = _get_value(choice, "delta") or {}
         message = _get_value(choice, "message") or _get_value(
@@ -526,6 +551,9 @@ class ChatCompletionsTransport:
         reasoning_delta = _get_value(delta, "reasoning_content") or _get_value(
             message, "reasoning_content"
         ) or ""
+        reasoning_delta = (reasoning_filter or _ChatReasoningFilter()).feed(
+            reasoning_delta, final=reasoning_filter is None
+        )
         parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
         if not response_delta:
             tool_calls = _as_list(_get_value(message, "tool_calls"))
@@ -591,6 +619,7 @@ class ChatCompletionsTransport:
 
 class ChatCompletionsStreamParser:
     def __init__(self) -> None:
+        self.reasoning_filter = _ChatReasoningFilter()
         self.tool_calls: dict[str, dict[str, Any]] = {}
         self.order: list[str] = []
         self.emitted = False
@@ -599,7 +628,7 @@ class ChatCompletionsStreamParser:
     def parse(self, chunk: Any) -> ChatChunk:
         if usage := _reported_usage(chunk):
             self.usage.update(usage)
-        parsed = ChatCompletionsTransport.parse(chunk)
+        parsed = ChatCompletionsTransport.parse(chunk, reasoning_filter=self.reasoning_filter)
         choice = _first_choice(chunk)
         delta = _get_value(choice, "delta") or {}
         self._append_tool_calls(_get_value(delta, "tool_calls"))
@@ -612,7 +641,10 @@ class ChatCompletionsStreamParser:
         return parsed
 
     def flush(self) -> ChatChunk:
-        return {"reasoning_delta": "", "response_delta": self._emit()}
+        return {
+            "reasoning_delta": self.reasoning_filter.feed("", final=True),
+            "response_delta": self._emit(),
+        }
 
     def function_calls_text(self) -> str:
         return ChatCompletionsTransport.tool_calls_text(self._ordered_tool_calls())

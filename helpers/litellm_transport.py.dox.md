@@ -56,3 +56,9 @@
 ## Child DOX Index
 
 No child DOX files.
+
+## Chat reasoning boundary
+
+- Chat Completions `reasoning_content` is readable text only up to the provider serialization marker `__ENCRYPTED_REASONING__`. Suppress that marker and its remaining opaque payload before callbacks and result metadata, including markers split across stream chunks. Preserve ordinary reasoning and response content.
+- Responses encrypted output items remain opaque native state; this Chat filter neither decodes nor promotes them into text. Existing saved logs are not rewritten.
+- Verify with `pytest tests/test_chat_encrypted_reasoning.py -q`.
