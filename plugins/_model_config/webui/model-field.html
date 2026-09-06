@@ -45,8 +45,19 @@
         <div class="field-description">Model identifier. Click the field or search icon to browse available models.</div>
       </div>
       <div class="field-control" style="position:relative;"
-           x-data="{ results: [], open: false, searching: false,
-             doSearch() { if (this.searching) return; this.searching = true; $store.modelConfig.searchModels(_prov, model.name, searchType, _apiBase).then(r => { this.results = r; this.open = true; }).finally(() => this.searching = false); },
+           x-data="{ results: [], source: '', open: false, searching: false,
+             doSearch() {
+               if (this.searching) return;
+               this.searching = true;
+               const provider = _prov, apiBase = _apiBase;
+               $store.modelConfig.searchModelsDetailed(provider, model.name, searchType, apiBase).then(r => {
+                 if (provider !== _prov || apiBase !== _apiBase) return;
+                 this.results = r.models;
+                 this.source = r.source;
+                 this.open = true;
+                 if (r.error) globalThis.toastFrontendError?.('Could not load models from the provider. Check its connection and endpoint settings.', 'Model search');
+               }).finally(() => this.searching = false);
+             },
              openSearch(trigger) { trigger?.scrollIntoView({ block: 'center' }); this.doSearch(); },
              grouped() { return $store.modelConfig.groupResults(this.results, model.name); }
            }"
@@ -64,6 +75,7 @@
           <x-icon class="model-search-spinner" :style="!searching && 'opacity:0'" name="progress_activity"></x-icon>
         </button>
         <div class="model-search-results" x-show="open && results.length > 0" x-transition.opacity>
+          <div class="model-search-item disabled" x-show="source === 'litellm_registry'">Catalog suggestions — availability not verified</div>
           <template x-for="m in grouped().matched" :key="'m_'+m">
             <div class="model-search-item matched" @click="model.name = m; open = false;" x-text="m"></div>
           </template>
