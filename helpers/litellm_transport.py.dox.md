@@ -24,6 +24,7 @@
 
 - Keep provider selection and provider-specific defaults outside this helper; callers pass a resolved LiteLLM model name and kwargs.
 - Strip Agent Zero internal kwargs before sending requests to LiteLLM.
+- Validate internal `responses_history_context` against selected prepared local input, bind its stable-prefix digest to actual affinity/tool schemas, and project eligible groups through `responses_history`. Strip the control on every provider path and omit its digest from Chat/fallback result metadata.
 - Apply `responses_prompt_replacements` only to Responses input when generated A0 functions are present; preserve original Chat/fallback messages and strip this internal control before either provider call.
 - Do not send orphan tool controls when no tools are present; strict OpenAI-compatible servers can reject empty `tools` arrays.
 - When Agent Zero function tools are present, default Responses requests to one required native call; explicit request-level `tool_choice` and `parallel_tool_calls` values still win.
@@ -35,7 +36,7 @@
 - Fall back to Chat Completions when LiteLLM's Responses mock streaming path tries to JSON-decode a real SSE stream before any output.
 - Preserve Chat Completions tool calls from both non-streaming responses and streaming deltas as canonical `LLMResult` function-call items.
 - Preserve provider usage and LiteLLM response cost for both transports only when the response or stream actually supplies them; do not synthesize unavailable provider accounting.
-- Preserve Responses function calls collected from stream events when a terminal completed event omits them.
+- Recover all Responses output items from stream events when a terminal completed envelope omits them, including encrypted reasoning. Merge by item/call identity in output-index order; terminal non-null fields win without duplicating calls.
 - Stream named native function arguments through canonical tool envelopes for display. Buffer interleaved calls until the active envelope closes; preserve independent original call metadata. Native execution still waits for the completed model turn.
 - Fail incomplete Responses generations and native-call streams that end without completion; never promote partial call previews to a Chat result.
 - Serialize synthesized Responses function-call JSON with literal Unicode so streamed raw-response logs preserve tool arguments.

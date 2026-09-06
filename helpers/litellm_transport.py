@@ -16,7 +16,7 @@ from litellm import (
     responses,
 )
 
-from helpers import images
+from helpers import images, responses_history
 from helpers.llm_result import LLMResult
 from helpers.responses_tools import project_system_prompt
 
@@ -184,6 +184,8 @@ class LiteLLMTransport:
     last_result: LLMResult | None = field(init=False, default=None)
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
+    history_prefix_hash: str = field(init=False, default="")
+    native_history_calls: int = field(init=False, default=0)
 
     def __post_init__(self) -> None:
         self.kwargs = _without_stream_kwarg(dict(self.kwargs))
@@ -390,6 +392,27 @@ class LiteLLMTransport:
         self.last_request_state = _normalize_responses_state(
             self.kwargs.get("responses_state")
         )
+        self.history_prefix_hash = ""
+        self.native_history_calls = 0
+        context = self.kwargs.get("responses_history_context")
+        if (
+            self.last_request_state == RESPONSES_STATE_LOCAL
+            and _has_tools(self.kwargs.get("a0_responses_function_tools"))
+            and isinstance(context, dict)
+            and all(isinstance(context.get(key), list) for key in ("prompt", "prefix", "groups"))
+        ):
+            replacements = self.kwargs.get("responses_prompt_replacements")
+            prompt = project_system_prompt(context.get("prompt", []), replacements)
+            if response_kwargs.get("input") == prompt:
+                prefix = project_system_prompt(context.get("prefix", []), replacements)
+                scope = {"affinity": self.policy.cache_key, "tools": response_kwargs.get("tools")}
+                self.history_prefix_hash = responses_history.prefix_hashes(prefix, scope)[-1]
+                response_kwargs["input"] = responses_history.project_history(
+                    prompt, context.get("groups", []), scope,
+                )
+                self.native_history_calls = sum(
+                    item.get("type") == "function_call" for item in response_kwargs["input"]
+                )
         return {
             "model": self.model,
             "stream": stream,
@@ -433,10 +456,30 @@ class LiteLLMTransport:
             return None
         response = _object_to_dict(parser.completed_response)
         output = _as_list(response.get("output"))
-        if parser.function_calls and not any(
-            _get_value(item, "type") == "function_call" for item in output
-        ):
-            response["output"] = [*output, *parser.function_calls.values()]
+        has_terminal_output = bool(output)
+        positions = {key: int(index) for index, key in parser.output_index_keys.items()}
+        streamed = sorted(
+            enumerate(parser.output_items.items()),
+            key=lambda entry: positions.get(entry[1][0], entry[0]),
+        )
+        for fallback_index, (key, item) in streamed:
+            if has_terminal_output and not item.get("id") and not item.get("call_id"):
+                continue  # An unidentified stream fragment cannot add another terminal call.
+            match = next((
+                index for index, final in enumerate(output)
+                if _get_value(final, "type") == item.get("type") and any(
+                    item.get(field) and item[field] == _get_value(final, field)
+                    for field in ("id", "call_id")
+                )
+            ), None)
+            if match is None:
+                output.insert(min(positions.get(key, fallback_index), len(output)), dict(item))
+            else:
+                output[match] = {
+                    **item,
+                    **{field: value for field, value in _object_to_dict(output[match]).items() if value is not None},
+                }
+        response["output"] = output
         return self._llm_result_from_response(response, request)
 
     def _stream_result_from_chat_parser(
@@ -459,6 +502,11 @@ class LiteLLMTransport:
             "mode": self.policy.mode.value,
             "state": self.policy.state,
             "cache_key": self.policy.cache_key,
+            **(
+                {responses_history.PREFIX_HASH: self.history_prefix_hash,
+                 "native_history_calls": self.native_history_calls}
+                if self.policy.using_responses and self.history_prefix_hash else {}
+            ),
             "fallback_error": _exception_text(self.policy.fallback_error)
             if self.policy.fallback_error
             else "",
@@ -1195,6 +1243,7 @@ class ResponsesEventParser:
 
     def __init__(self) -> None:
         self.function_calls: dict[str, dict[str, Any]] = {}
+        self.output_items: dict[str, dict[str, Any]] = {}
         self.output_index_keys: dict[str, str] = {}
         self.emitted_function_calls: set[str] = set()
         self.streamed_function_calls: dict[str, str] = {}
@@ -1220,7 +1269,7 @@ class ResponsesEventParser:
         }:
             reasoning_delta = str(_get_value(event, "delta") or "")
         elif event_type == "response.output_item.added":
-            self._remember_function_call(_get_value(event, "item"), event)
+            self._remember_output_item(_get_value(event, "item"), event)
         elif event_type == "response.function_call_arguments.delta":
             response_delta = self._append_function_call_arguments(event)
         elif event_type == "response.function_call_arguments.done":
@@ -1245,15 +1294,18 @@ class ResponsesEventParser:
 
         return {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
 
-    def _remember_function_call(self, item: Any, event: Any) -> str:
-        if _get_value(item, "type") != "function_call":
+    def _remember_output_item(self, item: Any, event: Any) -> str:
+        item_type = _get_value(item, "type")
+        if not item_type:
             return ""
         key = self._event_key(event, item)
         if not key:
             return ""
-        current = self.function_calls.get(key, {})
-        merged = {**current, **_object_to_dict(item)}
-        self.function_calls[key] = merged
+        current = self.output_items.get(key, self.function_calls.get(key, {}))
+        merged = {**current, **{field: value for field, value in _object_to_dict(item).items() if value is not None}}
+        self.output_items[key] = merged
+        if item_type == "function_call":
+            self.function_calls[key] = merged
         output_index = _get_value(event, "output_index")
         if output_index is not None:
             self.output_index_keys[str(output_index)] = key
@@ -1264,6 +1316,7 @@ class ResponsesEventParser:
         if not key:
             return ""
         current = self.function_calls.setdefault(key, {"type": "function_call"})
+        self.output_items.setdefault(key, current)
         delta = str(_get_value(event, "delta") or "")
         current["arguments"] = str(current.get("arguments") or "") + delta
         if (
@@ -1287,6 +1340,7 @@ class ResponsesEventParser:
         if not key:
             return ""
         current = self.function_calls.setdefault(key, {"type": "function_call"})
+        self.output_items.setdefault(key, current)
         if _get_value(event, "arguments") is not None:
             current["arguments"] = _get_value(event, "arguments")
         if _get_value(event, "name"):
@@ -1296,8 +1350,8 @@ class ResponsesEventParser:
         return self._emit_function_call(key, current)
 
     def _complete_output_item(self, item: Any, event: Any) -> str:
-        key = self._remember_function_call(item, event)
-        if not key:
+        key = self._remember_output_item(item, event)
+        if key not in self.function_calls:
             return ""
         if key in self.streamed_function_calls:
             return self._finish_function_call(key, self.function_calls[key])
@@ -1420,6 +1474,7 @@ def _drop_responses_only_kwargs(kwargs: dict[str, Any]) -> None:
     kwargs.pop("responses_input_items", None)
     kwargs.pop("responses_local_input_items", None)
     kwargs.pop("responses_prompt_replacements", None)
+    kwargs.pop("responses_history_context", None)
     kwargs.pop("previous_response_id", None)
     kwargs.pop("_a0_responses_builtin_downgrades", None)
 

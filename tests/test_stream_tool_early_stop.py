@@ -1942,3 +1942,37 @@ async def test_interrupted_native_argument_stream_cannot_become_a_text_tool(monk
             pass
     assert transport.last_result is None
     assert stream.closed
+
+
+def test_stream_metadata_recovers_reasoning_and_partial_terminal_call_lists():
+    parser = litellm_transport.ResponsesEventParser()
+    reasoning = {"type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted", "summary": []}
+    first = {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "lookup", "arguments": '{"q":"first"}'}
+    second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"second"}'}
+    for index, item in reversed(list(enumerate([reasoning, first, second]))):
+        parser.parse({"type": "response.output_item.done", "output_index": index, "item": item})
+    parser.parse({"type": "response.completed", "response": {"id": "resp_1", "output": [{**second, "status": "completed"}]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert [item.to_dict() for item in result.output_items] == [reasoning, first, {**second, "status": "completed"}]
+    assert [call.call_id for call in result.function_calls] == ["call_1", "call_2"]
+
+
+def test_terminal_reasoning_null_does_not_erase_streamed_ciphertext():
+    parser = litellm_transport.ResponsesEventParser()
+    reasoning = {"type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted", "summary": []}
+    parser.parse({"type": "response.output_item.done", "output_index": 0, "item": reasoning})
+    parser.parse({"type": "response.completed", "response": {"output": [{**reasoning, "encrypted_content": None}]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert [item.to_dict() for item in result.output_items] == [reasoning]
+
+
+def test_unidentified_stream_fragment_cannot_duplicate_terminal_call():
+    parser = litellm_transport.ResponsesEventParser()
+    item = {"type": "function_call", "name": "lookup", "arguments": '{"q":"a0"}'}
+    parser.parse({"type": "response.output_item.done", "output_index": 0, "item": item})
+    parser.parse({"type": "response.completed", "response": {"output": [item]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert len(result.function_calls) == 1

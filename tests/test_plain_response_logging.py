@@ -244,3 +244,17 @@ async def test_stream_aliases_reach_all_consumers_canonically(monkeypatch, tool_
     monkeypatch.setattr(extension, "call_extensions_async", consume)
     await agent.handle_response_stream(json.dumps(tool_request))
     assert agent.loop_data.params_temporary["log_item_generating"].kvps["step"] == "Writing Python code... (8)"
+
+
+def test_native_tool_commentary_keeps_generating_step():
+    from helpers.llm_result import LLMResult
+    agent, item = _agent_with_generating_log()
+    result = LLMResult.from_response({
+        "output_text": "Running the lookup now.",
+        "output": [{"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": '{"q":"a0"}'}],
+    })
+    LogPlainResponses(agent=agent).execute(data={
+        "args": (agent, result.response), "kwargs": {"llm_result": result},
+    })
+    assert item.type == "agent"
+    assert "log_item_response" not in agent.loop_data.params_temporary
