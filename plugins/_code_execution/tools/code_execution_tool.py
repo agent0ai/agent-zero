@@ -53,7 +53,18 @@ class State:
 class CodeExecution(Tool):
 
     async def execute(self, **kwargs) -> Response:
+        from helpers.parallel_tools import get_parallel_worker_job
 
+        job = get_parallel_worker_job(self.agent)
+        try:
+            return await self._execute(job)
+        finally:
+            state = getattr(self, "state", None)
+            if job and state:
+                for shell in state.shells.values():
+                    await shell.session.close()
+
+    async def _execute(self, job) -> Response:
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
         runtime_arg = self.args.get("runtime", "").lower().strip()
@@ -85,6 +96,14 @@ class CodeExecution(Tool):
             response = self.agent.read_prompt(
                 "fw.code.runtime_wrong.md", runtime=runtime_arg
             )
+
+        if job and runtime_arg in {"terminal", "python", "nodejs"}:
+            while self.state.shells[session].running:
+                job.result = response
+                response = await self.get_terminal_output(
+                    cfg, session=session, reset_full_output=False,
+                    timeouts=cfg["output_timeouts"],
+                )
 
         if not response:
             response = self.agent.read_prompt(
@@ -149,7 +168,11 @@ class CodeExecution(Tool):
                 shell = LocalInteractiveSession(cwd=cwd)
 
             shells[session] = ShellWrap(id=session, session=shell, running=False)
-            await shell.connect()
+            try:
+                await shell.connect()
+            except BaseException:
+                await shell.close()
+                raise
 
         self.state = State(shells=shells, ssh_enabled=ssh_enabled)
         self.agent.set_data("_cet_state", self.state)

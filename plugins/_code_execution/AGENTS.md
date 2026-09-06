@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
+- A direct parallel code job retains its worker and loop-bound shell until the command ends or is cancelled. Output timeouts publish model-facing progress to the registered job and continue polling; callers use parallel job IDs. Close parallel shells explicitly on that worker loop on completion or cancellation, including partially connected shells. Top-level sessions retain their ordinary timeout/output/reset behavior.
 - Execute multi-line terminal input as one current-shell compound so intermediate prompts cannot mark queued work complete; preserve `cd`, exports, and other shell state.
 - Treat local process exit and SSH channel termination as definitive command completion even when no final prompt is emitted; recreate terminated sessions before their next command.
 - Terminal reset/close must not hang on foreground commands or shells that ignore SIGTERM.

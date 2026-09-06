@@ -32,7 +32,7 @@ CHILD_PARALLEL_TOOL_NAME_KEY = "parallel_tool_name"
 DEFAULT_MAX_CALLS = 8
 DEFAULT_TIMEOUT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 0.5
-DISALLOWED_PARALLEL_TOOLS = {"document_query", "response", "goal"}
+DISALLOWED_PARALLEL_TOOLS = {"document_query", "response", "goal", "input"}
 
 TERMINAL_STATES = {"success", "error", "cancelled", "timeout"}
 JobState = Literal["pending", "running", "success", "error", "cancelled", "timeout"]
@@ -102,7 +102,7 @@ def normalize_parallel_tool_calls(raw_calls: Any) -> list[NormalizedToolCall]:
         except ValueError as exc:
             raise ValueError(f"tool_calls[{index}] is not a valid tool call: {exc}") from exc
 
-        _ensure_parallel_tool_allowed(tool_name)
+        _ensure_parallel_tool_allowed(tool_name, tool_args)
 
         calls.append(
             NormalizedToolCall(
@@ -114,9 +114,17 @@ def normalize_parallel_tool_calls(raw_calls: Any) -> list[NormalizedToolCall]:
     return calls
 
 
-def _ensure_parallel_tool_allowed(tool_name: str) -> None:
+def _ensure_parallel_tool_allowed(tool_name: str, tool_args: dict[str, Any]) -> None:
     if tool_name == "parallel":
         raise ValueError("`parallel` cannot be nested inside another `parallel` call.")
+    if (
+        tool_name == "code_execution_tool"
+        and str(tool_args.get("runtime", "")).strip().lower() in {"output", "reset"}
+    ):
+        raise ValueError(
+            "Use `parallel` with job_ids to await/cancel a running code job; "
+            "call session tools sequentially."
+        )
     if tool_name in DISALLOWED_PARALLEL_TOOLS:
         raise ValueError(
             f"`{tool_name}` cannot be used inside `parallel`; call it sequentially."
@@ -175,21 +183,24 @@ def is_parallel_worker(agent: "Agent | None") -> bool:
     return _parallel_worker_kind(agent) == "tool"
 
 
+def get_parallel_worker_job(agent: "Agent") -> ParallelJob | None:
+    if not is_parallel_worker(agent):
+        return None
+    context = agent.context
+    parent_context_id = str(context.get_data(PARALLEL_WORKER_PARENT_CONTEXT_KEY) or "")
+    job_id = str(context.get_data(PARALLEL_WORKER_JOB_KEY) or "")
+    job = _get_job(parent_context_id, job_id)
+    return job if job and job.kind == "tool" else None
+
+
 def queue_parallel_parent_history(
     agent: "Agent",
     *,
     content: Any,
     tokens: int = 0,
 ) -> bool:
-    if not is_parallel_worker(agent):
-        return False
-    context = agent.context
-    parent_context_id = str(
-        context.get_data(PARALLEL_WORKER_PARENT_CONTEXT_KEY) or ""
-    )
-    job_id = str(context.get_data(PARALLEL_WORKER_JOB_KEY) or "")
-    job = _get_job(parent_context_id, job_id)
-    if not job or job.kind != "tool":
+    job = get_parallel_worker_job(agent)
+    if not job:
         return False
     job.parent_history.append((content, tokens))
     return True
@@ -223,7 +234,7 @@ async def start_parallel_jobs(
     calls: list[NormalizedToolCall],
 ) -> list[ParallelJob]:
     for call in calls:
-        _ensure_parallel_tool_allowed(call.tool_name)
+        _ensure_parallel_tool_allowed(call.tool_name, call.tool_args)
     jobs: list[ParallelJob] = []
     context = agent.context
     job_store = _jobs_for_context(context)
@@ -344,8 +355,7 @@ async def refresh_parallel_jobs(agent: "Agent") -> list[ParallelJob]:
 async def cleanup_parallel_job(agent: "Agent", job: ParallelJob) -> None:
     if job.deferred_task and job.deferred_task.is_alive():
         job.deferred_task.kill()
-    if job.kind == "tool":
-        await _remove_context(job.worker_context_id)
+    # Direct workers remove their context in finally on their own event loop.
 
 
 async def collect_parallel_jobs(
@@ -546,7 +556,7 @@ async def execute_tool_call(
     *,
     log_item: "LogItem | None" = None,
 ) -> str:
-    _ensure_parallel_tool_allowed(tool_name)
+    _ensure_parallel_tool_allowed(tool_name, tool_args)
 
     tool = _resolve_parallel_tool(agent, tool_name, tool_args, strict=True)
     if not tool:
