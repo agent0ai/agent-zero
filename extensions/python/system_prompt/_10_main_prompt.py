@@ -1,5 +1,6 @@
 from typing import Any
 
+from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from agent import Agent, LoopData
 
@@ -16,11 +17,7 @@ class MainPrompt(Extension):
             return
         prompt = await build_prompt(self.agent)
         system_prompt.append(prompt)
-        communication = self.agent.read_prompt("agent.system.main.communication.md")
-        if communication in prompt:
-            loop_data.responses_prompt_replacements[communication] = self.agent.read_prompt(
-                "agent.system.main.communication.native.md"
-            )
+        responses_tools.register_prompt(self.agent, loop_data, "main", prompt)
 
 
 @extensible

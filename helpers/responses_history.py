@@ -11,6 +11,55 @@ from helpers.llm_result import result_from_metadata
 PREFIX_HASH = "history_prefix_hash"
 
 
+def start_prompt(loop_data: Any) -> None:
+    loop_data.params_temporary.pop("responses_prompt_replacements", None)
+    loop_data.params_temporary.pop("responses_history", None)
+
+
+def remember_prompt(loop_data: Any, text: str, system_message: Any, protocol: list[dict]) -> None:
+    from helpers import history
+
+    loop_data.params_temporary["responses_history"] = {
+        "text": text,
+        "prefix": [system_message, *history.output_langchain(protocol + loop_data.history_output)],
+    }
+
+
+def prepare_call(agent: Any, call_data: dict) -> dict:
+    from langchain_core.prompts import ChatPromptTemplate
+    from helpers import history
+    from helpers.secrets import get_secrets_manager
+
+    model, messages = call_data["model"], call_data["messages"]
+    params = agent.loop_data.params_temporary
+    kwargs = {"responses_prompt_replacements": call_data.get(
+        "responses_prompt_replacements", params.get("responses_prompt_replacements", {}),
+    )}
+    prepared = params.get("responses_history", {})
+    if (
+        not prepared or not hasattr(model, "_convert_messages")
+        or any(message.additional_kwargs or getattr(message, "tool_calls", None) for message in messages)
+        or ChatPromptTemplate.from_messages(messages).format() != prepared["text"]
+    ):
+        return kwargs
+
+    def render(record):
+        rendered = agent._responses_prompt_input_items(
+            model, history.output_langchain([{**record, "ai": False}]),
+        )
+        return rendered[0].get("content") if len(rendered) == 1 else None
+
+    kwargs["responses_history_context"] = {
+        "prompt": agent._responses_prompt_input_items(model, messages),
+        "prefix": agent._responses_prompt_input_items(model, prepared["prefix"]),
+        "groups": prepare_groups(
+            agent.loop_data.history_output, render,
+            get_secrets_manager(agent.context).mask_values,
+        ),
+    }
+    return kwargs
+
+
 def _json_bytes(value: Any) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 

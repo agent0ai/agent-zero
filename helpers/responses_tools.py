@@ -109,6 +109,22 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
 }
 
 
+def register_prompt(agent: Any, loop_data: Any, section: str, prompt: str) -> None:
+    """Record request-only alternatives without changing the rendered text prompt."""
+    replacements = loop_data.params_temporary.setdefault("responses_prompt_replacements", {})
+    if section == "main":
+        communication = agent.read_prompt("agent.system.main.communication.md")
+        if communication in prompt:
+            replacements[communication] = agent.read_prompt("agent.system.main.communication.native.md")
+    elif section == "tools":
+        replacements[prompt] = ""
+    elif section == "mcp" and prompt:
+        from helpers.mcp_handler import MCPConfig
+
+        servers = MCPConfig.get_for_agent(agent).get_tools_prompt(agent=agent, include_tools=False)
+        replacements[prompt] = agent.read_prompt("agent.system.mcp_tools.native.md", tools=servers) if servers else ""
+
+
 def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], dict[str, str]]:
     """Build Responses function tools from available implementations and prompt/MCP schemas."""
 

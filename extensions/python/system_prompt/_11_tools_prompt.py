@@ -1,6 +1,7 @@
 import os
 from typing import Any
 
+from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from helpers import files, subagents, tool_policy
 from helpers.print_style import PrintStyle
@@ -22,7 +23,7 @@ class ToolsPrompt(Extension):
             return
         prompt = await build_prompt(self.agent)
         system_prompt.append(prompt)
-        loop_data.responses_prompt_replacements[prompt] = ""
+        responses_tools.register_prompt(self.agent, loop_data, "tools", prompt)
 
 
 @extensible

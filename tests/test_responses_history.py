@@ -70,9 +70,37 @@ def test_native_replay_uses_visible_results_and_retains_current_extras():
     assert "DO NOT REPLAY RAW OUTPUT" not in json.dumps(request)
     assert "Old extras" not in json.dumps(request)
     assert "responses_history_context" not in request
-    assert replay._capability_metadata()["native_history_calls"] == 1
     assert records == original
     assert prompt == prompt_for(records)
+
+
+def test_prepared_context_lifecycle_and_post_hook_changes(monkeypatch):
+    from types import SimpleNamespace
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from langchain_core.prompts import ChatPromptTemplate
+    from agent import Agent, LoopData
+    from models import LiteLLMChatWrapper
+    from helpers import secrets
+
+    agent = object.__new__(Agent)
+    agent.context = SimpleNamespace()
+    agent.loop_data = LoopData()
+    model = LiteLLMChatWrapper(model="test", provider="openai", model_config=None)
+    prompt = [SystemMessage("Rules"), HumanMessage("Question")]
+    monkeypatch.setattr(secrets, "get_secrets_manager", lambda _: SimpleNamespace(mask_values=lambda text: text))
+    history.remember_prompt(agent.loop_data, ChatPromptTemplate.from_messages(prompt).format(), prompt[0], [])
+    call = {"model": model, "messages": prompt, "responses_prompt_replacements": {"Rules": "Override"}}
+    prepared = history.prepare_call(agent, call)
+    assert prepared["responses_history_context"]["prompt"] == BASE
+    assert prepared["responses_prompt_replacements"] == {"Rules": "Override"}
+    for changed in (
+        [SystemMessage("Changed by hook"), prompt[1]],
+        [SystemMessage("Rules", additional_kwargs={"provider_control": True}), prompt[1]],
+    ):
+        assert "responses_history_context" not in history.prepare_call(agent, {**call, "messages": changed})
+    agent.loop_data.params_temporary["responses_prompt_replacements"] = {"stale": "value"}
+    history.start_prompt(agent.loop_data)
+    assert history.prepare_call(agent, {"model": model, "messages": prompt}) == {"responses_prompt_replacements": {}}
 
 
 @pytest.mark.parametrize("change", ["summary", "arguments", "missing_output", "wrong_id", "attachments", "commentary", "unencrypted", "legacy", "secret"])
@@ -104,7 +132,6 @@ def test_ineligible_history_stays_in_prepared_text(change):
     replay = transport(prompt, prompt)
     replay.kwargs["responses_history_context"]["groups"] = groups
     assert replay._responses_request(stream=False)["input"] == prompt
-    assert replay.native_history_calls == 0
 
 
 @pytest.mark.parametrize("kwargs", [
@@ -116,7 +143,6 @@ def test_replay_is_bound_to_current_model_endpoint_and_tool_scope(kwargs):
     prompt = prompt_for(records)
     replay = transport(prompt, prompt, records, **kwargs)
     assert replay._responses_request(stream=False)["input"] == prompt
-    assert replay.native_history_calls == 0
 
 
 def test_final_response_call_without_result_is_never_fabricated():
@@ -154,7 +180,6 @@ def test_multiple_groups_preserve_history_order_without_duplicate_native_ids(dup
     request = replay._responses_request(stream=False)
     calls = [item for item in request["input"] if item.get("type") == "function_call"]
     assert [item["call_id"] for item in calls] == (["call_1"] if duplicate else ["call_1", "call_2"])
-    assert replay.native_history_calls == len(calls)
     assert request["input"][-1]["content"].endswith("Current extras")
 
 

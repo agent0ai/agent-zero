@@ -36,7 +36,7 @@
 - Embedding wrappers expose batch-shaped `embed(inputs)` for provider-ready inputs; keep `embed_documents` and `embed_query` as LangChain compatibility adapters.
 - Embedding requests never forward the chat-only `a0_api_mode` control to providers.
 - Prompt Markdown may retain fenced JSON examples for readability; final system-prompt rendering removes only their JSON fence markers before model calls and preserves non-JSON fences.
-- System section owners populate request-only `LoopData.responses_prompt_replacements`; prompt construction resets them each time. Responses applies them to copied input, preserving original Chat/fallback messages and stored history.
+- System section owners register request-only alternatives with `helpers.responses_tools`; `helpers.responses_history` owns their per-build state and prepared-history capture in existing loop parameters. Responses applies them to copied input, preserving original Chat/fallback messages and stored history.
 - Copy live core-plugin changes back into tracked source under `plugins/`.
 - Develop new custom plugins under ignored `usr/plugins/`; tracked bundled plugins live under `plugins/`.
 - Use the framework runtime for backend and plugin-hook verification, not the separate agent execution runtime.

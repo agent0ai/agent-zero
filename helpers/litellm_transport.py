@@ -185,7 +185,6 @@ class LiteLLMTransport:
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
     history_prefix_hash: str = field(init=False, default="")
-    native_history_calls: int = field(init=False, default=0)
 
     def __post_init__(self) -> None:
         self.kwargs = _without_stream_kwarg(dict(self.kwargs))
@@ -393,7 +392,6 @@ class LiteLLMTransport:
             self.kwargs.get("responses_state")
         )
         self.history_prefix_hash = ""
-        self.native_history_calls = 0
         context = self.kwargs.get("responses_history_context")
         if (
             self.last_request_state == RESPONSES_STATE_LOCAL
@@ -409,9 +407,6 @@ class LiteLLMTransport:
                 self.history_prefix_hash = responses_history.prefix_hashes(prefix, scope)[-1]
                 response_kwargs["input"] = responses_history.project_history(
                     prompt, context.get("groups", []), scope,
-                )
-                self.native_history_calls = sum(
-                    item.get("type") == "function_call" for item in response_kwargs["input"]
                 )
         return {
             "model": self.model,
@@ -503,8 +498,7 @@ class LiteLLMTransport:
             "state": self.policy.state,
             "cache_key": self.policy.cache_key,
             **(
-                {responses_history.PREFIX_HASH: self.history_prefix_hash,
-                 "native_history_calls": self.native_history_calls}
+                {responses_history.PREFIX_HASH: self.history_prefix_hash}
                 if self.policy.using_responses and self.history_prefix_hash else {}
             ),
             "fallback_error": _exception_text(self.policy.fallback_error)

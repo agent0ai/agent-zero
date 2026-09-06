@@ -343,9 +343,6 @@ class LoopData:
     def __init__(self, **kwargs):
         self.iteration = -1
         self.system = []
-        self.responses_prompt_replacements: dict[str, str] = {}
-        self.responses_prepared_text = ""
-        self.responses_history_prefix: list[BaseMessage] = []
         self.user_message: history.Message | None = None
         self.history_output: list[history.OutputMessage] = []
         self.protocol_temporary: OrderedDict[str, history.MessageContent] = OrderedDict()
@@ -574,7 +571,7 @@ class Agent:
         )
 
         # set system prompt and message history
-        loop_data.responses_prompt_replacements.clear()
+        responses_history.start_prompt(loop_data)
         loop_data.system = await self.get_system_prompt(self.loop_data)
         loop_data.history_output = self.history.output()
 
@@ -615,11 +612,7 @@ class Agent:
             *history_langchain,
         ]
         full_text = ChatPromptTemplate.from_messages(full_prompt).format()
-        loop_data.responses_prepared_text = full_text
-        loop_data.responses_history_prefix = [
-            SystemMessage(content=system_text),
-            *history.output_langchain(protocol + loop_data.history_output),
-        ]
+        responses_history.remember_prompt(loop_data, full_text, full_prompt[0], protocol)
 
         # store as last context window content
         self.set_data(
@@ -958,7 +951,6 @@ class Agent:
             "background": background,
             "explicit_caching": explicit_caching,
             "a0_responses_function_tools": response_tools,
-            "responses_prompt_replacements": dict(self.loop_data.responses_prompt_replacements),
         }
 
         previous_state = self._responses_state_for_model(model)
@@ -978,10 +970,8 @@ class Agent:
             "chat_model_call_before", self, call_data=call_data
         )
 
-        call_data["responses_history_context"] = self._responses_history_context(
-            call_data["model"], call_data["messages"]
-        )
         turn_kwargs = {
+            **responses_history.prepare_call(self, call_data),
             "a0_responses_function_tools": call_data.get(
                 "a0_responses_function_tools"
             ),
@@ -990,8 +980,6 @@ class Agent:
             ),
         }
         for key in (
-            "responses_history_context",
-            "responses_prompt_replacements",
             "responses_builtin_tools",
             "responses_state",
             "previous_response_id",
@@ -1075,31 +1063,6 @@ class Agent:
             return []
         converted = model._convert_messages(messages)
         return ResponsesTransport.input_from_messages(converted)
-
-    def _responses_history_context(self, model: Any, messages: list[BaseMessage]):
-        prepared = getattr(self.loop_data, "responses_prepared_text", "")
-        if (
-            not prepared or not hasattr(model, "_convert_messages")
-            or any(message.additional_kwargs or getattr(message, "tool_calls", None) for message in messages)
-            or ChatPromptTemplate.from_messages(messages).format() != prepared
-        ):
-            return None
-        from helpers.secrets import get_secrets_manager
-
-        def render(record):
-            rendered = self._responses_prompt_input_items(
-                model, history.output_langchain([{**record, "ai": False}])
-            )
-            return rendered[0].get("content") if len(rendered) == 1 else None
-
-        return {
-            "prompt": self._responses_prompt_input_items(model, messages),
-            "prefix": self._responses_prompt_input_items(model, self.loop_data.responses_history_prefix),
-            "groups": responses_history.prepare_groups(
-                self.loop_data.history_output, render,
-                get_secrets_manager(self.context).mask_values,
-            ),
-        }
 
     def _remember_llm_result_state(
         self, llm_result: LLMResult, history_message: history.Message

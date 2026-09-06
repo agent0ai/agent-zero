@@ -86,7 +86,7 @@
   policy, and `MCPTool.execute()` rechecks the same policy with the explicit MCP
   canonical ID before invocation. Prompt construction uses one fresh policy
   snapshot and omits server sections when none of their tools are allowed.
-  `get_tools_prompt(native=True)` retains server context and restrictive operation guidance without duplicating native function schemas or text envelopes; blocked-only servers remain absent.
+  `get_tools_prompt(include_tools=False)` returns policy-filtered server context without tool details or an outer protocol wrapper. Responses owns its own framing; blocked-only servers remain absent.
   Server headings are explicitly non-callable groups; each tool heading exposes
   the exact qualified name that Chat Completions must call. Prompt guidance
   treats each allowed-operation description as exhaustive and rejects inferring

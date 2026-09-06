@@ -200,7 +200,7 @@ async def test_native_communication_projection_preserves_custom_main_sections():
     assert sections == [original]
     rendered = files.remove_code_fences(original, language='json')
     result = responses_tools.project_system_prompt(
-        [{'role':'system','content':rendered}], loop_data.responses_prompt_replacements,
+        [{'role':'system','content':rendered}], loop_data.params_temporary["responses_prompt_replacements"],
     )[0]['content']
     assert result.startswith('Custom role instructions.')
     assert result.endswith('Custom project constraints.')
