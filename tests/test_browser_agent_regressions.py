@@ -4930,3 +4930,32 @@ def test_legacy_browser_dependency_is_removed():
     assert ("browser" + "-use") not in (PROJECT_ROOT / "requirements.txt").read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_context_cleanup_preserves_shared_event_loop(monkeypatch, timeout):
+    calls = []
+
+    class CleanupTask:
+        def __init__(self, thread_name):
+            calls.append(("thread", thread_name))
+
+        def start_task(self, fn, context_id, **kwargs):
+            calls.append(("close", context_id))
+
+        def result_sync(self, timeout):
+            if should_timeout:
+                raise TimeoutError("cleanup timed out")
+
+        def kill(self, terminate_thread=False):
+            assert not terminate_thread, "Other context cleanup tasks share this thread"
+            calls.append(("cancel", None))
+
+    should_timeout = timeout
+    monkeypatch.setattr(browser_runtime_module, "DeferredTask", CleanupTask)
+    if timeout:
+        with pytest.raises(TimeoutError):
+            browser_runtime_module.close_runtime_sync("first")
+    else:
+        browser_runtime_module.close_runtime_sync("first")
+    assert calls == [("thread", "BrowserCleanup"), ("close", "first"), ("cancel", None)]
