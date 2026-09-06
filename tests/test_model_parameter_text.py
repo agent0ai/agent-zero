@@ -18,7 +18,7 @@ const apiKeysState = {}, apiKeysMethods = {}, switcherState = {}, switcherMethod
     module_url = "data:text/javascript;base64," + base64.b64encode(source.encode()).decode()
     script = r'''
 import assert from 'node:assert/strict';
-const { textToKwargs, kwargsToText, store } = await import(MODULE_URL);
+const { textToKwargs, kwargsToText, store, MODEL_SECTIONS } = await import(MODULE_URL);
 const values = { plain: 'hello', literal: 'true', flag: true, off: false, nothing: null,
                  number: 0.2, object: { list: [1, false] }, empty: '' };
 assert.deepEqual(textToKwargs(kwargsToText(values)), values);
@@ -43,14 +43,16 @@ store.saveGlobalPresets = async presets => { saves++; saved = structuredClone(pr
 for (const slot of ['chat', 'vision', 'utility', 'embedding']) {
   store.globalPresets = [{name: 'Test', [slot]: {provider: 'test', name: 'test',
     kwargs: {old: true}, _kwargs_text: 'param={"enabled":True}'}}];
-  const editor = store.createPresetEditor('Test');
+  store.globalPresets.push({name: 'Other'});
+  const editor = store.createPresetEditor('Other');
   const before = [saves, keySaves];
   assert.equal(await editor.savePresets(), false);
   assert.deepEqual([saves, keySaves], before);
   assert.match(notifications.at(-1).message, /invalid JSON/);
+  assert.ok(notifications.at(-1).message.startsWith(`Test (${MODEL_SECTIONS.find(s => s.key === slot + '_model').title}):`));
   assert.equal(notifications.at(-1).type, 'error');
-  assert.equal(editor.selectedPreset[slot]._kwargs_text, 'param={"enabled":True}');
-  editor.selectedPreset[slot]._kwargs_text = 'param={"enabled":true}';
+  assert.equal(editor.presets[0][slot]._kwargs_text, 'param={"enabled":True}');
+  editor.presets[0][slot]._kwargs_text = 'param={"enabled":true}';
   assert.equal(await editor.savePresets(), true);
   assert.deepEqual(saved[0][slot].kwargs, {param: {enabled: true}});
 }

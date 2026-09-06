@@ -54,7 +54,7 @@
 - Venice migration applies chat-only kwargs to chat slots and removes them from embedding slots without discarding embedding-specific kwargs.
 - On every startup after migration, short-circuit when `usr/plugins/_model_config/presets.yaml` exists. Only a missing collection may fetch `agent0ai/a0-presets`; parse remote and plugin-local fallback YAML through the same validator, strip secrets before persistence, and persist `mode_presets_fallback.yaml` when download or validation fails.
 - Model-name catalogs open below the input from either a field click or the embedded magnifier. Discard asynchronous results if their provider, API base, model draft, or query changed while the request was pending.
-- Additional parameter drafts retain plain-string compatibility but reject malformed JSON-shaped values and invalid KEY=VALUE lines with a standard notification. Reparse every preset slot before saving presets or API keys; invalid drafts stay editable and never silently save stale kwargs.
+- Additional parameter drafts retain plain-string compatibility but reject malformed JSON-shaped values and invalid KEY=VALUE lines with a standard notification. Reparse every preset slot before saving presets or API keys; invalid drafts stay editable and never silently save stale kwargs. Save errors identify the preset and model slot even when that draft is no longer selected.
 
 ## Work Guidance
 

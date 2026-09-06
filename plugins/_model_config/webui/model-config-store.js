@@ -418,7 +418,13 @@ export const store = createStore("modelConfig", {
           for (const preset of this.presets) {
             for (const key of ['chat', 'vision', 'utility', 'embedding']) {
               const slot = preset[key];
-              if (typeof slot?._kwargs_text === 'string') slot.kwargs = textToKwargs(slot._kwargs_text);
+              if (typeof slot?._kwargs_text !== 'string') continue;
+              try {
+                slot.kwargs = textToKwargs(slot._kwargs_text);
+              } catch (e) {
+                const title = MODEL_SECTIONS.find(section => section.key === `${key}_model`)?.title || key;
+                throw new Error(`${preset.name} (${title}): ${e.message}`);
+              }
             }
           }
           await store.persistAllDirtyApiKeys();
