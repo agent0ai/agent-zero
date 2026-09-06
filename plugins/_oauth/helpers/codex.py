@@ -729,7 +729,11 @@ def prepare_responses_body(body: dict[str, Any], *, force_stream: bool) -> dict[
         normalized["input"] = []
     normalized.setdefault("instructions", "")
     normalized.setdefault("store", False)
-    normalized["client_metadata"] = merge_client_metadata(normalized.get("client_metadata"))
+    metadata = normalized.get("client_metadata")
+    if isinstance(metadata, dict) and (session_id := _string(metadata.get("session_id"))):
+        cache_key = session_id if len(session_id) <= 64 else hashlib.sha256(session_id.encode()).hexdigest()
+        normalized.setdefault("prompt_cache_key", cache_key)
+    normalized["client_metadata"] = merge_client_metadata(metadata)
     if force_stream:
         normalized["stream"] = True
     if isinstance(normalized.get("reasoning"), dict):
@@ -758,7 +762,11 @@ def merge_client_metadata(value: Any) -> dict[str, str]:
         for key, item in (value.items() if isinstance(value, dict) else [])
         if item is not None and str(item)
     }
-    metadata.update(build_client_metadata())
+    defaults = build_client_metadata()
+    for key in ("session_id", "thread_id"):
+        if key in metadata:
+            defaults[key] = metadata[key]
+    metadata.update(defaults)
     return metadata
 
 
@@ -956,6 +964,9 @@ def chat_messages_to_response_body(body: dict[str, Any]) -> dict[str, Any]:
         "instructions": "\n\n".join(instructions),
         "store": False,
     }
+    for key in ("client_metadata", "prompt_cache_key"):
+        if key in body:
+            response_body[key] = body[key]
     if body.get("temperature") is not None:
         response_body["temperature"] = body["temperature"]
     if body.get("top_p") is not None:

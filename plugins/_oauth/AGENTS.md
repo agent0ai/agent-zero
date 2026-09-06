@@ -44,6 +44,8 @@
 - Browser callback providers must support manual callback paste when the browser cannot reach the local callback route.
 - Local proxy routes must remain loopback or token protected and must not add broad CORS access.
 - Codex Responses proxy requests must include Codex client metadata and compatibility headers such as `client_metadata`, `x-codex-installation-id`, `originator`, `session-id`, and `thread-id`, and must forward `input` as a list for upstream Codex compatibility.
+- `chat_model_call_before/_20_codex_session.py` gives Codex main-model turns stable per-chat, per-agent session/thread IDs for cache routing. Preserve explicit caller session/thread IDs through both proxy routes, including Chat Completions conversion, while keeping installation/window metadata plugin-owned.
+- Default `prompt_cache_key` to a caller-supplied session ID (hash IDs longer than 64 characters); preserve explicit keys and do not derive keys from randomly generated fallback metadata. Codex provider defaults use local Responses state because its backend requires `store: false`.
 - Codex Responses proxy requests must translate the legacy top-level `reasoning_effort` field to `reasoning.effort`; an explicit native `reasoning` field takes precedence.
 - Codex Responses proxy defaults for reasoning effort, reasoning summary, and text verbosity come from the `codex` plugin config; explicit native request values take precedence.
 - Codex request shaping tightens an already-advertised native `response` tool to a strict required `text` schema; it must not add tools omitted by the framework tool policy.

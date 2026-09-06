@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -18,6 +19,9 @@ from plugins._oauth.helpers import routes
 from plugins._oauth.helpers.providers import codex as codex_provider
 from plugins._oauth.extensions.python._functions.models.get_api_key.end import (
     _20_oauth_account_dummy_key as oauth_dummy_key,
+)
+from plugins._oauth.extensions.python.chat_model_call_before._20_codex_session import (
+    CodexSession,
 )
 
 
@@ -72,6 +76,7 @@ def test_build_authorize_url_uses_existing_a0_origin_callback(monkeypatch):
 
 
 def test_chat_messages_to_response_body_extracts_instructions():
+    metadata = {"session_id": "chat-session", "thread_id": "chat-thread"}
     body = codex.chat_messages_to_response_body(
         {
             "model": "gpt-5.2",
@@ -81,6 +86,8 @@ def test_chat_messages_to_response_body_extracts_instructions():
             ],
             "temperature": 0.2,
             "reasoning_effort": "high",
+            "client_metadata": metadata,
+            "prompt_cache_key": "caller-cache",
         }
     )
 
@@ -89,6 +96,8 @@ def test_chat_messages_to_response_body_extracts_instructions():
     assert body["input"] == [{"role": "user", "content": "Hello"}]
     assert body["temperature"] == 0.2
     assert body["reasoning"] == {"effort": "high"}
+    assert body["client_metadata"] == metadata
+    assert body["prompt_cache_key"] == "caller-cache"
 
 
 def test_chat_messages_to_response_body_uses_current_codex_default_model():
@@ -207,6 +216,65 @@ def test_prepare_responses_body_adds_codex_client_metadata(monkeypatch):
     assert body["stream"] is True
     assert body["reasoning"] == {"effort": "medium", "summary": "auto"}
     assert body["include"] == ["output_text", "reasoning.encrypted_content"]
+
+
+def test_codex_session_metadata_is_stable_and_scoped(monkeypatch):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
+    monkeypatch.setattr(codex, "resolve_installation_id", lambda: "install-1")
+
+    def prepare(context_id="chat-1", number=0, provider="codex_oauth", metadata=None):
+        extra_body = {"client_metadata": dict(metadata or {}), "other": "keep"}
+        model = SimpleNamespace(
+            a0_model_conf=SimpleNamespace(provider=provider),
+            kwargs={"extra_body": extra_body},
+        )
+        agent = SimpleNamespace(context=SimpleNamespace(id=context_id), number=number)
+        CodexSession(agent=agent).execute(call_data={"model": model})
+        assert extra_body == {"client_metadata": dict(metadata or {}), "other": "keep"}
+        assert model.kwargs["extra_body"]["other"] == "keep"
+        if provider != "codex_oauth":
+            assert model.kwargs["extra_body"] is extra_body
+            return None
+        return codex.prepare_responses_body(
+            {"input": [], **model.kwargs["extra_body"]}, force_stream=True
+        )["client_metadata"]
+
+    first = prepare()
+    assert first == prepare()
+    assert first["session_id"] == first["thread_id"] == "agent-zero-chat-1-0"
+    assert first["session_id"] != prepare(context_id="chat-2")["session_id"]
+    assert first["session_id"] != prepare(number=1)["session_id"]
+    explicit = prepare(metadata={
+        "session_id": "caller-session", "thread_id": "caller-thread",
+        "caller": "keep", "x-codex-installation-id": "stale",
+    })
+    assert explicit["session_id"] == "caller-session"
+    assert explicit["thread_id"] == "caller-thread"
+    assert explicit["caller"] == "keep"
+    assert explicit["x-codex-installation-id"] == "install-1"
+    assert prepare(provider="openai") is None
+
+
+@pytest.mark.parametrize("session_id", ["chat-session", "x" * 100])
+def test_codex_cache_key_uses_caller_session_without_mutating_input(monkeypatch, session_id):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
+    monkeypatch.setattr(codex, "build_client_metadata", lambda: {"session_id": "random-fallback"})
+    source = {"input": [], "client_metadata": {"session_id": session_id}}
+    first = codex.prepare_responses_body(source, force_stream=True)
+    second = codex.prepare_responses_body(source, force_stream=True)
+
+    assert first["prompt_cache_key"] == second["prompt_cache_key"]
+    assert first["prompt_cache_key"] == (
+        session_id if len(session_id) <= 64 else codex.hashlib.sha256(session_id.encode()).hexdigest()
+    )
+    assert len(first["prompt_cache_key"]) <= 64
+    assert "prompt_cache_key" not in source
+    assert codex.prepare_responses_body(
+        {**source, "prompt_cache_key": "caller-cache"}, force_stream=True
+    )["prompt_cache_key"] == "caller-cache"
+    assert "prompt_cache_key" not in codex.prepare_responses_body(
+        {"input": []}, force_stream=True
+    )
 
 
 def test_prepare_responses_body_tightens_existing_response_tool_only(monkeypatch):
@@ -1060,6 +1128,7 @@ def test_provider_config_uses_container_local_agent_zero_origin():
     assert codex_provider["name"] == "Codex/ChatGPT Account"
     assert codex_provider["models_list"]["endpoint_url"] == "/models"
     assert codex_provider["kwargs"]["api_base"] == "http://127.0.0.1/oauth/codex/v1"
+    assert codex_provider["kwargs"]["responses_state"] == "local"
     assert "50001" not in json.dumps(codex_provider)
 
 
