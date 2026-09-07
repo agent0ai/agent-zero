@@ -6,8 +6,9 @@
 
 ## Ownership
 
-- `file-browser.html` owns file list markup, path/search controls, scoped styles, and modal/canvas footer behavior.
+- `file-browser.html` owns file list markup, path controls, scoped styles, and modal/canvas footer behavior.
 - `file-browser-store.js` owns directory loading, remembered-location state, selection, upload/download/delete actions, and surface handoff state.
+- `file-tree.js` and `file-tree.html` own the shared lazy directory tree; Files and Editor each retain independent tree state.
 - `rename-modal.html` owns rename and create-folder prompts that reuse the file-browser store.
 
 ## Local Contracts
@@ -22,10 +23,17 @@
 - Keep Extract available for supported archive files; extraction must create a new sibling folder and reject unsafe member paths and links.
 - Keep row action menus visible without disabling file-list scrolling; menus may float outside the scroll container but must still close on outside click, Escape, action click, and list scroll.
 - Keep the file list readable in narrow canvas/modal containers by hiding the Modified date column before sacrificing the Name or Size columns.
+- Use the shared `surface-workspace` lighter palette, 32px flat toolbar controls, and separators between action groups; the file-tree toggle stays available in the path header.
+- The list pane uses `padding: 0 6px`, a borderless list container/header bottom, and square file rows. Folder rows use the same `folder` Material Symbol as the tree; file-type SVGs remain for files. All list icons use a fixed 22px slot, with a 22px folder glyph, so folder and file names align.
+- Keep the list compact: 4px vertical header padding and 5px vertical item padding. The path-submit arrow is borderless and transparent, with opacity-only hover feedback.
 - Keep New file and New folder controls icon-only across canvas and modal modes while preserving accessible labels.
-- Keep narrow mobile controls compact: Up shares the path row, and New file/New folder share the search row.
+- Keep Up, path, New file, New folder, and the rightmost tree toggle in one compact row, with equal button heights. Do not add a separate search or totals row.
 - Preserve surface actions that route supported files to Browser, Desktop, or Editor.
 - Keep native drag moves available outside picker modes: dragging an unselected row moves only that row without changing selection, dragging a selected row moves the selection, folder rows accept drops, and Up moves items to the parent directory. Moves must reject overwrites and self-nesting.
+
+- Tree branches load through the existing authenticated file-list API on expansion; filtering covers loaded folders. Keep only the filter above the raw tree, without path, parent, or refresh controls. Preserve expanded ancestors during navigation within the root and reset when moving outside it.
+- Keep the tree on the right in canvas and modal modes; at narrow panel widths it overlays the content below the toolbar. Tree file clicks reuse picker selection or existing file-opening actions.
+- Scope unmount cleanup to the owning panel element; destroying an old host must not clean up the active modal.
 
 ## Work Guidance
 
@@ -36,6 +44,7 @@
 
 - Smoke-test opening Files as a modal and from the right-canvas rail.
 - Run targeted file-browser tests after behavior changes.
+- Run `tests/test_file_tree.py` for lazy tree loading, path normalization, filtering, errors, and host cleanup.
 
 ## Child DOX Index
 

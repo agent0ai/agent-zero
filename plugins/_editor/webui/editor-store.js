@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
+import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   openLatest as openLatestSurface,
   placeSurfaceModalHeaderAction,
@@ -221,6 +222,29 @@ function isEditorSocketData(data) {
 }
 
 const model = {
+  fileTree: createFileTree((file) => store.openTreeEntry(file)),
+
+  async openTreeEntry(file) {
+    if (file.is_dir || this.loading || this.saving) return;
+    if (fileBrowserStore.isEditorSurface(file)) {
+      const tab = this.tabs.find(tab => tab.path === file.path);
+      if (tab) return this.selectTab(tab.tab_id);
+      return this.openPath(file.path);
+    }
+    if (fileBrowserStore.canOpenInSurface(file)) return fileBrowserStore.openInSurface(file);
+    return fileBrowserStore.openFileEditor(file);
+  },
+
+  fileTreeDirectory() {
+    const path = this.session?.path || this.session?.document?.path;
+    return path ? fileBrowserStore.parentPath(path) : fileBrowserStore.browser.currentPath || fileBrowserStore.getRememberedDirectory() || "$WORK_DIR";
+  },
+
+  async toggleFileTree() {
+    await fileBrowserStore.loadDirectoryPreference();
+    await this.fileTree.toggle(this.fileTreeDirectory());
+  },
+
   status: null,
   tabs: [],
   activeTabId: "",
@@ -271,9 +295,7 @@ const model = {
   async onMount(element = null, options = {}) {
     await this.init();
     if (element && element !== this._root) {
-      if (this.sourceEditor && !element.contains?.(this.sourceEditor.container)) {
-        this.destroySourceEditor();
-      }
+      if (this._root) this.cleanup(this._root);
       this._root = element;
     }
     this._mode = options?.mode === "canvas" ? "canvas" : "modal";
@@ -304,7 +326,8 @@ const model = {
     this.flushInput();
   },
 
-  cleanup() {
+  cleanup(element = null) {
+    if (element && element !== this._root) return;
     this.flushInput();
     this.destroySourceEditor();
     if (this._previewEnhanceTimer) globalThis.clearTimeout(this._previewEnhanceTimer);

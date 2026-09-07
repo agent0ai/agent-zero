@@ -56,6 +56,8 @@
 - `hooks.prepare_playwright_cache()` owns reconciliation of the pinned Patchright package and Chromium binary so repository self-updates and fresh images use the same setup path.
 - Browser startup must install the shared virtual-desktop route hook itself; do not make Browser depend on the Desktop plugin being enabled.
 
+- Use shared `surface-workspace`, toolbar/control, and separator styles from `webui/css/surfaces.css`; match the lighter Files/Browser panel palette and preserve disabled, active, and keyboard focus states.
+
 ## Work Guidance
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.

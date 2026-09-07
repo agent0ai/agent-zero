@@ -29,8 +29,8 @@ def test_file_browser_editable_path_bar_and_remembered_directory_contract() -> N
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
     workdir_settings = read("webui", "components", "settings", "agent", "workdir.html")
 
-    assert 'class="path-navigator"' in html
-    assert 'class="nav-button back-button"' in html
+    assert 'class="path-navigator surface-toolbar"' in html
+    assert 'class="nav-button back-button surface-control"' in html
     assert 'class="text-button back-button"' not in html
     assert ".nav-button:focus-visible" in html
     assert ".nav-button .material-symbols-outlined" in html
@@ -73,12 +73,14 @@ def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
     assert 'title="New folder"' in html
     assert ">New File<" not in html
     assert ">New Folder<" not in html
-    assert ".btn-new-item" in html
-    assert "width: 2.8rem;" in html
-    assert "height: 2.8rem;" in html
+    assert 'class="file-search-shell"' not in html
+    assert 'class="file-tree-heading"' not in read("webui", "components", "modals", "file-browser", "file-tree.html")
+    assert "file-status-bar" not in html
+    assert html.index('aria-label="New file"') < html.index('aria-label="New folder"') < html.index('aria-label="Toggle file tree"')
+    assert "btn-new-item" in html
+    assert "width: 32px;" in html
+    assert "height: 32px;" in html
     assert ".path-navigator {\n      align-items: center;\n      flex-direction: row;" in html
-    assert ".file-browser-toolbar {\n      align-items: center;\n      flex-direction: row;" in html
-    assert ".file-search-shell {\n      flex: 1 1 auto;\n      min-width: 0;\n      width: auto;" in html
     assert ".path-navigator .nav-button-label {\n        display: none;" in html
 
     assert "container: file-browser / inline-size;" in html
@@ -195,7 +197,7 @@ def test_file_browser_is_registered_as_right_canvas_surface() -> None:
     assert 'class="surface-modal file-browser-modal modal-no-backdrop"' in html
     assert 'class="file-browser-modal-body"' in html
     assert 'x-create="$store.fileBrowser.onMount($el, xAttrs($el) || {})"' in html
-    assert 'x-destroy="$store.fileBrowser.onUnmount(xAttrs($el) || {})"' in html
+    assert 'x-destroy="$store.fileBrowser.onUnmount($el)"' in html
     assert ".modal-inner.file-browser-modal" in html
     assert "resize: both" in html
     assert "openSurface(path" in store

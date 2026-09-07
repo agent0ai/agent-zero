@@ -206,3 +206,109 @@
   position: absolute;
   touch-action: none;
 }
+
+/* Shared Files, Editor and Browser chrome. Content viewers keep their own themes. */
+.surface-workspace {
+  --surface-background: var(--color-panel);
+  --surface-chrome: color-mix(in srgb, var(--color-panel) 88%, var(--color-background) 12%);
+  --surface-divider: color-mix(in srgb, var(--color-border) 58%, transparent);
+  background: var(--surface-background);
+  color: var(--color-text);
+}
+
+.surface-workspace .surface-toolbar {
+  min-height: 48px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--surface-divider);
+  background: var(--surface-chrome);
+}
+
+.surface-workspace .surface-toolbar :is(.path-input, .browser-address) {
+  height: 34px;
+  min-height: 34px;
+  border-radius: 6px;
+}
+
+.surface-workspace .surface-tab-bar {
+  height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  align-items: center;
+  background: var(--surface-chrome);
+  border-bottom-color: var(--surface-divider);
+}
+
+.surface-workspace button.surface-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+  opacity: 0.72;
+  cursor: pointer;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.surface-workspace button.surface-control:hover:not(:disabled),
+.surface-workspace button.surface-control:focus-visible {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+  opacity: 1;
+}
+
+.surface-workspace button.surface-control:focus-visible {
+  outline: 1px solid var(--color-text-secondary);
+  outline-offset: 1px;
+}
+
+.surface-workspace button.surface-control:is([aria-pressed="true"], [aria-expanded="true"], .is-active, .is-primary) {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  color: var(--color-text);
+  opacity: 1;
+}
+
+.surface-workspace button.surface-control:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.surface-workspace button.surface-control > x-icon { font-size: 20px; }
+.surface-workspace button.surface-control-label { width: auto; padding: 0 8px; gap: 6px; }
+
+.surface-toolbar-separator {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--surface-divider);
+}
+
+.surface-workspace .surface-toolbar-group {
+  border-inline-start: 1px solid var(--surface-divider);
+  padding-inline-start: 8px;
+}
+
+.surface-workspace.editor-panel,
+.surface-workspace .editor-shell,
+.surface-workspace .editor-preview-shell,
+.surface-workspace .file-tree,
+.surface-workspace .files-list,
+.surface-workspace .file-browser-footer {
+  background: var(--surface-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-workspace button.surface-control { transition: none; }
+}

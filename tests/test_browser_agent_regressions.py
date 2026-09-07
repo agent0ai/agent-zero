@@ -2105,9 +2105,9 @@ def test_browser_panel_groups_mobile_toolbar_controls_above_address():
         PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html"
     ).read_text(encoding="utf-8")
 
-    toolbar_index = panel.index('<div class="browser-toolbar">')
+    toolbar_index = panel.index('<div class="browser-toolbar surface-toolbar">')
     nav_index = panel.index('<div class="browser-navigation">', toolbar_index)
-    controls_index = panel.index('<div class="browser-session-controls">', toolbar_index)
+    controls_index = panel.index('<div class="browser-session-controls surface-toolbar-group">', toolbar_index)
     address_index = panel.index('<form class="browser-address-form"', toolbar_index)
 
     assert nav_index < controls_index < address_index

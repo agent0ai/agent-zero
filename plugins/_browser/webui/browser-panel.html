@@ -10,10 +10,10 @@
 <body class="browser-modal-body">
   <div x-data>
     <template x-if="$store.browserPage">
-      <div class="browser-panel" x-create="$store.browserPage.onOpen($el, xAttrs($el) || {})" x-destroy="$store.browserPage.cleanup()"
+      <div class="browser-panel surface-workspace" x-create="$store.browserPage.onOpen($el, xAttrs($el) || {})" x-destroy="$store.browserPage.cleanup()"
         x-effect="$store.browserPage.handleSelectedContextChange($store.chats?.selected)"
         @keydown.window="$store.browserPage.handleKeydown($event)">
-        <div class="browser-meta">
+        <div class="browser-meta surface-tab-bar">
           <div class="browser-meta-top">
             <div class="browser-session-tabs" role="tablist" aria-label="Browser sessions">
               <template x-for="browser in $store.browserPage.visibleBrowsers()" :key="$store.browserPage.browserTabKey(browser)">
@@ -39,7 +39,7 @@
                   </button>
                 </div>
               </template>
-	              <button type="button" class="browser-new-tab" title="New Browser" aria-label="New Browser"
+	              <button type="button" class="browser-new-tab surface-control" title="New Browser" aria-label="New Browser"
 	                :disabled="$store.browserPage.isBusy()"
 	                @click="$store.browserPage.openNewBrowser()">
                 <x-icon name="add"></x-icon>
@@ -49,24 +49,24 @@
           </div>
         </div>
 
-        <div class="browser-toolbar">
+        <div class="browser-toolbar surface-toolbar">
           <div class="browser-navigation">
-	            <button class="btn btn-icon-action" title="Back" @click="$store.browserPage.command('back')"
+	            <button class="btn btn-icon-action surface-control" title="Back" aria-label="Back" @click="$store.browserPage.command('back')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="arrow_back"></x-icon>
             </button>
-	            <button class="btn btn-icon-action" title="Forward" @click="$store.browserPage.command('forward')"
+	            <button class="btn btn-icon-action surface-control" title="Forward" aria-label="Forward" @click="$store.browserPage.command('forward')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="arrow_forward"></x-icon>
             </button>
-	            <button class="btn btn-icon-action" title="Reload" @click="$store.browserPage.command('reload')"
+	            <button class="btn btn-icon-action surface-control" title="Reload" aria-label="Reload" @click="$store.browserPage.command('reload')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="refresh"></x-icon>
             </button>
           </div>
 
-          <div class="browser-session-controls">
-            <button type="button" class="btn browser-annotate-toggle" title="Annotate" aria-label="Annotate"
+          <div class="browser-session-controls surface-toolbar-group">
+            <button type="button" class="btn browser-annotate-toggle surface-control surface-control-label" title="Annotate" aria-label="Annotate"
               :aria-pressed="$store.browserPage.annotating.toString()"
               :class="{ 'is-active': $store.browserPage.annotating }"
               :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
@@ -77,7 +77,7 @@
             </button>
             <div class="browser-extension-menu" @click.outside="$store.browserPage.closeExtensionsMenu()"
               @keydown.escape.window="$store.browserPage.closeExtensionsMenu()">
-              <button type="button" class="btn btn-icon-action browser-extensions" title="Browser settings"
+              <button type="button" class="btn btn-icon-action browser-extensions surface-control" title="Browser settings"
                 aria-label="Browser settings" @click.stop="$store.browserPage.toggleExtensionsMenu()"
                 :aria-expanded="$store.browserPage.extensionMenuOpen.toString()"
                 :class="{ 'is-active': $store.browserPage.status?.extensions?.active }">
@@ -427,10 +427,10 @@
 	    }
 
     .browser-panel {
-      --browser-chrome-surface: color-mix(in srgb, var(--color-background) 92%, #000 8%);
+      --browser-chrome-surface: var(--surface-chrome);
       --browser-chrome-border: color-mix(in srgb, var(--color-border) 58%, transparent);
       --browser-tab-hover-border: color-mix(in srgb, var(--color-border) 78%, transparent);
-      --browser-control-size: 34px;
+      --browser-control-size: 32px;
       --browser-address-height: 34px;
       --browser-tab-height: 36px;
       --browser-tab-close-size: 32px;
@@ -530,16 +530,16 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 10px;
-      align-items: end;
+      align-items: center;
     }
 
     .browser-session-tabs {
       display: flex;
-      align-items: end;
+      align-items: center;
       gap: 4px;
       min-width: 0;
       overflow-x: auto;
-      padding: 1px 0 0;
+      padding: 0;
       scrollbar-width: thin;
       overflow-y: hidden;
     }
@@ -1514,7 +1514,7 @@
         height: var(--browser-control-size);
       }
 
-      .browser-annotate-toggle {
+      .browser-panel button.browser-annotate-toggle {
         width: var(--browser-control-size);
         min-width: var(--browser-control-size);
         padding: 0;

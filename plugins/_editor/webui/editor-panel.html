@@ -7,9 +7,10 @@
 <body>
   <div x-data>
     <template x-if="$store.editor">
-      <div class="editor-panel" x-create="$store.editor.onMount($el, xAttrs($el) || {})" x-destroy="$store.editor.cleanup()">
-        <div class="editor-shell" @keydown.capture="$store.editor.handleEditorKeydown($event)">
-          <div class="editor-tabs" x-show="$store.editor.visibleTabs().length > 0" style="display: none;" role="tablist" aria-label="Open text files">
+      <div class="editor-panel surface-workspace" x-create="$store.editor.onMount($el, xAttrs($el) || {})" x-destroy="$store.editor.cleanup($el)">
+        <div class="editor-shell" x-effect="$store.editor.fileTree.follow($store.editor.fileTreeDirectory(), $store.editor.session?.path || ''); $store.editor.fileTree.shown; $store.editor.refreshSourceEditorLayout()" @keydown.capture="$store.editor.handleEditorKeydown($event)">
+          <div class="editor-tab-bar surface-tab-bar">
+          <div class="editor-tabs" role="tablist" aria-label="Open text files">
             <template x-for="tab in $store.editor.visibleTabs()" :key="tab.tab_id">
               <div
                 class="editor-tab-shell"
@@ -40,7 +41,7 @@
             </template>
             <button
               type="button"
-              class="editor-new-tab"
+              class="editor-new-tab surface-control"
               title="Open file"
               aria-label="Open file"
               :disabled="$store.editor.loading || $store.editor.saving"
@@ -50,7 +51,7 @@
             </button>
             <button
               type="button"
-              class="editor-new-tab"
+              class="editor-new-tab surface-control"
               title="New Markdown"
               aria-label="New Markdown"
               :disabled="$store.editor.loading || $store.editor.saving"
@@ -58,6 +59,10 @@
             >
               <x-icon aria-hidden="true" name="add"></x-icon>
             </button>
+          </div>
+
+            <span class="surface-toolbar-separator" aria-hidden="true"></span>
+            <button type="button" class="editor-icon-button surface-control editor-tree-toggle" title="Toggle file tree" aria-label="Toggle file tree" :aria-pressed="String($store.editor.fileTree.shown)" @click="$store.editor.toggleFileTree()"><x-icon name="account_tree"></x-icon></button>
           </div>
 
           <div class="editor-close-confirm" x-show="$store.editor.hasPendingClose()" style="display: none;" role="status">
@@ -87,11 +92,11 @@
             </div>
           </div>
 
-          <div class="editor-toolbar" x-show="$store.editor.session" style="display: none;">
+          <div class="editor-toolbar surface-toolbar" x-show="$store.editor.session" style="display: none;">
             <div class="editor-toolbar-row">
               <button
                 type="button"
-                class="editor-icon-button editor-mode-toggle"
+                class="editor-icon-button surface-control editor-mode-toggle"
                 x-show="$store.editor.isTextDocument()"
                 style="display: none;"
                 :title="$store.editor.viewModeTitle()"
@@ -101,51 +106,52 @@
                 <x-icon aria-hidden="true" :name="$store.editor.viewModeIcon()"></x-icon>
               </button>
 
-              <div class="editor-tool-group editor-history-tools" x-show="$store.editor.isTextDocument()" style="display: none;">
-                <button type="button" class="editor-icon-button" title="Undo" aria-label="Undo" :disabled="$store.editor.previewEditing || !$store.editor.canUndo()" @click="$store.editor.undo()">
+              <div class="editor-tool-group surface-toolbar-group editor-history-tools" x-show="$store.editor.isTextDocument()" style="display: none;">
+                <button type="button" class="editor-icon-button surface-control" title="Undo" aria-label="Undo" :disabled="$store.editor.previewEditing || !$store.editor.canUndo()" @click="$store.editor.undo()">
                   <x-icon name="undo"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="Redo" aria-label="Redo" :disabled="$store.editor.previewEditing || !$store.editor.canRedo()" @click="$store.editor.redo()">
+                <button type="button" class="editor-icon-button surface-control" title="Redo" aria-label="Redo" :disabled="$store.editor.previewEditing || !$store.editor.canRedo()" @click="$store.editor.redo()">
                   <x-icon name="redo"></x-icon>
                 </button>
               </div>
 
-              <div class="editor-tool-group editor-source-tools" x-show="$store.editor.isTextDocument() && $store.editor.isSourceMode()" style="display: none;">
-                <button type="button" class="editor-icon-button" title="Bold" aria-label="Bold" @click="$store.editor.format('bold')">
+              <div class="editor-tool-group surface-toolbar-group editor-source-tools" x-show="$store.editor.isTextDocument() && $store.editor.isSourceMode()" style="display: none;">
+                <button type="button" class="editor-icon-button surface-control" title="Bold" aria-label="Bold" @click="$store.editor.format('bold')">
                   <x-icon name="format_bold"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="Italic" aria-label="Italic" @click="$store.editor.format('italic')">
+                <button type="button" class="editor-icon-button surface-control" title="Italic" aria-label="Italic" @click="$store.editor.format('italic')">
                   <x-icon name="format_italic"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="List" aria-label="List" @click="$store.editor.format('list')">
+                <button type="button" class="editor-icon-button surface-control" title="List" aria-label="List" @click="$store.editor.format('list')">
                   <x-icon name="format_list_bulleted"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="Numbered list" aria-label="Numbered list" @click="$store.editor.format('numbered')">
+                <button type="button" class="editor-icon-button surface-control" title="Numbered list" aria-label="Numbered list" @click="$store.editor.format('numbered')">
                   <x-icon name="format_list_numbered"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="Table" aria-label="Table" @click="$store.editor.format('table')">
+                <button type="button" class="editor-icon-button surface-control" title="Table" aria-label="Table" @click="$store.editor.format('table')">
                   <x-icon name="table"></x-icon>
                 </button>
               </div>
-              <div class="editor-tool-group editor-preview-tools" x-show="$store.editor.isTextDocument() && $store.editor.isPreviewMode()" style="display: none;">
-                <button type="button" class="editor-icon-button" title="Edit document" aria-label="Edit document" x-show="!$store.editor.previewEditing" @click="$store.editor.startPreviewEdit()">
+              <div class="editor-tool-group surface-toolbar-group editor-preview-tools" x-show="$store.editor.isTextDocument() && $store.editor.isPreviewMode()" style="display: none;">
+                <button type="button" class="editor-icon-button surface-control" title="Edit document" aria-label="Edit document" x-show="!$store.editor.previewEditing" @click="$store.editor.startPreviewEdit()">
                   <x-icon name="edit_note"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button is-primary" title="Apply document edit" aria-label="Apply document edit" x-show="$store.editor.previewEditing" @click="$store.editor.applyPreviewEdit()">
+                <button type="button" class="editor-icon-button surface-control is-primary" title="Apply document edit" aria-label="Apply document edit" x-show="$store.editor.previewEditing" @click="$store.editor.applyPreviewEdit()">
                   <x-icon name="check"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="Cancel document edit" aria-label="Cancel document edit" x-show="$store.editor.previewEditing" @click="$store.editor.cancelPreviewEdit()">
+                <button type="button" class="editor-icon-button surface-control" title="Cancel document edit" aria-label="Cancel document edit" x-show="$store.editor.previewEditing" @click="$store.editor.cancelPreviewEdit()">
                   <x-icon name="close"></x-icon>
                 </button>
-                <button type="button" class="editor-icon-button" title="Search" aria-label="Search" :disabled="$store.editor.previewEditing" @click="$store.editor.openSearch()">
+                <button type="button" class="editor-icon-button surface-control" title="Search" aria-label="Search" :disabled="$store.editor.previewEditing" @click="$store.editor.openSearch()">
                   <x-icon name="search"></x-icon>
                 </button>
               </div>
               <span class="editor-toolbar-spacer"></span>
 
+              <div class="editor-tool-group surface-toolbar-group editor-file-tools">
               <button
                 type="button"
-                class="editor-icon-button editor-save-button"
+                class="editor-icon-button surface-control editor-save-button"
                 :class="{ 'is-primary': $store.editor.dirty || $store.editor.saving }"
                 :title="$store.editor.saving ? 'Saving' : 'Save'"
                 :aria-label="$store.editor.saving ? 'Saving' : 'Save'"
@@ -157,7 +163,7 @@
 
               <button
                 type="button"
-                class="editor-icon-button editor-save-as-button"
+                class="editor-icon-button surface-control editor-save-as-button"
                 title="Save As"
                 aria-label="Save As"
                 :disabled="$store.editor.saving"
@@ -169,7 +175,7 @@
               <div class="editor-file-actions" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
                 <button
                   type="button"
-                  class="editor-icon-button editor-file-menu-button"
+                  class="editor-icon-button surface-control editor-file-menu-button"
                   title="File actions"
                   aria-label="File actions"
                   aria-haspopup="menu"
@@ -198,6 +204,7 @@
                   </button>
                 </div>
               </div>
+              </div>
             </div>
           </div>
 
@@ -213,13 +220,13 @@
               @keydown.escape.prevent="$store.editor.closeSearch()"
             />
             <span class="editor-search-count" x-text="$store.editor.searchCountLabel()"></span>
-            <button type="button" class="editor-icon-button" title="Previous match" aria-label="Previous match" :disabled="$store.editor.searchMatches.length === 0" @click="$store.editor.previousSearchMatch()">
+            <button type="button" class="editor-icon-button surface-control" title="Previous match" aria-label="Previous match" :disabled="$store.editor.searchMatches.length === 0" @click="$store.editor.previousSearchMatch()">
               <x-icon name="keyboard_arrow_up"></x-icon>
             </button>
-            <button type="button" class="editor-icon-button" title="Next match" aria-label="Next match" :disabled="$store.editor.searchMatches.length === 0" @click="$store.editor.nextSearchMatch()">
+            <button type="button" class="editor-icon-button surface-control" title="Next match" aria-label="Next match" :disabled="$store.editor.searchMatches.length === 0" @click="$store.editor.nextSearchMatch()">
               <x-icon name="keyboard_arrow_down"></x-icon>
             </button>
-            <button type="button" class="editor-icon-button" title="Close search" aria-label="Close search" @click="$store.editor.closeSearch()">
+            <button type="button" class="editor-icon-button surface-control" title="Close search" aria-label="Close search" @click="$store.editor.closeSearch()">
               <x-icon name="close"></x-icon>
             </button>
           </div>
@@ -230,6 +237,7 @@
           </div>
 
           <div class="editor-body">
+            <div class="editor-document">
             <div class="editor-wrap" x-show="$store.editor.session && $store.editor.isSourceMode()" style="display: none;">
               <div class="editor-scroll" @click.self="$store.editor.focusEditor()">
                 <div class="editor-ace" data-editor-ace x-show="!$store.editor.aceUnavailable"></div>
@@ -276,19 +284,23 @@
 
             <div class="editor-empty" x-show="!$store.editor.session && !$store.editor.loading" style="display: none;">
               <div class="editor-empty-actions">
-                <button type="button" class="editor-icon-button editor-command-button" @click="$store.editor.runNewMenuAction('open')">
+                <button type="button" class="editor-icon-button surface-control surface-control-label editor-command-button" @click="$store.editor.runNewMenuAction('open')">
                   <x-icon aria-hidden="true" name="folder_open"></x-icon>
                   <span class="editor-button-label">Open</span>
                 </button>
-                <button type="button" class="editor-icon-button editor-command-button" @click="$store.editor.runNewMenuAction('markdown')">
+                <button type="button" class="editor-icon-button surface-control surface-control-label editor-command-button" @click="$store.editor.runNewMenuAction('markdown')">
                   <x-icon aria-hidden="true" name="article"></x-icon>
                   <span class="editor-button-label">Markdown</span>
                 </button>
-                <button type="button" class="editor-icon-button editor-command-button" @click="$store.editor.runNewMenuAction('text')">
+                <button type="button" class="editor-icon-button surface-control surface-control-label editor-command-button" @click="$store.editor.runNewMenuAction('text')">
                   <x-icon aria-hidden="true" name="description"></x-icon>
                   <span class="editor-button-label">Text</span>
                 </button>
               </div>
+            </div>
+            </div>
+            <div class="file-tree-host" x-show="$store.editor.fileTree.shown" style="display: none;">
+              <x-component path="modals/file-browser/file-tree.html" owner="editor"></x-component>
             </div>
           </div>
         </div>
@@ -299,7 +311,7 @@
   <style>
     .editor-panel,
     .editor-shell {
-      --editor-chrome-surface: color-mix(in srgb, var(--color-background) 92%, #000 8%);
+      --editor-chrome-surface: var(--surface-chrome);
       --editor-chrome-border: color-mix(in srgb, var(--color-border) 58%, transparent);
       --editor-tab-hover-border: color-mix(in srgb, var(--color-border) 78%, transparent);
       --editor-tab-height: 36px;
@@ -362,10 +374,10 @@
 
     .editor-tabs {
       display: flex;
-      align-items: end;
+      align-items: center;
       gap: 4px;
-      min-height: 44px;
-      padding: 7px 10px 0;
+      min-height: 0;
+      padding: 0;
       overflow-x: auto;
       overflow-y: hidden;
       border-bottom: 1px solid var(--editor-chrome-border);
@@ -427,21 +439,6 @@
         opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .editor-icon-button {
-      display: inline-grid;
-      place-items: center;
-      width: 32px;
-      height: 32px;
-      min-width: 32px;
-      padding: 0;
-      border: 1px solid color-mix(in srgb, var(--color-border), transparent 12%);
-      border-radius: 8px;
-      background: color-mix(in srgb, var(--color-panel), var(--color-background) 16%);
-      color: inherit;
-      cursor: pointer;
-      transition: border-color 120ms ease, background 120ms ease;
-    }
-
     .editor-tab {
       display: flex;
       align-items: center;
@@ -492,11 +489,6 @@
       background: transparent;
       opacity: 1;
       box-shadow: none;
-    }
-
-    .editor-icon-button.is-primary {
-      border-color: color-mix(in srgb, #2c7be5, var(--color-border) 36%);
-      background: color-mix(in srgb, #2c7be5, var(--color-panel) 88%);
     }
 
     .editor-tab-shell.is-pending-close {
@@ -603,6 +595,8 @@
       min-width: 8px;
     }
 
+    .editor-file-tools { flex-shrink: 0; margin-left: auto; }
+
     .editor-search-count {
       min-width: 54px;
       color: var(--color-text-secondary);
@@ -629,11 +623,6 @@
       padding: 0 9px;
       font: inherit;
       font-size: 13px;
-    }
-
-    .editor-icon-button:hover:not(:disabled) {
-      border-color: color-mix(in srgb, #2c7be5, var(--color-border) 45%);
-      background: color-mix(in srgb, var(--color-panel), #2c7be5 8%);
     }
 
     .editor-tab:hover {
@@ -678,11 +667,6 @@
     .editor-new-tab .material-symbols-outlined {
       font-size: 1.12rem;
       line-height: 1;
-    }
-
-    .editor-icon-button:disabled {
-      cursor: default;
-      opacity: 0.42;
     }
 
     .editor-file-actions,
@@ -786,6 +770,7 @@
     }
 
     @container (max-width: 560px) {
+      .editor-toolbar-row { flex-wrap: wrap; }
       .editor-close-confirm {
         align-items: stretch;
         flex-direction: column;
@@ -797,6 +782,7 @@
     }
 
     .editor-body,
+    .editor-document,
     .editor-wrap,
     .editor-scroll,
     .editor-preview-shell {
@@ -806,11 +792,13 @@
       min-height: 0;
     }
 
-    .editor-body {
-      position: relative;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    .editor-body { position: relative; flex-direction: row; overflow: hidden; }
+    .editor-document { flex-direction: column; overflow: hidden; }
+    .editor-tab-bar { display: flex; align-items: center; min-width: 0; background: var(--editor-chrome-surface); border-bottom: 1px solid var(--editor-chrome-border); }
+    .editor-tab-bar .editor-tabs { flex: 1; border-bottom: 0; }
+    .editor-tree-toggle { flex-shrink: 0; margin: 0; }
+    .editor-tree-toggle x-icon { font-size: 20px; }
+    .editor-tree-toggle[aria-pressed="true"] { background: color-mix(in srgb, var(--color-text) 8%, var(--color-panel)); }
 
     .editor-wrap,
     .editor-scroll {

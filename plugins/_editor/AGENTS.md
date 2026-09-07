@@ -23,6 +23,13 @@
 - Keep Markdown and plain text on the same toolbar, with full-document source and preview modes plus shared Undo/Redo buttons and keyboard shortcuts.
 - Preserve source chat context ids when opening Markdown files from tool-result canvas handoffs.
 
+- The tab header owns a persistent file-tree toggle, including the empty Editor state. Reuse the shared Files tree component with Editor-owned state, seeded from the active document directory or Files fallback.
+- Opening an already-open document from the tree selects its tab without reloading unsaved text. Unsupported editor formats retain the existing Files surface/editor routing.
+- The right-hand tree uses the same content in canvas/modal hosts and overlays the document at narrow panel widths.
+- Mount cleanup is host-specific: canvas close passes its panel element so a late canvas close cannot tear down the active modal.
+
+- Use shared `surface-workspace`, toolbar/control, and separator styles from `webui/css/surfaces.css`; match the lighter Files/Browser panel palette and preserve disabled, active, and keyboard focus states.
+
 ## Work Guidance
 
 - Coordinate editor preview and session changes with canvas surface registration.
@@ -30,6 +37,7 @@
 ## Verification
 
 - Smoke-test opening, editing, previewing, and reconnecting editor sessions after changes.
+- Run `tests/test_file_tree.py` for tree navigation and host cleanup; verify desktop-to-mobile resizing after canvas/modal handoff.
 
 ## Child DOX Index
 

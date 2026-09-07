@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { store as fileEditorStore } from "/components/modals/file-editor/file-editor-store.js";
+import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   openLatest as openLatestSurface,
   setupFloatingSurfaceModalChrome,
@@ -56,6 +57,21 @@ function delay(ms) {
 
 // Model migrated from legacy file_browser.js (lift-and-shift)
 const model = {
+  fileTree: createFileTree((file) => store.openTreeEntry(file)),
+
+  async openTreeEntry(file) {
+    if (file.is_dir) return this.navigateToFolder(file.path);
+    if (this.isPickerMode()) {
+      if (await this.fetchFiles(this.parentPath(file.path), { preserveOnError: true })) {
+        const entry = this.browser.entries.find(entry => this.normalizePath(entry.path) === file.path);
+        if (entry) this.handleFileNameClick(entry);
+      }
+      return;
+    }
+    if (this.canOpenInSurface(file)) return this.openInSurface(file);
+    return this.openFileEditor(file);
+  },
+
   // Reactive state
   isLoading: false,
   browser: {
@@ -79,6 +95,7 @@ const model = {
   settingsLoadPromise: null,
   settingsUpdatedHandler: null,
   _floatingCleanup: null,
+  _mountedElement: null,
   _mountedDefaultLoadTimer: null,
   renameTarget: null,
   renameName: "",
@@ -114,6 +131,7 @@ const model = {
   },
 
   onMount(element = null, options = {}) {
+    this._mountedElement = element;
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     const mode = options?.mode === "canvas" ? "canvas" : "modal";
@@ -124,7 +142,9 @@ const model = {
     }
   },
 
-  onUnmount() {
+  onUnmount(element = null) {
+    if (element && element !== this._mountedElement) return;
+    this._mountedElement = null;
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this.cancelMountedDefaultLoad();

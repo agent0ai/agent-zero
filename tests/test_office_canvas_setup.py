@@ -562,7 +562,7 @@ def test_editor_open_file_browser_prefers_context_home_before_workdir_fallback()
 def test_editor_toolbar_places_preview_toggle_left_and_save_on_right():
     editor_panel = read("plugins", "_editor", "webui", "editor-panel.html")
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
-    toolbar_start = editor_panel.index('<div class="editor-toolbar"')
+    toolbar_start = editor_panel.index('<div class="editor-toolbar surface-toolbar"')
     toolbar_end = editor_panel.index('<div class="editor-search-bar"', toolbar_start)
     toolbar = editor_panel[toolbar_start:toolbar_end]
 
@@ -608,8 +608,8 @@ def test_editor_uses_full_document_preview_and_matching_markdown_text_tools():
     assert 'mode === PREVIEW_MODE && this.isTextDocument()' in editor_store
     assert "if (!this.session || !this.isTextDocument()) return;" in editor_store
 
-    source_tools_start = editor_panel.index('class="editor-tool-group editor-source-tools"')
-    preview_tools_start = editor_panel.index('class="editor-tool-group editor-preview-tools"')
+    source_tools_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-source-tools"')
+    preview_tools_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-preview-tools"')
     source_tools = editor_panel[source_tools_start:preview_tools_start]
     for action in ("Bold", "Italic", "List", "Numbered list", "Table"):
         assert f'title="{action}"' in source_tools
@@ -621,8 +621,8 @@ def test_editor_history_shortcuts_and_toolbar_controls_cover_markdown_and_text()
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
 
     assert '@keydown.capture="$store.editor.handleEditorKeydown($event)"' in editor_panel
-    history_start = editor_panel.index('class="editor-tool-group editor-history-tools"')
-    source_start = editor_panel.index('class="editor-tool-group editor-source-tools"')
+    history_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-history-tools"')
+    source_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-source-tools"')
     history_tools = editor_panel[history_start:source_start]
     assert 'x-show="$store.editor.isTextDocument()"' in history_tools
     assert 'title="Undo"' in history_tools
