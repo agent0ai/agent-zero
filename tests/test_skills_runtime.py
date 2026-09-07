@@ -16,6 +16,7 @@ HELPER_STUB_MODULES = (
     "helpers.subagents",
     "helpers.file_tree",
     "helpers.runtime",
+    "helpers.extension",
 )
 
 
@@ -50,6 +51,9 @@ def _register_helpers_stubs():
     file_tree = types.ModuleType("helpers.file_tree")
     file_tree.file_tree = lambda *args, **kwargs: ""
 
+    extension = types.ModuleType("helpers.extension")
+    extension.extensible = lambda func: func
+
     runtime = types.ModuleType("helpers.runtime")
     runtime.is_development = lambda: False
 
@@ -67,6 +71,7 @@ def _register_helpers_stubs():
     sys.modules["helpers.subagents"] = subagents
     sys.modules["helpers.file_tree"] = file_tree
     sys.modules["helpers.runtime"] = runtime
+    sys.modules["helpers.extension"] = extension
 
 
 def _load_skills_helper_module():
@@ -417,7 +422,7 @@ def test_renamed_skills_use_standard_frontmatter_only():
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-computer-use-macos" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-computer-use-windows" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-file-editing" / "SKILL.md",
-        PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "setup-a0-cli" / "SKILL.md",
+        PROJECT_ROOT / "skills" / "setup-a0-cli" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-extension-control" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-form-workflows" / "SKILL.md",

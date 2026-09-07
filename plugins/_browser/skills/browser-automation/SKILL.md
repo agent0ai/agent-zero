@@ -37,6 +37,8 @@ For fragile forms, load `browser-form-workflows` with `skills_tool:load` before 
 
 ## Modes
 
+When the user asks for "my browser", "host browser", "local browser", a local Chromium browser, or opening a URL in their host browser, use this `browser` tool. Do not substitute `computer_use_remote`, `code_execution_remote`, `xdg-open`, `sensible-browser`, or Python `webbrowser.open`. If setup fails and mentions remote debugging, tell the user to open the browser inspect page, such as `chrome://inspect/#remote-debugging` or `opera://inspect/#remote-debugging`, enable "Allow remote debugging for this browser instance", run `/browser host on`, and retry.
+
 The same tool may run in Docker container mode or A0 CLI host-browser mode, depending on project/plugin settings.
 
 - Container mode: browser and upload paths resolve inside the Agent Zero container.

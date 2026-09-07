@@ -22,6 +22,7 @@
   prompts, remote file metadata enables `text_editor_remote`, F4-enabled remote
   execution metadata enables `code_execution_remote`, and supported enabled
   Computer Use that does not need re-arming enables `computer_use_remote`.
+- Agent-scoped skill discovery includes this plugin's `skills/` root only when a routed connected socket has connector capability metadata. WebUI-only sockets do not qualify; disabled capabilities still count as a connected CLI. Filter roots on each discovery without mutating cached paths or persisting visibility settings. `setup-a0-cli` lives in root `skills/` and stays discoverable while disconnected.
 - Never re-add a connector prompt that the effective project/profile tool policy
   blocks.
 - Do not bypass WebSocket authentication or leak connector session data.

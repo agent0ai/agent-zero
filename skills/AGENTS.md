@@ -9,6 +9,7 @@
 
 - Each direct skill directory owns its `SKILL.md` and any local supporting files.
 - Plugin-distributed skills belong under the relevant plugin directory.
+- `setup-a0-cli/` owns primary host-connector setup guidance and remains discoverable without a connected CLI.
 - User-local skills belong under `usr/skills/`.
 
 ## Local Contracts

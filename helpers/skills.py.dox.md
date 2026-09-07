@@ -57,6 +57,8 @@
 
 ## Runtime Contracts
 
+- `get_skill_roots` is extensible. Plugin end hooks may filter agent-scoped roots from current runtime state; do not mutate cached path lists. Global discovery without an agent retains installed roots. Listing, search, lookup, and skill reattachment use this resolver.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Loaded skill names are chat-wide context data under `CONTEXT_DATA_NAME_LOADED_SKILLS`; legacy agent-local `loaded_skills` lists are migrated into context data and cleared when read.

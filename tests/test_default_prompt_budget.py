@@ -98,12 +98,11 @@ async def test_default_agent0_prompt_contracts():
     assert "~~~json" in communication_prompt
     assert "~~~json" not in rendered_system_text
     assert "```json" not in rendered_system_text
-    assert "# code_execution_remote tool" not in system_text
-    assert "# text_editor_remote tool" not in system_text
-    assert "### computer_use_remote" not in system_text
-    assert '"tool_name": "code_execution_remote"' not in system_text
-    assert '"tool_name": "text_editor_remote"' not in system_text
-    assert '"tool_name": "computer_use_remote"' not in system_text
+    for name in ("code_execution_remote", "text_editor_remote", "computer_use_remote"):
+        assert name not in system_text
+        assert name not in rendered_system_text
+    assert "- host-" not in system_text
+    assert "- setup-a0-cli:" in system_text
     assert "Computer Use enablement is scoped to the current CLI session" not in system_text
 
 
