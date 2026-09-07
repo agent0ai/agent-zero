@@ -1196,7 +1196,17 @@ async function restoreMessageExpansionState(history, state) {
 }
 
 function nextAnimationFrame() {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  return new Promise((resolve) => {
+    // Browsers may stop painting hidden or occluded windows. A visual layout
+    // yield must not hold state synchronization until the window is repainted.
+    const finish = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      resolve();
+    };
+    const frame = requestAnimationFrame(finish);
+    const timer = setTimeout(finish, 100);
+  });
 }
 
 function appendToMessageGroup(
