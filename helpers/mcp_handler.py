@@ -1276,6 +1276,20 @@ class MCPConfig(BaseModel):
 T = TypeVar("T")
 
 
+def _stop_worker_loop(worker: DeferredTask) -> None:
+    """Stop a timed-out worker's event loop without waiting on it.
+
+    Abandoning the worker leaves its loop spinning at 100% CPU holding the GIL
+    for the lifetime of the process. Stopping the loop ends the spin and lets
+    the thread exit. This deliberately does not drain tasks or join the thread:
+    both are unbounded on a wedged loop, which is precisely why the timeout
+    path could not terminate the worker before.
+    """
+    loop = getattr(worker.event_loop_thread, "loop", None)
+    if loop is not None and loop.is_running():
+        loop.call_soon_threadsafe(loop.stop)
+
+
 class MCPClientBase(ABC):
     # server: Union[MCPServerLocal, MCPServerRemote] # Defined in __init__
     # tools: List[dict[str, Any]] # Defined in __init__
@@ -1330,6 +1344,7 @@ class MCPClientBase(ABC):
         finally:
             if timed_out:
                 worker.kill(terminate_thread=False)
+                _stop_worker_loop(worker)
             else:
                 worker.kill(terminate_thread=True)
 
