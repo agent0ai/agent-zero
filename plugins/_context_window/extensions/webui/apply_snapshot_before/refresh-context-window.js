@@ -3,6 +3,7 @@ import { store as contextWindowStore } from "/plugins/_context_window/webui/cont
 const OVERRIDE_REVISION_KEY = "_model_config_override_revision";
 let lastContextId = "";
 let lastRevision = null;
+let lastLogGuid = "";
 let lastGenerationKey = "";
 
 function latestGenerationKey(logs) {
@@ -21,6 +22,7 @@ export default async function refreshContextWindow(ctx) {
   if (!contextId) {
     lastContextId = "";
     lastRevision = null;
+    lastLogGuid = "";
     lastGenerationKey = "";
     return;
   }
@@ -28,15 +30,18 @@ export default async function refreshContextWindow(ctx) {
   const contexts = Array.isArray(snapshot?.contexts) ? snapshot.contexts : [];
   const active = contexts.find(item => item?.id === contextId) || null;
   const revision = active?.[OVERRIDE_REVISION_KEY] || null;
+  const logGuid = String(snapshot?.log_guid || "");
   const generationKey = latestGenerationKey(snapshot?.logs);
   if (
     contextId === lastContextId
     && revision === lastRevision
+    && logGuid === lastLogGuid
     && (!generationKey || generationKey === lastGenerationKey)
   ) return;
 
   lastContextId = contextId;
   lastRevision = revision;
+  lastLogGuid = logGuid;
   if (generationKey) lastGenerationKey = generationKey;
   await contextWindowStore.refresh(contextId);
 }
