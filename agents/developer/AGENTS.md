@@ -8,7 +8,7 @@
 ## Ownership
 
 - `agent.yaml` owns title, description, and delegation context for software development work.
-- `prompts/` owns developer-specific prompt overrides when present.
+- `prompts/agent.system.main.specifics.md` owns engineering intake, method, and task-specific delivery checks.
 - `extensions/` owns developer-specific lifecycle hooks when present.
 
 ## Local Contracts
@@ -16,6 +16,7 @@
 - Keep this profile focused on software engineering tasks.
 - Do not hardcode repository-local credentials, paths, or project-specific conventions.
 - Prompt overrides must preserve the framework tool-call and response contracts.
+- Inherit shared communication and coding discipline; keep specialist directives compact without dropping technical constraints or verification.
 
 ## Work Guidance
 
@@ -26,6 +27,7 @@
 
 - Manually inspect `agent.yaml` for valid YAML after edits.
 - Run prompt/profile tests when changing profile loading or developer prompt behavior.
+- For wording changes, compare direct tokenizer counts and inspect rendered prompts for retained engineering checks and shared communication.
 
 ## Child DOX Index
 

@@ -8,13 +8,14 @@
 ## Ownership
 
 - `agent.yaml` owns title, description, and delegation context for research work.
-- `prompts/` owns researcher-specific prompt overrides when present.
+- `prompts/agent.system.main.specifics.md` owns research intake, evidence handling, and task-specific analysis and reports.
 
 ## Local Contracts
 
 - Keep this profile focused on information gathering, analysis, synthesis, and reporting.
 - Do not bake in project-specific sources, credentials, or local paths.
 - Preserve the framework tool-call and response contracts.
+- Inherit shared communication; keep specialist directives compact without dropping source validation, uncertainty, citations, or task deliverables.
 
 ## Work Guidance
 
@@ -25,6 +26,7 @@
 
 - Manually inspect `agent.yaml` for valid YAML after edits.
 - Run prompt/profile tests when changing discovery or researcher prompt behavior.
+- For wording changes, compare direct tokenizer counts and inspect rendered prompts for retained evidence checks and shared communication.
 
 ## Child DOX Index
 
