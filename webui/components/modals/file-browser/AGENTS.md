@@ -28,7 +28,7 @@
 - The selection toolbar provides Download ZIP, Delete, and Clear and spans the full width below the path header and above the list/tree split. Keep the count and each button label on one line; wrap whole controls with explicit horizontal and vertical gaps on narrow panels.
 - Keep the file list readable in narrow canvas/modal containers by hiding the Modified date column before sacrificing the Name or Size columns.
 - Use the shared `surface-workspace` lighter palette, 32px flat toolbar controls, and separators between action groups; the file-tree toggle stays available in the path header.
-- The list pane uses `padding: 0 6px`, a borderless list container/header bottom, and square file rows. Folder rows use the same `folder` Material Symbol as the tree; file-type SVGs remain for files. All list icons use a fixed 22px slot, with a 22px folder glyph, so folder and file names align.
+- The list pane uses `padding: 0 6px`, a borderless list container/header bottom, and square file rows. Folder rows use the same `folder` Material Symbol as the tree; file-type SVGs remain for files. All list icons use a fixed 22px slot, with a 22px folder glyph, so folder and file names align. Folder glyphs match the muted gray in `webui/public/file.svg`.
 - Keep the list compact: 4px vertical header padding and 5px vertical item padding. The path-submit arrow is borderless and transparent, with opacity-only hover feedback.
 - Keep New file and New folder controls icon-only across canvas and modal modes while preserving accessible labels.
 - Keep Up, path, New file, New folder, and the rightmost tree toggle in one compact row, with equal button heights. Do not add a separate search or totals row.
