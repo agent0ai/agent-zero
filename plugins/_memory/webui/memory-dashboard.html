@@ -463,10 +463,6 @@
         .col-actions {
             width: 4em;
         }
-        .col-select input[type="checkbox"] {
-            cursor: pointer;
-            transform: scale(1.2);
-        }
 
         /* Memory-specific: Metadata display */
         .metadata-cell {
@@ -554,9 +550,16 @@
             text-align: center;
             padding: 0.65rem 0.5rem !important;
         }
-        .select-cell input[type="checkbox"] {
+        .memory-table .col-select,
+        .memory-table .select-cell {
+            vertical-align: middle;
+        }
+        .memory-table input[type="checkbox"] {
+            display: block;
+            width: 1rem;
+            height: 1rem;
+            margin: 0 auto;
             cursor: pointer;
-            transform: scale(1.2);
         }
 
         /* Memory-specific: Actions cell vertical layout */

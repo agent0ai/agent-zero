@@ -26,6 +26,7 @@
 
 ## Work Guidance
 
+- Dashboard selection checkboxes reuse the shared native theme from `webui/index.css`; keep header and row controls 16px and centered in their table cells.
 - Keep dashboard metadata JSON-safe without changing shared API serialization.
 - Coordinate tool, prompt, and consolidation changes so saved memories remain useful and bounded.
 
