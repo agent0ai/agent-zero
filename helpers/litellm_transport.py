@@ -47,6 +47,7 @@ NO_REASONING_EFFORT_ALIASES = {"", "0", "false", "no", "none", "off", "disabled"
 RESPONSES_UNSUPPORTED_CACHE: set[str] = set()
 RESPONSES_STATE_UNSUPPORTED_CACHE: set[str] = set()
 RESPONSES_BUILTIN_UNSUPPORTED_CACHE: dict[str, set[str]] = {}
+STREAM_USAGE_UNSUPPORTED_CACHE: set[str] = set()
 OPENAI_RESPONSES_EXTRA_BODY_PARAMS = {
     "context_management",
     "prompt_cache_retention",
@@ -182,6 +183,7 @@ class LiteLLMTransport:
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
     history_prefix_hash: str = field(init=False, default="")
+    stream_usage_retried: bool = field(init=False, default=False)
 
     def __post_init__(self) -> None:
         self.kwargs = _without_stream_kwarg(dict(self.kwargs))
@@ -354,7 +356,23 @@ class LiteLLMTransport:
             self.kwargs["responses_state"] = RESPONSES_STATE_LOCAL
             self.kwargs.pop("previous_response_id", None)
             return True
+        if self._recover_stream_usage_rejection(exc):
+            return True
         return recovery is TransportRecovery.FALLBACK_TO_CHAT
+
+    def _recover_stream_usage_rejection(self, exc: Exception) -> bool:
+        if self.stream_usage_retried or not _is_stream_usage_rejected_error(exc):
+            return False
+        self.stream_usage_retried = True
+        if self.policy.cache_key:
+            STREAM_USAGE_UNSUPPORTED_CACHE.add(self.policy.cache_key)
+        options = dict(self.kwargs.get("stream_options") or {})
+        options.pop("include_usage", None)
+        if options:
+            self.kwargs["stream_options"] = options
+        else:
+            self.kwargs.pop("stream_options", None)
+        return True
 
     def _chat_request(self, *, stream: bool) -> dict[str, Any]:
         chat_kwargs = ChatCompletionsTransport.prepare_kwargs(
@@ -374,6 +392,14 @@ class LiteLLMTransport:
             "stream": stream,
             **chat_kwargs,
         }
+        if stream and not self.stream_usage_retried:
+            options = {**(request.get("stream_options") or {})}
+            if self.policy.cache_key in STREAM_USAGE_UNSUPPORTED_CACHE:
+                options.pop("include_usage", None)
+            else:
+                options["include_usage"] = True
+            if options:
+                request["stream_options"] = options
         if self.stop is not None:
             request["stop"] = self.stop
         return request
@@ -1413,6 +1439,7 @@ def clear_transport_capability_cache() -> None:
     RESPONSES_UNSUPPORTED_CACHE.clear()
     RESPONSES_STATE_UNSUPPORTED_CACHE.clear()
     RESPONSES_BUILTIN_UNSUPPORTED_CACHE.clear()
+    STREAM_USAGE_UNSUPPORTED_CACHE.clear()
 
 
 def delete_stored_response_ids(
@@ -1918,6 +1945,13 @@ def _is_bad_request_error(exc: Exception) -> bool:
         return True
     text = _exception_text(exc).lower()
     return "400" in text and "bad request" in text
+
+
+def _is_stream_usage_rejected_error(exc: Exception) -> bool:
+    text = _exception_text(exc).lower()
+    if "stream_options" not in text:
+        return False
+    return _is_bad_request_error(exc) or _exception_status_code(exc) == 422
 
 
 def _is_server_error(exc: Exception) -> bool:
