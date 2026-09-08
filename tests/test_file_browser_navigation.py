@@ -27,7 +27,7 @@ def test_file_browser_remember_last_directory_defaults_enabled() -> None:
 def test_file_browser_editable_path_bar_and_remembered_directory_contract() -> None:
     html = read("webui", "components", "modals", "file-browser", "file-browser.html")
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
-    workdir_settings = read("webui", "components", "settings", "agent", "workdir.html")
+    workdir_settings = read("webui", "components", "settings", "file-browser", "file-browser-settings.html")
 
     assert 'class="path-navigator surface-toolbar"' in html
     assert 'class="nav-button back-button surface-control"' in html

@@ -38,6 +38,17 @@ const TAB_ITEMS = Object.freeze([
     ],
   },
   {
+    id: "file-browser",
+    label: "File Browser",
+    icon: "folder",
+    sections: [
+      { id: "section-files-appearance", label: "Appearance and defaults", icon: "tune" },
+      { id: "section-files-remote", label: "Remote folders", icon: "cloud" },
+      { id: "section-files-limits", label: "File size limits", icon: "data_usage" },
+      { id: "section-files-archives", label: "Archives", icon: "folder_zip" },
+    ],
+  },
+  {
     id: "skills",
     label: "Skills",
     icon: "school",
@@ -701,7 +712,8 @@ const model = {
   // Open settings modal from external callers
   async open(initialTab = null) {
     if (initialTab) {
-      this._activeTab = initialTab;
+      this.activeTab = initialTab;
+      history.replaceState(null, "", `#${this.getFirstSectionId(this.activeTab)}`);
     }
     await window.openModal("settings/settings.html");
   },

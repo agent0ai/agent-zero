@@ -91,6 +91,11 @@ const model = {
       const result = await callJsonApi("/file_browser_settings", { [kind === "entries" ? "max_archive_entries" : `max_${kind}_size_mb`]: limit });
       if (!result.ok) throw new Error(result.error || "Could not save the size limit.");
       this.limits = result.limits;
+      const settings = globalThis.Alpine?.store("settings")?.settings;
+      if (settings) {
+        const key = kind === "entries" ? "file_browser_max_archive_entries" : `file_browser_max_${kind}_size_mb`;
+        settings[key] = limit;
+      }
     } catch (error) {
       this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
       this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
@@ -246,30 +251,12 @@ const model = {
     } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
   },
   async openConnection(connection) {
-    await window.closeModal("modals/file-browser/settings.html");
-    return this.navigateToFolder("/@connections/" + connection.provider + "/" + connection.id);
+    await window.closeModal("settings/settings.html");
+    const path = "/@connections/" + connection.provider + "/" + connection.id;
+    return this._mountedElement?.getClientRects().length
+      ? this.navigateToFolder(path)
+      : openLatestSurface("files", { path, source: "file-browser-settings" });
   },
-  async downloadRemote(files) {
-    const archive = files.length !== 1 || files[0].is_dir;
-    try {
-      const response = await fetchApi("/file_browser_connections", {
-        method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(archive ? {action:"archive", paths:files.map(f=>f.path)} : {action:"download", path:files[0].path}),
-      });
-      if (!response.ok || !response.headers.get("Content-Disposition")?.startsWith("attachment;")) {
-        const error = await response.json();
-        throw new Error(error.error || "Download failed.");
-      }
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = url; link.download = archive ? "remote-files.zip" : files[0].name;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      globalThis.setTimeout(()=>URL.revokeObjectURL(url), 60000);
-    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
-  },
-
   async startDownload(files) {
     const result = await callJsonApi("/download_work_dir_files", {
       paths: files.map(file => file.path), currentPath: this.browser.currentPath,
@@ -313,16 +300,23 @@ const model = {
     await this.fileTree.follow(this.browser.currentPath);
   },
 
-  async openSettings(providerId = "") {
+  async loadSettings() {
     try {
       await this.ensureLimits(true);
       this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
       this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      this.extractLimitMib = this.limits.max_extract_bytes / (1024 * 1024);
+      this.archiveEntries = this.limits.max_archive_entries;
       await this.loadConnections();
-      this.connectionDraft = null;
-      if (providerId) this.editConnection(null, providerId);
-      return window.openModal("modals/file-browser/settings.html");
     } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Settings"); }
+  },
+
+  async openSettings(providerId = "") {
+    await this.loadSettings();
+    this.connectionDraft = null;
+    if (providerId) this.editConnection(null, providerId);
+    const { store: settingsStore } = await import("/components/settings/settings-store.js");
+    return settingsStore.open("file-browser");
   },
 
   // --- Lifecycle -----------------------------------------------------------

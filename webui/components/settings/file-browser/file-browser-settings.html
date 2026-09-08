@@ -1,12 +1,13 @@
 <html>
 <head><title>File Browser Settings</title><script type="module" src="/components/modals/file-browser/file-browser-store.js"></script></head>
 <body>
-  <div x-data x-destroy="$store.fileBrowser.connectionDraft = null">
+  <div x-data x-init="$store.fileBrowser.loadSettings()" x-destroy="$store.fileBrowser.connectionDraft = null">
     <template x-if="$store.fileBrowser"><div>
+    <div id="section-files-appearance" class="section">
     <div class="section-title">Appearance and defaults</div>
     <div class="section-description">These preferences apply to this browser and are used whenever Files opens.</div>
-    <div class="files-appearance-grid">
-    <div class="field field-full">
+    <div>
+    <div class="field">
       <div class="field-label"><label class="field-title" for="files-default-sort">Default sorting</label></div>
       <div class="field-control">
         <select id="files-default-sort" x-model="$store.fileBrowser.preferences.sortBy" @change="$store.fileBrowser.savePreferences()">
@@ -14,7 +15,7 @@
         </select>
       </div>
     </div>
-    <div class="field field-full">
+    <div class="field">
       <div class="field-label"><label class="field-title" for="files-default-direction">Sort direction</label></div>
       <div class="field-control">
         <select id="files-default-direction" x-model="$store.fileBrowser.preferences.sortDirection" @change="$store.fileBrowser.savePreferences()">
@@ -22,7 +23,7 @@
         </select>
       </div>
     </div>
-    <div class="field field-full">
+    <div class="field">
       <div class="field-label"><label class="field-title" for="files-default-view">View</label></div>
       <div class="field-control">
         <select id="files-default-view" x-model="$store.fileBrowser.preferences.view" @change="$store.fileBrowser.savePreferences()">
@@ -30,30 +31,33 @@
         </select>
       </div>
     </div>
-    <div class="field field-full">
-      <div class="field-label"><label class="field-title" for="files-default-tree">Show file tree when Files opens</label></div>
+    <div class="field">
+      <div class="field-label">
+        <label class="field-title" for="files-default-tree">Show file tree when Files opens</label>
+        <div class="field-description" id="files-default-tree-description">Start with the folder tree visible for quick navigation.</div>
+      </div>
       <div class="field-control">
-        <label class="toggle"><input id="files-default-tree" type="checkbox" x-model="$store.fileBrowser.preferences.treeShown" @change="$store.fileBrowser.savePreferences()"><span class="toggler"></span></label>
+        <label class="toggle"><input id="files-default-tree" aria-describedby="files-default-tree-description" type="checkbox" x-model="$store.fileBrowser.preferences.treeShown" @change="$store.fileBrowser.savePreferences()"><span class="toggler"></span></label>
       </div>
     </div>
     </div>
-    <div class="section-title">File size limits</div>
-    <div class="files-appearance-grid">
-      <div class="field field-full">
-        <label class="field-title" for="files-text-limit">Maximum editable file size (MiB)</label>
-        <input id="files-text-limit" type="number" min="1" max="100" step="1"
-          x-model.number="$store.fileBrowser.textLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
-          @change="$store.fileBrowser.saveSizeLimit('text')">
-        <div class="field-description">1–100 MiB. Applies only to opening and saving files in Editor. Upload and download limits are separate. Changes apply immediately.</div>
-      </div>
-      <div class="field field-full">
-        <label class="field-title" for="files-transfer-limit">Maximum upload/download size (MiB)</label>
-        <input id="files-transfer-limit" type="number" min="1" step="1"
-          x-model.number="$store.fileBrowser.transferLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
-          @change="$store.fileBrowser.saveSizeLimit('transfer')">
-        <div class="field-description">Applies to Files transfers, including archives and remote connections. Separate from editing and Backup &amp; Restore. Server and connection restrictions may still apply.</div>
-      </div>
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Remember last file browser location</div>
+              <div class="field-description">
+                Open the file browser at the most recently visited directory when no specific path is requested.
+              </div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="$store.settings.settings.file_browser_remember_last_directory" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
     </div>
+    <div id="section-files-remote" class="section">
     <div class="section-title">Remote folders</div>
     <div class="section-description">Connection types are supplied by enabled plugins. Permissions below limit what Files can do; the server's own permissions still apply.</div>
     <p class="field-description">Connected A0 CLI and Launcher folders appear automatically. Manage their exposed folder and access permissions in the CLI or Launcher.</p>
@@ -106,15 +110,15 @@
     </div>
     <template x-if="$store.fileBrowser.connectionDraft">
       <div>
-        <div class="files-appearance-grid">
-          <div class="field field-full"><label class="field-title" for="connection-name">Connection name</label><input id="connection-name" type="text" x-model="$store.fileBrowser.connectionDraft.name"></div>
-          <div class="field field-full"><label class="field-title" for="connection-provider">Connection type</label>
+        <div>
+          <div class="field"><label class="field-title" for="connection-name">Connection name</label><input id="connection-name" type="text" x-model="$store.fileBrowser.connectionDraft.name"></div>
+          <div class="field"><label class="field-title" for="connection-provider">Connection type</label>
             <select id="connection-provider" :disabled="Boolean($store.fileBrowser.connectionDraft.id)" x-model="$store.fileBrowser.connectionDraft.provider" @change="$store.fileBrowser.editConnection(null, $event.target.value)">
               <template x-for="provider in $store.fileBrowser.connectionProviders.filter(p => !p.managed)" :key="provider.id"><option :value="provider.id" :selected="provider.id === $store.fileBrowser.connectionDraft.provider" x-text="provider.title"></option></template>
             </select>
           </div>
           <template x-for="field in $store.fileBrowser.draftProvider.fields.filter(field => !field.hidden)" :key="field.name">
-            <div class="field field-full">
+            <div class="field">
               <label class="field-title" :for="'connection-' + field.name" x-text="field.label"></label>
               <input :id="'connection-' + field.name" :type="field.secret ? 'password' : (field.type || 'text')" :min="field.type === 'number' ? 1 : null" :max="field.type === 'number' ? 65535 : null" x-model="$store.fileBrowser.connectionDraft[field.name]" autocomplete="off"
                 :placeholder="$store.fileBrowser.connectionDraft.savedSecrets?.[field.name] ? 'Saved; leave unchanged to keep it' : (field.placeholder || '')"
@@ -123,7 +127,7 @@
           </template>
         </div>
         <div class="field-title">Allowed actions</div>
-        <div class="files-appearance-grid">
+        <div>
           <template x-for="permission in [{key:'browse',label:'Browse folders'},{key:'download',label:'Download files'},{key:'upload',label:'Upload files and create folders'},{key:'edit',label:'Open and edit files'},{key:'rename',label:'Rename and move files'},{key:'delete',label:'Delete files and folders'}]" :key="permission.key">
             <div class="field">
               <div class="field-label"><label :for="'connection-permission-' + permission.key" x-text="permission.label"></label></div>
@@ -141,18 +145,71 @@
       </div>
     </template>
     <x-extension id="file-browser-settings"></x-extension>
+    </div>
+    <div id="section-files-limits" class="section">
+    <div class="section-title">File size limits</div>
+    <div>
+      <div class="field">
+        <div class="field-label">
+          <label class="field-title" for="files-text-limit">Maximum editable file size (MiB)</label>
+          <div class="field-description">1–100 MiB. Applies only to opening and saving files in Editor. Upload and download limits are separate. Changes apply immediately.</div>
+        </div>
+        <div class="field-control">
+          <input id="files-text-limit" type="number" min="1" max="100" step="1"
+          x-model.number="$store.fileBrowser.textLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
+          @change="$store.fileBrowser.saveSizeLimit('text')">
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">
+          <label class="field-title" for="files-transfer-limit">Maximum upload/download size (MiB)</label>
+          <div class="field-description">Applies to Files transfers, including remote connections. ZIP downloads also count total uncompressed content. Separate from editing and Backup &amp; Restore; server restrictions may still apply.</div>
+        </div>
+        <div class="field-control">
+          <input id="files-transfer-limit" type="number" min="1" step="1"
+          x-model.number="$store.fileBrowser.transferLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
+          @change="$store.fileBrowser.saveSizeLimit('transfer')">
+        </div>
+      </div>
+    </div>
+    </div>
+    <div id="section-files-archives" class="section">
+    <div class="section-title">Archives</div>
+    <div>
+      <div class="field">
+        <div class="field-label">
+          <label class="field-title" for="files-extract-limit">Maximum expanded size (MiB)</label>
+          <div class="field-description">Total data extracted from an archive. Independent of its compressed size and Backup &amp; Restore.</div>
+        </div>
+        <div class="field-control">
+          <input id="files-extract-limit" type="number" min="1" step="1"
+          x-model.number="$store.fileBrowser.extractLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
+          @change="$store.fileBrowser.saveSizeLimit('extract')">
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">
+          <label class="field-title" for="files-archive-entries">Maximum archive entries</label>
+          <div class="field-description">Files and folders when creating or extracting an archive.</div>
+        </div>
+        <div class="field-control">
+          <input id="files-archive-entries" type="number" min="1" step="1"
+          x-model.number="$store.fileBrowser.archiveEntries" :disabled="$store.fileBrowser.savingTextLimit"
+          @change="$store.fileBrowser.saveSizeLimit('entries')">
+        </div>
+      </div>
+    </div>
+    </div>
     </div></template>
   </div>
   <style>
     .files-connection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
     .files-settings-actions { margin-block: var(--spacing-sm); }
-    .files-connection-picker { display: block; }
+    .files-connection-picker { display: block; margin-block: var(--spacing-md); }
     .files-connection-menu { width: min(calc(100vw - 16px), 26rem); overflow-y: auto; margin-top: 0; }
     .files-plugin-button { max-width: 100%; gap: var(--spacing-sm); text-align: left; white-space: normal; }
     .files-plugin-button img { flex: 0 0 32px; object-fit: contain; border-radius: var(--spacing-xs); }
-    .files-appearance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-md) var(--spacing-lg); margin-block: var(--spacing-md); }
-    .files-appearance-grid .field { margin: 0; padding: 0; align-content: start; gap: var(--spacing-xs); }
-    @media (max-width: 640px) { .files-appearance-grid { grid-template-columns: 1fr; } }
+    .modal-inner.settings-modal [data-settings-tab="file-browser"] .field-full { grid-template-columns: minmax(0, 1fr); gap: var(--spacing-sm); }
   </style>
 </body>
 </html>

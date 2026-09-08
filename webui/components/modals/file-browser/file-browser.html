@@ -99,6 +99,10 @@
                   <button type="button" class="file-browser-header-button surface-control" title="Toggle file tree" aria-label="Toggle file tree" :aria-pressed="String($store.fileBrowser.fileTree.shown)" @click="$store.fileBrowser.fileTree.toggle($store.fileBrowser.browser.currentPath)">
                     <x-icon name="account_tree"></x-icon>
                   </button>
+                  <button type="button" class="file-browser-header-button surface-control" x-show="!$store.fileBrowser.isPickerMode()"
+                    @click="$store.fileBrowser.openSettings()" title="File Browser Settings" aria-label="File Browser Settings">
+                    <x-icon aria-hidden="true" name="settings"></x-icon>
+                  </button>
                 </form>
                 <template x-if="$store.fileBrowser.pathError">
                   <div class="path-error" x-text="$store.fileBrowser.pathError"></div>
@@ -352,10 +356,6 @@
           ></button>
           <button type="button" class="btn btn-cancel" :disabled="$store.fileBrowser.isBulkBusy" @click="$store.fileBrowser.cancelPicker()">Cancel</button>
         </div>
-        <button type="button" class="btn btn-icon-action" x-show="!$store.fileBrowser.isPickerMode()"
-          @click="$store.fileBrowser.openSettings()" title="File Browser Settings" aria-label="File Browser Settings">
-          <x-icon name="settings"></x-icon>
-        </button>
         <label class="btn btn-upload" x-show="!$store.fileBrowser.isPickerMode() && $store.fileBrowser.remoteAllowed('upload')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
           Upload Files
