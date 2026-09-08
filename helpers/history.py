@@ -23,6 +23,29 @@ LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO = 0.5
 LARGE_MESSAGE_TO_HISTORY_TOPIC_RATIO = 0.2
 RAW_MESSAGE_OUTPUT_TEXT_TRIM = 100
 COMPRESSION_TARGET_RATIO = 0.8
+EMERGENCY_SUMMARY_MAX_CHARS = 2000
+EMERGENCY_SUMMARY_MARKER = (
+    "\n[... content truncated by emergency fallback compression ...]\n"
+)
+
+
+def _truncate_summary(
+    text: str, max_chars: int = EMERGENCY_SUMMARY_MAX_CHARS
+) -> str:
+    text = (text or "").strip()
+    if not text:
+        return "(no content)"
+    if len(text) <= max_chars:
+        return text
+
+    content_chars = max_chars - len(EMERGENCY_SUMMARY_MARKER)
+    head_chars = int(content_chars * 0.6)
+    tail_chars = content_chars - head_chars
+    return (
+        text[:head_chars]
+        + EMERGENCY_SUMMARY_MARKER
+        + text[-tail_chars:]
+    )
 
 
 class RawMessage(TypedDict):
@@ -271,13 +294,18 @@ class Topic(Record):
 
     async def summarize_messages(self, messages: list[Message]):
         msg_txt = [m.output_text() for m in messages]
-        summary = await self.history.agent.call_utility_model(
-            system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
-            message=self.history.agent.read_prompt(
-                "fw.topic_summary.msg.md", content=msg_txt
-            ),
-        )
-        return summary
+        try:
+            summary = await self.history.agent.call_utility_model(
+                system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
+                message=self.history.agent.read_prompt(
+                    "fw.topic_summary.msg.md", content=msg_txt
+                ),
+            )
+            if summary and summary.strip():
+                return summary
+        except Exception:
+            pass
+        return _truncate_summary("\n\n".join(msg_txt))
 
     def to_dict(self):
         return {
@@ -321,11 +349,18 @@ class Bulk(Record):
         return False
 
     async def summarize(self):
-        self.summary = await self.history.agent.call_utility_model(
-            system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
-            message=self.history.agent.read_prompt(
-                "fw.topic_summary.msg.md", content=self.output_text()
-            ),
+        source = self.output_text()
+        try:
+            summary = await self.history.agent.call_utility_model(
+                system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
+                message=self.history.agent.read_prompt(
+                    "fw.topic_summary.msg.md", content=source
+                ),
+            )
+        except Exception:
+            summary = ""
+        self.summary = (
+            summary if summary and summary.strip() else _truncate_summary(source)
         )
         return self.summary
 
@@ -590,6 +625,8 @@ class History(Record):
         return False
 
     async def compress_bulks(self):
+        if not self.bulks:
+            return False
         # merge bulks if possible
         compressed = await self.merge_bulks_by(BULK_MERGE_COUNT)
         # remove oldest bulk if necessary
