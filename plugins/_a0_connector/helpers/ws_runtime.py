@@ -154,6 +154,8 @@ class RemoteFileMetadata:
     write_enabled: bool
     mode: str
     updated_at: float
+    file_browser: bool = False
+    root_path: str = ""
 
 
 @dataclass(frozen=True)
@@ -750,6 +752,8 @@ def store_sid_remote_file_metadata(sid: str, payload: dict[str, Any]) -> RemoteF
         write_enabled=write_enabled,
         mode=mode,
         updated_at=time.time(),
+        file_browser=payload.get("file_browser") == 1,
+        root_path=str(payload.get("root_path") or "")[:4096],
     )
     with _state_lock:
         _sid_remote_file_metadata[sid] = metadata
@@ -764,9 +768,12 @@ def clear_sid_remote_file_metadata(sid: str) -> None:
 def remote_file_metadata_for_sid(sid: str) -> dict[str, Any] | None:
     with _state_lock:
         metadata = _sid_remote_file_metadata.get(sid)
+        snapshot = _remote_tree_snapshots.get(sid)
     if metadata is None:
         return None
     return {
+        "file_browser": metadata.file_browser,
+        "root_path": metadata.root_path or (str(snapshot.payload.get("root_path") or "") if snapshot else ""),
         "enabled": metadata.enabled,
         "write_enabled": metadata.write_enabled,
         "mode": metadata.mode,
@@ -1284,15 +1291,10 @@ def abort_incoming_transfers_for_sid(sid: str, *, reason: str) -> None:
         )
 
 
-async def abort_transfers_for_context(
-    context_id: str,
-    *,
-    reason: str,
-    manager: Any | None = None,
-) -> int:
+def _take_context_transfers(context_id: str, reason: str) -> list:
     normalized_context_id = _transfer_context_id(context_id)
     if normalized_context_id is None:
-        return 0
+        return []
     with _state_lock:
         incoming = [
             transfer
@@ -1319,10 +1321,14 @@ async def abort_transfers_for_context(
             error=reason,
         )
 
-    if not incoming and not outgoing:
-        return 0
+    return [*incoming, *outgoing]
+
+
+async def _notify_transfer_aborts(transfers: list, reason: str, manager: Any = None) -> None:
+    if not transfers:
+        return
     ws_manager = manager or get_shared_ws_manager()
-    for transfer in [*incoming, *outgoing]:
+    for transfer in transfers:
         with contextlib.suppress(Exception):
             await ws_manager.emit_to(
                 "/ws",
@@ -1337,7 +1343,21 @@ async def abort_transfers_for_context(
                 handler_id="plugins/_a0_connector/api/ws_connector",
                 max_payload_bytes=ws_max_payload_bytes_for_sid(transfer.sid),
             )
-    return len(incoming) + len(outgoing)
+
+
+async def abort_transfers_for_context(context_id: str, *, reason: str, manager: Any = None) -> int:
+    transfers = _take_context_transfers(context_id, reason)
+    await _notify_transfer_aborts(transfers, reason, manager)
+    return len(transfers)
+
+
+def cancel_context_transfers(context_id: str) -> None:
+    """Release transfer state before a synchronous context shutdown kills its task."""
+    from helpers.defer import DeferredTask, THREAD_BACKGROUND
+    reason = "chat stopped during transfer"
+    transfers = _take_context_transfers(context_id, reason)
+    if transfers:
+        DeferredTask(thread_name=THREAD_BACKGROUND).start_task(_notify_transfer_aborts, transfers, reason)
 
 
 def _transfer_context_id(value: Any) -> str | None:
@@ -1660,6 +1680,7 @@ def resolve_pending_gateway_control(
             store_sid_remote_file_metadata(
                 sid,
                 {
+                    **(remote_file_metadata_for_sid(sid) or {}),
                     "enabled": files_enabled,
                     "write_enabled": writes_enabled,
                     "mode": "read_write" if writes_enabled else "read_only",

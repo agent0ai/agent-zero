@@ -22,6 +22,8 @@
 
 ## Runtime Contracts
 
+- `save_upload_atomic` accepts an optional byte ceiling for temporary host File Browser receipts; exceeding it removes the partial file and preserves the destination. Ordinary upload callers retain their existing limit policy.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `UploadFile` is an `ApiHandler`.

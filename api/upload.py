@@ -11,7 +11,7 @@ from helpers.security import safe_filename
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
-def save_upload_atomic(file_storage: Any, target_path: str) -> dict[str, Any]:
+def save_upload_atomic(file_storage: Any, target_path: str, *, max_bytes: int | None = None) -> dict[str, Any]:
     directory = os.path.dirname(target_path) or "."
     os.makedirs(directory, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(prefix=".partial-", dir=directory)
@@ -20,6 +20,8 @@ def save_upload_atomic(file_storage: Any, target_path: str) -> dict[str, Any]:
     try:
         with os.fdopen(fd, "wb") as handle:
             while chunk := file_storage.stream.read(_UPLOAD_CHUNK_BYTES):
+                if max_bytes is not None and size + len(chunk) > max_bytes:
+                    raise ValueError("Upload exceeds the transfer size limit.")
                 handle.write(chunk)
                 digest.update(chunk)
                 size += len(chunk)

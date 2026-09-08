@@ -26,6 +26,8 @@
 - Never re-add a connector prompt that the effective project/profile tool policy
   blocks.
 - Do not bypass WebSocket authentication or leak connector session data.
+- Host Files transfers use authenticated HTTP for both directions. Download receipts use opaque, request-scoped slots in server-owned temporary directories; the protected `file_browser_transfer` API rejects expired slots, enforces byte limits and rechecks host access. Cleanup and receipt publication share a lock so late requests cannot recreate expired files. WebSocket control/results retain the negotiated limits. Editor inherits the configurable File Browser text limit (10 MiB by default).
+- Context kill/remove extensions release pending transfer state synchronously before task shutdown and send best-effort abort notices on the shared background worker, covering native Stop/reset/delete as well as Connector routes.
 - HTTP capabilities and `connector_hello` advertise
   `capabilities.ws_max_payload_bytes`. Store the peer ceiling per authenticated
   SID, remove it on disconnect, and use the 4 MiB legacy floor when absent or
@@ -34,6 +36,7 @@
   `PAYLOAD_TOO_LARGE` error and never a transport disconnect. Mirror the same
   limit into the manager's live connection state so Socket.IO acknowledgements
   are constrained after their final result envelope is assembled.
+- `helpers/file_browser.py` registers the bundled live host-folder provider for Files. Discover CLI sessions and the unique active Launcher gateway through existing routing; never choose an ambiguous gateway or expose raw socket IDs. Bind each virtual folder to the socket and exposed root, recheck scopes on every operation, and reject stale folders after disconnect/root changes. Older connectors show an update/restart hint. Host settings remain in the CLI/Launcher; Files cannot change their scopes or exposed path. This is filesystem access, not a Launcher control surface.
 - Advertise Launcher gateways additively through HTTP capability
   `launcher_gateway` and WebSocket feature `launcher_gateway_control`. Older
   ordinary CLI clients retain their existing protocol fields and behavior; do
@@ -99,3 +102,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+Host Files forwards Core transfer/text limits without an independent HTTP cap. Older Connector clients retain their existing cap until updated and restarted.
