@@ -2642,6 +2642,30 @@ def test_browser_interactive_view_applies_keyboard_layout(monkeypatch):
     assert len(commands) == 1
 
 
+def test_browser_xpra_uses_websocket_transport_and_bounded_service_waits(monkeypatch, tmp_path):
+    view = BrowserInteractiveView("ctx-startup")
+    view.state_dir = tmp_path
+    view.display = 71
+    commands = []
+    monkeypatch.setenv("XPRA_SYSTEM_DBUS_TIMEOUT", "7")
+    monkeypatch.delenv("XPRA_SYSTEM_CUPS_TIMEOUT", raising=False)
+    monkeypatch.setattr(view, "_free_port", lambda: 44001)
+    monkeypatch.setattr(view, "_keyboard_xpra_args", lambda: [])
+    monkeypatch.setattr(view, "_wait_for_port", lambda *_: None)
+    monkeypatch.setattr(
+        browser_interactive_view_module.subprocess, "Popen",
+        lambda command, **kwargs: commands.append((command, kwargs)),
+    )
+
+    view._start_xpra("xpra")
+
+    command, kwargs = commands[0]
+    assert "--mmap=no" in command
+    assert "--bind-tcp=127.0.0.1:44001" in command
+    assert kwargs["env"]["XPRA_SYSTEM_DBUS_TIMEOUT"] == "7"
+    assert kwargs["env"]["XPRA_SYSTEM_CUPS_TIMEOUT"] == "1"
+
+
 def test_browser_interactive_views_use_isolated_loopback_sessions(monkeypatch, tmp_path):
     class FakeProcess:
         def __init__(self):

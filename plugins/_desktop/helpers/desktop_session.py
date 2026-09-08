@@ -699,7 +699,7 @@ class DesktopSessionManager:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=self._display_env(session),
+            env={**virtual_desktop.XPRA_START_ENV, **self._display_env(session)},
         )
         _wait_for_port(
             "127.0.0.1",
@@ -719,7 +719,7 @@ class DesktopSessionManager:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=self._display_env(session),
+            env={**virtual_desktop.XPRA_START_ENV, **self._display_env(session)},
         )
         _wait_for_port(
             "127.0.0.1",
@@ -1829,6 +1829,7 @@ def _xpra_shadow_command(xpra: str, session: DesktopSession) -> list[str]:
         f":{session.display}",
         "--daemon=no",
         "--mdns=no",
+        "--mmap=no",
         "--html=on",
         "--tray=no",
         "--system-tray=no",

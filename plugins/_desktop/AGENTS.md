@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - Preserve session startup, cleanup, and route protection for desktop access.
+- Apply shared `virtual_desktop.XPRA_START_ENV` defaults to Xpra launches and restarts while preserving inherited overrides. Disable local shared-memory transport for the WebSocket viewer.
 - Keep the Xpra server, client modules, and GTK introspection runtime present as one compatible stack; Xpra shadow sessions import all three even when users connect only through HTML5.
 - Route APT commands through `system_packages.run_runtime_apt` so existing Kali containers repair from the build's snapshot. Preserve the installed Xpra component version. If GTK needs a missing ATK typelib, align ATK's version-locked libraries and any installed optional components with the build's pinned snapshot version; do not fetch dependencies from rolling.
 - Keep desktop state injected into prompts accurate and bounded.

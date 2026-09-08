@@ -28,6 +28,10 @@ SESSION_PATH = "/desktop/session"
 XPRA_HTML_ROOT_CANDIDATES = (
     Path("/usr/share/xpra/www"),
 )
+XPRA_START_ENV = {
+    "XPRA_SYSTEM_DBUS_TIMEOUT": "1",
+    "XPRA_SYSTEM_CUPS_TIMEOUT": "1",
+}
 
 
 ResizeCallback = Callable[[int, int], dict[str, Any]]

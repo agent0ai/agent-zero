@@ -1126,6 +1126,41 @@ def test_desktop_startup_waiters_probe_display_and_reject_dead_xfce(tmp_path, mo
         manager._wait_for_xfce(session)
 
 
+@pytest.mark.parametrize("overrides", [{}, {"XPRA_SYSTEM_DBUS_TIMEOUT": "7"}])
+def test_desktop_xpra_uses_bounded_service_waits(tmp_path, monkeypatch, overrides):
+    session = types.SimpleNamespace(
+        profile_dir=tmp_path / "profile", processes={},
+        display=120, xpra_port=14500, width=1440, height=900,
+    )
+    manager = desktop_session.DesktopSessionManager()
+    environments = {}
+    monkeypatch.setattr(desktop_session, "STATE_DIR", tmp_path)
+    monkeypatch.setattr(desktop_session, "SESSION_DIR", tmp_path / "sessions")
+    monkeypatch.setattr(desktop_session, "_require_binary", lambda name: name)
+    monkeypatch.setattr(manager, "_prepare_xfce_launcher", lambda _: "xfce")
+    monkeypatch.setattr(manager, "_session_env", lambda _: overrides)
+    monkeypatch.setattr(manager, "_display_env", lambda _: overrides)
+    for method in ("_wait_for_display", "_set_display_size", "_prepare_root_window",
+                   "_wait_for_xfce", "_refresh_xfce_desktop"):
+        monkeypatch.setattr(manager, method, lambda *_: None)
+    monkeypatch.setattr(
+        desktop_session, "_wait_for_port", lambda *_, **__: None,
+    )
+
+    def spawn(command, **kwargs):
+        if command[0] == "xpra":
+            assert "--mmap=no" in command
+        environments[command[0]] = kwargs["env"]
+        return types.SimpleNamespace(poll=lambda: None)
+
+    monkeypatch.setattr(desktop_session.subprocess, "Popen", spawn)
+    manager._spawn_desktop_locked(session)
+
+    assert environments["xpra"]["XPRA_SYSTEM_DBUS_TIMEOUT"] == overrides.get("XPRA_SYSTEM_DBUS_TIMEOUT", "1")
+    assert environments["xpra"]["XPRA_SYSTEM_CUPS_TIMEOUT"] == "1"
+    assert environments["xfce"] == overrides
+
+
 def test_desktop_manifest_is_replaced_atomically(tmp_path, monkeypatch):
     session_dir = tmp_path / "sessions"
     session_dir.mkdir()

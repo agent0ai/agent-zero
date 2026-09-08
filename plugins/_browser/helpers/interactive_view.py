@@ -251,6 +251,7 @@ class BrowserInteractiveView:
         socket_dir.mkdir(parents=True, exist_ok=True)
         runtime_dir.chmod(0o700)
         env = {
+            **virtual_desktop.XPRA_START_ENV,
             **os.environ,
             "DISPLAY": self.display_name,
             "XDG_RUNTIME_DIR": str(runtime_dir),
@@ -262,6 +263,7 @@ class BrowserInteractiveView:
                 self.display_name,
                 "--daemon=no",
                 "--mdns=no",
+                "--mmap=no",
                 "--html=on",
                 "--tray=no",
                 "--system-tray=no",

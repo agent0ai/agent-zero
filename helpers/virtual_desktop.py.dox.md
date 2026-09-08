@@ -56,6 +56,7 @@
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 - Session URLs keep Desktop's JPEG, printing, and file-transfer defaults while allowing restricted viewers such as Browser to negotiate encoding and disable unrelated capabilities.
 - Display resizing keeps the Desktop settle delay by default; latency-sensitive callers may skip it when they immediately verify the XRandR size.
+- `XPRA_START_ENV` bounds Xpra's initial system D-Bus and CUPS socket waits to one second instead of five before it attempts to start those services. Browser and Desktop merge these defaults before their inherited environment so explicit timeout overrides remain effective.
 
 ## Work Guidance
 

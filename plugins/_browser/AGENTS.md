@@ -28,6 +28,7 @@
 - Notify the active Xpra client of its new frame geometry before resizing the backing display; after an interactive canvas/modal handoff, reconcile once after Xpra's deferred resize so Chromium cannot retain the previous surface size.
 - Present the Xpra shadow window as the raw browser canvas: remove its HTML decoration and shadow pointer while preserving exact viewport geometry.
 - Keep one internal Chromium, Xvfb, and Xpra runtime per Agent Zero process with one unguessable gateway token.
+- Apply the shared `virtual_desktop.XPRA_START_ENV` defaults when launching Xpra; preserve inherited timeout overrides. Disable local shared-memory transport for the WebSocket viewer.
 - Synchronous context cleanup shares the named BrowserCleanup event loop. Cancel only the cleanup task on completion/timeout; an individual context must not terminate the shared thread used by concurrent resets.
 - Bind Browser Xpra endpoints to loopback, route them through the authenticated virtual-desktop gateway, and keep file transfer, URL opening, printing, and audio disabled.
 - Paint live screencast frames through the Browser panel canvas/ImageBitmap path when available; keep the `<img>`/data URL path for snapshots and fallback rendering.
