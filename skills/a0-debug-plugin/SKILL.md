@@ -1,6 +1,6 @@
 ---
 name: a0-debug-plugin
-description: Diagnose and fix Agent Zero plugin problems. Covers plugin not appearing, won't enable, API endpoints not responding, frontend store errors, extension point injection, settings resolution, hooks.py issues, and log inspection. Use when a plugin is not working, not loading, crashing, missing from the list, or behaving unexpectedly.
+description: "Diagnose Agent Zero plugin failures: loading, crashes, hooks, APIs, UI and settings."
 version: 1.0.0
 tags: ["plugins", "debug", "troubleshoot", "fix", "diagnose", "error", "broken"]
 trigger_patterns:

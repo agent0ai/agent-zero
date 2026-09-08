@@ -1,6 +1,6 @@
 ---
 name: browser-automation
-description: Use for complex Agent Zero browser automation, including multi-tab browsing, screenshots, forms, uploads, raw pointer/keyboard actions, host-vs-container browser mode, and visual verification workflows.
+description: "Control web pages: tabs, clicks, forms, downloads, screenshots; host or Docker browser."
 triggers:
   - "browser automation"
   - "web automation"

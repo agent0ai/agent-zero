@@ -1,6 +1,6 @@
 ---
 name: commands-create-slash-command
-description: Create or update Agent Zero slash commands for the built-in Commands plugin. Use when the user asks to add, edit, duplicate, or refine a reusable /command backed by YAML config plus text/python content files.
+description: "Create or edit reusable Agent Zero /commands with YAML and text/Python templates."
 version: 1.0.0
 tags: ["commands", "slash-commands", "plugin", "yaml", "python", "templates"]
 triggers:

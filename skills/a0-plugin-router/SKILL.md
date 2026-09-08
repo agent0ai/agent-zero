@@ -1,6 +1,6 @@
 ---
 name: a0-plugin-router
-description: Main entry point for all Agent Zero plugin tasks. Routes to specialist skills for creating, reviewing, contributing, managing, or debugging plugins. Use when the user mentions plugins, asks how the plugin system works, wants to build/install/uninstall/publish/debug a plugin, or asks about the Plugin Hub.
+description: "Route Agent Zero plugin requests to build, debug, review, publish or management skills."
 version: 1.0.0
 tags: ["plugins", "router", "meta", "create", "review", "contribute", "manage", "plugin-hub"]
 trigger_patterns:

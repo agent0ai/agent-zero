@@ -1,6 +1,6 @@
 ---
 name: a0-manage-plugin
-description: "Manage Agent Zero plugins lifecycle: browse the Plugin Hub, scan for security, install from Git/ZIP/Plugin Hub, update, uninstall, enable, disable, debug, and troubleshoot. Use when asked to install, update, uninstall, remove, scan, find, search, enable, disable, debug, or troubleshoot a plugin."
+description: "Find, scan, install, update, remove, enable or disable Agent Zero plugins in the Plugin Hub."
 version: 1.2.0
 tags: ["plugins", "install", "uninstall", "update", "scan", "security", "debug", "troubleshoot", "plugin-hub", "manage"]
 trigger_patterns:

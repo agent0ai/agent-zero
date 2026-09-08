@@ -1,6 +1,6 @@
 ---
 name: a0-create-plugin
-description: Create, extend, or modify Agent Zero plugins. Follows strict full-stack conventions (usr/plugins, plugin.yaml, Store Gating, AgentContext, plugin settings). Use for UI hooks, API handlers, lifecycle extensions, or plugin settings UI.
+description: "Build or extend Agent Zero plugins: tools, hooks, API handlers and settings UI."
 version: 1.0.0
 tags: ["plugins", "create", "build", "develop", "extend"]
 trigger_patterns:

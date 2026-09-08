@@ -1,6 +1,6 @@
 ---
 name: browser-form-workflows
-description: Use for complex Agent Zero Browser form workflows involving selects, checkboxes, radios, file uploads, contenteditable fields, multi-step validation, or visually verified submission.
+description: "Fill and submit web forms: uploads, selects, validation and contenteditable fields."
 triggers:
   - "browser form"
   - "web form"

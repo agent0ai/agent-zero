@@ -18,6 +18,7 @@
 - Skill instructions must be operational and scoped to the skill's purpose.
 - Do not include secrets, private user data, or environment-specific credentials.
 - Supporting files referenced by a skill must exist relative to that skill directory.
+- Keep bundled catalog descriptions within the 100-character prompt preview, with distinct task and environment/format boundaries. Keep lexical triggers separate.
 
 ## Work Guidance
 

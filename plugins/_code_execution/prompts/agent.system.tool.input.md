@@ -8,7 +8,7 @@ usage:
 ~~~json
 {
     "thoughts": [
-        "The program asks for Y/N...",
+        "The program asks for Y/N..."
     ],
     "headline": "Responding to terminal program prompt",
     "tool_name": "input",

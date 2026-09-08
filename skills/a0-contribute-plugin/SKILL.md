@@ -1,6 +1,6 @@
 ---
 name: a0-contribute-plugin
-description: Guide for publishing an Agent Zero plugin to the community Plugin Index (a0-plugins repo). Covers GitHub repo setup, index.yaml creation, CI validation rules, and PR submission. Use when the user wants to share, publish, submit, or contribute a plugin to the Plugin Hub so other Agent Zero users can find and install it.
+description: "Publish an Agent Zero plugin to the community Plugin Index: repository, index.yaml and PR."
 version: 1.0.0
 tags: ["plugins", "contribute", "publish", "plugin-hub", "community", "index", "PR"]
 trigger_patterns:

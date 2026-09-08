@@ -1,6 +1,6 @@
 ---
 name: build-skill
-description: Build or improve Agent Zero skills following the official SKILL.md standard. Use when the user asks to create, rename, move, audit, test, or refactor a skill, or when a workflow should be packaged as reusable skill instructions.
+description: "Create, rename, move, audit, test or refine Agent Zero skills and reusable workflows."
 ---
 
 # Build Skill

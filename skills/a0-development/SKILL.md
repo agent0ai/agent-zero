@@ -1,6 +1,6 @@
 ---
 name: a0-development
-description: Development guide for extending Agent Zero from current source and DOX. Use for framework architecture, tools, extensions, API/WebUI handlers, agent profiles, prompts, skills, projects, runtime boundaries, and contribution workflow. Load the focused reference files before giving implementation guidance.
+description: "Develop Agent Zero itself: framework, tools, API/WebUI, prompts, runtimes and DOX."
 version: 1.1.0
 author: Agent Zero Team
 tags: ["development", "framework", "agent-zero", "extending", "tools", "extensions", "skills", "api", "agents", "prompts", "dox"]

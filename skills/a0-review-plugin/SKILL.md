@@ -1,6 +1,6 @@
 ---
 name: a0-review-plugin
-description: Full audit of Agent Zero plugins in usr/plugins/. Reviews manifest validity, directory structure, code patterns (Store Gating, notifications, imports), security, and duplicate detection against the community index. Use when asked to review, audit, validate, or check an existing plugin before using or contributing it.
+description: "Audit Agent Zero plugins: manifest, code, security and community duplicates before release."
 version: 1.0.0
 tags: ["plugins", "review", "audit", "validate", "security", "checklist"]
 trigger_patterns:
