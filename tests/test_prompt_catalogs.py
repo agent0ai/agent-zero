@@ -1,13 +1,40 @@
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from helpers import skills
+from helpers import files, projects, skills, subagents
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize("project", [None, "demo"])
+def test_profile_catalog_keeps_ids_titles_scope_and_routing(monkeypatch, project):
+    profiles = {
+        "custom-id": SimpleNamespace(
+            title="Custom Title", context="Review\ncode", description="Fallback"
+        ),
+        "fallback": SimpleNamespace(title="Fallback", context=" \n", description="Find facts"),
+    }
+    scopes = []
+    monkeypatch.setattr(projects, "get_context_project_name", lambda _: project)
+    monkeypatch.setattr(
+        subagents, "get_available_agents_dict", lambda scope: scopes.append(scope) or profiles
+    )
+    agent = SimpleNamespace(context=object())
+    prompt = files.read_prompt_file(
+        "agent.system.tool.call_sub.md", _directories=[str(ROOT / "prompts")], _agent=agent
+    )
+    assert scopes == [project]
+    assert "available profiles:\n- custom-id (Custom Title): Review code\n- fallback (Fallback): Find facts" in prompt
+    profiles.clear()
+    prompt = files.read_prompt_file(
+        "agent.system.tool.call_sub.md", _directories=[str(ROOT / "prompts")], _agent=agent
+    )
+    assert "available profiles:" not in prompt
 
 
 @pytest.mark.parametrize("path", [
