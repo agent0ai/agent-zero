@@ -129,8 +129,8 @@ async def test_standard_specialist_profiles_keep_the_shared_communication_contra
 @pytest.mark.parametrize(
     ("profile", "intake_instruction"),
     [
-        ("developer", "Treat clear, bounded development work as actionable"),
-        ("researcher", "Treat clear, bounded research requests as actionable"),
+        ("developer", "clear bounded task: inspect facts choose reasonable local defaults implement verify"),
+        ("researcher", "clear bounded task: start discovery and validation without interview"),
     ],
 )
 async def test_specialists_keep_intake_guidance_without_response_overrides(

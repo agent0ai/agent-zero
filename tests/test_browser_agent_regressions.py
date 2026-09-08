@@ -1457,8 +1457,9 @@ def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
     assert "first load `browser-automation` with `skills_tool:load`" in prompt
     assert "`browser-automation` links to `browser-form-workflows`" in prompt
     assert "does not automatically load screenshots" in prompt
-    assert "chrome://inspect/#remote-debugging" in prompt
-    assert "opera://inspect/#remote-debugging" in prompt
+    browser_skill = (PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md").read_text(encoding="utf-8")
+    assert "chrome://inspect/#remote-debugging" in browser_skill
+    assert "opera://inspect/#remote-debugging" in browser_skill
     assert tokens.approximate_tokens(prompt) <= 650
     assert "already open" in config
     assert "already-open Browser surface" in config_html
@@ -1670,7 +1671,7 @@ def test_browser_viewer_uses_tabs_for_session_switching():
 
     assert 'class="browser-session-tabs" role="tablist"' in main_html
     assert 'class="browser-tab"' in main_html
-    assert 'class="browser-new-tab"' in main_html
+    assert 'class="browser-new-tab surface-control"' in main_html
     assert 'browser in $store.browserPage.visibleBrowsers()' in main_html
     assert ':key="$store.browserPage.browserTabKey(browser)"' in main_html
     assert "browser.context_id" in main_html
