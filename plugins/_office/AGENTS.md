@@ -15,6 +15,7 @@
 
 - Preserve document storage integrity and live session synchronization.
 - Keep LibreOffice operations bounded to intended workspaces and artifact paths.
+- Route APT commands through `system_packages.run_runtime_apt`; Kali repairs must use the build's snapshot when resolving LibreOffice/UNO dependencies.
 - Do not expose document contents or temporary files beyond intended UI/tool flows.
 - Editor text Save As storage helpers must preserve exact `.md` or `.txt` text and create a new registered document without mutating or deleting the source document.
 

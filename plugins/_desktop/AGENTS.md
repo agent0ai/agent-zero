@@ -15,6 +15,7 @@
 
 - Preserve session startup, cleanup, and route protection for desktop access.
 - Keep the Xpra server, client modules, and GTK introspection runtime present as one compatible stack; Xpra shadow sessions import all three even when users connect only through HTML5.
+- Route APT commands through `system_packages.run_runtime_apt` so existing Kali containers repair from the build's snapshot. Preserve the installed Xpra component version. If GTK needs a missing ATK typelib, align ATK's version-locked libraries and any installed optional components with the build's pinned snapshot version; do not fetch dependencies from rolling.
 - Keep desktop state injected into prompts accurate and bounded.
 - Do not expose desktop routes without the expected auth protections.
 - Keep Desktop host visibility tied to an attached modal or canvas host; modal cleanup may preserve the iframe in keepalive, but must not leave stale modal mode behind.

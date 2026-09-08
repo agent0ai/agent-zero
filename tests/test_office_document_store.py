@@ -34,6 +34,11 @@ from plugins._office.helpers import (
 )
 
 
+@pytest.fixture(autouse=True)
+def runtime_package_os(monkeypatch):
+    monkeypatch.setattr(system_packages.platform, "freedesktop_os_release", lambda: {"ID": "debian"})
+
+
 @pytest.fixture
 def office_state(tmp_path, monkeypatch):
     state = tmp_path / "state"
@@ -1859,11 +1864,16 @@ def test_cleanup_hook_installs_matching_xpra_client_stack(monkeypatch):
     assert calls[-1][-2:] == ["xpra-client=6.5.2-r0-1", "xpra-client-gtk3=6.5.2-r0-1"]
 
 
-def test_cleanup_hook_repairs_kali_gtk_from_rolling_source(monkeypatch):
+@pytest.mark.parametrize("optional_installed", [False, True])
+@pytest.mark.parametrize("install_fails", [False, True])
+def test_cleanup_hook_repairs_kali_gtk_from_snapshot(tmp_path, monkeypatch, optional_installed, install_fails):
     calls = []
-    source_text = []
-    installed_state = {desktop_hooks.GTK_RUNTIME_PACKAGE: False}
+    installed_state = {package: optional_installed for package in desktop_hooks.ATK_OPTIONAL_PACKAGES}
+    source = tmp_path / "sources.list"
+    source.write_text("deb http://http.kali.org/kali kali-rolling main\n", encoding="utf-8")
 
+    monkeypatch.setattr(system_packages, "KALI_SOURCE_FILES", (source,))
+    monkeypatch.setattr(system_packages.platform, "freedesktop_os_release", lambda: {"ID": "kali"})
     monkeypatch.setattr(desktop_hooks.os, "geteuid", lambda: 0)
     monkeypatch.setattr(
         desktop_hooks.shutil,
@@ -1876,13 +1886,17 @@ def test_cleanup_hook_repairs_kali_gtk_from_rolling_source(monkeypatch):
 
     def fake_run(command, **kwargs):
         calls.append(command)
-        source_option = next(
-            (item for item in command if item.startswith("Dir::Etc::sourcelist=")),
-            "",
-        )
-        if source_option:
-            source_text.append(Path(source_option.split("=", 1)[1]).read_text(encoding="utf-8"))
+        assert "kali-rolling" not in source.read_text(encoding="utf-8")
+        assert not any(item.startswith("Dir::Etc::sourcelist=") for item in command)
+        assert "download" not in command
         if "install" in command:
+            assert "--allow-downgrades" in command
+            for package in desktop_hooks.ATK_RUNTIME_PACKAGES:
+                assert f"{package}={desktop_hooks.ATK_VERSION}" in command
+            for package in desktop_hooks.ATK_OPTIONAL_PACKAGES:
+                assert (f"{package}={desktop_hooks.ATK_VERSION}" in command) == optional_installed
+            if install_fails:
+                return types.SimpleNamespace(returncode=100, stdout="", stderr="GTK dependency conflict")
             installed_state[desktop_hooks.GTK_RUNTIME_PACKAGE] = True
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -1892,11 +1906,13 @@ def test_cleanup_hook_repairs_kali_gtk_from_rolling_source(monkeypatch):
 
     desktop_hooks._ensure_runtime_dependencies(installed, errors)
 
-    assert installed == [desktop_hooks.GTK_RUNTIME_PACKAGE]
-    assert errors == []
-    assert source_text == [desktop_hooks.KALI_ROLLING_SOURCE, desktop_hooks.KALI_ROLLING_SOURCE]
-    assert calls[0][-1] == "update"
-    assert calls[1][-2:] == ["--no-install-recommends", desktop_hooks.GTK_RUNTIME_PACKAGE]
+    if install_fails:
+        assert installed == []
+        assert errors == ["GTK dependency conflict"]
+    else:
+        assert installed == [desktop_hooks.GTK_RUNTIME_PACKAGE]
+        assert errors == []
+    assert calls[0] == ["apt-get", "update"]
 
 
 def test_cleanup_hook_reports_required_xpra_codec_conflict(monkeypatch):

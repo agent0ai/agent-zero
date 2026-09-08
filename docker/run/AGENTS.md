@@ -19,7 +19,7 @@
 - `BRANCH` is required for branch-based Docker builds.
 - Preserve exposed ports for SSH, HTTP, and tunneled services unless docs and workflows are updated together.
 - Keep the two-runtime Python model aligned with the root contract.
-- Keep runtime desktop packages on `kali-last-snapshot`; carry the rolling base's matching ATK introspection package into that transaction, then pin the verified Python 3.13-compatible LibreOffice and complete Xpra runtime versions in `fs/ins/install_additional.sh` for both published architectures.
+- Keep runtime desktop packages on `kali-last-snapshot`; align ATK's version-locked libraries and installed optional components with the pinned snapshot version, and pin the verified LibreOffice and complete Xpra runtime versions in `fs/ins/install_additional.sh` for both published architectures. Let those package dependencies constrain Python compatibility; do not depend on retired rolling package versions remaining downloadable.
 - Do not bake secrets, local `.env` values, or user data into the image.
 - Runtime startup must ensure `/a0/usr/uploads` exists before supervised services start.
 - Runtime startup raises the soft open-file limit toward `A0_NOFILE_LIMIT` (default `65535`) before supervisord starts, bounded by the container hard limit.

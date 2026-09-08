@@ -2547,14 +2547,20 @@ def test_browser_docker_pins_python_313_compatible_desktop_packages():
     assert 'XPRA_HTML5_VERSION="19-r1-1"' in install_additional
     assert 'XPRA_HTML5_VERSION="21-r1-1"' in install_additional
     assert '"python3-uno=$LIBREOFFICE_VERSION"' in install_additional
-    assert 'apt-get download "gir1.2-atk-1.0=$ATK_VERSION"' in install_additional
-    assert '  "$ATK_GIR_PACKAGE" \\' in install_additional
+    from plugins._desktop import hooks as desktop_hooks
+    assert f'ATK_VERSION="{desktop_hooks.ATK_VERSION}"' in install_additional
+    for package in desktop_hooks.ATK_RUNTIME_PACKAGES:
+        assert f'"{package}=$ATK_VERSION"' in install_additional
+    assert '  "${ATK_PACKAGES[@]}" \\' in install_additional
+    assert "PYTHON_VERSION" not in install_additional
+    assert '--allow-downgrades' in install_additional
     assert "  gir1.2-gtk-3.0 \\" in install_additional
     assert '"xpra-client=$XPRA_VERSION"' in install_additional
     assert '"xpra-client-gtk3=$XPRA_VERSION"' in install_additional
     assert '"xpra-server=$XPRA_VERSION"' in install_additional
     assert '"xpra-html5=$XPRA_HTML5_VERSION"' in install_additional
-    assert install_additional.index("apt-get download") < install_additional.index('s/kali-rolling/$KALI_SUITE')
+    assert "apt-get download" not in install_additional
+    assert install_additional.index('s/kali-rolling/$KALI_SUITE') < install_additional.index("apt-get update")
     assert "https://xpra.org/beta" not in install_additional
 
 
