@@ -45,8 +45,8 @@ Keep it minimal and frontend-only:
 - no network calls.
 
 If the plugin already exists, improve it instead of creating a duplicate.
-When finished, run the a0-review-plugin skill on unread_dot and summarize
-PASS/WARN/FAIL. Do not run CodeRabbit.
+When finished, use a0-create-plugin references/review.md on unread_dot and
+summarize PASS/WARN/FAIL. Do not run CodeRabbit.
 ```
 
 The important part is not the exact wording. The important part is giving Agent
@@ -119,10 +119,11 @@ every other chat.
 
 ## Review It
 
-Run the plugin review skill before treating the plugin as done:
+Use the authoring skill's review reference before treating the plugin as done:
 
 ```text
-Use the a0-review-plugin skill to review /a0/usr/plugins/unread_dot.
+Load a0-create-plugin and read references/review.md.
+Review /a0/usr/plugins/unread_dot.
 Report PASS/WARN/FAIL by phase.
 ```
 

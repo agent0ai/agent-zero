@@ -14,7 +14,7 @@
 ## Local Contracts
 
 - Keep paths and examples current with source files and DOX contracts.
-- Route plugin-specific tasks to the plugin router or specialist plugin skills.
+- Route plugin authoring/review/contribution to `a0-create-plugin` and discovery/lifecycle operations to `a0-manage-plugin`.
 - Do not duplicate long contracts that belong in narrower AGENTS.md files when a reference is enough.
 - Reference files must identify current source or DOX anchors and avoid hardcoded default WebUI ports.
 

@@ -434,7 +434,7 @@ def test_renamed_skills_use_standard_frontmatter_only():
         expected_keys = {"name", "description"}
         if path.parent.name == "host-computer-use":
             expected_keys.update({"tags", "triggers"})
-        if path.parent.name in {"browser-automation", "browser-form-workflows"}:
+        if path.parent.name in {"browser-automation", "browser-extension-control", "browser-form-workflows", "setup-a0-cli"}:
             expected_keys.add("triggers")
         assert set(frontmatter) == expected_keys
         assert frontmatter["name"] == path.parent.name

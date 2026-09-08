@@ -63,8 +63,8 @@ def test_default_skill_descriptions_fit_preview_and_remain_searchable(monkeypatc
         candidates.append(skill)
     monkeypatch.setattr(skills, "list_skills", lambda *args, **kwargs: candidates)
     for query, name in [
-        ("publish plugin", "a0-contribute-plugin"),
-        ("plugin not loading", "a0-debug-plugin"),
+        ("publish plugin", "a0-create-plugin"),
+        ("plugin not loading", "a0-create-plugin"),
         ("create agent", "a0-create-agent"),
         ("form validation", "browser-form-workflows"),
         ("Chrome Web Store", "browser-extension-control"),

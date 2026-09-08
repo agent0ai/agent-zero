@@ -40,7 +40,7 @@ Use this skill to develop Agent Zero or operate an existing instance on the user
 
 1. Source and nearest DOX beat memory, examples, and this skill if they disagree.
 2. Before editing, read the applicable `AGENTS.md` chain from the repo root to every file you expect to touch.
-3. New capabilities should usually be plugins. For plugin-specific work, load `a0-plugin-router` and follow the routed specialist skill.
+3. New capabilities should usually be plugins. For plugin-specific work, load `a0-create-plugin` for authoring/review/contribution or `a0-manage-plugin` for discovery and lifecycle operations.
 4. Do not assume ports. Discover WebUI host/port from startup output, launcher or Docker mapping, or explicit `--host`, `--port`, `WEB_UI_HOST`, and `WEB_UI_PORT` configuration.
 5. In Docker, framework checks belong to `/opt/venv-a0` and agent/user code execution belongs to `/opt/venv`. Do not use one runtime as proof for the other.
 6. Treat `/a0/` as the runtime framework root inside Docker. In local development it means the repository root. If a live container matters, prove that `/a0` matches the checkout before trusting source-only conclusions.
@@ -79,8 +79,7 @@ Load references with:
 
 - Plugin creation: load `a0-create-plugin`.
 - Plugin management or installation: load `a0-manage-plugin`.
-- Plugin debugging: load `a0-debug-plugin`.
-- Plugin review or publishing: load `a0-review-plugin` or `a0-contribute-plugin`.
+- Plugin review, debugging or publishing: load `a0-create-plugin` and read its relevant reference.
 - Agent profile creation: load `a0-create-agent`.
 - Skill creation or skill format work: load `build-skill`.
 
