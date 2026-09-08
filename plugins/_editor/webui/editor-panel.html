@@ -97,7 +97,7 @@
               <button
                 type="button"
                 class="editor-icon-button surface-control editor-mode-toggle"
-                x-show="$store.editor.isTextDocument()"
+                x-show="$store.editor.canPreview()"
                 style="display: none;"
                 :title="$store.editor.viewModeTitle()"
                 :aria-label="$store.editor.viewModeTitle()"
@@ -115,7 +115,7 @@
                 </button>
               </div>
 
-              <div class="editor-tool-group surface-toolbar-group editor-source-tools" x-show="$store.editor.isTextDocument() && $store.editor.isSourceMode()" style="display: none;">
+              <div class="editor-tool-group surface-toolbar-group editor-source-tools" x-show="$store.editor.canPreview() && $store.editor.isSourceMode()" style="display: none;">
                 <button type="button" class="editor-icon-button surface-control" title="Bold" aria-label="Bold" @click="$store.editor.format('bold')">
                   <x-icon name="format_bold"></x-icon>
                 </button>
@@ -199,7 +199,7 @@
                     <span>Close File</span>
                   </button>
                   <button type="button" class="editor-new-menu-item" role="menuitem" :disabled="$store.editor.loading || $store.editor.visibleTabs().length === 0" @click="open = false; $store.editor.closeAllFiles()">
-                    <x-icon aria-hidden="true" name="close"></x-icon>
+                    <x-icon aria-hidden="true" name="layers_clear"></x-icon>
                     <span>Close All</span>
                   </button>
                 </div>
@@ -817,14 +817,6 @@
       min-width: 0;
       min-height: 0;
       font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    }
-
-    .editor-ace .ace_gutter {
-      display: none !important;
-    }
-
-    .editor-ace .ace_scroller {
-      left: 0 !important;
     }
 
     .editor-source-editor {

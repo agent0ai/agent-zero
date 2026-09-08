@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 import time
 import uuid
 import zipfile
@@ -27,6 +28,7 @@ EDITOR_TEXT_EXTENSIONS = {"md", "txt"}
 SUPPORTED_EXTENSIONS = {*EDITOR_TEXT_EXTENSIONS, *OPEN_DOCUMENT_EXTENSIONS, *OOXML_EXTENSIONS}
 DEFAULT_TTL_SECONDS = 8 * 60 * 60
 MAX_SAVE_BYTES = 512 * 1024 * 1024
+MAX_EDITOR_BYTES = 1024 * 1024
 ODF_OFFICE_NS = "urn:oasis:names:tc:opendocument:xmlns:office:1.0"
 ODF_TEXT_NS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
 ODF_TABLE_NS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
@@ -59,7 +61,10 @@ def now_iso() -> str:
 
 def ensure_dirs() -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    BACKUP_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if BACKUP_DIR.stat().st_uid != os.geteuid():
+        os.chown(BACKUP_DIR, os.geteuid(), -1)
+    BACKUP_DIR.chmod(0o700)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -157,10 +162,10 @@ def _settings() -> Any:
     return settings
 
 
-def normalize_path(path: str | Path, context_id: str = "", allow_base_dir: bool = False) -> Path:
+def normalize_path(path: str | Path, context_id: str = "", allow_base_dir: bool = False, file_browser: bool = False) -> Path:
     candidate = _path_from_a0(path)
     resolved = candidate.resolve(strict=False)
-    roots = allowed_roots(context_id, allow_base_dir=allow_base_dir)
+    roots = [Path("/")] if file_browser else allowed_roots(context_id, allow_base_dir=allow_base_dir)
     if not any(_is_relative_to(resolved, root) for root in roots):
         raise PermissionError("Document artifacts must stay inside the active project or workdir.")
     if candidate.exists():
@@ -243,11 +248,14 @@ def register_document(
     owner_id: str = "a0",
     context_id: str = "",
     allow_base_dir: bool = False,
+    file_browser: bool = False,
 ) -> dict[str, Any]:
-    resolved = normalize_path(path, context_id=context_id, allow_base_dir=allow_base_dir)
+    resolved = normalize_path(path, context_id=context_id, allow_base_dir=allow_base_dir, file_browser=file_browser)
     if not resolved.exists():
         raise FileNotFoundError(str(resolved))
-    ext = normalize_extension(resolved.suffix.lstrip("."))
+    ext = resolved.suffix.lstrip(".").lower()
+    if is_editor_document({"extension": ext}):
+        read_text_for_editor({"path": str(resolved), "extension": ext})
     data = resolved.read_bytes()
     digest = sha256_bytes(data)
     stat = resolved.stat()
@@ -295,7 +303,9 @@ def update_document_path(file_id: str, path: str | Path, context_id: str = "") -
     resolved = normalize_path(path, context_id=context_id)
     if not resolved.exists():
         raise FileNotFoundError(str(resolved))
-    ext = normalize_extension(resolved.suffix.lstrip("."))
+    ext = resolved.suffix.lstrip(".").lower()
+    if is_editor_document({"extension": ext}):
+        read_text_for_editor({"path": str(resolved), "extension": ext})
     data = resolved.read_bytes()
     digest = sha256_bytes(data)
     stat = resolved.stat()
@@ -331,16 +341,15 @@ def rename_document(
     path: str | Path,
     content: str | None = None,
     context_id: str = "",
+    file_browser: bool = False,
 ) -> dict[str, Any]:
-    resolved = normalize_path(path, context_id=context_id)
-    ext = normalize_extension(resolved.suffix.lstrip("."))
+    resolved = normalize_path(path, context_id=context_id, file_browser=file_browser)
+    ext = resolved.suffix.lstrip(".").lower()
     data = None
     if content is not None:
-        if ext not in EDITOR_TEXT_EXTENSIONS:
+        if not is_editor_document({"extension": ext}):
             raise ValueError("Inline content can only be provided for Editor text documents.")
-        data = str(content or "").encode("utf-8")
-        if len(data) > MAX_SAVE_BYTES:
-            raise OverflowError("Document save exceeds maximum size")
+        data = editor_text_bytes(str(content or ""))
 
     changed_at = now()
     with connect() as conn:
@@ -371,7 +380,7 @@ def rename_document(
         elif data is not None:
             if content_changed:
                 _record_version(conn, file_id, source_resolved, item_version(doc), previous)
-            _write_atomic(resolved, data)
+            _write_atomic(resolved, data, source=source)
             if changed_path and source_exists:
                 source.unlink(missing_ok=True)
             final_data = data
@@ -492,20 +501,39 @@ def close_session(session_id: str = "", file_id: str = "") -> int:
         return len(rows)
 
 
+def is_editor_document(doc: dict[str, Any]) -> bool:
+    return str(doc.get("extension") or "").lower() not in OPEN_DOCUMENT_EXTENSIONS | OOXML_EXTENSIONS
+
+
+def editor_text_bytes(content: str) -> bytes:
+    data = content.encode("utf-8")
+    if len(data) > MAX_EDITOR_BYTES:
+        raise ValueError("File exceeds 1 MB and cannot be edited")
+    if files.is_probably_binary_bytes(data):
+        raise ValueError("Binary file detected; editing is not supported")
+    return data
+
+
 def read_text_for_editor(doc: dict[str, Any]) -> str:
-    path = Path(doc["path"])
-    ext = str(doc["extension"]).lower()
-    if ext in EDITOR_TEXT_EXTENSIONS:
-        return path.read_text(encoding="utf-8", errors="replace")
-    raise ValueError(f"Text editing is not available for .{ext}.")
+    if not is_editor_document(doc):
+        raise ValueError(f"Text editing is not available for .{doc['extension']}.")
+    with Path(doc["path"]).open("rb") as stream:
+        data = stream.read(MAX_EDITOR_BYTES + 1)
+    if len(data) > MAX_EDITOR_BYTES:
+        raise ValueError("File exceeds 1 MB and cannot be edited")
+    if files.is_probably_binary_bytes(data):
+        raise ValueError("Binary file detected; editing is not supported")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Unable to decode file as UTF-8; editing is not supported") from exc
 
 
 def write_text_document(file_id: str, content: str) -> dict[str, Any]:
     doc = get_document(file_id)
-    ext = str(doc.get("extension") or "").lower()
-    if ext not in EDITOR_TEXT_EXTENSIONS:
-        raise ValueError(f"Editor text saves are not available for .{ext}.")
-    return replace_document_bytes(file_id, str(content or "").encode("utf-8"), actor=f"editor:{ext}")
+    if not is_editor_document(doc):
+        raise ValueError(f"Editor text saves are not available for .{doc['extension']}.")
+    return replace_document_bytes(file_id, editor_text_bytes(str(content or "")), actor=f"editor:{doc['extension']}")
 
 
 def write_markdown(file_id: str, content: str) -> dict[str, Any]:
@@ -517,26 +545,25 @@ def save_text_document_as(
     path: str | Path,
     content: str,
     context_id: str = "",
+    file_browser: bool = False,
 ) -> dict[str, Any]:
-    target = normalize_path(path, context_id=context_id)
-    ext = normalize_extension(target.suffix.lstrip("."))
-    if ext not in EDITOR_TEXT_EXTENSIONS:
-        raise ValueError("Editor Save As only supports Markdown (.md) and text (.txt) files.")
+    target = normalize_path(path, context_id=context_id, file_browser=file_browser)
+    ext = target.suffix.lstrip(".").lower()
+    if not is_editor_document({"extension": ext}):
+        raise ValueError("Editor Save As requires a text file, not an office document.")
     if target.exists():
         raise FileExistsError(f"Target already exists: {display_path(target)}")
 
-    data = str(content or "").encode("utf-8")
-    if len(data) > MAX_SAVE_BYTES:
-        raise OverflowError("Document save exceeds maximum size")
+    data = editor_text_bytes(str(content or ""))
 
     with connect() as conn:
         source = get_document(file_id, conn=conn)
         source_ext = str(source.get("extension") or "").lower()
-        if source_ext not in EDITOR_TEXT_EXTENSIONS:
+        if not is_editor_document(source):
             raise ValueError(f"Editor Save As is not available for .{source_ext}.")
         changed_at = now()
         target.parent.mkdir(parents=True, exist_ok=True)
-        _write_atomic(target, data)
+        _write_atomic(target, data, source=Path(source["path"]))
         digest = sha256_bytes(data)
         stat = target.stat()
         new_file_id = uuid.uuid4().hex
@@ -623,13 +650,20 @@ def item_version(doc: dict[str, Any]) -> str:
     return f"{int(doc['version'])}-{str(doc['sha256'])[:12]}"
 
 
-def _write_atomic(path: Path, data: bytes) -> None:
+def _write_atomic(path: Path, data: bytes, *, source: Path | None = None) -> None:
+    source = source or path
+    metadata = source.stat() if source.exists() else None
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
-        with tmp_path.open("wb") as handle:
+        with os.fdopen(os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as handle:
             handle.write(data)
             handle.flush()
+            if metadata:
+                current = os.fstat(handle.fileno())
+                if (current.st_uid, current.st_gid) != (metadata.st_uid, metadata.st_gid):
+                    os.fchown(handle.fileno(), metadata.st_uid, metadata.st_gid)
+                os.fchmod(handle.fileno(), stat.S_IMODE(metadata.st_mode))
             os.fsync(handle.fileno())
         os.replace(tmp_path, path)
     finally:
@@ -644,9 +678,9 @@ def _clear_expired_sessions(conn: sqlite3.Connection) -> None:
 def _record_version(conn: sqlite3.Connection, file_id: str, path: Path, version: str, data: bytes) -> None:
     if not data:
         return
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    backup_path = BACKUP_DIR / f"{file_id}-{int(time.time() * 1000)}-{version.replace('/', '_')}"
-    backup_path.write_bytes(data)
+    backup_path = BACKUP_DIR / f"{file_id}-{uuid.uuid4().hex}-{version.replace('/', '_')}"
+    with os.fdopen(os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as handle:
+        handle.write(data)
     conn.execute(
         "INSERT INTO versions (file_id, version, path, size, sha256, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (file_id, version, str(backup_path), len(data), sha256_bytes(data), now()),

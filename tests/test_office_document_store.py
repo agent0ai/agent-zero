@@ -2014,3 +2014,101 @@ def load_self_update_manager():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize("name", ["probe.jsonl", "module.py", "settings.yaml", "page.html", "Dockerfile", ".env", "custom.unknown"])
+def test_editor_arbitrary_text_file_lifecycle(office_state, name):
+    path = office_state.workdir / name
+    original = b'first line\r\nsecond line\r\n'
+    path.write_bytes(original)
+    manager = editor_markdown_sessions.get_manager()
+    doc = document_store.register_document(path)
+    session = manager.open(doc)
+    assert session["text"].encode() == original
+    manager.input(session["session_id"], text="local edit\n")
+    path.write_text("external edit\n")
+    assert manager.save(session["session_id"])["code"] == "external_change_conflict"
+    copy = path.with_name("copy-" + name)
+    result = manager.save_as(session["session_id"], str(copy), text="saved copy\n")
+    assert path.read_text() == "external edit\n"
+    assert copy.read_text() == "saved copy\n"
+    assert result["document"]["extension"] == copy.suffix.lstrip(".")
+    with pytest.raises(FileExistsError):
+        manager.save_as(session["session_id"], str(copy))
+    renamed = copy.with_name("renamed-" + name)
+    updated = document_store.rename_document(result["document"]["file_id"], renamed, content="renamed\n")
+    manager.renamed(updated["file_id"], updated, text="renamed\n")
+    assert not copy.exists()
+    assert renamed.read_text() == "renamed\n"
+    assert manager.save(session["session_id"], text="final\n")["ok"]
+    assert renamed.read_text() == "final\n"
+    manager.close(session["session_id"])
+
+
+@pytest.mark.parametrize("content, message", [(b'a\x00b', "Binary"), (b'\xff\xfe', "UTF-8"), (b'x' * (1024 * 1024 + 1), "1 MB")])
+def test_editor_rejects_binary_invalid_encoding_and_large_files(office_state, content, message):
+    path = office_state.workdir / "unsafe.jsonl"
+    path.write_bytes(content)
+    with pytest.raises(ValueError, match=message):
+        document_store.register_document(path)
+    assert path.read_bytes() == content
+
+
+def test_editor_named_create_and_save_as_match_file_browser_scope(office_state, tmp_path):
+    path = tmp_path / "outside-workdir.py"
+    handler = EditorSession(app=None, thread_lock=None)
+    request = types.SimpleNamespace(headers={}, host_url="http://localhost/")
+    payload = {"action": "create", "path": str(path), "source": "file-browser", "content": "print(1)\n"}
+    opened = asyncio.run(handler.process(payload, request))
+    assert opened["ok"]
+    assert opened["text"] == "print(1)\n"
+    assert not asyncio.run(handler.process(payload, request))["ok"]
+    assert path.read_text() == "print(1)\n"
+    target = tmp_path / "Dockerfile"
+    result = asyncio.run(handler.process({"action": "save_as", "session_id": opened["session_id"], "path": str(target), "text": "FROM scratch\n"}, request))
+    assert result["ok"]
+    assert result["document"]["extension"] == ""
+    assert target.read_text() == "FROM scratch\n"
+    with pytest.raises(PermissionError):
+        document_store.register_document(target)
+
+
+@pytest.mark.parametrize("mode", [0o755, 0o600])
+def test_editor_preserves_file_permissions_and_private_backups(office_state, mode):
+    import stat
+
+    path = office_state.workdir / "script.sh"
+    path.write_text("echo original\n")
+    path.chmod(mode)
+    original = path.stat()
+    office_state.backups.chmod(0o775)
+    manager = editor_markdown_sessions.get_manager()
+    session = manager.open(document_store.register_document(path))
+    assert manager.save(session["session_id"], text="echo saved\n")["ok"]
+    copy = path.with_name("copy.sh")
+    result = manager.save_as(session["session_id"], str(copy))
+    renamed = path.with_name("renamed.sh")
+    document_store.rename_document(result["document"]["file_id"], renamed, content="echo renamed\n")
+    for target in (path, renamed):
+        saved = target.stat()
+        assert stat.S_IMODE(saved.st_mode) == mode
+        assert (saved.st_uid, saved.st_gid) == (original.st_uid, original.st_gid)
+    assert stat.S_IMODE(office_state.backups.stat().st_mode) == 0o700
+    assert list(office_state.backups.iterdir())
+    assert all(stat.S_IMODE(backup.stat().st_mode) == 0o600 for backup in office_state.backups.iterdir())
+
+
+def test_editor_atomic_metadata_failure_keeps_original(office_state, monkeypatch):
+    path = office_state.workdir / "private.sh"
+    path.write_text("original\n")
+    path.chmod(0o600)
+    doc = document_store.register_document(path)
+
+    def fail_chmod(*_args):
+        raise PermissionError("metadata update failed")
+
+    monkeypatch.setattr(document_store.os, "fchmod", fail_chmod)
+    with pytest.raises(PermissionError, match="metadata update failed"):
+        document_store.write_text_document(doc["file_id"], "replacement\n")
+    assert path.read_text() == "original\n"
+    assert not list(path.parent.glob(".private.sh.*.tmp"))

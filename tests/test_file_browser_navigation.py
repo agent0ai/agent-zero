@@ -102,7 +102,7 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "PICKER_MODE_SAVE_AS" in store
     assert "openTextPicker" in store
     assert "openSaveAsPicker" in store
-    assert 'new Set(["md", "txt"])' in store
+    assert "isEditableFile(file = {})" in store
     assert "pickerSelectedFiles()" in store
     assert "validatePickerFilename" in store
     assert "handleFileNameClick(file = {})" in store
@@ -111,8 +111,7 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "canOpenInActionMenu(file = {})" in store
 
     assert "file-browser-picker-actions" in html
-    assert "file-editor-open-action" in html
-    assert 'aria-label="Open in Editor"' in html
+    assert "file-editor-open-action" not in html
     assert "picker-filename-input" in html
     assert "Open Selected" in store
     assert "Save Here" in store
@@ -123,12 +122,18 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "picker-confirm-button" in html
 
     assert "picker modes for Editor Open and Save As" in dox
-    assert "Markdown or plain text files" in dox
-    assert "Open in Editor action visible outside the overflow menu" in dox
+    assert "text or code files" in dox
+    assert "Keep Edit inside the overflow menu" in dox
 
-    editor_button_index = html.index("file-editor-open-action")
     dropdown_menu_index = html.index('class="dropdown-menu file-actions-menu"')
-    assert editor_button_index < dropdown_menu_index
+    assert html.index('class="dropdown file-actions-dropdown"') < html.index('title="Download file"') < html.index('title="Delete item"')
+    assert '<x-extension id="file-browser-actions-menu"></x-extension>' in html[dropdown_menu_index:]
+    assert 'file-browser-actions-menu/*.html' in dox
+    edit_button = html[dropdown_menu_index:html.index('<span>Edit</span>')]
+    assert 'class="dropdown-item"' in edit_button
+    assert 'x-show="$store.fileBrowser.isEditableFile(file)"' in edit_button
+    assert '@click="$store.fileBrowser.openFileEditor(file)"' in edit_button
+    assert 'always_enabled: true' in read("plugins", "_editor", "plugin.yaml")
     assert 'x-show="$store.fileBrowser.canOpenInActionMenu(file)"' in html
 
 

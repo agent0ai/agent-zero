@@ -1,7 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
-import { store as fileEditorStore } from "/components/modals/file-editor/file-editor-store.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   openLatest as openLatestSurface,
@@ -14,7 +13,6 @@ const DEFAULT_REMEMBER_LAST_DIRECTORY = true;
 const PICKER_MODE_NONE = "";
 const PICKER_MODE_TEXT_OPEN = "text-open";
 const PICKER_MODE_SAVE_AS = "save-as";
-const EDITOR_TEXT_EXTENSIONS = new Set(["md", "txt"]);
 const DESKTOP_EXTENSIONS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 const BROWSER_EXTENSIONS = new Set([
   "html",
@@ -35,9 +33,9 @@ const ARCHIVE_SUFFIXES = [".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tar", 
 
 const SURFACE_ACTIONS = {
   editor: {
-    label: "Open in Editor",
-    icon: "article",
-    title: "Open text in Editor",
+    label: "Edit",
+    icon: "edit",
+    title: "Edit",
   },
   desktop: {
     label: "Open in Desktop",
@@ -106,6 +104,7 @@ const model = {
   renamePerformAction: null,
   renameValidateName: null,
   openDropdownPath: null, // Track which dropdown is currently open
+  dropdownOwner: null,
   dropdownStyle: {},
   searchQuery: "",
   isBulkBusy: false,
@@ -145,6 +144,7 @@ const model = {
   onUnmount(element = null) {
     if (element && element !== this._mountedElement) return;
     this._mountedElement = null;
+    this.closeDropdown();
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this.cancelMountedDefaultLoad();
@@ -229,7 +229,7 @@ const model = {
     this.browser.currentPath = "";
     this.browser.parentPath = "";
     this.browser.entries = [];
-    this.openDropdownPath = null;
+    this.closeDropdown();
     this.searchQuery = "";
     this.isBulkBusy = false;
     this.clearDragState();
@@ -277,6 +277,7 @@ const model = {
 
   // --- Helpers -------------------------------------------------------------
   resetOpenState(options = {}) {
+    this.closeDropdown();
     this.cancelMountedDefaultLoad();
     this.isLoading = true;
     this.error = null;
@@ -298,7 +299,7 @@ const model = {
       || (this.pickerMode === PICKER_MODE_SAVE_AS ? "Save Here" : "Open Selected");
     this.pickerFilename = String(options?.filename || "").trim();
     this.pickerDefaultExtension = this.normalizedEditorTextExtension(
-      options?.defaultExtension || this.fileExtension({ name: this.pickerFilename }) || "md",
+      options?.defaultExtension ?? this.fileExtension({ name: this.pickerFilename }),
     );
     this.pickerFilenameError = "";
     this.pickerOnConfirm = typeof options?.onConfirm === "function" ? options.onConfirm : null;
@@ -485,7 +486,7 @@ const model = {
 
   isSelectableEntry(file = {}) {
     if (this.isSaveAsPicker()) return false;
-    if (this.isTextOpenPicker()) return !file?.is_dir && this.fileSurfaceTarget(file) === "editor";
+    if (this.isTextOpenPicker()) return !file?.is_dir && this.isEditableFile(file);
     return true;
   },
 
@@ -583,20 +584,26 @@ const model = {
   fileSurfaceTarget(file = {}) {
     if (!file || file.is_dir) return "";
     const ext = this.fileExtension(file);
-    if (EDITOR_TEXT_EXTENSIONS.has(ext)) return "editor";
     if (BROWSER_EXTENSIONS.has(ext)) return "browser";
     if (DESKTOP_EXTENSIONS.has(ext)) return "desktop";
-    return "";
+    return this.isEditableFile(file) ? "editor" : "";
+  },
+
+  isEditableFile(file = {}) {
+    if (!file || file.is_dir || file.size > 1048576 || this.isArchive(file.name || file.path)) return false;
+    const ext = this.fileExtension(file);
+    return !DESKTOP_EXTENSIONS.has(ext)
+      && !["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "mp3", "mp4", "wav", "webm", "ogg", "woff", "woff2", "ttf"].includes(ext);
   },
 
   pickerAllowsEntry(file = {}) {
     if (!this.isTextOpenPicker()) return true;
-    return Boolean(file?.is_dir || this.fileSurfaceTarget(file) === "editor");
+    return Boolean(file?.is_dir || this.isEditableFile(file));
   },
 
   pickerSelectedFiles() {
     if (!this.isTextOpenPicker()) return [];
-    return this.selectedFiles.filter((file) => !file.is_dir && this.fileSurfaceTarget(file) === "editor");
+    return this.selectedFiles.filter((file) => !file.is_dir && this.isEditableFile(file));
   },
 
   pickerSelectionLabel() {
@@ -608,14 +615,14 @@ const model = {
 
   normalizedEditorTextExtension(value = "") {
     const ext = String(value || "").toLowerCase().trim().replace(/^\./, "");
-    return EDITOR_TEXT_EXTENSIONS.has(ext) ? ext : "md";
+    return ext;
   },
 
   pickerFilenameValue() {
     const raw = String(this.pickerFilename || "").trim();
     if (!raw) return "";
     const ext = this.fileExtension({ name: raw });
-    return ext ? raw : `${raw}.${this.pickerDefaultExtension || "md"}`;
+    return ext || !this.pickerDefaultExtension ? raw : `${raw}.${this.pickerDefaultExtension}`;
   },
 
   validatePickerFilename(updateError = true) {
@@ -629,8 +636,6 @@ const model = {
       error = "File name cannot be '.' or '..'.";
     } else if (raw.includes("/") || raw.includes("\\")) {
       error = "File name cannot include path separators.";
-    } else if (!EDITOR_TEXT_EXTENSIONS.has(this.fileExtension({ name: filename }))) {
-      error = "Use a .md or .txt file name.";
     } else if ((this.browser.entries || []).some((entry) => entry?.name === filename)) {
       error = `An item named "${filename}" already exists.`;
     }
@@ -654,7 +659,7 @@ const model = {
   },
 
   togglePickerFile(file = {}) {
-    if (!this.isTextOpenPicker() || file?.is_dir || this.fileSurfaceTarget(file) !== "editor") return;
+    if (!this.isTextOpenPicker() || file?.is_dir || !this.isEditableFile(file)) return;
     file.selected = !file.selected;
   },
 
@@ -809,20 +814,23 @@ const model = {
   // --- Dropdown Management -------------------------------------------------
   toggleDropdown(filePath, triggerElement = null) {
     // Toggle: if already open, close it; otherwise open this one (closing any other)
-    if (this.openDropdownPath === filePath) {
+    const owner = triggerElement?.closest(".file-actions") || null;
+    if (this.isDropdownOpen(filePath, owner)) {
       this.closeDropdown();
       return;
     }
     this.openDropdownPath = filePath;
+    this.dropdownOwner = owner;
     this.dropdownStyle = this.getDropdownStyle(triggerElement);
   },
 
-  isDropdownOpen(filePath) {
-    return this.openDropdownPath === filePath;
+  isDropdownOpen(filePath, owner = null) {
+    return this.openDropdownPath === filePath && (!owner || owner === this.dropdownOwner);
   },
 
   closeDropdown() {
     this.openDropdownPath = null;
+    this.dropdownOwner = null;
     this.dropdownStyle = {};
   },
 
@@ -1206,21 +1214,22 @@ const model = {
     }
   },
 
-  // --- File Editor (Delegated to FileEditorStore) --------------------------
+  // --- Shared Editor -------------------------------------------------------
   async openFileEditor(file) {
-    await fileEditorStore.openFile(file, async () => {
-      // Callback on successful save to refresh file list
-      await this.fetchFiles(this.browser.currentPath);
-    });
+    return this.openInSurface(file, "editor");
   },
 
   async openNewFile() {
-    const existingNames = (this.browser.entries || [])
-      .map((e) => e?.name)
-      .filter(Boolean);
-    await fileEditorStore.openNewFile(this.browser.currentPath, existingNames, async () => {
-      // Callback on successful save to refresh file list
-      await this.fetchFiles(this.browser.currentPath);
+    await this.openSaveAsPicker(this.browser.currentPath, {
+      filename: "Untitled.txt",
+      defaultExtension: "",
+      onConfirm: async ({ path }) => {
+        const { store: editorStore } = await import("/plugins/_editor/webui/editor-store.js");
+        const session = await editorStore.openSession({ action: "create", path, source: "file-browser" });
+        if (!session) throw new Error(editorStore.error || "Could not create file.");
+        await openLatestSurface("editor", {});
+        return true;
+      },
     });
   },
 
@@ -1450,8 +1459,7 @@ const model = {
     return store._handleFileUpload(event); // bind to model to ensure correct context
   },
 
-  async openInSurface(file = {}) {
-    const target = this.fileSurfaceTarget(file);
+  async openInSurface(file = {}, target = this.fileSurfaceTarget(file)) {
     const path = this.normalizePath(String(file?.path || ""));
     if (!target || !path) return;
 

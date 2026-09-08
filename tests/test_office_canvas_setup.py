@@ -166,7 +166,9 @@ def test_right_canvas_uses_desktop_surface_id_and_migrates_legacy_office_state()
     assert "openSearch" in editor_store
     assert "handlePreviewClick" in editor_store
     assert "ace.edit" in editor_store
-    assert "showGutter: false" in editor_store
+    assert "showGutter: true" in editor_store
+    assert ".editor-ace .ace_gutter" not in editor_web_panel
+    assert ".editor-ace .ace_scroller" not in editor_web_panel
     assert "globalThis.confirm" not in editor_store
     assert ".editor-toolbar" in editor_web_panel
     assert "overflow: visible;" in editor_web_panel
@@ -604,7 +606,7 @@ def test_editor_uses_full_document_preview_and_matching_markdown_text_tools():
     assert "previousPage()" not in editor_store
     assert 'x-show="$store.editor.isTextDocument()"' in editor_panel
     assert '$store.editor.isTextDocument() && $store.editor.isPreviewMode()' in editor_panel
-    assert 'mode === PREVIEW_MODE && this.isTextDocument()' in editor_store
+    assert 'mode === PREVIEW_MODE && this.canPreview()' in editor_store
     assert "if (!this.session || !this.isTextDocument()) return;" in editor_store
 
     source_tools_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-source-tools"')

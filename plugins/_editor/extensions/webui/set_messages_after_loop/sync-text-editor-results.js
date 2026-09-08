@@ -13,7 +13,7 @@ export default async function syncTextEditorResultsIntoOpenEditor(context) {
     if (!shouldSyncTextEditorResult(args, payload)) continue;
 
     const target = textEditorTarget(payload);
-    if (!target.path || target.extension !== "md") continue;
+    if (!target.path) continue;
     const explicitOpen = shouldOpenEditorUiFromResult(payload, target);
     if (context.historyEmpty && !explicitOpen) continue;
 

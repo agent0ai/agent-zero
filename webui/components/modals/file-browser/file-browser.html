@@ -213,18 +213,7 @@
                       </div>
                       <div class="file-size" x-text="file.is_dir ? '—' : $store.fileBrowser.formatFileSize(file.size)"></div>
                       <div class="file-date" x-text="$store.fileBrowser.formatDate(file.modified)"></div>
-                      <div class="file-actions" x-show="!$store.fileBrowser.isPickerMode()">
-                        <button
-                          type="button"
-                          class="btn-icon-action file-editor-open-action"
-                          x-show="$store.fileBrowser.isEditorSurface(file)"
-                          @click.stop="$store.fileBrowser.openInSurface(file)"
-                          :title="$store.fileBrowser.surfaceActionTitle(file)"
-                          aria-label="Open in Editor"
-                        >
-                          <x-icon aria-hidden="true" :name="$store.fileBrowser.surfaceActionIcon(file)"></x-icon>
-                        </button>
-
+                      <div class="file-actions" x-data="{ fileActions: $el }" x-show="!$store.fileBrowser.isPickerMode()">
                         <!-- Secondary single-item actions (Rename/...) are grouped under a dropdown -->
                         <div
                           class="dropdown file-actions-dropdown"
@@ -235,7 +224,7 @@
                             type="button"
                             class="btn-icon-action dropdown-trigger"
                             @click.stop="$store.fileBrowser.toggleDropdown(file.path, $event.currentTarget)"
-                            :aria-expanded="$store.fileBrowser.isDropdownOpen(file.path).toString()"
+                            :aria-expanded="$store.fileBrowser.isDropdownOpen(file.path, fileActions).toString()"
                             aria-label="More actions"
                             title="More actions"
                           >
@@ -245,12 +234,22 @@
                           <template x-teleport="body">
                             <div
                               class="dropdown-menu file-actions-menu"
-                              x-show="$store.fileBrowser.isDropdownOpen(file.path)"
+                              x-show="$store.fileBrowser.isDropdownOpen(file.path, fileActions)"
                               x-transition
                               :style="$store.fileBrowser.dropdownStyle"
                               style="display: none;"
                               @click.stop="$store.fileBrowser.closeDropdown()"
                             >
+                              <button
+                                type="button"
+                                class="dropdown-item"
+                                x-show="$store.fileBrowser.isEditableFile(file)"
+                                @click="$store.fileBrowser.openFileEditor(file)"
+                              >
+                                <x-icon name="edit"></x-icon>
+                                <span>Edit</span>
+                              </button>
+
                               <button
                                 type="button"
                                 class="dropdown-item"
@@ -260,16 +259,6 @@
                               >
                                 <x-icon :name="$store.fileBrowser.surfaceActionIcon(file)"></x-icon>
                                 <span x-text="$store.fileBrowser.surfaceActionLabel(file)"></span>
-                              </button>
-
-                              <button
-                                type="button"
-                                class="dropdown-item"
-                                x-show="!file.is_dir && file.size <= 1048576 && !$store.fileBrowser.canOpenInSurface(file)"
-                                @click="$store.fileBrowser.openFileEditor(file)"
-                              >
-                                <x-icon name="file_open"></x-icon>
-                                <span>Edit</span>
                               </button>
 
                               <button
@@ -300,6 +289,9 @@
                                 <x-icon name="drive_file_rename_outline"></x-icon>
                                 <span>Rename</span>
                               </button>
+                              <template x-if="$store.fileBrowser.isDropdownOpen(file.path, fileActions)">
+                                <x-extension id="file-browser-actions-menu"></x-extension>
+                              </template>
                             </div>
                           </template>
                         </div>
@@ -920,10 +912,6 @@
     gap: var(--spacing-xs);
     justify-content: flex-end;
     padding-right: 0.5rem;
-    }
-    .file-editor-open-action {
-    border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
-    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
     }
     .file-actions-menu {
     margin: 0;

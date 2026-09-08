@@ -14,10 +14,13 @@
 ## Local Contracts
 
 - Preserve document storage integrity and live session synchronization.
+- Atomic writes preserve the existing file mode and owner/group; Rename and Save As inherit them from the source. Temporary files and new files from atomic writes start private (0600). Metadata failures must leave the original untouched.
+- Version backups use private files (0600) inside a process-owned private directory (0700); `ensure_dirs` also restricts existing backup directories.
 - Keep LibreOffice operations bounded to intended workspaces and artifact paths.
 - Route APT commands through `system_packages.run_runtime_apt`; Kali repairs must use the build's snapshot when resolving LibreOffice/UNO dependencies.
 - Do not expose document contents or temporary files beyond intended UI/tool flows.
-- Editor text Save As storage helpers must preserve exact `.md` or `.txt` text and create a new registered document without mutating or deleting the source document.
+- Text registration and Editor writes reject binary content, invalid UTF-8, and files over 1 MiB. Office template formats remain unchanged. Only explicit authenticated Editor/File Browser operations opt into filesystem-root paths; default artifact paths stay workspace-scoped.
+- Editor text Save As storage helpers must preserve exact UTF-8 text for arbitrary text/code filenames and create a new registered document without mutating or deleting the source document.
 
 ## Work Guidance
 

@@ -36,6 +36,18 @@ class EditorSession(ApiHandler):
                 file_id="" if store_session_id else file_id,
             )
             return closed
+        if action == "create" and self._is_file_browser_open(input):
+            try:
+                path = document_store.normalize_path(str(input["path"]), file_browser=True)
+                if not document_store.is_editor_document({"extension": path.suffix.lstrip(".")}):
+                    raise ValueError("Use Desktop to create office documents.")
+                data = document_store.editor_text_bytes(str(input.get("content") or ""))
+                with path.open("xb") as stream:
+                    stream.write(data)
+                doc = document_store.register_document(path, context_id=context_id, file_browser=True)
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+            return await self._open_document(doc, input, request, context_id=context_id)
         if action == "create":
             fmt = str(input.get("format") or "md").lower().lstrip(".")
             if fmt not in document_store.EDITOR_TEXT_EXTENSIONS:
@@ -61,7 +73,7 @@ class EditorSession(ApiHandler):
                     else document_store.register_document(
                         str(input.get("path") or ""),
                         context_id=context_id,
-                        allow_base_dir=self._allow_base_dir_open(input),
+                        file_browser=self._is_file_browser_open(input),
                     )
                 )
             except Exception as exc:
@@ -80,7 +92,7 @@ class EditorSession(ApiHandler):
             if not path:
                 return {"ok": False, "error": "path is required."}
             try:
-                result = markdown_sessions.get_manager().save_as(session_id, path, text=input.get("text"))
+                result = markdown_sessions.get_manager().save_as(session_id, path, text=input.get("text"), file_browser=True)
             except Exception as exc:
                 return {"ok": False, "error": str(exc)}
             document_store.close_session(session_id=str(input.get("store_session_id") or "").strip())
@@ -107,7 +119,7 @@ class EditorSession(ApiHandler):
         request: Request,
         context_id: str = "",
     ) -> dict:
-        if str(doc.get("extension") or "").lower() not in document_store.EDITOR_TEXT_EXTENSIONS:
+        if not document_store.is_editor_document(doc):
             return {
                 "ok": False,
                 "error": f".{doc.get('extension', '')} documents use the Desktop surface.",
@@ -152,6 +164,7 @@ class EditorSession(ApiHandler):
                 path,
                 content=input.get("text") if "text" in input else None,
                 context_id=context_id,
+                file_browser=True,
             )
             markdown_sessions.get_manager().renamed(
                 file_id,
@@ -171,7 +184,7 @@ class EditorSession(ApiHandler):
         origin = request.headers.get("Origin") or request.host_url.rstrip("/")
         return origin.rstrip("/")
 
-    def _allow_base_dir_open(self, input: dict) -> bool:
+    def _is_file_browser_open(self, input: dict) -> bool:
         if str(input.get("source") or "").strip() != "file-browser":
             return False
         return bool(str(input.get("path") or "").strip())
