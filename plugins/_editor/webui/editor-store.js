@@ -171,6 +171,9 @@ function taskLineIndexes(markdown = "") {
 }
 
 async function callEditor(action, payload = {}) {
+  if (/^\/@(?:ssh|connections)\//.test(String(payload.path || "")) || String(payload.session_id || payload.file_id || "").startsWith("remote:")) {
+    return await callJsonApi("/file_browser_connections", { action: "editor", operation: action, payload });
+  }
   const explicitContextId = String(payload.ctxid || payload.context_id || "").trim();
   return await callJsonApi("/plugins/_editor/editor_session", {
     action,
@@ -180,7 +183,7 @@ async function callEditor(action, payload = {}) {
 }
 
 async function requestEditor(eventType, payload = {}, timeoutMs = 5000) {
-  if (String(payload.text || "").length > 64 * 1024) {
+  if (String(payload.session_id || payload.file_id || "").startsWith("remote:") || String(payload.text || "").length > 64 * 1024) {
     return await callEditor(eventType.replace(/^editor_/, ""), payload);
   }
   const explicitContextId = String(payload.ctxid || payload.context_id || "").trim();
@@ -217,6 +220,7 @@ const model = {
 
   async openTreeEntry(file) {
     if (file.is_dir || this.loading || this.saving) return;
+    await fileBrowserStore.ensureLimits();
     if (fileBrowserStore.isEditableFile(file)) {
       const tab = this.tabs.find(tab => tab.path === file.path);
       if (tab) return this.selectTab(tab.tab_id);
@@ -1372,6 +1376,7 @@ const model = {
         path: document.path || path,
         file_id: document.file_id || this.session.file_id,
         extension: document.extension || this.session.extension,
+        session_id: response.session_id || this.session.session_id,
         store_session_id: response.store_session_id || this.session.store_session_id,
         version: document.version || response.version || this.session.version,
       };

@@ -1,0 +1,158 @@
+<html>
+<head><title>File Browser Settings</title><script type="module" src="/components/modals/file-browser/file-browser-store.js"></script></head>
+<body>
+  <div x-data x-destroy="$store.fileBrowser.connectionDraft = null">
+    <template x-if="$store.fileBrowser"><div>
+    <div class="section-title">Appearance and defaults</div>
+    <div class="section-description">These preferences apply to this browser and are used whenever Files opens.</div>
+    <div class="files-appearance-grid">
+    <div class="field field-full">
+      <div class="field-label"><label class="field-title" for="files-default-sort">Default sorting</label></div>
+      <div class="field-control">
+        <select id="files-default-sort" x-model="$store.fileBrowser.preferences.sortBy" @change="$store.fileBrowser.savePreferences()">
+          <option value="name">Alphabetical</option><option value="size">Size</option><option value="date">Date modified</option>
+        </select>
+      </div>
+    </div>
+    <div class="field field-full">
+      <div class="field-label"><label class="field-title" for="files-default-direction">Sort direction</label></div>
+      <div class="field-control">
+        <select id="files-default-direction" x-model="$store.fileBrowser.preferences.sortDirection" @change="$store.fileBrowser.savePreferences()">
+          <option value="asc">Ascending</option><option value="desc">Descending</option>
+        </select>
+      </div>
+    </div>
+    <div class="field field-full">
+      <div class="field-label"><label class="field-title" for="files-default-view">View</label></div>
+      <div class="field-control">
+        <select id="files-default-view" x-model="$store.fileBrowser.preferences.view" @change="$store.fileBrowser.savePreferences()">
+          <option value="list">List</option><option value="icons">Icons</option>
+        </select>
+      </div>
+    </div>
+    <div class="field field-full">
+      <div class="field-label"><label class="field-title" for="files-default-tree">Show file tree when Files opens</label></div>
+      <div class="field-control">
+        <label class="toggle"><input id="files-default-tree" type="checkbox" x-model="$store.fileBrowser.preferences.treeShown" @change="$store.fileBrowser.savePreferences()"><span class="toggler"></span></label>
+      </div>
+    </div>
+    </div>
+    <div class="section-title">File size limits</div>
+    <div class="files-appearance-grid">
+      <div class="field field-full">
+        <label class="field-title" for="files-text-limit">Maximum editable file size (MiB)</label>
+        <input id="files-text-limit" type="number" min="1" max="100" step="1"
+          x-model.number="$store.fileBrowser.textLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
+          @change="$store.fileBrowser.saveSizeLimit('text')">
+        <div class="field-description">1–100 MiB. Applies only to opening and saving files in Editor. Upload and download limits are separate. Changes apply immediately.</div>
+      </div>
+      <div class="field field-full">
+        <label class="field-title" for="files-transfer-limit">Maximum upload/download size (MiB)</label>
+        <input id="files-transfer-limit" type="number" min="1" step="1"
+          x-model.number="$store.fileBrowser.transferLimitMib" :disabled="$store.fileBrowser.savingTextLimit"
+          @change="$store.fileBrowser.saveSizeLimit('transfer')">
+        <div class="field-description">Applies to Files transfers, including archives and remote connections. Separate from editing and Backup &amp; Restore. Server and connection restrictions may still apply.</div>
+      </div>
+    </div>
+    <div class="section-title">Remote folders</div>
+    <div class="section-description">Connection types are supplied by enabled plugins. Permissions below limit what Files can do; the server's own permissions still apply.</div>
+    <p class="field-description">Connected A0 CLI and Launcher folders appear automatically. Manage their exposed folder and access permissions in the CLI or Launcher.</p>
+    <div class="table-wrapper" x-show="$store.fileBrowser.connections.length">
+      <table class="data-table">
+        <thead><tr><th>Connection</th><th>Connection type</th><th>Actions</th></tr></thead>
+        <tbody>
+          <template x-for="connection in $store.fileBrowser.connections" :key="connection.provider + connection.id">
+            <tr>
+              <td><span x-text="connection.name"></span><div class="field-description" x-show="connection.status" x-text="connection.status"></div></td>
+              <td><span x-text="$store.fileBrowser.connectionProviders.find(p => p.id === connection.provider)?.title"></span></td>
+              <td><div class="files-connection-actions">
+                <button type="button" class="btn btn-icon-action" title="Open folder" aria-label="Open folder" :disabled="!connection.permissions.browse" @click="$store.fileBrowser.openConnection(connection)"><x-icon name="folder_open"></x-icon></button>
+                <button type="button" class="btn btn-icon-action" title="Test connection" aria-label="Test connection" :disabled="!connection.permissions.browse" @click="$store.fileBrowser.testConnection(connection)"><x-icon name="link"></x-icon></button>
+                <button type="button" class="btn btn-icon-action" title="Edit connection" aria-label="Edit connection" x-show="!connection.managed" @click="$store.fileBrowser.editConnection(connection)"><x-icon name="edit"></x-icon></button>
+                <button type="button" class="btn btn-icon-action" title="Remove connection" aria-label="Remove connection" x-show="!connection.managed" @click="$confirmClick($event, () => $store.fileBrowser.removeConnection(connection))"><x-icon name="delete"></x-icon></button>
+              </div></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <p class="field-description" x-show="!$store.fileBrowser.connections.length">No remote folders connected yet.</p>
+    <div class="dropdown files-connection-picker" x-data="{ open: false, menuStyle: {} }"
+      @resize.window="open = false"
+      @scroll.window.capture="if ($event.target !== $refs.connectionMenu) open = false"
+      @keydown.escape="if (open) { $event.stopPropagation(); open = false; $refs.connectionTrigger.focus(); }">
+      <button type="button" class="btn btn-ok" x-ref="connectionTrigger"
+        :disabled="Boolean($store.fileBrowser.openingConnectionPlugin)" :aria-expanded="open"
+        aria-controls="files-connection-menu" @click="menuStyle = $store.fileBrowser.getDropdownStyle($el, 416, false); open = !open">
+        <x-icon name="add"></x-icon>
+        <span x-text="$store.fileBrowser.openingConnectionPlugin ? 'Loading…' : 'Add connection'"></span>
+        <x-icon name="expand_more"></x-icon>
+      </button>
+      <template x-teleport="body">
+      <div id="files-connection-menu" class="dropdown-menu files-connection-menu" x-ref="connectionMenu" x-show="open" x-cloak
+        :style="menuStyle" @click.outside="if (!$refs.connectionTrigger.contains($event.target)) open = false"
+        @keydown.escape.stop="open = false; $refs.connectionTrigger.focus()">
+        <template x-for="plugin in $store.fileBrowser.connectionPluginOffers" :key="plugin.key">
+          <button type="button" class="dropdown-item files-plugin-button"
+            :disabled="Boolean($store.fileBrowser.openingConnectionPlugin) || (plugin.installed && !plugin.provider)"
+            :title="plugin.installed && !plugin.provider ? 'Enable this plugin in Plugins to add connections.' : null"
+            @click="open = false; $store.fileBrowser.openConnectionPlugin(plugin)">
+            <img :src="plugin.thumbnail" alt="" width="32" height="32" loading="lazy" @error="$el.style.visibility = 'hidden'">
+            <span x-text="(plugin.installed ? '' : 'Install ') + plugin.title"></span>
+          </button>
+        </template>
+      </div>
+      </template>
+    </div>
+    <template x-if="$store.fileBrowser.connectionDraft">
+      <div>
+        <div class="files-appearance-grid">
+          <div class="field field-full"><label class="field-title" for="connection-name">Connection name</label><input id="connection-name" type="text" x-model="$store.fileBrowser.connectionDraft.name"></div>
+          <div class="field field-full"><label class="field-title" for="connection-provider">Connection type</label>
+            <select id="connection-provider" :disabled="Boolean($store.fileBrowser.connectionDraft.id)" x-model="$store.fileBrowser.connectionDraft.provider" @change="$store.fileBrowser.editConnection(null, $event.target.value)">
+              <template x-for="provider in $store.fileBrowser.connectionProviders.filter(p => !p.managed)" :key="provider.id"><option :value="provider.id" :selected="provider.id === $store.fileBrowser.connectionDraft.provider" x-text="provider.title"></option></template>
+            </select>
+          </div>
+          <template x-for="field in $store.fileBrowser.draftProvider.fields.filter(field => !field.hidden)" :key="field.name">
+            <div class="field field-full">
+              <label class="field-title" :for="'connection-' + field.name" x-text="field.label"></label>
+              <input :id="'connection-' + field.name" :type="field.secret ? 'password' : (field.type || 'text')" :min="field.type === 'number' ? 1 : null" :max="field.type === 'number' ? 65535 : null" x-model="$store.fileBrowser.connectionDraft[field.name]" autocomplete="off"
+                :placeholder="$store.fileBrowser.connectionDraft.savedSecrets?.[field.name] ? 'Saved; leave unchanged to keep it' : (field.placeholder || '')"
+                @input="Object.assign($store.fileBrowser.connectionDraft, field.reset || {})">
+            </div>
+          </template>
+        </div>
+        <div class="field-title">Allowed actions</div>
+        <div class="files-appearance-grid">
+          <template x-for="permission in [{key:'browse',label:'Browse folders'},{key:'download',label:'Download files'},{key:'upload',label:'Upload files and create folders'},{key:'edit',label:'Open and edit files'},{key:'rename',label:'Rename and move files'},{key:'delete',label:'Delete files and folders'}]" :key="permission.key">
+            <div class="field">
+              <div class="field-label"><label :for="'connection-permission-' + permission.key" x-text="permission.label"></label></div>
+              <div class="field-control">
+                <label class="toggle"><input :id="'connection-permission-' + permission.key" type="checkbox" x-model="$store.fileBrowser.connectionDraft.permissions[permission.key]" :disabled="!$store.fileBrowser.draftProvider.permissions.includes(permission.key)"><span class="toggler"></span></label>
+              </div>
+            </div>
+          </template>
+        </div>
+        <x-extension id="file-browser-connection-fields"></x-extension>
+        <div class="files-connection-actions files-settings-actions">
+          <button type="button" class="btn btn-ok" :disabled="$store.fileBrowser.connectionsBusy" @click="$store.fileBrowser.saveConnection()">Save connection</button>
+          <button type="button" class="btn btn-cancel" @click="$store.fileBrowser.connectionDraft = null">Cancel</button>
+        </div>
+      </div>
+    </template>
+    <x-extension id="file-browser-settings"></x-extension>
+    </div></template>
+  </div>
+  <style>
+    .files-connection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+    .files-settings-actions { margin-block: var(--spacing-sm); }
+    .files-connection-picker { display: block; }
+    .files-connection-menu { width: min(calc(100vw - 16px), 26rem); overflow-y: auto; margin-top: 0; }
+    .files-plugin-button { max-width: 100%; gap: var(--spacing-sm); text-align: left; white-space: normal; }
+    .files-plugin-button img { flex: 0 0 32px; object-fit: contain; border-radius: var(--spacing-xs); }
+    .files-appearance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-md) var(--spacing-lg); margin-block: var(--spacing-md); }
+    .files-appearance-grid .field { margin: 0; padding: 0; align-content: start; gap: var(--spacing-xs); }
+    @media (max-width: 640px) { .files-appearance-grid { grid-template-columns: 1fr; } }
+  </style>
+</body>
+</html>

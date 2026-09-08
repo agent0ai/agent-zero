@@ -25,6 +25,7 @@ const fileBrowserStore = (() => {
 ''' + browser + r'''
 return store;
 })();
+fileBrowserStore.limits = { max_text_bytes: 42, max_file_bytes: 1000 };
 const file = name => ({ name, path: `/a0/${name}`, size: 42 });
 for (const name of ['file.py', 'probe.jsonl', 'config.yaml', 'Dockerfile', '.env', 'file.unknown', 'note.md', 'note.txt']) {
   assert.equal(fileBrowserStore.fileSurfaceTarget(file(name)), 'editor', name);
@@ -33,7 +34,7 @@ assert.equal(fileBrowserStore.fileSurfaceTarget(file('page.html')), 'browser');
 assert.equal(fileBrowserStore.fileSurfaceTarget(file('sheet.xlsx')), 'desktop');
 assert.equal(fileBrowserStore.isEditableFile(file('page.html')), true);
 assert.equal(fileBrowserStore.isEditableFile(file('image.png')), false);
-assert.equal(fileBrowserStore.isEditableFile({ ...file('big.py'), size: 1048577 }), false);
+assert.equal(fileBrowserStore.isEditableFile({ ...file('big.py'), size: 43 }), false);
 fileBrowserStore.configurePicker({ pickerMode: 'text-open' });
 assert.equal(fileBrowserStore.pickerAllowsEntry(file('page.html')), true);
 fileBrowserStore.configurePicker({ pickerMode: 'save-as', filename: 'Dockerfile', defaultExtension: '' });

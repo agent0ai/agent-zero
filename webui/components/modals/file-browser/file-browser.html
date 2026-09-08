@@ -78,7 +78,7 @@
                   <button
                     type="button"
                     class="file-browser-header-button btn-new-item surface-control"
-                    x-show="!$store.fileBrowser.isPickerMode()"
+                    x-show="!$store.fileBrowser.isPickerMode() && $store.fileBrowser.remoteAllowed('upload') && $store.fileBrowser.remoteAllowed('edit')"
                     @click="$store.fileBrowser.openNewFile()"
                     aria-label="New file"
                     title="New file"
@@ -88,7 +88,7 @@
                   <button
                     type="button"
                     class="file-browser-header-button btn-new-item surface-control"
-                    x-show="!$store.fileBrowser.isTextOpenPicker()"
+                    x-show="!$store.fileBrowser.isTextOpenPicker() && $store.fileBrowser.remoteAllowed('upload')"
                     @click="$store.fileBrowser.openNewFolderModal()"
                     aria-label="New folder"
                     title="New folder"
@@ -126,6 +126,7 @@
                     @click="$store.fileBrowser.bulkDownloadFiles()"
                     :disabled="$store.fileBrowser.isBulkBusy"
                     title="Download Selected Items"
+                    x-show="$store.fileBrowser.remoteAllowed('download')"
                   >
                     <x-icon name="folder_zip"></x-icon>
                     Download ZIP
@@ -137,6 +138,7 @@
                     @click="$confirmClick($event, () => $store.fileBrowser.bulkDeleteFiles())"
                     :disabled="$store.fileBrowser.isBulkBusy"
                     title="Delete Selected Items"
+                    x-show="$store.fileBrowser.remoteAllowed('delete')"
                     aria-label="Delete selected items"
                   >
                     <x-icon name="delete"></x-icon>
@@ -147,7 +149,7 @@
               <div class="file-browser-workspace">
                 <div class="file-browser-list-pane">
               <!-- Files list -->
-              <div class="files-list" @scroll="$store.fileBrowser.closeDropdown()">
+              <div class="files-list" :class="{ 'file-icons-view': $store.fileBrowser.preferences.view === 'icons' }" @scroll="$store.fileBrowser.closeDropdown()">
                 <div class="file-header">
                   <div class="file-cell-select">
                     <input
@@ -185,12 +187,14 @@
                       @drop="file.is_dir && $store.fileBrowser.dropItems(file.path, file.name, $event)"
                     >
                       <label class="file-select-cell" @click.stop>
-                        <input
-                          type="checkbox"
-                          x-model="file.selected"
-                          :disabled="!$store.fileBrowser.isSelectableEntry(file)"
-                          :aria-label="`Select ${file.name}`"
-                        />
+                        <template x-if="!$store.fileBrowser.isTextOpenPicker() || !file.is_dir">
+                          <input
+                            type="checkbox"
+                            x-model="file.selected"
+                            :disabled="!$store.fileBrowser.isSelectableEntry(file)"
+                            :aria-label="`Select ${file.name}`"
+                          />
+                        </template>
                       </label>
                       <div class="file-name" @click="$store.fileBrowser.handleFileNameClick(file)">
                         <template x-if="file.is_dir">
@@ -254,7 +258,7 @@
                               <button
                                 type="button"
                                 class="dropdown-item"
-                                x-show="file.is_dir"
+                                x-show="file.is_dir && $store.fileBrowser.remoteAllowed('download', file)"
                                 @click="$store.fileBrowser.downloadFile(file)"
                               >
                                 <x-icon name="folder_zip"></x-icon>
@@ -264,7 +268,7 @@
                               <button
                                 type="button"
                                 class="dropdown-item"
-                                x-show="!file.is_dir && $store.fileBrowser.isArchive(file.name)"
+                                x-show="!file.is_dir && !$store.fileBrowser.isRemote(file.path) && $store.fileBrowser.isArchive(file.name)"
                                 @click="$store.fileBrowser.extractArchive(file)"
                               >
                                 <x-icon name="unarchive"></x-icon>
@@ -274,6 +278,7 @@
                               <button
                                 type="button"
                                 class="dropdown-item"
+                                x-show="$store.fileBrowser.remoteAllowed('rename', file)"
                                 @click="$store.fileBrowser.openRenameModal(file)"
                               >
                                 <x-icon name="drive_file_rename_outline"></x-icon>
@@ -285,10 +290,10 @@
                             </div>
                           </template>
                         </div>
-                        <button class="btn-icon-action" x-show="!file.is_dir" @click.stop="$store.fileBrowser.downloadFile(file)" title="Download file">
+                        <button class="btn-icon-action" x-show="!file.is_dir && $store.fileBrowser.remoteAllowed('download', file)" @click.stop="$store.fileBrowser.downloadFile(file)" title="Download file" aria-label="Download file">
                           <x-icon name="download"></x-icon>
                         </button>
-                        <button class="btn-icon-action danger" @click.stop="$confirmClick($event, () => $store.fileBrowser.deleteFile(file))" title="Delete item">
+                        <button class="btn-icon-action danger" x-show="$store.fileBrowser.remoteAllowed('delete', file)" @click.stop="$confirmClick($event, () => $store.fileBrowser.deleteFile(file))" title="Delete item" aria-label="Delete item">
                           <x-icon name="delete"></x-icon>
                         </button>
                       </div>
@@ -324,25 +329,17 @@
       <div class="modal-footer file-browser-footer" data-modal-footer :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }">
         <div class="file-browser-picker-actions" x-show="$store.fileBrowser.isPickerMode()" style="display: none;">
           <template x-if="$store.fileBrowser.isSaveAsPicker()">
-            <div class="picker-filename-field">
-              <x-icon aria-hidden="true" name="article"></x-icon>
-              <input
-                type="text"
-                class="picker-filename-input"
-                x-model="$store.fileBrowser.pickerFilename"
-                @input="$store.fileBrowser.onPickerFilenameInput()"
-                @keydown.enter.prevent="$store.fileBrowser.confirmPicker()"
-                placeholder="File name"
-                aria-label="File name"
-                spellcheck="false"
-              />
-            </div>
+            <input
+              type="text"
+              class="picker-filename-input"
+              x-model="$store.fileBrowser.pickerFilename"
+              @input="$store.fileBrowser.onPickerFilenameInput()"
+              @keydown.enter.prevent="$store.fileBrowser.confirmPicker()"
+              placeholder="File name"
+              aria-label="File name"
+              spellcheck="false"
+            />
           </template>
-          <span
-            class="picker-selection-label"
-            x-show="$store.fileBrowser.isTextOpenPicker()"
-            x-text="$store.fileBrowser.pickerSelectionLabel()"
-          ></span>
           <template x-if="$store.fileBrowser.pickerFilenameError">
             <span class="picker-inline-error" x-text="$store.fileBrowser.pickerFilenameError"></span>
           </template>
@@ -355,7 +352,11 @@
           ></button>
           <button type="button" class="btn btn-cancel" :disabled="$store.fileBrowser.isBulkBusy" @click="$store.fileBrowser.cancelPicker()">Cancel</button>
         </div>
-        <label class="btn btn-upload" x-show="!$store.fileBrowser.isPickerMode()">
+        <button type="button" class="btn btn-icon-action" x-show="!$store.fileBrowser.isPickerMode()"
+          @click="$store.fileBrowser.openSettings()" title="File Browser Settings" aria-label="File Browser Settings">
+          <x-icon name="settings"></x-icon>
+        </button>
+        <label class="btn btn-upload" x-show="!$store.fileBrowser.isPickerMode() && $store.fileBrowser.remoteAllowed('upload')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
           Upload Files
           <input type="file" multiple accept="*" @change="$store.fileBrowser.handleFileUpload" style="display:none;" />
@@ -842,41 +843,18 @@
     min-width: 0;
     }
 
-    .picker-filename-field {
-    display: flex;
-    align-items: center;
-    flex: 1 1 16rem;
-    max-width: 24rem;
-    min-width: 10rem;
-    height: 2.35rem;
-    border: 1px solid var(--color-border);
-    border-radius: 7px;
-    background: var(--color-input);
-    color: var(--color-text);
-    }
-
-    .picker-filename-field .material-symbols-outlined {
-    flex: 0 0 auto;
-    padding-left: 0.65rem;
-    color: var(--color-primary);
-    font-size: 1.1rem;
-    opacity: 0.78;
-    }
-
-    .picker-filename-input {
+    .file-browser-picker-actions .picker-filename-input {
     flex: 1 1 auto;
-    width: 100%;
     min-width: 0;
-    height: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--color-text);
-    padding: 0 0.7rem;
-    font: inherit;
+    width: 100%;
+    box-sizing: border-box;
     }
 
-    .picker-selection-label,
+    .file-browser-picker-actions .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    }
+
     .picker-inline-error {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -886,17 +864,10 @@
     letter-spacing: 0;
     }
 
-    .picker-selection-label {
-    color: var(--color-text-secondary);
-    }
-
     .picker-inline-error {
     color: var(--color-error);
     }
 
-    .picker-confirm-button {
-    min-width: 7.6rem;
-    }
 
     /* File Actions */
     .file-actions {
@@ -1032,14 +1003,38 @@
         flex-wrap: wrap;
         justify-content: stretch;
     }
-    .picker-filename-field {
+    .file-browser-picker-actions .picker-filename-input {
         flex-basis: 100%;
-        max-width: none;
     }
     .picker-confirm-button {
         flex: 1 1 auto;
     }
     }
+    .files-list.file-icons-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+      align-content: start;
+      gap: var(--spacing-sm);
+    }
+    .file-icons-view .file-header { grid-column: 1 / -1; }
+    .file-icons-view .file-header .file-cell-size,
+    .file-icons-view .file-header .file-cell-date,
+    .file-icons-view .file-header .file-cell-actions { display: none; }
+    .file-icons-view .file-item {
+      grid-template-columns: 1fr;
+      position: relative;
+      padding: var(--spacing-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--border-radius-sm);
+      gap: var(--spacing-sm);
+    }
+    .file-icons-view .file-select-cell { position: absolute; top: var(--spacing-sm); left: var(--spacing-sm); }
+    .file-icons-view .file-name { flex-direction: column; max-height: none; margin: 0; gap: var(--spacing-sm); padding: var(--spacing-sm); text-align: center; }
+    .file-icons-view .file-name span { white-space: normal; overflow-wrap: anywhere; }
+    .file-icons-view .file-icon { width: 48px; height: 48px; flex-basis: 48px; margin: 0; font-size: 48px; }
+    .file-icons-view .file-size { text-align: center; }
+    .file-icons-view .file-date { display: none; }
+    .file-icons-view .file-actions { justify-content: center; padding: 0; }
     @media (prefers-reduced-motion: reduce) {
     .file-item,
     .file-icon,

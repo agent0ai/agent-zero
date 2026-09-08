@@ -116,7 +116,7 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "Open Selected" in store
     assert "Save Here" in store
     assert "$store.fileBrowser.confirmPicker()" in html
-    assert "$store.fileBrowser.pickerSelectionLabel()" in html
+    assert "picker-selection-label" not in html
     assert "$store.fileBrowser.isPickerMode()" in html
     assert "$store.fileBrowser.isTextOpenPicker()" in html
     assert "picker-confirm-button" in html
@@ -143,7 +143,7 @@ def test_file_browser_extract_and_editor_download_actions() -> None:
     editor_html = read("plugins", "_editor", "webui", "editor-panel.html")
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
 
-    assert 'x-show="!file.is_dir && $store.fileBrowser.isArchive(file.name)"' in browser_html
+    assert 'x-show="!file.is_dir && !$store.fileBrowser.isRemote(file.path) && $store.fileBrowser.isArchive(file.name)"' in browser_html
     assert '$store.fileBrowser.extractArchive(file)' in browser_html
     assert "ARCHIVE_SUFFIXES" in browser_store
     assert 'fetchApi("/extract_work_dir_archive"' in browser_store
@@ -158,13 +158,13 @@ def test_file_browser_dropdown_escapes_scroll_container_and_header_is_opaque() -
     html = read("webui", "components", "modals", "file-browser", "file-browser.html")
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
 
-    assert '<div class="files-list" @scroll="$store.fileBrowser.closeDropdown()">' in html
+    assert '@scroll="$store.fileBrowser.closeDropdown()"' in html
     assert 'overflow: auto;' in html
     assert 'x-teleport="body"' in html
     assert 'class="dropdown-menu file-actions-menu"' in html
     assert ':style="$store.fileBrowser.dropdownStyle"' in html
     assert '@click.stop="$store.fileBrowser.toggleDropdown(file.path, $event.currentTarget)"' in html
-    assert "getDropdownStyle(triggerElement)" in store
+    assert "getDropdownStyle(triggerElement," in store
     assert 'position: "fixed"' in store
     assert 'zIndex: "6000"' in store
 
@@ -280,3 +280,37 @@ def test_file_browser_drag_and_drop_contract() -> None:
     assert 'if action == "move":' in api
     assert 'isExternalFileDrag(event)' in attachments
     assert 'includes("Files")' in attachments
+
+
+def test_file_browser_preferences_validate_and_restore_defaults():
+    import re
+    import subprocess
+
+    source = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
+    source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
+    source = source.replace('export const store = createStore', 'const store = createStore')
+    script = '''
+import assert from 'node:assert/strict';
+const window = globalThis;
+const createStore = (_name, model) => model;
+const createFileTree = () => ({ shown: false, follow: async () => {} });
+let saved = '{}';
+const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
+''' + source + '''
+store.loadPreferences();
+assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false});
+store.preferences = {sortBy:'date', sortDirection:'desc', view:'icons', treeShown:true};
+await store.savePreferences();
+store.browser.sortBy = 'name';
+store.loadPreferences();
+assert.equal(store.browser.sortBy, 'date');
+assert.equal(store.browser.sortDirection, 'desc');
+assert.equal(store.fileTree.shown, true);
+assert.equal(store.preferences.view, 'icons');
+saved = '{"sortBy":"invalid","view":"invalid","treeShown":"true"}';
+store.loadPreferences();
+assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false});
+const sorted = store.sortFiles([{name:'b',is_dir:false},{name:'a',is_dir:false},{name:'z',is_dir:true}]);
+assert.deepEqual(sorted.map(x=>x.name), ['z','a','b']);
+'''
+    subprocess.run(['node', '--input-type=module'], input=script, text=True, check=True)

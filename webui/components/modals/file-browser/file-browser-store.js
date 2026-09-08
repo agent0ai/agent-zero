@@ -13,6 +13,17 @@ const DEFAULT_REMEMBER_LAST_DIRECTORY = true;
 const PICKER_MODE_NONE = "";
 const PICKER_MODE_TEXT_OPEN = "text-open";
 const PICKER_MODE_SAVE_AS = "save-as";
+const CONNECTION_PLUGINS = [
+  ["ssh", "File Browser SSH access"],
+  ["webdav", "File Browser WebDAV access"],
+  ["smb", "File Browser SMB 3 for NAS"],
+  ["s3", "File Browser S3 access"],
+  ["ftps", "File Browser FTPS access"],
+].map(([id, title]) => ({
+  key: `file_browser_${id}`,
+  title,
+  thumbnail: `https://raw.githubusercontent.com/agent0ai/a0-plugins/main/plugins/file_browser_${id}/thumbnail.webp`,
+}));
 const DESKTOP_EXTENSIONS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 const BROWSER_EXTENSIONS = new Set([
   "html",
@@ -55,9 +66,39 @@ function delay(ms) {
 
 // Model migrated from legacy file_browser.js (lift-and-shift)
 const model = {
+  limits: null,
+  textLimitMib: null,
+  transferLimitMib: null,
+  savingTextLimit: false,
+  async ensureLimits(force = false) {
+    if (this.limits && !force) return this.limits;
+    const response = await fetchApi("/get_work_dir_files?limits=1");
+    const data = await response.json();
+    if (!response.ok || !data.limits?.max_text_bytes || !data.limits?.max_file_bytes) {
+      throw new Error("File Browser limits are unavailable.");
+    }
+    this.limits = data.limits;
+    return this.limits;
+  },
+  async saveSizeLimit(kind = "text") {
+    if (this.savingTextLimit) return;
+    this.savingTextLimit = true;
+    try {
+      const limit = kind === "text" ? this.textLimitMib : this.transferLimitMib;
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("Enter a positive whole number of MiB.");
+      const result = await callJsonApi("/file_browser_settings", { [`max_${kind}_size_mb`]: limit });
+      if (!result.ok) throw new Error(result.error || "Could not save the size limit.");
+      this.limits = result.limits;
+    } catch (error) {
+      this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
+      this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      globalThis.toastFrontendError?.(error.message, "File Browser Settings");
+    } finally { this.savingTextLimit = false; }
+  },
   fileTree: createFileTree((file) => store.openTreeEntry(file)),
 
   async openTreeEntry(file) {
+    await this.ensureLimits();
     if (file.is_dir) return this.navigateToFolder(file.path);
     if (this.isPickerMode()) {
       if (await this.fetchFiles(this.parentPath(file.path), { preserveOnError: true })) {
@@ -117,8 +158,159 @@ const model = {
   pickerFilenameError: "",
   pickerOnConfirm: null,
 
+  connections: [],
+  connectionProviders: [],
+  connectionDraft: null,
+  connectionsBusy: false,
+  installedConnectionPlugins: [],
+  openingConnectionPlugin: "",
+  remotePermissions: null,
+
+  get connectionPluginOffers() {
+    return CONNECTION_PLUGINS.map(plugin => ({
+      ...plugin,
+      installed: this.installedConnectionPlugins.includes(plugin.key),
+      provider: this.connectionProviders.find(provider => provider.plugin === plugin.key)?.id,
+    }));
+  },
+  async openConnectionPlugin(plugin) {
+    if (this.openingConnectionPlugin) return;
+    try {
+      if (!plugin.installed) {
+        this.openingConnectionPlugin = plugin.key;
+        const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+        await installer.ensureIndexLoaded();
+        if (!installer.getPluginHubPluginByKey(plugin.key)) await installer.fetchIndex({ force: true });
+        await installer.openPluginHubDetailByKey(plugin.key);
+        return;
+      }
+      const provider = this.connectionProviders.find(provider => provider.plugin === plugin.key);
+      if (provider) this.editConnection(null, provider.id);
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Plugins"); }
+    finally { this.openingConnectionPlugin = ""; }
+  },
+  get draftProvider() { return this.connectionProviders.find(p => p.id === this.connectionDraft?.provider); },
+  isRemote(path = this.browser.currentPath) { return /^\/@(?:ssh|connections)(?:\/|$)/.test(String(path)); },
+  remoteAllowed(permission, file = null) {
+    return !this.isRemote(file?.path || this.browser.currentPath)
+      || Boolean((file?.permissions || this.remotePermissions)?.[permission]);
+  },
+  async connectionRequest(action, payload = {}) {
+    const response = await callJsonApi("/file_browser_connections", { action, ...payload });
+    if (response?.error || response?.ok === false) throw new Error(response.error || "Connection operation failed.");
+    return response;
+  },
+  async loadConnections() {
+    const [response, installed] = await Promise.all([
+      this.connectionRequest("list"),
+      callJsonApi("plugins_list", { filter: { custom: true, builtin: false } }),
+    ]);
+    this.connections = response.connections || [];
+    this.connectionProviders = response.providers || [];
+    this.installedConnectionPlugins = (installed.plugins || []).map(plugin => plugin.name);
+  },
+  editConnection(connection = null, providerId = "") {
+    const editable = this.connectionProviders.filter(p => !p.managed);
+    const provider = editable.find(p => p.id === (connection?.provider || providerId)) || editable[0];
+    if (!provider) return;
+    this.connectionDraft = connection ? JSON.parse(JSON.stringify(connection)) : {
+      provider: provider.id, name: "",
+      ...Object.fromEntries(provider.fields.filter(f => !f.secret).map(f => [f.name, f.default ?? ""])),
+      permissions: { browse: true, download: true, upload: false, edit: false, rename: false, delete: false },
+    };
+  },
+  async saveConnection() {
+    if (this.connectionsBusy || !this.connectionDraft) return;
+    this.connectionsBusy = true;
+    try {
+      await this.connectionRequest("save-connection", { connection: this.connectionDraft });
+      this.connectionDraft = null;
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+    finally { this.connectionsBusy = false; }
+  },
+  async testConnection(connection) {
+    try {
+      await this.connectionRequest("test", {provider: connection.provider, id: connection.id});
+      globalThis.toastFrontendSuccess?.("Connected successfully.", "File connections");
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+  async removeConnection(connection) {
+    try {
+      await this.connectionRequest("remove-connection", {provider: connection.provider, id: connection.id});
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+  async openConnection(connection) {
+    await window.closeModal("modals/file-browser/settings.html");
+    return this.navigateToFolder("/@connections/" + connection.provider + "/" + connection.id);
+  },
+  async downloadRemote(files) {
+    const archive = files.length !== 1 || files[0].is_dir;
+    try {
+      const response = await fetchApi("/file_browser_connections", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(archive ? {action:"archive", paths:files.map(f=>f.path)} : {action:"download", path:files[0].path}),
+      });
+      if (!response.ok || !response.headers.get("Content-Disposition")?.startsWith("attachment;")) {
+        const error = await response.json();
+        throw new Error(error.error || "Download failed.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url; link.download = archive ? "remote-files.zip" : files[0].name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      globalThis.setTimeout(()=>URL.revokeObjectURL(url), 60000);
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+
+  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false },
+
+  loadPreferences() {
+    try {
+      const value = JSON.parse(localStorage.getItem("fileBrowser.preferences") || "{}");
+      this.preferences = {
+        sortBy: ["name", "size", "date"].includes(value.sortBy) ? value.sortBy : "name",
+        sortDirection: value.sortDirection === "desc" ? "desc" : "asc",
+        view: value.view === "icons" ? "icons" : "list",
+        treeShown: value.treeShown === true,
+      };
+    } catch { /* Storage may be unavailable. Keep the defaults. */ }
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+  },
+
+  async savePreferences() {
+    try {
+      localStorage.setItem("fileBrowser.preferences", JSON.stringify(this.preferences));
+    } catch {
+      globalThis.toastFrontendError?.("Could not save file browser preferences.");
+      return;
+    }
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+    await this.fileTree.follow(this.browser.currentPath);
+  },
+
+  async openSettings(providerId = "") {
+    try {
+      await this.ensureLimits(true);
+      this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
+      this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      await this.loadConnections();
+      this.connectionDraft = null;
+      if (providerId) this.editConnection(null, providerId);
+      return window.openModal("modals/file-browser/settings.html");
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Settings"); }
+  },
+
   // --- Lifecycle -----------------------------------------------------------
   init() {
+    this.ensureLimits().catch(() => {});
     if (this.settingsUpdatedHandler) return;
     this.settingsUpdatedHandler = (event) => {
       const value = event?.detail?.file_browser_remember_last_directory;
@@ -277,6 +469,7 @@ const model = {
 
   // --- Helpers -------------------------------------------------------------
   resetOpenState(options = {}) {
+    this.loadPreferences();
     this.closeDropdown();
     this.cancelMountedDefaultLoad();
     this.isLoading = true;
@@ -590,7 +783,8 @@ const model = {
   },
 
   isEditableFile(file = {}) {
-    if (!file || file.is_dir || file.size > 1048576 || this.isArchive(file.name || file.path)) return false;
+    if (!this.remoteAllowed("edit", file)) return false;
+    if (!file || file.is_dir || !this.limits || file.size > this.limits.max_text_bytes || this.isArchive(file.name || file.path)) return false;
     const ext = this.fileExtension(file);
     return !DESKTOP_EXTENSIONS.has(ext)
       && !["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "mp3", "mp4", "wav", "webm", "ogg", "woff", "woff2", "ttf"].includes(ext);
@@ -604,13 +798,6 @@ const model = {
   pickerSelectedFiles() {
     if (!this.isTextOpenPicker()) return [];
     return this.selectedFiles.filter((file) => !file.is_dir && this.isEditableFile(file));
-  },
-
-  pickerSelectionLabel() {
-    if (!this.isTextOpenPicker()) return "";
-    const count = this.pickerSelectedFiles().length;
-    if (!count) return "No text files selected";
-    return `${count} text ${count === 1 ? "file" : "files"} selected`;
   },
 
   normalizedEditorTextExtension(value = "") {
@@ -649,7 +836,7 @@ const model = {
 
   canConfirmPicker() {
     if (this.isTextOpenPicker()) return this.pickerSelectedFiles().length > 0;
-    if (this.isSaveAsPicker()) return Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
+    if (this.isSaveAsPicker()) return this.remoteAllowed("upload") && Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
     return false;
   },
 
@@ -716,6 +903,7 @@ const model = {
   },
 
   canOpenInActionMenu(file = {}) {
+    if (this.isRemote(file.path)) return false;
     const target = this.fileSurfaceTarget(file);
     return Boolean(target && target !== "editor");
   },
@@ -834,19 +1022,19 @@ const model = {
     this.dropdownStyle = {};
   },
 
-  getDropdownStyle(triggerElement) {
+  getDropdownStyle(triggerElement, width = 180, alignRight = true) {
     if (!triggerElement) return {};
 
     const rect = triggerElement.getBoundingClientRect();
     const gap = 6;
     const padding = 8;
-    const minWidth = 180;
+    const minWidth = Math.min(width, window.innerWidth - padding * 2);
     const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
     const spaceAbove = rect.top - gap - padding;
     const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
     const maxHeight = Math.max(96, openUp ? spaceAbove : spaceBelow);
     const maxLeft = Math.max(padding, window.innerWidth - minWidth - padding);
-    const left = Math.min(Math.max(rect.right - minWidth, padding), maxLeft);
+    const left = Math.min(Math.max(alignRight ? rect.right - minWidth : rect.left, padding), maxLeft);
 
     return {
       position: "fixed",
@@ -882,6 +1070,8 @@ const model = {
       );
       const data = await response.json().catch(() => ({}));
 
+      if (data.limits) this.limits = data.limits;
+
       const result = data.data || {};
       const entries = result.entries || [];
       const resolvedCurrentPath =
@@ -900,6 +1090,7 @@ const model = {
 
       if (response.ok && !resultError) {
         if (!isSamePath) this.searchQuery = "";
+        this.remotePermissions = result.permissions || null;
         this.browser.entries = this.decorateEntries(
           entries,
           selectedPaths
@@ -1039,6 +1230,11 @@ const model = {
     this.isBulkBusy = true;
 
     try {
+      if (this.isRemote(destinationPath) || paths.some(path=>this.isRemote(path))) {
+        for (const path of paths) await this.connectionRequest("rename", {path, destination:destinationPath.replace(/\/$/, "") + "/" + path.split("/").pop()});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/rename_work_dir_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1164,6 +1360,14 @@ const model = {
             };
 
       let data = {};
+      if (this.isRemote(renamedPath) && !this.renamePerformAction) {
+        await this.connectionRequest(this.renameMode === "create-folder" ? "mkdir" : "rename", {
+          path: this.renameMode === "create-folder" ? renamedPath : previousPath, destination:renamedPath,
+        });
+        await this.fetchFiles(this.browser.currentPath);
+        this.closeRenameModal();
+        return;
+      }
       if (this.renamePerformAction) {
         data = await this.renamePerformAction({
           action: this.renameMode,
@@ -1259,6 +1463,11 @@ const model = {
 
   async deleteFile(file) {
     try {
+      if (this.isRemote(file.path)) {
+        await this.connectionRequest("delete", {path:file.path});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/delete_work_dir_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1316,6 +1525,7 @@ const model = {
   },
 
   async bulkDownloadFiles() {
+    if (this.isRemote()) return this.downloadRemote(this.selectedFiles);
     const selectedFiles = this.selectedFiles;
     if (!selectedFiles.length || this.isBulkBusy) return;
 
@@ -1369,6 +1579,11 @@ const model = {
     this.closeDropdown();
 
     try {
+      if (this.isRemote()) {
+        for (const file of selectedFiles) await this.connectionRequest("delete", {path:file.path});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/delete_work_dir_files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1416,6 +1631,7 @@ const model = {
   },
 
   async openInSurface(file = {}, target = this.fileSurfaceTarget(file)) {
+    if (this.isRemote(file.path)) target = "editor";
     const path = this.normalizePath(String(file?.path || ""));
     if (!target || !path) return;
 
@@ -1471,15 +1687,23 @@ const model = {
     try {
       const files = event.target.files;
       if (!files.length) return;
+      const limits = await this.ensureLimits(true);
+      if (this.isRemote()) {
+        for (const file of files) {
+          if (file.size > limits.max_file_bytes) throw new Error(`Files must not exceed ${limits.max_file_bytes / (1024 * 1024)} MiB.`);
+          const content = await new Promise((resolve,reject)=>{
+            const reader = new FileReader(); reader.onload=()=>resolve(String(reader.result).split(",")[1]); reader.onerror=reject; reader.readAsDataURL(file);
+          });
+          await this.connectionRequest("upload", {path:this.buildChildPath(file.name), content});
+        }
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const formData = new FormData();
       formData.append("path", this.browser.currentPath);
       for (let f of files) {
-        const ext = f.name.split(".").pop().toLowerCase();
-        if (
-          !["zip", "tar", "gz", "rar", "7z"].includes(ext) &&
-          f.size > 100 * 1024 * 1024
-        ) {
-          alert(`File ${f.name} exceeds 100MB limit.`);
+        if (f.size > limits.max_file_bytes) {
+          alert(`File ${f.name} exceeds the ${limits.max_file_bytes / (1024 * 1024)} MiB limit.`);
           continue;
         }
         formData.append("files[]", f);
@@ -1513,11 +1737,12 @@ const model = {
   },
 
   async downloadDirectory(file) {
+    if (this.isRemote(file.path)) return this.downloadRemote([file]);
     const downloadToastGroup = this.createDownloadToastGroup("file-browser-directory-download");
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi(`/download_work_dir_file?path=${encodeURIComponent(file.path)}`, {
+      const resp = await fetchApi(`/download_work_dir_file?source=file-browser&path=${encodeURIComponent(file.path)}`, {
         method: "GET",
       });
 
@@ -1546,12 +1771,13 @@ const model = {
   },
 
   downloadFile(file) {
+    if (this.isRemote(file.path)) return this.downloadRemote([file]);
     if (file.is_dir) {
       return this.downloadDirectory(file);
     }
 
     const link = document.createElement("a");
-    link.href = `/api/download_work_dir_file?path=${encodeURIComponent(file.path)}`;
+    link.href = `/api/download_work_dir_file?source=file-browser&path=${encodeURIComponent(file.path)}`;
     link.download = file.name;
     document.body.appendChild(link);
     link.click();
