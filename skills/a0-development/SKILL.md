@@ -1,6 +1,6 @@
 ---
 name: a0-development
-description: "Develop Agent Zero itself: framework, tools, API/WebUI, prompts, runtimes and DOX."
+description: "Develop or operate Agent Zero: projects, chats, tasks, framework, tools and API/WebUI."
 version: 1.1.0
 author: Agent Zero Team
 tags: ["development", "framework", "agent-zero", "extending", "tools", "extensions", "skills", "api", "agents", "prompts", "dox"]
@@ -22,11 +22,19 @@ trigger_patterns:
   - "prompt system"
   - "agent profile"
   - "dox"
+  - "manage Agent Zero projects"
+  - "create Agent Zero chat"
+  - "Agent Zero API"
+  - "create project"
+  - "activate project"
+  - "project instructions"
+  - "create chat"
+  - "new chat"
 ---
 
 # Agent Zero Development
 
-Use this skill as the entry point for Agent Zero framework development. It is intentionally lean: load only the reference files that match the task, then verify against the current repository before changing code.
+Use this skill to develop Agent Zero or operate an existing instance on the user's behalf. For projects, chats, tasks, and other application features, read `references/operate-agent-zero.md` and use existing APIs. Load only the references needed for the task; verify current source before changing code.
 
 ## Reality Rules
 
@@ -48,6 +56,7 @@ Load references with:
 
 | Need | Read |
 |---|---|
+| Operate Agent Zero for the user: projects, chats, tasks, profiles, skills and settings | `references/operate-agent-zero.md` |
 | Runtime split, root layout, discovery order, path and port boundaries | `references/architecture-runtime.md` |
 | DOX edit workflow, when to update docs, file-level DOX checks | `references/dox-workflow.md` |
 | Tool contracts, locations, prompts, and verification | `references/tools.md` |
@@ -58,7 +67,7 @@ Load references with:
 
 ## Working Flow
 
-1. Classify the request: tool, extension, API/WebUI, profile, prompt, skill, project, plugin, runtime, or docs.
+1. Distinguish operating existing features from developing new behavior. For application operations, follow `references/operate-agent-zero.md`; the remaining steps apply to source changes.
 2. Read the root `AGENTS.md`, then the nearest child `AGENTS.md` files for the target paths.
 3. Read the focused reference file from this skill.
 4. Inspect the current source files named by the reference before making a claim or patch.

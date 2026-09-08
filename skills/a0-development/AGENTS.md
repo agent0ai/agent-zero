@@ -3,6 +3,7 @@
 ## Purpose
 
 - Own the broad Agent Zero development guide used by agents extending the framework.
+- Route user-requested application operations through existing HTTP APIs with explicit target IDs and verified results.
 - Keep architecture, tools, extensions, API, agents, prompts, projects, plugins, runtime, and skills guidance in sync with the repository.
 
 ## Ownership

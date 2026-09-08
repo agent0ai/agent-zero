@@ -20,6 +20,7 @@
 - Prompt changes can alter agent behavior; keep edits narrow and intentional.
 - Maintain clear separation between core behavior prompts and profile/plugin-specific customization.
 - Delegation catalogs show profile IDs, titles, and context (description fallback) on separate lines; preserve project-scoped discovery.
+- Environment prompts keep runtime boundaries visible and route framework/API procedures to `a0-development` references.
 - Keep configurable capability names and usage guidance in their
   `agent.system.tool.*.md` prompts so tool policy removes the guidance together
   with the capability; non-tool system fragments stay capability-neutral.
