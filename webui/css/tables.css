@@ -464,3 +464,22 @@
     }
 }
 
+
+/* Selection dismiss controls shared by Files and Memory. */
+.selection-summary { display: flex; align-items: center; gap: 0.5rem; }
+.selection-close {
+    flex-shrink: 0;
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    opacity: 0.7;
+}
+.selection-close:hover:not(:disabled) { opacity: 1; }
+.selection-close:disabled { opacity: 0.5; cursor: default; }
+.selection-close:focus-visible { outline: 1px solid var(--color-text); outline-offset: -2px; }

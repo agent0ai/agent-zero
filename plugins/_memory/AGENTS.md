@@ -26,6 +26,7 @@
 
 ## Work Guidance
 
+- Both dashboard selection toolbars use icon-only actions with accessible labels and the shared borderless close control before the selection count.
 - Dashboard selection checkboxes reuse the shared native theme from `webui/index.css`; keep header and row controls 16px and centered in their table cells.
 - Keep dashboard metadata JSON-safe without changing shared API serialization.
 - Coordinate tool, prompt, and consolidation changes so saved memories remain useful and bounded.

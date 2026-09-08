@@ -105,7 +105,19 @@
                 </template>
               </div>
               <div x-show="$store.fileBrowser.selectedCount > 0 && !$store.fileBrowser.isPickerMode()" class="mass-action-toolbar file-mass-toolbar">
-                <div class="selection-info" x-text="$store.fileBrowser.selectedCountLabel"></div>
+                <div class="selection-summary">
+                  <button
+                    type="button"
+                    class="selection-close"
+                    @click="$store.fileBrowser.clearSelection()"
+                    :disabled="$store.fileBrowser.isBulkBusy"
+                    title="Clear Selection"
+                    aria-label="Clear selection"
+                  >
+                    <x-icon name="close"></x-icon>
+                  </button>
+                  <div class="selection-info" x-text="$store.fileBrowser.selectedCountLabel"></div>
+                </div>
 
                 <div class="mass-actions">
                   <button
@@ -125,20 +137,9 @@
                     @click="$confirmClick($event, () => $store.fileBrowser.bulkDeleteFiles())"
                     :disabled="$store.fileBrowser.isBulkBusy"
                     title="Delete Selected Items"
+                    aria-label="Delete selected items"
                   >
                     <x-icon name="delete"></x-icon>
-                    Delete
-                  </button>
-
-                  <button
-                    type="button"
-                    class="btn btn-mass clear"
-                    @click="$store.fileBrowser.clearSelection()"
-                    :disabled="$store.fileBrowser.isBulkBusy"
-                    title="Clear Selection"
-                  >
-                    <x-icon name="close"></x-icon>
-                    Clear
                   </button>
                 </div>
               </div>
@@ -724,6 +725,7 @@
     }
 
     .file-mass-toolbar {
+      border-radius: 8px;
     border-left: 1px solid var(--color-border);
     border-right: 1px solid var(--color-border);
     border-bottom: 1px solid var(--color-border);
@@ -957,6 +959,7 @@
       flex-shrink: 0;
       white-space: nowrap;
     }
+    .file-mass-toolbar .btn-mass.delete { padding-inline: 0.5rem; }
     .file-browser-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; position: relative; overflow: hidden; }
     .file-browser-list-pane { container: file-browser / inline-size; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; padding: 0 6px; }
     .btn-secondary {
