@@ -7,6 +7,7 @@ import tempfile
 import threading
 import uuid
 
+from helpers.file_transfers import copy_stream
 from helpers import files
 from helpers.ws_manager import get_shared_ws_manager
 from plugins._a0_connector.helpers import ws_runtime as runtime
@@ -17,7 +18,7 @@ INCOMING_LOCK = threading.RLock()
 
 
 def receive_upload(token, storage):
-    from api.upload import save_upload_atomic
+    from helpers.file_transfers import write_stream_atomic
     with INCOMING_LOCK:
         transfer = INCOMING.get(token)
         if not transfer:
@@ -26,7 +27,7 @@ def receive_upload(token, storage):
         current = Provider().connections().get(item["id"])
         if not current or not current["permissions"]["download"]:
             raise PermissionError("Host download access is no longer available.")
-        metadata = save_upload_atomic(storage, str(destination), max_bytes=limit)
+        metadata = write_stream_atomic(storage.stream, str(destination), max_bytes=limit)
         return {"filenames": ["content"], "files": [{"filename": "content", **metadata}]}
 
 
@@ -103,7 +104,7 @@ class HostFiles:
     def stat(self, path):
         return self.call("stat", path)
 
-    def read(self, path, limit):
+    def read(self, path, destination_stream, limit):
         with tempfile.TemporaryDirectory(prefix="host-download-", dir=files.get_abs_path("tmp")) as directory:
             destination = Path(directory) / "content"
             token = uuid.uuid4().hex
@@ -111,20 +112,22 @@ class HostFiles:
                 INCOMING[token] = (self.item, destination, limit)
             try:
                 result = self.call("read_http", path, transfer_token=token, limit=limit, size=limit)
-                content = destination.read_bytes()
-                if hashlib.sha256(content).hexdigest() != result["revision"]:
+                with destination.open("rb") as source:
+                    receipt = copy_stream(source, destination_stream, limit)
+                if receipt["sha256"] != result["revision"]:
                     raise ValueError("Host file changed during download.")
-                return content, result["revision"]
+                return result["revision"]
             finally:
                 with INCOMING_LOCK:
                     INCOMING.pop(token, None)
 
-    def write(self, path, content, expected=None):
+    def write(self, path, content_stream, expected=None):
         with tempfile.TemporaryDirectory(prefix="host-upload-", dir=files.get_abs_path("tmp")) as directory:
             source = Path(directory) / "content"
-            source.write_bytes(content)
-            return self.call("write_http", path, source_path=str(source), size=len(content),
-                             sha256=hashlib.sha256(content).hexdigest(), expected=expected)["revision"]
+            with source.open("wb") as target:
+                receipt = copy_stream(content_stream, target)
+            return self.call("write_http", path, source_path=str(source), size=receipt["size"],
+                             sha256=receipt["sha256"], expected=expected)["revision"]
 
     def mkdir(self, path):
         self.call("mkdir", path)

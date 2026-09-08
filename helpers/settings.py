@@ -73,6 +73,8 @@ class Settings(TypedDict):
     file_browser_remember_last_directory: bool
     file_browser_max_text_size_mb: int
     file_browser_max_transfer_size_mb: int
+    file_browser_max_extract_size_mb: int
+    file_browser_max_archive_entries: int
 
     api_keys: dict[str, str]
 
@@ -461,6 +463,8 @@ def normalize_settings(settings: Settings) -> Settings:
 
     copy["file_browser_max_text_size_mb"] = max(1, min(100, copy["file_browser_max_text_size_mb"]))
     copy["file_browser_max_transfer_size_mb"] = max(1, copy["file_browser_max_transfer_size_mb"])
+    copy["file_browser_max_extract_size_mb"] = max(1, copy["file_browser_max_extract_size_mb"])
+    copy["file_browser_max_archive_entries"] = max(1, copy["file_browser_max_archive_entries"])
     if copy["agent_profile"] == "default":
         copy["agent_profile"] = "agent0"
 
@@ -588,6 +592,8 @@ def get_default_settings() -> Settings:
         ),
         file_browser_max_text_size_mb=get_default_value("file_browser_max_text_size_mb", 10),
         file_browser_max_transfer_size_mb=get_default_value("file_browser_max_transfer_size_mb", 100),
+        file_browser_max_extract_size_mb=get_default_value("file_browser_max_extract_size_mb", 100),
+        file_browser_max_archive_entries=get_default_value("file_browser_max_archive_entries", 1000),
         rfc_auto_docker=get_default_value("rfc_auto_docker", True),
         rfc_url=get_default_value("rfc_url", "localhost"),
         rfc_password="",

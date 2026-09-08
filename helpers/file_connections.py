@@ -2,17 +2,20 @@
 from __future__ import annotations
 
 import io
+from contextlib import contextmanager
 import json
 import os
 import posixpath
 import re
 import threading
+import tempfile
 import uuid
 import zipfile
 from pathlib import Path
 
 from helpers import extension, files
 from helpers.file_browser import FileBrowser
+from helpers.file_transfers import copy_stream, TransferWriter
 
 API_VERSION = 1
 PREFIX = "/@connections/"
@@ -34,6 +37,17 @@ def provider(name):
     return value
 
 
+@contextmanager
+def filesystem(value, item):
+    try:
+        with value.open(item, data_dir(value)) as fs:
+            yield fs
+    except (ValueError, PermissionError, FileNotFoundError):
+        raise
+    except Exception:
+        raise ValueError("Remote file operation failed. Check connection access and server availability.") from None
+
+
 def data_dir(value):
     path = Path(files.get_abs_path("usr", "plugins", value.plugin_name, "data"))
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -45,15 +59,7 @@ def _load(value):
         return value.connections()
     path = data_dir(value) / "connections.json"
     if path.exists():
-        return json.loads(path.read_text())
-    legacy = getattr(value, "legacy_connections", None)
-    if legacy and Path(legacy).is_file():
-        data = json.loads(Path(legacy).read_text())
-        for item in data.values():
-            item.pop("auth", None)
-            item["provider"] = value.id
-        _store(value, data)
-        return data
+        return files.read_file_json(str(path))
     return {}
 
 
@@ -180,7 +186,7 @@ def listing(path):
     pid, cid, relative = split(path)
     value, item = get_connection(pid, cid)
     require(item, "browse")
-    with value.open(item, data_dir(value)) as fs:
+    with filesystem(value, item) as fs:
         entries = fs.list(relative)
     clean = []
     for entry in entries:
@@ -194,28 +200,43 @@ def listing(path):
             "permissions": item["permissions"]}
 
 
-def read(path, permission="download", limit=None):
+def read_into(path, destination, permission="download", limit=None):
     if limit is None:
         limit = FileBrowser.max_file_bytes()
     pid, cid, relative = split(path)
     value, item = get_connection(pid, cid)
     require(item, permission)
-    with value.open(item, data_dir(value)) as fs:
-        content, revision = fs.read(relative, limit)
-    if len(content) > limit:
-        raise ValueError("File exceeds the size limit.")
-    return content, revision
+    output = TransferWriter(destination, limit)
+    with filesystem(value, item) as fs:
+        revision = fs.read(relative, output, limit)
+    require(get_connection(pid, cid)[1], permission)
+    return revision
+
+
+def read(path, permission="download", limit=None):
+    output = io.BytesIO()
+    revision = read_into(path, output, permission, limit)
+    return output.getvalue(), revision
+
+
+def write_from(path, source, *, expected=None, editing=False):
+    pid, cid, relative = split(path)
+    value, item = get_connection(pid, cid)
+    permission = "edit" if expected is not None else "upload"
+    require(item, permission)
+    if not relative:
+        raise ValueError("Choose a destination file.")
+    limit = FileBrowser.max_text_bytes() if editing else FileBrowser.max_file_bytes()
+    with tempfile.TemporaryFile() as staged:
+        copy_stream(source, staged, limit)
+        staged.seek(0)
+        require(get_connection(pid, cid)[1], permission)
+        with filesystem(value, item) as fs:
+            return fs.write(relative, staged, expected=expected)
 
 
 def write(path, content, *, expected=None, editing=False):
-    pid, cid, relative = split(path)
-    value, item = get_connection(pid, cid)
-    require(item, "edit" if expected is not None else "upload")
-    limit = FileBrowser.max_text_bytes() if editing else FileBrowser.max_file_bytes()
-    if not relative or len(content) > limit:
-        raise ValueError("Invalid destination or file too large.")
-    with value.open(item, data_dir(value)) as fs:
-        return fs.write(relative, content, expected=expected)
+    return write_from(path, io.BytesIO(content), expected=expected, editing=editing)
 
 
 def mutate(action, path, destination=""):
@@ -224,7 +245,7 @@ def mutate(action, path, destination=""):
     require(item, {"delete": "delete", "rename": "rename", "mkdir": "upload"}[action])
     if not relative:
         raise ValueError("The connection root cannot be changed.")
-    with value.open(item, data_dir(value)) as fs:
+    with filesystem(value, item) as fs:
         if action == "mkdir":
             fs.mkdir(relative)
         elif action == "rename":
@@ -250,35 +271,38 @@ def mutate(action, path, destination=""):
 
 def archive(paths):
     limit = FileBrowser.max_file_bytes()
-    output, total, count = io.BytesIO(), 0, 0
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as zipped:
-        def add(path, name, depth=0):
-            nonlocal total, count
-            count += 1
-            if count > 1000 or depth > 64:
-                raise ValueError("Download fewer than 1000 entries at once.")
-            pid, cid, relative = split(path)
-            value, item = get_connection(pid, cid)
-            require(item, "download")
-            with value.open(item, data_dir(value)) as fs:
-                info = fs.stat(relative)
-                if info.get("is_link"):
-                    return
-                if info["is_dir"]:
-                    children = fs.list(relative)
-                    zipped.writestr(name + "/", b"")
-                else:
-                    content, _ = fs.read(relative, limit - total)
-                    total += len(content)
-                    if total > limit:
-                        raise ValueError("Download exceeds the transfer size limit.")
-                    zipped.writestr(name, content)
-                    return
-            for child in children:
-                if valid_name(child.get("name")) and not child.get("is_link"):
-                    add(path_for(item, posixpath.join(relative, child["name"])), name + "/" + child["name"], depth + 1)
-        for path in paths:
-            add(path, posixpath.basename(path.rstrip("/")))
+    output, total, count = tempfile.TemporaryFile(), 0, 0
+    try:
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as zipped:
+            def add(path, name, depth=0):
+                nonlocal total, count
+                count += 1
+                if count > FileBrowser.max_archive_entries() or depth > 64:
+                    raise ValueError("Archive exceeds the configured entry count or supported nesting depth.")
+                pid, cid, relative = split(path)
+                value, item = get_connection(pid, cid)
+                require(item, "download")
+                with filesystem(value, item) as fs:
+                    info = fs.stat(relative)
+                    if info.get("is_link"):
+                        return
+                    if info["is_dir"]:
+                        children = fs.list(relative)
+                        zipped.writestr(name + "/", b"")
+                    else:
+                        with zipped.open(name, "w", force_zip64=True) as member:
+                            counter = TransferWriter(member, limit - total)
+                            fs.read(relative, counter, limit - total)
+                            total += counter.size
+                        return
+                for child in children:
+                    if valid_name(child.get("name")) and not child.get("is_link"):
+                        add(path_for(item, posixpath.join(relative, child["name"])), name + "/" + child["name"], depth + 1)
+            for path in paths:
+                add(path, posixpath.basename(path.rstrip("/")))
+    except BaseException:
+        output.close()
+        raise
     output.seek(0)
     return output
 

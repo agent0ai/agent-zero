@@ -1,48 +1,12 @@
-import hashlib
-import os
-import tempfile
-from typing import Any
 
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
 from helpers.security import safe_filename
+from helpers.file_transfers import write_stream_atomic
 
 
-_UPLOAD_CHUNK_BYTES = 1024 * 1024
-
-
-def save_upload_atomic(file_storage: Any, target_path: str, *, max_bytes: int | None = None) -> dict[str, Any]:
-    directory = os.path.dirname(target_path) or "."
-    os.makedirs(directory, exist_ok=True)
-    fd, temp_path = tempfile.mkstemp(prefix=".partial-", dir=directory)
-    digest = hashlib.sha256()
-    size = 0
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            while chunk := file_storage.stream.read(_UPLOAD_CHUNK_BYTES):
-                if max_bytes is not None and size + len(chunk) > max_bytes:
-                    raise ValueError("Upload exceeds the transfer size limit.")
-                handle.write(chunk)
-                digest.update(chunk)
-                size += len(chunk)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, target_path)
-        try:
-            directory_fd = os.open(directory, os.O_RDONLY)
-        except OSError:
-            directory_fd = None
-        if directory_fd is not None:
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-    finally:
-        try:
-            os.unlink(temp_path)
-        except FileNotFoundError:
-            pass
-    return {"size": size, "sha256": digest.hexdigest()}
+def save_upload_atomic(file_storage, target_path, *, max_bytes=None):
+    return write_stream_atomic(file_storage.stream, target_path, max_bytes=max_bytes)
 
 
 class UploadFile(ApiHandler):
@@ -61,8 +25,8 @@ class UploadFile(ApiHandler):
                 filename = safe_filename(file.filename)
                 if not filename:
                     continue
-                metadata = save_upload_atomic(
-                    file,
+                metadata = write_stream_atomic(
+                    file.stream,
                     files.get_abs_path("usr/uploads", filename),
                 )
                 saved_filenames.append(filename)

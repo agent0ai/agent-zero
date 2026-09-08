@@ -105,3 +105,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+`file_browser_max_extract_size_mb` (default100 MiB) and `file_browser_max_archive_entries` (default1000) are independently configurable positive integers without upper ceilings. They govern File Browser archive operations, not Backup & Restore.

@@ -28,7 +28,7 @@ def test_host_discovery_permissions_and_disconnect(monkeypatch):
         file_connections.remove_connection("host", items[0]["id"])
     fs = file_browser.HostFiles(items[0])
     with pytest.raises(PermissionError):
-        fs.write("sample", b"hello")
+        fs.write("sample", io.BytesIO(b"hello"))
     metadata["root_path"] = "/changed"
     with pytest.raises(ValueError, match="disconnected or changed"):
         fs.list("")
@@ -50,7 +50,9 @@ def test_host_requests_use_matching_socket_and_cleanup(monkeypatch):
             assert not runtime.resolve_pending_file_op(payload["op_id"], sid="other", payload=result)
             assert runtime.resolve_pending_file_op(payload["op_id"], sid=sid, payload=result)
     monkeypatch.setattr(file_browser, "get_shared_ws_manager", Manager)
-    assert file_browser.HostFiles(item).read("sample", 100) == (b"\0test", hashlib.sha256(b"\0test").hexdigest())
+    output = io.BytesIO()
+    assert file_browser.HostFiles(item).read("sample", output, 100) == hashlib.sha256(b"\0test").hexdigest()
+    assert output.getvalue() == b"\0test"
     assert not runtime._pending_file_ops
     assert not file_browser.INCOMING
     with pytest.raises(ValueError, match="expired"):
@@ -73,7 +75,7 @@ def test_failed_receipt_cleans_slot_and_partial_file(tmp_path, monkeypatch):
         return file_browser.receive_upload(data["transfer_token"], SimpleNamespace(stream=io.BytesIO(b"oversized")))
     monkeypatch.setattr(file_browser.HostFiles, "call", receive)
     with pytest.raises(ValueError, match="size limit"):
-        file_browser.HostFiles(item).read("sample", 2)
+        file_browser.HostFiles(item).read("sample", io.BytesIO(), 2)
     assert not file_browser.INCOMING
     assert not list(tmp_path.iterdir())
 

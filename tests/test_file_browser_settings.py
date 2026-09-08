@@ -13,7 +13,7 @@ def test_editor_limit_defaults_to_ten_mib():
 
 
 def test_limit_updates_only_its_setting_and_shared_validation(monkeypatch):
-    saved = {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100, "unrelated": "keep"}
+    saved = {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100, "file_browser_max_extract_size_mb": 100, "file_browser_max_archive_entries": 1000, "unrelated": "keep"}
     def update(delta, apply):
         assert apply is False
         assert set(delta) == {"file_browser_max_text_size_mb"}
@@ -34,7 +34,7 @@ def test_limit_updates_only_its_setting_and_shared_validation(monkeypatch):
 
 
 def test_transfer_setting_has_no_artificial_ceiling(monkeypatch):
-    saved = {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100}
+    saved = {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100, "file_browser_max_extract_size_mb": 100, "file_browser_max_archive_entries": 1000}
     monkeypatch.setattr(settings, "get_settings", lambda: saved)
     monkeypatch.setattr(settings, "set_settings_delta", lambda delta, apply: saved.update(delta))
     handler = FileBrowserSettings(None, None)
@@ -54,18 +54,24 @@ def test_local_transfer_limit_rejects_before_overwrite(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from werkzeug.datastructures import MultiDict
 
+    from helpers import runtime
+    monkeypatch.setattr(runtime, "is_development", lambda: False)
     monkeypatch.setattr(FileBrowser, "max_file_bytes", classmethod(lambda cls: 4))
     browser = FileBrowser()
     target = tmp_path / "backup.zip"
     target.write_bytes(b"keep")
     uploaded = FileStorage(stream=io.BytesIO(b"large"), filename=target.name)
-    request = SimpleNamespace(files=MultiDict([("files[]", uploaded)]), form={"path": str(tmp_path)})
-    response = asyncio.run(UploadWorkDirFiles(None, None).process({}, request))
+    request = SimpleNamespace(is_json=False, files=MultiDict([("files[]", uploaded)]), form={"path": str(tmp_path)})
+    response = asyncio.run(UploadWorkDirFiles(None, None).handle_request(request))
     assert response.status_code == 413
-    assert "transfer limit" in response.get_json()["error"]
-    assert browser.save_files([uploaded], str(tmp_path)) == ([], [target.name])
-    assert not browser.save_file_b64(str(tmp_path), target.name, base64.b64encode(b"large").decode())
+    assert "size limit" in response.get_json()["error"]
+    uploaded.stream.seek(0)
+    with pytest.raises(ValueError):
+        browser.save_files([uploaded], str(tmp_path))
+    with pytest.raises(ValueError):
+        browser.save_file_b64(str(tmp_path), target.name, base64.b64encode(b"large").decode())
     assert target.read_bytes() == b"keep"
-    assert stream_file_download(io.BytesIO(b"large"), "file", max_bytes=4).status_code == 413
+    with pytest.raises(ValueError):
+        stream_file_download(io.BytesIO(b"large"), "file", max_bytes=4)
     assert stream_file_download(io.BytesIO(b"keep"), "file", max_bytes=4).status_code == 200
     assert stream_file_download(io.BytesIO(b"large"), "file").status_code == 200

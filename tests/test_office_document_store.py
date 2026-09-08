@@ -42,7 +42,7 @@ def runtime_package_os(monkeypatch):
 @pytest.fixture
 def office_state(tmp_path, monkeypatch):
     from helpers import settings
-    monkeypatch.setattr(settings, "get_settings", lambda: {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100})
+    monkeypatch.setattr(settings, "get_settings", lambda: {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100, "file_browser_max_extract_size_mb": 100, "file_browser_max_archive_entries": 1000})
     state = tmp_path / "state"
     backups = state / "backups"
     workdir = tmp_path / "workdir"

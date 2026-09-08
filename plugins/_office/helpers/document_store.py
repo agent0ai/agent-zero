@@ -512,9 +512,7 @@ def editor_text_bytes(content: str) -> bytes:
 def read_text_for_editor(doc: dict[str, Any]) -> str:
     if not is_editor_document(doc):
         raise ValueError(f"Text editing is not available for .{doc['extension']}.")
-    with Path(doc["path"]).open("rb") as stream:
-        data = stream.read(FileBrowser.max_text_bytes() + 1)
-    return FileBrowser.decode_text(data)
+    return FileBrowser.read_text(doc["path"])
 
 
 def write_text_document(file_id: str, content: str) -> dict[str, Any]:

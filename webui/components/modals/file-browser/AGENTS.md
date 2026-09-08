@@ -25,7 +25,7 @@
 - `file-browser-actions-menu` is the HTML extension point after the built-in dropdown entries, mounted only while the menu is open. Plugins contribute `extensions/webui/file-browser-actions-menu/*.html`; an `x-data` root inherits the row `file` (`name`, `path`, `is_dir`, etc.) and `$store.fileBrowser`. Use `.dropdown-item` buttons; ordinary clicks bubble to close the menu.
 - Keep Edit inside the overflow menu for editable text/code files, using the same `.dropdown-item` styling as other entries.
 - File Browser settings owns the instance-wide maximum editable file size (default 10 MiB, 1–100), since Editor has no plugin config page. Persist through the scoped settings API, update shared limits immediately, and refresh limits when reopening settings; no agent restart or unrelated setting replacement.
-- Load file and text limits from the directory API (`?limits=1` for metadata only). Edit eligibility and upload checks use these backend-owned constraints; Editor tree actions reuse this store. The separate transfer setting defaults to 100 MiB and accepts positive integer MiB without a ceiling. It includes local archive uploads and remote transfers; Backup & Restore remains separate. Local download requests identify `source=file-browser` so general Connector downloads retain their own contracts. Preserve remote permission checks.
+- Load file and text limits from the directory API (`?limits=1` for metadata only). Edit eligibility and upload checks use these backend-owned constraints; Editor tree actions reuse this store. The separate transfer setting defaults to 100 MiB and accepts positive integer MiB without a ceiling. It includes local archive uploads and remote transfers; Backup & Restore remains separate. Files POSTs download preparation and follows the returned single-use URL natively, avoiding JavaScript file Blobs. Generic Connector downloads retain their own route. Preserve remote permission checks.
 - Keep Extract available for supported archive files; extraction must create a new sibling folder and reject unsafe member paths and links.
 - The dropdown tracks its originating `.file-actions` row, so hidden canvas/modal copies cannot open duplicate teleported menus or plugin entries.
 - Settings grids use token gaps instead of stacking the shared field margins. Permission controls reuse `.toggle`/`.toggler`. Protocol-specific controls belong in plugin-owned HTML extensions: `file-browser-connection-fields` renders inside the active draft before Save/Cancel; `file-browser-settings` renders independently of the draft. Extensions reuse `.files-connection-actions` and `.files-settings-actions` spacing. SSH key visibility and fingerprint verification are owned by the SSH plugin.
@@ -70,3 +70,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+- All local/remote uploads use multipart `upload_work_dir_files`; shared helpers enforce transfer policy and archive byte/count budgets.

@@ -104,3 +104,7 @@
 No child DOX files.
 
 Host Files forwards Core transfer/text limits without an independent HTTP cap. Older Connector clients retain their existing cap until updated and restarted.
+
+- The host provider implements the same streaming `read(relative, destination, limit)` / `write(relative, source, expected)` contract as the five community providers. HTTP file bodies stay in private temporary files and shared bounded copies; no whole-file bytes return from provider reads.
+
+- Incoming host HTTP transfers pass the upload stream to `file_transfers.write_stream_atomic`, retaining integrity receipts and the operation limit.

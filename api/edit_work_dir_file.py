@@ -70,8 +70,7 @@ async def load_file(file_path: str) -> dict:
         raise Exception("Path points to a directory")
 
     mime_type, _ = mimetypes.guess_type(full_path)
-    with open(full_path, "rb") as file:
-        content = FileBrowser.decode_text(file.read(FileBrowser.max_text_bytes() + 1))
+    content = FileBrowser.read_text(full_path)
 
     return {
         "path": file_path,

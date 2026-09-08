@@ -55,20 +55,21 @@ def test_editors_inherit_file_browser_text_rules(storage, monkeypatch, tmp_path)
 @pytest.fixture
 def storage(tmp_path, monkeypatch):
     from helpers import settings
-    monkeypatch.setattr(settings, "get_settings", lambda: {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100})
+    monkeypatch.setattr(settings, "get_settings", lambda: {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100, "file_browser_max_extract_size_mb": 100, "file_browser_max_archive_entries": 1000})
     remote = {}
     class FS:
         def list(self, path):
             return [dict(name=k, is_dir=False, size=len(v), modified=0) for k,v in remote.items()]
         def stat(self, path):
             return dict(is_dir=not path, size=len(remote.get(path, b"")))
-        def read(self, path, limit):
-            value = remote[path]
-            return value, hashlib.sha256(value).hexdigest()
-        def write(self, path, content, expected=None):
+        def read(self, path, destination, limit):
+            from helpers.file_transfers import copy_stream
+            return copy_stream(io.BytesIO(remote[path]), destination, limit)["sha256"]
+        def write(self, path, source, expected=None):
+            content = source.read()
             if expected is None and path in remote:
                 raise ValueError("exists")
-            if expected is not None and self.read(path, 0)[1] != expected:
+            if expected is not None and hashlib.sha256(remote[path]).hexdigest() != expected:
                 raise ValueError("changed")
             remote[path] = content
             return hashlib.sha256(content).hexdigest()
@@ -137,3 +138,16 @@ def test_paths_and_unsupported_actions(storage):
     assert not saved["permissions"]["upload"]
     with pytest.raises(PermissionError):
         service.write(root + "/new", b"x")
+
+
+def test_saved_connections_use_utf8_json_without_prototype_migration(tmp_path, monkeypatch):
+    class Provider:
+        @property
+        def legacy_connections(self):
+            raise AssertionError("Prototype connection state must not be consulted")
+
+    monkeypatch.setattr(service, "data_dir", lambda provider: tmp_path)
+    assert service._load(Provider()) == {}
+    saved = {"example": {"name": "Archivio città"}}
+    (tmp_path / "connections.json").write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+    assert service._load(Provider()) == saved

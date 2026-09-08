@@ -144,18 +144,17 @@ def test_file_browser_zip_downloads_emit_grouped_preparing_and_downloading_toast
     assert 'window.toastFrontendInfo?.("Downloading...", "Download", 3, group, undefined, true);' in store
     assert 'this.createDownloadToastGroup("file-browser-bulk-download")' in store
     assert 'this.createDownloadToastGroup("file-browser-directory-download")' in store
-    assert "if (file.is_dir) {" in store
     assert "return this.downloadDirectory(file);" in store
-    assert "link.download = file.name;" in store
+    assert "link.download = result.name;" in store
 
     bulk_start = store.index("async bulkDownloadFiles()")
     bulk_prepare = store.index("this.showDownloadPreparingToast(downloadToastGroup);", bulk_start)
-    bulk_fetch = store.index('const resp = await fetchApi("/download_work_dir_files"', bulk_start)
+    bulk_fetch = store.index("await this.startDownload(selectedFiles);", bulk_start)
     assert bulk_prepare < bulk_fetch
 
     directory_start = store.index("async downloadDirectory(file)")
     directory_prepare = store.index("this.showDownloadPreparingToast(downloadToastGroup);", directory_start)
-    directory_fetch = store.index("const resp = await fetchApi(`/download_work_dir_file", directory_start)
+    directory_fetch = store.index("await this.startDownload([file]);", directory_start)
     assert directory_prepare < directory_fetch
 
 

@@ -69,6 +69,8 @@ const model = {
   limits: null,
   textLimitMib: null,
   transferLimitMib: null,
+  extractLimitMib: null,
+  archiveEntries: null,
   savingTextLimit: false,
   async ensureLimits(force = false) {
     if (this.limits && !force) return this.limits;
@@ -84,14 +86,16 @@ const model = {
     if (this.savingTextLimit) return;
     this.savingTextLimit = true;
     try {
-      const limit = kind === "text" ? this.textLimitMib : this.transferLimitMib;
+      const limit = {text: this.textLimitMib, transfer: this.transferLimitMib, extract: this.extractLimitMib, entries: this.archiveEntries}[kind];
       if (!Number.isInteger(limit) || limit < 1) throw new Error("Enter a positive whole number of MiB.");
-      const result = await callJsonApi("/file_browser_settings", { [`max_${kind}_size_mb`]: limit });
+      const result = await callJsonApi("/file_browser_settings", { [kind === "entries" ? "max_archive_entries" : `max_${kind}_size_mb`]: limit });
       if (!result.ok) throw new Error(result.error || "Could not save the size limit.");
       this.limits = result.limits;
     } catch (error) {
       this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
       this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      this.extractLimitMib = this.limits.max_extract_bytes / (1024 * 1024);
+      this.archiveEntries = this.limits.max_archive_entries;
       globalThis.toastFrontendError?.(error.message, "File Browser Settings");
     } finally { this.savingTextLimit = false; }
   },
@@ -264,6 +268,19 @@ const model = {
       link.remove();
       globalThis.setTimeout(()=>URL.revokeObjectURL(url), 60000);
     } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+
+  async startDownload(files) {
+    const result = await callJsonApi("/download_work_dir_files", {
+      paths: files.map(file => file.path), currentPath: this.browser.currentPath,
+    });
+    if (!result.download_url) throw new Error(result.error || "Download failed.");
+    const link = document.createElement("a");
+    link.href = result.download_url;
+    link.download = result.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   },
 
   preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false },
@@ -1525,7 +1542,6 @@ const model = {
   },
 
   async bulkDownloadFiles() {
-    if (this.isRemote()) return this.downloadRemote(this.selectedFiles);
     const selectedFiles = this.selectedFiles;
     if (!selectedFiles.length || this.isBulkBusy) return;
 
@@ -1535,31 +1551,7 @@ const model = {
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi("/download_work_dir_files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paths: selectedFiles.map((file) => file.path),
-          currentPath: this.browser.currentPath,
-        }),
-      });
-
-      if (!resp.ok) {
-        const message = await resp.text();
-        throw new Error(message || "Download failed");
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const fallback = `agent-zero-files-${selectedFiles.length}.zip`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = this.getDownloadFilename(resp, fallback);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-
+      await this.startDownload(selectedFiles);
       this.showDownloadStartedToast(downloadToastGroup);
     } catch (error) {
       this.showDownloadErrorToast(
@@ -1688,17 +1680,6 @@ const model = {
       const files = event.target.files;
       if (!files.length) return;
       const limits = await this.ensureLimits(true);
-      if (this.isRemote()) {
-        for (const file of files) {
-          if (file.size > limits.max_file_bytes) throw new Error(`Files must not exceed ${limits.max_file_bytes / (1024 * 1024)} MiB.`);
-          const content = await new Promise((resolve,reject)=>{
-            const reader = new FileReader(); reader.onload=()=>resolve(String(reader.result).split(",")[1]); reader.onerror=reject; reader.readAsDataURL(file);
-          });
-          await this.connectionRequest("upload", {path:this.buildChildPath(file.name), content});
-        }
-        await this.fetchFiles(this.browser.currentPath);
-        return;
-      }
       const formData = new FormData();
       formData.append("path", this.browser.currentPath);
       for (let f of files) {
@@ -1719,7 +1700,7 @@ const model = {
         this.browser.parentPath = data.data.parent_path;
         if (data.failed && data.failed.length) {
           const msg = data.failed
-            .map((f) => `${f.name}: ${f.error}`)
+            .map((f) => typeof f === "string" ? f : `${f.name}: ${f.error}`)
             .join("\n");
           alert(`Some files failed to upload:\n${msg}`);
         }
@@ -1737,30 +1718,11 @@ const model = {
   },
 
   async downloadDirectory(file) {
-    if (this.isRemote(file.path)) return this.downloadRemote([file]);
     const downloadToastGroup = this.createDownloadToastGroup("file-browser-directory-download");
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi(`/download_work_dir_file?source=file-browser&path=${encodeURIComponent(file.path)}`, {
-        method: "GET",
-      });
-
-      if (!resp.ok) {
-        const message = await resp.text();
-        throw new Error(message || "Download failed");
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const fallback = `${file.name}.zip`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = this.getDownloadFilename(resp, fallback);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      await this.startDownload([file]);
       this.showDownloadStartedToast(downloadToastGroup);
     } catch (error) {
       this.showDownloadErrorToast(
@@ -1770,19 +1732,10 @@ const model = {
     }
   },
 
-  downloadFile(file) {
-    if (this.isRemote(file.path)) return this.downloadRemote([file]);
-    if (file.is_dir) {
-      return this.downloadDirectory(file);
-    }
-
-    const link = document.createElement("a");
-    link.href = `/api/download_work_dir_file?source=file-browser&path=${encodeURIComponent(file.path)}`;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadFile(file) {
+    return this.downloadDirectory(file);
   },
+
 };
 
 export const store = createStore("fileBrowser", model);
