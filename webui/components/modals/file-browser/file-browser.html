@@ -211,7 +211,7 @@
                         </template>
                         <span x-text="file.name"></span>
                       </div>
-                      <div class="file-size" x-text="$store.fileBrowser.formatFileSize(file.size)"></div>
+                      <div class="file-size" x-text="file.is_dir ? '—' : $store.fileBrowser.formatFileSize(file.size)"></div>
                       <div class="file-date" x-text="$store.fileBrowser.formatDate(file.modified)"></div>
                       <div class="file-actions" x-show="!$store.fileBrowser.isPickerMode()">
                         <button
@@ -407,8 +407,6 @@
     }
 
     .modal-inner.file-browser-modal .modal-header {
-      min-height: 34px;
-      padding: 0.35rem 0.75rem 0.35rem 1rem;
       background: color-mix(in srgb, var(--color-background) 92%, #000 8%);
       border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
     }

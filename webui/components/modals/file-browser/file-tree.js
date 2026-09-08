@@ -67,7 +67,10 @@ export function createFileTree(onOpen) {
     },
 
     async open(node) {
-      if (node.is_dir && !node.expanded) await this.expand(node);
+      if (node.is_dir) {
+        await this.expand(node);
+        if (!node.expanded) return;
+      }
       await onOpen(node);
     },
 

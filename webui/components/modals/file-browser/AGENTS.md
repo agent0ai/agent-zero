@@ -31,9 +31,12 @@
 - Preserve surface actions that route supported files to Browser, Desktop, or Editor.
 - Keep native drag moves available outside picker modes: dragging an unselected row moves only that row without changing selection, dragging a selected row moves the selection, folder rows accept drops, and Up moves items to the parent directory. Moves must reject overwrites and self-nesting.
 
+- Folder names and chevrons both toggle expansion; name clicks navigate only when expanding. Indent branch status messages to the child-name column at each depth.
 - Tree branches load through the existing authenticated file-list API on expansion; filtering covers loaded folders. Keep only the filter above the raw tree, without path, parent, or refresh controls. Preserve expanded ancestors during navigation within the root and reset when moving outside it.
 - Keep the tree on the right in canvas and modal modes; at narrow panel widths it overlays the content below the toolbar. Tree file clicks reuse picker selection or existing file-opening actions.
 - Scope unmount cleanup to the owning panel element; destroying an old host must not clean up the active modal.
+
+- Display a dash for folder sizes; only files show byte sizes. Do not recursively scan folders for list metadata.
 
 ## Work Guidance
 

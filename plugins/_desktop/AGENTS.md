@@ -19,6 +19,8 @@
 - Do not expose desktop routes without the expected auth protections.
 - Keep Desktop host visibility tied to an attached modal or canvas host; modal cleanup may preserve the iframe in keepalive, but must not leave stale modal mode behind.
 - Keep LibreOffice Writer as the default handler for Markdown and plain text files; keep Agent Zero Editor available as a secondary Open With target through the desktop intent bridge.
+- Style the shutdown-state restart action with shared `btn btn-field`, matching Open Browser.
+- Use shared `surface-workspace` and `--surface-background` for panel, body, and viewer backdrops so shutdown/loading states match the lighter Files, Editor, and Browser palette.
 
 ## Work Guidance
 

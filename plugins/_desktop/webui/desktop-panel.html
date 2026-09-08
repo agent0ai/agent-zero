@@ -7,7 +7,7 @@
 <body>
   <div x-data>
     <template x-if="$store.desktop">
-      <div class="office-panel" x-create="$store.desktop.onMount($el, xAttrs($el) || {})" x-destroy="$store.desktop.cleanup()">
+      <div class="office-panel surface-workspace" x-create="$store.desktop.onMount($el, xAttrs($el) || {})" x-destroy="$store.desktop.cleanup()">
       <div class="office-shell">
         <div class="office-document-header" x-show="$store.desktop.hasActiveFile()" style="display: none;">
           <div class="office-document-title" :title="$store.desktop.tabLabel($store.desktop.session)">
@@ -76,9 +76,9 @@
           <div class="office-desktop-empty" x-show="$store.desktop.shouldShowDesktopEmptyState()" style="display: none;">
             <x-icon aria-hidden="true" name="power_settings_new"></x-icon>
             <span class="office-desktop-empty-title">Desktop is shut down</span>
-            <button type="button" class="office-icon-button office-command-button" @click="$store.desktop.restartDesktopSession()">
+            <button type="button" class="btn btn-field" @click="$store.desktop.restartDesktopSession()">
               <x-icon aria-hidden="true" name="restart_alt"></x-icon>
-              <span class="office-button-label">Restart Desktop</span>
+              <span>Restart Desktop</span>
             </button>
           </div>
         </div>
@@ -97,7 +97,7 @@
       height: 100%;
       min-width: 0;
       min-height: 0;
-      background: var(--color-background);
+      background: var(--surface-background);
       color: var(--color-text);
     }
 
@@ -610,7 +610,7 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-      background: var(--color-background);
+      background: var(--surface-background);
     }
 
     .office-body.is-source {
@@ -643,7 +643,7 @@
       display: flex;
       overflow: hidden;
       padding: 0;
-      background: #1f2329;
+      background: var(--surface-background);
     }
 
     .office-desktop-wrap {
@@ -654,7 +654,7 @@
       min-width: 0;
       min-height: 0;
       aspect-ratio: auto;
-      background: #1f2329;
+      background: var(--surface-background);
     }
 
     .office-desktop-empty {
@@ -673,6 +673,12 @@
     .office-desktop-empty > .material-symbols-outlined {
       font-size: 32px;
       color: color-mix(in srgb, var(--color-text) 68%, transparent);
+    }
+
+    .office-desktop-empty > .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
     }
 
     .office-desktop-empty-title {
