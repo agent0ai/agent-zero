@@ -49,6 +49,7 @@ from pydantic import ConfigDict
 
 DEFAULT_LITELLM_GLOBAL_KWARGS: dict[str, Any] = {
     "drop_params": True,
+    "timeout": 180,
 }
 
 # LiteLLM documents drop_params as both a module-level switch and per-call kwarg.
