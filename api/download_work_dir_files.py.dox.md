@@ -54,3 +54,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+Selected ZIP downloads enforce the Files transfer limit on the generated archive before streaming. Backup & Restore is separate.

@@ -79,6 +79,9 @@ class EditorSession(ApiHandler):
             except Exception as exc:
                 return {"ok": False, "error": str(exc)}
             return await self._open_document(doc, input, request, context_id=context_id)
+        if action == "input":
+            return markdown_sessions.get_manager().input(
+                str(input.get("session_id") or ""), text=input.get("text"))
         if action == "save":
             session_id = str(input.get("session_id") or "").strip()
             if not session_id:

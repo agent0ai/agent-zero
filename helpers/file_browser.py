@@ -19,8 +19,37 @@ class FileBrowser:
         'document': {'md', 'pdf', 'txt', 'csv', 'json'}
     }
 
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
-    MAX_TEXT_FILE_SIZE = 1 * 1024 * 1024  # 1MB
+    @classmethod
+    def max_file_bytes(cls):
+        from helpers.settings import get_settings
+        return get_settings()["file_browser_max_transfer_size_mb"] * 1024 * 1024
+
+    @classmethod
+    def max_text_bytes(cls):
+        from helpers.settings import get_settings
+        return get_settings()["file_browser_max_text_size_mb"] * 1024 * 1024
+
+    @classmethod
+    def limits(cls):
+        return {"max_file_bytes": cls.max_file_bytes(), "max_text_bytes": cls.max_text_bytes()}
+
+    @classmethod
+    def decode_text(cls, data: bytes) -> str:
+        limit = cls.max_text_bytes()
+        if len(data) > limit:
+            raise ValueError(f"Text files are limited to {limit / (1024 * 1024):g} MiB.")
+        if files.is_probably_binary_bytes(data):
+            raise ValueError("Binary file detected; editing is not supported")
+        try:
+            return data.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ValueError("Unable to decode file as UTF-8; editing is not supported") from error
+
+    @classmethod
+    def text_bytes(cls, content: str) -> bytes:
+        data = content.encode("utf-8")
+        cls.decode_text(data)
+        return data
 
     def __init__(self):
         # if runtime.is_development():
@@ -35,7 +64,7 @@ class FileBrowser:
             file.seek(0, os.SEEK_END)
             size = file.tell()
             file.seek(0)
-            return size <= self.MAX_FILE_SIZE
+            return size <= self.max_file_bytes()
         except (AttributeError, IOError):
             return False
 
@@ -47,9 +76,12 @@ class FileBrowser:
                 raise ValueError("Invalid target directory")
 
             os.makedirs(target_file.parent, exist_ok=True)
+            content = base64.b64decode(base64_content)
+            if len(content) > self.max_file_bytes():
+                raise ValueError("File exceeds the transfer size limit.")
             # Save file
             with open(target_file, "wb") as file:
-                file.write(base64.b64decode(base64_content))
+                file.write(content)
             return True
         except Exception as e:
             PrintStyle.error(f"Error saving file {filename}: {e}")
@@ -70,7 +102,7 @@ class FileBrowser:
 
             for file in files:
                 try:
-                    if file and self._is_allowed_file(file.filename, file):
+                    if file and self._is_allowed_file(file.filename, file) and self._check_file_size(file):
                         filename = safe_filename(file.filename)
                         if not filename:
                             raise ValueError("Invalid filename")
@@ -221,9 +253,7 @@ class FileBrowser:
         try:
             if not isinstance(content, str):
                 raise ValueError("Content must be a string")
-            content_size = len(content.encode("utf-8"))
-            if content_size > self.MAX_TEXT_FILE_SIZE:
-                raise ValueError("File exceeds 1 MB and cannot be edited")
+            self.text_bytes(content)
 
             full_path = (self.base_dir / file_path).resolve()
             if not str(full_path).startswith(str(self.base_dir)):

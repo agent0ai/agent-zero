@@ -180,6 +180,9 @@ async function callEditor(action, payload = {}) {
 }
 
 async function requestEditor(eventType, payload = {}, timeoutMs = 5000) {
+  if (String(payload.text || "").length > 64 * 1024) {
+    return await callEditor(eventType.replace(/^editor_/, ""), payload);
+  }
   const explicitContextId = String(payload.ctxid || payload.context_id || "").trim();
   const response = await editorSocket.request(eventType, {
     ...payload,

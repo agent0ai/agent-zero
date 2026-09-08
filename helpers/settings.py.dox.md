@@ -55,6 +55,9 @@
 
 ## Runtime Contracts
 
+- `file_browser_max_text_size_mb` persists the instance-wide text-editing limit, default 10 MiB and normalized to 1–100. FileBrowser reads it directly so its scoped settings API can update it without restarting or reinitializing agents.
+- `file_browser_max_transfer_size_mb` independently persists the Files transfer limit, default 100 MiB, normalized to a positive integer without an upper ceiling. It does not change Backup & Restore or WebSocket limits.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, network calls, subprocess/runtime control, model calls, WebSocket state, plugin state, settings/state persistence, secret handling, scheduler state.

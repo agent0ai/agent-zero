@@ -10,6 +10,7 @@ from flask import Response
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers import runtime
 from helpers.localization import Localization
+from helpers.file_browser import FileBrowser
 from api.download_work_dir_file import fetch_file, stream_file_download
 
 
@@ -38,9 +39,9 @@ class DownloadFiles(ApiHandler):
         if runtime.is_development():
             b64 = await runtime.call_development_function(fetch_file, zip_file)
             file_data = BytesIO(base64.b64decode(b64))
-            return stream_file_download(file_data, download_name=download_name)
+            return stream_file_download(file_data, download_name=download_name, max_bytes=FileBrowser.max_file_bytes())
 
-        return stream_file_download(zip_file, download_name=download_name)
+        return stream_file_download(zip_file, download_name=download_name, max_bytes=FileBrowser.max_file_bytes())
 
 
 def normalize_paths(paths) -> list[str]:

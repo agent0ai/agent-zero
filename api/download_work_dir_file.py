@@ -36,7 +36,7 @@ def file_size_and_sha256(file_source: str | BytesIO) -> tuple[int, str]:
 
 
 
-def stream_file_download(file_source, download_name, chunk_size=8192):
+def stream_file_download(file_source, download_name, chunk_size=8192, max_bytes=None):
     """
     Create a streaming response for file downloads that shows progress in browser.
 
@@ -48,6 +48,10 @@ def stream_file_download(file_source, download_name, chunk_size=8192):
     Returns:
         Flask Response object with streaming content
     """
+    if max_bytes is not None:
+        size = os.path.getsize(file_source) if isinstance(file_source, str) else file_source.getbuffer().nbytes
+        if size > max_bytes:
+            return Response(f"Download exceeds the {max_bytes / (1024 * 1024):g} MiB transfer limit.", status=413)
     file_size, sha256 = file_size_and_sha256(file_source)
 
     def generate():
@@ -125,6 +129,8 @@ class DownloadFile(ApiHandler):
         return ["GET"]
 
     async def process(self, input: Input, request: Request) -> Output:
+        from helpers.file_browser import FileBrowser
+        limit = FileBrowser.max_file_bytes() if request.args.get("source") == "file-browser" else None
         file_path = request.args.get("path", input.get("path", ""))
         if not file_path:
             raise ValueError("No file path provided")
@@ -154,12 +160,12 @@ class DownloadFile(ApiHandler):
                 file_data = BytesIO(base64.b64decode(b64))
                 return stream_file_download(
                     file_data,
-                    download_name=download_name
+                    download_name=download_name, max_bytes=limit
                 )
             else:
                 return stream_file_download(
                     zip_file,
-                    download_name=download_name
+                    download_name=download_name, max_bytes=limit
                 )
         elif file["is_file"]:
             if runtime.is_development():
@@ -167,12 +173,12 @@ class DownloadFile(ApiHandler):
                 file_data = BytesIO(base64.b64decode(b64))
                 return stream_file_download(
                     file_data,
-                    download_name=os.path.basename(file_path)
+                    download_name=os.path.basename(file_path), max_bytes=limit
                 )
             else:
                 return stream_file_download(
                     file["abs_path"],
-                    download_name=os.path.basename(file["file_name"])
+                    download_name=os.path.basename(file["file_name"]), max_bytes=limit
                 )
         raise Exception(f"File {file_path} not found")
 

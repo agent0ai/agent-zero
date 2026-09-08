@@ -87,6 +87,7 @@ class MarkdownSessionManager:
     def input(self, session_id: str, text: str | None = None, patch: dict[str, Any] | None = None) -> dict[str, Any]:
         session = self._require(session_id)
         if text is not None:
+            document_store.editor_text_bytes(str(text))
             session.text = str(text)
         elif patch:
             session.text = _apply_text_patch(session.text, patch)

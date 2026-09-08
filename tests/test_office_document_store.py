@@ -41,6 +41,8 @@ def runtime_package_os(monkeypatch):
 
 @pytest.fixture
 def office_state(tmp_path, monkeypatch):
+    from helpers import settings
+    monkeypatch.setattr(settings, "get_settings", lambda: {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100})
     state = tmp_path / "state"
     backups = state / "backups"
     workdir = tmp_path / "workdir"
@@ -114,6 +116,22 @@ def test_file_browser_can_register_runtime_root_markdown(office_state, monkeypat
 
     assert doc["basename"] == "AGENTS.md"
     assert doc["path"] == str(path)
+
+
+def test_editor_http_input_accepts_large_text_and_rejects_over_limit(office_state):
+    path = office_state.workdir / "large.txt"
+    text = "a" * (2 * 1024 * 1024)
+    path.write_text(text, encoding="utf-8")
+    handler = EditorSession(app=None, thread_lock=None)
+    request = types.SimpleNamespace(headers={}, host_url="http://localhost/")
+    opened = asyncio.run(handler.process({"action": "open", "path": str(path)}, request))
+    assert opened["ok"] and opened["text"] == text
+    payload = {"action": "input", "session_id": opened["session_id"], "text": text + "b"}
+    assert asyncio.run(handler.process(payload, request))["ok"]
+    with pytest.raises(ValueError, match="10 MiB"):
+        asyncio.run(handler.process({**payload, "text": "a" * (10 * 1024 * 1024 + 1)}, request))
+    assert asyncio.run(handler.process({"action": "save", "session_id": opened["session_id"]}, request))["ok"]
+    assert path.read_text(encoding="utf-8") == text + "b"
 
 
 def test_editor_file_browser_source_opens_runtime_root_markdown(office_state, monkeypatch):
@@ -2045,7 +2063,7 @@ def test_editor_arbitrary_text_file_lifecycle(office_state, name):
     manager.close(session["session_id"])
 
 
-@pytest.mark.parametrize("content, message", [(b'a\x00b', "Binary"), (b'\xff\xfe', "UTF-8"), (b'x' * (1024 * 1024 + 1), "1 MB")])
+@pytest.mark.parametrize("content, message", [(b'a\x00b', "Binary"), (b'\xff\xfe', "UTF-8"), (b'x' * (10 * 1024 * 1024 + 1), "10 MiB")], ids=["binary", "encoding", "size"])
 def test_editor_rejects_binary_invalid_encoding_and_large_files(office_state, content, message):
     path = office_state.workdir / "unsafe.jsonl"
     path.write_bytes(content)

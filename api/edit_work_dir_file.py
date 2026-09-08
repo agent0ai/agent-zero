@@ -3,10 +3,7 @@ import os
 
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
-from helpers import runtime, files, extension
-
-MAX_EDIT_FILE_SIZE = 1024 * 1024
-BINARY_SAMPLE_SIZE = 10 * 1024
+from helpers import runtime, extension
 
 
 class EditWorkDirFile(ApiHandler):
@@ -43,9 +40,7 @@ class EditWorkDirFile(ApiHandler):
             if not isinstance(content, str):
                 return {"error": "Content must be a string"}
             
-            content_size = len(content.encode("utf-8"))
-            if content_size > MAX_EDIT_FILE_SIZE:
-                return {"error": "File exceeds 1 MB and cannot be edited"}
+            FileBrowser.text_bytes(content)
             
             res = await runtime.call_development_function(save_file, file_path, content)
             if not res:
@@ -74,20 +69,9 @@ async def load_file(file_path: str) -> dict:
     if os.path.isdir(full_path):
         raise Exception("Path points to a directory")
 
-    size = os.path.getsize(full_path)
-    if size > MAX_EDIT_FILE_SIZE:
-        raise Exception("File exceeds 1 MB and cannot be edited")
-
-    # Binary detection: only sample the first ~10KB (per backend rules)
-    if files.is_probably_binary_file(full_path, sample_size=BINARY_SAMPLE_SIZE):
-        raise Exception("Binary file detected; editing is not supported")
-
     mime_type, _ = mimetypes.guess_type(full_path)
-    try:
-        with open(full_path, "r", encoding="utf-8", errors="strict") as file:
-            content = file.read()
-    except UnicodeDecodeError:
-        raise Exception("Unable to decode file as UTF-8; editing is not supported")
+    with open(full_path, "rb") as file:
+        content = FileBrowser.decode_text(file.read(FileBrowser.max_text_bytes() + 1))
 
     return {
         "path": file_path,

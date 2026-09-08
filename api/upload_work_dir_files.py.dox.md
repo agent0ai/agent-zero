@@ -45,3 +45,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+FileBrowser checks the configured transfer size before writing uploads, including archives and development base64 uploads. Rejection leaves existing destinations intact.

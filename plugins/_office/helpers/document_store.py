@@ -17,6 +17,7 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from helpers import files
+from helpers.file_browser import FileBrowser
 from helpers.localization import Localization
 from plugins._office.helpers import pptx_writer
 
@@ -28,7 +29,6 @@ EDITOR_TEXT_EXTENSIONS = {"md", "txt"}
 SUPPORTED_EXTENSIONS = {*EDITOR_TEXT_EXTENSIONS, *OPEN_DOCUMENT_EXTENSIONS, *OOXML_EXTENSIONS}
 DEFAULT_TTL_SECONDS = 8 * 60 * 60
 MAX_SAVE_BYTES = 512 * 1024 * 1024
-MAX_EDITOR_BYTES = 1024 * 1024
 ODF_OFFICE_NS = "urn:oasis:names:tc:opendocument:xmlns:office:1.0"
 ODF_TEXT_NS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
 ODF_TABLE_NS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
@@ -506,27 +506,15 @@ def is_editor_document(doc: dict[str, Any]) -> bool:
 
 
 def editor_text_bytes(content: str) -> bytes:
-    data = content.encode("utf-8")
-    if len(data) > MAX_EDITOR_BYTES:
-        raise ValueError("File exceeds 1 MB and cannot be edited")
-    if files.is_probably_binary_bytes(data):
-        raise ValueError("Binary file detected; editing is not supported")
-    return data
+    return FileBrowser.text_bytes(content)
 
 
 def read_text_for_editor(doc: dict[str, Any]) -> str:
     if not is_editor_document(doc):
         raise ValueError(f"Text editing is not available for .{doc['extension']}.")
     with Path(doc["path"]).open("rb") as stream:
-        data = stream.read(MAX_EDITOR_BYTES + 1)
-    if len(data) > MAX_EDITOR_BYTES:
-        raise ValueError("File exceeds 1 MB and cannot be edited")
-    if files.is_probably_binary_bytes(data):
-        raise ValueError("Binary file detected; editing is not supported")
-    try:
-        return data.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise ValueError("Unable to decode file as UTF-8; editing is not supported") from exc
+        data = stream.read(FileBrowser.max_text_bytes() + 1)
+    return FileBrowser.decode_text(data)
 
 
 def write_text_document(file_id: str, content: str) -> dict[str, Any]:

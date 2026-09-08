@@ -71,6 +71,8 @@ class Settings(TypedDict):
     workdir_max_lines: int
     workdir_gitignore: str
     file_browser_remember_last_directory: bool
+    file_browser_max_text_size_mb: int
+    file_browser_max_transfer_size_mb: int
 
     api_keys: dict[str, str]
 
@@ -457,6 +459,8 @@ def normalize_settings(settings: Settings) -> Settings:
             except (ValueError, TypeError):
                 copy[key] = value  # make default instead
 
+    copy["file_browser_max_text_size_mb"] = max(1, min(100, copy["file_browser_max_text_size_mb"]))
+    copy["file_browser_max_transfer_size_mb"] = max(1, copy["file_browser_max_transfer_size_mb"])
     if copy["agent_profile"] == "default":
         copy["agent_profile"] = "agent0"
 
@@ -582,6 +586,8 @@ def get_default_settings() -> Settings:
             "file_browser_remember_last_directory",
             True,
         ),
+        file_browser_max_text_size_mb=get_default_value("file_browser_max_text_size_mb", 10),
+        file_browser_max_transfer_size_mb=get_default_value("file_browser_max_transfer_size_mb", 100),
         rfc_auto_docker=get_default_value("rfc_auto_docker", True),
         rfc_url=get_default_value("rfc_url", "localhost"),
         rfc_password="",

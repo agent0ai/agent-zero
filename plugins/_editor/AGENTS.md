@@ -17,9 +17,10 @@
 - This always-enabled plugin is the sole file-editing UI; Files Edit and New file route here. The retired `modals/file-editor` UI is removed.
 - Ctrl+F in source mode belongs to ACE; the preview search handles only preview mode and closes when returning to source.
 - Source mode uses ACE line numbers and its bundled filename-to-language mapping; JSONL uses JSON highlighting. Preview and formatting controls remain available only for Markdown/plain text.
-- Accept UTF-8 files up to 1 MiB, reject binary content and invalid encoding, and retain save-conflict protection. Authenticated Files opens, creation, Rename, and Save As retain File Browser filesystem access; agent artifact paths remain scoped.
+- Inherit text size, binary detection, and UTF-8 validation from `helpers.file_browser.FileBrowser` (10 MiB by default, configurable in File Browser settings). Files supplies frontend limits through its directory API. Retain save-conflict protection and provider permissions. Authenticated Files opens, creation, Rename, and Save As retain File Browser filesystem access; agent artifact paths remain scoped.
 - Tool-result refreshes update already-open code files as well as Markdown, preserving dirty tabs and the existing explicit Markdown handoff policy.
 - Keep editor session state synchronized across API, WebSocket, and WebUI panel behavior.
+- Full-text input and saves above 64 Ki characters use the authenticated HTTP session API to avoid the WebSocket message ceiling; backend text validation still applies.
 - Do not expose unsaved content or local paths beyond intended chat/context surfaces.
 - Keep the floating Editor modal on the shared surface modal chrome so the header remains draggable while existing Focus mode continues to work.
 - Keep Editor Open wired through the File Browser text picker so users can open one or more text or code files with an obvious confirmation action.

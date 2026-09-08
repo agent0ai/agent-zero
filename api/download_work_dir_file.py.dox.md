@@ -58,3 +58,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+File Browser requests (`source=file-browser`) enforce the configured transfer size before streaming, returning HTTP 413 when exceeded. Other download callers retain their own size contracts. `stream_file_download` accepts an optional byte limit without imposing one globally.

@@ -1,4 +1,5 @@
 import base64
+import json
 from werkzeug.datastructures import FileStorage
 from helpers.api import ApiHandler, Request, Response
 from helpers.file_browser import FileBrowser
@@ -15,6 +16,10 @@ class UploadWorkDirFiles(ApiHandler):
 
         current_path = request.form.get("path", "")
         uploaded_files = request.files.getlist("files[]")
+        browser = FileBrowser()
+        if any(not browser._check_file_size(file) for file in uploaded_files):
+            limit = browser.max_file_bytes() / (1024 * 1024)
+            return Response(json.dumps({"error": f"Upload exceeds the {limit:g} MiB transfer limit."}), status=413, mimetype="application/json")
 
         # browser = FileBrowser()
         # successful, failed = browser.save_files(uploaded_files, current_path)

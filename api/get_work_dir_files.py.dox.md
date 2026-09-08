@@ -19,6 +19,8 @@
 
 ## Runtime Contracts
 
+- Responses include FileBrowser-owned `limits`; `?limits=1` returns only those constraints without listing a directory. Files and Editor use this metadata instead of separate frontend caps.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `GetWorkDirFiles` is an `ApiHandler`.

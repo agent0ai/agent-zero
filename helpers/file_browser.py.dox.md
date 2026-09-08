@@ -24,6 +24,11 @@
 
 ## Runtime Contracts
 
+- The text limit is read dynamically from `file_browser_max_text_size_mb` (10 MiB default, configurable 1–100); the transfer limit remains separate. Consumers call `max_text_bytes()` rather than retaining a startup snapshot.
+
+- `FileBrowser` owns file-transfer and text-editing limits. `limits()` exposes them to Files/Editor UI; `text_bytes` and `decode_text` validate byte length, binary content, and UTF-8 for both local and remote Editor sessions. Consumers must not maintain independent Editor size constants.
+- `max_file_bytes()` reads the configurable transfer limit (100 MiB by default, positive integer MiB with no ceiling). Local uploads, including archives, validate size before opening the destination; editing uses its separate limit.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, settings/state persistence.
