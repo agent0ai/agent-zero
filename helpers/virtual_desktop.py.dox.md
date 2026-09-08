@@ -28,7 +28,6 @@
 - `find_xpra_html_root() -> Path | None`
 - `_package_installed(package: str) -> bool`
 - `normalize_size(width: int | float | str, height: int | float | str, max_width: int=..., max_height: int=..., min_width: int=..., min_height: int=...) -> tuple[int, int]`
-- `normalize_desktop_display_size(width: int | float | str, height: int | float | str, max_width: int=..., max_height: int=..., min_width: int=..., min_height: int=..., min_aspect_ratio: float=...) -> tuple[int, int]`
 - `resize_display(display: int, width: int, height: int, max_width: int=..., max_height: int=..., window_class: str=..., keys: tuple[str, ...]=..., xauthority: str=..., home: str=..., settle_seconds: float=...) -> dict[str, Any]`
 - `_ensure_xrandr_mode(env: dict[str, str], width: int, height: int) -> None`
 - `_select_xrandr_mode(env: dict[str, str], width: int, height: int) -> subprocess.CompletedProcess[str]`

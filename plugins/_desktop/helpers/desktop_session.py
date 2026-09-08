@@ -430,8 +430,6 @@ class DesktopSessionManager:
         if not session:
             return {"ok": False, "error": "LibreOffice desktop session not found."}
         is_system_desktop = session.session_id == SYSTEM_SESSION_ID and session.extension == "desktop"
-        if is_system_desktop:
-            width, height = virtual_desktop.normalize_desktop_display_size(width, height)
         result = virtual_desktop.resize_display(
             display=session.display,
             width=width,

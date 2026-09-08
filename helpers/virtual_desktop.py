@@ -23,7 +23,6 @@ MAX_WIDTH = 1920
 MAX_HEIGHT = 1080
 MIN_WIDTH = 360
 MIN_HEIGHT = 240
-MIN_DESKTOP_ASPECT_RATIO = 4 / 3
 SESSION_PATH = "/desktop/session"
 XPRA_HTML_ROOT_CANDIDATES = (
     Path("/usr/share/xpra/www"),
@@ -231,38 +230,6 @@ def normalize_size(
     return (
         max(min_width, min(max_width, requested_width)),
         max(min_height, min(max_height, requested_height)),
-    )
-
-
-def normalize_desktop_display_size(
-    width: int | float | str,
-    height: int | float | str,
-    *,
-    max_width: int = MAX_WIDTH,
-    max_height: int = MAX_HEIGHT,
-    min_width: int = MIN_WIDTH,
-    min_height: int = MIN_HEIGHT,
-    min_aspect_ratio: float = MIN_DESKTOP_ASPECT_RATIO,
-) -> tuple[int, int]:
-    normalized_width, normalized_height = normalize_size(
-        width,
-        height,
-        max_width=max_width,
-        max_height=max_height,
-        min_width=min_width,
-        min_height=min_height,
-    )
-    if normalized_height <= 0:
-        return normalized_width, normalized_height
-    if normalized_width / normalized_height >= min_aspect_ratio:
-        return normalized_width, normalized_height
-    return normalize_size(
-        DEFAULT_WIDTH,
-        DEFAULT_HEIGHT,
-        max_width=max_width,
-        max_height=max_height,
-        min_width=min_width,
-        min_height=min_height,
     )
 
 
