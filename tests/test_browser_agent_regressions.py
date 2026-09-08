@@ -1614,6 +1614,52 @@ def test_browser_extension_settings_stay_user_facing():
     assert "Browser caches Playwright Chromium" not in config_html
 
 
+def test_browser_tab_switch_completes_without_reloading_shared_interactive_viewer():
+    source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text(encoding="utf-8")
+    source = source[source.index("const EXTENSIONS_ROOT"):source.index("export const store")]
+    script = """
+import assert from 'node:assert/strict';
+let responseData;
+let superseded = false;
+const websocket = { request: async () => {
+  if (superseded) model._connectSequence++;
+  return { results: [{ ok: true, data: responseData }] };
+} };
+""" + source + """
+Object.assign(model, {
+  loading: false, contextId: 'ctx', activeBrowserContextId: 'ctx', activeBrowserId: 2,
+  _bindSocketEvents: async () => {},
+  currentViewportSize: () => ({ width: 900, height: 600 }),
+});
+for (const [transport, oldUrl, nextUrl, stale, busy] of [
+  ['interactive', '/viewer', '/viewer', false, false],
+  ['interactive', '', '/viewer', false, true],
+  ['interactive', '/viewer', '/new-viewer', false, true],
+  ['screencast', '/viewer', '', false, true],
+  ['snapshot', '', '', false, true],
+  ['interactive', '/viewer', '/viewer', true, true],
+]) {
+  Object.assign(model, {
+    viewerTransport: transport, interactiveViewUrl: oldUrl,
+    switchingBrowserId: 2, _surfaceSwitching: true,
+  });
+  responseData = {
+    browsers: [{ id: 2, context_id: 'ctx', loading: false }],
+    active_browser_id: 2, viewer_transport: transport,
+    interactive_view: { available: Boolean(nextUrl), url: nextUrl },
+  };
+  superseded = stale;
+  await model.connectViewer({ browserId: 2, contextId: 'ctx' });
+  assert.equal(model.isBusy(), busy, JSON.stringify([transport, oldUrl, nextUrl, stale]));
+  assert.equal(model.isBrowserLoading(model.browsers[0]), busy);
+  assert.equal(model._surfaceSwitching, busy);
+  assert.equal(model.switchingBrowserId, busy ? 2 : null);
+  assert.equal(model.interactiveViewUrl, stale ? oldUrl : nextUrl);
+}
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
+
+
 def test_browser_viewer_uses_tabs_for_session_switching():
     main_html = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html").read_text(
         encoding="utf-8"

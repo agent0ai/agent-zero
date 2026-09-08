@@ -1223,7 +1223,12 @@ const model = {
       replaceAll: Boolean(data.all_browsers),
       replaceContext: !data.all_browsers,
     });
+    const previousInteractiveViewUrl = this.interactiveViewUrl;
     this.applyViewer(data);
+    if (this.usesInteractiveTransport() && this.interactiveViewUrl === previousInteractiveViewUrl) {
+      this.switchingBrowserId = null;
+      this._surfaceSwitching = false;
+    }
     this._subscribedViewerTransport = this.viewerTransport;
     this.setActiveBrowserId(
       data.active_browser_id || requestedBrowserId || this.activeBrowserId || null,
