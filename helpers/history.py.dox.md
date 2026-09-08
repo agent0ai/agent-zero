@@ -57,6 +57,7 @@
   - `new_topic(self)`
   - `output(self) -> list[OutputMessage]`
 - Top-level functions:
+- `_truncate_summary(text: str, max_chars: int=...) -> str`
 - `deserialize_history(json_data: str, agent) -> History`
 - `_stringify_output(output: OutputMessage, ai_label=..., human_label=...)`
 - `_stringify_content(content: MessageContent) -> str`
@@ -72,6 +73,7 @@
 - `_json_dumps(obj)`
 - `_json_loads(obj)`
 - Notable constants/configuration names: `BULK_MERGE_COUNT`, `TOPICS_MERGE_COUNT`, `CURRENT_TOPIC_RATIO`, `HISTORY_TOPIC_RATIO`, `HISTORY_BULK_RATIO`, `CURRENT_TOPIC_ATTENTION_COMPRESSION`, `HISTORY_TOPIC_ATTENTION_COMPRESSION`, `LARGE_MESSAGE_TO_CURRENT_TOPIC_RATIO`, `LARGE_MESSAGE_TO_HISTORY_TOPIC_RATIO`, `RAW_MESSAGE_OUTPUT_TEXT_TRIM`, `COMPRESSION_TARGET_RATIO`.
+- Emergency history compression uses a bounded, deterministic head-and-tail summary when the utility model raises or returns empty content. Empty bulk collections are a no-op.
 
 ## Runtime Contracts
 
