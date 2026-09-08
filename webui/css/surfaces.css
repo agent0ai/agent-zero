@@ -317,10 +317,13 @@
 .surface-workspace.editor-panel,
 .surface-workspace .editor-shell,
 .surface-workspace .editor-preview-shell,
-.surface-workspace .file-tree,
 .surface-workspace .files-list,
 .surface-workspace .file-browser-footer {
   background: var(--surface-background);
+}
+
+.surface-workspace .file-tree {
+  background: var(--color-background);
 }
 
 @media (prefers-reduced-motion: reduce) {
