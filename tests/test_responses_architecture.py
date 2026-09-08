@@ -312,23 +312,17 @@ async def test_chat_stream_retries_without_usage_when_stream_options_rejected(
     transport = litellm_transport.LiteLLMTransport(
         model="custom/model",
         messages=[{"role": "user", "content": "question"}],
-        kwargs={
-            "a0_api_mode": "chat_completions",
-            "stream_options": {"include_usage": True, "custom": "keep"},
-        },
+        kwargs={"a0_api_mode": "chat_completions"},
     )
 
     async for _chunk in transport.astream():
         pass
 
-    assert calls[0]["stream_options"] == {
-        "include_usage": True,
-        "custom": "keep",
-    }
-    assert calls[1]["stream_options"] == {"custom": "keep"}
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in calls[1]
     assert len(calls) == 2
 
-    next_transport = litellm_transport.LiteLLMTransport(
+    user_transport = litellm_transport.LiteLLMTransport(
         model="custom/model",
         messages=[{"role": "user", "content": "again"}],
         kwargs={
@@ -336,8 +330,11 @@ async def test_chat_stream_retries_without_usage_when_stream_options_rejected(
             "stream_options": {"include_usage": True, "custom": "keep"},
         },
     )
-    request = next_transport._chat_request(stream=True)
-    assert request["stream_options"] == {"custom": "keep"}
+    request = user_transport._chat_request(stream=True)
+    assert request["stream_options"] == {
+        "include_usage": True,
+        "custom": "keep",
+    }
 
 
 def test_responses_provider_state_uses_previous_response_and_new_items():

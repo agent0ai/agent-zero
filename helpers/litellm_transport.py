@@ -366,12 +366,6 @@ class LiteLLMTransport:
         self.stream_usage_retried = True
         if self.policy.cache_key:
             STREAM_USAGE_UNSUPPORTED_CACHE.add(self.policy.cache_key)
-        options = dict(self.kwargs.get("stream_options") or {})
-        options.pop("include_usage", None)
-        if options:
-            self.kwargs["stream_options"] = options
-        else:
-            self.kwargs.pop("stream_options", None)
         return True
 
     def _chat_request(self, *, stream: bool) -> dict[str, Any]:
@@ -392,14 +386,15 @@ class LiteLLMTransport:
             "stream": stream,
             **chat_kwargs,
         }
-        if stream and not self.stream_usage_retried:
-            options = {**(request.get("stream_options") or {})}
-            if self.policy.cache_key in STREAM_USAGE_UNSUPPORTED_CACHE:
-                options.pop("include_usage", None)
-            else:
-                options["include_usage"] = True
-            if options:
-                request["stream_options"] = options
+        if (
+            stream
+            and not self.stream_usage_retried
+            and self.policy.cache_key not in STREAM_USAGE_UNSUPPORTED_CACHE
+        ):
+            request["stream_options"] = {
+                **(request.get("stream_options") or {}),
+                "include_usage": True,
+            }
         if self.stop is not None:
             request["stop"] = self.stop
         return request
