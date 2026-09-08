@@ -15,7 +15,7 @@
             <button type="button" class="file-tree-chevron" :style="{ visibility: row.node.is_dir ? 'visible' : 'hidden' }" :tabindex="row.node.is_dir ? 0 : -1" :aria-label="(row.node.expanded ? 'Collapse ' : 'Expand ') + row.node.name" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" @click="tree.expand(row.node)">
               <x-icon :name="row.node.loading ? 'progress_activity' : (row.node.expanded ? 'expand_more' : 'chevron_right')"></x-icon>
             </button>
-            <button type="button" class="file-tree-entry" :title="row.node.path" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" :aria-current="tree.selectedPath === row.node.path ? 'true' : null" @click="tree.open(row.node)">
+            <button type="button" class="file-tree-entry" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" :aria-current="tree.selectedPath === row.node.path ? 'true' : null" @click="tree.open(row.node)">
               <x-icon :name="row.node.is_dir ? (row.node.expanded ? 'folder_open' : 'folder') : (/\.md$/i.test(row.node.name) ? 'markdown' : 'description')"></x-icon>
               <span x-text="row.node.name"></span>
             </button>

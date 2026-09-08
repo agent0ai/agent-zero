@@ -1284,50 +1284,6 @@ const model = {
     }
   },
 
-  copySelectedPaths() {
-    const selectedFiles = this.selectedFiles;
-    if (!selectedFiles.length) return;
-
-    const paths = selectedFiles.map((file) => file.path).join("\n");
-    this.copyToClipboard(paths, () => {
-      window.toastFrontendSuccess(
-        `Copied ${selectedFiles.length} ${selectedFiles.length === 1 ? "path" : "paths"}`,
-        "File Browser"
-      );
-    });
-  },
-
-  copyToClipboard(text, onSuccess) {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => onSuccess?.())
-        .catch(() => this.fallbackCopyToClipboard(text, onSuccess));
-    } else {
-      this.fallbackCopyToClipboard(text, onSuccess);
-    }
-  },
-
-  fallbackCopyToClipboard(text, onSuccess) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999999px";
-    textArea.style.top = "-999999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand("copy");
-      onSuccess?.();
-    } catch (error) {
-      console.error("Clipboard copy failed:", error);
-      window.toastFrontendError("Failed to copy selected paths", "File Browser");
-    } finally {
-      document.body.removeChild(textArea);
-    }
-  },
-
   getDownloadFilename(response, fallback) {
     const disposition = response.headers.get("Content-Disposition") || "";
     const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);

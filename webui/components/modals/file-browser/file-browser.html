@@ -104,23 +104,10 @@
                   <div class="path-error" x-text="$store.fileBrowser.pathError"></div>
                 </template>
               </div>
-              <div class="file-browser-workspace">
-                <div class="file-browser-list-pane">
               <div x-show="$store.fileBrowser.selectedCount > 0 && !$store.fileBrowser.isPickerMode()" class="mass-action-toolbar file-mass-toolbar">
                 <div class="selection-info" x-text="$store.fileBrowser.selectedCountLabel"></div>
 
                 <div class="mass-actions">
-                  <button
-                    type="button"
-                    class="btn btn-mass copy"
-                    @click="$store.fileBrowser.copySelectedPaths()"
-                    :disabled="$store.fileBrowser.isBulkBusy"
-                    title="Copy Selected Paths"
-                  >
-                    <x-icon name="content_copy"></x-icon>
-                    Copy Paths
-                  </button>
-
                   <button
                     type="button"
                     class="btn btn-mass export"
@@ -156,6 +143,8 @@
                 </div>
               </div>
 
+              <div class="file-browser-workspace">
+                <div class="file-browser-list-pane">
               <!-- Files list -->
               <div class="files-list" @scroll="$store.fileBrowser.closeDropdown()">
                 <div class="file-header">
@@ -949,6 +938,24 @@
     .file-browser-header-button.path-submit:disabled { opacity: 0.5; }
     .file-browser-header-button:focus-visible { outline: 1px solid var(--color-text-secondary); outline-offset: 2px; }
     .path-navigator .nav-button-label { display: none; }
+    .file-mass-toolbar {
+      flex: 0 0 auto;
+      flex-flow: row wrap;
+      gap: 0.75rem 1rem;
+      margin: 0 6px;
+    }
+    .file-mass-toolbar .selection-info {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .file-mass-toolbar .mass-actions {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+    .file-mass-toolbar .btn-mass {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
     .file-browser-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; position: relative; overflow: hidden; }
     .file-browser-list-pane { container: file-browser / inline-size; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; padding: 0 6px; }
     .btn-secondary {

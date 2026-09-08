@@ -25,6 +25,7 @@
 - Keep Extract available for supported archive files; extraction must create a new sibling folder and reject unsafe member paths and links.
 - The dropdown tracks its originating `.file-actions` row, so hidden canvas/modal copies cannot open duplicate teleported menus or plugin entries.
 - Keep row action menus visible without disabling file-list scrolling; menus may float outside the scroll container but must still close on outside click, Escape, action click, and list scroll.
+- The selection toolbar provides Download ZIP, Delete, and Clear and spans the full width below the path header and above the list/tree split. Keep the count and each button label on one line; wrap whole controls with explicit horizontal and vertical gaps on narrow panels.
 - Keep the file list readable in narrow canvas/modal containers by hiding the Modified date column before sacrificing the Name or Size columns.
 - Use the shared `surface-workspace` lighter palette, 32px flat toolbar controls, and separators between action groups; the file-tree toggle stays available in the path header.
 - The list pane uses `padding: 0 6px`, a borderless list container/header bottom, and square file rows. Folder rows use the same `folder` Material Symbol as the tree; file-type SVGs remain for files. All list icons use a fixed 22px slot, with a 22px folder glyph, so folder and file names align.
@@ -35,6 +36,7 @@
 - Preserve surface actions that route supported files to Browser, Desktop, or Editor.
 - Keep native drag moves available outside picker modes: dragging an unselected row moves only that row without changing selection, dragging a selected row moves the selection, folder rows accept drops, and Up moves items to the parent directory. Moves must reject overwrites and self-nesting.
 
+- File and folder entries in the shared tree must not have native or Bootstrap tooltips.
 - Folder names and chevrons both toggle expansion; name clicks navigate only when expanding. Indent branch status messages to the child-name column at each depth.
 - Tree branches load through the existing authenticated file-list API on expansion; filtering covers loaded folders. Keep only the filter above the raw tree, without path, parent, or refresh controls. Preserve expanded ancestors during navigation within the root and reset when moving outside it.
 - Keep the tree on the right in canvas and modal modes; at narrow panel widths it overlays the content below the toolbar. Tree file clicks reuse picker selection or existing file-opening actions.
