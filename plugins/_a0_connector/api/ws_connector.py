@@ -7,7 +7,8 @@ from urllib.parse import unquote, urlsplit
 
 from helpers.print_style import PrintStyle
 from helpers.ws import WsHandler
-from helpers.ws_manager import WsResult
+from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
+from helpers.ws_manager import WsPayloadTooLargeError, WsResult
 
 from plugins._a0_connector.helpers.exec_config import build_exec_config
 from plugins._a0_connector.helpers.event_bridge import (
@@ -16,6 +17,9 @@ from plugins._a0_connector.helpers.event_bridge import (
 )
 from plugins._a0_connector.helpers.version import agent_zero_version
 from plugins._a0_connector.helpers.ws_runtime import (
+    TRANSFER_PROTOCOL_VERSION,
+    abort_incoming_transfer,
+    append_incoming_transfer,
     clear_remote_tree_snapshot,
     clear_sid_launcher_gateway_metadata,
     clear_sid_host_browser_metadata,
@@ -28,7 +32,9 @@ from plugins._a0_connector.helpers.ws_runtime import (
     fail_pending_exec_ops_for_sid,
     fail_pending_file_ops_for_sid,
     fail_pending_gateway_controls_for_sid,
+    finish_incoming_transfer,
     host_browser_metadata_for_sid,
+    incoming_transfer_metadata,
     register_sid,
     remote_exec_metadata_for_sid,
     remote_file_metadata_for_sid,
@@ -38,16 +44,19 @@ from plugins._a0_connector.helpers.ws_runtime import (
     resolve_pending_exec_op,
     resolve_pending_file_op,
     store_remote_tree_snapshot,
+    store_sid_connector_capabilities,
     store_sid_launcher_gateway_metadata,
     store_sid_host_browser_metadata,
     store_sid_computer_use_metadata,
     store_sid_remote_exec_metadata,
     store_sid_remote_file_metadata,
+    start_incoming_transfer,
     subscribe_sid_to_context,
     subscribed_contexts_for_sid,
     subscribed_sids_for_context,
     unsubscribe_sid_from_context,
     unregister_sid,
+    ws_max_payload_bytes_for_sid,
 )
 
 if TYPE_CHECKING:
@@ -122,6 +131,11 @@ class WsConnector(WsHandler):
 
     async def on_connect(self, sid: str) -> None:
         register_sid(sid)
+        self.manager.set_peer_max_payload_bytes(
+            self._namespace,
+            sid,
+            ws_max_payload_bytes_for_sid(sid),
+        )
         PrintStyle.debug(f"[a0-connector] /ws connected: {sid}")
 
     async def on_disconnect(self, sid: str) -> None:
@@ -156,6 +170,43 @@ class WsConnector(WsHandler):
         clear_sid_launcher_gateway_metadata(sid)
         PrintStyle.debug(f"[a0-connector] /ws disconnected: {sid}")
 
+    async def emit_to(
+        self,
+        sid: str,
+        event: str,
+        data: dict,
+        *,
+        correlation_id: str | None = None,
+    ) -> None:
+        limit = ws_max_payload_bytes_for_sid(sid)
+        try:
+            await super().emit_to(
+                sid,
+                event,
+                data,
+                correlation_id=correlation_id,
+                max_payload_bytes=limit,
+            )
+        except WsPayloadTooLargeError as exc:
+            if event == "connector_error":
+                raise
+            error_payload: dict[str, Any] = {
+                "code": "PAYLOAD_TOO_LARGE",
+                "message": str(exc),
+                "details": exc.details(),
+                "rejected_event": event,
+            }
+            context_id = str(data.get("context_id") or "").strip()
+            if context_id:
+                error_payload["context_id"] = context_id
+            await super().emit_to(
+                sid,
+                "connector_error",
+                error_payload,
+                correlation_id=correlation_id,
+                max_payload_bytes=limit,
+            )
+
     async def process(
         self,
         event: str,
@@ -163,12 +214,18 @@ class WsConnector(WsHandler):
         sid: str,
     ) -> dict[str, Any] | WsResult | None:
         if event == "connector_hello":
+            limit = store_sid_connector_capabilities(sid, data.get("capabilities"))
+            self.manager.set_peer_max_payload_bytes(self._namespace, sid, limit)
             self._store_remote_tool_metadata(data, sid)
             self._associate_declared_context(data, sid)
             return {
                 "protocol": PROTOCOL_VERSION,
                 "agent_zero_version": agent_zero_version(),
                 "features": WS_FEATURES,
+                "capabilities": {
+                    "ws_max_payload_bytes": A0_WS_MAX_PAYLOAD_BYTES,
+                    "transfer_protocol": TRANSFER_PROTOCOL_VERSION,
+                },
                 "exec_config": build_exec_config(),
                 "remote_tools": self._remote_tool_state(sid),
             }
@@ -190,6 +247,14 @@ class WsConnector(WsHandler):
 
         if event == "connector_message_queue_send":
             return await self._handle_message_queue_send(data, sid)
+
+        if event in {
+            "connector_transfer_start",
+            "connector_transfer_chunk",
+            "connector_transfer_end",
+            "connector_transfer_abort",
+        }:
+            return await self._handle_transfer_event(event, data, sid)
 
         if event == "connector_file_op_result":
             return self._handle_file_op_result(data, sid)
@@ -217,6 +282,68 @@ class WsConnector(WsHandler):
             )
 
         return None
+
+    async def _handle_transfer_event(
+        self,
+        event: str,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any]:
+        transfer_id = str(data.get("transfer_id") or "")
+        if event == "connector_transfer_start":
+            error = start_incoming_transfer(
+                sid,
+                data,
+                max_bytes=A0_WS_MAX_PAYLOAD_BYTES,
+            )
+        elif event == "connector_transfer_chunk":
+            error = append_incoming_transfer(sid, data)
+        elif event == "connector_transfer_abort":
+            accepted = abort_incoming_transfer(sid, data)
+            return {"transfer_id": transfer_id, "accepted": accepted}
+        else:
+            kind, result, error = finish_incoming_transfer(sid, data)
+            if not error and kind is not None and result is not None:
+                response = self._handle_transferred_result(kind, result, sid)
+                return {
+                    "transfer_id": transfer_id,
+                    "accepted": bool(response.get("accepted")),
+                    "kind": kind,
+                }
+
+        if error:
+            transfer_metadata = incoming_transfer_metadata(sid, transfer_id)
+            abort_incoming_transfer(sid, data, reason=error)
+            await self.emit_to(
+                sid,
+                "connector_transfer_abort",
+                {
+                    "transfer_id": transfer_id,
+                    "op_id": transfer_metadata.get("op_id") or data.get("op_id"),
+                    "kind": transfer_metadata.get("kind") or data.get("kind"),
+                    "reason": error[:512],
+                },
+            )
+            return {"transfer_id": transfer_id, "accepted": False, "error": error}
+        return {"transfer_id": transfer_id, "accepted": True}
+
+    def _handle_transferred_result(
+        self,
+        kind: str,
+        data: dict[str, Any],
+        sid: str,
+    ) -> dict[str, Any]:
+        handlers = {
+            "connector_file_op_result": self._handle_file_op_result,
+            "connector_exec_op_result": self._handle_exec_op_result,
+            "connector_computer_use_op_result": self._handle_computer_use_op_result,
+            "connector_browser_op_result": self._handle_browser_op_result,
+            "connector_gateway_control_result": self._handle_gateway_control_result,
+        }
+        handler = handlers.get(kind)
+        if handler is None:
+            return {"accepted": False}
+        return handler(data, sid)
 
     def _store_remote_tool_metadata(self, data: dict[str, Any], sid: str) -> None:
         computer_use = data.get("computer_use")

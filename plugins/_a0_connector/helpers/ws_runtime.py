@@ -3,12 +3,21 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import contextlib
 import copy
+import hashlib
 import json
+import os
+from pathlib import Path
+import tempfile
 import threading
 import time
-from dataclasses import dataclass, field
+import uuid
+from dataclasses import dataclass
 from typing import Any
+
+from helpers.ws_limits import peer_ws_max_payload_bytes
+from helpers.ws_manager import WsPayloadTooLargeError, get_shared_ws_manager
 
 
 @dataclass
@@ -17,8 +26,51 @@ class PendingFileOperation:
     loop: asyncio.AbstractEventLoop
     future: asyncio.Future[dict[str, Any]]
     context_id: str | None = None
-    chunk_count: int | None = None
-    chunks: dict[int, bytes] = field(default_factory=dict)
+
+
+TRANSFER_PROTOCOL_VERSION = 1
+TRANSFER_CHUNK_BYTES = 64 * 1024
+TRANSFER_SPOOL_THRESHOLD_BYTES = 1024 * 1024
+TRANSFER_SINGLE_FRAME_BYTES = 1024 * 1024
+TRANSFER_IDLE_TIMEOUT_SECONDS = 30.0
+MAX_INCOMING_TRANSFERS_PER_SID = 4
+_TRANSFER_ENCODED_CHUNK_MAX = ((TRANSFER_CHUNK_BYTES + 2) // 3) * 4
+_TRANSFER_RESULT_EVENTS = {
+    "connector_file_op_result",
+    "connector_exec_op_result",
+    "connector_computer_use_op_result",
+    "connector_browser_op_result",
+    "connector_gateway_control_result",
+}
+
+
+@dataclass
+class IncomingTransfer:
+    transfer_id: str
+    sid: str
+    kind: str
+    op_id: str
+    context_id: str | None
+    total_bytes: int
+    sha256: str
+    digest: Any
+    updated_at: float
+    buffer: bytearray | None = None
+    temp_path: Path | None = None
+    next_index: int = 0
+    received_bytes: int = 0
+    timeout: threading.Timer | None = None
+
+
+@dataclass
+class OutgoingTransfer:
+    transfer_id: str
+    sid: str
+    kind: str
+    op_id: str
+    context_id: str | None
+    cancel_reason: str = ""
+    abort_sent: bool = False
 
 
 @dataclass
@@ -134,6 +186,10 @@ _sid_host_browser_metadata: dict[str, HostBrowserMetadata] = {}
 _sid_remote_file_metadata: dict[str, RemoteFileMetadata] = {}
 _sid_remote_exec_metadata: dict[str, RemoteExecMetadata] = {}
 _sid_launcher_gateway_metadata: dict[str, LauncherGatewayMetadata] = {}
+_sid_ws_max_payload_bytes: dict[str, int] = {}
+_sid_transfer_protocol: dict[str, int] = {}
+_incoming_transfers: dict[str, IncomingTransfer] = {}
+_outgoing_transfers: dict[str, OutgoingTransfer] = {}
 _replaced_gateway_sids: set[str] = set()
 _state_lock = threading.RLock()
 
@@ -142,9 +198,16 @@ def register_sid(sid: str) -> None:
     with _state_lock:
         _replaced_gateway_sids.discard(sid)
         _sid_contexts.setdefault(sid, set())
+        _sid_ws_max_payload_bytes.setdefault(
+            sid,
+            peer_ws_max_payload_bytes(None),
+        )
+        _sid_transfer_protocol.setdefault(sid, 0)
 
 
 def unregister_sid(sid: str) -> set[str]:
+    transfer_ids: list[str] = []
+    outgoing: list[OutgoingTransfer] = []
     with _state_lock:
         contexts = _sid_contexts.pop(sid, set())
         _remote_tree_snapshots.pop(sid, None)
@@ -153,6 +216,22 @@ def unregister_sid(sid: str) -> set[str]:
         _sid_remote_file_metadata.pop(sid, None)
         _sid_remote_exec_metadata.pop(sid, None)
         _sid_launcher_gateway_metadata.pop(sid, None)
+        _sid_ws_max_payload_bytes.pop(sid, None)
+        _sid_transfer_protocol.pop(sid, None)
+        transfer_ids = [
+            transfer_id
+            for transfer_id, transfer in _incoming_transfers.items()
+            if transfer.sid == sid
+        ]
+        outgoing = [
+            transfer
+            for transfer in _outgoing_transfers.values()
+            if transfer.sid == sid
+        ]
+        for transfer in outgoing:
+            transfer.cancel_reason = "connector disconnected during transfer"
+            transfer.abort_sent = True
+            _outgoing_transfers.pop(transfer.transfer_id, None)
         _replaced_gateway_sids.discard(sid)
         for context_id in contexts:
             subscribers = _context_subscriptions.get(context_id)
@@ -161,6 +240,19 @@ def unregister_sid(sid: str) -> set[str]:
             subscribers.discard(sid)
             if not subscribers:
                 _context_subscriptions.pop(context_id, None)
+    for transfer_id in transfer_ids:
+        abort_incoming_transfer(
+            sid,
+            {"transfer_id": transfer_id},
+            reason="connector disconnected during transfer",
+        )
+    for transfer in outgoing:
+        _fail_transfer_pending(
+            transfer.kind,
+            transfer.op_id,
+            sid=sid,
+            error=transfer.cancel_reason,
+        )
     return contexts
 
 
@@ -198,6 +290,200 @@ def subscribed_sids_for_context(context_id: str) -> set[str]:
 def connected_sids() -> set[str]:
     with _state_lock:
         return set(_sid_contexts.keys())
+
+
+def store_sid_connector_capabilities(sid: str, payload: Any) -> int:
+    capabilities = payload if isinstance(payload, dict) else {}
+    limit = peer_ws_max_payload_bytes(capabilities.get("ws_max_payload_bytes"))
+    try:
+        transfer_protocol = int(capabilities.get("transfer_protocol") or 0)
+    except (TypeError, ValueError):
+        transfer_protocol = 0
+    if transfer_protocol != TRANSFER_PROTOCOL_VERSION:
+        transfer_protocol = 0
+    with _state_lock:
+        _sid_ws_max_payload_bytes[sid] = limit
+        _sid_transfer_protocol[sid] = transfer_protocol
+    return limit
+
+
+def ws_max_payload_bytes_for_sid(sid: str) -> int:
+    with _state_lock:
+        return _sid_ws_max_payload_bytes.get(sid, peer_ws_max_payload_bytes(None))
+
+
+def transfer_protocol_for_sid(sid: str) -> int:
+    with _state_lock:
+        return _sid_transfer_protocol.get(sid, 0)
+
+
+async def emit_connector_event(
+    sid: str,
+    event: str,
+    payload: dict[str, Any],
+    *,
+    handler_id: str,
+    manager: Any | None = None,
+) -> None:
+    ws_manager = manager or get_shared_ws_manager()
+    limit = ws_max_payload_bytes_for_sid(sid)
+    raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(raw) > TRANSFER_SINGLE_FRAME_BYTES:
+        if (
+            transfer_protocol_for_sid(sid) == TRANSFER_PROTOCOL_VERSION
+            and len(raw) <= limit
+        ):
+            await _emit_connector_transfer(
+                ws_manager,
+                sid=sid,
+                kind=event,
+                payload=payload,
+                raw=raw,
+                handler_id=handler_id,
+                limit=limit,
+            )
+            return
+        raise WsPayloadTooLargeError(
+            event,
+            len(raw),
+            min(limit, TRANSFER_SINGLE_FRAME_BYTES),
+        )
+    try:
+        await ws_manager.emit_to(
+            "/ws",
+            sid,
+            event,
+            payload,
+            handler_id=handler_id,
+            max_payload_bytes=limit,
+        )
+        return
+    except WsPayloadTooLargeError:
+        if transfer_protocol_for_sid(sid) != TRANSFER_PROTOCOL_VERSION:
+            raise
+
+    if len(raw) > limit:
+        raise WsPayloadTooLargeError(event, len(raw), limit)
+    await _emit_connector_transfer(
+        ws_manager,
+        sid=sid,
+        kind=event,
+        payload=payload,
+        raw=raw,
+        handler_id=handler_id,
+        limit=limit,
+    )
+
+
+async def _emit_connector_transfer(
+    manager: Any,
+    *,
+    sid: str,
+    kind: str,
+    payload: dict[str, Any],
+    raw: bytes,
+    handler_id: str,
+    limit: int,
+) -> None:
+    transfer_id = uuid.uuid4().hex
+    op_id = str(payload.get("op_id") or payload.get("request_id") or "")
+    context_id = _transfer_context_id(payload.get("context_id"))
+    state = OutgoingTransfer(
+        transfer_id=transfer_id,
+        sid=sid,
+        kind=kind,
+        op_id=op_id,
+        context_id=context_id,
+    )
+    with _state_lock:
+        _outgoing_transfers[transfer_id] = state
+    common = {
+        "handler_id": handler_id,
+        "max_payload_bytes": limit,
+    }
+    try:
+        start = {
+            "transfer_id": transfer_id,
+            "op_id": op_id,
+            "kind": kind,
+            "total_bytes": len(raw),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        }
+        if context_id:
+            start["context_id"] = context_id
+        await manager.emit_to(
+            "/ws",
+            sid,
+            "connector_transfer_start",
+            start,
+            **common,
+        )
+        if state.cancel_reason:
+            return
+        for index, offset in enumerate(range(0, len(raw), TRANSFER_CHUNK_BYTES)):
+            if state.cancel_reason:
+                return
+            await manager.emit_to(
+                "/ws",
+                sid,
+                "connector_transfer_chunk",
+                {
+                    "transfer_id": transfer_id,
+                    "index": index,
+                    "data": base64.b64encode(
+                        raw[offset : offset + TRANSFER_CHUNK_BYTES]
+                    ).decode("ascii"),
+                },
+                **common,
+            )
+            if state.cancel_reason:
+                return
+        await manager.emit_to(
+            "/ws",
+            sid,
+            "connector_transfer_end",
+            {"transfer_id": transfer_id},
+            **common,
+        )
+    except Exception as exc:
+        if not state.abort_sent:
+            state.abort_sent = True
+            with contextlib.suppress(Exception):
+                await manager.emit_to(
+                    "/ws",
+                    sid,
+                    "connector_transfer_abort",
+                    {
+                        "transfer_id": transfer_id,
+                        "op_id": op_id,
+                        "kind": kind,
+                        "reason": str(exc)[:512],
+                    },
+                    **common,
+                )
+        raise
+    finally:
+        with _state_lock:
+            _outgoing_transfers.pop(transfer_id, None)
+
+
+def payload_too_large_result(
+    exc: WsPayloadTooLargeError,
+    *,
+    op_id: str | None = None,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "ok": False,
+        "code": "PAYLOAD_TOO_LARGE",
+        "error": str(exc),
+        "details": exc.details(),
+    }
+    if op_id:
+        result["op_id"] = op_id
+    if request_id:
+        result["request_id"] = request_id
+    return result
 
 
 _GATEWAY_STATES = {
@@ -789,6 +1075,369 @@ def select_computer_use_target_sid(context_id: str) -> str | None:
     return None
 
 
+def start_incoming_transfer(
+    sid: str,
+    payload: dict[str, Any],
+    *,
+    max_bytes: int,
+) -> str:
+    transfer_id = str(payload.get("transfer_id") or "")
+    kind = str(payload.get("kind") or "")
+    op_id = str(payload.get("op_id") or "")
+    raw_context_id = payload.get("context_id")
+    context_id = _transfer_context_id(raw_context_id)
+    try:
+        total_bytes = int(payload.get("total_bytes"))
+    except (TypeError, ValueError):
+        total_bytes = -1
+    sha256 = str(payload.get("sha256") or "").lower()
+
+    with _state_lock:
+        concurrent = sum(
+            1 for transfer in _incoming_transfers.values() if transfer.sid == sid
+        )
+        duplicate = transfer_id in _incoming_transfers
+    if not transfer_id or len(transfer_id) > 128:
+        return "transfer_id must be a non-empty string up to 128 characters"
+    if duplicate:
+        return "transfer_id is already active"
+    if concurrent >= MAX_INCOMING_TRANSFERS_PER_SID:
+        return "too many concurrent transfers"
+    if kind not in _TRANSFER_RESULT_EVENTS:
+        return f"unsupported transfer kind: {kind or '<missing>'}"
+    if not op_id or len(op_id) > 256:
+        return "op_id must be a non-empty string up to 256 characters"
+    if raw_context_id is not None and (
+        not isinstance(raw_context_id, str)
+        or (str(raw_context_id).strip() and context_id is None)
+    ):
+        return "context_id must be a string up to 256 characters"
+    if total_bytes < 0:
+        return "total_bytes must be a non-negative integer"
+    if total_bytes > max_bytes:
+        return f"declared transfer size {total_bytes} exceeds the receiver limit {max_bytes}"
+    if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256):
+        return "sha256 must be a 64-character hexadecimal digest"
+
+    temp_path: Path | None = None
+    buffer: bytearray | None = bytearray()
+    if total_bytes > TRANSFER_SPOOL_THRESHOLD_BYTES:
+        fd, temp_name = tempfile.mkstemp(prefix="a0-transfer-")
+        os.close(fd)
+        temp_path = Path(temp_name)
+        buffer = None
+    transfer = IncomingTransfer(
+        transfer_id=transfer_id,
+        sid=sid,
+        kind=kind,
+        op_id=op_id,
+        context_id=_pending_transfer_context_id(kind, op_id, sid=sid) or context_id,
+        total_bytes=total_bytes,
+        sha256=sha256,
+        digest=hashlib.sha256(),
+        updated_at=time.monotonic(),
+        buffer=buffer,
+        temp_path=temp_path,
+    )
+    with _state_lock:
+        _incoming_transfers[transfer_id] = transfer
+        _arm_transfer_timeout(transfer)
+    return ""
+
+
+def append_incoming_transfer(
+    sid: str,
+    payload: dict[str, Any],
+) -> str:
+    transfer_id = str(payload.get("transfer_id") or "")
+    with _state_lock:
+        transfer = _incoming_transfers.get(transfer_id)
+    if transfer is None or transfer.sid != sid:
+        return "transfer is not active"
+    try:
+        index = int(payload.get("index"))
+    except (TypeError, ValueError):
+        return "chunk index must be an integer"
+    encoded = payload.get("data")
+    if not isinstance(encoded, str) or len(encoded) > _TRANSFER_ENCODED_CHUNK_MAX:
+        return "chunk data exceeds the 64 KiB limit"
+    try:
+        chunk = base64.b64decode(encoded.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, binascii.Error):
+        return "chunk data is not valid base64"
+
+    with _state_lock:
+        transfer = _incoming_transfers.get(transfer_id)
+        if transfer is None or transfer.sid != sid:
+            return "transfer is not active"
+        expected_bytes = min(
+            TRANSFER_CHUNK_BYTES,
+            transfer.total_bytes - transfer.received_bytes,
+        )
+        if index != transfer.next_index:
+            return f"chunk index {index} arrived; expected {transfer.next_index}"
+        if len(chunk) != expected_bytes:
+            return f"chunk {index} has {len(chunk)} bytes; expected {expected_bytes}"
+        try:
+            if transfer.buffer is not None:
+                transfer.buffer.extend(chunk)
+            elif transfer.temp_path is not None:
+                with transfer.temp_path.open("ab") as handle:
+                    handle.write(chunk)
+        except OSError as exc:
+            return f"could not spool transfer: {exc}"
+        transfer.digest.update(chunk)
+        transfer.received_bytes += len(chunk)
+        transfer.next_index += 1
+        transfer.updated_at = time.monotonic()
+    return ""
+
+
+def finish_incoming_transfer(
+    sid: str,
+    payload: dict[str, Any],
+) -> tuple[str | None, dict[str, Any] | None, str]:
+    transfer_id = str(payload.get("transfer_id") or "")
+    with _state_lock:
+        transfer = _incoming_transfers.get(transfer_id)
+    if transfer is None or transfer.sid != sid:
+        return None, None, "transfer is not active"
+    if transfer.received_bytes != transfer.total_bytes:
+        return (
+            None,
+            None,
+            f"transfer ended at {transfer.received_bytes} of {transfer.total_bytes} bytes",
+        )
+    if transfer.digest.hexdigest() != transfer.sha256:
+        return None, None, "transfer SHA-256 mismatch"
+    try:
+        raw = (
+            bytes(transfer.buffer)
+            if transfer.buffer is not None
+            else transfer.temp_path.read_bytes() if transfer.temp_path is not None else b""
+        )
+        result = json.loads(raw.decode("utf-8"))
+        if not isinstance(result, dict):
+            raise ValueError("decoded transfer is not a JSON object")
+        result_op_id = str(result.get("op_id") or result.get("request_id") or "")
+        if result_op_id != transfer.op_id:
+            raise ValueError("decoded operation id does not match transfer_start")
+    except Exception as exc:
+        return None, None, f"invalid transferred payload: {exc}"
+
+    kind = transfer.kind
+    _drop_incoming_transfer(transfer_id)
+    return kind, result, ""
+
+
+def abort_incoming_transfer(
+    sid: str,
+    payload: dict[str, Any],
+    *,
+    reason: str = "",
+) -> bool:
+    transfer_id = str(payload.get("transfer_id") or "")
+    with _state_lock:
+        transfer = _incoming_transfers.get(transfer_id)
+        outgoing = _outgoing_transfers.get(transfer_id)
+    if transfer is not None and transfer.sid != sid:
+        return False
+    if outgoing is not None and outgoing.sid != sid:
+        return False
+    active = transfer or outgoing
+    kind = active.kind if active is not None else str(payload.get("kind") or "")
+    op_id = active.op_id if active is not None else str(payload.get("op_id") or "")
+    dropped = _drop_incoming_transfer(transfer_id)
+    failure = reason or str(payload.get("reason") or "transfer aborted")
+    if outgoing is not None:
+        outgoing.cancel_reason = failure[:512]
+        outgoing.abort_sent = True
+        with _state_lock:
+            _outgoing_transfers.pop(transfer_id, None)
+    failed_pending = _fail_transfer_pending(kind, op_id, sid=sid, error=failure)
+    return dropped or outgoing is not None or failed_pending
+
+
+def incoming_transfer_metadata(
+    sid: str,
+    transfer_id: str,
+) -> dict[str, str]:
+    with _state_lock:
+        transfer = _incoming_transfers.get(transfer_id)
+    if transfer is None or transfer.sid != sid:
+        return {}
+    return {"op_id": transfer.op_id, "kind": transfer.kind}
+
+
+def abort_incoming_transfers_for_sid(sid: str, *, reason: str) -> None:
+    with _state_lock:
+        transfer_ids = [
+            transfer_id
+            for transfer_id, transfer in _incoming_transfers.items()
+            if transfer.sid == sid
+        ]
+    for transfer_id in transfer_ids:
+        abort_incoming_transfer(
+            sid,
+            {"transfer_id": transfer_id},
+            reason=reason,
+        )
+
+
+async def abort_transfers_for_context(
+    context_id: str,
+    *,
+    reason: str,
+    manager: Any | None = None,
+) -> int:
+    normalized_context_id = _transfer_context_id(context_id)
+    if normalized_context_id is None:
+        return 0
+    with _state_lock:
+        incoming = [
+            transfer
+            for transfer in _incoming_transfers.values()
+            if transfer.context_id == normalized_context_id
+        ]
+        outgoing = [
+            transfer
+            for transfer in _outgoing_transfers.values()
+            if transfer.context_id == normalized_context_id
+        ]
+        for transfer in outgoing:
+            transfer.cancel_reason = reason[:512]
+            transfer.abort_sent = True
+            _outgoing_transfers.pop(transfer.transfer_id, None)
+
+    for transfer in incoming:
+        _drop_incoming_transfer(transfer.transfer_id)
+    for transfer in [*incoming, *outgoing]:
+        _fail_transfer_pending(
+            transfer.kind,
+            transfer.op_id,
+            sid=transfer.sid,
+            error=reason,
+        )
+
+    if not incoming and not outgoing:
+        return 0
+    ws_manager = manager or get_shared_ws_manager()
+    for transfer in [*incoming, *outgoing]:
+        with contextlib.suppress(Exception):
+            await ws_manager.emit_to(
+                "/ws",
+                transfer.sid,
+                "connector_transfer_abort",
+                {
+                    "transfer_id": transfer.transfer_id,
+                    "op_id": transfer.op_id,
+                    "kind": transfer.kind,
+                    "reason": reason[:512],
+                },
+                handler_id="plugins/_a0_connector/api/ws_connector",
+                max_payload_bytes=ws_max_payload_bytes_for_sid(transfer.sid),
+            )
+    return len(incoming) + len(outgoing)
+
+
+def _transfer_context_id(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    context_id = value.strip()
+    return context_id if context_id and len(context_id) <= 256 else None
+
+
+def _pending_transfer_context_id(
+    kind: str,
+    op_id: str,
+    *,
+    sid: str,
+) -> str | None:
+    pending_by_kind = {
+        "connector_file_op_result": _pending_file_ops,
+        "connector_exec_op_result": _pending_exec_ops,
+        "connector_computer_use_op_result": _pending_computer_use_ops,
+        "connector_browser_op_result": _pending_browser_ops,
+    }
+    with _state_lock:
+        pending = pending_by_kind.get(kind, {}).get(op_id)
+        if pending is None or pending.sid != sid:
+            return None
+        return _transfer_context_id(getattr(pending, "context_id", None))
+
+
+def _arm_transfer_timeout(transfer: IncomingTransfer, delay: float | None = None) -> None:
+    timeout = threading.Timer(
+        delay if delay is not None else TRANSFER_IDLE_TIMEOUT_SECONDS,
+        _expire_incoming_transfer,
+        args=(transfer.transfer_id,),
+    )
+    timeout.daemon = True
+    transfer.timeout = timeout
+    timeout.start()
+
+
+def _expire_incoming_transfer(transfer_id: str) -> None:
+    with _state_lock:
+        transfer = _incoming_transfers.get(transfer_id)
+        if transfer is None:
+            return
+        remaining = TRANSFER_IDLE_TIMEOUT_SECONDS - (
+            time.monotonic() - transfer.updated_at
+        )
+        if remaining > 0:
+            _arm_transfer_timeout(transfer, remaining)
+            return
+        sid = transfer.sid
+        kind = transfer.kind
+        op_id = transfer.op_id
+    _drop_incoming_transfer(transfer_id)
+    _fail_transfer_pending(
+        kind,
+        op_id,
+        sid=sid,
+        error=f"transfer idle timeout after {TRANSFER_IDLE_TIMEOUT_SECONDS:g} seconds",
+    )
+
+
+def _drop_incoming_transfer(transfer_id: str) -> bool:
+    with _state_lock:
+        transfer = _incoming_transfers.pop(transfer_id, None)
+    if transfer is None:
+        return False
+    if transfer.timeout is not None:
+        transfer.timeout.cancel()
+    if transfer.temp_path is not None:
+        with contextlib.suppress(FileNotFoundError):
+            transfer.temp_path.unlink()
+    return True
+
+
+def _fail_transfer_pending(
+    kind: str,
+    op_id: str,
+    *,
+    sid: str,
+    error: str,
+) -> bool:
+    pending_by_kind = {
+        "connector_file_op": _pending_file_ops,
+        "connector_file_op_result": _pending_file_ops,
+        "connector_exec_op": _pending_exec_ops,
+        "connector_exec_op_result": _pending_exec_ops,
+        "connector_computer_use_op": _pending_computer_use_ops,
+        "connector_computer_use_op_result": _pending_computer_use_ops,
+        "connector_browser_op": _pending_browser_ops,
+        "connector_browser_op_result": _pending_browser_ops,
+        "connector_gateway_control": _pending_gateway_controls,
+        "connector_gateway_control_result": _pending_gateway_controls,
+    }
+    pending = pending_by_kind.get(kind)
+    if pending is None or not op_id:
+        return False
+    return _fail_pending(pending, op_id, sid=sid, error=error)
+
+
 def store_pending_file_op(
     op_id: str,
     *,
@@ -818,98 +1467,16 @@ def resolve_pending_file_op(
     payload: dict[str, Any],
 ) -> bool:
     if payload.get("chunked") is True:
-        return _resolve_pending_file_chunk(op_id, sid=sid, payload=payload)
+        return _fail_pending(
+            _pending_file_ops,
+            op_id,
+            sid=sid,
+            error=(
+                "Legacy chunked file results are not supported. Upgrade the CLI so it "
+                "can negotiate transfer_protocol=1."
+            ),
+        )
     return _resolve_pending(_pending_file_ops, op_id, sid=sid, payload=payload)
-
-
-def _resolve_pending_file_chunk(
-    op_id: str,
-    *,
-    sid: str,
-    payload: dict[str, Any],
-) -> bool:
-    error = _validate_file_chunk_payload(payload)
-    if error:
-        return _fail_pending(
-            _pending_file_ops,
-            op_id,
-            sid=sid,
-            error=f"Invalid chunked file operation result: {error}",
-        )
-
-    chunk_index = int(payload["chunk_index"])
-    chunk_count = int(payload["chunk_count"])
-    encoded = str(payload.get("data") or "")
-    try:
-        chunk = base64.b64decode(encoded.encode("ascii"), validate=True)
-    except (UnicodeEncodeError, binascii.Error) as exc:
-        return _fail_pending(
-            _pending_file_ops,
-            op_id,
-            sid=sid,
-            error=f"Invalid chunked file operation result: {exc}",
-        )
-
-    with _state_lock:
-        pending = _pending_file_ops.get(op_id)
-        if pending is None or pending.sid != sid:
-            return False
-
-        if pending.chunk_count is None:
-            pending.chunk_count = chunk_count
-        elif pending.chunk_count != chunk_count:
-            _pending_file_ops.pop(op_id, None)
-            pending.loop.call_soon_threadsafe(
-                _set_future_result,
-                pending.future,
-                {
-                    "op_id": op_id,
-                    "ok": False,
-                    "error": "Invalid chunked file operation result: chunk_count changed",
-                },
-            )
-            return True
-
-        pending.chunks[chunk_index] = chunk
-        if len(pending.chunks) < chunk_count:
-            return True
-
-        ordered = [pending.chunks[index] for index in range(chunk_count)]
-        _pending_file_ops.pop(op_id, None)
-
-    try:
-        assembled = b"".join(ordered).decode("utf-8")
-        result = json.loads(assembled)
-        if not isinstance(result, dict):
-            raise ValueError("decoded result is not an object")
-    except Exception as exc:
-        result = {
-            "op_id": op_id,
-            "ok": False,
-            "error": f"Invalid chunked file operation result: {exc}",
-        }
-
-    pending.loop.call_soon_threadsafe(_set_future_result, pending.future, result)
-    return True
-
-
-def _validate_file_chunk_payload(payload: dict[str, Any]) -> str:
-    if payload.get("encoding") != "json+base64":
-        return "encoding must be json+base64"
-
-    try:
-        chunk_index = int(payload.get("chunk_index"))
-        chunk_count = int(payload.get("chunk_count"))
-    except (TypeError, ValueError):
-        return "chunk_index and chunk_count must be integers"
-
-    if chunk_count <= 0:
-        return "chunk_count must be positive"
-    if chunk_index < 0 or chunk_index >= chunk_count:
-        return "chunk_index out of range"
-    if not isinstance(payload.get("data"), str):
-        return "data must be a string"
-    return ""
 
 
 def fail_pending_file_op(

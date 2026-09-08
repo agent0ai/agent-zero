@@ -37,6 +37,7 @@
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
+- Uvicorn receives the shared `A0_WS_MAX_PAYLOAD_BYTES` ceiling. The `websockets` backend enforces this transport setting; the selected `wsproto` backend is protected by connector application preflight because Uvicorn exposes no wsproto-specific message-size option.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem writes, network calls, subprocess/runtime control, settings/state persistence.
 - Imported dependency areas include: `asyncio`, `collections`, `contextlib`, `dataclasses`, `faulthandler`, `helpers`, `helpers.print_style`, `os`, `sys`, `threading`, `time`, `typing`, `urllib.request`, `uvicorn`.

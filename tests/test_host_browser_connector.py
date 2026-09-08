@@ -490,8 +490,16 @@ def test_connector_runtime_ensures_preparable_host_browser_before_action(monkeyp
         emitted: list[dict[str, object]] = []
 
         class FakeWsManager:
-            async def emit_to(self, namespace, target_sid, event, payload, handler_id=""):
-                del namespace, event, handler_id
+            async def emit_to(
+                self,
+                namespace,
+                target_sid,
+                event,
+                payload,
+                handler_id="",
+                **kwargs,
+            ):
+                del namespace, event, handler_id, kwargs
                 emitted.append(dict(payload))
                 assert target_sid == sid
                 if payload["action"] == "ensure":

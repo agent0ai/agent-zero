@@ -14,6 +14,11 @@
 - `UploadFile` (`ApiHandler`)
   - `async process(self, input: dict, request: Request) -> dict | Response`
   - `allowed_file(self, filename)`
+- Top-level functions:
+- `save_upload_atomic(file_storage, target_path) -> dict`: Stream one upload to
+  a same-directory `.partial-*` file, hash and fsync it, atomically replace the
+  final path, fsync the directory where supported, and remove the partial on
+  every failure.
 
 ## Runtime Contracts
 
@@ -21,6 +26,9 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `UploadFile` is an `ApiHandler`.
 - `UploadFile` defines `process(...)`.
+- The response retains legacy `filenames` and adds ordered `files` entries with
+  `filename`, byte `size`, and `sha256` so streaming clients can verify what Core
+  committed.
 - Observed side-effect areas: filesystem reads, settings/state persistence.
 - Imported dependency areas include: `helpers`, `helpers.api`, `helpers.security`.
 

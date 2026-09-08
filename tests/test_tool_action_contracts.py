@@ -283,6 +283,10 @@ def _load_computer_use_remote_tool(monkeypatch):
     ws_runtime_stub = types.ModuleType("plugins._a0_connector.helpers.ws_runtime")
     ws_runtime_stub.clear_pending_computer_use_op = lambda *args, **kwargs: None
     ws_runtime_stub.computer_use_metadata_for_sid = lambda *args, **kwargs: {}
+    async def _emit_connector_event(*args, **kwargs):
+        return None
+
+    ws_runtime_stub.emit_connector_event = _emit_connector_event
     ws_runtime_stub.select_computer_use_target_sid = lambda *args, **kwargs: "sid"
     ws_runtime_stub.store_pending_computer_use_op = lambda *args, **kwargs: None
     monkeypatch.setitem(

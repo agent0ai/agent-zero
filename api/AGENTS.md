@@ -19,6 +19,10 @@
 - Keep CSRF and authentication protections intact for browser-facing state-changing endpoints.
 - WebSocket handlers must derive from `helpers.ws.WsHandler` and validate event data before using it.
 - Do not return secrets, raw environment values, private files, or unfiltered exception details to clients.
+- Upload bodies are streamed to same-directory `.partial-*` files, hashed and
+  fsynced, then atomically replaced; retain the legacy filename response while
+  adding ordered size/SHA-256 receipts. Download responses remain streamed and
+  include Content-Length plus `X-Content-SHA256` for atomic client verification.
 - This directory is a file-documented DOX profile: every direct `*.py` endpoint or WebSocket module must have a same-directory `*.py.dox.md` file named by appending `.dox.md` to the full Python filename.
 - The `*.py.dox.md` file owns endpoint purpose, request/response concepts, auth/CSRF/API-key/loopback assumptions, side effects, important helper dependencies, and verification guidance.
 - When a Python endpoint is added, removed, renamed, or behaviorally changed, update its matching `*.py.dox.md` in the same change.
