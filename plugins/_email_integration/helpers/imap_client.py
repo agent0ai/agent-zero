@@ -11,6 +11,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from email import policy
 from email.header import decode_header
 from email.message import Message as EmailMessage
 from fnmatch import fnmatch
@@ -209,8 +210,8 @@ async def _fetch_single(
 
     email_msg = email.message_from_bytes(email_data)  # type: ignore[arg-type]
 
-    sender = _decode_header(email_msg.get("From", ""))
-    if _is_noreply(sender):
+    sender = _extract_single_sender(email_msg)
+    if not sender or _is_noreply(sender):
         return None
     if sender_whitelist and not _matches_whitelist(sender, sender_whitelist):
         return None
@@ -465,38 +466,26 @@ def _is_noreply(sender: str) -> bool:
 
 
 def _matches_whitelist(sender: str, whitelist: list[str]) -> bool:
-    sender_email = _extract_email_from_sender(sender.lower())
+    sender_email = sender.lower()
     for pattern in whitelist:
         if fnmatch(sender_email, pattern.lower()):
             return True
     return False
 
 
-def _extract_email_from_sender(sender: str) -> str:
-    """Extract email address from sender string.
-    
-    Handles formats like:
-    - "email@example.com"
-    - "Name <email@example.com>"
-    - "\"Display Name\" <email@example.com>"
-    
-    Uses content inside angle brackets as authoritative to prevent spoofing
-    by fake emails in the display name (e.g., "John ceo@company.com <real@email.com>").
-    """
-    import re
-    # Look for email inside angle brackets - this is the authoritative source
-    match = re.search(r"<([^>]+)>", sender)
-    if match:
-        email = match.group(1).strip()
-        # Validate it looks like an email
-        if re.match(r"^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$", email):
-            return email
-    
-    # No angle brackets - extract email from the whole string
-    # This handles plain "email@example.com" or malformed input
-    email_match = re.search(r"[^\s<>]+@[^\s<>]+\.[^\s<>]+", sender)
-    if email_match:
-        return email_match.group(0)
-    
-    # Fallback: return the whole string (will likely fail pattern match)
-    return sender
+def _extract_single_sender(email_msg: EmailMessage) -> str | None:
+    """Validate one From mailbox before authorization, dispatch, or replies."""
+    headers = email_msg.get_all("From", [])
+    if len(headers) != 1:
+        return None
+    header = policy.default.header_fetch_parse("From", headers[0])
+    if (
+        header.defects
+        or len(header.addresses) != 1
+        or any(group.display_name is not None for group in header.groups)
+    ):
+        return None
+    address = header.addresses[0]
+    if not address.username or not address.domain:
+        return None
+    return address.addr_spec
