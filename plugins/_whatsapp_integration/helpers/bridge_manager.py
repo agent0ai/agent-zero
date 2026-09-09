@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from helpers.print_style import PrintStyle
+from plugins._whatsapp_integration.helpers.number_utils import normalize_allowed_numbers
 
 
 _bridge_lock: asyncio.Lock | None = None
@@ -106,6 +107,8 @@ async def start_bridge(
     session_dir: str,
     cache_dir: str,
     mode: str = "self-chat",
+    allowed_numbers: object = None,
+    allow_group: bool = False,
 ) -> bool:
     async with _get_bridge_lock():
         return await _ensure_bridge_started(
@@ -113,6 +116,8 @@ async def start_bridge(
             session_dir=session_dir,
             cache_dir=cache_dir,
             mode=mode,
+            allowed_numbers=allowed_numbers,
+            allow_group=allow_group,
             require_connection=True,
             start_label="WhatsApp: starting bridge",
         )
@@ -138,6 +143,8 @@ async def ensure_bridge_http_up(
     session_dir: str,
     cache_dir: str,
     mode: str = "self-chat",
+    allowed_numbers: object = None,
+    allow_group: bool = False,
 ) -> bool:
     """Start bridge if needed and wait for HTTP server only (not WA connection)."""
     async with _get_bridge_lock():
@@ -146,6 +153,8 @@ async def ensure_bridge_http_up(
             session_dir=session_dir,
             cache_dir=cache_dir,
             mode=mode,
+            allowed_numbers=allowed_numbers,
+            allow_group=allow_group,
             require_connection=False,
             start_label="WhatsApp: starting bridge for pairing",
         )
@@ -178,19 +187,31 @@ async def _ensure_bridge_started(
     session_dir: str,
     cache_dir: str,
     mode: str,
+    allowed_numbers: object,
+    allow_group: bool,
     require_connection: bool,
     start_label: str,
 ) -> bool:
     global _bridge_process
+    allowed_numbers = sorted(normalize_allowed_numbers(allowed_numbers))
 
     if _bridge_process and _bridge_process.poll() is None:
-        if require_connection:
+        desired_config = {
+            "port": port,
+            "mode": mode,
+            "allowed_numbers": allowed_numbers,
+            "allow_group": allow_group,
+        }
+        if _bridge_config != desired_config:
+            PrintStyle.info("WhatsApp: bridge authorization changed, restarting")
+            _stop_bridge_process()
+        elif require_connection:
             return True
-        if await _check_http_up(port):
+        elif await _check_http_up(port):
             return True
-
-        PrintStyle.warning("WhatsApp: bridge is running but HTTP is not responding, restarting")
-        _stop_bridge_process()
+        else:
+            PrintStyle.warning("WhatsApp: bridge is running but HTTP is not responding, restarting")
+            _stop_bridge_process()
 
     await _ensure_bridge_dependencies()
 
@@ -202,6 +223,8 @@ async def _ensure_bridge_started(
             session_dir=session_dir,
             cache_dir=cache_dir,
             mode=mode,
+            allowed_numbers=allowed_numbers,
+            allow_group=allow_group,
             require_connection=require_connection,
             start_label=start_label,
         )
@@ -227,6 +250,8 @@ async def _start_bridge_once(
     session_dir: str,
     cache_dir: str,
     mode: str,
+    allowed_numbers: list[str],
+    allow_group: bool,
     require_connection: bool,
     start_label: str,
 ) -> tuple[bool, str]:
@@ -238,6 +263,8 @@ async def _start_bridge_once(
         "--session", session_dir,
         "--cache-dir", cache_dir,
         "--mode", mode,
+        "--allowed-numbers", ",".join(allowed_numbers),
+        "--allow-group", str(allow_group).lower(),
     ]
 
     _kill_port_process(port)
@@ -250,7 +277,12 @@ async def _start_bridge_once(
     ), port)
     _start_log_reader(_bridge_process)
     _bridge_config.clear()
-    _bridge_config.update({"port": port, "mode": mode})
+    _bridge_config.update({
+        "port": port,
+        "mode": mode,
+        "allowed_numbers": allowed_numbers,
+        "allow_group": allow_group,
+    })
 
     healthy, output = await _wait_for_bridge_startup(
         port=port,

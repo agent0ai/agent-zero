@@ -29,6 +29,8 @@ Dependencies are auto-installed on first bridge start if missing.
 The WhatsApp session persists across restarts in `tmp/whatsapp/session/`. No re-pairing needed unless you disconnect via settings.
 Be careful: if you use your personal number and leave `allowed_numbers` open, other people could misuse your Agent Zero.
 
+Sender and group checks run before media downloads and again before dispatch. Changes to these settings restart the bridge on the next poll. Document filenames are reduced to basenames, and media files are created exclusively inside the cache directory.
+
 ## Configuration
 
 | Setting | Description | Default |
