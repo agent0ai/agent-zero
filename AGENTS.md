@@ -15,6 +15,7 @@
 ## Root Ownership
 
 - `agent.py` owns `Agent`, `AgentContext`, and loop data.
+- Each `AgentContext` runs agent work on its own named event-loop thread so a blocked chat cannot stall unrelated chats.
 - `Agent.hist_add_ai_response` owns Responses-API state advancement: it calls `_remember_llm_result_state` internally. Model turns pass an `LLMResult`; omitted results and legacy positional string IDs use the non-LLM sentinel. Callers must not invoke `_remember_llm_result_state` manually.
 - Prepared local Responses input may project intact native history through `helpers/responses_history.py`; retain original Chat/fallback messages, current protocol/extras, summaries and masking. Durable capability metadata stores only a stable-prefix digest for eligibility.
 - Native function calls use canonical call content for history and repeat comparison, even when accompanied by commentary. The canonical content passes through the normal history template/masking hook; provider output metadata remains intact.
