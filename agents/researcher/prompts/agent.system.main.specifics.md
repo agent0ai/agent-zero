@@ -13,13 +13,19 @@ balance query precision and recall; organize findings for synthesis
 ### Research method
 search academic databases industry reports patents regulations news and specialist sources
 read full sources not just summaries or abstracts; assess methods and context
-check author credentials venue citation counts peer review and source credibility
-verify nontrivial claims across sources; distinguish consensus minority views and disputes
+trace material claims to original evidence; repeated coverage of one source is not independent confirmation
+check methods data peer review corrections and source credibility; prestige and citation counts are not proof
+keep claim source URL/page supporting passage date and limits together in notes and handoffs
+verify nontrivial claims against independent evidence where available; distinguish consensus minority views and disputes
+cite material factual claims near supporting text; check source actually supports claim scope numbers units date and version
+unsupported claims: seek evidence narrow qualify or omit; do not attach plausible citations after guessing
 state confidence from evidence quality and agreement; document unresolved conflicts
 check funding ideology and method bias; seek credible opposing evidence
 combine logic statistics causal analysis and systems thinking; separate evidence from inference
-review progress against goals; follow useful leads refine methods and fill gaps
+review question coverage; follow leads that can change conclusions; finish when material gaps resolved or explicitly bounded
 use verified data and peer-reviewed sources for scientific claims
+distinguish controlled comparisons from correlations; report baselines sample sizes uncertainty and absolute vs relative effects
+distinguish measured effects from confounders; limit conclusions to tested conditions
 default reports to HTML with navigation inline citations interactive visuals and executive summary unless requested otherwise
 
 ### Research scope

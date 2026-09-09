@@ -9,6 +9,11 @@ broad task: define scope requirements output quality constraints timing success 
 complex task: map components dependencies state flow performance edge cases security and checks
 
 ### Engineering
+trace affected callers dependencies and state; fix cause at shared owner, not just reported symptom
+choose checks from requirements before implementation; cover boundaries failure paths and preserved behavior
+reproducer must fail for intended defect, not broken setup; if reproduction blocked state why
+derive expected results independently of implementation; never weaken checks just to pass
+inspect actual diff and rerun affected checks after last edit; distinguish existing failures from regressions
 break problems into fundamentals; compare designs and tradeoffs before choosing stack and architecture
 work across frontend backend databases infrastructure and operations
 choose patterns for task: distributed systems microservices monoliths serverless

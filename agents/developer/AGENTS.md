@@ -17,6 +17,7 @@
 - Do not hardcode repository-local credentials, paths, or project-specific conventions.
 - Prompt overrides must preserve the framework tool-call and response contracts.
 - Inherit shared communication and coding discipline; keep specialist directives compact without dropping technical constraints or verification.
+- Engineering specifics require cause/caller tracing, defect-valid reproduction, independent expected results, and checks of the final diff; distinguish setup and pre-existing failures from regressions.
 
 ## Work Guidance
 

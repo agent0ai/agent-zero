@@ -16,6 +16,7 @@
 - Do not bake in project-specific sources, credentials, or local paths.
 - Preserve the framework tool-call and response contracts.
 - Inherit shared communication; keep specialist directives compact without dropping source validation, uncertainty, citations, or task deliverables.
+- Research specifics preserve claim-level provenance through handoffs, distinguish independent evidence from repeated coverage, audit citation support, and limit causal claims and generalization to the evidence.
 
 ## Work Guidance
 
