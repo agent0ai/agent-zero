@@ -206,7 +206,12 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+  }
+  .model-switcher-anchor,
+  .agent-profile-anchor {
+    min-width: 0;
+    flex-shrink: 1;
   }
   .model-context-strip > x-extension,
   .model-context-strip > x-extension > x-component,
@@ -285,7 +290,9 @@
     position: absolute;
     bottom: calc(100% + 6px);
     left: 0;
+    right: auto;
     min-width: 280px;
+    max-width: min(320px, calc(100vw - 24px));
     max-height: 550px;
     overflow-y: auto;
     background-color: var(--color-panel);
@@ -298,9 +305,10 @@
   .agent-profile-dropdown {
     position: absolute;
     bottom: calc(100% + 6px);
-    left: 0;
+    right: 0;
+    left: auto;
     min-width: 260px;
-    max-width: min(320px, 90vw);
+    max-width: min(320px, calc(100vw - 24px));
     max-height: 550px;
     overflow-y: auto;
     background-color: var(--color-panel);
@@ -443,11 +451,41 @@
   }
 
   @media (max-width: 600px) {
+    .model-context-strip {
+      gap: 4px;
+      flex-wrap: nowrap;
+    }
+    .model-switcher-btn,
+    .agent-profile-btn {
+      padding: 3px 6px;
+      font-size: 0.7rem;
+    }
     .model-switcher-label {
-      max-width: 160px;
+      max-width: min(130px, 34vw);
     }
     .agent-profile-label {
-      max-width: 92px;
+      max-width: min(95px, 26vw);
+    }
+    .model-switcher-dropdown {
+      left: 0;
+      right: auto;
+      min-width: min(260px, calc(100vw - 24px));
+      max-width: calc(100vw - 24px);
+    }
+    .agent-profile-dropdown {
+      right: 0;
+      left: auto;
+      min-width: min(240px, calc(100vw - 24px));
+      max-width: calc(100vw - 24px);
+    }
+  }
+
+  @media (max-width: 420px) {
+    .model-switcher-label {
+      max-width: min(100px, 30vw);
+    }
+    .agent-profile-label {
+      max-width: min(75px, 22vw);
     }
   }
 </style>
