@@ -1,20 +1,20 @@
 {
-  "name": "Agent Zero",
-  "short_name": "Agent Zero",
-  "description": "Autonomous AI agent",
+  "name": "wgnr.ai Ops",
+  "short_name": "wgnr.ai Ops",
+  "description": "wgnr.ai Ops Autonomous AI",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
-  "theme_color": "#333333",
+  "background_color": "#2A2D32",
+  "theme_color": "#6EA8DB",
   "icons": [
     {
-      "src": "/public/icon-maskable.svg",
+      "src": "/public/wgnr-icon-maskable.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
     },
     {
-      "src": "/public/icon.svg",
+      "src": "/public/wgnr-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
