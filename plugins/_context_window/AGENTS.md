@@ -36,8 +36,10 @@
   diagnostic detail rows.
 - Provider rows are exposed only when the provider or transport reports their
   values; unavailable price and cache data render no row.
-- Streamed OpenRouter main turns request LiteLLM's terminal usage event. The
-  response callback still runs normally; only an actual Chat Completions result
+- Streaming main turns request LiteLLM's terminal usage event for every
+  provider through the transport's `stream_options.include_usage` injection,
+  so provider input/output and cache tokens reach the summary. The response
+  callback still runs normally; only an actual Chat Completions result
   restores the accepted response after the accounting tail is drained.
 - Responses API turns keep their native result and callback behavior unchanged.
 - Older chats without a stored breakdown show the explanatory empty state.

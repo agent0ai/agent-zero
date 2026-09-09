@@ -249,6 +249,94 @@ async def test_chat_completion_transport_preserves_reported_usage(monkeypatch):
     }
 
 
+@pytest.mark.asyncio
+async def test_chat_stream_requests_and_records_terminal_usage(monkeypatch):
+    calls: list[dict] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+
+        async def stream():
+            yield {"choices": [{"delta": {"content": "done"}}]}
+            yield {
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 8,
+                    "total_tokens": 128,
+                },
+            }
+
+        return stream()
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    async for _chunk in transport.astream():
+        pass
+
+    assert calls[0]["stream"] is True
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert transport.last_result is not None
+    assert transport.last_result.usage == {
+        "prompt_tokens": 120,
+        "completion_tokens": 8,
+        "total_tokens": 128,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_retries_without_usage_when_stream_options_rejected(
+    monkeypatch,
+):
+    calls: list[dict] = []
+
+    class BadRequestError(Exception):
+        pass
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+        if kwargs.get("stream_options", {}).get("include_usage"):
+            raise BadRequestError("Unknown parameter: 'stream_options'.")
+
+        async def stream():
+            yield {"choices": [{"delta": {"content": "done"}}]}
+
+        return stream()
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    async for _chunk in transport.astream():
+        pass
+
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in calls[1]
+    assert len(calls) == 2
+
+    user_transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "again"}],
+        kwargs={
+            "a0_api_mode": "chat_completions",
+            "stream_options": {"include_usage": True, "custom": "keep"},
+        },
+    )
+    request = user_transport._chat_request(stream=True)
+    assert request["stream_options"] == {
+        "include_usage": True,
+        "custom": "keep",
+    }
+
+
 def test_responses_provider_state_uses_previous_response_and_new_items():
     new_items = [{"type": "function_call_output", "call_id": "call_1", "output": "done"}]
     local_items = [{"role": "user", "content": "full replay"}]
