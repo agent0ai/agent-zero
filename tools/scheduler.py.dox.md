@@ -21,6 +21,7 @@
   - `async update_task(self, **kwargs) -> Response`
   - `async create_scheduled_task(self, **kwargs) -> Response`
 - Top-level functions:
+- `_validate_pinned_preset(value: Any) -> tuple[str | None, str]` — normalizes and validates the optional `pinned_preset` tool arg against `_model_config` presets; returns error string naming available presets when not found.
 - `_current_action(tool: Tool, kwargs: dict) -> str`
 - `_normalize_timezone(value: Any) -> str | None`
 - `_schedule_timezone(kwargs: dict) -> str | None`
@@ -35,6 +36,7 @@
 - Update this file whenever tool arguments, output shape, `break_loop` behavior, intervention handling, prompt instructions, or side effects change.
 - `SchedulerTool` is a `Tool`.
 - `SchedulerTool` defines `execute(...)`.
+- `pinned_preset` is an optional arg on `create_scheduled_task`, `create_adhoc_task`, `create_planned_task`, and `update_task` (empty string clears the pin); preset existence is validated before any task is created or updated.
 - Observed side-effect areas: filesystem writes, filesystem deletion, settings/state persistence, secret handling, scheduler state.
 - Imported dependency areas include: `agent`, `asyncio`, `datetime`, `helpers`, `helpers.localization`, `helpers.projects`, `helpers.task_scheduler`, `helpers.tool`, `json`, `pytz`, `random`, `re`, `typing`.
 

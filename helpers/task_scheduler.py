@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
+import logging
 import os
 import random
 import threading
@@ -26,8 +27,14 @@ from helpers import projects, guids
 import pytz
 from typing import Annotated
 
+logger = logging.getLogger(__name__)
+
 SCHEDULER_FOLDER = "usr/scheduler"
 LOCAL_TIMEZONE_ALIASES = {"local", "user", "default", "current", "current_timezone"}
+# After this many consecutive failed runs a task transitions to DISABLED
+# (fail-loud) instead of retrying forever. Transient failures recover on the
+# task's next cron slot; a hard-broken task stops burning quota at the cap.
+SCHEDULER_MAX_CONSECUTIVE_FAILURES = 3
 
 
 def normalize_schedule_timezone(timezone_name: str | None) -> str:
@@ -162,6 +169,8 @@ class TaskPlan(BaseModel):
 class BaseTask(BaseModel):
     uuid: str = Field(default_factory=lambda: guids.generate_id())
     context_id: Optional[str] = Field(default=None)
+    pinned_preset: str | None = Field(default=None)
+    consecutive_failures: int = Field(default=0)
     state: TaskState = Field(default=TaskState.IDLE)
     name: str = Field()
     system_prompt: str
@@ -223,6 +232,14 @@ class BaseTask(BaseModel):
     def check_schedule(self, frequency_seconds: float = 60.0) -> bool:
         return False
 
+    def is_retry_due(self) -> bool:
+        """Whether an ERROR-state task is eligible to retry now.
+
+        Default False: only ScheduledTask implements retry-on-next-slot
+        (dev-ticket-2026-09-08-scheduler-error-state-auto-recovery).
+        """
+        return False
+
     def get_next_run(self) -> datetime | None:
         return None
 
@@ -247,18 +264,51 @@ class BaseTask(BaseModel):
         )
 
     async def on_error(self, error: str):
-        # Update task state to ERROR and set last result
+        # Update task state (ERROR, or DISABLED once the failure cap is hit),
+        # track consecutive failures, and notify loudly either way.
         scheduler = TaskScheduler.get()
         await scheduler.reload()  # Ensure we have the latest state
+
+        # Count this failure against the cap using the freshest counter available
+        fresh_task = scheduler.get_task_by_uuid(self.uuid)
+        current_failures = (
+            fresh_task.consecutive_failures if fresh_task is not None
+            else self.consecutive_failures
+        )
+        consecutive_failures = current_failures + 1
+
+        if consecutive_failures >= SCHEDULER_MAX_CONSECUTIVE_FAILURES:
+            # Fail-loud at the cap: disable the task and say so
+            message = (
+                f"Scheduler task '{self.name}' ({self.uuid}) disabled after "
+                f"{consecutive_failures} consecutive failures "
+                f"(cap {SCHEDULER_MAX_CONSECUTIVE_FAILURES}). Last error: {error}"
+            )
+            new_state = TaskState.DISABLED
+        else:
+            message = (
+                f"Scheduler task '{self.name}' ({self.uuid}) failed "
+                f"({consecutive_failures}/{SCHEDULER_MAX_CONSECUTIVE_FAILURES} "
+                f"consecutive failures); it will retry at its next scheduled slot. "
+                f"Error: {error}"
+            )
+            new_state = TaskState.ERROR
+
+        # Loud ERROR-transition notification: if this line is absent from the
+        # logs, the transition never happened (fail-loud, R10 philosophy).
+        PrintStyle.error(message)
+        logger.error(message)
+
         updated_task = await scheduler.update_task(
             self.uuid,
-            state=TaskState.ERROR,
+            state=new_state,
             last_run=_now(),
-            last_result=f"ERROR: {error}"
+            last_result=f"ERROR: {error}",
+            consecutive_failures=consecutive_failures
         )
         if not updated_task:
             PrintStyle.error(
-                f"Failed to update task {self.uuid} state to ERROR after error: {error}"
+                f"Failed to update task {self.uuid} state to {new_state} after error: {error}"
             )
         await scheduler.save()  # Force save after update
 
@@ -270,7 +320,8 @@ class BaseTask(BaseModel):
             self.uuid,
             state=TaskState.IDLE,
             last_run=_now(),
-            last_result=result
+            last_result=result,
+            consecutive_failures=0  # Success resets the failure counter
         )
         if not updated_task:
             PrintStyle.error(
@@ -293,7 +344,8 @@ class AdHocTask(BaseTask):
         attachments: list[str] | None = None,
         context_id: str | None = None,
         project_name: str | None = None,
-        project_color: str | None = None
+        project_color: str | None = None,
+        pinned_preset: str | None = None
     ):
         return cls(name=name,
                    system_prompt=system_prompt,
@@ -302,7 +354,8 @@ class AdHocTask(BaseTask):
                    token=token,
                    context_id=context_id,
                    project_name=project_name,
-                   project_color=project_color)
+                   project_color=project_color,
+                   pinned_preset=pinned_preset)
 
     def update(self,
                name: str | None = None,
@@ -343,6 +396,7 @@ class ScheduledTask(BaseTask):
         timezone: str | None = None,
         project_name: str | None = None,
         project_color: str | None = None,
+        pinned_preset: str | None = None,
     ):
         # Set timezone in schedule if provided
         if timezone is not None:
@@ -357,7 +411,8 @@ class ScheduledTask(BaseTask):
                    schedule=schedule,
                    context_id=context_id,
                    project_name=project_name,
-                   project_color=project_color)
+                   project_color=project_color,
+                   pinned_preset=pinned_preset)
 
     def update(self,
                name: str | None = None,
@@ -416,6 +471,32 @@ class ScheduledTask(BaseTask):
                 next_run = task_timezone.localize(next_run)
             return next_run.astimezone(timezone.utc)
 
+    def is_retry_due(self) -> bool:
+        """True once the next cron slot after the last failed run has arrived.
+
+        Uses last_run + 1s as the cron reference so a task never re-fires
+        within the slot it just failed in (retry-on-next-slot, not
+        retry-in-same-slot).
+        """
+        with self._lock:
+            if self.state != TaskState.ERROR or self.last_run is None:
+                return False
+            last_run = self.last_run
+            if last_run.tzinfo is None:
+                last_run = _localize_task_datetime(last_run)
+            crontab = CronTab(crontab=self.schedule.to_crontab())  # type: ignore
+            self.schedule.timezone = normalize_schedule_timezone(self.schedule.timezone)
+            task_timezone = pytz.timezone(self.schedule.timezone)
+            reference_time = (last_run + timedelta(seconds=1)).astimezone(task_timezone)
+            next_run_seconds: Optional[float] = crontab.next(  # type: ignore
+                now=reference_time,
+                return_datetime=False
+            )
+            if next_run_seconds is None:
+                return False
+            next_slot = reference_time + timedelta(seconds=next_run_seconds)
+            return _now() >= next_slot
+
 
 class PlannedTask(BaseTask):
     type: Literal[TaskType.PLANNED] = TaskType.PLANNED
@@ -431,7 +512,8 @@ class PlannedTask(BaseTask):
         attachments: list[str] | None = None,
         context_id: str | None = None,
         project_name: str | None = None,
-        project_color: str | None = None
+        project_color: str | None = None,
+        pinned_preset: str | None = None
     ):
         return cls(name=name,
                    system_prompt=system_prompt,
@@ -440,7 +522,8 @@ class PlannedTask(BaseTask):
                    attachments=list(attachments or []),
                    context_id=context_id,
                    project_name=project_name,
-                   project_color=project_color)
+                   project_color=project_color,
+                   pinned_preset=pinned_preset)
 
     def update(self,
                name: str | None = None,
@@ -636,7 +719,8 @@ class SchedulerTaskList(BaseModel):
             await self.reload()
             return [
                 task for task in self.tasks
-                if task.check_schedule() and task.state == TaskState.IDLE
+                if (task.check_schedule() and task.state == TaskState.IDLE)
+                or (task.state == TaskState.ERROR and task.is_retry_due())
             ]
 
     def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
@@ -776,7 +860,9 @@ class TaskScheduler:
         # If the task is in error state, reset it to IDLE first
         if task.state == TaskState.ERROR:
             PrintStyle.info(f"Resetting task '{task.name}' from ERROR to IDLE state before running")
-            await self.update_task(task_uuid, state=TaskState.IDLE)
+            # Manual run resets the failure counter: a human-initiated retry
+            # starts with a clean slate.
+            await self.update_task(task_uuid, state=TaskState.IDLE, consecutive_failures=0)
             # Force a reload to ensure we have the updated state
             await self._tasks.reload()
             task = self.get_task_by_uuid(task_uuid)
@@ -837,7 +923,39 @@ class TaskScheduler:
         save_tmp_chat(context)
         return context
 
+    def _resolve_pinned_preset(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> dict | None:
+        """Resolve a pinned task's model preset, failing loudly if it no longer exists.
+
+        wOS D4: an unattended task must never silently fall back to ambient
+        model settings when its pinned preset is missing at fire time.
+        """
+        if not task.pinned_preset:
+            return None
+        try:
+            from plugins._model_config.helpers import model_config
+        except ImportError as exc:
+            message = (
+                f"Pinned preset '{task.pinned_preset}' for scheduler task '{task.name}' "
+                f"({task.uuid}) cannot be resolved: _model_config plugin unavailable"
+            )
+            PrintStyle.error(message)
+            raise ValueError(message) from exc
+        preset = model_config.get_preset_by_name(task.pinned_preset)
+        if not preset:
+            message = (
+                f"Pinned preset '{task.pinned_preset}' for scheduler task '{task.name}' "
+                f"({task.uuid}) no longer exists. Refusing to fall back to ambient model "
+                f"settings (wOS D4). Update or clear pinned_preset to resume this task."
+            )
+            PrintStyle.error(message)
+            raise ValueError(message)
+        return preset
+
     async def _get_chat_context(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> AgentContext:
+        # Resolve any pinned preset first: missing presets must fail loudly
+        # before any context is loaded or created (no silent ambient fallback).
+        pinned_preset = self._resolve_pinned_preset(task)
+
         context = AgentContext.get(task.context_id) if task.context_id else None
 
         if context:
@@ -846,7 +964,6 @@ class TaskScheduler:
                 f"Scheduler Task {task.name} loaded from task {task.uuid}, context ok"
             )
             save_tmp_chat(context)
-            return context
         else:
             message = (
                 f"Scheduler Task {task.name} loaded from task {task.uuid} but context not found"
@@ -855,7 +972,19 @@ class TaskScheduler:
                 PrintStyle.info(f"{message}; creating dedicated context")
             else:
                 PrintStyle.warning(message)
-            return await self.__new_context(task)
+            context = await self.__new_context(task)
+
+        # Enforce the pinned preset on every fire, for both freshly created
+        # and already existing contexts, so ambient drift never changes the
+        # task's model (wOS D4).
+        if pinned_preset is not None:
+            preset_name = str(pinned_preset.get("name") or task.pinned_preset)
+            context.set_data("chat_model_override", {"preset_name": preset_name})
+            save_tmp_chat(context)
+            PrintStyle.info(
+                f"Scheduler Task '{task.name}' pinned to model preset '{preset_name}'"
+            )
+        return context
 
     async def _persist_chat(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], context: AgentContext):
         if context.id != task.context_id:
@@ -982,11 +1111,13 @@ class TaskScheduler:
                 PrintStyle.error(f"Scheduler Task '{current_task.name}' failed: {e}")
                 await current_task.on_error(str(e))
 
-                # Explicitly verify task was updated in storage after error
+                # Explicitly verify task was updated in storage after error.
+                # DISABLED is also valid here: the failure cap may have been
+                # reached inside on_error.
                 await self._tasks.reload()
                 updated_task = self.get_task_by_uuid(task_uuid)
-                if updated_task and updated_task.state != TaskState.ERROR:
-                    PrintStyle.warning(f"Fixing task state consistency: '{current_task.name}' state is not ERROR after failure")
+                if updated_task and updated_task.state not in (TaskState.ERROR, TaskState.DISABLED):
+                    PrintStyle.warning(f"Fixing task state consistency: '{current_task.name}' state is not ERROR/DISABLED after failure")
                     await self.update_task(task_uuid, state=TaskState.ERROR)
 
                 # if agent:
@@ -1191,6 +1322,8 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
         "next_run": serialize_datetime(task.get_next_run()),
         "last_result": task.last_result,
         "context_id": task.context_id,
+        "pinned_preset": task.pinned_preset,
+        "consecutive_failures": task.consecutive_failures,
         "dedicated_context": task.is_dedicated(),
         "project": {
             "name": task.project_name,
@@ -1262,6 +1395,8 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
         "last_run": parse_datetime(task_data.get("last_run")),
         "last_result": task_data.get("last_result"),
         "context_id": task_data.get("context_id"),
+        "pinned_preset": task_data.get("pinned_preset"),
+        "consecutive_failures": int(task_data.get("consecutive_failures") or 0),
     }
 
     # Add type-specific fields

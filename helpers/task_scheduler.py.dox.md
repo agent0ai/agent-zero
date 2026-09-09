@@ -23,6 +23,9 @@
   - `get_next_launch_time(self) -> datetime | None`
   - `should_launch(self) -> datetime | None`
 - `BaseTask` (`BaseModel`)
+  - `pinned_preset: str | None = Field(default=None)` — optional model preset name pinned at dispatch time (wOS D4); enforced at every fire via `_resolve_pinned_preset` + `chat_model_override` context data; missing preset fails loudly (ValueError, task state=error), never falls back to ambient.
+  - `consecutive_failures: int = Field(default=0)` — consecutive failed-run counter for ERROR-state auto-recovery (dev-ticket-2026-09-08-scheduler-error-state-auto-recovery); incremented in `on_error`, reset to 0 in `on_success` and on manual ERROR→IDLE reset in `run_task_by_uuid`; at `SCHEDULER_MAX_CONSECUTIVE_FAILURES` (default 3) the task transitions to DISABLED with a loud `PrintStyle.error` + `logger.error` naming task, uuid, and last error.
+  - `is_retry_due(self) -> bool` — whether an ERROR-state task is eligible to retry now; default False (only `ScheduledTask` implements retry-on-next-slot using last_run + 1s as cron reference so a task never re-fires within the slot it failed in).
   - `update(self, name: str | None=..., state: TaskState | None=..., system_prompt: str | None=..., prompt: str | None=..., attachments: list[str] | None=..., last_run: datetime | None=..., last_result: str | None=..., context_id: str | None=..., **kwargs)`
   - `check_schedule(self, frequency_seconds: float=...) -> bool`
   - `get_next_run(self) -> datetime | None`
@@ -38,6 +41,7 @@
   - `create(cls, name: str, system_prompt: str, prompt: str, schedule: TaskSchedule, attachments: list[str] | None=..., context_id: str | None=..., timezone: str | None=..., project_name: str | None=..., project_color: str | None=...)`
   - `update(self, name: str | None=..., state: TaskState | None=..., system_prompt: str | None=..., prompt: str | None=..., attachments: list[str] | None=..., last_run: datetime | None=..., last_result: str | None=..., context_id: str | None=..., schedule: TaskSchedule | None=..., **kwargs)`
   - `check_schedule(self, frequency_seconds: float=...) -> bool`
+  - `is_retry_due(self) -> bool` — True once the next cron slot after the last failed run has arrived (ERROR-state retry eligibility).
   - `get_next_run(self) -> datetime | None`
 - `PlannedTask` (`BaseTask`)
   - `create(cls, name: str, system_prompt: str, prompt: str, plan: TaskPlan, attachments: list[str] | None=..., context_id: str | None=..., project_name: str | None=..., project_color: str | None=...)`
@@ -56,7 +60,7 @@
   - `async update_task_by_uuid(self, task_uuid: str, updater_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask]], None], verify_func: Callable[[Union[ScheduledTask, AdHocTask, PlannedTask]], bool]=...) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None`
   - `get_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]`
   - `get_tasks_by_context_id(self, context_id: str, only_running: bool=...) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]`
-  - `async get_due_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]`
+  - `async get_due_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]` — returns IDLE tasks whose `check_schedule()` matches OR ERROR tasks whose `is_retry_due()` is True (auto-recovery; DISABLED tasks never auto-fire).
 - `TaskScheduler` (no explicit base class)
   - `get(cls) -> 'TaskScheduler'`
   - `cancel_running_task(self, task_uuid: str, terminate_thread: bool=...) -> bool`
@@ -65,6 +69,8 @@
   - `get_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]`
   - `get_tasks_by_context_id(self, context_id: str, only_running: bool=...) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]`
   - `async add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> 'TaskScheduler'`
+  - `_resolve_pinned_preset(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> dict | None` — resolves a pinned preset via `_model_config` `get_preset_by_name`; raises ValueError (loud, no ambient fallback) when the preset is missing or the plugin is unavailable.
+  - `async _get_chat_context(self, task)` — resolves pinned preset first, then applies `chat_model_override` to both existing and newly created contexts.
   - `async remove_task_by_uuid(self, task_uuid: str) -> 'TaskScheduler'`
 - Top-level functions:
 - `normalize_schedule_timezone(timezone_name: str | None) -> str`
@@ -79,7 +85,7 @@
 - `serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[str, Any]`: Standardized serialization for task objects with proper handling of all complex types.
 - `serialize_tasks(tasks: list[Union[ScheduledTask, AdHocTask, PlannedTask]]) -> list[Dict[str, Any]]`: Serialize a list of tasks to a list of dictionaries.
 - `deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]]=...) -> T`: Deserialize dictionary into appropriate task object with validation.
-- Notable constants/configuration names: `SCHEDULER_FOLDER`, `LOCAL_TIMEZONE_ALIASES`, `T`.
+- Notable constants/configuration names: `SCHEDULER_FOLDER`, `LOCAL_TIMEZONE_ALIASES`, `SCHEDULER_MAX_CONSECUTIVE_FAILURES` (default 3), `T`.
 
 ## Runtime Contracts
 
@@ -104,6 +110,7 @@
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_task_scheduler_timezone.py`
+  - `tests/test_task_scheduler_error_recovery.py` (ERROR retry-on-next-slot, failure cap → DISABLED, counter reset, IDLE-only semantics)
   - `tests/test_timezone_regressions.py`
   - `tests/test_tool_action_contracts.py`
 
