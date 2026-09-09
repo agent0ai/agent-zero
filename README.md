@@ -48,10 +48,10 @@ Agent Zero runs wherever Docker runs, from a $6 VPS or Raspberry Pi to a local w
 
 | Architecture | macOS | Linux | Windows |
 | --- | --- | --- | --- |
-| x86 | [Mac Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.6/a0-launcher-1.6-macos-x64.dmg) | [Linux x86](https://github.com/agent0ai/a0-launcher/releases/download/v1.6/a0-launcher-1.6-linux-x64.AppImage) | [Windows x86](https://github.com/agent0ai/a0-launcher/releases/download/v1.6/a0-launcher-1.6-windows-x64.exe) |
-| ARM64 | [Mac Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.6/a0-launcher-1.6-macos-arm64.dmg) | [Linux ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.6/a0-launcher-1.6-linux-arm64.AppImage) | [Windows ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.6/a0-launcher-1.6-windows-arm64.exe) |
+| x86 | [Mac Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.7/a0-launcher-1.7-macos-x64.dmg) | [Linux x86](https://github.com/agent0ai/a0-launcher/releases/download/v1.7/a0-launcher-1.7-linux-x64.AppImage) | [Windows x86](https://github.com/agent0ai/a0-launcher/releases/download/v1.7/a0-launcher-1.7-windows-x64.exe) |
+| ARM64 | [Mac Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.7/a0-launcher-1.7-macos-arm64.dmg) | [Linux ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.7/a0-launcher-1.7-linux-arm64.AppImage) | [Windows ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.7/a0-launcher-1.7-windows-arm64.exe) |
 
-See the [A0 Launcher v1.6 release](https://github.com/agent0ai/a0-launcher/releases/tag/v1.6) for release notes and updater metadata. See the [Launcher guide](./docs/guides/launcher.md) for the first-run walkthrough.
+See the [A0 Launcher v1.7 release](https://github.com/agent0ai/a0-launcher/releases/tag/v1.7) for release notes and updater metadata. See the [Launcher guide](./docs/guides/launcher.md) for the first-run walkthrough.
 
 <details>
 <summary><strong>Other install paths</strong></summary>
