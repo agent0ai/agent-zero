@@ -37,7 +37,7 @@
 - Add connection stays available with zero installed providers and opens the shared-style thumbnail dropdown. Missing plugins use Install shortcuts that open their actual Plugin Hub Index detail page by key, with a forced Index refresh if a cached entry is missing. Never install directly from Files: users review the plugin page and initiate installation there. Enabled installed plugins show their names without a prefix and open their connection form. Installed-but-disabled entries are disabled with an enablement hint, never offered for reinstallation. Determine installation from `plugins_list`, not enabled provider discovery. Keep plugin management outside this dropdown.
 - The path-toolbar settings gear follows the file-tree toggle, uses the same flat control styling, and is available outside picker modes. Persist validated preferences in `fileBrowser.preferences`; defaults are name/ascending, list view, and a hidden tree. Apply defaults on opening and settings changes, while header sorting and tree toggles remain temporary overrides.
 - Remote paths use `/@connections/<provider>/<id>/...` (legacy `/@ssh` is accepted); list via the shared directory API and perform remote actions through `file_browser_connections`. Enabled community providers supply fields and supported permissions to one shared settings UI. Clear connection drafts on modal teardown. Reflect stored permissions in file actions and never route remote paths into local file mutations or Browser/Desktop previews. For SSH, require an explicit username and fingerprint trust and keep private keys/passwords out of responses.
-- Icon view reuses list entries and their action/selection/navigation handlers, with token-based grid styling; do not fork file behavior into a second renderer.
+- Icon view reuses list entries and their action/selection/navigation handlers, with token-based grid styling; hide size and modified date in icon view, retaining them in list view. Do not fork file behavior into a second renderer.
 - Keep row action menus visible without disabling file-list scrolling; menus may float outside the scroll container but must still close on outside click, Escape, action click, and list scroll.
 - The selection toolbar provides Download ZIP, an icon-only Delete action, and a borderless/backgroundless Clear selection close button before the selection count. The toolbar spans the full width below the path header and above the list/tree split. Keep the count and each button label on one line; wrap whole controls with explicit horizontal and vertical gaps on narrow panels.
 - Keep the file list readable in narrow canvas/modal containers by hiding the Modified date column before sacrificing the Name or Size columns.
@@ -56,7 +56,7 @@
 - Keep the tree on the right in canvas and modal modes; at narrow panel widths it overlays the content below the toolbar. Tree file clicks reuse picker selection or existing file-opening actions.
 - Scope unmount cleanup to the owning panel element; destroying an old host must not clean up the active modal.
 
-- Display a dash for folder sizes; only files show byte sizes. Do not recursively scan folders for list metadata.
+- In list view, display a dash for folder sizes; only files show byte sizes. Do not recursively scan folders for list metadata.
 
 ## Work Guidance
 
