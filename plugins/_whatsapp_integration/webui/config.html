@@ -45,95 +45,48 @@
                     <template x-if="$store.whatsappConfig.currentStep === 0">
                         <div class="wa-step-panel">
 
-                            <div class="field">
-                                <div class="field-label">
-                                    <div class="field-title">Turn on WhatsApp</div>
-                                    <div class="field-description">Enable the local bridge to start.</div>
-                                </div>
-                                <div class="field-control">
-                                    <label class="toggle">
-                                        <input type="checkbox"
-                                               x-model="config.enabled"
-                                               @change="$store.whatsappConfig.onEnabledChange()" />
-                                        <span class="toggler"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <template x-if="config.enabled">
-                                <div>
-                                    <div class="field">
-                                        <div class="field-label">
-                                            <div class="field-title">WhatsApp account</div>
-                                            <div class="field-description">
-                                                <span x-show="!$store.whatsappConfig.disconnectMessage">Click "Show QR code" to pair your WhatsApp account.</span>
-                                                <span x-show="$store.whatsappConfig.disconnectMessage"
-                                                      x-text="$store.whatsappConfig.disconnectMessage"></span>
-                                            </div>
-                                        </div>
-                                        <div class="field-control wa-inline-actions">
-                                            <button class="btn btn-field" @click="$store.whatsappConfig.showQr()">
-                                                Show QR code
-                                            </button>
-                                            <button class="btn btn-field" @click="$store.whatsappConfig.disconnectAccount()"
-                                                :disabled="$store.whatsappConfig.disconnecting">
-                                                <span x-show="!$store.whatsappConfig.disconnecting">Disconnect</span>
-                                                <span x-show="$store.whatsappConfig.disconnecting">Disconnecting...</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <template x-if="$store.whatsappConfig.qrVisible">
-                                        <div class="wa-qr-panel">
-                                            <template x-if="$store.whatsappConfig.qrStatus === 'connected'">
-                                                <div>
-                                                    <div class="wa-qr-status ok">Connected</div>
-                                                    <div class="wa-qr-message" x-text="$store.whatsappConfig.qrMessage"></div>
-                                                    <button class="btn btn-field" @click="$store.whatsappConfig.hideQr()"
-                                                        style="margin-top: 12px;">
-                                                        Close
-                                                    </button>
-                                                </div>
-                                            </template>
-
-                                            <template
-                                                x-if="$store.whatsappConfig.qrStatus === 'waiting_scan' && $store.whatsappConfig.qrDataUrl">
-                                                <div>
-                                                    <div class="wa-qr-status">Scan with WhatsApp on your phone</div>
-                                                    <img :src="$store.whatsappConfig.qrDataUrl" alt="WhatsApp QR Code"
+                            <div class="wa-pairing-row">
+                                <div class="wa-qr-panel">
+                                    <div class="wa-qr-status">Scan to link WhatsApp</div>
+                                    <div class="wa-qr-content">
+                                        <button type="button" class="btn btn-field"
+                                            x-show="!$store.whatsappConfig.qrVisible"
+                                            @click="$store.whatsappConfig.showQr()">Show QR code</button>
+                                        <template x-if="$store.whatsappConfig.qrVisible">
+                                            <div>
+                                                <template x-if="$store.whatsappConfig.qrStatus === 'waiting_scan' && $store.whatsappConfig.qrDataUrl">
+                                                    <img :src="$store.whatsappConfig.qrDataUrl" alt="WhatsApp pairing QR code"
                                                         class="wa-qr-image" />
-                                                    <div class="wa-qr-help">The QR code refreshes automatically.</div>
-                                                    <button class="btn btn-field" @click="$store.whatsappConfig.hideQr()"
-                                                        style="margin-top: 12px;">
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </template>
-
-                                            <template
-                                                x-if="$store.whatsappConfig.qrStatus !== 'connected' && !($store.whatsappConfig.qrStatus === 'waiting_scan' && $store.whatsappConfig.qrDataUrl)">
-                                                <div>
-                                                    <div class="wa-qr-status"
-                                                        x-text="$store.whatsappConfig.qrMessage || 'Connecting...'"></div>
-                                                    <div class="wa-qr-help"
-                                                        x-show="$store.whatsappConfig.qrStatus !== 'error'">
-                                                        Please wait...</div>
-                                                    <div class="wa-qr-help error"
-                                                        x-show="$store.whatsappConfig.qrStatus === 'error'"
-                                                        x-text="$store.whatsappConfig.qrMessage"></div>
-                                                    <button class="btn btn-field" @click="$store.whatsappConfig.hideQr()"
-                                                        style="margin-top: 12px;">
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </template>
+                                                </template>
+                                                <div role="status" class="wa-qr-message"
+                                                    x-show="$store.whatsappConfig.qrStatus !== 'waiting_scan'"
+                                                    x-text="$store.whatsappConfig.qrMessage"></div>
+                                                <button type="button" class="btn btn-field"
+                                                    x-show="$store.whatsappConfig.qrStatus === 'error'"
+                                                    @click="$store.whatsappConfig.showQr()">Try again</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <button type="button" class="btn btn-field" x-show="$store.whatsappConfig.qrVisible"
+                                        @click="$store.whatsappConfig.hideQr()"
+                                        x-text="$store.whatsappConfig.qrStatus === 'connected' ? 'Close' : 'Hide QR code'"></button>
                                 </div>
-                            </template>
-
-                            <div class="wa-note" x-show="!config.enabled">
-                                Turn on WhatsApp to pair or switch your account.
+                                <div class="wa-pairing-instructions">
+                                    <div class="wa-qr-status">Link your account</div>
+                                    <ol class="wa-pairing-steps">
+                                        <li>Click <strong>Show QR code</strong>.</li>
+                                        <li>Open WhatsApp on your phone and go to <strong>Settings → Linked devices</strong> (Android: <strong>⋮ → Linked devices</strong>).</li>
+                                        <li>Tap <strong>Link a device</strong> and scan the code.</li>
+                                    </ol>
+                                    <p class="wa-qr-help">The QR code refreshes automatically while it is open.</p>
+                                    <p class="wa-qr-help">Choose who can reach your agent below, then finish setup to save.</p>
+                                    <button type="button" class="btn btn-field" x-show="config.enabled"
+                                        @click="$store.whatsappConfig.disconnectAccount()"
+                                        :disabled="$store.whatsappConfig.disconnecting"
+                                        x-text="$store.whatsappConfig.disconnecting ? 'Disconnecting...' : 'Disconnect account'"></button>
+                                    <div role="status" class="wa-qr-help" x-show="$store.whatsappConfig.disconnectMessage"
+                                        x-text="$store.whatsappConfig.disconnectMessage"></div>
+                                </div>
                             </div>
 
                             <div class="field">
@@ -200,6 +153,22 @@
 
                     <template x-if="$store.whatsappConfig.currentStep === 1">
                         <div class="wa-step-panel">
+                            <div class="field">
+                                <div class="field-label">
+                                    <div class="field-title">Enable WhatsApp</div>
+                                    <div class="field-description">Receive messages from your linked account after saving.</div>
+                                </div>
+                                <div class="field-control">
+                                    <label class="toggle">
+                                        <input type="checkbox"
+                                               aria-label="Enable WhatsApp"
+                                               x-model="config.enabled"
+                                               @change="$store.whatsappConfig.onEnabledChange()" />
+                                        <span class="toggler"></span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div class="field">
                                 <div class="field-label">
                                     <div class="field-title">Project</div>
@@ -435,19 +404,32 @@
             font-size: var(--font-size-small);
         }
 
-        .wa-inline-actions {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
+        .wa-pairing-row {
+            display: grid;
+            grid-template-columns: minmax(16rem, 18rem) minmax(0, 1fr);
+            gap: 1rem;
+            align-items: stretch;
+            margin-bottom: 1rem;
+        }
+
+        .wa-qr-panel,
+        .wa-pairing-instructions {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background: color-mix(in srgb, var(--color-background) 90%, white 10%);
         }
 
         .wa-qr-panel {
-            margin-top: 0.25rem;
-            padding: 1rem;
-            border-radius: 14px;
-            border: 1px solid color-mix(in srgb, var(--color-border) 88%, white 12%);
-            background: color-mix(in srgb, var(--color-background) 90%, white 10%);
             text-align: center;
+        }
+
+        .wa-qr-content {
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.8rem;
+            overflow-wrap: anywhere;
         }
 
         .wa-qr-status {
@@ -455,8 +437,11 @@
             margin-bottom: 0.5rem;
         }
 
-        .wa-qr-status.ok {
-            color: #7ee7a4;
+        .wa-pairing-steps {
+            margin: 0;
+            padding-left: 1.15rem;
+            color: var(--color-text-secondary);
+            line-height: 1.55;
         }
 
         .wa-qr-message,
@@ -467,20 +452,16 @@
 
         .wa-qr-help {
             font-size: var(--font-size-small);
-            margin-top: 0.4rem;
-        }
-
-        .wa-qr-help.error {
-            color: #fca5a5;
+            margin-top: 0.8rem;
         }
 
         .wa-qr-image {
+            display: block;
             width: 256px;
-            height: 256px;
+            height: auto;
             max-width: 100%;
-            border-radius: 8px;
+            border-radius: 0.5rem;
             background: white;
-            padding: 4px;
         }
 
         .wa-advanced {
@@ -595,6 +576,10 @@
         }
 
         @media (max-width: 640px) {
+            .wa-pairing-row {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
 
             .wa-summary-card,
             .wa-step-header,

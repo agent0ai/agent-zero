@@ -23,10 +23,12 @@
 ## Work Guidance
 
 - Coordinate Node bridge changes with Python bridge client and settings UI.
+- Pairing starts on one explicit Show QR code action, which enables the draft configuration. Keep QR polling sequential and ignore responses after cancellation or modal cleanup; saving remains owned by the settings wizard.
 
 ## Verification
 
 - Run `node --test tests/test_whatsapp_bridge.mjs` and `pytest tests/test_whatsapp_bridge_manager.py tests/test_whatsapp_number_utils.py tests/test_whatsapp_storage_paths.py` from the repository root.
+- Run `node --test tests/test_whatsapp_config_store.mjs` for pairing lifecycle changes; verify the two-column pairing layout and its mobile stack in the WebUI.
 - Smoke-test dependency install, bridge start, QR pairing, allowed-number filtering, message routing, and replies when practical.
 
 ## Child DOX Index
