@@ -49,7 +49,9 @@ body.right-canvas-resizing {
   align-items: center;
   gap: 7px;
   height: auto;
-  max-height: min(70vh, calc(100vh - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  scrollbar-width: none;
   padding: 10px 7px;
   transform: translateY(-50%);
   border-right: 0;
@@ -106,10 +108,6 @@ body.right-canvas-resizing {
   background: transparent;
   opacity: 0.76;
   transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
-}
-
-.right-canvas-toggle-button {
-  color: color-mix(in srgb, var(--color-primary) 70%, var(--color-text));
 }
 
 .right-canvas-rail-button:hover,
@@ -381,4 +379,24 @@ body.right-canvas-mobile-mode .right-canvas-resize-handle {
   .right-canvas-tab-label {
     display: none;
   }
+}
+
+.right-canvas-rail .right-canvas-rail-grip {
+  min-height: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.right-canvas-rail-grip span {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-text-muted);
+}
+
+.right-canvas-rail-button:focus-visible {
+  outline: 2px solid var(--color-text-muted);
+  outline-offset: -2px;
 }

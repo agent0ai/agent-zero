@@ -20,6 +20,10 @@
 - In mobile mode, keep the rail below blocking modal layers and compact it on very narrow screens instead of letting it cover modal content.
 - Keep the canvas shell functional when the instance-level visibility preference hides only the right-canvas rail.
 
+- Rail icons open their respective surfaces directly; keep the rail free of a separate Show/Hide toggle and keep the grip free of a tooltip.
+- The rail grip moves vertically with pointer capture or arrow/Home/End keys; its local position persists with canvas state and is clamped to the available height. Disconnect its size observer on unmount.
+- Register each surface as `canvas:<surface-id>` in shared Interface visibility. Filter rail icons and tabs by device; hidden panels requested elsewhere open as windows. Customize opens Settings at Interface.
+
 ## Work Guidance
 
 - Use existing surface and extension helpers before adding new canvas infrastructure.

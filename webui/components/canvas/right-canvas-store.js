@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { callJsExtensions } from "/js/extensions.js";
 import {
   SURFACE_MODE_DOCKED,
@@ -47,6 +48,9 @@ const model = {
   mountedSurfaces: {},
   isOpen: false,
   width: DEFAULT_WIDTH,
+  railPosition: null,
+  railHeight: 0,
+  _railObserver: null,
   isOverlayMode: false,
   isMobileMode: false,
   _initialized: false,
@@ -113,6 +117,7 @@ const model = {
       this.surfaceModes[normalized.id] = SURFACE_MODE_DOCKED;
     }
     registerSurfaceDefinition(normalized);
+    preferencesStore.registerUiControlVisibility(`canvas:${normalized.id}`);
     this.surfaces.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
     if (!this._registering) {
       this.ensureActiveSurface();
@@ -152,7 +157,7 @@ const model = {
       return true;
     }
 
-    if (!this.shouldRender()) {
+    if (!this.shouldRender() || !this.isSurfaceEnabled(targetId)) {
       return await this.openModalSurface(targetId, payload);
     }
 
@@ -369,6 +374,7 @@ const model = {
 
   async toggleCanvas() {
     if (!this.shouldRender()) return false;
+    this.ensureActiveSurface();
     if (this.isMobileMode) {
       return await this.open(this.activeSurfaceId || this.panelSurfaces[0]?.id || "", { source: "mobile-toggle" });
     }
@@ -377,6 +383,62 @@ const model = {
       return false;
     }
     return await this.open(this.activeSurfaceId || this.panelSurfaces[0]?.id || "");
+  },
+
+  mountRail(element) {
+    this._railObserver?.disconnect();
+    this._railObserver = new ResizeObserver(() => {
+      this.railHeight = element.offsetHeight;
+    });
+    this._railObserver.observe(element);
+  },
+
+  unmountRail() {
+    this._railObserver?.disconnect();
+    this._railObserver = null;
+  },
+
+  railStyle() {
+    const inset = this.railHeight / 2 + 8;
+    const position = this.railPosition ?? (this.isMobileMode ? 0.5 : 0.33);
+    return `top: clamp(${inset}px, ${position * 100}%, calc(100% - ${inset}px));`;
+  },
+
+  startRailDrag(event) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const handle = event.currentTarget;
+    const rail = handle.closest(".right-canvas-rail");
+    const bounds = this._rootElement.getBoundingClientRect();
+    const rect = rail.getBoundingClientRect();
+    const offset = event.clientY - (rect.top + rect.height / 2);
+    handle.setPointerCapture(event.pointerId);
+    const move = (e) => {
+      const inset = this.railHeight / 2 + 8;
+      const center = clamp(e.clientY - offset - bounds.top, inset, bounds.height - inset);
+      this.railPosition = clamp(center / bounds.height, 0, 1);
+    };
+    const end = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("lostpointercapture", end);
+      this.persist();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("lostpointercapture", end);
+  },
+
+  moveRail(event) {
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const position = this.railPosition ?? (this.isMobileMode ? 0.5 : 0.33);
+    this.railPosition = event.key === "Home" ? 0 : event.key === "End" ? 1
+      : clamp(position + (event.key === "ArrowUp" ? -0.02 : 0.02), 0, 1);
+    this.persist();
+  },
+
+  async customize() {
+    const { store: settingsStore } = await import("/components/settings/settings-store.js");
+    await settingsStore.open("agent", "section-interface");
   },
 
   setWidth(px, options = {}) {
@@ -482,6 +544,7 @@ const model = {
       activeSurfaceId: this.activeSurfaceId,
       surfaceModes: this.surfaceModes,
       width: this.width,
+      railPosition: this.railPosition,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -500,6 +563,9 @@ const model = {
     try {
       const saved = migratePersistedSurfaceState(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"));
       this.isOpen = false;
+      if (typeof saved.railPosition === "number" && Number.isFinite(saved.railPosition)) {
+        this.railPosition = clamp(saved.railPosition, 0, 1);
+      }
       this.activeSurfaceId = String(saved.activeSurfaceId || "");
       this.surfaceModes = Object.fromEntries(
         Object.entries(saved.surfaceModes || {}).map(([surfaceId, mode]) => [
@@ -565,6 +631,11 @@ const model = {
 
   applyLayoutState() {
     this.updateLayoutMode();
+    if (this.isOpen && !this.isSurfaceEnabled(this.activeSurfaceId)) {
+      this.isOpen = false;
+      this.ensureActiveSurface();
+      this.persist();
+    }
     document.documentElement.style.setProperty("--right-canvas-width", `${this.width}px`);
     document.body.classList.toggle("right-canvas-open", this.isOpen && !this.isMobileMode && this.shouldRender());
     document.body.classList.toggle("right-canvas-overlay-mode", this.isOverlayMode);
@@ -588,12 +659,16 @@ const model = {
       || null;
   },
 
+  isSurfaceEnabled(id) {
+    return preferencesStore.isUiControlVisible(`canvas:${normalizeSurfaceId(id)}`);
+  },
+
   get railSurfaces() {
-    return this.surfaces;
+    return this.surfaces.filter((surface) => this.isSurfaceEnabled(surface.id));
   },
 
   get panelSurfaces() {
-    return this.surfaces.filter((surface) => !surface.actionOnly);
+    return this.railSurfaces.filter((surface) => !surface.actionOnly);
   },
 
   currentSurface() {

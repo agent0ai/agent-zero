@@ -230,7 +230,12 @@ def _normalize_time_format(value: Any, default: str = TIME_FORMAT_12H) -> str:
 def _normalize_ui_control_visibility(value: Any) -> dict[str, dict[str, bool]]:
     submitted = value if isinstance(value, dict) else {}
     normalized = {}
-    for control, devices in UI_CONTROL_VISIBILITY_DEFAULTS.items():
+    defaults = {
+        **{control: {"mobile": True, "desktop": True} for control in submitted
+           if isinstance(control, str) and control.startswith("canvas:") and len(control) > 7},
+        **UI_CONTROL_VISIBILITY_DEFAULTS,
+    }
+    for control, devices in defaults.items():
         submitted_devices = submitted.get(control, {})
         if not isinstance(submitted_devices, dict):
             submitted_devices = {}

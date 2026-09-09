@@ -26,6 +26,8 @@
 - Confirmed MCP server removals apply immediately and refresh server status; other MCP manager draft edits still require Apply.
 - MCP manager local command forms accept shell-style command and argument lines; quote argument values that intentionally contain spaces.
 
+- Interface nests registered canvas surfaces under the right canvas rail control, using their plain titles, with independent mobile/desktop visibility in the same Save/Cancel draft. `open(tab, section)` supports direct section entry; initial scrolling waits for component markup and uses instant positioning so scroll anchoring follows later content growth.
+
 ## Work Guidance
 
 - Prefer subsection-local stores for complex settings areas.

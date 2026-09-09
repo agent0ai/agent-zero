@@ -25,21 +25,16 @@
       >
         <div class="right-canvas-resize-handle" title="Resize canvas" @pointerdown="$store.rightCanvas.startResize($event)"></div>
 
-        <nav class="right-canvas-rail" aria-label="Canvas surfaces" x-show="$store.preferences.isUiControlVisible('rightCanvasRail')">
-          <button
-            type="button"
-            class="right-canvas-rail-button right-canvas-toggle-button"
-            :class="{ 'is-active': $store.rightCanvas.isOpen }"
-            :title="$store.rightCanvas.isOpen ? 'Hide canvas' : 'Show canvas'"
-            :aria-label="$store.rightCanvas.isOpen ? 'Hide canvas' : 'Show canvas'"
-            :aria-pressed="$store.rightCanvas.isOpen.toString()"
-            @click="$store.rightCanvas.toggleCanvas()"
-          >
-            <x-icon name="dock_to_right"></x-icon>
+        <nav class="right-canvas-rail" aria-label="Canvas surfaces"
+          x-create="$store.rightCanvas.mountRail($el)"
+          x-destroy="$store.rightCanvas.unmountRail()"
+          :style="$store.rightCanvas.railStyle()" x-show="$store.preferences.isUiControlVisible('rightCanvasRail')">
+          <button type="button" class="right-canvas-rail-button right-canvas-rail-grip"
+            aria-label="Move canvas rail vertically"
+            @pointerdown="$store.rightCanvas.startRailDrag($event)"
+            @keydown="$store.rightCanvas.moveRail($event)">
+            <span aria-hidden="true"></span>
           </button>
-
-          <div class="right-canvas-rail-separator" aria-hidden="true"></div>
-
           <template x-for="surface in $store.rightCanvas.railSurfaces" :key="surface.id">
             <button
               type="button"
@@ -57,6 +52,12 @@
               </template>
             </button>
           </template>
+          <div class="right-canvas-rail-separator" aria-hidden="true"></div>
+          <button type="button" class="right-canvas-rail-button"
+            title="Customize canvas" aria-label="Customize canvas"
+            @click="$store.rightCanvas.customize()">
+            <x-icon name="tune"></x-icon>
+          </button>
         </nav>
 
         <section class="right-canvas-shell">
