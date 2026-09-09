@@ -20,6 +20,7 @@ langchain-community==0.3.19
 langchain-unstructured==0.1.6
 liteparse==2.0.3
 litellm==1.88.1  # CVE-2026-42271 fix: patched floor is 1.83.7
+langfuse>=4.7.0,<5  # Langfuse v4 floor: legacy v3 ingestion removed by Cloud on 2026-11-16 (transitive via litellm; floor prevents resolver regression)
 openai==2.41.1
 openai-whisper==20250625
 lxml_html_clean>=0.4.0  # CVE-2024-52595 fix: XSS CWE-79 CVSS 8.4
