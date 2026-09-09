@@ -1,4 +1,4 @@
-from typing import Any, List, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 from langchain.storage import InMemoryByteStore, LocalFileStore
 from langchain.embeddings import CacheBackedEmbeddings
 from helpers import guids
@@ -17,7 +17,8 @@ from langchain_community.vectorstores.utils import (
 )
 from langchain_core.embeddings import Embeddings
 
-import os, json, hashlib, re
+import os, json, hashlib, re, pickle
+from pathlib import Path
 
 import numpy as np
 
@@ -49,6 +50,105 @@ class MyFaiss(FAISS):
 
     def get_all_docs(self):
         return self.docstore._dict  # type: ignore
+
+    # --- Fix C: atomic save_local (dev-ticket-2026-08-21, upstream PR #1797) ---
+    def save_local(self, folder_path: str, index_name: str = "index") -> None:
+        """Save FAISS index, docstore, and index_to_docstore_id to disk atomically.
+
+        Both files are written to temp paths first, then renamed into place
+        via os.replace(). A crash or task cancellation between the two writes
+        can no longer leave a half-written index.faiss/index.pkl pair (the
+        index/docstore desync root cause); on failure the temp files are
+        removed and the originals stay intact.
+        """
+        path = Path(folder_path)
+        path.mkdir(exist_ok=True, parents=True)
+
+        index_tmp = str(path / f"{index_name}.faiss.tmp")
+        pkl_tmp = str(path / f"{index_name}.pkl.tmp")
+
+        try:
+            # save index separately since it is not picklable
+            faiss.write_index(self.index, index_tmp)
+
+            # save docstore and index_to_docstore_id
+            with open(pkl_tmp, "wb") as f:
+                pickle.dump((self.docstore, self.index_to_docstore_id), f)
+                f.flush()
+                os.fsync(f.fileno())
+
+            # atomically move both files into place (POSIX rename is atomic)
+            os.replace(index_tmp, str(path / f"{index_name}.faiss"))
+            os.replace(pkl_tmp, str(path / f"{index_name}.pkl"))
+        except BaseException:
+            # clean up temp files; originals remain untouched. BaseException
+            # so cleanup also runs on asyncio.CancelledError.
+            for tmp in (index_tmp, pkl_tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            raise
+
+    # --- Fix B: orphan-skip (dev-ticket-2026-08-21, upstream PR #1797) ---
+    def similarity_search_with_score_by_vector(
+        self,
+        embedding: List[float],
+        k: int = 4,
+        filter: Optional[Union[Callable, Dict[str, Any]]] = None,
+        fetch_k: int = 20,
+        **kwargs: Any,
+    ) -> List[Tuple[Document, float]]:
+        """Search that self-heals index/docstore desync instead of raising.
+
+        If a vector's mapping entry is missing (KeyError) or points to a
+        docstore id that no longer exists (ValueError), the orphaned vectors
+        are removed, the mapping is compacted, and the search retries once.
+        """
+        try:
+            return super().similarity_search_with_score_by_vector(
+                embedding, k=k, filter=filter, fetch_k=fetch_k, **kwargs
+            )
+        except ValueError as e:
+            if "Could not find document for id" not in str(e):
+                raise
+        except KeyError:
+            pass
+
+        try:
+            self._remove_orphaned_ids()
+            return super().similarity_search_with_score_by_vector(
+                embedding, k=k, filter=filter, fetch_k=fetch_k, **kwargs
+            )
+        except Exception:
+            # never crash memory recall on a corrupted store
+            return []
+
+    def _remove_orphaned_ids(self) -> None:
+        """Remove vectors whose mapping entry is outside the mapping range or
+        whose docstore id no longer exists, then compact the mapping."""
+        try:
+            doc_ids = set(self.docstore._dict.keys())
+        except AttributeError:
+            return
+        orphan_positions = set()
+        for i in range(self.index.ntotal):
+            doc_id = self.index_to_docstore_id.get(i)
+            if doc_id is None or doc_id not in doc_ids:
+                orphan_positions.add(i)
+        if not orphan_positions:
+            return
+        self.index.remove_ids(
+            np.fromiter(sorted(orphan_positions), dtype=np.int64)
+        )
+        remaining = [
+            doc_id
+            for i, doc_id in sorted(self.index_to_docstore_id.items())
+            if i not in orphan_positions
+        ]
+        self.index_to_docstore_id = {
+            i: doc_id for i, doc_id in enumerate(remaining)
+        }
 
 
 class Memory:
@@ -390,55 +490,91 @@ class Memory:
         *,
         include_exact: bool = False,
         cascade: bool = False,
+        dry_run: bool = False,
     ):
+        """Find and remove memories matching ``query``.
+
+        Returns the list of removed (or, with ``dry_run=True``, candidate)
+        Documents. Each returned Document carries a transient
+        ``_forget_reason`` attribute: ``"semantic"`` (similarity match),
+        ``"exact"`` (exact text match), or ``"cascade"`` (metadata references
+        a removed memory).
+
+        ``dry_run=True`` performs the identical search, exact-match pass, and
+        cascade expansion but deletes and persists nothing.
+
+        ``cascade=True`` additionally removes documents whose metadata
+        references any removed memory ID (consolidation relatives such as
+        ``replaced_memories`` / ``consolidated_from``), in a single expansion
+        pass — references are not followed recursively.
+        """
         k = 100
-        tot = 0
-        removed = []
+        removed: list[Document] = []
         removed_ids: set[str] = set()
 
-        while True:
-            # Perform similarity search with score
-            docs = await self.search_similarity_threshold(
-                query, limit=k, threshold=threshold, filter=filter
-            )
-            removed += docs
+        if dry_run:
+            # Preview: replicate the paged search without deleting. The live
+            # loop deletes each page and re-searches; here the search limit
+            # grows instead, converging to the same full candidate set.
+            limit = k
+            while True:
+                docs = await self.search_similarity_threshold(
+                    query, limit=limit, threshold=threshold, filter=filter
+                )
+                for doc in docs:
+                    doc_id = str(doc.metadata["id"])
+                    if doc_id not in removed_ids:
+                        doc._forget_reason = "semantic"
+                        removed.append(doc)
+                        removed_ids.add(doc_id)
+                if len(docs) < limit:
+                    break
+                limit += k
+        else:
+            while True:
+                # Perform similarity search with score
+                docs = await self.search_similarity_threshold(
+                    query, limit=k, threshold=threshold, filter=filter
+                )
+                for doc in docs:
+                    doc._forget_reason = "semantic"
+                removed += docs
 
-            # Extract document IDs and filter based on score
-            # document_ids = [result[0].metadata["id"] for result in docs if result[1] < score_limit]
-            document_ids = [result.metadata["id"] for result in docs]
-            removed_ids.update(str(doc_id) for doc_id in document_ids)
+                # Extract document IDs
+                document_ids = [result.metadata["id"] for result in docs]
+                removed_ids.update(str(doc_id) for doc_id in document_ids)
 
-            # Delete documents with IDs over the threshold score
-            if document_ids:
-                # fnd = self.db.get(where={"id": {"$in": document_ids}})
-                # if fnd["ids"]: self.db.delete(ids=fnd["ids"])
-                # tot += len(fnd["ids"])
-                await self.db.adelete(ids=document_ids)
-                tot += len(document_ids)
+                # Delete documents with IDs over the threshold score
+                if document_ids:
+                    await self.db.adelete(ids=document_ids)
 
-            # If fewer than K document IDs, break the loop
-            if len(document_ids) < k:
-                break
+                # If fewer than K document IDs, break the loop
+                if len(document_ids) < k:
+                    break
 
         if include_exact:
             exact_docs = self._find_exact_query_docs(query, filter, removed_ids)
             if exact_docs:
                 exact_ids = [doc.metadata["id"] for doc in exact_docs]
-                await self.db.adelete(ids=exact_ids)
+                if not dry_run:
+                    await self.db.adelete(ids=exact_ids)
+                for doc in exact_docs:
+                    doc._forget_reason = "exact"
                 removed += exact_docs
                 removed_ids.update(str(doc_id) for doc_id in exact_ids)
-                tot += len(exact_ids)
 
         if cascade and removed_ids:
             related_docs = self._find_related_docs_by_ids(removed_ids)
             if related_docs:
                 related_ids = [doc.metadata["id"] for doc in related_docs]
-                await self.db.adelete(ids=related_ids)
+                if not dry_run:
+                    await self.db.adelete(ids=related_ids)
+                for doc in related_docs:
+                    doc._forget_reason = "cascade"
                 removed += related_docs
                 removed_ids.update(str(doc_id) for doc_id in related_ids)
-                tot += len(related_ids)
 
-        if tot:
+        if not dry_run and removed:
             self._save_db()  # persist
         return removed
 

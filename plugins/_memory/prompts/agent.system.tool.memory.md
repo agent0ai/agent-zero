@@ -3,7 +3,7 @@ use when durable recall or storage is useful
 - `memory_load`: args `query`, optional `threshold`, `limit`, `filter`; search by meaning and metadata
 - `memory_save`: args `text`, optional `area` and metadata; store durable information; returns a memory ID on success
 - `memory_delete`: arg comma-separated `ids`; delete memories by exact ID
-- `memory_forget`: args `query`, optional `threshold`, `filter`; find and remove matching memories
+- `memory_forget`: args `query`, optional `threshold`, `filter`, `dry_run`, `cascade`; find and remove matching memories
 
 notes:
 - `threshold` is similarity from `0` to `1`
@@ -13,7 +13,8 @@ notes:
 - when the user updates a durable fact/preference, load related memories first, forget/delete superseded versions, then save one complete current version
 - do not append a second memory for the same mutable subject when the new statement replaces the old one
 - do not forget a memory only because it is old; forget it when current evidence shows it is stale, false, superseded, duplicated, or unwanted
-- `memory_forget` also cleans exact matches and derived fragment/solution records related to removed memories
+- `memory_forget` also cleans exact matches and, by default (`cascade: true`), derived fragment/solution records whose metadata references a removed memory — one expansion pass over consolidation metadata, no recursive cascade; `cascade: false` limits deletion to semantic and exact-text matches only
+- run `memory_forget` with `dry_run: true` first and review every candidate before any real deletion; prefer `memory_delete` by exact ID whenever the ID is known
 - use `memory_save` for stable current facts, not short-lived test markers, greetings, or one-off conversation events
 
 example:
