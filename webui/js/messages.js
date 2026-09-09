@@ -2827,8 +2827,8 @@ function escapeHTML(str) {
 }
 
 function convertPathsToLinks(str) {
-  function generateLinks(match) {
-    const parts = match.split("/");
+  function generateLinks(match, path) {
+    const parts = path.split("/");
     if (!parts[0]) parts.shift(); // drop empty element left of first "
     let conc = "";
     let html = "";
@@ -2847,12 +2847,12 @@ function convertPathsToLinks(str) {
   const simplePath = `\\/${folder}*${file}(?<!\\.)`;
   const suffix = `(?=$|[\\s.,;:!?\\)\\]\\}]|&#39;|&quot;)`;
   const pathRegex = new RegExp(
-    `(?<=${prefix})(?:${spacedFilePath}|${simplePath})${suffix}`,
+    `(?<=${prefix})(?:file:\\/\\/|\\/api\\/download_work_dir_file\\?path=)?(${spacedFilePath}|${simplePath})${suffix}`,
     "g",
   );
 
-  // skip paths inside html tags, like <img src="/path/to/image">
-  const tagRegex = /(<(?:[^<>"']+|"[^"]*"|'[^']*')*>)/g;
+  // Preserve existing links and code blocks as well as HTML attributes.
+  const tagRegex = /(<a\b[^>]*>[\s\S]*?<\/a>|<pre\b[^>]*>[\s\S]*?<\/pre>|<(?:[^<>"']+|"[^"]*"|'[^']*')*>)/gi;
 
   return str
     .split(tagRegex) // keep tags & text separate

@@ -192,5 +192,19 @@ assertNotIncludes(sentence, 'and ready</a>');
 
 const directory = convertPathsToLinks("Directory: /a0/usr/workdir is ready");
 assertIncludes(directory, 'data-path="/a0/usr/workdir"');
+
+for (const prefix of ["file://", "/api/download_work_dir_file?path="]) {{
+  const linked = convertPathsToLinks(`<code>${{prefix}}/a0/usr/workdir/web_os.html</code>`);
+  assertIncludes(linked, 'data-path="/a0/usr/workdir/web_os.html"');
+  assertNotIncludes(linked, prefix);
+}}
+
+for (const html of [
+  '<a href="/api/download_work_dir_file?path=/a0/usr/workdir/web_os.html">/a0/usr/workdir/web_os.html</a>',
+  '<pre><code>/api/download_work_dir_file?path=/a0/usr/workdir/web_os.html</code></pre>',
+  '<img src="/a0/usr/workdir/image.png">',
+]) {{
+  if (convertPathsToLinks(html) !== html) throw new Error(`Changed protected HTML: ${{html}}`);
+}}
 """
     subprocess.run(["node", "-e", script], check=True, text=True)
