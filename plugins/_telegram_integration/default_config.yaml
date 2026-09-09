@@ -6,7 +6,7 @@ bots: []
 #   token: ""
 #   mode: polling                # polling or webhook
 #   webhook_url: ""              # required if mode=webhook, your A0 base URL e.g. https://yourdomain.com (webhook path appended automatically)
-#   webhook_secret: ""           # optional shared secret for webhook verification
+#   webhook_secret: ""           # required for webhook mode: random 32–256 characters (A-Z, a-z, 0-9, _ and -)
 #   allowed_users: []            # Telegram user IDs or @usernames. Empty = allow all.
 #   group_mode: mention          # mention (respond when @mentioned or replied to) | all (respond to every message) | off (ignore groups)
 #   welcome_enabled: false       # Send a greeting when someone joins the group
