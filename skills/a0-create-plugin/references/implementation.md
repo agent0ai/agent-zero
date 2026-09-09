@@ -95,8 +95,8 @@ pass it explicitly.
 ```
 /a0/usr/plugins/<name>/
   plugin.yaml           # Required manifest
-  execute.py            # Optional user-triggered setup, post-install, or maintenance script
-  hooks.py              # Optional framework runtime hook functions
+  hooks.py              # Required when setup/dependencies/initialization/cleanup are needed
+  execute.py            # Optional non-lifecycle manual action only; omit by default
   default_config.yaml   # Optional default settings fallback
   README.md             # Optional locally; strongly recommended for community plugins
   LICENSE               # Optional locally (shown in Plugin List UI when present); required at repo root for Plugin Index submission
@@ -143,61 +143,46 @@ from helpers.runtime import do_work
 from plugins.my_plugin.helpers.runtime import do_work
 ```
 
-## Plugin Execution Script (`execute.py`)
-If your plugin needs a user-triggered script for setup, post-install work, maintenance, or other manual operations, add an `execute.py` at the plugin root.
+## Required Lifecycle Hooks (`hooks.py`)
 
-Good uses for `execute.py` include:
-- installing dependencies or downloading models/assets
-- running post-install steps after the plugin is copied into place
-- rebuilding caches, indexes, or generated files
-- applying migrations, repair steps, or sync jobs that the user may need to run again later
-- performing periodic maintenance tasks that should happen only when explicitly requested by the user
+**All plugin setup, dependency installation, required initialization, and uninstall cleanup MUST be owned by functions in the plugin-root `hooks.py`. These operations MUST NOT live in `execute.py`, including when described as manual setup, post-install, repair, or maintenance.** Installation through the Plugins UI/API must leave the plugin ready to use without an Execute button or an extra setup command.
 
-Use `execute.py` for **user-initiated** work. If the behavior is framework-internal or should happen automatically as part of plugin lifecycle handling, use `hooks.py` or lifecycle extensions instead.
+The framework calls exported functions through `helpers.plugins.call_plugin_hook(...)`:
 
-First rule of plugin side effects: do not modify the system permanently in ways
-that outlive the plugin. When a plugin is deleted, there should be no leftover
-symlinks, unmanaged services, or stray files outside plugin-owned paths unless
-the user explicitly requested that behavior and the plugin documents how to
-clean it up.
+| Hook | When it runs | Responsibility |
+|---|---|---|
+| `install()` | After Git/ZIP installation and again after a successful code update | Prepare dependencies, required assets/state, migrations, registrations, and initialization. Safe to rerun without duplicating resources or overwriting user data. |
+| `pre_update()` | Immediately before updating plugin code | Stop plugin-owned processes or prepare state when required. |
+| `uninstall()` | Before the framework deletes the custom plugin directory | Stop owned processes, unregister integrations, and remove plugin-owned dependencies and resources. |
+
+Hooks run inside the **Agent Zero framework runtime**, not the separate agent execution environment, and may be sync or async. Keep lifecycle entrypoints in `hooks.py`; delegate implementation to plugin-local helpers as needed. For example, with the corresponding helper functions implemented by the plugin:
 
 ```python
-import subprocess
-import sys
+from usr.plugins.my_plugin.helpers import runtime
 
-def main():
-    print("Installing plugin dependencies...")
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "<required-package>==<tested-version>"],
-        text=True,
-    )
-    if result.returncode != 0:
-        print("ERROR: Installation failed")
-        return result.returncode
 
-    print("Refreshing plugin resources...")
-    # Add post-install, repair, migration, or maintenance logic here.
+def install():
+    runtime.install_dependencies()
+    runtime.initialize()
 
-    print("Done.")
-    return 0
 
-if __name__ == "__main__":
-    sys.exit(main())
+def pre_update():
+    runtime.stop()
+
+
+def uninstall():
+    runtime.stop()
+    runtime.unregister()
+    runtime.remove_owned_dependencies()
 ```
 
-Users trigger it from the Plugins UI. Treat it as a manual, rerunnable operation: return `0` on success, non-zero on failure, and print progress so the user can understand what happened. When possible, make it safe to run more than once; if reruns are not safe, detect the state and print a clear message.
+Use plugin-owned dependency directories where possible so cleanup is precise. Reuse compatible shared dependencies; never uninstall shared packages or services needed by Agent Zero or another plugin. Remove owned services, symlinks, registrations, and generated resources too; directory deletion alone does not undo external side effects. Preserve unrelated data and document any plugin-owned user data that uninstall deletes.
 
-## Runtime Hooks (`hooks.py`)
-If your plugin needs framework-internal hook points, add a `hooks.py` file at the plugin root. The framework can call exported functions by name via `helpers.plugins.call_plugin_hook(...)`.
+Check subprocess results and raise on setup failure rather than reporting success. Clean up partial initialization so install/update can be retried. Required setup must not be deferred solely to first-use API handlers or startup extensions. If initialization must run again at boot, let the startup extension call the same hook or initialization helper while respecting disabled state.
 
-- `hooks.py` runs inside the **Agent Zero framework runtime**, not the separate agent execution environment.
-- Use it for things like install hooks, pre-update hooks, plugin registration work, cache setup, file preparation, or other internal framework operations.
-- Current built-in usage:
-  - the plugin installer calls `install()` in `hooks.py` after placing a plugin in `usr/plugins/`
-  - the plugin updater calls `pre_update()` in `hooks.py` immediately before pulling new plugin code into place
-  - the plugin uninstaller calls `uninstall()` in `hooks.py` before deleting the plugin directory — use this to clean up any dependencies or state created by `install()`
-- Hook functions may be sync or async.
-- Hooks should be reversible and cleanup-safe. Prefer framework-managed state and plugin-owned paths over permanent system modifications.
+### Manual Actions (`execute.py`)
+
+Omit `execute.py` by default. It is only for a separate, explicitly requested manual action unrelated to the plugin lifecycle, such as exporting a diagnostic report. Never use it to install/uninstall dependencies, perform required setup or initialization, apply required update migrations, or remove the plugin. Renaming lifecycle work as maintenance does not change this rule.
 
 ### Environment targeting rules
 - If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the same Python environment that is running Agent Zero.
@@ -232,6 +217,6 @@ Provide its callable contract in a policy-filtered `agent.system.tool.*.md` prom
 
 ## Local Verification
 
-Verify the named Docker runtime and source sync first. Use `/opt/venv-a0/bin/python` for framework imports and hooks, and `/opt/venv/bin/python` only for task-runtime code. Compile changed Python, run focused tests, then exercise the actual API/tool/UI path. Check effective configuration, plugin toggles, and cleanup. A successful import is not a live behavior test.
+Verify the named Docker runtime and source sync first. Use `/opt/venv-a0/bin/python` for framework imports and hooks, and `/opt/venv/bin/python` only for task-runtime code. Compile changed Python, run focused tests, then exercise the actual API/tool/UI path. For lifecycle changes, exercise normal install, repeated install/update, and uninstall through management APIs using isolated test data; confirm readiness without Execute and removal of owned dependencies without touching shared ones. Check effective configuration, plugin toggles, and cleanup. A successful import is not a live behavior test.
 
 For local-only plugins, a GitHub repository and Index submission are unnecessary. Do not add dependencies, pages, tools, or hooks that the requested feature does not need.

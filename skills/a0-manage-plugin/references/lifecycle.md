@@ -33,7 +33,7 @@ result = api("plugins/_plugin_installer/plugin_install", {
 
 Use the actual Index identity; do not overwrite an existing plugin. `git_token` is optional for a private repository; do not log it. A ZIP install uses multipart form fields `action=install_zip` and file field `plugin_file`, not a JSON body.
 
-The framework validates and places the plugin under `usr/plugins/`, runs its install hook, and refreshes state. Re-fetch the Index or plugin list to verify installed identity; inspect effective activation separately. Do not import framework installation helpers into the separate task-code runtime.
+The framework validates and places the plugin under `usr/plugins/`, runs `hooks.py:install()` for dependency setup and required initialization, and refreshes state. No `execute.py` or manual post-install step should be needed; treat that requirement as a plugin defect and use `a0-create-plugin` to fix it. Re-fetch the Index or plugin list to verify installed identity; inspect effective activation separately. Do not import framework installation helpers into the separate task-code runtime.
 
 ## Update
 
@@ -45,7 +45,7 @@ result = api("plugins/_plugin_installer/plugin_install", {
 })
 ```
 
-This path runs `pre_update`, updates the repository, reruns `install`, and refreshes framework state. On `dirty_tree_conflict`, inspect the reported files and preserve local edits; do not force-reset or uninstall/reinstall to hide the conflict. Verify returned commit/version and behavior. Non-Git installs need an explicitly planned replacement with local configuration/data preserved.
+This path runs `hooks.py:pre_update()`, updates the repository, reruns `hooks.py:install()`, and refreshes framework state. On `dirty_tree_conflict`, inspect the reported files and preserve local edits; do not force-reset or uninstall/reinstall to hide the conflict. Verify returned commit/version and behavior. Non-Git installs need an explicitly planned replacement with local configuration/data preserved.
 
 ## Configure Or Enable/Disable
 
@@ -68,7 +68,7 @@ For a user-requested uninstall of an identified custom plugin:
 api("plugins", {"action": "delete_plugin", "plugin_name": "plugin_id"})
 ```
 
-The standard path runs its uninstall hook, removes the custom plugin directory and refreshes state. Explain material data loss before acting if it was not clear in the request. Core plugins cannot be uninstalled this way; disabling is separate and may also be restricted. Scoped configuration may remain after uninstall; do not delete it unless requested.
+The standard path runs `hooks.py:uninstall()` to stop owned processes, remove registrations, and clean up plugin-owned dependencies/resources, then removes the custom plugin directory and refreshes state. Never substitute `execute.py` or a manual dependency-removal command; shared dependencies must remain intact. Explain material data loss before acting if it was not clear in the request. Core plugins cannot be uninstalled this way; disabling is separate and may also be restricted. Scoped configuration may remain after uninstall; do not delete it unless requested.
 
 If normal lifecycle operations fail, inspect the error and plugin-owned state. Manual repair requires a concrete recovery plan; raw folder deletion skips hooks and raw toggle writes skip framework refresh. Do not automatically perform them as fallbacks.
 

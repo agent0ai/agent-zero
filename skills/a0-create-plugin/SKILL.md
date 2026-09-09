@@ -50,6 +50,16 @@ Honor an explicit local-only or community-contribution request. For a new plugin
 - Community: develop and test locally, then prepare a standalone repository and a separate Plugin Index submission using `references/contribute.md`.
 - Existing bundled plugin work: edit its tracked owner only when that is the requested task. New custom plugins do not belong in `/a0/plugins/`.
 
+## Required Lifecycle Contract
+
+**Plugin setup, dependency installation, required initialization, and uninstall cleanup MUST use lifecycle functions in the plugin-root `hooks.py`. Never put these operations in `execute.py`, and never require an Execute button or manual post-install command to make a plugin usable.**
+
+- `install()` prepares dependencies and initializes the plugin automatically after installation and again after updates. Make it safe to rerun.
+- `pre_update()` stops plugin-owned processes or prepares state before an update when needed.
+- `uninstall()` stops plugin-owned processes, removes registrations, and removes plugin-owned dependencies/resources before the framework deletes the plugin directory. Preserve shared dependencies and unrelated user data.
+- Keep lifecycle ownership in `hooks.py`; it may delegate to plugin-local helpers. If boot-time initialization is needed, a startup extension may call the same helper or hook; it does not replace install/uninstall hooks.
+- Omit `execute.py` unless there is a separate, explicitly requested manual operation unrelated to setup, dependency installation, required initialization, updates, or removal.
+
 ## Read Only What The Task Needs
 
 After loading this skill, use `skills_tool` with `action: "read_file"`, `skill_name: "a0-create-plugin"`, and the reference path:

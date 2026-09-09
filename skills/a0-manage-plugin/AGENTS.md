@@ -16,6 +16,7 @@
 - Handle missing/null Index fields and check installed status separately from scoped activation.
 - Warn about third-party plugin execution risk before install workflows.
 - Do not recommend unmanaged deletion outside plugin-owned paths.
+- Install/update/remove APIs invoke `hooks.py` lifecycle functions; never recommend `execute.py` or manual setup/uninstall commands as a substitute. Route missing lifecycle implementation to `a0-create-plugin`.
 
 ## Work Guidance
 

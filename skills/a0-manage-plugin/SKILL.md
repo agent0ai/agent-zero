@@ -48,6 +48,8 @@ Distinguish browsing the Index from running the model-based security scanner. Di
 
 Use framework management APIs so hooks, caches and UI state stay consistent. Confirm the requested plugin and scope before changing it. Third-party plugins execute code in the Agent Zero environment: explain that risk and offer a security scan once before install, respecting an earlier scan choice. Do not turn an install or removal request into repeated confirmation prompts when the user has already specified the action and target.
 
+**Installation and removal must run the plugin's `hooks.py` lifecycle through these APIs. Never use `execute.py` or ask the user to click Execute for setup, dependency installation, required initialization, or uninstall cleanup.** If a plugin requires such a step, treat it as a plugin defect and route the fix to `a0-create-plugin`; do not silently use the manual workaround.
+
 Verify the API result and read back installed/config/toggle state. Preserve unrelated scoped overrides and local code changes. Do not use raw Git pulls or folder deletion as substitutes for normal lifecycle APIs.
 
 For a broken plugin, first check its identity, installation, effective toggle/config and relevant error. If the failure is in plugin code, use the brief troubleshooting guidance in `a0-create-plugin`.

@@ -19,7 +19,7 @@ Scale review to the change and requested risk. For a full audit, cover each grou
 - Read effective settings through `get_plugin_config`; save only intended scope/fields and preserve unowned settings. Caller metadata is not authorization.
 - Keep configurable tool guidance policy-filtered. Validate complete JSON examples and exact tool IDs/args.
 - Gate store-dependent Alpine content, use separate `createStore` modules, bind settings to `config.*`, and use framework notifications. Verify real breakpoint names and existing geometry.
-- Distinguish automatic `hooks.py` lifecycle behavior from user-triggered `execute.py`. Verify sync/async hooks and actual target interpreter; do not assume task-runtime dependencies exist in the framework.
+- **FAIL** if setup, dependency installation/removal, required initialization, update migrations, or uninstall cleanup uses `execute.py` or requires a manual Execute/post-install step. Require `hooks.py:install()` and `hooks.py:uninstall()` for the applicable operations, with `pre_update()` when needed. Verify reruns, failure cleanup, and the actual target interpreter; task-runtime dependencies do not prove framework readiness.
 - Track plugin-owned side effects and cleanup. Removing a plugin must not remove shared packages/services needed by other features.
 
 ## Security And Reliability

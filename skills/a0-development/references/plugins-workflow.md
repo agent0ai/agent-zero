@@ -13,8 +13,8 @@ Plugins are the primary way to extend Agent Zero. A plugin can bundle:
 
 - `plugin.yaml`
 - `default_config.yaml`
-- `hooks.py`
-- `execute.py`
+- `hooks.py` (required for setup, dependencies, initialization, and cleanup)
+- `execute.py` (optional non-lifecycle manual action only)
 - `tools/`
 - `api/`
 - `helpers/`
@@ -32,7 +32,7 @@ Use root framework directories only when changing bundled framework behavior its
 - Bundled plugins under `plugins/` may use `plugins.<plugin_name>...` imports.
 - User plugins under `usr/plugins/` should use `usr.plugins.<plugin_name>...` imports.
 - Avoid `sys.path` hacks and symlink-dependent imports.
-- `hooks.py` runs inside the framework runtime (`/opt/venv-a0` in Docker).
+- `hooks.py` runs inside the framework runtime (`/opt/venv-a0` in Docker). Install/update setup and dependency installation belong in `install()`; cleanup and removal of owned dependencies belong in `uninstall()`. Never use `execute.py` for these operations. Follow the required lifecycle contract in `a0-create-plugin`.
 - If a plugin must prepare the agent execution runtime or system packages, it must explicitly target that environment in a subprocess.
 
 ## Manifest And Configuration
