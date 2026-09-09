@@ -1,3 +1,4 @@
+import asyncio
 from helpers.extension import Extension
 from agent import LoopData
 from plugins._memory.extensions.python.message_loop_prompts_after._50_recall_memories import (
@@ -9,6 +10,9 @@ from plugins._memory.extensions.python.message_loop_prompts_after._50_recall_mem
     get_recall_scope,
 )
 from helpers import plugins
+
+RECALL_WAIT_TIMEOUT_S = 20
+
 
 class RecallWait(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
@@ -33,8 +37,17 @@ class RecallWait(Extension):
                     loop_data.extras_temporary["memory_recall_delayed"] = delay_text
                     return
 
-            # otherwise await the task
-            result = await task
+            # otherwise await the task, bounded so a hung recall task
+            # (e.g. slow embedding round-trip) can never stall prompt preparation
+            try:
+                result = await asyncio.wait_for(task, timeout=RECALL_WAIT_TIMEOUT_S)
+            except (asyncio.TimeoutError, TimeoutError):
+                # raised either by this ceiling or by the task's own inner
+                # SEARCH_TIMEOUT wait_for (see _50_recall_memories.py)
+                self.agent.hist_add_warning(
+                    "Memory recall timed out, continuing without memories."
+                )
+                return
             if self.agent.get_data(DATA_NAME_RESULT_SCOPE_MEMORIES) == get_recall_scope(
                 self.agent
             ):
