@@ -20,6 +20,7 @@
 - Terminal reset/close must not hang on foreground commands or shells that ignore SIGTERM.
 - Local and SSH session wrappers must synchronously release their owned process or connection resources when discarded.
 - Explicitly target local versus SSH execution runtimes.
+- The tool's `allow_running` flag is framework-set (for example by the `input` tool's terminal dispatch); it is not a model-facing arg and stays undocumented in prompts.
 - Do not hardcode secrets, SSH credentials, or local user paths.
 
 ## Work Guidance

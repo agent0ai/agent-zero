@@ -19,6 +19,7 @@
 - Keep LibreOffice operations bounded to intended workspaces and artifact paths.
 - Route APT commands through `system_packages.run_runtime_apt`; Kali repairs must use the build's snapshot when resolving LibreOffice/UNO dependencies.
 - Do not expose document contents or temporary files beyond intended UI/tool flows.
+- `office_artifact` reads canonical args `target_format` (export), `open_in_canvas`/`open_in_desktop` (UI intent); legacy aliases `export_format`, `open_canvas`, `open_desktop`, `open_document`, `desktop` still work. Edit operations also read legacy input kwargs: `text`/`value`/`body` for `content`, `old`/`old_text` for `find`, `new`/`new_text`/`replacement` for `replace`, `add_lines`/`append_lines` for append-content, and `edit`/`edits`/`update`/`patch` wrapper kwargs carrying the structured spec. Document only canonical args in model-facing prompts.
 - Text registration and Editor writes use FileBrowser-owned text constraints (size, binary content, UTF-8); do not define an independent Editor limit. Office template formats remain unchanged. Only explicit authenticated Editor/File Browser operations opt into filesystem-root paths; default artifact paths stay workspace-scoped.
 - Editor text Save As storage helpers must preserve exact UTF-8 text for arbitrary text/code filenames and create a new registered document without mutating or deleting the source document.
 

@@ -37,8 +37,12 @@ Optional arguments by action:
 - `element_index`: target an element from the latest `get_window_state`
 - structural `element_action` target object: `element_index` or any of `title`, `name`, `description`, `automation_id`, `class_name`, `selector`; macOS app targeting uses `app_name` or `bundle_id`
 - `max_depth`, `max_nodes`: bound window/element snapshot size for `get_window_state` and backend snapshots
+- `include_hidden`, `include_offscreen`, `max_windows`: optional filters for `list_windows`
+- `mode`: optional scope selector for `get_window_state`
 - `selector`: structural target for `element_action` when the backend supports selector targeting
 - `operation`: action such as `invoke`, `press`, `set_value`, `focus`, or backend-specific operations
+- `target`, `value`: element target object and value for `element_action` operations such as `set_value`
+- `path`: element path for `element_action`, macOS `ax_action`, and Windows `uia_action`
 - `dispatch`: `background`, `auto`, or `foreground`; prefer `background` for `element_action`
 - `x`, `y`: normalized `[0,1]` global-screen coordinates for `move` and `click`
 - `button`: `left`, `right`, or `middle` for `click`

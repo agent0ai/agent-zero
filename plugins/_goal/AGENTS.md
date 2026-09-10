@@ -19,6 +19,7 @@
 ## Local Contracts
 
 - Goal status values are `active`, `paused`, `complete`, and `blocked`.
+- The `goal` tool reads legacy action values `show`/`status` for `get`, `set` for `create`, and direct `complete`/`blocked` for `update` with `status`; prompts document only canonical actions.
 - Active goals are injected into agent extras; paused and blocked goals remain visible in the UI, while complete goals are hidden.
 - Goal records track accumulated active time with `elapsed_seconds` and `active_since`; pausing freezes elapsed time until resume.
 - User controls may pause, resume, edit, or delete a goal; destructive delete uses inline confirmation. Model tools may create goals and mark them complete or blocked.

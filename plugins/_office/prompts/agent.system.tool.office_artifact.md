@@ -3,10 +3,11 @@ create/open/read/edit/export Office artifacts in Agent Zero
 formats: odt ods odp docx xlsx pptx
 defaults: document->odt spreadsheet->ods presentation->odp
 actions: create open read edit inspect export version_history restore_version status
-common args: action kind title format content path file_id operation find replace
+common args: action kind title format content path file_id operation find replace sheet
 optional UI intent args: open_in_canvas open_in_desktop
 export takes optional `target_format` to convert the saved artifact to another office format
 read takes optional `max_chars` to bound returned text (default 12000)
+edit takes optional `count` (replace first N occurrences) and `preview_chars` (bound the response preview)
 restore_version requires `version_id` from version_history
 Office formats only; use `text_editor` for Markdown and plain text files
 create/read/edit results save or update artifacts only; they do not open a surface automatically unless the user explicitly asks to open the document UI
