@@ -35,6 +35,9 @@ Optional arguments by action:
 - `session_id`: session returned by `start_session`
 - `pid`, `window_id`: target a native window for `get_window_state`, `element_action`, scoped backend snapshots, and guarded keyboard input when supported
 - `element_index`: target an element from the latest `get_window_state`
+- structural `element_action` target object: `element_index` or any of `title`, `name`, `description`, `automation_id`, `class_name`, `selector`; macOS app targeting uses `app_name` or `bundle_id`
+- `max_depth`, `max_nodes`: bound window/element snapshot size for `get_window_state` and backend snapshots
+- `selector`: structural target for `element_action` when the backend supports selector targeting
 - `operation`: action such as `invoke`, `press`, `set_value`, `focus`, or backend-specific operations
 - `dispatch`: `background`, `auto`, or `foreground`; prefer `background` for `element_action`
 - `x`, `y`: normalized `[0,1]` global-screen coordinates for `move` and `click`

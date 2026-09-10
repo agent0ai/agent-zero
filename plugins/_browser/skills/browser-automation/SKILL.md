@@ -58,8 +58,8 @@ Screenshot args include `quality`, `full_page`, and optional `path`. Without `pa
 
 ## Forms And Files
 
-- `select_option` works for native selects and detectable ARIA listbox/combobox controls.
-- `set_checked` works for checkbox, radio, switch, and toggle-like refs.
+- `select_option` works for native selects and detectable ARIA listbox/combobox controls; pass multiple choices via `values`.
+- `set_checked` works for checkbox, radio, switch, and toggle-like refs; pass the desired state via `checked`.
 - `upload_file` works for file input refs or associated labels; verify the file exists in the active browser environment.
 - For fragile forms, call `skills_tool` with `action: "load"` and `skill_name: "browser-form-workflows"`, then follow that form-specific workflow before filling or submitting.
 
@@ -68,9 +68,15 @@ Screenshot args include `quality`, `full_page`, and optional `path`. Without `pa
 - Prefer refs/selectors and DOM/CDP actions over viewport coordinates.
 - `hover`, `double_click`, `right_click`, and `drag` accept refs or viewport coordinates when no reliable ref exists.
 - Coordinates are Chromium viewport CSS pixels and match screenshots; treat them as visual fallback, not the default interaction path.
-- `key_chord` presses keys in order and releases in reverse.
-- `clipboard` actions are copy, cut, or paste.
-- `set_viewport` resizes the page viewport.
+- Coordinate args: `x`/`y` position the pointer; `drag` adds destination `to_x`/`to_y` or destination `target_ref`; element-relative offsets use `offset_x`/`offset_y` and drag `target_offset_x`/`target_offset_y`.
+- `mouse` sends raw pointer input with `event_type` (default `click`) plus `x`/`y` and `button`.
+- `click` with `modifiers` (e.g. `"Control"`) alters the click; `focus_popup: true` targets an auto-registered popup window.
+- `key_chord` presses keys in order and releases in reverse; `keyboard` types `text` or presses a single `key`.
+- `evaluate` runs JavaScript in the page via `script` and returns the evaluated result.
+- `wheel` scrolls by pixel deltas `delta_x`/`delta_y` at `x`/`y`.
+- `clipboard` actions are copy, cut, or paste, chosen via `clipboard_action`; paste inserts `text`.
+- `set_viewport` resizes the page viewport via `width` and `height`.
+- `navigate` takes the destination `url` on an existing `browser_id`.
 
 ## Tabs And Popups
 

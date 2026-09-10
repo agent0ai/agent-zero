@@ -5,6 +5,9 @@ defaults: document->odt spreadsheet->ods presentation->odp
 actions: create open read edit inspect export version_history restore_version status
 common args: action kind title format content path file_id operation find replace
 optional UI intent args: open_in_canvas open_in_desktop
+export takes optional `target_format` to convert the saved artifact to another office format
+read takes optional `max_chars` to bound returned text (default 12000)
+restore_version requires `version_id` from version_history
 Office formats only; use `text_editor` for Markdown and plain text files
 create/read/edit results save or update artifacts only; they do not open a surface automatically unless the user explicitly asks to open the document UI
 use action `open`, `open_in_canvas: true`, or `open_in_desktop: true` only when the user explicitly asks to open the Office document/Desktop
