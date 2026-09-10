@@ -82,6 +82,7 @@
   Prompts must direct complete or binary transfer to authenticated HTTP.
 - Host browser status metadata may advertise `available_browsers` entries with browser ids, labels, CDP endpoints, status, and enabled state; keep older CLI payloads without those fields compatible.
 - Model preset definitions exposed through v1 are global; project arguments select scope but never create project-owned definitions. Model switcher state reports the effective main, utility, and embedding models and preserves embedding-change notifications.
+- Context creation with an explicit `agent_profile` records the `agent_profile_manually_set` context flag before project activation so project-default reconciliation cannot override the selection.
 - The protected v1 `agent_editor` route delegates to the bundled Agent Editor
   API and must not define another profile schema or write profile files itself.
 - The protected v1 `agents_list` response uses the shared agent presentation
