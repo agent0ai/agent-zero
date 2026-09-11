@@ -1,4 +1,5 @@
 import asyncio
+import re
 from dataclasses import dataclass
 from typing import Callable, Awaitable
 
@@ -158,10 +159,7 @@ def _make_group_mention_filter(handler: Callable, bot: Bot):
 
 async def start_polling(instance: BotInstance) -> asyncio.Task:
     # Ensure any leftover webhook is removed before polling
-    try:
-        await instance.bot.delete_webhook()
-    except Exception:
-        pass
+    await remove_webhook(instance)
 
     async def _poll():
         try:
@@ -194,11 +192,14 @@ async def stop_polling(instance: BotInstance):
 
 async def setup_webhook(instance: BotInstance, webhook_url: str, secret: str = ""):
     """Register webhook with Telegram. Updates are received via the API handler."""
+    if not isinstance(secret, str) or not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", secret):
+        raise ValueError("webhook_secret must contain 32–256 letters, digits, underscores or hyphens")
+
     full_url = f"{webhook_url.rstrip('/')}/api/plugins/_telegram_integration/webhook?bot={instance.name}"
 
     await instance.bot.set_webhook(
         url=full_url,
-        secret_token=secret or None,
+        secret_token=secret,
     )
 
     instance.webhook_active = True
@@ -207,12 +208,12 @@ async def setup_webhook(instance: BotInstance, webhook_url: str, secret: str = "
 
 
 async def remove_webhook(instance: BotInstance):
+    instance.webhook_active = False
+    instance.webhook_secret = ""
     try:
         await instance.bot.delete_webhook()
     except Exception as e:
         PrintStyle.error(f"Telegram ({instance.name}): remove webhook error: {format_error(e)}")
-    instance.webhook_active = False
-    instance.webhook_secret = ""
 
 # Cleanup
 

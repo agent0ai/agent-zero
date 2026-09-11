@@ -433,7 +433,10 @@ def test_model_config_migration_repairs_saved_venice_user_slots(monkeypatch, tmp
                 "embedding_model": {
                     "provider": "venice",
                     "name": "embed",
-                    "kwargs": {},
+                    "kwargs": {
+                        **expected,
+                        "dimensions": 1024,
+                    },
                 },
             }
         ),
@@ -456,6 +459,14 @@ def test_model_config_migration_repairs_saved_venice_user_slots(monkeypatch, tmp
                         "name": "proxy",
                         "kwargs": {"keep": True},
                     },
+                    "embedding": {
+                        "provider": "venice",
+                        "name": "embed",
+                        "kwargs": {
+                            **expected,
+                            "dimensions": 512,
+                        },
+                    },
                 },
                 {
                     "name": "Legacy raw preset",
@@ -477,10 +488,11 @@ def test_model_config_migration_repairs_saved_venice_user_slots(monkeypatch, tmp
     assert config == {"model_preset": "Default"}
     assert presets[0]["name"] == "Default"
     assert presets[0]["chat"]["kwargs"] == expected
-    assert presets[0]["embedding"]["kwargs"] == expected
+    assert presets[0]["embedding"]["kwargs"] == {"dimensions": 1024}
     assert presets[0]["utility"]["kwargs"] == {"a0_api_mode": "responses"}
     assert presets[1]["chat"]["kwargs"] == expected
     assert presets[1]["utility"]["kwargs"] == {"keep": True}
+    assert presets[1]["embedding"]["kwargs"] == {"dimensions": 512}
     assert presets[2]["chat"]["kwargs"] == expected
     assert (plugin_dir / "config.json.pre-unified-presets.bak").exists()
 

@@ -19,6 +19,8 @@
 
 ## Runtime Contracts
 
+- Responses include FileBrowser-owned `limits`; `?limits=1` returns only those constraints without listing a directory. Files and Editor use this metadata instead of separate frontend caps.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `GetWorkDirFiles` is an `ApiHandler`.
@@ -46,3 +48,6 @@
 ## Child DOX Index
 
 No child DOX files.
+
+## SSH folders
+`/@connections` and legacy `/@ssh` list browse-enabled connections. `/@connections/<provider>/<id>/...` delegates to `helpers.file_connections.listing` in a worker thread. Legacy `/@ssh/<id>/...` resolves through the enabled SSH provider. Stored browse permission and each provider's transport/root rules apply. Local listings remain unchanged.

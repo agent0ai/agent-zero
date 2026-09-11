@@ -3066,7 +3066,7 @@ def close_runtime_sync(context_id: str, *, delete_profile: bool = True) -> None:
     try:
         task.result_sync(timeout=30)
     finally:
-        task.kill(terminate_thread=True)
+        task.kill()
 
 
 async def close_all_runtimes(*, delete_profiles: bool = False) -> None:

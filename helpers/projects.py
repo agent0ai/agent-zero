@@ -788,7 +788,11 @@ def get_knowledge_files_count(name: str):
     )
     return len(files.list_files_in_dir_recursively(knowledge_folder))
 
-def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str:
+def get_file_structure(
+    name: str,
+    basic_data: BasicProjectData|None=None,
+    output_mode: str = file_tree.OUTPUT_MODE_STRING,
+) -> str:
     project_folder = get_project_folder(name)
     if basic_data is None:
         basic_data = load_basic_project_data(name)
@@ -800,7 +804,7 @@ def get_file_structure(name: str, basic_data: BasicProjectData|None=None) -> str
         max_folders=basic_data["file_structure"]["max_folders"],
         max_lines=basic_data["file_structure"]["max_lines"],
         ignore=basic_data["file_structure"]["gitignore"],
-        output_mode=file_tree.OUTPUT_MODE_STRING
+        output_mode=output_mode
     ))
 
     # empty?

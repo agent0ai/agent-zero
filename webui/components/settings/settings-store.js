@@ -1,4 +1,5 @@
 import { createStore } from "/js/AlpineStore.js";
+import { store as rightCanvasStore } from "/components/canvas/right-canvas-store.js";
 import * as API from "/js/api.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
@@ -35,6 +36,17 @@ const TAB_ITEMS = Object.freeze([
       { id: "section-locale", label: "Locale", icon: "language" },
       { id: "section-interface", label: "Interface", icon: "dashboard_customize" },
       { id: "section-agent-plugins", label: "Plugins", icon: "extension" },
+    ],
+  },
+  {
+    id: "file-browser",
+    label: "File Browser",
+    icon: "folder",
+    sections: [
+      { id: "section-files-appearance", label: "Appearance and defaults", icon: "tune" },
+      { id: "section-files-remote", label: "Remote folders", icon: "cloud" },
+      { id: "section-files-limits", label: "File size limits", icon: "data_usage" },
+      { id: "section-files-archives", label: "Archives", icon: "folder_zip" },
     ],
   },
   {
@@ -116,6 +128,7 @@ const model = {
   _paneScrollHandler: null,
   _paneScrollPane: null,
   _scrollSyncFrame: null,
+  _sectionLoadObserver: null,
   _updateStatusRefreshedAt: 0,
   expandedNavGroups: {},
   searchQuery: "",
@@ -184,12 +197,14 @@ const model = {
     this.bindPaneScroll();
 
     if (openedHashSection) {
-      this.scrollToSection(hashSectionId);
+      this.scrollToSection(hashSectionId, null, "instant");
     }
   },
 
   cleanup() {
     this.unbindPaneScroll();
+    this._sectionLoadObserver?.disconnect();
+    this._sectionLoadObserver = null;
     this.settings = null;
     this.additional = null;
     this.error = null;
@@ -199,7 +214,13 @@ const model = {
   },
 
   get uiControls() {
-    return UI_CONTROLS;
+    return [...UI_CONTROLS, ...rightCanvasStore.surfaces.map((surface) => ({
+      id: `canvas:${surface.id}`,
+      label: surface.title,
+      parent: "rightCanvasRail",
+      icon: surface.icon,
+      image: surface.image,
+    }))];
   },
 
   isUiControlVisible(control, device) {
@@ -487,21 +508,32 @@ const model = {
     return activePanel?.querySelector(selector) || pane?.querySelector(selector) || document.getElementById(sectionId);
   },
 
-  scrollToSection(sectionId, event = null) {
+  scrollToSection(sectionId, event = null, behavior = "smooth") {
     event?.preventDefault?.();
+    this._sectionLoadObserver?.disconnect();
     if (!this.activateSection(sectionId)) {
       this._activeSection = sectionId;
     }
 
     const performScroll = () => {
       const pane = this.getSettingsPane();
+      const loading = "x-component > .loading:empty, x-extension.loading";
+      if (pane?.querySelector(loading)) {
+        this._sectionLoadObserver = new MutationObserver(() => {
+          if (pane.querySelector(loading)) return;
+          this._sectionLoadObserver.disconnect();
+          requestAnimationFrame(performScroll);
+        });
+        this._sectionLoadObserver.observe(pane, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+        return;
+      }
       const target = this.getSectionTarget(sectionId, pane);
       if (!target) {
         history.replaceState(null, "", `#${sectionId}`);
         return;
       }
       if (!pane) {
-        target.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+        target.scrollIntoView({ behavior, block: "start", inline: "nearest" });
         history.replaceState(null, "", `#${sectionId}`);
         return;
       }
@@ -509,7 +541,7 @@ const model = {
       const targetRect = target.getBoundingClientRect();
       pane.scrollTo({
         top: Math.max(0, pane.scrollTop + targetRect.top - paneRect.top - 12),
-        behavior: "smooth",
+        behavior,
       });
       history.replaceState(null, "", `#${sectionId}`);
       this.updateActiveSectionFromScroll();
@@ -699,9 +731,10 @@ const model = {
   },
 
   // Open settings modal from external callers
-  async open(initialTab = null) {
+  async open(initialTab = null, initialSection = null) {
     if (initialTab) {
-      this._activeTab = initialTab;
+      this.activeTab = initialTab;
+      history.replaceState(null, "", `#${initialSection || this.getFirstSectionId(this.activeTab)}`);
     }
     await window.openModal("settings/settings.html");
   },

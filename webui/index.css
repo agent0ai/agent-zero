@@ -117,6 +117,16 @@
 } 
 
 
+.dark-mode input[type="checkbox"] {
+  color-scheme: dark;
+  accent-color: var(--color-input);
+}
+
+/* Keep the native mixed-state dash light against the dark accent. */
+.dark-mode input[type="checkbox"]:indeterminate {
+  color-scheme: light;
+}
+
 html {
   font-family: var(--font-family-main);
 }

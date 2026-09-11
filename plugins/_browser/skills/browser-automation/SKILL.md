@@ -1,6 +1,6 @@
 ---
 name: browser-automation
-description: Use for complex Agent Zero browser automation, including multi-tab browsing, screenshots, forms, uploads, raw pointer/keyboard actions, host-vs-container browser mode, and visual verification workflows.
+description: "Control web pages: tabs, clicks, forms, downloads, screenshots; host or Docker browser."
 triggers:
   - "browser automation"
   - "web automation"
@@ -36,6 +36,8 @@ For fragile forms, load `browser-form-workflows` with `skills_tool:load` before 
 6. If the user asks for an existing tab, page title, or already-open URL, call `list` first, match by `title` or `currentUrl`, then use `set_active` or `navigate` on that `browser_id` instead of opening a new tab.
 
 ## Modes
+
+When the user asks for "my browser", "host browser", "local browser", a local Chromium browser, or opening a URL in their host browser, use this `browser` tool. Do not substitute `computer_use_remote`, `code_execution_remote`, `xdg-open`, `sensible-browser`, or Python `webbrowser.open`. If setup fails and mentions remote debugging, tell the user to open the browser inspect page, such as `chrome://inspect/#remote-debugging` or `opera://inspect/#remote-debugging`, enable "Allow remote debugging for this browser instance", run `/browser host on`, and retry.
 
 The same tool may run in Docker container mode or A0 CLI host-browser mode, depending on project/plugin settings.
 

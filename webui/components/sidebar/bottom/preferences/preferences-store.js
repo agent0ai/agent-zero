@@ -11,7 +11,11 @@ const UI_VISIBILITY_DEFAULTS = {
 
 function normalizeUiVisibility(value = {}) {
   return Object.fromEntries(
-    Object.entries(UI_VISIBILITY_DEFAULTS).map(([control, defaults]) => [
+    Object.entries({
+      ...Object.fromEntries(Object.keys(value || {}).filter((id) => id.startsWith("canvas:") && id.length > 7)
+        .map((id) => [id, { mobile: true, desktop: true }])),
+      ...UI_VISIBILITY_DEFAULTS,
+    }).map(([control, defaults]) => [
       control,
       {
         mobile: typeof value?.[control]?.mobile === "boolean" ? value[control].mobile : defaults.mobile,
@@ -61,6 +65,15 @@ const model = {
     this._applyShowUtils(value);
   },
   _showUtils: false,
+
+  get showToolArgs() {
+    return this._showToolArgs;
+  },
+  set showToolArgs(value) {
+    this._showToolArgs = value;
+    this._applyShowToolArgs(value);
+  },
+  _showToolArgs: false,
 
   // Chat container width preference for HiDPI/large screens
   get chatWidth() {
@@ -176,6 +189,14 @@ const model = {
         this._showUtils = false; // Default to speech off if localStorage is unavailable
       }
 
+      // load tool arguments display preference
+      try {
+        const storedShowToolArgs = localStorage.getItem("showToolArgs");
+        this._showToolArgs = storedShowToolArgs === "true";
+      } catch {
+        this._showToolArgs = false; // Default to hidden if localStorage is unavailable
+      }
+
       this._isMobileViewport = globalThis.innerWidth <= 768;
       globalThis.addEventListener("resize", () => {
         this._isMobileViewport = globalThis.innerWidth <= 768;
@@ -186,6 +207,7 @@ const model = {
       this._applyAutoScroll(this._autoScroll);
       this._applySpeech(this._speech);
       this._applyShowUtils(this._showUtils);
+      this._applyShowToolArgs(this._showToolArgs);
       this._applyChatWidth(this._chatWidth);
       this._applyDetailMode(this._detailMode);
     } catch (e) {
@@ -220,6 +242,10 @@ const model = {
       "show-utility-messages",
       Boolean(value),
     );
+  },
+
+  _applyShowToolArgs(value) {
+    localStorage.setItem("showToolArgs", value);
   },
 
   _applyChatWidth(value) {

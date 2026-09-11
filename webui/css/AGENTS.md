@@ -11,8 +11,10 @@
 - `loading-indicators.css` owns reusable loading visuals; `messages.css` owns chat-history paging placement, the context-switch splash surface, and lazy message-preview states in addition to message presentation.
 - Component-specific styles should usually stay inside the component HTML unless they are intentionally shared.
 - `modals.css` owns the shared stacked modal shell, backdrop, scroll area, footer slot, modal button classes, floating/no-backdrop modal behavior, and shared modal section primitives.
-- `surfaces.css` owns surface modal switchers, action rails, draggable header affordances, focus-button state, and right-canvas surface primitives.
+- `surfaces.css` owns surface modal switchers, action rails, draggable header affordances, focus-button state, and right-canvas surface primitives. Files, Editor, and Browser opt into `surface-workspace` for the lighter panel palette, common toolbar chrome, flat `surface-control` buttons, and group separators. Surface modal headers share a 48px border-box height with centered titles and controls; component styles must not override their sizing. Surface modal header controls are borderless in normal, hover, and active states; preserve group separators and keyboard focus outlines. Tab bars and toolbars share a 48px baseline with vertically centered controls. File trees use `--color-background` to contrast with the lighter `--color-panel` workspace. Keep these styles opt-in and preserve viewer/content themes; primary empty-state actions such as Open Browser retain their existing button styling.
 - `index.css` defines global theme variables such as `--color-*`, `--spacing-*`, `--font-size-*`, and `--transition-speed`.
+
+- `tables.css` owns the shared selection summary and borderless close control used by Files and Memory.
 
 ## Local Contracts
 

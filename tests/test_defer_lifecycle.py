@@ -1,4 +1,7 @@
 import asyncio
+from pathlib import Path
+import subprocess
+import sys
 import threading
 import uuid
 import weakref
@@ -6,6 +9,56 @@ import weakref
 import pytest
 
 from helpers.defer import DeferredTask
+
+
+def test_concurrent_first_use_shares_one_running_loop():
+    # Isolate a broken cold start so stranded loop threads cannot leak into pytest.
+    script = """
+import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from helpers.defer import DeferredTask
+
+start = threading.Barrier(2)
+creation = threading.Barrier(2)
+new_event_loop = asyncio.new_event_loop
+loops = []
+
+def create_loop():
+    loop = new_event_loop()
+    loops.append(loop)
+    try:
+        creation.wait(timeout=0.2)
+    except threading.BrokenBarrierError:
+        pass  # With serialized creation, a second caller never enters here.
+    return loop
+
+def create_task(_):
+    start.wait(timeout=2)
+    return DeferredTask('concurrent-first-use')
+
+asyncio.new_event_loop = create_loop
+with ThreadPoolExecutor(max_workers=2) as pool:
+    tasks = list(pool.map(create_task, range(2)))
+asyncio.new_event_loop = new_event_loop
+assert len(loops) == 1, f'Created {len(loops)} loops for one name'
+assert tasks[0].event_loop_thread is tasks[1].event_loop_thread
+
+async def current_loop():
+    return asyncio.get_running_loop()
+
+try:
+    for task in tasks:
+        task.start_task(current_loop)
+    assert all(task.result_sync(timeout=2) is loops[0] for task in tasks)
+finally:
+    tasks[0].kill(terminate_thread=True)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script], timeout=10,
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 class Owner:

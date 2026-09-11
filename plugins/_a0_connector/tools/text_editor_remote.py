@@ -6,8 +6,11 @@ import uuid
 from typing import Any
 
 from helpers.tool import Response, Tool
-from helpers.ws import NAMESPACE
-from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
+from helpers.ws_manager import (
+    ConnectionNotFoundError,
+    WsPayloadTooLargeError,
+    get_shared_ws_manager,
+)
 
 from plugins._a0_connector.helpers.text_editor_freshness import (
     apply_patch_post_state,
@@ -18,11 +21,14 @@ from plugins._a0_connector.helpers.text_editor_freshness import (
 )
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_file_op,
+    emit_connector_event,
+    payload_too_large_result,
     remote_file_metadata_for_sid,
     remote_tool_sids_for_context,
     select_remote_file_target_sid,
     store_pending_file_op,
 )
+from plugins._text_editor.helpers.log import create_editor_log
 from plugins._text_editor.helpers.patch_request import (
     exact_replace_to_patch_text,
     parse_patch_request,
@@ -31,14 +37,35 @@ from plugins._text_editor.helpers.patch_request import (
 
 FILE_OP_TIMEOUT = 30.0
 FILE_OP_EVENT = "connector_file_op"
+REMOTE_FILE_TEXT_MAX_BYTES = 256 * 1024
 UNSUPPORTED_FRESHNESS_ERROR = (
     "text_editor_remote: the connected CLI is too old for freshness-aware patching. "
     "Upgrade the CLI and try again."
 )
 
 
+def _modification_payload_bytes(op: str, payload: dict[str, Any]) -> int:
+    if op == "write":
+        return len(str(payload.get("content", "")).encode("utf-8"))
+    if op != "patch":
+        return 0
+    if payload.get("patch_text") is not None:
+        return len(str(payload["patch_text"]).encode("utf-8"))
+    edits = payload.get("edits")
+    if not isinstance(edits, list):
+        return 0
+    return sum(
+        len(str(edit.get("content")).encode("utf-8"))
+        for edit in edits
+        if isinstance(edit, dict) and edit.get("content") is not None
+    )
+
+
 class TextEditorRemote(Tool):
     """Send file-editing operations to the connected CLI machine."""
+
+    def get_log_object(self):
+        return create_editor_log(self, remote=True)
 
     async def execute(self, **kwargs: Any) -> Response:
         op = (
@@ -172,6 +199,24 @@ class TextEditorRemote(Tool):
         path: str,
         **payload_extra: Any,
     ) -> dict[str, Any]:
+        actual_bytes = _modification_payload_bytes(op, payload_extra)
+        if actual_bytes > REMOTE_FILE_TEXT_MAX_BYTES:
+            return {
+                "ok": False,
+                "code": "PAYLOAD_TOO_LARGE",
+                "error": (
+                    f"text_editor_remote limits write and patch content to "
+                    f"{REMOTE_FILE_TEXT_MAX_BYTES} bytes; received {actual_bytes}. "
+                    "Use the authenticated HTTP bulk transfer path instead."
+                ),
+                "details": {
+                    "type": "payload_too_large",
+                    "actual_bytes": actual_bytes,
+                    "limit_bytes": REMOTE_FILE_TEXT_MAX_BYTES,
+                    "alternative": "http_bulk_transfer",
+                },
+            }
+
         context_id = self.agent.context.id
         require_writes = op in {"write", "patch"}
         candidates = remote_tool_sids_for_context(context_id)
@@ -224,14 +269,17 @@ class TextEditorRemote(Tool):
         )
 
         try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
+            await emit_connector_event(
                 sid,
                 FILE_OP_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             result = await asyncio.wait_for(future, timeout=FILE_OP_TIMEOUT)
+        except WsPayloadTooLargeError as exc:
+            clear_pending_file_op(op_id)
+            return payload_too_large_result(exc, op_id=op_id)
         except ConnectionNotFoundError:
             clear_pending_file_op(op_id)
             return {
@@ -332,7 +380,19 @@ class TextEditorRemote(Tool):
         if op == "read":
             content = data.get("content", "")
             total_lines = data.get("total_lines", "?")
-            return f"{path} {total_lines} lines\n>>>\n{content}\n<<<"
+            message = f"{path} {total_lines} lines\n>>>\n{content}\n<<<"
+            truncation = data.get("truncation")
+            if data.get("truncated") and isinstance(truncation, dict):
+                reason = str(truncation.get("reason") or "configured limit")
+                next_line = truncation.get("next_line")
+                continuation = (
+                    f" Continue with line_from={next_line}." if next_line else ""
+                )
+                message += (
+                    f"\n[Remote text read truncated by {reason}.{continuation} "
+                    "Use HTTP bulk transfer for the complete or binary file.]"
+                )
+            return message
         if op == "write":
             return data.get("message") or f"{path} written successfully"
         if op == "patch":

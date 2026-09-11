@@ -130,35 +130,33 @@
 
                     <!-- Mass action toolbar -->
                     <div x-show="$store.memoryDashboardStore.selectedCount > 0" class="mass-action-toolbar">
-                        <div class="selection-info">
-                            <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                        <div class="selection-summary">
+                            <button type="button" class="selection-close"
+                                @click="$store.memoryDashboardStore.clearSelection()"
+                                title="Clear Selection" aria-label="Clear selection">
+                                <x-icon name="close"></x-icon>
+                            </button>
+                            <div class="selection-info">
+                                <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                            </div>
                         </div>
 
                         <div class="mass-actions">
                             <button class="btn btn-mass copy" @click="$store.memoryDashboardStore.bulkCopyMemories()"
-                                title="Copy Selected Content">
+                                title="Copy Selected Content" aria-label="Copy Selected Content">
                                 <x-icon name="content_copy"></x-icon>
-                                Copy
                             </button>
 
                             <button class="btn btn-mass export"
                                 @click="$store.memoryDashboardStore.bulkExportMemories()"
-                                title="Export Selected Memories">
+                                title="Export Selected Memories" aria-label="Export Selected Memories">
                                 <x-icon name="download"></x-icon>
-                                Export
                             </button>
 
                             <button class="btn btn-mass delete"
                                 @click="$confirmClick($event, () => $store.memoryDashboardStore.bulkDeleteMemories())"
-                                title="Delete Selected Memories">
+                                title="Delete Selected Memories" aria-label="Delete Selected Memories">
                                 <x-icon name="delete"></x-icon>
-                                Delete
-                            </button>
-
-                            <button class="btn btn-mass clear" @click="$store.memoryDashboardStore.clearSelection()"
-                                title="Clear Selection">
-                                <x-icon name="close"></x-icon>
-                                Clear
                             </button>
                         </div>
                     </div>
@@ -253,35 +251,33 @@
 
                     <!-- Mass action toolbar -->
                     <div x-show="$store.memoryDashboardStore.selectedCount > 0" class="mass-action-toolbar">
-                        <div class="selection-info">
-                            <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                        <div class="selection-summary">
+                            <button type="button" class="selection-close"
+                                @click="$store.memoryDashboardStore.clearSelection()"
+                                title="Clear Selection" aria-label="Clear selection">
+                                <x-icon name="close"></x-icon>
+                            </button>
+                            <div class="selection-info">
+                                <span x-text="$store.memoryDashboardStore.selectedCount"></span> memories selected
+                            </div>
                         </div>
 
                         <div class="mass-actions">
                             <button class="btn btn-mass copy" @click="$store.memoryDashboardStore.bulkCopyMemories()"
-                                title="Copy Selected Content">
+                                title="Copy Selected Content" aria-label="Copy Selected Content">
                                 <x-icon name="content_copy"></x-icon>
-                                Copy
                             </button>
 
                             <button class="btn btn-mass export"
                                 @click="$store.memoryDashboardStore.bulkExportMemories()"
-                                title="Export Selected Memories">
+                                title="Export Selected Memories" aria-label="Export Selected Memories">
                                 <x-icon name="download"></x-icon>
-                                Export
                             </button>
 
                             <button class="btn btn-mass delete"
                                 @click="$confirmClick($event, () => $store.memoryDashboardStore.bulkDeleteMemories())"
-                                title="Delete Selected Memories">
+                                title="Delete Selected Memories" aria-label="Delete Selected Memories">
                                 <x-icon name="delete"></x-icon>
-                                Delete
-                            </button>
-
-                            <button class="btn btn-mass clear" @click="$store.memoryDashboardStore.clearSelection()"
-                                title="Clear Selection">
-                                <x-icon name="close"></x-icon>
-                                Clear
                             </button>
                         </div>
                     </div>
@@ -355,6 +351,10 @@
     </div>
 
     <style>
+        .memory-dashboard .mass-action-toolbar { flex-flow: row wrap; gap: 0.75rem 1rem; }
+        .memory-dashboard .selection-info { white-space: nowrap; }
+        .memory-dashboard .btn-mass { padding-inline: 0.5rem; }
+
         /* Modal footer layout */
         .modal-inner.modal-with-footer {
             display: flex;
@@ -463,10 +463,6 @@
         .col-actions {
             width: 4em;
         }
-        .col-select input[type="checkbox"] {
-            cursor: pointer;
-            transform: scale(1.2);
-        }
 
         /* Memory-specific: Metadata display */
         .metadata-cell {
@@ -554,9 +550,16 @@
             text-align: center;
             padding: 0.65rem 0.5rem !important;
         }
-        .select-cell input[type="checkbox"] {
+        .memory-table .col-select,
+        .memory-table .select-cell {
+            vertical-align: middle;
+        }
+        .memory-table input[type="checkbox"] {
+            display: block;
+            width: 1rem;
+            height: 1rem;
+            margin: 0 auto;
             cursor: pointer;
-            transform: scale(1.2);
         }
 
         /* Memory-specific: Actions cell vertical layout */

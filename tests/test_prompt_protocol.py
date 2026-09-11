@@ -79,8 +79,9 @@ async def test_prepare_prompt_places_protocol_before_history_and_extras(monkeypa
                 for message in messages
             ]
 
-    input_items = Agent._responses_prompt_input_items(
-        agent,
+    from helpers.litellm_transport import ResponsesTransport
+
+    input_items = ResponsesTransport.input_from_model_messages(
         FakeResponsesModel(),
         prompt,
     )
@@ -176,3 +177,36 @@ async def test_project_prompt_does_not_load_agents_md_without_project(monkeypatc
 
     assert "agents_md_instructions" not in loop_data.protocol_persistent
     assert "project_instructions" not in loop_data.protocol_persistent
+
+
+@pytest.mark.asyncio
+async def test_native_communication_projection_preserves_custom_main_sections():
+    from pathlib import Path
+    from helpers import files, responses_tools
+    from extensions.python.system_prompt._10_main_prompt import MainPrompt
+
+    prompt_root = Path(__file__).parents[1] / 'prompts'
+    legacy = files.read_prompt_file('agent.system.main.communication.md', _directories=[str(prompt_root)]).rstrip('\n')
+    native = files.read_prompt_file('agent.system.main.communication.native.md', _directories=[str(prompt_root)]).rstrip('\n')
+    original = f'Custom role instructions.\n{legacy}\nCustom project constraints.'
+    mapping = {
+        'agent.system.main.md': original,
+        'agent.system.main.communication.md': legacy,
+        'agent.system.main.communication.native.md': native,
+    }
+    agent = SimpleNamespace(read_prompt=lambda name: mapping[name])
+    loop_data = LoopData()
+    sections = []
+    await MainPrompt(agent).execute(system_prompt=sections, loop_data=loop_data)
+    assert sections == [original]
+    rendered = files.remove_code_fences(original, language='json')
+    result = responses_tools.project_system_prompt(
+        [{'role':'system','content':rendered}], loop_data.params_temporary["responses_prompt_replacements"],
+    )[0]['content']
+    assert result.startswith('Custom role instructions.')
+    assert result.endswith('Custom project constraints.')
+    assert 'Use the provided native functions' in result
+    assert 'treat the closing' not in result.lower()
+    assert '"tool_name":' not in result
+    assert 'closing `}`' in legacy
+    assert '[PROTOCOL]' in result and '[EXTRAS]' in result

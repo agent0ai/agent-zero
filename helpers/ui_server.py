@@ -38,6 +38,7 @@ from helpers.ui_bundler import (
     get_ui_asset_bundle,
     serialize_ui_asset_bundle,
 )
+from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
 from helpers import settings as settings_helper
 from helpers.ws import register_ws_namespace, validate_ws_origin
 from helpers.ws_manager import WsManager, set_shared_ws_manager
@@ -116,7 +117,7 @@ class UiServerRuntime:
                 "A0_SOCKETIO_PING_TIMEOUT_SECONDS",
                 SOCKETIO_PING_TIMEOUT_SECONDS,
             ),
-            max_http_buffer_size=50 * 1024 * 1024,
+            max_http_buffer_size=A0_WS_MAX_PAYLOAD_BYTES,
         )
 
         ws_manager = WsManager(socketio_server, lock)

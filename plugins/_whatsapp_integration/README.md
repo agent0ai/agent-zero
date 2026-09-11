@@ -20,14 +20,16 @@ Dependencies are auto-installed on first bridge start if missing.
 
 ### Configure and pair
 
-1. Enable the plugin in Settings > External > WhatsApp Integration
+1. Open Settings > External > WhatsApp Integration
 2. Configure allowed phone numbers
-3. Click Show QR Code and scan with WhatsApp on your phone
-4. Send a message from an allowed number to start a chat
+3. Click Show QR code, then use WhatsApp > Linked devices > Link a device to scan it. No separate enable step is needed to show the code.
+4. Finish the setup wizard to save, then send a message from an allowed number to start a chat
 5. Use `/project <name>`, `/config <preset>`, or `/send` in WhatsApp to control the active chat directly
 
 The WhatsApp session persists across restarts in `tmp/whatsapp/session/`. No re-pairing needed unless you disconnect via settings.
 Be careful: if you use your personal number and leave `allowed_numbers` open, other people could misuse your Agent Zero.
+
+Sender and group checks run before media downloads and again before dispatch. Changes to these settings restart the bridge on the next poll. Document filenames are reduced to basenames, and media files are created exclusively inside the cache directory.
 
 ## Configuration
 

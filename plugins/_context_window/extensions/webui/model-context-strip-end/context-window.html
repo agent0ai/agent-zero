@@ -80,6 +80,9 @@
 </div>
 
 <style>
+  .model-switcher-container:has(.context-window-anchor) {
+    min-width: min(19rem, calc(100vw - 2rem));
+  }
   .context-window-anchor {
     position: static;
     display: flex;
@@ -229,6 +232,9 @@
     color: color-mix(in srgb, var(--color-text) 62%, transparent);
   }
   @media (max-width: 25rem) {
+    .model-switcher-container:has(.context-window-anchor) {
+      min-width: min(calc(17rem + 1.25rem), calc(100vw - 2.5rem));
+    }
     .context-window-popover {
       right: 1.25rem;
       width: min(17rem, calc(100vw - 3rem));

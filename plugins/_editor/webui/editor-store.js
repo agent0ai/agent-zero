@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
+import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   openLatest as openLatestSurface,
   placeSurfaceModalHeaderAction,
@@ -52,18 +53,6 @@ function parentPath(path = "") {
   const index = normalized.lastIndexOf("/");
   if (index <= 0) return "/";
   return normalized.slice(0, index);
-}
-
-function textDocumentFilename(path = "", fallback = "Untitled.md") {
-  const name = basename(path || fallback || "Untitled.md");
-  const ext = extensionOf(name);
-  if (EDITOR_TEXT_EXTENSIONS.has(ext)) return name;
-  return `${name.replace(/\.+$/, "") || "Untitled"}.md`;
-}
-
-function textDocumentDefaultExtension(path = "") {
-  const ext = extensionOf(path);
-  return EDITOR_TEXT_EXTENSIONS.has(ext) ? ext : "md";
 }
 
 function editorIntent(url = "") {
@@ -182,6 +171,9 @@ function taskLineIndexes(markdown = "") {
 }
 
 async function callEditor(action, payload = {}) {
+  if (/^\/@(?:ssh|connections)\//.test(String(payload.path || "")) || String(payload.session_id || payload.file_id || "").startsWith("remote:")) {
+    return await callJsonApi("/file_browser_connections", { action: "editor", operation: action, payload });
+  }
   const explicitContextId = String(payload.ctxid || payload.context_id || "").trim();
   return await callJsonApi("/plugins/_editor/editor_session", {
     action,
@@ -191,6 +183,9 @@ async function callEditor(action, payload = {}) {
 }
 
 async function requestEditor(eventType, payload = {}, timeoutMs = 5000) {
+  if (String(payload.session_id || payload.file_id || "").startsWith("remote:") || String(payload.text || "").length > 64 * 1024) {
+    return await callEditor(eventType.replace(/^editor_/, ""), payload);
+  }
   const explicitContextId = String(payload.ctxid || payload.context_id || "").trim();
   const response = await editorSocket.request(eventType, {
     ...payload,
@@ -221,6 +216,30 @@ function isEditorSocketData(data) {
 }
 
 const model = {
+  fileTree: createFileTree((file) => store.openTreeEntry(file)),
+
+  async openTreeEntry(file) {
+    if (file.is_dir || this.loading || this.saving) return;
+    await fileBrowserStore.ensureLimits();
+    if (fileBrowserStore.isEditableFile(file)) {
+      const tab = this.tabs.find(tab => tab.path === file.path);
+      if (tab) return this.selectTab(tab.tab_id);
+      return this.openPath(file.path, { source: "file-browser" });
+    }
+    if (fileBrowserStore.canOpenInSurface(file)) return fileBrowserStore.openInSurface(file);
+    return fileBrowserStore.openFileEditor(file);
+  },
+
+  fileTreeDirectory() {
+    const path = this.session?.path || this.session?.document?.path;
+    return path ? fileBrowserStore.parentPath(path) : fileBrowserStore.browser.currentPath || fileBrowserStore.getRememberedDirectory() || "$WORK_DIR";
+  },
+
+  async toggleFileTree() {
+    await fileBrowserStore.loadDirectoryPreference();
+    await this.fileTree.toggle(this.fileTreeDirectory());
+  },
+
   status: null,
   tabs: [],
   activeTabId: "",
@@ -271,9 +290,7 @@ const model = {
   async onMount(element = null, options = {}) {
     await this.init();
     if (element && element !== this._root) {
-      if (this.sourceEditor && !element.contains?.(this.sourceEditor.container)) {
-        this.destroySourceEditor();
-      }
+      if (this._root) this.cleanup(this._root);
       this._root = element;
     }
     this._mode = options?.mode === "canvas" ? "canvas" : "modal";
@@ -304,7 +321,8 @@ const model = {
     this.flushInput();
   },
 
-  cleanup() {
+  cleanup(element = null) {
+    if (element && element !== this._root) return;
     this.flushInput();
     this.destroySourceEditor();
     if (this._previewEnhanceTimer) globalThis.clearTimeout(this._previewEnhanceTimer);
@@ -337,13 +355,14 @@ const model = {
   },
 
   async setViewMode(mode) {
-    const next = mode === PREVIEW_MODE && this.isTextDocument() ? PREVIEW_MODE : SOURCE_MODE;
+    const next = mode === PREVIEW_MODE && this.canPreview() ? PREVIEW_MODE : SOURCE_MODE;
     if (this.viewMode === next) return;
     this.applyPreviewEdit({ silent: true });
     this.syncEditorText();
     this.viewMode = next;
     this.cancelPendingClose();
     if (next === SOURCE_MODE) {
+      this.closeSearch();
       this.setSourceEditorText(this.editorText);
       this.scheduleSourceEditorInit();
       this.refreshSourceEditorLayout();
@@ -686,10 +705,7 @@ const model = {
   },
 
   openSearch() {
-    if (!this.isTextDocument()) return;
-    if (!this.isPreviewMode()) {
-      this.setViewMode(PREVIEW_MODE);
-    }
+    if (!this.isTextDocument() || !this.isPreviewMode()) return;
     this.searchOpen = true;
     this.runSearch();
     globalThis.requestAnimationFrame?.(() => {
@@ -861,8 +877,9 @@ const model = {
       this[historyAction]();
       return;
     }
-    if (key === "f") {
+    if (key === "f" && this.isPreviewMode()) {
       event.preventDefault();
+      event.stopPropagation();
       this.openSearch();
     }
   },
@@ -919,6 +936,14 @@ const model = {
   },
 
   async openSession(payload = {}) {
+    const tab = this.tabs.find(tab => (payload.file_id && tab.file_id === payload.file_id)
+      || (payload.path && tab.path === payload.path));
+    if (tab && this.isTabDirty(tab)) {
+      this.selectTab(tab.tab_id);
+      return tab;
+    }
+    this.applyPreviewEdit({ silent: true });
+    this.syncEditorText();
     this.loading = true;
     this.error = "";
     try {
@@ -969,6 +994,10 @@ const model = {
 
   hydrateActiveSession(tab, options = {}) {
     this.session = tab || null;
+    if (!this.canPreview(tab)) {
+      this.viewMode = SOURCE_MODE;
+      this.closeSearch();
+    }
     this.activeTabId = tab?.tab_id || "";
     this.editorText = String(tab?.text || "");
     this.dirty = Boolean(tab?.dirty);
@@ -1186,11 +1215,11 @@ const model = {
     editor.session.setUseWrapMode(true);
     editor.setOptions({
       fontSize: "13px",
-      showGutter: false,
+      showGutter: true,
       showPrintMargin: false,
       useWorker: false,
     });
-    editor.renderer.setShowGutter(false);
+    editor.renderer.setShowGutter(true);
     editor.renderer.setScrollMargin(14, 14, 0, 0);
     editor.setValue(this.editorText || "", -1);
     this._sourceEditorChangeHandler = () => {
@@ -1201,12 +1230,14 @@ const model = {
     editor.session.on("change", this._sourceEditorChangeHandler);
     this.sourceEditor = editor;
     this.aceUnavailable = false;
-    this.updateSourceEditorMode();
+    globalThis.ace.config.loadModule("ace/ext/modelist", () => this.updateSourceEditorMode());
     this.queueRender({ focus: Boolean(this.session), end: false });
   },
 
   sourceEditorMode(tab = this.session) {
-    return this.isMarkdown(tab) ? "ace/mode/markdown" : "ace/mode/text";
+    const path = tab?.path || tab?.document?.path || tab?.title || "";
+    if (extensionOf(path) === "jsonl") return "ace/mode/json";
+    return globalThis.ace?.require("ace/ext/modelist")?.getModeForPath(path).mode || "ace/mode/text";
   },
 
   updateSourceEditorMode(tab = this.session) {
@@ -1312,8 +1343,8 @@ const model = {
     }
 
     await fileBrowserStore.openSaveAsPicker(startPath, {
-      filename: textDocumentFilename(this.session.path || this.session.title || "Untitled.md"),
-      defaultExtension: textDocumentDefaultExtension(this.session.path || this.session.title || "Untitled.md"),
+      filename: basename(this.session.path || this.session.title || "Untitled.md"),
+      defaultExtension: "",
       onConfirm: async ({ path } = {}) => {
         if (!path) return false;
         await this.saveAsPath(path);
@@ -1345,6 +1376,7 @@ const model = {
         path: document.path || path,
         file_id: document.file_id || this.session.file_id,
         extension: document.extension || this.session.extension,
+        session_id: response.session_id || this.session.session_id,
         store_session_id: response.store_session_id || this.session.store_session_id,
         version: document.version || response.version || this.session.version,
       };
@@ -1684,9 +1716,13 @@ const model = {
     return ext === "md";
   },
 
-  isTextDocument(tab = this.session) {
+  canPreview(tab = this.session) {
     const ext = String(tab?.extension || tab?.document?.extension || "").toLowerCase();
     return EDITOR_TEXT_EXTENSIONS.has(ext);
+  },
+
+  isTextDocument(tab = this.session) {
+    return Boolean(tab?.session_id);
   },
 
   hasActiveFile(tab = this.session) {

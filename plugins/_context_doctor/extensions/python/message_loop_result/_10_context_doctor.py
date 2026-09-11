@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any, override
 
+from helpers import extract_tools
 from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
+from helpers.print_style import PrintStyle
 from plugins._context_doctor.helpers.context_doctor import (
+    looks_like_tool_call,
     transform_response,
     update_log_item,
 )
@@ -21,16 +24,57 @@ class ContextDoctor(Extension):
 
         # Extract LLM response
         llm_result = result_data.get("llm_result")
+        # Canonical calls already belong to the agent's policy-gated dispatcher.
+        if getattr(llm_result, "function_calls", None):
+            return
         response = getattr(llm_result, "response", None)
-        if not isinstance(response, str) or not response:
+        if not isinstance(response, str) or not response.strip():
             return
 
         # Repair response before default processing
         config = get_plugin_config("_context_doctor", agent=self.agent) or {}
         transformed = transform_response(
-            response, suppress_xml=config.get("suppress_xml", True)
+            response,
+            suppress_xml=config.get("suppress_xml", True),
+            split_thoughts=config.get("split_thoughts", True),
         )
+        is_tool_call = looks_like_tool_call(response, transformed)
+        if (
+            getattr(llm_result, "mode", None) == "responses"
+            and not is_tool_call
+            and not extract_tools.is_misformatted_tool_request(response)
+        ):
+            return  # Core dispatches Responses output text through the response tool.
         llm_result.response = transformed
+
+        # Treat as raw-text fallback when no usable tool call was extracted
+        if not is_tool_call:
+            # Manually add ai response and warnings
+            log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
+            self.agent.hist_add_ai_response(
+                transformed,
+                id=log_item.id if log_item else "",
+                llm_result=llm_result,
+            )
+            if log_item is not None:
+                update_log_item(
+                    self.agent,
+                    log_item,
+                    transformed,
+                    update_log=config.get("update_log", False),
+                    raw_response=response,
+                )
+
+            warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
+            warning_message = self.agent.hist_add_warning(message=warning)
+            PrintStyle(font_color="orange", padding=True).print(warning)
+            self.agent.context.log.log(
+                type="warning",
+                content=f"{self.agent.agent_name}: {self.agent.read_prompt('fw.msg_thoughts_fallback_response.md')}",
+                id=warning_message.id,
+            )
+            result_data["skip_default_processing"] = True
+            return
 
         # Suppressed XML does not update the generating log
         params = getattr(

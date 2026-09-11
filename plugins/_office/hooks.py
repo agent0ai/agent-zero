@@ -479,13 +479,4 @@ def _apt_update(errors: list[str]) -> bool:
 
 
 def _run_apt_command(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
-    return system_packages.run_apt_with_retries(
-        lambda: subprocess.run(
-            command,
-            check=False,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"},
-        )
-    )
+    return system_packages.run_runtime_apt(command, timeout=timeout)

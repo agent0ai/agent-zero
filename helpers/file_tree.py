@@ -21,6 +21,7 @@ SORT_DESC = "desc"
 OUTPUT_MODE_STRING = "string"
 OUTPUT_MODE_FLAT = "flat"
 OUTPUT_MODE_NESTED = "nested"
+OUTPUT_MODE_INDENT = "indent"
 
 
 def _from_timestamp(timestamp: float) -> datetime:
@@ -37,7 +38,7 @@ def file_tree(
     max_files: int = 0,
     sort: tuple[Literal["name", "created", "modified"], Literal["asc", "desc"]] = ("modified", "desc"),
     ignore: str | None = None,
-    output_mode: Literal["string", "flat", "nested"] = OUTPUT_MODE_STRING,
+    output_mode: Literal["string", "flat", "nested", "indent"] = OUTPUT_MODE_STRING,
 ) -> str | list[dict]:
     """Render a directory tree relative to the repository base path.
 
@@ -101,7 +102,7 @@ def file_tree(
         raise ValueError(f"Unsupported sort key: {sort_key!r}")
     if sort_direction not in {SORT_ASC, SORT_DESC}:
         raise ValueError(f"Unsupported sort direction: {sort_direction!r}")
-    if output_mode not in {OUTPUT_MODE_STRING, OUTPUT_MODE_FLAT, OUTPUT_MODE_NESTED}:
+    if output_mode not in {OUTPUT_MODE_STRING, OUTPUT_MODE_FLAT, OUTPUT_MODE_NESTED, OUTPUT_MODE_INDENT}:
         raise ValueError(f"Unsupported output mode: {output_mode!r}")
     if max_depth < 0:
         raise ValueError("max_depth must be >= 0")
@@ -255,6 +256,14 @@ def file_tree(
         lines = [root_line]
         for node in iter_visible():
             lines.append(node.text)
+        return "\n".join(lines)
+
+    if output_mode == OUTPUT_MODE_INDENT:
+        display_name = output_root
+        root_line = f"{display_name.rstrip(os.sep)}/"
+        lines = [root_line]
+        for node in iter_visible():
+            lines.append(_format_indent_line(node))
         return "\n".join(lines)
 
     if output_mode == OUTPUT_MODE_FLAT:
@@ -633,6 +642,16 @@ def _format_line(node: _TreeEntry) -> str:
         label = node.name
 
     return "".join(segments) + connector + label
+
+
+def _format_indent_line(node: _TreeEntry) -> str:
+    """Render one tree entry as a 4-space-indented line (compact token form)."""
+    indent = "    " * max(node.level - 1, 0)
+    if node.item_type == "folder":
+        return f"{indent}{node.name}/"
+    if node.item_type == "comment":
+        return f"{indent}# {node.name}"
+    return f"{indent}{node.name}"
 
 
 def _build_tree_items_flat(items: Sequence[_TreeEntry]) -> list[dict]:

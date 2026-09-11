@@ -1,3 +1,5 @@
+import asyncio
+import pytest
 import sys
 import threading
 import types
@@ -96,3 +98,26 @@ def test_model_search_falls_back_to_litellm_registry(monkeypatch):
     monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
     assert set(handler._litellm_fallback("openai", {"litellm_provider": "openai"})) == {"gpt-4.1"}
+
+
+@pytest.mark.parametrize("discovered,error", [([], "HTTP 503"), ([], ""), (["account-model"], "")])
+def test_oauth_discovery_never_substitutes_generic_registry(monkeypatch, discovered, error):
+    handler = _handler()
+    config = {"api_key_mode": "oauth", "litellm_provider": "openai"}
+    monkeypatch.setattr(handler, "_get_provider_cfg", lambda *_: config)
+    monkeypatch.setitem(sys.modules, "litellm", types.SimpleNamespace(
+        models_by_provider={"openai": {"unrelated-api-model"}},
+    ))
+
+    async def fetch(*args):
+        return discovered, "provider_endpoint", error
+
+    monkeypatch.setattr(handler, "_fetch_models", fetch)
+    result = asyncio.run(handler.process({"provider": "account-provider"}, None))
+    assert result == {
+        "models": discovered, "provider": "account-provider",
+        "source": "provider_endpoint", "error": error,
+    }
+    assert handler._litellm_fallback("account-provider", config) == []
+    assert handler._litellm_fallback("unknown-provider", {}) == []
+    assert handler._litellm_fallback("custom", {"litellm_provider": "openai"}) == ["unrelated-api-model"]

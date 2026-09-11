@@ -36,7 +36,10 @@ class IncludeWorkdirExtras(Extension):
             if runtime.is_development():
                 folder = files.normalize_a0_path(folder)
 
-            file_structure = projects.get_file_structure(project_name)
+            file_structure = projects.get_file_structure(
+                project_name,
+                output_mode=file_tree.OUTPUT_MODE_INDENT,
+            )
         else:
             set = settings.get_settings_for_prompt()
             enabled = bool(set["workdir_show"])
@@ -63,7 +66,7 @@ class IncludeWorkdirExtras(Extension):
                     max_folders=max_folders,
                     max_lines=max_lines,
                     ignore=gitignore_raw,
-                    output_mode=file_tree.OUTPUT_MODE_STRING,
+                    output_mode=file_tree.OUTPUT_MODE_INDENT,
                 )
             )
 

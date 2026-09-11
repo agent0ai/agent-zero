@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - Treat mailbox credentials and downloaded attachments as sensitive.
+- IMAP accepts exactly one valid From mailbox, rejecting duplicate fields, groups, and parser defects before body processing. Match the whitelist and address replies using that mailbox's normalized address; From filtering does not authenticate sender identity.
 - Preserve UID/state tracking so restarts do not duplicate old mail.
 - Keep SMTP replies threaded and safe around user-visible errors.
 
@@ -24,6 +25,7 @@
 ## Verification
 
 - Smoke-test connection checks, polling, attachment handling, dispatch routing, and SMTP replies when practical.
+- Run `PYTHONPATH=. pytest -q tests/test_email_integration_sender.py` for inbound sender validation and SMTP recipient regression coverage.
 
 ## Child DOX Index
 

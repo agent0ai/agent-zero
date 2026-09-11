@@ -9,28 +9,18 @@
         <div>
           <div class="section-title">LiteLLM Global Settings</div>
           <div class="section-description">
-            Provider-wide LiteLLM overrides. Leave this closed unless every model call needs the same extra parameter.
+            Provider-wide LiteLLM overrides. These values apply to all LiteLLM calls unless a model overrides them.
           </div>
 
-          <div class="settings-advanced-section" x-data="{ advOpen: false }">
-            <button type="button" class="settings-advanced-toggle" @click="advOpen = !advOpen">
-              <x-icon class="settings-advanced-toggle-icon"
-                    :style="advOpen ? 'transform:rotate(90deg)' : ''" name="chevron_right"></x-icon>
-              <span>Advanced Settings</span>
-            </button>
-
-            <div class="settings-advanced-body" x-show="advOpen" x-transition.opacity>
-              <div class="field field-full">
-                <div class="field-label">
-                  <div class="field-title">Global LiteLLM parameters</div>
-                  <div class="field-description">
-                    One <code>KEY=VALUE</code> pair per line, for example <code>stream_timeout=30</code>. These values apply to all LiteLLM calls unless a model overrides them.
-                  </div>
-                </div>
-                <div class="field-control">
-                  <textarea style="height: 12em" x-model="settings.litellm_global_kwargs"></textarea>
-                </div>
+          <div class="field field-full">
+            <div class="field-label">
+              <div class="field-title">Global LiteLLM parameters</div>
+              <div class="field-description">
+                One <code>KEY=VALUE</code> pair per line, for example <code>stream_timeout=30</code>.
               </div>
+            </div>
+            <div class="field-control">
+              <textarea style="height: 12em" x-model="settings.litellm_global_kwargs"></textarea>
             </div>
           </div>
         </div>

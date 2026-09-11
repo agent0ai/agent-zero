@@ -1,6 +1,7 @@
 import os
 from typing import Any
 
+from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from helpers import files, subagents, tool_policy
 from helpers.print_style import PrintStyle
@@ -22,6 +23,7 @@ class ToolsPrompt(Extension):
             return
         prompt = await build_prompt(self.agent)
         system_prompt.append(prompt)
+        responses_tools.register_prompt(self.agent, loop_data, "tools", prompt)
 
 
 @extensible
@@ -35,18 +37,21 @@ async def build_prompt(agent: Agent) -> str:
     # per-file kwargs registered by plugin config extensions (e.g. _09_text_editor_config)
     all_tool_kwargs: dict[str, dict[str, Any]] = agent.get_data(TOOL_KWARGS_KEY) or {}
 
-    tools: list[str] = []
+    tool_prompts: list[tuple[str, str]] = []
     for tool_file in tool_files:
         try:
             basename = os.path.basename(tool_file)
             extra = all_tool_kwargs.get(basename, {})
             tool = agent.read_prompt(basename, **extra)
-            tool = tool_policy.filter_tool_prompt(agent, basename, tool)
-            if tool:
-                tools.append(tool)
+            tool_prompts.append((basename, tool))
         except Exception as e:
             PrintStyle().error(f"Error loading tool '{tool_file}': {e}")
 
+    tools = [
+        tool
+        for tool in tool_policy.filter_tool_prompts(agent, tool_prompts)
+        if tool
+    ]
     tools_str = "\n\n".join(tools)
     prompt = agent.read_prompt("agent.system.tools.md", tools=tools_str)
 

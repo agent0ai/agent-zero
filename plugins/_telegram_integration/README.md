@@ -13,7 +13,8 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
   - Active code paths call `helpers/dependencies.py::ensure_dependencies()` to install `aiogram` into the framework runtime on first use via `uv pip install --python <current interpreter> -r plugins/_telegram_integration/requirements.txt`.
 - **Bot lifecycle**
   - Managed by a `job_loop` extension that starts, restarts, or stops bots whenever plugin settings change.
-  - Supports both long-polling and webhook delivery modes.
+  - Supports both long-polling and webhook delivery modes. Webhook mode requires a random secret of 32–256 letters, digits, underscores or hyphens; generate one with `python -c 'import secrets; print(secrets.token_urlsafe(32))'`. Existing webhook configurations without a valid secret must be updated before starting the bot.
+  - The webhook endpoint rejects polling bots and requires a matching `X-Telegram-Bot-Api-Secret-Token` header before dispatch.
 - **Per-user chat sessions**
   - Each Telegram user gets a dedicated `AgentContext`, persisted across restarts via a JSON state file.
   - `/start` creates a context; `/new` starts fresh; `/clear` resets the current context.
@@ -72,7 +73,7 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
   - `extensions/python/tool_execute_after/_50_telegram_response.py` — Intercepts `response` tool for inline delivery.
   - `extensions/python/process_chain_end/_55_telegram_reply.py` — Auto-sends final reply with retry.
 - **API**
-  - `api/webhook.py` — POST endpoint for Telegram webhook updates (no auth/CSRF).
+  - `api/webhook.py` — POST endpoint authenticated by the webhook secret header (no session auth/CSRF).
   - `api/test_connection.py` — Token validation endpoint for the settings UI.
 - **Prompts**
   - `prompts/fw.telegram.system_context_reply.md` — Telegram session behavior & formatting rules.

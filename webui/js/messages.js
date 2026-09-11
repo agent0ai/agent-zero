@@ -183,7 +183,7 @@ export async function getMessageHandler(type) {
     // return handler from extensions
     if(typeof extData.handler == "function") return extData.handler;
     //not set by extensions, return default
-    return drawMessageDefault;
+    return drawMessageTool;
   }
 }
 
@@ -1196,7 +1196,17 @@ async function restoreMessageExpansionState(history, state) {
 }
 
 function nextAnimationFrame() {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  return new Promise((resolve) => {
+    // Browsers may stop painting hidden or occluded windows. A visual layout
+    // yield must not hold state synchronization until the window is repainted.
+    const finish = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      resolve();
+    };
+    const frame = requestAnimationFrame(finish);
+    const timer = setTimeout(finish, 100);
+  });
 }
 
 function appendToMessageGroup(
@@ -1472,6 +1482,7 @@ export function drawProcessStep({
       kvps,
       content,
       contentClasses,
+      code,
     });
   } else {
     discardProcessStepDetail(step);
@@ -1509,6 +1520,7 @@ function renderProcessStepDetail({
   kvps,
   content,
   contentClasses,
+  code,
 }) {
   let stepDetailScroll = stepDetail.querySelector(
     ":scope > .process-step-detail-scroll",
@@ -1523,7 +1535,7 @@ function renderProcessStepDetail({
   }
 
   const detailScroller = new Scroller(stepDetailScroll, {
-    smooth: !isMassRender(),
+    smooth: code !== "GEN" && !isMassRender(),
     toleranceRem: 4,
   });
   const kvpsTable = drawKvpsIncremental(stepDetailScroll, kvps);
@@ -1882,8 +1894,19 @@ export function drawMessageAgent({
   ...additional
 }) {
   const title = cleanStepTitle(heading);
+  const reservedKeys = new Set(["thoughts", "step", "reasoning", "tool_name", "tool_args", "args", "headline"]);
   let displayKvps = {};
   if (kvps?.thoughts) displayKvps["icon://lightbulb[Thoughts]"] = kvps.thoughts;
+  const isResponse = kvps?.tool_name === "response";
+  if (preferencesStore.showToolArgs && !isResponse) {
+    if (kvps?.tool_name) displayKvps["icon://build[Tool]"] = kvps.tool_name;
+    const toolArgs = kvps?.tool_args ?? kvps?.args;
+    if (toolArgs) {
+      Object.entries(toolArgs).forEach(([key, value]) => {
+        if (!reservedKeys.has(key)) displayKvps[key] = value;
+      });
+    }
+  }
   if (kvps?.step) displayKvps["icon://step[Step]"] = kvps.step;
   const thoughtsText = String(kvps?.thoughts ?? "");
   const headerLabels = [
@@ -2804,8 +2827,8 @@ function escapeHTML(str) {
 }
 
 function convertPathsToLinks(str) {
-  function generateLinks(match) {
-    const parts = match.split("/");
+  function generateLinks(match, path) {
+    const parts = path.split("/");
     if (!parts[0]) parts.shift(); // drop empty element left of first "
     let conc = "";
     let html = "";
@@ -2824,12 +2847,12 @@ function convertPathsToLinks(str) {
   const simplePath = `\\/${folder}*${file}(?<!\\.)`;
   const suffix = `(?=$|[\\s.,;:!?\\)\\]\\}]|&#39;|&quot;)`;
   const pathRegex = new RegExp(
-    `(?<=${prefix})(?:${spacedFilePath}|${simplePath})${suffix}`,
+    `(?<=${prefix})(?:file:\\/\\/|\\/api\\/download_work_dir_file\\?path=)?(${spacedFilePath}|${simplePath})${suffix}`,
     "g",
   );
 
-  // skip paths inside html tags, like <img src="/path/to/image">
-  const tagRegex = /(<(?:[^<>"']+|"[^"]*"|'[^']*')*>)/g;
+  // Preserve existing links and code blocks as well as HTML attributes.
+  const tagRegex = /(<a\b[^>]*>[\s\S]*?<\/a>|<pre\b[^>]*>[\s\S]*?<\/pre>|<(?:[^<>"']+|"[^"]*"|'[^']*')*>)/gi;
 
   return str
     .split(tagRegex) // keep tags & text separate

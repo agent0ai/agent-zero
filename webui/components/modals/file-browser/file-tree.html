@@ -1,0 +1,61 @@
+<html>
+<body>
+  <aside class="file-tree" x-data="{ tree: $store[xAttrs($el).owner].fileTree }" aria-label="File tree">
+    <div class="file-tree-filter">
+      <x-icon name="search"></x-icon>
+      <input type="search" x-model="tree.query" placeholder="Filter files..." aria-label="Filter loaded tree files" title="Filter files in loaded folders" @keydown.escape.stop="tree.query = ''">
+    </div>
+    <div class="file-tree-list" :aria-busy="!!tree.root?.loading">
+      <p class="file-tree-status" x-show="tree.root?.loading">Loading files…</p>
+      <button type="button" class="file-tree-status file-tree-retry" x-show="tree.root?.error" @click="tree.load(tree.root)">Could not load folder. Retry</button>
+      <p class="file-tree-status" x-show="!tree.root?.loading && !tree.root?.error && !tree.rows.length" x-text="tree.query ? 'No matching files' : 'Empty folder'"></p>
+      <template x-for="row in tree.rows" :key="row.node.path">
+        <div>
+          <div class="file-tree-row" :class="{ 'is-selected': tree.selectedPath === row.node.path }" :style="{ paddingLeft: (8 + row.depth * 16) + 'px' }">
+            <button type="button" class="file-tree-chevron" :style="{ visibility: row.node.is_dir ? 'visible' : 'hidden' }" :tabindex="row.node.is_dir ? 0 : -1" :aria-label="(row.node.expanded ? 'Collapse ' : 'Expand ') + row.node.name" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" @click="tree.expand(row.node)">
+              <x-icon :name="row.node.loading ? 'progress_activity' : (row.node.expanded ? 'expand_more' : 'chevron_right')"></x-icon>
+            </button>
+            <button type="button" class="file-tree-entry" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" :aria-current="tree.selectedPath === row.node.path ? 'true' : null" @click="tree.open(row.node)">
+              <x-icon :name="row.node.is_dir ? (row.node.expanded ? 'folder_open' : 'folder') : (/\.md$/i.test(row.node.name) ? 'markdown' : 'description')"></x-icon>
+              <span x-text="row.node.name"></span>
+            </button>
+          </div>
+          <button type="button" class="file-tree-status file-tree-retry" :style="{ marginLeft: (71 + row.depth * 16) + 'px' }" x-show="row.node.expanded && row.node.error" @click="tree.load(row.node)">Could not load folder. Retry</button>
+          <p class="file-tree-status" :style="{ marginLeft: (71 + row.depth * 16) + 'px' }" x-show="row.node.expanded && row.node.children?.length === 0">Empty folder</p>
+        </div>
+      </template>
+    </div>
+  </aside>
+  <style>
+    .file-tree-host { display: flex; flex: 0 0 260px; width: 260px; min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid var(--color-border); }
+    .file-tree-host > x-component { display: flex; width: 100%; min-height: 0; }
+    .file-tree { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; color: var(--color-text); background: color-mix(in srgb, var(--color-background) 92%, #000 8%); }
+    .file-tree-chevron x-icon, .file-tree-entry x-icon { font-size: 18px; flex-shrink: 0; }
+    .file-tree-filter { display: flex; align-items: center; gap: 6px; margin: 8px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: 8px; }
+    .file-tree-filter x-icon { font-size: 18px; color: var(--color-text-secondary); }
+    .file-tree-filter input { width: 100%; min-width: 0; height: 32px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; }
+    .file-tree-filter input::-webkit-search-cancel-button {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background-color: var(--color-primary);
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 4 8 8m0-8-8 8' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center / contain no-repeat;
+      cursor: pointer;
+    }
+    .file-tree-list { flex: 1; min-height: 0; overflow: auto; padding-bottom: 8px; }
+    .file-tree-row { display: flex; min-width: 0; padding-right: 8px; min-height: 32px; }
+    .file-tree-row:hover, .file-tree-row.is-selected { background: color-mix(in srgb, var(--color-text) 8%, transparent); }
+    .file-tree-chevron, .file-tree-entry { display: flex; align-items: center; border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+    .file-tree-chevron { flex: 0 0 22px; justify-content: center; color: var(--color-text-secondary); }
+    .file-tree-entry { gap: 7px; flex: 1; min-width: 0; text-align: left; font-size: 13px; }
+    .file-tree-entry span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-tree-entry x-icon { color: var(--color-text-secondary); }
+    .file-tree-status { margin: 8px 12px; font-size: 12px; color: var(--color-text-secondary); }
+    .file-tree-retry { background: transparent; border: 0; text-align: left; cursor: pointer; text-decoration: underline; }
+    .file-tree :is(button, input):focus-visible { outline: 1px solid var(--color-text-secondary); outline-offset: -1px; }
+    @container (max-width: 640px) {
+      .file-tree-host { position: absolute; top: 0; right: 0; bottom: 0; z-index: 30; width: min(280px, 85%); box-shadow: -8px 0 20px #0002; }
+    }
+  </style>
+</body>
+</html>

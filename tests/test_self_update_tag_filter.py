@@ -1,5 +1,6 @@
 import importlib.util
 import socket
+import subprocess
 import sys
 import tempfile
 import types
@@ -27,6 +28,70 @@ def load_self_update_manager():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize("action", ["apply", "drop", "conflict"])
+def test_rollback_stash_preserves_identity_and_unrelated_entries(tmp_path, action):
+    manager = load_self_update_manager()
+    logger = manager.NullLogger()
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    git("config", "user.name", "Updater test")
+    git("config", "user.email", "updater@example.invalid")
+    tracked = tmp_path / "tracked.txt"
+    staged = tmp_path / "staged.txt"
+    tracked.write_text("original\n")
+    staged.write_text("original\n")
+    (tmp_path / ".gitignore").write_text("ignored.txt\n")
+    git("add", ".")
+    git("commit", "-qm", "Fixture")
+    assert manager.create_rollback_stash(tmp_path, logger) is None
+
+    tracked.write_text("older user change\n")
+    older = manager.create_rollback_stash(tmp_path, logger)
+    assert older == git("rev-parse", "refs/stash")
+
+    tracked.write_text("rollback unstaged\n")
+    staged.write_text("rollback staged\n")
+    git("add", "staged.txt")
+    (tmp_path / "untracked.txt").write_text("rollback untracked\n")
+    (tmp_path / "ignored.txt").write_text("keep ignored\n")
+    rollback = manager.create_rollback_stash(tmp_path, logger)
+    assert rollback == git("rev-parse", "refs/stash")
+    assert rollback != older
+    assert git("status", "--porcelain") == ""
+    assert (tmp_path / "ignored.txt").read_text() == "keep ignored\n"
+
+    (tmp_path / "newer.txt").write_text("unrelated newer change\n")
+    git("stash", "push", "--include-untracked", "-m", "Unrelated newer stash")
+    newer = git("rev-parse", "refs/stash")
+    if action == "conflict":
+        tracked.write_text("conflicting change\n")
+        git("add", "tracked.txt")
+        git("commit", "-qm", "Conflicting update")
+        with pytest.raises(RuntimeError, match="Failed to restore"):
+            manager.apply_stash(tmp_path, rollback, logger)
+        assert git("stash", "list", "--format=%H").splitlines() == [newer, rollback, older]
+        return
+    if action == "apply":
+        manager.apply_stash(tmp_path, rollback, logger)
+        assert tracked.read_text() == "rollback unstaged\n"
+        assert staged.read_text() == "rollback staged\n"
+        assert (tmp_path / "untracked.txt").read_text() == "rollback untracked\n"
+        assert git("diff", "--cached", "--name-only") == "staged.txt"
+        assert git("diff", "--name-only") == "tracked.txt"
+    else:
+        manager.drop_stash(tmp_path, rollback, logger)
+        assert git("status", "--porcelain") == ""
+    assert git("stash", "list", "--format=%H").splitlines() == [newer, older]
+    manager.drop_stash(tmp_path, rollback, logger)
+    assert git("stash", "list", "--format=%H").splitlines() == [newer, older]
 
 
 def test_self_update_selector_tags_use_two_segments_and_v1_floor():

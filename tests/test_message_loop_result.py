@@ -34,6 +34,8 @@ class FakeAgent:
             "fw.msg_empty_response.md": "empty",
             "fw.msg_repeat.md": "repeat",
             "fw.msg_repeat_response.md": "Repeated response detected. Retrying.",
+            "fw.msg_reasoning_only.md": "reasoning only",
+            "fw.msg_reasoning_only_response.md": "Reasoning-only response detected. Retrying.",
         }[name]
 
     def hist_add_ai_response(self, response, **kwargs):
@@ -124,8 +126,43 @@ def test_repeat_ignores_reasoning():
     assert agent.warnings == ["repeat"]
 
 
-def test_result_with_reasoning_uses_default_processing():
+def test_reasoning_only_retries_with_agent_warning():
     agent = FakeAgent("", reasoning="thinking", last_response="previous")
 
-    assert "skip_default_processing" not in _run(agent)
-    assert agent.history == []
+    result = _run(agent)
+
+    assert result["skip_default_processing"] is True
+    assert agent.warnings == ["reasoning only"]
+    assert agent.logs == [
+        {
+            "type": "warning",
+            "content": "A0: Reasoning-only response detected. Retrying.",
+            "id": "warning",
+        }
+    ]
+
+
+def test_native_repeat_detection_compares_calls_instead_of_commentary():
+    from helpers.llm_result import LLMResult
+
+    def result(query, commentary):
+        return LLMResult.from_response({
+            "output_text": commentary,
+            "output": [{
+                "type": "function_call", "name": "lookup", "call_id": "call",
+                "arguments": {"q": query},
+            }],
+        })
+
+    previous = result("first", "Working.")
+    agent = FakeAgent("", last_response=previous.function_calls_text())
+    changed_call = {"llm_result": result("second", "Working.")}
+    RepeatResponse(agent).execute(changed_call)
+    assert not changed_call.get("skip_default_processing")
+    assert agent.warnings == []
+
+    repeated_call = {"llm_result": result("first", "Different commentary.")}
+    RepeatResponse(agent).execute(repeated_call)
+    assert repeated_call["skip_default_processing"] is True
+    assert agent.history == [previous.function_calls_text()]
+    assert agent.warnings == ["repeat"]

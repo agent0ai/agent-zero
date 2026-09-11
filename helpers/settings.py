@@ -71,6 +71,10 @@ class Settings(TypedDict):
     workdir_max_lines: int
     workdir_gitignore: str
     file_browser_remember_last_directory: bool
+    file_browser_max_text_size_mb: int
+    file_browser_max_transfer_size_mb: int
+    file_browser_max_extract_size_mb: int
+    file_browser_max_archive_entries: int
 
     api_keys: dict[str, str]
 
@@ -226,7 +230,12 @@ def _normalize_time_format(value: Any, default: str = TIME_FORMAT_12H) -> str:
 def _normalize_ui_control_visibility(value: Any) -> dict[str, dict[str, bool]]:
     submitted = value if isinstance(value, dict) else {}
     normalized = {}
-    for control, devices in UI_CONTROL_VISIBILITY_DEFAULTS.items():
+    defaults = {
+        **{control: {"mobile": True, "desktop": True} for control in submitted
+           if isinstance(control, str) and control.startswith("canvas:") and len(control) > 7},
+        **UI_CONTROL_VISIBILITY_DEFAULTS,
+    }
+    for control, devices in defaults.items():
         submitted_devices = submitted.get(control, {})
         if not isinstance(submitted_devices, dict):
             submitted_devices = {}
@@ -457,6 +466,10 @@ def normalize_settings(settings: Settings) -> Settings:
             except (ValueError, TypeError):
                 copy[key] = value  # make default instead
 
+    copy["file_browser_max_text_size_mb"] = max(1, min(100, copy["file_browser_max_text_size_mb"]))
+    copy["file_browser_max_transfer_size_mb"] = max(1, copy["file_browser_max_transfer_size_mb"])
+    copy["file_browser_max_extract_size_mb"] = max(1, copy["file_browser_max_extract_size_mb"])
+    copy["file_browser_max_archive_entries"] = max(1, copy["file_browser_max_archive_entries"])
     if copy["agent_profile"] == "default":
         copy["agent_profile"] = "agent0"
 
@@ -582,6 +595,10 @@ def get_default_settings() -> Settings:
             "file_browser_remember_last_directory",
             True,
         ),
+        file_browser_max_text_size_mb=get_default_value("file_browser_max_text_size_mb", 10),
+        file_browser_max_transfer_size_mb=get_default_value("file_browser_max_transfer_size_mb", 100),
+        file_browser_max_extract_size_mb=get_default_value("file_browser_max_extract_size_mb", 100),
+        file_browser_max_archive_entries=get_default_value("file_browser_max_archive_entries", 1000),
         rfc_auto_docker=get_default_value("rfc_auto_docker", True),
         rfc_url=get_default_value("rfc_url", "localhost"),
         rfc_password="",

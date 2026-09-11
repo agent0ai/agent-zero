@@ -1,7 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
-import { store as fileEditorStore } from "/components/modals/file-editor/file-editor-store.js";
+import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   openLatest as openLatestSurface,
   setupFloatingSurfaceModalChrome,
@@ -13,7 +13,17 @@ const DEFAULT_REMEMBER_LAST_DIRECTORY = true;
 const PICKER_MODE_NONE = "";
 const PICKER_MODE_TEXT_OPEN = "text-open";
 const PICKER_MODE_SAVE_AS = "save-as";
-const EDITOR_TEXT_EXTENSIONS = new Set(["md", "txt"]);
+const CONNECTION_PLUGINS = [
+  ["ssh", "File Browser SSH access"],
+  ["webdav", "File Browser WebDAV access"],
+  ["smb", "File Browser SMB 3 for NAS"],
+  ["s3", "File Browser S3 access"],
+  ["ftps", "File Browser FTPS access"],
+].map(([id, title]) => ({
+  key: `file_browser_${id}`,
+  title,
+  thumbnail: `https://raw.githubusercontent.com/agent0ai/a0-plugins/main/plugins/file_browser_${id}/thumbnail.webp`,
+}));
 const DESKTOP_EXTENSIONS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 const BROWSER_EXTENSIONS = new Set([
   "html",
@@ -34,9 +44,9 @@ const ARCHIVE_SUFFIXES = [".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tar", 
 
 const SURFACE_ACTIONS = {
   editor: {
-    label: "Open in Editor",
-    icon: "article",
-    title: "Open text in Editor",
+    label: "Edit",
+    icon: "edit",
+    title: "Edit",
   },
   desktop: {
     label: "Open in Desktop",
@@ -56,6 +66,60 @@ function delay(ms) {
 
 // Model migrated from legacy file_browser.js (lift-and-shift)
 const model = {
+  limits: null,
+  textLimitMib: null,
+  transferLimitMib: null,
+  extractLimitMib: null,
+  archiveEntries: null,
+  savingTextLimit: false,
+  async ensureLimits(force = false) {
+    if (this.limits && !force) return this.limits;
+    const response = await fetchApi("/get_work_dir_files?limits=1");
+    const data = await response.json();
+    if (!response.ok || !data.limits?.max_text_bytes || !data.limits?.max_file_bytes) {
+      throw new Error("File Browser limits are unavailable.");
+    }
+    this.limits = data.limits;
+    return this.limits;
+  },
+  async saveSizeLimit(kind = "text") {
+    if (this.savingTextLimit) return;
+    this.savingTextLimit = true;
+    try {
+      const limit = {text: this.textLimitMib, transfer: this.transferLimitMib, extract: this.extractLimitMib, entries: this.archiveEntries}[kind];
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("Enter a positive whole number of MiB.");
+      const result = await callJsonApi("/file_browser_settings", { [kind === "entries" ? "max_archive_entries" : `max_${kind}_size_mb`]: limit });
+      if (!result.ok) throw new Error(result.error || "Could not save the size limit.");
+      this.limits = result.limits;
+      const settings = globalThis.Alpine?.store("settings")?.settings;
+      if (settings) {
+        const key = kind === "entries" ? "file_browser_max_archive_entries" : `file_browser_max_${kind}_size_mb`;
+        settings[key] = limit;
+      }
+    } catch (error) {
+      this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
+      this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      this.extractLimitMib = this.limits.max_extract_bytes / (1024 * 1024);
+      this.archiveEntries = this.limits.max_archive_entries;
+      globalThis.toastFrontendError?.(error.message, "File Browser Settings");
+    } finally { this.savingTextLimit = false; }
+  },
+  fileTree: createFileTree((file) => store.openTreeEntry(file)),
+
+  async openTreeEntry(file) {
+    await this.ensureLimits();
+    if (file.is_dir) return this.navigateToFolder(file.path);
+    if (this.isPickerMode()) {
+      if (await this.fetchFiles(this.parentPath(file.path), { preserveOnError: true })) {
+        const entry = this.browser.entries.find(entry => this.normalizePath(entry.path) === file.path);
+        if (entry) this.handleFileNameClick(entry);
+      }
+      return;
+    }
+    if (this.canOpenInSurface(file)) return this.openInSurface(file);
+    return this.openFileEditor(file);
+  },
+
   // Reactive state
   isLoading: false,
   browser: {
@@ -79,6 +143,7 @@ const model = {
   settingsLoadPromise: null,
   settingsUpdatedHandler: null,
   _floatingCleanup: null,
+  _mountedElement: null,
   _mountedDefaultLoadTimer: null,
   renameTarget: null,
   renameName: "",
@@ -89,6 +154,7 @@ const model = {
   renamePerformAction: null,
   renameValidateName: null,
   openDropdownPath: null, // Track which dropdown is currently open
+  dropdownOwner: null,
   dropdownStyle: {},
   searchQuery: "",
   isBulkBusy: false,
@@ -101,8 +167,161 @@ const model = {
   pickerFilenameError: "",
   pickerOnConfirm: null,
 
+  connections: [],
+  connectionProviders: [],
+  connectionDraft: null,
+  connectionsBusy: false,
+  installedConnectionPlugins: [],
+  openingConnectionPlugin: "",
+  remotePermissions: null,
+
+  get connectionPluginOffers() {
+    return CONNECTION_PLUGINS.map(plugin => ({
+      ...plugin,
+      installed: this.installedConnectionPlugins.includes(plugin.key),
+      provider: this.connectionProviders.find(provider => provider.plugin === plugin.key)?.id,
+    }));
+  },
+  async openConnectionPlugin(plugin) {
+    if (this.openingConnectionPlugin) return;
+    try {
+      if (!plugin.installed) {
+        this.openingConnectionPlugin = plugin.key;
+        const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+        await installer.ensureIndexLoaded();
+        if (!installer.getPluginHubPluginByKey(plugin.key)) await installer.fetchIndex({ force: true });
+        await installer.openPluginHubDetailByKey(plugin.key);
+        return;
+      }
+      const provider = this.connectionProviders.find(provider => provider.plugin === plugin.key);
+      if (provider) this.editConnection(null, provider.id);
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Plugins"); }
+    finally { this.openingConnectionPlugin = ""; }
+  },
+  get draftProvider() { return this.connectionProviders.find(p => p.id === this.connectionDraft?.provider); },
+  isRemote(path = this.browser.currentPath) { return /^\/@(?:ssh|connections)(?:\/|$)/.test(String(path)); },
+  remoteAllowed(permission, file = null) {
+    return !this.isRemote(file?.path || this.browser.currentPath)
+      || Boolean((file?.permissions || this.remotePermissions)?.[permission]);
+  },
+  async connectionRequest(action, payload = {}) {
+    const response = await callJsonApi("/file_browser_connections", { action, ...payload });
+    if (response?.error || response?.ok === false) throw new Error(response.error || "Connection operation failed.");
+    return response;
+  },
+  async loadConnections() {
+    const [response, installed] = await Promise.all([
+      this.connectionRequest("list"),
+      callJsonApi("plugins_list", { filter: { custom: true, builtin: false } }),
+    ]);
+    this.connections = response.connections || [];
+    this.connectionProviders = response.providers || [];
+    this.installedConnectionPlugins = (installed.plugins || []).map(plugin => plugin.name);
+  },
+  editConnection(connection = null, providerId = "") {
+    const editable = this.connectionProviders.filter(p => !p.managed);
+    const provider = editable.find(p => p.id === (connection?.provider || providerId)) || editable[0];
+    if (!provider) return;
+    this.connectionDraft = connection ? JSON.parse(JSON.stringify(connection)) : {
+      provider: provider.id, name: "",
+      ...Object.fromEntries(provider.fields.filter(f => !f.secret).map(f => [f.name, f.default ?? ""])),
+      permissions: { browse: true, download: true, upload: false, edit: false, rename: false, delete: false },
+    };
+  },
+  async saveConnection() {
+    if (this.connectionsBusy || !this.connectionDraft) return;
+    this.connectionsBusy = true;
+    try {
+      await this.connectionRequest("save-connection", { connection: this.connectionDraft });
+      this.connectionDraft = null;
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+    finally { this.connectionsBusy = false; }
+  },
+  async testConnection(connection) {
+    try {
+      await this.connectionRequest("test", {provider: connection.provider, id: connection.id});
+      globalThis.toastFrontendSuccess?.("Connected successfully.", "File connections");
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+  async removeConnection(connection) {
+    try {
+      await this.connectionRequest("remove-connection", {provider: connection.provider, id: connection.id});
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+  async openConnection(connection) {
+    await window.closeModal("settings/settings.html");
+    const path = "/@connections/" + connection.provider + "/" + connection.id;
+    return this._mountedElement?.getClientRects().length
+      ? this.navigateToFolder(path)
+      : openLatestSurface("files", { path, source: "file-browser-settings" });
+  },
+  async startDownload(files) {
+    const result = await callJsonApi("/download_work_dir_files", {
+      paths: files.map(file => file.path), currentPath: this.browser.currentPath,
+    });
+    if (!result.download_url) throw new Error(result.error || "Download failed.");
+    const link = document.createElement("a");
+    link.href = result.download_url;
+    link.download = result.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false },
+
+  loadPreferences() {
+    try {
+      const value = JSON.parse(localStorage.getItem("fileBrowser.preferences") || "{}");
+      this.preferences = {
+        sortBy: ["name", "size", "date"].includes(value.sortBy) ? value.sortBy : "name",
+        sortDirection: value.sortDirection === "desc" ? "desc" : "asc",
+        view: value.view === "icons" ? "icons" : "list",
+        treeShown: value.treeShown === true,
+      };
+    } catch { /* Storage may be unavailable. Keep the defaults. */ }
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+  },
+
+  async savePreferences() {
+    try {
+      localStorage.setItem("fileBrowser.preferences", JSON.stringify(this.preferences));
+    } catch {
+      globalThis.toastFrontendError?.("Could not save file browser preferences.");
+      return;
+    }
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+    await this.fileTree.follow(this.browser.currentPath);
+  },
+
+  async loadSettings() {
+    try {
+      await this.ensureLimits(true);
+      this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
+      this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      this.extractLimitMib = this.limits.max_extract_bytes / (1024 * 1024);
+      this.archiveEntries = this.limits.max_archive_entries;
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Settings"); }
+  },
+
+  async openSettings(providerId = "") {
+    await this.loadSettings();
+    this.connectionDraft = null;
+    if (providerId) this.editConnection(null, providerId);
+    const { store: settingsStore } = await import("/components/settings/settings-store.js");
+    return settingsStore.open("file-browser");
+  },
+
   // --- Lifecycle -----------------------------------------------------------
   init() {
+    this.ensureLimits().catch(() => {});
     if (this.settingsUpdatedHandler) return;
     this.settingsUpdatedHandler = (event) => {
       const value = event?.detail?.file_browser_remember_last_directory;
@@ -114,6 +333,7 @@ const model = {
   },
 
   onMount(element = null, options = {}) {
+    this._mountedElement = element;
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     const mode = options?.mode === "canvas" ? "canvas" : "modal";
@@ -124,7 +344,10 @@ const model = {
     }
   },
 
-  onUnmount() {
+  onUnmount(element = null) {
+    if (element && element !== this._mountedElement) return;
+    this._mountedElement = null;
+    this.closeDropdown();
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this.cancelMountedDefaultLoad();
@@ -209,7 +432,7 @@ const model = {
     this.browser.currentPath = "";
     this.browser.parentPath = "";
     this.browser.entries = [];
-    this.openDropdownPath = null;
+    this.closeDropdown();
     this.searchQuery = "";
     this.isBulkBusy = false;
     this.clearDragState();
@@ -257,6 +480,8 @@ const model = {
 
   // --- Helpers -------------------------------------------------------------
   resetOpenState(options = {}) {
+    this.loadPreferences();
+    this.closeDropdown();
     this.cancelMountedDefaultLoad();
     this.isLoading = true;
     this.error = null;
@@ -278,7 +503,7 @@ const model = {
       || (this.pickerMode === PICKER_MODE_SAVE_AS ? "Save Here" : "Open Selected");
     this.pickerFilename = String(options?.filename || "").trim();
     this.pickerDefaultExtension = this.normalizedEditorTextExtension(
-      options?.defaultExtension || this.fileExtension({ name: this.pickerFilename }) || "md",
+      options?.defaultExtension ?? this.fileExtension({ name: this.pickerFilename }),
     );
     this.pickerFilenameError = "";
     this.pickerOnConfirm = typeof options?.onConfirm === "function" ? options.onConfirm : null;
@@ -465,7 +690,7 @@ const model = {
 
   isSelectableEntry(file = {}) {
     if (this.isSaveAsPicker()) return false;
-    if (this.isTextOpenPicker()) return !file?.is_dir && this.fileSurfaceTarget(file) === "editor";
+    if (this.isTextOpenPicker()) return !file?.is_dir && this.isEditableFile(file);
     return true;
   },
 
@@ -563,39 +788,39 @@ const model = {
   fileSurfaceTarget(file = {}) {
     if (!file || file.is_dir) return "";
     const ext = this.fileExtension(file);
-    if (EDITOR_TEXT_EXTENSIONS.has(ext)) return "editor";
     if (BROWSER_EXTENSIONS.has(ext)) return "browser";
     if (DESKTOP_EXTENSIONS.has(ext)) return "desktop";
-    return "";
+    return this.isEditableFile(file) ? "editor" : "";
+  },
+
+  isEditableFile(file = {}) {
+    if (!this.remoteAllowed("edit", file)) return false;
+    if (!file || file.is_dir || !this.limits || file.size > this.limits.max_text_bytes || this.isArchive(file.name || file.path)) return false;
+    const ext = this.fileExtension(file);
+    return !DESKTOP_EXTENSIONS.has(ext)
+      && !["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "mp3", "mp4", "wav", "webm", "ogg", "woff", "woff2", "ttf"].includes(ext);
   },
 
   pickerAllowsEntry(file = {}) {
     if (!this.isTextOpenPicker()) return true;
-    return Boolean(file?.is_dir || this.fileSurfaceTarget(file) === "editor");
+    return Boolean(file?.is_dir || this.isEditableFile(file));
   },
 
   pickerSelectedFiles() {
     if (!this.isTextOpenPicker()) return [];
-    return this.selectedFiles.filter((file) => !file.is_dir && this.fileSurfaceTarget(file) === "editor");
-  },
-
-  pickerSelectionLabel() {
-    if (!this.isTextOpenPicker()) return "";
-    const count = this.pickerSelectedFiles().length;
-    if (!count) return "No text files selected";
-    return `${count} text ${count === 1 ? "file" : "files"} selected`;
+    return this.selectedFiles.filter((file) => !file.is_dir && this.isEditableFile(file));
   },
 
   normalizedEditorTextExtension(value = "") {
     const ext = String(value || "").toLowerCase().trim().replace(/^\./, "");
-    return EDITOR_TEXT_EXTENSIONS.has(ext) ? ext : "md";
+    return ext;
   },
 
   pickerFilenameValue() {
     const raw = String(this.pickerFilename || "").trim();
     if (!raw) return "";
     const ext = this.fileExtension({ name: raw });
-    return ext ? raw : `${raw}.${this.pickerDefaultExtension || "md"}`;
+    return ext || !this.pickerDefaultExtension ? raw : `${raw}.${this.pickerDefaultExtension}`;
   },
 
   validatePickerFilename(updateError = true) {
@@ -609,8 +834,6 @@ const model = {
       error = "File name cannot be '.' or '..'.";
     } else if (raw.includes("/") || raw.includes("\\")) {
       error = "File name cannot include path separators.";
-    } else if (!EDITOR_TEXT_EXTENSIONS.has(this.fileExtension({ name: filename }))) {
-      error = "Use a .md or .txt file name.";
     } else if ((this.browser.entries || []).some((entry) => entry?.name === filename)) {
       error = `An item named "${filename}" already exists.`;
     }
@@ -624,7 +847,7 @@ const model = {
 
   canConfirmPicker() {
     if (this.isTextOpenPicker()) return this.pickerSelectedFiles().length > 0;
-    if (this.isSaveAsPicker()) return Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
+    if (this.isSaveAsPicker()) return this.remoteAllowed("upload") && Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
     return false;
   },
 
@@ -634,7 +857,7 @@ const model = {
   },
 
   togglePickerFile(file = {}) {
-    if (!this.isTextOpenPicker() || file?.is_dir || this.fileSurfaceTarget(file) !== "editor") return;
+    if (!this.isTextOpenPicker() || file?.is_dir || !this.isEditableFile(file)) return;
     file.selected = !file.selected;
   },
 
@@ -691,6 +914,7 @@ const model = {
   },
 
   canOpenInActionMenu(file = {}) {
+    if (this.isRemote(file.path)) return false;
     const target = this.fileSurfaceTarget(file);
     return Boolean(target && target !== "editor");
   },
@@ -789,36 +1013,39 @@ const model = {
   // --- Dropdown Management -------------------------------------------------
   toggleDropdown(filePath, triggerElement = null) {
     // Toggle: if already open, close it; otherwise open this one (closing any other)
-    if (this.openDropdownPath === filePath) {
+    const owner = triggerElement?.closest(".file-actions") || null;
+    if (this.isDropdownOpen(filePath, owner)) {
       this.closeDropdown();
       return;
     }
     this.openDropdownPath = filePath;
+    this.dropdownOwner = owner;
     this.dropdownStyle = this.getDropdownStyle(triggerElement);
   },
 
-  isDropdownOpen(filePath) {
-    return this.openDropdownPath === filePath;
+  isDropdownOpen(filePath, owner = null) {
+    return this.openDropdownPath === filePath && (!owner || owner === this.dropdownOwner);
   },
 
   closeDropdown() {
     this.openDropdownPath = null;
+    this.dropdownOwner = null;
     this.dropdownStyle = {};
   },
 
-  getDropdownStyle(triggerElement) {
+  getDropdownStyle(triggerElement, width = 180, alignRight = true) {
     if (!triggerElement) return {};
 
     const rect = triggerElement.getBoundingClientRect();
     const gap = 6;
     const padding = 8;
-    const minWidth = 180;
+    const minWidth = Math.min(width, window.innerWidth - padding * 2);
     const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
     const spaceAbove = rect.top - gap - padding;
     const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
     const maxHeight = Math.max(96, openUp ? spaceAbove : spaceBelow);
     const maxLeft = Math.max(padding, window.innerWidth - minWidth - padding);
-    const left = Math.min(Math.max(rect.right - minWidth, padding), maxLeft);
+    const left = Math.min(Math.max(alignRight ? rect.right - minWidth : rect.left, padding), maxLeft);
 
     return {
       position: "fixed",
@@ -854,6 +1081,8 @@ const model = {
       );
       const data = await response.json().catch(() => ({}));
 
+      if (data.limits) this.limits = data.limits;
+
       const result = data.data || {};
       const entries = result.entries || [];
       const resolvedCurrentPath =
@@ -872,6 +1101,7 @@ const model = {
 
       if (response.ok && !resultError) {
         if (!isSamePath) this.searchQuery = "";
+        this.remotePermissions = result.permissions || null;
         this.browser.entries = this.decorateEntries(
           entries,
           selectedPaths
@@ -1011,6 +1241,11 @@ const model = {
     this.isBulkBusy = true;
 
     try {
+      if (this.isRemote(destinationPath) || paths.some(path=>this.isRemote(path))) {
+        for (const path of paths) await this.connectionRequest("rename", {path, destination:destinationPath.replace(/\/$/, "") + "/" + path.split("/").pop()});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/rename_work_dir_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1136,6 +1371,14 @@ const model = {
             };
 
       let data = {};
+      if (this.isRemote(renamedPath) && !this.renamePerformAction) {
+        await this.connectionRequest(this.renameMode === "create-folder" ? "mkdir" : "rename", {
+          path: this.renameMode === "create-folder" ? renamedPath : previousPath, destination:renamedPath,
+        });
+        await this.fetchFiles(this.browser.currentPath);
+        this.closeRenameModal();
+        return;
+      }
       if (this.renamePerformAction) {
         data = await this.renamePerformAction({
           action: this.renameMode,
@@ -1186,21 +1429,22 @@ const model = {
     }
   },
 
-  // --- File Editor (Delegated to FileEditorStore) --------------------------
+  // --- Shared Editor -------------------------------------------------------
   async openFileEditor(file) {
-    await fileEditorStore.openFile(file, async () => {
-      // Callback on successful save to refresh file list
-      await this.fetchFiles(this.browser.currentPath);
-    });
+    return this.openInSurface(file, "editor");
   },
 
   async openNewFile() {
-    const existingNames = (this.browser.entries || [])
-      .map((e) => e?.name)
-      .filter(Boolean);
-    await fileEditorStore.openNewFile(this.browser.currentPath, existingNames, async () => {
-      // Callback on successful save to refresh file list
-      await this.fetchFiles(this.browser.currentPath);
+    await this.openSaveAsPicker(this.browser.currentPath, {
+      filename: "Untitled.txt",
+      defaultExtension: "",
+      onConfirm: async ({ path }) => {
+        const { store: editorStore } = await import("/plugins/_editor/webui/editor-store.js");
+        const session = await editorStore.openSession({ action: "create", path, source: "file-browser" });
+        if (!session) throw new Error(editorStore.error || "Could not create file.");
+        await openLatestSurface("editor", {});
+        return true;
+      },
     });
   },
 
@@ -1230,6 +1474,11 @@ const model = {
 
   async deleteFile(file) {
     try {
+      if (this.isRemote(file.path)) {
+        await this.connectionRequest("delete", {path:file.path});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/delete_work_dir_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1252,50 +1501,6 @@ const model = {
         "Error deleting file: " + e.message,
         "File Delete Error"
       );
-    }
-  },
-
-  copySelectedPaths() {
-    const selectedFiles = this.selectedFiles;
-    if (!selectedFiles.length) return;
-
-    const paths = selectedFiles.map((file) => file.path).join("\n");
-    this.copyToClipboard(paths, () => {
-      window.toastFrontendSuccess(
-        `Copied ${selectedFiles.length} ${selectedFiles.length === 1 ? "path" : "paths"}`,
-        "File Browser"
-      );
-    });
-  },
-
-  copyToClipboard(text, onSuccess) {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => onSuccess?.())
-        .catch(() => this.fallbackCopyToClipboard(text, onSuccess));
-    } else {
-      this.fallbackCopyToClipboard(text, onSuccess);
-    }
-  },
-
-  fallbackCopyToClipboard(text, onSuccess) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999999px";
-    textArea.style.top = "-999999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand("copy");
-      onSuccess?.();
-    } catch (error) {
-      console.error("Clipboard copy failed:", error);
-      window.toastFrontendError("Failed to copy selected paths", "File Browser");
-    } finally {
-      document.body.removeChild(textArea);
     }
   },
 
@@ -1340,31 +1545,7 @@ const model = {
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi("/download_work_dir_files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paths: selectedFiles.map((file) => file.path),
-          currentPath: this.browser.currentPath,
-        }),
-      });
-
-      if (!resp.ok) {
-        const message = await resp.text();
-        throw new Error(message || "Download failed");
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const fallback = `agent-zero-files-${selectedFiles.length}.zip`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = this.getDownloadFilename(resp, fallback);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-
+      await this.startDownload(selectedFiles);
       this.showDownloadStartedToast(downloadToastGroup);
     } catch (error) {
       this.showDownloadErrorToast(
@@ -1384,6 +1565,11 @@ const model = {
     this.closeDropdown();
 
     try {
+      if (this.isRemote()) {
+        for (const file of selectedFiles) await this.connectionRequest("delete", {path:file.path});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/delete_work_dir_files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1430,8 +1616,8 @@ const model = {
     return store._handleFileUpload(event); // bind to model to ensure correct context
   },
 
-  async openInSurface(file = {}) {
-    const target = this.fileSurfaceTarget(file);
+  async openInSurface(file = {}, target = this.fileSurfaceTarget(file)) {
+    if (this.isRemote(file.path)) target = "editor";
     const path = this.normalizePath(String(file?.path || ""));
     if (!target || !path) return;
 
@@ -1487,15 +1673,12 @@ const model = {
     try {
       const files = event.target.files;
       if (!files.length) return;
+      const limits = await this.ensureLimits(true);
       const formData = new FormData();
       formData.append("path", this.browser.currentPath);
       for (let f of files) {
-        const ext = f.name.split(".").pop().toLowerCase();
-        if (
-          !["zip", "tar", "gz", "rar", "7z"].includes(ext) &&
-          f.size > 100 * 1024 * 1024
-        ) {
-          alert(`File ${f.name} exceeds 100MB limit.`);
+        if (f.size > limits.max_file_bytes) {
+          alert(`File ${f.name} exceeds the ${limits.max_file_bytes / (1024 * 1024)} MiB limit.`);
           continue;
         }
         formData.append("files[]", f);
@@ -1511,7 +1694,7 @@ const model = {
         this.browser.parentPath = data.data.parent_path;
         if (data.failed && data.failed.length) {
           const msg = data.failed
-            .map((f) => `${f.name}: ${f.error}`)
+            .map((f) => typeof f === "string" ? f : `${f.name}: ${f.error}`)
             .join("\n");
           alert(`Some files failed to upload:\n${msg}`);
         }
@@ -1533,25 +1716,7 @@ const model = {
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi(`/download_work_dir_file?path=${encodeURIComponent(file.path)}`, {
-        method: "GET",
-      });
-
-      if (!resp.ok) {
-        const message = await resp.text();
-        throw new Error(message || "Download failed");
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const fallback = `${file.name}.zip`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = this.getDownloadFilename(resp, fallback);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      await this.startDownload([file]);
       this.showDownloadStartedToast(downloadToastGroup);
     } catch (error) {
       this.showDownloadErrorToast(
@@ -1561,18 +1726,10 @@ const model = {
     }
   },
 
-  downloadFile(file) {
-    if (file.is_dir) {
-      return this.downloadDirectory(file);
-    }
-
-    const link = document.createElement("a");
-    link.href = `/api/download_work_dir_file?path=${encodeURIComponent(file.path)}`;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadFile(file) {
+    return this.downloadDirectory(file);
   },
+
 };
 
 export const store = createStore("fileBrowser", model);

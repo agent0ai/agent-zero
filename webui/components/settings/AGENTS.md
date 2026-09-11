@@ -13,6 +13,7 @@
 
 ## Local Contracts
 
+- `file-browser/` owns the Files settings page, with appearance, remote folders/plugin controls, file limits and archives in that order. Use standard stacked Settings field rows rather than a bespoke two-column grid. The Files gear and provider plugin shortcuts open this category. Remember-location is a normal Settings draft; existing immediate Files limit writes also update the open Settings draft to avoid stale overwrite.
 - Keep settings payloads synchronized with backend APIs and plugin settings contracts.
 - Settings tabs that expose plugin `settings_sections` must mount `settings/plugins/plugins-subsection.html` with matching `data-tab` and sidebar/nav section IDs.
 - Do not store secrets in localStorage, URLs, or console output.
@@ -24,6 +25,8 @@
 - MCP manager tool toggles write `disabled_tools` into the draft JSON and require Apply before changing the running MCP tool set.
 - Confirmed MCP server removals apply immediately and refresh server status; other MCP manager draft edits still require Apply.
 - MCP manager local command forms accept shell-style command and argument lines; quote argument values that intentionally contain spaces.
+
+- Interface nests registered canvas surfaces under the right canvas rail control, using their plain titles, with independent mobile/desktop visibility in the same Save/Cancel draft. `open(tab, section)` supports direct section entry; initial scrolling waits for component markup and uses instant positioning so scroll anchoring follows later content growth.
 
 ## Work Guidance
 

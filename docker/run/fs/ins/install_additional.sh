@@ -13,6 +13,7 @@ if ! command -v apt-get >/dev/null 2>&1; then
 fi
 
 KALI_SUITE="kali-last-snapshot"
+ATK_VERSION="2.60.3-1"
 LIBREOFFICE_VERSION="4:26.2.4.2-1"
 XPRA_VERSION="6.5.2-r0-1"
 arch="$(dpkg --print-architecture)"
@@ -21,6 +22,19 @@ XPRA_HTML5_VERSION="19-r1-1"
 if [ "$arch" = "arm64" ]; then
   XPRA_HTML5_VERSION="21-r1-1"
 fi
+
+ATK_PACKAGES=(
+  "at-spi2-common=$ATK_VERSION"
+  "libatk1.0-0t64=$ATK_VERSION"
+  "libatk-bridge2.0-0t64=$ATK_VERSION"
+  "libatspi2.0-0t64=$ATK_VERSION"
+  "gir1.2-atk-1.0=$ATK_VERSION"
+)
+for package in at-spi2-core gir1.2-atspi-2.0; do
+  if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'; then
+    ATK_PACKAGES+=("$package=$ATK_VERSION")
+  fi
+done
 
 LIBREOFFICE_PACKAGES=(
   "libreoffice-core=$LIBREOFFICE_VERSION"
@@ -39,11 +53,6 @@ XPRA_PACKAGES=(
   "xpra-html5=$XPRA_HTML5_VERSION"
 )
 
-apt-get update
-ATK_VERSION="$(dpkg-query -W -f='${Version}' libatk1.0-0t64)"
-ATK_GIR_PACKAGE="/tmp/gir1.2-atk-1.0_${ATK_VERSION}_${arch}.deb"
-(cd /tmp && apt-get download "gir1.2-atk-1.0=$ATK_VERSION")
-
 for source in /etc/apt/sources.list /etc/apt/sources.list.d/kali.sources; do
   [ ! -f "$source" ] || sed -i "s/kali-rolling/$KALI_SUITE/g" "$source"
 done
@@ -60,8 +69,8 @@ Signed-By: /usr/share/keyrings/xpra.asc
 Architectures: $arch
 EOF
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  "$ATK_GIR_PACKAGE" \
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --allow-downgrades \
+  "${ATK_PACKAGES[@]}" \
   gir1.2-gtk-3.0 \
   "${LIBREOFFICE_PACKAGES[@]}" \
   "${XPRA_PACKAGES[@]}" \
@@ -90,5 +99,4 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   fonts-noto-cjk \
   fonts-noto-color-emoji
 
-rm -f "$ATK_GIR_PACKAGE"
 rm -rf /var/lib/apt/lists/*

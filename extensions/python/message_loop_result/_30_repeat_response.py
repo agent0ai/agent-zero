@@ -17,6 +17,8 @@ class RepeatResponse(Extension):
 
         llm_result = result_data.get("llm_result")
         response = getattr(llm_result, "response", "")
+        if getattr(llm_result, "function_calls", None):
+            response = llm_result.function_calls_text()
         if not isinstance(response, str) or response != self.agent.loop_data.last_response:
             return
 
@@ -27,7 +29,6 @@ class RepeatResponse(Extension):
             id=log_item.id if log_item else "",
             llm_result=llm_result,
         )
-        self.agent._remember_llm_result_state(llm_result, assistant_message)
         warning_message = self.agent.hist_add_warning(message=warning)
         PrintStyle(font_color="orange", padding=True).print(warning)
         self.agent.context.log.log(

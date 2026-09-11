@@ -1349,3 +1349,51 @@ def test_missing_scoped_preset_falls_back_to_default(monkeypatch, tmp_path):
     resolved = model_config.get_config(project_name="demo")
     assert resolved["model_preset"] == "Default"
     assert resolved["chat_model"]["name"] == "default-chat"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('action', ['save', 'reset'])
+@pytest.mark.parametrize('change', ['none', 'default', 'explicit'])
+async def test_collection_write_compares_embedding_snapshots_without_reloading_per_preset(monkeypatch, action, change):
+    from copy import deepcopy
+    from plugins._model_config.api import model_presets
+    from plugins._model_config.helpers import model_config
+
+    before = [
+        {'name': 'Default', 'embedding': {'provider': 'test', 'name': 'base'}},
+        {'name': 'Inherited'},
+        {'name': 'Explicit', 'embedding': {'provider': 'test', 'name': 'custom'}},
+    ]
+    after = deepcopy(before)
+    if change == 'default':
+        after[0]['embedding']['name'] = 'new-base'
+    elif change == 'explicit':
+        after[2]['embedding']['name'] = 'new-custom'
+    current = before
+    reads = 0
+    notifications = []
+
+    def get_presets():
+        nonlocal reads
+        reads += 1
+        return deepcopy(current)
+
+    def save_presets(presets):
+        nonlocal current
+        assert presets == after
+        current = after
+
+    monkeypatch.setattr(model_config, 'get_presets', get_presets)
+    monkeypatch.setattr(model_config, 'save_presets', save_presets)
+    monkeypatch.setattr(model_config, 'reset_presets', lambda: deepcopy(after))
+    monkeypatch.setattr(model_presets, '_notify_embedding_changed', lambda: notifications.append(True))
+    monkeypatch.setattr(model_presets, '_rename_preset_references', lambda renames: None)
+    handler = model_presets.ModelPresets(Flask(__name__), threading.Lock())
+    result = await handler.process({'action': action, 'presets': after}, None)
+    assert result == {'ok': True, 'presets': after}
+    assert reads == (2 if action == 'save' else 1)
+    assert notifications == ([] if change == 'none' else [True])
+    signatures = model_presets._embedding_signatures(after)
+    assert signatures['Inherited'] == signatures['Default']
+    assert signatures['Explicit'] == after[2]['embedding']
+    assert before[0]['embedding']['name'] == 'base'

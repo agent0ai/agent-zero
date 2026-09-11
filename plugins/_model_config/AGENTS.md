@@ -21,6 +21,7 @@
 - Keep provider metadata and API-key checks safe around secrets.
 - Check API-key readiness only for the effective model configuration; unused global presets must not produce Welcome-screen warnings.
 - Coordinate OAuth-backed providers with `_oauth` instead of hardcoding provider-specific auth here.
+- Model discovery never substitutes the generic LiteLLM registry for an OAuth account catalog (`api_key_mode: oauth`). Preserve source/error details; label API-key-provider registry suggestions as unverified and report failed discovery through standard notifications without exposing raw endpoint URLs.
 - `model_config_get` exposes `model_configured` as a derived chat-model readiness flag from provider, model name, and API-key availability.
 - Non-default presets may inherit omitted main, utility, or embedding slots and durable tuning from `Default`, but must replace or clear per-slot `kwargs` so provider-specific extra params never leak across model providers.
 - The optional `vision` slot is strictly per preset and never inherited from `Default`; an empty slot disables the separate Vision Model for that preset.
@@ -48,9 +49,12 @@
   its loading lifecycle.
 - Preset editor reset actions must remove the user override through the preset API and refresh the open draft from bundled defaults.
 - Preset rename, delete, and reset actions must repair scoped config and durable/live chat references; removed definitions fall back to `Default`.
+- Save/reset embedding comparisons use the matching before/after preset snapshots, including Default inheritance. Do not reload the collection per preset or persist a cross-request cache for this comparison.
 - Migration must preserve existing definitions and distinct scoped model choices, back up replaced user files once, strip inline secrets, and remain idempotent.
+- Venice migration applies chat-only kwargs to chat slots and removes them from embedding slots without discarding embedding-specific kwargs.
 - On every startup after migration, short-circuit when `usr/plugins/_model_config/presets.yaml` exists. Only a missing collection may fetch `agent0ai/a0-presets`; parse remote and plugin-local fallback YAML through the same validator, strip secrets before persistence, and persist `mode_presets_fallback.yaml` when download or validation fails.
-- Model-name catalogs open below the input from either a field click or the embedded magnifier.
+- Model-name catalogs open below the input from either a field click or the embedded magnifier. Discard asynchronous results if their provider, API base, model draft, or query changed while the request was pending.
+- Additional parameter drafts retain plain-string compatibility but reject malformed JSON-shaped values and invalid KEY=VALUE lines with a standard notification. Reparse every preset slot before saving presets or API keys; invalid drafts stay editable and never silently save stale kwargs. Save errors identify the preset and model slot even when that draft is no longer selected.
 
 ## Work Guidance
 

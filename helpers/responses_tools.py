@@ -4,9 +4,10 @@ import hashlib
 import json
 import os
 import re
+from copy import deepcopy
 from typing import Any
 
-from helpers import files, subagents, tool_policy
+from helpers import extract_tools, files, subagents, tool_policy
 
 
 FUNCTION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -24,18 +25,121 @@ SIMPLE_ARGS_PATTERN = re.compile(
 )
 TOOL_PROMPT_PREFIX = "agent.system.tool."
 TOOL_PROMPT_SUFFIX = ".md"
-MAX_TOOL_DESCRIPTION_CHARS = 1024
 TOOL_PROMPT_KWARGS_KEY = "_tool_prompt_kwargs"
+FENCED_EXAMPLE_PATTERN = re.compile(
+    r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<language>[^\r\n]*)\r?\n"
+    r"(?P<body>.*?)^[ \t]*(?P=fence)[ \t]*(?:\r?\n|$)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
+
+# Canonical arguments for the resolved bundled implementations, not tool-name aliases.
+BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
+    "tools/response.py": {
+        "text": {"type": "string", "minLength": 1},
+    },
+    "tools/search_engine.py": {"query": {"type": "string"}},
+    "tools/vision_load.py": {
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "query": {"type": "string"},
+    },
+    "tools/wait.py": {
+        "seconds": {"type": "number"},
+        "minutes": {"type": "number"},
+        "hours": {"type": "number"},
+        "days": {"type": "number"},
+        "until": {"type": "string"},
+    },
+    "tools/notify_user.py": {
+        "message": {"type": "string"},
+        "title": {"type": "string"},
+        "detail": {"type": "string"},
+        "type": {"type": "string", "enum": ["info", "success", "warning", "error", "progress"]},
+        "priority": {"type": "integer", "enum": [10, 20]},
+        "timeout": {"type": "integer"},
+    },
+    "tools/call_subordinate.py": {
+        "message": {"type": "string"},
+        "profile": {"type": "string"},
+        "name": {"type": "string"},
+        "reset": {"type": "boolean"},
+        "context_id": {"type": "string"},
+        "attachments": {"type": "array", "items": {"type": "string"}},
+    },
+    "tools/skills_tool.py": {
+        "action": {"type": "string", "enum": ["list", "search", "load", "read_file"]},
+        "query": {"type": "string"},
+        "skill_name": {"type": "string"},
+        "file_path": {"type": "string"},
+    },
+    "plugins/_code_execution/tools/code_execution_tool.py": {
+        "runtime": {"type": "string", "enum": ["terminal", "python", "nodejs", "output", "reset"]},
+        "code": {"type": "string"},
+        "session": {"type": "integer"},
+        "reset": {"type": "boolean"},
+        "allow_running": {"type": "boolean"},
+    },
+    "plugins/_code_execution/tools/input.py": {
+        "keyboard": {"type": "string"},
+        "session": {"type": "integer"},
+    },
+    "plugins/_memory/tools/memory_load.py": {
+        "query": {"type": "string"},
+        "threshold": {"type": "number"},
+        "limit": {"type": "integer"},
+        "filter": {"type": "string"},
+    },
+    "plugins/_memory/tools/memory_save.py": {
+        "text": {"type": "string"},
+        "area": {"type": "string"},
+    },
+    "plugins/_memory/tools/memory_delete.py": {"ids": {"type": "string"}},
+    "plugins/_memory/tools/memory_forget.py": {
+        "query": {"type": "string"},
+        "threshold": {"type": "number"},
+        "filter": {"type": "string"},
+    },
+    "plugins/_memory/tools/behaviour_adjustment.py": {"adjustments": {"type": "string"}},
+    "plugins/_goal/tools/goal.py": {
+        "action": {"type": "string", "enum": ["get", "create", "update"]},
+        "objective": {"type": "string"},
+        "status": {"type": "string", "enum": ["complete", "blocked"]},
+        "note": {"type": "string"},
+        "token_budget": {"type": "integer", "minimum": 1},
+    },
+}
+
+
+def register_prompt(agent: Any, loop_data: Any, section: str, prompt: str) -> None:
+    """Record request-only alternatives without changing the rendered text prompt."""
+    replacements = loop_data.params_temporary.setdefault("responses_prompt_replacements", {})
+    if section == "main":
+        communication = agent.read_prompt("agent.system.main.communication.md")
+        if communication in prompt:
+            replacements[communication] = agent.read_prompt("agent.system.main.communication.native.md")
+    elif section == "tools":
+        replacements[prompt] = ""
+    elif section == "mcp" and prompt:
+        from helpers.mcp_handler import MCPConfig
+
+        servers = MCPConfig.get_for_agent(agent).get_tools_prompt(agent=agent, include_tools=False)
+        replacements[prompt] = agent.read_prompt("agent.system.mcp_tools.native.md", tools=servers) if servers else ""
 
 
 def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """Build permissive Responses function tools from A0 tool prompts and MCP schemas."""
+    """Build Responses function tools from available implementations and prompt/MCP schemas."""
 
     tools: list[dict[str, Any]] = []
     name_map: dict[str, str] = {}
+    policy = tool_policy.get_policy(agent)
 
-    for tool_name, prompt in _local_tool_prompts(agent):
-        if not tool_policy.resolve_tool(agent, tool_name).allowed:
+    local_prompts = _local_tool_prompts(agent)
+    descriptions = tool_policy.filter_tool_prompts(
+        agent,
+        [(f"{TOOL_PROMPT_PREFIX}{name}{TOOL_PROMPT_SUFFIX}", prompt) for name, prompt in local_prompts],
+        _policy=policy,
+    )
+    for (tool_name, prompt), description in zip(local_prompts, descriptions):
+        if not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
             continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
@@ -43,14 +147,9 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             {
                 "type": "function",
                 "name": native_name,
-                "description": _truncate(
-                    tool_policy.tool_prompt_description(
-                        prompt,
-                        tool_name,
-                        fallback=tool_name,
-                    )
-                ),
-                "parameters": _schema_from_prompt(prompt),
+                "strict": False,
+                "description": _native_tool_description(description, tool_name),
+                "parameters": _schema_for_tool(agent, tool_name, prompt),
             }
         )
 
@@ -59,6 +158,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             agent,
             tool_name,
             canonical_id=tool_policy.canonical_mcp_id(tool_name),
+            _policy=policy,
         ).allowed:
             continue
         native_name = _native_tool_name(tool_name)
@@ -67,7 +167,8 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             {
                 "type": "function",
                 "name": native_name,
-                "description": _truncate(str(tool.get("description") or tool_name)),
+                "strict": False,
+                "description": str(tool.get("description") or tool_name),
                 "parameters": _schema_from_any(tool.get("input_schema")),
             }
         )
@@ -79,6 +180,37 @@ def original_tool_name(native_name: str, name_map: dict[str, str] | None) -> str
     if not name_map:
         return native_name
     return name_map.get(native_name, native_name)
+
+
+def project_system_prompt(
+    items: list[dict[str, Any]], replacements: dict[str, str] | None,
+) -> list[dict[str, Any]]:
+    if not replacements:
+        return items
+    pairs = []
+    for source, target in replacements.items():
+        source = files.remove_code_fences(source, language="json")
+        if source.strip():
+            pairs.append((source, files.remove_code_fences(target, language="json")))
+    pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
+
+    def replace(text: str) -> str:
+        for source, target in pairs:
+            text = text.replace(source, target)
+        return text
+
+    projected = deepcopy(items)
+    for item in projected:
+        if item.get("role") not in {"system", "developer"}:
+            continue
+        content = item.get("content")
+        if isinstance(content, str):
+            item["content"] = replace(content)
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and isinstance(block.get("text"), str):
+                    block["text"] = replace(block["text"])
+    return projected
 
 
 def _local_tool_prompts(agent: Any) -> list[tuple[str, str]]:
@@ -223,6 +355,24 @@ def _schema_from_prompt(prompt: str) -> dict[str, Any]:
     return _permissive_schema()
 
 
+def _schema_for_tool(agent: Any, tool_name: str, prompt: str) -> dict[str, Any]:
+    if schema := _schema_from_embedded_json(prompt):
+        return schema
+    for path in subagents.get_paths(agent, "tools", tool_name + ".py"):
+        if not files.exists(path):
+            continue
+        relative = os.path.relpath(os.path.realpath(path), files.get_abs_path())
+        properties = BUNDLED_TOOL_PARAMETERS.get(relative)
+        if properties is not None:
+            return {
+                "type": "object",
+                "properties": deepcopy(properties),
+                "additionalProperties": True,
+            }
+        break  # A custom implementation shadows the bundled contract.
+    return _schema_from_prompt(prompt)
+
+
 def _schema_from_embedded_json(prompt: str) -> dict[str, Any]:
     marker = "Input schema for tool_args:"
     index = (prompt or "").find(marker)
@@ -294,7 +444,28 @@ def _dedupe_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def _truncate(text: str) -> str:
-    if len(text) <= MAX_TOOL_DESCRIPTION_CHARS:
+def _native_tool_description(prompt: str, tool_name: str) -> str:
+    def arguments_examples(text: str) -> str:
+        for root in extract_tools.extract_json_root_strings(text):
+            request = extract_tools.extract_tool_request(root)
+            if request is None:
+                continue
+            name = request.get("tool_name") or request.get("tool")
+            args = request.get("tool_args", request.get("args"))
+            if not isinstance(name, str) or not isinstance(args, dict):
+                continue
+            label = "Arguments example" if name == tool_name else f"Call {name} with arguments"
+            example = f"{label}:\n```json\n{json.dumps(args, ensure_ascii=False)}\n```"
+            text = text.replace(root, example)
         return text
-    return text[: MAX_TOOL_DESCRIPTION_CHARS - 3].rstrip() + "..."
+
+    parts = []
+    end = 0
+    for match in FENCED_EXAMPLE_PATTERN.finditer(prompt):
+        parts.append(arguments_examples(prompt[end:match.start()]))
+        body = match.group("body")
+        projected = arguments_examples(body) if match.group("language").strip().lower() == "json" else body
+        parts.append(projected + "\n" if projected != body else match.group(0))
+        end = match.end()
+    parts.append(arguments_examples(prompt[end:]))
+    return "".join(parts).strip() or tool_name

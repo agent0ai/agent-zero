@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import models
 from agent import Agent, AgentConfig, AgentContextType, LoopData
-from helpers import extract_tools, history, litellm_transport
+from helpers import extension, extract_tools, history, litellm_transport
 from helpers.log import Log
 from helpers.llm_result import LLMResult, result_from_metadata
 from helpers.persist_chat import _collect_response_ids
@@ -58,6 +58,77 @@ def test_responses_function_call_text_preserves_non_ascii_tool_args():
     )
 
     assert result.function_calls_text() == '{"tool_name": "response", "tool_args": {"text": "привет"}}'
+
+
+@pytest.mark.parametrize("mode", ["", "chat_completions", "responses", "custom"])
+def test_llm_result_round_trip_preserves_explicit_mode(mode):
+    result = LLMResult.non_llm() if not mode else LLMResult(
+        mode=mode, response_id="resp_1", previous_response_id="resp_0",
+        usage={"input_tokens": 10},
+    )
+    assert LLMResult.from_dict(result.to_dict()) == result
+    assert result_from_metadata(result.metadata()).metadata() == result.metadata()
+
+
+@pytest.mark.parametrize("data", [None, {}, {"mode": None}])
+def test_llm_result_missing_mode_keeps_legacy_default(data):
+    assert LLMResult.from_dict(data).mode == "responses"
+
+
+@pytest.mark.parametrize("call_form", [
+    "message", "legacy_id", "keyword_id", "result", "result_id", "keywords", "native",
+])
+def test_history_response_call_compatibility_preserves_state(monkeypatch, call_form):
+    monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.history = history.History(agent)
+    agent.parse_prompt = lambda template, **kwargs: kwargs["message"]
+    agent.hist_add_message = agent.history.add_message
+    remembered = []
+
+    def remember(result, message):
+        remembered.append(result)
+        Agent._remember_llm_result_state(agent, result, message)
+
+    agent._remember_llm_result_state = remember
+    result = LLMResult(response_id="resp_1", provider_model_key="test/model")
+    if call_form == "native":
+        result = LLMResult.from_response({
+            "id": "resp_1", "output_text": "hello",
+            "output": [{"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": '{"q":"a0"}'}],
+        }, provider_model_key="test/model")
+    args, kwargs = {
+        "message": ((), {}),
+        "legacy_id": (("message_id",), {}),
+        "keyword_id": ((), {"id": "message_id"}),
+        "result": ((result,), {}),
+        "result_id": ((result, "message_id"), {}),
+        "keywords": ((), {"llm_result": result, "id": "message_id"}),
+        "native": ((), {"llm_result": result, "id": "message_id"}),
+    }[call_form]
+    message = agent.hist_add_ai_response("hello", *args, **kwargs)
+    expected = result if call_form in {"result", "result_id", "keywords", "native"} else LLMResult.non_llm()
+    assert remembered == [expected]
+    assert result_from_metadata(message.metadata).metadata() == expected.metadata()
+    assert agent.history.all_messages() == [message]
+    assert message.content == (expected.function_calls_text() or "hello")
+    assert agent.loop_data.last_response == message.content
+    if call_form == "native":
+        assert result.response == "hello"
+    if call_form not in {"message", "result"}:
+        assert message.id == "message_id"
+    state = agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)
+    if expected.response_id:
+        assert state["response_ids"] == ["resp_1"]
+        assert state["history_counter"] == message.sequence
+    else:
+        assert state is None
+
+    with pytest.raises(TypeError, match="ID supplied twice"):
+        agent.hist_add_ai_response("invalid", "first", id="second")
+    assert agent.history.all_messages() == [message]
 
 
 def test_llm_result_persists_only_durable_responses_metadata():
@@ -175,6 +246,94 @@ async def test_chat_completion_transport_preserves_reported_usage(monkeypatch):
         "completion_tokens": 8,
         "total_tokens": 128,
         "cost": 0.0042,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_requests_and_records_terminal_usage(monkeypatch):
+    calls: list[dict] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+
+        async def stream():
+            yield {"choices": [{"delta": {"content": "done"}}]}
+            yield {
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 8,
+                    "total_tokens": 128,
+                },
+            }
+
+        return stream()
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    async for _chunk in transport.astream():
+        pass
+
+    assert calls[0]["stream"] is True
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert transport.last_result is not None
+    assert transport.last_result.usage == {
+        "prompt_tokens": 120,
+        "completion_tokens": 8,
+        "total_tokens": 128,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_retries_without_usage_when_stream_options_rejected(
+    monkeypatch,
+):
+    calls: list[dict] = []
+
+    class BadRequestError(Exception):
+        pass
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+        if kwargs.get("stream_options", {}).get("include_usage"):
+            raise BadRequestError("Unknown parameter: 'stream_options'.")
+
+        async def stream():
+            yield {"choices": [{"delta": {"content": "done"}}]}
+
+        return stream()
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    async for _chunk in transport.astream():
+        pass
+
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in calls[1]
+    assert len(calls) == 2
+
+    user_transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "again"}],
+        kwargs={
+            "a0_api_mode": "chat_completions",
+            "stream_options": {"include_usage": True, "custom": "keep"},
+        },
+    )
+    request = user_transport._chat_request(stream=True)
+    assert request["stream_options"] == {
+        "include_usage": True,
+        "custom": "keep",
     }
 
 

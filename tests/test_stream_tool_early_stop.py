@@ -535,6 +535,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
 
     async def fake_aresponses(*args, **kwargs):
         calls.append("responses")
+        assert kwargs["input"][0]["content"] == "Native instructions"
+        assert "responses_prompt_replacements" not in kwargs
         raise RuntimeError(
             "Client error '404 Not Found' for url "
             "'https://llm.agent-zero.ai/v1/responses'"
@@ -542,6 +544,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
 
     async def fake_acompletion(*args, **kwargs):
         calls.append("chat")
+        assert kwargs["messages"][0]["content"] == "Legacy instructions"
+        assert "responses_prompt_replacements" not in kwargs
         assert kwargs["stream"] is True
         assert kwargs["drop_params"] is True
         assert "tool_choice" not in kwargs
@@ -560,6 +564,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
         provider="openai",
         model_config=None,
         a0_api_mode="responses",
+        a0_responses_function_tools=[{"type": "function", "name": "response", "parameters": {"type": "object"}}],
+        responses_prompt_replacements={"Legacy instructions": "Native instructions"},
         tool_choice="auto",
         parallel_tool_calls=True,
     )
@@ -568,7 +574,7 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
         return None
 
     response, reasoning = await wrapper.unified_call(
-        messages=[],
+        messages=[SystemMessage(content="Legacy instructions")],
         response_callback=response_callback,
     )
 
@@ -577,7 +583,7 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
     assert calls == ["responses", "chat"]
 
     response, reasoning = await wrapper.unified_call(
-        messages=[],
+        messages=[SystemMessage(content="Legacy instructions")],
         response_callback=response_callback,
     )
 
@@ -1676,14 +1682,15 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
             },
         }
     ) == {"reasoning_delta": "", "response_delta": ""}
-    assert parser.parse(
+    partial = parser.parse(
         {
             "type": "response.function_call_arguments.delta",
             "item_id": "fc_1",
             "output_index": 0,
             "delta": '{"q":',
         }
-    ) == {"reasoning_delta": "", "response_delta": ""}
+    )
+    assert partial["response_delta"] == '{"tool_name":"lookup","tool_args":{"q":'
 
     parsed = parser.parse(
         {
@@ -1695,7 +1702,7 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
         }
     )
 
-    assert extract_tools.json_parse_dirty(parsed["response_delta"]) == {
+    assert extract_tools.json_parse_dirty(partial["response_delta"] + parsed["response_delta"]) == {
         "tool_name": "lookup",
         "tool_args": {"q": "a0"},
     }
@@ -1867,3 +1874,108 @@ def test_responses_stream_parser_preserves_non_ascii_function_call_arguments():
     )
 
     assert parsed["response_delta"] == '{"tool_name": "response", "tool_args": {"text": "привет"}}'
+
+
+@pytest.mark.asyncio
+async def test_native_argument_progress_keeps_interleaved_calls_and_terminal_metadata(monkeypatch):
+    arguments = '{"runtime":"python","code":"print(\\"日本\\")","nested":{"items":[1,2]}}'
+    first = {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "code_execution_tool", "arguments": arguments}
+    second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"a0"}'}
+    split = arguments.index('日本')
+    events = [
+        {"type": "response.output_item.added", "item": {**first, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": arguments[:split]},
+        {"type": "response.output_item.added", "item": {**second, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_2", "delta": second["arguments"]},
+        {"type": "response.output_item.done", "item": second},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": arguments[split:]},
+        {"type": "response.output_item.done", "item": first},
+        {"type": "response.completed", "response": {"id": "resp_1", "output": [first, second], "usage": {"input_tokens": 2048}}},
+    ]
+    stream = _AsyncChunkStream(events)
+
+    async def aresponses(**kwargs):
+        return stream
+
+    async def no_limiter(*args, **kwargs):
+        return None
+
+    snapshots = []
+
+    async def callback(chunk, full):
+        snapshots.append((stream.index, full))
+        return full  # Native turns must still consume completion metadata.
+
+    monkeypatch.setattr(litellm_transport, "aresponses", aresponses)
+    monkeypatch.setattr(models, "apply_rate_limiter", no_limiter)
+    wrapper = models.LiteLLMChatWrapper(model="test-model", provider="openai", model_config=None)
+    result = await wrapper.unified_turn(messages=[], response_callback=callback, a0_api_mode="responses")
+
+    assert snapshots[0][0] == 2
+    assert DirtyJson.parse_string(snapshots[0][1])["tool_args"]["runtime"] == "python"
+    roots = extract_tools.extract_json_root_strings(snapshots[-1][1])
+    assert [json.loads(root)["tool_name"] for root in roots] == ["code_execution_tool", "lookup"]
+    assert json.loads(roots[0])["tool_args"] == json.loads(arguments)
+    assert [call.call_id for call in result.function_calls] == ["call_1", "call_2"]
+    assert result.usage == {"input_tokens": 2048}
+    assert stream.index == len(events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("incomplete", [False, True])
+async def test_interrupted_native_argument_stream_cannot_become_a_text_tool(monkeypatch, incomplete):
+    events = [
+        {"type": "response.output_item.added", "item": {"type": "function_call", "id": "fc_1", "name": "lookup", "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": '{"q":"partial'},
+    ]
+    if incomplete:
+        events.append({"type": "response.incomplete", "response": {"status": "incomplete"}})
+    stream = _AsyncChunkStream(events)
+
+    async def aresponses(**kwargs):
+        return stream
+
+    monkeypatch.setattr(litellm_transport, "aresponses", aresponses)
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    with pytest.raises(RuntimeError, match="incomplete|before native tool calls completed"):
+        async for _ in transport.astream():
+            pass
+    assert transport.last_result is None
+    assert stream.closed
+
+
+def test_stream_metadata_recovers_reasoning_and_partial_terminal_call_lists():
+    parser = litellm_transport.ResponsesEventParser()
+    reasoning = {"type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted", "summary": []}
+    first = {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "lookup", "arguments": '{"q":"first"}'}
+    second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"second"}'}
+    for index, item in reversed(list(enumerate([reasoning, first, second]))):
+        parser.parse({"type": "response.output_item.done", "output_index": index, "item": item})
+    terminal = {"id": "resp_1", "output": [{**second, "status": "completed"}]}
+    parser.parse({"type": "response.completed", "response": terminal})
+    assert parser.finish() == parser.finish()
+    assert terminal == {"id": "resp_1", "output": [{**second, "status": "completed"}]}
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert [item.to_dict() for item in result.output_items] == [reasoning, first, {**second, "status": "completed"}]
+    assert [call.call_id for call in result.function_calls] == ["call_1", "call_2"]
+
+
+def test_terminal_reasoning_null_does_not_erase_streamed_ciphertext():
+    parser = litellm_transport.ResponsesEventParser()
+    reasoning = {"type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted", "summary": []}
+    parser.parse({"type": "response.output_item.done", "output_index": 0, "item": reasoning})
+    parser.parse({"type": "response.completed", "response": {"output": [{**reasoning, "encrypted_content": None}]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert [item.to_dict() for item in result.output_items] == [reasoning]
+
+
+def test_unidentified_stream_fragment_cannot_duplicate_terminal_call():
+    parser = litellm_transport.ResponsesEventParser()
+    item = {"type": "function_call", "name": "lookup", "arguments": '{"q":"a0"}'}
+    parser.parse({"type": "response.output_item.done", "output_index": 0, "item": item})
+    parser.parse({"type": "response.completed", "response": {"output": [item]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert len(result.function_calls) == 1

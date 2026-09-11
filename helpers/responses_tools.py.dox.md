@@ -17,21 +17,25 @@
   owns the Responses-specific prompt-name compatibility rules.
 - Local prompt-derived function names use existing bullet declarations that pair a backticked name with `arg` or `args` for multi-tool prompt files, otherwise prefer explicit `"tool_name"` examples, then the first prompt heading, and finally the prompt filename.
 - Apply registered tool-prompt render kwargs before deriving native metadata so descriptions never expose unresolved prompt templates.
-- Keep emitted schemas provider-neutral; provider-specific strictness belongs at the provider request boundary.
-- Use an explicitly embedded JSON input schema when present. Infer only an unambiguous single backticked argument on an otherwise empty `args:` line; all other local tools receive an honest permissive object schema instead of prose-guessed types.
-- Native local-tool descriptions reuse the tool catalog's compact prompt
-  description; Responses retains native-name mapping, schema derivation, and
-  provider description limits.
+- Emit generated definitions with `strict: false` so Responses does not normalize optional or extensible arguments into required strict fields. Provider-specific strictness (such as Codex's final response) belongs at the provider request boundary.
+- Explicitly embedded JSON schemas take precedence. Otherwise use canonical argument properties only for a matching resolved bundled implementation in `BUNDLED_TOOL_PARAMETERS`; custom/profile overrides must not inherit a same-named bundled contract. Properties remain optional and extensible for action-dependent inputs and runtime aliases; runtime validation remains authoritative.
+- For unlisted implementations, infer only an unambiguous single backticked argument on an otherwise empty `args:` line; otherwise retain a permissive object instead of prose-guessed types.
+- Native local descriptions preserve full policy-filtered operational guidance. Convert unfenced and JSON-fenced A0 envelope examples to argument-only examples using the shared tool-request parser; preserve unrelated JSON and non-JSON code fences. Catalog summaries remain separate.
 - Preserve original Agent Zero tool names through the native Responses name map.
 - Keep MCP tool schemas merged after local prompt-derived tools.
 - Apply `helpers.tool_policy` before emitting local or MCP schemas; a blocked
   capability is absent from provider-native tool definitions. Vision routing
   is controlled by the effective model preset rather than Agent Editor.
+- Resolve a fresh policy once per schema build and reuse it only within that
+  build; runtime execution remains independently policy-gated.
+- `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
 - Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
+
+- `register_prompt` owns request-only alternatives for main, tools, and MCP sections. Section builders identify their section and retain the original text; only this helper selects Responses templates. MCP supplies policy-filtered server context without knowing the endpoint mode.
 
 ## Work Guidance
 
-- Keep prompt-derived descriptions bounded by `MAX_TOOL_DESCRIPTION_CHARS`.
+- Do not silently truncate local or MCP instructions; prompt owners control their guidance budget.
 - Treat plugin-specific tool gates as optional imports so core helper loading does not require a plugin that is absent or disabled.
 
 ## Verification

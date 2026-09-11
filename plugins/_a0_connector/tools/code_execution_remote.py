@@ -6,12 +6,16 @@ import uuid
 from typing import Any
 
 from helpers.tool import Response, Tool
-from helpers.ws import NAMESPACE
-from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
+from helpers.ws_manager import (
+    ConnectionNotFoundError,
+    WsPayloadTooLargeError,
+    get_shared_ws_manager,
+)
 
 from plugins._a0_connector.helpers.exec_config import build_exec_config
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_exec_op,
+    emit_connector_event,
     remote_exec_metadata_for_sid,
     remote_file_metadata_for_sid,
     remote_tool_sids_for_context,
@@ -210,14 +214,17 @@ class CodeExecutionRemote(Tool):
         )
 
         try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
+            await emit_connector_event(
                 sid,
                 EXEC_OP_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             result = await asyncio.wait_for(future, timeout=wait_timeout)
+        except WsPayloadTooLargeError as exc:
+            clear_pending_exec_op(op_id)
+            return Response(message=str(exc), break_loop=False)
         except ConnectionNotFoundError:
             clear_pending_exec_op(op_id)
             return Response(

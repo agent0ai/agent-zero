@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { invalidateCsrfToken } from "/js/api.js";
+import { getMessageCacheKey } from "/js/message-window.js";
 import { applySnapshot, buildStateRequestPayload } from "/index.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
@@ -52,6 +53,7 @@ const model = {
   needsHandshake: false,
   handshakePromise: null,
   _pushQueue: Promise.resolve(),
+  _pendingPush: null,
   _handshakeQueued: false,
   _queuedPayload: null,
   _inFlightPayload: null,
@@ -302,11 +304,7 @@ const model = {
       });
 
       await stateSocket.on("state_push", (envelope) => {
-        this._pushQueue = this._pushQueue
-          .then(() => this._handlePush(envelope))
-          .catch((error) => {
-            console.error("[syncStore] state_push handler failed:", error);
-          });
+        this._enqueuePush(envelope);
       });
       debug("[syncStore] subscribed to state_push");
 
@@ -458,6 +456,52 @@ const model = {
     return await this.handshakePromise;
   },
 
+  _enqueuePush(envelope) {
+    const pending = this._pendingPush;
+    const data = envelope?.data;
+    const previous = pending?.data?.snapshot;
+    const snapshot = data?.snapshot;
+    // Coalesce only contiguous pushes for the same runtime and log.
+    if (
+      previous && snapshot &&
+      data.runtime_epoch === pending.data.runtime_epoch &&
+      Number.isFinite(data.seq) && data.seq === pending.data.seq + 1 &&
+      snapshot.context === previous.context &&
+      snapshot.log_guid === previous.log_guid
+    ) {
+      const logs = snapshot.logs?.[0]?.no === 0
+        ? snapshot.logs
+        : [...new Map([...(previous.logs || []), ...(snapshot.logs || [])]
+            .map((log) => [getMessageCacheKey(log), log])).values()];
+      const notifications = snapshot.notifications_guid !== previous.notifications_guid
+        ? snapshot.notifications
+        : [...(previous.notifications || []), ...(snapshot.notifications || [])];
+      pending.data = {
+        ...data,
+        snapshot: {
+          ...snapshot,
+          logs,
+          notifications,
+          contexts: snapshot.contexts ?? previous.contexts,
+          tasks: snapshot.tasks ?? previous.tasks,
+        },
+      };
+      return;
+    }
+
+    // Keep one pending batch behind the in-flight render.
+    this._pendingPush = { ...envelope, firstSeq: data?.seq };
+    const push = this._pendingPush;
+    this._pushQueue = this._pushQueue
+      .then(() => {
+        if (this._pendingPush === push) this._pendingPush = null;
+        return this._handlePush(push);
+      })
+      .catch((error) => {
+        console.error("[syncStore] state_push handler failed:", error);
+      });
+  },
+
   async _handlePush(envelope) {
     if (this.mode === SYNC_MODES.DEGRADED) {
       debug("[syncStore] ignoring state_push while DEGRADED");
@@ -482,7 +526,7 @@ const model = {
 
     if (typeof data.seq === "number" && Number.isFinite(data.seq)) {
       const expected = this.lastSeq + 1;
-      if (this.lastSeq > 0 && data.seq !== expected) {
+      if (this.lastSeq > 0 && (envelope.firstSeq ?? data.seq) !== expected) {
         debug("[syncStore] seq gap/out-of-order -> resync", {
           lastSeq: this.lastSeq,
           expected,

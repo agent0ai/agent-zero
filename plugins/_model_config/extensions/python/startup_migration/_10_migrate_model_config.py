@@ -374,22 +374,47 @@ class MigrateModelConfig(Extension):
     def _repair_venice_config_slots(self, config: dict) -> bool:
         changed = False
         for section in self.CONFIG_SECTIONS:
-            changed = self._repair_venice_slot(config.get(section)) or changed
+            changed = self._repair_venice_slot(
+                config.get(section),
+                embedding=section == "embedding_model",
+            ) or changed
         return changed
 
     def _repair_venice_preset(self, preset: dict) -> bool:
         changed = False
         for section in self.PRESET_SECTIONS:
-            changed = self._repair_venice_slot(preset.get(section)) or changed
+            changed = self._repair_venice_slot(
+                preset.get(section),
+                embedding=section == "embedding",
+            ) or changed
         if not any(section in preset for section in self.PRESET_SECTIONS):
             changed = self._repair_venice_slot(preset) or changed
         return changed
 
-    def _repair_venice_slot(self, slot) -> bool:
+    def _repair_venice_slot(self, slot, *, embedding: bool = False) -> bool:
         if not isinstance(slot, dict):
             return False
         provider = str(slot.get("provider") or "").strip().lower()
-        if provider != "venice" or slot.get("kwargs") == self.VENICE_KWARGS:
+        if provider != "venice":
             return False
-        slot["kwargs"] = deepcopy(self.VENICE_KWARGS)
+
+        kwargs = slot.get("kwargs")
+        if embedding:
+            if "kwargs" not in slot:
+                return False
+            repaired = (
+                {
+                    key: value
+                    for key, value in kwargs.items()
+                    if key not in self.VENICE_KWARGS
+                }
+                if isinstance(kwargs, dict)
+                else {}
+            )
+        else:
+            repaired = self.VENICE_KWARGS
+
+        if kwargs == repaired:
+            return False
+        slot["kwargs"] = deepcopy(repaired)
         return True

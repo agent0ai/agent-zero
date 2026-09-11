@@ -36,15 +36,6 @@ class PromptInclude(Extension):
             gitignore=config.get("gitignore", ""),
         )
 
-        if not result["files"] and result["skipped_count"] == 0:
-            prompt = self.agent.read_prompt(
-                "agent.system.promptinclude.md",
-                name_pattern=name_pattern,
-                includes="",
-            )
-            system_prompt.append(prompt)
-            return
-
         includes = _format_includes(self.agent, result)
         prompt = self.agent.read_prompt(
             "agent.system.promptinclude.md",

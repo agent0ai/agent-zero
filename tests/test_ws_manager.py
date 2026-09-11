@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import sys
 import threading
 import time
@@ -13,13 +14,18 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from helpers.ws import ConnectionNotFoundError, WsHandler
+from api.ws_dev_test import WsDevTest
 from helpers.ws_manager import (
     WsManager,
     WsResult,
+    ConnectionInfo,
     BUFFER_TTL,
     DIAGNOSTIC_EVENT,
     LIFECYCLE_CONNECT_EVENT,
     LIFECYCLE_DISCONNECT_EVENT,
+    WsPayloadTooLargeError,
+    socketio_ack_size,
+    socketio_event_size,
 )
 
 NAMESPACE = "/test"
@@ -40,6 +46,238 @@ class DummyHandler(WsHandler):
         response = {"sid": sid, "data": data}
         self.results.append(response)
         return response
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("limit", [4 * 1024 * 1024, 16 * 1024 * 1024, 50 * 1024 * 1024])
+async def test_emit_to_enforces_exact_serialized_payload_boundary(limit: int):
+    socketio = FakeSocketIOServer()
+    manager = WsManager(socketio, threading.RLock())
+    identity = (NAMESPACE, "sid-limit")
+    manager.connections[identity] = ConnectionInfo(namespace=NAMESPACE, sid="sid-limit")
+    manager._known_sids.add(identity)  # noqa: SLF001
+
+    base_envelope = manager._wrap_envelope(None, {"blob": ""})  # noqa: SLF001
+    base_size = socketio_event_size("payload_event", base_envelope, namespace=NAMESPACE)
+    padding = limit - base_size
+    assert padding > 1
+
+    calls_before = socketio.emit.await_count
+    for delta in (-1, 0):
+        await manager.emit_to(
+            NAMESPACE,
+            "sid-limit",
+            "payload_event",
+            {"blob": "x" * (padding + delta)},
+            max_payload_bytes=limit,
+        )
+
+    with pytest.raises(WsPayloadTooLargeError) as exc_info:
+        await manager.emit_to(
+            NAMESPACE,
+            "sid-limit",
+            "payload_event",
+            {"blob": "x" * (padding + 1)},
+            max_payload_bytes=limit,
+        )
+
+    assert socketio.emit.await_count == calls_before + 2
+    assert exc_info.value.actual_bytes == limit + 1
+    assert exc_info.value.limit_bytes == limit
+    assert exc_info.value.details()["alternative"] == "http_bulk_transfer"
+
+
+@pytest.mark.asyncio
+async def test_connection_payload_limit_applies_to_emit_and_broadcast() -> None:
+    socketio = FakeSocketIOServer()
+    manager = WsManager(socketio, threading.RLock())
+    limited = (NAMESPACE, "sid-limited")
+    unlimited = (NAMESPACE, "sid-unlimited")
+    manager.connections[limited] = ConnectionInfo(namespace=NAMESPACE, sid=limited[1])
+    manager.connections[unlimited] = ConnectionInfo(namespace=NAMESPACE, sid=unlimited[1])
+    manager.set_peer_max_payload_bytes(NAMESPACE, limited[1], 2048)
+
+    with pytest.raises(WsPayloadTooLargeError):
+        await manager.emit_to(
+            NAMESPACE,
+            limited[1],
+            "payload_event",
+            {"blob": "x" * 4096},
+        )
+
+    with pytest.raises(WsPayloadTooLargeError):
+        await manager.broadcast(
+            NAMESPACE,
+            "payload_event",
+            {"blob": "x" * 4096},
+        )
+
+    socketio.emit.assert_awaited_once()
+    assert socketio.emit.await_args.kwargs["to"] == unlimited[1]
+
+
+@pytest.mark.asyncio
+async def test_dev_harness_can_emit_to_requesting_sid() -> None:
+    socketio = FakeSocketIOServer()
+    manager = WsManager(socketio, threading.RLock())
+    identity = (NAMESPACE, "sid-dev-harness")
+    manager.connections[identity] = ConnectionInfo(namespace=NAMESPACE, sid=identity[1])
+    handler = WsDevTest(socketio, threading.RLock(), manager=manager, namespace=NAMESPACE)
+
+    result = await handler.process(
+        "ws_tester_emit_to",
+        {"message": "boundary probe", "timestamp": "fixed"},
+        identity[1],
+    )
+
+    assert result == {"status": "emitted"}
+    event, envelope = socketio.emit.await_args.args[:2]
+    assert event == "ws_tester_emit_to_result"
+    assert envelope["data"] == {
+        "message": "boundary probe",
+        "echo": True,
+        "timestamp": "fixed",
+    }
+    assert socketio.emit.await_args.kwargs["to"] == identity[1]
+
+
+@pytest.mark.asyncio
+async def test_dev_harness_round_trips_connector_transfer(monkeypatch) -> None:
+    from plugins._a0_connector.helpers import ws_runtime
+
+    socketio = FakeSocketIOServer()
+    manager = WsManager(socketio, threading.RLock())
+    handler = WsDevTest(socketio, threading.RLock(), manager=manager, namespace=NAMESPACE)
+
+    async def fake_emit_connector_event(
+        sid: str,
+        event: str,
+        payload: dict[str, Any],
+        **kwargs: Any,
+    ) -> None:
+        del event, kwargs
+        assert payload["request_padding"] == "r" * 10
+        ws_runtime.resolve_pending_browser_op(
+            str(payload["op_id"]),
+            sid=sid,
+            payload={
+                "op_id": payload["op_id"],
+                "ok": True,
+                "result": {"result_padding": "s" * int(payload["result_bytes"])},
+            },
+        )
+
+    monkeypatch.setattr(ws_runtime, "emit_connector_event", fake_emit_connector_event)
+
+    result = await handler.process(
+        "ws_tester_connector_transfer",
+        {"request_bytes": 10, "result_bytes": 12},
+        "sid-transfer-harness",
+    )
+
+    assert result == {
+        "status": "ok",
+        "request_bytes": 10,
+        "result_bytes": 12,
+        "result_sha256": hashlib.sha256(b"s" * 12).hexdigest(),
+    }
+
+
+@pytest.mark.asyncio
+async def test_dev_harness_can_cancel_connector_transfer(monkeypatch) -> None:
+    from plugins._a0_connector.helpers import ws_runtime
+
+    socketio = FakeSocketIOServer()
+    manager = WsManager(socketio, threading.RLock())
+    handler = WsDevTest(socketio, threading.RLock(), manager=manager, namespace=NAMESPACE)
+    pending: dict[str, str] = {}
+
+    async def fake_emit_connector_event(
+        sid: str,
+        event: str,
+        payload: dict[str, Any],
+        **kwargs: Any,
+    ) -> None:
+        del event, kwargs
+        pending["sid"] = sid
+        pending["op_id"] = str(payload["op_id"])
+        await asyncio.sleep(0.01)
+
+    async def fake_abort_transfers_for_context(
+        context_id: str,
+        **kwargs: Any,
+    ) -> int:
+        del kwargs
+        assert context_id == "ws-dev-test"
+        ws_runtime.resolve_pending_browser_op(
+            pending["op_id"],
+            sid=pending["sid"],
+            payload={"op_id": pending["op_id"], "ok": False, "error": "cancelled"},
+        )
+        return 1
+
+    monkeypatch.setattr(ws_runtime, "emit_connector_event", fake_emit_connector_event)
+    monkeypatch.setattr(
+        ws_runtime,
+        "abort_transfers_for_context",
+        fake_abort_transfers_for_context,
+    )
+
+    result = await handler.process(
+        "ws_tester_connector_transfer",
+        {"request_bytes": 10, "result_bytes": 12, "cancel": True},
+        "sid-transfer-harness",
+    )
+
+    assert result == {
+        "status": "cancelled",
+        "request_bytes": 10,
+        "result_bytes": 0,
+        "result_sha256": hashlib.sha256(b"").hexdigest(),
+        "cancelled_transfers": 1,
+    }
+
+
+@pytest.mark.parametrize("limit", [4 * 1024 * 1024, 16 * 1024 * 1024, 50 * 1024 * 1024])
+def test_ack_response_enforces_exact_serialized_payload_boundary(limit: int):
+    manager = WsManager(FakeSocketIOServer(), threading.RLock())
+    identity = (NAMESPACE, "sid-ack-limit")
+    manager.connections[identity] = ConnectionInfo(namespace=NAMESPACE, sid=identity[1])
+    manager.set_peer_max_payload_bytes(NAMESPACE, identity[1], limit)
+    base = {
+        "correlationId": "corr-limit",
+        "results": [{"ok": True, "data": {"blob": ""}}],
+    }
+    padding = limit - socketio_ack_size(base, namespace=NAMESPACE)
+    assert padding > 1
+
+    for delta in (-1, 0):
+        response = {
+            "correlationId": "corr-limit",
+            "results": [{"ok": True, "data": {"blob": "x" * (padding + delta)}}],
+        }
+        assert manager.constrain_ack_response(
+            NAMESPACE,
+            identity[1],
+            "payload_event",
+            response,
+        ) is response
+
+    oversized = {
+        "correlationId": "corr-limit",
+        "results": [{"ok": True, "data": {"blob": "x" * (padding + 1)}}],
+    }
+    response = manager.constrain_ack_response(
+        NAMESPACE,
+        identity[1],
+        "payload_event",
+        oversized,
+    )
+
+    error = response["results"][0]["error"]
+    assert error["code"] == "PAYLOAD_TOO_LARGE"
+    assert error["details"]["actual_bytes"] == limit + 1
+    assert error["details"]["limit_bytes"] == limit
 
 
 @pytest.mark.asyncio

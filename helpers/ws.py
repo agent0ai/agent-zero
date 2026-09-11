@@ -274,11 +274,13 @@ class WsHandler:
         data: dict,
         *,
         correlation_id: str | None = None,
+        max_payload_bytes: int | None = None,
     ) -> None:
         await self.manager.emit_to(
             self._namespace, sid, event, data,
             handler_id=self.identifier,
             correlation_id=correlation_id,
+            max_payload_bytes=max_payload_bytes,
         )
 
     async def broadcast(
@@ -597,7 +599,12 @@ def register_ws_namespace(
                 )
                 if security_errors:
                     result["results"] = security_errors + result.get("results", [])
-                return result
+                return manager.constrain_ack_response(
+                    NAMESPACE,
+                    sid,
+                    event,
+                    result,
+                )
 
             # All handlers failed security or no manager — return collected errors
             if not passing_handlers:

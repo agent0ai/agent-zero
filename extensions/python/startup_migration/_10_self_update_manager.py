@@ -23,6 +23,7 @@ SELF_UPDATE_MANAGER_SOURCE_PATH = Path(
 )
 BACKUP_SUFFIX = ".startup-migration-backup"
 REQUIRED_RUNTIME_MARKERS = (
+    "def get_top_stash_oid(",
     "def should_include_usr_backup_entry(",
     "Skipping non-regular usr backup entry",
     "def clean_transient_desktop_agent_state(",

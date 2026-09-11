@@ -10,13 +10,19 @@
           <div class="section-title">Interface controls</div>
           <div class="section-description">
             Choose where each control appears. Bright devices are shown; dim devices are hidden.
+            Canvas entries control both the rail icons and panel tabs.
           </div>
 
           <div class="ui-visibility-list">
             <template x-for="control in $store.settings.uiControls" :key="control.id">
-              <div class="ui-visibility-row">
+              <div class="ui-visibility-row" :class="{ 'is-nested': control.parent }">
                 <div class="ui-visibility-control">
-                  <x-icon aria-hidden="true" :name="control.icon"></x-icon>
+                  <template x-if="control.image">
+                    <img :src="control.image" alt="" class="right-canvas-surface-image">
+                  </template>
+                  <template x-if="!control.image">
+                    <x-icon aria-hidden="true" :name="control.icon"></x-icon>
+                  </template>
                   <div>
                     <div class="field-title" x-text="control.label"></div>
                     <div class="ui-visibility-state" x-text="$store.settings.uiControlVisibilityLabel(control.id)"></div>
@@ -75,6 +81,11 @@
       min-height: 78px;
       padding: 0.8rem 0.9rem;
       border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+    }
+
+    .ui-visibility-row.is-nested {
+      margin-left: 2.4rem;
+      border-left: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
     }
 
     .ui-visibility-row:last-child {

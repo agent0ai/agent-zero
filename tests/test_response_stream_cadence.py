@@ -105,5 +105,5 @@ async def test_response_stream_still_stops_on_exact_canonical_root(monkeypatch):
 
     assert result == "done"
     assert provider_callbacks == 2
-    assert [value for kind, value in events if kind == "handle"] == [message]
-    assert events.count(("extension", "response_stream_chunk")) == 1
+    assert [value for kind, value in events if kind == "handle"] == ["masked:" + message]
+    assert events.count(("extension", "response_stream_chunk")) == 2

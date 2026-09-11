@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent import LoopData
+from helpers import tool_policy
 from helpers.extension import Extension
 from plugins._browser.helpers.runtime import get_runtime
 
@@ -19,6 +20,8 @@ class BrowserContextPrompt(Extension):
 
         runtime = await get_runtime(self.agent.context.id, create=False)
         if not runtime:
+            return
+        if not tool_policy.resolve_tool(self.agent, "browser").allowed:
             return
 
         try:

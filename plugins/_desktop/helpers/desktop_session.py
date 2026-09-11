@@ -430,8 +430,6 @@ class DesktopSessionManager:
         if not session:
             return {"ok": False, "error": "LibreOffice desktop session not found."}
         is_system_desktop = session.session_id == SYSTEM_SESSION_ID and session.extension == "desktop"
-        if is_system_desktop:
-            width, height = virtual_desktop.normalize_desktop_display_size(width, height)
         result = virtual_desktop.resize_display(
             display=session.display,
             width=width,
@@ -699,7 +697,7 @@ class DesktopSessionManager:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=self._display_env(session),
+            env={**virtual_desktop.XPRA_START_ENV, **self._display_env(session)},
         )
         _wait_for_port(
             "127.0.0.1",
@@ -719,7 +717,7 @@ class DesktopSessionManager:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=self._display_env(session),
+            env={**virtual_desktop.XPRA_START_ENV, **self._display_env(session)},
         )
         _wait_for_port(
             "127.0.0.1",
@@ -1829,6 +1827,7 @@ def _xpra_shadow_command(xpra: str, session: DesktopSession) -> list[str]:
         f":{session.display}",
         "--daemon=no",
         "--mdns=no",
+        "--mmap=no",
         "--html=on",
         "--tray=no",
         "--system-tray=no",

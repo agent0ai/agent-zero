@@ -7,11 +7,15 @@
 
 ## Ownership
 
-- `SKILL.md` owns trigger metadata, plugin scaffold guidance, manifest rules, and frontend/backend patterns.
+- `SKILL.md` owns authoring intent, local/community intake, the reference map, and brief troubleshooting.
+- `references/` owns implementation examples, UI patterns, review checks, and community contribution.
 
 ## Local Contracts
 
 - New custom plugins must default to `usr/plugins/`.
+- Setup, dependencies, required initialization, and uninstall cleanup belong to plugin-root `hooks.py` lifecycle functions; never recommend `execute.py` for these operations. Keep examples and review checks consistent with this rule.
+- Honor an explicit local/community choice; ask once when it is unknown before creating a new plugin.
+- Keep review and contribution discoverable through this entrypoint; do not recreate separate router/debug/review/contribution skills.
 - Keep plugin manifest, settings, extension layout, Store Gating, and notification guidance synchronized with `plugins/AGENTS.md` and WebUI contracts.
 - Do not recommend hardcoding secrets, bypassing auth, or persistent unmanaged side effects.
 
@@ -26,4 +30,6 @@
 
 ## Child DOX Index
 
-No child DOX files.
+| Child | Scope |
+| --- | --- |
+| [references/AGENTS.md](references/AGENTS.md) | On-demand authoring, review, and contribution guides. |

@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 import shutil
 import base64
+import io
+import stat
+from helpers.file_transfers import write_stream_atomic, FileLimitExceeded
 import subprocess
 from typing import Dict, List, Tuple, Any
 from helpers.security import safe_filename
@@ -19,8 +22,63 @@ class FileBrowser:
         'document': {'md', 'pdf', 'txt', 'csv', 'json'}
     }
 
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
-    MAX_TEXT_FILE_SIZE = 1 * 1024 * 1024  # 1MB
+    @classmethod
+    def max_file_bytes(cls):
+        from helpers.settings import get_settings
+        return get_settings()["file_browser_max_transfer_size_mb"] * 1024 * 1024
+
+    @classmethod
+    def max_text_bytes(cls):
+        from helpers.settings import get_settings
+        return get_settings()["file_browser_max_text_size_mb"] * 1024 * 1024
+
+    @classmethod
+    def max_extract_bytes(cls):
+        from helpers.settings import get_settings
+        return get_settings()["file_browser_max_extract_size_mb"] * 1024 * 1024
+
+    @classmethod
+    def max_archive_entries(cls):
+        from helpers.settings import get_settings
+        return get_settings()["file_browser_max_archive_entries"]
+
+    @classmethod
+    def limits(cls):
+        return {"max_file_bytes": cls.max_file_bytes(), "max_text_bytes": cls.max_text_bytes(),
+                "max_extract_bytes": cls.max_extract_bytes(), "max_archive_entries": cls.max_archive_entries()}
+
+    @classmethod
+    def decode_text(cls, data: bytes) -> str:
+        limit = cls.max_text_bytes()
+        if len(data) > limit:
+            raise ValueError(f"Text files are limited to {limit / (1024 * 1024):g} MiB.")
+        if files.is_probably_binary_bytes(data):
+            raise ValueError("Binary file detected; editing is not supported")
+        try:
+            return data.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ValueError("Unable to decode file as UTF-8; editing is not supported") from error
+
+    @classmethod
+    def text_bytes(cls, content: str) -> bytes:
+        data = content.encode("utf-8")
+        cls.decode_text(data)
+        return data
+
+    @classmethod
+    def read_text(cls, path):
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(descriptor, "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                raise ValueError("Choose a regular text file.")
+            return cls.decode_text(stream.read(cls.max_text_bytes() + 1))
+
+    @classmethod
+    def encode_upload(cls, storage):
+        from helpers.file_transfers import copy_stream
+        output = io.BytesIO()
+        copy_stream(storage.stream, output, cls.max_file_bytes())
+        return base64.b64encode(output.getvalue()).decode("ascii")
 
     def __init__(self):
         # if runtime.is_development():
@@ -30,27 +88,25 @@ class FileBrowser:
         base_dir = "/"
         self.base_dir = Path(base_dir)
 
-    def _check_file_size(self, file) -> bool:
-        try:
-            file.seek(0, os.SEEK_END)
-            size = file.tell()
-            file.seek(0)
-            return size <= self.MAX_FILE_SIZE
-        except (AttributeError, IOError):
-            return False
-
     def save_file_b64(self, current_path: str, filename: str, base64_content: str):
         try:
+            filename = safe_filename(filename)
+            if not filename:
+                raise ValueError("Invalid filename")
+            limit = self.max_file_bytes()
+            if len(base64_content) > ((limit + 2) // 3) * 4:
+                raise FileLimitExceeded(limit)
             # Resolve the target directory path
             target_file = (self.base_dir / current_path / filename).resolve()
             if not str(target_file).startswith(str(self.base_dir)):
                 raise ValueError("Invalid target directory")
 
             os.makedirs(target_file.parent, exist_ok=True)
-            # Save file
-            with open(target_file, "wb") as file:
-                file.write(base64.b64decode(base64_content))
+            content = base64.b64decode(base64_content, validate=True)
+            write_stream_atomic(io.BytesIO(content), target_file, max_bytes=limit)
             return True
+        except FileLimitExceeded:
+            raise
         except Exception as e:
             PrintStyle.error(f"Error saving file {filename}: {e}")
             return False
@@ -59,6 +115,16 @@ class FileBrowser:
         """Save uploaded files and return successful and failed filenames"""
         successful = []
         failed = []
+        from helpers import file_connections
+        if file_connections.is_remote(current_path):
+            import posixpath
+            for file in files:
+                filename = safe_filename(file.filename)
+                if not filename:
+                    raise ValueError("Invalid filename")
+                file_connections.write_from(posixpath.join(current_path, filename), file.stream)
+                successful.append(filename)
+            return successful, failed
 
         try:
             # Resolve the target directory path
@@ -76,30 +142,42 @@ class FileBrowser:
                             raise ValueError("Invalid filename")
                         file_path = target_dir / filename
 
-                        file.save(str(file_path))
+                        write_stream_atomic(file.stream, file_path, max_bytes=self.max_file_bytes())
                         successful.append(filename)
                     else:
                         failed.append(file.filename)
+                except FileLimitExceeded:
+                    raise
                 except Exception as e:
                     PrintStyle.error(f"Error saving file {file.filename}: {e}")
                     failed.append(file.filename)
 
             return successful, failed
 
+        except FileLimitExceeded:
+            raise
         except Exception as e:
             PrintStyle.error(f"Error in save_files: {e}")
             return successful, failed
 
+    def _entry_path(self, file_path: str) -> Path:
+        if not file_path or not str(file_path).strip():
+            raise ValueError("File path is required")
+        requested = self.base_dir / file_path
+        if requested.name in ("", ".", ".."):
+            raise ValueError("Choose a file or folder, not the filesystem root")
+        entry = requested.parent.resolve() / requested.name
+        base = self.base_dir.resolve()
+        if entry == base or not entry.is_relative_to(base):
+            raise ValueError("Invalid file path")
+        return entry
+
     def delete_file(self, file_path: str) -> bool:
         """Delete a file or empty directory"""
         try:
-            # Resolve the full path while preventing directory traversal
-            full_path = (self.base_dir / file_path).resolve()
-            if not str(full_path).startswith(str(self.base_dir)):
-                raise ValueError("Invalid path")
-
-            if os.path.exists(full_path):
-                if os.path.isfile(full_path):
+            full_path = self._entry_path(file_path)
+            if full_path.exists() or full_path.is_symlink():
+                if full_path.is_symlink() or full_path.is_file():
                     os.remove(full_path)
                 elif os.path.isdir(full_path):
                     shutil.rmtree(full_path)
@@ -118,10 +196,8 @@ class FileBrowser:
             if "/" in new_name or "\\" in new_name:
                 raise ValueError("New name cannot include path separators")
 
-            full_path = (self.base_dir / file_path).resolve()
-            if not str(full_path).startswith(str(self.base_dir)):
-                raise ValueError("Invalid path")
-            if not full_path.exists():
+            full_path = self._entry_path(file_path)
+            if not full_path.exists() and not full_path.is_symlink():
                 raise FileNotFoundError("File or folder not found")
 
             new_path = full_path.with_name(new_name)
@@ -129,7 +205,7 @@ class FileBrowser:
                 raise ValueError("Invalid target path")
             if full_path == new_path:
                 return True
-            if new_path.exists():
+            if new_path.exists() or new_path.is_symlink():
                 raise FileExistsError("Target already exists")
 
             os.rename(full_path, new_path)
@@ -221,9 +297,7 @@ class FileBrowser:
         try:
             if not isinstance(content, str):
                 raise ValueError("Content must be a string")
-            content_size = len(content.encode("utf-8"))
-            if content_size > self.MAX_TEXT_FILE_SIZE:
-                raise ValueError("File exceeds 1 MB and cannot be edited")
+            data = self.text_bytes(content)
 
             full_path = (self.base_dir / file_path).resolve()
             if not str(full_path).startswith(str(self.base_dir)):
@@ -232,8 +306,7 @@ class FileBrowser:
                 raise ValueError("Target is a directory")
 
             os.makedirs(full_path.parent, exist_ok=True)
-            with open(full_path, "w", encoding="utf-8") as file:
-                file.write(content)
+            write_stream_atomic(io.BytesIO(data), full_path)
             return True
         except Exception as e:
             PrintStyle.error(f"Error saving file {file_path}: {e}")
@@ -422,3 +495,114 @@ class FileBrowser:
             if ext in extensions:
                 return file_type
         return 'unknown'
+
+
+def prepare_files_download(paths, current_path=""):
+    """Resolve the Files operation's policy before any transport adapter runs."""
+    import posixpath
+    import tempfile
+    from helpers import file_connections
+    from helpers.file_archives import normalize_paths, create_selected_zip, selected_archive_name
+    from helpers.file_transfers import copy_stream
+    paths = normalize_paths(paths)
+    if not paths:
+        raise ValueError("No files selected.")
+    limit = FileBrowser.max_file_bytes()
+    remote = [file_connections.is_remote(path) for path in paths]
+    if any(remote) and not all(remote):
+        raise ValueError("Select files from the same filesystem.")
+    temporary = False
+    if all(remote):
+        single = False
+        if len(paths) == 1:
+            pid, cid, relative = file_connections.split(paths[0])
+            provider, item = file_connections.get_connection(pid, cid)
+            file_connections.require(item, "download")
+            with file_connections.filesystem(provider, item) as fs:
+                single = not fs.stat(relative)["is_dir"]
+        handle = tempfile.NamedTemporaryFile(prefix="files-download-", delete=False)
+        path = handle.name
+        try:
+            with handle:
+                if single:
+                    file_connections.read_into(paths[0], handle, limit=limit)
+                else:
+                    with file_connections.archive(paths) as archive:
+                        copy_stream(archive, handle, limit)
+        except BaseException:
+            Path(path).unlink(missing_ok=True)
+            raise
+        name = posixpath.basename(paths[0]) if single else selected_archive_name(len(paths))
+        temporary = True
+    elif len(paths) == 1 and Path(paths[0]).is_file():
+        import stat
+        source_path = Path(paths[0]).resolve()
+        name = source_path.name
+        handle = tempfile.NamedTemporaryFile(prefix="files-download-", delete=False)
+        path = handle.name
+        try:
+            with handle:
+                descriptor = os.open(source_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+                with os.fdopen(descriptor, "rb") as source:
+                    before = os.fstat(source.fileno())
+                    if not stat.S_ISREG(before.st_mode):
+                        raise ValueError("Choose a regular file.")
+                    copy_stream(source, handle, limit)
+                    after = os.fstat(source.fileno())
+                    if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                        raise ValueError("The file changed during download preparation. Try again.")
+        except BaseException:
+            Path(path).unlink(missing_ok=True)
+            raise
+        temporary = True
+    else:
+        path = create_selected_zip(paths, current_path, limit, FileBrowser.max_archive_entries())
+        name = selected_archive_name(len(paths))
+        temporary = True
+    return {"file_source": path, "download_name": name, "max_bytes": limit, "delete_after": temporary}
+
+
+def remove_download_temporary(path):
+    Path(path).unlink(missing_ok=True)
+
+
+def register_files_download(response, paths):
+    from helpers.file_archives import normalize_paths
+    paths = normalize_paths(paths)
+    from helpers.file_transfers import prepare_download_response
+    from helpers import file_connections
+    def authorize():
+        try:
+            for path in paths:
+                if file_connections.is_remote(path):
+                    pid, cid, _ = file_connections.split(path)
+                    file_connections.require(file_connections.get_connection(pid, cid)[1], "download")
+        except (ValueError, PermissionError):
+            raise PermissionError("The file connection is no longer available for download.") from None
+    return prepare_download_response(response, authorize)
+
+
+async def prepare_files_response(paths, current_path=""):
+    import asyncio
+    import threading
+    from helpers.file_transfers import stream_file_download
+    state = {"cancelled": False, "response": None}
+    lock = threading.Lock()
+    def prepare():
+        download = prepare_files_download(paths, current_path)
+        response = stream_file_download(**download)
+        with lock:
+            state["response"] = response
+            if state["cancelled"]:
+                response.close()
+        return response, download["download_name"]
+    task = asyncio.create_task(asyncio.to_thread(prepare))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        with lock:
+            state["cancelled"] = True
+            if state["response"] is not None:
+                state["response"].close()
+        task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+        raise

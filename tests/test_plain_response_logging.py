@@ -9,12 +9,6 @@ from extensions.python._functions.agent.Agent.hist_add_ai_response.end._10_log_p
 from extensions.python.response_stream._10_log_from_stream import (
     LogFromStream as StreamLog,
 )
-from extensions.python.reasoning_stream._10_log_from_stream import (
-    LogFromStream as ReasoningLog,
-)
-from extensions.python.response_stream_end._15_log_from_stream_end import (
-    LogFromStream as StreamLogEnd,
-)
 from extensions.python.response_stream._20_live_response import LiveResponse
 from helpers.dirty_json import DirtyJson
 from helpers.log import Log
@@ -222,26 +216,45 @@ async def test_stream_log_tolerates_partial_tool_arguments(
 
 
 @pytest.mark.asyncio
-async def test_stream_log_uses_native_reasoning_when_thoughts_are_absent():
-    log = Log()
-    loop_data = LoopData()
-    agent = SimpleNamespace(
-        context=SimpleNamespace(log=log),
-        agent_name="A0",
-    )
+@pytest.mark.parametrize("tool_request", [
+    {"tool": "code_execution_tool", "args": {"runtime": "python", "code": "print(1)"}},
+    {"actions": [{"tool": "code_execution_tool", "args": {"runtime": "python", "code": "print(1)"}}]},
+    {"type": "function", "name": "code_execution_tool", "parameters": {"runtime": "python", "code": "print(1)"}},
+])
+async def test_stream_aliases_reach_all_consumers_canonically(monkeypatch, tool_request):
+    import json
+    from agent import Agent
+    from helpers import extension
 
-    await ReasoningLog(agent=agent).execute(
-        loop_data=loop_data,
-        text="Native reasoning summary",
-    )
-    await StreamLog(agent=agent).execute(
-        loop_data=loop_data,
-        text='{"tool_name":"response","tool_args":{"text":"Done"}}',
-        parsed={"tool_name": "response", "tool_args": {"text": "Done"}},
-    )
-    await StreamLogEnd(agent=agent).execute(loop_data=loop_data)
+    agent = object.__new__(Agent)
+    agent.loop_data = LoopData()
+    agent.agent_name = "A0"
+    agent.context = SimpleNamespace(log=Log())
 
-    item = loop_data.params_temporary["log_item_generating"]
-    assert item.heading == "A0: Using response"
-    assert item.kvps["thoughts"] == ["Native reasoning summary"]
-    assert item.kvps["reasoning"] == "Native reasoning summary"
+    async def no_intervention():
+        pass
+
+    async def consume(name, _agent, **kwargs):
+        assert name == "response_stream"
+        assert kwargs["parsed"]["tool_name"] == "code_execution_tool"
+        assert kwargs["parsed"]["tool_args"] == {"runtime": "python", "code": "print(1)"}
+        await StreamLog(agent=agent).execute(**kwargs)
+
+    agent.handle_intervention = no_intervention
+    monkeypatch.setattr(extension, "call_extensions_async", consume)
+    await agent.handle_response_stream(json.dumps(tool_request))
+    assert agent.loop_data.params_temporary["log_item_generating"].kvps["step"] == "Writing Python code... (8)"
+
+
+def test_native_tool_commentary_keeps_generating_step():
+    from helpers.llm_result import LLMResult
+    agent, item = _agent_with_generating_log()
+    result = LLMResult.from_response({
+        "output_text": "Running the lookup now.",
+        "output": [{"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": '{"q":"a0"}'}],
+    })
+    LogPlainResponses(agent=agent).execute(data={
+        "args": (agent, result.response), "kwargs": {"llm_result": result},
+    })
+    assert item.type == "agent"
+    assert "log_item_response" not in agent.loop_data.params_temporary

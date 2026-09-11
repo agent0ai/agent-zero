@@ -1,7 +1,9 @@
-import base64
+import asyncio
+import json
 from werkzeug.datastructures import FileStorage
 from helpers.api import ApiHandler, Request, Response
 from helpers.file_browser import FileBrowser
+from helpers.file_transfers import FileLimitExceeded
 from helpers import files, runtime, extension
 from api import get_work_dir_files
 import os
@@ -15,14 +17,14 @@ class UploadWorkDirFiles(ApiHandler):
 
         current_path = request.form.get("path", "")
         uploaded_files = request.files.getlist("files[]")
-
-        # browser = FileBrowser()
-        # successful, failed = browser.save_files(uploaded_files, current_path)
-
-        successful, failed = await upload_files(uploaded_files, current_path)
+        try:
+            successful, failed = await upload_files(uploaded_files, current_path)
+        except FileLimitExceeded as error:
+            return Response(json.dumps({"error": str(error)}), status=413, mimetype="application/json")
 
         if not successful and failed:
-            raise Exception("All uploads failed")
+            return {"error": "Files could not be uploaded. Check destination permissions and free disk space.",
+                    "successful": [], "failed": failed}
 
         if successful:
             await extension.call_extensions_async(
@@ -59,8 +61,7 @@ async def upload_files(uploaded_files: list[FileStorage], current_path: str):
         successful = []
         failed = []
         for file in uploaded_files:
-            file_content = file.stream.read()
-            base64_content = base64.b64encode(file_content).decode("utf-8")
+            base64_content = await asyncio.to_thread(FileBrowser.encode_upload, file)
             if await runtime.call_development_function(
                 upload_file, current_path, file.filename, base64_content
             ):
@@ -69,7 +70,7 @@ async def upload_files(uploaded_files: list[FileStorage], current_path: str):
                 failed.append(file.filename)
     else:
         browser = FileBrowser()
-        successful, failed = browser.save_files(uploaded_files, current_path)
+        successful, failed = await asyncio.to_thread(browser.save_files, uploaded_files, current_path)
 
     return successful, failed
 

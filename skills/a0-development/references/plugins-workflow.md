@@ -4,7 +4,7 @@
 
 - Plugin contract: `/a0/plugins/AGENTS.md`
 - Plugin helper code: `/a0/helpers/plugins.py`
-- Plugin specialist skills: `/a0/skills/a0-plugin-router/SKILL.md`, `/a0/skills/a0-create-plugin/SKILL.md`, `/a0/skills/a0-debug-plugin/SKILL.md`, `/a0/skills/a0-review-plugin/SKILL.md`
+- Plugin entrypoints: `/a0/skills/a0-create-plugin/SKILL.md` and `/a0/skills/a0-manage-plugin/SKILL.md`
 - Root development contract: `/a0/AGENTS.md`
 
 ## Plugin-First Rule
@@ -13,8 +13,8 @@ Plugins are the primary way to extend Agent Zero. A plugin can bundle:
 
 - `plugin.yaml`
 - `default_config.yaml`
-- `hooks.py`
-- `execute.py`
+- `hooks.py` (required for setup, dependencies, initialization, and cleanup)
+- `execute.py` (optional non-lifecycle manual action only)
 - `tools/`
 - `api/`
 - `helpers/`
@@ -32,7 +32,7 @@ Use root framework directories only when changing bundled framework behavior its
 - Bundled plugins under `plugins/` may use `plugins.<plugin_name>...` imports.
 - User plugins under `usr/plugins/` should use `usr.plugins.<plugin_name>...` imports.
 - Avoid `sys.path` hacks and symlink-dependent imports.
-- `hooks.py` runs inside the framework runtime (`/opt/venv-a0` in Docker).
+- `hooks.py` runs inside the framework runtime (`/opt/venv-a0` in Docker). Install/update setup and dependency installation belong in `install()`; cleanup and removal of owned dependencies belong in `uninstall()`. Never use `execute.py` for these operations. Follow the required lifecycle contract in `a0-create-plugin`.
 - If a plugin must prepare the agent execution runtime or system packages, it must explicitly target that environment in a subprocess.
 
 ## Manifest And Configuration
@@ -75,13 +75,12 @@ Plugin UI errors, warnings, success, and info should use the A0 notification sys
 
 ## Workflow
 
-1. Decide whether the request is plugin-specific. If yes, load `a0-plugin-router`.
-2. If creating a plugin, load `a0-create-plugin`.
-3. If debugging a plugin, load `a0-debug-plugin`.
-4. If reviewing or publishing a plugin, load `a0-review-plugin` or `a0-contribute-plugin`.
-5. Read `plugins/AGENTS.md` and any plugin-local `AGENTS.md`.
-6. Keep changes inside the plugin boundary unless shared framework behavior truly belongs in `helpers/` or root code.
-7. Update plugin docs/DOX when user-visible behavior, configuration, routes, hooks, or cleanup changes.
+1. For authoring, changes, review or contribution, load `a0-create-plugin` and its relevant references.
+2. For finding useful plugins or managing installed ones, load `a0-manage-plugin`.
+3. Honor a stated local/community target; ask only if that choice is missing before creating a new plugin.
+4. Read `plugins/AGENTS.md` and any plugin-local `AGENTS.md`.
+5. Keep changes inside the plugin boundary unless shared framework behavior truly belongs in root code.
+6. Update plugin docs/DOX when behavior, configuration, routes, hooks or cleanup changes.
 
 ## Verification
 

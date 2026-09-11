@@ -3,6 +3,7 @@
 ## Purpose
 
 - Own the broad Agent Zero development guide used by agents extending the framework.
+- Route user-requested application operations through existing HTTP APIs with explicit target IDs and verified results.
 - Keep architecture, tools, extensions, API, agents, prompts, projects, plugins, runtime, and skills guidance in sync with the repository.
 
 ## Ownership
@@ -13,7 +14,7 @@
 ## Local Contracts
 
 - Keep paths and examples current with source files and DOX contracts.
-- Route plugin-specific tasks to the plugin router or specialist plugin skills.
+- Route plugin authoring/review/contribution to `a0-create-plugin` and discovery/lifecycle operations to `a0-manage-plugin`.
 - Do not duplicate long contracts that belong in narrower AGENTS.md files when a reference is enough.
 - Reference files must identify current source or DOX anchors and avoid hardcoded default WebUI ports.
 

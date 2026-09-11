@@ -21,7 +21,7 @@ codex:
   forced_workspace_id: ""
 
   upstream_base_url: "https://chatgpt.com/backend-api/codex"
-  codex_version: ""
+  codex_version: "0.153.3"
   models: []
   request_timeout_seconds: 120
 

@@ -9,7 +9,16 @@ function ensureBootstrapTooltip(element) {
   if (!bs?.Tooltip) return;
 
   const existing = bs.Tooltip.getInstance(element);
-  const title = element.getAttribute("title") || element.getAttribute("data-bs-original-title");
+  const boundTitle = element.getAttribute("title");
+  if (element.hasAttribute("title") && !boundTitle) {
+    disposeBootstrapTooltip(element);
+    element.removeAttribute("data-bs-original-title");
+    element.removeAttribute("data-bs-toggle");
+    element.removeAttribute("data-bs-trigger");
+    element.removeAttribute("data-bs-tooltip-initialized");
+    return;
+  }
+  const title = boundTitle || element.getAttribute("data-bs-original-title");
 
   if (!title) return;
 

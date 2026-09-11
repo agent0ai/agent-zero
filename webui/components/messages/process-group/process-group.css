@@ -196,14 +196,6 @@
   --step-accent: #0f766e;
 }
 
-/* EXE - code_exe type (magenta/purple) */
-.process-group .EXE {
-  --step-accent: #ba68c8;
-}
-.light-mode .process-group .EXE {
-  --step-accent: #7c3aed;
-}
-
 /* WWW - browser type (indigo) */
 .process-group .WWW {
   --step-accent: #818cf8;

@@ -181,7 +181,7 @@ def test_normalize_parallel_tool_calls_rejects_nested_parallel() -> None:
         )
 
 
-@pytest.mark.parametrize("tool_name", ["document_query", "response"])
+@pytest.mark.parametrize("tool_name", ["document_query", "response", "goal"])
 def test_normalize_parallel_tool_calls_rejects_disallowed_tools(tool_name: str) -> None:
     with pytest.raises(ValueError, match=rf"{tool_name}.*parallel"):
         parallel_tools.normalize_parallel_tool_calls(
@@ -840,6 +840,30 @@ async def test_parallel_direct_tool_jobs_fallback_to_generic_tool_log_type(monke
     assert agent.context.log.items[0].kvps == {"seconds": 1, "_tool_name": "wait"}
 
 
+def test_parallel_child_log_keeps_streamed_user_content() -> None:
+    agent = _FakeAgent()
+    job = parallel_tools.ParallelJob(
+        id="job-streamed",
+        parent_context_id=agent.context.id,
+        index=0,
+        tool_name="code_execution_tool",
+        tool_args={},
+        kind="tool",
+    )
+    job.log_item = agent.context.log.log(
+        type="code_exe",
+        heading="icon://terminal code_execution_tool - terminal",
+        content="streamed output visible to user",
+        kvps={},
+    )
+
+    parallel_tools._finish_job(job, "success", result="agent-view result")
+    assert job.log_item.content == "streamed output visible to user"
+
+    parallel_tools._finish_job(job, "error", error="boom")
+    assert job.log_item.content == "streamed output visible to user"
+
+
 @pytest.mark.asyncio
 async def test_parallel_code_execution_child_uses_code_exe_log_type(monkeypatch) -> None:
     class FakeDeferredTask:
@@ -1178,3 +1202,18 @@ def test_parallel_result_json_is_compact() -> None:
     )
 
     assert result == '{"status":"success","jobs":[{"job_id":"wait-1","tool_name":"wait","state":"success"}]}'
+
+
+@pytest.mark.asyncio
+async def test_parallel_rejects_context_owned_tools_before_starting_any_job():
+    agent = _FakeAgent()
+    calls = [
+        parallel_tools.NormalizedToolCall(0, "search_engine", {"query": "a0"}),
+        parallel_tools.NormalizedToolCall(1, "goal", {"action": "create", "objective": "wrong owner"}),
+    ]
+    with pytest.raises(ValueError, match="goal.*sequentially"):
+        await parallel_tools.start_parallel_jobs(agent, calls)
+    assert agent.context.log.items == []
+    assert not agent.context.get_data(parallel_tools.PARALLEL_JOBS_KEY)
+    with pytest.raises(ValueError, match="goal.*sequentially"):
+        await parallel_tools.execute_tool_call(agent, "goal", {"action": "get"})

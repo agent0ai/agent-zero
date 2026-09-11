@@ -1,10 +1,12 @@
+import secrets
+
 from helpers.api import ApiHandler, Request, Response
 from helpers.print_style import PrintStyle
 from plugins._telegram_integration.helpers.dependencies import ensure_dependencies
 
 
 class TelegramWebhook(ApiHandler):
-    """Receives Telegram webhook updates. No auth/CSRF — Telegram cannot send session cookies."""
+    """Receives Telegram updates authenticated by the webhook secret header."""
 
     @classmethod
     def requires_auth(cls) -> bool:
@@ -33,9 +35,13 @@ class TelegramWebhook(ApiHandler):
         if not instance:
             return Response(f"Bot not found: {bot_name}", 404)
 
-        # Verify webhook secret if configured
+        # Polling and incompletely configured bots must never accept HTTP updates.
         secret_header = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-        if instance.webhook_secret and secret_header != instance.webhook_secret:
+        if (
+            not instance.webhook_active
+            or not instance.webhook_secret
+            or not secrets.compare_digest(secret_header.encode(), instance.webhook_secret.encode())
+        ):
             return Response("Invalid secret token", 403)
 
         # Parse and feed the update to aiogram

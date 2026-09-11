@@ -19,6 +19,7 @@
 
 - `LLMResult.metadata()` stores only durable provider state under `RESPONSE_METADATA_KEY`: response IDs, structured output items, provider/mode/state, usage, and capability data. Runtime prompt inputs, raw responses, and duplicated response/reasoning text are not persisted in history.
 - `from_response(...)` must preserve provider `response_id`, `previous_response_id`, raw output items, usage, and capability metadata.
+- `from_dict(...)` preserves explicit modes, including the empty non-LLM sentinel; only missing or null modes use the legacy `responses` default.
 - `from_chat(...)` must produce an equivalent chat-completions result with `mode="chat_completions"` and `state="off"`, preserving optional function-call output items and provider usage when the chat transport supplies them.
 - Function-call output items must preserve `call_id` and optional acknowledged safety checks.
 - Argument parsing must tolerate JSON strings, dictionaries, and malformed values without throwing.

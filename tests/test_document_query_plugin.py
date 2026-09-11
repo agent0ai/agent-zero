@@ -677,13 +677,12 @@ def test_document_query_prompt_uses_progressive_skill_disclosure():
     skill = find_skill("document-query", include_content=True)
 
     assert skill is not None
-    assert "document_query for Q&A" in main_prompt
-    assert "specific code files" in main_prompt
-    assert "use vision_load first for image files" in main_prompt
-    assert "document_query for image OCR only when vision tools cannot read" in main_prompt
+    assert "document_query" not in main_prompt
+    assert "vision_load" not in main_prompt
     assert "skills_tool:load" in prompt
     assert "document-query" in prompt
     assert "document_query" in prompt
+    assert "local/remote documents" in prompt
     assert "Use vision tools first" in prompt
     assert "fallback OCR" in prompt
     assert "answering questions over local or remote documents" in skill.description
