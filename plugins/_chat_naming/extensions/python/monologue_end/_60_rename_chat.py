@@ -28,7 +28,15 @@ class RenameChat(Extension):
         if not messages:
             return
         if mode == naming.MODE_ONCE:
-            messages = messages[:1]
+            # Defer naming until the first substantive user message so chats
+            # that start with a bare greeting ("Hello!") are not named "Hello".
+            substantive = next(
+                (m for m in messages if naming.is_substantive_message(m)), None
+            )
+            selected = [substantive] if substantive else None
+            if not selected:
+                return
+            messages = selected
 
         asyncio.create_task(
             self.change_name(

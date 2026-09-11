@@ -347,3 +347,16 @@ async def test_chat_naming_endpoints_keep_default_auth_and_csrf_protection():
 
     assert ChatName.requires_auth() is True
     assert ChatName.requires_csrf() is True
+
+
+def test_is_substantive_message():
+    assert not naming.is_substantive_message("Hello!")
+    assert not naming.is_substantive_message("hi")
+    assert not naming.is_substantive_message("")
+    assert not naming.is_substantive_message("hi there")
+    assert not naming.is_substantive_message("Hello, good morning!")
+    assert not naming.is_substantive_message("what's up??")
+    assert naming.is_substantive_message("Help me refactor my Python project")
+    assert naming.is_substantive_message("What is the capital of France?")
+    assert naming.is_substantive_message("Fix the failing database migration")
+    assert naming.is_substantive_message("Please summarize this document for me")
