@@ -61,9 +61,10 @@ function parseBrowserResult(content) {
 }
 
 function beautifyJsonForDisplay(text) {
-  if (!text || !text.startsWith("{") || !text.endsWith("}")) return text;
+  const t = text && text.trim();
+  if (!t || !((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]")))) return text;
   try {
-    return JSON.stringify(JSON.parse(text), null, 2);
+    return JSON.stringify(JSON.parse(t), null, 2);
   } catch {
     return text;
   }
