@@ -19,7 +19,7 @@
 - Automatic naming runs after the monologue completes, so it cannot delay the Main Model.
 - Utility Model input contains the current name and user messages only; assistant work and tool results are excluded.
 - The complete naming prompt must remain within 70% of the effective Utility Model context window, preserving the newest user context when trimming is required.
-- `once` names only unnamed user chats from their first user message; `always` considers the latest user message plus recent user context.
+- `once` names only unnamed user chats from their first substantive user message (bare greetings are deferred); `always` considers the latest user message plus recent user context.
 - Generated names are concise and normalized before persistence.
 - Renaming a parallel child updates both its context name and sidebar label.
 - Manual task renames update both scheduler metadata and the task context name.

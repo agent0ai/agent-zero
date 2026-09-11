@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from agent import Agent
@@ -13,6 +14,19 @@ MODE_ONCE = "once"
 MODE_ALWAYS = "always"
 RECENT_USER_MESSAGES = 4
 GENERATED_NAME_LIMIT = 40
+_GREETING_TOKENS = (
+    "hi|hey|hello|yo|hiya|howdy|greetings|salutations|sup|"
+    "whats[ ]+up|what'?s[ ]+up|wassup|"
+    "good[ ]+(?:morning|afternoon|evening|day|night)"
+)
+GREETING_PATTERN = re.compile(
+    r"^(?:" + _GREETING_TOKENS + r")"
+    r"(?:[\s,;.!?(]*(?:" + _GREETING_TOKENS + r"))*"
+    r"[\s!.,?;:~'-]*$",
+    re.IGNORECASE,
+)
+
+MIN_SUBSTANTIVE_WORDS = 3
 UTILITY_CONTEXT_INPUT_RATIO = 0.7
 
 
@@ -25,6 +39,16 @@ def get_config(agent: Agent) -> dict[str, Any]:
         "automatic_naming": bool(config.get("automatic_naming", True)),
         "automatic_naming_mode": mode,
     }
+
+
+def is_substantive_message(text: str) -> bool:
+    """A message worth naming a chat from: not a bare greeting and not too short."""
+    stripped = str(text or "").strip()
+    if not stripped:
+        return False
+    if GREETING_PATTERN.match(stripped):
+        return False
+    return len(stripped.split()) >= MIN_SUBSTANTIVE_WORDS
 
 
 def get_user_messages(agent: Agent, *, limit: int | None = RECENT_USER_MESSAGES) -> list[str]:
