@@ -221,9 +221,11 @@ def test_file_browser_is_registered_as_right_canvas_surface() -> None:
 
 
 def test_file_browser_reports_missing_directory(tmp_path: Path) -> None:
+    browser = FileBrowser()
+    browser.base_dir = tmp_path
     missing_directory = tmp_path / "missing"
 
-    result = FileBrowser().get_files(str(missing_directory))
+    result = browser.get_files(str(missing_directory))
 
     assert result["entries"] == []
     assert result["current_path"] == str(missing_directory)

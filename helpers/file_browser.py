@@ -8,11 +8,51 @@ from helpers.file_transfers import write_stream_atomic, FileLimitExceeded
 import subprocess
 from typing import Dict, List, Tuple, Any
 from helpers.security import safe_filename
-from datetime import datetime
+from datetime import datetime, timezone
 
 from helpers import files
 from helpers.localization import Localization
 from helpers.print_style import PrintStyle
+
+
+AUDIT_LOG_FILENAME = "file_browser_audit.log"
+
+
+def _get_audit_log_path() -> Path:
+    return Path(files.get_base_dir()) / "logs" / AUDIT_LOG_FILENAME
+
+
+def _get_remote_addr() -> str:
+    try:
+        from flask import request
+
+        if request and request.remote_addr:
+            return request.remote_addr
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _audit_log(action: str, src: str, dst: str = "-") -> None:
+    """Append one audit line for a file browser mutation.
+
+    Line format: ISO-8601 UTC | remote_addr | action | src | dst
+    Best-effort: never raises and never blocks the mutation itself.
+    """
+    try:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        line = f"{timestamp} | {_get_remote_addr()} | {action} | {src} | {dst}\n"
+        log_path = _get_audit_log_path()
+        os.makedirs(log_path.parent, exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            log_file.write(line)
+            log_file.flush()
+            os.fsync(log_file.fileno())
+    except Exception as e:
+        try:
+            PrintStyle.error(f"file browser audit log failure: {e}")
+        except Exception:
+            pass
 
 
 class FileBrowser:
@@ -81,12 +121,11 @@ class FileBrowser:
         return base64.b64encode(output.getvalue()).decode("ascii")
 
     def __init__(self):
-        # if runtime.is_development():
-        #     base_dir = files.get_base_dir()
-        # else:
-        #     base_dir = "/"
-        base_dir = "/"
-        self.base_dir = Path(base_dir)
+        # Security sandbox: root all browse/mutation operations at the work
+        # dir (files.get_base_dir()) unconditionally. The previous
+        # container-wide root ("/") let authenticated WebUI callers browse,
+        # rename, move, and delete files anywhere in the container.
+        self.base_dir = Path(files.get_base_dir()).resolve()
 
     def save_file_b64(self, current_path: str, filename: str, base64_content: str):
         try:
@@ -98,12 +137,13 @@ class FileBrowser:
                 raise FileLimitExceeded(limit)
             # Resolve the target directory path
             target_file = (self.base_dir / current_path / filename).resolve()
-            if not str(target_file).startswith(str(self.base_dir)):
+            if not target_file.is_relative_to(self.base_dir):
                 raise ValueError("Invalid target directory")
 
             os.makedirs(target_file.parent, exist_ok=True)
             content = base64.b64decode(base64_content, validate=True)
             write_stream_atomic(io.BytesIO(content), target_file, max_bytes=limit)
+            _audit_log("upload_b64", "-", str(target_file))
             return True
         except FileLimitExceeded:
             raise
@@ -129,7 +169,7 @@ class FileBrowser:
         try:
             # Resolve the target directory path
             target_dir = (self.base_dir / current_path).resolve()
-            if not str(target_dir).startswith(str(self.base_dir)):
+            if not target_dir.is_relative_to(self.base_dir):
                 raise ValueError("Invalid target directory")
 
             os.makedirs(target_dir, exist_ok=True)
@@ -143,6 +183,7 @@ class FileBrowser:
                         file_path = target_dir / filename
 
                         write_stream_atomic(file.stream, file_path, max_bytes=self.max_file_bytes())
+                        _audit_log("upload", "-", str(file_path))
                         successful.append(filename)
                     else:
                         failed.append(file.filename)
@@ -181,6 +222,7 @@ class FileBrowser:
                     os.remove(full_path)
                 elif os.path.isdir(full_path):
                     shutil.rmtree(full_path)
+                _audit_log("delete", str(full_path))
                 return True
 
             return False
@@ -201,7 +243,7 @@ class FileBrowser:
                 raise FileNotFoundError("File or folder not found")
 
             new_path = full_path.with_name(new_name)
-            if not str(new_path).startswith(str(self.base_dir)):
+            if not new_path.is_relative_to(self.base_dir):
                 raise ValueError("Invalid target path")
             if full_path == new_path:
                 return True
@@ -209,6 +251,7 @@ class FileBrowser:
                 raise FileExistsError("Target already exists")
 
             os.rename(full_path, new_path)
+            _audit_log("rename", str(full_path), str(new_path))
             return True
         except Exception as e:
             PrintStyle.error(f"Error renaming {file_path}: {e}")
@@ -260,6 +303,7 @@ class FileBrowser:
             for source, target in moves:
                 os.rename(source, target)
                 moved.append((source, target))
+                _audit_log("move", str(source), str(target))
         except Exception:
             for source, target in reversed(moved):
                 try:
@@ -278,16 +322,17 @@ class FileBrowser:
                 raise ValueError("Folder name cannot include path separators")
 
             parent_full = (self.base_dir / parent_path).resolve()
-            if not str(parent_full).startswith(str(self.base_dir)):
+            if not parent_full.is_relative_to(self.base_dir):
                 raise ValueError("Invalid parent path")
 
             target_dir = (parent_full / folder_name).resolve()
-            if not str(target_dir).startswith(str(self.base_dir)):
+            if not target_dir.is_relative_to(self.base_dir):
                 raise ValueError("Invalid target path")
             if target_dir.exists():
                 raise FileExistsError("Folder already exists")
 
             os.makedirs(target_dir, exist_ok=False)
+            _audit_log("mkdir", str(parent_full), str(target_dir))
             return True
         except Exception as e:
             PrintStyle.error(f"Error creating folder {folder_name}: {e}")
@@ -300,13 +345,14 @@ class FileBrowser:
             data = self.text_bytes(content)
 
             full_path = (self.base_dir / file_path).resolve()
-            if not str(full_path).startswith(str(self.base_dir)):
+            if not full_path.is_relative_to(self.base_dir):
                 raise ValueError("Invalid path")
             if full_path.exists() and full_path.is_dir():
                 raise ValueError("Target is a directory")
 
             os.makedirs(full_path.parent, exist_ok=True)
             write_stream_atomic(io.BytesIO(data), full_path)
+            _audit_log("write", "-", str(full_path))
             return True
         except Exception as e:
             PrintStyle.error(f"Error saving file {file_path}: {e}")
@@ -440,7 +486,7 @@ class FileBrowser:
         try:
             # Resolve the full path while preventing directory traversal
             full_path = (self.base_dir / current_path).resolve()
-            if not str(full_path).startswith(str(self.base_dir)):
+            if not full_path.is_relative_to(self.base_dir):
                 raise ValueError("Invalid path")
             if not full_path.exists():
                 raise FileNotFoundError("Directory not found")
@@ -485,6 +531,8 @@ class FileBrowser:
     def get_full_path(self, file_path: str, allow_dir: bool = False) -> str:
         """Get full file path if it exists and is within base_dir"""
         full_path = files.get_abs_path(self.base_dir, file_path)
+        if not Path(full_path).is_relative_to(self.base_dir):
+            raise ValueError(f"File {file_path} not found")
         if not files.exists(full_path):
             raise ValueError(f"File {file_path} not found")
         return full_path

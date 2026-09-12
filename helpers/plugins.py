@@ -485,7 +485,14 @@ def get_enabled_plugins(agent: Agent | None):
     active = []
 
     for plugin in plugins:
-        meta = get_plugin_meta(plugin)
+        try:
+            meta = get_plugin_meta(plugin)
+        except Exception as e:
+            # loud-but-contained: one broken plugin.yaml must not crash boot
+            print_style.PrintStyle.error(
+                f"Failed to load plugin meta for '{plugin}', plugin disabled: {e}"
+            )
+            continue
         if meta and meta.always_enabled:
             active.append(plugin)
             continue

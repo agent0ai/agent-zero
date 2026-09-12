@@ -32,6 +32,7 @@
 - `get_all_agents_list() -> list[dict[str, str]]`
 - `get_default_promp_file_names() -> list[str]`
 - `get_available_agents_dict(project_name: str | None) -> dict[str, SubAgentListItem]`
+- `_warn_undiscovered_project_agents(project_name: str, discovered: dict[str, SubAgentListItem]) -> None`
 - `get_paths(agent: 'Agent|None', *subpaths, must_exist_completely: bool=..., include_project: bool=..., include_user: bool=..., include_default: bool=..., include_plugins: bool=..., default_root: str=...) -> list[str]`: Returns list of file paths for the given agent and subpaths, searched in order of priority:
 - Notable constants/configuration names: `GLOBAL_DIR`, `USER_DIR`, `DEFAULT_AGENTS_DIR`, `USER_AGENTS_DIR`, `PATHS_CACHE_AREA`.
 
@@ -41,7 +42,9 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, plugin state, settings/state persistence.
 - Nonexistent profile layers return `None` instead of synthesizing empty overrides.
-- Imported dependency areas include: `helpers`, `json`, `os`, `pydantic`, `typing`.
+- Discovery failures are logged, not silent: when an agent definition fails to parse or validate, `_get_agents_list_from_dir` logs a WARNING (module logger `helpers.subagents`) naming the agent dir, source dir, origin, and error, then skips it. Missing definitions (`FileNotFoundError`) for non-default origins stay silent — a dir without `agent.yaml`/`agent.json` still discovers with empty metadata.
+- `get_available_agents_dict(project_name)` cross-checks the project's `agents.json` registrations (both flat availability-map and `{"agents": [{"slug": ...}]}` manifest formats) against discovered agents and warns once per project per process (module-level `_UNDISCOVERED_CHECKED_PROJECTS` set) when a registered slug was not discovered. Intentionally disabled agents do not trigger the warning — the check compares against the pre-filter discovery dict.
+- Imported dependency areas include: `helpers`, `json`, `logging`, `os`, `pydantic`, `typing`.
 
 ## Key Concepts
 
