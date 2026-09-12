@@ -22,6 +22,7 @@
 - Store the compacted summary as non-assistant history context so provider-history normalization cannot discard it as an orphaned assistant turn.
 - Preserve loaded skill names from `skill_instructions` metadata without copying full skill bodies into compacted summaries.
 - Preserve only secret references such as names, aliases, purposes, or storage locations; never preserve secret values.
+- Build model-facing compaction input from the summary transcript view so assistant tool-protocol JSON, reasoning, and large tool arguments are not copied into the summarizer prompt; keep the pre-compaction text backup lossless.
 - Clear the cached context window after replacing history so stale transcript content is not persisted as active resumable state; the cache rebuilds on the next model turn.
 - After replacing local history, clear the active Responses provider continuation while preserving stored response IDs for cleanup.
 - Do not discard original context data unless the compaction flow explicitly owns that behavior.

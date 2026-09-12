@@ -278,7 +278,7 @@ class Topic(Record):
         return True
 
     async def summarize_messages(self, messages: list[Message]):
-        msg_txt = [m.output_text() for m in messages]
+        msg_txt = [output_text_for_summary(m.output()) for m in messages]
         summary = await self.history.agent.call_utility_model(
             system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
             message=self.history.agent.read_prompt(
@@ -332,7 +332,8 @@ class Bulk(Record):
         self.summary = await self.history.agent.call_utility_model(
             system=self.history.agent.read_prompt("fw.topic_summary.sys.md"),
             message=self.history.agent.read_prompt(
-                "fw.topic_summary.msg.md", content=self.output_text()
+                "fw.topic_summary.msg.md",
+                content=output_text_for_summary(self.output()),
             ),
         )
         return self.summary
@@ -656,6 +657,45 @@ def _stringify_output(output: OutputMessage, ai_label="ai", human_label="human")
     return f'{ai_label if output["ai"] else human_label}: {_stringify_content(output["content"])}'
 
 
+def _stringify_summary_output(
+    output: OutputMessage, ai_label="ai", human_label="human"
+) -> str:
+    content = output["content"]
+    if output["ai"] and isinstance(content, str):
+        content = _assistant_summary_content(content)
+    return f'{ai_label if output["ai"] else human_label}: {_stringify_content(content)}'
+
+
+def _assistant_summary_content(content: str) -> str:
+    """Render assistant tool envelopes as prose for summary-model inputs.
+
+    The stored history remains unchanged. This view intentionally omits reasoning and
+    tool arguments so utility models do not imitate the agent's JSON protocol or ingest
+    large command payloads while summarizing a conversation.
+    """
+    from helpers import extract_tools
+
+    request = extract_tools.extract_tool_request(content)
+    if request is None:
+        return content
+
+    try:
+        tool_name, tool_args = extract_tools.normalize_tool_request(request)
+    except ValueError:
+        return content
+
+    if tool_name == "response":
+        for key in ("text", "message"):
+            response = tool_args.get(key)
+            if isinstance(response, str) and response.strip():
+                return response
+
+    headline = request.get("headline")
+    if isinstance(headline, str) and headline.strip():
+        return f"{headline.strip()} (tool: {tool_name})"
+    return f"Used tool {tool_name}."
+
+
 def _stringify_content(content: MessageContent) -> str:
     # already a string
     if isinstance(content, str):
@@ -731,6 +771,15 @@ def output_langchain(messages: list[OutputMessage]):
 
 def output_text(messages: list[OutputMessage], ai_label="ai", human_label="human"):
     return "\n".join(_stringify_output(o, ai_label, human_label) for o in messages)
+
+
+def output_text_for_summary(
+    messages: list[OutputMessage], ai_label="ai", human_label="human"
+) -> str:
+    """Return a utility-model transcript without assistant tool-protocol JSON."""
+    return "\n".join(
+        _stringify_summary_output(o, ai_label, human_label) for o in messages
+    )
 
 
 def clear_responses_provider_state(agent) -> None:
