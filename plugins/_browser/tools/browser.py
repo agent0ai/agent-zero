@@ -566,6 +566,6 @@ class Browser(Tool):
         if action == "content" and isinstance(result, dict):
             if set(result.keys()) == {"document"}:
                 return str(result.get("document") or "")
-            return json.dumps(result, indent=2, ensure_ascii=False)
+            return json.dumps(result, ensure_ascii=False, separators=(",", ":"))
 
-        return json.dumps(result, indent=2, ensure_ascii=False, default=str)
+        return json.dumps(result, ensure_ascii=False, separators=(",", ":"), default=str)

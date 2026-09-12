@@ -8,10 +8,9 @@ from helpers.extension import Extension
 from plugins._browser.helpers.runtime import get_runtime
 
 
-class BrowserContextPrompt(Extension):
+class BrowserContextExtras(Extension):
     async def execute(
         self,
-        system_prompt: list[str] = [],
         loop_data: LoopData = LoopData(),
         **kwargs: Any,
     ):
@@ -59,4 +58,4 @@ class BrowserContextPrompt(Extension):
             except Exception:
                 pass
 
-        system_prompt.append("\n".join(section))
+        loop_data.extras_temporary["browser_context"] = "\n".join(section)

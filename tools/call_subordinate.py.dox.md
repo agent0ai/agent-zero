@@ -36,6 +36,7 @@
 - Active parallel children cannot be continued concurrently; await or cancel their job first.
 - Child contexts inherit the caller's project and selected chat-model override, are saved before execution and again on exit, and remain reusable after model/API failures.
 - The direct tool result includes `context_id`; parallel job snapshots expose the same stable child ID separately from their per-invocation job ID.
+- Legacy args `agent_id` for `context_id` and `agent_profile` for `profile` still resolve; prompts document only canonical names.
 - Existing same-context linear subordinates remain reusable for saved-chat compatibility, but new children use child contexts and a private per-parent registry.
 - Imported dependency areas include: `agent`, `extensions.python.hist_add_tool_result`, `helpers`, `helpers.errors`, `helpers.tool`.
 

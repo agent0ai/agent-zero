@@ -47,8 +47,10 @@
 - Prefer DOM/CDP browser actions with refs, selectors, frame-chain refs, and screenshots over viewport coordinate input. Coordinates remain a visual fallback.
 - Do not hardcode user-specific browser paths or secrets.
 - Browser model-preset selection resolves omitted preset fields from `_model_config`'s global `Default` preset, not from an unrelated currently scoped model selection. After the first Browser tool call, use the selected preset for subsequent model turns in that monologue and clear it at monologue end.
-- Do not inject open-browser state into the system prompt when profile policy
-  blocks the Browser tool.
+- Open-browser runtime state (tab listing, last interacted browser, page content) is per-loop dynamic context: it must flow through the `message_loop_prompts_after` extension into `loop_data.extras_temporary` (rendered as message extras), never into the system prompt, so the system prompt stays cache-stable across turns. The extension must check the profile Browser tool policy first and inject nothing when the tool is blocked.
+- Browser tool results serialize minified JSON for agent history; any JSON beautification for display stays plugin-local in the WebUI tool handler (`browser-tool-handler.js`), never in shared `helpers/tool.py` where it would apply to every tool.
+- Clipboard `clipboard_action` reads legacy aliases `operation` and `event_type`; `a0_path` and `context_id` are screenshot result fields, not tool args. Document only canonical args in model-facing prompts.
+- Browser action values accept legacy spellings `setactive`/`activate`/`focus` for `set_active`, `typesubmit` for `type_submit`, and `keychord` for `key_chord`; prompts document only canonical action values.
 - Annotation mode highlights the DOM element under the pointer, keeps saved overlays page-local, and may batch annotated pages only within the active chat context.
 - Annotation voice input reuses Whisper STT's configured draft/send delivery mode and shared microphone state.
 - Internal-browser proxy settings map directly to Playwright's persistent-context proxy option, never to Bring Your Own Browser, and changes must restart active internal runtimes.
@@ -57,7 +59,6 @@
 - Browser startup and on-demand launch must converge on the Chromium revision declared by Patchright; let its installer select the host architecture rather than hardcoding x64 or ARM downloads.
 - `hooks.prepare_playwright_cache()` owns reconciliation of the pinned Patchright package and Chromium binary so repository self-updates and fresh images use the same setup path.
 - Browser startup must install the shared virtual-desktop route hook itself; do not make Browser depend on the Desktop plugin being enabled.
-
 - Use shared `surface-workspace`, toolbar/control, and separator styles from `webui/css/surfaces.css`; match the lighter Files/Browser panel palette and preserve disabled, active, and keyboard focus states.
 
 ## Work Guidance

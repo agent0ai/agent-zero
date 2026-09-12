@@ -21,13 +21,14 @@ enable "Allow remote debugging for this browser instance", run `/browser host on
 and retry.
 
 ## Arguments
-- `runtime`: one of `terminal`, `python`, `nodejs`, `output`, `reset`
+- `runtime`: one of `terminal`, `python`, `nodejs`, `output`, `input`, `reset`
 - `session`: integer session id (default `0`)
 - `reset`: optional boolean for `terminal`, `python`, or `nodejs`; when true,
   the CLI resets the session before running the supplied code
 
 Runtime-specific fields:
 - `terminal`, `python`, `nodejs`: require `code`
+- `input`: require `keyboard`
 - `reset`: optional `reason`
 
 ## Notes
