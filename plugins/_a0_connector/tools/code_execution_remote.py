@@ -38,9 +38,11 @@ _TIMEOUT_KEYS = (
 class CodeExecutionRemote(Tool):
     """Send shell-backed frontend execution operations to the connected CLI machine."""
 
+    _allow_running = False
+
     @staticmethod
     def _runtime_requires_write_access(runtime: str) -> bool:
-        return runtime in {"terminal", "python", "nodejs", "input"}
+        return runtime in {"terminal", "python", "nodejs"}
 
     @staticmethod
     def _coerce_bool(value: Any) -> bool:
@@ -59,7 +61,7 @@ class CodeExecutionRemote(Tool):
     ) -> dict[str, int] | None:
         if runtime == "output":
             source = exec_config.get("output_timeouts")
-        elif runtime in {"terminal", "python", "nodejs", "input"}:
+        elif runtime in {"terminal", "python", "nodejs"}:
             source = exec_config.get("code_exec_timeouts")
         else:
             return None
@@ -109,12 +111,9 @@ class CodeExecutionRemote(Tool):
 
     async def execute(self, **kwargs: Any) -> Response:
         runtime = str(self.args.get("runtime", "")).strip().lower()
-        if runtime not in {"terminal", "python", "nodejs", "output", "input", "reset"}:
+        if runtime not in {"terminal", "python", "nodejs", "output", "reset"}:
             return Response(
-                message=(
-                    "runtime is required (terminal, python, nodejs, output, reset, "
-                    "or input [deprecated compatibility alias])"
-                ),
+                message="runtime is required (terminal, python, nodejs, output, reset)",
                 break_loop=False,
             )
 
@@ -175,23 +174,14 @@ class CodeExecutionRemote(Tool):
 
         if runtime in {"terminal", "python", "nodejs"}:
             code = self.args.get("code")
-            if code is None or not str(code).strip():
+            if code is None or (not self._allow_running and not str(code).strip()):
                 return Response(
                     message=f"code is required for runtime={runtime}",
                     break_loop=False,
                 )
             payload["code"] = str(code)
-
-        elif runtime == "input":
-            keyboard = self.args.get("keyboard")
-            if keyboard is None:
-                keyboard = self.args.get("code")
-            if keyboard is None:
-                return Response(
-                    message="keyboard is required for runtime=input",
-                    break_loop=False,
-                )
-            payload["keyboard"] = str(keyboard)
+            if self._allow_running:
+                payload["allow_running"] = True
 
         elif runtime == "reset":
             reason = self.args.get("reason")

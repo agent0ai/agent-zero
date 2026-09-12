@@ -35,6 +35,7 @@ from plugins._a0_connector.helpers import ws_runtime
 PROMPT_ROOT = PROJECT_ROOT / "plugins" / "_a0_connector" / "prompts"
 REMOTE_PROMPT_FILES = {
     "code_execution_remote": "agent.system.tool.code_execution_remote.md",
+    "input_remote": "agent.system.tool.input_remote.md",
     "computer_use_remote": "agent.system.tool.computer_use_remote.md",
     "text_editor_remote": "agent.system.tool.text_editor_remote.md",
 }
@@ -175,6 +176,21 @@ def test_remote_tool_gate_requires_f4_enabled_remote_exec_metadata():
         ws_runtime.unregister_sid(sid)
 
     assert '"tool_name": "code_execution_remote"' in prompt
+    assert '"tool_name": "input_remote"' in prompt
+
+
+def test_remote_input_prompt_obeys_its_tool_policy(monkeypatch):
+    context_id, sid = _context_id(), _sid()
+    ws_runtime.register_sid(sid)
+    ws_runtime.store_sid_remote_exec_metadata(sid, {"enabled": True})
+    monkeypatch.setitem(IncludeRemoteToolStubs.execute.__globals__, "resolve_tool",
+                        lambda _agent, name: SimpleNamespace(allowed=name != "input_remote"))
+    try:
+        prompt = _apply_gate(context_id)
+        _assert_remote_tool_absent(prompt, "input_remote")
+        assert '"tool_name": "code_execution_remote"' in prompt
+    finally:
+        ws_runtime.unregister_sid(sid)
 
 
 def test_remote_tool_gate_requires_enabled_computer_use_metadata():
@@ -620,6 +636,10 @@ def test_remote_tool_stubs_are_self_contained_and_reference_per_tool_skills():
     assert "load and follow skill `host-computer-use`" in computer_stub
     assert "host-computer-use-macos" in computer_stub
     assert "host-computer-use-windows" in computer_stub
+    assert "top-level index" in computer_stub
+    assert "- `mode`:" not in computer_stub
+    assert "Use `input_remote` to answer interactive terminal prompts" in exec_stub
+    assert "With `app-scoped-semantic-targeting`" in macos_computer_skill
     assert "ax_snapshot" not in computer_stub
     assert "ax_action" not in computer_stub
     assert "uia_snapshot" not in computer_stub
@@ -717,9 +737,8 @@ def test_host_computer_use_does_not_fall_back_to_linux_desktop_skill():
     assert "Do not substitute the `linux-desktop` skill" in computer_stub
     assert "Never switch to `linux-desktop`" in host_skill
     assert "Those paths only see the internal Agent Zero runtime" in host_skill
-    assert "built-in Docker/Xpra Linux Desktop" in linux_frontmatter["description"]
-    assert "Not for A0 CLI /computer-use" in linux_frontmatter["description"]
-    assert "A0 CLI /computer-use" in linux_frontmatter["description"]
+    assert "Docker/Xpra" in linux_frontmatter["description"]
+    assert "not the user's host computer" in linux_frontmatter["description"]
     assert "host-computer-use" in linux_skill
     assert "computer_use_remote" in linux_skill
     assert "`desktopctl.sh` only targets the internal Agent Zero Xpra display" in linux_skill

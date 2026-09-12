@@ -25,6 +25,7 @@ _BASE_FEATURES = [
     "projects",
     "text_editor_remote",
     "code_execution_remote",
+    "input_remote",
     "computer_use_remote",
     "browser_host_remote",
     "connector_browser_op",

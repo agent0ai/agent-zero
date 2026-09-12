@@ -74,6 +74,7 @@ WS_FEATURES = [
     "text_editor_remote",
     "remote_file_tree",
     "code_execution_remote",
+    "input_remote",
     "computer_use_remote",
     "browser_host_remote",
     "connector_browser_op",

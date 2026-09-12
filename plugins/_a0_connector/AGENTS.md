@@ -20,8 +20,14 @@
 - Keep remote tool prompts synchronized with remote tool behavior and disclose
   them only from connected CLI metadata: no connected CLI hides all remote tool
   prompts, remote file metadata enables `text_editor_remote`, F4-enabled remote
-  execution metadata enables `code_execution_remote`, and supported enabled
+  execution metadata enables `code_execution_remote` and `input_remote`, and supported enabled
   Computer Use that does not need re-arming enables `computer_use_remote`.
+- Remote execution uses the same runtime set as local code execution. `input_remote`
+  mirrors local `input`, forwarding trimmed `keyboard` through gated terminal
+  execution with framework-owned `allow_running`. It shares connection, write
+  access, timeout, transfer, and disconnect handling; ordinary model args cannot
+  enable `allow_running`. There is no `runtime=input` or `code` input alias.
+- Computer Use prompts keep `element_index` top-level and semantic `target` syntax in backend skills. macOS `app-scoped-semantic-targeting` enables explicit app/window scope; older clients use the indexed window workflow. Native `get_window_state.mode` only labels output and stays out of model-facing guidance.
 - Agent-scoped skill discovery includes this plugin's `skills/` root only when a routed connected socket has connector capability metadata. WebUI-only sockets do not qualify; disabled capabilities still count as a connected CLI. Filter roots on each discovery without mutating cached paths or persisting visibility settings. `setup-a0-cli` lives in root `skills/` and stays discoverable while disconnected.
 - Never re-add a connector prompt that the effective project/profile tool policy
   blocks.
@@ -82,7 +88,7 @@
   Prompts must direct complete or binary transfer to authenticated HTTP.
 - Host browser status metadata may advertise `available_browsers` entries with browser ids, labels, CDP endpoints, status, and enabled state; keep older CLI payloads without those fields compatible.
 - `computer_use_remote` action results may report `requested_dispatch`, `actual_dispatch`, and `foreground_fallback_used` (`fallback_used` legacy); these are output-only fields, not tool args. `scroll` reads `dx`/`dy` with legacy aliases `delta_x`/`delta_y`; document only canonical args in model-facing prompts.
-- `computer_use_remote` reads legacy `name` as an `operation` fallback for element/ax/uia actions, and `code_execution_remote` `runtime=input` falls back to `code` when `keyboard` is missing; both stay out of model-facing prompts.
+- `computer_use_remote` reads legacy `name` as an `operation` fallback for element/ax/uia actions; it stays out of model-facing prompts.
 - Model preset definitions exposed through v1 are global; project arguments select scope but never create project-owned definitions. Model switcher state reports the effective main, utility, and embedding models and preserves embedding-change notifications.
 - The protected v1 `agent_editor` route delegates to the bundled Agent Editor
   API and must not define another profile schema or write profile files itself.

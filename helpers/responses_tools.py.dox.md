@@ -20,6 +20,9 @@
 - Emit generated definitions with `strict: false` so Responses does not normalize optional or extensible arguments into required strict fields. Provider-specific strictness (such as Codex's final response) belongs at the provider request boundary.
 - Explicitly embedded JSON schemas take precedence. Otherwise use canonical argument properties only for a matching resolved bundled implementation in `BUNDLED_TOOL_PARAMETERS`; custom/profile overrides must not inherit a same-named bundled contract. Properties remain optional and extensible for action-dependent inputs and runtime aliases; runtime validation remains authoritative.
 - For unlisted implementations, infer only an unambiguous single backticked argument on an otherwise empty `args:` line; otherwise retain a permissive object instead of prose-guessed types.
+- Local and remote code execution expose matching runtime enums; `input` and
+  `input_remote` expose keyboard/session arguments separately. Remote schemas
+  do not advertise the framework-owned `allow_running` transport flag.
 - Native local descriptions preserve full policy-filtered operational guidance. Convert unfenced and JSON-fenced A0 envelope examples to argument-only examples using the shared tool-request parser; preserve unrelated JSON and non-JSON code fences. Catalog summaries remain separate.
 - Preserve original Agent Zero tool names through the native Responses name map.
 - Keep MCP tool schemas merged after local prompt-derived tools.

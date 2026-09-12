@@ -50,6 +50,9 @@ async def test_code_job_keeps_polling_after_output_timeout_without_reexecuting(m
 
 @pytest.mark.parametrize("tool_name,args", [
     ("input", {"session": 0, "keyboard": "yes"}),
+    ("input_remote", {"session": 0, "keyboard": "yes"}),
+    ("code_execution_remote", {"runtime": "output", "session": 0}),
+    ("code_execution_remote", {"runtime": "reset", "session": 0}),
     ("code_execution_tool", {"runtime": "output", "session": 0}),
     ("code_execution_tool", {"runtime": " RESET ", "session": 0}),
 ])

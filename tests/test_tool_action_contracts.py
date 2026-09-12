@@ -1184,6 +1184,25 @@ def test_computer_use_remote_start_session_reports_backend_features_and_windows_
     assert "host-computer-use-windows" in message
 
 
+def test_computer_use_remote_forwards_documented_macos_app_scope(monkeypatch):
+    import json
+    import re
+
+    module = _load_computer_use_remote_tool(monkeypatch)
+    tool = object.__new__(module.ComputerUseRemote)
+    skill = (Path(__file__).resolve().parents[1] / "plugins/_a0_connector/skills/host-computer-use-macos/SKILL.md").read_text()
+    example = json.loads(re.search(r"```json\n(.*?)\n```", skill, re.S).group(1))
+    tool.args = example["tool_args"]
+    payload = tool._build_payload(op_id="scoped", context_id="ctx", action="element_action")
+    assert payload["target"] == {"bundle_id": "com.example.editor", "role": "AXButton", "title": "Save"}
+    assert payload["dispatch"] == "background"
+    assert payload["operation"] == "press"
+    tool.args = {**tool.args, "pid": 123, "window_id": "ax-pid:123:path:0", "element_index": 2}
+    payload = tool._build_payload(op_id="indexed", context_id="ctx", action="element_action")
+    assert (payload["pid"], payload["window_id"], payload["element_index"]) == (123, "ax-pid:123:path:0", 2)
+    assert "element_index" not in payload["target"]
+
+
 def test_computer_use_remote_forwards_linux_window_scope_and_type_guard(monkeypatch):
     module = _load_computer_use_remote_tool(monkeypatch)
     tool = object.__new__(module.ComputerUseRemote)

@@ -32,7 +32,7 @@ CHILD_PARALLEL_TOOL_NAME_KEY = "parallel_tool_name"
 DEFAULT_MAX_CALLS = 8
 DEFAULT_TIMEOUT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 0.5
-DISALLOWED_PARALLEL_TOOLS = {"document_query", "response", "goal", "input"}
+DISALLOWED_PARALLEL_TOOLS = {"document_query", "response", "goal", "input", "input_remote"}
 
 TERMINAL_STATES = {"success", "error", "cancelled", "timeout"}
 JobState = Literal["pending", "running", "success", "error", "cancelled", "timeout"]
@@ -118,7 +118,7 @@ def _ensure_parallel_tool_allowed(tool_name: str, tool_args: dict[str, Any]) -> 
     if tool_name == "parallel":
         raise ValueError("`parallel` cannot be nested inside another `parallel` call.")
     if (
-        tool_name == "code_execution_tool"
+        tool_name in {"code_execution_tool", "code_execution_remote"}
         and str(tool_args.get("runtime", "")).strip().lower() in {"output", "reset"}
     ):
         raise ValueError(

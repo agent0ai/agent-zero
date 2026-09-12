@@ -82,6 +82,17 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
         "keyboard": {"type": "string"},
         "session": {"type": "integer"},
     },
+    "plugins/_a0_connector/tools/code_execution_remote.py": {
+        "runtime": {"type": "string", "enum": ["terminal", "python", "nodejs", "output", "reset"]},
+        "code": {"type": "string"},
+        "session": {"type": "integer"},
+        "reset": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+    "plugins/_a0_connector/tools/input_remote.py": {
+        "keyboard": {"type": "string"},
+        "session": {"type": "integer"},
+    },
     "plugins/_memory/tools/memory_load.py": {
         "query": {"type": "string"},
         "threshold": {"type": "number"},
