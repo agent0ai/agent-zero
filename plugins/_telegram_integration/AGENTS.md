@@ -28,6 +28,7 @@
 ## Work Guidance
 
 - Coordinate bot lifecycle changes with job-loop hooks and settings reload behavior.
+- WebUI store initialization must ignore Alpine registration calls without a configuration object.
 
 ## Verification
 
