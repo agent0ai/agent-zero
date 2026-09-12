@@ -22,7 +22,7 @@
 
 
 
-        <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.topLevelContexts().length > 0">
+        <ul class="config-list chats-config-list" x-show="$store.chats.topLevelContexts().length > 0">
           <template x-for="(context, contextIndex) in $store.chats.topLevelContexts()" :key="context.id">
             <li class="chat-tree-item"
               :class="{ 'sidebar-list-divider': $store.sidebar.hasRowDividerBefore('chat', context, contextIndex, $store.chats.topLevelContexts()) }">
@@ -117,7 +117,8 @@
     .chats-config-list {
       flex: 1;
       min-height: 0;
-      overflow: scroll;
+      overflow-x: hidden;
+      overflow-y: auto;
       scroll-behavior: smooth;
       max-height: 100%;
     }
