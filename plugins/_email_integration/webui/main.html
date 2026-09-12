@@ -1,0 +1,218 @@
+<html>
+
+<head>
+    <title>Email Integration</title>
+    <script type="module">
+        import { store } from "/plugins/_email_integration/webui/email-main-store.js";
+    </script>
+</head>
+
+<body>
+    <main class="email-main" x-data x-init="$store.emailMain.init()">
+        <header class="email-main-header">
+            <div>
+                <div class="section-title">Email Integration</div>
+                <p>Monitor the inboxes that connect email conversations to Agent Zero.</p>
+            </div>
+            <div class="email-main-actions">
+                <button type="button" class="btn btn-field" @click="$store.emailMain.refresh()"
+                    :disabled="$store.emailMain.loading">
+                    <x-icon name="refresh"></x-icon>
+                    Refresh
+                </button>
+                <button type="button" class="btn btn-field" @click="$store.emailMain.openConfig()">
+                    <x-icon name="settings"></x-icon>
+                    Configure
+                </button>
+            </div>
+        </header>
+
+        <template x-if="$store.emailMain.loading">
+            <div class="email-main-empty">Loading inbox status...</div>
+        </template>
+
+        <template x-if="!$store.emailMain.loading">
+            <div>
+                <section class="email-main-summary" aria-label="Email integration summary">
+                    <div><strong x-text="$store.emailMain.status.total"></strong><span>Connected inboxes</span></div>
+                    <div><strong x-text="$store.emailMain.status.enabled"></strong><span>Enabled</span></div>
+                    <div><strong x-text="$store.emailMain.status.running"></strong><span>Polling now</span></div>
+                </section>
+
+                <template x-if="$store.emailMain.status.inboxes.length === 0">
+                    <section class="email-main-empty">
+                        <x-icon name="mail"></x-icon>
+                        <strong>No inboxes connected</strong>
+                        <span>Open configuration to connect the first email account.</span>
+                        <button type="button" class="btn btn-field" @click="$store.emailMain.openConfig()">Connect inbox</button>
+                    </section>
+                </template>
+
+                <section class="email-main-list" x-show="$store.emailMain.status.inboxes.length > 0">
+                    <template x-for="inbox in $store.emailMain.status.inboxes" :key="inbox.name">
+                        <article class="email-main-row">
+                            <div class="email-main-icon"><x-icon name="alternate_email"></x-icon></div>
+                            <div class="email-main-copy">
+                                <strong x-text="inbox.name"></strong>
+                                <span x-text="inbox.address || 'Email address not set'"></span>
+                            </div>
+                            <div class="email-main-meta">
+                                <span x-text="inbox.protocol"></span>
+                                <span x-text="inbox.project"></span>
+                            </div>
+                            <span class="email-main-state"
+                                x-text="inbox.running ? 'Polling' : (inbox.enabled ? (inbox.configured ? 'Starting' : 'Needs setup') : 'Off')"></span>
+                        </article>
+                    </template>
+                </section>
+            </div>
+        </template>
+    </main>
+
+    <style>
+        .email-main {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            color: var(--color-text);
+            font-family: var(--font-family-main);
+        }
+
+        .email-main-header,
+        .email-main-actions,
+        .email-main-row,
+        .email-main-meta {
+            display: flex;
+            align-items: center;
+        }
+
+        .email-main-header {
+            justify-content: space-between;
+            gap: var(--spacing-md);
+        }
+
+        .email-main-header p {
+            margin: 0.3rem 0 0;
+            color: var(--color-text-secondary);
+        }
+
+        .email-main-actions,
+        .email-main-meta {
+            gap: var(--spacing-sm);
+        }
+
+        .email-main-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            border-block: 1px solid var(--color-border);
+        }
+
+        .email-main-summary div {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: var(--spacing-md);
+        }
+
+        .email-main-summary div + div {
+            border-left: 1px solid var(--color-border);
+        }
+
+        .email-main-summary strong {
+            font-size: 1.6rem;
+        }
+
+        .email-main-summary span,
+        .email-main-copy span,
+        .email-main-meta,
+        .email-main-empty span {
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-small);
+        }
+
+        .email-main-list {
+            margin-top: var(--spacing-md);
+        }
+
+        .email-main-row {
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .email-main-icon {
+            display: grid;
+            place-items: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 50%;
+        }
+
+        .email-main-copy {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            gap: 0.2rem;
+            min-width: 0;
+        }
+
+        .email-main-copy span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .email-main-meta {
+            flex-wrap: wrap;
+        }
+
+        .email-main-meta span,
+        .email-main-state {
+            padding: 0.25rem 0.55rem;
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            font-size: var(--font-size-small);
+        }
+
+        .email-main-state {
+            min-width: 5.5rem;
+            text-align: center;
+        }
+
+        .email-main-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: calc(var(--spacing-lg) * 2) var(--spacing-md);
+            text-align: center;
+        }
+
+        @media (max-width: 680px) {
+            .email-main-header,
+            .email-main-row {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .email-main-actions .btn {
+                flex: 1;
+            }
+
+            .email-main-summary div {
+                padding: var(--spacing-sm);
+            }
+
+            .email-main-meta {
+                justify-content: flex-start;
+            }
+
+            .email-main-state {
+                align-self: flex-start;
+            }
+        }
+    </style>
+</body>
+
+</html>
