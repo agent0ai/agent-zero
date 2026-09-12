@@ -1,6 +1,8 @@
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -41,6 +43,34 @@ async def test_evaluate_uses_script_arg(monkeypatch) -> None:
 
     assert result == 7
     assert seen == ["1+1"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("args", [{"expression": "document.title"}, {}, {"script": " "}, {"script": 42}])
+async def test_evaluate_rejects_missing_or_invalid_script(monkeypatch, args) -> None:
+    core = _BrowserRuntimeCore("ctx")
+    started = AsyncMock()
+    monkeypatch.setattr(core, "ensure_started", started)
+    with pytest.raises(ValueError, match="non-empty 'script'"):
+        await core._dispatch_call({"action": "evaluate", **args})
+    result = await core.multi([{"action": "evaluate", **args}])
+    assert result == [{"ok": False, "error": "evaluate requires a non-empty 'script' string"}]
+    started.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [None, False, 0, {"answer": 42}])
+async def test_evaluate_preserves_javascript_results(monkeypatch, value) -> None:
+    core = _BrowserRuntimeCore("ctx")
+    page = SimpleNamespace(evaluate=AsyncMock(return_value=value))
+    monkeypatch.setattr(core, "ensure_started", AsyncMock())
+    monkeypatch.setattr(core, "_resolve_browser_id", lambda _: 3)
+    monkeypatch.setattr(core, "_page", lambda _: page)
+    monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 3}))
+    script = "() => " + json.dumps(value)
+    result = await core.evaluate(3, script)
+    assert result == {"result": value, "state": {"id": 3}}
+    page.evaluate.assert_awaited_once_with(script, isolated_context=False)
 
 
 def test_webui_beautifier_formats_objects_and_arrays() -> None:

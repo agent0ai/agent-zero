@@ -111,7 +111,11 @@ sys.modules.setdefault(
 )
 sys.modules.setdefault("helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool))
 sys.modules.setdefault("helpers.ws", SimpleNamespace(WsHandler=_TestWsHandler))
-sys.modules.setdefault("helpers.ws_manager", SimpleNamespace(WsResult=_TestWsResult))
+sys.modules.setdefault("helpers.ws_manager", SimpleNamespace(
+    WsResult=_TestWsResult,
+    WsPayloadTooLargeError=ValueError,
+    get_shared_ws_manager=lambda: _TestWsManager(),
+))
 _model_config_stub = ModuleType("plugins._model_config.helpers.model_config")
 _model_config_stub.get_presets = lambda: []
 _model_config_stub.get_preset_by_name = lambda name: None

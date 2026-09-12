@@ -13,3 +13,4 @@ Rules:
 - Screenshots are explicit only; the browser does not automatically load screenshots. Call `vision_load` with the returned `vision_load.tool_args.paths` value before reasoning visually.
 - Keep the tab set small; close pages after extracting what you need.
 - `multi` is only a browser action: use `tool_name: "browser"` with `tool_args.action: "multi"`. Never use `tool_name: "multi"`.
+- `evaluate` requires `script`: a JavaScript expression or function whose result is returned.
