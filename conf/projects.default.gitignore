@@ -9,3 +9,19 @@ venv/**
 
 # Version control metadata
 **/.git/**
+
+# macOS metadata
+**/.DS_Store
+
+# Framework-generated memory index (auto-regen, not source)
+**/index.faiss
+**/index.faiss.sha256
+**/index.pkl
+**/embedding.json
+
+# Session/runtime state (regenerates; not source)
+.a0proj/state/
+.a0proj/.time_travel/
+
+# UI-written model preset preference (not source)
+**/plugins/_model_config/config.json
