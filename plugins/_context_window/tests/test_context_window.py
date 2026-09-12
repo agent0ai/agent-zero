@@ -1,3 +1,6 @@
+import base64
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -195,8 +198,60 @@ def test_webui_and_accounting_are_plugin_owned():
     assert 'item?.type !== "agent"' in refresh_hook
     assert "Number(item.agentno || 0) !== 0" in refresh_hook
     assert 'const logGuid = String(snapshot?.log_guid || "")' in refresh_hook
-    assert "logGuid === lastLogGuid" in refresh_hook
+    assert "logGuid !== lastLogGuid" in refresh_hook
     assert "generationKey === lastGenerationKey" in refresh_hook
+    assert "TOOL_REFRESH_INTERVAL = 4" in refresh_hook
+    assert 'watch("$store.chats.selectedContext?.running"' in context_store
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="Node.js is required")
+def test_webui_refreshes_after_four_distinct_root_tool_calls():
+    source = (
+        ROOT
+        / "plugins/_context_window/extensions/webui/apply_snapshot_before/refresh-context-window.js"
+    ).read_text(encoding="utf-8")
+    source = source.replace(
+        'import { store as contextWindowStore } from "/plugins/_context_window/webui/context-window-store.js";',
+        "const contextWindowStore = { refresh: async id => globalThis.refreshes.push(id) };",
+    )
+    module_url = "data:text/javascript;base64," + base64.b64encode(
+        source.encode("utf-8")
+    ).decode("ascii")
+    script = f"""
+globalThis.refreshes = [];
+const {{ default: refresh }} = await import({module_url!r});
+const snapshot = (logs) => ({{
+  context: "chat-1",
+  contexts: [{{ id: "chat-1" }}],
+  log_guid: "log-1",
+  logs,
+}});
+const call = (logs) => refresh({{ snapshot: snapshot(logs) }});
+const assertCount = expected => {{
+  if (globalThis.refreshes.length !== expected) throw new Error(
+    `expected ${{expected}} refreshes, got ${{globalThis.refreshes.length}}`
+  );
+}};
+
+await call([]);
+assertCount(1);
+await call([{{ no: 1, type: "tool", agentno: 0 }}]);
+await call([{{ no: 1, type: "tool", agentno: 0, content: "updated" }}]);
+await call([{{ no: 2, type: "mcp", agentno: 0 }}]);
+await call([{{ no: 3, type: "code_exe", agentno: 0 }}]);
+await call([{{ no: 4, type: "text_editor", agentno: 0 }}]);
+assertCount(2);
+await call([{{ no: 5, type: "agent", agentno: 0, id: "gen-1" }}]);
+assertCount(3);
+await call([{{ no: 6, type: "tool", agentno: 0 }}]);
+await call([{{ no: 7, type: "mcp", agentno: 1 }}]);
+await call([{{ no: 8, type: "subagent", agentno: 0 }}]);
+await call([{{ no: 9, type: "text_editor", agentno: 0 }}]);
+assertCount(3);
+await call([{{ no: 10, type: "code_exe", agentno: 0 }}]);
+assertCount(4);
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True)
 
 
 def test_source_prompt_extensions_are_registered():
