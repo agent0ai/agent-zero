@@ -1,16 +1,15 @@
 <html>
 <body>
-  <aside class="file-tree" x-data="{ tree: $store[xAttrs($el).owner].fileTree }" aria-label="File tree">
+  <aside class="file-tree" x-data="{ tree: $store[xAttrs($el).owner].fileTree }" aria-label="File tree"
+    x-effect="tree.selectedPath; tree.shown; $nextTick(() => tree.scrollToSelected($el))">
     <div class="file-tree-filter">
       <x-icon name="search"></x-icon>
       <input type="search" x-model="tree.query" placeholder="Filter files..." aria-label="Filter loaded tree files" title="Filter files in loaded folders" @keydown.escape.stop="tree.query = ''">
     </div>
     <div class="file-tree-list" :aria-busy="!!tree.root?.loading">
-      <p class="file-tree-status" x-show="tree.root?.loading">Loading files…</p>
-      <button type="button" class="file-tree-status file-tree-retry" x-show="tree.root?.error" @click="tree.load(tree.root)">Could not load folder. Retry</button>
-      <p class="file-tree-status" x-show="!tree.root?.loading && !tree.root?.error && !tree.rows.length" x-text="tree.query ? 'No matching files' : 'Empty folder'"></p>
+      <p class="file-tree-status" x-show="tree.query && !tree.rows.length">No matching files</p>
       <template x-for="row in tree.rows" :key="row.node.path">
-        <div>
+        <div x-create="if (tree.selectedPath === row.node.path) $nextTick(() => tree.scrollToSelected($el.closest('.file-tree')))">
           <div class="file-tree-row" :class="{ 'is-selected': tree.selectedPath === row.node.path }" :style="{ paddingLeft: (8 + row.depth * 16) + 'px' }">
             <button type="button" class="file-tree-chevron" :style="{ visibility: row.node.is_dir ? 'visible' : 'hidden' }" :tabindex="row.node.is_dir ? 0 : -1" :aria-label="(row.node.expanded ? 'Collapse ' : 'Expand ') + row.node.name" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" @click="tree.expand(row.node)">
               <x-icon :name="row.node.loading ? 'progress_activity' : (row.node.expanded ? 'expand_more' : 'chevron_right')"></x-icon>
@@ -20,6 +19,7 @@
               <span x-text="row.node.name"></span>
             </button>
           </div>
+          <p class="file-tree-status" :style="{ marginLeft: (71 + row.depth * 16) + 'px' }" x-show="row.node.expanded && row.node.loading">Loading files…</p>
           <button type="button" class="file-tree-status file-tree-retry" :style="{ marginLeft: (71 + row.depth * 16) + 'px' }" x-show="row.node.expanded && row.node.error" @click="tree.load(row.node)">Could not load folder. Retry</button>
           <p class="file-tree-status" :style="{ marginLeft: (71 + row.depth * 16) + 'px' }" x-show="row.node.expanded && row.node.children?.length === 0">Empty folder</p>
         </div>

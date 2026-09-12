@@ -7,7 +7,7 @@
 ## Ownership
 
 - `file-browser.html` owns file list markup, path controls, scoped styles, and modal/canvas footer behavior.
-- `settings.html` uses shared settings fields in a two-column desktop/one-column mobile layout for default sort, list/icon view, and tree visibility; it also owns the saved remote connection list/form and per-connection permissions.
+- `../../settings/file-browser/file-browser-settings.html` owns the shared Settings fields for default sort, list/icon view, tree visibility and starting folder, plus the saved remote connection list/form and per-connection permissions.
 - `file-browser-store.js` owns directory loading, remembered-location state, selection, upload/download/delete actions, and surface handoff state.
 - `file-tree.js` and `file-tree.html` own the shared lazy directory tree; Files and Editor each retain independent tree state.
 - `rename-modal.html` owns rename and create-folder prompts that reuse the file-browser store.
@@ -51,9 +51,10 @@
 - Keep native drag moves available outside picker modes: dragging an unselected row moves only that row without changing selection, dragging a selected row moves the selection, folder rows accept drops, and Up moves items to the parent directory. Moves must reject overwrites and self-nesting.
 
 - File and folder entries in the shared tree must not have native or Bootstrap tooltips.
-- Folder names and chevrons both toggle expansion; name clicks navigate only when expanding. Indent branch status messages to the child-name column at each depth.
-- Tree branches load through the existing authenticated file-list API on expansion; filtering covers loaded folders. Keep only the filter above the raw tree, without path, parent, or refresh controls. Preserve expanded ancestors during navigation within the root and reset when moving outside it.
+- Folder names open folders through the host action, expanding them if needed; chevrons toggle branches without navigating. Indent branch status messages to the child-name column at each depth.
+- Tree branches load through the existing authenticated file-list API on expansion; filtering covers loaded folders. Keep only the filter above the raw tree, without path, parent, or refresh controls. Show the root row and retain the hierarchy from the configured local starting folder (default `/a0`) or `/@connections` for remote paths, lazily expanding the current directory's ancestors within that root. Store `treeRoot` in `fileBrowser.preferences`, load it on store initialization for Editor-only sessions, and share it with Editor while retaining independent tree state. Path-bar navigation outside the configured root must not widen it. Preserve other loaded branches within the same root and share pending directory loads.
 - Keep the tree on the right in canvas and modal modes; at narrow panel widths it overlays the content below the toolbar. Tree file clicks reuse picker selection or existing file-opening actions.
+- Scroll the selected row into view after navigation, tree opening, or lazy insertion of that row. Wait for Alpine rendering, skip hidden hosts, and leave manual scrolling alone when unrelated branches expand.
 - Scope unmount cleanup to the owning panel element; destroying an old host must not clean up the active modal.
 
 - In list view, display a dash for folder sizes; only files show byte sizes. Do not recursively scan folders for list metadata.

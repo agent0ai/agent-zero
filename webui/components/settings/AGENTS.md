@@ -13,7 +13,7 @@
 
 ## Local Contracts
 
-- `file-browser/` owns the Files settings page, with appearance, remote folders/plugin controls, file limits and archives in that order. Use standard stacked Settings field rows rather than a bespoke two-column grid. The Files gear and provider plugin shortcuts open this category. Remember-location is a normal Settings draft; existing immediate Files limit writes also update the open Settings draft to avoid stale overwrite.
+- `file-browser/` owns the Files settings page, with appearance, remote folders/plugin controls, file limits and archives in that order. Use standard stacked Settings field rows rather than a bespoke two-column grid. The Files gear and provider plugin shortcuts open this category. Appearance includes the browser-local tree starting folder shared by Files and Editor, defaulting to `/a0`. Remember-location is a normal Settings draft; existing immediate Files limit writes also update the open Settings draft to avoid stale overwrite.
 - Keep settings payloads synchronized with backend APIs and plugin settings contracts.
 - Settings tabs that expose plugin `settings_sections` must mount `settings/plugins/plugins-subsection.html` with matching `data-tab` and sidebar/nav section IDs.
 - Do not store secrets in localStorage, URLs, or console output.

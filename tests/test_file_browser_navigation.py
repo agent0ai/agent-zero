@@ -298,8 +298,8 @@ let saved = '{}';
 const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
 ''' + source + '''
 store.loadPreferences();
-assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false});
-store.preferences = {sortBy:'date', sortDirection:'desc', view:'icons', treeShown:true};
+assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false, treeRoot:'/a0'});
+store.preferences = {sortBy:'date', sortDirection:'desc', view:'icons', treeShown:true, treeRoot:'/a0/usr'};
 await store.savePreferences();
 store.browser.sortBy = 'name';
 store.loadPreferences();
@@ -307,9 +307,23 @@ assert.equal(store.browser.sortBy, 'date');
 assert.equal(store.browser.sortDirection, 'desc');
 assert.equal(store.fileTree.shown, true);
 assert.equal(store.preferences.view, 'icons');
+assert.equal(store.preferences.treeRoot, '/a0/usr');
+await store.saveTreeRoot(' /a0//usr/ ');
+assert.equal(JSON.parse(saved).treeRoot, '/a0/usr');
+await store.saveTreeRoot('/');
+assert.equal(JSON.parse(saved).treeRoot, '/', 'filesystem root remains an explicit choice');
+for (const path of ['', 'usr', '/a0/../usr', '/a0/./usr', null, 42]) {
+  await store.saveTreeRoot(path);
+  assert.equal(JSON.parse(saved).treeRoot, '/', 'invalid input does not replace the saved root');
+  saved = JSON.stringify({treeRoot:path});
+  store.loadPreferences();
+  assert.equal(store.preferences.treeRoot, '/a0', 'invalid stored root falls back safely');
+  await store.saveTreeRoot('/');
+}
+
 saved = '{"sortBy":"invalid","view":"invalid","treeShown":"true"}';
 store.loadPreferences();
-assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false});
+assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false, treeRoot:'/a0'});
 const sorted = store.sortFiles([{name:'b',is_dir:false},{name:'a',is_dir:false},{name:'z',is_dir:true}]);
 assert.deepEqual(sorted.map(x=>x.name), ['z','a','b']);
 '''

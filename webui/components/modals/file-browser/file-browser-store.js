@@ -104,7 +104,7 @@ const model = {
       globalThis.toastFrontendError?.(error.message, "File Browser Settings");
     } finally { this.savingTextLimit = false; }
   },
-  fileTree: createFileTree((file) => store.openTreeEntry(file)),
+  fileTree: createFileTree((file) => store.openTreeEntry(file), () => store.preferences.treeRoot),
 
   async openTreeEntry(file) {
     await this.ensureLimits();
@@ -270,7 +270,23 @@ const model = {
     link.remove();
   },
 
-  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false },
+  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false, treeRoot: "/a0" },
+
+  normalizeTreeRoot(value) {
+    if (typeof value !== "string" || !value.trim().startsWith("/")) return "";
+    const path = value.trim().replace(/\/+/g, "/").replace(/\/$/, "") || "/";
+    return !/(?:^|\/)\.\.?(?:\/|$)|[\0\r\n]/.test(path) ? path : "";
+  },
+
+  async saveTreeRoot(value) {
+    const path = this.normalizeTreeRoot(value);
+    if (!path) {
+      globalThis.toastFrontendError?.("Enter an absolute folder path without . or .. segments.", "File Browser Settings");
+      return;
+    }
+    this.preferences.treeRoot = path;
+    await this.savePreferences();
+  },
 
   loadPreferences() {
     try {
@@ -280,6 +296,7 @@ const model = {
         sortDirection: value.sortDirection === "desc" ? "desc" : "asc",
         view: value.view === "icons" ? "icons" : "list",
         treeShown: value.treeShown === true,
+        treeRoot: this.normalizeTreeRoot(value.treeRoot) || "/a0",
       };
     } catch { /* Storage may be unavailable. Keep the defaults. */ }
     this.browser.sortBy = this.preferences.sortBy;
@@ -323,6 +340,7 @@ const model = {
   init() {
     this.ensureLimits().catch(() => {});
     if (this.settingsUpdatedHandler) return;
+    this.loadPreferences();
     this.settingsUpdatedHandler = (event) => {
       const value = event?.detail?.file_browser_remember_last_directory;
       if (typeof value !== "boolean") return;

@@ -216,7 +216,7 @@ function isEditorSocketData(data) {
 }
 
 const model = {
-  fileTree: createFileTree((file) => store.openTreeEntry(file)),
+  fileTree: createFileTree((file) => store.openTreeEntry(file), () => fileBrowserStore.preferences.treeRoot),
 
   async openTreeEntry(file) {
     if (file.is_dir || this.loading || this.saving) return;

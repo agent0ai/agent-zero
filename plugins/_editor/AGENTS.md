@@ -31,7 +31,7 @@
 - Keep Markdown and plain text on the same toolbar, with full-document source and preview modes plus shared Undo/Redo buttons and keyboard shortcuts.
 - Preserve source chat context ids when opening Markdown files from tool-result canvas handoffs.
 
-- The tab header owns a persistent file-tree toggle, including the empty Editor state. Reuse the shared Files tree component with Editor-owned state, seeded from the active document directory or Files fallback.
+- The tab header owns a persistent file-tree toggle, including the empty Editor state. Reuse the shared Files tree component with Editor-owned state, following the active document directory or Files fallback within the starting folder configured in File Browser settings (default `/a0`).
 - Opening an already-open document from the tree selects its tab without reloading unsaved text. Code files open here too; binary previews retain the existing Browser/Desktop routing.
 - The right-hand tree uses the same content in canvas/modal hosts and overlays the document at narrow panel widths.
 - Mount cleanup is host-specific: canvas close passes its panel element so a late canvas close cannot tear down the active modal.

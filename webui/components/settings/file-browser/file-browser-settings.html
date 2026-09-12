@@ -40,6 +40,16 @@
         <label class="toggle"><input id="files-default-tree" aria-describedby="files-default-tree-description" type="checkbox" x-model="$store.fileBrowser.preferences.treeShown" @change="$store.fileBrowser.savePreferences()"><span class="toggler"></span></label>
       </div>
     </div>
+    <div class="field">
+      <div class="field-label">
+        <label class="field-title" for="files-tree-root">File tree starting folder</label>
+        <div class="field-description" id="files-tree-root-description">Top-level folder in the Files and Editor trees. Default: /a0. Remote folders use their own tree.</div>
+      </div>
+      <div class="field-control">
+        <input id="files-tree-root" type="text" placeholder="/a0" required pattern="/.*" aria-describedby="files-tree-root-description"
+          :value="$store.fileBrowser.preferences.treeRoot" @change="if ($el.reportValidity()) $store.fileBrowser.saveTreeRoot($el.value)">
+      </div>
+    </div>
     </div>
           <div class="field">
             <div class="field-label">

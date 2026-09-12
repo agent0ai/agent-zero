@@ -1,12 +1,14 @@
 import { fetchApi } from "/js/api.js";
 
 // Each host owns its tree so opening an Editor picker cannot reset it.
-export function createFileTree(onOpen) {
+export function createFileTree(onOpen, getRootPath = () => "/a0") {
+  const pendingLoads = new WeakMap();
   return {
     shown: false,
     root: null,
     selectedPath: "",
     directory: "",
+    startingPath: "",
     query: "",
     generation: 0,
 
@@ -17,13 +19,29 @@ export function createFileTree(onOpen) {
 
     async follow(path = "", selectedPath = path) {
       if (!this.shown) return;
-      const target = path || "$WORK_DIR";
-      if (this.directory === target && this.selectedPath === selectedPath && this.root) return;
-      this.directory = target;
+      const requested = path || "$WORK_DIR";
+      const startingPath = getRootPath();
+      if (this.directory === requested && this.selectedPath === selectedPath && this.startingPath === startingPath && this.root) return;
+      this.directory = requested;
+      this.startingPath = startingPath;
       this.selectedPath = selectedPath;
-      const expanded = (node) => node?.expanded && (node.path === target || node.children?.some(expanded));
-      if (expanded(this.root)) return;
-      await this.loadRoot(target);
+      let target = requested;
+      if (!target.startsWith("/") || /^\/@ssh(?:\/|$)/.test(target)) {
+        await this.loadRoot(target);
+        if (this.directory !== requested || this.root.error) return;
+        target = this.root.path === "/@ssh" ? "/@connections" : this.root.path;
+      }
+      const rootPath = /^\/@connections(?:\/|$)/.test(target) ? "/@connections" : startingPath;
+      if (this.root?.path !== rootPath) await this.loadRoot(rootPath);
+      const root = this.root;
+      let node = root;
+      while (node && this.directory === requested && this.root === root) {
+        node.expanded = true;
+        if (!node.children) await this.load(node);
+        if (node.path === target) return;
+        node = node.children?.find(child => child.is_dir &&
+          (child.path === target || target.startsWith(child.path + "/")));
+      }
     },
 
     async loadRoot(path) {
@@ -33,8 +51,15 @@ export function createFileTree(onOpen) {
       await this.load(this.root);
     },
 
-    async load(node) {
-      if (node.loading) return;
+    load(node) {
+      if (!pendingLoads.has(node)) {
+        const pending = this.loadDirectory(node).finally(() => pendingLoads.delete(node));
+        pendingLoads.set(node, pending);
+      }
+      return pendingLoads.get(node);
+    },
+
+    async loadDirectory(node) {
       const generation = this.generation;
       node.loading = true;
       node.error = "";
@@ -49,7 +74,7 @@ export function createFileTree(onOpen) {
           .sort((a, b) => Number(b.is_dir) - Number(a.is_dir) || a.name.localeCompare(b.name, undefined, { numeric: true }));
         if (node === this.root) {
           node.path = data.data.current_path;
-          node.name = node.path;
+          node.name = node.path === "/@connections" ? "Remote folders" : node.path;
           node.parentPath = data.data.parent_path;
         }
       } catch (error) {
@@ -67,11 +92,15 @@ export function createFileTree(onOpen) {
     },
 
     async open(node) {
-      if (node.is_dir) {
-        await this.expand(node);
-        if (!node.expanded) return;
-      }
+      if (node.is_dir && !node.expanded) await this.expand(node);
       await onOpen(node);
+    },
+
+    scrollToSelected(element) {
+      const selected = element?.querySelector(".file-tree-row.is-selected");
+      if (this.shown && selected?.checkVisibility()) {
+        selected.scrollIntoView({ block: "center", inline: "nearest" });
+      }
     },
 
     get rows() {
@@ -81,7 +110,7 @@ export function createFileTree(onOpen) {
         if (query && !node.name.toLowerCase().includes(query) && !children.length) return [];
         return [{ node, depth }, ...children];
       });
-      return visit(this.root?.children, 0);
+      return visit(this.root ? [this.root] : [], 0);
     },
   };
 }
