@@ -9,7 +9,7 @@
 - `helpers/handler.py` owns mailbox polling, state, dispatch, routing, and reply flow.
 - `helpers/imap_client.py` and `helpers/smtp_client.py` own inbound and outbound mail transports.
 - `helpers/dispatcher.py`, `prompts/`, and attachment helpers own routing decisions and message formatting.
-- `api/`, `default_config.yaml`, `plugin.yaml`, `extensions/`, and `webui/` own tests, scoped settings, metadata, hooks, configuration, and the secret-free status dashboard.
+- `api/`, `default_config.yaml`, `plugin.yaml`, `extensions/`, and `webui/` own tests, scoped settings, metadata, hooks, and configuration.
 
 ## Local Contracts
 
@@ -17,7 +17,7 @@
 - IMAP accepts exactly one valid From mailbox, rejecting duplicate fields, groups, and parser defects before body processing. Match the whitelist and address replies using that mailbox's normalized address; From filtering does not authenticate sender identity.
 - Preserve UID/state tracking so restarts do not duplicate old mail.
 - Keep SMTP replies threaded and safe around user-visible errors.
-- Keep the Open page and status API free of passwords and server credentials.
+- `webui/config.html` is the sole plugin UI, including inbox setup and connection checks.
 - Preserve native project and agent-profile configuration scope support.
 
 ## Work Guidance
@@ -27,7 +27,7 @@
 ## Verification
 
 - Smoke-test connection checks, polling, attachment handling, dispatch routing, and SMTP replies when practical.
-- Run `PYTHONPATH=. pytest -q tests/test_email_plugin_ui.py tests/test_email_integration_sender.py` for UI contracts, secret-free status, inbound sender validation, and SMTP recipient regression coverage.
+- Run `PYTHONPATH=. pytest -q tests/test_email_integration_sender.py` for inbound sender validation and SMTP recipient regression coverage.
 
 ## Child DOX Index
 
