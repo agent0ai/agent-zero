@@ -60,7 +60,7 @@ patch_text update-only forms:
 - do not repeat the same old line as both a space-context line and a -removed line
 - context lines start with space, removals with -, additions with +
 - use enough unique context; add @@ anchor when repeated text exists
-edits legacy line mode: from/to inclusive, original line numbers from read, no overlaps
+edits line mode: from/to inclusive, original line numbers from read, no overlaps
 edits examples: {from:2 to:2 content:"x\n"} replace; {from:2 to:2} delete; {from:2 content:"x\n"} insert before
 for edits, re-read after insert/delete or line-count-changing replace
 ensure valid syntax in content (all braces brackets tags closed)
