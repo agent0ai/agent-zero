@@ -261,13 +261,14 @@
                 </template>
 
                 <template x-if="$store.telegramConfig.currentStep > 0">
-                  <details class="tg-advanced">
-                    <summary>
+                  <div class="settings-advanced-section" x-data="{ advOpen: false }">
+                    <button type="button" class="settings-advanced-toggle"
+                      :aria-expanded="advOpen" @click="advOpen = !advOpen">
+                      <x-icon class="settings-advanced-toggle-icon"
+                        :style="advOpen ? 'transform:rotate(90deg)' : ''" name="chevron_right"></x-icon>
                       <span>Advanced</span>
-                      <x-icon class="tg-advanced-chevron"
-                        aria-hidden="true" name="keyboard_arrow_down"></x-icon>
-                    </summary>
-                    <div class="tg-advanced-body">
+                    </button>
+                    <div class="settings-advanced-body" x-show="advOpen" x-transition.opacity style="display: none;">
                       <div class="field" x-show="bot.mode === 'webhook'">
                         <div class="field-label">
                           <div class="field-title">Webhook secret</div>
@@ -318,7 +319,7 @@
                       </div>
 
                     </div>
-                  </details>
+                  </div>
                 </template>
               </div>
             </template>
@@ -339,19 +340,6 @@
       display: flex;
       flex-direction: column;
       gap: 0.9rem;
-    }
-
-    .tg-advanced summary {
-      cursor: pointer;
-      list-style: none;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .tg-advanced summary::-webkit-details-marker {
-      display: none;
     }
 
     .tg-guide-card,
@@ -532,37 +520,6 @@
 
     .tg-warning {
       background: color-mix(in srgb, #f59e0b 14%, var(--color-background) 86%);
-    }
-
-    .tg-advanced {
-      margin-top: 0.95rem;
-      border: 1px solid color-mix(in srgb, var(--color-border) 88%, white 12%);
-      border-radius: 14px;
-      overflow: hidden;
-    }
-
-    .tg-advanced summary {
-      padding: 0.9rem 1rem;
-      background: color-mix(in srgb, var(--color-background) 88%, white 12%);
-    }
-
-    .tg-advanced-chevron {
-      margin-left: auto;
-      flex: 0 0 auto;
-      transition: transform 0.18s ease, opacity 0.18s ease;
-      opacity: 0.72;
-    }
-
-    .tg-advanced[open] .tg-advanced-chevron {
-      transform: rotate(180deg);
-      opacity: 1;
-    }
-
-    .tg-advanced-body {
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
     }
 
     .tg-test-panel {

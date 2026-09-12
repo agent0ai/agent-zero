@@ -1,0 +1,82 @@
+<html>
+<head>
+  <title>Telegram Integration</title>
+  <script type="module">
+    import { store } from "/plugins/_telegram_integration/webui/telegram-main-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.telegramMain">
+      <section class="tg-main" x-init="$store.telegramMain.refresh()" :aria-busy="$store.telegramMain.loading">
+        <header class="tg-main-header">
+          <div>
+            <div class="section-title">Telegram</div>
+            <div class="section-description">Connect Telegram bots to Agent Zero conversations.</div>
+          </div>
+          <div class="tg-main-actions">
+            <button type="button" class="btn btn-field" @click="$store.telegramMain.refresh()"
+              :disabled="$store.telegramMain.loading">
+              <x-icon name="refresh"></x-icon>
+              <span>Refresh</span>
+            </button>
+            <button type="button" class="btn btn-field" @click="$store.telegramMain.openConfig()">
+              <x-icon name="settings"></x-icon>
+              <span>Config</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="tg-main-summary">
+          <div><strong x-text="$store.telegramMain.configured"></strong><span>Configured</span></div>
+          <div><strong x-text="$store.telegramMain.running"></strong><span>Running</span></div>
+        </div>
+
+        <p class="tg-main-empty" x-show="!$store.telegramMain.loading && !$store.telegramMain.bots.length">
+          No Telegram bots are configured yet. Open Config to connect one.
+        </p>
+
+        <div class="tg-main-bots">
+          <template x-for="bot in $store.telegramMain.bots" :key="bot.name">
+            <article class="tg-main-bot">
+              <div class="tg-main-bot-heading">
+                <div>
+                  <h4 x-text="bot.username || bot.name"></h4>
+                  <span x-show="bot.username" x-text="bot.name"></span>
+                </div>
+                <span class="tg-main-state" x-text="bot.state"></span>
+              </div>
+              <dl>
+                <div><dt>Delivery</dt><dd x-text="bot.mode"></dd></div>
+                <div><dt>Access</dt><dd x-text="bot.access"></dd></div>
+                <div><dt>Project</dt><dd x-text="bot.project"></dd></div>
+              </dl>
+            </article>
+          </template>
+        </div>
+      </section>
+    </template>
+  </div>
+
+  <style>
+    .tg-main { display: flex; flex-direction: column; gap: var(--spacing-md); color: var(--color-text); font-family: var(--font-family-main); }
+    .tg-main-header, .tg-main-actions, .tg-main-bot-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); flex-wrap: wrap; }
+    .tg-main-actions .btn { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+    .tg-main-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block: 1px solid var(--color-border); }
+    .tg-main-summary div { display: flex; align-items: baseline; gap: var(--spacing-xs); padding: var(--spacing-sm) 0; color: var(--color-text-muted); }
+    .tg-main-summary strong { color: var(--color-text); font-size: 1.25rem; }
+    .tg-main-bots { display: grid; gap: var(--spacing-sm); }
+    .tg-main-bot { padding: var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); }
+    .tg-main-bot h4 { margin: 0; color: var(--color-text); }
+    .tg-main-bot-heading span, .tg-main-empty, .tg-main-bot dt { color: var(--color-text-muted); font-size: var(--font-size-small); }
+    .tg-main-state { padding: var(--spacing-xs) var(--spacing-sm); border-radius: var(--border-radius-sm); background: var(--color-input); }
+    .tg-main-bot dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-sm); margin: var(--spacing-md) 0 0; }
+    .tg-main-bot dd { margin: var(--spacing-xxs) 0 0; overflow-wrap: anywhere; }
+    @media (max-width: 540px) {
+      .tg-main-actions { width: 100%; }
+      .tg-main-actions .btn { flex: 1; justify-content: center; }
+      .tg-main-bot dl { grid-template-columns: 1fr; }
+    }
+  </style>
+</body>
+</html>
