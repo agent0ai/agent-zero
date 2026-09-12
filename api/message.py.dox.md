@@ -22,12 +22,13 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Message` is an `ApiHandler`.
 - `Message` defines `process(...)`.
+- UI messages are copied into the persisted message queue before agent dispatch. The in-memory queue entry is drained immediately, while the persisted copy remains recoverable until normal message-loop completion saves the drained state.
 - Observed side-effect areas: filesystem reads, filesystem writes, settings/state persistence, scheduler state.
 - Imported dependency areas include: `agent`, `helpers`, `helpers.api`, `helpers.defer`, `helpers.security`, `os`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `request.content_type.startswith`, `self.use_context`, `mq.log_user_message`, `self.communicate`, `self.respond`, `task.result`, `request.files.getlist`, `files.get_abs_path`, `request.get_json`, `extension.call_extensions_async`, `context.communicate`, `os.makedirs`, `UserMessage`, `safe_filename`, `attachment.save`, `context.get_agent`, `os.path.join`.
+- Important called helpers/classes observed in the source: `request.content_type.startswith`, `self.use_context`, `mq.add`, `mq.log_user_message`, `persist_chat.save_tmp_chat`, `mq.pop_item`, `self.communicate`, `self.respond`, `task.result`, `request.files.getlist`, `files.get_abs_path`, `request.get_json`, `extension.call_extensions_async`, `context.communicate`, `os.makedirs`, `UserMessage`, `safe_filename`, `attachment.save`, `context.get_agent`, `os.path.join`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -39,6 +40,7 @@
 ## Verification
 
 - Run endpoint-specific or API/WebSocket tests for changed behavior; smoke-test browser callers when no focused test exists.
+- Run `pytest tests/test_message_durability.py` for the pre-dispatch persistence contract.
 - Related tests observed by source search:
   - `tests/email_parser_test.py`
   - `tests/rate_limiter_test.py`

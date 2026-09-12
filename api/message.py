@@ -1,7 +1,7 @@
 from agent import AgentContext, UserMessage
 from helpers.api import ApiHandler, Request, Response
 
-from helpers import files, extension, message_queue as mq
+from helpers import files, extension, message_queue as mq, persist_chat
 import os
 from helpers.security import safe_filename
 from helpers.defer import DeferredTask
@@ -65,7 +65,21 @@ class Message(ApiHandler):
         # Store attachments in agent data
         # context.agent0.set_data("attachments", attachment_paths)
 
-        # Log to console and UI using helper function
-        mq.log_user_message(context, message, attachment_paths, message_id)
+        # Persist an inbox copy before dispatch. It stays on disk until the
+        # message loop completes and saves the now-drained queue, so a wedged
+        # or interrupted loop cannot swallow the user's input without a trace.
+        pending = mq.add(context, message, attachment_paths, item_id=message_id)
+        mq.log_user_message(
+            context, message, attachment_paths, message_id=pending["id"]
+        )
+        persist_chat.save_tmp_chat(context)
+        mq.pop_item(context, pending["id"])
 
-        return context.communicate(UserMessage(message=message, attachments=attachment_paths, id=message_id or "")), context
+        task = context.communicate(
+            UserMessage(
+                message=message,
+                attachments=attachment_paths,
+                id=pending["id"],
+            )
+        )
+        return task, context
