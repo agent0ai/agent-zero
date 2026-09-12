@@ -230,14 +230,15 @@
                     </template>
 
                     <template x-if="$store.whatsappConfig.currentStep > 0">
-                        <details class="wa-advanced">
-                            <summary>
+                        <div class="settings-advanced-section" x-data="{ advOpen: false }">
+                            <button type="button" class="settings-advanced-toggle"
+                                :aria-expanded="advOpen" @click="advOpen = !advOpen">
+                                <x-icon class="settings-advanced-toggle-icon"
+                                    :style="advOpen ? 'transform:rotate(90deg)' : ''" name="chevron_right"></x-icon>
                                 <span>Advanced</span>
-                                <x-icon class="wa-advanced-chevron"
-                                    aria-hidden="true" name="keyboard_arrow_down"></x-icon>
-                            </summary>
-                            <div class="wa-advanced-body">
-                                <div class="wa-info-box">
+                            </button>
+                            <div class="settings-advanced-body" x-show="advOpen" x-transition.opacity style="display: none;">
+                                <div class="field-description">
                                     These settings are here when you need them, but the defaults are fine for most
                                     setups.
                                 </div>
@@ -266,7 +267,7 @@
                                 </div>
 
                             </div>
-                        </details>
+                        </div>
                     </template>
                 </div>
             </div>
@@ -283,19 +284,6 @@
         .wa-summary-card,
         .wa-wizard-card {
             border-radius: 0.5rem;
-        }
-
-        .wa-advanced summary {
-            cursor: pointer;
-            list-style: none;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .wa-advanced summary::-webkit-details-marker {
-            display: none;
         }
 
         .wa-summary-title,
@@ -360,16 +348,11 @@
             gap: 0.2rem;
         }
 
-        .wa-info-box,
         .wa-note {
             margin-bottom: 0.9rem;
             padding: 0.8rem 0.9rem;
             border-radius: 12px;
             font-size: var(--font-size-small);
-        }
-
-        .wa-info-box {
-            background: color-mix(in srgb, #3b82f6 12%, var(--color-background) 88%);
         }
 
         .wa-note {
@@ -462,37 +445,6 @@
             max-width: 100%;
             border-radius: 0.5rem;
             background: white;
-        }
-
-        .wa-advanced {
-            margin-top: 1rem;
-            border: 1px solid color-mix(in srgb, var(--color-border) 88%, white 12%);
-            border-radius: 14px;
-            overflow: hidden;
-        }
-
-        .wa-advanced summary {
-            padding: 0.9rem 1rem;
-            background: color-mix(in srgb, var(--color-background) 88%, white 12%);
-        }
-
-        .wa-advanced-chevron {
-            margin-left: auto;
-            flex: 0 0 auto;
-            transition: transform 0.18s ease, opacity 0.18s ease;
-            opacity: 0.72;
-        }
-
-        .wa-advanced[open] .wa-advanced-chevron {
-            transform: rotate(180deg);
-            opacity: 1;
-        }
-
-        .wa-advanced-body {
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
         }
 
         .wa-test-panel {

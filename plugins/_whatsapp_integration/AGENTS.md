@@ -19,6 +19,7 @@
 - Enforce sender and group authorization in the bridge before downloading media, and contain every media write beneath the configured cache directory.
 - Keep Python dispatch checks and number normalization; propagate normalized authorization settings through all bridge startup paths and restart on policy changes.
 - Do not leave unmanaged bridge services outside plugin-owned runtime paths.
+- Use the shared project/profile scope selector and Advanced accordion. Configuration is the sole plugin UI; keep pairing and connection controls there.
 
 ## Work Guidance
 
