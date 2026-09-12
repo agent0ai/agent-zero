@@ -62,6 +62,23 @@ const editorStore = (() => {
 ''' + editor + r'''
 return store;
 })();
+let previewRenders = 0;
+const buildMarkdownPages = text => [{ markdown: text }];
+const renderEditorPreviewMarkdown = text => { previewRenders++; return text; };
+for (const extension of ['json', 'py', 'md', 'txt']) {
+  editorStore.session = { session_id: 'preview-check', extension };
+  editorStore.editorText = 'initial text';
+  editorStore.viewMode = 'source';
+  assert.equal(editorStore.previewHtml(), '', 'source mode must not build a hidden preview');
+  editorStore.viewMode = 'preview';
+  assert.equal(editorStore.previewHtml(), ['md', 'txt'].includes(extension) ? 'initial text' : '');
+  editorStore.viewMode = 'source';
+  editorStore.editorText = 'changed text';
+  assert.equal(editorStore.previewHtml(), '');
+  editorStore.viewMode = 'preview';
+  assert.equal(editorStore.previewHtml(), ['md', 'txt'].includes(extension) ? 'changed text' : '');
+}
+assert.equal(previewRenders, 4, 'render only visible previews, using current source text');
 const tab = { tab_id: 'tab', session_id: 'session', path: '/a0/test.py', extension: 'py', text: 'unsaved', dirty: true };
 editorStore.tabs = [tab];
 editorStore.session = tab;

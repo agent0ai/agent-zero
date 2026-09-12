@@ -17,6 +17,7 @@
 - This always-enabled plugin is the sole file-editing UI; Files Edit and New file route here. The retired `modals/file-editor` UI is removed.
 - Ctrl+F in source mode belongs to ACE; the preview search handles only preview mode and closes when returning to source.
 - Source mode uses ACE line numbers and its bundled filename-to-language mapping; JSONL uses JSON highlighting. Preview and formatting controls remain available only for Markdown/plain text.
+- Render Markdown preview only while a previewable document is in preview mode; hidden preview bindings must not parse source text.
 - Inherit text size, binary detection, and UTF-8 validation from `helpers.file_browser.FileBrowser` (10 MiB by default, configurable in File Browser settings). Files supplies frontend limits through its directory API. Retain save-conflict protection and provider permissions. Authenticated Files opens, creation, Rename, and Save As retain File Browser filesystem access; agent artifact paths remain scoped.
 - Tool-result refreshes update already-open code files as well as Markdown, preserving dirty tabs and the existing explicit Markdown handoff policy.
 - Remote `/@connections/` documents use `file_browser_connections` process-local sessions and permission-checked provider saves through the shared Editor. Keep remote requests out of local document-store/WebSocket paths; preserve dirty text on failed or conflicting saves. Remote Save As retargets the returned session ID.
