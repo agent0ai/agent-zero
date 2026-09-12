@@ -10,7 +10,7 @@
 - `helpers/handler.py` and `helpers/telegram_client.py` own message routing, replies, and Telegram API interaction.
 - `helpers/dependencies.py` and `requirements.txt` own framework-runtime dependency bootstrap.
 - `api/`, `prompts/`, `extensions/`, `default_config.yaml`, `plugin.yaml`, `README.md`, and `webui/` own tests/webhook endpoints, prompt fragments, hooks, settings, metadata, docs, and UI.
-- `webui/main.html`, `webui/telegram-main-store.js`, and `api/status.py` own the secret-free runtime dashboard opened from the plugin list.
+- `webui/config.html` is the sole plugin UI, including bot setup and connection checks.
 
 ## Local Contracts
 
@@ -19,7 +19,6 @@
 - Webhook dispatch requires an active webhook and a matching nonempty secret header. Setup requires a random 32–256 character secret using letters, digits, `_` or `-`; polling and webhook removal revoke HTTP delivery.
 - Install Telegram dependencies into the framework runtime only when required.
 - Keep project and agent-profile configuration scopes available through the shared plugin settings modal.
-- Runtime status responses may expose bot labels, Telegram usernames, delivery modes, and lifecycle state, but never tokens or webhook secrets.
 - Agent profile picker actions change the top-level chat profile and must
   preserve existing subordinate agent profiles. Picker rows and direct matches
   use the shared presentation catalog while current status may still report an
