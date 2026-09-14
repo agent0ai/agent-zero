@@ -46,7 +46,7 @@ chat:
     kwargs:
       a0_api_mode: chat
   apiroute:
-    name: API Route
+    name: API-Route
     litellm_provider: openai
     models_list:
       endpoint_url: "https://global.api-route.com/v1/models"
