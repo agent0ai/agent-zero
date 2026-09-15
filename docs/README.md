@@ -1,9 +1,12 @@
 ![Agent Zero Logo](res/header.png)
 # Agent Zero Documentation
 
-Welcome to the Agent Zero documentation hub. Start with the practical guides
-below: install it, open the Web UI, connect your host machine when needed, and
-learn the main workflows by sight.
+- **[Installation](installation.md):** Set up (or [update](installation.md#how-to-update-agent-zero)) Agent Zero on your system.
+- **[Usage Guide](usage.md):** Explore GUI features and usage scenarios.
+- **[Architecture Overview](architecture.md):** Understand the internal workings of the framework.
+- **[Token Compression Protocol](token_compression_protocol.md):** Run the TCP service and integrate it with clients (including browser extensions).
+- **[Contributing](contribution.md):** Learn how to contribute to the Agent Zero project.
+- **[Troubleshooting and FAQ](troubleshooting.md):** Find answers to common issues and questions.
 
 For architecture and source-linked internals, use
 [DeepWiki for Agent Zero](https://deepwiki.com/agent0ai/agent-zero). The local
@@ -63,97 +66,49 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-  - [Quickstart Guide](quickstart.md)
-  - [Agent Zero Launcher](guides/launcher.md)
-  - [First-Run Onboarding](guides/onboarding.md)
-  - [Installation Guide](setup/installation.md)
-    - [How to Update Agent Zero](setup/installation.md#how-to-update-agent-zero)
-    - [Manual Installation (Advanced)](setup/installation.md#manual-installation-advanced)
-    - [Step 1: Install Docker Desktop](setup/installation.md#step-1-install-docker-desktop)
-      - [Windows Installation](setup/installation.md#windows-installation)
-      - [macOS Installation](setup/installation.md#macos-installation)
-      - [Linux Installation](setup/installation.md#linux-installation)
-    - [Step 2: Run Agent Zero](setup/installation.md#step-2-run-agent-zero)
-      - [Pull Docker Image](setup/installation.md#21-pull-the-agent-zero-docker-image)
-      - [Map Folders for Persistence](setup/installation.md#22-optional-map-folders-for-persistence)
-      - [Run the Container](setup/installation.md#23-run-the-container)
-      - [Access the Web UI](setup/installation.md#24-access-the-web-ui)
-    - [Step 3: Configure Agent Zero](setup/installation.md#step-3-configure-agent-zero)
-      - [Settings Configuration](setup/installation.md#settings-configuration)
-      - [Agent Configuration](setup/installation.md#agent-configuration)
-      - [Chat Model Settings](setup/installation.md#chat-model-settings)
-      - [API Keys](setup/installation.md#api-keys)
-      - [Authentication](setup/installation.md#authentication)
-    - [Choosing Your LLMs](setup/installation.md#choosing-your-llms)
-    - [Installing Ollama (Local Models)](setup/installation.md#installing-and-using-ollama-local-models)
-    - [Using on Mobile Devices](setup/installation.md#using-agent-zero-on-your-mobile-device)
-  - [Self Update (technical)](guides/self-update.md)
-  - [VPS Deployment](setup/vps-deployment.md)
-  - [Development Setup](setup/dev-setup.md)
-  - [A0 CLI Connector](guides/a0-cli-connector.md)
-
-- [User Guides](#user-guides)
-  - [Usage Guide](guides/usage.md)
-    - [Basic Operations](guides/usage.md#basic-operations)
-    - [Plugins And Plugin Hub](guides/usage.md#plugins-and-plugin-hub)
-    - [Skills, Agent Profiles, And Model Presets](guides/usage.md#skills-agent-profiles-and-model-presets)
-      - [Skills](guides/usage.md#skills)
-      - [Agent Profiles](guides/usage.md#agent-profiles)
-      - [Model Presets](guides/usage.md#model-presets)
-    - [File Attachments](guides/usage.md#file-attachments)
-    - [Tool Usage](guides/usage.md#tool-usage)
-      - [Browser Tool And Surface](guides/usage.md#browser-tool-and-surface)
-      - [Desktop Surface](guides/usage.md#desktop-surface)
-      - [Agent-To-Agent Communication](guides/usage.md#agent-to-agent-communication)
-      - [Multi-Agent Cooperation](guides/usage.md#multi-agent-cooperation)
-    - [Projects](guides/usage.md#projects)
-    - [Tasks And Scheduling](guides/usage.md#tasks-and-scheduling)
-    - [Secrets And Variables](guides/usage.md#secrets-and-variables)
-    - [Remote Access Via Tunneling](guides/usage.md#remote-access-via-tunneling)
-    - [Voice Interface](guides/usage.md#voice-interface)
-    - [Mathematical Expressions](guides/usage.md#mathematical-expressions)
-    - [File Browser](guides/usage.md#file-browser)
-    - [Memory Management](guides/usage.md#memory-management)
-    - [Backup And Restore](guides/usage.md#backup-and-restore)
-  - [Agent Zero Launcher](guides/launcher.md)
-  - [Browser Guide](guides/browser.md)
-  - [Desktop Guide](guides/desktop.md)
-  - [A0 CLI Connector](guides/a0-cli-connector.md)
-  - [Create a Small Plugin](guides/create-plugin.md)
-  - [Skills Guide](guides/skills.md)
-  - [Agent Profiles](guides/agent-profiles.md)
-  - [Model Presets](guides/model-presets.md)
-  - [Memory Guide](guides/memory.md)
-  - [Projects Tutorial](guides/projects.md)
-  - [API Integration](guides/api-integration.md)
-  - [MCP Setup](guides/mcp-setup.md)
-  - [A2A Setup](guides/a2a-setup.md)
-  - [Troubleshooting](guides/troubleshooting.md)
-
-- [Technical Reference](#technical-reference)
-  - [DeepWiki for Agent Zero](https://deepwiki.com/agent0ai/agent-zero)
-  - [Architecture](developer/architecture.md)
-  - [Plugins](developer/plugins.md)
-  - [Extensions](developer/extensions.md)
-  - [Connectivity](developer/connectivity.md)
-  - [WebSockets](developer/websockets.md)
-  - [MCP Configuration](developer/mcp-configuration.md)
-  - [Notifications](developer/notifications.md)
-  - [Contributing Skills](developer/contributing-skills.md)
-  - [Contributing Guide](guides/contribution.md)
-
----
-
-## Documentation Ownership
-
-| Content type | Home |
-| --- | --- |
-| Setup, screenshots, and everyday workflows | These docs |
-| Architecture and source-linked internals | [DeepWiki](https://deepwiki.com/agent0ai/agent-zero) |
-| Exact behavior | The current source code |
-| Community help and examples | Discord, Skool, GitHub discussions |
-
-### Your journey with Agent Zero starts now!
-
-Ready to dive in? Start with the [Quickstart Guide](quickstart.md) for the fastest path to your first chat, or follow the [Installation Guide](setup/installation.md) for a detailed setup walkthrough.
+- [Welcome to the Agent Zero Documentation](#agent-zero-documentation)
+  - [Your Experience with Agent Zero](#your-experience-with-agent-zero-starts-now)
+  - [Table of Contents](#table-of-contents)
+- [Installation Guide](installation.md)
+  - [Windows, macOS and Linux Setup](installation.md#windows-macos-and-linux-setup-guide)
+  - [Settings Configuration](installation.md#settings-configuration)
+  - [Choosing Your LLMs](installation.md#choosing-your-llms)
+  - [Installing and Using Ollama](installation.md#installing-and-using-ollama-local-models)
+  - [Using Agent Zero on Mobile](installation.md#using-agent-zero-on-your-mobile-device)
+  - [How to Update Agent Zero](installation.md#how-to-update-agent-zero)
+  - [Full Binaries Installation](installation.md#in-depth-guide-for-full-binaries-installation)
+- [Usage Guide](usage.md)
+  - [Basic Operations](usage.md#basic-operations)
+    - [Restart Framework](usage.md#restart-framework)
+    - [Action Buttons](usage.md#action-buttons)
+    - [File Attachments](usage.md#file-attachments)
+  - [Tool Usage](usage.md#tool-usage)
+  - [Example of Tools Usage](usage.md#example-of-tools-usage-web-search-and-code-execution)
+  - [Multi-Agent Cooperation](usage.md#multi-agent-cooperation)
+  - [Prompt Engineering](usage.md#prompt-engineering)
+  - [Voice Interface](usage.md#voice-interface)
+  - [Mathematical Expressions](usage.md#mathematical-expressions)
+  - [File Browser](usage.md#file-browser)
+- [Architecture Overview](architecture.md)
+  - [System Architecture](architecture.md#system-architecture)
+  - [Runtime Architecture](architecture.md#runtime-architecture)
+  - [Implementation Details](architecture.md#implementation-details)
+  - [Core Components](architecture.md#core-components)
+    - [Agents](architecture.md#1-agents)
+    - [Tools](architecture.md#2-tools)
+    - [SearXNG Integration](architecture.md#searxng-integration)
+    - [Memory System](architecture.md#3-memory-system)
+    - [Messages History and Summarization](archicture.md#messages-history-and-summarization)
+    - [Prompts](architecture.md#4-prompts)
+    - [Knowledge](architecture.md#5-knowledge)
+    - [Instruments](architecture.md#6-instruments)
+    - [Extensions](architecture.md#7-extensions)
+  - [Contributing](contribution.md)
+  - [Getting Started](contribution.md#getting-started)
+  - [Making Changes](contribution.md#making-changes)
+  - [Submitting a Pull Request](contribution.md#submitting-a-pull-request)
+  - [Documentation Stack](contribution.md#documentation-stack)
+- [Token Compression Protocol](token_compression_protocol.md)
+- [Troubleshooting and FAQ](troubleshooting.md)
+  - [Frequently Asked Questions](troubleshooting.md#frequently-asked-questions)
+  - [Troubleshooting](troubleshooting.md#troubleshooting)
