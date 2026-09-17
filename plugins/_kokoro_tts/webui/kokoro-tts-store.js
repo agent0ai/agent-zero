@@ -15,6 +15,13 @@ const model = {
     voice: "",
     voice_weights: {},
     speed: 1.1,
+    engine: "kokoro_py",
+    lang: "en-us",
+    onnx_hf_repo: "",
+    onnx_model_file: "",
+    onnx_voices_file: "",
+    onnx_mixed_lang: "en-us",
+    onnx_mixed_lang_terms: "",
   },
   modelReady: false,
   modelLoading: false,
@@ -44,6 +51,13 @@ const model = {
         voice: status?.config?.voice || "",
         voice_weights: status?.config?.voice_weights || {},
         speed: Number(status?.config?.speed || 1.1),
+        engine: status?.config?.engine || "kokoro_py",
+        lang: status?.config?.lang || "en-us",
+        onnx_hf_repo: status?.config?.onnx_hf_repo || "",
+        onnx_model_file: status?.config?.onnx_model_file || "",
+        onnx_voices_file: status?.config?.onnx_voices_file || "",
+        onnx_mixed_lang: status?.config?.onnx_mixed_lang || "en-us",
+        onnx_mixed_lang_terms: status?.config?.onnx_mixed_lang_terms || "",
       };
       this.modelReady = !!status?.model?.ready;
       this.modelLoading = !!status?.model?.loading;
