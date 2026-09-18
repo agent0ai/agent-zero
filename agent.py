@@ -289,7 +289,7 @@ class AgentContext:
     ):
         if not self.task:
             self.task = DeferredTask(
-                thread_name=self.__class__.__name__,
+                thread_name=f"{self.__class__.__name__}-{self.id}",
             )
         self.task.start_task(func, *args, **kwargs)
         return self.task
