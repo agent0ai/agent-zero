@@ -27,7 +27,8 @@
                     x-show="$store.notificationStore && $store.notificationStore.getDisplayNotifications().length > 0">
                     <template x-for="notification in ($store.notificationStore?.getDisplayNotifications() || [])"
                         :key="notification.id">
-                        <div class="notification-item" x-data="{ expanded: false }"
+                        <div class="notification-item"
+                            x-data="{ expanded: false, toast: { ...notification, toastId: 'toast-' + notification.id } }"
                             :class="$store.notificationStore?.getNotificationItemClass(notification) || 'notification-item'"
                             @click="$store.notificationStore?.markAsRead(notification.id)">
 

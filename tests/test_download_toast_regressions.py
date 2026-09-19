@@ -117,6 +117,28 @@ def test_notification_store_supports_persistent_grouped_toasts():
     assert "if (response?.success) window.location.reload();" in store
 
 
+def test_notification_action_buttons_work_in_notifications_modal():
+    store = read("webui", "components", "notifications", "notification-store.js")
+    modal = read("webui", "components", "notifications", "notification-modal.html")
+
+    # Action buttons inside notification messages are authored against the
+    # toast-stack scope (``toast.toastId``). The notifications modal renders the
+    # same message HTML through x-html, so it must expose a toast-compatible
+    # scope or the buttons silently fail there.
+    assert "toast: { ...notification, toastId: 'toast-' + notification.id }" in modal
+
+    # Reload actions must keep working when the notification is not in the
+    # toast stack anymore (clicked from the notifications modal).
+    assert "const notificationId = toast?.id || notificationIdFromToastId(toastId);" in store
+    assert "toastId.startsWith(toastIdPrefix)" in store
+    assert "toastId.slice(toastIdPrefix.length)" in store
+
+    # Plain dismissal from the modal mirrors the toast behavior by marking the
+    # notification as read instead of being a silent no-op.
+    assert "const notificationId = notificationIdFromToastId(toastId);" in store
+    assert "if (notificationId) this.markAsRead(notificationId);" in store
+
+
 def test_backup_zip_downloads_emit_grouped_preparing_and_downloading_toasts():
     store = read("webui", "components", "settings", "backup", "backup-store.js")
 

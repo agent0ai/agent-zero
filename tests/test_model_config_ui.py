@@ -38,6 +38,17 @@ def test_model_preset_rows_keep_stable_identity_after_middle_delete() -> None:
     assert "presets.splice" not in preset_store
 
 
+def test_model_preset_editor_select_shows_selected_preset_on_open() -> None:
+    preset_modal = read("plugins", "_model_config", "webui", "main.html")
+
+    # x-model syncs the select value before the x-for template renders the
+    # <option> elements, so the browser falls back to the first option
+    # ("Default") while Alpine's selectedKey still points at the real preset.
+    # Selecting that same first option then fires no change event. The :selected
+    # binding keeps the DOM selection in sync with the model.
+    assert ':selected="preset._key === selectedKey"' in preset_modal
+
+
 def test_model_preset_editor_can_reset_to_bundled_defaults() -> None:
     preset_modal = read("plugins", "_model_config", "webui", "main.html")
     preset_store = read("plugins", "_model_config", "webui", "model-config-store.js")
