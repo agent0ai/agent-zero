@@ -28,7 +28,7 @@
   access, timeout, transfer, and disconnect handling; ordinary model args cannot
   enable `allow_running`. There is no `runtime=input` or `code` input alias.
 - Computer Use prompts keep `element_index` top-level and semantic `target` syntax in backend skills. macOS `app-scoped-semantic-targeting` enables explicit app/window scope; older clients use the indexed window workflow. Native `get_window_state.mode` only labels output and stays out of model-facing guidance.
-- Agent-scoped skill discovery includes this plugin's `skills/` root only when a routed connected socket has connector capability metadata. WebUI-only sockets do not qualify; disabled capabilities still count as a connected CLI. Filter roots on each discovery without mutating cached paths or persisting visibility settings. `setup-a0-cli` lives in root `skills/` and stays discoverable while disconnected.
+- Agent-scoped skill discovery includes this plugin's `skills/` root only when a routed connected socket has connector capability metadata. WebUI-only sockets do not qualify; disabled capabilities still count as a connected CLI. Filter roots on each discovery without mutating cached paths or persisting visibility settings. `setup-a0-cli` lives in the bundled `_skills` collection (`plugins/_skills/skills/`) and stays discoverable while disconnected.
 - Never re-add a connector prompt that the effective project/profile tool policy
   blocks.
 - Do not bypass WebSocket authentication or leak connector session data.
