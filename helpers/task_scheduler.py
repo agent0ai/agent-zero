@@ -22,7 +22,7 @@ from helpers.print_style import PrintStyle
 from helpers.defer import DeferredTask
 from helpers.files import get_abs_path, make_dirs, read_file, write_file
 from helpers.localization import Localization
-from helpers import projects, guids
+from helpers import projects, guids, yaml
 import pytz
 from typing import Annotated
 
@@ -509,6 +509,12 @@ class PlannedTask(BaseTask):
         await super().on_error(error)
 
 
+def _task_file_path() -> str:
+    json_path = get_abs_path(SCHEDULER_FOLDER, "tasks.json")
+    yaml_path = get_abs_path(SCHEDULER_FOLDER, "tasks.yaml")
+    return yaml_path if not exists(json_path) and exists(yaml_path) else json_path
+
+
 class SchedulerTaskList(BaseModel):
     tasks: list[Annotated[Union[ScheduledTask, AdHocTask, PlannedTask], Field(discriminator="type")]] = Field(default_factory=list)
     # Singleton instance
@@ -518,26 +524,33 @@ class SchedulerTaskList(BaseModel):
 
     @classmethod
     def get(cls) -> "SchedulerTaskList":
-        path = get_abs_path(SCHEDULER_FOLDER, "tasks.json")
+        path = _task_file_path()
         if cls.__instance is None:
             if not exists(path):
                 make_dirs(path)
                 cls.__instance = asyncio.run(cls(tasks=[]).save())
             else:
-                cls.__instance = cls.model_validate_json(read_file(path))
+                cls.__instance = cls._load(path)
         else:
             asyncio.run(cls.__instance.reload())
         return cls.__instance
+
+    @classmethod
+    def _load(cls, path: str) -> "SchedulerTaskList":
+        content = read_file(path)
+        if path.endswith(".yaml"):
+            return cls.model_validate(yaml.loads(content))
+        return cls.model_validate_json(content)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._lock = threading.RLock()
 
     async def reload(self) -> "SchedulerTaskList":
-        path = get_abs_path(SCHEDULER_FOLDER, "tasks.json")
+        path = _task_file_path()
         if exists(path):
             with self._lock:
-                data = self.__class__.model_validate_json(read_file(path))
+                data = self.__class__._load(path)
                 self.tasks.clear()
                 self.tasks.extend(data.tasks)
         return self
@@ -563,7 +576,7 @@ class SchedulerTaskList(BaseModel):
                             f"Fixed: Generated new token '{task.token}' for task {task.name}"
                         )
 
-            path = get_abs_path(SCHEDULER_FOLDER, "tasks.json")
+            path = _task_file_path()
             if not exists(path):
                 make_dirs(path)
 
@@ -576,7 +589,7 @@ class SchedulerTaskList(BaseModel):
                     "ERROR: Found null token in JSON output for an adhoc task"
                 )
 
-            write_file(path, json_data)
+            write_file(path, yaml.from_json(json_data) if path.endswith(".yaml") else json_data)
 
             # Debug: Verify after saving
             if exists(path):

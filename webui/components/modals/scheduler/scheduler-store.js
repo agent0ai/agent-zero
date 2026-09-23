@@ -1,5 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { fetchApi } from "/js/api.js";
+import { openModal, closeModal } from "/js/modals.js";
 import {
   formatDateTime,
   getUserDateTimeParts,
@@ -282,7 +283,7 @@ async function callSchedulerEndpoint(endpoint, payload = {}, defaultError) {
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    if (!response.ok || data?.error) {
       return { ok: false, error: data?.error || defaultError || "Task request failed" };
     }
     return { ok: true, data };
@@ -479,6 +480,7 @@ const schedulerStoreModel = {
   isCreating: false,
   isEditing: false,
   editingTask: defaultEditingTask(),
+  promptField: "prompt",
   selectedProjectSlug: "",
   projectOptions: [],
 
@@ -679,12 +681,8 @@ const schedulerStoreModel = {
     } catch (error) {
       this.notifyError(`Failed to save task: ${error.message}`);
       return;
-    } finally {
-      this.destroyFlatpickr("all");
-      this.resetEditingTask();
-      this.isCreating = false;
-      this.isEditing = false;
     }
+    this.cancelEdit();
   },
 
   async runTask(taskId) {
@@ -756,8 +754,19 @@ const schedulerStoreModel = {
   },
 
   // Domain helpers -----------------------------------------------------------
+  openPromptEditor(field) {
+    if (!["system_prompt", "prompt"].includes(field)) return;
+    this.promptField = field;
+    return openModal("modals/scheduler/scheduler-prompt-editor.html");
+  },
+
+  closePromptEditor() {
+    return closeModal("modals/scheduler/scheduler-prompt-editor.html");
+  },
+
   resetEditingTask() {
     this.editingTask = defaultEditingTask();
+    this.promptField = "prompt";
     this.selectedProjectSlug = "";
   },
 
@@ -1022,10 +1031,7 @@ const schedulerStoreModel = {
     this.isEditing = false;
     await this.refreshProjectOptions();
 
-    let initialProject = this.deriveActiveProject();
-    if (!initialProject && this.projectOptions.length > 0) {
-      initialProject = { ...this.projectOptions[0] };
-    }
+    const initialProject = this.deriveActiveProject();
 
     this.editingTask = defaultEditingTask({
       token: this.generateRandomToken(),

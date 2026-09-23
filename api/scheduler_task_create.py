@@ -1,7 +1,7 @@
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers.task_scheduler import (
     TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, TaskSchedule,
-    serialize_task, parse_task_schedule, parse_task_plan, TaskType
+    serialize_task, parse_task_schedule, parse_task_plan, TaskType, TaskState
 )
 from helpers.projects import load_basic_project_data
 from helpers.localization import Localization
@@ -27,6 +27,7 @@ class SchedulerTaskCreate(ApiHandler):
         name = input.get("name")
         system_prompt = input.get("system_prompt", "")
         prompt = input.get("prompt")
+        state = TaskState(input.get("state", TaskState.IDLE))
         attachments = input.get("attachments", [])
 
         requested_project_slug = input.get("project_name")
@@ -138,6 +139,7 @@ class SchedulerTaskCreate(ApiHandler):
                 printer.print(f"AdHocTask created with token: '{task.token}'")
 
         # Add the task to the scheduler
+        task.state = state
         await scheduler.add_task(task)
 
         # Verify the task was added correctly - retrieve by UUID to check persistence

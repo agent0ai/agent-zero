@@ -20,6 +20,7 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `SchedulerTaskCreate` is an `ApiHandler`.
 - `SchedulerTaskCreate` defines `process(...)`.
+- An optional `state` is validated as `TaskState` and applied before persistence; it defaults to `idle`. Creating a disabled task must not briefly expose it as runnable.
 - Observed side-effect areas: filesystem writes, secret handling, scheduler state.
 - Imported dependency areas include: `helpers.api`, `helpers.localization`, `helpers.print_style`, `helpers.projects`, `helpers.task_scheduler`, `random`.
 
@@ -37,7 +38,7 @@
 ## Verification
 
 - Run endpoint-specific or API/WebSocket tests for changed behavior; smoke-test browser callers when no focused test exists.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- Run `tests/test_scheduler_editor.py` for initial-state persistence.
 
 ## Child DOX Index
 
