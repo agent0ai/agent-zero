@@ -2106,7 +2106,7 @@ def test_browser_navigation_errors_stay_inside_native_browser_page():
     assert "Error as PlaywrightError" in runtime
     assert "except PlaywrightError as exc:" in runtime
     assert "Browser navigation showed a native error page" in runtime
-    assert "await self._settle(page)" in runtime
+    assert "await page.goto(url, wait_until=wait_until, timeout=30000)" in runtime
     assert "except (PlaywrightError, PlaywrightTimeoutError):" in runtime
 
 
@@ -2930,9 +2930,10 @@ def test_browser_interactive_views_use_isolated_loopback_sessions(monkeypatch, t
 
 
 @pytest.mark.anyio
-async def test_browser_interactive_viewer_reuses_the_automated_page():
+@pytest.mark.parametrize("width,height", [(1200, 700), (0, 0)])
+async def test_browser_interactive_viewer_reuses_the_automated_page(width, height):
     class FakePage:
-        viewport_size = {"width": 1024, "height": 768}
+        viewport_size = {"width": 1800, "height": 1050}
 
     class FakeInteractiveView:
         def __init__(self):
@@ -2944,8 +2945,8 @@ async def test_browser_interactive_viewer_reuses_the_automated_page():
                 "available": True,
                 "token": "browser-token",
                 "url": "/desktop/session/browser-token/",
-                "width": width,
-                "height": height,
+                "width": width or 1200,
+                "height": height or 700,
             }
 
     page = FakePage()
@@ -2971,10 +2972,10 @@ async def test_browser_interactive_viewer_reuses_the_automated_page():
     core._stop_screencasts_for_browser = stop_screencasts
     core.set_viewport = set_viewport
 
-    result = await core.interactive_viewer(7, width=1200, height=700)
+    result = await core.interactive_viewer(7, width=width, height=height)
 
     assert core.pages[7].page is page
-    assert interactive_view.ensure_calls == [(1200, 700)]
+    assert interactive_view.ensure_calls == [(width, height)]
     assert stopped == [7]
     assert viewport_calls == [(7, 1200, 700, {"resize_interactive": True})]
     assert core.last_interacted_browser_id == 7
@@ -3718,7 +3719,7 @@ async def test_browser_viewer_subscribe_can_create_blank_tab_when_requested(monk
         def __init__(self) -> None:
             self.opened = False
 
-        async def call(self, method, *args):
+        async def call(self, method, *args, **kwargs):
             if method == "list":
                 if self.opened:
                     return {
@@ -3727,6 +3728,7 @@ async def test_browser_viewer_subscribe_can_create_blank_tab_when_requested(monk
                     }
                 return {"browsers": [], "last_interacted_browser_id": None}
             if method == "open":
+                assert kwargs == {"wait_until": "commit"}
                 self.opened = True
                 return {"id": 1, "state": {"id": 1, "currentUrl": "about:blank"}}
             raise AssertionError(method)
@@ -4071,11 +4073,8 @@ async def test_shared_browser_runtime_keeps_tabs_context_scoped():
             self.url = url
             self.closed = False
 
-        async def title(self):
-            return self.url
-
         async def evaluate(self, script, **kwargs):
-            return 1
+            return {"title": self.url, "canGoBack": False, "loading": False}
 
         async def close(self):
             self.closed = True
@@ -4679,11 +4678,8 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
                 Path(kwargs["path"]).write_bytes(b"image-bytes")
             return b"image-bytes"
 
-        async def title(self):
-            return "Blank"
-
         async def evaluate(self, script, payload=None, **kwargs):
-            return 1
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     core = _BrowserRuntimeCore(browser_runtime_module.SHARED_RUNTIME_ID)
     core.context = object()
@@ -4821,10 +4817,7 @@ async def test_browser_runtime_ref_point_resolution_applies_offsets():
                     "rect": {"x": 10, "y": 20, "width": 100, "height": 40},
                     "selector": "#target",
                 }
-            return 1
-
-        async def title(self):
-            return "Blank"
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     core = _BrowserRuntimeCore("ctx")
     core.context = object()
@@ -4892,10 +4885,7 @@ async def test_browser_runtime_clipboard_paste_uses_dom_bridge():
                     "changed": True,
                     "default_prevented": False,
                 }
-            return 1
-
-        async def title(self):
-            return "Blank"
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")
@@ -4941,10 +4931,7 @@ async def test_browser_runtime_clipboard_paste_falls_back_to_keyboard_insert_tex
                     "changed": False,
                     "default_prevented": False,
                 }
-            return 1
-
-        async def title(self):
-            return "Blank"
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")

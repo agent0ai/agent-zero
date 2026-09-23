@@ -1302,7 +1302,9 @@ class _BrowserRuntimeCore:
         except OSError as exc:
             PrintStyle.warning(f"Could not force-stop orphaned Chromium process {pid}: {exc}")
 
-    async def open(self, url: str = "") -> dict[str, Any]:
+    async def open(
+        self, url: str = "", *, wait_until: str = "domcontentloaded"
+    ) -> dict[str, Any]:
         await self.ensure_started()
         self._ensure_can_open_page()
         context_id = self.current_context_id
@@ -1314,9 +1316,7 @@ class _BrowserRuntimeCore:
         self.last_interacted_browser_id = browser_page.id
         target_url = self._initial_url(url)
         if target_url and target_url != "about:blank":
-            await self._goto(page, normalize_url(target_url))
-        else:
-            await self._settle(page)
+            await self._goto(page, normalize_url(target_url), wait_until=wait_until)
         self._persist_browser_tabs()
         return {"id": browser_page.id, "state": await self._state(browser_page.id)}
 
@@ -1346,7 +1346,8 @@ class _BrowserRuntimeCore:
             raise self._tab_limit_error()
 
     async def list(self, include_content: bool = False) -> dict[str, Any]:
-        await self.ensure_started()
+        if self.context or has_restorable_browser_tabs(self.current_context_id):
+            await self.ensure_started()
         ids = self._context_browser_ids()
         if not ids:
             return {
@@ -1377,7 +1378,8 @@ class _BrowserRuntimeCore:
         }
 
     async def list_all(self) -> dict[str, Any]:
-        await self.ensure_started()
+        if self.context or has_restorable_browser_tabs(self.current_context_id):
+            await self.ensure_started()
         browser_ids = sorted(self.pages)
         return {
             "browsers": await asyncio.gather(
@@ -1644,7 +1646,6 @@ class _BrowserRuntimeCore:
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
         await page.go_back(wait_until=wait_until, timeout=10000)
-        await self._settle(page, short=wait_until == "commit")
         self._maybe_promote(resolved_id)
         self._persist_browser_tabs()
         return await self._state(resolved_id)
@@ -1659,7 +1660,6 @@ class _BrowserRuntimeCore:
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
         await page.go_forward(wait_until=wait_until, timeout=10000)
-        await self._settle(page, short=wait_until == "commit")
         self._maybe_promote(resolved_id)
         self._persist_browser_tabs()
         return await self._state(resolved_id)
@@ -1674,7 +1674,6 @@ class _BrowserRuntimeCore:
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
         await page.reload(wait_until=wait_until, timeout=15000)
-        await self._settle(page, short=wait_until == "commit")
         self._maybe_promote(resolved_id)
         self._persist_browser_tabs()
         return await self._state(resolved_id)
@@ -2241,11 +2240,7 @@ class _BrowserRuntimeCore:
         await self.ensure_started()
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
-        current_viewport = await self._page_viewport(page)
-        viewer = self.interactive_view.ensure_viewer(
-            width or int(current_viewport.get("width") or DEFAULT_VIEWPORT["width"]),
-            height or int(current_viewport.get("height") or DEFAULT_VIEWPORT["height"]),
-        )
+        viewer = self.interactive_view.ensure_viewer(width, height)
         if not viewer.get("available"):
             return viewer
 
@@ -2825,7 +2820,6 @@ class _BrowserRuntimeCore:
             PrintStyle.warning(f"Browser navigation timed out waiting for {wait_until}: {url}")
         except PlaywrightError as exc:
             PrintStyle.warning(f"Browser navigation showed a native error page for {url}: {exc}")
-        await self._settle(page, short=wait_until == "commit")
 
     async def _settle(self, page: Any, short: bool = False) -> None:
         from patchright.async_api import Error as PlaywrightError
@@ -2846,24 +2840,21 @@ class _BrowserRuntimeCore:
             raise KeyError(f"Browser {browser_id} is not open.")
         page = browser_page.page
         try:
-            title = await page.title()
-        except Exception:
-            title = ""
-        try:
-            history_length = await page.evaluate(
-                "() => globalThis.history?.length || 0",
+            state = await page.evaluate(
+                "() => ({title: document.title, canGoBack: history.length > 1, "
+                "loading: document.readyState !== 'complete'})",
                 isolated_context=False,
             )
         except Exception:
-            history_length = 0
+            state = {}
         return {
             "id": browser_page.id,
             "context_id": self._page_context_id(browser_page),
             "currentUrl": page.url,
-            "title": title,
-            "canGoBack": bool(history_length and int(history_length) > 1),
+            "title": state.get("title", ""),
+            "canGoBack": bool(state.get("canGoBack")),
             "canGoForward": False,
-            "loading": False,
+            "loading": bool(state.get("loading")),
         }
 
     def _register_page_locked(

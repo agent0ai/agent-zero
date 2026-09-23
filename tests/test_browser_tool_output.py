@@ -3,7 +3,7 @@ import json
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -14,6 +14,89 @@ from plugins._browser.tools.browser import Browser
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["list", "list_all"])
+@pytest.mark.parametrize("restorable", [False, True])
+async def test_listing_only_starts_cold_browser_when_tabs_need_restoring(monkeypatch, method, restorable):
+    core = _BrowserRuntimeCore("listing-test")
+    started = AsyncMock()
+    monkeypatch.setattr(core, "ensure_started", started)
+    monkeypatch.setattr(runtime_module, "has_restorable_browser_tabs", lambda context_id: restorable)
+
+    assert (await getattr(core, method)())["browsers"] == []
+    assert started.await_count == int(restorable)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wait_until", ["commit", "domcontentloaded"])
+async def test_navigation_uses_requested_readiness_without_extra_settling(monkeypatch, wait_until):
+    core = _BrowserRuntimeCore("navigation-test")
+    page = SimpleNamespace(
+        goto=AsyncMock(), go_back=AsyncMock(), go_forward=AsyncMock(), reload=AsyncMock(),
+    )
+    core.pages[1] = BrowserPage(1, page, "navigation-test")
+    core.context = SimpleNamespace(new_page=AsyncMock(return_value=page))
+    monkeypatch.setattr(core, "ensure_started", AsyncMock())
+    monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 1}))
+    monkeypatch.setattr(core, "_register_page", AsyncMock(return_value=core.pages[1]))
+    monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
+    monkeypatch.setattr(core, "_settle", AsyncMock(side_effect=AssertionError("Redundant wait")))
+    monkeypatch.setattr(runtime_module, "get_browser_config", lambda: {})
+
+    await core.open("https://example.com", wait_until=wait_until)
+    await core.navigate(1, "https://example.com", wait_until=wait_until)
+    await core.back(1, wait_until=wait_until)
+    await core.forward(1, wait_until=wait_until)
+    await core.reload(1, wait_until=wait_until)
+    for method in (page.goto, page.go_back, page.go_forward, page.reload):
+        assert all(call.kwargs["wait_until"] == wait_until for call in method.await_args_list)
+    core._settle.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch):
+    core = _BrowserRuntimeCore("state-test")
+    page = SimpleNamespace(url="https://example.com", evaluate=AsyncMock(return_value={
+        "title": "Example", "canGoBack": True, "loading": True,
+    }))
+    core.pages[1] = BrowserPage(1, page, "state-test")
+    state = await core._state(1)
+    assert state == {
+        "id": 1, "context_id": "state-test", "currentUrl": page.url,
+        "title": "Example", "canGoBack": True, "canGoForward": False, "loading": True,
+    }
+    assert page.evaluate.await_count == 1
+    page.evaluate.side_effect = RuntimeError("Execution context destroyed during navigation")
+    assert (await core._state(1))["currentUrl"] == page.url
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action,calls,capture", [
+    *[(action, None, False) for action in ("list", "state", "content", "detail", "evaluate", "close", "close_all")],
+    ("multi", [{"action": "content"}, {"action": "evaluate", "script": "document.title"}], False),
+    ("multi", [{"action": "content"}, {"action": "click", "ref": 1}], True),
+    ("screenshot", None, True),
+])
+async def test_browser_inspection_skips_history_capture_but_preserves_visual_actions(monkeypatch, action, calls, capture):
+    from plugins._browser.tools import browser as tool_module
+
+    screenshot = {"browser_id": 1, "ephemeral_ref": "a0-ephemeral-image://test"}
+    runtime = SimpleNamespace(call=AsyncMock(side_effect=lambda method, *a, **kw:
+        screenshot if method == "screenshot_file" else {}))
+    monkeypatch.setattr(tool_module, "get_runtime", AsyncMock(return_value=runtime))
+    monkeypatch.setattr(tool_module, "activate_browser_model", lambda agent: None)
+    tool = object.__new__(Browser)
+    tool.agent = SimpleNamespace(context=SimpleNamespace(id="test"))
+    tool.method = ""
+    tool.log = SimpleNamespace(update=Mock())
+
+    response = await tool.execute(action=action, browser_id=1, ref=1, script="document.title", calls=calls)
+
+    assert not response.message.startswith("Browser "), response.message
+    assert sum(call.args[0] == "screenshot_file" for call in runtime.call.await_args_list) == int(capture)
+    assert tool.log.update.call_count == int(capture)
 
 
 def test_format_result_minifies_tool_json() -> None:

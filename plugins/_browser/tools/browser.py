@@ -15,7 +15,9 @@ from plugins._browser.helpers.selector import get_tool_runtime
 
 
 HISTORY_SCREENSHOT_QUALITY = 62
-HISTORY_SCREENSHOT_ACTION_DENYLIST = {"close", "close_all"}
+HISTORY_SCREENSHOT_ACTION_DENYLIST = {
+    "close", "close_all", "list", "state", "content", "detail", "evaluate",
+}
 
 
 async def get_runtime(context_id: str, create: bool = True, agent: Any | None = None):
@@ -315,7 +317,7 @@ class Browser(Tool):
                     message=f"Unknown browser action: {action}",
                     break_loop=False,
                 )
-            await self._record_history_screenshot(runtime, action, result, browser_id)
+            await self._record_history_screenshot(runtime, action, result, browser_id, calls=calls)
         except Exception as exc:
             return Response(message=f"Browser {action} failed: {exc}", break_loop=False)
 
@@ -429,10 +431,18 @@ class Browser(Tool):
         action: str,
         result: Any,
         requested_browser_id: int | str | None = None,
+        *,
+        calls: list[dict[str, Any]] | None = None,
     ) -> None:
         if not getattr(self, "log", None):
             return
         if action in HISTORY_SCREENSHOT_ACTION_DENYLIST:
+            return
+        if action == "multi" and calls and all(
+            str(call.get("action") or "").strip().lower().replace("-", "_")
+            in HISTORY_SCREENSHOT_ACTION_DENYLIST
+            for call in calls
+        ):
             return
 
         screenshot = result if action == "screenshot" and isinstance(result, dict) else None

@@ -92,7 +92,7 @@ class WsBrowser(WsHandler):
             listing = await runtime.call("list")
             browsers = listing.get("browsers") or []
         if runtime and not browsers and create_browser:
-            opened = await runtime.call("open", "")
+            opened = await runtime.call("open", "", wait_until="commit")
             listing = await runtime.call("list")
             browsers = listing.get("browsers") or []
             if opened.get("id"):
@@ -264,7 +264,7 @@ class WsBrowser(WsHandler):
 
         try:
             if command == "open":
-                result = await runtime.call("open", data.get("url") or "")
+                result = await runtime.call("open", data.get("url") or "", wait_until="commit")
             elif command == "navigate":
                 result = await runtime.call(
                     "navigate",
