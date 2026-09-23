@@ -17,6 +17,10 @@
 - Top-level functions:
 - `_subordinate_profile_labels(agent: Agent) -> dict[str, str]`
 - `_validate_subordinate_profile(agent: Agent, profile: str) -> str`
+- `_scoped_model_config_paths(*, project: str = "", profile: str = "") -> list[str]`
+- `_read_scoped_preset(path: str) -> str`
+- `explicit_scoped_preset(*, project: str = "", profile: str = "") -> str`
+- `_has_explicit_scoped_preset(*, project: str = "", profile: str = "") -> bool`
 - `get_or_create_subordinate(...) -> Agent`
 - `run_subordinate(...) -> str`
 
@@ -34,7 +38,9 @@
 - Child context IDs are accepted only when their persisted parent context, parent agent number, and child depth match the caller.
 - Supplying a different profile for an existing child without creating a fresh child raises `RepairableException` instead of silently changing its profile.
 - Active parallel children cannot be continued concurrently; await or cancel their job first.
-- Child contexts inherit the caller's project and selected chat-model override, are saved before execution and again on exit, and remain reusable after model/API failures.
+- Child contexts inherit the caller's project, are saved before execution and again on exit, and remain reusable after model/API failures.
+- A fresh child inherits the caller's `chat_model_override` only when its own scope (project or agent profile) does not select an explicit `model_preset`. An explicit scoped `model_preset` always wins; the global plugin preset never counts as an explicit scoped selection.
+- Explicit scoped presets are read from the raw scoped `_model_config/config.json` files (project/profile, project, user profile, bundled profile) instead of `get_configured_preset_name`, which falls back to `Default` and cannot distinguish an unset selection from an explicit one.
 - The direct tool result includes `context_id`; parallel job snapshots expose the same stable child ID separately from their per-invocation job ID.
 - Existing same-context linear subordinates remain reusable for saved-chat compatibility, but new children use child contexts and a private per-parent registry.
 - Imported dependency areas include: `agent`, `extensions.python.hist_add_tool_result`, `helpers`, `helpers.errors`, `helpers.tool`.
