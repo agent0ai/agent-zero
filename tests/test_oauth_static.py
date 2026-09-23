@@ -46,7 +46,7 @@ def test_oauth_settings_exposes_provider_specific_controls_and_generic_copy():
 
     assert "Check models" not in config_html
     assert "card.connected ? 'Connected' : 'Available'" not in config_html
-    assert '<span class="oauth-account-state connected" x-show="card.connected">Connected</span>' in config_html
+    assert '<span class="oauth-account-state connected" x-show="card.connected && !card.reconnect_required">Connected</span>' in config_html
     assert "Select account-backed models used by the Main model and Utility model slots." not in config_html
     assert "Primary model for chat, reasoning, and browser tasks." not in config_html + store_js
     assert "Background model for summaries, memory, and prompt preparation." not in config_html + store_js

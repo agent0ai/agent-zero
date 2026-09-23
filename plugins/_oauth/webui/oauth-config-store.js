@@ -1,7 +1,9 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
+import { copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
 import {
+  store as notificationStore,
   toastFrontendError,
   toastFrontendInfo,
   toastFrontendSuccess,
@@ -309,6 +311,17 @@ export const store = createStore("oauthConfig", {
     return this.devices[String(providerId || "")] || null;
   },
 
+  async copyDeviceCode(providerId) {
+    const code = this.providerDevice(providerId)?.user_code;
+    if (!code) return;
+    try {
+      await copyToClipboard(code);
+      void toastFrontendSuccess("Sign-in code copied.", "OAuth Connections");
+    } catch {
+      void toastFrontendError("Could not copy the code. Select it and copy manually.", "OAuth Connections");
+    }
+  },
+
   providerShowSetupFields(providerId) {
     if (this.providerConnected(providerId)) return false;
     if (this.providerDevice(providerId)) return false;
@@ -322,8 +335,9 @@ export const store = createStore("oauthConfig", {
   },
 
   providerDetailOpen(providerId) {
-    if (!this.isOauthProvider(providerId) || this.providerConnected(providerId)) return false;
+    if (!this.isOauthProvider(providerId)) return false;
     if (this.providerDevice(providerId)) return true;
+    if (this.providerConnected(providerId)) return false;
     const status = this.providerStatus(providerId);
     return this.selectedProviderId === providerId && Boolean(
       status.supports_enterprise_domain
@@ -336,6 +350,7 @@ export const store = createStore("oauthConfig", {
   providerReadinessLabel(providerId) {
     const status = this.providerStatus(providerId);
     if (this.loadingStatus) return "Checking";
+    if (status.reconnect_required) return "Sign in again to continue";
     if (status.connected) return this.providerStatusLabel(providerId);
     if (!this.providerSetupReady(providerId)) return "Needs OAuth client details";
     if (status.warning) return "Available with restrictions";
@@ -357,6 +372,7 @@ export const store = createStore("oauthConfig", {
 
   providerPrimaryLabel(providerId) {
     if (this.connectingProvider === providerId) return "Waiting";
+    if (providerId === CODEX_PROVIDER && this.providerConnected(providerId)) return "Reconnect";
     return this.providerSetupReady(providerId) ? "Connect" : "Configure";
   },
 
@@ -715,6 +731,7 @@ export const store = createStore("oauthConfig", {
 
   async handleProviderConnected(providerId, { statusLoaded = false } = {}) {
     if (!statusLoaded) await this.loadStatus();
+    if (providerId === CODEX_PROVIDER) notificationStore.dismissToast("toast-oauth-codex-reconnect");
     this.notifyModelSetupChanged(providerId);
   },
 
@@ -756,7 +773,7 @@ export const store = createStore("oauthConfig", {
   },
 
   async connectProvider(providerId) {
-    if (!this.isOauthProvider(providerId) || this.connectingProvider) return;
+    if (this.providerPrimaryDisabled(providerId)) return;
     this.connectingProvider = providerId;
     this.connecting = true;
     try {

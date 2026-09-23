@@ -703,6 +703,93 @@ def test_token_error_message_prefers_description():
     assert codex._token_error_message(FakeResponse()) == "refresh token was already used"
 
 
+@pytest.mark.parametrize("error", [
+    {"error": {"code": "upstream_error", "message": "Invalid refresh token."}},
+    {"error": "invalid_grant", "error_description": "private upstream detail"},
+    {"error": {"code": "refresh_token_reused", "message": "private upstream detail"}},
+    {"error": {"code": "refresh_token_expired", "message": "private upstream detail"}},
+    {"error": {"code": "refresh_token_invalidated", "message": "private upstream detail"}},
+])
+def test_rejected_refresh_notifies_once_and_recovers_after_sign_in(tmp_path, monkeypatch, error):
+    from helpers.notification import NotificationManager
+
+    path = tmp_path / "auth.json"
+    auth = {
+        "tokens": {"access_token": "old-access", "refresh_token": "old-refresh", "account_id": "account"},
+        "last_refresh": "2000-01-01T00:00:00Z",
+    }
+    path.write_text(json.dumps(auth))
+    monkeypatch.setattr(codex, "resolve_auth_write_path", lambda: path)
+    monkeypatch.setattr(codex, "codex_config", lambda: {
+        "token_url": "https://auth.example/token", "client_id": "client", "forced_workspace_id": "",
+    })
+    monkeypatch.setattr(codex, "resolve_agent_zero_user_agent", lambda: "test")
+    refresh_calls, notifications = [], []
+    monkeypatch.setattr(codex.requests, "post", lambda *a, **kw: refresh_calls.append(kw) or SimpleNamespace(
+        ok=False, status_code=400, text=json.dumps(error), json=lambda: error,
+    ))
+    monkeypatch.setattr(NotificationManager, "send_notification", lambda **kw: notifications.append(kw))
+
+    for _ in range(2):
+        with pytest.raises(codex.ProviderError, match="Reconnect your account") as failure:
+            codex.load_auth()
+        assert failure.value.status == 401
+        assert failure.value.code == "reconnect_required"
+    assert len(refresh_calls) == len(notifications) == 1
+    saved = json.loads(path.read_text())
+    assert saved["tokens"] == auth["tokens"]
+    assert saved["reconnect_required"] is True
+    status = codex.status()
+    assert status["connected"] is True
+    assert status["reconnect_required"] is True
+    assert len(refresh_calls) == len(notifications) == 1
+    message = notifications[0]["message"]
+    assert "Open OAuth settings" in message and "openConfig('_oauth')" in message
+    assert "private upstream detail" not in message and "old-refresh" not in message
+
+    monkeypatch.setattr(codex, "derive_account_id", lambda _: "account")
+    monkeypatch.setattr(codex, "obtain_api_key", lambda _: "")
+    monkeypatch.setattr(codex, "fetch_usage", lambda: {"available": False})
+    codex.persist_exchanged_tokens({"id_token": "new-id", "access_token": "new-access", "refresh_token": "new-refresh"})
+    assert codex.load_auth().access_token == "new-access"
+    assert codex.status()["reconnect_required"] is False
+    assert "reconnect_required" not in json.loads(path.read_text())
+
+
+def test_transient_refresh_failure_does_not_require_reconnect(tmp_path, monkeypatch):
+    path = tmp_path / "auth.json"
+    _write_refreshable_auth(path)
+    original = path.read_text()
+    monkeypatch.setattr(codex, "resolve_auth_write_path", lambda: path)
+    monkeypatch.setattr(codex, "codex_config", lambda: {"token_url": "https://auth.example/token", "client_id": "client"})
+    monkeypatch.setattr(codex, "resolve_agent_zero_user_agent", lambda: "test")
+    monkeypatch.setattr(codex.requests, "post", lambda *a, **kw: SimpleNamespace(
+        ok=False, status_code=503, text="unavailable", json=lambda: {"error": "temporarily_unavailable"},
+    ))
+    with pytest.raises(RuntimeError, match="temporarily_unavailable"):
+        codex.load_auth()
+    assert path.read_text() == original
+
+
+@pytest.mark.parametrize("route", [routes.codex_models, routes.codex_responses, routes.codex_chat_completions])
+@pytest.mark.parametrize("stream", [False, True])
+def test_codex_routes_preserve_reconnect_error(monkeypatch, route, stream):
+    from flask import Flask
+
+    def rejected(*args, **kwargs):
+        raise codex.ProviderError(codex.RECONNECT_MESSAGE, status=401, code="reconnect_required")
+
+    monkeypatch.setattr(routes, "_proxy_denied_response", lambda: None)
+    monkeypatch.setattr(codex, "prepare_responses_body", lambda body, **kw: body)
+    monkeypatch.setattr(codex, "fetch_models", rejected)
+    monkeypatch.setattr(codex, "request_codex", rejected)
+    with Flask(__name__).test_request_context("/", method="POST", json={"model": "test", "messages": [], "stream": stream}):
+        response, status = route()
+    assert status == 401
+    assert response.json["error"]["code"] == "reconnect_required"
+    assert response.json["error"]["message"] == codex.RECONNECT_MESSAGE
+
+
 def test_refresh_tokens_sends_agent_zero_user_agent(monkeypatch):
     requests: list[dict] = []
 
@@ -1045,6 +1132,7 @@ def test_disconnect_auth_only_mutates_agent_zero_private_auth_file(tmp_path, mon
             {
                 "auth_mode": "chatgpt",
                 "OPENAI_API_KEY": "sk-keep",
+                "reconnect_required": True,
                 "tokens": {
                     "access_token": "access",
                     "refresh_token": "refresh",

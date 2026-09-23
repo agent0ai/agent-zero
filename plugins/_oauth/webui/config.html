@@ -30,24 +30,24 @@
             <template x-for="card in $store.oauthConfig.providerCards()" :key="card.provider_id">
               <article
                 class="oauth-provider-row"
-                :class="{ selected: $store.oauthConfig.selectedProviderId === card.provider_id, connected: card.connected }"
+                :class="{ selected: $store.oauthConfig.selectedProviderId === card.provider_id, connected: card.connected && !card.reconnect_required }"
                 @click="$store.oauthConfig.selectProvider(card.provider_id)"
               >
-                <span class="oauth-mark" :class="{ connected: card.connected }">
-                  <x-icon :name="card.connected ? 'check' : card.mark"></x-icon>
+                <span class="oauth-mark" :class="{ connected: card.connected && !card.reconnect_required }">
+                  <x-icon :name="card.connected && !card.reconnect_required ? 'check' : card.mark"></x-icon>
                 </span>
                 <div class="oauth-provider-row-copy">
                   <strong x-text="card.display_name"></strong>
                   <span x-text="$store.oauthConfig.providerReadinessLabel(card.provider_id)"></span>
                 </div>
-                <span class="oauth-account-state connected" x-show="card.connected">Connected</span>
+                <span class="oauth-account-state connected" x-show="card.connected && !card.reconnect_required">Connected</span>
                 <div class="oauth-row-actions">
                   <button
                     class="oauth-connect compact"
                     type="button"
                     @click.stop="$store.oauthConfig.handleProviderPrimary(card.provider_id)"
                     :disabled="$store.oauthConfig.providerPrimaryDisabled(card.provider_id)"
-                    x-show="!card.connected"
+                    x-show="!card.connected || card.provider_id === 'codex_oauth'"
                   >
                     <x-icon :name="$store.oauthConfig.connectingProvider === card.provider_id ? 'progress_activity' : ($store.oauthConfig.providerSetupReady(card.provider_id) ? 'login' : 'tune')"></x-icon>
                     <span x-text="$store.oauthConfig.providerPrimaryLabel(card.provider_id)"></span>
@@ -56,7 +56,7 @@
                     class="oauth-connect danger compact"
                     type="button"
                     @click.stop="$store.oauthConfig.disconnectProvider(card.provider_id)"
-                    :disabled="$store.oauthConfig.disconnectingProvider === card.provider_id"
+                    :disabled="$store.oauthConfig.providerPrimaryDisabled(card.provider_id)"
                     x-show="card.connected"
                   >
                     <x-icon :name="$store.oauthConfig.disconnectingProvider === card.provider_id ? 'progress_activity' : 'link_off'"></x-icon>
@@ -164,7 +164,12 @@
 
                     <div class="oauth-device" x-show="$store.oauthConfig.providerDevice(card.provider_id)?.user_code">
                       <span>Enter this code</span>
-                      <strong x-text="$store.oauthConfig.providerDevice(card.provider_id)?.user_code"></strong>
+                      <div class="oauth-device-code">
+                        <code x-text="$store.oauthConfig.providerDevice(card.provider_id)?.user_code"></code>
+                        <button class="oauth-icon-button" type="button" title="Copy sign-in code" aria-label="Copy sign-in code" @click="$store.oauthConfig.copyDeviceCode(card.provider_id)">
+                          <x-icon name="content_copy"></x-icon>
+                        </button>
+                      </div>
                       <button class="text-button" type="button" @click="$store.oauthConfig.cancelConnect(card.provider_id)">
                         <x-icon name="close"></x-icon>
                         <span>Cancel</span>
@@ -716,9 +721,23 @@
       font-weight: 700;
     }
 
-    .oauth-device strong {
+    .oauth-device-code {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-background);
+      color: var(--color-text);
+    }
+
+    .oauth-device-code code {
       font-size: 1.12rem;
-      letter-spacing: 0;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      user-select: all;
     }
 
     .oauth-usage-window {

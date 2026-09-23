@@ -129,6 +129,8 @@ def codex_responses():
             body=json.dumps(upstream_body),
             stream=True,
         )
+    except ProviderError as exc:
+        return _json_error(str(exc), status=exc.status, code=exc.code)
     except Exception as exc:
         return _json_error(str(exc), status=502, code="upstream_error")
 
@@ -170,6 +172,8 @@ def codex_chat_completions():
             body=json.dumps(codex.prepare_responses_body(response_body, force_stream=True)),
             stream=True,
         )
+    except ProviderError as exc:
+        return _json_error(str(exc), status=exc.status, code=exc.code)
     except Exception as exc:
         return _json_error(str(exc), status=502, code="upstream_error")
 
