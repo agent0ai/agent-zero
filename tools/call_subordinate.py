@@ -1,7 +1,7 @@
 import json
 
 from agent import Agent, AgentContext, UserMessage
-from helpers import files, message_queue, persist_chat, projects, subagents
+from helpers import files, message_queue, persist_chat, plugins, projects, subagents
 from helpers.errors import RepairableException
 from helpers.tool import Tool, Response
 from initialize import initialize_agent
@@ -119,59 +119,9 @@ def _find_subordinate(parent: Agent, context_id: str, slot: str) -> Agent | None
 
 
 MODEL_CONFIG_PLUGIN = "_model_config"
+# Local mirror of plugins._model_config.helpers.model_config.MODEL_PRESET_CONFIG_KEY;
+# kept local so the core tool has no hard dependency on an optional plugin.
 MODEL_PRESET_CONFIG_KEY = "model_preset"
-PLUGIN_CONFIG_FILE = "config.json"
-
-
-def _scoped_model_config_paths(*, project: str = "", profile: str = "") -> list[str]:
-    """Return scoped _model_config config.json paths in precedence order.
-
-    Order mirrors helpers.plugins.find_plugin_assets: project/profile, project,
-    user profile, bundled profile.
-    """
-    paths: list[str] = []
-    project_name = str(project or "").strip()
-    agent_profile = str(profile or "").strip()
-    if project_name and agent_profile:
-        paths.append(
-            projects.get_project_meta(
-                project_name,
-                files.AGENTS_DIR,
-                agent_profile,
-                files.PLUGINS_DIR,
-                MODEL_CONFIG_PLUGIN,
-                PLUGIN_CONFIG_FILE,
-            )
-        )
-    if project_name:
-        paths.append(
-            projects.get_project_meta(
-                project_name,
-                files.PLUGINS_DIR,
-                MODEL_CONFIG_PLUGIN,
-                PLUGIN_CONFIG_FILE,
-            )
-        )
-    if agent_profile:
-        paths.append(
-            files.get_abs_path(
-                subagents.USER_AGENTS_DIR,
-                agent_profile,
-                files.PLUGINS_DIR,
-                MODEL_CONFIG_PLUGIN,
-                PLUGIN_CONFIG_FILE,
-            )
-        )
-        paths.append(
-            files.get_abs_path(
-                subagents.DEFAULT_AGENTS_DIR,
-                agent_profile,
-                files.PLUGINS_DIR,
-                MODEL_CONFIG_PLUGIN,
-                PLUGIN_CONFIG_FILE,
-            )
-        )
-    return paths
 
 
 def _read_scoped_preset(path: str) -> str:
@@ -192,18 +142,24 @@ def explicit_scoped_preset(*, project: str = "", profile: str = "") -> str:
 
     Reads raw scoped config.json files instead of get_configured_preset_name,
     because the latter falls back to "Default" and cannot distinguish an unset
-    selection from an explicitly chosen preset.
+    selection from an explicitly chosen preset. Assets are collected by
+    helpers.plugins.find_plugin_assets in framework precedence order; global
+    assets (no project and no profile scope) never count as explicit.
     """
-    for path in _scoped_model_config_paths(project=project, profile=profile):
-        preset = _read_scoped_preset(path)
+    assets = plugins.find_plugin_assets(
+        plugins.CONFIG_FILE_NAME,
+        plugin_name=MODEL_CONFIG_PLUGIN,
+        project_name=str(project or "").strip(),
+        agent_profile=str(profile or "").strip(),
+        only_first=False,
+    )
+    for asset in assets:
+        if not (asset.get("project_name") or asset.get("agent_profile")):
+            continue  # global config, not an explicit scoped selection
+        preset = _read_scoped_preset(asset.get("path", ""))
         if preset:
             return preset
     return ""
-
-
-def _has_explicit_scoped_preset(*, project: str = "", profile: str = "") -> bool:
-    """Return True when the subordinate scope selects an explicit model preset."""
-    return bool(explicit_scoped_preset(project=project, profile=profile))
 
 
 def get_or_create_subordinate(
@@ -260,12 +216,8 @@ def get_or_create_subordinate(
     # Inherit the parent chat override only when the subordinate scope does not
     # select an explicit preset; an explicit scoped preset always wins.
     model_override = parent.context.get_data("chat_model_override")
-    effective_profile = str(
-        getattr(getattr(context, "config", None), "profile", "")
-        or requested_profile
-        or ""
-    )
-    if model_override and not _has_explicit_scoped_preset(
+    effective_profile = str(getattr(subordinate.config, "profile", "") or "")
+    if model_override and not explicit_scoped_preset(
         project=str(project or ""),
         profile=effective_profile,
     ):
