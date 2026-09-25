@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
+import { formatOutputSpeed } from "/plugins/_context_window/webui/output-speed.js";
 
 const API_PATH = "/plugins/_context_window/context_window";
 const ROWS = [
@@ -52,6 +53,7 @@ function buildProviderUsage(value = {}) {
   const cached = optionalNumber(value, "cached_tokens");
   const output = optionalNumber(value, "output_tokens");
   const cost = optionalNumber(value, "cost");
+  const speed = formatOutputSpeed(optionalNumber(value, "output_tokens_per_second"));
 
   const tokenSummary = input === null && output === null
     ? ""
@@ -61,7 +63,7 @@ function buildProviderUsage(value = {}) {
     ? Math.min((cached / input) * 100, 100)
     : null;
   return {
-    hasData: cost !== null || cachePercent !== null || Boolean(tokenSummary),
+    hasData: cost !== null || cachePercent !== null || Boolean(tokenSummary) || Boolean(speed),
     price: {
       hasData: cost !== null,
       label: cost === null ? "" : formatCost(cost),
@@ -71,6 +73,7 @@ function buildProviderUsage(value = {}) {
       label: cachePercent === null ? "" : `${Math.round(cachePercent)}%`,
     },
     tokens: tokenSummary,
+    speed,
   };
 }
 
@@ -139,6 +142,14 @@ const model = {
   toggle() {
     this.open = !this.open;
     if (this.open) void this.refresh();
+  },
+
+  // Speed labels on process steps follow the Context Window visibility setting.
+  applyOutputSpeedVisibility() {
+    document.documentElement.classList.toggle(
+      "hide-output-speed",
+      !preferencesStore.isUiControlVisible("contextWindowUsage"),
+    );
   },
 
   async refresh(contextId = this.contextId) {
