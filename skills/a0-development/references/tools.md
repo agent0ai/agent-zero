@@ -29,7 +29,7 @@ class MyTool(Tool):
 | `break_loop` | `True` stops the current message loop. |
 | `additional` | Optional metadata added with the tool result. |
 
-`Tool` instances receive `agent`, `name`, `method`, `args`, `message`, and `loop_data`. Use `self.method` for method-style tools such as `skills_tool:load`.
+`Tool` instances receive `agent`, `name`, `method`, `args`, `message`, and `loop_data`. Multi-action tools should dispatch on `kwargs.get("action")` or `self.args.get("action")`. Request normalization converts colon syntax such as `skills_tool:load` and legacy `tool_args.method` input into `tool_args["action"]` when no explicit action is present; `self.method` is not an action fallback.
 
 ## Locations
 
