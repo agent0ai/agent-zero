@@ -97,8 +97,14 @@ class Localization:
         except pytz.exceptions.NonExistentTimeError:
             return tzinfo.localize(dt, is_dst=True)
 
-    def set_timezone(self, timezone: str) -> None:
-        """Set the user's IANA timezone and propagate it to child processes."""
+    def set_timezone(self, timezone: str, persist: bool = True) -> None:
+        """Set the user's IANA timezone and propagate it to child processes.
+
+        With persist=False the change is runtime-only and the saved
+        DEFAULT_USER_TIMEZONE default is left untouched. Auto mode uses this
+        so a browser-reported (or spoofed) timezone cannot overwrite the
+        user's persisted default.
+        """
         try:
             # Validate timezone and compute its current offset
             _ = pytz.timezone(timezone)
@@ -114,8 +120,9 @@ class Localization:
             )
             self._offset_minutes = new_offset
             self.timezone = timezone
-            save_dotenv_value("DEFAULT_USER_TIMEZONE", timezone)
-            save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", str(self._offset_minutes))
+            if persist:
+                save_dotenv_value("DEFAULT_USER_TIMEZONE", timezone)
+                save_dotenv_value("DEFAULT_USER_UTC_OFFSET_MINUTES", str(self._offset_minutes))
             self.apply_process_timezone()
             self._last_timezone_change = datetime.now()
         except pytz.exceptions.UnknownTimeZoneError:

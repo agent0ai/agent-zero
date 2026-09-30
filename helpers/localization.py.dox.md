@@ -17,6 +17,7 @@
   - `get_tzinfo(self)`
   - `get_offset_minutes(self) -> int`
   - `apply_process_timezone(self) -> None`
+  - `set_timezone(self, timezone: str, persist: bool=...) -> None`
   - `now(self) -> datetime`
   - `now_iso(self, sep: str=..., timespec: str=...) -> str`
   - `localize_naive_datetime(self, dt: datetime) -> datetime`
@@ -31,6 +32,7 @@
 ## Key Concepts
 
 - Important called helpers/classes observed in the source: `get_dotenv_value`, `pytz.timezone`, `datetime.now`, `now_in_tz.utcoffset`, `self.now.isoformat`, `self.get_tzinfo`, `cls`, `self.set_timezone`, `self._compute_offset_minutes`, `self.apply_process_timezone`, `tzinfo.localize`, `PrintStyle.debug`, `save_dotenv_value`, `localtime_str.strip.replace`, `local_datetime_obj.astimezone`, `utc_dt.astimezone`, `local_datetime_obj.isoformat`, `dt.astimezone`, `local_dt.isoformat`, `time.tzset`.
+- `set_timezone(timezone, persist=True)` writes `DEFAULT_USER_TIMEZONE`/`DEFAULT_USER_UTC_OFFSET_MINUTES` to `.env` only when `persist=True`; callers passing browser- or poll-reported timezones (state snapshot, settings AUTO mode, scheduler endpoints) must use `persist=False` so a client-reported value cannot overwrite the user's saved default.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

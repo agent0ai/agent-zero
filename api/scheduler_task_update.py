@@ -11,9 +11,11 @@ class SchedulerTaskUpdate(ApiHandler):
         """
         Update an existing task in the scheduler
         """
-        # Get timezone from input (do not set if not provided, we then rely on poll() to set it)
+        # Get timezone from input (do not set if not provided, we then rely on poll() to set it).
+        # The value is browser-reported, so apply it runtime-only: persisting it
+        # would clobber the user's saved DEFAULT_USER_TIMEZONE default.
         if timezone := input.get("timezone", None):
-            Localization.get().set_timezone(timezone)
+            Localization.get().set_timezone(timezone, persist=False)
 
         scheduler = TaskScheduler.get()
         await scheduler.reload()

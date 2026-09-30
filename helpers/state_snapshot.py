@@ -268,7 +268,9 @@ async def build_snapshot_from_request(
 
     localization = Localization.get()
     previous_timezone = localization.get_timezone()
-    localization.set_timezone(request.timezone)
+    # Poll-reported timezones are per-request rendering context; never
+    # persist them over the user's saved DEFAULT_USER_TIMEZONE default.
+    localization.set_timezone(request.timezone, persist=False)
     current_timezone = localization.get_timezone()
     if current_timezone != previous_timezone:
         _notify_timezone_changed(previous_timezone, current_timezone)
