@@ -93,3 +93,38 @@ def test_value_can_still_end_before_quoted_key_when_comma_is_missing() -> None:
     parsed = DirtyJson.parse_string('{"first":"one" "second":"two"}')
 
     assert parsed == {"first": "one", "second": "two"}
+
+
+def test_unicode_escape_surrogate_pair_is_combined() -> None:
+    # \\ud83c\\udf78 is the JSON escape form of U+1F378; json.loads combines
+    # the pair and DirtyJson must match, otherwise the parsed string carries two
+    # lone UTF-16 surrogates and crashes at the first .encode("utf-8") downstream
+    # (tool execution, log writes).
+    payload = '{"text": "START\\ud83c\\udf78END"}'
+
+    parsed = DirtyJson.parse_string(payload)
+
+    assert parsed == {"text": "START\U0001f378END"}
+    parsed["text"].encode("utf-8")  # must not raise
+
+
+def test_unicode_escape_lone_surrogate_becomes_replacement_char() -> None:
+    high = DirtyJson.parse_string('{"text": "x\\ud83cy"}')
+    low = DirtyJson.parse_string('{"text": "x\\udf78y"}')
+
+    assert high == {"text": "x\ufffdy"}
+    assert low == {"text": "x\ufffdy"}
+    high["text"].encode("utf-8")  # must not raise
+    low["text"].encode("utf-8")  # must not raise
+
+
+def test_unicode_escape_bmp_characters_unchanged() -> None:
+    parsed = DirtyJson.parse_string('{"text": "caf\\u00e9 \\u2713"}')
+
+    assert parsed == {"text": "caf\u00e9 \u2713"}
+
+
+def test_unicode_escape_high_surrogate_followed_by_non_escape_text() -> None:
+    parsed = DirtyJson.parse_string('{"text": "a\\ud83cbcd"}')
+
+    assert parsed == {"text": "a\ufffdbcd"}
