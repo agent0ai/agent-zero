@@ -15,7 +15,10 @@ class AnthropicThoughts(Extension):
         }:
             return
         config = get_chat_model_config(self.agent)
-        if "anthropic" not in f"{config.get('provider', '')}/{config.get('name', '')}".lower():
+        if (
+            "anthropic" not in f"{config.get('provider', '')}/{config.get('name', '')}".lower()
+            and "claude" not in str(config.get("name", "")).lower()
+        ):
             return
         data["result"] = data["result"].replace(
             "- thoughts: array thoughts before execution in natural language",

@@ -11,9 +11,19 @@ from plugins._model_config.extensions.python._functions.agent.Agent.read_prompt.
 
 @pytest.mark.parametrize("provider,model,adapted", [
     ("anthropic", "claude-opus-5-5", True),
+    ("AnThRoPiC", "custom-model", True),
     ("openrouter", "Anthropic/claude-opus-5.5", True),
+    ("other", "Anthropic/custom-model", True),
     ("bedrock", "us.anthropic.claude-opus", True),
+    ("openrouter", "claude-opus-5.5", True),
+    ("openai", "claude-opus-5-5", True),
+    ("other", "ClAuDe-opus-5-5", True),
+    ("vertex_ai", "claude-sonnet-4@20250514", True),
+    ("bedrock", "claude-opus-5-5", True),
     ("openrouter", "openai/gpt-5", False),
+    ("openai", "gpt-5", False),
+    ("claude_gateway", "unrelated-model", False),
+    ("other", "", False),
 ])
 def test_scoped_prompt_rendering_preserves_templates_and_native_projection(
     monkeypatch, provider, model, adapted,
