@@ -1444,6 +1444,26 @@ def test_responses_fallback_on_untyped_input_item_rejection():
     assert policy.mode is litellm_transport.TransportMode.CHAT_COMPLETIONS
 
 
+@pytest.mark.parametrize("source", ["delta", "message"])
+@pytest.mark.parametrize(
+    ("fields", "expected"),
+    [
+        ({"reasoning_content": "legacy"}, "legacy"),
+        ({"reasoning": "fallback"}, "fallback"),
+        ({"reasoning_content": "legacy", "reasoning": "fallback"}, "legacy"),
+        ({"reasoning_content": "", "reasoning": "fallback"}, "fallback"),
+        ({"reasoning": "summary__ENCRYPTED_REASONING__opaque"}, "summary"),
+        ({}, ""),
+    ],
+)
+def test_chat_reasoning_field_fallback(source, fields, expected):
+    parsed = litellm_transport.ChatCompletionsTransport.parse(
+        {"choices": [{source: {"content": "answer", **fields}}]}
+    )
+
+    assert parsed == {"reasoning_delta": expected, "response_delta": "answer"}
+
+
 def test_responses_response_parser_extracts_text_reasoning_and_function_calls():
     text_response = {
         "output": [
