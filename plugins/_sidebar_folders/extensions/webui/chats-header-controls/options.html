@@ -32,21 +32,24 @@
             </select>
           </label>
           <label class="sidebar-option-field"><span>Project</span>
-            <select x-model="$store.sidebarFolders.projectFilter">
+            <select :value="$store.sidebarFolders.config.project_filter" :disabled="$store.sidebarFolders.busy"
+              @change="$store.sidebarFolders.setConfig({ project_filter: $event.target.value })">
               <option value="*">All projects</option><option value="">No project</option>
               <template x-for="project in $store.projects.projectList" :key="project.name">
-                <option :value="project.name" x-text="project.title || project.name"></option>
+                <option :value="project.name" :selected="project.name === $store.sidebarFolders.config.project_filter" x-text="project.title || project.name"></option>
               </template>
             </select>
           </label>
           <label class="sidebar-option-field"><span>Status</span>
-            <select x-model="$store.sidebarFolders.statusFilter">
+            <select :value="$store.sidebarFolders.config.status_filter" :disabled="$store.sidebarFolders.busy"
+              @change="$store.sidebarFolders.setConfig({ status_filter: $event.target.value })">
               <option value="all">All</option><option value="running">Working</option>
               <option value="idle">Idle</option>
             </select>
           </label>
           <label class="sidebar-option-field"><span>Last activity</span>
-            <select x-model="$store.sidebarFolders.activityFilter">
+            <select :value="$store.sidebarFolders.config.activity_filter" :disabled="$store.sidebarFolders.busy"
+              @change="$store.sidebarFolders.setConfig({ activity_filter: $event.target.value })">
               <option value="all">Any time</option><option value="1">24 hours</option><option value="3">3 days</option>
               <option value="7">7 days</option><option value="30">30 days</option>
             </select>

@@ -13,4 +13,4 @@ Organize chats and tasks into project folders. Folder view is on by default; use
 - Scheduler tasks have their own pinned section and project folders. Their configured project stays unchanged when reordered.
 - Chats and tasks default to **Created time**, newest first, so new messages do not change their position. **Last active**, name, and manual order are also available. Filter by project, **Working** / **Idle** status, or recent activity. Idle includes waiting or completed chats, paused chats, and disabled tasks. A working parallel child keeps its family under Working.
 
-View and sort settings, project pins, and manual order are saved for the instance. Folder expansion is saved in the browser; filters apply to the current page. Disabling this plugin restores the standard sidebar.
+View, sort, Project, Status, and Last activity choices save automatically for the instance and survive reloads, along with project pins and manual order. Folder expansion is saved in the browser. Disabling this plugin restores the standard sidebar.

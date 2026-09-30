@@ -16,13 +16,10 @@ function timestamp(value) {
 }
 
 export const store = createStore("sidebarFolders", {
-  config: { folder_view: true, sort_by: "created" },
+  config: { folder_view: true, sort_by: "created", project_filter: "*", status_filter: "all", activity_filter: "all" },
   order: { project: [], chat: [], task: [] },
   collapsed: {},
   lastSelection: {},
-  projectFilter: "*",
-  statusFilter: "all",
-  activityFilter: "all",
   menu: "",
   menuProject: "",
   menuStyle: {},
@@ -62,6 +59,9 @@ export const store = createStore("sidebarFolders", {
       this.config = {
         folder_view: result.data?.folder_view !== false,
         sort_by: SORTS.includes(result.data?.sort_by) ? result.data.sort_by : "created",
+        project_filter: typeof result.data?.project_filter === "string" ? result.data.project_filter : "*",
+        status_filter: ["all", "running", "idle"].includes(result.data?.status_filter) ? result.data.status_filter : "all",
+        activity_filter: ["all", "1", "3", "7", "30"].includes(result.data?.activity_filter) ? result.data.activity_filter : "all",
       };
     } catch (error) {
       this.report(error);
@@ -87,7 +87,7 @@ export const store = createStore("sidebarFolders", {
       });
       if (!result.ok) throw new Error(result.error || "Could not save folder settings");
       this.config = config;
-      this.closeMenu();
+      if ("folder_view" in change || "sort_by" in change) this.closeMenu();
     } catch (error) {
       this.report(error);
     } finally {
@@ -127,15 +127,15 @@ export const store = createStore("sidebarFolders", {
   },
 
   matches(row, kind) {
-    if (this.projectFilter !== "*" && (row.project?.name || "") !== this.projectFilter) return false;
-    if (this.statusFilter === "all" && this.activityFilter === "all") return true;
+    if (this.config.project_filter !== "*" && (row.project?.name || "") !== this.config.project_filter) return false;
+    if (this.config.status_filter === "all" && this.config.activity_filter === "all") return true;
     const family = this.family(row, kind);
     const working = family.some((item) => item.running && !item.paused && item.state !== "disabled");
-    if (this.statusFilter === "running" && !working) return false;
-    if (this.statusFilter === "idle" && working) return false;
+    if (this.config.status_filter === "running" && !working) return false;
+    if (this.config.status_filter === "idle" && working) return false;
     return family.some((item) => {
-      if (this.activityFilter !== "all") {
-        const cutoff = Date.now() - Number(this.activityFilter) * 86400000;
+      if (this.config.activity_filter !== "all") {
+        const cutoff = Date.now() - Number(this.config.activity_filter) * 86400000;
         if (timestamp(item.last_message || item.created_at) < cutoff) return false;
       }
       return true;
@@ -188,8 +188,8 @@ export const store = createStore("sidebarFolders", {
     }
     const rank = new Map(this.order.project.map((id, index) => [id, index]));
     return [...groups.values()].filter((group) => {
-      if (this.projectFilter !== "*" && group.id !== this.projectFilter) return false;
-      return group.rows.length || (kind === "chat" && this.statusFilter === "all" && this.activityFilter === "all");
+      if (this.config.project_filter !== "*" && group.id !== this.config.project_filter) return false;
+      return group.rows.length || (kind === "chat" && this.config.status_filter === "all" && this.config.activity_filter === "all");
     }).sort((a, b) => {
       const aPinned = pins.isProjectPinned(a.id);
       const bPinned = pins.isProjectPinned(b.id);

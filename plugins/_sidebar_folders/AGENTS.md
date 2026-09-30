@@ -29,7 +29,7 @@
 - Keep parallel children nested and selectable. Move visible descendants and background workers with their root; retain parent IDs, history, and selection. Reject running families and scheduler-owned contexts before any mutation.
 - Use existing project activation/deactivation helpers, persistence, and state invalidation. Restore project/profile state if a family move fails.
 - Scheduler tasks retain their configured project; dragging may reorder them within their folder or within the shared pinned section.
-- Closed project folders mount their rows only when expanded. Expansion is browser-local, while view, sort, and order survive server/browser reloads.
+- Closed project folders mount their rows only when expanded. Expansion is browser-local, while view, sort, filters, and order survive server/browser reloads. The empty project-filter key means **No project** and must not be replaced with the all-projects default.
 - Folder rows use compact spacing tokens; thread lists have no vertical guide border and reuse the smaller core thread dots. Dim empty-folder labels and give their rows the same height as a chat row, preserving space before the next folder.
 - Extend list rows `--spacing-xs` beyond the header controls, with the same inset after their last action button. Keep header positions fixed so folder, chat, and worker action columns align in both views.
 - Folder actions reuse the standard chat action buttons with a subtle border at rest. Show them on pointer hover, keyboard focus, or while the folder menu is open; touch devices also show them for expanded folders.
@@ -41,7 +41,7 @@
 ## Work Guidance
 
 - Reuse project creation/edit/file dialogs, notifications, native drag events, and Material `x-icon` elements.
-- View and sort preferences are saved through the plugin configuration API from the sidebar menu. This plugin has no separate configuration page.
+- View, sort, and Project/Status/Last activity filters share the plugin configuration API and save automatically from the sidebar menu. Missing or invalid filters fall back to all projects/statuses/times. This plugin has no separate configuration page.
 - Project moves and ordering use drag and drop, without move actions in thread menus. Folder-row creation uses the same `chat_add_on` icon as the New chat menu action.
 - Header, folder, chat, worker, and task action buttons share hover/focus treatment. The two Chats header icons use `1.125rem` inside the existing button frames, preserving action-column alignment with the smaller row icons. Header borders appear only on hover; row buttons retain their resting borders. Use `--spacing-xs` between buttons and at row ends. Keep these sidebar-scoped overrides in the plugin's header extension and retain row visibility behavior and confirmation states.
 - The options menu contains only View (Folders / Flat mode), Sort by, Project, Status, and Last activity. Keep native dropdowns consistent with Settings: muted borders, the small radius token, and an opaque menu-colored surface so native option lists remain readable. Use `--spacing-xs` gaps between fields and `--spacing-sm` outer padding. Show focus outlines for keyboard navigation, without a lingering pointer-click ring. Folder expansion belongs to individual folder rows.
