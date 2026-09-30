@@ -899,6 +899,10 @@ class TaskScheduler:
 
                 context = await self._get_chat_context(current_task)
                 AgentContext.use(context.id)
+                # adopt the run's own DeferredTask so extension dispatch
+                # (message_loop_end / monologue_end) and is_running() see the run
+                if not (context.task and context.task.is_alive()):
+                    context.task = deferred_task
 
                 # Ensure the context is properly registered in the AgentContext._contexts
                 # This is critical for the polling mechanism to find and stream logs
