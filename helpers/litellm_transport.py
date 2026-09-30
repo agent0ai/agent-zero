@@ -588,9 +588,13 @@ class ChatCompletionsTransport:
         response_delta = _get_value(delta, "content") or _get_value(
             message, "content"
         ) or ""
-        reasoning_delta = _get_value(delta, "reasoning_content") or _get_value(
-            message, "reasoning_content"
-        ) or ""
+        reasoning_delta = (
+            _get_value(delta, "reasoning_content")
+            or _get_value(message, "reasoning_content")
+            or _get_value(delta, "reasoning")
+            or _get_value(message, "reasoning")
+            or ""
+        )
         reasoning_delta = (reasoning_filter or _ChatReasoningFilter()).feed(
             reasoning_delta, final=reasoning_filter is None
         )
