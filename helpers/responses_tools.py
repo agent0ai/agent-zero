@@ -37,19 +37,19 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
     "tools/response.py": {
         "text": {"type": "string", "minLength": 1},
     },
-    "tools/search_engine.py": {"query": {"type": "string"}},
+    "plugins/_search_engine/tools/search_engine.py": {"query": {"type": "string"}},
     "tools/vision_load.py": {
         "paths": {"type": "array", "items": {"type": "string"}},
         "query": {"type": "string"},
     },
-    "tools/wait.py": {
+    "plugins/_wait/tools/wait.py": {
         "seconds": {"type": "number"},
         "minutes": {"type": "number"},
         "hours": {"type": "number"},
         "days": {"type": "number"},
         "until": {"type": "string"},
     },
-    "tools/notify_user.py": {
+    "plugins/_notify_user/tools/notify_user.py": {
         "message": {"type": "string"},
         "title": {"type": "string"},
         "detail": {"type": "string"},
@@ -109,7 +109,7 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
         "threshold": {"type": "number"},
         "filter": {"type": "string"},
     },
-    "plugins/_memory/tools/behaviour_adjustment.py": {"adjustments": {"type": "string"}},
+    "plugins/_behavior_adjustment/tools/behavior_adjustment.py": {"adjustments": {"type": "string"}},
     "plugins/_goal/tools/goal.py": {
         "action": {"type": "string", "enum": ["get", "create", "update"]},
         "objective": {"type": "string"},
