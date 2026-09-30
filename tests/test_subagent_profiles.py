@@ -9,6 +9,7 @@ import pytest
 
 from agent import Agent, AgentConfig, AgentContext
 from helpers import persist_chat, projects, settings
+from helpers.defer import DeferredTask
 from helpers.errors import RepairableException
 
 
@@ -20,6 +21,7 @@ class _FakeContext:
         self.output_data = {}
         self.created_at = datetime.now(timezone.utc)
         self.agent0 = None
+        self.task = None
 
     def get_data(self, key: str, recursive: bool = True):
         return self.data.get(key)
@@ -34,7 +36,11 @@ class _FakeContext:
         self.output_data[key] = value
 
     def is_running(self) -> bool:
-        return False
+        return bool(self.task and self.task.is_alive())
+
+    def run_task(self, func, *args):
+        self.task = DeferredTask().start_task(func, *args)
+        return self.task
 
 
 class _FakeParentAgent:

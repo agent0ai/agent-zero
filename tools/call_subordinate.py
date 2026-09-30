@@ -1,3 +1,5 @@
+import asyncio
+
 from agent import Agent, AgentContext, UserMessage
 from helpers import message_queue, persist_chat, projects, subagents
 from helpers.errors import RepairableException
@@ -151,7 +153,7 @@ def get_or_create_subordinate(
         if subordinate.context is not parent.context and subordinate.context.is_running():
             raise RepairableException(
                 f"Subordinate context '{subordinate.context.id}' is still running. "
-                "Await or cancel its parallel job before continuing it."
+                "Wait for it to finish or stop it before continuing it."
             )
         label = str(name or "").strip()
         if label and subordinate.context is not parent.context:
@@ -230,7 +232,22 @@ class Delegation(Tool):
             name=kwargs.get("name", ""),
             message=message,
         )
-        result = await run_subordinate(self.agent, subordinate, message, attachments)
+        if subordinate.context is self.agent.context:
+            result = await run_subordinate(self.agent, subordinate, message, attachments)
+        else:
+            task = subordinate.context.run_task(
+                run_subordinate, self.agent, subordinate, message, attachments
+            )
+            try:
+                result = await task.result()
+            except asyncio.CancelledError:
+                caller = asyncio.current_task()
+                if caller and caller.cancelling():
+                    task.kill()
+                    raise
+                raise RepairableException(
+                    f"Subordinate context '{subordinate.context.id}' was stopped."
+                ) from None
 
         # hint to use includes for long responses
         additional = {"context_id": subordinate.context.id}

@@ -29,12 +29,13 @@
 - Observed side-effect areas: filesystem writes, settings/state persistence.
 - `profile`/`agent_profile` values are validated against available profile keys before use; unknown profiles raise `RepairableException` so the agent can retry with a real profile.
 - Direct and parallel calls use the same creation, continuation, message, history, and persistence functions in this module.
+- Direct delegation runs that helper through the separate child's `AgentContext.run_task`, so running status, intervention, Stop, and completion notifications use the normal context lifecycle. Cancelling the caller cancels its direct child; stopping only the child raises a recoverable error to the caller. Parallel jobs retain their own task ownership, and legacy same-context children remain inline.
 - A non-empty `name` updates both the child context name and sidebar label on creation or continuation. Omission preserves an existing name; legacy same-context children must not rename the parent chat.
 - Every fresh child is `Agent(parent.number + 1, ...)` in its own persisted child-chat context, so sibling A1 agents can each create their own A2 descendants without sharing streaming state.
 - `reset=true` creates a fresh child. `reset=false` continues the caller's default child or the exact child named by `context_id`.
 - Child context IDs are accepted only when their persisted parent context, parent agent number, and child depth match the caller.
 - Supplying a different profile for an existing child without creating a fresh child raises `RepairableException` instead of silently changing its profile.
-- Active parallel children cannot be continued concurrently; await or cancel their job first.
+- Active children cannot be continued concurrently; wait for completion or stop them first.
 - Child contexts inherit the caller's project. After project activation, copy the caller's chat-model override only when the child's resolved scoped preset is `Default` (including missing/invalid selections); non-default scoped presets keep their configured models. Continuing an existing child preserves its chat override.
 - Child contexts are saved before execution and again on exit, and remain reusable after model/API failures.
 - The direct tool result includes `context_id`; parallel job snapshots expose the same stable child ID separately from their per-invocation job ID.
@@ -61,6 +62,7 @@
   - `tests/test_default_prompt_budget.py`
   - `tests/test_subagent_profiles.py`
   - `tests/test_parallel_tool.py`
+  - `tests/test_subordinate_lifecycle.py` (direct and nested completion, failure, parent/child stop, intervention, and legacy shared-context execution)
 
 ## Child DOX Index
 
