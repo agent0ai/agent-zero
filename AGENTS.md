@@ -15,6 +15,7 @@
 ## Root Ownership
 
 - `agent.py` owns `Agent`, `AgentContext`, and loop data.
+- `Agent.hist_add_message` updates `AgentContext.last_message`, the activity timestamp used by snapshots and chat persistence; `created_at` remains unchanged. Context initialization preserves an explicitly supplied activity timestamp across greeting/history hooks.
 - `Agent.hist_add_ai_response` owns Responses-API state advancement: it calls `_remember_llm_result_state` internally. Model turns pass an `LLMResult`; omitted results and legacy positional string IDs use the non-LLM sentinel. Callers must not invoke `_remember_llm_result_state` manually.
 - Prepared local Responses input may project intact native history through `helpers/responses_history.py`; retain original Chat/fallback messages, current protocol/extras, summaries and masking. Durable capability metadata stores only a stable-prefix digest for eligibility.
 - `Agent.call_chat_model_turn` builds native function tools only when the chat model's `a0_api_mode` selects Responses; Chat Completions turns pass an empty tool list and name map, since that transport drops them.

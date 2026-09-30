@@ -108,6 +108,8 @@ class AgentContext:
 
         # initialize agent at last (context is complete now)
         self.agent0 = agent0 or Agent(0, self.config, self)
+        if last_message is not None:
+            self.last_message = last_message
 
     @staticmethod
     def get(id: str):
@@ -728,7 +730,7 @@ class Agent:
         id: str = "",
         metadata: dict[str, Any] | None = None,
     ):
-        self.last_message = Localization.get().now()
+        self.context.last_message = Localization.get().now()
         # Allow extensions to process content before adding to history
         content_data = {"content": content}
         extension.call_extensions_sync(
