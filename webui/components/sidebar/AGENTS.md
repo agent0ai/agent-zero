@@ -35,6 +35,7 @@
 - `chats.newChat(projectName)` passes an explicit project choice to `chat_create`; omitted project names retain inheritance behavior, and an empty name explicitly creates a chat without a project.
 - Bottom version information shows its commit timestamp in UTC without a timezone suffix and remains on one line.
 - Avoid text or controls overflowing fixed sidebar widths.
+- The default chat list allows vertical overflow with a native scrollbar and hides horizontal overflow; do not apply `no-scrollbar` to it.
 - Instance-level interface visibility preferences own independent mobile and desktop states for the chat-top controls and right canvas rail; mobile uses the shared 768px breakpoint.
 - Process-detail preference changes must use the message renderer's async expansion hooks and honor an explicit chat-history render target so staged pages are ready before an atomic swap.
 - The utility-message preference controls both individual utility steps and utility-only process-group chrome so hidden utility runs cannot leave empty headers in the transcript.
