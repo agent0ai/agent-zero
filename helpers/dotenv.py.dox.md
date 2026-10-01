@@ -14,7 +14,7 @@
 - `load_dotenv()`
 - `get_dotenv_file_path()`
 - `get_dotenv_value(key: str, default: Any=...)`
-- `save_dotenv_value(key: str, value: str)`
+- `save_dotenv_value(key: str, value: str, reload_env: bool=...)`
 - Notable constants/configuration names: `KEY_AUTH_LOGIN`, `KEY_AUTH_PASSWORD`, `KEY_RFC_PASSWORD`, `KEY_ROOT_PASSWORD`.
 
 ## Runtime Contracts
@@ -23,6 +23,7 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, secret handling.
 - Imported dependency areas include: `dotenv`, `files`, `os`, `re`, `typing`.
+- `save_dotenv_value(..., reload_env=False)` updates the persisted file without changing the running process environment.
 
 ## Key Concepts
 

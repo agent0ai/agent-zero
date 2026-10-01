@@ -34,9 +34,8 @@ export function getMessageCacheKey(message) {
   return null;
 }
 
-const PROCESS_STEP_TYPES = new Set([
+export const PROCESS_STEP_TYPES = new Set([
   "agent",
-  "code_exe",
   "tool",
   "mcp",
   "subagent",
@@ -44,12 +43,12 @@ const PROCESS_STEP_TYPES = new Set([
   "info",
 ]);
 
-function hasUpcomingProcessStep(messages, startIndex) {
+function hasUpcomingProcessStep(messages, startIndex, processStepTypes) {
   for (let index = startIndex + 1; index < messages.length; index++) {
     const message = messages[index];
     const type = String(message?.type || "");
     if (type === "util") continue;
-    if (PROCESS_STEP_TYPES.has(type)) return true;
+    if (processStepTypes.has(type)) return true;
     if (type === "warning" || type === "rate_limit") return true;
     if (type === "response" && Number(message?.agentno || 0) > 0) {
       return true;
@@ -64,7 +63,7 @@ function hasUpcomingProcessStep(messages, startIndex) {
  * renderer creates. Window boundaries use these units so plugin-backed steps
  * such as code execution cannot split an otherwise contiguous process group.
  */
-export function classifyMessageRenderUnits(messages = []) {
+export function classifyMessageRenderUnits(messages = [], processStepTypes = PROCESS_STEP_TYPES) {
   let activeGroup = null;
   let lastGroup = null;
   let lastUnitType = null;
@@ -93,7 +92,7 @@ export function classifyMessageRenderUnits(messages = []) {
       isStep: false,
     };
 
-    if (PROCESS_STEP_TYPES.has(type)) {
+    if (processStepTypes.has(type)) {
       activeGroup ||= startGroup(message, index);
       const unit = assignGroup(activeGroup, true);
       if (type === "info" && message?.kvps?.finished) {
@@ -104,7 +103,7 @@ export function classifyMessageRenderUnits(messages = []) {
     }
 
     if (type === "util") {
-      if (activeGroup || hasUpcomingProcessStep(messages, index)) {
+      if (activeGroup || hasUpcomingProcessStep(messages, index, processStepTypes)) {
         activeGroup ||= startGroup(message, index);
         return assignGroup(activeGroup, true);
       }
@@ -178,6 +177,7 @@ export class MessageWindow {
     const previousStartKey = this._records[this.start]?.key || null;
     const previousEndKey = this._records[this.end - 1]?.key || null;
     const wasAtTail = followTail && this.end >= this._records.length;
+    const addedKeys = new Set();
     let requiresSort = false;
 
     for (const message of Array.isArray(messages) ? messages : []) {
@@ -202,6 +202,7 @@ export class MessageWindow {
         this._recordsByKey.set(key, record);
         this._indexByKey.set(key, this._records.length);
         this._records.push(record);
+        addedKeys.add(key);
       }
     }
 
@@ -226,6 +227,7 @@ export class MessageWindow {
       this.end = previousEnd >= 0 ? previousEnd + 1 : this.end;
       this._clampBounds();
     }
+    return addedKeys;
   }
 
   showTail() {
@@ -310,6 +312,10 @@ export class MessageWindow {
 
   get size() {
     return this._records.length;
+  }
+
+  get messageTypes() {
+    return new Set(this._records.map(({ message }) => String(message.type || "")));
   }
 
   get renderedCount() {

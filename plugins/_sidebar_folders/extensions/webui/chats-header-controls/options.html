@@ -1,0 +1,93 @@
+<html>
+<head><script type="module" src="/plugins/_sidebar_folders/webui/sidebar-folders-store.js"></script></head>
+<body>
+  <div x-data="{ keyboardFocus: false }" @click.window="$store.sidebarFolders.closeMenu()"
+    @pointerdown.window="keyboardFocus = false"
+    @keydown.window="keyboardFocus = true; $store.sidebarFolders.cancelMenuExit(); if ($event.key === 'Escape') $store.sidebarFolders.closeMenu()"
+    @pointerover.window="$store.sidebarFolders.menuPointer($event)" @pointerout.window="$store.sidebarFolders.menuPointer($event)"
+    @focusin.window="$store.sidebarFolders.menuFocus($event)" @scroll.window.capture="$store.sidebarFolders.menuScroll($event)"
+    @resize.window="$store.sidebarFolders.dismissMenus()" x-destroy="$store.sidebarFolders.dismissMenus()"
+    x-effect="$store.sidebar.rowMenuOpenId && $store.sidebarFolders.closeMenu()">
+    <template x-if="$store.sidebarFolders">
+      <div class="sidebar-folder-controls">
+        <button type="button" class="btn-icon-action" aria-label="Sidebar view options" title="Sidebar view options"
+          aria-haspopup="menu" :aria-expanded="$store.sidebarFolders.menu === 'options'"
+          @click.stop="$store.sidebarFolders.openMenu('options', $event.currentTarget)">
+          <x-icon name="tune"></x-icon>
+        </button>
+        <div class="dropdown-menu sidebar-folders-menu sidebar-folders-options" :class="{ 'sidebar-options-keyboard': keyboardFocus }"
+          data-folder-menu="options" :style="$store.sidebarFolders.menuStyle"
+          x-show="$store.sidebarFolders.menu === 'options'" style="display: none;" @click.stop role="menu" aria-label="Sidebar view options">
+          <label class="sidebar-option-field"><span>View</span>
+            <select :value="$store.sidebarFolders.config.folder_view ? 'folders' : 'flat'" :disabled="$store.sidebarFolders.busy"
+              @change="$store.sidebarFolders.setConfig({ folder_view: $event.target.value === 'folders' })">
+              <option value="folders">Folders</option><option value="flat">Flat mode</option>
+            </select>
+          </label>
+          <label class="sidebar-option-field"><span>Sort by</span>
+            <select :value="$store.sidebarFolders.config.sort_by" :disabled="$store.sidebarFolders.busy"
+              @change="$store.sidebarFolders.setConfig({ sort_by: $event.target.value })">
+              <option value="recent">Last active</option><option value="created">Created time</option>
+              <option value="name">Name</option><option value="manual">Manual order</option>
+            </select>
+          </label>
+          <label class="sidebar-option-field"><span>Project</span>
+            <select x-model="$store.sidebarFolders.projectFilter">
+              <option value="*">All projects</option><option value="">No project</option>
+              <template x-for="project in $store.projects.projectList" :key="project.name">
+                <option :value="project.name" x-text="project.title || project.name"></option>
+              </template>
+            </select>
+          </label>
+          <label class="sidebar-option-field"><span>Status</span>
+            <select x-model="$store.sidebarFolders.statusFilter">
+              <option value="all">All</option><option value="running">Working</option>
+              <option value="idle">Idle</option>
+            </select>
+          </label>
+          <label class="sidebar-option-field"><span>Last activity</span>
+            <select x-model="$store.sidebarFolders.activityFilter">
+              <option value="all">Any time</option><option value="1">24 hours</option><option value="3">3 days</option>
+              <option value="7">7 days</option><option value="30">30 days</option>
+            </select>
+          </label>
+        </div>
+        <div class="dropdown-menu sidebar-folders-menu" data-folder-menu="project" :style="$store.sidebarFolders.menuStyle"
+          x-show="$store.sidebarFolders.menu === 'project'" style="display: none;" @click.stop role="menu" aria-label="Folder actions">
+          <button type="button" class="dropdown-item" @click="$store.sidebarFolders.newChat($store.sidebarFolders.menuProject)"><x-icon name="chat_add_on"></x-icon>New chat</button>
+          <button type="button" class="dropdown-item"
+            @click="$store.pinToTop.toggleProjectPin($store.sidebarFolders.menuProject); $store.sidebarFolders.closeMenu()">
+            <x-icon :name="$store.pinToTop.isProjectPinned($store.sidebarFolders.menuProject) ? 'keep_off' : 'push_pin'"></x-icon>
+            <span x-text="$store.pinToTop.isProjectPinned($store.sidebarFolders.menuProject) ? 'Unpin project' : 'Pin project'"></span>
+          </button>
+          <button type="button" class="dropdown-item" x-show="$store.sidebarFolders.menuProject === ''" @click="$store.sidebarFolders.closeMenu(); $store.projects.openProjectsModal()"><x-icon name="snippet_folder"></x-icon>Projects</button>
+          <button type="button" class="dropdown-item" x-show="$store.sidebarFolders.menuProject" @click="$store.sidebarFolders.editProject()"><x-icon name="edit"></x-icon>Edit project</button>
+          <button type="button" class="dropdown-item" x-show="$store.sidebarFolders.menuProject" @click="$store.sidebarFolders.openProjectFiles()"><x-icon name="folder_open"></x-icon>Project files</button>
+        </div>
+      </div>
+    </template>
+  </div>
+  <style>
+    .sidebar-folder-controls { display: flex; align-items: center; }
+    #left-panel:has(.sidebar-folder-controls) :is(#chats-section, #tasks-section) { width: calc(100% + var(--spacing-sm) + var(--spacing-xs)); }
+    #left-panel:has(.sidebar-folder-controls) #chats-section .section-header-row,
+    #left-panel:has(.sidebar-folder-controls) #tasks-section .section-header { margin-inline-end: var(--spacing-xs); }
+    #left-panel:has(.sidebar-folder-controls) :is(#chats-section, #tasks-section) .btn-icon-action { border: 1px solid var(--color-border); box-shadow: none; }
+    #left-panel:has(.sidebar-folder-controls) #chats-section .section-header-row .btn-icon-action:not(:hover) { border-color: transparent; }
+    #left-panel:has(.sidebar-folder-controls) :is(#chats-section, #tasks-section) .chat-list-action-btn { margin-right: var(--spacing-xs); }
+    #left-panel:has(.sidebar-folder-controls) #tasks-section .task-actions { gap: var(--spacing-xs); }
+    #left-panel:has(.sidebar-folder-controls) :is(#chats-section, #tasks-section) .btn-icon-action:hover { border-color: var(--color-primary); background-color: var(--color-background-hover); color: var(--color-text); box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent); }
+    #left-panel:has(.sidebar-folder-controls) :is(#chats-section, #tasks-section) .btn-icon-action:focus-visible { color: var(--color-text); outline: 1px solid var(--color-text); outline-offset: -2px; }
+    #chats-section:has(.sidebar-folder-controls) #newChat { opacity: 1; filter: none; transition-property: background-color, border-color, color, box-shadow; transition-duration: 0.18s; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+    #chats-section:has(.sidebar-folder-controls) .section-header-row .btn-icon-action > x-icon { color: inherit; font-size: 1.125rem; }
+    .sidebar-folders-menu { position: fixed; z-index: 10000; width: 232px; margin: 0; overflow-y: auto; box-sizing: border-box; }
+    .sidebar-folders-menu .dropdown-item { width: 100%; }
+    .sidebar-folders-options { display: grid; gap: var(--spacing-xs); padding: var(--spacing-sm); }
+    .sidebar-option-field { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); font-size: var(--font-size-small); }
+    .sidebar-option-field > span { white-space: nowrap; }
+    .sidebar-option-field select { width: 8rem; min-width: 0; min-height: 2rem; padding: var(--spacing-xs) var(--spacing-sm); border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent); border-radius: var(--border-radius-sm); background: var(--color-panel); color: var(--color-text); font: inherit; outline: none; }
+    .sidebar-option-field select:hover:not(:disabled) { border-color: var(--color-primary); }
+    .sidebar-options-keyboard select:focus-visible { outline: 1px solid var(--color-primary); outline-offset: 1px; }
+  </style>
+</body>
+</html>

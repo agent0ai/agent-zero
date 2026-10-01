@@ -34,8 +34,15 @@ from plugins._office.helpers import (
 )
 
 
+@pytest.fixture(autouse=True)
+def runtime_package_os(monkeypatch):
+    monkeypatch.setattr(system_packages.platform, "freedesktop_os_release", lambda: {"ID": "debian"})
+
+
 @pytest.fixture
 def office_state(tmp_path, monkeypatch):
+    from helpers import settings
+    monkeypatch.setattr(settings, "get_settings", lambda: {"file_browser_max_text_size_mb": 10, "file_browser_max_transfer_size_mb": 100, "file_browser_max_extract_size_mb": 100, "file_browser_max_archive_entries": 1000})
     state = tmp_path / "state"
     backups = state / "backups"
     workdir = tmp_path / "workdir"
@@ -109,6 +116,22 @@ def test_file_browser_can_register_runtime_root_markdown(office_state, monkeypat
 
     assert doc["basename"] == "AGENTS.md"
     assert doc["path"] == str(path)
+
+
+def test_editor_http_input_accepts_large_text_and_rejects_over_limit(office_state):
+    path = office_state.workdir / "large.txt"
+    text = "a" * (2 * 1024 * 1024)
+    path.write_text(text, encoding="utf-8")
+    handler = EditorSession(app=None, thread_lock=None)
+    request = types.SimpleNamespace(headers={}, host_url="http://localhost/")
+    opened = asyncio.run(handler.process({"action": "open", "path": str(path)}, request))
+    assert opened["ok"] and opened["text"] == text
+    payload = {"action": "input", "session_id": opened["session_id"], "text": text + "b"}
+    assert asyncio.run(handler.process(payload, request))["ok"]
+    with pytest.raises(ValueError, match="10 MiB"):
+        asyncio.run(handler.process({**payload, "text": "a" * (10 * 1024 * 1024 + 1)}, request))
+    assert asyncio.run(handler.process({"action": "save", "session_id": opened["session_id"]}, request))["ok"]
+    assert path.read_text(encoding="utf-8") == text + "b"
 
 
 def test_editor_file_browser_source_opens_runtime_root_markdown(office_state, monkeypatch):
@@ -519,6 +542,102 @@ def test_document_rename_saves_dirty_markdown_and_removes_original(office_state)
     assert updated["version"] == 2
     assert not original.exists()
     assert renamed.read_text(encoding="utf-8") == "# Clean Rename\n\nFresh text"
+
+
+def test_native_office_rename_preserves_unsaved_content_and_metadata(office_state):
+    import stat
+
+    doc = document_store.create_document("document", "Native Rename", "odt", "Saved text")
+    source = Path(doc["path"])
+    source.chmod(0o640)
+    original = source.read_bytes()
+    metadata = source.stat()
+    target = source.with_name("Renamed.odt")
+    dirty = document_store.odt_bytes("Native Rename", "Unsaved Writer text")
+
+    def native_rename(old, new):
+        assert old == source and new == target
+        assert old.read_bytes() == original and not new.exists()
+        new.write_bytes(dirty)
+        return True
+
+    updated = document_store.rename_document(doc["file_id"], target, rename_open_document=native_rename)
+
+    assert not source.exists()
+    assert target.read_bytes() == dirty
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+    assert (target.stat().st_uid, target.stat().st_gid) == (metadata.st_uid, metadata.st_gid)
+    assert updated["file_id"] == doc["file_id"]
+    assert updated["version"] == doc["version"] + 1
+    assert updated["sha256"] == document_store.sha256_bytes(dirty)
+
+
+def test_native_office_rename_rejects_collisions_and_keeps_source_on_failure(office_state):
+    doc = document_store.create_document("document", "Failed Rename", "odt", "Original")
+    source = Path(doc["path"])
+    original = source.read_bytes()
+    target = source.with_name("Taken.odt")
+    target.write_bytes(b"collision sentinel")
+
+    def fail_rename(old, new):
+        raise RuntimeError("Native rename failed")
+
+    with pytest.raises(FileExistsError):
+        document_store.rename_document(doc["file_id"], target, rename_open_document=fail_rename)
+    assert target.read_bytes() == b"collision sentinel"
+    target.unlink()
+    with pytest.raises(RuntimeError, match="Native rename failed"):
+        document_store.rename_document(doc["file_id"], target, rename_open_document=fail_rename)
+    assert source.read_bytes() == original
+    assert not target.exists()
+    assert document_store.get_document(doc["file_id"])["path"] == str(source)
+
+    updated = document_store.rename_document(doc["file_id"], target, rename_open_document=lambda *_: False)
+    assert updated["path"] == str(target)
+    assert target.read_bytes() == original
+    assert not source.exists()
+
+
+def test_native_office_bridge_matches_full_url_and_disallows_overwrite(tmp_path, monkeypatch):
+    from plugins._desktop.helpers import rename_office_document
+
+    source = tmp_path / "source" / "Same name.odt"
+    target = source.with_name("Renamed.odt")
+    calls = []
+    other = types.SimpleNamespace(
+        getURL=lambda: (tmp_path / "other" / source.name).as_uri(),
+        storeAsURL=lambda *_: pytest.fail("Renamed a different document with the same basename"),
+    )
+    document = types.SimpleNamespace(
+        getURL=lambda: source.as_uri(),
+        getArgs=lambda: (types.SimpleNamespace(Name="FilterName", Value="Office Open XML Text"),
+                         types.SimpleNamespace(Name="URL", Value=source.as_uri())),
+        storeAsURL=lambda url, properties: calls.append((url, [(p.Name, p.Value) for p in properties])),
+    )
+    items = [other, document]
+    enumeration = types.SimpleNamespace(hasMoreElements=lambda: bool(items), nextElement=lambda: items.pop(0))
+    desktop = types.SimpleNamespace(getComponents=lambda: types.SimpleNamespace(createEnumeration=lambda: enumeration))
+    context = types.SimpleNamespace()
+    resolver = types.SimpleNamespace(resolve=lambda url: context)
+    context.ServiceManager = types.SimpleNamespace(createInstanceWithContext=lambda name, _: resolver if name.endswith("UnoUrlResolver") else desktop)
+    monkeypatch.setitem(sys.modules, "uno", types.SimpleNamespace(
+        getComponentContext=lambda: context,
+        createUnoStruct=lambda _: types.SimpleNamespace(),
+    ))
+    commands = []
+
+    def launch(command, **kwargs):
+        commands.append(command)
+        return types.SimpleNamespace(poll=lambda: 0, wait=lambda timeout: 0)
+
+    monkeypatch.setattr(rename_office_document.subprocess, "Popen", launch)
+    assert rename_office_document.rename_document("soffice", tmp_path / "profile", source, target)
+    assert calls == [(target.as_uri(), [("FilterName", "Office Open XML Text"), ("Overwrite", False)])]
+    assert any(arg.startswith("--accept=pipe,name=") for arg in commands[0])
+
+    items[:] = [other]
+    assert not rename_office_document.rename_document("soffice", tmp_path / "profile", source, target)
+    assert len(calls) == 1
 
 
 def test_text_session_save_as_creates_new_file_without_mutating_original(office_state):
@@ -1121,6 +1240,41 @@ def test_desktop_startup_waiters_probe_display_and_reject_dead_xfce(tmp_path, mo
         manager._wait_for_xfce(session)
 
 
+@pytest.mark.parametrize("overrides", [{}, {"XPRA_SYSTEM_DBUS_TIMEOUT": "7"}])
+def test_desktop_xpra_uses_bounded_service_waits(tmp_path, monkeypatch, overrides):
+    session = types.SimpleNamespace(
+        profile_dir=tmp_path / "profile", processes={},
+        display=120, xpra_port=14500, width=1440, height=900,
+    )
+    manager = desktop_session.DesktopSessionManager()
+    environments = {}
+    monkeypatch.setattr(desktop_session, "STATE_DIR", tmp_path)
+    monkeypatch.setattr(desktop_session, "SESSION_DIR", tmp_path / "sessions")
+    monkeypatch.setattr(desktop_session, "_require_binary", lambda name: name)
+    monkeypatch.setattr(manager, "_prepare_xfce_launcher", lambda _: "xfce")
+    monkeypatch.setattr(manager, "_session_env", lambda _: overrides)
+    monkeypatch.setattr(manager, "_display_env", lambda _: overrides)
+    for method in ("_wait_for_display", "_set_display_size", "_prepare_root_window",
+                   "_wait_for_xfce", "_refresh_xfce_desktop"):
+        monkeypatch.setattr(manager, method, lambda *_: None)
+    monkeypatch.setattr(
+        desktop_session, "_wait_for_port", lambda *_, **__: None,
+    )
+
+    def spawn(command, **kwargs):
+        if command[0] == "xpra":
+            assert "--mmap=no" in command
+        environments[command[0]] = kwargs["env"]
+        return types.SimpleNamespace(poll=lambda: None)
+
+    monkeypatch.setattr(desktop_session.subprocess, "Popen", spawn)
+    manager._spawn_desktop_locked(session)
+
+    assert environments["xpra"]["XPRA_SYSTEM_DBUS_TIMEOUT"] == overrides.get("XPRA_SYSTEM_DBUS_TIMEOUT", "1")
+    assert environments["xpra"]["XPRA_SYSTEM_CUPS_TIMEOUT"] == "1"
+    assert environments["xfce"] == overrides
+
+
 def test_desktop_manifest_is_replaced_atomically(tmp_path, monkeypatch):
     session_dir = tmp_path / "sessions"
     session_dir.mkdir()
@@ -1659,10 +1813,18 @@ def test_office_runtime_dependency_install_waits_out_apt_locks(monkeypatch):
 
 
 def test_desktop_runtime_packages_include_libreoffice_for_desktop_status():
+    install_additional = (
+        PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_additional.sh"
+    ).read_text(encoding="utf-8")
+
     assert set(desktop_hooks.LIBREOFFICE_RUNTIME_PACKAGES).issubset(desktop_hooks.RUNTIME_PACKAGES)
     assert "libreoffice-writer" in desktop_hooks.RUNTIME_PACKAGES
     assert "libreoffice-calc" in desktop_hooks.RUNTIME_PACKAGES
     assert "libreoffice-impress" in desktop_hooks.RUNTIME_PACKAGES
+    assert desktop_hooks.GTK_RUNTIME_PACKAGE in desktop_hooks.RUNTIME_PACKAGES
+    assert "xpra-client" in desktop_hooks.RUNTIME_PACKAGES
+    assert "xpra-client-gtk3" in desktop_hooks.RUNTIME_PACKAGES
+    assert f'XPRA_VERSION="{desktop_hooks.XPRA_VERSION}"' in install_additional
 
 
 def test_desktop_cleanup_moves_retired_state_to_plugin_state(tmp_path, monkeypatch):
@@ -1756,8 +1918,8 @@ def test_cleanup_hook_enables_official_xpra_repo_when_kali_lacks_candidate(tmp_p
     assert errors == []
     assert installed == ["xpra"]
     assert keyring.read_bytes() == b"xpra-key"
-    assert "URIs: https://xpra.org/beta" in source.read_text(encoding="utf-8")
-    assert "Suites: sid" in source.read_text(encoding="utf-8")
+    assert "URIs: https://xpra.org\n" in source.read_text(encoding="utf-8")
+    assert "Suites: trixie" in source.read_text(encoding="utf-8")
     assert calls.count(["apt-get", "update"]) == 2
     assert calls[-1][:4] == ["apt-get", "install", "-y", "--no-install-recommends"]
 
@@ -1803,24 +1965,19 @@ def test_cleanup_hook_uses_trixie_xpra_components_for_kali_arm64(tmp_path, monke
     assert "URIs: https://xpra.org\n" in source_text
     assert "Suites: trixie" in source_text
     assert "xpra" not in calls[-1]
-    assert calls[-1][-3:] == ["xpra-server", "xpra-x11", "xpra-html5"]
+    assert calls[-1][-3:] == [
+        f"xpra-server={desktop_hooks.XPRA_VERSION}",
+        f"xpra-x11={desktop_hooks.XPRA_VERSION}",
+        "xpra-html5",
+    ]
 
 
-def test_cleanup_hook_skips_optional_xpra_client_codec_conflict(monkeypatch):
+def test_cleanup_hook_installs_matching_xpra_client_stack(monkeypatch):
     calls = []
     installed_state = {
-        "xpra-server": True,
         "xpra-client": False,
         "xpra-client-gtk3": False,
-        "xpra-x11": True,
-        "xpra-html5": True,
     }
-    codec_error = (
-        "E: Unable to satisfy dependencies. Reached two conflicting assignments:\n"
-        "   1. xpra-codecs:arm64=6.4.3-r0-1 is selected for install\n"
-        "   2. xpra-codecs:arm64 Depends libvpx9 (>= 1.12.0)\n"
-        "      but none of the choices are installable: [no choices]"
-    )
 
     monkeypatch.setattr(desktop_hooks.os, "geteuid", lambda: 0)
     monkeypatch.setattr(
@@ -1831,16 +1988,18 @@ def test_cleanup_hook_skips_optional_xpra_client_codec_conflict(monkeypatch):
     monkeypatch.setattr(
         desktop_hooks,
         "RUNTIME_PACKAGES",
-        ("xpra-server", "xpra-client", "xpra-client-gtk3", "xpra-x11", "xpra-html5"),
+        ("xpra-client", "xpra-client-gtk3"),
     )
     monkeypatch.setattr(desktop_hooks, "_package_installed", lambda package: installed_state.get(package, False))
+    monkeypatch.setattr(desktop_hooks, "_package_version", lambda package: "6.5.2-r0-1")
 
     def fake_run(command, **kwargs):
         calls.append(command)
         if command[:2] == ["apt-cache", "policy"]:
-            return types.SimpleNamespace(returncode=0, stdout="Candidate: 6.4.3-r0-1\n", stderr="")
+            return types.SimpleNamespace(returncode=0, stdout="Candidate: 6.5.3-r0-1\n", stderr="")
         if command[:2] == ["apt-get", "install"]:
-            return types.SimpleNamespace(returncode=100, stdout="", stderr=codec_error)
+            installed_state["xpra-client"] = True
+            installed_state["xpra-client-gtk3"] = True
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(desktop_hooks.subprocess, "run", fake_run)
@@ -1849,9 +2008,60 @@ def test_cleanup_hook_skips_optional_xpra_client_codec_conflict(monkeypatch):
 
     desktop_hooks._ensure_runtime_dependencies(installed, errors)
 
-    assert installed == []
+    assert installed == ["xpra-client", "xpra-client-gtk3"]
     assert errors == []
-    assert calls[-1][-2:] == ["xpra-client", "xpra-client-gtk3"]
+    assert calls[-1][-2:] == ["xpra-client=6.5.2-r0-1", "xpra-client-gtk3=6.5.2-r0-1"]
+
+
+@pytest.mark.parametrize("optional_installed", [False, True])
+@pytest.mark.parametrize("install_fails", [False, True])
+def test_cleanup_hook_repairs_kali_gtk_from_snapshot(tmp_path, monkeypatch, optional_installed, install_fails):
+    calls = []
+    installed_state = {package: optional_installed for package in desktop_hooks.ATK_OPTIONAL_PACKAGES}
+    source = tmp_path / "sources.list"
+    source.write_text("deb http://http.kali.org/kali kali-rolling main\n", encoding="utf-8")
+
+    monkeypatch.setattr(system_packages, "KALI_SOURCE_FILES", (source,))
+    monkeypatch.setattr(system_packages.platform, "freedesktop_os_release", lambda: {"ID": "kali"})
+    monkeypatch.setattr(desktop_hooks.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        desktop_hooks.shutil,
+        "which",
+        lambda name: f"/usr/bin/{name}" if name in {"apt-get", "dpkg-query"} else "",
+    )
+    monkeypatch.setattr(desktop_hooks, "RUNTIME_PACKAGES", (desktop_hooks.GTK_RUNTIME_PACKAGE,))
+    monkeypatch.setattr(desktop_hooks, "_read_os_release", lambda: {"ID": "kali"})
+    monkeypatch.setattr(desktop_hooks, "_package_installed", lambda package: installed_state.get(package, False))
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        assert "kali-rolling" not in source.read_text(encoding="utf-8")
+        assert not any(item.startswith("Dir::Etc::sourcelist=") for item in command)
+        assert "download" not in command
+        if "install" in command:
+            assert "--allow-downgrades" in command
+            for package in desktop_hooks.ATK_RUNTIME_PACKAGES:
+                assert f"{package}={desktop_hooks.ATK_VERSION}" in command
+            for package in desktop_hooks.ATK_OPTIONAL_PACKAGES:
+                assert (f"{package}={desktop_hooks.ATK_VERSION}" in command) == optional_installed
+            if install_fails:
+                return types.SimpleNamespace(returncode=100, stdout="", stderr="GTK dependency conflict")
+            installed_state[desktop_hooks.GTK_RUNTIME_PACKAGE] = True
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(desktop_hooks.subprocess, "run", fake_run)
+    installed = []
+    errors = []
+
+    desktop_hooks._ensure_runtime_dependencies(installed, errors)
+
+    if install_fails:
+        assert installed == []
+        assert errors == ["GTK dependency conflict"]
+    else:
+        assert installed == [desktop_hooks.GTK_RUNTIME_PACKAGE]
+        assert errors == []
+    assert calls[0] == ["apt-get", "update"]
 
 
 def test_cleanup_hook_reports_required_xpra_codec_conflict(monkeypatch):
@@ -1918,3 +2128,101 @@ def load_self_update_manager():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize("name", ["probe.jsonl", "module.py", "settings.yaml", "page.html", "Dockerfile", ".env", "custom.unknown"])
+def test_editor_arbitrary_text_file_lifecycle(office_state, name):
+    path = office_state.workdir / name
+    original = b'first line\r\nsecond line\r\n'
+    path.write_bytes(original)
+    manager = editor_markdown_sessions.get_manager()
+    doc = document_store.register_document(path)
+    session = manager.open(doc)
+    assert session["text"].encode() == original
+    manager.input(session["session_id"], text="local edit\n")
+    path.write_text("external edit\n")
+    assert manager.save(session["session_id"])["code"] == "external_change_conflict"
+    copy = path.with_name("copy-" + name)
+    result = manager.save_as(session["session_id"], str(copy), text="saved copy\n")
+    assert path.read_text() == "external edit\n"
+    assert copy.read_text() == "saved copy\n"
+    assert result["document"]["extension"] == copy.suffix.lstrip(".")
+    with pytest.raises(FileExistsError):
+        manager.save_as(session["session_id"], str(copy))
+    renamed = copy.with_name("renamed-" + name)
+    updated = document_store.rename_document(result["document"]["file_id"], renamed, content="renamed\n")
+    manager.renamed(updated["file_id"], updated, text="renamed\n")
+    assert not copy.exists()
+    assert renamed.read_text() == "renamed\n"
+    assert manager.save(session["session_id"], text="final\n")["ok"]
+    assert renamed.read_text() == "final\n"
+    manager.close(session["session_id"])
+
+
+@pytest.mark.parametrize("content, message", [(b'a\x00b', "Binary"), (b'\xff\xfe', "UTF-8"), (b'x' * (10 * 1024 * 1024 + 1), "10 MiB")], ids=["binary", "encoding", "size"])
+def test_editor_rejects_binary_invalid_encoding_and_large_files(office_state, content, message):
+    path = office_state.workdir / "unsafe.jsonl"
+    path.write_bytes(content)
+    with pytest.raises(ValueError, match=message):
+        document_store.register_document(path)
+    assert path.read_bytes() == content
+
+
+def test_editor_named_create_and_save_as_match_file_browser_scope(office_state, tmp_path):
+    path = tmp_path / "outside-workdir.py"
+    handler = EditorSession(app=None, thread_lock=None)
+    request = types.SimpleNamespace(headers={}, host_url="http://localhost/")
+    payload = {"action": "create", "path": str(path), "source": "file-browser", "content": "print(1)\n"}
+    opened = asyncio.run(handler.process(payload, request))
+    assert opened["ok"]
+    assert opened["text"] == "print(1)\n"
+    assert not asyncio.run(handler.process(payload, request))["ok"]
+    assert path.read_text() == "print(1)\n"
+    target = tmp_path / "Dockerfile"
+    result = asyncio.run(handler.process({"action": "save_as", "session_id": opened["session_id"], "path": str(target), "text": "FROM scratch\n"}, request))
+    assert result["ok"]
+    assert result["document"]["extension"] == ""
+    assert target.read_text() == "FROM scratch\n"
+    with pytest.raises(PermissionError):
+        document_store.register_document(target)
+
+
+@pytest.mark.parametrize("mode", [0o755, 0o600])
+def test_editor_preserves_file_permissions_and_private_backups(office_state, mode):
+    import stat
+
+    path = office_state.workdir / "script.sh"
+    path.write_text("echo original\n")
+    path.chmod(mode)
+    original = path.stat()
+    office_state.backups.chmod(0o775)
+    manager = editor_markdown_sessions.get_manager()
+    session = manager.open(document_store.register_document(path))
+    assert manager.save(session["session_id"], text="echo saved\n")["ok"]
+    copy = path.with_name("copy.sh")
+    result = manager.save_as(session["session_id"], str(copy))
+    renamed = path.with_name("renamed.sh")
+    document_store.rename_document(result["document"]["file_id"], renamed, content="echo renamed\n")
+    for target in (path, renamed):
+        saved = target.stat()
+        assert stat.S_IMODE(saved.st_mode) == mode
+        assert (saved.st_uid, saved.st_gid) == (original.st_uid, original.st_gid)
+    assert stat.S_IMODE(office_state.backups.stat().st_mode) == 0o700
+    assert list(office_state.backups.iterdir())
+    assert all(stat.S_IMODE(backup.stat().st_mode) == 0o600 for backup in office_state.backups.iterdir())
+
+
+def test_editor_atomic_metadata_failure_keeps_original(office_state, monkeypatch):
+    path = office_state.workdir / "private.sh"
+    path.write_text("original\n")
+    path.chmod(0o600)
+    doc = document_store.register_document(path)
+
+    def fail_chmod(*_args):
+        raise PermissionError("metadata update failed")
+
+    monkeypatch.setattr(document_store.os, "fchmod", fail_chmod)
+    with pytest.raises(PermissionError, match="metadata update failed"):
+        document_store.write_text_document(doc["file_id"], "replacement\n")
+    assert path.read_text() == "original\n"
+    assert not list(path.parent.glob(".private.sh.*.tmp"))

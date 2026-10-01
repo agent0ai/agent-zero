@@ -14,7 +14,11 @@ from plugins._browser.helpers.config import (
     TAB_SCOPE_KEY,
     get_browser_config,
 )
-from plugins._browser.helpers.runtime import get_runtime, list_runtime_sessions
+from plugins._browser.helpers.runtime import (
+    get_runtime,
+    has_restorable_browser_tabs,
+    list_runtime_sessions,
+)
 
 
 FRAME_READ_TIMEOUT_SECONDS = 0.5
@@ -25,7 +29,12 @@ SCREENCAST_STREAM_QUALITY = 80
 SCREENSHOT_QUALITY = 92
 VIEWER_TRANSPORT_SCREENCAST = "screencast"
 VIEWER_TRANSPORT_SNAPSHOT = "snapshot"
-VIEWER_TRANSPORTS = {VIEWER_TRANSPORT_SCREENCAST, VIEWER_TRANSPORT_SNAPSHOT}
+VIEWER_TRANSPORT_INTERACTIVE = "interactive"
+VIEWER_TRANSPORTS = {
+    VIEWER_TRANSPORT_INTERACTIVE,
+    VIEWER_TRANSPORT_SCREENCAST,
+    VIEWER_TRANSPORT_SNAPSHOT,
+}
 
 
 class WsBrowser(WsHandler):
@@ -75,6 +84,8 @@ class WsBrowser(WsHandler):
 
         create_browser = self._bool(data.get("create_browser", data.get("createBrowser")))
         runtime = await get_runtime(context_id, create=create_browser)
+        if not runtime and not create_browser and has_restorable_browser_tabs(context_id):
+            runtime = await get_runtime(context_id)
         listing = {"browsers": [], "last_interacted_browser_id": None}
         browsers: list[dict[str, Any]] = []
         if runtime:
@@ -87,8 +98,19 @@ class WsBrowser(WsHandler):
             if opened.get("id"):
                 listing["last_interacted_browser_id"] = opened.get("id")
         active_id = self._active_browser_id(listing, data.get("browser_id"))
+        requested_transport = self._viewer_transport(data)
+        viewer_transport, interactive_view = await self._effective_viewer(
+            runtime,
+            active_id,
+            data,
+        )
         initial_viewport = self._viewport_from_data(data)
-        if runtime and active_id and initial_viewport:
+        if (
+            runtime
+            and active_id
+            and initial_viewport
+            and viewer_transport != VIEWER_TRANSPORT_INTERACTIVE
+        ):
             await runtime.call(
                 "set_viewport",
                 active_id,
@@ -103,7 +125,6 @@ class WsBrowser(WsHandler):
         if existing:
             existing.cancel()
         viewer_id = str(data.get("viewer_id") or "")
-        viewer_transport = self._viewer_transport(data)
         binary_frames = self._bool(data.get("binary_frames", data.get("binaryFrames")))
         slim_frames = self._bool(data.get("slim_frames", data.get("slimFrames", binary_frames)))
         capture_scale = self._capture_scale_from_data(data)
@@ -120,9 +141,16 @@ class WsBrowser(WsHandler):
                     capture_scale=capture_scale,
                 )
             else:
-                stream_task = self._stream_state(sid, context_id, active_id, viewer_id)
+                stream_task = self._stream_state(
+                    sid,
+                    context_id,
+                    active_id,
+                    viewer_id,
+                    viewer_transport=viewer_transport,
+                )
             self._streams[stream_key] = asyncio.create_task(stream_task)
-            snapshot = await self._snapshot_for_browser(runtime, active_id)
+            if viewer_transport != VIEWER_TRANSPORT_INTERACTIVE:
+                snapshot = await self._snapshot_for_browser(runtime, active_id)
 
         browsers, all_browsers, tab_scope = await self._tabs_for_scope(context_id, browsers)
 
@@ -136,6 +164,14 @@ class WsBrowser(WsHandler):
             "tab_scope": tab_scope,
             "viewer_id": viewer_id,
             "viewer_transport": viewer_transport,
+            "interactive_view": interactive_view,
+            "viewer_fallback_reason": (
+                str(interactive_view.get("error") or "")
+                if requested_transport == VIEWER_TRANSPORT_INTERACTIVE
+                and interactive_view
+                and not interactive_view.get("available")
+                else ""
+            ),
             "binary_frames": binary_frames,
             "slim_frames": slim_frames,
         }
@@ -253,7 +289,20 @@ class WsBrowser(WsHandler):
 
         listing = await runtime.call("list")
         last_interacted_browser_id = listing.get("last_interacted_browser_id")
-        snapshot = await self._snapshot_for_result(runtime, result)
+        active_id = self._active_browser_id(
+            listing,
+            self._result_browser_id(result) or browser_id,
+        )
+        viewer_transport, interactive_view = await self._effective_viewer(
+            runtime,
+            active_id,
+            data,
+        )
+        snapshot = (
+            None
+            if viewer_transport == VIEWER_TRANSPORT_INTERACTIVE
+            else await self._snapshot_for_result(runtime, result)
+        )
         browsers, all_browsers, tab_scope = await self._tabs_for_scope(
             context_id,
             listing.get("browsers") or [],
@@ -273,7 +322,8 @@ class WsBrowser(WsHandler):
                 "all_browsers": all_browsers,
                 "tab_scope": tab_scope,
                 "last_interacted_browser_id": last_interacted_browser_id,
-                "viewer_transport": self._viewer_transport(data),
+                "viewer_transport": viewer_transport,
+                "interactive_view": interactive_view,
             },
             correlation_id=data.get("correlationId"),
         )
@@ -288,7 +338,8 @@ class WsBrowser(WsHandler):
             "command": command,
             "browser_id": browser_id,
             "viewer_id": viewer_id,
-            "viewer_transport": self._viewer_transport(data),
+            "viewer_transport": viewer_transport,
+            "interactive_view": interactive_view,
         }
 
     async def _input(self, data: dict[str, Any], sid: str) -> dict[str, Any] | WsResult:
@@ -326,12 +377,15 @@ class WsBrowser(WsHandler):
                     text=str(data.get("text") or ""),
                 )
             elif input_type == "viewport":
+                viewer_transport = self._viewer_transport(data)
                 result = await runtime.call(
                     "set_viewport",
                     browser_id,
                     int(data.get("width") or 0),
                     int(data.get("height") or 0),
                     restart_screencast=bool(data.get("restart_stream")),
+                    resize_interactive=viewer_transport == VIEWER_TRANSPORT_INTERACTIVE,
+                    include_state=viewer_transport != VIEWER_TRANSPORT_INTERACTIVE,
                 )
             elif input_type == "wheel":
                 result = await runtime.call(
@@ -582,6 +636,8 @@ class WsBrowser(WsHandler):
         context_id: str,
         browser_id: int | str | None,
         viewer_id: str = "",
+        *,
+        viewer_transport: str = VIEWER_TRANSPORT_SNAPSHOT,
     ) -> None:
         last_signature = None
         while True:
@@ -594,7 +650,7 @@ class WsBrowser(WsHandler):
                             sid,
                             context_id,
                             viewer_id=viewer_id,
-                            frame_source=VIEWER_TRANSPORT_SNAPSHOT,
+                            frame_source=viewer_transport,
                         )
                         last_signature = signature
                     await asyncio.sleep(FRAME_RETRY_DELAY_SECONDS)
@@ -625,7 +681,7 @@ class WsBrowser(WsHandler):
                         browsers=browsers,
                         viewer_id=viewer_id,
                         state=state,
-                        viewer_transport=VIEWER_TRANSPORT_SNAPSHOT,
+                        viewer_transport=viewer_transport,
                     )
                     last_signature = signature
                 await asyncio.sleep(SNAPSHOT_STATE_POLL_SECONDS)
@@ -652,6 +708,36 @@ class WsBrowser(WsHandler):
         if not active_id and browsers:
             active_id = browsers[0].get("id")
         return active_id
+
+    async def _effective_viewer(
+        self,
+        runtime: Any,
+        browser_id: int | str | None,
+        data: dict[str, Any],
+    ) -> tuple[str, dict[str, Any] | None]:
+        requested = self._viewer_transport(data)
+        if requested != VIEWER_TRANSPORT_INTERACTIVE or not runtime or not browser_id:
+            return requested, None
+        viewport = self._viewport_from_data(data) or {}
+        try:
+            viewer = await runtime.call(
+                "interactive_viewer",
+                browser_id,
+                width=int(viewport.get("width") or 0),
+                height=int(viewport.get("height") or 0),
+            )
+        except Exception as exc:
+            viewer = {"available": False, "error": str(exc)}
+        if viewer.get("available"):
+            return VIEWER_TRANSPORT_INTERACTIVE, viewer
+        return VIEWER_TRANSPORT_SCREENCAST, viewer
+
+    @staticmethod
+    def _result_browser_id(result: Any) -> int | str | None:
+        if not isinstance(result, dict):
+            return None
+        state = result.get("state") if isinstance(result.get("state"), dict) else result
+        return state.get("id") if isinstance(state, dict) else None
 
     @staticmethod
     def _state_for_browser(

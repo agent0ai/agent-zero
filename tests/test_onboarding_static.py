@@ -80,6 +80,20 @@ def test_onboarding_contains_unified_provider_step():
     assert "localGuidance()" in html + store
 
 
+def test_onboarding_closes_before_opening_advanced_model_settings():
+    store = (PROJECT_ROOT / "plugins/_onboarding/webui/onboarding-store.js").read_text(
+        encoding="utf-8"
+    )
+    method = store.split("  async openAdvancedSettings() {", 1)[1].split("\n  },", 1)[0]
+
+    close_call = "await window.closeModal?.();"
+    open_call = "await modelConfigStore.openPresetEditor("
+
+    assert close_call in method
+    assert open_call in method
+    assert method.index(close_call) < method.index(open_call)
+
+
 def test_onboarding_provider_grid_names_are_present_in_metadata():
     provider_yaml = (PROJECT_ROOT / "conf/model_providers.yaml").read_text(encoding="utf-8")
     provider_ui = (PROJECT_ROOT / "plugins/_onboarding/webui/onboarding-providers.js").read_text(encoding="utf-8")

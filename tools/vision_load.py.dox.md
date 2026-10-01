@@ -3,7 +3,7 @@
 ## Purpose
 
 - Own the `vision_load.py` agent tool.
-- This module loads images into model-visible content for vision-capable models.
+- This module routes images either into Main model-visible content or through the preset's optional Vision Model.
 - Keep this file-level DOX profile synchronized with `vision_load.py` because this directory is intentionally flat.
 
 ## Ownership
@@ -12,22 +12,34 @@
 - `vision_load.py.dox.md` owns durable notes about responsibilities, contracts, side effects, and verification for that implementation.
 - Classes:
 - `VisionLoad` (`Tool`)
-  - `async execute(self, paths: list[str]=..., **kwargs) -> Response`
+  - `async execute(self, paths, query="", **kwargs) -> Response`
   - `async after_execution(self, response: Response, **kwargs)`
 - Notable constants/configuration names: `TOKENS_ESTIMATE`.
 
 ## Runtime Contracts
 
 - Tool modules must define `helpers.tool.Tool` subclasses and return `helpers.tool.Response` from `execute(...)`.
+- One call may contain multiple paths; a bare string is treated as one path. The Vision Model route sends every selected path in one request and returns one textual capsule.
+- Model configuration exposes a Vision Model only when the effective preset selects that route; otherwise this tool follows Main's native vision path.
+- The public tool contract is route-agnostic and accepts an optional focused `query`. A Vision Model receives both that query and the current user request through `fw.vision_load.md`; direct parallel workers inherit the request from their parent.
+- Native Main vision already retains the query in its authored tool-call transcript, so native raw history remains image-only and does not repeat model-authored instructions as user content.
+- Delegation completes during `execute(...)` so native Responses function output contains the real capsule before `after_execution(...)` persists it.
+- Delegated history contains the text capsule only. Native history contains the tool result followed by one raw message holding all loaded image blocks.
+- In a direct parallel worker, native image content is queued for the parent and promoted immediately after the outer `parallel` result; the disposable worker never owns the only copy of model-visible pixels.
+- Direct parallel workers inherit the parent's model override generically. This tool uses their recorded parent context only to resolve ephemeral refs and durable chat media.
+- `max_embeds` comes from the model that actually receives the images.
+- Native tool-result summaries omit the skipped-images section when no images were skipped; when the limit drops inputs, the section reports the skipped paths and active maximum.
+- Vision Model calls use the selected model's Advanced `kwargs`; this tool does not impose a separate timeout or output-token limit.
+- An empty Vision Model response is reported as an image-analysis error instead of a successful empty capsule.
 - Update this file whenever tool arguments, output shape, `break_loop` behavior, intervention handling, prompt instructions, or side effects change.
 - `VisionLoad` is a `Tool`.
 - `VisionLoad` defines `execute(...)`.
 - Observed side-effect areas: filesystem writes, model calls, plugin state, settings/state persistence, secret handling.
-- Imported dependency areas include: `helpers`, `helpers.print_style`, `helpers.tool`, `mimetypes`.
+- Imported dependency areas include: `helpers`, `helpers.tool`, `langchain_core.messages`, `mimetypes`, and `_model_config`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `self._get_max_embeds`, `Response`, `str.strip`, `self._context_id`, `chat_media.infer_source`, `chat_media.category_for_source`, `chat_media.save_image_base64`, `chat_media.save_image_data_url`, `chat_media.materialize_image_ref`, `str.strip.lower`, `ephemeral_images.is_ref`, `cls._is_data_image_url`, `self._is_data_image_url`, `plugins.get_plugin_config`, `images.to_data_url`, `normalized.startswith`, `ephemeral_images.display_ref`, `join`, `self.agent.hist_add_tool_result`, `history.RawMessage`.
+- Important called helpers/classes observed in the source: `build_vision_model`, `get_vision_model_config`, `self._get_max_embeds`, `Response`, `self._context_id`, `chat_media.save_image_base64`, `chat_media.save_image_data_url`, `chat_media.materialize_image_ref`, `ephemeral_images.consume_image`, `images.to_data_url`, `history.RawMessage`, `super().after_execution`, `model.unified_call`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

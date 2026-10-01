@@ -21,7 +21,7 @@ def get_dotenv_value(key: str, default: Any = None):
     # load_dotenv()       
     return os.getenv(key, default)
 
-def save_dotenv_value(key: str, value: str):
+def save_dotenv_value(key: str, value: str, reload_env: bool = True):
     if value is None:
         value = ""
     dotenv_path = get_dotenv_file_path()
@@ -40,4 +40,5 @@ def save_dotenv_value(key: str, value: str):
         f.seek(0)
         f.writelines(lines)
         f.truncate()
-    load_dotenv()
+    if reload_env:
+        load_dotenv()

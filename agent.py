@@ -1,4 +1,4 @@
-import asyncio, json, random, re, string, threading
+import asyncio, json, random, re, string, threading, time
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -12,6 +12,7 @@ from helpers import (
     files,
     errors,
     history,
+    responses_history,
     tokens,
     context as context_helper,
     dirty_json,
@@ -39,8 +40,12 @@ from helpers.llm_result import (
     metadata_from_llm_result,
     result_from_metadata,
 )
-from helpers.litellm_transport import ResponsesTransport
+from helpers.litellm_transport import ResponsesTransport, TransportMode
 from helpers.responses_tools import build_responses_function_tools, original_tool_name
+
+_RESPONSE_STREAM_UPDATE_CHARS = 128
+_RESPONSE_STREAM_UPDATE_SECONDS = 0.05
+
 
 class AgentContextType(Enum):
     USER = "user"
@@ -246,7 +251,9 @@ class AgentContext:
     def nudge(self):
         self.kill_process()
         self.paused = False
-        self.task = self.communicate(UserMessage(self.agent0.read_prompt("fw.msg_nudge.md")))
+        self.task = self.communicate(
+            UserMessage("", system_message=[self.agent0.read_prompt("fw.msg_nudge.md")])
+        )
         return self.task
 
     @extension.extensible
@@ -403,6 +410,9 @@ class Agent:
                     self.loop_data.iteration += 1
                     self.loop_data.params_temporary = {}  # clear temporary params
                     last_response_stream_full = ""
+                    last_response_stream_chars = 0
+                    last_response_stream_at = time.monotonic()
+                    response_stream_pending = False
 
                     # call message_loop_start extensions
                     await extension.call_extensions_async(
@@ -440,13 +450,20 @@ class Agent:
                             await self.handle_reasoning_stream(stream_data["full"])
 
                         async def stream_callback(chunk: str, full: str):
-                            nonlocal last_response_stream_full
+                            nonlocal last_response_stream_full, last_response_stream_chars
+                            nonlocal last_response_stream_at, response_stream_pending
                             await self.handle_intervention()
                             # output the agent response stream
                             if chunk == full:
                                 printer.print("Response: ")  # start of response
                             # Pass chunk and full data to extensions for processing
                             stream_data = {"chunk": chunk, "full": full}
+                            await extension.call_extensions_async(
+                                "response_stream_chunk",
+                                self,
+                                loop_data=self.loop_data,
+                                stream_data=stream_data,
+                            )
                             tool_request = extract_tools.extract_tool_request(full)
                             if tool_request is not None:
                                 try:
@@ -454,21 +471,26 @@ class Agent:
                                 except Exception:
                                     pass
                                 else:
-                                    await self.handle_response_stream(full)
+                                    await self.handle_response_stream(stream_data["full"])
+                                    response_stream_pending = False
                                     return full.strip()
 
-                            await extension.call_extensions_async(
-                                "response_stream_chunk",
-                                self,
-                                loop_data=self.loop_data,
-                                stream_data=stream_data,
-                            )
                             # Stream masked chunk after extensions processed it
                             if stream_data.get("chunk"):
                                 printer.stream(stream_data["chunk"])
-                            # Use the potentially modified full text for downstream processing
-                            await self.handle_response_stream(stream_data["full"])
                             last_response_stream_full = stream_data["full"]
+                            response_stream_pending = True
+                            now = time.monotonic()
+                            if (
+                                len(full) - last_response_stream_chars
+                                >= _RESPONSE_STREAM_UPDATE_CHARS
+                                or now - last_response_stream_at
+                                >= _RESPONSE_STREAM_UPDATE_SECONDS
+                            ):
+                                await self.handle_response_stream(last_response_stream_full)
+                                last_response_stream_chars = len(full)
+                                last_response_stream_at = time.monotonic()
+                                response_stream_pending = False
 
                         # call main LLM
                         llm_result = await self.call_chat_model_turn(
@@ -478,6 +500,9 @@ class Agent:
                         )
                         agent_response = llm_result.response
                         await self.handle_intervention(agent_response)
+
+                        if response_stream_pending:
+                            await self.handle_response_stream(last_response_stream_full)
 
                         # Notify extensions to finalize their stream filters
                         await extension.call_extensions_async(
@@ -491,40 +516,26 @@ class Agent:
 
                         await self.handle_intervention(agent_response)
 
-                        if (
-                            self.loop_data.last_response == agent_response
-                        ):  # if assistant_response is the same as last message in history, let him know
-                            # Append the assistant's response to the history
-                            log_item = self.loop_data.params_temporary.get("log_item_generating")
-                            assistant_message = self.hist_add_ai_response(
-                                agent_response,
-                                id=log_item.id if log_item else "",
-                                llm_result=llm_result,
-                            )
-                            self._remember_llm_result_state(llm_result, assistant_message)
-                            # Append warning message to the history
-                            warning_msg = self.read_prompt("fw.msg_repeat.md")
-                            wmsg = self.hist_add_warning(message=warning_msg)
-                            PrintStyle(font_color="orange", padding=True).print(
-                                warning_msg
-                            )
-                            self.context.log.log(type="warning", content=warning_msg, id=wmsg.id)
+                        result_data = {"llm_result": llm_result}
+                        await extension.call_extensions_async(
+                            "message_loop_result",
+                            self,
+                            loop_data=self.loop_data,
+                            result_data=result_data,
+                        )
+                        if result_data.get("skip_default_processing"):
+                            continue
 
-                        else:  # otherwise proceed with tool
-                            # Append the assistant's response to the history
-                            log_item = self.loop_data.params_temporary.get("log_item_generating")
-                            assistant_message = self.hist_add_ai_response(
-                                agent_response,
-                                id=log_item.id if log_item else "",
-                                llm_result=llm_result,
-                            )
-                            self._remember_llm_result_state(llm_result, assistant_message)
-                            # process tools requested in agent message
-                            tools_result = await self.process_llm_result_tools(
-                                llm_result
-                            )
-                            if tools_result:  # final response of message loop available
-                                return tools_result  # break the execution if the task is done
+                        agent_response = llm_result.response
+                        log_item = self.loop_data.params_temporary.get("log_item_generating")
+                        assistant_message = self.hist_add_ai_response(
+                            agent_response,
+                            id=log_item.id if log_item else "",
+                            llm_result=llm_result,
+                        )
+                        tools_result = await self.process_llm_result_tools(llm_result)
+                        if tools_result:  # final response of message loop available
+                            return tools_result  # break the execution if the task is done
 
                     # exceptions inside message loop:
                     except Exception as e:
@@ -560,6 +571,7 @@ class Agent:
         )
 
         # set system prompt and message history
+        responses_history.start_prompt(loop_data)
         loop_data.system = await self.get_system_prompt(self.loop_data)
         loop_data.history_output = self.history.output()
 
@@ -600,6 +612,7 @@ class Agent:
             *history_langchain,
         ]
         full_text = ChatPromptTemplate.from_messages(full_prompt).format()
+        responses_history.remember_prompt(loop_data, full_text, full_prompt[0], protocol)
 
         # store as last context window content
         self.set_data(
@@ -626,7 +639,7 @@ class Agent:
             False,
             content=self.read_prompt(
                 prompt_file,
-                **{variable_name: dirty_json.stringify(values)},
+                **{variable_name: dirty_json.stringify(values, separators=(",", ":"))},
             ),
         ).output()
 
@@ -685,6 +698,8 @@ class Agent:
         prompt = files.parse_file(
             _prompt_file, _directories=dirs, _agent=self, **kwargs
         )
+        if isinstance(prompt, str):
+            prompt = prompt.rstrip("\n")
         return prompt
 
     @extension.extensible
@@ -694,6 +709,8 @@ class Agent:
         prompt = files.read_prompt_file(file, _directories=dirs, _agent=self, **kwargs)
         if files.is_full_json_template(prompt):
             prompt = files.remove_code_fences(prompt)
+        if isinstance(prompt, str):
+            prompt = prompt.rstrip("\n")
         return prompt
 
     def get_data(self, field: str):
@@ -756,16 +773,25 @@ class Agent:
 
     @extension.extensible
     def hist_add_ai_response(
-        self, message: str, id: str = "", llm_result: LLMResult | None = None
+        self, message: str, llm_result: LLMResult | str | None = None, id: str = ""
     ):
+        if isinstance(llm_result, str):
+            if id:
+                raise TypeError("History message ID supplied twice")
+            id, llm_result = llm_result, None
+        if llm_result is None:
+            llm_result = LLMResult.non_llm()
+        message = llm_result.function_calls_text() or message
         self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
-        return self.hist_add_message(
+        msg = self.hist_add_message(
             True,
             content=content,
             id=id,
             metadata=metadata_from_llm_result(llm_result),
         )
+        self._remember_llm_result_state(llm_result, msg)
+        return msg
 
     @extension.extensible
     def hist_add_warning(self, message: history.MessageContent, id: str = ""):
@@ -914,7 +940,13 @@ class Agent:
         model_kwargs = getattr(model, "kwargs", {}) if model else {}
         if isinstance(model_kwargs, dict) and model_kwargs.get("responses_delete_on_chat_delete") is False:
             self.set_data("responses_delete_on_chat_delete", False)
-        response_tools, name_map = build_responses_function_tools(self)
+        # native function tools are only sent through the Responses API
+        api_mode = model_kwargs.get("a0_api_mode") if isinstance(model_kwargs, dict) else None
+        response_tools, name_map = (
+            build_responses_function_tools(self)
+            if TransportMode.from_value(api_mode) is TransportMode.RESPONSES
+            else ([], {})
+        )
         self.set_data(Agent.DATA_NAME_RESPONSES_TOOL_NAME_MAP, name_map)
 
         call_data = {
@@ -935,7 +967,7 @@ class Agent:
                 model,
                 history_counter,
             )
-        call_data["responses_local_input_items"] = self._responses_prompt_input_items(
+        call_data["responses_local_input_items"] = ResponsesTransport.input_from_model_messages(
             model,
             messages,
         )
@@ -945,6 +977,7 @@ class Agent:
         )
 
         turn_kwargs = {
+            **responses_history.prepare_call(self, call_data),
             "a0_responses_function_tools": call_data.get(
                 "a0_responses_function_tools"
             ),
@@ -1024,18 +1057,7 @@ class Agent:
 
         output = message.output()
         langchain_messages = history.output_langchain(output)
-        if hasattr(model, "_convert_messages"):
-            converted = model._convert_messages(langchain_messages)
-            return ResponsesTransport.input_from_messages(converted)
-        return []
-
-    def _responses_prompt_input_items(
-        self, model: Any, messages: list[BaseMessage]
-    ) -> list[dict[str, Any]]:
-        if not hasattr(model, "_convert_messages"):
-            return []
-        converted = model._convert_messages(messages)
-        return ResponsesTransport.input_from_messages(converted)
+        return ResponsesTransport.input_from_model_messages(model, langchain_messages)
 
     def _remember_llm_result_state(
         self, llm_result: LLMResult, history_message: history.Message
@@ -1083,7 +1105,7 @@ class Agent:
                     self.hist_add_tool_result(last_tool.name, tool_progress)
                     last_tool.set_progress(None)
             if progress.strip():
-                self.hist_add_ai_response(progress)
+                self.hist_add_ai_response(progress, llm_result=LLMResult.non_llm())
             # append the intervention message
             self.hist_add_user_message(msg, intervention=True)
             raise InterventionException(msg)
@@ -1539,6 +1561,11 @@ class Agent:
                 return  # no reason to try
             response = DirtyJson.parse_string(stream)
             if isinstance(response, dict):
+                try:
+                    tool_name, tool_args = extract_tools.normalize_tool_request(response)
+                    response.update(tool_name=tool_name, tool_args=tool_args)
+                except ValueError:
+                    pass  # Tool fields may still be incomplete.
                 await extension.call_extensions_async(
                     "response_stream",
                     self,

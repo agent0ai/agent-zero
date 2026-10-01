@@ -16,6 +16,12 @@
 - Respect gitignore-style filtering, per-file budgets, and total token budgets.
 - Include only intended promptinclude files from configured workspaces.
 - Keep scan result status fields accurate for skipped, cropped, and included files.
+- Keep the generic promptinclude mechanism discoverable even when no matching
+  files exist; append file content only when the scan returns it.
+- Keep empty matching files out of included content and normal skipped counts
+  without reading beyond an exhausted count or token budget.
+- Keep the system fragment focused on prompt inclusion; optional capability
+  routing belongs in the corresponding policy-filtered tool prompts.
 
 ## Work Guidance
 

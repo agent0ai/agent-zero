@@ -13,6 +13,7 @@ from plugins._text_editor.helpers.file_ops import (
     apply_exact_replace_file,
     file_info,
 )
+from plugins._text_editor.helpers.log import create_editor_log
 from plugins._text_editor.helpers.patch_request import parse_patch_request
 from plugins._text_editor.helpers.patch_state import (
     LOCAL_FRESHNESS_KEY,
@@ -29,6 +30,9 @@ _MTIME_KEY = LOCAL_FRESHNESS_KEY
 
 
 class TextEditor(Tool):
+
+    def get_log_object(self):
+        return create_editor_log(self)
 
     async def execute(self, **kwargs):
         action = _current_action(self, kwargs)

@@ -5,7 +5,7 @@ const API_BASE = "/plugins/_whatsapp_integration";
 const STEPS = [
   {
     title: "Pair your account and set access",
-    description: "Turn on WhatsApp, connect the account, and choose who can reach it.",
+    description: "Link WhatsApp with a QR code, then choose who can reach your agent.",
   },
   {
     title: "Choose where conversations go",
@@ -44,6 +44,7 @@ export const store = createStore("whatsappConfig", {
   qrMessage: "",
   qrDataUrl: null,
   qrPollTimer: null,
+  _qrSession: 0,
   disconnecting: false,
   disconnectMessage: "",
   steps: STEPS,
@@ -223,44 +224,51 @@ export const store = createStore("whatsappConfig", {
   },
 
   async showQr() {
+    if (!this.config) return;
+    this.hideQr();
+    this.config.enabled = true;
+    this.disconnectMessage = "";
     this.qrVisible = true;
     this.qrStatus = "loading";
-    this.qrMessage = "Starting the WhatsApp bridge...";
+    this.qrMessage = "Preparing QR code...";
     this.qrDataUrl = null;
     await this.pollQr();
-    this.qrPollTimer = setInterval(() => this.pollQr(), 3000);
   },
 
   hideQr() {
+    this._qrSession += 1;
     this.qrVisible = false;
     this.qrDataUrl = null;
     this.qrStatus = "";
     if (this.qrPollTimer) {
-      clearInterval(this.qrPollTimer);
+      clearTimeout(this.qrPollTimer);
       this.qrPollTimer = null;
     }
   },
 
-  async pollQr() {
+  async pollQr(session = this._qrSession) {
+    if (!this.qrVisible || session !== this._qrSession) return;
     try {
       const response = await API.callJsonApi(`${API_BASE}/qr_code`, {});
+      if (!this.qrVisible || session !== this._qrSession) return;
       this.qrStatus = response.status || "error";
       this.qrMessage = response.message || "";
       this.qrDataUrl = response.qr || null;
-
-      if (response.status === "connected" && this.qrPollTimer) {
-        clearInterval(this.qrPollTimer);
-        this.qrPollTimer = null;
-      }
     } catch (error) {
+      if (!this.qrVisible || session !== this._qrSession) return;
       this.qrStatus = "error";
       this.qrMessage = String(error);
       this.qrDataUrl = null;
+    }
+    this.qrPollTimer = null;
+    if (this.qrStatus !== "connected" && this.qrStatus !== "error") {
+      this.qrPollTimer = setTimeout(() => this.pollQr(session), 3000);
     }
   },
 
   async disconnectAccount() {
     if (!window.confirm("Disconnect this WhatsApp account? You will need to scan a new QR code to reconnect.")) return;
+    this.hideQr();
     this.disconnecting = true;
     this.disconnectMessage = "";
     try {

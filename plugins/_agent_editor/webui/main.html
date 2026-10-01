@@ -170,10 +170,10 @@
 
         <section class="agent-easy-field">
           <div class="agent-field-heading">
-            <div><label for="agent-editor-instructions" class="agent-field-label">Instructions</label><p>What should this agent do, and how should it behave?</p></div>
+            <div><label for="agent-editor-instructions" class="agent-field-label">Instructions <span class="agent-status-badge compact" x-show="$store.agentEditor.draft?.creating">Required</span></label><p>What should this agent do, and how should it behave?</p></div>
           </div>
           <div>
-            <textarea id="agent-editor-instructions" rows="9" x-model="$store.agentEditor.instructions.value" @input="$store.agentEditor.markPromptSet('agent.system.main.specifics.md')" placeholder="Research technical topics, verify important claims with reliable sources, and return concise reports with links." :aria-invalid="$store.agentEditor.fieldIssue('instructions') ? 'true' : null" :aria-describedby="$store.agentEditor.fieldIssue('instructions') ? 'agent-editor-instructions-error' : null"></textarea>
+            <textarea id="agent-editor-instructions" rows="9" x-model="$store.agentEditor.instructions.value" @input="$store.agentEditor.markPromptSet('agent.system.main.specifics.md')" placeholder="Research technical topics, verify important claims with reliable sources, and return concise reports with links." :required="$store.agentEditor.draft?.creating" :aria-invalid="$store.agentEditor.fieldIssue('instructions') ? 'true' : null" :aria-describedby="$store.agentEditor.fieldIssue('instructions') ? 'agent-editor-instructions-error' : null"></textarea>
             <span id="agent-editor-instructions-error" class="field-error" role="alert" x-show="$store.agentEditor.fieldIssue('instructions')" x-text="$store.agentEditor.fieldIssue('instructions')?.message"></span>
             <button type="button" class="text-button restore-action" x-show="$store.agentEditor.instructions.has_override && !$store.agentEditor.instructions.reset" @click="$store.agentEditor.restoreInstructions()"><x-icon name="restart_alt"></x-icon><span>Reset to default</span></button>
           </div>
@@ -375,7 +375,7 @@
     </div>
     <div class="footer-actions">
       <button type="button" class="btn agent-editor-secondary-action" x-show="$store.agentEditor.view === 'editor' && !$store.agentEditor.draft?.creating" @click="$store.agentEditor.save(true)" :disabled="$store.agentEditor.saving || $store.agentEditor.validationIssues().length > 0">Save & test</button>
-      <button type="button" class="btn btn-ok" x-show="$store.agentEditor.view === 'editor'" @click="$store.agentEditor.save(false)" :disabled="$store.agentEditor.saving || $store.agentEditor.avatarUploading || $store.agentEditor.validationIssues().length > 0" :title="$store.agentEditor.validationIssues().length ? 'Fix the highlighted issues before saving' : ''"><span x-text="$store.agentEditor.saving ? 'Saving…' : $store.agentEditor.draft?.creating ? 'Create agent' : 'Save changes'"></span></button>
+      <button type="button" class="btn btn-ok" x-show="$store.agentEditor.view === 'editor'" @click="$store.agentEditor.save(false)" :disabled="$store.agentEditor.saving || $store.agentEditor.avatarUploading || $store.agentEditor.validationIssues().length > 0" :title="$store.agentEditor.validationErrors().join(' ')"><span x-text="$store.agentEditor.saving ? 'Saving…' : $store.agentEditor.draft?.creating ? 'Create agent' : 'Save changes'"></span></button>
     </div>
   </div>
 </div>

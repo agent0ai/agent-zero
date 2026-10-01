@@ -13,12 +13,16 @@
 
 ## Local Contracts
 
+- `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.
+
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
+- A direct parallel code job retains its worker and loop-bound shell until the command ends or is cancelled. Output timeouts publish model-facing progress to the registered job and continue polling; callers use parallel job IDs. Close parallel shells explicitly on that worker loop on completion or cancellation, including partially connected shells. Top-level sessions retain their ordinary timeout/output/reset behavior.
 - Execute multi-line terminal input as one current-shell compound so intermediate prompts cannot mark queued work complete; preserve `cd`, exports, and other shell state.
 - Treat local process exit and SSH channel termination as definitive command completion even when no final prompt is emitted; recreate terminated sessions before their next command.
 - Terminal reset/close must not hang on foreground commands or shells that ignore SIGTERM.
 - Local and SSH session wrappers must synchronously release their owned process or connection resources when discarded.
 - Explicitly target local versus SSH execution runtimes.
+- The tool's `allow_running` flag is framework-set (for example by the `input` tool's terminal dispatch); it is not a model-facing arg and stays undocumented in prompts.
 - Do not hardcode secrets, SSH credentials, or local user paths.
 
 ## Work Guidance

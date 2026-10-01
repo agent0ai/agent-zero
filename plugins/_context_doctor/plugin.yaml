@@ -1,0 +1,7 @@
+name: _context_doctor
+title: Context Doctor
+description: Repairs model tool call JSON before sending it to history and tool processing.
+version: 2.0.0
+settings_sections: []
+per_project_config: true
+per_agent_config: true

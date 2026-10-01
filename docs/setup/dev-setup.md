@@ -68,12 +68,12 @@ Now when you select one of the python files in the project, you should see prope
 
 ```bash
 pip install -r requirements.txt
-PLAYWRIGHT_BROWSERS_PATH=./tmp/playwright playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH=./tmp/playwright patchright install chromium --no-shell
 ```
 
 The first command installs Python dependencies.
 
-The second command installs full Playwright Chromium into `./tmp/playwright`,
+The second command installs full Patchright Chromium into `./tmp/playwright`,
 relative to the project root. Docker images use the absolute path
 `/a0/tmp/playwright` and ship Chromium preinstalled.
 

@@ -1,16 +1,35 @@
 import asyncio
 from helpers.extension import Extension
 from agent import LoopData
-from helpers import dirty_json, errors, log, plugins
+from helpers import cache, dirty_json, errors, log, plugins
 
 # Direct import - this extension lives inside the memory plugin
-from plugins._memory.helpers.memory import Memory
+from plugins._memory.helpers.memory import Memory, get_agent_memory_subdir
 from plugins._memory.tools.memory_load import DEFAULT_THRESHOLD as DEFAULT_MEMORY_THRESHOLD
 
 
 DATA_NAME_TASK = "_recall_memories_task"
 DATA_NAME_ITER = "_recall_memories_iter"
+DATA_NAME_LOOP = "_recall_memories_loop"
+DATA_NAME_RESULT = "_recall_memories_result"
+DATA_NAME_RESULT_SCOPE = "_recall_memories_result_scope"
 SEARCH_TIMEOUT = 30
+
+
+def apply_recall_result(loop_data: LoopData, result: dict | None):
+    extras = loop_data.extras_persistent
+    extras.pop("memories", None)
+    extras.pop("solutions", None)
+    if not isinstance(result, dict):
+        return
+    for key in ("memories", "solutions"):
+        if result.get(key):
+            extras[key] = result[key]
+
+
+def get_recall_scope(agent):
+    memory_subdir = get_agent_memory_subdir(agent)
+    return cache.determine_cache_key(agent, memory_subdir)
 
 
 class RecallMemories(Extension):
@@ -35,43 +54,97 @@ class RecallMemories(Extension):
         if not set["memory_recall_enabled"]:
             return None
 
+        recall_scope = get_recall_scope(self.agent)
+        cached_result = self.agent.get_data(DATA_NAME_RESULT)
+        if cached_result is not None:
+            if self.agent.get_data(DATA_NAME_RESULT_SCOPE) == recall_scope:
+                apply_recall_result(loop_data, cached_result)
+            else:
+                cached_result = None
+            self.agent.set_data(DATA_NAME_RESULT, None)
+            self.agent.set_data(DATA_NAME_RESULT_SCOPE, None)
+
         # every X iterations (or the first one) recall memories
-        if loop_data.iteration % set["memory_recall_interval"] == 0:
+        if loop_data.iteration % set["memory_recall_interval"] != 0:
+            return
 
-            # show util message right away
-            log_item = self.agent.context.log.log(
-                type="util",
-                heading="Searching memories...",
-            )
+        previous_task = self.agent.get_data(DATA_NAME_TASK)
+        previous_loop = self.agent.get_data(DATA_NAME_LOOP)
+        if previous_task and not previous_task.done():
+            if previous_loop is loop_data:
+                return
+            previous_task.cancel()
 
-            task = asyncio.create_task(
-                asyncio.wait_for(
-                    self.search_memories(loop_data=loop_data, log_item=log_item, **kwargs),
-                    timeout=SEARCH_TIMEOUT,
-                )
+        if cached_result is None:
+            apply_recall_result(loop_data, {})
+
+        # show util message right away
+        log_item = self.agent.context.log.log(
+            type="util",
+            heading="Searching memories...",
+        )
+
+        task = asyncio.create_task(
+            self.search_and_cache(
+                loop_data=loop_data,
+                log_item=log_item,
+                recall_scope=recall_scope,
+                **kwargs,
             )
-        else:
-            task = None
+        )
 
         # set to agent to be able to wait for it
         self.agent.set_data(DATA_NAME_TASK, task)
         self.agent.set_data(DATA_NAME_ITER, loop_data.iteration)
+        self.agent.set_data(DATA_NAME_LOOP, loop_data)
 
-    async def search_memories(self, log_item: log.LogItem, loop_data: LoopData, **kwargs):
+    async def search_and_cache(
+        self, log_item: log.LogItem, loop_data: LoopData, recall_scope, **kwargs
+    ):
         if not self.agent:
-            return
+            return {}
+        try:
+            result = await asyncio.wait_for(
+                self.search_memories(
+                    loop_data=loop_data,
+                    log_item=log_item,
+                    memory_subdir=recall_scope[-1],
+                    **kwargs,
+                ),
+                timeout=SEARCH_TIMEOUT,
+            )
+        except TimeoutError:
+            log_item.update(heading="Memory recall timed out")
+            result = {}
+        except Exception as e:
+            self.agent.context.log.log(
+                type="warning",
+                heading="Memory recall error",
+                content=errors.format_error(e),
+            )
+            result = {}
+        if get_recall_scope(self.agent) == recall_scope:
+            self.agent.set_data(DATA_NAME_RESULT, result)
+            self.agent.set_data(DATA_NAME_RESULT_SCOPE, recall_scope)
+        else:
+            result = {}
+            self.agent.set_data(DATA_NAME_RESULT, None)
+            self.agent.set_data(DATA_NAME_RESULT_SCOPE, None)
+        return result
 
-        # cleanup
-        extras = loop_data.extras_persistent
-        if "memories" in extras:
-            del extras["memories"]
-        if "solutions" in extras:
-            del extras["solutions"]
-
+    async def search_memories(
+        self,
+        log_item: log.LogItem,
+        loop_data: LoopData,
+        memory_subdir: str = "",
+        **kwargs,
+    ):
+        if not self.agent:
+            return {}
 
         set = plugins.get_plugin_config("_memory", self.agent)
         if not set:
-            return None
+            return {}
         # try:
 
         # get system message and chat history for util llm
@@ -113,7 +186,7 @@ class RecallMemories(Extension):
                 log_item.update(
                     heading="Failed to generate memory query",
                 )
-                return
+                return {}
         
         # otherwise use the message and history as query
         else:
@@ -124,10 +197,16 @@ class RecallMemories(Extension):
             log_item.update(
                 query="No relevant memory query generated, skipping search",
             )
-            return
+            return {}
 
         # get memory database
+        if memory_subdir and get_agent_memory_subdir(self.agent) != memory_subdir:
+            return {}
         db = await Memory.get(self.agent)
+        if memory_subdir and db.memory_subdir != memory_subdir:
+            return {}
+
+        embedding = await db.embed_query(query)
 
         # search for general memories and fragments
         memories = await db.search_similarity_threshold(
@@ -135,6 +214,7 @@ class RecallMemories(Extension):
             limit=set["memory_recall_memories_max_search"],
             threshold=set["memory_recall_similarity_threshold"],
             filter=f"area == '{Memory.Area.MAIN.value}' or area == '{Memory.Area.FRAGMENTS.value}'",  # exclude solutions
+            embedding=embedding,
         )
 
         # search for solutions
@@ -143,13 +223,14 @@ class RecallMemories(Extension):
             limit=set["memory_recall_solutions_max_search"],
             threshold=set["memory_recall_similarity_threshold"],
             filter=f"area == '{Memory.Area.SOLUTIONS.value}'",  # exclude solutions
+            embedding=embedding,
         )
 
         if not memories and not solutions:
             log_item.update(
                 heading="No memories or solutions found",
             )
-            return
+            return {}
 
         # if post filtering is enabled
         if set["memory_recall_post_filter"]:
@@ -218,12 +299,13 @@ class RecallMemories(Extension):
         if solutions_txt:
             log_item.update(solutions=solutions_txt)
 
-        # place to prompt
+        result = {}
         if memories_txt:
-            extras["memories"] = self.agent.parse_prompt(
+            result["memories"] = self.agent.parse_prompt(
                 "agent.system.memories.md", memories=memories_txt
             )
         if solutions_txt:
-            extras["solutions"] = self.agent.parse_prompt(
+            result["solutions"] = self.agent.parse_prompt(
                 "agent.system.solutions.md", solutions=solutions_txt
             )
+        return result

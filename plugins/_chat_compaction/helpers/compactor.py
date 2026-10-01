@@ -86,7 +86,7 @@ async def run_compaction(
     2. Estimates token count and checks against model context window
     3. If needed, splits history and summarizes iteratively
     4. Calls the LLM to generate a comprehensive summary
-    5. Replaces the history with a single AI message containing the summary
+    5. Replaces the history with a single context message containing the summary
     6. Resets the log and creates a response log item
     7. Persists the changes
     
@@ -144,7 +144,8 @@ async def run_compaction(
         compacted_content = f"## Context compacted\n\n{summary}{backup_note}"
 
         agent.history = History(agent=agent)
-        agent.history.add_message(ai=True, content=compacted_content)
+        # History summaries are context, not orphaned assistant turns.
+        agent.history.add_message(ai=False, content=compacted_content)
         clear_responses_provider_state(agent)
         agent.data.pop(Agent.DATA_NAME_CTX_WINDOW, None)
         

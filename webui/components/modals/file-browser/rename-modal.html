@@ -8,7 +8,7 @@
 <body>
   <div x-data>
     <template x-if="$store.fileBrowser">
-      <div class="rename-modal-root" x-init="$nextTick(() => $refs.renameInput?.focus())">
+      <div class="rename-modal-root" x-destroy="$store.fileBrowser.resetRenameState()" x-init="$nextTick(() => $refs.renameInput?.focus())">
         <div class="rename-form">
           <label class="rename-label" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'New folder name' : 'New name'"></label>
           <input

@@ -5,7 +5,7 @@ No agent/tool dependencies — only stdlib + tokens helper.
 """
 
 import os
-import shutil
+import stat
 import tempfile
 from typing import TypedDict
 
@@ -343,7 +343,7 @@ def apply_patch(path: str, edits: list[dict]) -> int:
                     total_written += _count_content_lines(edit["content"])
                 edit_idx += 1
 
-        shutil.move(tmp_path, path)
+        _replace_file(tmp_path, path)
         return total_written
     except Exception:
         if os.path.exists(tmp_path):
@@ -384,7 +384,7 @@ def apply_context_patch_file(path: str, patch_text: str) -> ContextPatchFileResu
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as dst:
             dst.write(result.content)
-        shutil.move(tmp_path, path)
+        _replace_file(tmp_path, path)
     except Exception:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -431,7 +431,7 @@ def apply_exact_replace_file(
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as dst:
             dst.write(new_content)
-        shutil.move(tmp_path, path)
+        _replace_file(tmp_path, path)
     except Exception:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -448,6 +448,15 @@ def apply_exact_replace_file(
 # ------------------------------------------------------------------
 # Internal
 # ------------------------------------------------------------------
+
+def _replace_file(tmp_path: str, path: str) -> None:
+    """Keep the existing file's access when publishing a patched version."""
+    original = os.stat(path)
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        os.chown(tmp_path, original.st_uid, original.st_gid)
+    os.chmod(tmp_path, stat.S_IMODE(original.st_mode))
+    os.replace(tmp_path, path)
+
 
 def _count_content_lines(content: str) -> int:
     return content.count("\n") + (

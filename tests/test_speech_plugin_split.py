@@ -183,11 +183,12 @@ def test_chat_bar_keeps_existing_send_and_mic_icon_contract() -> None:
     ).read_text(encoding="utf-8")
 
     assert 'id="send-button"' in chat_bar
-    assert 'x-text="$store.chatInput.sendButtonIcon"' in chat_bar
+    assert ':name="$store.chatInput.sendButtonIcon"' in chat_bar
     assert ':class="$store.chatInput.sendButtonClass"' in chat_bar
     assert ':title="$store.chatInput.sendButtonTitle"' in chat_bar
 
     assert 'id="microphone-button"' in mic_extension
+    assert "data-whisper-microphone" in mic_extension
     assert "<svg" in mic_extension
     assert "material-symbols-outlined" not in mic_extension
     assert "buttonIcon" not in mic_extension

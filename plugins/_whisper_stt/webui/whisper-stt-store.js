@@ -66,6 +66,7 @@ const model = {
   packageVersion: "",
   providerCleanup: null,
   microphoneInput: null,
+  finalTranscriptHandler: null,
   isProcessingClick: false,
   devices: [],
   selectedDevice: "",
@@ -176,24 +177,26 @@ const model = {
   },
 
   updateMicrophoneButtonUI() {
-    const microphoneButton = document.getElementById("microphone-button");
-    if (!microphoneButton) return;
-
     const status = this.enabled ? this.micStatus : "disabled";
     const label = MicStatusLabels[status] || "Microphone";
-    clearMicrophoneTooltip(microphoneButton);
-    microphoneButton.classList.remove(...MicButtonClasses);
-    microphoneButton.classList.add(`mic-${status}`);
-    microphoneButton.setAttribute("data-status", status);
-    microphoneButton.setAttribute("aria-label", label);
-    microphoneButton.setAttribute(
-      "aria-pressed",
-      String(
-        status !== "disabled" &&
-          status !== Status.INACTIVE &&
-          status !== Status.ACTIVATING,
-      ),
+    const microphoneButtons = document.querySelectorAll(
+      "[data-whisper-microphone], #microphone-button",
     );
+    for (const microphoneButton of microphoneButtons) {
+      clearMicrophoneTooltip(microphoneButton);
+      microphoneButton.classList.remove(...MicButtonClasses);
+      microphoneButton.classList.add(`mic-${status}`);
+      microphoneButton.setAttribute("data-status", status);
+      microphoneButton.setAttribute("aria-label", label);
+      microphoneButton.setAttribute(
+        "aria-pressed",
+        String(
+          status !== "disabled" &&
+            status !== Status.INACTIVE &&
+            status !== Status.ACTIVATING,
+        ),
+      );
+    }
   },
 
   async loadDevices() {
@@ -268,13 +271,16 @@ const model = {
     }
   },
 
-  async handleMicrophoneClick() {
+  async handleMicrophoneClick(finalTranscriptHandler = null) {
     if (this.isProcessingClick) return;
 
+    this.finalTranscriptHandler =
+      typeof finalTranscriptHandler === "function" ? finalTranscriptHandler : null;
     this.isProcessingClick = true;
     try {
       await this.ensureStatusLoaded({ force: true, suppressError: false });
       if (!this.enabled) {
+        this.finalTranscriptHandler = null;
         globalThis.justToast?.("Whisper STT is disabled.", "info");
         return;
       }
@@ -309,13 +315,24 @@ const model = {
 
     const input = new MicrophoneInput(this, async (text, isFinal) => {
       if (isFinal) {
-        await this.sendVoiceMessage(text);
+        await this.deliverVoiceMessage(text);
       }
     });
 
     const initialized = await input.initialize();
     this.microphoneInput = initialized ? input : null;
     return this.microphoneInput;
+  },
+
+  async deliverVoiceMessage(text) {
+    if (this.finalTranscriptHandler) {
+      await this.finalTranscriptHandler(text, {
+        messageMode: this.config.message_mode,
+        sendImmediately: this.sendsImmediately,
+      });
+      return;
+    }
+    await this.sendVoiceMessage(text);
   },
 
   async sendVoiceMessage(text) {
@@ -346,6 +363,8 @@ const model = {
       this.microphoneInput.dispose();
       this.microphoneInput = null;
     }
+
+    this.finalTranscriptHandler = null;
 
     this.notifyStatusChange();
   },

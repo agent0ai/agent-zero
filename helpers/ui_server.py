@@ -38,6 +38,7 @@ from helpers.ui_bundler import (
     get_ui_asset_bundle,
     serialize_ui_asset_bundle,
 )
+from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
 from helpers import settings as settings_helper
 from helpers.ws import register_ws_namespace, validate_ws_origin
 from helpers.ws_manager import WsManager, set_shared_ws_manager
@@ -116,7 +117,7 @@ class UiServerRuntime:
                 "A0_SOCKETIO_PING_TIMEOUT_SECONDS",
                 SOCKETIO_PING_TIMEOUT_SECONDS,
             ),
-            max_http_buffer_size=50 * 1024 * 1024,
+            max_http_buffer_size=A0_WS_MAX_PAYLOAD_BYTES,
         )
 
         ws_manager = WsManager(socketio_server, lock)
@@ -203,6 +204,12 @@ class UiServerRuntime:
             "/extensions/webui/<path:asset_path>",
             "serve_extension_asset",
             handlers.serve_extension_asset,
+            methods=["GET"],
+        )
+        self.webapp.add_url_rule(
+            "/usr/extensions/webui/<path:asset_path>",
+            "serve_user_extension_asset",
+            handlers.serve_user_extension_asset,
             methods=["GET"],
         )
         self._routes_registered = True
@@ -403,9 +410,19 @@ class UiRouteHandlers:
 
     @requires_auth
     async def serve_extension_asset(self, asset_path):
-        exts = files.get_abs_path("extensions/webui")
-        path = files.get_abs_path(exts, asset_path)
-        if not files.is_in_dir(path, exts):
+        return self._serve_extension_asset(
+            files.get_abs_path("extensions/webui"), asset_path
+        )
+
+    @requires_auth
+    async def serve_user_extension_asset(self, asset_path):
+        return self._serve_extension_asset(
+            files.get_abs_path(files.USER_DIR, "extensions/webui"), asset_path
+        )
+
+    def _serve_extension_asset(self, extension_dir, asset_path):
+        path = files.get_abs_path(extension_dir, asset_path)
+        if not files.is_in_dir(path, extension_dir):
             return Response("Access denied", 403)
         return send_file(path)
 

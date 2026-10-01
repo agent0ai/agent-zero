@@ -19,6 +19,14 @@ def test_full_log_replays_replace_existing_message_dom():
     assert "normalized.sort(" in messages_js
 
 
+def test_root_responses_render_markdown_during_streaming():
+    messages_js = read("webui", "js", "messages.js")
+
+    assert "const renderMarkdown = kvps?.finished !== false;" not in messages_js
+    assert "markdown: true," in messages_js
+    assert "latex: true," in messages_js
+
+
 def test_message_ordering_uses_a_bounded_tail_first_renderer_cache():
     messages_js = read("webui", "js", "messages.js")
     message_window_js = read("webui", "js", "message-window.js")
@@ -109,6 +117,19 @@ def test_utility_prefixed_process_groups_are_not_hidden_from_partial_dom_state()
     assert ".show-utility-messages .process-group.utility-only" in process_group_css
     assert ".process-step.message-util {" in process_group_css
     assert ".show-utility-messages .process-step.message-util" in process_group_css
+
+
+def test_unknown_message_types_fall_back_to_draw_message_tool():
+    messages_js = read("webui", "js", "messages.js")
+
+    assert "return drawMessageTool;" in messages_js
+    assert "return drawMessageDefault;" not in messages_js
+
+
+def test_gen_steps_disable_smooth_scrolling():
+    messages_js = read("webui", "js", "messages.js")
+
+    assert 'smooth: code !== "GEN" && !isMassRender()' in messages_js
 
 
 def test_message_actions_put_copy_before_speak():

@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from plugins._text_editor.helpers.context_patch import ContextPatchError
+from plugins._text_editor.helpers import file_ops
 from plugins._text_editor.helpers.file_ops import (
     apply_context_patch_file,
     apply_exact_replace_file,
@@ -30,6 +31,59 @@ from plugins._text_editor.helpers.patch_state import (
     mark_file_state_stale,
     record_file_state,
 )
+
+
+@pytest.mark.parametrize("method", ["line", "context", "exact"])
+@pytest.mark.parametrize("mode", [0o600, 0o640, 0o644, 0o755])
+def test_patch_preserves_file_access(tmp_path: Path, method: str, mode: int) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("before\n", encoding="utf-8")
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        os.chown(target, 12345, 23456)
+    target.chmod(mode)
+    before = target.stat()
+
+    _patch_sample(target, method)
+
+    after = target.stat()
+    assert (after.st_mode, after.st_uid, after.st_gid) == (
+        before.st_mode, before.st_uid, before.st_gid
+    )
+    assert target.read_text(encoding="utf-8") == "after\n"
+
+
+@pytest.mark.parametrize("method", ["line", "context", "exact"])
+def test_patch_metadata_failure_keeps_original(
+    tmp_path: Path, monkeypatch, method: str
+) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("before\n", encoding="utf-8")
+    before = target.stat()
+
+    def fail(*args, **kwargs):
+        raise PermissionError("metadata denied")
+
+    monkeypatch.setattr(file_ops.os, "chmod", fail)
+    with pytest.raises(PermissionError, match="metadata denied"):
+        _patch_sample(target, method)
+
+    after = target.stat()
+    assert (after.st_ino, after.st_mode, after.st_uid, after.st_gid) == (
+        before.st_ino, before.st_mode, before.st_uid, before.st_gid
+    )
+    assert target.read_text(encoding="utf-8") == "before\n"
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def _patch_sample(target: Path, method: str) -> None:
+    if method == "line":
+        file_ops.apply_patch(str(target), [
+            {"from": 1, "to": 1, "content": "after\n", "insert": False}
+        ])
+    elif method == "context":
+        apply_context_patch_file(str(target), "@@\n-before\n+after\n")
+    else:
+        apply_exact_replace_file(str(target), "before", "after")
 
 
 def test_context_patch_chains_after_line_shift(tmp_path: Path) -> None:

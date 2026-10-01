@@ -55,6 +55,10 @@ Return a Flask `Response` for files, redirects, custom status codes, and plain t
 
 Direct files under `api/*.py` require matching `api/*.py.dox.md`.
 
+## Calling The WebUI API
+
+To use existing features on the user's behalf, read [Operate Agent Zero](operate-agent-zero.md). It covers session authentication and CSRF, project/chat/task workflows, exact ID fields, and result verification. This reference covers implementing API and WebUI behavior.
+
 ## WebSocket Handlers
 
 WebSocket handlers live in `api/ws_*.py` or plugin API folders and derive from `helpers.ws.WsHandler`:

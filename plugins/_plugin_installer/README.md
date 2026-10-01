@@ -12,8 +12,10 @@ This plugin provides the built-in installation workflow for third-party plugins.
   - Accepts an uploaded archive, extracts it safely, locates `plugin.yaml`, validates metadata, and moves the plugin into `usr/plugins/`.
 - **Git install**
   - Clones a repository to a temporary directory, validates the plugin, then installs it into `usr/plugins/`.
+  - Preserves the plugin's thumbnail and downloads a fallback only when none exists. Repository-provided thumbnails update with the plugin through Git.
 - **Plugin update**
-  - Updates already installed Git-backed custom plugins and re-runs installation hooks.
+  - Updates installed Git-backed custom plugins by rebasing local commits onto upstream, then re-runs installation hooks.
+  - If local commits or edits conflict, restores the original checkout and shows the conflicting files in the error toast and plugin details.
 - **Safety checks**
   - Rejects archives with unsafe paths.
   - Rejects missing or invalid `plugin.yaml` files.

@@ -344,7 +344,7 @@ class MemoryConsolidator:
             filter=f"area == '{area}'"
         )
         for doc, score in semantic_results:
-            doc.metadata['_consolidation_similarity'] = score
+            doc.metadata['_consolidation_similarity'] = float(score) if score is not None else 0.0
             all_similar.append(doc)
 
         # Step 3: Keyword-based searches with real scores
@@ -358,7 +358,7 @@ class MemoryConsolidator:
                     filter=f"area == '{area}'"
                 )
                 for doc, score in keyword_results:
-                    doc.metadata['_consolidation_similarity'] = score
+                    doc.metadata['_consolidation_similarity'] = float(score) if score is not None else 0.0
                     all_similar.append(doc)
 
         # Step 4: Deduplicate by document ID, keep highest score per memory ID

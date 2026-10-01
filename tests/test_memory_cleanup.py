@@ -36,6 +36,32 @@ class FakeFaiss:
         return [self.docs[doc_id] for doc_id in ids if doc_id in self.docs]
 
 
+class FakeEmbeddings:
+    def __init__(self):
+        self.queries: list[str] = []
+
+    async def aembed_query(self, query: str):
+        self.queries.append(query)
+        return [0.25, 0.75]
+
+
+class FakeVectorSearch:
+    def __init__(self):
+        self.embedding_function = FakeEmbeddings()
+        self.docs = [
+            (Document(page_content="main", metadata={"area": "main"}), 0.8),
+            (Document(page_content="solution", metadata={"area": "solutions"}), 0.7),
+            (Document(page_content="weak", metadata={"area": "main"}), 0.2),
+        ]
+        self.embeddings: list[list[float]] = []
+
+    async def asimilarity_search_with_score_by_vector(
+        self, embedding, *, k, filter
+    ):
+        self.embeddings.append(embedding)
+        return [(doc, score) for doc, score in self.docs if filter(doc.metadata)][:k]
+
+
 def test_memory_forget_removes_exact_matches_and_derived_fragments():
     main = Document(
         page_content="User currently prefers memory cleanup token banana-397.",
@@ -91,3 +117,33 @@ def test_memory_delete_cascades_even_when_original_id_is_already_missing():
     assert [doc.metadata["id"] for doc in removed] == ["replacement-1"]
     assert fake_db.deleted == ["replacement-1"]
     assert fake_db.docs == {}
+
+
+def test_memory_reuses_one_query_embedding_across_filtered_searches():
+    fake_db = FakeVectorSearch()
+    memory = Memory(fake_db, memory_subdir="test")
+
+    async def search():
+        embedding = await memory.embed_query("shared recall query")
+        memories = await memory.search_similarity_threshold(
+            query="shared recall query",
+            limit=12,
+            threshold=0.7,
+            filter="area == 'main'",
+            embedding=embedding,
+        )
+        solutions = await memory.search_similarity_threshold(
+            query="shared recall query",
+            limit=8,
+            threshold=0.7,
+            filter="area == 'solutions'",
+            embedding=embedding,
+        )
+        return memories, solutions
+
+    memories, solutions = asyncio.run(search())
+
+    assert fake_db.embedding_function.queries == ["shared recall query"]
+    assert fake_db.embeddings == [[0.25, 0.75], [0.25, 0.75]]
+    assert [doc.page_content for doc in memories] == ["main"]
+    assert [doc.page_content for doc in solutions] == ["solution"]

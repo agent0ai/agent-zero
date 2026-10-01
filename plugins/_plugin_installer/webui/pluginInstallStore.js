@@ -855,7 +855,10 @@ const model = {
           message,
           conflicting_files: Array.isArray(data?.conflicting_files) ? data.conflicting_files : [],
         };
-        void toastFrontendError(message, "Plugin Installer");
+        const files = this.detailError.conflicting_files;
+        const toast = document.createElement("div");
+        toast.textContent = message + (files.length ? ` Conflicting files: ${files.join(", ")}` : "");
+        void toastFrontendError(toast.innerHTML, "Plugin Installer", files.length ? 0 : 8);
         return;
       }
 

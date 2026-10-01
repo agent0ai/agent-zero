@@ -29,6 +29,19 @@
       <div x-show="$store.settings.settings" class="settings-content">
         <!-- Tab Navigation -->
         <aside class="settings-tabs-container" aria-label="Settings categories">
+          <select class="settings-mobile-nav"
+                  aria-label="Settings section"
+                  @change="$store.settings.scrollToSection($event.target.value, null, 'instant')">
+            <template x-for="item in $store.settings.navItems" :key="item.id">
+              <optgroup :label="item.label">
+                <template x-for="section in item.sections" :key="section.id">
+                  <option :value="section.id"
+                          :selected="$store.settings.activeSection === section.id"
+                          x-text="section.label"></option>
+                </template>
+              </optgroup>
+            </template>
+          </select>
           <div class="settings-search" role="search">
             <x-icon aria-hidden="true" name="search"></x-icon>
             <input
@@ -123,6 +136,11 @@
           <div class="settings-tab-panel" data-settings-tab="backup" x-show="$store.settings.activeTab === 'backup'">
             <x-component path="settings/backup/backup-settings.html"></x-component>
           </div>
+          <div class="settings-tab-panel" data-settings-tab="file-browser" x-show="$store.settings.activeTab === 'file-browser'">
+            <template x-if="$store.settings.activeTab === 'file-browser' && $store.settings.settings">
+              <x-component path="settings/file-browser/file-browser-settings.html"></x-component>
+            </template>
+          </div>
           <div class="settings-tab-panel" data-settings-tab="skills" x-show="$store.settings.activeTab === 'skills'">
             <x-component path="settings/skills/skills-settings.html"></x-component>
           </div>
@@ -133,7 +151,7 @@
       <div class="modal-footer" data-modal-footer x-show="$store.settings.settings">
         <button class="btn btn-ok" 
             @click="$store.settings.saveAndClose()"
-            :disabled="$store.settings?.isLoading">
+            :disabled="!!($store.settings?.isLoading || $store.fileBrowser?.savingTextLimit)">
         Save
         </button>
         <button class="btn btn-cancel" 

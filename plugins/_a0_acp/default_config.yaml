@@ -1,0 +1,15 @@
+# The normal ACP transport is the A0 CLI running on the editor host.
+enabled: true
+agent_profile: ""
+host_file_access: read_write
+host_code_execution: true
+session_history: true
+
+# Advanced compatibility transport. These values are intentionally not exposed
+# by the standard settings UI because they require a preconfigured legacy ACP
+# plugin inside the selected container.
+transport: connector
+container_id: ""
+container_workdir: /a0
+container_python: /opt/venv-a0/bin/python
+container_workspace_root: ""

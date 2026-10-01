@@ -1,0 +1,62 @@
+<html>
+  <head>
+    <title>Context Doctor Settings</title>
+  </head>
+  <body>
+    <div x-data>
+      <template x-if="config">
+        <div>
+          <div class="section-title">Context Doctor</div>
+          <div class="section">
+            <div class="section-title">Debug</div>
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Update log content</div>
+                <div class="field-description">
+                  Replace the View Details content shown in the WebUI log with repaired JSON instead of model response.
+                </div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input type="checkbox" x-model="config.update_log" />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Strategies</div>
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Suppress XML output</div>
+                <div class="field-description">
+                  Replace malformed XML-like output without JSON object in cases where model uses native XML tool calls.
+                </div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input type="checkbox" x-model="config.suppress_xml" />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+            <div class="field">
+              <div class="field-label">
+                <div class="field-title">Split thoughts on blank lines</div>
+                <div class="field-description">
+                  Replace blank lines inside thoughts with separate thought entries after JSON repair.
+                </div>
+              </div>
+              <div class="field-control">
+                <label class="toggle">
+                  <input type="checkbox" x-model="config.split_thoughts" />
+                  <span class="toggler"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </body>
+</html>

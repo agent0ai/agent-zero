@@ -20,7 +20,7 @@
 
                 <div class="pi-form-group">
                     <label class="pi-label">Access Token <span class="pi-optional">(optional, for private repos)</span></label>
-                    <input type="password" class="pi-input"
+                    <input type="text" class="pi-input masked-text-input" autocomplete="off"
                         x-model="$store.pluginInstallStore.gitToken"
                         :disabled="$store.pluginInstallStore.loading"
                         placeholder="ghp_xxxx or glpat-xxxx">

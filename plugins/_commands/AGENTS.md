@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Own the built-in slash command manager and chat composer slash picker.
+- Own the built-in slash command manager and chat composer slash/reference picker.
 - Keep file-backed `/command` discovery consistent across project, global, and plugin-provided scopes.
 
 ## Ownership
@@ -12,7 +12,7 @@
 - `api/commands.py` owns the Commands API actions used by the WebUI.
 - `webui/` owns the manager/editor modal stores, HTML surfaces, and thumbnail asset.
 - `commands/` owns bundled read-only slash command definitions shipped by `_commands`, including `/stop` agent-run control.
-- `extensions/` owns the chat composer slash picker and incoming-message command resolution.
+- `extensions/` owns the chat composer slash and `@` reference picker plus incoming-message command resolution.
 - `extensions/python/startup_migration/` owns one-time migration from the legacy community `commands` plugin namespace.
 - `skills/commands-create-slash-command/` owns the agent-facing authoring workflow for reusable slash commands.
 - `tests/` owns regression coverage for parsing, CRUD, scope precedence, plugin-distributed commands, legacy migration, and skill discovery.
@@ -31,7 +31,11 @@
 - Script commands must expose `run(payload)` and return a string or a dict with `text` and optional `effects`; `show_markdown` effects render as auto-dismissing toast notifications.
 - Script commands may emit `send_message` with `text` to submit the rendered composer text immediately after command resolution.
 - Commands accept prefix syntax (`/goal objective`) and exact postfix syntax (`objective /goal`); ordinary mid-sentence mentions are not invocations. The composer picker opens only for prefix syntax, while postfix commands resolve when sent.
+- Composer `@` selections insert plain references only: `@[./path]`, `@[./folder/]`, `@[agent/profile]`, `@[skill/name]`, or `@[mcp/server]`. They never load content, activate skills, call MCP, or delegate by themselves.
+- Selected reference icons may use the composer highlight color while their labels keep the normal text color; serialized prompt text remains unchanged.
+- File and folder references stay inside the active chat workdir and list one directory at a time through the existing file-browser and chat-path APIs. Profile and effective MCP server references reuse their scoped catalogs; skill references use only entries visible in the active chat scope.
 - WebUI sends resolve through the picker effect path, while backend-originated messages resolve before reaching the agent.
+- Telegram and WhatsApp resolve raw messages through this catalog before adding message envelopes. `list_context_commands` filters the effective catalog by enabled plugins for the current chat; transport plugins adapt effects and retain their existing integration controls. Script/template execution remains owned here.
 - `/stop` uses the same shared cancellation operation as the composer Stop button, including progress cleanup and terminal logging.
 - `/profile` opens Manage agents without arguments, keeps existing profile
   selection, and creates through Agent Editor when given a name and instructions.

@@ -10,21 +10,25 @@
 <body class="browser-modal-body">
   <div x-data>
     <template x-if="$store.browserPage">
-      <div class="browser-panel" x-create="$store.browserPage.onOpen($el, xAttrs($el) || {})" x-destroy="$store.browserPage.cleanup()"
+      <div class="browser-panel surface-workspace" x-create="$store.browserPage.onOpen($el, xAttrs($el) || {})" x-destroy="$store.browserPage.cleanup()"
         x-effect="$store.browserPage.handleSelectedContextChange($store.chats?.selected)"
         @keydown.window="$store.browserPage.handleKeydown($event)">
-        <div class="browser-meta">
+        <div class="browser-meta surface-tab-bar">
           <div class="browser-meta-top">
             <div class="browser-session-tabs" role="tablist" aria-label="Browser sessions">
               <template x-for="browser in $store.browserPage.visibleBrowsers()" :key="$store.browserPage.browserTabKey(browser)">
                 <div class="browser-tab-shell" :class="{ 'is-active': $store.browserPage.isActiveBrowser(browser) }">
 	                  <button type="button" class="browser-tab" role="tab"
 	                    :aria-selected="$store.browserPage.isActiveBrowser(browser).toString()"
+	                    :aria-busy="$store.browserPage.isBrowserLoading(browser).toString()"
 	                    :title="$store.browserPage.browserTabTooltip(browser)"
 	                    @click="$store.browserPage.selectBrowser(browser.id, browser.context_id)">
                     <x-icon class="browser-tab-icon" aria-hidden="true" name="language"></x-icon>
                     <span class="browser-tab-title" x-text="$store.browserPage.browserTabTitle(browser)"></span>
                   </button>
+	                  <x-icon class="browser-tab-loading" aria-hidden="true"
+	                    :class="{ 'is-visible': $store.browserPage.isBrowserLoading(browser), 'spinning': $store.browserPage.isBrowserLoading(browser) }"
+	                    name="progress_activity"></x-icon>
 	                  <button type="button" class="browser-tab-close"
 	                    :title="'Close ' + $store.browserPage.browserTabLabel(browser)"
 	                    :aria-label="'Close ' + $store.browserPage.browserTabLabel(browser)"
@@ -35,7 +39,7 @@
                   </button>
                 </div>
               </template>
-	              <button type="button" class="browser-new-tab" title="New Browser" aria-label="New Browser"
+	              <button type="button" class="browser-new-tab surface-control" title="New Browser" aria-label="New Browser"
 	                :disabled="$store.browserPage.isBusy()"
 	                @click="$store.browserPage.openNewBrowser()">
                 <x-icon name="add"></x-icon>
@@ -45,24 +49,24 @@
           </div>
         </div>
 
-        <div class="browser-toolbar">
+        <div class="browser-toolbar surface-toolbar">
           <div class="browser-navigation">
-	            <button class="btn btn-icon-action" title="Back" @click="$store.browserPage.command('back')"
+	            <button class="btn btn-icon-action surface-control" title="Back" aria-label="Back" @click="$store.browserPage.command('back')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="arrow_back"></x-icon>
             </button>
-	            <button class="btn btn-icon-action" title="Forward" @click="$store.browserPage.command('forward')"
+	            <button class="btn btn-icon-action surface-control" title="Forward" aria-label="Forward" @click="$store.browserPage.command('forward')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="arrow_forward"></x-icon>
             </button>
-	            <button class="btn btn-icon-action" title="Reload" @click="$store.browserPage.command('reload')"
+	            <button class="btn btn-icon-action surface-control" title="Reload" aria-label="Reload" @click="$store.browserPage.command('reload')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="refresh"></x-icon>
             </button>
           </div>
 
-          <div class="browser-session-controls">
-            <button type="button" class="btn browser-annotate-toggle" title="Annotate" aria-label="Annotate"
+          <div class="browser-session-controls surface-toolbar-group">
+            <button type="button" class="btn browser-annotate-toggle surface-control surface-control-label" title="Annotate" aria-label="Annotate"
               :aria-pressed="$store.browserPage.annotating.toString()"
               :class="{ 'is-active': $store.browserPage.annotating }"
               :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
@@ -73,7 +77,7 @@
             </button>
             <div class="browser-extension-menu" @click.outside="$store.browserPage.closeExtensionsMenu()"
               @keydown.escape.window="$store.browserPage.closeExtensionsMenu()">
-              <button type="button" class="btn btn-icon-action browser-extensions" title="Browser settings"
+              <button type="button" class="btn btn-icon-action browser-extensions surface-control" title="Browser settings"
                 aria-label="Browser settings" @click.stop="$store.browserPage.toggleExtensionsMenu()"
                 :aria-expanded="$store.browserPage.extensionMenuOpen.toString()"
                 :class="{ 'is-active': $store.browserPage.status?.extensions?.active }">
@@ -185,15 +189,22 @@
           </form>
         </div>
 
-	        <div class="browser-stage" tabindex="0" @click="$el.focus()"
-	          :class="{ 'is-annotating': $store.browserPage.annotating }"
-	          @wheel.prevent="$store.browserPage.handleStageWheel($event)">
-	          <canvas class="browser-frame browser-frame-canvas"
-	            x-show="$store.browserPage.frameCanvasReady"
-	            x-init="$store.browserPage.attachFrameCanvas($el)"
-	            @click="$store.browserPage.sendMouse('click', $event)"
-	            @mousemove.throttle.250ms="$store.browserPage.sendMouse('move', $event)"></canvas>
-	          <template x-if="$store.browserPage.frameSrc">
+        <div class="browser-stage" tabindex="0" @click="$el.focus()"
+          :class="{ 'is-annotating': $store.browserPage.annotating }"
+          @wheel.prevent="$store.browserPage.handleStageWheel($event)">
+          <template x-if="$store.browserPage.isInteractiveSurface($el.parentElement)">
+            <iframe class="browser-interactive-frame"
+              :src="$store.browserPage.interactiveViewUrl"
+              aria-label="Browser viewport"
+              allow="clipboard-read; clipboard-write"
+              @load="$store.browserPage.onInteractiveViewLoad()"></iframe>
+          </template>
+          <canvas class="browser-frame browser-frame-canvas"
+            x-show="!$store.browserPage.usesInteractiveTransport() && $store.browserPage.frameCanvasReady"
+            x-init="$store.browserPage.attachFrameCanvas($el)"
+            @click="$store.browserPage.sendMouse('click', $event)"
+            @mousemove.throttle.250ms="$store.browserPage.sendMouse('move', $event)"></canvas>
+          <template x-if="!$store.browserPage.usesInteractiveTransport() && $store.browserPage.frameSrc">
             <img class="browser-frame browser-frame-image" :src="$store.browserPage.frameSrc"
               @click="$store.browserPage.sendMouse('click', $event)"
               @mousemove.throttle.250ms="$store.browserPage.sendMouse('move', $event)" draggable="false" />
@@ -204,7 +215,15 @@
 	              @pointerdown.stop.prevent="$store.browserPage.startAnnotationSelection($event)"
 	              @pointermove.stop.prevent="$store.browserPage.moveAnnotationSelection($event)"
 	              @pointerup.stop.prevent="$store.browserPage.finishAnnotationSelection($event)"
-	              @pointercancel.stop.prevent="$store.browserPage.cancelAnnotationSelection($event)">
+	              @pointercancel.stop.prevent="$store.browserPage.cancelAnnotationSelection($event)"
+	              @pointerleave="$store.browserPage.clearAnnotationHover()">
+	              <template x-if="$store.browserPage.annotationHover && !$store.browserPage.annotationDraft && !$store.browserPage.annotationDragRect">
+	                <div class="browser-annotation-box is-hover"
+	                  :style="$store.browserPage.annotationBoxStyle($store.browserPage.annotationHover.rect)">
+	                  <span class="browser-annotation-hover-label"
+	                    x-text="$store.browserPage.annotationHoverLabel()"></span>
+	                </div>
+	              </template>
 	              <template x-for="annotation in $store.browserPage.visibleAnnotations()" :key="annotation.id">
 	                <div class="browser-annotation-box is-saved"
 	                  :style="$store.browserPage.annotationBoxStyle(annotation.rect)">
@@ -223,22 +242,39 @@
 	              :style="$store.browserPage.annotationPopoverStyle()"
 	              @click.stop @pointerdown.stop @keydown.stop>
 	              <div class="browser-annotation-popover-title">
-	                <span class="browser-annotation-number" x-text="$store.browserPage.nextAnnotationIndex()"></span>
-	                <span x-text="$store.browserPage.annotationDraftTitle()"></span>
+	                <span class="browser-annotation-popover-heading">
+	                  <span class="browser-annotation-number" x-text="$store.browserPage.nextAnnotationIndex()"></span>
+	                  <span x-text="$store.browserPage.annotationDraftTitle()"></span>
+	                </span>
+	                <button type="button" class="browser-annotation-popover-close"
+	                  title="Cancel annotation" aria-label="Cancel annotation"
+	                  @click="$store.browserPage.cancelAnnotationDraft()">
+	                  <x-icon name="close"></x-icon>
+	                </button>
 	              </div>
 	              <textarea x-model="$store.browserPage.annotationDraftText" placeholder="Comment"
-	                maxlength="1200"></textarea>
+	                maxlength="1200" x-init="$nextTick(() => $el.focus())"></textarea>
 	              <div class="browser-annotation-actions">
-	                <button type="button" class="btn btn-field"
-	                  @click="$store.browserPage.cancelAnnotationDraft()">Cancel</button>
-	                <button type="button" class="btn btn-ok"
+	                <button type="button" class="browser-annotation-mic mic-inactive"
+	                  data-whisper-microphone title="Record annotation comment"
+	                  aria-label="Record annotation comment"
+	                  x-init="$nextTick(() => $store.browserPage.syncAnnotationMicrophoneUI())"
+	                  @click="$store.browserPage.startAnnotationVoice(true)">
+	                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 18" fill="currentColor" aria-hidden="true">
+	                    <path d="m8,12c1.66,0,3-1.34,3-3V3c0-1.66-1.34-3-3-3s-3,1.34-3,3v6c0,1.66,1.34,3,3,3Zm-1,1.9c-2.7-.4-4.8-2.6-5-5.4H0c.2,3.8,3.1,6.9,7,7.5v2h2v-2c3.9-.6,6.8-3.7,7-7.5h-2c-.2,2.8-2.3,5-5,5.4h-2Z" />
+	                  </svg>
+	                </button>
+	                <button type="button" class="browser-annotation-send"
+	                  title="Add annotation" aria-label="Add annotation"
 	                  :disabled="!String($store.browserPage.annotationDraftText || '').trim()"
-	                  @click="$store.browserPage.addAnnotationComment()">Add</button>
+	                  @click="$store.browserPage.addAnnotationComment()">
+	                  <x-icon name="arrow_forward"></x-icon>
+	                </button>
 	              </div>
 	            </div>
 	          </template>
 	          <div class="browser-annotation-tray"
-	            x-show="$store.browserPage.visibleAnnotations().length"
+	            x-show="$store.browserPage.pendingAnnotations().length"
 	            :class="{ 'is-floating': $store.browserPage.annotationTrayPosition, 'is-dragging': $store.browserPage.annotationTrayDragging }"
 	            :style="$store.browserPage.annotationTrayStyle()"
 	            x-transition style="display: none;"
@@ -248,15 +284,15 @@
 	            @pointercancel.window="$store.browserPage.finishAnnotationTrayDrag($event)">
 	            <div class="browser-annotation-tray-header"
 	              @pointerdown.stop="$store.browserPage.startAnnotationTrayDrag($event)">
-	              <span>Annotations</span>
+	              <span x-text="$store.browserPage.annotationBatchLabel()"></span>
 	              <button type="button" class="browser-annotation-clear" title="Clear annotations"
-	                aria-label="Clear annotations" @click="$store.browserPage.clearVisibleAnnotations()">
+	                aria-label="Clear annotations" @click="$store.browserPage.clearPendingAnnotations()">
 	                <x-icon name="delete"></x-icon>
 	              </button>
 	            </div>
 	            <div class="browser-annotation-chips">
-	              <template x-for="annotation in $store.browserPage.visibleAnnotations()" :key="annotation.id">
-	                <div class="browser-annotation-chip">
+	              <template x-for="annotation in $store.browserPage.pendingAnnotations()" :key="annotation.id">
+	                <div class="browser-annotation-chip" :title="annotation.title + ' — ' + annotation.url">
 	                  <span class="browser-annotation-number" x-text="annotation.index"></span>
 	                  <span class="browser-annotation-chip-text" x-text="annotation.comment"></span>
 	                  <button type="button" title="Remove annotation" aria-label="Remove annotation"
@@ -267,10 +303,20 @@
 	              </template>
 	            </div>
 	            <div class="browser-annotation-tray-actions">
-	              <button type="button" class="btn btn-field"
-	                @click="$store.browserPage.draftAnnotationsToChat()">Draft to chat</button>
-	              <button type="button" class="btn btn-ok"
-	                @click="$store.browserPage.sendAnnotationsToChat()">Send now</button>
+	              <button type="button" class="browser-annotation-mic mic-inactive"
+	                data-whisper-microphone title="Record annotation instruction"
+	                aria-label="Record annotation instruction"
+	                x-init="$nextTick(() => $store.browserPage.syncAnnotationMicrophoneUI())"
+	                @click="$store.browserPage.startAnnotationVoice()">
+	                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 18" fill="currentColor" aria-hidden="true">
+	                  <path d="m8,12c1.66,0,3-1.34,3-3V3c0-1.66-1.34-3-3-3s-3,1.34-3,3v6c0,1.66,1.34,3,3,3Zm-1,1.9c-2.7-.4-4.8-2.6-5-5.4H0c.2,3.8,3.1,6.9,7,7.5v2h2v-2c3.9-.6,6.8-3.7,7-7.5h-2c-.2,2.8-2.3,5-5,5.4h-2Z" />
+	                </svg>
+	              </button>
+	              <button type="button" class="browser-annotation-send"
+	                title="Send annotations" aria-label="Send annotations"
+	                @click="$store.browserPage.sendAnnotationsToChat()">
+	                <x-icon name="arrow_forward"></x-icon>
+	              </button>
 	            </div>
 	          </div>
 	          <template x-if="!$store.browserPage.hasFrame() && !$store.browserPage.isBusy()">
@@ -280,20 +326,19 @@
                 Browser</button>
             </div>
           </template>
+	          <template x-if="!$store.browserPage.hasFrame() && $store.browserPage.isBusy()">
+	            <div class="browser-empty browser-starting" role="status" aria-live="polite">
+	              <x-icon class="spinning" name="progress_activity"></x-icon>
+	              <span x-text="$store.browserPage.browserLoadingLabel()"></span>
+	            </div>
+	          </template>
         </div>
 
-        <div class="browser-bottom-status"
-          :class="{ 'is-active': $store.browserPage.isBusy() || $store.browserPage.error, 'has-error': $store.browserPage.error && !$store.browserPage.isBusy() }">
-          <template x-if="$store.browserPage.isBusy()">
-            <div class="browser-status" :title="$store.browserPage.loadingMessage()">
-              <x-icon class="spinning" name="progress_activity"></x-icon>
-              <span x-text="$store.browserPage.loadingMessage()">Loading</span>
-            </div>
-          </template>
-          <template x-if="!$store.browserPage.isBusy() && $store.browserPage.error">
+        <template x-if="$store.browserPage.error">
+          <div class="browser-bottom-status has-error">
             <div class="browser-error" x-text="$store.browserPage.error" :title="$store.browserPage.error"></div>
-          </template>
-        </div>
+          </div>
+        </template>
       </div>
     </template>
   </div>
@@ -335,8 +380,6 @@
     }
 
     .modal-inner.browser-modal .modal-header {
-      min-height: 34px;
-      padding: 0.35rem 0.75rem 0.35rem 1rem;
       cursor: move;
       user-select: none;
       background: color-mix(in srgb, var(--color-background) 92%, #000 8%);
@@ -382,10 +425,10 @@
 	    }
 
     .browser-panel {
-      --browser-chrome-surface: color-mix(in srgb, var(--color-background) 92%, #000 8%);
+      --browser-chrome-surface: var(--surface-chrome);
       --browser-chrome-border: color-mix(in srgb, var(--color-border) 58%, transparent);
       --browser-tab-hover-border: color-mix(in srgb, var(--color-border) 78%, transparent);
-      --browser-control-size: 34px;
+      --browser-control-size: 32px;
       --browser-address-height: 34px;
       --browser-tab-height: 36px;
       --browser-tab-close-size: 32px;
@@ -485,16 +528,16 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 10px;
-      align-items: end;
+      align-items: center;
     }
 
     .browser-session-tabs {
       display: flex;
-      align-items: end;
+      align-items: center;
       gap: 4px;
       min-width: 0;
       overflow-x: auto;
-      padding: 1px 0 0;
+      padding: 0;
       scrollbar-width: thin;
       overflow-y: hidden;
     }
@@ -528,7 +571,7 @@
       flex: 0 1 210px;
       position: relative;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) var(--browser-tab-close-size);
+      grid-template-columns: minmax(0, 1fr) 18px var(--browser-tab-close-size);
       align-items: center;
       gap: 3px;
       min-width: 128px;
@@ -601,6 +644,20 @@
       white-space: nowrap;
       font-size: 0.88rem;
       font-weight: 600;
+    }
+
+    .browser-tab-loading {
+      justify-self: center;
+      color: color-mix(in srgb, var(--color-text) 66%, var(--color-primary) 34%);
+      font-size: 0.96rem;
+      line-height: 1;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .browser-tab-loading.is-visible {
+      opacity: 1;
+      visibility: visible;
     }
 
     .browser-tab-close {
@@ -997,19 +1054,31 @@
         cursor: crosshair;
       }
 
-	    .browser-frame {
-	      display: block;
-	      position: absolute;
-	      inset: 0;
-	      width: 100%;
-	      height: 100%;
-	      min-width: 0;
-	      min-height: 0;
-	      object-fit: contain;
-	      image-rendering: auto;
-	      user-select: none;
-	      background: #fff;
-      }
+    .browser-frame {
+      display: block;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      object-fit: contain;
+      image-rendering: auto;
+      user-select: none;
+      background: #fff;
+    }
+
+    .browser-interactive-frame {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
 
     .browser-annotation-layer {
       position: absolute;
@@ -1038,6 +1107,29 @@
     .browser-annotation-box.is-draft {
       border-style: dashed;
       background: rgba(51, 153, 255, 0.1);
+    }
+
+    .browser-annotation-box.is-hover {
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.12);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.58);
+    }
+
+    .browser-annotation-hover-label {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      max-width: min(320px, calc(100vw - 24px));
+      overflow: hidden;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(6, 78, 59, 0.92);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .browser-annotation-number {
@@ -1091,6 +1183,17 @@
       font-weight: 750;
     }
 
+    .browser-annotation-popover-title {
+      justify-content: space-between;
+    }
+
+    .browser-annotation-popover-heading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .browser-annotation-popover textarea {
       width: 100%;
       min-height: 82px;
@@ -1112,7 +1215,6 @@
       gap: 7px;
     }
 
-    .browser-annotation-actions .btn,
     .browser-annotation-tray-actions .btn {
       min-height: 30px;
       padding: 0 10px;
@@ -1145,6 +1247,7 @@
       cursor: grabbing;
     }
 
+    .browser-annotation-popover-close,
     .browser-annotation-clear,
     .browser-annotation-chip button {
       display: inline-flex;
@@ -1162,12 +1265,14 @@
       cursor: pointer;
     }
 
+    .browser-annotation-popover-close:hover,
     .browser-annotation-clear:hover,
     .browser-annotation-chip button:hover {
       background: color-mix(in srgb, var(--color-panel) 82%, transparent);
       color: var(--color-text);
     }
 
+    .browser-annotation-popover-close .material-symbols-outlined,
     .browser-annotation-clear .material-symbols-outlined,
     .browser-annotation-chip button .material-symbols-outlined {
       font-size: 16px;
@@ -1210,6 +1315,87 @@
       line-height: 1.25;
     }
 
+    .browser-annotation-actions,
+    .browser-annotation-tray-actions {
+      align-items: center;
+      gap: 0.58rem;
+    }
+
+    .browser-annotation-mic,
+    .browser-annotation-send {
+      display: inline-flex;
+      flex: 0 0 3.15rem;
+      align-items: center;
+      justify-content: center;
+      width: 3.15rem;
+      min-width: 3.15rem;
+      height: 3.15rem;
+      margin: 0;
+      padding: 0;
+      border: 1px solid transparent;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease, transform 0.12s ease;
+    }
+
+    .browser-annotation-mic {
+      border-radius: 12px;
+      background: transparent;
+      color: grey;
+    }
+
+    .browser-annotation-mic svg {
+      transform-origin: center;
+      transition: color 0.2s ease, transform 0.12s ease-in-out;
+    }
+
+    .browser-annotation-mic.mic-disabled {
+      color: #5f6368;
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
+    .browser-annotation-mic.mic-activating,
+    .browser-annotation-mic.mic-processing {
+      animation: browser-mic-pulse 0.8s infinite;
+    }
+
+    .browser-annotation-mic.mic-activating { color: silver; }
+    .browser-annotation-mic.mic-listening { color: red; }
+    .browser-annotation-mic.mic-recording { color: green; }
+    .browser-annotation-mic.mic-waiting { color: teal; }
+    .browser-annotation-mic.mic-processing { color: darkcyan; }
+
+    @media (hover: hover) {
+      .browser-annotation-mic:not(.mic-disabled):hover svg { transform: scale(1.08); }
+    }
+
+    .browser-annotation-mic:not(.mic-disabled):active svg { transform: scale(0.92); }
+
+    .browser-annotation-send {
+      border-radius: 12px;
+      background: #4248f1;
+    }
+
+    .browser-annotation-send:hover { background: #353bc5; }
+    .browser-annotation-send:active { background: #2b309c; transform: translateY(1px) scale(0.98); }
+    .browser-annotation-send:disabled {
+      background: #4248f1;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .browser-annotation-mic svg,
+    .browser-annotation-send .material-symbols-outlined {
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 1.78rem;
+    }
+
+    @keyframes browser-mic-pulse {
+      50% { transform: scale(1.1); }
+    }
+
     .browser-empty {
       display: flex;
       align-items: center;
@@ -1239,7 +1425,6 @@
       background: color-mix(in srgb, #7f1d1d 22%, var(--color-background));
     }
 
-    .browser-status,
     .browser-error {
       display: inline-flex;
       align-items: center;
@@ -1250,15 +1435,10 @@
       white-space: nowrap;
     }
 
-    .browser-status span:not(.material-symbols-outlined),
     .browser-error {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .browser-status .material-symbols-outlined {
-      font-size: 15px;
     }
 
 	    .browser-modal .spinning,
@@ -1284,6 +1464,10 @@
       text-align: center;
       padding: 24px;
       color: var(--color-text);
+    }
+
+    .browser-starting .material-symbols-outlined {
+      font-size: 1.45rem;
     }
 
     @container (max-width: 460px) {
@@ -1328,7 +1512,7 @@
         height: var(--browser-control-size);
       }
 
-      .browser-annotate-toggle {
+      .browser-panel button.browser-annotate-toggle {
         width: var(--browser-control-size);
         min-width: var(--browser-control-size);
         padding: 0;

@@ -77,6 +77,23 @@ def test_always_enabled_plugin_ignores_disable_files_at_runtime(monkeypatch):
     assert plugins.get_enabled_plugins(None) == ["_required"]
 
 
+def test_enabled_plugin_paths_cache_empty_results(monkeypatch):
+    lookups = []
+    monkeypatch.setattr(plugins, "get_enabled_plugins", lambda _agent: ["example"])
+    monkeypatch.setattr(
+        plugins,
+        "find_plugin_dir",
+        lambda name: lookups.append(name) or "/nonexistent/example",
+    )
+    plugins.cache.clear(plugins.ENABLED_PLUGINS_PATHS_CACHE_AREA)
+
+    assert plugins.get_enabled_plugin_paths(None, "tools", "missing_probe.py") == []
+    assert plugins.get_enabled_plugin_paths(None, "tools", "missing_probe.py") == []
+    assert lookups == ["example"]
+
+    plugins.cache.clear(plugins.ENABLED_PLUGINS_PATHS_CACHE_AREA)
+
+
 def test_always_enabled_plugin_rejects_disable_attempt(monkeypatch):
     monkeypatch.setattr(
         plugins,
@@ -147,9 +164,44 @@ def test_scoped_plugin_without_settings_form_exposes_configuration_index():
     assert "context.pluginMeta?.has_config_screen" in settings_html
 
 
+def test_scoped_plugin_watchdogs_skip_frontend_reload(monkeypatch):
+    handlers = {}
+    changes = []
+    monkeypatch.setattr(
+        plugins.watchdog,
+        "add_watchdog",
+        lambda **kwargs: handlers.setdefault(kwargs["id"], kwargs["handler"]),
+    )
+    monkeypatch.setattr(
+        plugins,
+        "after_plugin_change",
+        lambda names=None, python_change=False, frontend_reload=True: changes.append(
+            (names, python_change, frontend_reload)
+        ),
+    )
+
+    plugins.register_watchdogs()
+    handlers["plugins_agents"](
+        [["/tmp/usr/agents/custom/plugins/_code_execution/.toggle-0", "delete"]]
+    )
+    handlers["plugins_roots"](
+        [["/tmp/plugins/_code_execution/.toggle-0", "delete"]]
+    )
+
+    assert changes == [
+        (["_code_execution"], False, False),
+        (["_code_execution"], False, True),
+    ]
+
+
 def test_toggle_plugin_writes_project_scope_file_immediately(tmp_path, monkeypatch):
     monkeypatch.setattr(files, "_base_dir", str(tmp_path))
-    monkeypatch.setattr(plugins, "after_plugin_change", lambda *_args, **_kwargs: None)
+    changes = []
+    monkeypatch.setattr(
+        plugins,
+        "after_plugin_change",
+        lambda names, **kwargs: changes.append((names, kwargs)),
+    )
     monkeypatch.setitem(
         sys.modules,
         "helpers.projects",
@@ -175,3 +227,7 @@ def test_toggle_plugin_writes_project_scope_file_immediately(tmp_path, monkeypat
 
     assert (scoped_plugin_dir / ".toggle-1").exists()
     assert not (scoped_plugin_dir / ".toggle-0").exists()
+    assert changes == [
+        (["example"], {"frontend_reload": False}),
+        (["example"], {"frontend_reload": False}),
+    ]

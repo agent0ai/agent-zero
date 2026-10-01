@@ -67,6 +67,7 @@ class LLMResult:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "LLMResult":
         data = data or {}
+        mode = data.get("mode")
         return cls(
             response=str(data.get("response") or ""),
             reasoning=str(data.get("reasoning") or ""),
@@ -77,7 +78,7 @@ class LLMResult:
                 ResponseItem.from_any(item) for item in data.get("output_items") or []
             ],
             provider_model_key=str(data.get("provider_model_key") or ""),
-            mode=str(data.get("mode") or "responses"),
+            mode=str(mode if mode is not None else "responses"),
             state=str(data.get("state") or "provider"),
             usage=object_to_dict(data.get("usage") or {}),
             raw=object_to_dict(data.get("raw") or {}),
@@ -124,6 +125,7 @@ class LLMResult:
         *,
         response: str,
         reasoning: str = "",
+        usage: dict[str, Any] | None = None,
         input_items: list[dict[str, Any]] | None = None,
         output_items: list[dict[str, Any]] | None = None,
         provider_model_key: str = "",
@@ -160,11 +162,17 @@ class LLMResult:
             provider_model_key=provider_model_key,
             mode="chat_completions",
             state="off",
+            usage=object_to_dict(usage or {}),
             capability=dict(capability or {}),
         )
         if not result.response and result.function_calls:
             result.response = result.function_calls_text()
         return result
+
+    @classmethod
+    def non_llm(cls) -> "LLMResult":
+        """Sentinel for non-LLM AI turns; no response_id, mode/state off."""
+        return cls(mode="", state="off")
 
     @property
     def function_calls(self) -> list[ResponseFunctionCall]:
@@ -194,9 +202,10 @@ class LLMResult:
         if not calls:
             return ""
         if len(calls) == 1:
-            return json.dumps(calls[0])
+            return json.dumps(calls[0], ensure_ascii=False)
         return json.dumps(
-            {"tool_name": "parallel_tool_calls", "tool_args": {"calls": calls}}
+            {"tool_name": "parallel_tool_calls", "tool_args": {"calls": calls}},
+            ensure_ascii=False,
         )
 
     def to_dict(self) -> dict[str, Any]:

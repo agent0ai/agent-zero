@@ -34,8 +34,14 @@ Required argument:
 Optional arguments by action:
 - `session_id`: session returned by `start_session`
 - `pid`, `window_id`: target a native window for `get_window_state`, `element_action`, scoped backend snapshots, and guarded keyboard input when supported
-- `element_index`: target an element from the latest `get_window_state`
+- `element_index`: top-level index from the latest `get_window_state`
+- `target`: backend-specific semantic fields for `element_action`
+- `max_depth`, `max_nodes`: bound snapshot size for `get_window_state` and supported backend snapshots
+- `include_hidden`, `include_offscreen`, `max_windows`: optional filters for `list_windows`
+- `selector`: Windows UIA selector from the latest snapshot
+- `path`: element path from the latest backend snapshot
 - `operation`: action such as `invoke`, `press`, `set_value`, `focus`, or backend-specific operations
+- `value`: replacement for `set_value`
 - `dispatch`: `background`, `auto`, or `foreground`; prefer `background` for `element_action`
 - `x`, `y`: normalized `[0,1]` global-screen coordinates for `move` and `click`
 - `button`: `left`, `right`, or `middle` for `click`

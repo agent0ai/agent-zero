@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
+from plugins._a0_connector.helpers.ws_runtime import abort_transfers_for_context
 
 
 class ChatDelete(connector_base.ProtectedConnectorApiHandler):
@@ -27,6 +28,10 @@ class ChatDelete(connector_base.ProtectedConnectorApiHandler):
             )
 
         try:
+            await abort_transfers_for_context(
+                context_id,
+                reason="chat deleted during transfer",
+            )
             handler = RemoveChat(self.app, self.thread_lock)
             await handler.process({"context": context_id}, request)
         except Exception as exc:

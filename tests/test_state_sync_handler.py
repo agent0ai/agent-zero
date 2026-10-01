@@ -55,6 +55,8 @@ async def _create_manager_with_socketio() -> tuple[WsManager, "WsWebui", FakeSoc
 
 @pytest.mark.asyncio
 async def test_state_request_success_returns_wire_level_shape_and_contract_payload():
+    from helpers.state_monitor import get_state_monitor
+
     _manager, handler = await _create_manager()
 
     result = await handler.process(
@@ -65,6 +67,7 @@ async def test_state_request_success_returns_wire_level_shape_and_contract_paylo
             "log_from": 0,
             "notifications_from": 0,
             "timezone": "UTC",
+            "collections_delta": True,
         },
         "sid-1",
     )
@@ -73,6 +76,9 @@ async def test_state_request_success_returns_wire_level_shape_and_contract_paylo
     assert set(result.keys()) >= {"runtime_epoch", "seq_base"}
     assert isinstance(result["runtime_epoch"], str) and result["runtime_epoch"]
     assert isinstance(result["seq_base"], int)
+    projection = get_state_monitor()._projections[(NAMESPACE, "sid-1")]
+    assert projection.request is not None
+    assert projection.request.collections_delta is True
 
 
 @pytest.mark.asyncio

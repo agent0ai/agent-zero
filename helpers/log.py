@@ -36,7 +36,7 @@ def _lazy_mark_dirty_for_context(context_id: str, *, reason: str | None = None) 
         from helpers.state_monitor_integration import mark_dirty_for_context
 
         _MARK_DIRTY_FOR_CONTEXT = mark_dirty_for_context
-    _MARK_DIRTY_FOR_CONTEXT(context_id, reason=reason)
+    _MARK_DIRTY_FOR_CONTEXT(context_id, reason=reason, include_collections=False)
 
 
 T = TypeVar("T")
@@ -309,6 +309,7 @@ class Log:
         if kwargs:
             kwargs_out = copy.deepcopy(kwargs)
             kwargs_out = self._mask_recursive(kwargs_out)
+            kwargs_out = _truncate_value(kwargs_out)
 
         with self._lock:
             item = self.logs[no]

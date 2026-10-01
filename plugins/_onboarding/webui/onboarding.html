@@ -773,7 +773,7 @@
                                                     </label>
                                                     <label class="field">
                                                         <span>OAuth client secret</span>
-                                                        <input type="password" autocomplete="off" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).client_secret" placeholder="Google Cloud OAuth client secret">
+                                                        <input type="text" class="masked-text-input" autocomplete="off" x-model="$store.onboarding.oauthProviderUiFor($store.onboarding.selectedProviderId).client_secret" placeholder="Google Cloud OAuth client secret">
                                                     </label>
                                                     <label class="field" x-show="$store.onboarding.oauthProviderStatus($store.onboarding.selectedProviderId)?.supports_quota_project">
                                                         <span>Quota project</span>
@@ -800,7 +800,8 @@
                                                         API key <span x-show="$store.onboarding.providerKeyOptional($store.onboarding.selectedProviderId)">(optional)</span>
                                                     </label>
                                                     <input id="onboarding-api-key"
-                                                           type="password"
+                                                           type="text"
+                                                           class="masked-text-input"
                                                            autocomplete="off"
                                                            x-model="$store.modelConfig.apiKeyValues[$store.onboarding.selectedProviderId]"
                                                            :placeholder="$store.modelConfig.apiKeyStatus[$store.onboarding.selectedProviderId] ? 'Key already saved' : 'Paste your API key'"

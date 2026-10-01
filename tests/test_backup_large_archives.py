@@ -4,7 +4,9 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from dotenv import dotenv_values
 
+from helpers import dotenv
 from helpers.backup import BackupService
 
 
@@ -17,13 +19,17 @@ class UploadedBackup:
 
 
 @pytest.mark.asyncio
-async def test_default_backup_patterns_exclude_time_travel_history(tmp_path):
+async def test_default_backup_patterns_exclude_generated_history_and_orchestrator_data(tmp_path):
     root = tmp_path / "a0"
     usr = root / "usr"
     time_travel = usr / ".time_travel" / "workspaces" / "demo" / "repo.git"
     time_travel.mkdir(parents=True)
+    orchestrator_data = usr / "plugins" / "_orchestrator" / "data" / "codex"
+    orchestrator_data.mkdir(parents=True)
     (usr / "settings.json").write_text('{"ok": true}\n', encoding="utf-8")
+    (orchestrator_data.parent.parent / "config.json").write_text("{}\n", encoding="utf-8")
     (time_travel / "objects.pack").write_text("history\n", encoding="utf-8")
+    (orchestrator_data / "state.sqlite").write_text("state\n", encoding="utf-8")
 
     service = BackupService()
     service.agent_zero_root = str(root)
@@ -34,8 +40,78 @@ async def test_default_backup_patterns_exclude_time_travel_history(tmp_path):
     paths = {item["real_path"] for item in files}
 
     assert str(usr / "settings.json") in paths
+    assert str(orchestrator_data.parent.parent / "config.json") in paths
     assert str(time_travel / "objects.pack") not in paths
+    assert str(orchestrator_data / "state.sqlite") not in paths
     assert f"{root}/usr/.time_travel/**" in metadata["exclude_patterns"]
+    assert f"{root}/usr/plugins/_orchestrator/data/**" in metadata["exclude_patterns"]
+
+
+@pytest.mark.parametrize(
+    ("backup_credentials", "expected_credentials"),
+    [
+        (
+            "AUTH_LOGIN=backup\nAUTH_PASSWORD=backup-password\n",
+            {"AUTH_LOGIN": "backup", "AUTH_PASSWORD": "backup-password"},
+        ),
+        (
+            "AUTH_LOGIN=\nAUTH_PASSWORD=\n",
+            {"AUTH_LOGIN": "", "AUTH_PASSWORD": ""},
+        ),
+        ("", {}),
+    ],
+    ids=("credentials", "blank-credentials", "missing-credentials"),
+)
+@pytest.mark.asyncio
+async def test_restore_preserves_destination_origin_and_restores_backup_credentials(
+    tmp_path, monkeypatch, backup_credentials, expected_credentials
+):
+    old_root = "/old-a0"
+    destination_root = tmp_path / "a0"
+    destination_env = destination_root / "usr" / ".env"
+    destination_env.parent.mkdir(parents=True)
+    destination_env.write_text(
+        "AUTH_LOGIN=current\n"
+        "AUTH_PASSWORD=current-password\n"
+        "ALLOWED_ORIGINS=http://current.example\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AUTH_LOGIN", "current")
+    monkeypatch.setenv("AUTH_PASSWORD", "current-password")
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://current.example")
+    monkeypatch.setattr(dotenv, "get_dotenv_file_path", lambda: str(destination_env))
+    monkeypatch.setattr(
+        dotenv,
+        "load_dotenv",
+        lambda: pytest.fail("restore must not reload unrelated environment values"),
+    )
+
+    zip_path = tmp_path / "backup.zip"
+    metadata = {
+        "environment_info": {"agent_zero_root": old_root},
+        "include_patterns": [f"{old_root}/usr/**"],
+        "exclude_patterns": [],
+        "include_hidden": True,
+    }
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("metadata.json", json.dumps(metadata))
+        archive.writestr(
+            "old-a0/usr/.env",
+            f"{backup_credentials}ALLOWED_ORIGINS=http://backup.example\n"
+            "PORTABLE_SETTING=restored\n",
+        )
+
+    service = BackupService()
+    service.agent_zero_root = str(destination_root)
+    result = await service.restore_backup(UploadedBackup(zip_path))
+
+    assert dotenv_values(destination_env) == {
+        **expected_credentials,
+        "ALLOWED_ORIGINS": "http://current.example",
+        "PORTABLE_SETTING": "restored",
+    }
+    assert len(result["restored_files"]) == 1
+    assert result["errors"] == []
 
 
 @pytest.mark.asyncio

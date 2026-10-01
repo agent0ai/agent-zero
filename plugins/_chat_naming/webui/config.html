@@ -38,7 +38,7 @@
           <div class="field-control">
             <select x-model="config.automatic_naming_mode"
               x-init="if (!['once', 'always'].includes(config.automatic_naming_mode))
-                config.automatic_naming_mode = 'once'">
+                config.automatic_naming_mode = 'always'">
               <option value="once">Only once</option>
               <option value="always">After every user message</option>
             </select>

@@ -70,6 +70,19 @@ def test_model_config_api_keys_can_be_cleared_via_backend(monkeypatch, tmp_path)
     assert handler._reveal_key({"provider": "openrouter"}) == {"ok": True, "value": ""}
 
 
+def test_api_key_reveal_preserves_the_pool_and_rotation_position(monkeypatch):
+    monkeypatch.setenv("API_KEY_OPENROUTER", "first-key,second-key")
+    monkeypatch.setattr(models, "api_keys_round_robin", {})
+    handler = ApiKeys(Flask(__name__), threading.Lock())
+    assert handler._reveal_key({"provider": "openrouter"}) == {
+        "ok": True, "value": "first-key,second-key"
+    }
+    assert models.api_keys_round_robin == {}
+    assert models.get_api_key("openrouter") == "first-key"
+    assert handler._reveal_key({"provider": "openrouter"})["value"] == "first-key,second-key"
+    assert models.get_api_key("openrouter") == "second-key"
+
+
 def test_chat_model_configured_requires_identity_and_key(monkeypatch):
     from plugins._model_config.helpers import model_config
 
@@ -87,6 +100,34 @@ def test_chat_model_configured_requires_identity_and_key(monkeypatch):
     assert not model_config.is_chat_model_configured(
         {"chat_model": {"provider": "openai", "name": "gpt-5"}}
     )
+
+
+def test_missing_api_key_checks_only_the_active_vision_model(monkeypatch):
+    from plugins._model_config.helpers import model_config
+
+    config = {
+        "chat_model": {"provider": "ollama", "name": "text-main", "vision": True},
+        "vision_model": {"provider": "openai", "name": "vision"},
+        "utility_model": {"provider": "ollama", "name": "utility"},
+        "embedding_model": {
+            "provider": "huggingface",
+            "name": "sentence-transformers/all-MiniLM-L6-v2",
+        },
+    }
+    monkeypatch.setattr(model_config, "get_effective_config", lambda _agent=None: config)
+    monkeypatch.setattr(
+        model_config,
+        "get_embedding_model_config",
+        lambda _agent=None: config["embedding_model"],
+    )
+    monkeypatch.setattr(model_config, "has_provider_api_key", lambda *args: False)
+
+    assert model_config.get_missing_api_key_providers() == []
+
+    config["chat_model"]["vision"] = False
+    assert model_config.get_missing_api_key_providers() == [
+        {"model_type": "Vision Model", "provider": "openai"}
+    ]
 
 
 @pytest.mark.asyncio
@@ -149,7 +190,7 @@ def test_model_config_frontend_tracks_provider_api_key_edits():
     assert "/plugins/_model_config/missing_api_key_status" not in model_gate_content
     assert '@input="$store.modelConfig.setApiKeyValue(_prov, $el.value)"' in config_content
     assert "apiKeyMode: 'none'" not in preset_modal_content
-    assert preset_modal_content.count("apiKeyMode: 'store'") == 3
+    assert preset_modal_content.count("apiKeyMode: 'store'") == 4
     assert "$store.modelConfig.resetApiKeyDrafts();" in preset_modal_content
     assert "await $store.modelConfig.refreshApiKeyStatus();" in preset_modal_content
     assert "await store.persistAllDirtyApiKeys();" in store_content
@@ -405,7 +446,10 @@ def test_model_config_migration_repairs_saved_venice_user_slots(monkeypatch, tmp
                 "embedding_model": {
                     "provider": "venice",
                     "name": "embed",
-                    "kwargs": {},
+                    "kwargs": {
+                        **expected,
+                        "dimensions": 1024,
+                    },
                 },
             }
         ),
@@ -428,6 +472,14 @@ def test_model_config_migration_repairs_saved_venice_user_slots(monkeypatch, tmp
                         "name": "proxy",
                         "kwargs": {"keep": True},
                     },
+                    "embedding": {
+                        "provider": "venice",
+                        "name": "embed",
+                        "kwargs": {
+                            **expected,
+                            "dimensions": 512,
+                        },
+                    },
                 },
                 {
                     "name": "Legacy raw preset",
@@ -449,10 +501,11 @@ def test_model_config_migration_repairs_saved_venice_user_slots(monkeypatch, tmp
     assert config == {"model_preset": "Default"}
     assert presets[0]["name"] == "Default"
     assert presets[0]["chat"]["kwargs"] == expected
-    assert presets[0]["embedding"]["kwargs"] == expected
+    assert presets[0]["embedding"]["kwargs"] == {"dimensions": 1024}
     assert presets[0]["utility"]["kwargs"] == {"a0_api_mode": "responses"}
     assert presets[1]["chat"]["kwargs"] == expected
     assert presets[1]["utility"]["kwargs"] == {"keep": True}
+    assert presets[1]["embedding"]["kwargs"] == {"dimensions": 512}
     assert presets[2]["chat"]["kwargs"] == expected
     assert (plugin_dir / "config.json.pre-unified-presets.bak").exists()
 
@@ -503,39 +556,19 @@ def test_provider_api_mode_defaults_use_intended_transport():
         ).read_text(encoding="utf-8")
     )
 
-    chat_providers = (
-        "anthropic",
-        "cometapi",
-        "deepseek",
-        "google",
-        "groq",
-        "huggingface",
-        "mistral",
-        "moonshot",
-        "nebius",
-        "nvidia_nim",
-        "bedrock",
-        "openrouter",
-        "sambanova",
-        "xai",
-        "zai",
-        "zai_coding",
-    )
-    responses_providers = ("azure", "github_copilot", "openai")
+    for provider in provider_config["chat"].values():
+        assert provider.get("kwargs", {}).get("a0_api_mode", "chat") == "chat"
 
-    for provider in chat_providers:
-        assert provider_config["chat"][provider]["kwargs"]["a0_api_mode"] == "chat"
+    responses_providers = {
+        provider
+        for provider, config in oauth_provider_config["chat"].items()
+        if config.get("kwargs", {}).get("a0_api_mode") == "responses"
+    }
+    assert responses_providers == {"codex_oauth", "xai_grok_oauth"}
 
-    for provider in responses_providers:
-        assert "a0_api_mode" not in provider_config["chat"][provider].get("kwargs", {})
-
-    assert (
-        oauth_provider_config["chat"]["gemini_api_oauth"]["kwargs"]["a0_api_mode"]
-        == "chat"
-    )
-
-    for provider in ("codex_oauth", "github_copilot_oauth", "xai_grok_oauth"):
-        assert "a0_api_mode" not in oauth_provider_config["chat"][provider]["kwargs"]
+    for provider, config in oauth_provider_config["chat"].items():
+        if provider not in responses_providers:
+            assert config.get("kwargs", {}).get("a0_api_mode", "chat") == "chat"
 
 
 def test_missing_api_key_banner_does_not_include_auto_modal_metadata(monkeypatch):
@@ -586,7 +619,7 @@ def test_local_provider_defaults_are_docker_friendly():
     assert provider_config["chat"]["lm_studio"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:1234/v1"
     )
-    assert provider_config["chat"]["lm_studio"]["kwargs"]["api_key"] == "lm-studio"
+    assert "api_key" not in provider_config["chat"]["lm_studio"]["kwargs"]
     assert provider_config["chat"]["lm_studio"]["models_list"]["default_base"] == (
         "http://host.docker.internal:1234"
     )
@@ -594,7 +627,7 @@ def test_local_provider_defaults_are_docker_friendly():
     assert provider_config["chat"]["llama_cpp"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:8080/v1"
     )
-    assert provider_config["chat"]["llama_cpp"]["kwargs"]["api_key"] == "llama-cpp"
+    assert "api_key" not in provider_config["chat"]["llama_cpp"]["kwargs"]
     assert provider_config["chat"]["llama_cpp"]["models_list"]["default_base"] == (
         "http://host.docker.internal:8080"
     )
@@ -609,7 +642,7 @@ def test_local_provider_defaults_are_docker_friendly():
     assert provider_config["chat"]["omlx"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:8000/v1"
     )
-    assert provider_config["chat"]["omlx"]["kwargs"]["api_key"] == "omlx"
+    assert "api_key" not in provider_config["chat"]["omlx"]["kwargs"]
     assert provider_config["chat"]["omlx"]["models_list"]["default_base"] == (
         "http://host.docker.internal:8000"
     )
@@ -618,7 +651,7 @@ def test_local_provider_defaults_are_docker_friendly():
     assert provider_config["chat"]["vllm"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:8000/v1"
     )
-    assert provider_config["chat"]["vllm"]["kwargs"]["api_key"] == "vllm"
+    assert "api_key" not in provider_config["chat"]["vllm"]["kwargs"]
     assert provider_config["chat"]["vllm"]["models_list"]["default_base"] == (
         "http://host.docker.internal:8000"
     )
@@ -626,12 +659,12 @@ def test_local_provider_defaults_are_docker_friendly():
     assert provider_config["embedding"]["lm_studio"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:1234/v1"
     )
-    assert provider_config["embedding"]["lm_studio"]["kwargs"]["api_key"] == "lm-studio"
+    assert "api_key" not in provider_config["embedding"]["lm_studio"]["kwargs"]
     assert provider_config["embedding"]["llama_cpp"]["litellm_provider"] == "hosted_vllm"
     assert provider_config["embedding"]["llama_cpp"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:8080/v1"
     )
-    assert provider_config["embedding"]["llama_cpp"]["kwargs"]["api_key"] == "llama-cpp"
+    assert "api_key" not in provider_config["embedding"]["llama_cpp"]["kwargs"]
     assert provider_config["embedding"]["ollama"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:11434"
     )
@@ -639,12 +672,12 @@ def test_local_provider_defaults_are_docker_friendly():
     assert provider_config["embedding"]["omlx"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:8000/v1"
     )
-    assert provider_config["embedding"]["omlx"]["kwargs"]["api_key"] == "omlx"
+    assert "api_key" not in provider_config["embedding"]["omlx"]["kwargs"]
     assert provider_config["embedding"]["vllm"]["litellm_provider"] == "hosted_vllm"
     assert provider_config["embedding"]["vllm"]["kwargs"]["api_base"] == (
         "http://host.docker.internal:8000/v1"
     )
-    assert provider_config["embedding"]["vllm"]["kwargs"]["api_key"] == "vllm"
+    assert "api_key" not in provider_config["embedding"]["vllm"]["kwargs"]
 
 
 def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
@@ -653,12 +686,12 @@ def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
     lm_chat = models.get_chat_model("lm_studio", "local-chat-model")
     assert lm_chat.model_name == "lm_studio/local-chat-model"
     assert lm_chat.kwargs["api_base"] == "http://host.docker.internal:1234/v1"
-    assert lm_chat.kwargs["api_key"] == "lm-studio"
+    assert "api_key" not in lm_chat.kwargs
 
     lm_embedding = models.get_embedding_model("lm_studio", "nomic-embed-text")
     assert lm_embedding.model_name == "lm_studio/nomic-embed-text"
     assert lm_embedding.kwargs["api_base"] == "http://host.docker.internal:1234/v1"
-    assert lm_embedding.kwargs["api_key"] == "lm-studio"
+    assert "api_key" not in lm_embedding.kwargs
 
     custom_lm_embedding = models.get_embedding_model(
         "lm_studio",
@@ -672,12 +705,12 @@ def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
     llama_cpp_chat = models.get_chat_model("llama_cpp", "local-chat-model")
     assert llama_cpp_chat.model_name == "hosted_vllm/local-chat-model"
     assert llama_cpp_chat.kwargs["api_base"] == "http://host.docker.internal:8080/v1"
-    assert llama_cpp_chat.kwargs["api_key"] == "llama-cpp"
+    assert "api_key" not in llama_cpp_chat.kwargs
 
     llama_cpp_embedding = models.get_embedding_model("llama_cpp", "local-embedding-model")
     assert llama_cpp_embedding.model_name == "hosted_vllm/local-embedding-model"
     assert llama_cpp_embedding.kwargs["api_base"] == "http://host.docker.internal:8080/v1"
-    assert llama_cpp_embedding.kwargs["api_key"] == "llama-cpp"
+    assert "api_key" not in llama_cpp_embedding.kwargs
 
     ollama_embedding = models.get_embedding_model("ollama", "nomic-embed-text")
     assert ollama_embedding.model_name == "ollama/nomic-embed-text"
@@ -687,12 +720,12 @@ def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
     omlx_chat = models.get_chat_model("omlx", "local-chat-model")
     assert omlx_chat.model_name == "hosted_vllm/local-chat-model"
     assert omlx_chat.kwargs["api_base"] == "http://host.docker.internal:8000/v1"
-    assert omlx_chat.kwargs["api_key"] == "omlx"
+    assert "api_key" not in omlx_chat.kwargs
 
     omlx_embedding = models.get_embedding_model("omlx", "local-embedding-model")
     assert omlx_embedding.model_name == "hosted_vllm/local-embedding-model"
     assert omlx_embedding.kwargs["api_base"] == "http://host.docker.internal:8000/v1"
-    assert omlx_embedding.kwargs["api_key"] == "omlx"
+    assert "api_key" not in omlx_embedding.kwargs
 
     custom_omlx_chat = models.get_chat_model(
         "omlx",
@@ -706,12 +739,12 @@ def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
     vllm_chat = models.get_chat_model("vllm", "local-chat-model")
     assert vllm_chat.model_name == "hosted_vllm/local-chat-model"
     assert vllm_chat.kwargs["api_base"] == "http://host.docker.internal:8000/v1"
-    assert vllm_chat.kwargs["api_key"] == "vllm"
+    assert "api_key" not in vllm_chat.kwargs
 
     vllm_embedding = models.get_embedding_model("vllm", "local-embedding-model")
     assert vllm_embedding.model_name == "hosted_vllm/local-embedding-model"
     assert vllm_embedding.kwargs["api_base"] == "http://host.docker.internal:8000/v1"
-    assert vllm_embedding.kwargs["api_key"] == "vllm"
+    assert "api_key" not in vllm_embedding.kwargs
 
     custom_vllm_chat = models.get_chat_model(
         "vllm",
@@ -721,6 +754,85 @@ def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
     )
     assert custom_vllm_chat.kwargs["api_base"] == "http://127.0.0.1:8001/v1"
     assert custom_vllm_chat.kwargs["api_key"] == "real-local-key"
+
+
+@pytest.mark.parametrize("provider", ["lm_studio", "llama_cpp", "omlx", "vllm"])
+def test_saved_local_api_keys_reach_every_model_slot(monkeypatch, tmp_path, provider):
+    from helpers import dotenv
+    from plugins._model_config.helpers import model_config
+
+    monkeypatch.setattr(dotenv, "get_dotenv_file_path", lambda: str(tmp_path / ".env"))
+    for key in (
+        f"API_KEY_{provider.upper()}", f"{provider.upper()}_API_KEY",
+        f"{provider.upper()}_API_TOKEN", "API_KEY_HOSTED_VLLM",
+        "HOSTED_VLLM_API_KEY", "HOSTED_VLLM_API_TOKEN",
+    ):
+        monkeypatch.setenv(key, "")
+    config = {
+        slot: {"provider": provider, "name": "local-model"}
+        for slot in ("chat_model", "utility_model", "vision_model", "embedding_model")
+    }
+    monkeypatch.setattr(model_config, "get_effective_config", lambda _agent=None: config)
+    handler = ApiKeys(Flask(__name__), threading.Lock())
+
+    for saved_key in ("local-first-key", "local-replacement-key", ""):
+        assert handler._set_keys({"keys": {provider: saved_key}}) == {"ok": True}
+        assert handler._reveal_key({"provider": provider})["value"] == saved_key
+        for build in (
+            model_config.build_chat_model, model_config.build_utility_model,
+            model_config.build_vision_model, model_config.build_embedding_model,
+        ):
+            assert build().kwargs.get("api_key", "") == saved_key
+
+        for build in (models.get_chat_model, models.get_embedding_model):
+            model = build(provider, "local-model", api_key="explicit-key")
+            assert model.kwargs["api_key"] == "explicit-key"
+
+
+def test_openai_compatible_embedding_keeps_gateway_model_string(monkeypatch):
+    """Gateway model ids must reach LiteLLM with an explicit `openai/` provider.
+
+    An OpenAI-compatible gateway owns its own model namespace, so ids such as
+    `nvidia/...` or `auto/embedding` are model names, not provider prefixes.
+    Without the prefix LiteLLM re-parses the first segment as a provider and
+    either raises "LLM Provider NOT provided" or routes to the wrong provider,
+    mangling the model id before the gateway ever sees it.
+    """
+    monkeypatch.setattr(models, "get_api_key", lambda provider: "None")
+
+    gateway = "https://gateway.example/v1"
+    for model in (
+        "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+        "openrouter/openai/text-embedding-3-small",
+        "auto/embedding",
+    ):
+        embedding = models.get_embedding_model(
+            "other", model, api_base=gateway, api_key="gateway-key"
+        )
+        assert embedding.model_name == f"openai/{model}"
+        assert embedding.kwargs["api_base"] == gateway
+
+    # The bundled OpenRouter embedding provider is affected the same way: it
+    # resolves to litellm_provider `openai` against OpenRouter's api_base, so an
+    # OpenRouter-style id has to survive intact. Previously `openai/<model>` was
+    # handed to LiteLLM bare, which consumed the `openai/` segment and forwarded
+    # only `<model>` to OpenRouter.
+    for model in (
+        "openai/text-embedding-3-small",
+        "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+    ):
+        openrouter_embedding = models.get_embedding_model("openrouter", model)
+        assert openrouter_embedding.model_name == f"openai/{model}"
+        assert openrouter_embedding.kwargs["api_base"] == "https://openrouter.ai/api/v1"
+
+    # Plain OpenAI behaviour is unchanged: LiteLLM strips the `openai/` prefix
+    # and forwards the bare model id, exactly as it did without a prefix.
+    openai_embedding = models.get_embedding_model("openai", "text-embedding-3-small")
+    assert openai_embedding.model_name == "openai/text-embedding-3-small"
+
+    # Providers that do not resolve to `openai` keep their existing prefix.
+    ollama_embedding = models.get_embedding_model("ollama", "nomic-embed-text")
+    assert ollama_embedding.model_name == "ollama/nomic-embed-text"
 
 
 def test_embedding_config_repairs_sentence_transformer_aliases(monkeypatch):

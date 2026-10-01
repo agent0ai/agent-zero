@@ -20,6 +20,7 @@
 - The welcome screen mounts the shared chat composer to start a new chat; keep it mutually exclusive with the normal chat input DOM.
 - Keep the welcome container background transparent so the persistent right-panel background transition remains visible when entering and leaving Welcome.
 - Reserve the welcome composer's final minimum height before its nested input components hydrate.
+- On mobile, keep composer actions on one row and reduce only the placeholder font; editable text stays at least 16px. Quick-action buttons use a flex layout with native appearance disabled for stable initial and touch sizing.
 - Render `system-resources` as the dedicated System Resources panel, not as a generic alert banner.
 - Utility quick actions from welcome must keep the first screen intact; use modal/floating entry points instead of docking the right canvas beside welcome content.
 

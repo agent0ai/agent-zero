@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
+from helpers import virtual_desktop_routes
 from helpers.extension import Extension
 from helpers.print_style import PrintStyle
 from plugins._browser import hooks
@@ -13,6 +14,7 @@ _startup_migration_thread: threading.Thread | None = None
 
 class BrowserPlaywrightCacheMigration(Extension):
     def execute(self, **kwargs):
+        virtual_desktop_routes.install_route_hooks()
         _start_background_cache_migration()
 
 
@@ -33,7 +35,7 @@ def _start_background_cache_migration() -> threading.Thread:
 
 def _migrate_cache_safely() -> None:
     try:
-        _log_cache_migration_result(hooks.cleanup_playwright_cache())
+        _log_cache_migration_result(hooks.prepare_playwright_cache())
     except Exception as exc:
         PrintStyle.warning("Browser Playwright cache migration failed:", exc)
 

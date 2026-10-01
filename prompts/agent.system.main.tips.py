@@ -19,6 +19,6 @@ class WorkdirPath(VariablesPlugin):
         #             folder = files.normalize_a0_path(folder)
         #         return {"workdir_path": folder}
 
-        set = settings.get_settings()
+        set = settings.get_settings_for_prompt()
         return {"workdir_path": set["workdir_path"]}
         

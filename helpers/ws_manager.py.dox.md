@@ -11,6 +11,7 @@
 - `ws_manager.py` owns the runtime implementation.
 - `ws_manager.py.dox.md` owns durable notes about responsibilities, contracts, side effects, and verification for that implementation.
 - Classes:
+- `WsPayloadTooLargeError` carries the event name, serialized byte count, peer limit, and structured HTTP-alternative details for pre-dispatch rejection.
 - `WsResult` (no explicit base class)
   - `ok(cls, data: dict[str, Any] | None=..., correlation_id: str | None=..., duration_ms: float | None=...) -> 'WsResult'`
   - `error(cls, code: str, message: str, details: Any | None=..., correlation_id: str | None=..., duration_ms: float | None=...) -> 'WsResult'`
@@ -28,6 +29,8 @@
   - `async handle_disconnect(self, namespace: str, sid: str) -> None`
   - `async route_event(self, namespace: str, event_type: str, data: dict[str, Any], sid: str, ack: Optional[Callable[[Any], None]]=..., include_handlers: Set[str] | None=..., exclude_handlers: Set[str] | None=..., allow_exclude: bool=..., handler_id: str | None=...) -> dict[str, Any]`
 - Top-level functions:
+- `socketio_event_size(event_type, payload, namespace) -> int`: Measure the complete encoded Socket.IO/Engine.IO event, including the manager envelope.
+- `socketio_ack_size(payload, namespace) -> int`: Conservatively measure the complete Socket.IO/Engine.IO acknowledgement using the widest callback identifier.
 - `validate_event_type(event_type: str) -> str`: Validate an event name: must be lowercase_snake_case and not reserved.
 - `async send_data(event_type: str, data: dict[str, Any], endpoint_name: str=..., connection_id: str | None=...) -> None`: Convenience wrapper around :pymeth:`WsManager.send_data`.
 - `_utcnow() -> datetime`
@@ -38,6 +41,16 @@
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
+- `WsManager.emit_to(..., max_payload_bytes=...)` rejects an oversized encoded event before dispatch or buffering. Callers that negotiate peer limits should pass the peer's effective receive ceiling and turn `WsPayloadTooLargeError` into their own structured application error.
+- `WsManager.set_peer_max_payload_bytes(...)` stores an optional limit on the
+  live connection. `constrain_ack_response(...)` replaces an oversized handler
+  acknowledgement with one small structured `PAYLOAD_TOO_LARGE` error before
+  the Socket.IO adapter serializes it.
+- A live connection's stored limit applies automatically to `emit_to` and
+  `broadcast`. Broadcast still reaches capable peers, skips peers for which the
+  encoded envelope is oversized, and raises `WsPayloadTooLargeError` so an
+  acknowledged caller receives a structured failure instead of disconnecting a
+  constrained peer.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem deletion, network calls, WebSocket state, settings/state persistence, scheduler state.
 - Imported dependency areas include: `__future__`, `asyncio`, `collections`, `dataclasses`, `datetime`, `helpers`, `helpers.defer`, `helpers.print_style`, `helpers.ws`, `os`, `re`, `socketio`, `threading`, `time`, `typing`, `uuid`.

@@ -15,7 +15,7 @@
   - `as_dict(self) -> dict[str, Any]`
 - Top-level functions:
 - `_from_timestamp(timestamp: float) -> datetime`
-- `file_tree(relative_path: str, max_depth: int=..., max_lines: int=..., folders_first: bool=..., max_folders: int=..., max_files: int=..., sort: tuple[Literal['name', 'created', 'modified'], Literal['asc', 'desc']]=..., ignore: str | None=..., output_mode: Literal['string', 'flat', 'nested']=...) -> str | list[dict]`: Render a directory tree relative to the repository base path.
+- `file_tree(relative_path: str, max_depth: int=..., max_lines: int=..., folders_first: bool=..., max_folders: int=..., max_files: int=..., sort: tuple[Literal['name', 'created', 'modified'], Literal['asc', 'desc']]=..., ignore: str | None=..., output_mode: Literal['string', 'flat', 'nested', 'indent']=...) -> str | list[dict]`: Render a directory tree relative to the repository base path.
 - `_normalize_relative_path(path: str) -> str`
 - `_directory_has_visible_entries(directory: str, root_abs_path: str, ignore_spec: PathSpec, cache: dict[str, bool], max_depth_remaining: int) -> bool`
 - `_create_summary_comment(parent: _TreeEntry, noun: str, count: int) -> _TreeEntry`
@@ -31,7 +31,7 @@
 - `_build_tree_items_flat(items: Sequence[_TreeEntry]) -> list[dict]`
 - `_to_nested_structure(items: Sequence[_TreeEntry]) -> list[dict]`
 - `_iter_depth_first(items: Sequence[_TreeEntry]) -> Iterable[_TreeEntry]`
-- Notable constants/configuration names: `SORT_BY_NAME`, `SORT_BY_CREATED`, `SORT_BY_MODIFIED`, `SORT_ASC`, `SORT_DESC`, `OUTPUT_MODE_STRING`, `OUTPUT_MODE_FLAT`, `OUTPUT_MODE_NESTED`.
+- Notable constants/configuration names: `SORT_BY_NAME`, `SORT_BY_CREATED`, `SORT_BY_MODIFIED`, `SORT_ASC`, `SORT_DESC`, `OUTPUT_MODE_STRING`, `OUTPUT_MODE_FLAT`, `OUTPUT_MODE_NESTED`, `OUTPUT_MODE_INDENT`.
 
 ## Runtime Contracts
 

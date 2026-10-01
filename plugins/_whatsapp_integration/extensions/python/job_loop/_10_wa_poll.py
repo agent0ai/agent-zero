@@ -7,6 +7,7 @@ from helpers.extension import Extension
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
 from helpers import plugins
+from plugins._whatsapp_integration.helpers.number_utils import normalize_allowed_numbers
 
 
 PLUGIN_NAME: str = "_whatsapp_integration"
@@ -64,9 +65,16 @@ async def _poll_loop() -> None:
             session_dir = get_bridge_session_dir()
             cache_dir = get_bridge_media_dir()
             mode = config.get("mode", "self-chat")
+            allowed_numbers = sorted(normalize_allowed_numbers(config.get("allowed_numbers")))
+            allow_group = bool(config.get("allow_group", False))
 
             # Detect config changes that require bridge restart
-            desired = {"port": port, "mode": mode}
+            desired = {
+                "port": port,
+                "mode": mode,
+                "allowed_numbers": allowed_numbers,
+                "allow_group": allow_group,
+            }
             running = bridge_manager.get_running_config()
             if bridge_started and bridge_manager.is_process_alive() and running != desired:
                 PrintStyle.info(f"WhatsApp: config changed, restarting bridge")
@@ -79,6 +87,8 @@ async def _poll_loop() -> None:
                 try:
                     bridge_started = await bridge_manager.start_bridge(
                         port, session_dir, cache_dir, mode=mode,
+                        allowed_numbers=allowed_numbers,
+                        allow_group=allow_group,
                     )
                     if bridge_started:
                         consecutive_failures = 0

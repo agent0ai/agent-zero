@@ -90,8 +90,66 @@ if (path.active) throw new Error("path opened the picker");
 
 const resolvable = parseSlashInput("objective /goal");
 if (!resolvable.active || resolvable.query !== "goal") throw new Error("postfix resolution broke");
+
+const reference = parseReferenceInput("Compare @src/app", 16);
+if (!reference.active || reference.query !== "src/app" || reference.start !== 8 || reference.end !== 16) throw new Error("reference token not found");
+
+const middle = parseReferenceInput("Use @src/app then", 12);
+if (!middle.active || middle.query !== "src/app") throw new Error("caret-local reference not found");
+
+if (parseReferenceInput("mail@example.test").active) throw new Error("email opened reference picker");
+if (parseReferenceInput("Use @[./src/app.py]").active) throw new Error("completed reference reopened picker");
+if (fileQueryDirectory("../secret") !== null) throw new Error("parent traversal accepted");
+if (fileQueryDirectory("mcp/server") !== null) throw new Error("MCP reference opened file browser");
+
+const mcp = getMcpReferences({{
+  tools: {{
+    effective_policy: {{ mode: "custom", mcp_default: "block", allowed: ["mcp:allowed:read"], blocked: ["mcp:blocked:read"] }},
+    catalog: [
+      {{ id: "mcp:allowed:read", available: true }},
+      {{ id: "mcp:blocked:read", available: true }},
+      {{ id: "mcp:default-blocked:read", available: true }},
+      {{ id: "mcp:missing:read", available: false }},
+    ],
+  }},
+}});
+if (JSON.stringify(mcp) !== JSON.stringify([{{ name: "allowed", toolCount: 1 }}])) throw new Error("MCP policy scope leaked");
 """
     subprocess.run(["node", "-e", script], check=True, text=True)
+
+
+def test_composer_reference_picker_uses_plain_reference_tokens() -> None:
+    plugin_root = Path(__file__).resolve().parents[1]
+    store = (plugin_root / "webui" / "commands-slash-store.js").read_text(encoding="utf-8")
+    menu = (
+        plugin_root / "extensions" / "webui" / "chat-input-box-start" / "commands-menu.html"
+    ).read_text(encoding="utf-8")
+
+    assert "@[agent/${key}]" in store
+    assert "@[skill/${name}]" in store
+    assert "value: `@[${displayPath}]`" in store
+    assert 'icon: isDirectory ? "folder" : "draft"' in store
+    assert 'icon: "person"' in store
+    assert 'icon: "auto_awesome"' in store
+    assert "skills.filter((skill) => !skill?.hidden)" in store
+    assert 'icon: "hub"' in store
+    assert "@[mcp/${name}]" in store
+    assert 'const AGENT_EDITOR_API_PATH = "/plugins/_agent_editor/agent_editor"' in store
+    assert 'action: "list", context_id: contextId' in store
+    assert 'action: "load",' in store
+    assert "getMcpReferences(mcpResult?.state)" in store
+    assert 'mcp_servers_status' not in store
+    assert "composer-reference" in store
+    assert "node.dataset.label = reference.label" in store
+    assert 'callJsonApi("/chat_files_path_get"' in store
+    assert 'callJsonApi("/agents"' not in store
+    assert "filteredItems" in menu
+    assert "#chat-input .composer-reference" in menu
+    assert "content: attr(data-label)" in menu
+    assert "color: var(--color-highlight)" in menu
+    assert "color: var(--color-text)" in menu
+    assert "composer-reference.is-mcp" in menu
+    assert "background: transparent" in menu
 
 
 @pytest.fixture

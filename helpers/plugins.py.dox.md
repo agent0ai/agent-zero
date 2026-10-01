@@ -17,7 +17,7 @@
 - `PluginUpdateInfo` (`BaseModel`)
 - Top-level functions:
 - `register_watchdogs()`
-- `after_plugin_change(plugin_names: list[str] | None=..., python_change: bool=...)`
+- `after_plugin_change(plugin_names: list[str] | None=..., python_change: bool=..., frontend_reload: bool=...)`
 - `refresh_plugin_modules(plugin_names: list[str] | None=...)`
 - `clear_plugin_cache(plugin_names: list[str] | None=...)`
 - `get_plugin_roots(plugin_name: str=...) -> List[str]`: Plugin root directories, ordered by priority (user first).
@@ -53,6 +53,9 @@
   stale global or scoped disable files, and disable attempts are rejected.
 - Config hooks receive `hook_context={"caller": caller}` with one of `ui`,
   `agent`, or `api`; this is behavioral context, not an authorization boundary.
+- Plugin list, enabled-plugin, and enabled-path lookups cache empty results like any other value; `clear_plugin_cache` and plugin watchdog events invalidate them.
+- Project- and agent-scoped plugin changes invalidate runtime caches without a
+  frontend reload prompt because the loaded WebUI extension bundle is global.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, WebSocket state, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `__future__`, `asyncio`, `glob`, `helpers`, `helpers.defer`, `helpers.watchdog`, `json`, `pathlib`, `pydantic`, `re`, `regex`, `time`, `typing`.

@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 
 from pathspec import PathSpec
 
-from helpers import files, runtime, git
+from helpers import files, runtime, git, dotenv
 from helpers.localization import Localization
 from helpers.print_style import PrintStyle
 
@@ -64,6 +64,7 @@ class BackupService:
 # All persistent user data is now centralized in /usr for easier backup and restore
 {agent_root}/usr/**
 !{agent_root}/usr/.time_travel/**
+!{agent_root}/usr/plugins/_orchestrator/data/**
 """
 
     def _get_agent_zero_version(self) -> str:
@@ -608,6 +609,9 @@ class BackupService:
     ) -> Dict[str, Any]:
         """Restore files from backup archive"""
 
+        allowed_origins = dotenv.get_dotenv_value("ALLOWED_ORIGINS", "")
+        dotenv_path = os.path.abspath(dotenv.get_dotenv_file_path())
+
         # Save uploaded file temporarily
         temp_dir = tempfile.mkdtemp()
         temp_file = os.path.join(temp_dir, "backup.zip")
@@ -724,6 +728,11 @@ class BackupService:
                         import shutil
                         with zipf.open(archive_path) as source, open(target_path, 'wb') as target:
                             shutil.copyfileobj(source, target)
+
+                        if os.path.abspath(target_path) == dotenv_path:
+                            dotenv.save_dotenv_value(
+                                "ALLOWED_ORIGINS", allowed_origins, reload_env=False
+                            )
 
                         restored_files.append({
                             "archive_path": archive_path,

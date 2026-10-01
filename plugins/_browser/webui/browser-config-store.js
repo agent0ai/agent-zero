@@ -1,8 +1,10 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
+import { store as notificationStore } from "/components/notifications/notification-store.js";
 
 const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
+const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup";
 const BROWSER_STATUS_API = "/plugins/_browser/status";
 const RUNTIME_BACKENDS = new Set(["container", "host_required"]);
 const BROWSER_TAB_SCOPES = new Set(["per_context", "shared"]);
@@ -36,11 +38,14 @@ function ensureConfig(config) {
   config.autofocus_active_page = normalizeBoolean(config.autofocus_active_page, true);
   config.browser_tab_scope = normalizeChoice(config.browser_tab_scope, BROWSER_TAB_SCOPES, "per_context");
   config.max_open_tabs = normalizeInt(config.max_open_tabs, DEFAULT_MAX_OPEN_TABS, MIN_MAX_OPEN_TABS, HARD_MAX_OPEN_TABS);
+  config.evaluate_timeout_seconds ??= 30;
   config.runtime_backend = normalizeRuntimeBackend(config.runtime_backend);
   config.proxy_server = String(config.proxy_server || "").trim();
   config.proxy_bypass = String(config.proxy_bypass || "").trim();
   config.proxy_username = String(config.proxy_username || "");
   config.proxy_password = String(config.proxy_password || "");
+  config.keyboard_layout = normalizeXkbToken(config.keyboard_layout);
+  config.keyboard_variant = normalizeXkbToken(config.keyboard_variant);
   config.host_browser_privacy_policy = normalizeChoice(
     config.host_browser_privacy_policy,
     HOST_PRIVACY_POLICIES,
@@ -66,6 +71,14 @@ function normalizeInt(value, fallback, minimum, maximum) {
   const number = Number.parseInt(value, 10);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(minimum, Math.min(maximum, number));
+}
+
+function normalizeXkbToken(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 32);
 }
 
 function normalizeRuntimeBackend(value) {
@@ -105,6 +118,24 @@ function isCustomHostBrowserEndpoint(value) {
   return Boolean(normalizeCustomHostBrowserEndpoint(value));
 }
 
+function stableHostBrowserSelection(value, status) {
+  const selection = normalizeHostBrowserSelection(value);
+  if (!selection) return "";
+  const connectors = Array.isArray(status?.connectors) ? status.connectors : [];
+  for (const connector of connectors) {
+    const candidates = [
+      ...(Array.isArray(connector?.available_browsers) ? connector.available_browsers : []),
+      connector,
+    ];
+    for (const candidate of candidates) {
+      const endpoint = normalizeCustomHostBrowserEndpoint(candidate?.cdp_endpoint);
+      const browserId = normalizeHostBrowserSelection(candidate?.id || candidate?.browser_id);
+      if (endpoint && endpoint === selection && browserId) return browserId;
+    }
+  }
+  return selection;
+}
+
 function normalizeBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;
@@ -127,6 +158,7 @@ function hostBrowserFamilyLabel(value) {
     "edge-dev": "Edge Dev",
     brave: "Brave",
     opera: "Opera",
+    safari: "Safari",
     vivaldi: "Vivaldi",
   };
   const label = labels[base] || "Host browser";
@@ -154,6 +186,7 @@ export const store = createStore("browserConfig", {
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
   hostBrowserStatusRefreshTimer: null,
+  hostBrowserSetupOpening: "",
   hostBrowserCustomEndpoint: "",
   hostBrowserCustomMode: false,
 
@@ -172,6 +205,7 @@ export const store = createStore("browserConfig", {
     this.extensionDeleteLoadingPath = "";
     this.hostBrowserStatus = null;
     this.hostBrowserStatusLoading = false;
+    this.hostBrowserSetupOpening = "";
     this.hostBrowserCustomEndpoint = "";
     this.hostBrowserCustomMode = false;
   },
@@ -248,21 +282,29 @@ export const store = createStore("browserConfig", {
     const connectors = Array.isArray(this.hostBrowserStatus?.connectors)
       ? this.hostBrowserStatus.connectors
       : [];
-    const options = [{ value: "", label: "Automatic (A0 CLI chooses)" }];
+    const options = [{ value: "", label: "Automatic (first available)" }];
     const seen = new Set([""]);
     for (const connector of connectors) {
       const advertised = Array.isArray(connector?.available_browsers)
         ? connector.available_browsers
         : [];
       for (const browser of advertised) {
-        const value = normalizeCustomHostBrowserEndpoint(browser?.cdp_endpoint || browser?.id);
+        const endpoint = normalizeCustomHostBrowserEndpoint(browser?.cdp_endpoint);
+        const browserId = normalizeHostBrowserSelection(browser?.id || browser?.browser_id);
+        const family = normalizeHostBrowserSelection(browser?.family || browser?.browser_family);
+        const value = endpoint
+          ? browserId || endpoint
+          : family === "safari" ? browserId : "";
         if (!value || seen.has(value)) continue;
         seen.add(value);
         const label = browser?.label || hostBrowserFamilyLabel(browser?.family || value);
         const status = browser?.status ? ` - ${hostBrowserStatusLabel(browser.status)}` : "";
         options.push({ value, label: `${label}${status}` });
       }
-      const fallbackValue = normalizeCustomHostBrowserEndpoint(connector?.cdp_endpoint || connector?.browser_id);
+      const fallbackEndpoint = normalizeCustomHostBrowserEndpoint(connector?.cdp_endpoint);
+      const fallbackValue = fallbackEndpoint
+        ? normalizeHostBrowserSelection(connector?.browser_id) || fallbackEndpoint
+        : "";
       if (fallbackValue && !seen.has(fallbackValue)) {
         seen.add(fallbackValue);
         const label = connector?.browser_label || hostBrowserFamilyLabel(connector?.browser_family || fallbackValue);
@@ -338,11 +380,72 @@ export const store = createStore("browserConfig", {
     try {
       const response = await callJsonApi(BROWSER_STATUS_API, {});
       this.hostBrowserStatus = response?.host_browser || { connectors: [] };
+      const safeConfig = ensureConfig(this.config);
+      if (safeConfig) {
+        const stable = stableHostBrowserSelection(
+          safeConfig.host_browser_selection,
+          this.hostBrowserStatus,
+        );
+        if (stable !== safeConfig.host_browser_selection) {
+          safeConfig.host_browser_selection = stable;
+          this.hostBrowserCustomEndpoint = "";
+          this.hostBrowserCustomMode = false;
+        }
+      }
     } catch (_error) {
       this.hostBrowserStatus = { connectors: [] };
     } finally {
       this.hostBrowserStatusLoading = false;
     }
+  },
+
+  async openHostBrowserSetup(browserFamily) {
+    if (this.hostBrowserSetupOpening) return;
+    const family = String(browserFamily || "").trim().toLowerCase();
+    if (!["chrome", "opera", "edge"].includes(family)) return;
+    this.hostBrowserSetupOpening = family;
+    try {
+      await callJsonApi(BROWSER_SETUP_API, { browser_family: family });
+      const label = family === "edge" ? "Edge" : `${family[0].toUpperCase()}${family.slice(1)}`;
+      notificationStore.addFrontendToastOnly(
+        "success",
+        `${label} remote-debugging setup opened on the connected host.`,
+        "",
+        4,
+      );
+    } catch (error) {
+      console.error("Failed to open host browser setup:", error);
+      notificationStore.addFrontendToastOnly(
+        "error",
+        "Connect or update Launcher or A0 CLI, enable host Browser access, and try again.",
+        "Could not open browser setup",
+        7,
+      );
+    } finally {
+      this.hostBrowserSetupOpening = "";
+    }
+  },
+
+  hostBrowserSetupAvailable(browserFamily) {
+    const family = String(browserFamily || "").trim().toLowerCase();
+    const connectors = Array.isArray(this.hostBrowserStatus?.connectors)
+      ? this.hostBrowserStatus.connectors
+      : [];
+    return connectors.some((connector) => {
+      if (!Array.isArray(connector?.features) || !connector.features.includes("open_remote_debugging")) {
+        return false;
+      }
+      const browsers = Array.isArray(connector?.available_browsers)
+        ? connector.available_browsers
+        : [];
+      return browsers.some((browser) => {
+        const available = String(browser?.family || browser?.browser_family || "")
+          .trim()
+          .toLowerCase()
+          .replace(/-(?:a0|cdp)$/, "");
+        return available === family || (family === "edge" && available === "edge-dev");
+      });
+    });
   },
 
   hostBrowserConnectorLabel() {
@@ -355,18 +458,18 @@ export const store = createStore("browserConfig", {
       return `${hostBrowserFamilyLabel(active.browser_family)}${profile}: ${hostBrowserStatusLabel(active.status)}`;
     }
     const preparable = connectors.find((item) => item?.can_prepare || item?.supported);
-    if (preparable) return "A0 CLI connected - browser will open on first use";
-    if (connectors.length) return "A0 CLI connected - host browser unavailable";
-    return "Connect A0 CLI to use a host browser";
+    if (preparable) return "Host connected - browser will open on first use";
+    if (connectors.length) return "Host connected - host browser unavailable";
+    return "Connect through Launcher or A0 CLI to use a host browser";
   },
 
   browserRuntimeStatusLabel() {
     if (this.config?.runtime_backend !== "host_required") {
-      return "Docker browser runs inside Agent Zero; A0 CLI host-browser status does not affect it.";
+      return "Docker browser runs inside Agent Zero; host-browser connection status does not affect it.";
     }
     const label = this.hostBrowserConnectorLabel();
-    if (label.startsWith("Connect A0 CLI") || label.includes("unavailable")) {
-      return `${label}. Switch Browser location to Internal Docker browser to browse without A0 CLI.`;
+    if (label.startsWith("Connect through Launcher") || label.includes("unavailable")) {
+      return `${label}. Switch Browser location to Internal Docker browser to browse without a host connection.`;
     }
     return label;
   },

@@ -7,7 +7,16 @@ def mark_dirty_all(*, reason: str | None = None) -> None:
     get_state_monitor().mark_dirty_all(reason=reason)
 
 
-def mark_dirty_for_context(context_id: str, *, reason: str | None = None) -> None:
+def mark_dirty_for_context(
+    context_id: str,
+    *,
+    reason: str | None = None,
+    include_collections: bool = True,
+) -> None:
     from helpers.state_monitor import get_state_monitor
 
-    get_state_monitor().mark_dirty_for_context(context_id, reason=reason)
+    get_state_monitor().mark_dirty_for_context(
+        context_id,
+        reason=reason,
+        include_collections=include_collections,
+    )

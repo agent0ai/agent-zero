@@ -133,14 +133,20 @@
 
         .header-actions {
             display: flex;
+            align-items: stretch;
+            flex-wrap: wrap;
             gap: 0.5rem;
         }
 
         .btn-action-header {
+            box-sizing: border-box;
+            min-height: 2.5rem;
             padding: 0.4rem 0.6rem;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.25rem;
+            white-space: nowrap;
             background: var(--color-message-bg);
             color: var(--color-text);
             border: 1px solid var(--color-border);
@@ -292,7 +298,7 @@
 
             .header-actions {
                 width: 100%;
-                justify-content: flex-end;
+                justify-content: flex-start;
             }
         }
     </style>

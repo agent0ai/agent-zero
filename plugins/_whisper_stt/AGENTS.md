@@ -16,6 +16,8 @@
 
 - Keep dependency installation and model bootstrap on Docker/bootstrap paths.
 - Preserve configured message mode, language, silence threshold, silence duration, and waiting timeout behavior.
+- Keep all `data-whisper-microphone` controls synchronized with the same microphone status.
+- Optional final-transcript handlers must receive the configured draft/send mode without changing the main chat microphone's delivery behavior.
 - Do not expose raw audio or transcriptions beyond intended UI/API paths.
 
 ## Work Guidance

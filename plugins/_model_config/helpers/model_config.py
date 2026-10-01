@@ -2,7 +2,7 @@ import os
 from copy import deepcopy
 
 import models
-from helpers import defer, plugins, files
+from helpers import cache, defer, plugins, files
 from helpers.extension import call_extensions_async
 from helpers import yaml as yaml_helper
 from helpers.providers import get_provider_config, get_providers
@@ -10,17 +10,32 @@ from helpers.providers import get_provider_config, get_providers
 PRESETS_FILE = "presets.yaml"
 FALLBACK_PRESETS_FILE = "mode_presets_fallback.yaml"
 PROVIDER_METADATA_FILE = "provider_metadata.yaml"
+PRESETS_CACHE_AREA = "model_presets(plugins)"
 DEFAULT_PRESET_NAME = "Default"
+DEFAULT_VISION_TIMEOUT_SECONDS = 300
+DEFAULT_VISION_MAX_TOKENS = 2000
 MODEL_PRESET_CONFIG_KEY = "model_preset"
 PRESET_SCOPE_GLOBAL = "global"
 PRESET_SCOPE_PROJECT = "project"
 PRESET_SLOT_CONFIG_SECTIONS = {
     "chat": "chat_model",
+    "vision": "vision_model",
     "utility": "utility_model",
     "embedding": "embedding_model",
 }
 MODEL_SLOT_PRESET_REPLACE_FIELDS = {"kwargs"}
 IMPLICIT_PRESET_SLOT_DEFAULTS = {
+    "vision": {
+        "vision": True,
+        "max_embeds": 10,
+        "timeout": DEFAULT_VISION_TIMEOUT_SECONDS,
+        "max_tokens": DEFAULT_VISION_MAX_TOKENS,
+        "override_main": False,
+        "rl_requests": 0,
+        "rl_input": 0,
+        "rl_output": 0,
+        "kwargs": {},
+    },
     "utility": {
         "ctx_length": 128000,
         "ctx_input": 0.7,
@@ -214,11 +229,13 @@ def save_project_llm_settings(project_name: str, llm_data: object) -> None:
             )
 
 
-def _load_presets_from_path(path: str) -> list | None:
+def _load_presets_from_path(path: str, *, raise_on_error: bool = False) -> list | None:
     if files.exists(path):
         try:
             data = yaml_helper.loads(files.read_file(path))
         except Exception:
+            if raise_on_error:
+                raise
             return None
         if isinstance(data, list):
             return data
@@ -339,14 +356,19 @@ def validate_presets(presets: list, *, require_default: bool = True) -> list:
 def normalize_config_for_save(config: dict) -> dict:
     """Remove UI-only fields and inline API keys before storing scoped config."""
     cleaned = deepcopy(config or {})
-    for section_name in ("chat_model", "utility_model", "embedding_model"):
+    for section_name in (
+        "chat_model",
+        "vision_model",
+        "utility_model",
+        "embedding_model",
+    ):
         section = cleaned.get(section_name)
         if isinstance(section, dict):
             cleaned[section_name] = _strip_ui_fields(section, strip_api_key=True)
     return cleaned
 
 
-def _legacy_default_preset() -> dict | None:
+def _legacy_default_preset(*, raise_on_error: bool = False) -> dict | None:
     """Build Default from a pre-v2 global config when startup migration has not run."""
     path = plugins.determine_plugin_asset_path(
         "_model_config", "", "", plugins.CONFIG_FILE_NAME
@@ -356,6 +378,8 @@ def _legacy_default_preset() -> dict | None:
     try:
         raw = files.read_file_json(path)
     except Exception:
+        if raise_on_error:
+            raise
         return None
     if not isinstance(raw, dict) or not any(
         section in raw for section in PRESET_SLOT_CONFIG_SECTIONS.values()
@@ -369,23 +393,25 @@ def parse_preset_collection(text: str) -> list:
     return validate_presets(yaml_helper.loads(text))
 
 
-def _fallback_presets() -> list:
+def _fallback_presets(*, raise_on_error: bool = False) -> list:
     path = _get_fallback_presets_path()
     if not files.exists(path):
         return []
     try:
         return parse_preset_collection(files.read_file(path))
     except Exception:
+        if raise_on_error:
+            raise
         return []
 
 
-def _ensure_default_preset(presets: list) -> list:
+def _ensure_default_preset(presets: list, *, raise_on_error: bool = False) -> list:
     result = [deepcopy(preset) for preset in presets if isinstance(preset, dict)]
-    legacy_default = _legacy_default_preset()
+    legacy_default = _legacy_default_preset(raise_on_error=raise_on_error)
     bundled_default = next(
         (
             deepcopy(preset)
-            for preset in _fallback_presets()
+            for preset in _fallback_presets(raise_on_error=raise_on_error)
             if isinstance(preset, dict)
             and str(preset.get("name") or "").strip().casefold()
             == DEFAULT_PRESET_NAME.casefold()
@@ -427,13 +453,46 @@ def get_presets(project_name: str | None = None) -> list:
     if project_name:
         return get_project_presets(project_name)
 
-    path = _get_presets_path()
-    presets = _load_presets_from_path(path)
+    # config resolution reads presets many times per model call, parse once per file version
+    signature = _presets_signature()
+    presets = cache.get(PRESETS_CACHE_AREA, signature)
+    if presets is None:
+        try:
+            presets = _load_global_presets(raise_on_error=True)
+        except Exception:
+            # Preserve fallback behavior without caching a failed read.
+            return _load_global_presets()
+        cache.add(PRESETS_CACHE_AREA, signature, presets)
+    return deepcopy(presets)
+
+
+def _load_global_presets(*, raise_on_error: bool = False) -> list:
+    presets = _load_presets_from_path(_get_presets_path(), raise_on_error=raise_on_error)
     if presets is not None:
-        return _ensure_default_preset(presets)
+        return _ensure_default_preset(presets, raise_on_error=raise_on_error)
 
     # Fall back to the repository-shipped offline collection.
-    return _ensure_default_preset(_fallback_presets())
+    return _ensure_default_preset(
+        _fallback_presets(raise_on_error=raise_on_error), raise_on_error=raise_on_error
+    )
+
+
+def _presets_signature() -> tuple:
+    paths = (
+        _get_presets_path(),
+        _get_fallback_presets_path(),
+        plugins.determine_plugin_asset_path(
+            "_model_config", "", "", plugins.CONFIG_FILE_NAME
+        ),
+    )
+    signature = []
+    for path in paths:
+        try:
+            stat = os.stat(path)
+            signature.append((path, stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            signature.append((path, None, None))
+    return tuple(signature)
 
 
 def get_project_presets(project_name: str) -> list:
@@ -465,6 +524,7 @@ def save_presets(presets: list, project_name: str | None = None) -> None:
     cleaned = validate_presets(presets)
     path = _get_presets_path(project_name)
     files.write_file(path, yaml_helper.dumps(cleaned))
+    cache.clear(PRESETS_CACHE_AREA)
 
 
 def update_preset_from_config(name: str, config: dict) -> dict:
@@ -500,6 +560,7 @@ def reset_presets(project_name: str | None = None) -> list:
     path = _get_presets_path(project_name)
     if os.path.exists(path):
         os.remove(path)
+    cache.clear(PRESETS_CACHE_AREA)
     return get_presets()
 
 
@@ -659,10 +720,12 @@ def build_config_from_preset(
             continue
         slot_config = _get_preset_slot_config(preset, slot)
         if not _should_apply_preset_slot(slot, slot_config):
+            if slot == "vision":
+                config[section] = {}
             continue
         config[section] = _merge_model_slot(
             slot,
-            config.get(section, {}),
+            {} if slot == "vision" else config.get(section, {}),
             slot_config,
             strip_api_key=strip_api_key,
         )
@@ -736,6 +799,22 @@ def get_effective_config(agent=None) -> dict:
 def get_chat_model_config(agent=None) -> dict:
     """Get chat model config, with per-chat override if active."""
     return get_effective_config(agent).get("chat_model", {})
+
+
+def get_vision_model_config(agent=None) -> dict:
+    """Get the active Vision Model config after applying Main-first routing."""
+    cfg = get_effective_config(agent)
+    vision_cfg = cfg.get("vision_model", {})
+    if not all(
+        str(vision_cfg.get(key) or "").strip() for key in ("provider", "name")
+    ):
+        return {}
+    chat_cfg = cfg.get("chat_model", {})
+    return (
+        vision_cfg
+        if not chat_cfg.get("vision") or vision_cfg.get("override_main")
+        else {}
+    )
 
 
 def get_utility_model_config(agent=None) -> dict:
@@ -835,6 +914,26 @@ def build_utility_model(agent=None):
     )
 
 
+def build_vision_model(agent=None):
+    """Build the optional Vision Model selected by the effective preset."""
+    cfg = get_vision_model_config(agent)
+    mc = build_model_config(cfg, models.ModelType.CHAT)
+    mc.vision = True
+    kwargs = mc.build_kwargs()
+    for key, default in (
+        ("timeout", DEFAULT_VISION_TIMEOUT_SECONDS),
+        ("max_tokens", DEFAULT_VISION_MAX_TOKENS),
+    ):
+        value = cfg.get(key)
+        if value not in (None, ""):
+            kwargs[key] = _normalize_kwargs({key: value})[key]
+        else:
+            kwargs.setdefault(key, default)
+    return models.get_chat_model(
+        mc.provider, mc.name, model_config=mc, **kwargs
+    )
+
+
 def build_embedding_model(agent=None):
     """Build and return an embedding model wrapper."""
     cfg = get_embedding_model_config(agent)
@@ -881,6 +980,9 @@ def get_missing_api_key_providers(agent=None) -> list[dict]:
         ("Utility Model", cfg.get("utility_model", {})),
         ("Embedding Model", get_embedding_model_config(agent)),
     ]
+    vision_cfg = get_vision_model_config(agent)
+    if vision_cfg:
+        checks.insert(1, ("Vision Model", vision_cfg))
 
     for label, model_cfg in checks:
         provider = model_cfg.get("provider", "")

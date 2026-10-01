@@ -11,7 +11,9 @@ flask-basicauth==0.2.0
 flaredantic==0.1.5
 GitPython==3.1.43
 giturlparse==0.14.0
+httpx[socks]==0.28.1
 inputimeout==1.0.4
+json_repair==0.63.4
 kokoro>=0.9.2
 simpleeval==1.0.3
 langchain-core==0.3.49
@@ -26,7 +28,7 @@ markdown==3.7
 mcp==1.27.0
 newspaper3k==0.2.8
 paramiko==3.5.0
-playwright==1.52.0
+patchright==1.61.2
 pypdf==6.0.0
 python-dotenv==1.1.0
 pytz==2024.2

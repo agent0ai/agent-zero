@@ -33,7 +33,7 @@
 - Plugin routes are `GET /plugins/<name>/<path>`, `POST /api/plugins/<name>/<handler>`, and `POST /api/plugins` for management actions.
 - `_a0_connector` WebSocket history replay must stay bounded: emit large chat history as paged `connector_context_snapshot` payloads, keep `last_sequence` as the Agent Zero log-output cursor, and avoid sending an entire long transcript in one frame.
 - Frontend plugin HTML extensions live under `extensions/webui/<point>/`, include a root Alpine scope, and use `x-move-*` directives when targeting static breakpoints.
-- Frontend plugin JS extensions live under `extensions/webui/<point>/` and export a default function.
+- Frontend plugin JS extensions live under `extensions/webui/<point>/` and export a default function. Custom process-step handlers in `get_message_handler` must also register their log types through `get_process_step_types`; standalone types are omitted. See `skills/a0-create-plugin/references/webui.md` for the handler contract.
 - Plugin UI must use the A0 notification system for errors, warnings, success, and info instead of inline success/error boxes.
 - Bundled plugin WebUI must author Material Symbols as empty `<x-icon name="lowercase_snake_case"></x-icon>` elements and use `:name` for Alpine-driven icon names. Legacy `.material-symbols-outlined` and `.material-icons-outlined` spans remain runtime-compatible for community plugins, but bundled plugins must not introduce new ligature-text spans.
 - Banners and discovery cards are provided through Python `banners` extensions by appending dictionaries with unique `id`, `type`, `priority`, and display fields to the `banners` list.
@@ -75,11 +75,13 @@ Direct child DOX files:
 | [_chat_compaction/AGENTS.md](_chat_compaction/AGENTS.md) | Full-chat compaction into a summary message. |
 | [_chat_naming/AGENTS.md](_chat_naming/AGENTS.md) | Built-in manual and Utility Model-assisted chat naming. |
 | [_commands/AGENTS.md](_commands/AGENTS.md) | Built-in slash command manager, command file discovery, and chat composer slash picker. |
+| [_context_doctor/AGENTS.md](_context_doctor/AGENTS.md) | Tool-call JSON repair and compact persistence before default dispatch. |
+| [_context_window/AGENTS.md](_context_window/AGENTS.md) | Context-window token accounting, API, composer indicator, and visibility control. |
 | [_code_execution/AGENTS.md](_code_execution/AGENTS.md) | Terminal, Python, and Node.js execution tools and shell runtimes. |
 | [_desktop/AGENTS.md](_desktop/AGENTS.md) | Linux desktop runtime, sessions, and desktop surface. |
 | [_discovery/AGENTS.md](_discovery/AGENTS.md) | Welcome-screen plugin discovery cards and promotions. |
 | [_document_query/AGENTS.md](_document_query/AGENTS.md) | Document parsing, indexing, and Q&A tools. |
-| [_editor/AGENTS.md](_editor/AGENTS.md) | Native Markdown editor surface and sessions. |
+| [_editor/AGENTS.md](_editor/AGENTS.md) | Shared text/code editor surface and sessions. |
 | [_email_integration/AGENTS.md](_email_integration/AGENTS.md) | IMAP/Exchange polling and SMTP reply integration. |
 | [_error_retry/AGENTS.md](_error_retry/AGENTS.md) | Critical exception retry lifecycle hooks. |
 | [_goal/AGENTS.md](_goal/AGENTS.md) | Built-in chat goal strip, `/goal` slash command, and agent-facing goal tools. |
@@ -92,11 +94,12 @@ Direct child DOX files:
 | [_office/AGENTS.md](_office/AGENTS.md) | LibreOffice office artifacts and office canvas sessions. |
 | [_onboarding/AGENTS.md](_onboarding/AGENTS.md) | First-time model onboarding wizard. |
 | [_orchestrator/AGENTS.md](_orchestrator/AGENTS.md) | External terminal coding-agent orchestration skill, adapter status, and settings UI. |
-| [_pin_to_top/AGENTS.md](_pin_to_top/AGENTS.md) | Built-in chat and task sidebar pinning. |
+| [_pin_to_top/AGENTS.md](_pin_to_top/AGENTS.md) | Built-in chat, task, and project-folder sidebar pinning. |
 | [_plugin_installer/AGENTS.md](_plugin_installer/AGENTS.md) | Plugin install and update flows from ZIP, Git, and Plugin Index. |
 | [_plugin_scan/AGENTS.md](_plugin_scan/AGENTS.md) | LLM-guided security scanner for third-party plugins. |
 | [_plugin_validator/AGENTS.md](_plugin_validator/AGENTS.md) | Plugin manifest, structure, convention, and security validator. |
 | [_promptinclude/AGENTS.md](_promptinclude/AGENTS.md) | Promptinclude scanning and prompt injection. |
+| [_sidebar_folders/AGENTS.md](_sidebar_folders/AGENTS.md) | Project folder presentation, filters, sorting, drag ordering, and chat project moves. |
 | [_skills/AGENTS.md](_skills/AGENTS.md) | Active and hidden skill configuration and prompt injection. |
 | [_telegram_integration/AGENTS.md](_telegram_integration/AGENTS.md) | Telegram bot integration and per-user chat sessions. |
 | [_text_editor/AGENTS.md](_text_editor/AGENTS.md) | Native text read, write, and patch tool. |

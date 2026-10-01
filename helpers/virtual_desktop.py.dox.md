@@ -23,13 +23,12 @@
 - `proxy_for_token(token: str) -> VirtualDesktopEndpoint | None`
 - `resize_session(token: str, width: int, height: int) -> dict[str, Any]`
 - `get_registry() -> VirtualDesktopRegistry`
-- `session_url(token: str, title: str=...) -> str`
+- `session_url(token: str, title: str=..., encoding: str=..., quality: int=..., speed: int=..., file_transfer: bool=..., printing: bool=...) -> str`
 - `collect_status() -> dict[str, Any]`
 - `find_xpra_html_root() -> Path | None`
 - `_package_installed(package: str) -> bool`
 - `normalize_size(width: int | float | str, height: int | float | str, max_width: int=..., max_height: int=..., min_width: int=..., min_height: int=...) -> tuple[int, int]`
-- `normalize_desktop_display_size(width: int | float | str, height: int | float | str, max_width: int=..., max_height: int=..., min_width: int=..., min_height: int=..., min_aspect_ratio: float=...) -> tuple[int, int]`
-- `resize_display(display: int, width: int, height: int, max_width: int=..., max_height: int=..., window_class: str=..., keys: tuple[str, ...]=..., xauthority: str=..., home: str=...) -> dict[str, Any]`
+- `resize_display(display: int, width: int, height: int, max_width: int=..., max_height: int=..., window_class: str=..., keys: tuple[str, ...]=..., xauthority: str=..., home: str=..., settle_seconds: float=...) -> dict[str, Any]`
 - `_ensure_xrandr_mode(env: dict[str, str], width: int, height: int) -> None`
 - `_select_xrandr_mode(env: dict[str, str], width: int, height: int) -> subprocess.CompletedProcess[str]`
 - `_xrandr_output_modes(env: dict[str, str]) -> tuple[str, set[str]]`
@@ -54,6 +53,9 @@
 
 - Important called helpers/classes observed in the source: `Path`, `files.get_abs_path`, `get_registry.register`, `get_registry.unregister`, `get_registry.proxy_for_token`, `get_registry.resize`, `quote`, `urlencode`, `find_xpra_html_root`, `subprocess.run`, `normalize_size`, `shutil.which`, `_display_env`, `current_display_size`, `_ensure_xrandr_mode`, `_select_xrandr_mode`, `time.sleep`, `strip`, `_xrandr_output_modes`, `result.stdout.splitlines`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
+- Session URLs keep Desktop's JPEG, printing, and file-transfer defaults while allowing restricted viewers such as Browser to negotiate encoding and disable unrelated capabilities.
+- Display resizing keeps the Desktop settle delay by default; latency-sensitive callers may skip it when they immediately verify the XRandR size.
+- `XPRA_START_ENV` bounds Xpra's initial system D-Bus and CUPS socket waits to one second instead of five before it attempts to start those services. Browser and Desktop merge these defaults before their inherited environment so explicit timeout overrides remain effective.
 
 ## Work Guidance
 

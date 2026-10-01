@@ -15,15 +15,14 @@
   prompt/schema extensions remain responsible for live remote-tool exposure.
   The editor applies the current draft policy instead of receiving duplicated
   allowed/required flags from the backend.
-- `tool_prompt_description` owns the shared compact description extracted for
-  the editor catalog and provider-native schemas; transport-specific names and
-  schemas remain with their transports.
+- `tool_prompt_description` owns compact editor catalog summaries; Responses owns full native tool descriptions and schema projection.
 - `resolve_tool` returns the effective decision and provenance.
 - `ensure_tool_allowed` raises the stable repairable runtime policy error and
   accepts an explicit canonical ID from transports that already resolved one.
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
   including complete fenced JSON examples that reference them, without taking
   ownership of provider-native naming rules.
+- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool decisions to a complete prompt batch. Native schema construction may supply its current `_policy` snapshot; neither owner retains it across calls.
 
 ## Runtime Contracts
 
@@ -34,6 +33,8 @@
 - Missing policy inherits standard access. A custom policy records independent
   defaults for local/plugin tools and canonical MCP tools; explicit allowed or
   blocked IDs take precedence over either default.
+- Inherited prompt policy returns tool text unchanged without inventorying or
+  resolving individual tools; only custom policy pays the filtering cost.
 - The `response` capability is a framework-required invariant: profile policy
   cannot disable it, and the editor does not list it as a configurable tool.
 - `vision_load` remains owned by the active chat model's vision configuration;
@@ -53,6 +54,8 @@
   canonical IDs retain the exact transport-qualified spelling.
 - Unknown policy IDs remain in the catalog as unavailable entries.
 - Resolution performs no model calls and logs no secrets.
+- Prompt and native-schema batches reuse their freshly loaded policy while
+  runtime execution gates continue to resolve current policy independently.
 
 ## Verification
 

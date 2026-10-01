@@ -38,6 +38,7 @@ Direct child DOX files:
 | [fetch_api_call_after/AGENTS.md](fetch_api_call_after/AGENTS.md) | Frontend hooks after raw `fetchApi()` calls. |
 | [fetch_api_call_before/AGENTS.md](fetch_api_call_before/AGENTS.md) | Frontend hooks before raw `fetchApi()` calls. |
 | [get_message_handler/AGENTS.md](get_message_handler/AGENTS.md) | Message rendering handler extensions. |
+| [get_process_step_types/AGENTS.md](get_process_step_types/AGENTS.md) | Process-step type registration before raw-log grouping. |
 | [initFw_end/AGENTS.md](initFw_end/AGENTS.md) | Post-WebUI-framework-initialization extensions. |
 | [json_api_call_after/AGENTS.md](json_api_call_after/AGENTS.md) | Frontend hooks after `callJsonApi()` calls. |
 | [json_api_call_before/AGENTS.md](json_api_call_before/AGENTS.md) | Frontend hooks before `callJsonApi()` calls. |

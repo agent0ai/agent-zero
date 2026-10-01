@@ -1,0 +1,40 @@
+<script type="module">
+  import { store } from "/plugins/_context_window/webui/context-window-store.js";
+</script>
+
+<div x-data>
+  <template x-if="$store.settings.uiVisibility">
+    <div class="ui-visibility-row">
+      <div class="ui-visibility-control">
+        <x-icon aria-hidden="true" name="donut_large"></x-icon>
+        <div>
+          <div class="field-title">Context window</div>
+          <div class="ui-visibility-state" x-text="$store.settings.uiControlVisibilityLabel('contextWindowUsage')"></div>
+        </div>
+      </div>
+
+      <div class="ui-device-selector" aria-label="Context window visibility">
+        <button type="button"
+                class="ui-device-button"
+                :class="{ 'is-visible': $store.settings.isUiControlVisible('contextWindowUsage', 'mobile') }"
+                aria-label="Show context window on mobile"
+                :aria-pressed="$store.settings.isUiControlVisible('contextWindowUsage', 'mobile').toString()"
+                :title="$store.settings.isUiControlVisible('contextWindowUsage', 'mobile') ? 'Shown on mobile' : 'Hidden on mobile'"
+                @click="$store.settings.toggleUiControl('contextWindowUsage', 'mobile')">
+          <x-icon aria-hidden="true" name="smartphone"></x-icon>
+          <span>Mobile</span>
+        </button>
+        <button type="button"
+                class="ui-device-button"
+                :class="{ 'is-visible': $store.settings.isUiControlVisible('contextWindowUsage', 'desktop') }"
+                aria-label="Show context window on desktop"
+                :aria-pressed="$store.settings.isUiControlVisible('contextWindowUsage', 'desktop').toString()"
+                :title="$store.settings.isUiControlVisible('contextWindowUsage', 'desktop') ? 'Shown on desktop' : 'Hidden on desktop'"
+                @click="$store.settings.toggleUiControl('contextWindowUsage', 'desktop')">
+          <x-icon aria-hidden="true" name="desktop_windows"></x-icon>
+          <span>Desktop</span>
+        </button>
+      </div>
+    </div>
+  </template>
+</div>

@@ -13,7 +13,6 @@ import uuid
 from agent import Agent, AgentContext, UserMessage
 from helpers import plugins, files, runtime
 from helpers import message_queue as mq
-from helpers import integration_commands
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
@@ -21,6 +20,7 @@ from initialize import initialize_agent
 
 from plugins._whatsapp_integration.helpers import wa_client
 from plugins._whatsapp_integration.helpers import bridge_manager
+from plugins._whatsapp_integration.helpers import slash_commands
 from plugins._whatsapp_integration.helpers.number_utils import (
     normalize_allowed_numbers,
     normalize_number,
@@ -154,6 +154,7 @@ async def _start_new_chat(config: dict, msg: dict) -> None:
     context.data[CTX_WA_SENDER_NAME] = sender_name
     context.data[CTX_WA_SENDER_NUMBER] = sender_number
     context.data[CTX_WA_IS_GROUP] = is_group
+    context.data['wa_active'] = True
     context.data[CTX_WA_LAST_BODY] = msg.get("body", "")
     context.data[CTX_WA_LAST_MSG_ID] = msg.get("messageId", "")
     context.data[CTX_WA_TYPING_ACTIVE] = True
@@ -246,26 +247,22 @@ async def _handle_control_message(
     context: AgentContext | None = None,
 ) -> bool:
     text = msg.get("body", "") or ""
-    parsed = integration_commands.parse_command(text)
-    if not parsed:
-        return False
-
     context = context or AgentContext.get(context_id)
     if not context:
         return False
-
-    response = integration_commands.try_handle_command(context, text)
-    if response is None:
+    context.data[CTX_WA_LAST_BODY] = text
+    context.data[CTX_WA_LAST_MSG_ID] = msg.get('messageId', '')
+    rendered = await slash_commands.handle(context, text)
+    if rendered is not None:
+        msg['body'] = rendered
         return False
 
     port = int(config.get("bridge_port", 3100))
     base_url = bridge_manager.get_bridge_url(port)
     chat_id = context.data.get(CTX_WA_CHAT_ID, "") or msg.get("chatId", "")
-    reply_to = msg.get("messageId", "") if context.data.get(CTX_WA_IS_GROUP) else ""
-
-    await wa_client.send_message(base_url, chat_id, response, reply_to=reply_to)
     await wa_client.send_typing(base_url, chat_id, paused=True)
     context.data[CTX_WA_TYPING_ACTIVE] = False
+    save_tmp_chat(context)
     PrintStyle.info(f"WhatsApp: handled control command in chat {context.id}")
     return True
 
@@ -275,7 +272,7 @@ async def _handle_control_message(
 # ------------------------------------------------------------------
 
 def _find_chats_by_jid(chat_id: str) -> list[str]:
-    """Return context IDs for chats matching the given WhatsApp JID, newest first."""
+    """Return this JID's selected chat first, then remaining chats by recency."""
     results = []
     for ctx_id, ctx in AgentContext._contexts.items():
         if not isinstance(ctx, AgentContext):
@@ -284,7 +281,10 @@ def _find_chats_by_jid(chat_id: str) -> list[str]:
             continue
         results.append(ctx_id)
 
-    results.sort(reverse=True)
+    results.sort(key=lambda id: (
+        AgentContext.get(id).data.get('wa_active') is True,
+        str(AgentContext.get(id).output().get('last_message') or AgentContext.get(id).output().get('created_at') or ''),
+    ), reverse=True)
     return results
 
 

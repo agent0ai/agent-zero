@@ -10,6 +10,7 @@ from typing import Any
 from helpers import files
 from helpers.print_style import PrintStyle
 from helpers.tool import Response, Tool
+from plugins._browser.helpers.config import activate_browser_model
 from plugins._browser.helpers.selector import get_tool_runtime
 
 
@@ -75,6 +76,15 @@ class Browser(Tool):
         else:
             action = str(action or self.method or "state").strip().lower().replace("-", "_")
         try:
+            activate_browser_model(self.agent)
+        except Exception as exc:
+            PrintStyle.warning(f"Browser model preset could not be activated: {exc}")
+        try:
+            if action == "evaluate" and (not isinstance(script, str) or not script.strip()):
+                return Response(
+                    message="Browser evaluate failed: evaluate requires a non-empty 'script' string",
+                    break_loop=False,
+                )
             runtime = await get_runtime(self.agent.context.id, agent=self.agent)
         except Exception as exc:
             return Response(message=f"Browser runtime unavailable: {exc}", break_loop=False)
@@ -561,6 +571,6 @@ class Browser(Tool):
         if action == "content" and isinstance(result, dict):
             if set(result.keys()) == {"document"}:
                 return str(result.get("document") or "")
-            return json.dumps(result, indent=2, ensure_ascii=False)
+            return json.dumps(result, ensure_ascii=False, separators=(",", ":"))
 
-        return json.dumps(result, indent=2, ensure_ascii=False, default=str)
+        return json.dumps(result, ensure_ascii=False, separators=(",", ":"), default=str)

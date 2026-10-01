@@ -1,0 +1,81 @@
+<html>
+<head>
+  <title>Agent Client Protocol</title>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="config">
+      <div>
+        <div class="section-title">Agent Client Protocol</div>
+        <div class="section-description">Connect an ACP-capable editor through the A0 CLI running on the editor computer.</div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Enable ACP</div>
+            <div class="field-description">Allows A0 CLI ACP sessions for this Agent Zero instance.</div>
+          </div>
+          <div class="field-control">
+            <label class="toggle">
+              <input type="checkbox" x-model="config.enabled" />
+              <span class="toggler"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Default agent profile</div>
+            <div class="field-description">Optional profile key used for new ACP sessions.</div>
+          </div>
+          <div class="field-control"><input type="text" x-model="config.agent_profile" autocomplete="off" /></div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Editor workspace access</div>
+            <div class="field-description">Controls whether Agent Zero can write through the connected A0 CLI.</div>
+          </div>
+          <div class="field-control">
+            <select x-model="config.host_file_access">
+              <option value="read_write">Read and write</option>
+              <option value="read_only">Read only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Editor terminal access</div>
+            <div class="field-description">Allows code execution on the computer running the A0 CLI.</div>
+          </div>
+          <div class="field-control">
+            <label class="toggle">
+              <input type="checkbox" x-model="config.host_code_execution" />
+              <span class="toggler"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Session history</div>
+            <div class="field-description">Lets ACP editors list and resume their prior Agent Zero sessions.</div>
+          </div>
+          <div class="field-control">
+            <label class="toggle">
+              <input type="checkbox" x-model="config.session_history" />
+              <span class="toggler"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label"><div class="field-title">Editor command</div></div>
+          <div class="field-control"><code>a0 acp --host &lt;agent-zero-url&gt;</code></div>
+        </div>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

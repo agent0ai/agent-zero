@@ -214,7 +214,7 @@ def register_api_route(app: Flask, lock: ThreadLockType) -> None:
             return await cached()
 
         # Resolve file path for the handler
-        # Try built-in api folder first, then plugin api folders
+        # Try built-in and plugin api folders before the user fallback
         handler_cls: type[ApiHandler] | None = None
 
         # Check built-in python/api/<path>.py
@@ -238,6 +238,15 @@ def register_api_route(app: Flask, lock: ThreadLockType) -> None:
                         classes = load_classes_from_file(str(plugin_file), ApiHandler)
                         if classes:
                             handler_cls = classes[0]
+
+        # Check user api/<path>.py
+        if handler_cls is None:
+            user_api_dir = files.get_abs_path(files.USER_DIR, files.API_DIR)
+            user_file = files.get_abs_path(user_api_dir, f"{path}.py")
+            if files.is_in_dir(user_file, user_api_dir) and files.exists(user_file):
+                classes = load_classes_from_file(user_file, ApiHandler)
+                if classes:
+                    handler_cls = classes[0]
 
         if handler_cls is None:
             return Response(f"API endpoint not found: {path}", 404)

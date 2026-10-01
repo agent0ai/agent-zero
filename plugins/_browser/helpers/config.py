@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -9,10 +10,15 @@ if TYPE_CHECKING:
 
 PLUGIN_NAME = "_browser"
 MODEL_PRESET_KEY = "model_preset"
+BROWSER_MODEL_ACTIVE_KEY = "_browser_model_active"
 DEFAULT_HOMEPAGE_KEY = "default_homepage"
 AUTOFOCUS_ACTIVE_PAGE_KEY = "autofocus_active_page"
 TAB_SCOPE_KEY = "browser_tab_scope"
 MAX_OPEN_TABS_KEY = "max_open_tabs"
+EVALUATE_TIMEOUT_KEY = "evaluate_timeout_seconds"
+DEFAULT_EVALUATE_TIMEOUT_SECONDS = 30.0
+MIN_EVALUATE_TIMEOUT_SECONDS = 0.1
+MAX_EVALUATE_TIMEOUT_SECONDS = 60.0
 RUNTIME_BACKEND_KEY = "runtime_backend"
 HOST_BROWSER_PRIVACY_POLICY_KEY = "host_browser_privacy_policy"
 HOST_BROWSER_PROFILE_MODE_KEY = "host_browser_profile_mode"
@@ -21,6 +27,8 @@ PROXY_SERVER_KEY = "proxy_server"
 PROXY_BYPASS_KEY = "proxy_bypass"
 PROXY_USERNAME_KEY = "proxy_username"
 PROXY_PASSWORD_KEY = "proxy_password"
+KEYBOARD_LAYOUT_KEY = "keyboard_layout"
+KEYBOARD_VARIANT_KEY = "keyboard_variant"
 RUNTIME_BACKENDS = {"container", "host_required"}
 BROWSER_TAB_SCOPES = {"per_context", "shared"}
 HOST_BROWSER_PRIVACY_POLICIES = {"enforce_local", "warn", "allow"}
@@ -30,11 +38,6 @@ DEFAULT_MAX_OPEN_TABS = 32
 MIN_MAX_OPEN_TABS = 1
 HARD_MAX_OPEN_TABS = 50
 DEFAULT_HOST_BROWSER_PRIVACY_POLICY = "allow"
-BASE_BROWSER_ARGS = [
-    "--no-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-gpu",
-]
 
 
 def _normalize_extension_paths(value: Any) -> list[str]:
@@ -104,6 +107,27 @@ def _normalize_int(value: Any, *, default: int, minimum: int, maximum: int) -> i
     return max(minimum, min(maximum, number))
 
 
+def normalize_evaluate_timeout(value: Any) -> float:
+    try:
+        timeout = float(value) if not isinstance(value, bool) else 0.0
+    except (TypeError, ValueError, OverflowError):
+        timeout = 0.0
+    if not math.isfinite(timeout) or not (
+        MIN_EVALUATE_TIMEOUT_SECONDS <= timeout <= MAX_EVALUATE_TIMEOUT_SECONDS
+    ):
+        raise ValueError(
+            f"{EVALUATE_TIMEOUT_KEY} must be between "
+            f"{MIN_EVALUATE_TIMEOUT_SECONDS:g} and {MAX_EVALUATE_TIMEOUT_SECONDS:g} seconds"
+        )
+    return timeout
+
+
+def _normalize_xkb_token(value: Any) -> str:
+    return "".join(
+        ch for ch in str(value or "").strip().lower() if ch.isalnum() or ch in {"_", "-"}
+    )[:32]
+
+
 def _normalize_choice(value: Any, *, allowed: set[str], default: str) -> str:
     normalized = str(value or "").strip().lower().replace("-", "_")
     if normalized in allowed:
@@ -129,6 +153,10 @@ def _model_config_summary(config: dict[str, Any] | None) -> str:
 def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
     raw = settings if isinstance(settings, dict) else {}
     extension_paths = _normalize_extension_paths(raw.get("extension_paths", []))
+    keyboard_layout = _normalize_xkb_token(raw.get(KEYBOARD_LAYOUT_KEY, ""))
+    keyboard_variant = (
+        _normalize_xkb_token(raw.get(KEYBOARD_VARIANT_KEY, "")) if keyboard_layout else ""
+    )
     return {
         "extension_paths": extension_paths,
         DEFAULT_HOMEPAGE_KEY: _normalize_default_homepage(
@@ -148,6 +176,9 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
             default=DEFAULT_MAX_OPEN_TABS,
             minimum=MIN_MAX_OPEN_TABS,
             maximum=HARD_MAX_OPEN_TABS,
+        ),
+        EVALUATE_TIMEOUT_KEY: normalize_evaluate_timeout(
+            raw.get(EVALUATE_TIMEOUT_KEY, DEFAULT_EVALUATE_TIMEOUT_SECONDS)
         ),
         RUNTIME_BACKEND_KEY: _normalize_runtime_backend(
             raw.get(RUNTIME_BACKEND_KEY, "container")
@@ -169,6 +200,8 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         PROXY_BYPASS_KEY: str(raw.get(PROXY_BYPASS_KEY, "") or "").strip()[:4096],
         PROXY_USERNAME_KEY: str(raw.get(PROXY_USERNAME_KEY, "") or "")[:1024],
         PROXY_PASSWORD_KEY: str(raw.get(PROXY_PASSWORD_KEY, "") or "")[:4096],
+        KEYBOARD_LAYOUT_KEY: keyboard_layout,
+        KEYBOARD_VARIANT_KEY: keyboard_variant,
         MODEL_PRESET_KEY: _normalize_model_preset(raw.get(MODEL_PRESET_KEY, "")),
     }
 
@@ -181,6 +214,8 @@ def browser_runtime_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         PROXY_BYPASS_KEY: config[PROXY_BYPASS_KEY],
         PROXY_USERNAME_KEY: config[PROXY_USERNAME_KEY],
         PROXY_PASSWORD_KEY: config[PROXY_PASSWORD_KEY],
+        KEYBOARD_LAYOUT_KEY: config[KEYBOARD_LAYOUT_KEY],
+        KEYBOARD_VARIANT_KEY: config[KEYBOARD_VARIANT_KEY],
     }
 
 
@@ -324,10 +359,34 @@ def resolve_browser_model_selection(
     }
 
 
-def resolve_browser_model(agent: "Agent", settings: dict[str, Any] | None = None):
+def activate_browser_model(agent: "Agent") -> dict[str, Any]:
+    selection = resolve_browser_model_selection(agent=agent)
+    agent.set_data(
+        BROWSER_MODEL_ACTIVE_KEY,
+        selection["selected_preset_name"]
+        if selection["source_kind"] == "preset"
+        else "",
+    )
+    return selection
+
+
+def clear_browser_model(agent: "Agent") -> None:
+    agent.set_data(BROWSER_MODEL_ACTIVE_KEY, "")
+
+
+def browser_model_is_active(agent: "Agent") -> bool:
+    return bool(agent.get_data(BROWSER_MODEL_ACTIVE_KEY))
+
+
+def resolve_browser_model(
+    agent: "Agent",
+    settings: dict[str, Any] | None = None,
+    fallback: Any = None,
+):
     selection = resolve_browser_model_selection(agent=agent, settings=settings)
     if selection["source_kind"] == "main":
-        return agent.get_chat_model()
+        clear_browser_model(agent)
+        return fallback if fallback is not None else agent.get_chat_model()
 
     import models
     from plugins._model_config.helpers import model_config
@@ -388,7 +447,7 @@ def describe_browser_extensions(settings: dict[str, Any] | None) -> dict[str, An
 def build_browser_launch_config(settings: dict[str, Any] | None) -> dict[str, Any]:
     config = normalize_browser_config(settings)
     extensions = describe_browser_extensions(config)
-    args = list(BASE_BROWSER_ARGS)
+    args = ["--hide-crash-restore-bubble"]
     channel: str | None = None
     browser_mode = "chromium"
     proxy = None

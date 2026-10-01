@@ -20,7 +20,7 @@ async def test_state_monitor_per_sid_isolation_independent_snapshots_seq_and_cur
 
     namespace = "/ws"
 
-    async def fake_build_snapshot_from_request(*, request):
+    async def fake_build_snapshot_from_request(*, request, include_collections=True):
         context = request.context
         log_from = request.log_from
         notifications_from = request.notifications_from

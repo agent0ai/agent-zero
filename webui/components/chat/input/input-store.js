@@ -9,6 +9,7 @@ import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 const ICON_MARKER_RE = /icon:\/\/([a-zA-Z0-9_]+)(\[(?:\\.|[^\]])*\])?/g;
 const FENCE_LINE_RE = /^```([A-Za-z0-9_-]*)?$/;
 const BLOCK_TAGS = new Set(["DIV", "P", "LI"]);
+const DRAFT_STORAGE_PREFIX = "a0:chat-draft:";
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -56,6 +57,7 @@ const model = {
   _historyIndex: null,
   _draft: "",
   _historyCtxid: null,
+  _draftCtxid: null,
   /** Composer + menu (bottom actions moved into dropdown) */
   chatMoreMenuOpen: false,
   progressText: "",
@@ -68,6 +70,7 @@ const model = {
   set message(value) {
     this._message = String(value ?? "");
     this._renderEditorFromText(this._message);
+    this._saveDraft();
   },
 
   toggleChatMoreMenu() {
@@ -148,14 +151,16 @@ const model = {
 
   async sendMessage() {
     this._syncMessageFromEditor();
-
-    // Capture sent prompt to per-chat history (bash-style)
-    try { this._pushHistory(this.message); } catch (_e) { /* ignore */ }
+    const pendingMessage = this.message;
 
     if (!chatsStore.selected && (this.message.trim() || attachmentsStore?.attachments?.length > 0)) {
       const ctxid = await chatsStore.newChat();
       if (!ctxid && !chatsStore.selected) return;
+      this.message = pendingMessage;
     }
+
+    // Capture sent prompt to per-chat history (bash-style)
+    try { this._pushHistory(this.message); } catch (_e) { /* ignore */ }
 
     // Delegate to the global function
     if (globalThis.sendMessage) {
@@ -174,6 +179,7 @@ const model = {
 
   mountEditor(editor) {
     this._editorEl = editor;
+    this.setDraftContext(shortcuts.getCurrentContextId());
     this._renderEditorFromText(this._message);
     this.adjustTextareaHeight({ target: editor });
   },
@@ -255,6 +261,7 @@ const model = {
     if (!this._editorEl) return;
     this._message = this._editorToMarkdown();
     this._setEditorEmptyState();
+    this._saveDraft();
   },
 
   _isInCodeBlock(target) {
@@ -410,10 +417,8 @@ const model = {
   adjustTextareaHeight($event = null) {
     const target = $event?.target || null;
     for (const chatInput of this._composerTextareas(target)) {
+      // Contenteditable grows naturally; freezing scrollHeight can retain a transient layout.
       chatInput.style.height = "auto";
-      chatInput.style.height = chatInput.scrollHeight + "px";
-      // pick up any layout shift triggered by the height assignment
-      chatInput.style.height = Math.max(chatInput.scrollHeight, parseInt(chatInput.style.height)) + "px";
     }
   },
 
@@ -577,6 +582,33 @@ const model = {
     if (chatInput) {
       chatInput.focus();
     }
+  },
+
+  setDraftContext(ctxid) {
+    const nextCtxid = String(ctxid || "");
+    if (nextCtxid === this._draftCtxid) return;
+    if (this._draftCtxid !== null) this._syncMessageFromEditor();
+
+    this._draftCtxid = nextCtxid;
+    this._historyIndex = null;
+    this._draft = "";
+
+    let draft = "";
+    if (nextCtxid) {
+      try { draft = sessionStorage.getItem(DRAFT_STORAGE_PREFIX + nextCtxid) || ""; } catch (_e) { /* ignore */ }
+    }
+    this._message = draft;
+    this._renderEditorFromText(draft);
+    queueMicrotask(() => this.adjustTextareaHeight());
+  },
+
+  _saveDraft() {
+    if (!this._draftCtxid) return;
+    try {
+      const key = DRAFT_STORAGE_PREFIX + this._draftCtxid;
+      if (this._message) sessionStorage.setItem(key, this._message);
+      else sessionStorage.removeItem(key);
+    } catch (_e) { /* ignore unavailable storage */ }
   },
 
   _loadHistory() {

@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Use when delegating coding or repository work to external terminal coding agents such as the user's host Claude Code/Codex/Cursor/Gemini CLI or container-installed pal agents.
+description: "Delegate to external coding CLIs: A0 headless, Codex, Claude Code and others."
 triggers:
   - "terminal agent"
   - "external coding agent"

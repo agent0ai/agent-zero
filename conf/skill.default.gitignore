@@ -1,5 +1,6 @@
 # Python environments & cache
 venv/
+.venv/
 **/__pycache__/
 
 # Node.js dependencies

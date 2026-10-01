@@ -35,6 +35,62 @@ _RESERVED_EVENT_NAMES: set[str] = {
 }
 
 
+class WsPayloadTooLargeError(ValueError):
+    """Raised before dispatch when a serialized Socket.IO event exceeds its peer limit."""
+
+    def __init__(self, event_type: str, actual_bytes: int, limit_bytes: int) -> None:
+        self.event_type = event_type
+        self.actual_bytes = actual_bytes
+        self.limit_bytes = limit_bytes
+        super().__init__(
+            f"PAYLOAD_TOO_LARGE: {event_type} serializes to {actual_bytes} bytes; "
+            f"the peer limit is {limit_bytes} bytes. Use the HTTP bulk-transfer path."
+        )
+
+    def details(self) -> dict[str, Any]:
+        return {
+            "type": "payload_too_large",
+            "event": self.event_type,
+            "actual_bytes": self.actual_bytes,
+            "limit_bytes": self.limit_bytes,
+            "alternative": "http_bulk_transfer",
+        }
+
+
+def socketio_event_size(
+    event_type: str,
+    payload: dict[str, Any],
+    *,
+    namespace: str,
+) -> int:
+    """Return the encoded Engine.IO message size for one Socket.IO event."""
+    encoded = socketio.packet.Packet(
+        socketio.packet.EVENT,
+        data=[event_type, payload],
+        namespace=namespace,
+    ).encode()
+    parts = encoded if isinstance(encoded, list) else [encoded]
+    return sum(
+        len(part.encode("utf-8")) if isinstance(part, str) else len(part)
+        for part in parts
+    ) + len(parts)
+
+
+def socketio_ack_size(payload: dict[str, Any], *, namespace: str) -> int:
+    """Return a conservative encoded Engine.IO size for one Socket.IO ACK."""
+    encoded = socketio.packet.Packet(
+        socketio.packet.ACK,
+        data=[payload],
+        namespace=namespace,
+        id=2**63 - 1,
+    ).encode()
+    parts = encoded if isinstance(encoded, list) else [encoded]
+    return sum(
+        len(part.encode("utf-8")) if isinstance(part, str) else len(part)
+        for part in parts
+    ) + len(parts)
+
+
 # WsResult – standardized handler return value
 
 class WsResult:
@@ -221,6 +277,7 @@ class ConnectionInfo:
     sid: str
     connected_at: datetime = field(default_factory=_utcnow)
     last_activity: datetime = field(default_factory=_utcnow)
+    max_payload_bytes: int | None = None
 
 
 @dataclass
@@ -617,6 +674,54 @@ class WsManager:
         )
         return response
 
+    def set_peer_max_payload_bytes(
+        self,
+        namespace: str,
+        sid: str,
+        max_payload_bytes: int,
+    ) -> None:
+        if max_payload_bytes <= 0:
+            raise ValueError("max_payload_bytes must be positive")
+        identity: ConnectionIdentity = (namespace, sid)
+        with self.lock:
+            info = self.connections.get(identity)
+            if info is None:
+                raise ConnectionNotFoundError(sid, namespace=namespace)
+            info.max_payload_bytes = max_payload_bytes
+
+    def constrain_ack_response(
+        self,
+        namespace: str,
+        sid: str,
+        event_type: str,
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        with self.lock:
+            info = self.connections.get((namespace, sid))
+            limit = info.max_payload_bytes if info is not None else None
+        if limit is None:
+            return response
+
+        actual_bytes = socketio_ack_size(response, namespace=namespace)
+        if actual_bytes <= limit:
+            return response
+
+        exc = WsPayloadTooLargeError(event_type, actual_bytes, limit)
+        correlation_id = response.get("correlationId")
+        return {
+            "correlationId": correlation_id,
+            "results": [
+                self._build_error_result(
+                    code="PAYLOAD_TOO_LARGE",
+                    message=str(exc),
+                    details=exc.details(),
+                    correlation_id=(
+                        correlation_id if isinstance(correlation_id, str) else None
+                    ),
+                )
+            ],
+        }
+
     def _collect_results(
         self,
         executions: list[_HandlerExecution],
@@ -640,6 +745,18 @@ class WsManager:
             duration_ms = execution.duration_ms
 
             if isinstance(value, Exception):
+                if isinstance(value, WsPayloadTooLargeError):
+                    results.append(
+                        self._build_error_result(
+                            handler_id=handler.identifier,
+                            code="PAYLOAD_TOO_LARGE",
+                            message=str(value),
+                            details=value.details(),
+                            correlation_id=correlation_id,
+                            duration_ms=duration_ms,
+                        )
+                    )
+                    continue
                 PrintStyle.error(
                     f"Error in handler {handler.identifier} for '{event_type}' "
                     f"(correlation {correlation_id}): {value}"
@@ -1208,15 +1325,37 @@ class WsManager:
         handler_id: str | None = None,
         correlation_id: str | None = None,
         diagnostic: bool = False,
+        max_payload_bytes: int | None = None,
     ) -> None:
         envelope = self._wrap_envelope(
             handler_id,
             data,
             correlation_id=correlation_id,
         )
+        identity: ConnectionIdentity = (namespace, sid)
+        with self.lock:
+            info = self.connections.get(identity)
+            connection_limit = info.max_payload_bytes if info is not None else None
+        limits = [
+            limit
+            for limit in (max_payload_bytes, connection_limit)
+            if limit is not None
+        ]
+        effective_limit = min(limits) if limits else None
+        if effective_limit is not None:
+            actual_bytes = socketio_event_size(
+                event_type,
+                envelope,
+                namespace=namespace,
+            )
+            if actual_bytes > effective_limit:
+                raise WsPayloadTooLargeError(
+                    event_type,
+                    actual_bytes,
+                    effective_limit,
+                )
         delivered = False
         buffered = False
-        identity: ConnectionIdentity = (namespace, sid)
 
         with self.lock:
             connected = identity in self.connections
@@ -1302,27 +1441,44 @@ class WsManager:
         excluded = self._normalize_sid_filter(exclude_sids)
 
         targets: list[str] = []
+        target_limits: dict[str, int | None] = {}
         with self.lock:
-            current_identities = list(self.connections.keys())
-        for conn_identity in current_identities:
+            current_connections = list(self.connections.items())
+        for conn_identity, info in current_connections:
             if conn_identity[0] != namespace:
                 continue
             sid = conn_identity[1]
             if sid in excluded:
                 continue
             targets.append(sid)
+            target_limits[sid] = info.max_payload_bytes
 
+        rejected: list[WsPayloadTooLargeError] = []
         if targets:
             envelope = self._wrap_envelope(
                 handler_id,
                 data,
                 correlation_id=correlation_id,
             )
+            actual_bytes = socketio_event_size(
+                event_type,
+                envelope,
+                namespace=namespace,
+            )
+            deliverable: list[str] = []
+            for sid in targets:
+                limit = target_limits[sid]
+                if limit is not None and actual_bytes > limit:
+                    rejected.append(
+                        WsPayloadTooLargeError(event_type, actual_bytes, limit)
+                    )
+                else:
+                    deliverable.append(sid)
             coros = [
                 self._run_on_dispatcher_loop(
                     self.socketio.emit(event_type, envelope, to=sid, namespace=namespace)
                 )
-                for sid in targets
+                for sid in deliverable
             ]
             await asyncio.gather(*coros)
 
@@ -1335,12 +1491,15 @@ class WsManager:
                     "namespace": namespace,
                     "targets": targets[:10],
                     "targetCount": len(targets),
+                    "rejectedCount": len(rejected),
                     "correlationId": correlation_id,
                     "handlerId": handler_id or self._identifier,
                     "timestamp": self._timestamp(),
                     "payloadSummary": self._summarize_payload(data),
                 }
             )
+        if rejected:
+            raise rejected[0]
 
     async def _run_lifecycle(
         self, namespace: str, fn: Callable[[WsHandler], Any]
@@ -1431,12 +1590,12 @@ class WsManager:
         handler_id: str | None = None,
         code: str,
         message: str,
-        details: str | None = None,
+        details: Any | None = None,
         correlation_id: str | None = None,
         duration_ms: float | None = None,
     ) -> dict[str, Any]:
         error_payload = {"code": code, "error": message}
-        if details:
+        if details is not None:
             error_payload["details"] = details
         result: dict[str, Any] = {
             "handlerId": handler_id or self._identifier,

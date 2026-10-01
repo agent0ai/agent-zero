@@ -25,7 +25,7 @@
 - `parse_state_request_payload(payload: Mapping[str, Any]) -> StateRequestV1`
 - `_coerce_state_request_inputs(context: Any, log_from: Any, notifications_from: Any, timezone: Any) -> StateRequestV1`
 - `advance_state_request_after_snapshot(request: StateRequestV1, snapshot: Mapping[str, Any]) -> StateRequestV1`
-- `async build_snapshot_from_request(request: StateRequestV1) -> SnapshotV1`: Build a poll-shaped snapshot for both /poll and state_push.
+- `async build_snapshot_from_request(request: StateRequestV1, include_collections: bool=...) -> SnapshotV1`: Build a poll-shaped snapshot for both /poll and state_push.
 - `_notify_timezone_changed(previous_timezone: str, current_timezone: str) -> None`
 - `async build_snapshot(context: str | None, log_from: int, notifications_from: int, timezone: str | None) -> SnapshotV1`
 - Notable constants/configuration names: `_SNAPSHOT_V1_SCHEMA`, `SNAPSHOT_SCHEMA_V1_KEYS`.
@@ -42,6 +42,7 @@
 - Important called helpers/classes observed in the source: `dataclass`, `_build_schema_from_typeddict`, `get_origin`, `timezone.strip`, `StateRequestV1`, `localization.get_timezone`, `localization.set_timezone`, `ctxid.strip`, `_coerce_non_negative_int`, `AgentContext.get_notification_manager`, `notification_manager.output`, `_get_agent_profile_labels`, `ctxs.sort`, `tasks.sort`, `validate_snapshot_schema_v1`, `_coerce_state_request_inputs`, `super.__init__`, `get_args`, `_annotation_to_isinstance_types`, `TypeError`.
 - Snapshot building prunes non-running in-memory contexts that were previously saved but no longer have a `chat.json`, preventing stale sidebar rows after chat files are deleted outside `/chat_remove`.
 - Notification payloads use the manager's matching GUID and cursor from the same atomic read, preventing a concurrent notification from being skipped by the WebUI.
+- `StateRequestV1.collections_delta` is an optional, false-by-default capability. Negotiated state pushes may use `null` for both `contexts` and `tasks` when those collections are unchanged; HTTP polling and legacy WebSocket clients always receive full lists.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

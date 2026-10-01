@@ -18,9 +18,9 @@ UTILITY_CONTEXT_INPUT_RATIO = 0.7
 
 def get_config(agent: Agent) -> dict[str, Any]:
     config = plugins.get_plugin_config(PLUGIN_NAME, agent=agent) or {}
-    mode = str(config.get("automatic_naming_mode", MODE_ONCE) or MODE_ONCE)
+    mode = str(config.get("automatic_naming_mode", MODE_ALWAYS) or MODE_ALWAYS)
     if mode not in {MODE_ONCE, MODE_ALWAYS}:
-        mode = MODE_ONCE
+        mode = MODE_ALWAYS
     return {
         "automatic_naming": bool(config.get("automatic_naming", True)),
         "automatic_naming_mode": mode,

@@ -26,7 +26,7 @@ Refer to the [Choosing your LLMs](../setup/installation.md#installing-and-using-
 **7. How can I make Agent Zero retain memory between sessions?**
 Use **Settings -> Backup & Restore** and avoid mapping the entire `/a0` directory. See [How to update Agent Zero](../setup/installation.md#how-to-update-agent-zero).
 
-**8. My browser tool fails or says Playwright is missing. What now?**
+**8. My browser tool fails or says Chromium is missing. What now?**
 
 In normal Docker installs, the Browser already includes what it needs.
 
@@ -35,7 +35,7 @@ browser the first time it is needed. To install it ahead of time, run this from
 the project root after installing Python requirements:
 
 ```bash
-PLAYWRIGHT_BROWSERS_PATH=tmp/playwright playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH=tmp/playwright patchright install chromium --no-shell
 ```
 
 If **Bring Your Own Browser** mode fails:

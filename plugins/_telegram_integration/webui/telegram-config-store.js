@@ -83,6 +83,8 @@ export const store = createStore("telegramConfig", {
   },
 
   async init(config, context = null) {
+    if (!config || typeof config !== "object") return;
+
     this.config = config || null;
     this.context = context;
     this.didInit = false;

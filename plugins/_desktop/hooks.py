@@ -22,8 +22,30 @@ LIBREOFFICE_RUNTIME_PACKAGES = (
 XPRA_SOURCE_FILE = Path("/etc/apt/sources.list.d/xpra.sources")
 XPRA_KEYRING_FILE = Path("/usr/share/keyrings/xpra.asc")
 XPRA_KEY_URL = "https://xpra.org/xpra.asc"
+XPRA_VERSION = "6.5.2-r0-1"
+GTK_RUNTIME_PACKAGE = "gir1.2-gtk-3.0"
+ATK_VERSION = "2.60.3-1"
+ATK_RUNTIME_PACKAGES = (
+    "at-spi2-common",
+    "libatk1.0-0t64",
+    "libatk-bridge2.0-0t64",
+    "libatspi2.0-0t64",
+    "gir1.2-atk-1.0",
+)
+ATK_OPTIONAL_PACKAGES = ("at-spi2-core", "gir1.2-atspi-2.0")
+XPRA_VERSIONED_RUNTIME_PACKAGES = frozenset(
+    {
+        "xpra-common",
+        "xpra-server",
+        "xpra-client",
+        "xpra-client-gtk3",
+        "xpra-x11",
+    }
+)
 RUNTIME_PACKAGES = (
     *LIBREOFFICE_RUNTIME_PACKAGES,
+    GTK_RUNTIME_PACKAGE,
+    "xpra-common",
     "xpra-server",
     "xpra-client",
     "xpra-client-gtk3",
@@ -53,10 +75,6 @@ RUNTIME_PACKAGES = (
     "fonts-noto-core",
     "fonts-noto-cjk",
     "fonts-noto-color-emoji",
-)
-OPTIONAL_RUNTIME_PACKAGES = (
-    "xpra-client",
-    "xpra-client-gtk3",
 )
 RETIRED_RUNTIME_PACKAGES = (
     "firefox-esr",
@@ -202,6 +220,17 @@ def _package_installed(package: str) -> bool:
     return result.returncode == 0 and "install ok installed" in result.stdout
 
 
+def _package_version(package: str) -> str:
+    result = subprocess.run(
+        ["dpkg-query", "-W", "-f=${Version}", package],
+        check=False,
+        text=True,
+        capture_output=True,
+        timeout=8,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def _purge_packages(
     removed: list[str],
     errors: list[str],
@@ -229,9 +258,11 @@ def _ensure_runtime_dependencies(installed: list[str], errors: list[str]) -> Non
 
     if not _apt_update(errors):
         return
+    if not _ensure_kali_gtk_runtime(installed, errors):
+        return
+    missing = [package for package in missing if not _package_installed(package)]
 
-    required_missing, optional_missing = _split_runtime_packages(missing)
-    required_xpra_missing = [package for package in required_missing if package.startswith("xpra")]
+    required_xpra_missing = [package for package in missing if package.startswith("xpra")]
     if required_xpra_missing and not _package_candidates_available(required_xpra_missing):
         previous_error_count = len(errors)
         _ensure_xpra_repository(installed, errors)
@@ -240,45 +271,62 @@ def _ensure_runtime_dependencies(installed: list[str], errors: list[str]) -> Non
         missing = [package for package in RUNTIME_PACKAGES if not _package_installed(package)]
         if not missing:
             return
-        required_missing, optional_missing = _split_runtime_packages(missing)
 
-    if required_missing and not _install_runtime_packages(required_missing, installed, errors):
-        return
-
-    if optional_missing:
-        optional_xpra_missing = [package for package in optional_missing if package.startswith("xpra")]
-        if optional_xpra_missing and not _package_candidates_available(optional_xpra_missing):
-            return
-        _install_runtime_packages(optional_missing, installed, errors, optional=True)
+    if missing:
+        _install_runtime_packages(missing, installed, errors)
 
 
-def _split_runtime_packages(packages: list[str]) -> tuple[list[str], list[str]]:
-    optional = [package for package in packages if package in OPTIONAL_RUNTIME_PACKAGES]
-    required = [package for package in packages if package not in OPTIONAL_RUNTIME_PACKAGES]
-    return required, optional
+def _ensure_kali_gtk_runtime(installed: list[str], errors: list[str]) -> bool:
+    if (
+        GTK_RUNTIME_PACKAGE not in RUNTIME_PACKAGES
+        or _package_installed(GTK_RUNTIME_PACKAGE)
+        or _read_os_release().get("ID") != "kali"
+        or _package_installed("gir1.2-atk-1.0")
+    ):
+        return True
+
+    packages = [
+        *ATK_RUNTIME_PACKAGES,
+        *(package for package in ATK_OPTIONAL_PACKAGES if _package_installed(package)),
+    ]
+    # Keep ATK's version-locked libraries together when repairing older rolling bases.
+    result = _run_apt_command(
+        [
+            "apt-get", "install", "-y", "--no-install-recommends", "--allow-downgrades",
+            *(f"{package}={ATK_VERSION}" for package in packages),
+            GTK_RUNTIME_PACKAGE,
+        ],
+        timeout=900,
+    )
+    if result.returncode == 0:
+        installed.append(GTK_RUNTIME_PACKAGE)
+        return True
+    errors.append((result.stderr or result.stdout or "GTK runtime install failed").strip())
+    return False
 
 
 def _install_runtime_packages(
     packages: list[str],
     installed: list[str],
     errors: list[str],
-    *,
-    optional: bool = False,
 ) -> bool:
-    result = _run_apt_command(["apt-get", "install", "-y", "--no-install-recommends", *packages], timeout=900)
+    xpra_version = ""
+    if any(package in XPRA_VERSIONED_RUNTIME_PACKAGES for package in packages):
+        xpra_version = _package_version("xpra-common") or XPRA_VERSION
+    package_specs = [
+        f"{package}={xpra_version}" if package in XPRA_VERSIONED_RUNTIME_PACKAGES else package
+        for package in packages
+    ]
+    result = _run_apt_command(
+        ["apt-get", "install", "-y", "--no-install-recommends", *package_specs],
+        timeout=900,
+    )
     if result.returncode == 0:
         installed.extend(packages)
         return True
     output = (result.stderr or result.stdout or "apt-get install failed").strip()
-    if optional and _is_xpra_codec_dependency_gap(output):
-        return False
     errors.append(output)
     return False
-
-
-def _is_xpra_codec_dependency_gap(output: str) -> bool:
-    normalized = output.lower()
-    return "xpra-codecs" in normalized and "libvpx9" in normalized
 
 
 def _apt_update(errors: list[str]) -> bool:
@@ -341,16 +389,7 @@ def _download(url: str) -> bytes:
 
 
 def _run_apt_command(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
-    return system_packages.run_apt_with_retries(
-        lambda: subprocess.run(
-            command,
-            check=False,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"},
-        )
-    )
+    return system_packages.run_runtime_apt(command, timeout=timeout)
 
 
 def _xpra_repository_source() -> str:
@@ -359,21 +398,8 @@ def _xpra_repository_source() -> str:
     codename = os_release.get("VERSION_CODENAME", "")
     arch = _dpkg_architecture()
 
-    if os_id == "kali" and arch == "amd64":
-        uri = "https://xpra.org/beta"
-        suite = "sid"
-    elif os_id == "kali":
-        uri = "https://xpra.org"
-        suite = "trixie"
-    elif codename in {"sid", "forky"} and arch == "amd64":
-        uri = "https://xpra.org/beta"
-        suite = codename
-    elif codename in {"sid", "forky"}:
-        uri = "https://xpra.org"
-        suite = "trixie"
-    else:
-        uri = "https://xpra.org"
-        suite = codename or "trixie"
+    uri = "https://xpra.org"
+    suite = "trixie" if os_id == "kali" or codename in {"sid", "forky"} else codename or "trixie"
 
     return (
         f"Types: deb\n"

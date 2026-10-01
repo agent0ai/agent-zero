@@ -40,7 +40,7 @@ def test_chat_and_task_rows_reclaim_left_space_without_shifting_headers() -> Non
     ) in left_sidebar
     assert "flex: 1 1 auto;" in chats_list
     assert "min-width: 0;" in chats_list
-    assert "padding: 8px 6px;" in chats_list
+    assert "padding: var(--spacing-xs);" in chats_list
 
 
 def test_only_visible_chat_actions_take_width() -> None:

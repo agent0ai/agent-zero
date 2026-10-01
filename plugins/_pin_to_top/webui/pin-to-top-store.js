@@ -6,7 +6,7 @@ import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
 const PLUGIN_ID = "_pin_to_top";
 
 const model = {
-  pins: { chat: {}, task: {} },
+  pins: { chat: {}, task: {}, project: {} },
   _initialized: false,
 
   async init() {
@@ -30,6 +30,7 @@ const model = {
       this.pins = {
         chat: { ...(response?.pins?.chat || {}) },
         task: { ...(response?.pins?.task || {}) },
+        project: { ...(response?.pins?.project || {}) },
       };
     } catch (error) {
       void toastFrontendError(error?.message || "Failed to load pinned items.", "Pin to Top");
@@ -37,17 +38,27 @@ const model = {
   },
 
   async toggleFromMenu(menuId, kind) {
-    const itemId = this.itemIdFromMenu(menuId, kind);
-    if (!itemId) return;
+    return this.togglePin(kind, this.itemIdFromMenu(menuId, kind));
+  },
+
+  isProjectPinned(name) {
+    return this.isPinned("project", name);
+  },
+
+  async toggleProjectPin(name) {
+    return this.togglePin("project", name);
+  },
+
+  async togglePin(kind, itemId) {
+    if (!itemId && !(kind === "project" && itemId === "")) return;
 
     try {
       const response = await callJsonApi(`/plugins/${PLUGIN_ID}/toggle_pin`, {
         kind,
         item_id: itemId,
       });
-      const kindPins = { ...(this.pins[kind] || {}) };
-      if (response?.pinned) kindPins[itemId] = response.timestamp;
-      else delete kindPins[itemId];
+      const kindPins = { ...(this.pins[kind] || {}), [itemId]: response?.timestamp };
+      if (!response?.pinned) delete kindPins[itemId];
       this.pins = { ...this.pins, [kind]: kindPins };
     } catch (error) {
       void toastFrontendError(error?.message || "Failed to update the pin.", "Pin to Top");
@@ -76,8 +87,8 @@ const model = {
       .sort((left, right) => {
         const leftPin = kindPins[left.item.id];
         const rightPin = kindPins[right.item.id];
-        const leftPinned = leftPin !== undefined;
-        const rightPinned = rightPin !== undefined;
+        const leftPinned = this.isPinned(kind, left.item.id);
+        const rightPinned = this.isPinned(kind, right.item.id);
         if (leftPinned !== rightPinned) return leftPinned ? -1 : 1;
         if (leftPinned && leftPin !== rightPin) return leftPin - rightPin;
         return left.index - right.index;

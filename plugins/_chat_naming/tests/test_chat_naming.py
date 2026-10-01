@@ -1,10 +1,13 @@
+import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from agent import AgentContextType
+from helpers import yaml
 from plugins._chat_naming.commands import rename_command
-from plugins._chat_naming.extensions.python.monologue_start import _60_rename_chat as rename_chat
+from plugins._chat_naming.extensions.python.monologue_end import _60_rename_chat as rename_chat
 from plugins._chat_naming.helpers import naming
 
 
@@ -34,6 +37,8 @@ class _Agent:
             type=AgentContextType.USER,
         )
         self.context.agent0 = self
+        self.context.output_data = {}
+        self.context.get_output_data = self.context.output_data.get
         self.history = _History(messages)
         self.config = SimpleNamespace(profile="agent0")
         self._response = response
@@ -59,6 +64,20 @@ async def test_user_message_selection_excludes_assistant_work_and_tool_results()
 
     assert naming.get_user_messages(agent) == ["Plan a launch", "Okay, do it"]
     assert naming.latest_user_sequence(agent) == 4
+
+
+@pytest.mark.parametrize("mode", ["once", "always"])
+async def test_automatic_naming_preserves_delegated_labels(monkeypatch, mode):
+    agent = _Agent([_Message({"user_message": "Investigate the issue"})], name="A1-summoner")
+    agent.context.output_data.update(parent_context_id="parent", parent_context_label="A1-summoner")
+    monkeypatch.setattr(naming, "get_config", lambda _agent: {
+        "automatic_naming": True, "automatic_naming_mode": mode,
+    })
+    scheduled = []
+    monkeypatch.setattr(rename_chat.asyncio, "create_task", scheduled.append)
+    await rename_chat.RenameChat(agent=agent).execute()
+    assert not scheduled
+    assert agent.context.name == agent.context.output_data["parent_context_label"] == "A1-summoner"
 
 
 async def test_once_mode_uses_first_message_and_does_not_override_a_name(monkeypatch):
@@ -103,17 +122,23 @@ async def test_once_mode_uses_first_message_and_does_not_override_a_name(monkeyp
     assert scheduled == []
 
 
-async def test_always_mode_passes_recent_user_context(monkeypatch):
+@pytest.mark.parametrize("config", ["default", {}, {"automatic_naming_mode": "always"}])
+async def test_default_and_always_modes_update_a_greeting_from_recent_context(monkeypatch, config):
     messages = [
         _Message({"user_message": f"Message {number}"}, sequence=number)
-        for number in range(1, 7)
+        for number in range(1, 6)
     ]
-    agent = _Agent(messages, name="Existing Name")
+    messages.append(_Message({"user_message": "Explain Docker"}, sequence=6))
+    agent = _Agent(messages, name="Greeting")
+    if config == "default":
+        config = yaml.loads(
+            (Path(naming.__file__).parents[1] / "default_config.yaml").read_text()
+        )
     scheduled = []
     monkeypatch.setattr(
-        rename_chat.naming,
-        "get_config",
-        lambda _agent: {"automatic_naming": True, "automatic_naming_mode": "always"},
+        naming.plugins,
+        "get_plugin_config",
+        lambda *_args, **_kwargs: config,
     )
     monkeypatch.setattr(rename_chat.asyncio, "create_task", lambda coro: scheduled.append(coro))
 
@@ -125,7 +150,8 @@ async def test_always_mode_passes_recent_user_context(monkeypatch):
         return "Current Topic"
 
     monkeypatch.setattr(rename_chat.naming, "generate_name", generate)
-    monkeypatch.setattr(rename_chat.naming, "save_context_name", lambda *_args: None)
+    saved = []
+    monkeypatch.setattr(rename_chat.naming, "save_context_name", lambda _agent, name: saved.append(name))
     monkeypatch.setattr(rename_chat.AgentContext, "get", lambda _id: agent.context)
     await scheduled.pop()
 
@@ -133,9 +159,45 @@ async def test_always_mode_passes_recent_user_context(monkeypatch):
         "Message 3",
         "Message 4",
         "Message 5",
-        "Message 6",
+        "Explain Docker",
     ]
-    assert captured["current_name"] == "Existing Name"
+    assert captured["current_name"] == "Greeting"
+    assert saved == ["Current Topic"]
+
+
+async def test_naming_hook_returns_while_utility_inference_is_pending(monkeypatch):
+    agent = _Agent([_Message({"user_message": "Explain Docker"}, sequence=1)], name="Greeting")
+    started = asyncio.Event()
+    release = asyncio.Event()
+    running = []
+    saved = []
+
+    async def slow_utility(**kwargs):
+        assert kwargs["background"] is True
+        running.append(asyncio.current_task())
+        started.set()
+        await release.wait()
+        return "Docker Explanation"
+
+    monkeypatch.setattr(agent, "call_utility_model", slow_utility)
+    monkeypatch.setattr(naming.plugins, "get_plugin_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        "plugins._model_config.helpers.model_config.get_utility_model_config",
+        lambda _agent: {"ctx_length": 1000},
+    )
+    monkeypatch.setattr(rename_chat.AgentContext, "get", lambda _id: agent.context)
+    monkeypatch.setattr(naming, "save_context_name", lambda _agent, name: saved.append(name))
+
+    try:
+        await asyncio.wait_for(rename_chat.RenameChat(agent=agent).execute(), timeout=1)
+        await asyncio.wait_for(started.wait(), timeout=1)
+        assert not running[0].done()
+        assert saved == []
+    finally:
+        release.set()
+        await asyncio.gather(*running, return_exceptions=True)
+
+    assert saved == ["Docker Explanation"]
 
 
 async def test_rename_failure_sends_scoped_utility_model_notification(monkeypatch):

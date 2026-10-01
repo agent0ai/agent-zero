@@ -22,6 +22,7 @@
 - The `*.py.dox.md` file owns tool purpose, tool arguments/concepts, output and `break_loop` behavior, side effects, important helper dependencies, prompt-contract notes, and verification guidance.
 - When a tool module is added, removed, renamed, or behaviorally changed, update its matching `*.py.dox.md` in the same change.
 - Do not leave stale file-level DOX after tool deletion or rename.
+- Tool headings and log types are owned by each tool or its shared presentation helper. Bundled plugins may reuse shipped Python helpers when disabled; activation governs discovery/hooks, not installation. Preserve explicit dependency boundaries and per-tool heading shapes.
 
 ## Work Guidance
 

@@ -16,6 +16,9 @@
 
 - Preserve UUID-based linking between log entries and history messages.
 - Branched chats must include history only up to the selected message.
+- Detach inherited Responses continuation and response-ID ownership, while
+  retaining structured output metadata needed for local replay.
+- Clear cached Context Window state after trimming each cloned agent.
 - Do not mutate the source chat while creating a branch.
 
 ## Work Guidance
@@ -24,6 +27,7 @@
 
 ## Verification
 
+- Run `conda run -n a0 pytest plugins/_chat_branching/tests`.
 - Smoke-test branching from several message positions and confirm source chat remains unchanged.
 
 ## Child DOX Index

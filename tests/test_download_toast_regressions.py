@@ -117,6 +117,28 @@ def test_notification_store_supports_persistent_grouped_toasts():
     assert "if (response?.success) window.location.reload();" in store
 
 
+def test_notification_action_buttons_work_in_notifications_modal():
+    store = read("webui", "components", "notifications", "notification-store.js")
+    modal = read("webui", "components", "notifications", "notification-modal.html")
+
+    # Action buttons inside notification messages are authored against the
+    # toast-stack scope (``toast.toastId``). The notifications modal renders the
+    # same message HTML through x-html, so it must expose a toast-compatible
+    # scope or the buttons silently fail there.
+    assert "toast: { ...notification, toastId: 'toast-' + notification.id }" in modal
+
+    # Reload actions must keep working when the notification is not in the
+    # toast stack anymore (clicked from the notifications modal).
+    assert "const notificationId = toast?.id || notificationIdFromToastId(toastId);" in store
+    assert "toastId.startsWith(toastIdPrefix)" in store
+    assert "toastId.slice(toastIdPrefix.length)" in store
+
+    # Plain dismissal from the modal mirrors the toast behavior by marking the
+    # notification as read instead of being a silent no-op.
+    assert "const notificationId = notificationIdFromToastId(toastId);" in store
+    assert "if (notificationId) this.markAsRead(notificationId);" in store
+
+
 def test_backup_zip_downloads_emit_grouped_preparing_and_downloading_toasts():
     store = read("webui", "components", "settings", "backup", "backup-store.js")
 
@@ -144,18 +166,17 @@ def test_file_browser_zip_downloads_emit_grouped_preparing_and_downloading_toast
     assert 'window.toastFrontendInfo?.("Downloading...", "Download", 3, group, undefined, true);' in store
     assert 'this.createDownloadToastGroup("file-browser-bulk-download")' in store
     assert 'this.createDownloadToastGroup("file-browser-directory-download")' in store
-    assert "if (file.is_dir) {" in store
     assert "return this.downloadDirectory(file);" in store
-    assert "link.download = file.name;" in store
+    assert "link.download = result.name;" in store
 
     bulk_start = store.index("async bulkDownloadFiles()")
     bulk_prepare = store.index("this.showDownloadPreparingToast(downloadToastGroup);", bulk_start)
-    bulk_fetch = store.index('const resp = await fetchApi("/download_work_dir_files"', bulk_start)
+    bulk_fetch = store.index("await this.startDownload(selectedFiles);", bulk_start)
     assert bulk_prepare < bulk_fetch
 
     directory_start = store.index("async downloadDirectory(file)")
     directory_prepare = store.index("this.showDownloadPreparingToast(downloadToastGroup);", directory_start)
-    directory_fetch = store.index("const resp = await fetchApi(`/download_work_dir_file", directory_start)
+    directory_fetch = store.index("await this.startDownload([file]);", directory_start)
     assert directory_prepare < directory_fetch
 
 
@@ -193,5 +214,19 @@ assertNotIncludes(sentence, 'and ready</a>');
 
 const directory = convertPathsToLinks("Directory: /a0/usr/workdir is ready");
 assertIncludes(directory, 'data-path="/a0/usr/workdir"');
+
+for (const prefix of ["file://", "/api/download_work_dir_file?path="]) {{
+  const linked = convertPathsToLinks(`<code>${{prefix}}/a0/usr/workdir/web_os.html</code>`);
+  assertIncludes(linked, 'data-path="/a0/usr/workdir/web_os.html"');
+  assertNotIncludes(linked, prefix);
+}}
+
+for (const html of [
+  '<a href="/api/download_work_dir_file?path=/a0/usr/workdir/web_os.html">/a0/usr/workdir/web_os.html</a>',
+  '<pre><code>/api/download_work_dir_file?path=/a0/usr/workdir/web_os.html</code></pre>',
+  '<img src="/a0/usr/workdir/image.png">',
+]) {{
+  if (convertPathsToLinks(html) !== html) throw new Error(`Changed protected HTML: ${{html}}`);
+}}
 """
     subprocess.run(["node", "-e", script], check=True, text=True)

@@ -54,7 +54,7 @@ ones you trust and remove what you do not use.
 When you want to make your own first plugin, start with something small and
 visible. The [Create a Small Plugin](create-plugin.md) guide walks through a
 local Web UI plugin that adds an unread dot to the chat list and then reviews it
-with `a0-review-plugin`.
+with the review reference in `a0-create-plugin`.
 
 ## Skills, Agent Profiles, And Model Presets
 

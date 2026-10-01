@@ -59,6 +59,30 @@ export function showButtonFeedback(button, success, originalIcon) {
   }, 1000);
 }
 
+export function syncActionButtons(container, actionButtons = []) {
+  const previous = container.__managedActionButtons || [];
+  const next = actionButtons.filter(Boolean).map((button, index) => {
+    const existing = previous[index];
+    if (
+      existing?.isConnected &&
+      existing.dataset.actionKey === button.dataset.actionKey
+    ) {
+      existing.__actionHandler = button.__actionHandler;
+      return existing;
+    }
+    existing?.remove();
+    return button;
+  });
+  const anchor = [...container.children].find(
+    (child) =>
+      !previous.includes(child) && !child.classList.contains("expand-btn"),
+  );
+
+  previous.slice(next.length).forEach((button) => button.remove());
+  next.forEach((button) => container.insertBefore(button, anchor || null));
+  container.__managedActionButtons = next;
+}
+
 /**
  * Create action button element
  *
@@ -73,6 +97,8 @@ export function createActionButton(icon, text = "", handler = null) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `action-button action-${icon}`;
+  button.dataset.actionKey = `${icon}:${text}`;
+  button.__actionHandler = handler;
   const label = buildActionLabel(icon, text);
   if (label) {
     button.setAttribute("aria-label", label);
@@ -87,23 +113,22 @@ export function createActionButton(icon, text = "", handler = null) {
     button.textContent = text;
   }
 
-  if (typeof handler === "function") {
-    button.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      const shouldShowFeedback = Boolean(iconName); // icon === "copy" || icon === "speak";
-      try {
-        await handler();
-        if (shouldShowFeedback) {
-          showButtonFeedback(button, true, iconName);
-        }
-      } catch (err) {
-        console.error("Action button failed:", err);
-        if (shouldShowFeedback) {
-          showButtonFeedback(button, false, iconName);
-        }
+  button.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    if (typeof button.__actionHandler !== "function") return;
+    const shouldShowFeedback = Boolean(iconName); // icon === "copy" || icon === "speak";
+    try {
+      await button.__actionHandler();
+      if (shouldShowFeedback) {
+        showButtonFeedback(button, true, iconName);
       }
-    });
-  }
+    } catch (err) {
+      console.error("Action button failed:", err);
+      if (shouldShowFeedback) {
+        showButtonFeedback(button, false, iconName);
+      }
+    }
+  });
 
   return button;
 }

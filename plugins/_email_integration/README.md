@@ -19,6 +19,10 @@ It supports both:
   - Uses UID tracking for IMAP accounts so only new mail is processed after initialization.
 - **Attachment handling**
   - Downloads attachments into `usr/email/attachments`.
+- **Sender filtering**
+  - IMAP requires exactly one valid From mailbox, even when the sender whitelist is empty.
+  - Whitelist patterns match the mailbox address, excluding display names; replies use that same address.
+  - This filters the claimed From address, not authenticated identity. Sender authenticity requires checks enforced by your mail provider.
 - **Dispatcher workflow**
   - Reuses or creates a background `Email Dispatcher` context.
   - Uses model prompts to decide whether an email belongs to an existing chat or should open a new one.

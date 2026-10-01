@@ -76,6 +76,10 @@ textarea:focus {
   -webkit-text-security: disc;
 }
 
+.masked-text-input::placeholder {
+  -webkit-text-security: none;
+}
+
 .light-mode input[type="text"]:focus,
 .light-mode input[type="number"]:focus,
 .light-mode input[type="password"]:focus, 
@@ -195,6 +199,10 @@ select:disabled {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.settings-mobile-nav {
+  display: none;
 }
 
 .settings-tabs-container {
@@ -726,6 +734,8 @@ select:disabled {
     width: calc(100vw - 16px);
     height: calc(100vh - 16px);
     max-height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
   }
 
   .settings-content {
@@ -734,32 +744,26 @@ select:disabled {
   }
 
   .settings-tabs-container {
-    position: sticky;
-    top: 0;
-    z-index: 3;
     height: auto;
-    max-height: min(42vh, 300px);
     padding: 7px 8px;
-    overflow: hidden;
     border-right: 0;
     border-bottom: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
   }
 
+  .settings-search,
   .settings-tabs {
-    flex-direction: column;
-    width: 100%;
-    min-width: 100%;
-    overflow-y: auto;
+    display: none;
   }
 
-  .settings-tab {
-    width: 100%;
+  .settings-mobile-nav {
+    display: block;
     min-width: 0;
-    padding: 0 9px;
+    min-height: 44px;
+    font-size: 16px;
   }
 
-  .settings-section-list {
-    margin-left: 28px;
+  .modal-inner.settings-modal .modal-footer .btn {
+    min-height: 44px;
   }
 
   .settings-pane {

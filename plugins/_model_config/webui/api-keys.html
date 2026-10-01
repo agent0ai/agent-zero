@@ -70,7 +70,8 @@
             <div class="field-title" x-text="provider.label"></div>
           </div>
           <div class="field-control" style="position:relative;" x-data="{ showKey: false }">
-            <input :type="showKey ? 'text' : 'password'"
+            <input type="text"
+                   :class="{ 'masked-text-input': !showKey }"
                    :value="$store.modelConfig.apiKeyValues[provider.value]"
                    :placeholder="provider.has_key ? '••••••••••••' : ''"
                    autocomplete="off"

@@ -14,8 +14,14 @@ class ParallelTool(Tool):
             text,
             **(response.additional or {}),
         )
+        await parallel_tools.collect_parallel_jobs(
+            self.agent,
+            getattr(self, "_collect_job_ids", []),
+            promote_parent_history=True,
+        )
 
     async def execute(self, **kwargs) -> Response:
+        self._collect_job_ids = []
         args = {**self.args, **kwargs}
         action = str(args.get("action") or "").strip().lower()
 
@@ -68,9 +74,10 @@ class ParallelTool(Tool):
                     self.agent,
                     all_job_ids,
                     timeout=timeout,
-                    collect=True,
+                    collect=False,
                     wait=False,
                 )
+                self._collect_job_ids = [result["job_id"] for result in results]
                 return Response(
                     message=parallel_tools.format_parallel_results(results),
                     break_loop=False,
@@ -80,9 +87,10 @@ class ParallelTool(Tool):
                 self.agent,
                 all_job_ids,
                 timeout=timeout,
-                collect=True,
+                collect=False,
                 wait=True,
             )
+            self._collect_job_ids = [result["job_id"] for result in results]
             return Response(
                 message=parallel_tools.format_parallel_results(results),
                 break_loop=False,

@@ -14,5 +14,12 @@
         x-text="$store.pinToTop.isMenuItemPinned($store.sidebar.rowMenuOpenId, $store.sidebar.rowMenuKind) ? 'Unpin from Top' : 'Pin to Top'"></span>
     </button>
   </div>
+  <style>
+    .pin-to-top-indicator {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+  </style>
 </body>
 </html>

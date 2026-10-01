@@ -25,6 +25,9 @@ def extract_tool_request(content: str) -> dict[str, Any] | None:
         return None
 
     content = content.strip()
+    if not (content.startswith("{") and content.endswith("}")):
+        return None
+
     root = extract_json_root_string(content)
     if root != content:
         return None

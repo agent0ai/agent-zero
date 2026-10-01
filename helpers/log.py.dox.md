@@ -43,6 +43,8 @@
 
 - Important called helpers/classes observed in the source: `TypeVar`, `dataclass`, `_MARK_DIRTY_ALL`, `_MARK_DIRTY_FOR_CONTEXT`, `truncate_text_by_ratio`, `cast`, `threading.RLock`, `self.set_initial_progress`, `self._update_item`, `self._notify_state_monitor`, `_lazy_mark_dirty_all`, `_lazy_mark_dirty_for_context`, `self._mask_recursive`, `_truncate_progress`, `self.set_progress`, `LogOutput`, `_truncate_value`, `json.dumps`, `time.time`, `self.log._update_item`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
+- Keyword KVP updates use the same recursive key/value truncation as an explicit `kvps` mapping, preventing streamed reasoning and other live fields from bypassing payload limits.
+- Existing log-item and progress updates mark only the selected context stream dirty and explicitly omit unchanged context/task collections; creating a new log item still broadcasts a full collection refresh.
 
 ## Work Guidance
 

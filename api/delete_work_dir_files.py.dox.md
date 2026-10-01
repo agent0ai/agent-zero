@@ -24,7 +24,7 @@
 - `DeleteWorkDirFiles` is an `ApiHandler`.
 - `DeleteWorkDirFiles` defines `process(...)`.
 - Observed side-effect areas: filesystem deletion.
-- Imported dependency areas include: `api`, `api.download_work_dir_files`, `helpers`, `helpers.api`, `helpers.file_browser`.
+- Imported dependency areas include: `api`, `helpers.file_archives`, `helpers`, `helpers.api`, `helpers.file_browser`.
 
 ## Key Concepts
 
@@ -45,3 +45,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+Shared FileBrowser deletion rejects filesystem roots and deletes a selected symlink itself without following its target.

@@ -11,6 +11,8 @@ It does **not** retry exceptions that are already treated as controlled agent fl
 - `HandledException`
 - `RepairableException`
 
+Provider refusals (`ContentPolicyViolationError`) also stop with a visible error instead of retrying or injecting repair instructions.
+
 ## Main Behavior
 
 - **Counter reset per monologue**

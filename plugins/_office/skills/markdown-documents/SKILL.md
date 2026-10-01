@@ -1,6 +1,6 @@
 ---
 name: markdown-documents
-description: Use when creating or editing Markdown documents, notes, reports, briefs, drafts, or other editable writing where Markdown should be the primary artifact format.
+description: "Write or edit Markdown notes, reports and plain text; default for non-Office writing."
 version: "1.0.0"
 author: "Agent Zero Core Team"
 tags: ["markdown", "md", "documents", "writing", "notes", "reports", "briefs", "editor"]

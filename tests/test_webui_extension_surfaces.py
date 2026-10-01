@@ -38,8 +38,10 @@ SURFACE_SCENARIOS: list[tuple[str, str]] = [
     ("sidebar-quick-actions-dropdown-start", "webui/components/sidebar/top-section/quick-actions.html"),
     ("sidebar-quick-actions-dropdown-end", "webui/components/sidebar/top-section/quick-actions.html"),
     ("sidebar-chats-list-start", "webui/components/sidebar/chats/chats-list.html"),
+    ("sidebar-chats-list-view", "webui/components/sidebar/chats/chats-list.html"),
     ("sidebar-chats-list-end", "webui/components/sidebar/chats/chats-list.html"),
     ("sidebar-tasks-list-start", "webui/components/sidebar/tasks/tasks-list.html"),
+    ("sidebar-tasks-list-view", "webui/components/sidebar/tasks/tasks-list.html"),
     ("sidebar-tasks-list-end", "webui/components/sidebar/tasks/tasks-list.html"),
     ("sidebar-row-actions-menu", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-bottom-wrapper-start", "webui/components/sidebar/bottom/sidebar-bottom.html"),
@@ -90,7 +92,7 @@ def anyio_backend():
 def _assert_surface_anchor_in_template(surface: str, template_rel_path: str) -> None:
     template_path = PROJECT_ROOT / template_rel_path
     template_html = template_path.read_text(encoding="utf-8")
-    assert f'<x-extension id="{surface}"></x-extension>' in template_html
+    assert f'<x-extension id="{surface}"' in template_html
 
 
 @contextmanager

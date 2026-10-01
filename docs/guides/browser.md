@@ -234,7 +234,7 @@ See [MCP Setup](mcp-setup.md) for MCP setup.
 
 ## Troubleshooting
 
-- **Browser says Playwright is missing:** Docker installs already include the browser. In local development, let Agent Zero install it on first use or preinstall it with `PLAYWRIGHT_BROWSERS_PATH=tmp/playwright playwright install chromium`.
+- **Browser says Chromium is missing:** Docker installs already include the browser. In local development, let Agent Zero install it on first use or preinstall it with `PLAYWRIGHT_BROWSERS_PATH=tmp/playwright patchright install chromium --no-shell`.
 - **The Browser surface does not open automatically:** That is expected. Open the Browser surface manually or ask the agent to show it.
 - **The Canvas does not follow the agent:** Enable **Autofocus active page** in Browser settings.
 - **Bring Your Own Browser cannot start:** Keep A0 CLI connected, verify Browser location is **Bring Your Own Browser**, and check `/browser status` in A0 CLI.

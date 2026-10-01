@@ -1,0 +1,9 @@
+name: _a0_acp
+title: Agent Client Protocol
+description: Connect ACP-capable editors through the local A0 CLI connector.
+version: "2.0"
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false
+always_enabled: true

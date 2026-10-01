@@ -4,6 +4,7 @@ import "./surfaces.js";
 import * as _components from "./components.js";
 import * as extensions from "./extensions.js";
 import { registerAlpineMagic } from "./confirmClick.js";
+import { registerOverflow } from "./overflow.js";
 
 // process extensions
 await extensions.callJsExtensions("initFw_start")
@@ -19,6 +20,7 @@ const Alpine = globalThis.Alpine;
 
 // register $confirmClick magic helper for inline button confirmations
 registerAlpineMagic();
+registerOverflow(Alpine);
 
 // add x-destroy directive to alpine
 Alpine.directive(

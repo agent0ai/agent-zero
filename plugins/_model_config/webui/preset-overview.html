@@ -17,10 +17,22 @@
 
     <div class="model-preset-rows" aria-live="polite">
       <template x-for="model in modelRows" :key="model.title">
-        <div class="model-preset-row">
-          <x-icon class="model-preset-icon" :name="model.icon"></x-icon>
-          <span class="model-preset-role" x-text="model.title"></span>
-          <span class="model-preset-identity">
+        <div class="model-preset-row"
+             :class="{ 'model-preset-row-nested': model.title === 'Vision' }">
+          <template x-if="model.title !== 'Vision'">
+            <x-icon class="model-preset-icon" :name="model.icon"></x-icon>
+          </template>
+          <template x-if="model.title !== 'Vision'">
+            <span class="model-preset-role" x-text="model.title"></span>
+          </template>
+          <span class="model-preset-identity"
+                :class="{ 'model-preset-identity-vision': model.title === 'Vision' }">
+            <template x-if="model.title === 'Vision'">
+              <span>
+                <span class="model-preset-role">Vision override</span>
+                <span class="model-preset-separator">/</span>
+              </span>
+            </template>
             <span class="model-preset-provider" x-text="model.provider"></span>
             <span class="model-preset-separator">/</span>
             <span x-text="model.name"></span>
@@ -84,6 +96,16 @@
 
     .model-preset-row + .model-preset-row {
       border-top: 1px solid var(--color-border);
+    }
+
+    .model-preset-row-nested {
+      border-top: 0 !important;
+      padding-top: var(--spacing-xs);
+      font-size: 0.76rem;
+    }
+
+    .model-preset-identity-vision {
+      grid-column: 3;
     }
 
     .model-preset-icon,

@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from enum import Enum
+import json
 import logging
 import os
+import threading
 from typing import (
     Any,
     Awaitable,
@@ -270,15 +272,19 @@ rate_limiters: dict[str, RateLimiter] = {}
 api_keys_round_robin: dict[str, int] = {}
 
 
-@extensible
-def get_api_key(service: str) -> str:
-    # get api key for the service
-    key = (
+def get_api_key_raw(service: str) -> str:
+    """Read the stored value, including any comma-separated keys."""
+    return (
         dotenv.get_dotenv_value(f"API_KEY_{service.upper()}")
         or dotenv.get_dotenv_value(f"{service.upper()}_API_KEY")
         or dotenv.get_dotenv_value(f"{service.upper()}_API_TOKEN")
         or "None"
     )
+
+
+@extensible
+def get_api_key(service: str) -> str:
+    key = get_api_key_raw(service)
     # if the key contains a comma, use round-robin
     if "," in key:
         api_keys = [k.strip() for k in key.split(",") if k.strip()]
@@ -330,7 +336,10 @@ async def apply_rate_limiter(
         Callable[[str, str, int, int], Awaitable[bool]] | None
     ) = None,
 ):
-    if not model_config:
+    # skip token counting of the whole prompt when no limit is set
+    if not model_config or not (
+        model_config.limit_requests or model_config.limit_input or model_config.limit_output
+    ):
         return
     limiter = get_rate_limiter(
         model_config.provider,
@@ -725,7 +734,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         if output["response_delta"]:
                             if response_callback:
                                 stop_response = await response_callback(
-                                    output["response_delta"], result.response
+                                    output["response_delta"],
+                                    parsed.get("response_preview", result.response),
                                 )
                             if tokens_callback:
                                 await tokens_callback(
@@ -795,37 +805,48 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         model_config: Optional[ModelConfig] = None,
         **kwargs: Any,
     ):
-        self.model_name = f"{provider}/{model}" if provider != "openai" else model
+        self.model_name = f"{provider}/{model}"
         self.kwargs = kwargs
         self.a0_model_conf = model_config
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed(self, inputs: List[str]) -> List[List[float]]:
+        """Embed provider-ready inputs without assuming a text modality."""
         configure_litellm()
-        # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        apply_rate_limiter_sync(self.a0_model_conf, " ".join(inputs))
 
+        call_kwargs = _merge_litellm_call_kwargs(self.kwargs)
+        call_kwargs.pop("a0_api_mode", None)
         resp = embedding(
             model=self.model_name,
-            input=texts,
-            **_merge_litellm_call_kwargs(self.kwargs),
+            input=inputs,
+            **call_kwargs,
         )
         return [
             item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
             for item in resp.data  # type: ignore
         ]
 
-    def embed_query(self, text: str) -> List[float]:
-        configure_litellm()
-        # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, text)
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self.embed(texts)
 
-        resp = embedding(
-            model=self.model_name,
-            input=[text],
-            **_merge_litellm_call_kwargs(self.kwargs),
-        )
-        item = resp.data[0]  # type: ignore
-        return item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
+    def embed_query(self, text: str) -> List[float]:
+        return self.embed([text])[0]
+
+
+_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], SentenceTransformer] = {}
+_LOCAL_EMBEDDING_MODELS_LOCK = threading.Lock()
+
+
+def _get_local_embedding_model(
+    model: str, kwargs: dict[str, Any]
+) -> SentenceTransformer:
+    key = (model, json.dumps(kwargs, sort_keys=True, default=repr))
+    with _LOCAL_EMBEDDING_MODELS_LOCK:
+        cached = _LOCAL_EMBEDDING_MODELS.get(key)
+        if cached is None:
+            cached = SentenceTransformer(model, **kwargs)
+            _LOCAL_EMBEDDING_MODELS.clear()
+            _LOCAL_EMBEDDING_MODELS[key] = cached
+        return cached
 
 
 class LocalSentenceTransformerWrapper(Embeddings):
@@ -856,26 +877,22 @@ class LocalSentenceTransformerWrapper(Embeddings):
         }
         st_kwargs = {k: v for k, v in (kwargs or {}).items() if k in st_allowed_keys}
 
-        self.model = SentenceTransformer(model, **st_kwargs)
+        self.model = _get_local_embedding_model(model, st_kwargs)
         self.model_name = model
         self.a0_model_conf = model_config
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed(self, inputs: List[str]) -> List[List[float]]:
         # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, " ".join(texts))
+        apply_rate_limiter_sync(self.a0_model_conf, " ".join(inputs))
 
-        embeddings = self.model.encode(texts, convert_to_tensor=False)  # type: ignore
+        embeddings = self.model.encode(inputs, convert_to_tensor=False)  # type: ignore
         return embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings  # type: ignore
 
-    def embed_query(self, text: str) -> List[float]:
-        # Apply rate limiting if configured
-        apply_rate_limiter_sync(self.a0_model_conf, text)
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self.embed(texts)
 
-        embedding = self.model.encode([text], convert_to_tensor=False)  # type: ignore
-        result = (
-            embedding[0].tolist() if hasattr(embedding[0], "tolist") else embedding[0]
-        )
-        return result  # type: ignore
+    def embed_query(self, text: str) -> List[float]:
+        return self.embed([text])[0]
 
 
 def _get_litellm_chat(

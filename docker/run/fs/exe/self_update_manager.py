@@ -663,8 +663,8 @@ def has_local_rollback_changes(repo_dir: Path) -> bool:
     return bool(status.strip())
 
 
-def get_top_stash_ref(repo_dir: Path) -> str:
-    return git_optional_output(repo_dir, "stash", "list", "--format=%gd", "-n", "1")
+def get_top_stash_oid(repo_dir: Path) -> str:
+    return git_optional_output(repo_dir, "stash", "list", "--format=%H", "-n", "1")
 
 
 def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
@@ -672,7 +672,7 @@ def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
         logger.log("No tracked or non-ignored untracked changes need rollback protection.")
         return None
 
-    previous_top = get_top_stash_ref(repo_dir)
+    previous_top = get_top_stash_oid(repo_dir)
     message = f"a0-self-update rollback snapshot {now_iso()}"
     run_command(
         [
@@ -689,7 +689,7 @@ def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
         logger=logger,
         error_message="Failed to save local tracked/untracked changes before updating.",
     )
-    stash_ref = get_top_stash_ref(repo_dir)
+    stash_ref = get_top_stash_oid(repo_dir)
     if not stash_ref or stash_ref == previous_top:
         raise RuntimeError("Failed to create the pre-update rollback stash.")
     logger.log(
@@ -702,12 +702,18 @@ def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
 def drop_stash(repo_dir: Path, stash_ref: str, logger: AttemptLogger) -> None:
     if not stash_ref:
         return
-    run_command(
-        ["git", "-C", str(repo_dir), "stash", "drop", stash_ref],
-        cwd=None,
-        logger=logger,
-        error_message=f"Failed to drop temporary rollback stash {stash_ref}.",
-    )
+    # Git accepts an object ID for apply, but drop requires a current reflog selector.
+    for entry in git_output(repo_dir, "stash", "list", "--format=%H %gd").splitlines():
+        oid, selector = entry.split(" ", 1)
+        if oid == stash_ref:
+            run_command(
+                ["git", "-C", str(repo_dir), "stash", "drop", selector],
+                cwd=None,
+                logger=logger,
+                error_message=f"Failed to drop temporary rollback stash {stash_ref}.",
+            )
+            return
+    logger.log(f"Rollback stash {stash_ref} is no longer listed; other stashes were kept.")
 
 
 def apply_stash(repo_dir: Path, stash_ref: str, logger: AttemptLogger) -> None:

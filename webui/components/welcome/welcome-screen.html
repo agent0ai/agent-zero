@@ -254,6 +254,7 @@
 
         .welcome-composer #chat-input {
             min-height: 3.2rem;
+            padding-right: 0.35rem;
             font-size: 1.03rem;
         }
 
@@ -455,8 +456,8 @@
         }
 
         .welcome-action-card {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
+            appearance: none;
+            display: flex;
             align-items: center;
             gap: 1rem;
             min-height: 6.1rem;
@@ -496,6 +497,7 @@
 
         .welcome-action-copy {
             display: grid;
+            flex: 1;
             min-width: 0;
             gap: 0.28rem;
         }
@@ -714,37 +716,26 @@
                 font-size: 2rem;
             }
 
+            .welcome-composer,
             .welcome-composer .input-row {
-                align-items: center;
-                flex-wrap: wrap;
                 min-height: 4.35rem;
-                row-gap: 0.55rem;
-                white-space: normal;
             }
 
             .welcome-composer #chat-input-container {
-                flex: 1 1 11.5rem;
+                flex: 1;
                 width: auto;
-                min-width: min(11.5rem, calc(100% - 3rem));
             }
 
             .welcome-composer #chat-input {
-                min-height: 4.5rem;
-                padding-right: 0.35rem;
-                align-content: center;
+                min-height: 2.8rem;
+                padding-block: 0.5rem;
+                font-size: 1rem;
             }
 
-            .welcome-composer #chat-input.is-empty {
-                overflow-y: hidden;
-                scrollbar-width: none;
-            }
-
-            .welcome-composer #chat-input.is-empty::-webkit-scrollbar {
-                display: none;
-            }
-
-            .welcome-composer #chat-buttons-wrapper {
-                margin-left: auto;
+            .welcome-composer #chat-input.is-empty::before {
+                display: block;
+                font-size: 0.875rem;
+                line-height: 1.35;
             }
 
             .welcome-banner {
@@ -788,15 +779,6 @@
             }
         }
 
-        @media (max-width: 420px) {
-            .welcome-composer #chat-input.is-empty {
-                min-height: 5rem;
-                padding-top: 0.52rem;
-                padding-bottom: 0.52rem;
-                font-size: 0.96rem;
-                line-height: 1.34;
-            }
-        }
     </style>
 </body>
 

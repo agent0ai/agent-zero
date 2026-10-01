@@ -318,12 +318,31 @@ def test_desktop_prompt_context_recommends_structured_state_before_screenshots()
     assert "before any coordinate action" not in context
 
 
-def test_virtual_desktop_system_display_normalization_rejects_portrait_viewports():
-    assert virtual_desktop.normalize_desktop_display_size(395, 1080) == (
-        virtual_desktop.DEFAULT_WIDTH,
-        virtual_desktop.DEFAULT_HEIGHT,
+@pytest.mark.parametrize("size", [(395, 1080), (575, 672), (980, 850), (1600, 900)])
+def test_system_desktop_resize_preserves_canvas_dimensions(monkeypatch, tmp_path, size):
+    from plugins._desktop.helpers import desktop_session
+
+    session = types.SimpleNamespace(
+        session_id=desktop_session.SYSTEM_SESSION_ID, extension="desktop",
+        display=120, profile_dir=tmp_path, width=1440, height=900,
     )
-    assert virtual_desktop.normalize_desktop_display_size(1600, 900) == (1600, 900)
+    manager = desktop_session.DesktopSessionManager()
+    monkeypatch.setattr(manager, "get", lambda _id: session)
+    monkeypatch.setattr(manager, "_xauthority", lambda _session: "")
+    calls = []
+
+    def resize_display(**kwargs):
+        calls.append(kwargs)
+        return {"ok": True, "width": kwargs["width"], "height": kwargs["height"]}
+
+    monkeypatch.setattr(virtual_desktop, "resize_display", resize_display)
+    result = manager.resize(session.session_id, *size)
+
+    assert (calls[0]["width"], calls[0]["height"]) == size
+    assert calls[0]["window_class"] == ""
+    assert calls[0]["keys"] == ()
+    assert (result["width"], result["height"]) == size
+    assert (session.width, session.height) == size
 
 
 @pytest.mark.parametrize(

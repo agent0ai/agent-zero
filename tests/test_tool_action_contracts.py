@@ -283,6 +283,10 @@ def _load_computer_use_remote_tool(monkeypatch):
     ws_runtime_stub = types.ModuleType("plugins._a0_connector.helpers.ws_runtime")
     ws_runtime_stub.clear_pending_computer_use_op = lambda *args, **kwargs: None
     ws_runtime_stub.computer_use_metadata_for_sid = lambda *args, **kwargs: {}
+    async def _emit_connector_event(*args, **kwargs):
+        return None
+
+    ws_runtime_stub.emit_connector_event = _emit_connector_event
     ws_runtime_stub.select_computer_use_target_sid = lambda *args, **kwargs: "sid"
     ws_runtime_stub.store_pending_computer_use_op = lambda *args, **kwargs: None
     monkeypatch.setitem(
@@ -722,9 +726,10 @@ def test_behaviour_prompts_preserve_exact_rules_and_avoid_promptinclude():
 
     assert "exact-response rules" in behaviour_prompt
     assert "preserve it verbatim" in behaviour_prompt
+    assert "do not edit promptinclude files" in behaviour_prompt
     assert not Path("prompts/agent.system.tool.behaviour.md").exists()
     assert "respond exactly with a phrase" in merge_prompt
-    assert "use behaviour_adjustment, not promptinclude files" in promptinclude_prompt
+    assert "behaviour_adjustment" not in promptinclude_prompt
 
 
 def _load_a2a_chat_tool(monkeypatch):
@@ -803,6 +808,9 @@ def test_notify_user_prompt_documents_numeric_priority_values():
 
 def test_tool_prompts_prevent_top_level_multi_tool():
     tools_prompt = Path("prompts/agent.system.tools.md").read_text(encoding="utf-8")
+    parallel_prompt = Path("prompts/agent.system.tool.parallel.md").read_text(
+        encoding="utf-8"
+    )
     communication_prompt = Path("prompts/agent.system.main.communication.md").read_text(
         encoding="utf-8"
     )
@@ -811,9 +819,10 @@ def test_tool_prompts_prevent_top_level_multi_tool():
     )
 
     assert "Do not invent top-level `multi` or generic batch tools" in tools_prompt
-    assert "listed wrapper for independent concurrent calls is `parallel`" in tools_prompt
+    assert "`parallel`" not in tools_prompt
+    assert "run independent tool calls concurrently" in parallel_prompt
     assert "never an action name such as `read`, `write`, `terminal`, or `multi`" in communication_prompt
-    assert "independent operations concurrently" in communication_prompt
+    assert "independent operations concurrently" not in communication_prompt
     assert 'Never use `tool_name: "multi"`' in browser_prompt
 
 
@@ -1173,6 +1182,25 @@ def test_computer_use_remote_start_session_reports_backend_features_and_windows_
     assert "backend=windows/windows" in message
     assert "features=uia-tree-snapshot, uia-structural-targeting" in message
     assert "host-computer-use-windows" in message
+
+
+def test_computer_use_remote_forwards_documented_macos_app_scope(monkeypatch):
+    import json
+    import re
+
+    module = _load_computer_use_remote_tool(monkeypatch)
+    tool = object.__new__(module.ComputerUseRemote)
+    skill = (Path(__file__).resolve().parents[1] / "plugins/_a0_connector/skills/host-computer-use-macos/SKILL.md").read_text()
+    example = json.loads(re.search(r"```json\n(.*?)\n```", skill, re.S).group(1))
+    tool.args = example["tool_args"]
+    payload = tool._build_payload(op_id="scoped", context_id="ctx", action="element_action")
+    assert payload["target"] == {"bundle_id": "com.example.editor", "role": "AXButton", "title": "Save"}
+    assert payload["dispatch"] == "background"
+    assert payload["operation"] == "press"
+    tool.args = {**tool.args, "pid": 123, "window_id": "ax-pid:123:path:0", "element_index": 2}
+    payload = tool._build_payload(op_id="indexed", context_id="ctx", action="element_action")
+    assert (payload["pid"], payload["window_id"], payload["element_index"]) == (123, "ax-pid:123:path:0", 2)
+    assert "element_index" not in payload["target"]
 
 
 def test_computer_use_remote_forwards_linux_window_scope_and_type_guard(monkeypatch):

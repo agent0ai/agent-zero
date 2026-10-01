@@ -8,7 +8,6 @@ Continuation words such as "proceed", "continue", "go ahead", "do it", and "exce
 
 For tasks that need shell commands, files, browser actions, or other capabilities:
 - choose the appropriate listed tool immediately
-- keep one tool call per turn unless the `parallel` tool is listed and truly useful
 - inspect outputs before deciding the next tool call
 - never claim success from timeout output or a still-running command
 - after a successful tool result, do not repeat the same exact tool call

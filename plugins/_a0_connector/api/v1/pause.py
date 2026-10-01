@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
+from plugins._a0_connector.helpers.ws_runtime import abort_transfers_for_context
 
 
 class Pause(connector_base.ProtectedConnectorApiHandler):
@@ -39,6 +40,11 @@ class Pause(connector_base.ProtectedConnectorApiHandler):
             )
 
         context.paused = paused
+        if paused:
+            await abort_transfers_for_context(
+                context_id,
+                reason="chat paused during transfer",
+            )
         return {
             "ok": True,
             "context_id": context_id,

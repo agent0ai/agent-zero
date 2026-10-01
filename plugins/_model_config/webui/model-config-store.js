@@ -7,6 +7,7 @@ import { switcherState, switcherMethods } from "/plugins/_model_config/webui/swi
 
 export const MODEL_SECTIONS = [
   { key: 'chat_model', title: 'Main Model', desc: 'Primary model for chat, reasoning, and browser tasks.' },
+  { key: 'vision_model', title: 'Vision Model', desc: 'Optional model used by vision_load when Main vision is unavailable or overridden.' },
   { key: 'utility_model', title: 'Utility Model', desc: 'Lightweight model for background tasks: memory management, prompt preparation, summarization.' },
   { key: 'embedding_model', title: 'Embedding Model', desc: 'Model for generating vector embeddings used in knowledge retrieval.' }
 ];
@@ -21,15 +22,23 @@ export function kwargsToText(obj) {
 
 export function textToKwargs(text) {
   const d = {};
-  (text || '').split('\n').forEach(l => {
+  (text || '').split('\n').forEach((l, line) => {
     l = l.trim();
     if (!l || l.startsWith('#')) return;
     const i = l.indexOf('=');
     if (i > 0) {
       const key = l.substring(0, i).trim();
       let val = l.substring(i + 1).trim();
-      try { val = JSON.parse(val); } catch {}
+      try {
+        val = JSON.parse(val);
+      } catch {
+        if (['{', '[', '"'].includes(val[0]) || ['True', 'False', 'None'].includes(val)) {
+          throw new Error(`Additional parameters line ${line + 1}: invalid JSON for ${key}. JSON uses lowercase true, false, and null; quote strings.`);
+        }
+      }
       d[key] = val;
+    } else {
+      throw new Error(`Additional parameters line ${line + 1}: use KEY=VALUE.`);
     }
   });
   return d;
@@ -59,6 +68,17 @@ function isBlankPresetValue(value) {
 }
 
 const IMPLICIT_PRESET_SLOT_DEFAULTS = {
+  vision: {
+    vision: true,
+    max_embeds: 10,
+    timeout: 300,
+    max_tokens: 2000,
+    override_main: false,
+    rl_requests: 0,
+    rl_input: 0,
+    rl_output: 0,
+    kwargs: {},
+  },
   utility: {
     ctx_length: 128000,
     ctx_input: 0.7,
@@ -143,15 +163,21 @@ export function configFromPreset(preset, baseConfig, stripApiKey = true) {
   const config = clonePlain(baseConfig || {});
   const slots = [
     ['chat', 'chat_model'],
+    ['vision', 'vision_model'],
     ['utility', 'utility_model'],
     ['embedding', 'embedding_model'],
   ];
 
   for (const [slotKey, sectionKey] of slots) {
     const slot = preset?.[slotKey];
-    if (!slot || typeof slot !== 'object') continue;
-    if (!hasModelIdentity(slot)) continue;
-    config[sectionKey] = mergeModelSlot(config[sectionKey] || {}, slot, stripApiKey, slotKey);
+    if (slotKey === 'vision') config[sectionKey] = {};
+    if (!slot || typeof slot !== 'object' || !hasModelIdentity(slot)) continue;
+    config[sectionKey] = mergeModelSlot(
+      slotKey === 'vision' ? {} : (config[sectionKey] || {}),
+      slot,
+      stripApiKey,
+      slotKey,
+    );
   }
 
   return config;
@@ -206,8 +232,26 @@ export const store = createStore("modelConfig", {
     const source = (rawPresets || []).filter(p => p && typeof p === 'object');
     const rawDefault = source.find(p => String(p.name || '').toLowerCase() === 'default') || {};
     const slot = value => ({ provider: '', name: '', api_key: '', api_base: '', kwargs: {}, ...(value || {}) });
+    const visionSlot = value => {
+      const normalized = slot(value);
+      const kwargs = { ...(normalized.kwargs || {}) };
+      const timeout = Number(value?.timeout ?? kwargs.timeout ?? 300);
+      const maxTokens = Number(value?.max_tokens ?? kwargs.max_tokens ?? 2000);
+      delete kwargs.timeout;
+      delete kwargs.max_tokens;
+      return {
+        ...normalized,
+        vision: true,
+        max_embeds: Number(value?.max_embeds ?? 10),
+        timeout,
+        max_tokens: maxTokens,
+        override_main: !!value?.override_main,
+        kwargs,
+      };
+    };
     const defaultConfig = {
       chat_model: slot(rawDefault.chat),
+      vision_model: hasModelIdentity(rawDefault.vision) ? visionSlot(rawDefault.vision) : {},
       utility_model: slot(rawDefault.utility),
       embedding_model: slot(rawDefault.embedding),
     };
@@ -216,9 +260,11 @@ export const store = createStore("modelConfig", {
       const effective = String(p.name || '').toLowerCase() === 'default'
         ? defaultConfig
         : configFromPreset(p, defaultConfig, true);
+      const vision = visionSlot(effective.vision_model);
       return {
         name: p.name || '',
         chat: { ...slot(effective.chat_model), _kwargs_text: kwargsToText(effective.chat_model?.kwargs) },
+        vision: { ...vision, _kwargs_text: kwargsToText(vision.kwargs) },
         utility: { ...slot(effective.utility_model), _kwargs_text: kwargsToText(effective.utility_model?.kwargs) },
         embedding: { ...slot(effective.embedding_model), _kwargs_text: kwargsToText(effective.embedding_model?.kwargs) },
       };
@@ -273,6 +319,7 @@ export const store = createStore("modelConfig", {
   // Config field initialization (converts kwargs dicts to editable text)
   initConfigFields(config) {
     if (config?.chat_model) config.chat_model._kwargs_text = kwargsToText(config.chat_model.kwargs);
+    if (config?.vision_model) config.vision_model._kwargs_text = kwargsToText(config.vision_model.kwargs);
     if (config?.utility_model) config.utility_model._kwargs_text = kwargsToText(config.utility_model.kwargs);
     if (config?.embedding_model) config.embedding_model._kwargs_text = kwargsToText(config.embedding_model.kwargs);
   },
@@ -340,6 +387,7 @@ export const store = createStore("modelConfig", {
           || this.presets[0]
           || {
             chat: { provider: '', name: '', api_base: '', kwargs: {}, _kwargs_text: '' },
+            vision: { provider: '', name: '', api_base: '', vision: true, max_embeds: 10, timeout: 300, max_tokens: 2000, override_main: false, kwargs: {}, _kwargs_text: '' },
             utility: { provider: '', name: '', api_base: '', kwargs: {}, _kwargs_text: '' },
             embedding: { provider: '', name: '', api_base: '', kwargs: {}, _kwargs_text: '' },
           }
@@ -367,10 +415,21 @@ export const store = createStore("modelConfig", {
           return false;
         }
         try {
+          for (const preset of this.presets) {
+            for (const key of ['chat', 'vision', 'utility', 'embedding']) {
+              const slot = preset[key];
+              if (typeof slot?._kwargs_text !== 'string') continue;
+              try {
+                slot.kwargs = textToKwargs(slot._kwargs_text);
+              } catch (e) {
+                const title = MODEL_SECTIONS.find(section => section.key === `${key}_model`)?.title || key;
+                throw new Error(`${preset.name} (${title}): ${e.message}`);
+              }
+            }
+          }
           await store.persistAllDirtyApiKeys();
         } catch (e) {
-          console.error('Failed to save API keys:', e);
-          globalThis.justToast?.(e?.message || 'Failed to save API keys.', 'error');
+          globalThis.justToast?.(e?.message || 'Failed to save preset settings.', 'error');
           return false;
         }
         if (!await store.saveGlobalPresets(this.presets)) return false;
@@ -420,9 +479,10 @@ export const store = createStore("modelConfig", {
     const clean = presets.map(p => {
       const c = { name: p.name };
       const isDefault = p._originalName === DEFAULT_PRESET_NAME;
-      for (const slot of ['chat', 'utility']) {
+      for (const slot of ['chat', 'vision', 'utility']) {
         if (p[slot]) {
           const rest = cleanPresetSlot(p[slot], true, slot, isDefault);
+          if (slot === 'vision' && hasModelIdentity(rest)) rest.vision = true;
           if (hasModelIdentity(rest)) c[slot] = rest;
         }
       }
@@ -608,9 +668,15 @@ export const store = createStore("modelConfig", {
     const label = (list, id) => (list.find(x => x.value === id) || {}).label || id || '\u2014';
     return [
       { icon: 'chat', title: 'Main', cfg: preset?.chat, pList: chatP },
+      { icon: 'eye', title: 'Vision', cfg: preset?.vision, pList: chatP },
       { icon: 'manufacturing', title: 'Utility', cfg: preset?.utility, pList: chatP },
       { icon: 'database', title: 'Embedding', cfg: preset?.embedding, pList: embedP },
-    ].map(s => ({ icon: s.icon, title: s.title, provider: label(s.pList, s.cfg?.provider), name: s.cfg?.name || '\u2014' }));
+    ]
+      .filter(s => s.title !== 'Vision' || (
+        hasModelIdentity(s.cfg)
+        && (!preset?.chat?.vision || s.cfg?.override_main)
+      ))
+      .map(s => ({ icon: s.icon, title: s.title, provider: label(s.pList, s.cfg?.provider), name: s.cfg?.name || '\u2014' }));
   },
 
   getPreset(name) {
@@ -747,9 +813,15 @@ export const store = createStore("modelConfig", {
     const label = (list, id) => (list.find(x => x.value === id) || {}).label || id || '\u2014';
     return [
       { icon: 'chat', title: 'Main', cfg: cfg.chat_model, pList: chatP },
+      { icon: 'eye', title: 'Vision', cfg: cfg.vision_model, pList: chatP },
       { icon: 'manufacturing', title: 'Utility', cfg: cfg.utility_model, pList: chatP },
       { icon: 'database', title: 'Embedding', cfg: cfg.embedding_model, pList: embedP },
-    ].map(s => ({ icon: s.icon, title: s.title, provider: label(s.pList, s.cfg?.provider), name: s.cfg?.name || '\u2014' }));
+    ]
+      .filter(s => s.title !== 'Vision' || (
+        hasModelIdentity(s.cfg)
+        && (!cfg.chat_model?.vision || s.cfg?.override_main)
+      ))
+      .map(s => ({ icon: s.icon, title: s.title, provider: label(s.pList, s.cfg?.provider), name: s.cfg?.name || '\u2014' }));
   },
 
   async refreshModelsSummary(contextId = '') {
@@ -833,6 +905,14 @@ export const store = createStore("modelConfig", {
       await this.refreshApiKeyStatus().catch((e) => {
         console.error('Failed to refresh API key status:', e);
       });
+    }
+  },
+
+  updateModelKwargs(model) {
+    try {
+      model.kwargs = textToKwargs(model._kwargs_text);
+    } catch (e) {
+      globalThis.justToast?.(e.message, 'error');
     }
   },
 

@@ -179,3 +179,56 @@ def test_start_bridge_does_not_reinstall_on_non_dependency_failure(monkeypatch):
 
     assert started is False
     assert ensure_calls == [False]
+
+
+@pytest.mark.parametrize("start", [bridge_manager.start_bridge, bridge_manager.ensure_bridge_http_up])
+def test_bridge_restarts_with_normalized_authorization(monkeypatch, start):
+    from types import SimpleNamespace
+
+    calls = []
+    bridge_manager._bridge_process = SimpleNamespace(poll=lambda: None)
+    bridge_manager._bridge_config.update({
+        "port": 3100, "mode": "self-chat", "allowed_numbers": ["456"], "allow_group": True,
+    })
+
+    def stop():
+        calls.append("stop")
+        bridge_manager._bridge_process = None
+
+    async def dependencies():
+        pass
+
+    async def start_once(**kwargs):
+        calls.append(kwargs)
+        return True, ""
+
+    monkeypatch.setattr(bridge_manager, "_stop_bridge_process", stop)
+    monkeypatch.setattr(bridge_manager, "_ensure_bridge_dependencies", dependencies)
+    monkeypatch.setattr(bridge_manager, "_start_bridge_once", start_once)
+
+    assert asyncio.run(start(3100, "/tmp/session", "/tmp/media", allowed_numbers="+00123, 123:4@s.whatsapp.net"))
+    assert calls[0] == "stop"
+    assert calls[1]["allowed_numbers"] == ["123"]
+    assert calls[1]["allow_group"] is False
+
+
+def test_bridge_passes_authorization_to_node(monkeypatch):
+    commands = []
+    monkeypatch.setattr(bridge_manager.subprocess, "Popen", lambda cmd, **kwargs: commands.append(cmd))
+    monkeypatch.setattr(bridge_manager, "_BridgeProcess", lambda process, port: object())
+    monkeypatch.setattr(bridge_manager, "_kill_port_process", lambda port: None)
+    monkeypatch.setattr(bridge_manager, "_start_log_reader", lambda process: None)
+
+    async def healthy(**kwargs):
+        return True, ""
+
+    monkeypatch.setattr(bridge_manager, "_wait_for_bridge_startup", healthy)
+    assert asyncio.run(bridge_manager._start_bridge_once(
+        port=3100, session_dir="/tmp/session", cache_dir="/tmp/media", mode="self-chat",
+        allowed_numbers=["123", "456"], allow_group=False,
+        require_connection=False, start_label="Test bridge",
+    )) == (True, "")
+    cmd = commands[0]
+    assert cmd[cmd.index("--allowed-numbers") + 1] == "123,456"
+    assert cmd[cmd.index("--allow-group") + 1] == "false"
+    assert bridge_manager.get_running_config()["allowed_numbers"] == ["123", "456"]

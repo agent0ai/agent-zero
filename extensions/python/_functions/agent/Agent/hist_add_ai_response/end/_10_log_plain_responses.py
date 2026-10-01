@@ -14,7 +14,7 @@ class LogPlainResponses(Extension):
             call_kwargs = {}
 
         llm_result = call_kwargs.get("llm_result")
-        if getattr(llm_result, "mode", "") != "responses":
+        if getattr(llm_result, "mode", "") != "responses" or getattr(llm_result, "function_calls", None):
             return
 
         message = call_kwargs.get("message")

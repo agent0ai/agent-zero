@@ -6,6 +6,7 @@
 
 ## Ownership
 
+- File editing belongs to the `_editor` plugin shared canvas/modal surface; Files routes Edit and New file there.
 - Each direct child folder owns one modal workflow and its store.
 - Modal HTML files own body content, titles, scoped styles, and `data-modal-footer` content.
 - Modal store files own modal-local state and cleanup.

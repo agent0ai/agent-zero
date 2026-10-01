@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import models
 from agent import Agent, AgentConfig, AgentContextType, LoopData
-from helpers import extract_tools, history, litellm_transport
+from helpers import extension, extract_tools, history, litellm_transport
 from helpers.log import Log
 from helpers.llm_result import LLMResult, result_from_metadata
 from helpers.persist_chat import _collect_response_ids
@@ -42,6 +42,218 @@ class _AsyncEventStream:
 
     async def aclose(self):
         self.closed = True
+
+
+@pytest.mark.asyncio
+async def test_commentary_streams_as_thoughts_without_changing_native_result(monkeypatch):
+    message = {"type": "message", "id": "msg_progress", "role": "assistant",
+               "phase": "commentary", "content": []}
+    call = {"type": "function_call", "id": "fc_progress", "call_id": "call_progress",
+            "name": "lookup", "arguments": '{"q":"a0"}'}
+    message_done = {**message, "content": [{"type": "output_text", "text": 'Reading "a0" now.'}]}
+    stream = _AsyncEventStream([
+        {"type": "response.output_item.added", "output_index": 0, "item": message},
+        {"type": "response.output_text.delta", "item_id": message["id"], "delta": 'Reading "a0"'},
+        {"type": "response.output_text.delta", "item_id": message["id"], "delta": " now."},
+        {"type": "response.output_item.done", "output_index": 0, "item": message_done},
+        {"type": "response.output_item.added", "output_index": 1, "item": {**call, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": call["id"], "delta": '{"q":'},
+        {"type": "response.function_call_arguments.delta", "item_id": call["id"], "delta": '"a0"}'},
+        {"type": "response.function_call_arguments.done", "item_id": call["id"], "arguments": call["arguments"]},
+        {"type": "response.completed", "response": {"id": "resp_progress", "output": [message_done, call]}},
+    ])
+
+    async def fake_responses(**kwargs):
+        return stream
+
+    async def no_limiter(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(litellm_transport, "aresponses", fake_responses)
+    monkeypatch.setattr(models, "apply_rate_limiter", no_limiter)
+    wrapper = models.LiteLLMChatWrapper(model="test", provider="openai", model_config=None,
+                                      a0_api_mode="responses")
+    previews = []
+
+    async def preview(chunk, full):
+        previews.append((stream.index, chunk, full))
+        return full if extract_tools.extract_tool_request(full) else None
+
+    result = await wrapper.unified_turn(messages=[HumanMessage(content="hi")], response_callback=preview)
+    assert [json.loads(row[2])["thoughts"] for row in previews[:2]] == [['Reading "a0"'], ['Reading "a0" now.']]
+    assert [row[1] for row in previews[:2]] == ['Reading "a0"', ' now.']
+    assert previews[0][0] == 2 and previews[1][0] == 3
+    assert json.loads(previews[-1][2]) == {"thoughts": ['Reading "a0" now.'], "tool_name": "lookup", "tool_args": {"q": "a0"}}
+    assert stream.index == 9 and not stream.closed
+    assert [item.to_dict() for item in result.output_items] == [message_done, call]
+    assert json.loads(result.function_calls_text()) == {"tool_name": "lookup", "tool_args": {"q": "a0"}}
+
+
+@pytest.mark.parametrize("phase", [None, "final_answer"])
+def test_non_commentary_stream_text_has_no_thoughts_preview(phase):
+    parser = litellm_transport.ResponsesEventParser()
+    parser.parse({"type": "response.output_item.added", "output_index": 0,
+                  "item": {"type": "message", "id": "msg_final", "phase": phase}})
+    assert parser.parse({"type": "response.output_text.delta", "item_id": "msg_final", "delta": "Done"}) == {
+        "response_delta": "Done", "reasoning_delta": "",
+    }
+
+
+@pytest.mark.asyncio
+async def test_legacy_callback_still_receives_accumulated_model_text(monkeypatch):
+    stream = _AsyncEventStream([
+        {"type": "response.output_item.added", "item": {"id": "progress", "type": "message", "phase": "commentary"}},
+        {"type": "response.output_text.delta", "item_id": "progress", "delta": "Reading now."},
+    ])
+
+    async def fake_responses(**kwargs):
+        return stream
+
+    async def no_limiter(*args, **kwargs):
+        return None
+
+    async def stop_after_chunk(chunk, full):
+        assert full == chunk == "Reading now."
+        return full
+
+    monkeypatch.setattr(litellm_transport, "aresponses", fake_responses)
+    monkeypatch.setattr(models, "apply_rate_limiter", no_limiter)
+    wrapper = models.LiteLLMChatWrapper(model="test", provider="openai", model_config=None,
+                                      a0_api_mode="responses")
+    response, _ = await wrapper.unified_call(user_message="hi", response_callback=stop_after_chunk)
+    assert response == "Reading now."
+
+
+def test_commentary_preview_keeps_multiple_native_calls_in_one_envelope():
+    parser = litellm_transport.ResponsesEventParser()
+    parser.parse({"type": "response.output_item.added", "item": {"id": "progress", "type": "message", "phase": "commentary"}})
+    parser.parse({"type": "response.output_text.delta", "item_id": "progress", "delta": "Reading both files."})
+    for index in (1, 2):
+        call = {"id": f"fc_{index}", "call_id": f"call_{index}", "type": "function_call", "name": "lookup", "arguments": ""}
+        parser.parse({"type": "response.output_item.added", "output_index": index, "item": call})
+        parser.parse({"type": "response.function_call_arguments.delta", "item_id": call["id"], "delta": '{"q":'})
+        if index == 2:
+            partial = parser.parse({"type": "response.function_call_arguments.delta", "item_id": call["id"], "delta": '"second"'})
+            assert json.loads(partial["response_preview"])["tool_name"] == "parallel_tool_calls"
+        parsed = parser.parse({"type": "response.function_call_arguments.done", "item_id": call["id"], "arguments": json.dumps({"q": index})})
+    assert json.loads(parsed["response_preview"]) == {
+        "thoughts": ["Reading both files."], "tool_name": "parallel_tool_calls",
+        "tool_args": {"calls": [{"tool_name": "lookup", "tool_args": {"q": index}} for index in (1, 2)]},
+    }
+
+
+def test_native_generation_thoughts_preserve_result_and_mask_log(monkeypatch):
+    from types import SimpleNamespace
+    from extensions.python.message_loop_result._40_native_thoughts import NativeThoughts
+
+    result = LLMResult.from_response({"output": [
+        {"type": "message", "phase": "commentary", "content": [
+            {"type": "output_text", "text": "Reading sample-secret"}]},
+        {"type": "reasoning", "encrypted_content": "opaque"},
+        {"type": "function_call", "name": "lookup", "call_id": "call_a", "arguments": '{"q":"a0"}'},
+    ]})
+    original = json.dumps(result.to_dict(), sort_keys=True)
+    monkeypatch.setattr("helpers.log.get_secrets_manager", lambda context: SimpleNamespace(
+        mask_values=lambda text: text.replace("sample-secret", "[MASKED]")))
+    log = Log()
+    item = log.log(type="agent", kvps={"reasoning": "existing summary"})
+    loop = LoopData()
+    loop.params_temporary["log_item_generating"] = item
+    agent = SimpleNamespace(agent_name="A0")
+    NativeThoughts(agent).execute({"llm_result": result}, loop)
+    assert item.kvps["thoughts"] == ["Reading [MASKED]"]
+    assert "headline" not in item.kvps
+    assert item.heading == "A0: Using lookup"
+    assert item.kvps["reasoning"] == "existing summary"
+    assert json.loads(item.content) == {"thoughts": ["Reading [MASKED]"], "tool_name": "lookup", "tool_args": {"q": "a0"}}
+    assert json.dumps(result.to_dict(), sort_keys=True) == original
+
+
+def test_responses_function_call_text_preserves_non_ascii_tool_args():
+    result = LLMResult.from_response(
+        {
+            "output": [
+                {
+                    "type": "function_call",
+                    "name": "response",
+                    "arguments": '{"text":"привет"}',
+                }
+            ]
+        }
+    )
+
+    assert result.function_calls_text() == '{"tool_name": "response", "tool_args": {"text": "привет"}}'
+
+
+@pytest.mark.parametrize("mode", ["", "chat_completions", "responses", "custom"])
+def test_llm_result_round_trip_preserves_explicit_mode(mode):
+    result = LLMResult.non_llm() if not mode else LLMResult(
+        mode=mode, response_id="resp_1", previous_response_id="resp_0",
+        usage={"input_tokens": 10},
+    )
+    assert LLMResult.from_dict(result.to_dict()) == result
+    assert result_from_metadata(result.metadata()).metadata() == result.metadata()
+
+
+@pytest.mark.parametrize("data", [None, {}, {"mode": None}])
+def test_llm_result_missing_mode_keeps_legacy_default(data):
+    assert LLMResult.from_dict(data).mode == "responses"
+
+
+@pytest.mark.parametrize("call_form", [
+    "message", "legacy_id", "keyword_id", "result", "result_id", "keywords", "native",
+])
+def test_history_response_call_compatibility_preserves_state(monkeypatch, call_form):
+    monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.history = history.History(agent)
+    agent.parse_prompt = lambda template, **kwargs: kwargs["message"]
+    agent.hist_add_message = agent.history.add_message
+    remembered = []
+
+    def remember(result, message):
+        remembered.append(result)
+        Agent._remember_llm_result_state(agent, result, message)
+
+    agent._remember_llm_result_state = remember
+    result = LLMResult(response_id="resp_1", provider_model_key="test/model")
+    if call_form == "native":
+        result = LLMResult.from_response({
+            "id": "resp_1", "output_text": "hello",
+            "output": [{"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": '{"q":"a0"}'}],
+        }, provider_model_key="test/model")
+    args, kwargs = {
+        "message": ((), {}),
+        "legacy_id": (("message_id",), {}),
+        "keyword_id": ((), {"id": "message_id"}),
+        "result": ((result,), {}),
+        "result_id": ((result, "message_id"), {}),
+        "keywords": ((), {"llm_result": result, "id": "message_id"}),
+        "native": ((), {"llm_result": result, "id": "message_id"}),
+    }[call_form]
+    message = agent.hist_add_ai_response("hello", *args, **kwargs)
+    expected = result if call_form in {"result", "result_id", "keywords", "native"} else LLMResult.non_llm()
+    assert remembered == [expected]
+    assert result_from_metadata(message.metadata).metadata() == expected.metadata()
+    assert agent.history.all_messages() == [message]
+    assert message.content == (expected.function_calls_text() or "hello")
+    assert agent.loop_data.last_response == message.content
+    if call_form == "native":
+        assert result.response == "hello"
+    if call_form not in {"message", "result"}:
+        assert message.id == "message_id"
+    state = agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)
+    if expected.response_id:
+        assert state["response_ids"] == ["resp_1"]
+        assert state["history_counter"] == message.sequence
+    else:
+        assert state is None
+
+    with pytest.raises(TypeError, match="ID supplied twice"):
+        agent.hist_add_ai_response("invalid", "first", id="second")
+    assert agent.history.all_messages() == [message]
 
 
 def test_llm_result_persists_only_durable_responses_metadata():
@@ -105,7 +317,9 @@ def test_history_migrates_legacy_ai_metadata_and_preserves_tool_inputs():
         "done",
         metadata={"responses": {"input_items": [tool_item]}},
     )
-    restored = history.deserialize_history(hist.serialize(), DummyAgent())
+    serialized = hist.serialize()
+    assert '"input_items":[{"type":"function_call_output"' in serialized
+    restored = history.deserialize_history(serialized, DummyAgent())
 
     restored_message = restored.all_messages()[0]
     assert restored_message.sequence == message.sequence
@@ -127,6 +341,125 @@ def test_history_migrates_legacy_ai_metadata_and_preserves_tool_inputs():
     old = history.Message.from_dict({"_cls": "Message", "ai": False, "content": "old"}, restored)
     assert old.metadata == {}
     assert old.sequence == 0
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_transport_preserves_reported_usage(monkeypatch):
+    async def fake_acompletion(**kwargs):
+        return {
+            "choices": [{"message": {"content": "done"}}],
+            "usage": {
+                "prompt_tokens": 120,
+                "completion_tokens": 8,
+                "total_tokens": 128,
+            },
+            "_hidden_params": {"response_cost": 0.0042},
+        }
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    await transport.acomplete()
+
+    assert transport.last_result is not None
+    assert transport.last_result.usage == {
+        "prompt_tokens": 120,
+        "completion_tokens": 8,
+        "total_tokens": 128,
+        "cost": 0.0042,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_requests_and_records_terminal_usage(monkeypatch):
+    calls: list[dict] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+
+        async def stream():
+            yield {"choices": [{"delta": {"content": "done"}}]}
+            yield {
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 8,
+                    "total_tokens": 128,
+                },
+            }
+
+        return stream()
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    async for _chunk in transport.astream():
+        pass
+
+    assert calls[0]["stream"] is True
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert transport.last_result is not None
+    assert transport.last_result.usage == {
+        "prompt_tokens": 120,
+        "completion_tokens": 8,
+        "total_tokens": 128,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_retries_without_usage_when_stream_options_rejected(
+    monkeypatch,
+):
+    calls: list[dict] = []
+
+    class BadRequestError(Exception):
+        pass
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+        if kwargs.get("stream_options", {}).get("include_usage"):
+            raise BadRequestError("Unknown parameter: 'stream_options'.")
+
+        async def stream():
+            yield {"choices": [{"delta": {"content": "done"}}]}
+
+        return stream()
+
+    monkeypatch.setattr(litellm_transport, "acompletion", fake_acompletion)
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    async for _chunk in transport.astream():
+        pass
+
+    assert calls[0]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in calls[1]
+    assert len(calls) == 2
+
+    user_transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "again"}],
+        kwargs={
+            "a0_api_mode": "chat_completions",
+            "stream_options": {"include_usage": True, "custom": "keep"},
+        },
+    )
+    request = user_transport._chat_request(stream=True)
+    assert request["stream_options"] == {
+        "include_usage": True,
+        "custom": "keep",
+    }
 
 
 def test_responses_provider_state_uses_previous_response_and_new_items():
@@ -187,6 +520,7 @@ async def test_transport_retries_provider_state_as_local_replay(monkeypatch):
         model="openai/gpt-5.4",
         messages=[{"role": "user", "content": "new"}],
         kwargs={
+            "a0_api_mode": "responses",
             "previous_response_id": "resp_1",
             "responses_input_items": [{"role": "user", "content": "new"}],
             "responses_local_input_items": [{"role": "user", "content": "full"}],
@@ -227,7 +561,10 @@ async def test_transport_downgrades_unsupported_builtin_tools(monkeypatch):
     transport = litellm_transport.LiteLLMTransport(
         model="openai/gpt-5.4",
         messages=[{"role": "user", "content": "new"}],
-        kwargs={"responses_builtin_tools": [{"type": "web_search"}]},
+        kwargs={
+            "a0_api_mode": "responses",
+            "responses_builtin_tools": [{"type": "web_search"}],
+        },
     )
 
     parsed = await transport.acomplete()
@@ -242,14 +579,19 @@ async def test_transport_downgrades_unsupported_builtin_tools(monkeypatch):
     next_transport = litellm_transport.LiteLLMTransport(
         model="openai/gpt-5.4",
         messages=[{"role": "user", "content": "again"}],
-        kwargs={"responses_builtin_tools": [{"type": "web_search"}]},
+        kwargs={
+            "a0_api_mode": "responses",
+            "responses_builtin_tools": [{"type": "web_search"}],
+        },
     )
     request = next_transport._responses_request(stream=False)
     assert "tools" not in request
 
 
 @pytest.mark.asyncio
-async def test_unified_turn_captures_response_id_without_stop_request(monkeypatch):
+async def test_unified_turn_keeps_streamed_call_when_completion_omits_output(
+    monkeypatch,
+):
     stream = _AsyncEventStream(
         [
             {
@@ -274,15 +616,7 @@ async def test_unified_turn_captures_response_id_without_stop_request(monkeypatc
                 "type": "response.completed",
                 "response": {
                     "id": "resp_1",
-                    "output": [
-                        {
-                            "type": "function_call",
-                            "id": "fc_1",
-                            "call_id": "call_1",
-                            "name": "lookup",
-                            "arguments": '{"q":"a0"}',
-                        }
-                    ],
+                    "output": [],
                 },
             },
         ]
@@ -301,6 +635,7 @@ async def test_unified_turn_captures_response_id_without_stop_request(monkeypatc
         model="test-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -315,6 +650,7 @@ async def test_unified_turn_captures_response_id_without_stop_request(monkeypatc
     assert stream.closed is False
     assert result.response_id == "resp_1"
     assert result.function_calls[0].call_id == "call_1"
+    assert result.function_calls[0].arguments == {"q": "a0"}
 
 
 @pytest.mark.asyncio
@@ -367,6 +703,7 @@ async def test_unified_turn_waits_for_completed_native_responses_calls(monkeypat
                     "id": "resp_parallel",
                     "output": calls,
                     "usage": {"input_tokens": 10, "output_tokens": 5},
+                    "_hidden_params": {"response_cost": 0.0012},
                 },
             },
         ]
@@ -385,6 +722,7 @@ async def test_unified_turn_waits_for_completed_native_responses_calls(monkeypat
         model="test-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -399,7 +737,11 @@ async def test_unified_turn_waits_for_completed_native_responses_calls(monkeypat
     assert stream.closed is False
     assert result.mode == "responses"
     assert result.response_id == "resp_parallel"
-    assert result.usage == {"input_tokens": 10, "output_tokens": 5}
+    assert result.usage == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "cost": 0.0012,
+    }
     assert [call.name for call in result.function_calls] == ["lookup", "summarize"]
     assert json.loads(result.response) == {
         "tool_name": "parallel_tool_calls",
@@ -432,6 +774,45 @@ def test_collect_response_ids_from_agent_state_and_history_metadata():
         "resp_old",
         "resp_history",
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("api_mode, builds_tools", [("chat", False), ("responses", True)])
+async def test_agent_builds_native_tools_only_for_responses_turns(
+    monkeypatch, api_mode, builds_tools
+):
+    import agent as agent_module
+
+    tools = [{"type": "function", "name": "lookup", "parameters": {"type": "object"}}]
+    calls = []
+    monkeypatch.setattr(
+        agent_module,
+        "build_responses_function_tools",
+        lambda agent: calls.append(agent) or (tools, {"lookup": "lookup"}),
+    )
+
+    async def no_extensions(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(extension, "call_extensions_async", no_extensions)
+    turn_kwargs = {}
+
+    class Model:
+        kwargs = {"a0_api_mode": api_mode}
+
+        async def unified_turn(self, **kwargs):
+            turn_kwargs.update(kwargs)
+            return LLMResult.from_chat(response="ok")
+
+    agent = object.__new__(Agent)
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.get_chat_model = lambda: Model()
+
+    await Agent.call_chat_model_turn(agent, messages=[HumanMessage(content="hi")])
+
+    assert bool(calls) is builds_tools
+    assert turn_kwargs["a0_responses_function_tools"] == (tools if builds_tools else [])
 
 
 @pytest.mark.asyncio

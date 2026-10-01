@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,7 @@ from plugins._a0_connector.helpers import ws_runtime
 PROMPT_ROOT = PROJECT_ROOT / "plugins" / "_a0_connector" / "prompts"
 REMOTE_PROMPT_FILES = {
     "code_execution_remote": "agent.system.tool.code_execution_remote.md",
+    "input_remote": "agent.system.tool.input_remote.md",
     "computer_use_remote": "agent.system.tool.computer_use_remote.md",
     "text_editor_remote": "agent.system.tool.text_editor_remote.md",
 }
@@ -64,6 +66,15 @@ def _load_gate_class():
 
 
 IncludeRemoteToolStubs = _load_gate_class()
+
+
+@pytest.fixture(autouse=True)
+def isolate_tool_policy(monkeypatch):
+    monkeypatch.setitem(
+        IncludeRemoteToolStubs.execute.__globals__,
+        "resolve_tool",
+        lambda _agent, _name: SimpleNamespace(allowed=True),
+    )
 
 
 class FakeContext:
@@ -165,6 +176,21 @@ def test_remote_tool_gate_requires_f4_enabled_remote_exec_metadata():
         ws_runtime.unregister_sid(sid)
 
     assert '"tool_name": "code_execution_remote"' in prompt
+    assert '"tool_name": "input_remote"' in prompt
+
+
+def test_remote_input_prompt_obeys_its_tool_policy(monkeypatch):
+    context_id, sid = _context_id(), _sid()
+    ws_runtime.register_sid(sid)
+    ws_runtime.store_sid_remote_exec_metadata(sid, {"enabled": True})
+    monkeypatch.setitem(IncludeRemoteToolStubs.execute.__globals__, "resolve_tool",
+                        lambda _agent, name: SimpleNamespace(allowed=name != "input_remote"))
+    try:
+        prompt = _apply_gate(context_id)
+        _assert_remote_tool_absent(prompt, "input_remote")
+        assert '"tool_name": "code_execution_remote"' in prompt
+    finally:
+        ws_runtime.unregister_sid(sid)
 
 
 def test_remote_tool_gate_requires_enabled_computer_use_metadata():
@@ -610,6 +636,10 @@ def test_remote_tool_stubs_are_self_contained_and_reference_per_tool_skills():
     assert "load and follow skill `host-computer-use`" in computer_stub
     assert "host-computer-use-macos" in computer_stub
     assert "host-computer-use-windows" in computer_stub
+    assert "top-level index" in computer_stub
+    assert "- `mode`:" not in computer_stub
+    assert "Use `input_remote` to answer interactive terminal prompts" in exec_stub
+    assert "With `app-scoped-semantic-targeting`" in macos_computer_skill
     assert "ax_snapshot" not in computer_stub
     assert "ax_action" not in computer_stub
     assert "uia_snapshot" not in computer_stub
@@ -660,12 +690,17 @@ def test_host_browser_requests_route_to_browser_tool_not_desktop_or_shell_fallba
         / "SKILL.md"
     ).read_text(encoding="utf-8")
 
-    assert 'When the user asks for "my browser"' in browser_prompt
-    assert "Do not substitute `computer_use_remote`" in browser_prompt
-    assert "code_execution_remote" in browser_prompt
-    assert "Python `webbrowser.open`" in browser_prompt
-    assert "chrome://inspect/#remote-debugging" in browser_prompt
-    assert "opera://inspect/#remote-debugging" in browser_prompt
+    browser_skill = (
+        PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "computer_use_remote" not in browser_prompt
+    assert "code_execution_remote" not in browser_prompt
+    assert 'When the user asks for "my browser"' in browser_skill
+    assert "Do not substitute `computer_use_remote`" in browser_skill
+    assert "code_execution_remote" in browser_skill
+    assert "Python `webbrowser.open`" in browser_skill
+    assert "chrome://inspect/#remote-debugging" in browser_skill
+    assert "opera://inspect/#remote-debugging" in browser_skill
     assert "Do not start `computer_use_remote` for web-page navigation" in computer_skill
     assert (
         "Do not fall back to `code_execution_remote`, `xdg-open`, `sensible-browser`, "
@@ -702,12 +737,53 @@ def test_host_computer_use_does_not_fall_back_to_linux_desktop_skill():
     assert "Do not substitute the `linux-desktop` skill" in computer_stub
     assert "Never switch to `linux-desktop`" in host_skill
     assert "Those paths only see the internal Agent Zero runtime" in host_skill
-    assert "built-in Docker/Xpra Linux Desktop" in linux_frontmatter["description"]
-    assert "Not for A0 CLI /computer-use" in linux_frontmatter["description"]
-    assert "A0 CLI /computer-use" in linux_frontmatter["description"]
+    assert "Docker/Xpra" in linux_frontmatter["description"]
+    assert "not the user's host computer" in linux_frontmatter["description"]
     assert "host-computer-use" in linux_skill
     assert "computer_use_remote" in linux_skill
     assert "`desktopctl.sh` only targets the internal Agent Zero Xpra display" in linux_skill
     assert "use the OS" not in linux_frontmatter["triggers"]
     assert "terminal app" not in linux_frontmatter["triggers"]
     assert any("Xpra" in trigger for trigger in linux_frontmatter["triggers"])
+
+
+def test_connector_skill_root_follows_connection_without_mutating_cached_paths(monkeypatch):
+    from agent import Agent
+    from helpers import skills, subagents
+
+    agent = object.__new__(Agent)
+    agent.context = FakeContext(_context_id())
+    agent.config = SimpleNamespace(profile="default")
+    connector = PROJECT_ROOT / "plugins" / "_a0_connector"
+    roots = [str(connector / "skills"), str(PROJECT_ROOT / "skills")]
+
+    def get_paths(_agent, *parts, **kwargs):
+        if parts == ("skills",):
+            return roots
+        return [str(connector.joinpath(*parts))]
+
+    monkeypatch.setattr(subagents, "get_paths", get_paths)
+    monkeypatch.setattr(skills, "get_hidden_skills", lambda agent: [])
+    monkeypatch.setattr(skills, "get_visibility_policy", lambda agent: {"mode": "inherit"})
+    remote_names = {path.parent.name for path in (connector / "skills").glob("*/SKILL.md")}
+    sid = _sid()
+    try:
+        for state in ("offline", "webui_only", "cli_disabled", "cli_enabled", "disconnected"):
+            if state == "webui_only":
+                ws_runtime.register_sid(sid)
+            elif state.startswith("cli_"):
+                ws_runtime.store_sid_remote_file_metadata(sid, {"enabled": state == "cli_enabled"})
+            elif state == "disconnected":
+                ws_runtime.unregister_sid(sid)
+
+            connected = state.startswith("cli_")
+            names = {skill.name for skill in skills.list_skills(agent)}
+            assert "setup-a0-cli" in names
+            assert (remote_names <= names) if connected else names.isdisjoint(remote_names)
+            assert bool(skills.find_skill("host-file-editing", agent)) == connected
+            matches = {skill.name for skill in skills.search_skills("host", agent=agent)}
+            assert ("host-file-editing" in matches) == connected
+            assert len(roots) == 2
+        assert str(connector / "skills") in skills.get_skill_roots()
+    finally:
+        ws_runtime.unregister_sid(sid)

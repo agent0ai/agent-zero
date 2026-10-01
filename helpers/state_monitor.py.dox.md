@@ -17,9 +17,9 @@
   - `register_sid(self, namespace: str, sid: str) -> None`
   - `unregister_sid(self, namespace: str, sid: str) -> None`
   - `mark_dirty_all(self, reason: str | None=...) -> None`
-  - `mark_dirty_for_context(self, context_id: str, reason: str | None=...) -> None`
+  - `mark_dirty_for_context(self, context_id: str, reason: str | None=..., include_collections: bool=...) -> None`
   - `update_projection(self, namespace: str, sid: str, request: StateRequestV1, seq_base: int) -> None`
-  - `mark_dirty(self, namespace: str, sid: str, reason: str | None=..., wave_id: str | None=...) -> None`
+  - `mark_dirty(self, namespace: str, sid: str, reason: str | None=..., wave_id: str | None=..., include_collections: bool=...) -> None`
 - Top-level functions:
 - `get_state_monitor() -> StateMonitor`
 - `_reset_state_monitor_for_testing() -> None`
@@ -35,6 +35,8 @@
 ## Key Concepts
 
 - Important called helpers/classes observed in the source: `threading.RLock`, `field`, `ws_debug`, `_ws_debug_enabled`, `context_id.strip`, `loop.call_soon_threadsafe`, `self._schedule_debounce_on_loop`, `asyncio.get_running_loop`, `asyncio.current_task`, `loop.is_closed`, `self._debounce_handles.pop`, `self._push_tasks.pop`, `self._projections.pop`, `self.mark_dirty`, `self._mark_dirty_on_loop`, `runtime.is_development`, `loop.call_later`, `StateMonitor`, `ConnectionProjection`, `handle.cancel`.
+- The default monitor coalesces dirty waves into at most one state push per 100 ms per connection without postponing an already scheduled push.
+- Collection-dirty versions are coalesced independently from ordinary stream dirties. Only clients that explicitly negotiate `collections_delta` may receive `contexts: null` and `tasks: null`; legacy clients remain on full snapshots.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

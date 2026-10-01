@@ -1,0 +1,246 @@
+<script type="module">
+  import { store } from "/plugins/_context_window/webui/context-window-store.js";
+</script>
+
+<div x-data>
+  <template x-if="$store.contextWindow && $store.preferences.isUiControlVisible('contextWindowUsage')">
+    <div class="context-window-anchor"
+         x-create="$store.contextWindow.onMount($watch)"
+         x-destroy="$store.contextWindow.cleanup()"
+         @click.outside="$store.contextWindow.open = false"
+         @keydown.escape.window="$store.contextWindow.open = false">
+      <button type="button"
+              class="context-window-button"
+              data-overflow-icon
+              data-overflow-label="Context window"
+              :aria-expanded="$store.contextWindow.open"
+              :aria-label="$store.contextWindow.usage.ariaLabel"
+              @click="$store.contextWindow.toggle()">
+        <svg viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="context-window-ring-track" cx="18" cy="18" r="15.5"></circle>
+          <circle class="context-window-ring-value" cx="18" cy="18" r="15.5" pathLength="100"
+                  :stroke-dasharray="$store.contextWindow.usage.ringDasharray"></circle>
+        </svg>
+        <span x-text="$store.contextWindow.usage.ringLabel"></span>
+      </button>
+
+      <div class="context-window-popover"
+           x-show="$store.contextWindow.open"
+           x-transition.opacity
+           style="display: none;"
+           role="dialog"
+           aria-label="Context window usage">
+        <div class="context-window-header">
+          <strong>Context window</strong>
+          <div class="context-window-summary">
+            <span class="context-window-summary-tokens" x-text="$store.contextWindow.usage.summaryTokens"></span>
+            <span class="context-window-summary-percent" x-text="$store.contextWindow.usage.summaryPercent"></span>
+          </div>
+        </div>
+        <div class="context-window-meter" aria-hidden="true">
+          <span :style="$store.contextWindow.usage.meterStyle"></span>
+        </div>
+        <template x-if="$store.contextWindow.usage.hasBreakdown">
+          <div class="context-window-rows">
+            <template x-for="row in $store.contextWindow.usage.rows" :key="row.key">
+              <div class="context-window-row">
+                <span x-text="row.label"></span>
+                <span class="context-window-value context-window-tokens" x-text="row.tokensLabel"></span>
+                <span class="context-window-value" x-text="row.percentLabel"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="$store.contextWindow.usage.missingBreakdown">
+          <div class="context-window-empty">Breakdown available after the next message.</div>
+        </template>
+        <template x-if="$store.contextWindow.usage.provider.hasData">
+          <div class="context-window-provider">
+            <template x-if="$store.contextWindow.usage.provider.price.hasData">
+              <div class="context-window-provider-row context-window-provider-price">
+                <span>Price</span>
+                <span class="context-window-value" x-text="$store.contextWindow.usage.provider.price.label"></span>
+              </div>
+            </template>
+            <template x-if="$store.contextWindow.usage.provider.cache.hasData">
+              <div class="context-window-provider-row">
+                <span>Cache hit</span>
+                <span class="context-window-value" x-text="$store.contextWindow.usage.provider.cache.label"></span>
+              </div>
+            </template>
+            <template x-if="$store.contextWindow.usage.provider.tokens">
+              <div class="context-window-provider-row">
+                <span>Tokens In/Out</span>
+                <span class="context-window-value" x-text="$store.contextWindow.usage.provider.tokens"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+
+<style>
+  .model-context-strip:has(.context-window-anchor) {
+    min-width: min(19rem, 100%);
+  }
+  .context-window-anchor {
+    position: static;
+    display: flex;
+    align-items: center;
+  }
+  .context-window-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    opacity: .82;
+  }
+  .context-window-button:hover {
+    background: var(--color-background-hover);
+    opacity: 1;
+  }
+  .context-window-button svg {
+    position: absolute;
+    inset: 2px;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    transform: rotate(-90deg);
+    fill: none;
+    stroke-width: 3;
+  }
+  .context-window-ring-track {
+    stroke: color-mix(in srgb, var(--color-text) 18%, transparent);
+  }
+  .context-window-ring-value {
+    stroke: var(--color-highlight);
+    stroke-linecap: round;
+    transition: stroke-dasharray .18s ease;
+  }
+  .context-window-button > span {
+    position: relative;
+    z-index: 1;
+    font-family: var(--font-family-main);
+    font-size: .42rem;
+    font-weight: 600;
+    letter-spacing: -.03em;
+  }
+  .context-window-popover {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 6px);
+    z-index: 1050;
+    width: min(19rem, calc(100vw - 2rem));
+    padding: .9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background-color: color-mix(in srgb, var(--color-panel) 90%, black 10%);
+    box-shadow: 0 16px 38px rgba(0, 0, 0, .3);
+  }
+  .context-window-header,
+  .context-window-row,
+  .context-window-provider-row {
+    display: grid;
+    align-items: center;
+  }
+  .context-window-header {
+    gap: .4rem;
+    font-size: .86rem;
+  }
+  .context-window-summary,
+  .context-window-value {
+    font-family: var(--font-family-main);
+    font-variant-numeric: tabular-nums;
+  }
+  .context-window-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+    color: color-mix(in srgb, var(--color-text) 72%, transparent);
+    font-size: .76rem;
+  }
+  .context-window-summary-percent {
+    color: var(--color-text);
+  }
+  .context-window-summary-tokens,
+  .context-window-tokens {
+    font-family: var(--font-family-code);
+  }
+  .context-window-provider {
+    margin-top: .7rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .context-window-provider-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .75rem;
+    min-height: 1.35rem;
+    color: color-mix(in srgb, var(--color-text) 72%, transparent);
+    font-size: .76rem;
+  }
+  .context-window-provider-price {
+    margin-bottom: .25rem;
+    color: var(--color-text);
+    font-size: .82rem;
+  }
+  .context-window-provider-price .context-window-value {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .context-window-meter {
+    height: .45rem;
+    margin: .4rem 0 .75rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-text) 9%, transparent);
+  }
+  .context-window-meter > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-highlight);
+    transition: width .18s ease;
+  }
+  .context-window-rows {
+    display: grid;
+    gap: .3rem;
+  }
+  .context-window-empty {
+    padding: .35rem 0 .15rem;
+    color: color-mix(in srgb, var(--color-text) 62%, transparent);
+    font-size: .8rem;
+  }
+  .context-window-row {
+    grid-template-columns: minmax(0, 1fr) auto 3rem;
+    gap: .5rem;
+    min-height: 1.5rem;
+    color: color-mix(in srgb, var(--color-text) 78%, transparent);
+    font-size: .8rem;
+  }
+  .context-window-value {
+    color: var(--color-text);
+    text-align: right;
+  }
+  .context-window-tokens {
+    color: color-mix(in srgb, var(--color-text) 62%, transparent);
+  }
+  @media (max-width: 25rem) {
+    .context-window-popover {
+      right: 0;
+      width: min(17rem, calc(100vw - 3rem));
+    }
+  }
+  .light-mode .context-window-popover {
+    background: var(--color-panel);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+  }
+</style>

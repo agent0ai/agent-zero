@@ -57,6 +57,7 @@ function assert(condition, message) {{
 
 function reset(contexts, selected) {{
   model.contexts = contexts.map((context) => ({{ ...context }}));
+  model.contextsJson = "";
   model.selected = selected;
   model.selectedContext = model.contexts.find((context) => context.id === selected);
   model.deletedContextIds = {{}};
@@ -68,6 +69,61 @@ const chats = [
   {{ id: "b", created_at: 20 }},
   {{ id: "c", created_at: 10 }},
 ];
+
+reset(chats, "");
+model.applyContexts(chats);
+const unchangedContexts = model.contexts;
+model.applyContexts(chats.map((context) => ({{ ...context }})));
+assert(
+  model.contexts === unchangedContexts,
+  "unchanged snapshots must preserve the Alpine contexts array",
+);
+const unchangedFirstRow = model.contexts[0];
+model.applyContexts([{{ ...chats[0], name: "Renamed" }}, ...chats.slice(1)]);
+assert(
+  model.contexts === unchangedContexts &&
+    model.contexts[0] === unchangedFirstRow &&
+    model.contexts[0].name === "Renamed",
+  "changed context metadata must update its existing row in place",
+);
+model.applyContexts([...chats, {{ id: "d", created_at: 40 }}]);
+assert(
+  model.contexts !== unchangedContexts && model.contexts[0].id === "d",
+  "structural context changes must replace and reorder the contexts array",
+);
+
+const tree = [
+  {{ id: "parent", created_at: 20 }},
+  {{ id: "child", parent_context_id: "parent", created_at: 10 }},
+  {{ id: "grandchild", parent_context_id: "child", created_at: 5 }},
+  {{ id: "greatgrandchild", parent_context_id: "grandchild", created_at: 1 }},
+];
+reset(tree, "");
+model.applyContexts(tree);
+const unchangedTree = model.contexts;
+model.selected = "parent";
+model.expandedParents = {{}};
+model.applyContexts(tree.map((context) => ({{ ...context }})));
+assert(model.contexts === unchangedTree, "unchanged chat trees must preserve identity");
+assert(
+  model.expandedParents.parent === true,
+  "selection synchronization must still run for unchanged contexts",
+);
+model.expandedParents = {{}};
+model.setSelected("greatgrandchild");
+assert(
+  ["parent", "child", "grandchild"].every(id => model.isExpanded(id)),
+  "selecting a deep worker opens every ancestor",
+);
+model.expandedParents = {{}};
+model.applyContexts(tree);
+assert(
+  ["parent", "child", "grandchild"].every(id => model.isExpanded(id)),
+  "restoring a deep selection opens every ancestor",
+);
+const expanded = model.expandedParents;
+model.applyContexts(tree);
+assert(model.expandedParents === expanded, "unchanged expansion does not republish state");
 
 reset(chats, "b");
 globalThis.__context = "a";
@@ -174,3 +230,38 @@ assert(model.selected === "b", "rollback must not override the fallback or a lat
         check=True,
         text=True,
     )
+
+
+def test_snapshot_cannot_reconcile_another_chat_after_an_async_context_switch():
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required for the snapshot race regression.")
+    source = (PROJECT_ROOT / "webui/index.js").read_text(encoding="utf-8")
+    source = source[source.index("export async function applySnapshot("):source.index("export async function poll(")]
+    source = source.replace("export async", "async", 1)
+    import json
+
+    script = f"""
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+for (const phase of ['extension', 'messages']) {{
+  const sandbox = {{
+    context: 'old', lastLogGuid: '', lastLogVersion: 0,
+    chatsStore: {{ applyContexts() {{ assert.fail('stale sidebar reconciliation'); }} }},
+    tasksStore: {{}},
+    msgs: {{ resetMessageRenderState() {{}} }},
+    modelGateStore: {{ mergeSyntheticMessages: logs => logs }},
+    afterMessagesUpdate() {{ assert.fail('stale message completion'); }},
+  }};
+  sandbox.callJsExtensions = async () => {{ if (phase === 'extension') sandbox.context = 'new'; }};
+  sandbox.setMessages = async () => {{
+    assert.notEqual(phase, 'extension', 'stale snapshot reached message rendering');
+    sandbox.context = 'new';
+  }};
+  vm.createContext(sandbox);
+  vm.runInContext({json.dumps(source)}, sandbox);
+  const result = await sandbox.applySnapshot({{context:'old', contexts:[], tasks:[], logs:[], log_version:1, log_guid:'guid'}});
+  assert.equal(result.updated, false);
+  assert.equal(sandbox.context, 'new');
+}}
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, capture_output=True, text=True)

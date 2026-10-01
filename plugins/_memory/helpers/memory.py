@@ -337,10 +337,30 @@ class Memory:
     def get_document_by_id(self, id: str) -> Document | None:
         return self.db.get_by_ids(id)[0]
 
+    async def embed_query(self, query: str) -> list[float]:
+        return await self.db.embedding_function.aembed_query(query)
+
     async def search_similarity_threshold(
-        self, query: str, limit: int, threshold: float, filter: str = ""
+        self,
+        query: str,
+        limit: int,
+        threshold: float,
+        filter: str = "",
+        embedding: list[float] | None = None,
     ):
         comparator = Memory._get_comparator(filter) if filter else None
+
+        if embedding is not None:
+            docs_and_scores = await self.db.asimilarity_search_with_score_by_vector(
+                embedding,
+                k=limit,
+                filter=comparator,
+            )
+            return [
+                doc
+                for doc, score in docs_and_scores
+                if Memory._cosine_normalizer(score) >= threshold
+            ]
 
         return await self.db.asearch(
             query,
@@ -594,7 +614,7 @@ class Memory:
         res = max(
             0, min(1, res)
         )  # float precision can cause values like 1.0000000596046448
-        return res
+        return float(res)  # native float, not numpy scalar (JSON serializable)
 
     @staticmethod
     def format_docs_plain(docs: list[Document]) -> list[str]:

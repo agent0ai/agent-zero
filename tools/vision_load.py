@@ -1,19 +1,46 @@
-from helpers.print_style import PrintStyle
-from helpers.tool import Tool, Response
-from helpers import runtime, files, plugins, ephemeral_images, images, chat_media
 from mimetypes import guess_type
-from helpers import history
+
+from langchain_core.messages import HumanMessage
+
+from helpers import (
+    chat_media,
+    ephemeral_images,
+    files,
+    history,
+    images,
+    parallel_tools,
+    runtime,
+)
+from helpers.tool import Response, Tool
+from plugins._model_config.helpers.model_config import (
+    build_vision_model,
+    get_chat_model_config,
+    get_vision_model_config,
+)
 
 # image token estimation for context window
 TOKENS_ESTIMATE = 1500
 
 
 class VisionLoad(Tool):
-    async def execute(self, paths: list[str] = [], **kwargs) -> Response:
+    async def execute(
+        self,
+        paths: list[str] | str = [],
+        query: str = "",
+        **kwargs,
+    ) -> Response:
 
         self.images_dict = {}
         self.loaded_paths: list[str] = []
         self.skipped_paths: list[str] = []
+        self.vision_config = get_vision_model_config(self.agent)
+        if isinstance(paths, str):
+            paths = [paths]
+        if not isinstance(paths, list):
+            return Response(
+                message="vision_load error: `paths` must be a string or an array.",
+                break_loop=False,
+            )
 
         max_embeds = self._get_max_embeds()
         requested = [
@@ -62,16 +89,59 @@ class VisionLoad(Tool):
                     except (FileNotFoundError, OSError, ValueError):
                         continue
 
-        return Response(message="dummy", break_loop=False)
+        message = self._summary() if self.images_dict or self.skipped_paths else "No images processed"
+        if self.vision_config and self.images_dict:
+            try:
+                capsule = await self._call_vision_model(
+                    list(self.images_dict.values()),
+                    query,
+                )
+                message = (
+                    f"Analyzed {len(self.images_dict)} image(s)"
+                    f"; {len(self.skipped_paths)} skipped.\n\n{capsule.strip()}"
+                )
+            except Exception as exc:
+                message = f"Image analysis error: {str(exc)[:1000]}"
+        return Response(message=message, break_loop=False)
 
     def _get_max_embeds(self) -> int:
-        cfg = plugins.get_plugin_config("_model_config", agent=self.agent) or {}
-        chat_cfg = cfg.get("chat_model", {})
-        max_embeds = chat_cfg.get("max_embeds", 10)
-        return int(max_embeds or 0)
+        cfg = self.vision_config or get_chat_model_config(self.agent)
+        return int(cfg.get("max_embeds", 10) or 0)
 
     def _context_id(self) -> str:
-        return str(getattr(getattr(self.agent, "context", None), "id", "") or "").strip()
+        context = getattr(self.agent, "context", None)
+        get_data = getattr(context, "get_data", None)
+        parent_id = (
+            get_data(parallel_tools.PARALLEL_WORKER_PARENT_CONTEXT_KEY)
+            if get_data
+            else ""
+        )
+        return str(parent_id or getattr(context, "id", "") or "").strip()
+
+    async def _call_vision_model(self, image_paths: list[str], query: str) -> str:
+        user_message = getattr(self.agent, "last_user_message", None)
+        output_text = getattr(user_message, "output_text", None)
+        request = str(output_text() if callable(output_text) else "").strip()
+        content = [
+            {
+                "type": "text",
+                "text": self.agent.read_prompt(
+                    "fw.vision_load.md",
+                    request=request,
+                    query=str(query or "").strip(),
+                ),
+            }
+        ]
+        content.extend(
+            {"type": "image_url", "image_url": {"url": path}}
+            for path in image_paths
+        )
+        response, _ = await build_vision_model(self.agent).unified_call(
+            messages=[HumanMessage(content=content)],
+        )
+        if not str(response or "").strip():
+            raise RuntimeError("Vision Model returned an empty response.")
+        return str(response)
 
     def _store_ephemeral_image(self, image: ephemeral_images.EphemeralImage) -> str:
         context_id = self._context_id()
@@ -115,6 +185,16 @@ class VisionLoad(Tool):
             preferred_name=preferred_name,
         )
 
+    def _summary(self) -> str:
+        loaded = "\n".join(self.loaded_paths) if self.loaded_paths else "none"
+        summary = f"Loaded images ({len(self.loaded_paths)}):\n{loaded}"
+        if self.skipped_paths:
+            summary += (
+                f"\n\nSkipped images ({len(self.skipped_paths)}, max {self._get_max_embeds()}):\n"
+                + "\n".join(self.skipped_paths)
+            )
+        return summary
+
     @staticmethod
     def _is_data_image_url(value: str) -> bool:
         normalized = str(value or "").strip().lower()
@@ -130,52 +210,24 @@ class VisionLoad(Tool):
         return value
 
     async def after_execution(self, response: Response, **kwargs):
-
-        # build image data messages for LLMs, or error message
-        content = []
-        loaded_count = len(self.loaded_paths)
-        skipped_count = len(self.skipped_paths)
-        loaded_summary = "\n".join(self.loaded_paths) if self.loaded_paths else "none"
-        skipped_summary = "\n".join(self.skipped_paths) if self.skipped_paths else "none"
-        summary = (
-            f"Loaded images: {loaded_count}\n"
-            f"Loaded images:\n{loaded_summary}\n\n"
-            f"Skipped images: {skipped_count}\n"
-            f"Skipped images (max {self._get_max_embeds()} loaded at a time according to model configuration):\n{skipped_summary}"
-        )
-        if self.images_dict:
-            self.agent.hist_add_tool_result(self.name, summary, id=self.log.id if self.log else "")
-            for path, image_path in self.images_dict.items():
-                if image_path:
-                    content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": image_path},
-                        }
-                    )
-                else:
-                    content.append(
-                        {
-                            "type": "text",
-                            "text": "Error processing image " + path,
-                        }
-                    )
-            # append as raw message content for LLMs with vision tokens estimate
-            msg = history.RawMessage(raw_content=content, preview="<Image attachments loaded by path>")
-            self.agent.hist_add_message(
-                False, content=msg, tokens=TOKENS_ESTIMATE * len(content)
+        await super().after_execution(response, **kwargs)
+        if self.images_dict and not self.vision_config:
+            content = [
+                {"type": "image_url", "image_url": {"url": image_path}}
+                for image_path in self.images_dict.values()
+            ]
+            raw_message = history.RawMessage(
+                raw_content=content,
+                preview="<Image attachments loaded by path>",
             )
-        else:
-            self.agent.hist_add_tool_result(self.name, summary if self.skipped_paths else "No images processed", id=self.log.id if self.log else "")
-
-        # print and log short version
-        message = (
-            "No images processed"
-            if not self.images_dict and not self.skipped_paths
-            else f"{loaded_count} images loaded, {skipped_count} skipped"
-        )
-        PrintStyle(
-            font_color="#1B4F72", background_color="white", padding=True, bold=True
-        ).print(f"{self.agent.agent_name}: Response from tool '{self.name}'")
-        PrintStyle(font_color="#85C1E9").print(message)
-        self.log.update(result=message)
+            tokens = TOKENS_ESTIMATE * len(content)
+            if not parallel_tools.queue_parallel_parent_history(
+                self.agent,
+                content=raw_message,
+                tokens=tokens,
+            ):
+                self.agent.hist_add_message(
+                    False,
+                    content=raw_message,
+                    tokens=tokens,
+                )

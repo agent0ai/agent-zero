@@ -32,6 +32,7 @@ Runtime-specific fields:
 
 ## Notes
 - Reuse `session` when continuing a workflow.
+- Use `input_remote` to answer interactive terminal prompts in that session.
 - Use `output` to poll a running session and `runtime=reset` for a stuck session.
   Use `reset: true` on a new command when you need a clean session and want to
   run the replacement command immediately.

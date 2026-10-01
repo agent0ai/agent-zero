@@ -1,0 +1,8 @@
+name: _context_window
+title: Context Window
+description: Shows token usage for the active chat context window.
+version: 0.1.0
+settings_sections: []
+per_project_config: false
+per_agent_config: false
+always_enabled: true

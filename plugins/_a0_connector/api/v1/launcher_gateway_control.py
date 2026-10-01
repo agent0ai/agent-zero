@@ -5,12 +5,17 @@ import asyncio
 import uuid
 
 from helpers.api import Request, Response
-from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
+from helpers.ws_manager import (
+    ConnectionNotFoundError,
+    WsPayloadTooLargeError,
+    get_shared_ws_manager,
+)
 
 import plugins._a0_connector.api.v1.base as connector_base
 from plugins._a0_connector.helpers.ws_runtime import (
     active_launcher_gateway_sid,
     clear_pending_gateway_control,
+    emit_connector_event,
     launcher_gateway_status,
     store_pending_gateway_control,
 )
@@ -71,14 +76,16 @@ class LauncherGatewayControl(connector_base.ProtectedConnectorApiHandler):
             loop=loop,
         )
         try:
-            await get_shared_ws_manager().emit_to(
-                "/ws",
+            await emit_connector_event(
                 sid,
                 _CONTROL_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             result = await asyncio.wait_for(future, timeout=_CONTROL_TIMEOUT_SECONDS)
+        except WsPayloadTooLargeError as exc:
+            return Response(str(exc), status=413)
         except ConnectionNotFoundError:
             return Response("Launcher host gateway disconnected", status=409)
         except asyncio.TimeoutError:

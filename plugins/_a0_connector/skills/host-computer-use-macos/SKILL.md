@@ -21,6 +21,26 @@ When these features are present, prefer structural targeting over pixel clicks f
 
 If the backend also advertises `native-window-list`, `window-state`, `element-index-targeting`, or `background-dispatch`, prefer the generic background loop from `host-computer-use`: `list_windows` -> `get_window_state` -> `element_action`. If those features are absent, use the AX snapshot/action flow below.
 
+With `app-scoped-semantic-targeting`, `element_action` also accepts top-level `pid` or `window_id` to scope semantic matching, or `target.app_name` / `target.bundle_id` to select one app. Use identifiers from `list_windows`; app names and bundle IDs match exactly, ignoring case. Without this feature, use `get_window_state` and its top-level `element_index` for another app/window.
+
+For example, replace the app identifier and control title with observed values:
+
+```json
+{
+  "tool_name": "computer_use_remote",
+  "tool_args": {
+    "action": "element_action",
+    "target": {
+      "bundle_id": "com.example.editor",
+      "role": "AXButton",
+      "title": "Save"
+    },
+    "operation": "press",
+    "dispatch": "background"
+  }
+}
+```
+
 Use `ax_snapshot` to inspect the frontmost app's bounded Accessibility tree:
 
 ```json

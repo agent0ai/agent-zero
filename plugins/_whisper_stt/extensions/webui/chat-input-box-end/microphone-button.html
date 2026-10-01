@@ -89,6 +89,7 @@
       <button
         class="chat-button mic-inactive"
         id="microphone-button"
+        data-whisper-microphone
         aria-label="Start/Stop recording"
         @click="$store.whisperStt.handleMicrophoneClick()"
         x-init="$store.whisperStt.updateMicrophoneButtonUI()"

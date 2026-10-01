@@ -15,6 +15,8 @@ Adds a **Branch** button to every chat message. Clicking it clones the current c
    - Serializes the source context → deserializes into a new context with a fresh ID.
    - Walks log entries: keeps everything up to the selected `log_no`, discards the rest.
    - Collects the IDs of kept entries and uses them to trim `history.messages` so log and history stay consistent.
+   - Detaches inherited provider-response state and clears the cached Context
+     Window so the branch rebuilds both from its trimmed history.
 
 3. **Persist & refresh**
    - Saves the branched chat immediately.

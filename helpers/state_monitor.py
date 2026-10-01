@@ -32,6 +32,7 @@ class ConnectionProjection:
     # pushes indefinitely during continuous activity (throttled coalescing).
     dirty_version: int = 0
     pushed_version: int = 0
+    collections_dirty_version: int = 0
     # Development-only diagnostics - last known cause of the most recent dirty wave.
     dirty_reason: str | None = None
     dirty_wave_id: str | None = None
@@ -41,7 +42,7 @@ class ConnectionProjection:
 class StateMonitor:
     """Per-sid dirty tracking with debounced snapshot push scheduling."""
 
-    def __init__(self, debounce_seconds: float = 0.025) -> None:
+    def __init__(self, debounce_seconds: float = 0.1) -> None:
         self.debounce_seconds = float(debounce_seconds)
         self._lock = threading.RLock()
         self._projections: dict[ConnectionIdentity, ConnectionProjection] = {}
@@ -95,7 +96,13 @@ class StateMonitor:
         for namespace, sid in identities:
             self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
 
-    def mark_dirty_for_context(self, context_id: str, *, reason: str | None = None) -> None:
+    def mark_dirty_for_context(
+        self,
+        context_id: str,
+        *,
+        reason: str | None = None,
+        include_collections: bool = True,
+    ) -> None:
         if not isinstance(context_id, str) or not context_id.strip():
             return
         target = context_id.strip()
@@ -111,7 +118,13 @@ class StateMonitor:
                 if projection.request is not None and projection.request.context == target
             ]
         for namespace, sid in identities:
-            self.mark_dirty(namespace, sid, reason=reason, wave_id=wave_id)
+            self.mark_dirty(
+                namespace,
+                sid,
+                reason=reason,
+                wave_id=wave_id,
+                include_collections=include_collections,
+            )
 
     def update_projection(
         self,
@@ -142,6 +155,7 @@ class StateMonitor:
         *,
         reason: str | None = None,
         wave_id: str | None = None,
+        include_collections: bool = True,
     ) -> None:
         identity: ConnectionIdentity = (namespace, sid)
         loop = self._dispatcher_loop
@@ -157,22 +171,36 @@ class StateMonitor:
             running_loop = None
 
         if running_loop is loop:
-            self._mark_dirty_on_loop(identity, reason=reason, wave_id=wave_id)
+            self._mark_dirty_on_loop(
+                identity,
+                reason=reason,
+                wave_id=wave_id,
+                include_collections=include_collections,
+            )
             return
 
-        loop.call_soon_threadsafe(self._mark_dirty_on_loop, identity, reason, wave_id)
+        loop.call_soon_threadsafe(
+            self._mark_dirty_on_loop,
+            identity,
+            reason,
+            wave_id,
+            include_collections,
+        )
 
     def _mark_dirty_on_loop(
         self,
         identity: ConnectionIdentity,
         reason: str | None = None,
         wave_id: str | None = None,
+        include_collections: bool = True,
     ) -> None:
         with self._lock:
             projection = self._projections.get(identity)
             if projection is None:
                 return
             projection.dirty_version += 1
+            if include_collections:
+                projection.collections_dirty_version = projection.dirty_version
             if runtime.is_development():
                 projection.dirty_reason = (
                     reason.strip()
@@ -228,6 +256,7 @@ class StateMonitor:
         namespace, sid = identity
         task = asyncio.current_task()
         base_version = 0
+        include_collections = True
         dirty_reason: str | None = None
         dirty_wave_id: str | None = None
         try:
@@ -250,10 +279,17 @@ class StateMonitor:
                 if request is None:
                     return
                 base_version = projection.dirty_version
+                include_collections = (
+                    not request.collections_delta
+                    or projection.collections_dirty_version > projection.pushed_version
+                )
                 dirty_reason = projection.dirty_reason
                 dirty_wave_id = projection.dirty_wave_id
 
-            snapshot = await build_snapshot_from_request(request=request)
+            snapshot = await build_snapshot_from_request(
+                request=request,
+                include_collections=include_collections,
+            )
 
             with self._lock:
                 projection = self._projections.get(identity)
@@ -288,6 +324,7 @@ class StateMonitor:
                 ws_debug(
                     f"[StateMonitor] emit state_push namespace={namespace} sid={sid} seq={seq} "
                     f"context={request.context!r} logs_len={logs_len} "
+                    f"include_collections={include_collections} "
                     f"reason={dirty_reason!r} wave={dirty_wave_id!r}"
                 )
                 await manager.emit_to(

@@ -41,6 +41,7 @@
 - `load_project_mcp_servers(name: str) -> str`
 - `save_project_mcp_servers(name: str, mcp_servers: str)`
 - `get_active_projects_list()`
+- `get_file_structure(name: str, basic_data: BasicProjectData|None=None, output_mode: str = file_tree.OUTPUT_MODE_STRING) -> str`
 - `_get_projects_list(parent_dir)`
 - `reconcile_agent_profile(context: AgentContext, project_name: str | None) -> bool`
 - `reconcile_agent_profiles(project_name: str | None, *, all_scopes: bool=...) -> None`
@@ -65,6 +66,7 @@
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
+- `get_file_structure(...)` delegates rendering to `helpers.file_tree.file_tree`; the default `OUTPUT_MODE_STRING` keeps user-facing surfaces (project structure API) box-drawn, while the workdir EXTRAS extension passes `OUTPUT_MODE_INDENT` for the token-compact agent-facing tree.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Per-project MCP server configuration is persisted as `.a0proj/mcp_servers.json`, exposed through `load_edit_project_data(...)`, and saved during project create/clone/update flows.
 - Additional project-edit payload sections are delegated through extensible `load_project_extended_data(...)` and `save_project_extended_data(...)`; the project helper must stay storage-agnostic and plugin-specific config rules belong to the owning plugin.

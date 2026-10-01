@@ -9,12 +9,12 @@ from typing import Any
 from helpers import chat_media, history, media_artifacts
 from helpers.print_style import PrintStyle
 from helpers.tool import Response, Tool
-from helpers.ws import NAMESPACE
 from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_computer_use_op,
     computer_use_metadata_for_sid,
+    emit_connector_event,
     select_computer_use_target_sid,
     store_pending_computer_use_op,
 )
@@ -203,12 +203,12 @@ class ComputerUseRemote(Tool):
         )
 
         try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
+            await emit_connector_event(
                 sid,
                 COMPUTER_USE_OP_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             result = await asyncio.wait_for(future, timeout=COMPUTER_USE_OP_TIMEOUT)
         finally:

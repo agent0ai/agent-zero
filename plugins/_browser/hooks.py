@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import importlib
+import importlib.metadata
+import importlib.util
 import shutil
+import subprocess
+import sys
+import threading
 from pathlib import Path
 
 from helpers import files, plugins, yaml as yaml_helper
@@ -10,11 +16,17 @@ from plugins._browser.helpers.config import (
     normalize_browser_config,
 )
 from plugins._browser.helpers.playwright import (
+    ensure_playwright_binary,
     find_playwright_binary,
     get_playwright_cache_dir,
     get_retired_playwright_cache_dirs,
 )
 from plugins._browser.helpers.runtime import close_all_runtimes_sync
+
+
+_SETUP_LOCK = threading.Lock()
+_PLUGIN_DIR = Path(__file__).resolve().parent
+_ROOT_REQUIREMENTS_FILE = _PLUGIN_DIR.parents[1] / "requirements.txt"
 
 
 def _load_saved_browser_config(project_name: str = "", agent_profile: str = "") -> dict:
@@ -93,6 +105,71 @@ def cleanup_playwright_cache() -> dict:
         _remove_cache_dirs([backup], result)
     _remove_cache_dirs(retired_dirs, result)
     return result
+
+
+def prepare_playwright_cache() -> dict:
+    with _SETUP_LOCK:
+        _ensure_patchright_dependency()
+        result = cleanup_playwright_cache()
+        if result["errors"]:
+            return result
+        result["binary"] = str(ensure_playwright_binary())
+        return result
+
+
+def install() -> dict:
+    with _SETUP_LOCK:
+        if importlib.util.find_spec("socksio") is None:
+            uv = shutil.which("uv")
+            if not uv:
+                raise RuntimeError("Browser plugin requires 'uv' to install HTTPX SOCKS support")
+            subprocess.check_call(
+                [uv, "pip", "install", "--python", sys.executable, "httpx[socks]"],
+                cwd=str(_PLUGIN_DIR),
+            )
+            importlib.invalidate_caches()
+            if importlib.util.find_spec("socksio") is None:
+                raise RuntimeError("Browser dependency 'socksio' is unavailable after installation")
+    return prepare_playwright_cache()
+
+
+def _ensure_patchright_dependency() -> None:
+    requirement = _patchright_requirement()
+    if _patchright_is_current(requirement):
+        return
+
+    uv = shutil.which("uv")
+    if not uv:
+        raise RuntimeError("Browser plugin requires 'uv' to install Patchright automatically")
+
+    subprocess.check_call(
+        [uv, "pip", "install", "--python", sys.executable, requirement],
+        cwd=str(_PLUGIN_DIR),
+    )
+    importlib.invalidate_caches()
+    if not _patchright_is_current(requirement):
+        raise RuntimeError(
+            f"Browser dependency {requirement!r} is unavailable after installation"
+        )
+
+
+def _patchright_requirement() -> str:
+    if _ROOT_REQUIREMENTS_FILE.is_file():
+        for line in _ROOT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines():
+            requirement = line.strip()
+            if requirement.startswith("patchright=="):
+                return requirement
+    raise RuntimeError(f"Browser Patchright requirement not found in {_ROOT_REQUIREMENTS_FILE}")
+
+
+def _patchright_is_current(requirement: str) -> bool:
+    expected_version = requirement.partition("==")[2]
+    if not expected_version or importlib.util.find_spec("patchright") is None:
+        return False
+    try:
+        return importlib.metadata.version("patchright") == expected_version
+    except importlib.metadata.PackageNotFoundError:
+        return False
 
 
 def _best_playwright_cache(candidates: list[Path]) -> Path | None:

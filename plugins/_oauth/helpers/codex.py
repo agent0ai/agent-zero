@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import errno
 import hashlib
+import http.cookiejar
 import json
 import os
 import secrets
@@ -66,6 +67,9 @@ USAGE_ENDPOINT_PATHS = (
     "/api/codex/usage",
 )
 _AUTH_THREAD_LOCK = threading.RLock()
+# keep-alive pool for upstream calls; cookies are not persisted, so requests keep their explicit shape
+_UPSTREAM_SESSION = requests.Session()
+_UPSTREAM_SESSION.cookies.set_policy(http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
 
 
 @dataclass(frozen=True)
@@ -603,7 +607,7 @@ def request_codex(
     if client_version:
         request_headers["version"] = client_version
 
-    return requests.request(
+    return _UPSTREAM_SESSION.request(
         method,
         target,
         headers=request_headers,
@@ -670,6 +674,25 @@ def fetch_models() -> list[str]:
 def prepare_responses_body(body: dict[str, Any], *, force_stream: bool) -> dict[str, Any]:
     normalized = dict(body)
     settings = codex_config()
+    tools = normalized.get("tools")
+    if isinstance(tools, list):
+        normalized["tools"] = [
+            {
+                **tool,
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+            }
+            if isinstance(tool, dict)
+            and tool.get("type") == "function"
+            and tool.get("name") == "response"
+            else tool
+            for tool in tools
+        ]
     reasoning_effort = normalized.pop("reasoning_effort", None)
     reasoning = normalized.get("reasoning")
     if isinstance(reasoning, dict):
@@ -710,7 +733,11 @@ def prepare_responses_body(body: dict[str, Any], *, force_stream: bool) -> dict[
         normalized["input"] = []
     normalized.setdefault("instructions", "")
     normalized.setdefault("store", False)
-    normalized["client_metadata"] = merge_client_metadata(normalized.get("client_metadata"))
+    metadata = normalized.get("client_metadata")
+    if isinstance(metadata, dict) and (session_id := _string(metadata.get("session_id"))):
+        cache_key = session_id if len(session_id) <= 64 else hashlib.sha256(session_id.encode()).hexdigest()
+        normalized.setdefault("prompt_cache_key", cache_key)
+    normalized["client_metadata"] = merge_client_metadata(metadata)
     if force_stream:
         normalized["stream"] = True
     if isinstance(normalized.get("reasoning"), dict):
@@ -739,7 +766,11 @@ def merge_client_metadata(value: Any) -> dict[str, str]:
         for key, item in (value.items() if isinstance(value, dict) else [])
         if item is not None and str(item)
     }
-    metadata.update(build_client_metadata())
+    defaults = build_client_metadata()
+    for key in ("session_id", "thread_id"):
+        if key in metadata:
+            defaults[key] = metadata[key]
+    metadata.update(defaults)
     return metadata
 
 
@@ -775,6 +806,7 @@ def collect_completed_response(response: requests.Response) -> dict[str, Any]:
     latest_error: Any = None
     text_pieces: list[str] = []
     latest_usage: dict[str, Any] | None = None
+    completed_items: dict[int, dict[str, Any]] = {}
     for event in iter_sse_events(response):
         data = event.get("data")
         if not data:
@@ -789,12 +821,27 @@ def collect_completed_response(response: requests.Response) -> dict[str, Any]:
             latest_error = parsed
             continue
         text_pieces.extend(extract_sse_text_deltas(parsed, event.get("event", "")))
+        if (parsed.get("type") or event.get("event")) == "response.output_item.done":
+            output_index = parsed.get("output_index")
+            item = parsed.get("item")
+            if isinstance(output_index, int) and isinstance(item, dict):
+                completed_items[output_index] = item
         usage = parsed.get("usage")
         if isinstance(usage, dict):
             latest_usage = usage
         candidate = parsed.get("response")
         if isinstance(candidate, dict):
             latest_response = candidate
+
+    if (
+        latest_response is not None
+        and completed_items
+        and not latest_response.get("output")
+    ):
+        latest_response = dict(latest_response)
+        latest_response["output"] = [
+            completed_items[index] for index in sorted(completed_items)
+        ]
 
     if text_pieces:
         text = "".join(text_pieces)
@@ -921,6 +968,9 @@ def chat_messages_to_response_body(body: dict[str, Any]) -> dict[str, Any]:
         "instructions": "\n\n".join(instructions),
         "store": False,
     }
+    for key in ("client_metadata", "prompt_cache_key"):
+        if key in body:
+            response_body[key] = body[key]
     if body.get("temperature") is not None:
         response_body["temperature"] = body["temperature"]
     if body.get("top_p") is not None:

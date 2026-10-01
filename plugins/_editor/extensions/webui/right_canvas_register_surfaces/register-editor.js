@@ -36,7 +36,8 @@ export default async function registerEditorSurface(surfaces) {
       await editorStore.onOpen?.(payload);
     },
     async close() {
-      await editorStore.cleanup?.();
+      const panel = document.querySelector('.editor-canvas-surface .editor-panel');
+      if (panel) await editorStore.cleanup?.(panel);
     },
   });
 }

@@ -17,6 +17,7 @@ import { store as chatInputStore } from "/components/chat/input/input-store.js";
 
 const model = {
   contexts: [],
+  contextsJson: "",
   selected: "",
   selectedContext: null,
   loggedIn: false,
@@ -58,9 +59,29 @@ const model = {
     const incomingContexts = Array.isArray(contextsList) ? contextsList : [];
 
     // Sort by created_at time (newer first)
-    this.contexts = incomingContexts
+    const nextContexts = incomingContexts
       .filter((context) => !this.deletedContextIds[context?.id])
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    const contextsJson = JSON.stringify(nextContexts);
+    if (contextsJson !== this.contextsJson) {
+      this.contextsJson = contextsJson;
+      const sameRows =
+        nextContexts.length === this.contexts.length &&
+        nextContexts.every((context, index) => context?.id === this.contexts[index]?.id);
+
+      if (sameRows) {
+        nextContexts.forEach((context, index) => {
+          const current = this.contexts[index];
+          if (JSON.stringify(current) === JSON.stringify(context)) return;
+          Object.keys(current).forEach((key) => {
+            if (!(key in context)) delete current[key];
+          });
+          Object.assign(current, context);
+        });
+      } else {
+        this.contexts = nextContexts;
+      }
+    }
 
     // Keep selectedContext in sync when the currently selected context's
     // metadata changes (e.g. project activation/deactivation).
@@ -68,17 +89,18 @@ const model = {
       const selectedId = this.selected;
       const updated = this.contexts.find((ctx) => ctx.id === selectedId);
       if (updated) {
-        this.selectedContext = updated;
-        const nextExpandedParents = { ...this.expandedParents };
+        if (this.selectedContext !== updated) this.selectedContext = updated;
         if (updated.parent_context_id) {
-          nextExpandedParents[updated.parent_context_id] = true;
+          this.expandAncestors(updated);
         } else if (
           this.hasChildren(selectedId) &&
-          nextExpandedParents[selectedId] === undefined
+          this.expandedParents[selectedId] === undefined
         ) {
-          nextExpandedParents[selectedId] = true;
+          this.expandedParents = {
+            ...this.expandedParents,
+            [selectedId]: true,
+          };
         }
-        this.expandedParents = nextExpandedParents;
       }
     }
   },
@@ -98,7 +120,17 @@ const model = {
   },
 
   hasChildren(parentId) {
-    return this.childContexts(parentId).length > 0;
+    return this.contexts.some((context) => context.parent_context_id === parentId);
+  },
+
+  expandAncestors(context) {
+    const seen = new Set();
+    while (context?.parent_context_id && !seen.has(context.parent_context_id)) {
+      const parentId = context.parent_context_id;
+      seen.add(parentId);
+      if (!this.expandedParents[parentId]) this.expandedParents[parentId] = true;
+      context = this.contexts.find((row) => row.id === parentId);
+    }
   },
 
   isExpanded(parentId) {
@@ -232,12 +264,13 @@ const model = {
   },
 
   // Create new chat
-  async newChat() {
+  async newChat(projectName = undefined) {
     try {
 
       // first create a new chat on the backend
       const response = await sendJsonData("/chat_create", {
-        current_context: this.selected
+        current_context: this.selected,
+        ...(projectName !== undefined ? { project_name: projectName } : {}),
       });
 
       if (response.ok) {
@@ -267,6 +300,7 @@ const model = {
   async loadChats() {
     try {
       const fileContents = await this.readJsonFiles();
+      if (!fileContents.length) return;
       const response = await sendJsonData("/chat_load", { chats: fileContents });
 
       if (!response) {
@@ -283,10 +317,10 @@ const model = {
     }
   },
 
-  // Save current chat
-  async saveChat() {
+  // Save the supplied chat, or the current chat when omitted
+  async saveChat(ctxid = null) {
     try {
-      const context = this.selected || getContext();
+      const context = ctxid || this.selected || getContext();
       const response = await sendJsonData("/chat_export", { ctxid: context });
 
       if (!response) {
@@ -307,6 +341,7 @@ const model = {
       input.type = "file";
       input.accept = ".json";
       input.multiple = true;
+      input.oncancel = () => resolve([]);
 
       input.click();
 
@@ -366,6 +401,7 @@ const model = {
     this.selectedContext = this.contexts.find((ctx) => ctx.id === this.selected);
     // if not found in contexts, try to find in tasks < not nice, will need refactor later
     if(!this.selectedContext) this.selectedContext = tasksStore.tasks.find((ctx) => ctx.id === this.selected);
+    this.expandAncestors(this.selectedContext);
     if (this.selected) {
       sessionStorage.setItem("lastSelectedChat", this.selected);
     } else {

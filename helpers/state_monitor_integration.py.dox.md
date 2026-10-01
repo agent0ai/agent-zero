@@ -12,7 +12,7 @@
 - `state_monitor_integration.py.dox.md` owns durable notes about responsibilities, contracts, side effects, and verification for that implementation.
 - Top-level functions:
 - `mark_dirty_all(reason: str | None=...) -> None`
-- `mark_dirty_for_context(context_id: str, reason: str | None=...) -> None`
+- `mark_dirty_for_context(context_id: str, reason: str | None=..., include_collections: bool=...) -> None`
 
 ## Runtime Contracts
 
@@ -24,6 +24,7 @@
 ## Key Concepts
 
 - Important called helpers/classes observed in the source: `get_state_monitor.mark_dirty_all`, `get_state_monitor.mark_dirty_for_context`, `get_state_monitor`.
+- Global dirty waves always include context/task collections; high-frequency context-local owners may explicitly omit them when their mutation cannot change collection metadata.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

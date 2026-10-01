@@ -25,7 +25,10 @@ async def preload():
                 emb_cfg = get_embedding_model_config_object()
                 if emb_cfg.provider.lower() == "huggingface":
                     emb_mod = models.get_embedding_model(
-                        "huggingface", emb_cfg.name
+                        emb_cfg.provider,
+                        emb_cfg.name,
+                        model_config=emb_cfg,
+                        **emb_cfg.build_kwargs(),
                     )
                     emb_txt = await emb_mod.aembed_query("test")
                     return emb_txt

@@ -7,6 +7,17 @@ from agent import AgentContext
 
 class CreateChat(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
+        # An explicit project choice takes precedence over chat inheritance.
+        project_name = input.get("project_name")
+        if "project_name" in input:
+            if not isinstance(project_name, str):
+                return Response("project_name must be a string", 400)
+            if project_name:
+                try:
+                    projects.validate_project_name(project_name)
+                    projects.load_basic_project_data(project_name)
+                except (ValueError, FileNotFoundError):
+                    return Response("Project not found", 400)
         current_ctxid = input.get("current_context", "") # current context id
         new_ctxid = input.get("new_context", guids.generate_id()) # given or new guid
 
@@ -17,7 +28,12 @@ class CreateChat(ApiHandler):
         new_context = self.use_context(new_ctxid)
 
         # copy selected data from current to new context
-        if current_context and settings.get_settings().get("chat_inherit_project", True):
+        if "project_name" in input:
+            if project_name:
+                projects.activate_project(new_context.id, project_name, mark_dirty=False)
+            else:
+                projects.deactivate_project(new_context.id, mark_dirty=False)
+        elif current_context and settings.get_settings().get("chat_inherit_project", True):
             current_data_1 = current_context.get_data(projects.CONTEXT_DATA_KEY_PROJECT)
             if current_data_1:
                 new_context.set_data(projects.CONTEXT_DATA_KEY_PROJECT, current_data_1)

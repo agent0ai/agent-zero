@@ -6,18 +6,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def test_chat_rows_have_hover_scoped_overflow_actions() -> None:
     html = (
-        PROJECT_ROOT / "webui/components/sidebar/chats/chats-list.html"
+        PROJECT_ROOT / "webui/components/sidebar/chats/chat-tree.html"
     ).read_text(encoding="utf-8")
 
-    assert html.count('aria-label="More chat actions"') == 2
+    assert html.count('aria-label="More chat actions"') == 1
+    assert '<x-component path="sidebar/chats/chat-tree.html"></x-component>' in html
     assert 'class="btn-icon-action chat-list-action-btn"' in html
     assert '<x-icon name="more_vert"></x-icon>' in html
-    assert html.count("$store.sidebar.rowMenuToggle(") == 2
+    assert html.count("$store.sidebar.rowMenuToggle(") == 1
 
 
 def test_task_rows_have_overflow_actions_after_standard_buttons() -> None:
     html = (
-        PROJECT_ROOT / "webui/components/sidebar/tasks/tasks-list.html"
+        PROJECT_ROOT / "webui/components/sidebar/tasks/task-row.html"
     ).read_text(encoding="utf-8")
 
     delete_button = html.index('title="Delete task"')
@@ -43,7 +44,8 @@ def test_sidebar_uses_one_fixed_row_menu_with_standard_close_behavior() -> None:
     assert "z-index: 9999;" in html
     assert "rowMenuOpenId" in store
     assert "if (this.rowMenuOpenId === id)" in store
-    assert "const openUp = spaceBelow < 96 && spaceAbove > spaceBelow;" in store
+    assert "const openUp = spaceAbove > spaceBelow;" in store
+    assert "maxHeight:" in store
 
 
 def test_pin_plugin_contributes_the_menu_action_and_list_ordering() -> None:

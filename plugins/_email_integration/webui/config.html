@@ -286,13 +286,17 @@
                                     </template>
                                 </div>
 
-                                <details class="email-advanced" x-show="$store.emailConfig.hasProvider(handler)">
-                                    <summary>
+                                <div class="settings-advanced-section" x-data="{ advOpen: false }"
+                                    x-show="$store.emailConfig.hasProvider(handler)">
+                                    <button type="button" class="settings-advanced-toggle"
+                                        :aria-expanded="advOpen" @click="advOpen = !advOpen">
+                                        <x-icon class="settings-advanced-toggle-icon"
+                                            :style="advOpen ? 'transform:rotate(90deg)' : ''"
+                                            name="chevron_right"></x-icon>
                                         <span>Advanced</span>
-                                        <x-icon class="email-advanced-chevron"
-                                            aria-hidden="true" name="keyboard_arrow_down"></x-icon>
-                                    </summary>
-                                    <div class="email-advanced-body">
+                                    </button>
+                                    <div class="settings-advanced-body" x-show="advOpen" x-transition.opacity
+                                        style="display: none;">
                                         <div class="field">
                                             <div class="field-label">
                                                 <div class="field-title">Inbox name</div>
@@ -486,7 +490,7 @@
                                         </div>
 
                                     </div>
-                                </details>
+                                </div>
                             </div>
                         </template>
                     </div>
@@ -506,35 +510,6 @@
             display: flex;
             flex-direction: column;
             gap: 0.9rem;
-        }
-
-        .email-advanced summary {
-            cursor: pointer;
-            list-style: none;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .email-advanced summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .email-advanced summary {
-            padding: 0.95rem 1rem;
-        }
-
-        .email-advanced-chevron {
-            margin-left: auto;
-            flex: 0 0 auto;
-            transition: transform 0.18s ease, opacity 0.18s ease;
-            opacity: 0.72;
-        }
-
-        .email-advanced[open] .email-advanced-chevron {
-            transform: rotate(180deg);
-            opacity: 1;
         }
 
         .email-guide-card {

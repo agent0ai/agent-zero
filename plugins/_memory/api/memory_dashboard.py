@@ -1,3 +1,5 @@
+import numpy as np
+
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
 from helpers.localization import Localization
@@ -216,7 +218,10 @@ class MemoryDashboard(ApiHandler):
 
     def _format_memory_for_dashboard(self, m: Document) -> dict:
         """Format a memory document for the dashboard."""
-        metadata = m.metadata
+        metadata = dict(m.metadata)
+        similarity = metadata.get("_consolidation_similarity")
+        if isinstance(similarity, np.generic):
+            metadata["_consolidation_similarity"] = float(similarity)
         timestamp = self._serialize_memory_timestamp(metadata.get("timestamp", "unknown"))
         return {
             "id": metadata.get("id", "unknown"),

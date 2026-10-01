@@ -156,7 +156,7 @@ def install_from_zip(zip_path: str, original_filename: str | None = None) -> dic
 
 
 def _download_thumbnail(thumbnail_url: str, plugin_dir: str) -> None:
-    """Download thumbnail from URL to plugin_dir/webui/thumbnail.<ext>. Non-fatal."""
+    """Download a fallback thumbnail only when the plugin has none. Non-fatal."""
     try:
         if not thumbnail_url:
             return
@@ -170,6 +170,8 @@ def _download_thumbnail(thumbnail_url: str, plugin_dir: str) -> None:
         if ext not in _allowed_exts:
             ext = "png"
         webui_dir = Path(plugin_dir) / "webui"
+        if any((webui_dir / f"thumbnail.{suffix}").is_file() for suffix in _allowed_exts):
+            return
         webui_dir.mkdir(parents=True, exist_ok=True)
         dest = webui_dir / f"thumbnail.{ext}"
         req = urllib.request.Request(thumbnail_url, headers={"User-Agent": "AgentZero"})

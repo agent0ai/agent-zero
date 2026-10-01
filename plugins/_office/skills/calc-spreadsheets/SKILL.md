@@ -1,6 +1,6 @@
 ---
 name: calc-spreadsheets
-description: Use when creating, opening, or editing LibreOffice Calc ODS spreadsheets, or XLSX workbooks only when Excel compatibility is explicitly required.
+description: "Create, open or edit Calc spreadsheets: ODS default; XLSX for Excel compatibility."
 version: "1.1.0"
 author: "Agent Zero Core Team"
 tags: ["calc", "ods", "opendocument", "excel", "xlsx", "spreadsheet", "workbook", "tables", "charts", "budget"]

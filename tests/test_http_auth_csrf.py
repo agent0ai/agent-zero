@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlsplit
+
 from flask import Flask, Response
 
 import pytest
@@ -10,6 +12,10 @@ from helpers import runtime
 def _make_app() -> Flask:
     app = Flask("test_http_auth_csrf")
     app.secret_key = "test-secret"
+
+    @app.get("/")
+    def serve_index():
+        return Response("index", status=200)
 
     @app.get("/login")
     def login_handler():
@@ -170,7 +176,9 @@ def test_auth_redirect_includes_original_path_and_query(monkeypatch) -> None:
     assert response.status_code == 302
     location = response.headers["Location"]
     assert location.startswith("/login?next=")
-    assert "%2Fplugins%2Fa0_voqualizer%2Fwebui%2Fvoqualizer.html%3Fcontext%3DrlO1iMV7" in location
+    assert parse_qs(urlsplit(location).query)["next"] == [
+        "/plugins/a0_voqualizer/webui/voqualizer.html?context=rlO1iMV7"
+    ]
 
 
 def test_is_safe_next_url_rejects_backslash_open_redirects() -> None:

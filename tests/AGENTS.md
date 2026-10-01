@@ -13,7 +13,7 @@
 
 ## Local Contracts
 
-- Tests must not require real API keys, network-only services, private user data, or local `usr/` runtime state.
+- Tests must not require real API keys, network-only services, private user data, or local `usr/` runtime state. Manual provider demos must guard model creation and requests behind their executable entry point so collection never runs them.
 - Keep tests deterministic and isolated from existing chats, uploads, downloads, plugin state, and settings.
 - Prefer exercising public helper/API contracts over fragile implementation details when practical.
 - Security regression tests should assert the protected behavior directly.

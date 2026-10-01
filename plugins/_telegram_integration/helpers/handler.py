@@ -13,7 +13,6 @@ from aiogram.types import Message as TgMessage, CallbackQuery
 from agent import AgentContext, UserMessage
 from helpers import plugins, files, projects
 from helpers import message_queue as mq
-from helpers import integration_commands
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
@@ -22,6 +21,7 @@ from initialize import initialize_agent
 
 from plugins._telegram_integration.helpers import telegram_client as tc
 from plugins._telegram_integration.helpers import command_ui
+from plugins._telegram_integration.helpers import slash_commands
 from plugins._telegram_integration.helpers.bot_manager import get_bot
 from plugins._telegram_integration.helpers.constants import (
     PLUGIN_NAME,
@@ -177,34 +177,13 @@ async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
     context.data[CTX_TG_CHAT_TYPE] = str(message.chat.type or "")
     context.data[CTX_TG_REPLY_TO] = message.message_id
 
-    if await command_ui.handle_command(
-        context,
-        instance.bot.token,
-        message.chat.id,
-        message.message_id,
-        text,
-    ):
+    text = _normalize_bot_command(text, instance)
+    if text is None:
         return
-
-    command_reply = integration_commands.try_handle_command(context, text, integration="telegram")
-    if command_reply is not None:
-        await _send_with_temp_bot(
-            instance.bot.token,
-            message.chat.id,
-            command_reply,
-            parse_mode=None,
-            reply_to_message_id=message.message_id,
-        )
-        return
-    if integration_commands.extract_command_line(text).startswith("/"):
-        command = integration_commands.extract_command_line(text).split(" ", 1)[0]
-        await _send_with_temp_bot(
-            instance.bot.token,
-            message.chat.id,
-            integration_commands.unknown_command_text(command, integration="telegram"),
-            parse_mode=None,
-            reply_to_message_id=message.message_id,
-        )
+    text = await slash_commands.handle(
+        context, instance.bot.token, message.chat.id, message.message_id, text,
+    )
+    if text is None:
         return
 
     # Use temp bot for downloads (cross-event-loop safe)
@@ -286,8 +265,17 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
     context.data[CTX_TG_REPLY_TO] = query.message.message_id
 
     instance = get_bot(bot_name)
+    handled = False
     if instance:
         try:
+            handled, command_text = await slash_commands.handle_callback(
+                context, instance.bot.token, query.message.chat.id,
+                query.message.message_id, text,
+            )
+            if handled:
+                if command_text is None:
+                    return
+                text = command_text
             if await command_ui.handle_callback(
                 context,
                 instance.bot.token,
@@ -298,22 +286,21 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
                 return
         except Exception as e:
             PrintStyle.error(f"Telegram callback failed: {format_error(e)}")
-            if text.startswith("tg:"):
+            if text.startswith(("tg:", "a0:")):
+                await slash_commands.reply(instance.bot.token, query.message.chat.id,
+                    query.message.message_id, f"Command failed: {e}")
                 return
-    if text.startswith("tg:"):
+    if text.startswith(("tg:", "a0:")):
         return
 
-    command_reply = integration_commands.try_handle_command(context, text, integration="telegram")
-    if command_reply is not None:
-        if instance:
-            await _send_with_temp_bot(
-                instance.bot.token,
-                query.message.chat.id,
-                command_reply,
-                parse_mode=None,
-                reply_to_message_id=query.message.message_id,
-            )
-        return
+    if instance and not handled:
+        text = _normalize_bot_command(text, instance)
+        if text is None:
+            return
+        text = await slash_commands.handle(context, instance.bot.token,
+            query.message.chat.id, query.message.message_id, text)
+        if text is None:
+            return
 
     agent = context.agent0
     user_msg = agent.read_prompt(
@@ -323,6 +310,13 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
     )
 
     msg_id = str(uuid.uuid4())
+    if context.is_running():
+        mq.add(context, user_msg, [])
+        save_tmp_chat(context)
+        if instance:
+            await slash_commands.reply(instance.bot.token, query.message.chat.id,
+                query.message.message_id, "Message queued. Use /send to flush it or /steer to intervene.")
+        return
     mq.log_user_message(context, user_msg, [], message_id=msg_id, source=" (telegram)")
     context.communicate(UserMessage(message=user_msg, id=msg_id))
     save_tmp_chat(context)
@@ -387,6 +381,7 @@ async def _get_or_create_context_from_user(
             ctx = AgentContext.get(ctx_id)
             if ctx:
                 ctx.data[CTX_TG_CHAT_TYPE] = chat_type or ctx.data.get(CTX_TG_CHAT_TYPE, "")
+                ctx.data[CTX_TG_BOT_CFG] = bot_cfg
                 return ctx
             # Context was garbage collected, remove stale mapping
             chats.pop(key, None)
@@ -424,6 +419,18 @@ async def _get_or_create_context_from_user(
             return None
 
 # Message content extraction
+
+def _normalize_bot_command(text: str, instance) -> str | None:
+    """Remove this bot's command suffix; ignore commands addressed to other bots."""
+    import re
+
+    match = re.match(r"^(\s*/[^\s@]+)@([^\s]+)([\s\S]*)$", text)
+    if not match:
+        return text
+    username = getattr(instance.bot_info, "username", "") or ""
+    if match.group(2).casefold() != username.casefold():
+        return None
+    return match.group(1) + match.group(3)
 
 def _extract_message_content(message: TgMessage) -> str:
     parts = []

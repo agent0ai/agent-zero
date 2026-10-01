@@ -111,6 +111,21 @@ def test_goal_webui_uses_state_revisions_instead_of_polling():
     assert "goalStore.refresh(true)" in refresh
 
 
+def test_goal_composer_menu_prefills_without_sending():
+    plugin_root = Path(__file__).resolve().parents[1]
+    injector = (
+        plugin_root
+        / "extensions"
+        / "webui"
+        / "initFw_end"
+        / "goal-menu-injector.js"
+    ).read_text()
+
+    assert 'chatInputStore.message = "/goal ";' in injector
+    assert "chatInputStore.focus();" in injector
+    assert "sendMessage" not in injector
+
+
 @pytest.mark.skipif(not shutil.which("node"), reason="node is required")
 def test_goal_webui_uses_shared_hour_aware_duration_formatter():
     project_root = Path(__file__).resolve().parents[3]

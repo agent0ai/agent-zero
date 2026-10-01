@@ -3,7 +3,7 @@ from __future__ import annotations
 import types
 from typing import Any, Mapping, TypedDict, Union, get_args, get_origin, get_type_hints
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pytz  # type: ignore[import-untyped]
 
@@ -17,8 +17,8 @@ from helpers.task_scheduler import TaskScheduler
 class SnapshotV1(TypedDict):
     deselect_chat: bool
     context: str
-    contexts: list[dict[str, Any]]
-    tasks: list[dict[str, Any]]
+    contexts: list[dict[str, Any]] | None
+    tasks: list[dict[str, Any]] | None
     logs: list[dict[str, Any]]
     log_guid: str
     log_version: int
@@ -37,6 +37,7 @@ class StateRequestV1:
     log_from: int
     notifications_from: int
     timezone: str
+    collections_delta: bool = False
 
 
 class StateRequestValidationError(ValueError):
@@ -159,6 +160,7 @@ def parse_state_request_payload(payload: Mapping[str, Any]) -> StateRequestV1:
     log_from = payload.get("log_from")
     notifications_from = payload.get("notifications_from")
     timezone = payload.get("timezone")
+    collections_delta = payload.get("collections_delta", False)
 
     if context is not None and not isinstance(context, str):
         raise StateRequestValidationError(
@@ -184,6 +186,12 @@ def parse_state_request_payload(payload: Mapping[str, Any]) -> StateRequestV1:
             message="timezone must be a non-empty string",
             details={"timezone": timezone},
         )
+    if not isinstance(collections_delta, bool):
+        raise StateRequestValidationError(
+            reason="collections_delta_type",
+            message="collections_delta must be a boolean",
+            details={"collections_delta_type": type(collections_delta).__name__},
+        )
 
     tz = timezone.strip()
     try:
@@ -203,6 +211,7 @@ def parse_state_request_payload(payload: Mapping[str, Any]) -> StateRequestV1:
         log_from=log_from,
         notifications_from=notifications_from,
         timezone=tz,
+        collections_delta=collections_delta,
     )
 
 
@@ -245,15 +254,16 @@ def advance_state_request_after_snapshot(
     except (TypeError, ValueError):
         pass
 
-    return StateRequestV1(
-        context=request.context,
+    return replace(
+        request,
         log_from=log_from,
         notifications_from=notifications_from,
-        timezone=request.timezone,
     )
 
 
-async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
+async def build_snapshot_from_request(
+    *, request: StateRequestV1, include_collections: bool = True
+) -> SnapshotV1:
     """Build a poll-shaped snapshot for both /poll and state_push."""
 
     localization = Localization.get()
@@ -269,7 +279,8 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
     from_no = _coerce_non_negative_int(request.log_from, default=0)
     notifications_from_no = _coerce_non_negative_int(request.notifications_from, default=0)
 
-    _prune_missing_saved_contexts()
+    if include_collections:
+        _prune_missing_saved_contexts()
 
     active_context = AgentContext.get(ctxid) if ctxid else None
 
@@ -291,9 +302,9 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
     ctxs: list[dict[str, Any]] = []
     tasks: list[dict[str, Any]] = []
     processed_contexts: set[str] = set()
-    agent_profile_labels = _get_agent_profile_labels()
+    agent_profile_labels = _get_agent_profile_labels() if include_collections else {}
 
-    all_ctxs = AgentContext.all()
+    all_ctxs = AgentContext.all() if include_collections else []
     for ctx in all_ctxs:
         if ctx.id in processed_contexts:
             continue
@@ -345,8 +356,8 @@ async def build_snapshot_from_request(*, request: StateRequestV1) -> SnapshotV1:
     snapshot: SnapshotV1 = {
         "deselect_chat": bool(ctxid) and active_context is None,
         "context": active_context.id if active_context else "",
-        "contexts": ctxs,
-        "tasks": tasks,
+        "contexts": ctxs if include_collections else None,
+        "tasks": tasks if include_collections else None,
         "logs": logs,
         "log_guid": active_context.log.guid if active_context else "",
         "log_version": log_end,

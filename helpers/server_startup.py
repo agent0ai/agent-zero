@@ -14,6 +14,7 @@ import uvicorn
 
 from helpers import process
 from helpers.print_style import PrintStyle
+from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
 
 
 def _env_int(name: str, default: int, minimum: int = 0) -> int:
@@ -331,6 +332,7 @@ def _run_server_attempt(
                 log_level=log_level,
                 access_log=access_log,
                 ws=ws,
+                ws_max_size=A0_WS_MAX_PAYLOAD_BYTES,
             )
 
         with startup_monitor.stage("uvicorn.server.create"):

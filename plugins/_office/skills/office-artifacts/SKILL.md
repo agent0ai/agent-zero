@@ -1,6 +1,6 @@
 ---
 name: office-artifacts
-description: Use when creating, opening, reading, or editing Office artifacts such as LibreOffice-native ODT/ODS/ODP files and compatibility DOCX/XLSX/PPTX files with the office_artifact tool.
+description: "Manage Office files, formats and versions; use Writer, Calc or Impress for content."
 version: "1.4.0"
 author: "Agent Zero Core Team"
 tags: ["office", "documents", "odt", "ods", "odp", "docx", "xlsx", "pptx", "spreadsheets", "presentations", "libreoffice", "opendocument"]

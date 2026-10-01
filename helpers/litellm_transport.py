@@ -8,6 +8,7 @@ import json
 from typing import Any, AsyncIterator, Iterator, Optional
 
 from litellm import (
+    ContentPolicyViolationError,
     acompletion,
     adelete_responses,
     aresponses,
@@ -16,8 +17,9 @@ from litellm import (
     responses,
 )
 
-from helpers import images
+from helpers import images, responses_history
 from helpers.llm_result import LLMResult
+from helpers.responses_tools import project_system_prompt
 
 
 ChatChunk = dict[str, str]
@@ -27,6 +29,10 @@ class TransportMode(Enum):
     RESPONSES = "responses"
     CHAT_COMPLETIONS = "chat_completions"
 
+    @classmethod
+    def from_value(cls, value: Any) -> "TransportMode":
+        return cls.RESPONSES if str(value or "").lower().strip() in RESPONSES_ALIASES else cls.CHAT_COMPLETIONS
+
 
 class TransportRecovery(Enum):
     RAISE = "raise"
@@ -35,20 +41,14 @@ class TransportRecovery(Enum):
     FALLBACK_TO_CHAT = "fallback_to_chat"
 
 
-CHAT_COMPLETIONS_ALIASES = {
-    "chat",
-    "chat_completion",
-    "chat_completions",
-    "completion",
-    "completions",
-}
-RESPONSES_ALIASES = {"", "auto", "default", "response", "responses", "responses_api"}
+RESPONSES_ALIASES = {"response", "responses", "responses_api"}
 RESPONSES_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
 RESPONSES_REASONING_FALLBACK_EFFORT = "high"
 NO_REASONING_EFFORT_ALIASES = {"", "0", "false", "no", "none", "off", "disabled"}
 RESPONSES_UNSUPPORTED_CACHE: set[str] = set()
 RESPONSES_STATE_UNSUPPORTED_CACHE: set[str] = set()
 RESPONSES_BUILTIN_UNSUPPORTED_CACHE: dict[str, set[str]] = {}
+STREAM_USAGE_UNSUPPORTED_CACHE: set[str] = set()
 OPENAI_RESPONSES_EXTRA_BODY_PARAMS = {
     "context_management",
     "prompt_cache_retention",
@@ -95,7 +95,7 @@ class TransportPolicy:
         kwargs: dict[str, Any],
         messages: list[dict[str, Any]] | None = None,
     ) -> "TransportPolicy":
-        mode = cls._pop_mode(kwargs)
+        mode = TransportMode.from_value(kwargs.pop("a0_api_mode", None))
         allow_fallback = _coerce_bool(
             kwargs.pop("a0_responses_fallback", True), default=True
         )
@@ -144,15 +144,6 @@ class TransportPolicy:
             state=state,
         )
 
-    @staticmethod
-    def _pop_mode(kwargs: dict[str, Any]) -> TransportMode:
-        value = str(kwargs.pop("a0_api_mode", "responses") or "").lower().strip()
-        if value in CHAT_COMPLETIONS_ALIASES:
-            return TransportMode.CHAT_COMPLETIONS
-        if value in RESPONSES_ALIASES:
-            return TransportMode.RESPONSES
-        return TransportMode.RESPONSES
-
     @property
     def using_responses(self) -> bool:
         return self.mode is TransportMode.RESPONSES
@@ -192,6 +183,8 @@ class LiteLLMTransport:
     last_result: LLMResult | None = field(init=False, default=None)
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
+    history_prefix_hash: str = field(init=False, default="")
+    stream_usage_retried: bool = field(init=False, default=False)
 
     def __post_init__(self) -> None:
         self.kwargs = _without_stream_kwarg(dict(self.kwargs))
@@ -214,10 +207,11 @@ class LiteLLMTransport:
         while True:
             try:
                 if self.policy.mode is TransportMode.CHAT_COMPLETIONS:
-                    parsed = ChatCompletionsTransport.parse(
-                        completion(**self._chat_request(stream=False))
+                    raw_response = completion(**self._chat_request(stream=False))
+                    parsed = ChatCompletionsTransport.parse(raw_response)
+                    self.last_result = self._llm_result_from_chat(
+                        parsed, raw_response
                     )
-                    self.last_result = self._llm_result_from_chat(parsed)
                     return parsed
                 request = self._responses_request(stream=False)
                 raw_response = responses(**request)
@@ -235,10 +229,13 @@ class LiteLLMTransport:
         while True:
             try:
                 if self.policy.mode is TransportMode.CHAT_COMPLETIONS:
-                    parsed = ChatCompletionsTransport.parse(
-                        await acompletion(**self._chat_request(stream=False))
+                    raw_response = await acompletion(
+                        **self._chat_request(stream=False)
                     )
-                    self.last_result = self._llm_result_from_chat(parsed)
+                    parsed = ChatCompletionsTransport.parse(raw_response)
+                    self.last_result = self._llm_result_from_chat(
+                        parsed, raw_response
+                    )
                     return parsed
                 request = self._responses_request(stream=False)
                 raw_response = await aresponses(**request)
@@ -360,7 +357,17 @@ class LiteLLMTransport:
             self.kwargs["responses_state"] = RESPONSES_STATE_LOCAL
             self.kwargs.pop("previous_response_id", None)
             return True
+        if self._recover_stream_usage_rejection(exc):
+            return True
         return recovery is TransportRecovery.FALLBACK_TO_CHAT
+
+    def _recover_stream_usage_rejection(self, exc: Exception) -> bool:
+        if self.stream_usage_retried or not _is_stream_usage_rejected_error(exc):
+            return False
+        self.stream_usage_retried = True
+        if self.policy.cache_key:
+            STREAM_USAGE_UNSUPPORTED_CACHE.add(self.policy.cache_key)
+        return True
 
     def _chat_request(self, *, stream: bool) -> dict[str, Any]:
         chat_kwargs = ChatCompletionsTransport.prepare_kwargs(
@@ -380,6 +387,15 @@ class LiteLLMTransport:
             "stream": stream,
             **chat_kwargs,
         }
+        if (
+            stream
+            and not self.stream_usage_retried
+            and self.policy.cache_key not in STREAM_USAGE_UNSUPPORTED_CACHE
+        ):
+            request["stream_options"] = {
+                **(request.get("stream_options") or {}),
+                "include_usage": True,
+            }
         if self.stop is not None:
             request["stop"] = self.stop
         return request
@@ -394,16 +410,36 @@ class LiteLLMTransport:
         self.last_request_state = _normalize_responses_state(
             self.kwargs.get("responses_state")
         )
+        self.history_prefix_hash = ""
+        context = self.kwargs.get("responses_history_context")
+        if (
+            self.last_request_state == RESPONSES_STATE_LOCAL
+            and _has_tools(self.kwargs.get("a0_responses_function_tools"))
+            and isinstance(context, dict)
+            and all(isinstance(context.get(key), list) for key in ("prompt", "prefix", "groups"))
+        ):
+            replacements = self.kwargs.get("responses_prompt_replacements")
+            prompt = project_system_prompt(context.get("prompt", []), replacements)
+            if response_kwargs.get("input") == prompt:
+                prefix = project_system_prompt(context.get("prefix", []), replacements)
+                scope = {"affinity": self.policy.cache_key, "tools": response_kwargs.get("tools")}
+                self.history_prefix_hash = responses_history.prefix_hashes(prefix, scope)[-1]
+                response_kwargs["input"] = responses_history.project_history(
+                    prompt, context.get("groups", []), scope,
+                )
         return {
             "model": self.model,
             "stream": stream,
             **response_kwargs,
         }
 
-    def _llm_result_from_chat(self, parsed: ChatChunk) -> LLMResult:
+    def _llm_result_from_chat(
+        self, parsed: ChatChunk, response: Any = None
+    ) -> LLMResult:
         return LLMResult.from_chat(
             response=parsed["response_delta"],
             reasoning=parsed["reasoning_delta"],
+            usage=_reported_usage(response),
             input_items=ResponsesTransport.input_from_messages(self.messages),
             output_items=parsed.get("_output_items"),
             provider_model_key=self.model,
@@ -413,7 +449,7 @@ class LiteLLMTransport:
     def _llm_result_from_response(
         self, response: Any, request: dict[str, Any]
     ) -> LLMResult:
-        return LLMResult.from_response(
+        result = LLMResult.from_response(
             response,
             input_items=_as_list(request.get("input")),
             previous_response_id=str(request.get("previous_response_id") or ""),
@@ -422,22 +458,24 @@ class LiteLLMTransport:
             state=self.last_request_state,
             capability=self._capability_metadata(),
         )
+        result.usage = _reported_usage(response)
+        return result
 
     def _stream_result_from_parser(
         self, parser: "ResponsesEventParser", request: dict[str, Any]
     ) -> LLMResult | None:
-        if parser.completed_response is None:
-            return None
-        return self._llm_result_from_response(parser.completed_response, request)
+        response = parser.finish()
+        return self._llm_result_from_response(response, request) if response is not None else None
 
     def _stream_result_from_chat_parser(
         self, parser: "ChatCompletionsStreamParser"
     ) -> LLMResult | None:
         output_items = parser.output_items()
-        if not output_items:
+        if not output_items and not parser.usage:
             return None
         return LLMResult.from_chat(
             response=parser.function_calls_text(),
+            usage=parser.usage,
             input_items=ResponsesTransport.input_from_messages(self.messages),
             output_items=output_items,
             provider_model_key=self.model,
@@ -449,6 +487,10 @@ class LiteLLMTransport:
             "mode": self.policy.mode.value,
             "state": self.policy.state,
             "cache_key": self.policy.cache_key,
+            **(
+                {responses_history.PREFIX_HASH: self.history_prefix_hash}
+                if self.policy.using_responses and self.history_prefix_hash else {}
+            ),
             "fallback_error": _exception_text(self.policy.fallback_error)
             if self.policy.fallback_error
             else "",
@@ -459,6 +501,29 @@ class LiteLLMTransport:
                 self.kwargs.get("_a0_responses_builtin_downgrades") or []
             ),
         }
+
+
+class _ChatReasoningFilter:
+    marker = "__ENCRYPTED_REASONING__"
+
+    def __init__(self) -> None:
+        self.pending = ""
+        self.encrypted = False
+
+    def feed(self, text: str, *, final: bool = False) -> str:
+        if self.encrypted:
+            return ""
+        text = self.pending + text
+        self.pending = ""
+        if self.marker in text:
+            self.encrypted = True
+            return text.partition(self.marker)[0]
+        if not final:
+            for length in range(min(len(text), len(self.marker) - 1), 0, -1):
+                if text.endswith(self.marker[:length]):
+                    self.pending = text[-length:]
+                    return text[:-length]
+        return text
 
 
 class ChatCompletionsTransport:
@@ -504,8 +569,18 @@ class ChatCompletionsTransport:
         return {key: value for key, value in chat_kwargs.items() if value is not None}
 
     @staticmethod
-    def parse(chunk: Any) -> ChatChunk:
+    def parse(
+        chunk: Any, *, reasoning_filter: _ChatReasoningFilter | None = None
+    ) -> ChatChunk:
         choice = _first_choice(chunk)
+        finish_reason = _get_value(choice, "finish_reason")
+        if finish_reason in {"content_filter", "refusal"}:
+            raise ContentPolicyViolationError(
+                message=f"Model provider refused the response (finish_reason={finish_reason}). "
+                "Review the request and provider restrictions before retrying.",
+                model=str(_get_value(chunk, "model") or ""),
+                llm_provider="",
+            )
         delta = _get_value(choice, "delta") or {}
         message = _get_value(choice, "message") or _get_value(
             _get_value(choice, "model_extra") or {}, "message"
@@ -516,15 +591,20 @@ class ChatCompletionsTransport:
         reasoning_delta = _get_value(delta, "reasoning_content") or _get_value(
             message, "reasoning_content"
         ) or ""
+        reasoning_delta = (reasoning_filter or _ChatReasoningFilter()).feed(
+            reasoning_delta, final=reasoning_filter is None
+        )
         parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
-        if not response_delta:
-            tool_calls = _as_list(_get_value(message, "tool_calls"))
-            response_delta = ChatCompletionsTransport.tool_calls_text(tool_calls)
+        tool_calls = _as_list(_get_value(message, "tool_calls"))
+        call_text = ChatCompletionsTransport.tool_calls_text(tool_calls)
+        if call_text:
+            parsed["response_delta"] = call_text
+            parsed["_output_items"] = ChatCompletionsTransport.output_items(tool_calls)
             if response_delta:
-                parsed["response_delta"] = response_delta
-                parsed["_output_items"] = ChatCompletionsTransport.output_items(
-                    tool_calls
-                )
+                parsed["_output_items"].insert(0, {
+                    "type": "message", "role": "assistant",
+                    "content": [{"type": "output_text", "text": response_delta}],
+                })
         return parsed
 
     @classmethod
@@ -534,9 +614,10 @@ class ChatCompletionsTransport:
         if not calls:
             return ""
         if len(calls) == 1:
-            return json.dumps(calls[0])
+            return json.dumps(calls[0], ensure_ascii=False)
         return json.dumps(
-            {"tool_name": "parallel_tool_calls", "tool_args": {"calls": calls}}
+            {"tool_name": "parallel_tool_calls", "tool_args": {"calls": calls}},
+            ensure_ascii=False,
         )
 
     @classmethod
@@ -580,12 +661,16 @@ class ChatCompletionsTransport:
 
 class ChatCompletionsStreamParser:
     def __init__(self) -> None:
+        self.reasoning_filter = _ChatReasoningFilter()
         self.tool_calls: dict[str, dict[str, Any]] = {}
         self.order: list[str] = []
         self.emitted = False
+        self.usage: dict[str, Any] = {}
 
     def parse(self, chunk: Any) -> ChatChunk:
-        parsed = ChatCompletionsTransport.parse(chunk)
+        if usage := _reported_usage(chunk):
+            self.usage.update(usage)
+        parsed = ChatCompletionsTransport.parse(chunk, reasoning_filter=self.reasoning_filter)
         choice = _first_choice(chunk)
         delta = _get_value(choice, "delta") or {}
         self._append_tool_calls(_get_value(delta, "tool_calls"))
@@ -598,7 +683,10 @@ class ChatCompletionsStreamParser:
         return parsed
 
     def flush(self) -> ChatChunk:
-        return {"reasoning_delta": "", "response_delta": self._emit()}
+        return {
+            "reasoning_delta": self.reasoning_filter.feed("", final=True),
+            "response_delta": self._emit(),
+        }
 
     def function_calls_text(self) -> str:
         return ChatCompletionsTransport.tool_calls_text(self._ordered_tool_calls())
@@ -662,6 +750,12 @@ class ChatCompletionsStreamParser:
 
 
 class ResponsesTransport:
+    @staticmethod
+    def input_from_model_messages(model: Any, messages: list) -> list[dict[str, Any]]:
+        if not hasattr(model, "_convert_messages"):
+            return []
+        return ResponsesTransport.input_from_messages(model._convert_messages(messages))
+
     @classmethod
     def from_chat(
         cls,
@@ -673,6 +767,8 @@ class ResponsesTransport:
         request = cls.prepare_kwargs(kwargs, stop=stop, model=model, messages=messages)
         state = _normalize_responses_state(kwargs.get("responses_state"))
         input_items = cls._select_input_items(kwargs, messages, state)
+        if _has_tools(kwargs.get("a0_responses_function_tools")):
+            input_items = project_system_prompt(input_items, kwargs.get("responses_prompt_replacements"))
         request["input"] = input_items or ""
         cls.apply_state(request, kwargs, state=state)
         return request
@@ -688,7 +784,10 @@ class ResponsesTransport:
     ) -> dict[str, Any]:
         request = cls.prepare_kwargs(kwargs, stop=stop, model=model, messages=messages)
         state = _normalize_responses_state(kwargs.get("responses_state"))
-        request["input"] = list(input_items or []) or ""
+        items = list(input_items or [])
+        if _has_tools(kwargs.get("a0_responses_function_tools")):
+            items = project_system_prompt(items, kwargs.get("responses_prompt_replacements"))
+        request["input"] = items or ""
         cls.apply_state(request, kwargs, state=state)
         return request
 
@@ -1112,7 +1211,7 @@ class ResponsesTransport:
         call = cls.function_call_object(item)
         if not call:
             return ""
-        return json.dumps(call)
+        return json.dumps(call, ensure_ascii=False)
 
     @staticmethod
     def function_call_object(item: Any) -> dict[str, Any]:
@@ -1143,17 +1242,58 @@ class ResponsesEventParser:
     """Stateful parser for Responses streaming events."""
 
     def __init__(self) -> None:
-        self.function_calls: dict[str, dict[str, Any]] = {}
+        self.output_items: dict[str, dict[str, Any]] = {}
         self.output_index_keys: dict[str, str] = {}
         self.emitted_function_calls: set[str] = set()
+        self.streamed_function_calls: dict[str, str] = {}
+        self.pending_function_calls: dict[str, Any] = {}
+        self.commentary: dict[str, str] = {}
         self.seen_response_delta = False
         self.seen_reasoning_delta = False
         self.completed_response: Any = None
+
+    @property
+    def function_calls(self) -> dict[str, dict[str, Any]]:
+        return {key: item for key, item in self.output_items.items() if item.get("type") == "function_call"}
+
+    def finish(self) -> dict[str, Any] | None:
+        if self.completed_response is None:
+            if self.function_calls:
+                raise RuntimeError("Responses stream ended before native tool calls completed")
+            return None
+        response = _object_to_dict(self.completed_response)
+        output = list(_as_list(response.get("output")))
+        has_terminal_output = bool(output)
+        positions = {key: int(index) for index, key in self.output_index_keys.items()}
+        streamed = sorted(
+            enumerate(self.output_items.items()),
+            key=lambda entry: positions.get(entry[1][0], entry[0]),
+        )
+        for fallback_index, (key, item) in streamed:
+            if has_terminal_output and not item.get("id") and not item.get("call_id"):
+                continue  # An unidentified stream fragment cannot add another terminal call.
+            match = next((
+                index for index, final in enumerate(output)
+                if _get_value(final, "type") == item.get("type") and any(
+                    item.get(field) and item[field] == _get_value(final, field)
+                    for field in ("id", "call_id")
+                )
+            ), None)
+            if match is None:
+                output.insert(min(positions.get(key, fallback_index), len(output)), dict(item))
+            else:
+                output[match] = {
+                    **item,
+                    **{field: value for field, value in _object_to_dict(output[match]).items() if value is not None},
+                }
+        response["output"] = output
+        return response
 
     def parse(self, event: Any) -> ChatChunk:
         event_type = _get_value(event, "type") or ""
         response_delta = ""
         reasoning_delta = ""
+        is_commentary = False
 
         if event_type in {
             "response.output_text.delta",
@@ -1161,21 +1301,28 @@ class ResponsesEventParser:
             "response.text.delta",
         }:
             response_delta = str(_get_value(event, "delta") or "")
+            key = self._event_key(event)
+            item = self.output_items.get(key, {})
+            if event_type != "response.refusal.delta" and item.get("phase") == "commentary":
+                self.commentary[key] = self.commentary.get(key, "") + response_delta
+                is_commentary = True
         elif event_type in {
             "response.reasoning_summary_text.delta",
             "response.reasoning_text.delta",
         }:
             reasoning_delta = str(_get_value(event, "delta") or "")
         elif event_type == "response.output_item.added":
-            self._remember_function_call(_get_value(event, "item"), event)
+            self._remember_output_item(_get_value(event, "item"), event)
         elif event_type == "response.function_call_arguments.delta":
-            self._append_function_call_arguments(event)
+            response_delta = self._append_function_call_arguments(event)
         elif event_type == "response.function_call_arguments.done":
             response_delta = self._complete_function_call(event)
         elif event_type == "response.output_item.done":
             response_delta = self._complete_output_item(_get_value(event, "item"), event)
         elif event_type == "response.completed":
             response_delta, reasoning_delta = self._complete_response(event)
+        elif event_type == "response.incomplete":
+            raise RuntimeError("Responses generation incomplete; tool calls were not executed")
         elif event_type == "response.failed":
             raise RuntimeError(self._response_error_message(event))
         elif event_type == "error":
@@ -1188,47 +1335,102 @@ class ResponsesEventParser:
         if reasoning_delta:
             self.seen_reasoning_delta = True
 
-        return {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
+        parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
+        is_call = event_type in {
+            "response.function_call_arguments.delta", "response.function_call_arguments.done",
+        } or event_type == "response.output_item.done"
+        if self.commentary and response_delta and (is_commentary or is_call):
+            parsed["response_preview"] = self._commentary_preview()
+        return parsed
 
-    def _remember_function_call(self, item: Any, event: Any) -> str:
-        if _get_value(item, "type") != "function_call":
+    def _commentary_preview(self) -> str:
+        preview = {"thoughts": list(self.commentary.values())}
+        calls = [(key, item) for key, item in self.function_calls.items()
+                 if key in self.emitted_function_calls or key in self.streamed_function_calls]
+        if len(calls) == 1:
+            key, item = calls[0]
+            if key in self.streamed_function_calls:
+                return (json.dumps(preview, ensure_ascii=False)[:-1]
+                        + ',"tool_name":' + json.dumps(item["name"], ensure_ascii=False)
+                        + ',"tool_args":' + item["arguments"])
+            preview.update(ResponsesTransport.function_call_object(item))
+        elif calls:
+            preview.update(tool_name="parallel_tool_calls", tool_args={
+                "calls": [ResponsesTransport.function_call_object(item) for _, item in calls],
+            })
+        return json.dumps(preview, ensure_ascii=False)
+
+    def _remember_output_item(self, item: Any, event: Any) -> str:
+        item_type = _get_value(item, "type")
+        if not item_type:
             return ""
         key = self._event_key(event, item)
         if not key:
             return ""
-        current = self.function_calls.get(key, {})
-        merged = {**current, **_object_to_dict(item)}
-        self.function_calls[key] = merged
+        current = self.output_items.get(key, {})
+        merged = {**current, **{field: value for field, value in _object_to_dict(item).items() if value is not None}}
+        self.output_items[key] = merged
         output_index = _get_value(event, "output_index")
         if output_index is not None:
             self.output_index_keys[str(output_index)] = key
         return key
 
-    def _append_function_call_arguments(self, event: Any) -> None:
+    def _append_function_call_arguments(self, event: Any) -> str:
         key = self._event_key(event)
         if not key:
-            return
-        current = self.function_calls.setdefault(key, {"type": "function_call"})
-        current["arguments"] = str(current.get("arguments") or "") + str(
-            _get_value(event, "delta") or ""
-        )
+            return ""
+        current = self.output_items.setdefault(key, {"type": "function_call"})
+        delta = str(_get_value(event, "delta") or "")
+        current["arguments"] = str(current.get("arguments") or "") + delta
+        if (
+            not current.get("name")
+            or key in self.emitted_function_calls
+            or key in self.pending_function_calls
+            or (self.streamed_function_calls and key not in self.streamed_function_calls)
+        ):
+            return ""
+        if key not in self.streamed_function_calls:
+            self.streamed_function_calls[key] = str(current["arguments"])
+            return (
+                '{"tool_name":' + json.dumps(current["name"], ensure_ascii=False)
+                + ',"tool_args":' + str(current["arguments"])
+            )
+        self.streamed_function_calls[key] += delta
+        return delta
 
     def _complete_function_call(self, event: Any) -> str:
         key = self._event_key(event)
         if not key:
             return ""
-        current = self.function_calls.setdefault(key, {"type": "function_call"})
+        current = self.output_items.setdefault(key, {"type": "function_call"})
         if _get_value(event, "arguments") is not None:
             current["arguments"] = _get_value(event, "arguments")
         if _get_value(event, "name"):
             current["name"] = _get_value(event, "name")
+        if key in self.streamed_function_calls:
+            return self._finish_function_call(key, current)
         return self._emit_function_call(key, current)
 
     def _complete_output_item(self, item: Any, event: Any) -> str:
-        key = self._remember_function_call(item, event)
-        if not key:
+        key = self._remember_output_item(item, event)
+        current = self.output_items.get(key, {})
+        if current.get("type") != "function_call":
             return ""
-        return self._emit_function_call(key, self.function_calls[key])
+        if key in self.streamed_function_calls:
+            return self._finish_function_call(key, current)
+        return self._emit_function_call(key, current)
+
+    def _finish_function_call(self, key: str, item: Any) -> str:
+        streamed = self.streamed_function_calls.pop(key)
+        arguments = str(_get_value(item, "arguments") or "")
+        self.emitted_function_calls.add(key)
+        tail = arguments[len(streamed) :] if arguments.startswith(streamed) else ""
+        pending = self.pending_function_calls
+        self.pending_function_calls = {}
+        return tail + "}" + "".join(
+            self._emit_function_call(pending_key, pending_item)
+            for pending_key, pending_item in pending.items()
+        )
 
     def _complete_response(self, event: Any) -> tuple[str, str]:
         self.completed_response = _get_value(event, "response")
@@ -1241,6 +1443,9 @@ class ResponsesEventParser:
 
     def _emit_function_call(self, key: str, item: Any) -> str:
         if key in self.emitted_function_calls:
+            return ""
+        if self.streamed_function_calls:
+            self.pending_function_calls[key] = item
             return ""
         text = ResponsesTransport.function_call_text(item)
         if text:
@@ -1270,6 +1475,7 @@ def clear_transport_capability_cache() -> None:
     RESPONSES_UNSUPPORTED_CACHE.clear()
     RESPONSES_STATE_UNSUPPORTED_CACHE.clear()
     RESPONSES_BUILTIN_UNSUPPORTED_CACHE.clear()
+    STREAM_USAGE_UNSUPPORTED_CACHE.clear()
 
 
 def delete_stored_response_ids(
@@ -1331,6 +1537,8 @@ def _drop_responses_only_kwargs(kwargs: dict[str, Any]) -> None:
     kwargs.pop("responses_delete_on_chat_delete", None)
     kwargs.pop("responses_input_items", None)
     kwargs.pop("responses_local_input_items", None)
+    kwargs.pop("responses_prompt_replacements", None)
+    kwargs.pop("responses_history_context", None)
     kwargs.pop("previous_response_id", None)
     kwargs.pop("_a0_responses_builtin_downgrades", None)
 
@@ -1429,18 +1637,13 @@ def _prompt_cache_message_indexes(messages: list[dict[str, Any]]) -> list[int]:
     if leading_context:
         indexes.append(leading_context[-1])
 
-    user_indexes = [
+    # The trailing user/tool result includes extras rebuilt on every turn.
+    assistant_indexes = [
         index
         for index, message in enumerate(messages)
-        if str(message.get("role") or "") == "user"
+        if str(message.get("role") or "") == "assistant" and message.get("content")
     ]
-    indexes.extend(user_indexes[-2:])
-
-    deduplicated: list[int] = []
-    for index in indexes:
-        if index not in deduplicated:
-            deduplicated.append(index)
-    return deduplicated[:3]
+    return indexes + assistant_indexes[-2:]
 
 
 def _strip_message_cache_control(message: dict[str, Any]) -> dict[str, Any]:
@@ -1464,6 +1667,8 @@ def _content_with_cache_control(content: Any) -> Any:
         for index in range(len(blocks) - 1, -1, -1):
             block = blocks[index]
             if isinstance(block, dict):
+                if block.get("type") in {"thinking", "redacted_thinking"}:
+                    continue
                 block["cache_control"] = marker
                 return blocks
             if isinstance(block, str):
@@ -1693,6 +1898,16 @@ def _object_to_dict(obj: Any) -> dict[str, Any]:
     return {}
 
 
+def _reported_usage(response: Any) -> dict[str, Any]:
+    usage = _object_to_dict(_get_value(response, "usage"))
+    hidden = _object_to_dict(_get_value(response, "_hidden_params"))
+    if usage.get("cost") is None:
+        usage.pop("cost", None)
+        if hidden.get("response_cost") is not None:
+            usage["cost"] = hidden["response_cost"]
+    return usage
+
+
 def _normalize_reasoning_effort(effort: Any) -> str | None:
     if isinstance(effort, str):
         normalized = effort.strip().lower()
@@ -1763,6 +1978,13 @@ def _is_bad_request_error(exc: Exception) -> bool:
         return True
     text = _exception_text(exc).lower()
     return "400" in text and "bad request" in text
+
+
+def _is_stream_usage_rejected_error(exc: Exception) -> bool:
+    text = _exception_text(exc).lower()
+    if "stream_options" not in text:
+        return False
+    return _is_bad_request_error(exc) or _exception_status_code(exc) == 422
 
 
 def _is_server_error(exc: Exception) -> bool:

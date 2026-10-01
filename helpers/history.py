@@ -808,7 +808,7 @@ def _messages_from_record(record: Record) -> list[Message]:
 
 
 def _json_dumps(obj):
-    return json.dumps(obj, ensure_ascii=False)
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
 
 def _json_loads(obj):

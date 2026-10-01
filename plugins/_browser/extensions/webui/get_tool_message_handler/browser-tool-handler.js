@@ -60,6 +60,16 @@ function parseBrowserResult(content) {
   }
 }
 
+function beautifyJsonForDisplay(text) {
+  const t = text && text.trim();
+  if (!t || !((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]")))) return text;
+  try {
+    return JSON.stringify(JSON.parse(t), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 function normalizeBrowserAction(kvps = {}) {
   return String(kvps.action || "").trim().toLowerCase().replace("-", "_");
 }
@@ -484,6 +494,7 @@ function drawBrowserTool({
     kvps?._tool_name && { label: kvps._tool_name, class: "tool-name-badge" },
   ].filter(Boolean);
   const contentText = String(content ?? "");
+  const displayContent = beautifyJsonForDisplay(contentText);
   const browserResult = parseBrowserResult(contentText);
   const screenshotUri = staticScreenshotUri(kvps);
   const browserId = browserIdFromResult(browserResult, kvps);
@@ -522,7 +533,7 @@ function drawBrowserTool({
     actionButtons.push(
       createActionButton("detail", "", () =>
         stepDetailStore.showStepDetail(
-          buildDetailPayload(args, { headerLabels }),
+          buildDetailPayload(args, { headerLabels, content: displayContent }),
         ),
       ),
       createActionButton("copy", "", () => copyToClipboard(contentText)),
@@ -536,7 +547,7 @@ function drawBrowserTool({
     code: "WWW",
     classes: undefined,
     kvps: displayKvps,
-    content,
+    content: displayContent,
     actionButtons: actionButtons.filter(Boolean),
     log: args,
   });

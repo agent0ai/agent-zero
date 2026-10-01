@@ -22,6 +22,9 @@ class StopUnusableResponseLoop(Extension):
         if message not in {
             self.agent.read_prompt("fw.msg_misformat.md"),
             self.agent.read_prompt("fw.msg_repeat.md"),
+            self.agent.read_prompt("fw.msg_empty_response.md"),
+            self.agent.read_prompt("fw.msg_reasoning_only.md"),
+            self.agent.read_prompt("fw.msg_thoughts_fallback.md"),
         }:
             return
 

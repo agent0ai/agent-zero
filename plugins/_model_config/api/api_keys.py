@@ -54,7 +54,7 @@ class ApiKeys(ApiHandler):
         provider = input.get("provider", "")
         if not provider:
             return {"ok": False, "error": "Missing provider"}
-        api_key = models.get_api_key(provider)
+        api_key = models.get_api_key_raw(provider)
         if api_key and api_key.strip() and api_key != "None":
             return {"ok": True, "value": api_key}
         return {"ok": True, "value": ""}

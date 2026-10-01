@@ -86,6 +86,52 @@ async def test_snapshot_builder_produces_contract_schema_key_set_and_defaults():
     assert payload["notifications_version"] >= 0
 
 
+@pytest.mark.asyncio
+async def test_negotiated_incremental_snapshot_uses_null_collection_sentinel():
+    from helpers import state_snapshot as snapshot
+
+    request = snapshot.StateRequestV1(
+        context=None,
+        log_from=0,
+        notifications_from=0,
+        timezone="UTC",
+        collections_delta=True,
+    )
+    payload = await snapshot.build_snapshot_from_request(
+        request=request,
+        include_collections=False,
+    )
+
+    snapshot.validate_snapshot_schema_v1(payload)
+    assert set(payload) == EXPECTED_SNAPSHOT_KEYS
+    assert payload["contexts"] is None
+    assert payload["tasks"] is None
+
+
+def test_state_request_collection_delta_is_optional_and_type_checked():
+    from helpers import state_snapshot as snapshot
+
+    base = {
+        "context": None,
+        "log_from": 0,
+        "notifications_from": 0,
+        "timezone": "UTC",
+    }
+
+    assert snapshot.parse_state_request_payload(base).collections_delta is False
+    assert (
+        snapshot.parse_state_request_payload(
+            {**base, "collections_delta": True}
+        ).collections_delta
+        is True
+    )
+    with pytest.raises(snapshot.StateRequestValidationError) as error:
+        snapshot.parse_state_request_payload(
+            {**base, "collections_delta": "yes"}
+        )
+    assert error.value.reason == "collections_delta_type"
+
+
 def test_snapshot_schema_rejects_unexpected_top_level_keys():
     from helpers import state_snapshot as snapshot
 

@@ -1,6 +1,6 @@
 ---
 name: writer-documents
-description: Use when creating, opening, or editing LibreOffice Writer ODT documents, or DOCX documents only when Microsoft Word compatibility is explicitly required.
+description: "Create, open or edit Writer documents: ODT default; DOCX for Word compatibility."
 version: "1.1.0"
 author: "Agent Zero Core Team"
 tags: ["writer", "odt", "opendocument", "word", "docx", "documents", "reports", "memos", "contracts"]

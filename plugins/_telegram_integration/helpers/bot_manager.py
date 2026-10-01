@@ -1,4 +1,5 @@
 import asyncio
+import re
 from dataclasses import dataclass
 from typing import Callable, Awaitable
 
@@ -23,6 +24,7 @@ class BotInstance:
     task: asyncio.Task | None = None  # polling task
     webhook_active: bool = False  # True when webhook mode is registered
     webhook_secret: str = ""  # secret for webhook verification
+    webhook_url: str = ""
     group_mode: str = "mention"  # current group_mode setting
     bot_info: object | None = None  # cached result of bot.get_me()
 
@@ -55,11 +57,13 @@ def create_bot(
     router = Router()
 
     # Register command handlers
-    router.message.register(on_command_start, CommandStart())
+    command_filters = [F.chat.type == ChatType.PRIVATE] if group_mode == "off" else []
+    router.message.register(on_command_start, CommandStart(), *command_filters)
     if on_command_control:
         router.message.register(
             on_command_control,
             Command(commands=integration_commands.command_names(integration="telegram")),
+            *command_filters,
         )
 
     if on_callback_query:
@@ -93,10 +97,12 @@ def create_bot(
 
 
 async def register_bot_commands(instance: BotInstance) -> None:
-    """Register Telegram's native / command menu from the shared integration registry."""
+    """Register native integration and globally available Agent Zero commands."""
+    from plugins._telegram_integration.helpers.slash_commands import menu_commands
+
     commands = [
         BotCommand(command=name, description=description)
-        for name, description in integration_commands.telegram_menu_commands()
+        for name, description in menu_commands()
     ]
     if not commands:
         return
@@ -158,10 +164,7 @@ def _make_group_mention_filter(handler: Callable, bot: Bot):
 
 async def start_polling(instance: BotInstance) -> asyncio.Task:
     # Ensure any leftover webhook is removed before polling
-    try:
-        await instance.bot.delete_webhook()
-    except Exception:
-        pass
+    await remove_webhook(instance)
 
     async def _poll():
         try:
@@ -194,25 +197,30 @@ async def stop_polling(instance: BotInstance):
 
 async def setup_webhook(instance: BotInstance, webhook_url: str, secret: str = ""):
     """Register webhook with Telegram. Updates are received via the API handler."""
+    if not isinstance(secret, str) or not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", secret):
+        raise ValueError("webhook_secret must contain 32–256 letters, digits, underscores or hyphens")
+
     full_url = f"{webhook_url.rstrip('/')}/api/plugins/_telegram_integration/webhook?bot={instance.name}"
 
     await instance.bot.set_webhook(
         url=full_url,
-        secret_token=secret or None,
+        secret_token=secret,
     )
 
     instance.webhook_active = True
     instance.webhook_secret = secret
+    instance.webhook_url = webhook_url.rstrip("/")
     PrintStyle.info(f"Telegram ({instance.name}): webhook active via {webhook_url.rstrip('/')}")
 
 
 async def remove_webhook(instance: BotInstance):
+    instance.webhook_active = False
+    instance.webhook_secret = ""
+    instance.webhook_url = ""
     try:
         await instance.bot.delete_webhook()
     except Exception as e:
         PrintStyle.error(f"Telegram ({instance.name}): remove webhook error: {format_error(e)}")
-    instance.webhook_active = False
-    instance.webhook_secret = ""
 
 # Cleanup
 

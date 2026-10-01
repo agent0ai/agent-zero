@@ -1,10 +1,9 @@
 ## memory tools
 use when durable recall or storage is useful
-- `memory_load`: search stored memories by meaning and metadata
-- `memory_save`: store durable information for future recall
-- `memory_delete`: delete memories by exact ID
-- `memory_forget`: find and remove memories matching a query
-args: load uses `query`, optional `threshold`, `limit`, `filter`; save uses `text`, optional `area` and metadata; delete uses comma-separated `ids`; forget uses `query`, optional `threshold`, `filter`
+- `memory_load`: args `query`, optional `threshold`, `limit`, `filter`; search by meaning and metadata
+- `memory_save`: args `text`, optional `area` and metadata; store durable information; returns a memory ID on success
+- `memory_delete`: arg comma-separated `ids`; delete memories by exact ID
+- `memory_forget`: args `query`, optional `threshold`, `filter`; find and remove matching memories
 
 notes:
 - `threshold` is similarity from `0` to `1`

@@ -1,7 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
-import { store as fileEditorStore } from "/components/modals/file-editor/file-editor-store.js";
+import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   openLatest as openLatestSurface,
   setupFloatingSurfaceModalChrome,
@@ -13,7 +13,17 @@ const DEFAULT_REMEMBER_LAST_DIRECTORY = true;
 const PICKER_MODE_NONE = "";
 const PICKER_MODE_TEXT_OPEN = "text-open";
 const PICKER_MODE_SAVE_AS = "save-as";
-const EDITOR_TEXT_EXTENSIONS = new Set(["md", "txt"]);
+const CONNECTION_PLUGINS = [
+  ["ssh", "File Browser SSH access"],
+  ["webdav", "File Browser WebDAV access"],
+  ["smb", "File Browser SMB 3 for NAS"],
+  ["s3", "File Browser S3 access"],
+  ["ftps", "File Browser FTPS access"],
+].map(([id, title]) => ({
+  key: `file_browser_${id}`,
+  title,
+  thumbnail: `https://raw.githubusercontent.com/agent0ai/a0-plugins/main/plugins/file_browser_${id}/thumbnail.webp`,
+}));
 const DESKTOP_EXTENSIONS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 const BROWSER_EXTENSIONS = new Set([
   "html",
@@ -34,9 +44,9 @@ const ARCHIVE_SUFFIXES = [".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tar", 
 
 const SURFACE_ACTIONS = {
   editor: {
-    label: "Open in Editor",
-    icon: "article",
-    title: "Open text in Editor",
+    label: "Edit",
+    icon: "edit",
+    title: "Edit",
   },
   desktop: {
     label: "Open in Desktop",
@@ -56,6 +66,60 @@ function delay(ms) {
 
 // Model migrated from legacy file_browser.js (lift-and-shift)
 const model = {
+  limits: null,
+  textLimitMib: null,
+  transferLimitMib: null,
+  extractLimitMib: null,
+  archiveEntries: null,
+  savingTextLimit: false,
+  async ensureLimits(force = false) {
+    if (this.limits && !force) return this.limits;
+    const response = await fetchApi("/get_work_dir_files?limits=1");
+    const data = await response.json();
+    if (!response.ok || !data.limits?.max_text_bytes || !data.limits?.max_file_bytes) {
+      throw new Error("File Browser limits are unavailable.");
+    }
+    this.limits = data.limits;
+    return this.limits;
+  },
+  async saveSizeLimit(kind = "text") {
+    if (this.savingTextLimit) return;
+    this.savingTextLimit = true;
+    try {
+      const limit = {text: this.textLimitMib, transfer: this.transferLimitMib, extract: this.extractLimitMib, entries: this.archiveEntries}[kind];
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("Enter a positive whole number of MiB.");
+      const result = await callJsonApi("/file_browser_settings", { [kind === "entries" ? "max_archive_entries" : `max_${kind}_size_mb`]: limit });
+      if (!result.ok) throw new Error(result.error || "Could not save the size limit.");
+      this.limits = result.limits;
+      const settings = globalThis.Alpine?.store("settings")?.settings;
+      if (settings) {
+        const key = kind === "entries" ? "file_browser_max_archive_entries" : `file_browser_max_${kind}_size_mb`;
+        settings[key] = limit;
+      }
+    } catch (error) {
+      this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
+      this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      this.extractLimitMib = this.limits.max_extract_bytes / (1024 * 1024);
+      this.archiveEntries = this.limits.max_archive_entries;
+      globalThis.toastFrontendError?.(error.message, "File Browser Settings");
+    } finally { this.savingTextLimit = false; }
+  },
+  fileTree: createFileTree((file) => store.openTreeEntry(file), () => store.preferences.treeRoot),
+
+  async openTreeEntry(file) {
+    await this.ensureLimits();
+    if (file.is_dir) return this.navigateToFolder(file.path);
+    if (this.isPickerMode()) {
+      if (await this.fetchFiles(this.parentPath(file.path), { preserveOnError: true })) {
+        const entry = this.browser.entries.find(entry => this.normalizePath(entry.path) === file.path);
+        if (entry) this.handleFileNameClick(entry);
+      }
+      return;
+    }
+    if (this.canOpenInSurface(file)) return this.openInSurface(file);
+    return this.openFileEditor(file);
+  },
+
   // Reactive state
   isLoading: false,
   browser: {
@@ -66,7 +130,8 @@ const model = {
     sortBy: "name",
     sortDirection: "asc",
   },
-  history: [], // navigation stack
+  history: [], // back navigation stack
+  forwardHistory: [], // forward navigation stack
   initialPath: "", // Store path for open() call
   closePromise: null,
   isSurfaceHandoff: false,
@@ -75,20 +140,33 @@ const model = {
   pathInput: "",
   pathError: "",
   isPathSubmitting: false,
+  pathEditing: false,
+  pathSuggestions: [],
+  pathSuggestionsStyle: {},
+  pathSuggestionIndex: 0,
+  _pathSuggestionsToken: 0,
+  _pathSuggestionsTimer: null,
+  pathSuggestionsOwner: null,
+  _directoryRequest: 0,
   rememberLastDirectory: DEFAULT_REMEMBER_LAST_DIRECTORY,
   settingsLoadPromise: null,
   settingsUpdatedHandler: null,
   _floatingCleanup: null,
+  _mountedElement: null,
   _mountedDefaultLoadTimer: null,
   renameTarget: null,
   renameName: "",
   renameMode: "rename",
+  renameInline: false,
+  renameDirectory: "",
+  renameEntries: [],
   isRenaming: false,
   renameError: null,
   renameAfterConfirm: null,
   renamePerformAction: null,
   renameValidateName: null,
   openDropdownPath: null, // Track which dropdown is currently open
+  dropdownOwner: null,
   dropdownStyle: {},
   searchQuery: "",
   isBulkBusy: false,
@@ -101,9 +179,183 @@ const model = {
   pickerFilenameError: "",
   pickerOnConfirm: null,
 
+  connections: [],
+  connectionProviders: [],
+  connectionDraft: null,
+  connectionsBusy: false,
+  installedConnectionPlugins: [],
+  openingConnectionPlugin: "",
+  remotePermissions: null,
+
+  get connectionPluginOffers() {
+    return CONNECTION_PLUGINS.map(plugin => ({
+      ...plugin,
+      installed: this.installedConnectionPlugins.includes(plugin.key),
+      provider: this.connectionProviders.find(provider => provider.plugin === plugin.key)?.id,
+    }));
+  },
+  async openConnectionPlugin(plugin) {
+    if (this.openingConnectionPlugin) return;
+    try {
+      if (!plugin.installed) {
+        this.openingConnectionPlugin = plugin.key;
+        const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+        await installer.ensureIndexLoaded();
+        if (!installer.getPluginHubPluginByKey(plugin.key)) await installer.fetchIndex({ force: true });
+        await installer.openPluginHubDetailByKey(plugin.key);
+        return;
+      }
+      const provider = this.connectionProviders.find(provider => provider.plugin === plugin.key);
+      if (provider) this.editConnection(null, provider.id);
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Plugins"); }
+    finally { this.openingConnectionPlugin = ""; }
+  },
+  get draftProvider() { return this.connectionProviders.find(p => p.id === this.connectionDraft?.provider); },
+  isRemote(path = this.browser.currentPath) { return /^\/@(?:ssh|connections)(?:\/|$)/.test(String(path)); },
+  remoteAllowed(permission, file = null) {
+    return !this.isRemote(file?.path || this.browser.currentPath)
+      || Boolean((file?.permissions || this.remotePermissions)?.[permission]);
+  },
+  async connectionRequest(action, payload = {}) {
+    const response = await callJsonApi("/file_browser_connections", { action, ...payload });
+    if (response?.error || response?.ok === false) throw new Error(response.error || "Connection operation failed.");
+    return response;
+  },
+  async loadConnections() {
+    const [response, installed] = await Promise.all([
+      this.connectionRequest("list"),
+      callJsonApi("plugins_list", { filter: { custom: true, builtin: false } }),
+    ]);
+    this.connections = response.connections || [];
+    this.connectionProviders = response.providers || [];
+    this.installedConnectionPlugins = (installed.plugins || []).map(plugin => plugin.name);
+  },
+  editConnection(connection = null, providerId = "") {
+    const editable = this.connectionProviders.filter(p => !p.managed);
+    const provider = editable.find(p => p.id === (connection?.provider || providerId)) || editable[0];
+    if (!provider) return;
+    this.connectionDraft = connection ? JSON.parse(JSON.stringify(connection)) : {
+      provider: provider.id, name: "",
+      ...Object.fromEntries(provider.fields.filter(f => !f.secret).map(f => [f.name, f.default ?? ""])),
+      permissions: { browse: true, download: true, upload: false, edit: false, rename: false, delete: false },
+    };
+  },
+  async saveConnection() {
+    if (this.connectionsBusy || !this.connectionDraft) return;
+    this.connectionsBusy = true;
+    try {
+      await this.connectionRequest("save-connection", { connection: this.connectionDraft });
+      this.connectionDraft = null;
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+    finally { this.connectionsBusy = false; }
+  },
+  async testConnection(connection) {
+    try {
+      await this.connectionRequest("test", {provider: connection.provider, id: connection.id});
+      globalThis.toastFrontendSuccess?.("Connected successfully.", "File connections");
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+  async removeConnection(connection) {
+    try {
+      await this.connectionRequest("remove-connection", {provider: connection.provider, id: connection.id});
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
+  },
+  async openConnection(connection) {
+    await window.closeModal("settings/settings.html");
+    const path = "/@connections/" + connection.provider + "/" + connection.id;
+    return this._mountedElement?.getClientRects().length
+      ? this.navigateToFolder(path)
+      : openLatestSurface("files", { path, source: "file-browser-settings" });
+  },
+  async startDownload(files) {
+    const result = await callJsonApi("/download_work_dir_files", {
+      paths: files.map(file => file.path), currentPath: this.browser.currentPath,
+    });
+    if (!result.download_url) throw new Error(result.error || "Download failed.");
+    const link = document.createElement("a");
+    link.href = result.download_url;
+    link.download = result.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false, treeRoot: "/a0", pathBar: "buttons" },
+
+  normalizeTreeRoot(value) {
+    if (typeof value !== "string" || !value.trim().startsWith("/")) return "";
+    const path = value.trim().replace(/\/+/g, "/").replace(/\/$/, "") || "/";
+    return !/(?:^|\/)\.\.?(?:\/|$)|[\0\r\n]/.test(path) ? path : "";
+  },
+
+  async saveTreeRoot(value) {
+    const path = this.normalizeTreeRoot(value);
+    if (!path) {
+      globalThis.toastFrontendError?.("Enter an absolute folder path without . or .. segments.", "File Browser Settings");
+      return;
+    }
+    this.preferences.treeRoot = path;
+    await this.savePreferences();
+  },
+
+  loadPreferences() {
+    try {
+      const value = JSON.parse(localStorage.getItem("fileBrowser.preferences") || "{}");
+      this.preferences = {
+        sortBy: ["name", "size", "date"].includes(value.sortBy) ? value.sortBy : "name",
+        sortDirection: value.sortDirection === "desc" ? "desc" : "asc",
+        view: value.view === "icons" ? "icons" : "list",
+        treeShown: value.treeShown === true,
+        treeRoot: this.normalizeTreeRoot(value.treeRoot) || "/a0",
+        pathBar: value.pathBar === "raw" ? "raw" : "buttons",
+      };
+    } catch { /* Storage may be unavailable. Keep the defaults. */ }
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+  },
+
+  async savePreferences() {
+    try {
+      localStorage.setItem("fileBrowser.preferences", JSON.stringify(this.preferences));
+    } catch {
+      globalThis.toastFrontendError?.("Could not save file browser preferences.");
+      return;
+    }
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+    await this.fileTree.follow(this.browser.currentPath);
+  },
+
+  async loadSettings() {
+    try {
+      // Reflect saved UI preferences (e.g. pathBar) before binding settings fields.
+      this.loadPreferences();
+      await this.ensureLimits(true);
+      this.textLimitMib = this.limits.max_text_bytes / (1024 * 1024);
+      this.transferLimitMib = this.limits.max_file_bytes / (1024 * 1024);
+      this.extractLimitMib = this.limits.max_extract_bytes / (1024 * 1024);
+      this.archiveEntries = this.limits.max_archive_entries;
+      await this.loadConnections();
+    } catch (error) { globalThis.toastFrontendError?.(error.message, "File Browser Settings"); }
+  },
+
+  async openSettings(providerId = "") {
+    await this.loadSettings();
+    this.connectionDraft = null;
+    if (providerId) this.editConnection(null, providerId);
+    const { store: settingsStore } = await import("/components/settings/settings-store.js");
+    return settingsStore.open("file-browser");
+  },
+
   // --- Lifecycle -----------------------------------------------------------
   init() {
+    this.ensureLimits().catch(() => {});
     if (this.settingsUpdatedHandler) return;
+    this.loadPreferences();
     this.settingsUpdatedHandler = (event) => {
       const value = event?.detail?.file_browser_remember_last_directory;
       if (typeof value !== "boolean") return;
@@ -114,6 +366,7 @@ const model = {
   },
 
   onMount(element = null, options = {}) {
+    this._mountedElement = element;
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     const mode = options?.mode === "canvas" ? "canvas" : "modal";
@@ -124,7 +377,18 @@ const model = {
     }
   },
 
-  onUnmount() {
+  onUnmount(element = null) {
+    if (element && element !== this._mountedElement) return;
+    if (!this.isSurfaceHandoff) {
+      this._directoryRequest++;
+      this.isLoading = false;
+      this.pathEditing = false;
+      this.resetPickerState();
+      if (!this.isRenaming) this.resetRenameState();
+    }
+    this.clearPathSuggestions();
+    this._mountedElement = null;
+    this.closeDropdown();
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this.cancelMountedDefaultLoad();
@@ -132,17 +396,42 @@ const model = {
 
   // --- Public API (called from button/link) --------------------------------
   async open(path = "", options = {}) {
-    if (this.isLoading) return; // Prevent double-open
+    if (this.isLoading || this.isRenaming || this.isBulkBusy) return;
+    // Mounted canvas state survives an external picker, even when the panel is hidden.
+    const surfaceActive = Boolean(document.querySelector(".file-browser-root.is-surface"));
+    const retainedPath = surfaceActive ? this.browser.currentPath : "";
     this.resetOpenState(options);
 
     try {
-      // Open modal FIRST (immediate UI feedback)
-      this.closePromise = window.openModal(FILE_BROWSER_MODAL_PATH);
+      if (!window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
+        this.closePromise = window.openModal(FILE_BROWSER_MODAL_PATH, () => !this.isBulkBusy && !this.isRenaming);
+      } else {
+        if (!this.closePromise) {
+          // Surface controls can open the modal without going through this store.
+          this.closePromise = new Promise((resolve) => {
+            const closed = (event) => {
+              if (event.detail?.modalPath?.replace(/^\//, "") !== FILE_BROWSER_MODAL_PATH) return;
+              document.removeEventListener("modal-closed", closed);
+              resolve();
+            };
+            document.addEventListener("modal-closed", closed);
+          });
+        }
+        await window.ensureModalOpen(FILE_BROWSER_MODAL_PATH);
+      }
+      const closePromise = this.closePromise;
       await this.loadOpeningPath(path);
 
-      // await modal close
-      await this.closePromise;
-      if (!this.isSurfaceHandoff) this.destroy();
+      await closePromise;
+      if (this.closePromise !== closePromise) return;
+      this.closePromise = null;
+      if (!this.isSurfaceHandoff) {
+        if (surfaceActive) {
+          await this.openSurface(retainedPath);
+        } else {
+          this.destroy();
+        }
+      }
 
     } catch (error) {
       console.error("File browser error:", error);
@@ -152,7 +441,8 @@ const model = {
   },
 
   async openSurface(path = "") {
-    if (this.isLoading) return false;
+    if (this.isLoading || this.isRenaming || this.isBulkBusy) return false;
+    if (this.isSurfaceHandoff) return true;
     this.resetOpenState();
 
     try {
@@ -196,12 +486,16 @@ const model = {
   },
 
   destroy() {
+    this._directoryRequest++;
+    this.resetPathInput();
+    this.pathEditing = false;
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this.cancelMountedDefaultLoad();
     // Reset state when modal closes
     this.isLoading = false;
     this.history = [];
+    this.forwardHistory = [];
     this.initialPath = "";
     this.closePromise = null;
     this.isSurfaceHandoff = false;
@@ -209,7 +503,7 @@ const model = {
     this.browser.currentPath = "";
     this.browser.parentPath = "";
     this.browser.entries = [];
-    this.openDropdownPath = null;
+    this.closeDropdown();
     this.searchQuery = "";
     this.isBulkBusy = false;
     this.clearDragState();
@@ -257,10 +551,16 @@ const model = {
 
   // --- Helpers -------------------------------------------------------------
   resetOpenState(options = {}) {
+    this.loadPreferences();
+    this.closeDropdown();
     this.cancelMountedDefaultLoad();
+    this.resetRenameState();
+    this.resetPathInput();
+    this.pathEditing = false;
     this.isLoading = true;
     this.error = null;
     this.history = [];
+    this.forwardHistory = [];
     this.searchQuery = "";
     this.isBulkBusy = false;
     this.clearDragState();
@@ -278,7 +578,7 @@ const model = {
       || (this.pickerMode === PICKER_MODE_SAVE_AS ? "Save Here" : "Open Selected");
     this.pickerFilename = String(options?.filename || "").trim();
     this.pickerDefaultExtension = this.normalizedEditorTextExtension(
-      options?.defaultExtension || this.fileExtension({ name: this.pickerFilename }) || "md",
+      options?.defaultExtension ?? this.fileExtension({ name: this.pickerFilename }),
     );
     this.pickerFilenameError = "";
     this.pickerOnConfirm = typeof options?.onConfirm === "function" ? options.onConfirm : null;
@@ -362,7 +662,7 @@ const model = {
       }
     };
 
-    requestAnimationFrame(() => requestAnimationFrame(restore));
+    this.runNextFrame(restore);
   },
 
   formatFileSize(size) {
@@ -465,7 +765,7 @@ const model = {
 
   isSelectableEntry(file = {}) {
     if (this.isSaveAsPicker()) return false;
-    if (this.isTextOpenPicker()) return !file?.is_dir && this.fileSurfaceTarget(file) === "editor";
+    if (this.isTextOpenPicker()) return !file?.is_dir && this.isEditableFile(file);
     return true;
   },
 
@@ -483,9 +783,223 @@ const model = {
     this.pathInput = this.browser.currentPath || "";
   },
 
+  // Pin to the right end when unedited or caret at end; blur re-pins through pinPathInputAfterBlur.
+  pinPathInput(element) {
+    if (!element) return;
+    if (!element._pinResizeObserver) {
+      element._pinResizeObserver = new ResizeObserver(() => {
+        this.scrollPathInputNextFrame(element);
+      });
+    }
+    element._pinResizeObserver.observe(element);
+    this.scrollPathInputNextFrame(element);
+  },
+
+  runNextFrame(callback) {
+    requestAnimationFrame(() => requestAnimationFrame(callback));
+  },
+
+  scrollPathInputNextFrame(element) {
+    this.runNextFrame(() => this.scrollPathInputToEnd(element));
+  },
+
+  scrollPathInputToEnd(element) {
+    if (!element || !element.isConnected) return;
+    const atEnd = document.activeElement !== element
+      || (element.selectionStart === element.value.length && element.selectionEnd === element.value.length);
+    if (atEnd) element.scrollLeft = element.scrollWidth;
+  },
+
+  // Chrome resets an input's scrollLeft to 0 when the input blurs, after handlers and microtasks; snap on the first frame (pre-paint, instant) and re-check on the second in case the reset lands between frames.
+  pinPathInputAfterBlur(element) {
+    requestAnimationFrame(() => {
+      this.scrollPathInputToEnd(element);
+      requestAnimationFrame(() => this.scrollPathInputToEnd(element));
+    });
+  },
+
+  // The raw submit slot acts as part of the field: a real click focuses the input.
+  focusPathInput(button) {
+    const input = button?.closest(".path-input-shell")?.querySelector("input");
+    if (input) input.focus();
+  },
+
   resetPathInput() {
     this.syncPathInput();
     this.pathError = "";
+    this.clearPathSuggestions();
+  },
+
+  // --- Path bar: crumbs, edit mode, folder autocomplete --------------------
+  pathCrumbs() {
+    const current = this.normalizeOpeningPath(this.browser.currentPath).replace(/\/+$/, "");
+    const crumbs = [{ name: "/", path: "/" }];
+    if (!current || current === "$WORK_DIR") return crumbs;
+    let acc = "";
+    const parts = current.split("/").filter(Boolean);
+    for (const [index, part] of parts.entries()) {
+      acc += `/${part}`;
+      // Providers are namespace segments, not browsable directories.
+      if (parts[0] === "@connections" && index === 1) continue;
+      crumbs.push({ name: part, path: acc });
+    }
+    return crumbs;
+  },
+
+  startPathEdit() {
+    if (this.isLoading) return;
+    this.pathEditing = true;
+    this.resetPathInput();
+  },
+
+  exitPathEdit(restoreFocus = false) {
+    const input = document.activeElement;
+    const toolbar = input?.closest?.(".path-navigator");
+    this.pathEditing = false;
+    this.resetPathInput();
+    if (restoreFocus) this.runNextFrame(() => toolbar?.querySelector(".path-edit-toggle")?.focus());
+  },
+
+  // Hide crumbs that would render partially; expose an overflow parent menu.
+  measurePathCrumbFit(element, overflow = 0) {
+    if (!element?.isConnected || !element.clientWidth) return 0;
+    const crumbs = [...element.querySelectorAll(".path-crumb")];
+    if (!crumbs.length) return 0;
+    const measure = (available) => {
+      let used = 0;
+      let hidden = 0;
+      for (let i = crumbs.length - 1; i >= 0; i--) {
+        const width = crumbs[i].offsetWidth;
+        // Hide any leading crumb, including root; only current folder must remain.
+        if (used + width > available && i < crumbs.length - 1) {
+          hidden = i + 1;
+          break;
+        }
+        used += width;
+      }
+      return Math.min(hidden, crumbs.length - 1);
+    };
+    // Reset visibility first: hidden crumbs report offsetWidth 0 and corrupt sizing.
+    crumbs.forEach((crumb) => {
+      crumb.style.display = "";
+    });
+    // Measure the full slot first so an old chevron cannot perpetuate overflow.
+    const available = element.clientWidth + (overflow ? 18 : 0);
+    let hidden = measure(available);
+    if (hidden) hidden = measure(available - 18);
+    crumbs.forEach((crumb, index) => {
+      crumb.style.display = index < hidden ? "none" : "";
+    });
+    element.scrollLeft = 0;
+    return hidden;
+  },
+
+  async updatePathSuggestions(element = null) {
+    this.clearPathSuggestions();
+    const token = this._pathSuggestionsToken;
+    this.pathSuggestionsOwner = element;
+    this.pathError = "";
+    const value = String(this.pathInput || "").trim();
+    if (!value || value === "$WORK_DIR") {
+      this.pathSuggestions = [];
+      this.pathSuggestionsStyle = {};
+      return;
+    }
+    const endsWithSlash = /\/$/.test(value);
+    const normalized = this.normalizeSubmittedPath(value).replace(/\/+$/, "") || "/";
+    const connectionRoot = normalized.match(/^\/@(?:connections\/[a-z0-9_]+|ssh)\/[a-f0-9]{32}(?=\/|$)/)?.[0];
+    if (/^\/@(?:connections|ssh)\//.test(normalized) && !connectionRoot) return;
+    const slashIndex = normalized.lastIndexOf("/");
+    // Connection roots have no browsable parent within their provider namespace.
+    const listChildren = endsWithSlash || normalized === connectionRoot;
+    const parent = listChildren ? normalized : (slashIndex <= 0 ? "/" : normalized.slice(0, slashIndex));
+    const prefix = listChildren ? "" : normalized.slice(slashIndex + 1).toLowerCase();
+    try {
+      const response = await fetchApi(`/get_work_dir_files?path=${encodeURIComponent(parent)}`);
+      const data = await response.json().catch(() => ({}));
+      if (token !== this._pathSuggestionsToken) return;
+      if (!response.ok || data.error || data.data?.error) return;
+      const entries = data?.data?.entries || [];
+      const matches = entries
+        .filter((entry) => entry.is_dir && entry.name.toLowerCase().startsWith(prefix) && entry.path !== normalized)
+        .map((entry) => ({ name: entry.name, path: entry.path }));
+      this.pathSuggestions = matches;
+      const style = this.pathSuggestions.length && element
+        ? this.getDropdownStyle(element, Math.max(element.getBoundingClientRect().width, 220), false)
+        : {};
+      // Cap the dropdown at 8 rows while keeping the viewport-aware placement.
+      if (style.maxHeight) {
+        style.maxHeight = `${Math.min(parseInt(style.maxHeight, 10) || 0, 304)}px`;
+      }
+      this.pathSuggestionsStyle = style;
+    } catch {
+      if (token === this._pathSuggestionsToken) {
+        this.pathSuggestions = [];
+        this.pathSuggestionsStyle = {};
+      }
+    }
+  },
+
+  async pickPathSuggestion(suggestion) {
+    this.pathInput = this.normalizeSubmittedPath(suggestion?.path);
+    this.clearPathSuggestions();
+    await this.submitPath();
+  },
+
+  get activePathSuggestion() {
+    return this.pathSuggestions[this.pathSuggestionIndex] || null;
+  },
+
+  selectPathSuggestion(element = null) {
+    const suggestion = this.activePathSuggestion;
+    if (!suggestion) return false;
+    const path = this.normalizeSubmittedPath(suggestion.path);
+    this.pathInput = path.endsWith("/") ? path : `${path}/`;
+    this.pathSuggestions = [];
+    this.updatePathSuggestions(element);
+    return true;
+  },
+
+  movePathSuggestion(delta) {
+    if (!this.pathSuggestions.length) return false;
+    const count = this.pathSuggestions.length;
+    this.pathSuggestionIndex = (this.pathSuggestionIndex + delta + count) % count;
+    this.runNextFrame(() => {
+      for (const container of document.querySelectorAll(".path-suggestions")) {
+        if (container.getClientRects().length === 0) continue;
+        const row = container.querySelectorAll(".path-suggestion")[this.pathSuggestionIndex];
+        row?.scrollIntoView({ block: "nearest" });
+      }
+    });
+    return true;
+  },
+
+  clearPathSuggestions() {
+    clearTimeout(this._pathSuggestionsTimer);
+    this._pathSuggestionsTimer = null;
+    this._pathSuggestionsToken++;
+    this.pathSuggestions = [];
+    this.pathSuggestionsStyle = {};
+    this.pathSuggestionsOwner = null;
+    this.pathSuggestionIndex = 0;
+  },
+
+  // Keystrokes debounce the directory fetch; direct calls (Tab accept, refocus) stay immediate.
+  queuePathSuggestions(element = null) {
+    this.clearPathSuggestions();
+    this.pathError = "";
+    this._pathSuggestionsTimer = setTimeout(() => {
+      this._pathSuggestionsTimer = null;
+      this.updatePathSuggestions(element);
+    }, 200);
+  },
+
+  hidePathSuggestions() {
+    this.exitPathEdit();
+  },
+
+  showPathSuggestions(element = null) {
+    if (this.pathInput) this.updatePathSuggestions(element);
   },
 
   async loadDirectoryPreference() {
@@ -563,39 +1077,39 @@ const model = {
   fileSurfaceTarget(file = {}) {
     if (!file || file.is_dir) return "";
     const ext = this.fileExtension(file);
-    if (EDITOR_TEXT_EXTENSIONS.has(ext)) return "editor";
     if (BROWSER_EXTENSIONS.has(ext)) return "browser";
     if (DESKTOP_EXTENSIONS.has(ext)) return "desktop";
-    return "";
+    return this.isEditableFile(file) ? "editor" : "";
+  },
+
+  isEditableFile(file = {}) {
+    if (!this.remoteAllowed("edit", file)) return false;
+    if (!file || file.is_dir || !this.limits || file.size > this.limits.max_text_bytes || this.isArchive(file.name || file.path)) return false;
+    const ext = this.fileExtension(file);
+    return !DESKTOP_EXTENSIONS.has(ext)
+      && !["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "mp3", "mp4", "wav", "webm", "ogg", "woff", "woff2", "ttf"].includes(ext);
   },
 
   pickerAllowsEntry(file = {}) {
     if (!this.isTextOpenPicker()) return true;
-    return Boolean(file?.is_dir || this.fileSurfaceTarget(file) === "editor");
+    return Boolean(file?.is_dir || this.isEditableFile(file));
   },
 
   pickerSelectedFiles() {
     if (!this.isTextOpenPicker()) return [];
-    return this.selectedFiles.filter((file) => !file.is_dir && this.fileSurfaceTarget(file) === "editor");
-  },
-
-  pickerSelectionLabel() {
-    if (!this.isTextOpenPicker()) return "";
-    const count = this.pickerSelectedFiles().length;
-    if (!count) return "No text files selected";
-    return `${count} text ${count === 1 ? "file" : "files"} selected`;
+    return this.selectedFiles.filter((file) => !file.is_dir && this.isEditableFile(file));
   },
 
   normalizedEditorTextExtension(value = "") {
     const ext = String(value || "").toLowerCase().trim().replace(/^\./, "");
-    return EDITOR_TEXT_EXTENSIONS.has(ext) ? ext : "md";
+    return ext;
   },
 
   pickerFilenameValue() {
     const raw = String(this.pickerFilename || "").trim();
     if (!raw) return "";
     const ext = this.fileExtension({ name: raw });
-    return ext ? raw : `${raw}.${this.pickerDefaultExtension || "md"}`;
+    return ext || !this.pickerDefaultExtension ? raw : `${raw}.${this.pickerDefaultExtension}`;
   },
 
   validatePickerFilename(updateError = true) {
@@ -609,8 +1123,6 @@ const model = {
       error = "File name cannot be '.' or '..'.";
     } else if (raw.includes("/") || raw.includes("\\")) {
       error = "File name cannot include path separators.";
-    } else if (!EDITOR_TEXT_EXTENSIONS.has(this.fileExtension({ name: filename }))) {
-      error = "Use a .md or .txt file name.";
     } else if ((this.browser.entries || []).some((entry) => entry?.name === filename)) {
       error = `An item named "${filename}" already exists.`;
     }
@@ -624,7 +1136,7 @@ const model = {
 
   canConfirmPicker() {
     if (this.isTextOpenPicker()) return this.pickerSelectedFiles().length > 0;
-    if (this.isSaveAsPicker()) return Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
+    if (this.isSaveAsPicker()) return this.remoteAllowed("upload") && Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
     return false;
   },
 
@@ -634,12 +1146,12 @@ const model = {
   },
 
   togglePickerFile(file = {}) {
-    if (!this.isTextOpenPicker() || file?.is_dir || this.fileSurfaceTarget(file) !== "editor") return;
+    if (!this.isTextOpenPicker() || file?.is_dir || !this.isEditableFile(file)) return;
     file.selected = !file.selected;
   },
 
   async confirmPicker() {
-    if (!this.isPickerMode() || this.isBulkBusy) return;
+    if (!this.isPickerMode() || this.isBulkBusy || this.isLoading || this.renameInline) return;
     if (this.isSaveAsPicker() && !this.validatePickerFilename(true)) return;
     const payload = this.isSaveAsPicker()
       ? {
@@ -658,7 +1170,8 @@ const model = {
       const result = await this.pickerOnConfirm?.(payload);
       if (result === false) return;
       this.disposeScopedTooltips();
-      window.closeModal(FILE_BROWSER_MODAL_PATH);
+      this.isBulkBusy = false;
+      await this.closeOrRestorePicker();
     } catch (error) {
       const message = error?.message || "File selection failed";
       if (this.isSaveAsPicker()) this.pickerFilenameError = message;
@@ -668,9 +1181,26 @@ const model = {
     }
   },
 
-  cancelPicker() {
+  async cancelPicker() {
     this.disposeScopedTooltips();
-    window.closeModal(FILE_BROWSER_MODAL_PATH);
+    await this.closeOrRestorePicker();
+  },
+
+  async closeOrRestorePicker() {
+    if (window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
+      window.closeModal(FILE_BROWSER_MODAL_PATH);
+    } else {
+      // In-place picker over a live surface: restore the browser listing.
+      await this.restoreBrowserAfterInPlacePicker();
+    }
+  },
+
+  async restoreBrowserAfterInPlacePicker() {
+    // Drop picker state and reload the listing so a live surface returns to normal browsing.
+    this.resetPickerState();
+    this.clearSelection();
+    this.isLoading = false;
+    await this.fetchFiles(this.browser.currentPath, { preserveOnError: true });
   },
 
   handleFileNameClick(file = {}) {
@@ -691,6 +1221,7 @@ const model = {
   },
 
   canOpenInActionMenu(file = {}) {
+    if (this.isRemote(file.path)) return false;
     const target = this.fileSurfaceTarget(file);
     return Boolean(target && target !== "editor");
   },
@@ -750,6 +1281,9 @@ const model = {
     this.renameTarget = null;
     this.renameName = "";
     this.renameMode = "rename";
+    this.renameInline = false;
+    this.renameDirectory = "";
+    this.renameEntries = [];
     this.isRenaming = false;
     this.renameError = null;
     this.renameAfterConfirm = null;
@@ -789,36 +1323,39 @@ const model = {
   // --- Dropdown Management -------------------------------------------------
   toggleDropdown(filePath, triggerElement = null) {
     // Toggle: if already open, close it; otherwise open this one (closing any other)
-    if (this.openDropdownPath === filePath) {
+    const owner = triggerElement?.closest(".file-actions") || null;
+    if (this.isDropdownOpen(filePath, owner)) {
       this.closeDropdown();
       return;
     }
     this.openDropdownPath = filePath;
+    this.dropdownOwner = owner;
     this.dropdownStyle = this.getDropdownStyle(triggerElement);
   },
 
-  isDropdownOpen(filePath) {
-    return this.openDropdownPath === filePath;
+  isDropdownOpen(filePath, owner = null) {
+    return this.openDropdownPath === filePath && (!owner || owner === this.dropdownOwner);
   },
 
   closeDropdown() {
     this.openDropdownPath = null;
+    this.dropdownOwner = null;
     this.dropdownStyle = {};
   },
 
-  getDropdownStyle(triggerElement) {
+  getDropdownStyle(triggerElement, width = 180, alignRight = true) {
     if (!triggerElement) return {};
 
     const rect = triggerElement.getBoundingClientRect();
     const gap = 6;
     const padding = 8;
-    const minWidth = 180;
+    const minWidth = Math.min(width, window.innerWidth - padding * 2);
     const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
     const spaceAbove = rect.top - gap - padding;
     const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
     const maxHeight = Math.max(96, openUp ? spaceAbove : spaceBelow);
     const maxLeft = Math.max(padding, window.innerWidth - minWidth - padding);
-    const left = Math.min(Math.max(rect.right - minWidth, padding), maxLeft);
+    const left = Math.min(Math.max(alignRight ? rect.right - minWidth : rect.left, padding), maxLeft);
 
     return {
       position: "fixed",
@@ -834,6 +1371,8 @@ const model = {
 
   // --- Navigation ----------------------------------------------------------
   async fetchFiles(path = "", options = {}) {
+    const request = ++this._directoryRequest;
+    this.clearPathSuggestions();
     const preserveOnError = options?.preserveOnError === true;
     const suppressErrorToast = options?.suppressErrorToast === true;
     const requestedPath = this.normalizeOpeningPath(path) || "$WORK_DIR";
@@ -853,6 +1392,8 @@ const model = {
         `/get_work_dir_files?path=${encodeURIComponent(requestedPath)}`
       );
       const data = await response.json().catch(() => ({}));
+      if (request !== this._directoryRequest) return false;
+      if (data.limits) this.limits = data.limits;
 
       const result = data.data || {};
       const entries = result.entries || [];
@@ -871,7 +1412,9 @@ const model = {
         );
 
       if (response.ok && !resultError) {
+        if (!isSamePath && this.renameInline && !this.isRenaming) this.resetRenameState();
         if (!isSamePath) this.searchQuery = "";
+        this.remotePermissions = result.permissions || null;
         this.browser.entries = this.decorateEntries(
           entries,
           selectedPaths
@@ -899,6 +1442,7 @@ const model = {
         return false;
       }
     } catch (e) {
+      if (request !== this._directoryRequest) return false;
       const message = "Error fetching files: " + e.message;
       if (!suppressErrorToast) {
         window.toastFrontendError(message, "File Browser Error");
@@ -909,19 +1453,55 @@ const model = {
     }
   },
 
+  pushNavHistory(path) {
+    this.history.push(path);
+    this.forwardHistory = [];
+  },
+
+  async navigateStack(from, to) {
+    if (this.isLoading || this.isRenaming || this.isBulkBusy || !this[from].length) return;
+    const targetPath = this[from].at(-1);
+    const previousPath = this.browser.currentPath;
+    const loaded = await this.fetchFiles(targetPath, { preserveOnError: true });
+    if (loaded) {
+      this[from].pop();
+      this[to].push(previousPath);
+    }
+  },
+
+  navigateBack() {
+    return this.navigateStack("history", "forwardHistory");
+  },
+
+  navigateForward() {
+    return this.navigateStack("forwardHistory", "history");
+  },
+
   async navigateToFolder(path) {
-    if(!path.startsWith("/")) path = "/" + path;
-    if (this.browser.currentPath !== path)
-      this.history.push(this.browser.currentPath);
-    await this.fetchFiles(path);
+    if (this.isLoading || this.isRenaming || this.isBulkBusy) return false;
+    path = this.normalizeSubmittedPath(path).replace(/\/+$/, "") || "/";
+    if (this.browser.currentPath === path) {
+      return true;
+    }
+    const previousPath = this.browser.currentPath;
+    const loaded = await this.fetchFiles(path, { preserveOnError: true });
+    if (loaded && previousPath !== this.browser.currentPath) this.pushNavHistory(previousPath);
+    return loaded;
   },
 
   async submitPath() {
-    if (this.isPathSubmitting || this.isLoading) return;
+    if (this.isPathSubmitting || this.isLoading || this.isRenaming || this.isBulkBusy) return;
 
     const path = this.normalizeSubmittedPath(this.pathInput);
     if (!path) {
       this.pathError = "Enter a directory path.";
+      return;
+    }
+
+    // Submitting the already-current directory is a no-op, like navigateToFolder.
+    const currentPath = String(this.browser.currentPath || "").replace(/\/+$/, "");
+    if (currentPath && path.replace(/\/+$/, "") === currentPath) {
+      this.exitPathEdit(true);
       return;
     }
 
@@ -937,8 +1517,9 @@ const model = {
 
       if (loaded) {
         if (previousPath && previousPath !== this.browser.currentPath) {
-          this.history.push(previousPath);
+          this.pushNavHistory(previousPath);
         }
+        this.exitPathEdit(true);
         return;
       }
 
@@ -949,10 +1530,7 @@ const model = {
   },
 
   async navigateUp() {
-    if (this.browser.parentPath) {
-      this.history.push(this.browser.currentPath);
-      await this.fetchFiles(this.browser.parentPath);
-    }
+    if (this.browser.parentPath) return this.navigateToFolder(this.browser.parentPath);
   },
 
   // --- Drag and drop ------------------------------------------------------
@@ -1011,6 +1589,11 @@ const model = {
     this.isBulkBusy = true;
 
     try {
+      if (this.isRemote(destinationPath) || paths.some(path=>this.isRemote(path))) {
+        for (const path of paths) await this.connectionRequest("rename", {path, destination:destinationPath.replace(/\/$/, "") + "/" + path.split("/").pop()});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/rename_work_dir_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1040,7 +1623,8 @@ const model = {
   },
 
   // --- Rename / Create -----------------------------------------------------
-  async openRenameModal(file, options = {}) {
+  beginRename(file, options = {}) {
+    if (this.isLoading || this.isRenaming || this.isBulkBusy) return false;
     this.resetRenameState();
     this.renameTarget = file;
     this.renameName = file?.name || "";
@@ -1049,29 +1633,43 @@ const model = {
     this.renameAfterConfirm = typeof options.onRenamed === "function" ? options.onRenamed : null;
     this.renamePerformAction = typeof options.performRename === "function" ? options.performRename : null;
     this.renameValidateName = typeof options.validateName === "function" ? options.validateName : null;
-    if (typeof options.currentPath === "string" && options.currentPath) {
-      this.browser.currentPath = options.currentPath;
-    }
-    if (Array.isArray(options.entries)) {
-      this.browser.entries = options.entries;
-    }
-    window.openModal("modals/file-browser/rename-modal.html");
+    this.renameDirectory = typeof options.currentPath === "string" && options.currentPath
+      ? options.currentPath : this.browser.currentPath;
+    this.renameEntries = Array.isArray(options.entries) ? options.entries
+      : this.renameDirectory === this.browser.currentPath ? this.browser.entries : [];
+    this.renameInline = true;
+    return true;
   },
 
-  async openNewFolderModal() {
-    this.resetRenameState();
+  beginNewFolder() {
+    if (!this.beginRename(null)) return false;
     this.renameMode = "create-folder";
-    this.renameName = "";
-    this.renameError = null;
-    window.openModal("modals/file-browser/rename-modal.html");
+    return true;
+  },
+
+  openRenameModal(file, options = {}) {
+    if (!this.beginRename(file, options)) return;
+    this.renameInline = false;
+    window.openModal("modals/file-browser/rename-modal.html", () => !this.isRenaming);
+  },
+
+  openNewFolderModal() {
+    if (!this.beginNewFolder()) return;
+    this.renameInline = false;
+    window.openModal("modals/file-browser/rename-modal.html", () => !this.isRenaming);
   },
 
   closeRenameModal() {
+    if (this.isRenaming) return;
+    if (this.renameInline) {
+      this.resetRenameState();
+      return;
+    }
     window.closeModal("modals/file-browser/rename-modal.html");
   },
 
   async confirmRename() {
-    if (this.isRenaming) return;
+    if (this.isRenaming || this.isLoading) return;
 
     const newName = this.renameName.trim();
     if (!newName) {
@@ -1099,7 +1697,7 @@ const model = {
     }
 
     // UX: pre-validate duplicates so we can show a clean inline error (no toast spam)
-    const duplicate = (this.browser.entries || []).some((entry) => {
+    const duplicate = this.renameEntries.some((entry) => {
       if (!entry?.name) return false;
       if (entry.name !== newName) return false;
       // When renaming, allow keeping the same entry name
@@ -1118,13 +1716,13 @@ const model = {
       const previousPath = this.renameTarget?.path || "";
       const renamedPath =
         this.renameMode === "create-folder"
-          ? this.buildChildPath(newName)
+          ? `${this.renameDirectory.replace(/\/$/, "")}/${newName}`
           : this.siblingPath(previousPath, newName);
       const payload =
         this.renameMode === "create-folder"
           ? {
               action: "create-folder",
-              parentPath: this.browser.currentPath,
+              parentPath: this.renameDirectory,
               currentPath: this.browser.currentPath,
               newName: newName,
             }
@@ -1136,6 +1734,15 @@ const model = {
             };
 
       let data = {};
+      if (this.isRemote(renamedPath) && !this.renamePerformAction) {
+        await this.connectionRequest(this.renameMode === "create-folder" ? "mkdir" : "rename", {
+          path: this.renameMode === "create-folder" ? renamedPath : previousPath, destination:renamedPath,
+        });
+        await this.fetchFiles(this.browser.currentPath);
+        this.isRenaming = false;
+        this.closeRenameModal();
+        return;
+      }
       if (this.renamePerformAction) {
         data = await this.renamePerformAction({
           action: this.renameMode,
@@ -1174,6 +1781,7 @@ const model = {
           response: data,
         });
       }
+      this.isRenaming = false;
       this.closeRenameModal();
     } catch (error) {
       const message = error?.message || "Rename failed";
@@ -1186,21 +1794,25 @@ const model = {
     }
   },
 
-  // --- File Editor (Delegated to FileEditorStore) --------------------------
+  // --- Shared Editor -------------------------------------------------------
   async openFileEditor(file) {
-    await fileEditorStore.openFile(file, async () => {
-      // Callback on successful save to refresh file list
-      await this.fetchFiles(this.browser.currentPath);
-    });
+    return this.openInSurface(file, "editor");
   },
 
   async openNewFile() {
-    const existingNames = (this.browser.entries || [])
-      .map((e) => e?.name)
-      .filter(Boolean);
-    await fileEditorStore.openNewFile(this.browser.currentPath, existingNames, async () => {
-      // Callback on successful save to refresh file list
-      await this.fetchFiles(this.browser.currentPath);
+    if (this.isLoading || this.isRenaming || this.isBulkBusy) return;
+    this.resetRenameState();
+    this.configurePicker({
+      pickerMode: PICKER_MODE_SAVE_AS,
+      filename: "Untitled.txt",
+      defaultExtension: "",
+      onConfirm: async ({ path }) => {
+        const { store: editorStore } = await import("/plugins/_editor/webui/editor-store.js");
+        const session = await editorStore.openSession({ action: "create", path, source: "file-browser" });
+        if (!session) throw new Error(editorStore.error || "Could not create file.");
+        await openLatestSurface("editor", {});
+        return true;
+      },
     });
   },
 
@@ -1230,6 +1842,11 @@ const model = {
 
   async deleteFile(file) {
     try {
+      if (this.isRemote(file.path)) {
+        await this.connectionRequest("delete", {path:file.path});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/delete_work_dir_file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1252,50 +1869,6 @@ const model = {
         "Error deleting file: " + e.message,
         "File Delete Error"
       );
-    }
-  },
-
-  copySelectedPaths() {
-    const selectedFiles = this.selectedFiles;
-    if (!selectedFiles.length) return;
-
-    const paths = selectedFiles.map((file) => file.path).join("\n");
-    this.copyToClipboard(paths, () => {
-      window.toastFrontendSuccess(
-        `Copied ${selectedFiles.length} ${selectedFiles.length === 1 ? "path" : "paths"}`,
-        "File Browser"
-      );
-    });
-  },
-
-  copyToClipboard(text, onSuccess) {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => onSuccess?.())
-        .catch(() => this.fallbackCopyToClipboard(text, onSuccess));
-    } else {
-      this.fallbackCopyToClipboard(text, onSuccess);
-    }
-  },
-
-  fallbackCopyToClipboard(text, onSuccess) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999999px";
-    textArea.style.top = "-999999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand("copy");
-      onSuccess?.();
-    } catch (error) {
-      console.error("Clipboard copy failed:", error);
-      window.toastFrontendError("Failed to copy selected paths", "File Browser");
-    } finally {
-      document.body.removeChild(textArea);
     }
   },
 
@@ -1340,31 +1913,7 @@ const model = {
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi("/download_work_dir_files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paths: selectedFiles.map((file) => file.path),
-          currentPath: this.browser.currentPath,
-        }),
-      });
-
-      if (!resp.ok) {
-        const message = await resp.text();
-        throw new Error(message || "Download failed");
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const fallback = `agent-zero-files-${selectedFiles.length}.zip`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = this.getDownloadFilename(resp, fallback);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-
+      await this.startDownload(selectedFiles);
       this.showDownloadStartedToast(downloadToastGroup);
     } catch (error) {
       this.showDownloadErrorToast(
@@ -1384,6 +1933,11 @@ const model = {
     this.closeDropdown();
 
     try {
+      if (this.isRemote()) {
+        for (const file of selectedFiles) await this.connectionRequest("delete", {path:file.path});
+        await this.fetchFiles(this.browser.currentPath);
+        return;
+      }
       const resp = await fetchApi("/delete_work_dir_files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1430,8 +1984,8 @@ const model = {
     return store._handleFileUpload(event); // bind to model to ensure correct context
   },
 
-  async openInSurface(file = {}) {
-    const target = this.fileSurfaceTarget(file);
+  async openInSurface(file = {}, target = this.fileSurfaceTarget(file)) {
+    if (this.isRemote(file.path)) target = "editor";
     const path = this.normalizePath(String(file?.path || ""));
     if (!target || !path) return;
 
@@ -1487,15 +2041,12 @@ const model = {
     try {
       const files = event.target.files;
       if (!files.length) return;
+      const limits = await this.ensureLimits(true);
       const formData = new FormData();
       formData.append("path", this.browser.currentPath);
       for (let f of files) {
-        const ext = f.name.split(".").pop().toLowerCase();
-        if (
-          !["zip", "tar", "gz", "rar", "7z"].includes(ext) &&
-          f.size > 100 * 1024 * 1024
-        ) {
-          alert(`File ${f.name} exceeds 100MB limit.`);
+        if (f.size > limits.max_file_bytes) {
+          alert(`File ${f.name} exceeds the ${limits.max_file_bytes / (1024 * 1024)} MiB limit.`);
           continue;
         }
         formData.append("files[]", f);
@@ -1511,7 +2062,7 @@ const model = {
         this.browser.parentPath = data.data.parent_path;
         if (data.failed && data.failed.length) {
           const msg = data.failed
-            .map((f) => `${f.name}: ${f.error}`)
+            .map((f) => typeof f === "string" ? f : `${f.name}: ${f.error}`)
             .join("\n");
           alert(`Some files failed to upload:\n${msg}`);
         }
@@ -1533,25 +2084,7 @@ const model = {
 
     try {
       this.showDownloadPreparingToast(downloadToastGroup);
-      const resp = await fetchApi(`/download_work_dir_file?path=${encodeURIComponent(file.path)}`, {
-        method: "GET",
-      });
-
-      if (!resp.ok) {
-        const message = await resp.text();
-        throw new Error(message || "Download failed");
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const fallback = `${file.name}.zip`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = this.getDownloadFilename(resp, fallback);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      await this.startDownload([file]);
       this.showDownloadStartedToast(downloadToastGroup);
     } catch (error) {
       this.showDownloadErrorToast(
@@ -1561,18 +2094,10 @@ const model = {
     }
   },
 
-  downloadFile(file) {
-    if (file.is_dir) {
-      return this.downloadDirectory(file);
-    }
-
-    const link = document.createElement("a");
-    link.href = `/api/download_work_dir_file?path=${encodeURIComponent(file.path)}`;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadFile(file) {
+    return this.downloadDirectory(file);
   },
+
 };
 
 export const store = createStore("fileBrowser", model);
@@ -1585,8 +2110,15 @@ window.openFileLink = async function (path) {
       return;
     }
     if (resp.is_dir) {
-      // Set initial path and open via store
-      await store.open(resp.abs_path);
+      // A live browser navigates in place instead of stacking a second window.
+      const { store: canvasStore } = await import("/components/canvas/right-canvas-store.js");
+      const hasLiveBrowser = window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)
+        || (canvasStore.shouldRender?.() && canvasStore.isSurfaceVisible?.("files"));
+      if (hasLiveBrowser) {
+        await store.navigateToFolder(resp.abs_path);
+      } else {
+        await store.open(resp.abs_path);
+      }
     } else {
       store.downloadFile({ path: resp.abs_path, name: resp.file_name });
     }

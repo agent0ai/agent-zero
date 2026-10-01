@@ -5,7 +5,7 @@
 
 <div x-data>
 <template x-if="$store.modelConfig">
-<div x-data="{ showDropdown: false, showProfileDropdown: false }"
+<div class="model-switcher-root" x-data="{ showDropdown: false, showProfileDropdown: false }"
      x-init="
        await Promise.all([
          $store.modelConfig.refreshSwitcher($store.chats?.selected || ''),
@@ -15,7 +15,7 @@
      ">
   <template x-if="($store.modelConfig.switcherAllowed && !$store.modelConfig.switcherLoading) || $store.chats?.selectedContext?.agent_profile">
     <div class="model-switcher-container">
-      <div class="model-context-strip">
+      <div class="model-context-strip" x-overflow>
         <template x-if="$store.modelConfig.switcherAllowed && !$store.modelConfig.switcherLoading">
           <div class="model-switcher-anchor" @click.outside="showDropdown = false">
             <button class="btn-icon-action model-switcher-btn"
@@ -65,6 +65,16 @@
                         </span>
                       </div>
                     </template>
+                    <template x-if="preset.vision?.name && (!preset.chat?.vision || preset.vision?.override_main)">
+                      <div class="model-switcher-model-row">
+                        <span class="model-switcher-model-label">Vision</span>
+                        <span class="model-switcher-model-value">
+                          <span x-text="preset.vision.provider" style="opacity:0.5;"></span>
+                          <span style="opacity:0.3; margin:0 3px;">/</span>
+                          <span x-text="preset.vision.name"></span>
+                        </span>
+                      </div>
+                    </template>
                     <template x-if="preset.utility?.name">
                       <div class="model-switcher-model-row">
                         <span class="model-switcher-model-label">Utility</span>
@@ -110,7 +120,7 @@
             <button class="btn-icon-action agent-profile-btn"
                     title="Active agent profile"
                     @click="showProfileDropdown = !showProfileDropdown; showDropdown = false">
-              <span class="agent-profile-avatar"
+              <span class="agent-profile-avatar" aria-hidden="true" data-overflow-icon
                     :style="`background:${$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).color}`">
                 <img x-show="$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).url"
                      :src="$store.modelConfig.getAgentProfileVisual($store.chats.selectedContext.agent_profile, $store.chats.selectedContext.agent_profile_label).url"
@@ -177,6 +187,8 @@
             </div>
           </div>
         </template>
+
+        <x-extension id="model-context-strip-end"></x-extension>
       </div>
     </div>
   </template>
@@ -185,16 +197,27 @@
 </div>
 
 <style>
+  .model-switcher-root {
+    flex: 1;
+    min-width: 0;
+  }
   .model-switcher-container {
     position: relative;
     z-index: 10;
   }
   .model-context-strip {
     display: flex;
+    width: fit-content;
+    max-width: 100%;
     align-items: center;
     gap: 8px;
     min-width: 0;
     flex-wrap: wrap;
+  }
+  .model-context-strip > x-extension,
+  .model-context-strip > x-extension > x-component,
+  .model-context-strip > x-extension > x-component > div[x-data] {
+    display: contents;
   }
   .agent-profile-avatar {
     width: 1.35rem;

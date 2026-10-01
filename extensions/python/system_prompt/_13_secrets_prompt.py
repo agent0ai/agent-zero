@@ -23,11 +23,11 @@ class SecretsPrompt(Extension):
 async def build_prompt(agent: Agent) -> str:
     try:
         from helpers.secrets import get_secrets_manager
-        from helpers.settings import get_settings
+        from helpers.settings import get_settings_for_prompt
 
         secrets_manager = get_secrets_manager(agent.context)
         secrets = secrets_manager.get_secrets_for_prompt()
-        variables = get_settings()["variables"]
+        variables = get_settings_for_prompt()["variables"]
         return agent.read_prompt(
             "agent.system.secrets.md", secrets=secrets, vars=variables
         )

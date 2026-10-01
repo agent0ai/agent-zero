@@ -1,8 +1,6 @@
-import json
 from typing import Any, TYPE_CHECKING
 from helpers.files import VariablesPlugin
-from helpers import files, projects, subagents
-from helpers.print_style import PrintStyle
+from helpers import projects, subagents
 
 if TYPE_CHECKING:
     from agent import Agent
@@ -20,15 +18,10 @@ class CallSubordinate(VariablesPlugin):
         # available agents in project (or global)
         agents = subagents.get_available_agents_dict(project)
 
-        if agents:
-            profiles = {}
-            for name, subagent in agents.items():
-                profiles[name] = {
-                    "title": subagent.title,
-                    "description": subagent.description,
-                    "context": subagent.context,
-                }
-            return {"agent_profiles": profiles}
-        else:
-            return {"agent_profiles": None}
-        
+        profiles = [
+            " ".join(
+                f"- {name} ({profile.title}): {profile.context.strip() or profile.description}".split()
+            )
+            for name, profile in agents.items()
+        ]
+        return {"agent_profiles": "\n".join(profiles) or None}

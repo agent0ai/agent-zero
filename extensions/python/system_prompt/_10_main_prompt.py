@@ -1,5 +1,6 @@
 from typing import Any
 
+from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from agent import Agent, LoopData
 
@@ -16,6 +17,7 @@ class MainPrompt(Extension):
             return
         prompt = await build_prompt(self.agent)
         system_prompt.append(prompt)
+        responses_tools.register_prompt(self.agent, loop_data, "main", prompt)
 
 
 @extensible

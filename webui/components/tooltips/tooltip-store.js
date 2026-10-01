@@ -2,6 +2,10 @@ import { createStore } from "/js/AlpineStore.js";
 
 let bootstrapTooltipObserver = null;
 
+function preventTouchTooltip(event) {
+  if (window.matchMedia("(hover: none)").matches) event.preventDefault();
+}
+
 function ensureBootstrapTooltip(element) {
   if (!element || !(element instanceof Element)) return;
   
@@ -9,7 +13,16 @@ function ensureBootstrapTooltip(element) {
   if (!bs?.Tooltip) return;
 
   const existing = bs.Tooltip.getInstance(element);
-  const title = element.getAttribute("title") || element.getAttribute("data-bs-original-title");
+  const boundTitle = element.getAttribute("title");
+  if (element.hasAttribute("title") && !boundTitle) {
+    disposeBootstrapTooltip(element);
+    element.removeAttribute("data-bs-original-title");
+    element.removeAttribute("data-bs-toggle");
+    element.removeAttribute("data-bs-trigger");
+    element.removeAttribute("data-bs-tooltip-initialized");
+    return;
+  }
+  const title = boundTitle || element.getAttribute("data-bs-original-title");
 
   if (!title) return;
 
@@ -51,6 +64,8 @@ function disposeBootstrapTooltip(element) {
   const instance = globalThis.bootstrap?.Tooltip?.getInstance(element);
   if (!instance) return;
   try {
+    // Finish pending fade callbacks before Bootstrap clears the instance state.
+    instance.tip?.dispatchEvent(new Event("transitionend"));
     instance.dispose();
   } catch {
     // Bootstrap 5 can throw while disposing an already-torn-down tooltip node.
@@ -111,6 +126,7 @@ function observeBootstrapTooltips() {
 }
 
 function cleanupTooltipObserver() {
+  document.removeEventListener("show.bs.tooltip", preventTouchTooltip);
   if (bootstrapTooltipObserver) {
     bootstrapTooltipObserver.disconnect();
     bootstrapTooltipObserver = null;
@@ -119,6 +135,7 @@ function cleanupTooltipObserver() {
 
 export const store = createStore("tooltips", {
   init() {
+    document.addEventListener("show.bs.tooltip", preventTouchTooltip);
     initBootstrapTooltips();
     observeBootstrapTooltips();
   },

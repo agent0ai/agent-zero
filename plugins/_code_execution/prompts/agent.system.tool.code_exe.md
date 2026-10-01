@@ -28,7 +28,7 @@ examples:
 {
     "thoughts": [
         "Need to do...",
-        "Need to install...",
+        "Need to install..."
     ],
     "headline": "Installing zip package via terminal",
     "tool_name": "code_execution_tool",
@@ -36,7 +36,7 @@ examples:
         "runtime": "terminal",
         "session": 0,
         "reset": false,
-        "code": "apt-get install zip",
+        "code": "apt-get install zip"
     }
 }
 ~~~
@@ -48,7 +48,7 @@ examples:
     "thoughts": [
         "Need to do...",
         "I can use...",
-        "Then I can...",
+        "Then I can..."
     ],
     "headline": "Executing Python code to check current directory",
     "tool_name": "code_execution_tool",
@@ -56,7 +56,7 @@ examples:
         "runtime": "python",
         "session": 0,
         "reset": false,
-        "code": "import os\nprint(os.getcwd())",
+        "code": "import os\nprint(os.getcwd())"
     }
 }
 ~~~
@@ -68,7 +68,7 @@ examples:
     "thoughts": [
         "Need to do...",
         "I can use...",
-        "Then I can...",
+        "Then I can..."
     ],
     "headline": "Executing Javascript code to check current directory",
     "tool_name": "code_execution_tool",
@@ -76,7 +76,7 @@ examples:
         "runtime": "nodejs",
         "session": 0,
         "reset": false,
-        "code": "console.log(process.cwd());",
+        "code": "console.log(process.cwd());"
     }
 }
 ~~~
@@ -85,13 +85,13 @@ examples:
 ~~~json
 {
     "thoughts": [
-        "Waiting for program to finish...",
+        "Waiting for program to finish..."
     ],
     "headline": "Waiting for long-running program to complete",
     "tool_name": "code_execution_tool",
     "tool_args": {
         "runtime": "output",
-        "session": 0,
+        "session": 0
     }
 }
 ~~~

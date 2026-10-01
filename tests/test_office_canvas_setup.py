@@ -166,7 +166,9 @@ def test_right_canvas_uses_desktop_surface_id_and_migrates_legacy_office_state()
     assert "openSearch" in editor_store
     assert "handlePreviewClick" in editor_store
     assert "ace.edit" in editor_store
-    assert "showGutter: false" in editor_store
+    assert "showGutter: true" in editor_store
+    assert ".editor-ace .ace_gutter" not in editor_web_panel
+    assert ".editor-ace .ace_scroller" not in editor_web_panel
     assert "globalThis.confirm" not in editor_store
     assert ".editor-toolbar" in editor_web_panel
     assert "overflow: visible;" in editor_web_panel
@@ -310,7 +312,6 @@ def test_desktop_plugin_owns_routes_runtime_surface_and_state_paths():
     assert "canvas?.clientWidth || canvas?.width" in desktop_store
     assert "overflow: auto !important;" in desktop_store
     assert "Installing Agent Zero Desktop runtime dependencies" in desktop_session
-    assert "normalize_desktop_display_size" in desktop_session
     assert "__a0XpraOffsetWarnPatched" in desktop_store
     assert "window does not fit in canvas, offsets" in desktop_store
     assert "decode error packet" in desktop_store
@@ -562,7 +563,7 @@ def test_editor_open_file_browser_prefers_context_home_before_workdir_fallback()
 def test_editor_toolbar_places_preview_toggle_left_and_save_on_right():
     editor_panel = read("plugins", "_editor", "webui", "editor-panel.html")
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
-    toolbar_start = editor_panel.index('<div class="editor-toolbar"')
+    toolbar_start = editor_panel.index('<div class="editor-toolbar surface-toolbar"')
     toolbar_end = editor_panel.index('<div class="editor-search-bar"', toolbar_start)
     toolbar = editor_panel[toolbar_start:toolbar_end]
 
@@ -605,11 +606,11 @@ def test_editor_uses_full_document_preview_and_matching_markdown_text_tools():
     assert "previousPage()" not in editor_store
     assert 'x-show="$store.editor.isTextDocument()"' in editor_panel
     assert '$store.editor.isTextDocument() && $store.editor.isPreviewMode()' in editor_panel
-    assert 'mode === PREVIEW_MODE && this.isTextDocument()' in editor_store
+    assert 'mode === PREVIEW_MODE && this.canPreview()' in editor_store
     assert "if (!this.session || !this.isTextDocument()) return;" in editor_store
 
-    source_tools_start = editor_panel.index('class="editor-tool-group editor-source-tools"')
-    preview_tools_start = editor_panel.index('class="editor-tool-group editor-preview-tools"')
+    source_tools_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-source-tools"')
+    preview_tools_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-preview-tools"')
     source_tools = editor_panel[source_tools_start:preview_tools_start]
     for action in ("Bold", "Italic", "List", "Numbered list", "Table"):
         assert f'title="{action}"' in source_tools
@@ -621,8 +622,8 @@ def test_editor_history_shortcuts_and_toolbar_controls_cover_markdown_and_text()
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
 
     assert '@keydown.capture="$store.editor.handleEditorKeydown($event)"' in editor_panel
-    history_start = editor_panel.index('class="editor-tool-group editor-history-tools"')
-    source_start = editor_panel.index('class="editor-tool-group editor-source-tools"')
+    history_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-history-tools"')
+    source_start = editor_panel.index('class="editor-tool-group surface-toolbar-group editor-source-tools"')
     history_tools = editor_panel[history_start:source_start]
     assert 'x-show="$store.editor.isTextDocument()"' in history_tools
     assert 'title="Undo"' in history_tools

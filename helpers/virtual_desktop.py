@@ -23,11 +23,14 @@ MAX_WIDTH = 1920
 MAX_HEIGHT = 1080
 MIN_WIDTH = 360
 MIN_HEIGHT = 240
-MIN_DESKTOP_ASPECT_RATIO = 4 / 3
 SESSION_PATH = "/desktop/session"
 XPRA_HTML_ROOT_CANDIDATES = (
     Path("/usr/share/xpra/www"),
 )
+XPRA_START_ENV = {
+    "XPRA_SYSTEM_DBUS_TIMEOUT": "1",
+    "XPRA_SYSTEM_CUPS_TIMEOUT": "1",
+}
 
 
 ResizeCallback = Callable[[int, int], dict[str, Any]]
@@ -115,29 +118,38 @@ def get_registry() -> VirtualDesktopRegistry:
         return _registry
 
 
-def session_url(token: str, *, title: str = "Desktop") -> str:
+def session_url(
+    token: str,
+    *,
+    title: str = "Desktop",
+    encoding: str = "jpeg",
+    quality: int = 85,
+    speed: int = 80,
+    file_transfer: bool = True,
+    printing: bool = True,
+) -> str:
     quoted_token = quote(str(token), safe="")
     base_path = f"{SESSION_PATH}/{quoted_token}/"
-    query = urlencode(
-        {
-            "path": base_path,
-            "title": title,
-            "encoding": "jpeg",
-            "quality": "85",
-            "speed": "80",
-            "sharing": "true",
-            "clipboard": "true",
-            "clipboard_direction": "both",
-            "clipboard_poll": "true",
-            "clipboard_preferred_format": "text/plain",
-            "printing": "true",
-            "file_transfer": "true",
-            "sound": "false",
-            "offscreen": "true",
-            "floating_menu": "false",
-            "xpramenu": "false",
-        },
-    )
+    options = {
+        "path": base_path,
+        "title": title,
+        "quality": str(max(0, min(100, int(quality)))),
+        "speed": str(max(0, min(100, int(speed)))),
+        "sharing": "true",
+        "clipboard": "true",
+        "clipboard_direction": "both",
+        "clipboard_poll": "true",
+        "clipboard_preferred_format": "text/plain",
+        "printing": str(bool(printing)).lower(),
+        "file_transfer": str(bool(file_transfer)).lower(),
+        "sound": "false",
+        "offscreen": "true",
+        "floating_menu": "false",
+        "xpramenu": "false",
+    }
+    if encoding:
+        options["encoding"] = str(encoding)
+    query = urlencode(options)
     return f"{base_path}index.html?{query}"
 
 
@@ -221,38 +233,6 @@ def normalize_size(
     )
 
 
-def normalize_desktop_display_size(
-    width: int | float | str,
-    height: int | float | str,
-    *,
-    max_width: int = MAX_WIDTH,
-    max_height: int = MAX_HEIGHT,
-    min_width: int = MIN_WIDTH,
-    min_height: int = MIN_HEIGHT,
-    min_aspect_ratio: float = MIN_DESKTOP_ASPECT_RATIO,
-) -> tuple[int, int]:
-    normalized_width, normalized_height = normalize_size(
-        width,
-        height,
-        max_width=max_width,
-        max_height=max_height,
-        min_width=min_width,
-        min_height=min_height,
-    )
-    if normalized_height <= 0:
-        return normalized_width, normalized_height
-    if normalized_width / normalized_height >= min_aspect_ratio:
-        return normalized_width, normalized_height
-    return normalize_size(
-        DEFAULT_WIDTH,
-        DEFAULT_HEIGHT,
-        max_width=max_width,
-        max_height=max_height,
-        min_width=min_width,
-        min_height=min_height,
-    )
-
-
 def resize_display(
     *,
     display: int,
@@ -264,6 +244,7 @@ def resize_display(
     keys: tuple[str, ...] = (),
     xauthority: str = "",
     home: str = "",
+    settle_seconds: float = 0.15,
 ) -> dict[str, Any]:
     target_width, target_height = normalize_size(width, height, max_width=max_width, max_height=max_height)
     xrandr = shutil.which("xrandr")
@@ -296,7 +277,8 @@ def resize_display(
             timeout=4,
             env=env,
         )
-    time.sleep(0.15)
+    if settle_seconds > 0:
+        time.sleep(settle_seconds)
     current = current_display_size(display, xauthority=xauthority, home=home)
     ok = current == (target_width, target_height)
     if ok:

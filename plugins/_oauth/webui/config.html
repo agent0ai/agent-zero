@@ -106,7 +106,8 @@
                       <label class="oauth-provider-input">
                         <span>OAuth client secret</span>
                         <input
-                          type="password"
+                          type="text"
+                          class="masked-text-input"
                           x-model="$store.oauthConfig.providerUiFor(card.provider_id).client_secret"
                           name="oauth_client_secret"
                           autocomplete="off"
@@ -369,7 +370,7 @@
             </label>
             <label>
               <span>Codex proxy token</span>
-              <input type="password" x-model="$store.oauthConfig.codex().proxy_token" autocomplete="off" />
+              <input type="text" class="masked-text-input" x-model="$store.oauthConfig.codex().proxy_token" autocomplete="off" />
             </label>
           </div>
         </details>

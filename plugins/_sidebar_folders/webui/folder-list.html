@@ -1,0 +1,115 @@
+<html>
+<head></head>
+<body>
+  <div x-data="{ sections: [] }" class="sidebar-folder-host">
+    <template x-if="$store.sidebarFolders && $store.sidebarFolders.config.folder_view">
+      <div class="sidebar-folder-host" x-effect="$store.sidebarFolders.revealSelection(kind, $store.chats.selected)">
+        <ul class="config-list sidebar-folder-list no-scrollbar" :class="kind === 'chat' ? 'chats-config-list' : 'tasks-config-list'"
+          x-effect="sections = $store.sidebarFolders.sections(kind)"
+          :aria-label="kind === 'chat' ? 'Chat folders' : 'Task folders'" @dragend="$store.sidebarFolders.endDrag()"
+          @dragleave="if (!$el.contains($event.relatedTarget)) $store.sidebarFolders.dropTarget = null">
+          <template x-for="group in sections" :key="group.pinned ? 'pinned' : 'project:' + group.id">
+            <li class="sidebar-folder" :class="[
+                group.pinned ? 'sidebar-pinned-group' : '',
+                $store.sidebarFolders.drag?.kind === 'project' ? $store.sidebarFolders.dropClass(kind, group.id) : '',
+              ].join(' ')"
+              :data-folder-id="group.id" :data-pinned-kind="group.pinned ? kind : null"
+              @dragover="$store.sidebarFolders.dragOverFolder($event, kind, group, sections)"
+              @drop="$store.sidebarFolders.drop($event, kind, group.id)">
+              <template x-if="!group.pinned">
+              <div class="sidebar-folder-row" draggable="true" x-data="{ actionsFocused: false }"
+                :class="[$store.sidebarFolders.drag?.kind !== 'project' ? $store.sidebarFolders.dropClass(kind, group.id) : '', actionsFocused ? 'sidebar-folder-actions-focused' : ''].join(' ')"
+                @focusin="actionsFocused = actionsFocused || $event.target.matches(':focus-visible, .sidebar-folder-action')"
+                @focusout="if (!$el.contains($event.relatedTarget)) actionsFocused = false"
+                @keydown.tab="actionsFocused = true"
+                @pointerdown="if ($event.target.closest('.sidebar-folder-toggle')) actionsFocused = false"
+                @dragstart.stop="$store.sidebarFolders.startDrag($event, 'project', group.id)">
+                <button type="button" class="sidebar-folder-toggle"
+                  :aria-expanded="$store.sidebarFolders.isOpen(kind, group.id)"
+                  @click="$store.sidebarFolders.toggleFolder(kind, group.id)">
+                  <span class="project-color-ball" :style="{ backgroundColor: group.color || 'transparent' }"></span>
+                  <x-icon :name="$store.sidebarFolders.isOpen(kind, group.id) ? 'folder_open' : 'folder'"></x-icon>
+                  <span class="sidebar-folder-title" x-text="group.title"></span>
+                  <x-icon class="sidebar-folder-pin" name="push_pin" x-show="$store.pinToTop.isProjectPinned(group.id)"></x-icon>
+                </button>
+                <button type="button" class="btn-icon-action chat-list-action-btn sidebar-folder-action" :aria-label="'New chat in ' + group.title"
+                  @click.stop="$store.sidebarFolders.newChat(group.id)">
+                  <x-icon name="chat_add_on"></x-icon>
+                </button>
+                <button type="button" class="btn-icon-action chat-list-action-btn sidebar-folder-action" :aria-label="'Actions for ' + group.title"
+                  aria-haspopup="menu"
+                  :aria-expanded="$store.sidebarFolders.menu === 'project' && $store.sidebarFolders.menuProject === group.id"
+                  @click.stop="$store.sidebarFolders.openMenu('project', $event.currentTarget, group.id)">
+                  <x-icon name="more_vert"></x-icon>
+                </button>
+              </div>
+              </template>
+              <template x-if="group.pinned || $store.sidebarFolders.isOpen(kind, group.id)">
+              <ul class="sidebar-folder-threads" :class="{ 'sidebar-pinned-threads': group.pinned }">
+                <template x-for="(item, itemIndex) in group.rows" :key="item.id">
+                  <li class="sidebar-folder-thread" :class="[
+                    $store.sidebarFolders.dropClass(kind, group.id, item),
+                    kind === 'chat' ? 'chat-tree-item' : 'task-list-item',
+                    !group.pinned && $store.sidebar.hasRowDividerBefore(kind, item, itemIndex, group.rows) ? 'sidebar-list-divider' : '',
+                  ].join(' ')" :data-folder-thread="item.id" draggable="true"
+                    @dragstart.stop="$store.sidebarFolders.startDrag($event, kind, item.id, item.project?.name || '')"
+                    @dragover="$store.sidebarFolders.dragOver($event, kind, group.id, item, $event.currentTarget, group.rows)"
+                    @drop="$store.sidebarFolders.drop($event, kind, group.id, item)">
+                    <template x-if="kind === 'chat'">
+                      <div class="sidebar-folder-host" x-data="{ get context() { return item; } }">
+                        <x-component path="sidebar/chats/chat-tree.html"></x-component>
+                      </div>
+                    </template>
+                    <template x-if="kind === 'task'">
+                      <div class="sidebar-folder-host" x-data="{ get task() { return item; } }">
+                        <x-component path="sidebar/tasks/task-row.html"></x-component>
+                      </div>
+                    </template>
+                  </li>
+                </template>
+                <li class="sidebar-folder-empty" x-show="!group.rows.length">
+                  <span x-text="group.hasPinned ? (kind === 'chat' ? 'All chats pinned' : 'All tasks pinned') : (kind === 'chat' ? 'No chats yet' : 'No tasks yet')"></span>
+                </li>
+              </ul>
+              </template>
+            </li>
+          </template>
+        </ul>
+        <div class="empty-list-message" x-show="!sections.length">
+          <p x-text="kind === 'chat' ? 'No matching chats.' : 'No matching tasks.'"></p>
+        </div>
+      </div>
+    </template>
+  </div>
+  <style>
+    .sidebar-folder-host, .sidebar-folder-host > x-component { display: contents; }
+    .sidebar-folder-list { overflow-x: hidden; overflow-y: auto; }
+    .sidebar-folder-list > li.sidebar-folder { display: block; position: relative; padding: 0 0 var(--spacing-xxs); }
+    .sidebar-folder-list > li.sidebar-pinned-group { margin-bottom: var(--spacing-xs); padding-bottom: var(--spacing-xs); border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent); }
+    .sidebar-folder-row { display: flex; align-items: center; min-height: calc(var(--spacing-lg) + var(--spacing-xxs)); border-radius: 4px; position: relative; }
+    .sidebar-folder-row:hover { background: var(--color-background-hover); }
+    .sidebar-folder-toggle { display: flex; flex: 1; align-items: center; min-width: 0; gap: var(--spacing-xs); padding: var(--spacing-xs); margin: 0; border: 0; background: transparent; color: var(--color-text); text-align: left; cursor: pointer; font: inherit; font-size: var(--font-size-small); }
+    .sidebar-folder-toggle > x-icon { flex-shrink: 0; font-size: 18px; color: var(--color-text-muted); }
+    .sidebar-folder-toggle > .sidebar-folder-pin { font-size: 12px; }
+    .sidebar-folder-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    .sidebar-folder-toggle .project-color-ball { border: 1px solid var(--color-border); }
+    .device-pointer .sidebar-folder-row .sidebar-folder-action,
+    .device-touch .sidebar-folder-row .sidebar-folder-action { display: none; }
+    .device-pointer .sidebar-folder-row:hover .sidebar-folder-action,
+    .sidebar-folder-row.sidebar-folder-actions-focused .sidebar-folder-action,
+    .sidebar-folder-row:has(.sidebar-folder-action[aria-expanded="true"]) .sidebar-folder-action,
+    .device-touch .sidebar-folder-row:has(.sidebar-folder-toggle[aria-expanded="true"]) .sidebar-folder-action { display: inline-flex; }
+    .sidebar-folder-toggle:focus-visible, .sidebar-folder-action:focus-visible { outline: 1px solid var(--color-text); outline-offset: -2px; }
+    .sidebar-folder-threads { list-style: none; padding: 0; margin: 0 0 0 var(--spacing-sm); }
+    .sidebar-folder-threads > li.sidebar-folder-thread { display: block; position: relative; padding: var(--spacing-xxs) 0 var(--spacing-xxs) var(--spacing-xs); }
+    .sidebar-pinned-threads { margin-left: 0; }
+    .sidebar-pinned-threads > li.sidebar-folder-thread { padding-left: 0; }
+    .sidebar-folder-threads > .sidebar-folder-empty { padding: var(--spacing-xxs) var(--spacing-sm); color: var(--color-text-muted); font-size: var(--font-size-small); }
+    .sidebar-folder-empty > span { display: flex; align-items: center; min-height: calc(var(--spacing-lg) + var(--spacing-xxs)); opacity: 0.75; }
+    .sidebar-folder-list .folder-drop-inside { background: var(--color-background-hover); outline: 1px solid var(--color-text-muted); outline-offset: -1px; }
+    .folder-drop-before::before, .folder-drop-after::after { content: ''; position: absolute; left: 3px; right: 3px; height: 2px; background: var(--color-text-muted); pointer-events: none; z-index: 2; }
+    .folder-drop-before::before { top: 0; }
+    .folder-drop-after::after { bottom: 0; }
+  </style>
+</body>
+</html>

@@ -55,6 +55,12 @@
 
 ## Runtime Contracts
 
+- Settings reads use `models.get_api_key_raw()` to preserve complete key lists without advancing runtime rotation or persisting keys synthesized by runtime hooks. Masking, authentication reloads, and intentional clearing retain their existing behavior.
+- `ui_control_visibility` accepts dynamic `canvas:<surface-id>` entries as well as built-in controls, normalizes device values to booleans (default shown), and preserves choices for temporarily unavailable plugins.
+
+- `file_browser_max_text_size_mb` persists the instance-wide text-editing limit, default 10 MiB and normalized to 1–100. FileBrowser reads it directly so its scoped settings API can update it without restarting or reinitializing agents.
+- `file_browser_max_transfer_size_mb` independently persists the Files transfer limit, default 100 MiB, normalized to a positive integer without an upper ceiling. It does not change Backup & Restore or WebSocket limits.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, network calls, subprocess/runtime control, model calls, WebSocket state, plugin state, settings/state persistence, secret handling, scheduler state.
@@ -62,11 +68,20 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `TypeVar`, `files.get_abs_path`, `dotenv.get_dotenv_value`, `opts.insert`, `str.strip`, `_is_valid_timezone`, `str.strip.lower`, `_normalize_timezone_setting`, `SettingsOutput`, `get_default_settings`, `_ensure_option_present`, `_resolve_runtime_timezone`, `get_default_secrets_manager`, `get_settings`, `normalize_settings`, `_load_sensitive_settings`, `settings.copy`, `_write_settings_file`, `reload_settings`, `set_settings`, `initialize_agent`.
+- Important called helpers/classes observed in the source: `TypeVar`, `files.get_abs_path`, `dotenv.get_dotenv_value`, `opts.insert`, `str.strip`, `_is_valid_timezone`, `str.strip.lower`, `_normalize_timezone_setting`, `SettingsOutput`, `get_default_settings`, `_ensure_option_present`, `_resolve_runtime_timezone`, `get_default_secrets_manager`, `get_settings`, `get_settings_for_prompt`, `normalize_settings`, `_load_sensitive_settings`, `deepcopy`, `settings.copy`, `_write_settings_file`, `reload_settings`, `set_settings`, `initialize_agent`.
 - Applying settings refreshes active context configs while preserving each subordinate agent's own profile.
+- Agent refreshes reuse the version already resolved by `set_settings()` in a
+  task-local scope, restored even on failure. Settings normalization, credential
+  reads, and initialization hooks still run for each agent; the final reload and
+  subsequent saves resolve the version afresh. The cache is cleared on exit so
+  deferred tasks cannot retain an expired version through an inherited context.
 - Applying settings starts a deferred `MCPConfig.update(...)` with the current `mcp_servers` string when global MCP server settings change.
+- `get_settings()` retains normalize-on-read behavior. Prompt-building callers
+  explicitly use `get_settings_for_prompt()` to reuse one task-local snapshot
+  within each `Agent.prepare_prompt()` call.
+- Explicit reloads also refresh an active prompt snapshot.
 - `max_consecutive_unusable_responses` defaults to `5` and controls the cost circuit breaker for malformed or repeated main-model outputs.
-- `ui_control_visibility` stores validated mobile and desktop visibility flags for the project selector, clock, connection status, and right canvas rail; missing or malformed values fall back per device.
+- `ui_control_visibility` stores validated mobile and desktop visibility flags for the project selector, clock, connection status, context-window usage indicator, and right canvas rail; missing or malformed values fall back per device.
 - The Global default-profile selector lists only globally available profiles.
   A currently configured unavailable profile remains visible with an explicit
   unavailable label so settings can round-trip it truthfully, except that the
@@ -85,6 +100,9 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_settings_cache.py`
+  - `tests/test_settings_api_keys.py`
+  - `tests/test_settings_mcp.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_document_query_plugin.py`
   - `tests/test_download_toast_regressions.py`
@@ -98,3 +116,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+`file_browser_max_extract_size_mb` (default100 MiB) and `file_browser_max_archive_entries` (default1000) are independently configurable positive integers without upper ceilings. They govern File Browser archive operations, not Backup & Restore.

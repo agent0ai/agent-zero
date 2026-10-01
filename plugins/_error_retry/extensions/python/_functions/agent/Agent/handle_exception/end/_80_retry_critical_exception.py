@@ -38,6 +38,9 @@ class RetryCriticalException(Extension):
             self.agent.set_data(DATA_NAME_COUNTER, 0) # reset counter if exception has been handled
             return
 
+        if isinstance(exception, litellm.ContentPolicyViolationError):
+            return  # Let the critical-error handler log the refusal and stop.
+
         cfg = plugins.get_plugin_config("_error_retry", agent=self.agent) or {}
         max_retries = normalize_max_retries(cfg.get("retries"))
 

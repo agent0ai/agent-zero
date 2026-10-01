@@ -1,5 +1,5 @@
 import { createStore } from "/js/AlpineStore.js";
-import { callJsonApi } from "/js/api.js";
+import { callJsonApi, fetchApi } from "/js/api.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as chatInputStore } from "/components/chat/input/input-store.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
@@ -11,6 +11,8 @@ import {
 import { store as commandsManagerStore } from "/plugins/_commands/webui/commands-store.js";
 
 const COMMANDS_API_PATH = "/plugins/_commands/commands";
+const SKILLS_API_PATH = "/plugins/_skills/skills_catalog";
+const AGENT_EDITOR_API_PATH = "/plugins/_agent_editor/agent_editor";
 
 function sanitizeCommandName(rawName) {
   return (rawName || "")
@@ -45,6 +47,58 @@ function parseSlashInput(message, allowPostfix = true) {
   };
 }
 
+function parseReferenceInput(message, caretOffset = undefined) {
+  const text = String(message || "");
+  if (caretOffset === null) return { active: false, query: "", start: 0, end: 0 };
+  const caret = Math.max(0, Math.min(text.length, caretOffset ?? text.length));
+  const match = text.slice(0, caret).match(/(?:^|\s)@([^\s@]*)$/);
+  if (!match) return { active: false, query: "", start: caret, end: caret };
+  if (match[1].startsWith("[") && match[1].endsWith("]")) {
+    return { active: false, query: "", start: caret, end: caret };
+  }
+
+  const token = `@${match[1]}`;
+  return {
+    active: true,
+    query: match[1].toLowerCase(),
+    start: caret - token.length,
+    end: caret,
+  };
+}
+
+function normalizePath(value) {
+  return String(value || "").replace(/\\/g, "/").replace(/\/{2,}/g, "/").replace(/\/$/, "");
+}
+
+function fileQueryDirectory(query) {
+  const value = String(query || "").replace(/^\.\//, "");
+  if (value.startsWith("agent/") || value.startsWith("skill/") || value.startsWith("mcp/") || value.split("/").includes("..")) {
+    return null;
+  }
+  const slash = value.lastIndexOf("/");
+  return slash < 0 ? "" : value.slice(0, slash);
+}
+
+function mcpPolicyAllows(policy, id) {
+  if (!policy || policy.mode !== "custom") return true;
+  if (policy.blocked?.includes(id)) return false;
+  if (policy.allowed?.includes(id)) return true;
+  return policy.mcp_default === "allow";
+}
+
+function getMcpReferences(state) {
+  const servers = new Map();
+  const policy = state?.tools?.effective_policy;
+  for (const tool of state?.tools?.catalog || []) {
+    const id = String(tool?.id || "");
+    const match = id.match(/^mcp:([^:]+):/);
+    if (!match || tool?.available === false || !mcpPolicyAllows(policy, id)) continue;
+    const name = match[1];
+    servers.set(name, (servers.get(name) || 0) + 1);
+  }
+  return [...servers].map(([name, toolCount]) => ({ name, toolCount }));
+}
+
 function notifyError(message) {
   void toastFrontendError(message, "Commands");
 }
@@ -74,6 +128,13 @@ const model = {
   loading: false,
   applying: false,
   commands: [],
+  references: [],
+  referenceContextId: null,
+  referenceDirectoryKey: "",
+  referenceRoot: "",
+  referenceCatalog: [],
+  referenceFiles: [],
+  referenceLoadGeneration: 0,
   contextScope: { project_name: "" },
   lastContextId: "",
   active: false,
@@ -81,6 +142,10 @@ const model = {
   query: "",
   rawArguments: "",
   rawMessage: "",
+  mode: "",
+  referenceStart: 0,
+  referenceEnd: 0,
+  referenceRange: null,
   selectedIndex: 0,
   boundInput: null,
   keydownHandler: null,
@@ -104,10 +169,35 @@ const model = {
     });
   },
 
+  get filteredReferences() {
+    const needle = (this.query || "").trim().toLowerCase().replace(/^\.\//, "");
+    const references = Array.isArray(this.references) ? this.references : [];
+    if (!needle) return references;
+    return references.filter((reference) => reference.search.includes(needle));
+  },
+
+  get filteredItems() {
+    return this.mode === "reference" ? this.filteredReferences : this.filteredCommands;
+  },
+
   get selectedCommand() {
     const commands = this.filteredCommands;
     if (!commands.length) return null;
     return commands[this.selectedIndex] || commands[0] || null;
+  },
+
+  get selectedItem() {
+    const items = this.filteredItems;
+    if (!items.length) return null;
+    return items[this.selectedIndex] || items[0] || null;
+  },
+
+  get loadingLabel() {
+    return this.mode === "reference" ? "Loading references..." : "Loading slash commands...";
+  },
+
+  get emptyLabel() {
+    return this.mode === "reference" ? "No matching references." : "No matching slash commands.";
   },
 
   get emptyStateLabel() {
@@ -146,6 +236,15 @@ const model = {
     this.query = "";
     this.rawArguments = "";
     this.rawMessage = "";
+    this.mode = "";
+    this.referenceRange = null;
+    this.references = [];
+    this.referenceContextId = null;
+    this.referenceDirectoryKey = "";
+    this.referenceRoot = "";
+    this.referenceCatalog = [];
+    this.referenceFiles = [];
+    this.referenceLoadGeneration += 1;
     this.selectedIndex = 0;
     this.applying = false;
   },
@@ -233,13 +332,197 @@ const model = {
     }
   },
 
+  getCaretOffset() {
+    const input = this.getInputElement();
+    const selection = document.getSelection?.();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (range && chatInputStore?._isInCodeBlock?.(range.startContainer?.parentElement)) return null;
+    const offsets = chatInputStore?._selectionOffsets?.(input);
+    return offsets && offsets.start === offsets.end ? offsets.end : null;
+  },
+
+  captureReferenceRange(length) {
+    const input = this.getInputElement();
+    const selection = document.getSelection?.();
+    if (!input || !selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (
+      !range.collapsed ||
+      range.startContainer?.nodeType !== Node.TEXT_NODE ||
+      range.startOffset < length ||
+      !input.contains(range.startContainer)
+    ) return null;
+    const triggerRange = range.cloneRange();
+    triggerRange.setStart(range.startContainer, range.startOffset - length);
+    return triggerRange;
+  },
+
+  async loadReferences(force = false) {
+    const contextId = this.getContextId();
+    const directory = fileQueryDirectory(this.query);
+    const generation = ++this.referenceLoadGeneration;
+    this.loading = true;
+
+    try {
+      if (force || contextId !== this.referenceContextId) {
+        const [rootResult, settingsResult, skillsResult, profilesResult] = await Promise.allSettled([
+          contextId ? callJsonApi("/chat_files_path_get", { ctxid: contextId }) : Promise.resolve(null),
+          callJsonApi("settings_get", null),
+          callJsonApi(SKILLS_API_PATH, { action: "list", context_id: contextId }),
+          callJsonApi(AGENT_EDITOR_API_PATH, { action: "list", context_id: contextId }),
+        ]);
+        if (generation !== this.referenceLoadGeneration) return;
+
+        this.referenceRoot = normalizePath(
+          rootResult.value?.path || settingsResult.value?.settings?.workdir_path || "",
+        );
+        const skills = skillsResult.value?.ok && Array.isArray(skillsResult.value.skills)
+          ? skillsResult.value.skills
+          : [];
+        const profiles = profilesResult.value?.ok && Array.isArray(profilesResult.value.profiles)
+          ? profilesResult.value.profiles
+          : [];
+        const activeProfile = String(
+          chatsStore.selectedContext?.agent_profile
+          || settingsResult.value?.settings?.agent_profile
+          || "",
+        ).trim();
+        const activeProfileAvailable = profiles.some((profile) => (
+          profile?.id === activeProfile && profile?.enabled && profile?.available
+        ));
+        const mcpResult = activeProfileAvailable
+          ? await callJsonApi(AGENT_EDITOR_API_PATH, {
+            action: "load",
+            profile_id: activeProfile,
+            context_id: contextId,
+          }).catch((error) => {
+            console.error("Failed to load scoped MCP references:", error);
+            return null;
+          })
+          : null;
+        if (generation !== this.referenceLoadGeneration) return;
+        const mcpServers = getMcpReferences(mcpResult?.state);
+        this.referenceCatalog = [
+          ...profiles.filter((profile) => (
+            profile?.id !== "default" && profile?.enabled && profile?.available
+          )).map((profile) => {
+            const key = String(profile?.id || "").trim();
+            const label = String(profile?.title || key).trim();
+            return {
+              id: `agent:${key}`,
+              kind: "Agent",
+              icon: "person",
+              tone: "agent",
+              label,
+              value: `@[agent/${key}]`,
+              description: key === label ? "Agent profile" : `Agent profile · ${key}`,
+              search: `agent/${key} ${label}`.toLowerCase(),
+            };
+          }).filter((item) => item.id !== "agent:"),
+          ...skills.filter((skill) => !skill?.hidden).map((skill) => {
+            const name = String(skill?.name || "").trim();
+            return {
+              id: `skill:${String(skill?.path || name)}`,
+              kind: "Skill",
+              icon: "auto_awesome",
+              tone: "skill",
+              label: name,
+              value: `@[skill/${name}]`,
+              description: String(skill?.description || "Skill").trim(),
+              search: `skill/${name} ${skill?.description || ""} ${skill?.path || ""}`.toLowerCase(),
+            };
+          }).filter((item) => item.label),
+          ...mcpServers.map((server) => {
+            const name = String(server?.name || "").trim();
+            const description = `${Number(server?.toolCount || 0)} available MCP tools`;
+            return {
+              id: `mcp:${name}`,
+              kind: "MCP",
+              icon: "hub",
+              tone: "mcp",
+              label: name,
+              value: `@[mcp/${name}]`,
+              description,
+              search: `mcp/${name} ${name} ${description}`.toLowerCase(),
+            };
+          }).filter((item) => item.label),
+        ];
+        this.referenceFiles = [];
+        this.referenceContextId = contextId;
+        this.referenceDirectoryKey = "";
+      }
+
+      const directoryKey = directory === null || !this.referenceRoot
+        ? ""
+        : `${this.referenceRoot}/${directory}`.replace(/\/$/, "");
+      if (directory !== null && directoryKey && directoryKey !== this.referenceDirectoryKey) {
+        const response = await fetchApi(`/get_work_dir_files?path=${encodeURIComponent(directoryKey)}`);
+        const payload = await response.json().catch(() => ({}));
+        if (generation !== this.referenceLoadGeneration) return;
+        const entries = response.ok && Array.isArray(payload?.data?.entries) ? payload.data.entries : [];
+        const root = this.referenceRoot.replace(/^\//, "");
+        this.referenceFiles = entries.flatMap((entry) => {
+          const path = normalizePath(entry?.path).replace(/^\//, "");
+          if (!path || (path !== root && !path.startsWith(`${root}/`))) return [];
+          const relative = path === root ? "" : path.slice(root.length + 1);
+          if (!relative) return [];
+          const isDirectory = Boolean(entry?.is_dir);
+          const displayPath = `./${relative}${isDirectory ? "/" : ""}`;
+          return [{
+            id: `${isDirectory ? "folder" : "file"}:${path}`,
+            kind: isDirectory ? "Folder" : "File",
+            icon: isDirectory ? "folder" : "draft",
+            tone: isDirectory ? "folder" : "file",
+            label: displayPath,
+            value: `@[${displayPath}]`,
+            description: isDirectory ? "Folder in active workspace" : "File in active workspace",
+            search: displayPath.toLowerCase(),
+          }];
+        });
+        this.referenceDirectoryKey = directoryKey;
+      } else if (directory === null) {
+        this.referenceFiles = [];
+        this.referenceDirectoryKey = "";
+      }
+
+      if (generation === this.referenceLoadGeneration) {
+        this.references = [...this.referenceFiles, ...this.referenceCatalog];
+        this.ensureSelection();
+      }
+    } catch (error) {
+      console.error("Failed to load composer references:", error);
+      if (generation === this.referenceLoadGeneration) {
+        this.references = [...this.referenceCatalog];
+      }
+    } finally {
+      if (generation === this.referenceLoadGeneration) this.loading = false;
+    }
+  },
+
   handleInput(event = null) {
     this.ensureBindings();
     this.dismissed = false;
 
     const message = this.getInputMessage(event);
+    const reference = parseReferenceInput(message, this.getCaretOffset());
+    if (reference.active) {
+      const newReferenceSession = this.mode !== "reference";
+      this.mode = "reference";
+      this.active = true;
+      this.query = reference.query;
+      this.rawMessage = message;
+      this.referenceStart = reference.start;
+      this.referenceEnd = reference.end;
+      this.referenceRange = this.captureReferenceRange(reference.end - reference.start);
+      this.ensureSelection();
+      void this.loadReferences(newReferenceSession);
+      return;
+    }
+
     const parsed = parseSlashInput(message, false);
 
+    this.referenceRange = null;
+    this.mode = parsed.active ? "slash" : "";
     this.active = parsed.active;
     this.query = parsed.query;
     this.rawArguments = parsed.rawArguments;
@@ -297,31 +580,77 @@ const model = {
       return;
     }
 
-    if (event.key === "Enter" && this.selectedCommand) {
+    if (event.key === "Enter" && this.selectedItem) {
       event.preventDefault();
       event.stopPropagation();
-      void this.applySelection(this.selectedCommand);
+      void this.applySelectedItem(this.selectedItem);
     }
   },
 
   ensureSelection() {
-    const commands = this.filteredCommands;
-    if (!commands.length) {
+    const items = this.filteredItems;
+    if (!items.length) {
       this.selectedIndex = 0;
       return;
     }
-    if (this.selectedIndex >= commands.length) {
+    if (this.selectedIndex >= items.length) {
       this.selectedIndex = 0;
     }
   },
 
   moveSelection(delta) {
-    const commands = this.filteredCommands;
-    if (!commands.length) return;
+    const items = this.filteredItems;
+    if (!items.length) return;
     const nextIndex =
-      (this.selectedIndex + delta + commands.length) % commands.length;
+      (this.selectedIndex + delta + items.length) % items.length;
     this.selectedIndex = nextIndex;
     this.scrollSelectedIntoView();
+  },
+
+  applySelectedItem(item) {
+    return this.mode === "reference" ? this.applyReference(item) : this.applySelection(item);
+  },
+
+  applyReference(reference) {
+    const input = this.getInputElement();
+    if (!reference?.value || !input) return;
+
+    const current = this.getInputMessage();
+    const suffix = current.slice(this.referenceEnd);
+    const separator = suffix && /^\s/.test(suffix) ? "" : " ";
+    const nextText = `${current.slice(0, this.referenceStart)}${reference.value}${separator}${suffix}`;
+    const caret = this.referenceStart + reference.value.length + separator.length;
+    const range = this.referenceRange;
+    this.referenceRange = null;
+    if (range && input.contains(range.startContainer)) {
+      range.deleteContents();
+      const node = document.createElement("span");
+      node.className = `composer-reference is-${reference.tone}`;
+      node.dataset.reference = reference.value;
+      node.dataset.label = reference.label;
+      node.contentEditable = "false";
+      node.textContent = reference.value;
+      node.setAttribute("aria-label", `${reference.kind}: ${reference.label}`);
+      range.insertNode(node);
+      const space = separator ? document.createTextNode(separator) : null;
+      if (space) node.after(space);
+      range.setStartAfter(space || node);
+      range.collapse(true);
+      const selection = document.getSelection?.();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      chatInputStore?._syncMessageFromEditor?.();
+    } else {
+      chatInputStore.message = nextText;
+      chatInputStore?._setEditorCaret?.(caret);
+    }
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    chatInputStore.adjustTextareaHeight();
+    this.active = false;
+    this.dismissed = false;
+    this.mode = "";
+    this.query = "";
+    this.selectedIndex = 0;
   },
 
   scrollSelectedIntoView() {

@@ -859,7 +859,7 @@ export const store = createStore("onboarding", {
   },
 
   async openAdvancedSettings() {
-    window.closeModal?.();
+    await window.closeModal?.();
     await modelConfigStore.openPresetEditor(
       this.config?.model_preset || "Default"
     );

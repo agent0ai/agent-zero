@@ -9,6 +9,7 @@ Manage the reusable model presets used for Agent Zero's main, utility, and embed
 - Preset definitions are global and live in `usr/plugins/_model_config/presets.yaml`. Plugin defaults in `mode_presets_fallback.yaml` are used only when a saved collection cannot be initialized.
 - Non-default presets may omit advanced fields or model slots; omitted values resolve from `Default`, while provider-specific `kwargs` are replaced or cleared instead of leaking between providers.
 - API keys remain in the approved environment/settings flow and are never written into preset YAML.
+- Models whose provider or name contains `anthropic` receive public-action-summary wording for the bundled `thoughts` instructions, including through OpenRouter. Shared prompt files and the `thoughts` JSON field stay unchanged.
 
 ## Scoped Selection
 

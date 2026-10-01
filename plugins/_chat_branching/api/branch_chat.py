@@ -1,5 +1,6 @@
 import json
 
+from agent import Agent, AgentContext
 from helpers.api import ApiHandler, Input, Output, Request, Response
 from helpers.localization import Localization
 from helpers.persist_chat import (
@@ -7,7 +8,20 @@ from helpers.persist_chat import (
     _deserialize_context,
     save_tmp_chat,
 )
-from agent import AgentContext
+
+
+def _detach_response_ids(value: object) -> None:
+    if isinstance(value, dict):
+        metadata = value.get("metadata")
+        responses = metadata.get("responses") if isinstance(metadata, dict) else None
+        if isinstance(responses, dict):
+            responses.pop("response_id", None)
+            responses.pop("previous_response_id", None)
+        for nested in value.values():
+            _detach_response_ids(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            _detach_response_ids(nested)
 
 
 def _trim_history_json(history_json: str, kept_ids: set[str], after_cut_ids: set[str]) -> str:
@@ -71,6 +85,7 @@ def _trim_history_json(history_json: str, kept_ids: set[str], after_cut_ids: set
         len(t.get("messages", [])) for t in hist["topics"] if not t.get("summary")
     ) + len(hist.get("current", {}).get("messages", []))
     hist["counter"] = total
+    _detach_response_ids(hist)
 
     return json.dumps(hist, ensure_ascii=False)
 
@@ -124,6 +139,10 @@ class BranchChat(ApiHandler):
             ag["history"] = _trim_history_json(
                 ag.get("history", ""), kept_ids, after_cut_ids
             )
+            agent_data = ag.get("data")
+            if isinstance(agent_data, dict):
+                agent_data.pop(Agent.DATA_NAME_RESPONSES_STATE, None)
+                agent_data.pop(Agent.DATA_NAME_CTX_WINDOW, None)
 
         # Give the branch a distinguishable name
         src_name = data.get("name") or "Chat"

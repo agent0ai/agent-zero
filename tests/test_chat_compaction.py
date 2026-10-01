@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
+from langchain_core.messages import HumanMessage
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -189,7 +190,9 @@ async def test_large_compaction_does_not_send_unsplit_single_line_payload(monkey
 
 
 @pytest.mark.asyncio
-async def test_manual_compaction_clears_active_responses_state(monkeypatch):
+async def test_manual_compaction_preserves_summary_and_clears_responses_state(
+    monkeypatch,
+):
     async def fake_single_pass(*args, **kwargs):
         return "summary"
 
@@ -217,6 +220,11 @@ async def test_manual_compaction_clears_active_responses_state(monkeypatch):
     monkeypatch.setattr(compactor, "mark_dirty_all", lambda *args, **kwargs: None)
 
     await compactor.run_compaction(context)
+
+    prompt_history = agent.history.current.output_langchain()
+    assert len(prompt_history) == 1
+    assert isinstance(prompt_history[0], HumanMessage)
+    assert "## Context compacted\n\nsummary" in prompt_history[0].content
 
     state = agent.data["responses_state"]
     assert "response_id" not in state

@@ -24,6 +24,13 @@ report that to the user instead of falling back to server-side file tools.
 - For simple "change X to Y" requests, prefer exact replace with `old_text` and `new_text`; `old_text` must match one exact current span.
 - Prefer `patch_text` for context-anchored changes and `edits` only for fresh, surgical line ranges.
 - If freshness checks reject a line patch, reread the file and retry with updated ranges.
+- Reads are text previews capped at 2,000 lines and 256 KiB. When the result says
+  it was truncated, continue from its `next_line` only if another bounded text
+  slice is sufficient.
+- Write and patch content is capped at 256 KiB. For a complete large file or any
+  binary file, use the authenticated CLI/Core HTTP upload or download path; do
+  not retry it through this WebSocket tool. If no HTTP-facing action is available
+  in the current task, ask the user to attach/upload the file through A0 CLI.
 - Relative paths are relative to the CLI host filesystem. Do not rewrite them to
   `/a0/usr/workdir`; that path belongs to the Agent Zero server/Docker side.
 

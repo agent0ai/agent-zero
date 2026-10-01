@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import types
@@ -275,6 +276,82 @@ def test_global_presets_require_immutable_default_and_save_behavior(monkeypatch,
         model_config.save_presets([])
 
     assert model_config.reset_presets()[0]["name"] == "Default"
+
+
+def test_global_presets_parse_once_until_a_source_file_changes(monkeypatch, tmp_path):
+    _prepare_a0_tree(monkeypatch, tmp_path)
+
+    from plugins._model_config.helpers import model_config
+
+    calls = []
+    load = model_config._load_global_presets
+    monkeypatch.setattr(
+        model_config, "_load_global_presets", lambda **kwargs: calls.append(1) or load(**kwargs)
+    )
+
+    model_config.get_presets()[0]["name"] = "mutated"
+    assert model_config.get_presets()[0]["name"] == "Default"
+    assert len(calls) == 1
+
+    model_config.save_presets(
+        [
+            model_config.get_presets()[0],
+            {"name": "Added", "chat": {"provider": "openai", "name": "gpt-test"}},
+        ]
+    )
+    assert [p["name"] for p in model_config.get_presets()] == ["Default", "Added"]
+    assert len(calls) == 2
+
+    # out-of-band edits invalidate through the file signature
+    path = tmp_path / "usr" / "plugins" / "_model_config" / "presets.yaml"
+    path.write_text(path.read_text(encoding="utf-8").replace("Added", "Edited"), encoding="utf-8")
+    os.utime(path, ns=(1, 1))
+    assert [p["name"] for p in model_config.get_presets()] == ["Default", "Edited"]
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize("source", ["presets", "fallback", "legacy"])
+def test_global_presets_recover_after_source_read_failure(monkeypatch, tmp_path, source):
+    _prepare_a0_tree(monkeypatch, tmp_path)
+
+    from helpers import cache, files
+    from plugins._model_config.helpers import model_config
+
+    user_dir = tmp_path / "usr" / "plugins" / "_model_config"
+    user_dir.mkdir()
+    paths = {
+        "presets": user_dir / "presets.yaml",
+        "fallback": tmp_path / "plugins" / "_model_config" / "mode_presets_fallback.yaml",
+        "legacy": user_dir / "config.json",
+    }
+    paths["presets"].write_text(
+        "- name: Default\n- name: Custom\n  chat: {provider: openai, name: custom-chat}\n",
+        encoding="utf-8",
+    )
+    paths["legacy"].write_text(
+        json.dumps({"utility_model": {"provider": "openai", "name": "legacy-utility"}}),
+        encoding="utf-8",
+    )
+    expected = model_config.get_presets()
+    assert expected[0]["chat"]["name"] == "default-chat"
+    assert expected[0]["utility"]["name"] == "legacy-utility"
+    assert expected[1]["name"] == "Custom"
+    cache.clear(model_config.PRESETS_CACHE_AREA)
+
+    reader_name = "read_file_json" if source == "legacy" else "read_file"
+    read = getattr(files, reader_name)
+
+    def fail_read(path, *args, **kwargs):
+        if Path(path) == paths[source]:
+            raise PermissionError("temporary read failure")
+        return read(path, *args, **kwargs)
+
+    with monkeypatch.context() as failing:
+        failing.setattr(files, reader_name, fail_read)
+        assert model_config.get_presets() != expected
+
+    # Recovery must not require editing the files or clearing the cache.
+    assert model_config.get_presets() == expected
 
 
 def test_project_scope_selects_global_presets_only(monkeypatch, tmp_path):
@@ -1092,6 +1169,142 @@ def test_preset_application_inherits_optional_slots(monkeypatch, tmp_path):
     assert config["embedding_model"] == base_config["embedding_model"]
 
 
+def test_preset_vision_slot_is_optional_and_never_inherited(monkeypatch, tmp_path):
+    _prepare_a0_tree(monkeypatch, tmp_path)
+
+    from plugins._model_config.helpers import model_config
+
+    base_config = {
+        "chat_model": {"provider": "openrouter", "name": "main", "vision": False},
+        "vision_model": {
+            "provider": "openrouter",
+            "name": "default-vision",
+            "max_embeds": 2,
+        },
+    }
+
+    without_sidecar = model_config.build_config_from_preset(
+        {"name": "Text only", "chat": {"provider": "openrouter", "name": "text"}},
+        base_config,
+    )
+    with_sidecar = model_config.build_config_from_preset(
+        {
+            "name": "Visual",
+            "chat": {"provider": "openrouter", "name": "text"},
+            "vision": {
+                "provider": "anthropic",
+                "name": "visual",
+                "max_embeds": 5,
+            },
+        },
+        base_config,
+    )
+
+    assert without_sidecar["vision_model"] == {}
+    assert with_sidecar["vision_model"]["provider"] == "anthropic"
+    assert with_sidecar["vision_model"]["name"] == "visual"
+    assert with_sidecar["vision_model"]["max_embeds"] == 5
+    assert "default-vision" not in str(with_sidecar["vision_model"])
+
+
+def test_vision_call_limits_are_preset_owned_and_default_clean(monkeypatch, tmp_path):
+    _prepare_a0_tree(monkeypatch, tmp_path)
+
+    from plugins._model_config.helpers import model_config
+
+    cleaned = model_config.clean_presets_for_file(
+        [
+            {
+                "name": "Default limits",
+                "vision": {
+                    "provider": "openrouter",
+                    "name": "vision-default",
+                    "timeout": 300,
+                    "max_tokens": 2000,
+                },
+            },
+            {
+                "name": "Tuned limits",
+                "vision": {
+                    "provider": "openrouter",
+                    "name": "vision-tuned",
+                    "timeout": 45,
+                    "max_tokens": 512,
+                },
+            },
+        ]
+    )
+
+    assert cleaned[0]["vision"] == {
+        "provider": "openrouter",
+        "name": "vision-default",
+    }
+    assert cleaned[1]["vision"]["timeout"] == 45
+    assert cleaned[1]["vision"]["max_tokens"] == 512
+
+
+def test_vision_model_build_applies_only_its_preset_call_limits(monkeypatch):
+    from plugins._model_config.helpers import model_config
+
+    calls = []
+
+    def fake_get_chat_model(provider, name, **kwargs):
+        calls.append((provider, name, kwargs))
+        return kwargs
+
+    monkeypatch.setattr(model_config.models, "get_chat_model", fake_get_chat_model)
+
+    cases = [
+        (
+            {"provider": "openrouter", "name": "vision-default"},
+            {"timeout": 300, "max_tokens": 2000},
+        ),
+        (
+            {
+                "provider": "openrouter",
+                "name": "vision-legacy-kwargs",
+                "kwargs": {"timeout": 90, "max_tokens": 1024},
+            },
+            {"timeout": 90, "max_tokens": 1024},
+        ),
+        (
+            {
+                "provider": "openrouter",
+                "name": "vision-tuned",
+                "timeout": "45",
+                "max_tokens": "512",
+                "kwargs": {
+                    "timeout": 90,
+                    "max_tokens": 1024,
+                    "temperature": 0.1,
+                },
+            },
+            {"timeout": 45, "max_tokens": 512},
+        ),
+    ]
+
+    for config, expected in cases:
+        monkeypatch.setattr(
+            model_config,
+            "get_vision_model_config",
+            lambda _agent=None, config=config: config,
+        )
+        built = model_config.build_vision_model()
+        assert built["timeout"] == expected["timeout"]
+        assert built["max_tokens"] == expected["max_tokens"]
+
+    assert calls[-1][2]["temperature"] == 0.1
+
+    monkeypatch.setattr(
+        model_config,
+        "get_chat_model_config",
+        lambda _agent=None: {"provider": "openrouter", "name": "main"},
+    )
+    main = model_config.build_chat_model()
+    assert "timeout" not in main
+    assert "max_tokens" not in main
+
+
 def test_legacy_utility_preset_defaults_preserve_tuning_but_clear_kwargs(
     monkeypatch,
     tmp_path,
@@ -1213,3 +1426,51 @@ def test_missing_scoped_preset_falls_back_to_default(monkeypatch, tmp_path):
     resolved = model_config.get_config(project_name="demo")
     assert resolved["model_preset"] == "Default"
     assert resolved["chat_model"]["name"] == "default-chat"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('action', ['save', 'reset'])
+@pytest.mark.parametrize('change', ['none', 'default', 'explicit'])
+async def test_collection_write_compares_embedding_snapshots_without_reloading_per_preset(monkeypatch, action, change):
+    from copy import deepcopy
+    from plugins._model_config.api import model_presets
+    from plugins._model_config.helpers import model_config
+
+    before = [
+        {'name': 'Default', 'embedding': {'provider': 'test', 'name': 'base'}},
+        {'name': 'Inherited'},
+        {'name': 'Explicit', 'embedding': {'provider': 'test', 'name': 'custom'}},
+    ]
+    after = deepcopy(before)
+    if change == 'default':
+        after[0]['embedding']['name'] = 'new-base'
+    elif change == 'explicit':
+        after[2]['embedding']['name'] = 'new-custom'
+    current = before
+    reads = 0
+    notifications = []
+
+    def get_presets():
+        nonlocal reads
+        reads += 1
+        return deepcopy(current)
+
+    def save_presets(presets):
+        nonlocal current
+        assert presets == after
+        current = after
+
+    monkeypatch.setattr(model_config, 'get_presets', get_presets)
+    monkeypatch.setattr(model_config, 'save_presets', save_presets)
+    monkeypatch.setattr(model_config, 'reset_presets', lambda: deepcopy(after))
+    monkeypatch.setattr(model_presets, '_notify_embedding_changed', lambda: notifications.append(True))
+    monkeypatch.setattr(model_presets, '_rename_preset_references', lambda renames: None)
+    handler = model_presets.ModelPresets(Flask(__name__), threading.Lock())
+    result = await handler.process({'action': action, 'presets': after}, None)
+    assert result == {'ok': True, 'presets': after}
+    assert reads == (2 if action == 'save' else 1)
+    assert notifications == ([] if change == 'none' else [True])
+    signatures = model_presets._embedding_signatures(after)
+    assert signatures['Inherited'] == signatures['Default']
+    assert signatures['Explicit'] == after[2]['embedding']
+    assert before[0]['embedding']['name'] == 'base'

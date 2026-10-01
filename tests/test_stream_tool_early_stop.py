@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import models
 from helpers import extract_tools
 from helpers import litellm_transport
+from helpers.dirty_json import DirtyJson
 
 
 @pytest.fixture(autouse=True)
@@ -85,6 +86,25 @@ def test_extract_json_root_string_returns_canonical_snapshot():
         '{"tool_name":"response","tool_args":{"text":"missing"'
     ) is None
     assert extract_tools.extract_json_root_string('[{"tool_name":"response"}]') is None
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"tool_name":"response","tool_args":{"text":"partial"',
+        'prefix {"tool_name":"response","tool_args":{}}',
+        '[{"tool_name":"response","tool_args":{}}]',
+        '```json\n{"tool_name":"response","tool_args":{}}\n```',
+    ],
+)
+def test_extract_tool_request_skips_noncanonical_boundaries(monkeypatch, content):
+    monkeypatch.setattr(
+        extract_tools,
+        "extract_json_root_string",
+        lambda _content: pytest.fail("noncanonical content reached the root scanner"),
+    )
+
+    assert extract_tools.extract_tool_request(content) is None
 
 
 def test_json_parse_dirty_prefers_valid_tool_request_after_preamble_object():
@@ -366,6 +386,7 @@ async def test_unified_call_closes_responses_stream_when_callback_raises(monkeyp
         model="test-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -381,7 +402,7 @@ async def test_unified_call_closes_responses_stream_when_callback_raises(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_chat_completions_escape_hatch_still_uses_acompletion(monkeypatch):
+async def test_chat_completions_default_uses_acompletion(monkeypatch):
     stream = _AsyncChunkStream([_chunk("hello")])
     calls: list[str] = []
 
@@ -405,7 +426,6 @@ async def test_chat_completions_escape_hatch_still_uses_acompletion(monkeypatch)
         model="test-model",
         provider="openai",
         model_config=None,
-        a0_api_mode="chat_completions",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -449,7 +469,8 @@ async def test_unified_turn_stops_chat_stream_after_text_tool_request(monkeypatc
     async def response_callback(chunk: str, full: str):
         return full if extract_tools.extract_tool_request(full) else None
 
-    result = await wrapper.unified_turn(
+    result = await wrapper.unified_turn.__wrapped__(
+        wrapper,
         messages=[],
         response_callback=response_callback,
     )
@@ -487,6 +508,7 @@ async def test_unified_call_retries_responses_with_high_reasoning(monkeypatch):
         model="gpt-5.4",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -513,6 +535,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
 
     async def fake_aresponses(*args, **kwargs):
         calls.append("responses")
+        assert kwargs["input"][0]["content"] == "Native instructions"
+        assert "responses_prompt_replacements" not in kwargs
         raise RuntimeError(
             "Client error '404 Not Found' for url "
             "'https://llm.agent-zero.ai/v1/responses'"
@@ -520,6 +544,8 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
 
     async def fake_acompletion(*args, **kwargs):
         calls.append("chat")
+        assert kwargs["messages"][0]["content"] == "Legacy instructions"
+        assert "responses_prompt_replacements" not in kwargs
         assert kwargs["stream"] is True
         assert kwargs["drop_params"] is True
         assert "tool_choice" not in kwargs
@@ -537,6 +563,9 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
         model="claude-opus-4.7",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
+        a0_responses_function_tools=[{"type": "function", "name": "response", "parameters": {"type": "object"}}],
+        responses_prompt_replacements={"Legacy instructions": "Native instructions"},
         tool_choice="auto",
         parallel_tool_calls=True,
     )
@@ -545,7 +574,7 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
         return None
 
     response, reasoning = await wrapper.unified_call(
-        messages=[],
+        messages=[SystemMessage(content="Legacy instructions")],
         response_callback=response_callback,
     )
 
@@ -554,7 +583,7 @@ async def test_unified_call_falls_back_to_chat_when_responses_endpoint_missing(
     assert calls == ["responses", "chat"]
 
     response, reasoning = await wrapper.unified_call(
-        messages=[],
+        messages=[SystemMessage(content="Legacy instructions")],
         response_callback=response_callback,
     )
 
@@ -595,6 +624,7 @@ async def test_unified_call_falls_back_when_litellm_hides_responses_404_url(
         model="claude-opus-4.7",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -651,6 +681,7 @@ async def test_unified_call_falls_back_for_proxy_responses_failures(
         model="test-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -699,6 +730,7 @@ async def test_unified_call_falls_back_when_responses_mock_reads_sse_as_json(
         model="omniroute/test-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -748,6 +780,7 @@ async def test_unified_call_falls_back_when_responses_bad_request_rejects_shape(
         model="venice-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -801,6 +834,7 @@ async def test_unified_call_raises_generic_responses_bad_request(monkeypatch):
         model="test-model",
         provider="openai",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -832,13 +866,11 @@ async def test_unified_call_preserves_cache_control_with_chat_for_non_native_res
         assert messages[0]["content"][-1]["cache_control"] == {
             "type": "ephemeral"
         }
-        assert messages[1]["content"][-1]["cache_control"] == {
+        assert messages[1]["content"] == "question"
+        assert messages[2]["content"][-1]["cache_control"] == {
             "type": "ephemeral"
         }
-        assert "cache_control" not in messages[2]
-        assert messages[3]["content"][-1]["cache_control"] == {
-            "type": "ephemeral"
-        }
+        assert messages[3]["content"] == "follow up"
         return _AsyncChunkStream([_chunk("cached")])
 
     async def fake_rate_limiter(*args, **kwargs):
@@ -852,6 +884,7 @@ async def test_unified_call_preserves_cache_control_with_chat_for_non_native_res
         model="claude-sonnet-4-5",
         provider="anthropic",
         model_config=None,
+        a0_api_mode="responses",
     )
 
     async def response_callback(chunk: str, full: str):
@@ -1136,6 +1169,7 @@ def test_complete_falls_back_to_chat_when_responses_shim_sends_empty_tools(
         model="hosted_vllm/qwen",
         messages=[{"role": "user", "content": "hi"}],
         kwargs={
+            "a0_api_mode": "responses",
             "tools": [],
             "tool_choice": "auto",
             "parallel_tool_calls": True,
@@ -1310,6 +1344,36 @@ def test_chat_kwargs_mark_cached_tools_for_cache_control_providers():
     }
 
 
+@pytest.mark.parametrize("content", [
+    None, "", [],
+    [{"type": "thinking", "thinking": "Plan", "signature": "signature"}],
+    [{"type": "redacted_thinking", "data": "opaque"}],
+])
+def test_cache_markers_preserve_assistant_tool_calls_without_cacheable_text(content):
+    messages = [
+        {"role": "system", "content": "Instructions"},
+        {"role": "user", "content": "Question"},
+        {"role": "assistant", "content": "Previous answer"},
+        {
+            "role": "assistant", "content": content,
+            "tool_calls": [{"id": "call_1", "type": "function", "function": {
+                "name": "lookup", "arguments": "{}",
+            }}],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "Result"},
+        {"role": "user", "content": "Current extras"},
+    ]
+
+    prepared = litellm_transport.apply_chat_prompt_cache_markers(
+        messages, model="anthropic/claude-sonnet-4-5"
+    )
+
+    assert prepared[3] == messages[3]
+    assert prepared[4:] == messages[4:]
+    assert [i for i, message in enumerate(prepared)
+            if litellm_transport._has_cache_control(message)] == [0, 2]
+
+
 def test_chat_kwargs_strip_orphan_tool_choice_and_enable_fallback_drop_params():
     kwargs = litellm_transport.ChatCompletionsTransport.prepare_kwargs(
         {
@@ -1337,12 +1401,12 @@ def test_cache_control_policy_keeps_native_responses_first():
 
     openai_policy = litellm_transport.TransportPolicy.from_request(
         "openai/gpt-5.4",
-        {},
+        {"a0_api_mode": "responses"},
         messages=messages,
     )
     anthropic_policy = litellm_transport.TransportPolicy.from_request(
         "anthropic/claude-sonnet-4-5",
-        {},
+        {"a0_api_mode": "responses"},
         messages=messages,
     )
 
@@ -1413,12 +1477,14 @@ def test_responses_response_parser_extracts_text_reasoning_and_function_calls():
     }
 
 
-def test_chat_completions_response_parser_extracts_tool_calls():
+@pytest.mark.parametrize("commentary", [None, "Looking it up."])
+def test_chat_completions_response_parser_extracts_tool_calls(commentary):
     parsed = litellm_transport.ChatCompletionsTransport.parse(
         {
             "choices": [
                 {
                     "message": {
+                        "content": commentary,
                         "tool_calls": [
                             {
                                 "id": "call_1",
@@ -1439,7 +1505,17 @@ def test_chat_completions_response_parser_extracts_tool_calls():
         "tool_name": "lookup",
         "tool_args": {"q": "a0"},
     }
-    assert parsed["_output_items"][0]["name"] == "lookup"
+    items = parsed["_output_items"]
+    assert items[-1]["name"] == "lookup"
+    assert items[-1]["call_id"] == "call_1"
+    if commentary:
+        assert items[0] == {
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": commentary}],
+        }
+    else:
+        assert len(items) == 1
 
 
 def test_chat_completions_stream_parser_accumulates_tool_call_arguments():
@@ -1524,6 +1600,38 @@ def test_chat_completions_stream_parser_reads_dumped_tool_calls():
     assert extract_tools.json_parse_dirty(parsed["response_delta"]) == {
         "tool_name": "lookup",
         "tool_args": {"q": "a0"},
+    }
+
+
+def test_chat_completions_stream_parser_preserves_optional_usage():
+    parser = litellm_transport.ChatCompletionsStreamParser()
+    parser.parse(
+        {
+            "choices": [],
+            "usage": {"prompt_tokens": 240},
+            "_hidden_params": {"response_cost": 0.0084},
+        }
+    )
+    parser.parse(
+        {
+            "choices": [],
+            "usage": {"completion_tokens": 16, "total_tokens": 256},
+        }
+    )
+    transport = litellm_transport.LiteLLMTransport(
+        model="custom/model",
+        messages=[{"role": "user", "content": "question"}],
+        kwargs={"a0_api_mode": "chat_completions"},
+    )
+
+    result = transport._stream_result_from_chat_parser(parser)
+
+    assert result is not None
+    assert result.usage == {
+        "prompt_tokens": 240,
+        "completion_tokens": 16,
+        "total_tokens": 256,
+        "cost": 0.0084,
     }
 
 
@@ -1614,14 +1722,15 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
             },
         }
     ) == {"reasoning_delta": "", "response_delta": ""}
-    assert parser.parse(
+    partial = parser.parse(
         {
             "type": "response.function_call_arguments.delta",
             "item_id": "fc_1",
             "output_index": 0,
             "delta": '{"q":',
         }
-    ) == {"reasoning_delta": "", "response_delta": ""}
+    )
+    assert partial["response_delta"] == '{"tool_name":"lookup","tool_args":{"q":'
 
     parsed = parser.parse(
         {
@@ -1633,7 +1742,7 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
         }
     )
 
-    assert extract_tools.json_parse_dirty(parsed["response_delta"]) == {
+    assert extract_tools.json_parse_dirty(partial["response_delta"] + parsed["response_delta"]) == {
         "tool_name": "lookup",
         "tool_args": {"q": "a0"},
     }
@@ -1647,6 +1756,69 @@ def test_responses_stream_parser_accumulates_function_call_arguments():
                 "call_id": "call_1",
                 "name": "lookup",
                 "arguments": '{"q":"a0"}',
+            },
+        }
+    ) == {"reasoning_delta": "", "response_delta": ""}
+
+
+def test_responses_stream_parser_streams_response_function_arguments():
+    parser = litellm_transport.ResponsesEventParser()
+
+    parser.parse(
+        {
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": {
+                "type": "function_call",
+                "id": "fc_1",
+                "name": "response",
+                "arguments": "",
+            },
+        }
+    )
+    chunks = [
+        parser.parse(
+            {
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_1",
+                "delta": '{"text":"Hello',
+            }
+        )["response_delta"],
+        parser.parse(
+            {
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_1",
+                "delta": ' world"}',
+            }
+        )["response_delta"],
+        parser.parse(
+            {
+                "type": "response.function_call_arguments.done",
+                "item_id": "fc_1",
+                "name": "response",
+                "arguments": '{"text":"Hello world"}',
+            }
+        )["response_delta"],
+    ]
+
+    assert chunks[0] == '{"tool_name":"response","tool_args":{"text":"Hello'
+    assert DirtyJson.parse_string(chunks[0]) == {
+        "tool_name": "response",
+        "tool_args": {"text": "Hello"},
+    }
+    assert extract_tools.json_parse_dirty("".join(chunks)) == {
+        "tool_name": "response",
+        "tool_args": {"text": "Hello world"},
+    }
+    assert chunks[-1] == "}"
+    assert parser.parse(
+        {
+            "type": "response.output_item.done",
+            "item": {
+                "type": "function_call",
+                "id": "fc_1",
+                "name": "response",
+                "arguments": '{"text":"Hello world"}',
             },
         }
     ) == {"reasoning_delta": "", "response_delta": ""}
@@ -1715,3 +1887,135 @@ def test_responses_response_parser_groups_parallel_function_calls():
             ]
         },
     }
+
+
+def test_responses_stream_parser_preserves_non_ascii_function_call_arguments():
+    parser = litellm_transport.ResponsesEventParser()
+
+    parser.parse(
+        {
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": {
+                "type": "function_call",
+                "id": "fc_1",
+                "name": "response",
+                "arguments": "",
+            },
+        }
+    )
+    parsed = parser.parse(
+        {
+            "type": "response.function_call_arguments.done",
+            "item_id": "fc_1",
+            "name": "response",
+            "arguments": '{"text":"привет"}',
+        }
+    )
+
+    assert parsed["response_delta"] == '{"tool_name": "response", "tool_args": {"text": "привет"}}'
+
+
+@pytest.mark.asyncio
+async def test_native_argument_progress_keeps_interleaved_calls_and_terminal_metadata(monkeypatch):
+    arguments = '{"runtime":"python","code":"print(\\"日本\\")","nested":{"items":[1,2]}}'
+    first = {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "code_execution_tool", "arguments": arguments}
+    second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"a0"}'}
+    split = arguments.index('日本')
+    events = [
+        {"type": "response.output_item.added", "item": {**first, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": arguments[:split]},
+        {"type": "response.output_item.added", "item": {**second, "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_2", "delta": second["arguments"]},
+        {"type": "response.output_item.done", "item": second},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": arguments[split:]},
+        {"type": "response.output_item.done", "item": first},
+        {"type": "response.completed", "response": {"id": "resp_1", "output": [first, second], "usage": {"input_tokens": 2048}}},
+    ]
+    stream = _AsyncChunkStream(events)
+
+    async def aresponses(**kwargs):
+        return stream
+
+    async def no_limiter(*args, **kwargs):
+        return None
+
+    snapshots = []
+
+    async def callback(chunk, full):
+        snapshots.append((stream.index, full))
+        return full  # Native turns must still consume completion metadata.
+
+    monkeypatch.setattr(litellm_transport, "aresponses", aresponses)
+    monkeypatch.setattr(models, "apply_rate_limiter", no_limiter)
+    wrapper = models.LiteLLMChatWrapper(model="test-model", provider="openai", model_config=None)
+    result = await wrapper.unified_turn(messages=[], response_callback=callback, a0_api_mode="responses")
+
+    assert snapshots[0][0] == 2
+    assert DirtyJson.parse_string(snapshots[0][1])["tool_args"]["runtime"] == "python"
+    roots = extract_tools.extract_json_root_strings(snapshots[-1][1])
+    assert [json.loads(root)["tool_name"] for root in roots] == ["code_execution_tool", "lookup"]
+    assert json.loads(roots[0])["tool_args"] == json.loads(arguments)
+    assert [call.call_id for call in result.function_calls] == ["call_1", "call_2"]
+    assert result.usage == {"input_tokens": 2048}
+    assert stream.index == len(events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("incomplete", [False, True])
+async def test_interrupted_native_argument_stream_cannot_become_a_text_tool(monkeypatch, incomplete):
+    events = [
+        {"type": "response.output_item.added", "item": {"type": "function_call", "id": "fc_1", "name": "lookup", "arguments": ""}},
+        {"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": '{"q":"partial'},
+    ]
+    if incomplete:
+        events.append({"type": "response.incomplete", "response": {"status": "incomplete"}})
+    stream = _AsyncChunkStream(events)
+
+    async def aresponses(**kwargs):
+        return stream
+
+    monkeypatch.setattr(litellm_transport, "aresponses", aresponses)
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    with pytest.raises(RuntimeError, match="incomplete|before native tool calls completed"):
+        async for _ in transport.astream():
+            pass
+    assert transport.last_result is None
+    assert stream.closed
+
+
+def test_stream_metadata_recovers_reasoning_and_partial_terminal_call_lists():
+    parser = litellm_transport.ResponsesEventParser()
+    reasoning = {"type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted", "summary": []}
+    first = {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "lookup", "arguments": '{"q":"first"}'}
+    second = {"type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "lookup", "arguments": '{"q":"second"}'}
+    for index, item in reversed(list(enumerate([reasoning, first, second]))):
+        parser.parse({"type": "response.output_item.done", "output_index": index, "item": item})
+    terminal = {"id": "resp_1", "output": [{**second, "status": "completed"}]}
+    parser.parse({"type": "response.completed", "response": terminal})
+    assert parser.finish() == parser.finish()
+    assert terminal == {"id": "resp_1", "output": [{**second, "status": "completed"}]}
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert [item.to_dict() for item in result.output_items] == [reasoning, first, {**second, "status": "completed"}]
+    assert [call.call_id for call in result.function_calls] == ["call_1", "call_2"]
+
+
+def test_terminal_reasoning_null_does_not_erase_streamed_ciphertext():
+    parser = litellm_transport.ResponsesEventParser()
+    reasoning = {"type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted", "summary": []}
+    parser.parse({"type": "response.output_item.done", "output_index": 0, "item": reasoning})
+    parser.parse({"type": "response.completed", "response": {"output": [{**reasoning, "encrypted_content": None}]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert [item.to_dict() for item in result.output_items] == [reasoning]
+
+
+def test_unidentified_stream_fragment_cannot_duplicate_terminal_call():
+    parser = litellm_transport.ResponsesEventParser()
+    item = {"type": "function_call", "name": "lookup", "arguments": '{"q":"a0"}'}
+    parser.parse({"type": "response.output_item.done", "output_index": 0, "item": item})
+    parser.parse({"type": "response.completed", "response": {"output": [item]}})
+    transport = litellm_transport.LiteLLMTransport(model="openai/test", messages=[], kwargs={"a0_api_mode": "responses"})
+    result = transport._stream_result_from_parser(parser, {})
+    assert len(result.function_calls) == 1

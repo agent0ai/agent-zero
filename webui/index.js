@@ -149,18 +149,12 @@ export async function sendMessage(options = {}) {
         adjustTextareaHeight();
       }
 
+      // Render immediately; the backend log reuses messageId and merges into this row.
+      const heading = hasAttachments ? "Uploading attachments..." : "";
+      await setMessages([{ id: messageId, type: "user", heading, content: message, kvps: {} }]);
+
       // Include attachments in the user message
       if (hasAttachments) {
-        const heading =
-          attachmentsWithUrls.length > 0
-            ? "Uploading attachments..."
-            : "";
-
-        // Render user message with attachments
-        await setMessages([{ id: messageId, type: "user", heading, content: message, kvps: {
-          // attachments: attachmentsWithUrls, // skip here, let the backend properly log them
-        }}]);
-
         // sleep one frame to render the message before upload starts - better UX
         sleep(0);
 
@@ -355,6 +349,7 @@ export function buildStateRequestPayload(options = {}) {
     log_from: forceFull ? 0 : lastLogVersion,
     notifications_from: forceFull ? 0 : notificationStore.lastNotificationVersion || 0,
     timezone,
+    collections_delta: true,
   };
 }
 
@@ -382,13 +377,23 @@ export async function applySnapshot(snapshot, options = {}) {
     return { updated: false };
   }
 
+  const hasCollections =
+    Array.isArray(snapshot.contexts) && Array.isArray(snapshot.tasks);
+  const extensionSnapshot = hasCollections
+    ? snapshot
+    : {
+        ...snapshot,
+        contexts: chatsStore.contexts,
+        tasks: tasksStore.tasks,
+      };
   const snapCtx = {
-    snapshot,
+    snapshot: extensionSnapshot,
     willUpdateMessages: lastLogVersion != snapshot.log_version,
     skip: false,
   };
+  const applyingContext = context;
   await callJsExtensions("apply_snapshot_before", snapCtx);
-  if (snapCtx.skip) return { updated: false };
+  if (snapCtx.skip || context !== applyingContext) return { updated: false };
 
   // If the chat has been reset, reset cursors and request a resync from the caller.
   // Note: on first snapshot after a context switch, lastLogGuid is intentionally empty,
@@ -414,6 +419,7 @@ export async function applySnapshot(snapshot, options = {}) {
       msgs.resetMessageRenderState();
     }
     await setMessages(modelGateStore.mergeSyntheticMessages(snapshot.logs, context));
+    if (context !== applyingContext) return { updated: false };
     afterMessagesUpdate(snapshot.logs);
   }
 
@@ -433,25 +439,25 @@ export async function applySnapshot(snapshot, options = {}) {
     setConnectionStatus(true);
   }
 
-  // Update chats list using store
-  let contexts = snapshot.contexts || [];
-  chatsStore.applyContexts(contexts);
+  if (hasCollections) {
+    // Update chats list using store
+    chatsStore.applyContexts(snapshot.contexts);
 
-  // Update tasks list using store
-  let tasks = snapshot.tasks || [];
-  tasksStore.applyTasks(tasks);
+    // Update tasks list using store
+    tasksStore.applyTasks(snapshot.tasks);
 
-  // Make sure the active context is properly selected in both lists
-  if (context) {
-    // Update selection in both stores
-    chatsStore.setSelected(context);
+    // Make sure the active context is properly selected in both lists
+    // Leave an empty selection unchanged so the welcome screen stays visible.
+    if (context) {
+      // Update selection in both stores
+      chatsStore.setSelected(context);
 
-    const contextInChats = chatsStore.contains(context);
-    const contextInTasks = tasksStore.contains(context);
+      const contextInChats = chatsStore.contains(context);
+      const contextInTasks = tasksStore.contains(context);
 
-    if (contextInTasks) {
-      tasksStore.setSelected(context);
-    }
+      if (contextInTasks) {
+        tasksStore.setSelected(context);
+      }
 
       if (!contextInChats && !contextInTasks) {
         if (chatsStore.contexts.length > 0) {
@@ -466,19 +472,18 @@ export async function applySnapshot(snapshot, options = {}) {
           deselectChat();
         }
       }
-    } else {
-      // No context selected: keep it that way so the welcome screen stays visible.
     }
-
-    // update message queue
-    messageQueueStore.updateFromPoll();
-
-    // A context switch is visually complete only after its matching snapshot
-    // has rendered and the surrounding chat state has been synchronized.
-    finishChatLoading(snapshot.context);
-
-    return { updated };
   }
+
+  // update message queue
+  messageQueueStore.updateFromPoll();
+
+  // A context switch is visually complete only after its matching snapshot
+  // has rendered and the surrounding chat state has been synchronized.
+  finishChatLoading(snapshot.context);
+
+  return { updated };
+}
 
 export async function poll() {
   try {
@@ -608,6 +613,7 @@ globalThis.newContext = newContext;
 
 export const setContext = function (id) {
   if (id == context) return;
+  inputStore.setDraftContext(id);
   context = id;
   if (id) beginChatLoading(id);
   else beginChatLoading(null);

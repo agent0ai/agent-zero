@@ -1,5 +1,6 @@
 from helpers.api import ApiHandler, Request
 from plugins._browser.helpers.config import build_browser_launch_config, get_browser_config
+from plugins._browser.helpers.interactive_view import collect_status as collect_interactive_status
 from plugins._browser.helpers.playwright import (
     get_playwright_binary,
     get_playwright_cache_dir,
@@ -37,5 +38,6 @@ class Status(ApiHandler):
                 "requires_full_browser": launch_config["requires_full_browser"],
             },
             "host_browser": host_browser,
+            "interactive_view": collect_interactive_status(),
             "contexts": known_context_ids(),
         }

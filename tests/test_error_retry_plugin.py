@@ -120,3 +120,25 @@ def test_zero_configured_retries_disables_retry(monkeypatch):
     assert data["exception"] is exception
     assert agent.interventions == 0
     assert agent.context.log.entries == []
+
+
+def test_provider_refusal_is_left_for_critical_error_handler(monkeypatch):
+    _set_retry_config(monkeypatch, 3)
+    agent = FakeAgent()
+    agent.agent_name = "A0"
+    exception = retry_module.litellm.ContentPolicyViolationError(
+        message="Provider refused", model="test", llm_provider="",
+    )
+    data = {"exception": exception}
+    asyncio.run(retry_module.RetryCriticalException(agent=agent).execute(data))
+    assert data["exception"] is exception
+    assert agent.get_data(DATA_NAME_COUNTER) == 0
+    assert agent.interventions == 0
+    assert agent.warnings == []
+    critical = importlib.import_module(
+        "extensions.python._functions.agent.Agent.handle_exception.end._90_handle_critical_exception"
+    )
+    asyncio.run(critical.HandleCriticalException(agent=agent).execute(data))
+    assert isinstance(data["exception"], retry_module.HandledException)
+    assert agent.context.log.entries[0]["type"] == "error"
+    assert "Provider refused" in agent.context.log.entries[0]["content"]

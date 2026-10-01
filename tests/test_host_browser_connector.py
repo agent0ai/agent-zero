@@ -5,6 +5,7 @@ import importlib
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -17,11 +18,139 @@ from plugins._browser.helpers import connector_runtime as connector_runtime_modu
 from plugins._browser.helpers.connector_runtime import (
     ConnectorBrowserRuntime,
     _agent_uses_local_chat_model,
+    _stable_host_browser_selection,
 )
 
 
 def _agent(context_id: str = "ctx-host"):
     return SimpleNamespace(context=SimpleNamespace(id=context_id))
+
+
+@pytest.fixture
+def evaluate_bridge(monkeypatch):
+    sid, context_id = "evaluate-sid", "evaluate-context"
+    ws_runtime.register_sid(sid)
+    ws_runtime.subscribe_sid_to_context(sid, context_id)
+    ws_runtime.store_sid_host_browser_metadata(sid, {
+        "supported": True, "enabled": True, "status": "ready",
+        "features": ["evaluate_timeout_v1"],
+    })
+    monkeypatch.setattr(connector_runtime_module, "get_browser_config", lambda agent=None: {
+        "evaluate_timeout_seconds": 0.1,
+    })
+    monkeypatch.setattr(connector_runtime_module, "get_shared_ws_manager", lambda: None)
+    runtime = ConnectorBrowserRuntime(context_id, _agent(context_id))
+    try:
+        yield runtime, sid
+    finally:
+        ws_runtime.unregister_sid(sid)
+
+
+@pytest.mark.asyncio
+async def test_host_evaluate_deadline_and_multi_results(monkeypatch, evaluate_bridge):
+    runtime, sid = evaluate_bridge
+    payloads = []
+
+    async def emit(sid, event, payload, **kwargs):
+        payloads.append(payload)
+        assert payload["evaluate_timeout_seconds"] == 0.1
+        response = ({"ok": False, "error": "evaluate timed out after 0.1 seconds"}
+                    if payload.get("script") == "hang" else {"ok": True, "result": {"result": 2}})
+        ws_runtime.resolve_pending_browser_op(payload["op_id"], sid=sid, payload=response)
+
+    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
+    results = await runtime.call("multi", [
+        {"action": "evaluate", "browser_id": 1, "script": "hang", "evaluate_timeout_seconds": 999},
+        {"action": "evaluate", "browser_id": 1, "script": "1+1"},
+    ])
+    assert results[0]["ok"] is False and "0.1 seconds" in results[0]["error"]
+    assert results[1] == {"ok": True, "result": {"result": 2}}
+    assert not ws_runtime._pending_browser_ops
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("caller_cancel", [False, True])
+@pytest.mark.parametrize("confirmed", [False, True])
+async def test_host_evaluate_transport_cancellation_requires_ack(
+    monkeypatch, evaluate_bridge, caller_cancel, confirmed,
+):
+    runtime, sid = evaluate_bridge
+    started = asyncio.Event()
+    payloads = []
+    monkeypatch.setattr(connector_runtime_module, "EVALUATE_CANCEL_TIMEOUT_SECONDS", 0.05)
+
+    async def emit(sid, event, payload, **kwargs):
+        payloads.append(payload)
+        if payload["action"] == "evaluate":
+            started.set()
+            return
+        assert payload["action"] == "cancel_evaluate"
+        assert payload["target_op_id"] == payloads[0]["op_id"]
+        ws_runtime.resolve_pending_browser_op(payload["op_id"], sid=sid, payload={
+            "ok": True, "result": {"cancelled": confirmed},
+        })
+
+    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
+    before = asyncio.all_tasks()
+    task = asyncio.create_task(runtime.call("evaluate", 1, "hang"))
+    await asyncio.wait_for(started.wait(), 1)
+    if caller_cancel:
+        task.cancel()
+    error_type = asyncio.CancelledError if caller_cancel and confirmed else RuntimeError
+    with pytest.raises(error_type) as error:
+        await asyncio.wait_for(task, 1)
+    if not confirmed:
+        assert "cancellation could not be confirmed" in str(error.value)
+    elif not caller_cancel:
+        assert "host cancellation confirmed" in str(error.value)
+    assert len(payloads) == 2
+    assert not ws_runtime._pending_browser_ops
+    assert not (asyncio.all_tasks() - before)
+
+
+@pytest.mark.asyncio
+async def test_host_evaluate_legacy_peer_fails_per_call_without_execution(monkeypatch, evaluate_bridge):
+    runtime, sid = evaluate_bridge
+    monkeypatch.setattr(connector_runtime_module, "host_browser_metadata_for_sid", lambda sid: {
+        "enabled": True, "status": "ready", "features": [],
+    })
+    emitted = []
+
+    async def emit(sid, event, payload, **kwargs):
+        emitted.append(payload["action"])
+        ws_runtime.resolve_pending_browser_op(payload["op_id"], sid=sid, payload={"ok": True, "result": {"id": 1}})
+
+    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
+    results = await runtime.call("multi", [
+        {"action": "evaluate", "script": "1+1"}, {"action": "state", "browser_id": 1},
+    ])
+    assert results[0]["ok"] is False and "evaluate_timeout_v1" in results[0]["error"]
+    assert results[1]["ok"] is True
+    assert emitted == ["state"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("script", [None, "", " ", 42])
+async def test_host_evaluate_invalid_script_is_rejected_before_prepare(monkeypatch, evaluate_bridge, script):
+    runtime, _ = evaluate_bridge
+    emitted = AsyncMock()
+    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emitted)
+    with pytest.raises(ValueError, match="non-empty 'script'"):
+        await runtime.call("evaluate", 1, script)
+    emitted.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_host_evaluate_disconnect_clears_pending_operation(monkeypatch, evaluate_bridge):
+    runtime, sid = evaluate_bridge
+
+    async def emit(sid, event, payload, **kwargs):
+        ws_runtime.fail_pending_browser_ops_for_sid(sid, error="connector disconnected")
+
+    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
+    with pytest.raises(RuntimeError, match="disconnected"):
+        await runtime.call("evaluate", 1, "hang")
+    assert not ws_runtime._pending_browser_ops
 
 
 def test_host_required_runtime_error_is_repairable(monkeypatch):
@@ -65,6 +194,50 @@ def test_host_browser_metadata_selection_is_context_scoped():
         assert rows[0]["browser_family"] == "chrome"
         assert rows[0]["enabled"] is True
         assert rows[0]["content_helper_sha256"] == "abc123"
+    finally:
+        ws_runtime.unregister_sid(sid)
+
+
+def test_connector_runtime_uses_stable_id_for_advertised_legacy_endpoint(monkeypatch):
+    sid = "sid-host-browser-stable"
+    context_id = "ctx-host-browser-stable"
+    endpoint = "ws://localhost:9222/devtools/browser/old-guid"
+    metadata = {
+        "supported": True,
+        "enabled": True,
+        "status": "ready",
+        "browser_family": "chrome-cdp",
+        "browser_id": "chrome-cdp",
+        "cdp_endpoint": endpoint,
+        "available_browsers": [
+            {
+                "id": "chrome-cdp",
+                "family": "chrome-cdp",
+                "label": "Chrome (allowed)",
+                "cdp_endpoint": endpoint,
+            }
+        ],
+        "features": ["ensure", "open"],
+    }
+    monkeypatch.setattr(
+        connector_runtime_module,
+        "get_browser_config",
+        lambda agent=None: {
+            "host_browser_profile_mode": "existing",
+            "host_browser_selection": endpoint,
+        },
+    )
+    ws_runtime.register_sid(sid)
+    ws_runtime.subscribe_sid_to_context(sid, context_id)
+    try:
+        ws_runtime.store_sid_host_browser_metadata(sid, metadata)
+        runtime = ConnectorBrowserRuntime(context_id, _agent(context_id))
+
+        assert runtime._payload_for_call("open", "example.com")["browser_selection"] == "chrome-cdp"
+        assert _stable_host_browser_selection(
+            "ws://localhost:9333/devtools/browser/custom",
+            metadata,
+        ) == "ws://localhost:9333/devtools/browser/custom"
     finally:
         ws_runtime.unregister_sid(sid)
 
@@ -177,6 +350,54 @@ def test_pending_browser_op_resolves_and_disconnect_fails():
         )
         ws_runtime.fail_pending_browser_ops_for_sid(sid, error="gone")
         assert await future2 == {"op_id": "op-browser-2", "ok": False, "error": "gone"}
+
+    asyncio.run(run())
+
+
+def test_host_browser_setup_api_dispatches_to_connected_cli(monkeypatch):
+    from plugins._browser.api import host_browser_setup
+
+    async def run() -> None:
+        sid = "sid-browser-setup"
+        emitted: list[dict[str, object]] = []
+
+        class FakeWsManager:
+            async def emit_to(self, namespace, target_sid, event, payload, handler_id=""):
+                del namespace, event, handler_id
+                assert target_sid == sid
+                emitted.append(dict(payload))
+                ws_runtime.resolve_pending_browser_op(
+                    payload["op_id"],
+                    sid=target_sid,
+                    payload={
+                        "op_id": payload["op_id"],
+                        "ok": True,
+                        "result": {"url": "chrome://inspect/#remote-debugging"},
+                    },
+                )
+
+        monkeypatch.setattr(host_browser_setup, "get_shared_ws_manager", lambda: FakeWsManager())
+        ws_runtime.register_sid(sid)
+        try:
+            ws_runtime.store_sid_host_browser_metadata(
+                sid,
+                {
+                    "supported": True,
+                    "enabled": False,
+                    "status": "disabled",
+                    "features": ["open_remote_debugging"],
+                },
+            )
+            result = await host_browser_setup.HostBrowserSetup(None, None).process(
+                {"browser_family": "chrome"},
+                SimpleNamespace(),
+            )
+
+            assert result["ok"] is True
+            assert emitted[0]["action"] == "open_remote_debugging"
+            assert emitted[0]["browser_family"] == "chrome"
+        finally:
+            ws_runtime.unregister_sid(sid)
 
     asyncio.run(run())
 
@@ -397,8 +618,16 @@ def test_connector_runtime_ensures_preparable_host_browser_before_action(monkeyp
         emitted: list[dict[str, object]] = []
 
         class FakeWsManager:
-            async def emit_to(self, namespace, target_sid, event, payload, handler_id=""):
-                del namespace, event, handler_id
+            async def emit_to(
+                self,
+                namespace,
+                target_sid,
+                event,
+                payload,
+                handler_id="",
+                **kwargs,
+            ):
+                del namespace, event, handler_id, kwargs
                 emitted.append(dict(payload))
                 assert target_sid == sid
                 if payload["action"] == "ensure":
