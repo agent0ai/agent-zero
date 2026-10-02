@@ -3,17 +3,20 @@
 ## Purpose
 
 - Own context-window token accounting, the usage API, the composer indicator,
-  its popover, and its Interface visibility row.
+  its popover, its Interface visibility row, and per-call output speed.
 
 ## Ownership
 
 - `helpers/usage.py` owns per-prompt bucket measurement and reconciliation.
+- `helpers/output_speed.py` owns output-speed timing and measurement.
 - `extensions/python/` records prompt parts at their source extension points,
-  preserves terminal streamed usage, and captures optional provider usage.
+  preserves terminal streamed usage, captures optional provider usage, and
+  times streamed output.
 - `api/context_window.py` exposes the active chat's token usage and effective
   model limit without returning prompt content.
 - `webui/` and `extensions/webui/` own the Alpine store, indicator, popover,
-  model-override refresh, and Interface visibility row.
+  model-override refresh, Interface visibility row, and generation-step speed
+  label.
 
 ## Local Contracts
 
@@ -32,8 +35,25 @@
   keep the fast ledger path.
 - The prompt estimate never guesses provider-specific image token costs or
   counts embedded image bytes as text.
-- Provider price, cache hit, and input/output tokens form a flat summary without
-  diagnostic detail rows.
+- Provider price, cache hit, input/output tokens, and output speed form a flat
+  summary without diagnostic detail rows.
+- Output speed is (provider output tokens - 1) divided by the seconds between
+  the first and last streamed delta of one main model call, stamped when Agent
+  Zero receives each delta. It excludes time to first token. It is omitted,
+  never estimated, when the provider reports no output tokens, the call was
+  paused, the window is under one second, or reported reasoning was not
+  streamed. A pause is flagged at `handle_intervention`, where the agent
+  actually waits.
+- Timing relies on two core behaviors: stream callbacks wait out a pause inside
+  `handle_intervention`, and `call_chat_model_turn` hands the timed callbacks to
+  `unified_turn`, whose usage drain keeps calling them to the terminal chunk.
+- The speed joins the generation log item's kvps as `output_speed` at
+  `message_loop_result`, after the core and Context Doctor rewrites, so it
+  persists with the chat and labels each finished generation step. It is logged
+  for handled (`skip_default_processing`) turns too: it describes the call, not
+  the result.
+- Step speed labels follow the `contextWindowUsage` visibility setting through
+  a root `hide-output-speed` class.
 - Provider rows are exposed only when the provider or transport reports their
   values; unavailable price and cache data render no row.
 - Streaming main turns request LiteLLM's terminal usage event for every
@@ -62,8 +82,9 @@
 ## Verification
 
 - Run `conda run -n a0 pytest plugins/_context_window/tests`.
-- Smoke-test the indicator, popover, chat switching, post-run refresh, and
-  mobile/desktop visibility against the live WebUI.
+- Smoke-test the indicator, popover, chat switching, post-run refresh,
+  generation-step speed labels, and mobile/desktop visibility against the live
+  WebUI.
 
 ## Child DOX Index
 
