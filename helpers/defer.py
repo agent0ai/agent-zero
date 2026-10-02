@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 import threading
-from concurrent.futures import Future, InvalidStateError
+from concurrent.futures import Future
 from typing import Any, Callable, Optional, Coroutine, TypeVar, Awaitable
 
 T = TypeVar("T")
@@ -218,37 +218,25 @@ class DeferredTask:
         if not self.event_loop_thread.loop:
             raise RuntimeError("Event loop is not initialized")
 
-        future: Future = Future()
-
-        def set_result(result: Any) -> None:
-            try:
-                future.set_result(result)
-            except InvalidStateError:
-                pass
-
-        def set_exception(exception: BaseException) -> None:
-            try:
-                future.set_exception(exception)
-            except InvalidStateError:
-                pass
+        def retrieve_exception(task: asyncio.Task) -> None:
+            # A cancelled concurrent future no longer retrieves the task's
+            # exception if the operation raises while handling cancellation.
+            if not task.cancelled():
+                task.exception()
 
         async def wrapped():
-            if not self.event_loop_thread.loop:
-                raise RuntimeError("Event loop is not initialized")
-            try:
-                result = await self._execute_in_task_context(func, *args, **kwargs)
-                # Keep awaiting until we get a concrete value
-                while isinstance(result, Awaitable):
-                    result = await result
-                self.event_loop_thread.loop.call_soon_threadsafe(
-                    set_result, result
-                )
-            except Exception as e:
-                self.event_loop_thread.loop.call_soon_threadsafe(
-                    set_exception, e
-                )
+            task = asyncio.current_task()
+            if task is not None:
+                task.add_done_callback(retrieve_exception)
+            result = await self._execute_in_task_context(func, *args, **kwargs)
+            # Keep awaiting until we get a concrete value.
+            while isinstance(result, Awaitable):
+                result = await result
+            return result
 
-        asyncio.run_coroutine_threadsafe(wrapped(), self.event_loop_thread.loop)
+        future = asyncio.run_coroutine_threadsafe(
+            wrapped(), self.event_loop_thread.loop
+        )
         return asyncio.wrap_future(future)
 
     @staticmethod
