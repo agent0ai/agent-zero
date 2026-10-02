@@ -1,4 +1,8 @@
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -15,3 +19,14 @@ def test_component_loader_deduplicates_body_assets() -> None:
     assert "...doc.querySelectorAll(componentAssetSelector)" in source
     assert "...Array.from(doc.body.childNodes).filter(" in source
     assert "(node) => !node.matches?.(componentAssetSelector)" in source
+
+
+def test_component_loader_loading_lifecycle() -> None:
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required to execute the component-loader regression.")
+
+    subprocess.run(
+        ["node", "--test", str(PROJECT_ROOT / "tests/test_webui_component_loader.mjs")],
+        check=True,
+        timeout=30,
+    )

@@ -20,6 +20,7 @@ export async function importComponent(path, targetElement) {
   
   // Set the lock
   importLocks.set(lockKey, true);
+  let loadingEl;
   
   try {
     if (!targetElement) {
@@ -28,6 +29,7 @@ export async function importComponent(path, targetElement) {
 
     // Show loading indicator
     targetElement.innerHTML = '<div class="loading"></div>';
+    loadingEl = targetElement.firstElementChild;
 
     // full component url
     const componentUrl = path.startsWith("/") ? path : (path.startsWith("components/") ? path : "components/" + path);
@@ -170,12 +172,6 @@ export async function importComponent(path, targetElement) {
       targetElement.appendChild(deferred);
     }
 
-    // Remove loading indicator
-    const loadingEl = targetElement.querySelector(':scope > .loading');
-    if (loadingEl) {
-      targetElement.removeChild(loadingEl);
-    }
-
     // // Load any nested components
     // await loadComponents([targetElement]);
 
@@ -185,6 +181,8 @@ export async function importComponent(path, targetElement) {
     console.error("Error importing component:", error);
     throw error;
   } finally {
+    // Remove only this import's placeholder, even if loading failed.
+    loadingEl?.remove();
     // Release the lock when done, regardless of success or failure
     importLocks.delete(lockKey);
   }
