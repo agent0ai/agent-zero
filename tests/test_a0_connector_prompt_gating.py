@@ -733,7 +733,7 @@ def test_host_computer_use_does_not_fall_back_to_linux_desktop_skill():
     linux_skill = linux_skill_path.read_text(encoding="utf-8")
     linux_frontmatter = _parse_skill_frontmatter(linux_skill_path)
 
-    assert "only desktop-control path for the user's connected host/local computer" in computer_stub
+    assert "primary desktop-control path for the user's connected host/local computer" in computer_stub
     assert "Do not substitute the `linux-desktop` skill" in computer_stub
     assert "Never switch to `linux-desktop`" in host_skill
     assert "Those paths only see the internal Agent Zero runtime" in host_skill

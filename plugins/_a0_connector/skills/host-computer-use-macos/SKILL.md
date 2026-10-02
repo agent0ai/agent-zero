@@ -1,6 +1,6 @@
 ---
 name: host-computer-use-macos
-description: Backend-specific macOS guidance for `computer_use_remote`. Load after `status` or `start_session` reports backend_family/backend_id `macos` or Accessibility-tree features. Covers AX structural targeting, macOS window actions, and screenshot verification.
+description: Backend-specific macOS guidance for `computer_use_remote`. Load when a tool result reports backend_family/backend_id `macos` or Accessibility-tree features. Covers AX structural targeting, macOS window actions, and screenshot verification.
 ---
 
 # Host Computer Use - macOS

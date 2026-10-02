@@ -5,15 +5,15 @@ Shown when a connected A0 CLI or Launcher host gateway advertises enabled Comput
 
 Use this for native host desktop UI inspection, screenshots, background-safe window/element actions when supported, clicking, scrolling, typing, key presses, and status checks. Do not use it for ordinary web-page navigation or host-browser control; use the browser tool for web pages unless browser automation cannot express the task. For complex desktop workflows, load and follow skill `host-computer-use` before proceeding.
 
-This is the only desktop-control path for the user's connected host/local computer. Do not substitute the `linux-desktop` skill, the Agent Zero Desktop/Xpra surface, `desktopctl.sh`, `code_execution_tool`, or Docker/server shell commands for host screen actions; those target the internal Agent Zero runtime and cannot see or control the user's host screen.
+This is the primary desktop-control path for the user's connected host/local computer. Do not substitute the `linux-desktop` skill, the Agent Zero Desktop/Xpra surface, `desktopctl.sh`, `code_execution_tool`, or Docker/server shell commands for host screen actions; those target the internal Agent Zero runtime and cannot see or control the user's host screen. For a Linux X11/XWayland app limitation during an authorized session, the Linux host skill documents a narrow host-shell workflow that also requires enabled host code execution; it never bypasses a disabled or denied Computer Use grant.
 
 If the tool reports no CLI/Launcher host bridge, disabled computer use, or `COMPUTER_USE_REARM_REQUIRED`, stop and tell the user to run `/computer-use on` in the A0 Launcher chat when using Launcher Host access, or in A0 CLI otherwise, and approve any host permission prompt.
 
 If a Computer Use call returns an error, do not repeat the same action with identical arguments. Report the error, or use a materially different safe recovery only when the task still requires it.
 
-Call `start_session` before screen-driven tasks. Use `status` for state only, `capture` for screenshots without an action, and `stop_session` when the desktop task is complete. Read `backend_id`, `backend_family`, `features`, and the structured `capabilities` object in status/session results. When capabilities report native windows, window state, element indexes, and background dispatch, prefer `list_windows` -> `get_window_state` -> `element_action` with `dispatch: "background"` before using global coordinates. Interactive coordinate actions should use normalized global-screen coordinates from the most recent capture.
+Start with the needed observation: `list_windows` for native apps or `capture` for a screen. A missing chat session starts automatically within that call using the host's existing enablement and normal permission checks; do not make a separate `start_session` call for every chat. Existing sessions are reused. `start_session` remains available explicitly; `status` only reports state and `stop_session` stops the current chat's session. Read `backend_id`, `backend_family`, `features`, and the structured `capabilities` object in results. When capabilities report native windows, window state, element indexes, and background dispatch, prefer `list_windows` -> `get_window_state` -> `element_action` with `dispatch: "background"` before using global coordinates. Interactive coordinate actions should use normalized global-screen coordinates from the most recent capture.
 
-Some actions are backend-specific and intentionally documented only in backend skills. If `status` or `start_session` reports backend-specific features or tells you to load a backend skill, load and follow that skill before using those backend-only actions. For structural targeting details, load and follow the backend-specific skill such as `host-computer-use-macos` or `host-computer-use-windows`; do not apply one backend's guidance to another backend.
+Some actions are backend-specific and intentionally documented only in backend skills. If a result reports backend-specific features or tells you to load a backend skill, load and follow that skill before using those backend-only actions. For structural targeting details, load and follow the backend-specific skill such as `host-computer-use-macos` or `host-computer-use-windows`; do not apply one backend's guidance to another backend.
 
 State-changing actions automatically attach a fresh screen after they run unless the backend returns a definitive structural background result. Treat key presses, clicks, scrolling, and typing as attempts, not success; treat foreground fallbacks the same way. Inspect the latest attached screen, or one explicit `capture` if it is unclear or unchanged, before saying the requested outcome happened. If the tool says a screen was attached but you cannot actually inspect the image, stop and report that visual verification is unavailable; do not continue by assuming the host state. A `type` result proves only that keyboard events were sent unless it explicitly reports both `focus_verified=true` and the target `window_id`.
 
@@ -23,7 +23,7 @@ When Linux advertises `verified-window-focus` and `target-verified-keyboard-inpu
 {
   "tool_name": "computer_use_remote",
   "tool_args": {
-    "action": "status"
+    "action": "list_windows"
   }
 }
 ```
@@ -32,7 +32,7 @@ Required argument:
 - `action`: one of `start_session`, `status`, `capture`, `list_windows`, `get_window_state`, `element_action`, `move`, `click`, `scroll`, `key`, `type`, `stop_session`; backend skills may document additional backend-only action values
 
 Optional arguments by action:
-- `session_id`: session returned by `start_session`
+- `session_id`: optional explicit session binding; normally omit it to reuse this chat's session. An explicit stale/mismatched ID fails without automatic replacement.
 - `pid`, `window_id`: target a native window for `get_window_state`, `element_action`, scoped backend snapshots, and guarded keyboard input when supported
 - `element_index`: top-level index from the latest `get_window_state`
 - `target`: backend-specific semantic fields for `element_action`

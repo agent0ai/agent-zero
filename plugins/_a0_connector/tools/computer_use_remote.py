@@ -119,6 +119,34 @@ class ComputerUseRemote(Tool):
         try:
             payload = self._build_payload(op_id=str(uuid.uuid4()), context_id=context_id, action=action)
             result = await self._dispatch_payload(sid=sid, payload=payload)
+            session_note = ""
+            if (
+                not result.get("ok")
+                and result.get("code") == "COMPUTER_USE_SESSION_REQUIRED"
+                and action not in {"start_session", "status", "stop_session"}
+                and not payload.get("session_id")
+            ):
+                # This rejection happens before input dispatch. Start once on the
+                # same host/context; never retry a permission or ambiguous failure.
+                started = await self._dispatch_payload(
+                    sid=sid,
+                    payload={
+                        "op_id": str(uuid.uuid4()),
+                        "context_id": context_id,
+                        "action": "start_session",
+                    },
+                )
+                if not started.get("ok"):
+                    return self._response(self._format_error(started))
+                data = started.get("result")
+                session_id = str(data.get("session_id") or "").strip() if isinstance(data, dict) else ""
+                if not session_id:
+                    raise ValueError("Host started computer use without returning a session_id")
+                session_note = self._extract_result("start_session", started)
+                result = await self._dispatch_payload(
+                    sid=sid,
+                    payload={**payload, "op_id": str(uuid.uuid4()), "session_id": session_id},
+                )
             capture_note = await self._maybe_attach_latest_capture(
                 action=action,
                 sid=sid,
@@ -126,6 +154,8 @@ class ComputerUseRemote(Tool):
                 result=result,
             )
             message = self._extract_result(action, result)
+            if session_note:
+                message = f"{session_note}\n{message}"
         except ValueError as exc:
             return Response(
                 message=f"computer_use_remote: {exc}",

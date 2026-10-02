@@ -1,6 +1,6 @@
 ---
 name: host-computer-use-windows
-description: Backend-specific Windows guidance for `computer_use_remote`. Load after `status` or `start_session` reports backend_family/backend_id `windows` or Windows UI Automation features. Covers UIA structural targeting, Windows session caveats, and screenshot verification.
+description: Backend-specific Windows guidance for `computer_use_remote`. Load when a tool result reports backend_family/backend_id `windows` or Windows UI Automation features. Covers UIA structural targeting, Windows session caveats, and screenshot verification.
 ---
 
 # Host Computer Use - Windows
