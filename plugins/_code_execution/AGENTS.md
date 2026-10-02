@@ -20,6 +20,8 @@
 - Execute multi-line terminal input as one current-shell compound so intermediate prompts cannot mark queued work complete; preserve `cd`, exports, and other shell state.
 - Treat local process exit and SSH channel termination as definitive command completion even when no final prompt is emitted; recreate terminated sessions before their next command.
 - Terminal reset/close must not hang on foreground commands or shells that ignore SIGTERM.
+- POSIX PTY I/O is nonblocking. The existing write/drain interface buffers partial writes and yields while the terminal is full; cancellation discards the shell only while POSIX input bytes remain unsent. Fully drained sends retain the shell and its state.
+- TTY destruction uses best-effort kill, never nested event-loop execution; explicit close retains awaited cleanup.
 - Local and SSH session wrappers must synchronously release their owned process or connection resources when discarded.
 - Explicitly target local versus SSH execution runtimes.
 - The tool's `allow_running` flag is framework-set (for example by the `input` tool's terminal dispatch); it is not a model-facing arg and stays undocumented in prompts.
