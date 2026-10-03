@@ -1,3 +1,4 @@
+import asyncio
 import zipfile
 import json
 import os
@@ -7,6 +8,7 @@ import platform
 from typing import List, Dict, Any, Optional
 
 from pathspec import PathSpec
+from pathspec.util import normalize_file
 
 from helpers import files, runtime, git, dotenv
 from helpers.localization import Localization
@@ -248,6 +250,43 @@ class BackupService:
         Pass max_files=None for internal flows that must process the complete
         match set, such as backup creation and restore cleanup.
         """
+        return await asyncio.to_thread(self._test_patterns_sync, metadata, max_files)
+
+    @staticmethod
+    def _get_walk_prefixes(pattern_lines: List[str]) -> tuple[Optional[List[str]], List[str]]:
+        """Find safe pruning prefixes for literal directory/** patterns only.
+
+        Complex includes disable include pruning. Exclusions are safe only
+        after the last include, since a later pattern can re-include files.
+        Prefixes use the same slash-stripped paths as the final matcher.
+        """
+        include_prefixes = []
+        exclude_prefixes = []
+        can_prune_includes = True
+        seen_include = False
+        for line in reversed(pattern_lines):
+            excluded = line.startswith('!')
+            pattern = line[1:] if excluded else line
+            prefix = pattern[:-3] if pattern.endswith('/**') else ''
+            literal = (
+                bool(prefix)
+                and not any(char in prefix for char in '*?[]\\!')
+                and '//' not in prefix
+                and all(part not in ('.', '..') for part in prefix.split('/'))
+            )
+            if excluded:
+                if literal and not seen_include:
+                    exclude_prefixes.append(prefix.lstrip('/') + '/')
+            else:
+                seen_include = True
+                if literal:
+                    include_prefixes.append(prefix.lstrip('/') + '/')
+                else:
+                    can_prune_includes = False
+        return (include_prefixes if can_prune_includes else None), exclude_prefixes
+
+    def _test_patterns_sync(self, metadata: Dict[str, Any], max_files: Optional[int]) -> List[Dict[str, Any]]:
+        """Collect matching files without blocking the caller's event loop."""
         include_patterns = metadata.get("include_patterns", [])
         exclude_patterns = metadata.get("exclude_patterns", [])
         include_hidden = metadata.get("include_hidden", True)
@@ -270,6 +309,7 @@ class BackupService:
 
         try:
             spec = PathSpec.from_lines("gitignore", pattern_lines)
+            include_prefixes, exclude_prefixes = self._get_walk_prefixes(pattern_lines)
 
             # Walk through base directories
             for base_pattern_path, base_real_path in self.base_paths.items():
@@ -277,6 +317,23 @@ class BackupService:
                     continue
 
                 for root, dirs, files_list in os.walk(base_real_path):
+                    # Prune in place rather than changing walk roots, preserving
+                    # preview ordering and os.walk's directory-symlink behavior.
+                    dirs_to_keep = []
+                    for directory in dirs:
+                        directory_path = normalize_file(
+                            self._unresolve_path(os.path.join(root, directory)).lstrip('/')
+                        ) + '/'
+                        if include_prefixes is not None and not any(
+                            directory_path.startswith(prefix) or prefix.startswith(directory_path)
+                            for prefix in include_prefixes
+                        ):
+                            continue
+                        if any(directory_path.startswith(prefix) for prefix in exclude_prefixes):
+                            continue
+                        dirs_to_keep.append(directory)
+                    dirs[:] = dirs_to_keep
+
                     # Filter hidden directories if not included, BUT allow explicit ones
                     if not include_hidden:
                         dirs_to_keep = []
