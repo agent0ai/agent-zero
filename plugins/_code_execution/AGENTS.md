@@ -21,6 +21,7 @@
 - Treat local process exit and SSH channel termination as definitive command completion even when no final prompt is emitted; recreate terminated sessions before their next command.
 - Terminal reset/close must not hang on foreground commands or shells that ignore SIGTERM.
 - POSIX PTY I/O is nonblocking. The existing write/drain interface buffers partial writes and yields while the terminal is full; cancellation discards the shell only while POSIX input bytes remain unsent. Fully drained sends retain the shell and its state.
+- SSH command writes must send every byte without blocking the event loop. Cancelling an in-flight SSH send closes its connection so a partial command cannot contaminate subsequent input.
 - TTY destruction uses best-effort kill, never nested event-loop execution; explicit close retains awaited cleanup.
 - Windows cleanup uses the native process methods without looking up POSIX-only signals; the pywinpty adapter passes SIGTERM for forced termination. POSIX close retains process-group TERM-then-KILL escalation.
 - Local and SSH session wrappers must synchronously release their owned process or connection resources when discarded.

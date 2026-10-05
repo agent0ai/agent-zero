@@ -86,7 +86,7 @@ class SSHInteractiveSession:
                 initial_command = f"unset PROMPT_COMMAND PS0; stty -echo; {PAGER_DISABLE_COMMAND}"
                 if self.cwd:
                     initial_command = f"cd {self.cwd}; {initial_command}"
-                self.shell.send(f"{initial_command}\n".encode())
+                await self.send_command(initial_command)
 
                 # wait for initial prompt/output to settle
                 while True:
@@ -123,7 +123,12 @@ class SSHInteractiveSession:
         command = command + "\n"
         self.last_command = command.encode()
         self.trimmed_command_length = 0
-        self.shell.send(self.last_command)
+        try:
+            await asyncio.to_thread(self.shell.sendall, self.last_command)
+        except asyncio.CancelledError:
+            # Stop the worker and discard a potentially incomplete command.
+            await self.close()
+            raise
 
     def is_terminated(self) -> bool:
         if not self.shell:
