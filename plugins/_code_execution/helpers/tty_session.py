@@ -76,11 +76,11 @@ class TTYSession:
         # Terminate the process if it exists
         if self._proc:
             if getattr(self._proc, "returncode", None) is None:
-                self._signal_process(signal.SIGTERM)
+                self._signal_process()
             try:
                 await asyncio.wait_for(self._proc.wait(), _CLOSE_TIMEOUT_SECONDS)
             except asyncio.TimeoutError:
-                self._signal_process(signal.SIGKILL)
+                self._signal_process(force=True)
                 try:
                     await asyncio.wait_for(self._proc.wait(), _CLOSE_TIMEOUT_SECONDS)
                 except Exception:
@@ -92,22 +92,22 @@ class TTYSession:
         self._proc = None
         self._pump_task = None
 
-    def _signal_process(self, sig):
+    def _signal_process(self, force=False):
         if self._proc is None:
             return
         try:
             if _IS_WIN:
-                if sig == signal.SIGKILL:
+                if force:
                     self._proc.kill()
                 else:
                     self._proc.terminate()
                 return
-            os.killpg(self._proc.pid, sig)
+            os.killpg(self._proc.pid, signal.SIGKILL if force else signal.SIGTERM)
         except ProcessLookupError:
             pass
         except Exception:
             try:
-                if sig == signal.SIGKILL:
+                if force:
                     self._proc.kill()
                 else:
                     self._proc.terminate()
@@ -203,7 +203,7 @@ class TTYSession:
 
         # Only attempt to kill if the process is still running
         if getattr(self._proc, "returncode", None) is None:
-            self._signal_process(signal.SIGKILL)
+            self._signal_process(force=True)
         self._release_pty_master()
 
     async def read(self, timeout=None):
@@ -419,7 +419,7 @@ async def _spawn_winpty(cmd, cwd, env, echo):
 
         def kill(self):
             if child.isalive():
-                child.kill()
+                child.kill(signal.SIGTERM)
 
     return _Proc()
 

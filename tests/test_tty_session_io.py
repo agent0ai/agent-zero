@@ -7,6 +7,7 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -182,6 +183,59 @@ def test_tty_io_keeps_shared_loop_responsive(case):
                     os.killpg(int(line.split('=')[1]), signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+
+
+@pytest.mark.parametrize('operation', ['close', 'resistant_close', 'kill', 'destructor'])
+def test_windows_cleanup_without_posix_signals(monkeypatch, operation):
+    from plugins._code_execution.helpers import tty_session
+
+    calls = []
+
+    class Child:
+        pid = 123
+        alive = True
+
+        def isalive(self):
+            return self.alive
+
+        def read(self, size):
+            raise EOFError
+
+        def terminate(self):
+            calls.append('terminate')
+            if operation != 'resistant_close':
+                self.alive = False
+
+        def kill(self, sig):
+            assert sig == 15
+            calls.append('kill')
+            self.alive = False
+
+    child = Child()
+    monkeypatch.setattr(tty_session, '_IS_WIN', True)
+    monkeypatch.setattr(tty_session, 'signal', SimpleNamespace(SIGTERM=15))
+    monkeypatch.setattr(tty_session, '_CLOSE_TIMEOUT_SECONDS', .01)
+    monkeypatch.setattr(tty_session, 'winpty', SimpleNamespace(
+        PtyProcess=SimpleNamespace(spawn=lambda *args, **kwargs: child)), raising=False)
+
+    async def run():
+        session = TTYSession('powershell.exe')
+        await session.start()
+        try:
+            if operation in ('close', 'resistant_close'):
+                await session.close()
+            elif operation == 'kill':
+                session.kill()
+            else:
+                session.__del__()
+            assert not child.alive
+            assert calls == (['terminate', 'kill'] if operation == 'resistant_close'
+                             else ['terminate'] if operation == 'close' else ['kill'])
+        finally:
+            child.alive = False
+            await session.close()
+
+    asyncio.run(run())
 
 
 if __name__ == '__main__':
