@@ -56,13 +56,14 @@ export const store = createStore("sidebarFolders", {
     try {
       const result = await callJsonApi("plugins", { action: "get_config", plugin_name: PLUGIN });
       if (!result.ok) throw new Error(result.error || "Could not load folder settings");
-      this.config = {
+      const config = {
         folder_view: result.data?.folder_view !== false,
         sort_by: SORTS.includes(result.data?.sort_by) ? result.data.sort_by : "created",
         project_filter: typeof result.data?.project_filter === "string" ? result.data.project_filter : "*",
         status_filter: ["all", "running", "idle"].includes(result.data?.status_filter) ? result.data.status_filter : "all",
         activity_filter: ["all", "1", "3", "7", "30"].includes(result.data?.activity_filter) ? result.data.activity_filter : "all",
       };
+      if (JSON.stringify(config) !== JSON.stringify(this.config)) this.config = config;
     } catch (error) {
       this.report(error);
     }
@@ -71,7 +72,7 @@ export const store = createStore("sidebarFolders", {
   async loadOrder() {
     try {
       const result = await callJsonApi(`/plugins/${PLUGIN}/layout`, {});
-      this.order = result.order;
+      if (JSON.stringify(result.order) !== JSON.stringify(this.order)) this.order = result.order;
     } catch (error) {
       this.report(error);
     }
@@ -111,13 +112,24 @@ export const store = createStore("sidebarFolders", {
     return row;
   },
 
-  family(row, kind) {
+  childIndex() {
+    const children = new Map();
+    for (const context of chats.contexts) {
+      if (!context.parent_context_id) continue;
+      if (!children.has(context.parent_context_id)) children.set(context.parent_context_id, []);
+      children.get(context.parent_context_id).push(context);
+    }
+    return children;
+  },
+
+  family(row, kind, children = null) {
     if (kind !== "chat") return [row];
+    children ??= this.childIndex();
     const family = [row];
     const seen = new Set([row.id]);
     for (const parent of family) {
-      for (const child of chats.contexts) {
-        if (child.parent_context_id === parent.id && !seen.has(child.id)) {
+      for (const child of children.get(parent.id) || []) {
+        if (!seen.has(child.id)) {
           seen.add(child.id);
           family.push(child);
         }
@@ -126,10 +138,10 @@ export const store = createStore("sidebarFolders", {
     return family;
   },
 
-  matches(row, kind) {
+  matches(row, kind, children) {
     if (this.config.project_filter !== "*" && (row.project?.name || "") !== this.config.project_filter) return false;
     if (this.config.status_filter === "all" && this.config.activity_filter === "all") return true;
-    const family = this.family(row, kind);
+    const family = this.family(row, kind, children);
     const working = family.some((item) => item.running && !item.paused && item.state !== "disabled");
     if (this.config.status_filter === "running" && !working) return false;
     if (this.config.status_filter === "idle" && working) return false;
@@ -143,8 +155,10 @@ export const store = createStore("sidebarFolders", {
   },
 
   sortRows(kind, rows) {
+    const children = kind === "chat" && (this.config.status_filter !== "all" || this.config.activity_filter !== "all")
+      ? this.childIndex() : null;
     const rank = new Map(this.order[kind].map((id, index) => [id, index]));
-    return rows.filter((row) => row.parent_context_id || this.matches(row, kind)).sort((a, b) => {
+    return rows.filter((row) => row.parent_context_id || this.matches(row, kind, children)).sort((a, b) => {
       const pinned = Number(pins.isPinned(kind, b.id)) - Number(pins.isPinned(kind, a.id));
       if (pinned) return pinned;
       if (this.config.sort_by === "manual") {
@@ -158,32 +172,41 @@ export const store = createStore("sidebarFolders", {
     });
   },
 
-  isPinnedRow(kind, row) {
-    return this.family(row, kind).some((member) => pins.isPinned(kind, member.id));
+  isPinnedRow(kind, row, children) {
+    return this.family(row, kind, children).some((member) => pins.isPinned(kind, member.id));
   },
 
-  pinnedRows(kind) {
-    const rows = this.roots(kind).filter((row) => this.isPinnedRow(kind, row));
+  pinnedRows(kind, roots = this.roots(kind), children = kind === "chat" ? this.childIndex() : null) {
+    const rows = roots.filter((row) => this.isPinnedRow(kind, row, children));
     if (this.config.sort_by !== "manual") return pins.sortItems(kind, rows);
     const rank = new Map(this.order[kind].map((id, index) => [id, index]));
     return rows.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity) || 0);
   },
 
-  sections(kind) {
-    const pinned = this.pinnedRows(kind);
-    const folders = this.groups(kind);
-    return pinned.length ? [{ id: null, pinned: true, rows: pinned }, ...folders] : folders;
+  sections(kind, previous) {
+    const rows = this.roots(kind);
+    const children = kind === "chat" ? this.childIndex() : null;
+    const pinned = this.pinnedRows(kind, rows, children);
+    const folders = this.groups(kind, rows, children);
+    const sections = pinned.length ? [{ id: null, pinned: true, rows: pinned }, ...folders] : folders;
+    if (previous?.length === sections.length && sections.every((group, index) => {
+      const current = previous[index];
+      return ["id", "pinned", "title", "color", "hasPinned"].every((key) => group[key] === current[key])
+        && group.rows.length === current.rows.length
+        && group.rows.every((row, rowIndex) => row === current.rows[rowIndex]);
+    })) return previous;
+    return sections;
   },
 
-  groups(kind) {
+  groups(kind, rows = this.roots(kind), children = kind === "chat" ? this.childIndex() : null) {
     const groups = new Map(projects.projectList.map((project) => [project.name, {
       id: project.name, title: project.title || project.name, color: project.color, rows: [],
     }]));
     groups.set("", { id: "", title: "No project", color: "", rows: [] });
-    for (const row of this.roots(kind)) {
+    for (const row of rows) {
       const id = row.project?.name || "";
       if (!groups.has(id)) groups.set(id, { id, title: row.project.title || id, color: row.project.color, rows: [] });
-      if (this.isPinnedRow(kind, row)) groups.get(id).hasPinned = true;
+      if (this.isPinnedRow(kind, row, children)) groups.get(id).hasPinned = true;
       else groups.get(id).rows.push(row);
     }
     const rank = new Map(this.order.project.map((id, index) => [id, index]));

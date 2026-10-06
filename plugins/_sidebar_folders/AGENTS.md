@@ -19,6 +19,9 @@
 - Reordering folders, chats, or tasks by drag and drop automatically selects and saves manual sorting.
 - Neighboring folder/thread/task drops select the insertion edge that swaps their order; longer moves use the hovered row's midpoint for before/after placement.
 - Drag hover reuses the rendered sections and rows; do not regroup chat families on each pointer event or republish an unchanged drop target.
+- A grouping pass shares one root list and parent/child index across pins and folders. Filter passes share a child index across families; direct family lookups build a fresh index, preserving current nesting without a persistent cache.
+- The folder list passes its existing sections to `sections()`. Retain them when group metadata, row identities and ordering are unchanged; reactive chat metadata continues updating in place without refreshing every row scope.
+- Focus refreshes preserve config and order identities when their values are unchanged; the project store preserves unchanged project lists. Refreshes must not rebuild the sidebar solely because a response contains new object instances.
 - Both sides of a gap share one insertion target at the following row's top edge, with a bottom edge only after the last row. Drop indicators and released drops use that same target; dragged rows do not target themselves.
 - Folder containers receive drops across their padding and expanded contents. Thread-list gaps resolve to the nearest thread, including the last thread's bottom edge; folder headers remain project-move targets for chats. Folder insertion markers surround the whole folder, including its workers, and clear when the drag leaves the list.
 - Pin state and row indicators belong to `_pin_to_top`. Each list groups pins above all project folders, including pinned **No project**, with a separator and no subtitle. Pins retain their project/color, appear only once, and return to their own folder when unpinned; project filters also apply to pins.
@@ -51,6 +54,7 @@
 
 - `python -m pytest plugins/_sidebar_folders/tests/test_folders.py tests/test_chat_create.py tests/test_sidebar_row_actions.py tests/test_chat_working_animation.py tests/test_webui_chat_deletion.py -q`
 - `node plugins/_sidebar_folders/tests/test_frontend.mjs`
+- Check unchanged window-focus refreshes avoid sidebar DOM updates; activity metadata must still update clocks, status and names, with regrouping when ordering, filters or family membership change.
 - Verify live creation in an explicit project, folder/flat switching, nesting, pins, drag ordering, cross-project chat moves, no-project moves, task actions, reload persistence, and desktop/mobile/light-mode layouts.
 
 ## Child DOX Index

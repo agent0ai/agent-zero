@@ -40,7 +40,7 @@ globalThis.__folderApi = async (url, data) => {
 globalThis.document = { activeElement: null };
 globalThis.localStorage = { setItem() {} };
 const { chats, tasks } = globalThis.__foldersTest;
-chats.topLevelContexts = () => store.sortRows("chat", contexts.filter((row) => !row.parent_context_id));
+chats.topLevelContexts = () => store.sortRows("chat", chats.contexts.filter((row) => !row.parent_context_id));
 tasks.visibleTasks = () => store.sortRows("task", tasks.tasks);
 
 assert.deepEqual(store.groups("chat").map((g) => g.id), ["alpha", "beta", ""]);
@@ -410,4 +410,81 @@ await store.loadConfig();
 assert.equal(store.config.project_filter, "*");
 assert.equal(store.config.status_filter, "all");
 assert.equal(store.config.activity_filter, "all");
+
+const unchangedConfig = store.config;
+await store.loadConfig();
+assert.equal(store.config, unchangedConfig, "an unchanged focus refresh retains config identity");
+const savedOrder = JSON.parse(JSON.stringify(store.order));
+globalThis.__folderApi = async () => ({ order: JSON.parse(JSON.stringify(savedOrder)) });
+const unchangedOrder = store.order;
+await store.loadOrder();
+assert.equal(store.order, unchangedOrder, "an unchanged focus refresh retains ordering identity");
+savedOrder.chat.push("new-chat");
+await store.loadOrder();
+assert.notEqual(store.order, unchangedOrder, "changed ordering is still applied");
+
+const originalContexts = chats.contexts;
+let parentReads = 0;
+chats.contexts = Array.from({ length: 600 }, (_, index) => ({
+  id: `row-${index}`, created_at: "2026-01-01",
+  get parent_context_id() {
+    parentReads++;
+    return index % 2 ? `row-${index - 1}` : null;
+  },
+}));
+store.config = { ...store.config, sort_by: "created", status_filter: "all", activity_filter: "all", project_filter: "*" };
+const largeSections = store.sections("chat");
+assert.equal(largeSections.flatMap((group) => group.rows).length, 300);
+assert.ok(parentReads <= chats.contexts.length * 6, "a grouping pass must index parents once, not scan every chat for each family");
+chats.contexts[0].last_message = "2026-10-06";
+assert.equal(store.sections("chat", largeSections), largeSections, "metadata updates retain unchanged rendered sections");
+chats.contexts[2].last_message = "2026-10-07";
+store.config.sort_by = "recent";
+const reorderedSections = store.sections("chat", largeSections);
+assert.notEqual(reorderedSections, largeSections, "changed row order must reach the rendered sections");
+assert.equal(reorderedSections.find((group) => group.id === "").rows[0].id, "row-2");
+store.config.sort_by = "created";
+const originalTitle = projects.projectList[0].title;
+projects.projectList[0].title = "Updated project";
+const renamedSections = store.sections("chat", largeSections);
+assert.notEqual(renamedSections, largeSections, "changed folder metadata must reach the rendered sections");
+assert.equal(renamedSections.find((group) => group.id === "alpha").title, "Updated project");
+projects.projectList[0].title = originalTitle;
+const originalRow = chats.contexts[0];
+chats.contexts[0] = { ...originalRow };
+assert.notEqual(store.sections("chat", largeSections), largeSections, "equal row values cannot retain stale object references");
+chats.contexts[0] = originalRow;
+chats.contexts[0].project = { name: "new-project" };
+assert.notEqual(store.sections("chat", largeSections), largeSections, "project moves rebuild the affected sections");
+chats.contexts[0].project = null;
+store.config.status_filter = "idle";
+parentReads = 0;
+assert.equal(store.roots("chat").length, 300);
+assert.ok(parentReads <= chats.contexts.length * 6, "filters must share the parent index across families");
+chats.contexts = originalContexts;
+store.config.status_filter = "all";
+const grandchild = { id: "grandchild", parent_context_id: "child" };
+contexts.push(grandchild);
+assert.deepEqual(store.family(contexts[0], "chat").map((row) => row.id), ["a", "child", "grandchild"]);
+grandchild.parent_context_id = "c";
+assert.deepEqual(store.family(contexts[0], "chat").map((row) => row.id), ["a", "child"], "reparenting cannot reuse a stale index");
+contexts[3].parent_context_id = "grandchild";
+grandchild.parent_context_id = "child";
+assert.deepEqual(store.family(contexts[3], "chat").map((row) => row.id), ["child", "grandchild"], "malformed cycles remain bounded");
+contexts[3].parent_context_id = "a";
+contexts.pop();
+
+const projectSource = await readFile(new URL("../../../webui/components/projects/projects-store.js", import.meta.url), "utf8");
+let projectResponse = [{ name: "example", title: "Example" }];
+const projectStore = new Function("api", projectSource.slice(projectSource.indexOf("const model ="), projectSource.indexOf("// convert it to alpine store")) + "\nreturn model;")({
+  callJsonApi: async () => ({ data: JSON.parse(JSON.stringify(projectResponse)) }),
+});
+await projectStore.loadProjectsList();
+const unchangedProjects = projectStore.projectList;
+await projectStore.loadProjectsList();
+assert.equal(projectStore.projectList, unchangedProjects, "an unchanged focus refresh retains the project list");
+projectResponse[0].title = "Renamed";
+await projectStore.loadProjectsList();
+assert.notEqual(projectStore.projectList, unchangedProjects);
+assert.equal(projectStore.projectList[0].title, "Renamed", "project edits remain visible after refresh");
 console.log("Folder view grouping, sorting, pins, movement, selection, drop, menu-scope, and preference checks passed.");

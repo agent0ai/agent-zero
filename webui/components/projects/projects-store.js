@@ -340,7 +340,8 @@ const model = {
       const response = await api.callJsonApi("projects", {
         action: "list",
       });
-      this.projectList = response.data || [];
+      const projectList = response.data || [];
+      if (JSON.stringify(projectList) !== JSON.stringify(this.projectList)) this.projectList = projectList;
     } catch (error) {
       console.error("Error loading projects list:", error);
     } finally {

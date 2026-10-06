@@ -5,7 +5,7 @@
     <template x-if="$store.sidebarFolders && $store.sidebarFolders.config.folder_view">
       <div class="sidebar-folder-host" x-effect="$store.sidebarFolders.revealSelection(kind, $store.chats.selected)">
         <ul class="config-list sidebar-folder-list no-scrollbar" :class="kind === 'chat' ? 'chats-config-list' : 'tasks-config-list'"
-          x-effect="sections = $store.sidebarFolders.sections(kind)"
+          x-effect="sections = $store.sidebarFolders.sections(kind, sections)"
           :aria-label="kind === 'chat' ? 'Chat folders' : 'Task folders'" @dragend="$store.sidebarFolders.endDrag()"
           @dragleave="if (!$el.contains($event.relatedTarget)) $store.sidebarFolders.dropTarget = null">
           <template x-for="group in sections" :key="group.pinned ? 'pinned' : 'project:' + group.id">
