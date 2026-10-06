@@ -239,7 +239,9 @@ def test_history_response_call_compatibility_preserves_state(monkeypatch, call_f
     assert result_from_metadata(message.metadata).metadata() == expected.metadata()
     assert agent.history.all_messages() == [message]
     assert message.content == (expected.function_calls_text() or "hello")
-    assert agent.loop_data.last_response == message.content
+    assert agent.loop_data.last_response == (
+        expected.repeat_response_text() if call_form == "native" else "hello"
+    )
     if call_form == "native":
         assert result.response == "hello"
     if call_form not in {"message", "result"}:

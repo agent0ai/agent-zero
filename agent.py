@@ -783,8 +783,10 @@ class Agent:
             id, llm_result = llm_result, None
         if llm_result is None:
             llm_result = LLMResult.non_llm()
+        self.loop_data.last_response = (
+            llm_result.repeat_response_text() if llm_result.function_calls else message
+        )
         message = llm_result.function_calls_text() or message
-        self.loop_data.last_response = message
         content = self.parse_prompt("fw.ai_response.md", message=message)
         msg = self.hist_add_message(
             True,

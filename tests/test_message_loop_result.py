@@ -1,4 +1,7 @@
+import json
 from types import SimpleNamespace
+
+import pytest
 
 from extensions.python.message_loop_result import _20_empty_response as empty_response
 from extensions.python.message_loop_result._20_empty_response import EmptyResponse
@@ -142,27 +145,82 @@ def test_reasoning_only_retries_with_agent_warning():
     ]
 
 
-def test_native_repeat_detection_compares_calls_instead_of_commentary():
-    from helpers.llm_result import LLMResult
+@pytest.mark.parametrize("old_text,new_text,old_query,new_query,old_batch,new_batch,repeated", [
+    ("Working.", "Working.", "first", "first", False, False, True),
+    ("Working.", "Different commentary.", "first", "first", False, False, False),
+    ("Working.", None, "first", "first", False, False, False),
+    (None, "Working.", "first", "first", False, False, False),
+    (json.dumps({"tool_name": "lookup", "tool_args": {"q": "first"}}),
+     None, "first", "first", False, False, False),
+    (None, None, "first", "first", False, False, True),
+    ("Working.", "Working.", "first", "second", False, False, False),
+    (None, None, "first", "second", False, False, False),
+    ("Working.", "Working.", "first", "first", False, True, False),
+    ("Working.", "Working.", "first", "first", True, True, True),
+    ("Working.", "Different commentary.", "first", "first", True, True, False),
+])
+def test_native_repeat_compares_complete_public_turn(
+    monkeypatch, old_text, new_text, old_query, new_query, old_batch, new_batch, repeated
+):
+    from agent import Agent, LoopData
+    from helpers import extension, history
+    from helpers.llm_result import LLMResult, result_from_metadata
 
-    def result(query, commentary):
-        return LLMResult.from_response({
-            "output_text": commentary,
-            "output": [{
-                "type": "function_call", "name": "lookup", "call_id": "call",
-                "arguments": {"q": query},
-            }],
-        })
+    def result(query, commentary, batch, identifier):
+        items = [{"type": "reasoning", "encrypted_content": identifier,
+                  "summary": [{"type": "summary_text", "text": identifier}]}]
+        if commentary is not None:
+            items.append({"type": "message", "phase": "commentary", "content": [
+                {"type": "output_text", "text": commentary}]})
+        items.append({"type": "function_call", "name": "lookup", "call_id": identifier,
+                      "arguments": {"q": query}})
+        if batch:
+            items.append({"type": "function_call", "name": "lookup", "call_id": identifier + "-2",
+                          "arguments": {"q": "another"}})
+        return LLMResult.from_response({"id": identifier, "output": items})
 
-    previous = result("first", "Working.")
-    agent = FakeAgent("", last_response=previous.function_calls_text())
-    changed_call = {"llm_result": result("second", "Working.")}
-    RepeatResponse(agent).execute(changed_call)
-    assert not changed_call.get("skip_default_processing")
-    assert agent.warnings == []
+    monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
+    agent = object.__new__(Agent)
+    agent.agent_name = "A0"
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.history = history.History(agent)
+    agent.parse_prompt = lambda name, **kwargs: kwargs["message"]
+    agent.hist_add_message = agent.history.add_message
+    agent._remember_llm_result_state = lambda *args: None
+    agent.read_prompt = lambda *args, **kwargs: "repeat"
+    agent.context = SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: None))
+    previous = result(old_query, old_text, old_batch, "old")
+    current = result(new_query, new_text, new_batch, "new")
+    original = current.to_dict()
+    message = agent.hist_add_ai_response(previous.response, llm_result=previous)
+    data = {"llm_result": current}
 
-    repeated_call = {"llm_result": result("first", "Different commentary.")}
-    RepeatResponse(agent).execute(repeated_call)
-    assert repeated_call["skip_default_processing"] is True
-    assert agent.history == [previous.function_calls_text()]
-    assert agent.warnings == ["repeat"]
+    RepeatResponse(agent).execute(data)
+
+    assert bool(data.get("skip_default_processing")) is repeated
+    assert message.content == previous.function_calls_text()
+    assert current.to_dict() == original
+    assert result_from_metadata(current.metadata()).repeat_response_text() == current.repeat_response_text()
+    messages = agent.history.all_messages()
+    assert len(messages) == (3 if repeated else 1)
+    if repeated:
+        assert messages[1].content == current.function_calls_text()
+        assert messages[1].metadata == current.metadata()
+
+
+@pytest.mark.parametrize("field", ["thoughts", "headline"])
+@pytest.mark.parametrize("change", ["same", "changed", "removed", "added"])
+def test_chat_repeat_includes_public_planning_fields(field, change):
+    previous = {"thoughts": ["Wait"], "headline": "Checking", "tool_name": "code_execution_tool",
+                "tool_args": {"runtime": "output", "session": 0}}
+    current = dict(previous)
+    if change == "changed":
+        current[field] = ["Still waiting"] if field == "thoughts" else "Checking again"
+    elif change == "removed":
+        current.pop(field)
+    elif change == "added":
+        previous.pop(field)
+    agent = FakeAgent(json.dumps(current), last_response=json.dumps(previous))
+
+    assert bool(_run(agent).get("skip_default_processing")) is (change == "same")

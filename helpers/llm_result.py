@@ -208,6 +208,13 @@ class LLMResult:
             ensure_ascii=False,
         )
 
+    def repeat_response_text(self) -> str:
+        """Compare public text and calls, excluding provider IDs and reasoning."""
+        calls = self.function_calls_text()
+        if not calls:
+            return self.response
+        return json.dumps([output_text(self.raw, self.output_items), calls], ensure_ascii=False)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "response": self.response,
