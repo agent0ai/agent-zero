@@ -372,16 +372,14 @@ def test_cerebras_provider_uses_chat_completions_and_live_model_catalog(monkeypa
     assert cerebras["name"] == "Cerebras"
     assert cerebras["litellm_provider"] == "cerebras"
     assert cerebras["models_list"]["endpoint_url"] == "/models"
-    assert cerebras["kwargs"] == {
-        "a0_api_mode": "chat",
-        "api_base": "https://api.cerebras.ai/v1",
-    }
+    assert cerebras["kwargs"] == {"a0_api_mode": "chat"}
+    assert cerebras["models_list"]["default_base"] == "https://api.cerebras.ai/v1"
     assert model_config.provider_requires_api_key("cerebras") is True
 
     model = models.get_chat_model("cerebras", "gpt-oss-120b")
     assert model.model_name == "cerebras/gpt-oss-120b"
     assert model.kwargs["a0_api_mode"] == "chat"
-    assert model.kwargs["api_base"] == "https://api.cerebras.ai/v1"
+    assert "api_base" not in model.kwargs
     assert model.kwargs["api_key"] == "test-key"
 
 
@@ -395,8 +393,9 @@ def test_direct_venice_chat_provider_defaults_to_chat_completions(monkeypatch):
 
     venice = provider_config["chat"]["venice"]
     assert venice["kwargs"]["a0_api_mode"] == "chat"
-    assert venice["kwargs"]["api_base"] == "https://api.venice.ai/api/v1"
-    assert venice["kwargs"]["venice_parameters"] == {
+    assert venice["litellm_provider"] == "veniceai"
+    assert "api_base" not in venice["kwargs"]
+    assert venice["kwargs"]["extra_body"]["venice_parameters"] == {
         "include_venice_system_prompt": False
     }
     assert provider_config["chat"]["a0_venice"]["kwargs"]["a0_api_mode"] == "chat"
@@ -812,18 +811,14 @@ def test_openai_compatible_embedding_keeps_gateway_model_string(monkeypatch):
         assert embedding.model_name == f"openai/{model}"
         assert embedding.kwargs["api_base"] == gateway
 
-    # The bundled OpenRouter embedding provider is affected the same way: it
-    # resolves to litellm_provider `openai` against OpenRouter's api_base, so an
-    # OpenRouter-style id has to survive intact. Previously `openai/<model>` was
-    # handed to LiteLLM bare, which consumed the `openai/` segment and forwarded
-    # only `<model>` to OpenRouter.
+    # The native OpenRouter route must also preserve the upstream provider/model ID.
     for model in (
         "openai/text-embedding-3-small",
         "nvidia/llama-nemotron-embed-vl-1b-v2:free",
     ):
         openrouter_embedding = models.get_embedding_model("openrouter", model)
-        assert openrouter_embedding.model_name == f"openai/{model}"
-        assert openrouter_embedding.kwargs["api_base"] == "https://openrouter.ai/api/v1"
+        assert openrouter_embedding.model_name == f"openrouter/{model}"
+        assert "api_base" not in openrouter_embedding.kwargs
 
     # Plain OpenAI behaviour is unchanged: LiteLLM strips the `openai/` prefix
     # and forwards the bare model id, exactly as it did without a prefix.

@@ -975,7 +975,15 @@ def _merge_provider_defaults(
         extra_kwargs = cfg.get("kwargs") if isinstance(cfg, dict) else None  # type: ignore[arg-type]
         if isinstance(extra_kwargs, dict):
             for k, v in extra_kwargs.items():
-                kwargs.setdefault(k, v)
+                if k == "extra_body" and isinstance(v, dict):
+                    body = dict(v)
+                    for key in v:
+                        if key in kwargs:
+                            body[key] = kwargs.pop(key)
+                    body.update(kwargs.get(k) or {})
+                    kwargs[k] = body
+                else:
+                    kwargs.setdefault(k, v)
 
     # Inject API key based on the *original* provider id if still missing
     if "api_key" not in kwargs:

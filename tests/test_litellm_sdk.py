@@ -27,12 +27,13 @@ USAGE = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
 
 @pytest.fixture
 def provider():
-    state = SimpleNamespace(replies=deque(), requests=[])
+    state = SimpleNamespace(replies=deque(), requests=[], headers=[])
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
             body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
             state.requests.append((self.command, self.path, json.loads(body) if body else {}))
+            state.headers.append(dict(self.headers))
             status, reply = state.replies.popleft() if state.replies else (500, {"error": "Unexpected request"})
             streaming = isinstance(reply, str)
             payload = (reply if streaming else json.dumps(reply)).encode()
@@ -200,3 +201,115 @@ def test_sdk_anthropic_cache_markers_over_http(provider):
     body = provider.requests[0][2]
     assert body["system"][-1]["cache_control"] == {"type": "ephemeral"}
     assert body["messages"][1]["content"][-1]["cache_control"] == {"type": "ephemeral"}
+
+
+@pytest.mark.parametrize("provider_id,name,route,base", [
+    ("cerebras", "gpt-oss-120b", "cerebras", "https://api.cerebras.ai/v1"),
+    ("nebius", "meta-llama/Llama-3.3-70B-Instruct", "nebius", "https://api.tokenfactory.nebius.com/v1"),
+    ("zai", "glm-4.6", "zai", "https://api.z.ai/api/paas/v4"),
+    ("zai_coding", "glm-4.6", "zai", "https://api.z.ai/api/coding/paas/v4"),
+    ("venice", "llama-3.3-70b", "veniceai", "https://api.venice.ai/api/v1"),
+])
+def test_native_provider_defaults_over_http(provider, monkeypatch, provider_id, name, route, base):
+    from pathlib import Path
+    import yaml
+    import litellm
+    from plugins._model_config.api.model_search import ModelSearch
+    from plugins._model_config.helpers import model_config
+
+    definitions = yaml.safe_load((Path(__file__).resolve().parents[1] / "conf/model_providers.yaml").read_text())
+    lookup = lambda kind, pid: definitions[kind].get(pid)
+    monkeypatch.setattr(models, "get_provider_config", lookup)
+    monkeypatch.setattr(models, "get_api_key", lambda pid: f"test-{pid}")
+    mc = model_config.build_model_config({"provider": provider_id, "name": name}, models.ModelType.CHAT)
+    wrapper = models.get_chat_model(provider_id, name, model_config=mc, **mc.build_kwargs())
+    assert wrapper.model_name == f"{route}/{name}"
+    assert wrapper.kwargs["api_key"] == f"test-{provider_id}"
+    assert litellm.get_llm_provider(model=wrapper.model_name, api_key=wrapper.kwargs["api_key"],
+                                   api_base=wrapper.kwargs.get("api_base"))[3] == base
+    cfg = definitions["chat"][provider_id]
+    assert ModelSearch._resolve_url(cfg["models_list"], wrapper.kwargs.get("api_base", ""))[0] == f"{base}/models"
+
+    provider.replies.append((200, chat_reply(False)))
+    transport = LiteLLMTransport(model=wrapper.model_name, messages=[{"role": "user", "content": "Hello"}],
+                                 kwargs={**wrapper.kwargs, **provider.kwargs})
+    transport.complete()
+    _, path, body = provider.requests[0]
+    assert path == "/v1/chat/completions" and body["model"] == name
+    if provider_id == "venice":
+        assert body["venice_parameters"] == {"include_venice_system_prompt": False}
+
+
+@pytest.mark.parametrize("kwargs,expected", [
+    ({"extra_body": {"custom": 1}}, False),
+    ({"venice_parameters": {"include_venice_system_prompt": True}, "extra_body": {"custom": 1}}, True),
+    ({"venice_parameters": {"include_venice_system_prompt": False},
+      "extra_body": {"custom": 1, "venice_parameters": {"include_venice_system_prompt": True}}}, True),
+])
+def test_saved_venice_parameters_over_http(provider, monkeypatch, kwargs, expected):
+    from copy import deepcopy
+    from plugins._model_config.helpers import model_config
+
+    monkeypatch.setattr(models, "get_api_key", lambda pid: "test-key")
+    original = deepcopy(kwargs)
+    cfg = {"provider": "venice", "name": "llama-3.3-70b", "kwargs": kwargs}
+    mc = model_config.build_model_config(cfg, models.ModelType.CHAT)
+    wrapper = models.get_chat_model(mc.provider, mc.name, **mc.build_kwargs())
+    provider.replies.append((200, chat_reply(False)))
+    LiteLLMTransport(model=wrapper.model_name, messages=[{"role": "user", "content": "Hello"}],
+                     kwargs={**wrapper.kwargs, **provider.kwargs}).complete()
+    body = provider.requests[0][2]
+    assert body["venice_parameters"] == {"include_venice_system_prompt": expected}
+    assert body["custom"] == 1
+    assert kwargs == original
+    for pid, kind in [("a0_venice", models.ModelType.CHAT), ("venice", models.ModelType.EMBEDDING)]:
+        assert model_config.build_model_config({**cfg, "provider": pid}, kind).kwargs == original
+
+
+@pytest.mark.parametrize("name", ["google/gemini-embedding-001", "openai/text-embedding-3-small",
+                                  "nvidia/llama-nemotron-embed-vl-1b-v2:free"])
+def test_native_openrouter_embeddings_over_http(provider, monkeypatch, name):
+    monkeypatch.setattr(models, "get_api_key", lambda pid: f"test-{pid}")
+    wrapper = models.get_embedding_model("openrouter", name, **provider.kwargs)
+    assert wrapper.model_name == f"openrouter/{name}"
+    provider.replies.append((200, {"object": "list", "model": name,
+        "data": [{"object": "embedding", "index": 0, "embedding": [1.0, 0.0]}],
+        "usage": {"prompt_tokens": 1, "total_tokens": 1}}))
+    assert wrapper.embed(["hello"]) == [[1.0, 0.0]]
+    assert provider.requests[0][1] == "/v1/embeddings"
+    assert provider.requests[0][2]["model"] == name
+    headers = {key.lower(): value for key, value in provider.headers[0].items()}
+    assert headers["http-referer"] == "https://agent-zero.ai/"
+    assert headers["x-title"] == "Agent Zero"
+    assert headers["x-openrouter-categories"] == "personal-agent,cloud-agent"
+
+
+def test_native_copilot_supplies_headers_and_detects_vision(monkeypatch):
+    from litellm.llms.github_copilot.chat.transformation import GithubCopilotConfig
+    from litellm.llms.github_copilot.authenticator import Authenticator
+
+    monkeypatch.setattr(Authenticator, "get_api_key", lambda self: "test-key")
+    config = GithubCopilotConfig()
+    for content, vision in [("Hello", False), ([{"type": "image_url", "image_url": {"url": "https://example.invalid/image.png"}}], True)]:
+        headers = config.validate_environment(headers={}, model="gpt-4o",
+            messages=[{"role": "user", "content": content}], optional_params={}, litellm_params={}, api_key="test-key")
+        headers = {key.lower(): value for key, value in headers.items()}
+        assert headers["copilot-integration-id"] == "vscode-chat"
+        assert headers["editor-version"].startswith("vscode/")
+        assert (headers.get("copilot-vision-request") == "true") == vision
+
+
+def test_extra_body_defaults_merge_without_provider_specific_rules(monkeypatch):
+    defaults = {"litellm_provider": "openai", "kwargs": {
+        "extra_body": {"vendor_options": {"enabled": False}, "default_only": 1}}}
+    monkeypatch.setattr(models, "get_provider_config", lambda kind, pid: defaults)
+    monkeypatch.setattr(models, "get_api_key", lambda pid: "None")
+    route, kwargs = models._merge_provider_defaults("chat", "test-provider", {
+        "vendor_options": {"enabled": True}, "temperature": 0.2,
+        "extra_body": {"vendor_options": {"enabled": False}, "custom": 2}})
+    assert route == "openai"
+    assert kwargs == {"temperature": 0.2, "extra_body": {
+        "vendor_options": {"enabled": False}, "default_only": 1, "custom": 2}}
+    assert defaults["kwargs"]["extra_body"] == {"vendor_options": {"enabled": False}, "default_only": 1}
+    _, legacy = models._merge_provider_defaults("chat", "test-provider", {"vendor_options": {"enabled": True}})
+    assert legacy["extra_body"]["vendor_options"] == {"enabled": True}

@@ -22,6 +22,7 @@
 - Native function calls use canonical call content for history and combine public response text with calls for repeat comparison. The canonical history content passes through the normal history template/masking hook; provider output metadata remains intact.
 - `initialize.py` owns framework initialization.
 - `models.py` owns model-provider configuration and LiteLLM integration. `get_api_key_raw()` reads the stored key or key list for settings/editing; `get_api_key()` selects a runtime key and runs provider extension hooks.
+- `models._merge_provider_defaults` merges YAML-declared `extra_body` defaults with legacy top-level values for those declared fields and explicit nested overrides, in that order; unrelated kwargs and original-provider API-key selection remain intact.
 - `models.apply_rate_limiter` skips token counting and returns no limiter when all request, input, and output limits are unset; any configured limit retains normal accounting.
 - `requirements.txt` includes HTTPX's SOCKS extra so framework clients support SOCKS proxy environment variables before plugin setup.
 - LiteLLM and OpenAI pins must remain compatible. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.

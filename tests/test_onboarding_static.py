@@ -195,13 +195,13 @@ def test_onboarding_provider_grid_names_are_present_in_metadata():
     assert (PROJECT_ROOT / "plugins/_onboarding/webui/assets/provider-logos/vllm.svg").exists()
 
 
-def test_nebius_provider_config_uses_openai_compatible_token_factory_endpoint():
+def test_nebius_provider_config_uses_native_route_with_token_factory_endpoint():
     provider_path = PROJECT_ROOT / "conf/model_providers.yaml"
     provider_config = yaml.safe_load(provider_path.read_text(encoding="utf-8"))
     nebius = provider_config["chat"]["nebius"]
 
     assert nebius["name"] == "Nebius Token Factory"
-    assert nebius["litellm_provider"] == "openai"
+    assert nebius["litellm_provider"] == "nebius"
     assert nebius["kwargs"]["api_base"] == "https://api.tokenfactory.nebius.com/v1"
     assert nebius["models_list"]["endpoint_url"] == "/models"
     assert "api_key_mode" not in nebius

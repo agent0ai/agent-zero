@@ -50,9 +50,9 @@ chat:
     litellm_provider: cerebras
     models_list:
       endpoint_url: "/models"
+      default_base: https://api.cerebras.ai/v1
     kwargs:
       a0_api_mode: chat
-      api_base: https://api.cerebras.ai/v1
   cometapi:
     name: CometAPI
     litellm_provider: cometapi
@@ -72,10 +72,6 @@ chat:
     litellm_provider: github_copilot
     kwargs:
       a0_api_mode: chat
-      extra_headers:
-        "Editor-Version": "vscode/1.85.1"
-        "Copilot-Integration-Id": "vscode-chat"
-        "Copilot-Vision-Request": "true"
   google:
     name: Google
     litellm_provider: gemini
@@ -133,7 +129,7 @@ chat:
       a0_api_mode: chat
   nebius:
     name: Nebius Token Factory
-    litellm_provider: openai
+    litellm_provider: nebius
     models_list:
       endpoint_url: "/models"
     kwargs:
@@ -214,14 +210,14 @@ chat:
       a0_api_mode: chat
   venice:
     name: Venice.ai
-    litellm_provider: openai
+    litellm_provider: veniceai
     models_list:
       endpoint_url: "https://api.venice.ai/api/v1/models"
     kwargs:
       a0_api_mode: chat
-      api_base: https://api.venice.ai/api/v1
-      venice_parameters:
-        include_venice_system_prompt: false
+      extra_body:
+        venice_parameters:
+          include_venice_system_prompt: false
   vllm:
     name: vLLM
     litellm_provider: hosted_vllm
@@ -240,15 +236,15 @@ chat:
       a0_api_mode: chat
   zai:
     name: Z.AI
-    litellm_provider: openai
+    litellm_provider: zai
     models_list:
       endpoint_url: "/models"
+      default_base: https://api.z.ai/api/paas/v4
     kwargs:
       a0_api_mode: chat
-      api_base: https://api.z.ai/api/paas/v4
   zai_coding:
     name: Z.AI Coding
-    litellm_provider: openai
+    litellm_provider: zai
     models_list:
       endpoint_url: "/models"
     kwargs:
@@ -304,12 +300,10 @@ embedding:
   bedrock:
     name: AWS Bedrock
     litellm_provider: bedrock
-  # TODO: OpenRouter not yet supported by LiteLLM, replace with native litellm_provider openrouter and remove api_base when ready
   openrouter:
     name: OpenRouter
-    litellm_provider: openai
+    litellm_provider: openrouter
     kwargs:
-      api_base: https://openrouter.ai/api/v1
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
