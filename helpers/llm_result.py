@@ -63,11 +63,13 @@ class LLMResult:
     usage: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
     capability: dict[str, Any] = field(default_factory=dict)
+    history_extras: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "LLMResult":
         data = data or {}
         mode = data.get("mode")
+        extras = data.get("history_extras")
         return cls(
             response=str(data.get("response") or ""),
             reasoning=str(data.get("reasoning") or ""),
@@ -83,6 +85,7 @@ class LLMResult:
             usage=object_to_dict(data.get("usage") or {}),
             raw=object_to_dict(data.get("raw") or {}),
             capability=object_to_dict(data.get("capability") or {}),
+            history_extras=extras if isinstance(extras, str) else "",
         )
 
     @classmethod
@@ -229,6 +232,7 @@ class LLMResult:
             "usage": self.usage,
             "raw": self.raw,
             "capability": self.capability,
+            "history_extras": self.history_extras,
         }
 
     def metadata(self) -> dict[str, Any]:
@@ -242,6 +246,7 @@ class LLMResult:
                 "state": self.state,
                 "usage": self.usage,
                 "capability": self.capability,
+                **({"history_extras": self.history_extras} if self.history_extras else {}),
             }
         }
 

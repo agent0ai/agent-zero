@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
@@ -184,6 +185,7 @@ class LiteLLMTransport:
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
     history_prefix_hash: str = field(init=False, default="")
+    history_extras: str = field(init=False, default="")
     stream_usage_retried: bool = field(init=False, default=False)
 
     def __post_init__(self) -> None:
@@ -411,6 +413,7 @@ class LiteLLMTransport:
             self.kwargs.get("responses_state")
         )
         self.history_prefix_hash = ""
+        self.history_extras = ""
         context = self.kwargs.get("responses_history_context")
         if (
             self.last_request_state == RESPONSES_STATE_LOCAL
@@ -424,6 +427,11 @@ class LiteLLMTransport:
                 prefix = project_system_prompt(context.get("prefix", []), replacements)
                 scope = {"affinity": self.policy.cache_key, "tools": response_kwargs.get("tools")}
                 self.history_prefix_hash = responses_history.prefix_hashes(prefix, scope)[-1]
+                self.history_extras = responses_history.prompt_extras(prompt, prefix)
+                if self.history_extras and isinstance(context.get("extras"), str):
+                    self.history_extras = context["extras"]
+                    prompt = deepcopy(prefix)
+                    responses_history.append_extras(prompt, self.history_extras)
                 response_kwargs["input"] = responses_history.project_history(
                     prompt, context.get("groups", []), scope,
                 )
@@ -459,6 +467,7 @@ class LiteLLMTransport:
             capability=self._capability_metadata(),
         )
         result.usage = _reported_usage(response)
+        result.history_extras = self.history_extras
         return result
 
     def _stream_result_from_parser(

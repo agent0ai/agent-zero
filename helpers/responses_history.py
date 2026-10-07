@@ -51,13 +51,13 @@ def prepare_call(agent: Any, call_data: dict) -> dict:
         )
         return rendered[0].get("content") if len(rendered) == 1 else None
 
+    mask = get_secrets_manager(agent.context).mask_values
+    prompt = ResponsesTransport.input_from_model_messages(model, messages)
+    prefix = ResponsesTransport.input_from_model_messages(model, prepared["prefix"])
     kwargs["responses_history_context"] = {
-        "prompt": ResponsesTransport.input_from_model_messages(model, messages),
-        "prefix": ResponsesTransport.input_from_model_messages(model, prepared["prefix"]),
-        "groups": prepare_groups(
-            agent.loop_data.history_output, render,
-            get_secrets_manager(agent.context).mask_values,
-        ),
+        "prompt": prompt, "prefix": prefix,
+        "extras": mask(prompt_extras(prompt, prefix)),
+        "groups": prepare_groups(agent.loop_data.history_output, render, mask),
     }
     return kwargs
 
@@ -73,6 +73,38 @@ def prefix_hashes(items: list[dict], scope: dict) -> list[str]:
         digest.update(b"\n" + _json_bytes(item))
         hashes.append(digest.hexdigest())
     return hashes
+
+
+def prompt_extras(items: list[dict], prefix: list[dict]) -> str:
+    """Extract only the prepared extras suffix, never a copy of prior input."""
+    if len(items) == len(prefix) + 1 and items[:-1] == prefix:
+        content = items[-1].get("content")
+        return content if items[-1].get("role") == "user" and isinstance(content, str) else ""
+    if not prefix or len(items) != len(prefix) or items[:-1] != prefix[:-1]:
+        return ""
+    before, after = prefix[-1], items[-1]
+    if before.get("role") != "user" or {**after, "content": before.get("content")} != before:
+        return ""
+    old, new = before.get("content"), after.get("content")
+    if isinstance(old, str) and isinstance(new, str) and new.startswith(old + "\n"):
+        return new[len(old) + 1:]
+    if isinstance(old, list) and isinstance(new, list) and len(new) == len(old) + 1 and new[:-1] == old:
+        block = new[-1]
+        if isinstance(block, dict) and block.get("type") == "input_text" and isinstance(block.get("text"), str):
+            return block["text"]
+    return ""
+
+
+def append_extras(items: list[dict], extras: str) -> None:
+    if items and items[-1].get("role") == "user":
+        content = items[-1].get("content")
+        if isinstance(content, str):
+            items[-1]["content"] = content + "\n" + extras
+            return
+        if isinstance(content, list):
+            content.append({"type": "input_text", "text": extras})
+            return
+    items.append({"role": "user", "content": extras})
 
 
 def _json_object(text: Any) -> dict | None:
@@ -128,7 +160,10 @@ def prepare_groups(
         if not all(_replayable_output(item) for item in output):
             continue
         try:
-            if _contains_secret(output, mask) or _contains_secret([call.arguments for call in calls], mask):
+            if (
+                _contains_secret(output, mask) or _contains_secret([call.arguments for call in calls], mask)
+                or _contains_secret(result.history_extras, mask)
+            ):
                 continue
         except Exception:
             continue  # Keep prepared text when secret masking cannot be checked.
@@ -151,10 +186,12 @@ def prepare_groups(
             ):
                 break
             results.append({"type": "function_call_output", "call_id": call_id, "output": text})
-        if len(results) == len(calls):
+        paired = len(results) == len(calls)
+        if paired or result.history_extras:
             groups.append({
                 PREFIX_HASH: prefix_hash, "assistant": assistant,
-                "output": deepcopy(output), "results": results,
+                "extras": result.history_extras,
+                "output": deepcopy(output) if paired else [], "results": results if paired else [],
             })
     return groups
 
@@ -162,14 +199,20 @@ def prepare_groups(
 def project_history(items: list[dict], groups: list[dict], scope: dict) -> list[dict]:
     indices = {value: index for index, value in enumerate(prefix_hashes(items, scope))}
     replacements = {}
+    extras = {}
     used_calls, used_items = set(), set()
     for group in groups:
         index = indices.get(group.get(PREFIX_HASH))
-        if index is None or index + 1 >= len(items):
+        if index is None or index >= len(items):
             continue
-        assistant, following = items[index:index + 2]
+        assistant = items[index]
         if assistant.get("role") != "assistant" or assistant.get("content") != group["assistant"]:
             continue
+        if group.get("extras"):
+            extras[index] = group["extras"]
+        if not group["results"] or index + 1 >= len(items):
+            continue
+        following = items[index + 1]
         content = following.get("content")
         expected = "\n".join(result["output"] for result in group["results"])
         if following.get("role") != "user" or not isinstance(content, str):
@@ -190,6 +233,8 @@ def project_history(items: list[dict], groups: list[dict], scope: dict) -> list[
     result = []
     index = 0
     while index < len(items):
+        if index in extras:
+            append_extras(result, extras[index])
         if index in replacements:
             result.extend(deepcopy(replacements[index]))
             index += 2

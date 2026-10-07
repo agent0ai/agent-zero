@@ -66,12 +66,12 @@ def test_native_replay_uses_visible_results_and_retains_current_extras():
     prompt = prompt_for(records)
     replay = transport(prompt, prompt, records)
     request = replay._responses_request(stream=False)
-    assert request["input"][:2] == BASE
+    assert request["input"][:2] == source.messages
     assert request["input"][2:4] == [item.to_dict() for item in result.output_items]
     assert request["input"][4] == {"type": "function_call_output", "call_id": "call_1", "output": render(records[1])}
     assert request["input"][5] == {"role": "user", "content": "Current extras"}
     assert "DO NOT REPLAY RAW OUTPUT" not in json.dumps(request)
-    assert "Old extras" not in json.dumps(request)
+    assert result.history_extras == "Old extras"
     assert "responses_history_context" not in request
     assert records == original
     assert prompt == prompt_for(records)
@@ -150,6 +150,36 @@ def test_prepared_context_lifecycle_and_post_hook_changes(monkeypatch):
     agent.loop_data.params_temporary["responses_prompt_replacements"] = {"stale": "value"}
     history.start_prompt(agent.loop_data)
     assert history.prepare_call(agent, {"model": model, "messages": prompt}) == {"responses_prompt_replacements": {}}
+
+
+def test_current_and_retained_extras_use_the_same_secret_mask(monkeypatch):
+    from types import SimpleNamespace
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from langchain_core.prompts import ChatPromptTemplate
+    from agent import LoopData
+    from models import LiteLLMChatWrapper
+    from helpers import secrets
+
+    agent = SimpleNamespace(context=SimpleNamespace(), loop_data=LoopData())
+    agent.loop_data.history_output = [{"ai": False, "content": "Question"}]
+    model = LiteLLMChatWrapper(model="test", provider="openai", model_config=None, a0_api_mode="responses")
+    prompt = [SystemMessage("Rules"), HumanMessage("Question\nProvider: private-value")]
+    mask = lambda text: text.replace("private-value", "MASKED_KEY")
+    monkeypatch.setattr(secrets, "get_secrets_manager", lambda _: SimpleNamespace(mask_values=mask))
+    history.remember_prompt(agent.loop_data, ChatPromptTemplate.from_messages(prompt).format(), prompt[0], [])
+    prepared = history.prepare_call(agent, {"model": model, "messages": prompt})
+    original = prepared["responses_history_context"]["prompt"]
+    source = transport(original, BASE)
+    source.kwargs.update(prepared)
+    result = completed_call(source)
+    assert result.history_extras == "Provider: MASKED_KEY"
+    assert result.input_items[-1]["content"] == "Question\nProvider: MASKED_KEY"
+    records = records_for(result)
+    replay_prompt = prompt_for(records)
+    replay = transport(replay_prompt, replay_prompt)
+    replay.kwargs["responses_history_context"]["groups"] = history.prepare_groups(records, render, mask)
+    assert replay._responses_request(stream=False)["input"][:len(result.input_items)] == result.input_items
+    assert source._chat_request(stream=False)["messages"] == original
 
 
 @pytest.mark.parametrize("change", ["summary", "arguments", "missing_output", "wrong_id", "attachments", "commentary", "unencrypted", "legacy", "secret"])
@@ -276,3 +306,103 @@ def test_tool_result_summary_is_replayed_as_visible_summary_only():
     output = next(item for item in request["input"] if item.get("type") == "function_call_output")
     assert output["output"] == "Condensed tool result"
     assert "DO NOT REPLAY RAW OUTPUT" not in json.dumps(request)
+
+
+def test_growing_requests_keep_extras_across_tools_reload_and_user_followups():
+    prefix = deepcopy(BASE)
+    records = []
+    previous = []
+    for turn in range(4):
+        prompt = deepcopy(prefix)
+        prompt[-1]["content"] += f"\nExtras {turn}"
+        source = transport(prompt, prefix, records)
+        result = completed_call(source, call_id=f"call_{turn}", name="response" if turn == 2 else "lookup")
+        assert result.input_items[:len(previous)] == previous
+        for old in range(turn + 1):
+            assert json.dumps(result.input_items).count(f"Extras {old}") == 1
+        previous = deepcopy(result.input_items)
+        persisted = json.loads(json.dumps(result.metadata()))["responses"]
+        assert "input_items" not in persisted and persisted["history_extras"] == f"Extras {turn}"
+        result = LLMResult.from_dict(persisted)
+        added = records_for(result)
+        if turn == 2:
+            added[1] = {"ai": False, "content": "Here is a real user follow-up."}
+        records.extend(added)
+        prefix.extend([
+            {"role": "assistant", "content": render(added[0])},
+            {"role": "user", "content": render(added[1])},
+        ])
+    # A terminating response call has no result; never invent an acknowledgement.
+    assert not any(item.get("call_id") == "call_2" for item in previous)
+
+
+@pytest.mark.parametrize("tail", [
+    {"role": "user", "content": "Question"},
+    {"role": "user", "content": [{"type": "input_text", "text": "Question"},
+                                   {"type": "input_image", "image_url": "data:image/png;base64,AAAA"}]},
+    {"role": "assistant", "content": "Prior response"},
+])
+def test_extras_snapshot_preserves_prepared_message_boundaries(tail):
+    prefix = [BASE[0], deepcopy(tail)]
+    prompt = deepcopy(prefix)
+    if tail["role"] == "assistant":
+        prompt.append({"role": "user", "content": "Old extras"})
+    elif isinstance(tail["content"], str):
+        prompt[-1]["content"] += "\nOld extras"
+    else:
+        prompt[-1]["content"].append({"type": "input_text", "text": "Old extras"})
+    result = completed_call(transport(prompt, prefix))
+    assert result.history_extras == "Old extras"
+    records = records_for(result)
+    replay_prompt = prompt_for(records, prefix)
+    request = transport(replay_prompt, replay_prompt, records)._responses_request(stream=False)
+    assert request["input"][:len(prompt)] == prompt
+    assert prefix[-1] == tail
+
+
+@pytest.mark.parametrize("change", ["summary", "arguments", "secret", "mask_error", "tools"])
+def test_extras_replay_respects_history_and_masking_changes(change):
+    prompt = [BASE[0], {"role": "user", "content": "Question\nOld extras"}]
+    records = records_for(completed_call(transport(prompt, BASE)))
+    prefix = deepcopy(BASE)
+    mask = lambda text: text
+    kwargs = {}
+    if change == "summary":
+        prefix[-1]["content"] = "Summarized question"
+    elif change == "arguments":
+        records[0]["content"] = "Summarized answer"
+    elif change == "secret":
+        mask = lambda text: text.replace("Old extras", "MASKED")
+    elif change == "mask_error":
+        def mask(text):
+            raise OSError("masking unavailable")
+    else:
+        kwargs["a0_responses_function_tools"] = [{**TOOLS[0], "description": "changed"}]
+    prompt = prompt_for(records, prefix)
+    source = transport(prompt, prompt, **kwargs)
+    source.kwargs["responses_history_context"]["groups"] = history.prepare_groups(records, render, mask)
+    assert source._responses_request(stream=False)["input"] == prompt
+
+
+def test_retained_extras_count_toward_responses_compression_only(monkeypatch):
+    from types import SimpleNamespace
+    from helpers import history as stored_history, tokens
+
+    model = SimpleNamespace(kwargs={"a0_api_mode": "responses"})
+    agent = SimpleNamespace(get_chat_model=lambda: model)
+    hist = stored_history.History(agent)
+    result = completed_call(transport([BASE[0], {"role": "user", "content": "Question\n" + "large extras " * 100}], BASE))
+    msg = hist.add_message(True, result.function_calls_text(), metadata=result.metadata())
+    expected = msg.get_tokens() + tokens.approximate_tokens(result.history_extras)
+    assert hist.get_tokens() == expected
+    restored = stored_history.deserialize_history(hist.serialize(), agent)
+    assert restored.get_tokens() == expected
+    monkeypatch.setattr(hist, "_get_ctx_size_for_history", lambda: expected - 1)
+    assert hist.is_over_limit()
+    model.kwargs["a0_api_mode"] = "chat"
+    assert hist.get_tokens() == msg.get_tokens() and not hist.is_over_limit()
+    model.kwargs["a0_api_mode"] = "responses"
+    msg.set_summary("Condensed answer")
+    assert hist.get_tokens() == msg.get_tokens()
+    restored.current.summary = "Condensed topic"
+    assert restored.get_tokens() == tokens.approximate_tokens("Condensed topic")

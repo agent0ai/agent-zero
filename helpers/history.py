@@ -180,7 +180,23 @@ class Topic(Record):
         if self.summary:
             return tokens.approximate_tokens(self.summary)
         else:
-            return sum(msg.get_tokens() for msg in self.messages)
+            return sum(self._message_tokens())
+
+    def _message_tokens(self) -> list[int]:
+        from helpers.llm_result import result_from_metadata
+        from helpers.litellm_transport import TransportMode
+
+        extras = []
+        for msg in self.messages:
+            result = result_from_metadata(msg.metadata) if msg.ai and not msg.summary else None
+            extras.append(result.history_extras if result else "")
+        include_extras = any(extras) and TransportMode.from_value(
+            self.history.agent.get_chat_model().kwargs.get("a0_api_mode")
+        ) is TransportMode.RESPONSES
+        return [
+            msg.get_tokens() + (tokens.approximate_tokens(extra) if include_extras and extra else 0)
+            for msg, extra in zip(self.messages, extras)
+        ]
 
     def add_message(
         self,
@@ -224,11 +240,12 @@ class Topic(Record):
             * message_ratio
         )
         large_msgs = []
-        for m in (m for m in self.messages if not m.summary):
+        for m, tok in zip(self.messages, self._message_tokens()):
+            if m.summary:
+                continue
             # TODO refactor this
             out = m.output()
             text = output_text(out)
-            tok = m.get_tokens()
             leng = len(text)
             if tok > msg_max_size:
                 large_msgs.append((m, tok, leng, out))
