@@ -8,6 +8,9 @@ default_homepage: "about:blank"
 # When the Browser surface is already open, keep it synced to agent Browser tool results.
 autofocus_active_page: true
 
+# Include page screenshots with annotations sent to the chat. Off by default.
+annotation_screenshots: false
+
 # Browser tab visibility in the WebUI. Both modes use the same internal
 # Chromium runtime and sign-in profile:
 # - per_context: each chat shows only its own Browser tabs.

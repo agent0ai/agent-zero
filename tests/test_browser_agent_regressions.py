@@ -208,6 +208,7 @@ def test_browser_config_normalizes_extension_paths(tmp_path):
         "extension_paths": [str(extension_dir)],
         "default_homepage": "about:blank",
         "autofocus_active_page": True,
+        "annotation_screenshots": False,
         "browser_tab_scope": "per_context",
         "max_open_tabs": 32,
         "evaluate_timeout_seconds": 30.0,
@@ -398,6 +399,10 @@ def test_browser_config_store_lists_supported_host_targets_and_migrates_endpoint
         + "if (!store.hostBrowserSetupAvailable('edge')) throw new Error('installed Edge Dev setup is hidden');\n"
         + "const custom = 'ws://localhost:9333/devtools/browser/custom';\n"
         + "if (stableHostBrowserSelection(custom, browserStatus) !== custom) throw new Error('custom endpoint changed');\n"
+        + "store.config.extension_paths = ['/scoped/extension'];\n"
+        + "store.applyExtensionPayload({ extension_paths: ['/global/extension'], extensions: [] });\n"
+        + "if (store.config.extension_paths[0] !== '/scoped/extension') throw new Error('refresh replaced scoped or unsaved extensions');\n"
+
     )
 
     subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
@@ -1027,41 +1032,23 @@ def test_browser_extension_manager_uses_modern_chrome_prodversion(monkeypatch):
     assert "prodversion=120.0.0.0" not in url
 
 
-def test_browser_extension_menu_exposes_agent_and_url_paths():
-    html = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html").read_text(
-        encoding="utf-8"
-    )
-    skill = (
-        PROJECT_ROOT
-        / "plugins"
-        / "_browser"
-        / "skills"
-        / "browser-extension-control"
-        / "SKILL.md"
-    )
-
-    assert "Create New Extension with A0" in html
-    assert "+ Create New with A0" not in html
-    assert "Input a Chrome Web Store URL" in html
-    assert "My Browser Extensions" not in html
-    assert "Browser LLM Preset" in html
-    assert "Chrome Extensions" in html
-    assert "Installed extensions" in html
-    assert "deleteExtension(extension)" not in html
-    assert "No extensions installed yet." not in html
-    assert "Browser Extension Settings" not in html
-    assert "<span>Settings</span>" in html
-    assert "extensionHasOpenUi(extension)" in html
-    assert "openExtensionUi(extension)" in html
-    assert "<span>Open</span>" in html
-    assert "hasExtensionInstallUrl()" in html
-    assert "malicious or buggy extensions" in html
-    assert "'Installing…' : 'Install URL'" in html
-    assert ':aria-busy="$store.browserPage.extensionActionLoading.toString()"' in html
-    assert "Large packages may take a few minutes." in (
-        PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-store.js"
-    ).read_text(encoding="utf-8")
-    assert skill.exists()
+def test_browser_quick_settings_and_config_management():
+    panel = (PROJECT_ROOT / "plugins/_browser/webui/browser-panel.html").read_text()
+    config = (PROJECT_ROOT / "plugins/_browser/webui/config.html").read_text()
+    for action in ("Create New Extension with A0", "Chrome Web Store URL", "Install URL", "Scan with A0"):
+        assert action not in panel
+        assert action in config
+    for label in ("Browser LLM Preset", "Chrome Extensions", "More settings", "Configure host browser", "Page zoom"):
+        assert label in panel
+    assert "Installed extensions" not in panel
+    assert "openExtensionUi(extension)" in panel
+    assert "setRuntimeBackend('host_required')" in panel
+    assert "setRuntimeBackend('container')" in panel
+    assert 'x-show="$store.browserPage.runtimeBackend === \'host_required\'"' in panel
+    for action in ("history", "clearData", "passwords", "addresses", "extensions", "downloadSettings", "downloads"):
+        assert f"openBrowserPage('{action}')" in config
+    assert "Do not include" in config
+    assert 'x-model.boolean="config.annotation_screenshots"' in config
 
 
 def test_browser_viewer_allows_slow_extension_startup():
@@ -1608,7 +1595,7 @@ def test_browser_ui_spinners_have_browser_local_animation():
         encoding="utf-8"
     )
 
-    assert ":class=\"{ spinning: $store.browserPage.extensionActionLoading }\"" in main_html
+    assert ":class=\"{ spinning: $store.browserConfig.extensionActionLoading }\"" in config_html
     assert "@keyframes browser-spin" in main_html
     assert "@keyframes browser-config-spin" in config_html
 
@@ -1656,7 +1643,7 @@ def test_browser_extension_settings_stay_user_facing():
 
 def test_browser_tab_switch_completes_without_reloading_shared_interactive_viewer():
     source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text(encoding="utf-8")
-    source = source[source.index("const EXTENSIONS_ROOT"):source.index("export const store")]
+    source = source[source.index("const BROWSER_SUBSCRIBE_TIMEOUT_MS"):source.index("export const store")]
     script = """
 import assert from 'node:assert/strict';
 let responseData;
@@ -1702,7 +1689,7 @@ for (const [transport, oldUrl, nextUrl, stale, busy] of [
 
 def test_browser_viewer_clears_empty_context_and_ignores_late_responses():
     source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text(encoding="utf-8")
-    source = source[source.index("const EXTENSIONS_ROOT"):source.index("export const store")]
+    source = source[source.index("const BROWSER_SUBSCRIBE_TIMEOUT_MS"):source.index("export const store")]
     script = """
 import assert from 'node:assert/strict';
 const ok = data => ({ results: [{ ok: true, data }] });
@@ -1858,7 +1845,6 @@ def test_browser_viewer_uses_tabs_for_session_switching():
     assert "browser-live-dot" not in main_html
     assert "async openNewBrowser()" in browser_store
     assert "browserTabTitle(browser)" in browser_store
-    assert "Scan with A0" in browser_store
     assert "Review with A0" not in browser_store
     assert "Using ${this.mainModelSummary}" in browser_store
 
@@ -5166,3 +5152,147 @@ def test_context_cleanup_preserves_shared_event_loop(monkeypatch, timeout):
     else:
         browser_runtime_module.close_runtime_sync("first")
     assert calls == [("thread", "BrowserCleanup"), ("close", "first"), ("cancel", None)]
+
+
+def test_browser_download_preferences_preserve_user_settings(monkeypatch, tmp_path):
+    monkeypatch.setattr(browser_runtime_module.files, "get_abs_path", lambda *parts: str(tmp_path.joinpath(*parts)))
+    core = _BrowserRuntimeCore("downloads")
+    path = core.profile_dir / "Default" / "Preferences"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"download": {"prompt_for_download": True}, "unrelated": {"keep": 1}}))
+    core._prepare_download_preferences()
+    saved = json.loads(path.read_text())
+    assert saved["download"] == {"prompt_for_download": True, "default_directory": str(core.downloads_dir)}
+    assert saved["unrelated"] == {"keep": 1}
+    saved["download"]["default_directory"] = "/custom/downloads"
+    path.write_text(json.dumps(saved))
+    core._prepare_download_preferences()
+    assert json.loads(path.read_text()) == saved
+
+
+@pytest.mark.anyio
+async def test_browser_zoom_targets_private_display_and_rejects_invalid_direction(monkeypatch):
+    core = _BrowserRuntimeCore("zoom")
+    calls = []
+
+    async def started():
+        pass
+
+    async def focused():
+        calls.append("focus")
+
+    async def state(browser_id):
+        return {"id": browser_id, "zoom": 110}
+
+    core.ensure_started = started
+    core._state = state
+    core.interactive_view.display = 77
+    core.pages[1] = BrowserPage(id=1, page=SimpleNamespace(bring_to_front=focused), context_id="zoom")
+    monkeypatch.setattr(browser_runtime_module.shutil, "which", lambda name: "/usr/bin/xdotool")
+    monkeypatch.setattr(browser_runtime_module.subprocess, "run", lambda command, **kwargs: calls.append((command, kwargs)))
+    assert await core.zoom(1, "in") == {"id": 1, "zoom": 110}
+    assert calls[0] == "focus"
+    command, options = calls[1]
+    assert command == ["/usr/bin/xdotool", "key", "--clearmodifiers", "ctrl+plus"]
+    assert options["env"]["DISPLAY"] == ":77"
+    assert options["check"] is True and options["timeout"] == 3
+    with pytest.raises(ValueError, match="Zoom direction"):
+        await core.zoom(1, "in; arbitrary-command")
+    assert len(calls) == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("enabled,capture,expected", [(False, True, False), (True, False, False), (True, True, True)])
+async def test_annotation_screenshots_require_saved_opt_in_and_explicit_capture(monkeypatch, enabled, capture, expected):
+    calls = []
+    agent = object()
+
+    class Runtime:
+        async def call(self, method, *args, **kwargs):
+            calls.append(method)
+            return {"image": "anBlZw==", "mime": "image/jpeg"} if method == "screenshot" else {"kind": "element"}
+
+    async def runtime(*args, **kwargs):
+        return Runtime()
+
+    def config(agent=None):
+        assert agent is not None
+        return {"annotation_screenshots": enabled}
+
+    monkeypatch.setattr(ws_browser_module, "get_runtime", runtime)
+    monkeypatch.setattr(ws_browser_module.AgentContext, "get", lambda context_id: SimpleNamespace(agent0=agent))
+    monkeypatch.setattr(ws_browser_module, "get_browser_config", config)
+    handler = ws_browser_module.WsBrowser(SimpleNamespace(), threading.RLock(), manager=None)
+    result = await handler.process("browser_viewer_annotation", {
+        "context_id": "ctx", "browser_id": 1, "capture_screenshot": capture,
+        "payload": {"kind": "element"},
+    }, "sid")
+    assert ("screenshot" in result) is expected
+    if capture:
+        assert result["annotation_screenshots"] is enabled
+    assert calls == (["annotation_target", "screenshot"] if expected else ["annotation_target"])
+    assert normalize_browser_config({})["annotation_screenshots"] is False
+    assert normalize_browser_config({"annotation_screenshots": "false"})["annotation_screenshots"] is False
+
+
+@pytest.mark.anyio
+async def test_quick_browser_location_saves_current_project_and_validates_input(monkeypatch):
+    from plugins._browser.api import extensions as api
+
+    saved = []
+    context = SimpleNamespace()
+    agent = SimpleNamespace(context=context)
+    handler = api.Extensions(SimpleNamespace(), threading.RLock())
+    monkeypatch.setattr(handler, "_agent_from_input", lambda data: agent)
+    monkeypatch.setattr(handler, "_browser_extension_payload", lambda agent=None: {"ok": True})
+    monkeypatch.setattr(api, "get_browser_config", lambda agent=None: {"runtime_backend": "container", "proxy_server": "http://proxy.test"})
+    monkeypatch.setattr(api.projects, "get_context_project_name", lambda ctx: "my-project")
+    monkeypatch.setattr(api.plugins, "save_plugin_config", lambda *args: saved.append(args))
+    for value in ("host_required", "container"):
+        assert await handler.process({"action": "set_runtime_backend", "context_id": "ctx", "runtime_backend": value}, None) == {"ok": True}
+        assert saved[-1] == ("_browser", "my-project", "", {"runtime_backend": value, "proxy_server": "http://proxy.test"})
+    for value in ("wrong", [], None):
+        result = await handler.process({"action": "set_runtime_backend", "runtime_backend": value}, None)
+        assert result["ok"] is False
+    monkeypatch.setattr(handler, "_agent_from_input", lambda data: None)
+    result = await handler.process({"action": "set_runtime_backend", "context_id": "deleted", "runtime_backend": "container"}, None)
+    assert result["ok"] is False
+    assert len(saved) == 2
+
+
+def test_browser_annotation_attachments_and_quick_setting_failure():
+    source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text()
+    source = source[source.index("const BROWSER_SUBSCRIBE_TIMEOUT_MS"):source.index("export const store")]
+    script = """
+import assert from 'node:assert/strict';
+let response;
+let request;
+const notices = [];
+const notificationStore = { addFrontendToastOnly: (...args) => notices.push(args) };
+const callJsonApi = async (path, payload) => { request = payload; return response; };
+const attachmentsStore = { files: [], getAttachmentDisplayInfo: () => ({}), addAttachment(item) { this.files.push(item); } };
+""" + source + """
+Object.assign(model, { resolveContextId: () => 'ctx', contextId: 'ctx', activeBrowserContextId: 'ctx' });
+model.annotationComments = [
+  {id: 'ours', contextId: 'ctx', browserId: 1, screenshot: {image: btoa('jpeg')}},
+  {id: 'other', contextId: 'other', browserId: 2, screenshot: {image: btoa('private')}},
+];
+model.attachAnnotationScreenshots();
+assert.equal(attachmentsStore.files.length, 0);
+model.annotationScreenshots = true;
+model.attachAnnotationScreenshots();
+assert.equal(attachmentsStore.files.length, 1);
+assert.equal(await attachmentsStore.files[0].file.text(), 'jpeg');
+assert.equal(attachmentsStore.files[0].name, 'annotation-1-ours.jpg');
+response = {ok: true, runtime_backend: 'host_required', annotation_screenshots: false};
+await model.setRuntimeBackend('host_required');
+assert.equal(request.context_id, 'ctx');
+assert.equal(model.runtimeBackend, 'host_required');
+assert.equal(model.runtimeBackendSaving, false);
+response = {ok: false, error: 'save failed'};
+await model.setRuntimeBackend('container');
+assert.equal(model.runtimeBackend, 'host_required');
+assert.equal(model.runtimeBackendSaving, false);
+assert.deepEqual(notices.at(-1), ['error', 'save failed']);
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)

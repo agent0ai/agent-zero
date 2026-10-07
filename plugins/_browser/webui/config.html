@@ -375,12 +375,114 @@
           </label>
         </div>
 
+        <div class="browser-config-card browser-config-management">
+          <div class="section-title">Browsing data</div>
+          <div class="section-description">Manage the container browser's shared profile. These pages open in Browser and their changes take effect immediately.</div>
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Clear browsing data</span>
+              <span class="browser-config-field-help">Choose a time range and remove history, cookies, cached files, or other site data.</span>
+            </div>
+            <button type="button" class="button" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('clearData')">Clear browsing data</button>
+          </div>
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Browsing history</span>
+              <span class="browser-config-field-help">Search and manage pages visited in the container browser.</span>
+            </div>
+            <button type="button" class="button" aria-label="Manage browsing history" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('history')">Manage</button>
+          </div>
+          <label class="browser-config-management-row">
+            <span class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Annotation screenshots</span>
+              <span class="browser-config-field-help">Include a page screenshot with each annotation. Images help explain visual changes and use more model context.</span>
+            </span>
+            <select class="browser-config-choice" x-model.boolean="config.annotation_screenshots" aria-label="Annotation screenshots">
+              <option value="false">Do not include</option>
+              <option value="true">Always include</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="browser-config-card browser-config-management">
+          <div class="section-title">Autofill and passwords</div>
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Password manager</span>
+              <span class="browser-config-field-help">Manage saved passwords, imports, and sign-in preferences in the container browser.</span>
+            </div>
+            <button type="button" class="button" aria-label="Manage passwords" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('passwords')">Manage</button>
+          </div>
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Contact info</span>
+              <span class="browser-config-field-help">Add, edit, and delete saved addresses, phone numbers, and email addresses.</span>
+            </div>
+            <button type="button" class="button" aria-label="Manage contact info" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('addresses')">Manage</button>
+          </div>
+        </div>
+
+        <div class="browser-config-card browser-config-management">
+          <div class="section-title">Downloads</div>
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Location and download prompts</span>
+              <span class="browser-config-field-help">Choose a folder inside the container and whether to ask where to save each file.</span>
+            </div>
+            <button type="button" class="button" aria-label="Change download settings" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('downloadSettings')">Change</button>
+          </div>
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Download history</span>
+              <span class="browser-config-field-help">View and manage downloads from the container browser.</span>
+            </div>
+            <button type="button" class="button" aria-label="Manage download history" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('downloads')">Manage</button>
+          </div>
+        </div>
+
         <div class="browser-config-card">
           <div class="section-title">Extensions</div>
           <div class="section-description">
             Choose which installed Chrome extensions Browser loads.
           </div>
 
+          <div class="browser-config-management-row">
+            <div class="browser-config-switch-copy">
+              <span class="browser-config-field-label">Extension manager</span>
+              <span class="browser-config-field-help">Open Chromium's extension details, permissions, and developer tools.</span>
+            </div>
+            <button type="button" class="button" aria-label="Manage Chrome extensions" :disabled="!!$store.browserConfig.openingBrowserPage"
+              @click="$store.browserConfig.openBrowserPage('extensions')">Manage</button>
+          </div>
+          <div class="browser-config-extension-install">
+            <label class="browser-config-field">
+              <span class="browser-config-field-label">Chrome Web Store URL</span>
+              <input type="text" x-model="$store.browserConfig.extensionInstallUrl"
+                @keydown.enter.prevent="$store.browserConfig.installExtensionFromUrl()"
+                placeholder="https://chromewebstore.google.com/detail/..." autocomplete="off" />
+            </label>
+            <div class="browser-config-install-actions">
+              <button type="button" class="button" @click="$store.browserConfig.installExtensionFromUrl()"
+                :disabled="$store.browserConfig.extensionActionLoading"
+                :aria-busy="$store.browserConfig.extensionActionLoading.toString()">
+                <x-icon :class="{ spinning: $store.browserConfig.extensionActionLoading }"
+                  :name="$store.browserConfig.extensionActionLoading ? 'progress_activity' : 'download'"></x-icon>
+                <span x-text="$store.browserConfig.extensionActionLoading ? 'Installing…' : 'Install URL'">Install URL</span>
+              </button>
+              <button type="button" class="button" @click="$store.browserConfig.askAgentInstallExtension(context)">
+                <x-icon name="psychology_alt"></x-icon><span>Scan with A0</span>
+              </button>
+              <button type="button" class="button" @click="$store.browserConfig.createExtensionWithAgent(context)">
+                <x-icon name="add_circle"></x-icon><span>Create New Extension with A0</span>
+              </button>
+            </div>
+          </div>
           <div class="browser-config-warning">
             <x-icon name="warning"></x-icon>
             <span>
@@ -408,6 +510,7 @@
                     <input
                       type="checkbox"
                       :checked="$store.browserConfig.extensionEnabled(extension)"
+                      :aria-label="'Enable ' + (extension.name || 'extension')"
                       :disabled="$store.browserConfig.extensionDeleteLoadingPath === extension.path"
                       @change="$store.browserConfig.setExtensionEnabled(extension, $event.target.checked)"
                     />
@@ -429,14 +532,6 @@
                 </span>
               </div>
             </template>
-            <div class="browser-config-note browser-config-success" x-show="$store.browserConfig.extensionsMessage">
-              <x-icon name="check_circle"></x-icon>
-              <span x-text="$store.browserConfig.extensionsMessage"></span>
-            </div>
-            <div class="browser-config-note" x-show="$store.browserConfig.extensionsError">
-              <x-icon name="error"></x-icon>
-              <span x-text="$store.browserConfig.extensionsError"></span>
-            </div>
           </div>
 
           <div class="browser-config-pill-row">
@@ -464,6 +559,44 @@
       padding: 16px;
       border: 1px solid var(--color-border);
       border-radius: 8px;
+    }
+
+    .browser-config-management { gap: 0; }
+    .browser-config-management > .section-title { margin-bottom: 8px; }
+    .browser-config-management > .section-description { margin-bottom: 6px; }
+    .browser-config-management-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 0;
+    }
+    .browser-config-management-row + .browser-config-management-row {
+      border-top: 1px solid var(--color-border);
+    }
+    .browser-config-management-row:last-child { padding-bottom: 0; }
+    .browser-config-management-row > .button { flex-shrink: 0; }
+    .browser-config-management-row > .browser-config-switch-copy { flex: 1; min-width: 0; }
+    .browser-config-choice {
+      flex-shrink: 0;
+      width: 190px;
+      max-width: 100%;
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.84rem;
+    }
+    .browser-config-install-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .browser-config-install-actions .button { display: inline-flex; align-items: center; gap: 6px; }
+    .browser-config-management-row button:focus-visible,
+    .browser-config-choice:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+    @media (max-width: 540px) {
+      .browser-config-management-row { flex-wrap: wrap; gap: 10px; }
+      .browser-config-management-row > .browser-config-switch-copy { flex-basis: 100%; }
     }
 
     .browser-config-field {

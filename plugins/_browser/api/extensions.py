@@ -1,13 +1,16 @@
 import asyncio
 from types import SimpleNamespace
 
-from helpers import plugins
+from helpers import plugins, projects
 from helpers.api import ApiHandler, Request
 from plugins._browser.helpers.config import (
     AUTOFOCUS_ACTIVE_PAGE_KEY,
+    ANNOTATION_SCREENSHOTS_KEY,
     DEFAULT_HOMEPAGE_KEY,
     MODEL_PRESET_KEY,
     PLUGIN_NAME,
+    RUNTIME_BACKEND_KEY,
+    RUNTIME_BACKENDS,
     get_browser_config,
     get_browser_main_model_summary,
     get_browser_model_preset_options,
@@ -27,6 +30,18 @@ class Extensions(ApiHandler):
         agent = self._agent_from_input(input)
 
         if action == "list":
+            return self._browser_extension_payload(agent=agent)
+
+        if action == "set_runtime_backend":
+            backend = input.get(RUNTIME_BACKEND_KEY)
+            if not isinstance(backend, str) or backend not in RUNTIME_BACKENDS:
+                return {"ok": False, "error": "Choose Host or Container browser."}
+            if input.get("context_id") and agent is None:
+                return {"ok": False, "error": "The selected chat is no longer available."}
+            config = get_browser_config(agent=agent)
+            config[RUNTIME_BACKEND_KEY] = backend
+            project_name = projects.get_context_project_name(agent.context) if agent else ""
+            plugins.save_plugin_config(PLUGIN_NAME, project_name or "", "", config)
             return self._browser_extension_payload(agent=agent)
 
         if action == "install_web_store":
@@ -94,6 +109,7 @@ class Extensions(ApiHandler):
 
     def _browser_extension_payload(self, agent=None) -> dict:
         config = get_browser_config()
+        scoped_config = get_browser_config(agent=agent)
         return {
             "ok": True,
             "root": str(get_extensions_root()),
@@ -101,6 +117,9 @@ class Extensions(ApiHandler):
             "extension_paths": config["extension_paths"],
             DEFAULT_HOMEPAGE_KEY: config[DEFAULT_HOMEPAGE_KEY],
             AUTOFOCUS_ACTIVE_PAGE_KEY: config[AUTOFOCUS_ACTIVE_PAGE_KEY],
+            ANNOTATION_SCREENSHOTS_KEY: scoped_config[ANNOTATION_SCREENSHOTS_KEY],
+            RUNTIME_BACKEND_KEY: scoped_config[RUNTIME_BACKEND_KEY],
+            "settings_project_name": projects.get_context_project_name(agent.context) if agent else "",
             MODEL_PRESET_KEY: config[MODEL_PRESET_KEY],
             "main_model_summary": get_browser_main_model_summary(agent=agent),
             "model_preset_options": get_browser_model_preset_options(agent=agent, settings=config),

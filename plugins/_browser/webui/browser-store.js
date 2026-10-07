@@ -1,3 +1,5 @@
+import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
@@ -16,7 +18,6 @@ import {
 const websocket = getNamespacedClient("/ws");
 websocket.addHandlers(["ws_webui"]);
 
-const EXTENSIONS_ROOT = "/a0/usr/_browser/extensions";
 const BROWSER_SUBSCRIBE_TIMEOUT_MS = 60000;
 const BROWSER_FIRST_INSTALL_TIMEOUT_MS = 300000;
 const BROWSER_COMMAND_TIMEOUT_MS = 45000;
@@ -245,11 +246,6 @@ const model = {
   _sessionRefreshPromise: null,
   _sessionRefreshContextId: "",
   extensionMenuOpen: false,
-  extensionInstallUrl: "",
-  extensionActionLoading: false,
-  extensionActionMessage: "",
-  extensionActionError: "",
-  extensionsRoot: "",
   extensionsList: [],
   extensionsListLoading: false,
   extensionToggleLoadingPath: "",
@@ -257,6 +253,10 @@ const model = {
   modelPresetOptions: [],
   mainModelSummary: "",
   modelPresetSaving: false,
+  runtimeBackend: "container",
+  runtimeBackendSaving: false,
+  settingsProjectName: "",
+  annotationScreenshots: false,
   browserInstallExpected: false,
   defaultHomepage: "about:blank",
   autofocusActivePage: true,
@@ -283,17 +283,19 @@ const model = {
       }
       this.applyExtensionPayload(response);
     } catch (error) {
-      this.extensionActionError = error instanceof Error ? error.message : String(error);
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
     } finally {
       this.extensionsListLoading = false;
     }
   },
 
   applyExtensionPayload(response = {}) {
-    this.extensionsRoot = response.root || EXTENSIONS_ROOT;
     this.extensionsList = Array.isArray(response.extensions) ? response.extensions : [];
     this.defaultHomepage = String(response.default_homepage || "about:blank").trim() || "about:blank";
     this.autofocusActivePage = normalizeBool(response.autofocus_active_page, true);
+    this.runtimeBackend = response.runtime_backend || "container";
+    this.settingsProjectName = response.settings_project_name || "";
+    this.annotationScreenshots = normalizeBool(response.annotation_screenshots, false);
     this.modelPreset = String(response.model_preset || "");
     this.mainModelSummary = String(response.main_model_summary || "");
     this.modelPresetOptions = Array.isArray(response.model_preset_options)
@@ -428,8 +430,6 @@ const model = {
   toggleExtensionsMenu() {
     this.extensionMenuOpen = !this.extensionMenuOpen;
     if (this.extensionMenuOpen) {
-      this.extensionActionMessage = "";
-      this.extensionActionError = "";
       void this.refreshExtensionsList();
     }
   },
@@ -508,7 +508,7 @@ const model = {
     }
     try {
       this.closeExtensionsMenu();
-      await pluginSettingsStore.openConfig("_browser");
+      await pluginSettingsStore.openConfig("_browser", this.settingsProjectName);
       await this.refreshAfterSettingsClose();
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
@@ -536,70 +536,10 @@ const model = {
     }
   },
 
-  createExtensionWithAgent() {
-    this._prefillAgentPrompt(
-      [
-        "Use the browser-extension-control skill to create a new Chrome extension for Agent Zero's Browser.",
-        "Start by asking me for the extension name, purpose, target websites, and required permissions.",
-        `Create it under ${this.extensionsRoot || EXTENSIONS_ROOT}/<extension-slug> and keep permissions minimal.`,
-      ].join("\n")
-    );
-  },
-
-  askAgentInstallExtension() {
-    const url = String(this.extensionInstallUrl || "").trim();
-    const prompt = url
-      ? [
-          "Use the browser-extension-control skill to review and optionally install this Chrome Web Store extension for Agent Zero's Browser.",
-          `Chrome Web Store URL or id: ${url}`,
-          "Explain the permissions and any sandbox risk before enabling it.",
-        ].join("\n")
-      : [
-          "Use the browser-extension-control skill to help me install and review a Chrome Web Store extension for Agent Zero's Browser.",
-          "Ask me for the Chrome Web Store URL or extension id first.",
-          "Explain the permissions and any sandbox risk before enabling it.",
-        ].join("\n");
-    this._prefillAgentPrompt(prompt);
-  },
-
-  async installExtensionFromUrl() {
-    const url = String(this.extensionInstallUrl || "").trim();
-    this.extensionActionMessage = "";
-    this.extensionActionError = "";
-    if (!url) {
-      this.extensionActionError = "Paste a Chrome Web Store URL or extension id first.";
-      return;
-    }
-
-    this.extensionActionLoading = true;
-    this.extensionActionMessage = "Installing extension… Large packages may take a few minutes.";
-    try {
-      const response = await callJsonApi("/plugins/_browser/extensions", {
-        action: "install_web_store",
-        context_id: this.resolveContextId() || this.contextId,
-        url,
-      });
-      if (!response?.ok) {
-        throw new Error(response?.error || "Install failed.");
-      }
-      this.applyExtensionPayload(response);
-      this.extensionInstallUrl = "";
-      this.extensionActionMessage = `Installed ${response.name || response.id}.`;
-      await this.refreshAfterSettingsClose();
-    } catch (error) {
-      this.extensionActionMessage = "";
-      this.extensionActionError = error instanceof Error ? error.message : String(error);
-    } finally {
-      this.extensionActionLoading = false;
-    }
-  },
-
   async setExtensionEnabled(extension, enabled, input = null) {
     const path = String(extension?.path || "");
     if (!path) return;
     const previous = Boolean(extension?.enabled);
-    this.extensionActionMessage = "";
-    this.extensionActionError = "";
     this.extensionToggleLoadingPath = path;
     try {
       const response = await callJsonApi("/plugins/_browser/extensions", {
@@ -612,11 +552,11 @@ const model = {
         throw new Error(response?.error || "Could not update extension.");
       }
       this.applyExtensionPayload(response);
-      this.extensionActionMessage = `${enabled ? "Enabled" : "Disabled"} ${extension.name || "extension"}.`;
+      notificationStore.addFrontendToastOnly("success", `${enabled ? "Enabled" : "Disabled"} ${extension.name || "extension"}.`);
       await this.refreshAfterSettingsClose();
     } catch (error) {
       if (input) input.checked = previous;
-      this.extensionActionError = error instanceof Error ? error.message : String(error);
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
     } finally {
       this.extensionToggleLoadingPath = "";
     }
@@ -625,8 +565,6 @@ const model = {
   async setBrowserModelPreset(value) {
     const presetName = String(value || "");
     this.modelPreset = presetName;
-    this.extensionActionMessage = "";
-    this.extensionActionError = "";
     this.modelPresetSaving = true;
     try {
       const response = await callJsonApi("/plugins/_browser/extensions", {
@@ -638,13 +576,44 @@ const model = {
         throw new Error(response?.error || "Could not update browser model preset.");
       }
       this.applyExtensionPayload(response);
-      this.extensionActionMessage = "Browser model preset updated.";
+      notificationStore.addFrontendToastOnly("success", "Browser model preset updated.");
     } catch (error) {
-      this.extensionActionError = error instanceof Error ? error.message : String(error);
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
       await this.refreshExtensionsList();
     } finally {
       this.modelPresetSaving = false;
     }
+  },
+
+  async setRuntimeBackend(backend) {
+    if (this.runtimeBackendSaving || backend === this.runtimeBackend) return;
+    this.runtimeBackendSaving = true;
+    const contextId = this.resolveContextId() || this.contextId;
+    try {
+      const response = await callJsonApi("/plugins/_browser/extensions", {
+        action: "set_runtime_backend",
+        context_id: contextId,
+        runtime_backend: backend,
+      });
+      if (!response?.ok) throw new Error(response?.error || "Could not change Browser location.");
+      if (contextId !== (this.resolveContextId() || this.contextId)) return;
+      this.applyExtensionPayload(response);
+      if (backend === "host_required") {
+        notificationStore.addFrontendToastOnly("info", "The agent will use the host browser. This panel displays the container browser.");
+      }
+    } catch (error) {
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      this.runtimeBackendSaving = false;
+    }
+  },
+
+  zoomPercent() {
+    return Number(this.frameState?.zoom) || 100;
+  },
+
+  canZoom() {
+    return Boolean(this.activeBrowserId && this.frameState?.zoom_available && !this.isBusy());
   },
 
   modelPresetSummary() {
@@ -653,14 +622,6 @@ const model = {
     }
     const option = this.modelPresetOptions.find((preset) => preset?.name === this.modelPreset);
     return option?.summary || option?.label || this.modelPreset;
-  },
-
-  hasExtensionInstallUrl() {
-    return Boolean(String(this.extensionInstallUrl || "").trim());
-  },
-
-  extensionAssistantActionLabel() {
-    return "Scan with A0";
   },
 
   extensionVersionLabel(extension) {
@@ -688,21 +649,12 @@ const model = {
   async openExtensionUi(extension) {
     const url = this.extensionOpenUrl(extension);
     if (!url) return;
-    this.extensionActionMessage = "";
-    this.extensionActionError = "";
     if (!extension?.enabled) {
-      this.extensionActionError = `Enable ${extension?.name || "this extension"} before opening it.`;
+      notificationStore.addFrontendToastOnly("info", `Enable ${extension?.name || "this extension"} before opening it.`);
       return;
     }
     this.closeExtensionsMenu();
     await this.command("open", { url });
-  },
-
-  _prefillAgentPrompt(prompt) {
-    chatInputStore.message = prompt;
-    chatInputStore.adjustTextareaHeight?.();
-    chatInputStore.focus?.();
-    this.closeExtensionsMenu();
   },
 
   async onOpen(element = null, options = {}) {
@@ -2584,11 +2536,13 @@ const model = {
           browser_id: browserId,
           viewer_id: this._viewerToken,
           payload,
+          capture_screenshot: true,
         },
         { timeoutMs: 10000 },
       );
       if (sequence !== this._annotationSequence) return;
       const data = firstOk(response);
+      this.annotationScreenshots = normalizeBool(data.annotation_screenshots, false);
       const metadata = data.annotation || {};
       this.annotationDraft = {
         id: makeViewerToken(),
@@ -2599,6 +2553,7 @@ const model = {
         kind: metadata.kind || payload.kind,
         rect: this.annotationRectFromMetadata(metadata, fallbackRect),
         metadata,
+        screenshot: data.screenshot || null,
         createdAt: Date.now(),
       };
       this.annotationDraftText = "";
@@ -2741,9 +2696,26 @@ const model = {
     return lines.join("\n").trim();
   },
 
+  attachAnnotationScreenshots() {
+    if (!this.annotationScreenshots) return;
+    this.pendingAnnotations().forEach((annotation, index) => {
+      const image = annotation.screenshot?.image;
+      if (!image) return;
+      const name = `annotation-${index + 1}-${annotation.id}.jpg`;
+      const bytes = Uint8Array.from(atob(image), (character) => character.charCodeAt(0));
+      const file = new File([bytes], name, { type: "image/jpeg" });
+      attachmentsStore.addAttachment({
+        file, name, type: "image", extension: "jpg",
+        url: `data:image/jpeg;base64,${image}`,
+        displayInfo: attachmentsStore.getAttachmentDisplayInfo(file),
+      });
+    });
+  },
+
   draftAnnotationsToChat(instruction = "") {
     const prompt = this.buildAnnotationsPrompt(instruction);
     if (!prompt) return;
+    this.attachAnnotationScreenshots();
     const existingMessage = String(chatInputStore.message || "").trim();
     chatInputStore.message = existingMessage ? `${existingMessage}\n\n${prompt}` : prompt;
     chatInputStore.adjustTextareaHeight?.();
@@ -2755,6 +2727,7 @@ const model = {
   async sendAnnotationsToChat(instruction = "") {
     const prompt = this.buildAnnotationsPrompt(instruction);
     if (!prompt) return;
+    this.attachAnnotationScreenshots();
     chatInputStore.message = prompt;
     chatInputStore.adjustTextareaHeight?.();
     try {
@@ -3101,7 +3074,6 @@ const model = {
     }
     this.resetViewportTracking();
     this.extensionMenuOpen = false;
-    this.extensionActionLoading = false;
     this.extensionsListLoading = false;
     this.extensionToggleLoadingPath = "";
     this.modelPresetSaving = false;

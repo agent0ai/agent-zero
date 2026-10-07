@@ -13,6 +13,7 @@ MODEL_PRESET_KEY = "model_preset"
 BROWSER_MODEL_ACTIVE_KEY = "_browser_model_active"
 DEFAULT_HOMEPAGE_KEY = "default_homepage"
 AUTOFOCUS_ACTIVE_PAGE_KEY = "autofocus_active_page"
+ANNOTATION_SCREENSHOTS_KEY = "annotation_screenshots"
 TAB_SCOPE_KEY = "browser_tab_scope"
 MAX_OPEN_TABS_KEY = "max_open_tabs"
 EVALUATE_TIMEOUT_KEY = "evaluate_timeout_seconds"
@@ -165,6 +166,9 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         AUTOFOCUS_ACTIVE_PAGE_KEY: _normalize_bool(
             raw.get(AUTOFOCUS_ACTIVE_PAGE_KEY, True),
             default=True,
+        ),
+        ANNOTATION_SCREENSHOTS_KEY: _normalize_bool(
+            raw.get(ANNOTATION_SCREENSHOTS_KEY), default=False,
         ),
         TAB_SCOPE_KEY: _normalize_choice(
             raw.get(TAB_SCOPE_KEY, DEFAULT_BROWSER_TAB_SCOPE),

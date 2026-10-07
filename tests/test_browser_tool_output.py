@@ -59,13 +59,14 @@ async def test_navigation_uses_requested_readiness_without_extra_settling(monkey
 async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch):
     core = _BrowserRuntimeCore("state-test")
     page = SimpleNamespace(url="https://example.com", evaluate=AsyncMock(return_value={
-        "title": "Example", "canGoBack": True, "loading": True,
+        "title": "Example", "canGoBack": True, "loading": True, "zoom": 125,
     }))
     core.pages[1] = BrowserPage(1, page, "state-test")
     state = await core._state(1)
     assert state == {
         "id": 1, "context_id": "state-test", "currentUrl": page.url,
         "title": "Example", "canGoBack": True, "canGoForward": False, "loading": True,
+        "zoom": 125, "zoom_available": False,
     }
     assert page.evaluate.await_count == 1
     page.evaluate.side_effect = RuntimeError("Execution context destroyed during navigation")

@@ -5,10 +5,12 @@ import asyncio
 import base64
 import contextlib
 import contextvars
+import json
 import os
 import re
 import shutil
 import signal
+import subprocess
 import threading
 import time
 import uuid
@@ -1146,6 +1148,7 @@ class _BrowserRuntimeCore:
         self._adopt_legacy_profile(self.current_context_id)
         self.profile_dir.mkdir(parents=True, exist_ok=True)
         self.downloads_dir.mkdir(parents=True, exist_ok=True)
+        self._prepare_download_preferences()
         self._release_orphaned_profile_singleton()
         browser_config = get_browser_config()
         launch_config = build_browser_launch_config(browser_config)
@@ -1203,6 +1206,13 @@ class _BrowserRuntimeCore:
         self.context.on("page", self._on_new_page_sync)
 
         existing_pages = list(self.context.pages)
+        if existing_pages:
+            session = await self.context.new_cdp_session(existing_pages[0])
+            try:
+                # Honor the folder and save-dialog preference from Chromium's settings.
+                await session.send("Browser.setDownloadBehavior", {"behavior": "default"})
+            finally:
+                await session.detach()
         if self._restore_state_exists:
             for page in existing_pages:
                 if self._bootstrap_page is None:
@@ -1225,6 +1235,18 @@ class _BrowserRuntimeCore:
                     pass
                 continue
             await self._register_page(page)
+
+    def _prepare_download_preferences(self) -> None:
+        path = self.profile_dir / "Default" / "Preferences"
+        preferences = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        downloads = preferences.setdefault("download", {})
+        if downloads.get("default_directory"):
+            return
+        downloads["default_directory"] = str(self.downloads_dir)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".a0.tmp")
+        temporary.write_text(json.dumps(preferences), encoding="utf-8")
+        temporary.replace(path)
 
     def _adopt_legacy_profile(self, context_id: str) -> None:
         if self.safe_context_id != SHARED_RUNTIME_ID or self.profile_dir.exists():
@@ -1620,6 +1642,26 @@ class _BrowserRuntimeCore:
     async def state(self, browser_id: int | str | None = None) -> dict[str, Any]:
         await self.ensure_started()
         return await self._state(self._resolve_browser_id(browser_id))
+
+    async def zoom(self, browser_id: int | str | None, direction: str) -> dict[str, Any]:
+        shortcuts = {"in": "ctrl+plus", "out": "ctrl+minus", "reset": "ctrl+0"}
+        if direction not in shortcuts:
+            raise ValueError("Zoom direction must be in, out, or reset.")
+        await self.ensure_started()
+        resolved_id = self._resolve_browser_id(browser_id)
+        display = self.interactive_view.display_name
+        xdotool = shutil.which("xdotool")
+        if not display or not xdotool:
+            raise RuntimeError("Page zoom requires the interactive container browser.")
+        await self._page(resolved_id).bring_to_front()
+        await asyncio.to_thread(
+            subprocess.run,
+            [xdotool, "key", "--clearmodifiers", shortcuts[direction]],
+            env={**os.environ, "DISPLAY": display},
+            check=True, timeout=3, capture_output=True,
+        )
+        self._maybe_promote(resolved_id)
+        return await self._state(resolved_id)
 
     async def navigate(
         self,
@@ -2842,7 +2884,7 @@ class _BrowserRuntimeCore:
         try:
             state = await page.evaluate(
                 "() => ({title: document.title, canGoBack: history.length > 1, "
-                "loading: document.readyState !== 'complete'})",
+                "loading: document.readyState !== 'complete', zoom: Math.round(devicePixelRatio * 100)})",
                 isolated_context=False,
             )
         except Exception:
@@ -2855,6 +2897,8 @@ class _BrowserRuntimeCore:
             "canGoBack": bool(state.get("canGoBack")),
             "canGoForward": False,
             "loading": bool(state.get("loading")),
+            "zoom": state.get("zoom", 100),
+            "zoom_available": bool(self.interactive_view.display_name and shutil.which("xdotool")),
         }
 
     def _register_page_locked(

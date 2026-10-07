@@ -10,6 +10,7 @@ from agent import AgentContext
 from helpers.ws import WsHandler
 from helpers.ws_manager import WsResult
 from plugins._browser.helpers.config import (
+    ANNOTATION_SCREENSHOTS_KEY,
     DEFAULT_BROWSER_TAB_SCOPE,
     TAB_SCOPE_KEY,
     get_browser_config,
@@ -278,6 +279,8 @@ class WsBrowser(WsHandler):
                 result = await runtime.call("forward", browser_id, wait_until="commit")
             elif command == "reload":
                 result = await runtime.call("reload", browser_id, wait_until="commit")
+            elif command == "zoom":
+                result = await runtime.call("zoom", browser_id, str(data.get("direction") or ""))
             elif command == "close":
                 result = await runtime.call("close_browser", browser_id)
             elif command == "list":
@@ -428,13 +431,24 @@ class WsBrowser(WsHandler):
         browser_id = data.get("browser_id")
         viewer_id = str(data.get("viewer_id") or "")
         payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
+        capture_requested = self._bool(data.get("capture_screenshot"))
+        include_screenshot = False
         try:
             annotation = await runtime.call("annotation_target", browser_id, payload)
+            screenshot = None
+            if capture_requested:
+                context = AgentContext.get(context_id)
+                config = get_browser_config(agent=context.agent0 if context else None)
+                include_screenshot = config[ANNOTATION_SCREENSHOTS_KEY]
+                if include_screenshot:
+                    screenshot = await runtime.call("screenshot", browser_id, quality=SCREENSHOT_QUALITY)
         except Exception as exc:
             return self._error("ANNOTATION_FAILED", str(exc), data)
 
         return {
             "annotation": annotation,
+            **({ANNOTATION_SCREENSHOTS_KEY: include_screenshot} if capture_requested else {}),
+            **({"screenshot": screenshot} if screenshot else {}),
             "context_id": context_id,
             "browser_id": browser_id,
             "viewer_id": viewer_id,

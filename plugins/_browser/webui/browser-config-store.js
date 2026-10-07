@@ -3,6 +3,16 @@ import { callJsonApi } from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 
+const BROWSER_PAGES = {
+  history: "chrome://history/",
+  clearData: "chrome://settings/clearBrowserData",
+  passwords: "chrome://password-manager/passwords",
+  addresses: "chrome://settings/addresses",
+  extensions: "chrome://extensions/",
+  downloadSettings: "chrome://settings/downloads",
+  downloads: "chrome://downloads/",
+};
+const EXTENSIONS_ROOT = "/a0/usr/_browser/extensions";
 const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
 const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup";
 const BROWSER_STATUS_API = "/plugins/_browser/status";
@@ -36,6 +46,7 @@ function ensureConfig(config) {
   config.extension_paths = normalizePathList(config.extension_paths);
   config.default_homepage = String(config.default_homepage || "about:blank").trim() || "about:blank";
   config.autofocus_active_page = normalizeBoolean(config.autofocus_active_page, true);
+  config.annotation_screenshots = normalizeBoolean(config.annotation_screenshots, false);
   config.browser_tab_scope = normalizeChoice(config.browser_tab_scope, BROWSER_TAB_SCOPES, "per_context");
   config.max_open_tabs = normalizeInt(config.max_open_tabs, DEFAULT_MAX_OPEN_TABS, MIN_MAX_OPEN_TABS, HARD_MAX_OPEN_TABS);
   config.evaluate_timeout_seconds ??= 30;
@@ -180,8 +191,10 @@ export const store = createStore("browserConfig", {
   config: null,
   extensionsList: [],
   extensionsLoading: false,
-  extensionsError: "",
-  extensionsMessage: "",
+  extensionInstallUrl: "",
+  extensionActionLoading: false,
+  extensionsRoot: "",
+  openingBrowserPage: "",
   extensionDeleteLoadingPath: "",
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
@@ -200,8 +213,8 @@ export const store = createStore("browserConfig", {
     this.stopHostBrowserStatusRefresh();
     this.config = null;
     this.extensionsList = [];
-    this.extensionsError = "";
-    this.extensionsMessage = "";
+    this.extensionInstallUrl = "";
+    this.openingBrowserPage = "";
     this.extensionDeleteLoadingPath = "";
     this.hostBrowserStatus = null;
     this.hostBrowserStatusLoading = false;
@@ -231,6 +244,23 @@ export const store = createStore("browserConfig", {
     this.config = safeConfig;
     if (isCustomHostBrowserEndpoint(safeConfig.host_browser_selection)) {
       this.hostBrowserCustomEndpoint = safeConfig.host_browser_selection;
+    }
+  },
+
+  async openBrowserPage(section) {
+    const url = BROWSER_PAGES[section];
+    if (!url || this.openingBrowserPage) return;
+    this.openingBrowserPage = section;
+    try {
+      const { store: browser } = await import("/plugins/_browser/webui/browser-store.js");
+      const { store: canvas } = await import("/components/canvas/right-canvas-store.js");
+      await browser.command("open", { url });
+      if (browser.error) throw new Error(browser.error);
+      await canvas.openModalSurface("browser");
+    } catch (error) {
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      this.openingBrowserPage = "";
     }
   },
 
@@ -495,7 +525,6 @@ export const store = createStore("browserConfig", {
   async loadExtensionsList() {
     if (this.extensionsLoading) return;
     this.extensionsLoading = true;
-    this.extensionsError = "";
     try {
       const response = await callJsonApi(BROWSER_EXTENSIONS_API, { action: "list" });
       if (!response?.ok) {
@@ -504,17 +533,15 @@ export const store = createStore("browserConfig", {
       this.applyExtensionPayload(response);
     } catch (error) {
       this.extensionsList = [];
-      this.extensionsError = error instanceof Error ? error.message : String(error);
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
     } finally {
       this.extensionsLoading = false;
     }
   },
 
   applyExtensionPayload(response = {}) {
+    this.extensionsRoot = response.root || EXTENSIONS_ROOT;
     this.extensionsList = Array.isArray(response.extensions) ? response.extensions : [];
-    if (Array.isArray(response.extension_paths) && this.config) {
-      this.config.extension_paths = normalizePathList(response.extension_paths);
-    }
   },
 
   extensionEnabled(extension) {
@@ -537,6 +564,70 @@ export const store = createStore("browserConfig", {
     safeConfig.extension_paths = paths;
   },
 
+  createExtensionWithAgent(context) {
+    this.prefillExtensionPrompt(context,
+      [
+        "Use the browser-extension-control skill to create a new Chrome extension for Agent Zero's Browser.",
+        "Start by asking me for the extension name, purpose, target websites, and required permissions.",
+        `Create it under ${this.extensionsRoot || EXTENSIONS_ROOT}/<extension-slug> and keep permissions minimal.`,
+      ].join("\n")
+    );
+  },
+
+  askAgentInstallExtension(context) {
+    const url = String(this.extensionInstallUrl || "").trim();
+    const prompt = url
+      ? [
+          "Use the browser-extension-control skill to review and optionally install this Chrome Web Store extension for Agent Zero's Browser.",
+          `Chrome Web Store URL or id: ${url}`,
+          "Explain the permissions and any sandbox risk before enabling it.",
+        ].join("\n")
+      : [
+          "Use the browser-extension-control skill to help me install and review a Chrome Web Store extension for Agent Zero's Browser.",
+          "Ask me for the Chrome Web Store URL or extension id first.",
+          "Explain the permissions and any sandbox risk before enabling it.",
+        ].join("\n");
+    this.prefillExtensionPrompt(context, prompt);
+  },
+
+  async installExtensionFromUrl() {
+    if (this.extensionActionLoading) return;
+    const url = String(this.extensionInstallUrl || "").trim();
+    if (!url) {
+      notificationStore.addFrontendToastOnly("info", "Paste a Chrome Web Store URL or extension id first.");
+      return;
+    }
+
+    this.extensionActionLoading = true;
+    notificationStore.addFrontendToastOnly("info", "Installing extension… Large packages may take a few minutes.");
+    try {
+      const response = await callJsonApi("/plugins/_browser/extensions", {
+        action: "install_web_store",
+        url,
+      });
+      if (!response?.ok) {
+        throw new Error(response?.error || "Install failed.");
+      }
+      this.applyExtensionPayload(response);
+      this.setExtensionEnabled(response.path, true);
+      this.extensionInstallUrl = "";
+      notificationStore.addFrontendToastOnly("success", `Installed ${response.name || response.id}.`);
+    } catch (error) {
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      this.extensionActionLoading = false;
+    }
+  },
+
+  async prefillExtensionPrompt(context, prompt) {
+    if (context?.confirmDiscardUnsavedChanges && !context.confirmDiscardUnsavedChanges()) return;
+    const { store: chat } = await import("/components/chat/input/input-store.js");
+    await globalThis.closeModal?.();
+    chat.message = prompt;
+    chat.adjustTextareaHeight?.();
+    chat.focus?.();
+  },
+
   extensionCanDelete(extension) {
     return Boolean(extension?.can_delete);
   },
@@ -550,10 +641,8 @@ export const store = createStore("browserConfig", {
   async deleteExtension(extension) {
     const path = String(extension?.path || "").trim();
     if (!path) return;
-    this.extensionsError = "";
-    this.extensionsMessage = "";
     if (!this.extensionCanDelete(extension)) {
-      this.extensionsError = "Only Browser-managed extensions can be deleted.";
+      notificationStore.addFrontendToastOnly("error", "Only Browser-managed extensions can be deleted.");
       return;
     }
     const name = String(extension?.name || "this extension").trim();
@@ -576,9 +665,10 @@ export const store = createStore("browserConfig", {
         throw new Error(response?.error || "Could not delete extension.");
       }
       this.applyExtensionPayload(response);
-      this.extensionsMessage = `Deleted ${response.name || name}.`;
+      this.setExtensionEnabled(path, false);
+      notificationStore.addFrontendToastOnly("success", `Deleted ${response.name || name}.`);
     } catch (error) {
-      this.extensionsError = error instanceof Error ? error.message : String(error);
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
     } finally {
       this.extensionDeleteLoadingPath = "";
     }
