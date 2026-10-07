@@ -22,7 +22,7 @@
 ## Local Contracts
 
 - Core model code such as `models.py` must stay provider-agnostic. Do not add Codex, GitHub Copilot, Gemini, xAI, or other OAuth provider knowledge outside plugin-owned config or plugin hooks.
-- Ship the tested Codex client version in `default_config.yaml` for upstream version headers and catalog discovery without an installed CLI. Existing saved plugin settings take precedence; this default does not migrate blank or explicit overrides. A blank override probes `codex --version` and omits the version if no CLI is available; it does not discover new releases.
+- Keep the Codex client version explicitly pinned in `default_config.yaml` and update the pin with each adopted version (currently `0.160.1`) for upstream version headers and catalog discovery without an installed CLI. Existing saved plugin settings take precedence; this default does not migrate blank or explicit overrides. A blank override probes `codex --version` and omits the version if no CLI is available; it does not discover new releases.
 - Add OAuth model providers in `_oauth/conf/model_providers.yaml`, not `_model_config/provider_metadata.yaml`.
 - Provider cards and model slot actions must be driven by backend provider status. Do not reintroduce hardcoded frontend provider lists or fallback provider catalogs.
 - OAuth account surfaces in settings, discovery, and onboarding must use the provider registry/status summary rather than Codex-only frontend state.
