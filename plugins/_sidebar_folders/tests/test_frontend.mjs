@@ -10,8 +10,10 @@ const contexts = [
 ];
 const pins = { chat: new Set(), task: new Set(), project: new Set() };
 const apiCalls = [];
+const sidebarSource = await readFile(new URL("../../../webui/components/sidebar/sidebar-store.js", import.meta.url), "utf8");
+const sidebarModel = new Function(sidebarSource.slice(sidebarSource.indexOf("const model ="), sidebarSource.indexOf("export const store")) + "\nreturn model;")();
 globalThis.__foldersTest = {
-  sidebar: { rowMenuOpenId: "", rowMenuClose() { this.rowMenuOpenId = ""; } },
+  sidebar: sidebarModel,
   chats: { contexts, displayName: (row) => row.name || row.id },
   tasks: { tasks: [{ id: "task", project: { name: "alpha" } }] },
   projects: { projectList: [{ name: "alpha", title: "Alpha" }, { name: "beta", title: "Beta" }] },
@@ -487,4 +489,34 @@ projectResponse[0].title = "Renamed";
 await projectStore.loadProjectsList();
 assert.notEqual(projectStore.projectList, unchangedProjects);
 assert.equal(projectStore.projectList[0].title, "Renamed", "project edits remain visible after refresh");
+
+const refresh = store.refresh;
+store.refresh = async () => {};
+localStorage.getItem = () => null;
+globalThis.window = { addEventListener() {} };
+await store.init();
+assert.equal(sidebar.hasListView("chat"), false, "another plugin importing the folders store cannot hide the core chats list");
+assert.equal(sidebar.hasListView("task"), false, "another plugin importing the folders store cannot hide the core tasks list");
+const roots = contexts.filter((row) => !row.parent_context_id);
+store.config.project_filter = "missing-project";
+for (const kind of ["chat", "task"]) {
+  const rows = kind === "chat" ? roots : tasks.tasks;
+  sidebar.registerRowListExtension(kind, "other-plugin", { sort: (items) => [...items].reverse() });
+  const fallback = sidebar.sortRows(kind, rows);
+  store.mountList(kind);
+  assert.equal(sidebar.hasListView(kind), true, "a mounted folders component owns its list view");
+  assert.deepEqual(sidebar.sortRows(kind, rows), [], "mounted folder filters still apply");
+  store.unmountList(kind);
+  assert.equal(sidebar.hasListView(kind), false, "unmounting folders restores the core list");
+  assert.deepEqual(sidebar.sortRows(kind, rows), fallback, "unmounting removes folder filters while retaining other plugins' sorting");
+  store.mountList(kind);
+  assert.equal(sidebar.hasListView(kind), true, "remounting restores the saved folder view");
+  assert.equal(store.config.project_filter, "missing-project", "unmounting preserves saved preferences");
+  store.unmountList(kind);
+  sidebar.unregisterRowListExtension(kind, "other-plugin");
+  const extension = await readFile(new URL(`../extensions/webui/sidebar-${kind === "chat" ? "chats" : "tasks"}-list-view/folders.html`, import.meta.url), "utf8");
+  assert.ok(extension.includes(`x-create="$store.sidebarFolders.mountList('${kind}')"`));
+  assert.ok(extension.includes(`x-destroy="$store.sidebarFolders.unmountList('${kind}')"`));
+}
+store.refresh = refresh;
 console.log("Folder view grouping, sorting, pins, movement, selection, drop, menu-scope, and preference checks passed.");

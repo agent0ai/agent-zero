@@ -38,14 +38,19 @@ export const store = createStore("sidebarFolders", {
     } catch (error) {
       console.error("Could not restore sidebar folders", error);
     }
-    for (const kind of ["chat", "task"]) {
-      sidebar.registerRowListExtension(kind, PLUGIN, {
-        hasView: () => this.config.folder_view,
-        sort: (rows) => this.sortRows(kind, rows),
-      });
-    }
     window.addEventListener("focus", () => this.refresh());
     await this.refresh();
+  },
+
+  mountList(kind) {
+    sidebar.registerRowListExtension(kind, PLUGIN, {
+      hasView: () => this.config.folder_view,
+      sort: (rows) => this.sortRows(kind, rows),
+    });
+  },
+
+  unmountList(kind) {
+    sidebar.unregisterRowListExtension(kind, PLUGIN);
   },
 
   async refresh() {

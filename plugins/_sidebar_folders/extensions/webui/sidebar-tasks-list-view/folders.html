@@ -1,7 +1,8 @@
 <html>
 <head><script type="module" src="/plugins/_sidebar_folders/webui/sidebar-folders-store.js"></script></head>
 <body>
-  <div x-data="{ kind: 'task' }" class="sidebar-folder-host">
+  <div x-data="{ kind: 'task' }" class="sidebar-folder-host"
+    x-create="$store.sidebarFolders.mountList('task')" x-destroy="$store.sidebarFolders.unmountList('task')">
     <x-component path="/plugins/_sidebar_folders/webui/folder-list.html"></x-component>
   </div>
 </body>

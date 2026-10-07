@@ -32,6 +32,7 @@
 - Cancelling the Load Chat file chooser resolves without calling `chat_load` or showing a success/error notification.
 - `sidebar-row-actions-menu` owns plugin-contributed row-menu actions; list-order plugins register stable sort and divider callbacks through the sidebar store instead of patching chat/task stores or injecting row DOM.
 - `sidebar-chats-list-view` and `sidebar-tasks-list-view` host plugin list presentations. A row-list extension may expose `hasView()` to hide the default list; both presentations reuse the core row components and their inherited `context`/`task` scopes.
+- List-view callbacks belong to their mounted extensions, not store initialization. Use `unregisterRowListExtension(kind, name)` on unmount to restore the default list and remove only the departing extension's sorting and dividers.
 - `chats.newChat(projectName)` passes an explicit project choice to `chat_create`; omitted project names retain inheritance behavior, and an empty name explicitly creates a chat without a project.
 - Bottom version information shows its commit timestamp in UTC without a timezone suffix and remains on one line.
 - Avoid text or controls overflowing fixed sidebar widths.

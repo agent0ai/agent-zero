@@ -40,6 +40,7 @@
 - Sidebar menus share their pointer scope with the opening row or header. Dismiss after leaving both, allowing a short gap-crossing delay; also dismiss when focus leaves, the surrounding list scrolls, the window resizes, or the header extension unmounts. Mouse cleanup must not interrupt touch interaction or scrolling inside a menu.
 - Resolve the core row menu through its `rowActionsMenu` reference, not shared menu styling classes that community plugins may also use. Header integrations must preserve the core header and its `chats-header-controls` extension point.
 - The two list-view extension points are display-only alternatives. Disabling the plugin restores the core lists and existing chat/task controls.
+- Register view and sorting callbacks when each list-view extension mounts, and unregister them when it unmounts. Importing the store from another plugin must not hide or filter the core lists while this plugin is disabled.
 
 ## Work Guidance
 

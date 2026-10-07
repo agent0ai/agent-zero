@@ -146,6 +146,13 @@ const model = {
     };
   },
 
+  unregisterRowListExtension(kind, name) {
+    if (!this.rowListExtensions[kind]?.[name]) return;
+    const extensions = { ...this.rowListExtensions[kind] };
+    delete extensions[name];
+    this.rowListExtensions = { ...this.rowListExtensions, [kind]: extensions };
+  },
+
   hasListView(kind) {
     return Object.values(this.rowListExtensions[kind] || {}).some(
       (extension) => extension.hasView?.(),
