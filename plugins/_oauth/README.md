@@ -15,7 +15,7 @@ OAuth-backed model providers do not require users to enter API keys. Agent Zero 
 ### Codex/ChatGPT (`codex_oauth`)
 
 - Uses the existing Codex device-code flow.
-- Shows the sign-in code in a selectable box with a copy button.
+- Shows the sign-in code in a selectable box with a copy button that briefly turns into a green checkmark after copying.
 - Writes Codex-compatible credentials to an Agent Zero-owned `auth.json` file.
 - Refreshes local tokens when needed.
 - If a refresh token expires or is revoked, shows an **Open OAuth settings** toast. Choose **Reconnect** on the Codex row and complete sign-in, then retry your request. No manual disconnect is needed; cancelling sign-in preserves the saved credentials and model choices.

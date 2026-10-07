@@ -1,6 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
-import { copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
+import { copyToClipboard, showButtonFeedback } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
 import {
   store as notificationStore,
@@ -311,11 +311,12 @@ export const store = createStore("oauthConfig", {
     return this.devices[String(providerId || "")] || null;
   },
 
-  async copyDeviceCode(providerId) {
+  async copyDeviceCode(providerId, button = null) {
     const code = this.providerDevice(providerId)?.user_code;
     if (!code) return;
     try {
       await copyToClipboard(code);
+      if (button) showButtonFeedback(button, true, "content_copy");
       void toastFrontendSuccess("Sign-in code copied.", "OAuth Connections");
     } catch {
       void toastFrontendError("Could not copy the code. Select it and copy manually.", "OAuth Connections");

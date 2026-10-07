@@ -166,7 +166,7 @@
                       <span>Enter this code</span>
                       <div class="oauth-device-code">
                         <code x-text="$store.oauthConfig.providerDevice(card.provider_id)?.user_code"></code>
-                        <button class="oauth-icon-button" type="button" title="Copy sign-in code" aria-label="Copy sign-in code" @click="$store.oauthConfig.copyDeviceCode(card.provider_id)">
+                        <button class="oauth-icon-button" type="button" title="Copy sign-in code" aria-label="Copy sign-in code" @click="$store.oauthConfig.copyDeviceCode(card.provider_id, $el)">
                           <x-icon name="content_copy"></x-icon>
                         </button>
                       </div>
@@ -853,6 +853,11 @@
       background: transparent;
       color: var(--color-text);
       cursor: pointer;
+    }
+
+    .oauth-icon-button.success {
+      color: #4caf50;
+      border-color: currentColor;
     }
 
     .oauth-model-config {

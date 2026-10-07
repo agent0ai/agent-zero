@@ -6,6 +6,8 @@ const requests = [];
 const timers = new Map();
 const dismissed = [];
 const copied = [];
+const buttonFeedback = [];
+const copyButton = {};
 const feedback = [];
 let clipboardDenied = false;
 const source = readFileSync(new URL('../plugins/_oauth/webui/oauth-config-store.js', import.meta.url), 'utf8')
@@ -29,6 +31,7 @@ const store = vm.runInNewContext(`${source}\nstore`, {
     if (clipboardDenied) throw new Error('Permission denied');
     copied.push(code);
   },
+  showButtonFeedback: (...args) => buttonFeedback.push(args),
   notificationStore: { dismissToast: id => dismissed.push(id) },
 });
 const provider = 'codex_oauth';
@@ -41,20 +44,23 @@ await store.connectProvider(provider);
 assert.equal(store.providerPrimaryLabel(provider), 'Waiting');
 assert.equal(store.providerDetailOpen(provider), true);
 assert.equal(store.providerDevice(provider).user_code, 'TEST');
-await store.copyDeviceCode(provider);
+await store.copyDeviceCode(provider, copyButton);
 assert.deepEqual(copied, ['TEST']);
+assert.deepEqual(buttonFeedback, [[copyButton, true, 'content_copy']]);
 assert.equal(feedback.pop(), 'Sign-in code copied.');
 clipboardDenied = true;
-await store.copyDeviceCode(provider);
+await store.copyDeviceCode(provider, copyButton);
 assert.equal(feedback.pop(), 'Could not copy the code. Select it and copy manually.');
+assert.equal(buttonFeedback.length, 1);
 assert.equal(timers.size, 1);
 await store.connectProvider(provider);
 assert.equal(requests.length, 1);
 store.cancelConnect(provider);
 assert.equal(timers.size, 0);
 assert.equal(store.providerDevice(provider), null);
-await store.copyDeviceCode(provider);
+await store.copyDeviceCode(provider, copyButton);
 assert.equal(copied.length, 1);
+assert.equal(buttonFeedback.length, 1);
 assert.equal(feedback.length, 0);
 assert.equal(store.providerConnected(provider), true);
 assert.equal(store.modelConfig.chat_model.name, 'chosen-model');

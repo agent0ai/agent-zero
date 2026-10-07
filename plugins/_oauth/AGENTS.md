@@ -27,7 +27,7 @@
 - Provider cards and model slot actions must be driven by backend provider status. Do not reintroduce hardcoded frontend provider lists or fallback provider catalogs.
 - OAuth account surfaces in settings, discovery, and onboarding must use the provider registry/status summary rather than Codex-only frontend state.
 - OAuth settings pending-auth controls such as device codes, manual callback input, and provider setup fields must render inline under the relevant provider row, not as a detached section below all providers.
-- Device challenge codes use a selectable standalone box and an accessible copy button, reusing the shared clipboard helper and OAuth notifications for feedback.
+- Device challenge codes use a selectable standalone box and an accessible copy button, reusing the shared clipboard and button-feedback helpers: successful copies briefly show a green checkmark and retain OAuth notifications.
 - OAuth device-code polling must honor provider `interval`, `expires_at`, and `slow_down` updates; do not poll immediately or keep a stale fixed interval after a provider asks the client to slow down.
 - OAuth settings model slots must keep provider choice editable per slot, list only connected OAuth account providers, and persist the selected provider IDs into `chat_model.provider` and `utility_model.provider`.
 - When exactly one OAuth provider is connected, use it as an unsaved default only for empty slots or slots already using that provider. A different saved provider must keep the explicit `Choose connected provider` prompt until the user opts into the switch.
