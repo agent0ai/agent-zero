@@ -1,0 +1,5 @@
+show_breakdown: true
+show_price: true
+show_cache_hit: true
+show_tokens: true
+price_currency: USD

@@ -12,11 +12,6 @@ const ROWS = [
   { key: "system_prompt", label: "System prompt" },
   { key: "extras", label: "Extras" },
 ];
-const COST_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumSignificantDigits: 3,
-});
 
 preferencesStore.registerUiControlVisibility("contextWindowUsage", {
   mobile: true,
@@ -42,18 +37,22 @@ function optionalNumber(value, key) {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-function formatCost(value) {
-  if (value === 0) return "$0";
-  return value < 0.001 ? "<$0.001" : COST_FORMATTER.format(value);
+function formatCost(value, currency = "USD") {
+  const formatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumSignificantDigits: 3,
+  });
+  return value > 0 && value < 0.001 ? `<${formatter.format(0.001)}` : formatter.format(value);
 }
 
-function buildProviderUsage(value = {}) {
+function buildProviderUsage(value = {}, display = {}, priceCurrency = {}) {
   const input = optionalNumber(value, "input_tokens");
   const cached = optionalNumber(value, "cached_tokens");
   const output = optionalNumber(value, "output_tokens");
   const cost = optionalNumber(value, "cost");
 
-  const tokenSummary = input === null && output === null
+  const tokenSummary = display.show_tokens === false || (input === null && output === null)
     ? ""
     : `${input === null ? "–" : formatTokens(input)} → ${output === null ? "–" : formatTokens(output)}`;
 
@@ -61,13 +60,19 @@ function buildProviderUsage(value = {}) {
     ? Math.min((cached / input) * 100, 100)
     : null;
   return {
-    hasData: cost !== null || cachePercent !== null || Boolean(tokenSummary),
+    get hasData() {
+      return this.price.hasData || this.cache.hasData || Boolean(this.tokens);
+    },
     price: {
-      hasData: cost !== null,
-      label: cost === null ? "" : formatCost(cost),
+      hasData: cost !== null && display.show_price !== false,
+      label: cost === null ? "" : formatCost(cost * (priceCurrency.rate ?? 1), priceCurrency.code || "USD")
+        + (priceCurrency.requested ? " (USD)" : ""),
+      title: priceCurrency.requested
+        ? `${priceCurrency.requested} exchange rate unavailable; shown in USD.`
+        : priceCurrency.date ? `Converted from USD at the ${priceCurrency.date} reference rate.` : "",
     },
     cache: {
-      hasData: cachePercent !== null,
+      hasData: cachePercent !== null && display.show_cache_hit !== false,
       label: cachePercent === null ? "" : `${Math.round(cachePercent)}%`,
     },
     tokens: tokenSummary,
@@ -75,6 +80,7 @@ function buildProviderUsage(value = {}) {
 }
 
 function buildUsage(data = {}) {
+  const display = data.display || {};
   const tokens = Math.max(Number(data.tokens) || 0, 0);
   const contextWindow = Math.max(Number(data.context_window) || 0, 0);
   const breakdown = data.usage && typeof data.usage === "object" ? data.usage : {};
@@ -88,7 +94,8 @@ function buildUsage(data = {}) {
       percentLabel: formatPercent(rowPercent),
     };
   });
-  const hasBreakdown = rows.some(row => Number(breakdown[row.key]) > 0);
+  const hasBreakdown = display.show_breakdown !== false
+    && rows.some(row => Number(breakdown[row.key]) > 0);
   if (hasBreakdown) {
     const freeTokens = Math.max(contextWindow - tokens, 0);
     const freePercent = contextWindow > 0 ? (freeTokens / contextWindow) * 100 : 0;
@@ -103,14 +110,14 @@ function buildUsage(data = {}) {
   return {
     rows: hasBreakdown ? rows : [],
     hasBreakdown,
-    missingBreakdown: !hasBreakdown,
+    missingBreakdown: display.show_breakdown !== false && !hasBreakdown,
     ariaLabel: `Context window ${percentLabel} used`,
     ringLabel: contextWindow ? `${Math.round(percent)}%` : "–",
     ringDasharray: `${Math.min(percent, 100)} 100`,
     summaryTokens: `${formatTokens(tokens)}/${contextWindow ? formatTokens(contextWindow) : "–"} tokens`,
     summaryPercent: `${percentLabel} used`,
     meterStyle: `width:${Math.min(percent, 100)}%`,
-    provider: buildProviderUsage(data.provider_usage),
+    provider: buildProviderUsage(data.provider_usage, display, data.price_currency),
   };
 }
 

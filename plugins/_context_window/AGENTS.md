@@ -8,12 +8,14 @@
 ## Ownership
 
 - `helpers/usage.py` owns per-prompt bucket measurement and reconciliation.
+- `helpers/currency.py` owns optional USD exchange-rate lookup and validation.
 - `extensions/python/` records prompt parts at their source extension points,
   preserves terminal streamed usage, and captures optional provider usage.
 - `api/context_window.py` exposes the active chat's token usage and effective
-  model limit without returning prompt content.
+  model limit plus display flags and price-currency metadata without returning
+  prompt content or modifying stored provider usage.
 - `webui/` and `extensions/webui/` own the Alpine store, indicator, popover,
-  model-override refresh, and Interface visibility row.
+  model-override refresh, plugin display settings, and Interface visibility row.
 
 ## Local Contracts
 
@@ -33,9 +35,19 @@
 - The prompt estimate never guesses provider-specific image token costs or
   counts embedded image bytes as text.
 - Provider price, cache hit, and input/output tokens form a flat summary without
-  diagnostic detail rows.
+  diagnostic detail rows and share the same regular-weight typography.
 - Provider rows are exposed only when the provider or transport reports their
   values; unavailable price and cache data render no row.
+- Global `show_breakdown`, `show_price`, `show_cache_hit`, and `show_tokens`
+  settings default to true and apply on each usage refresh or popover opening.
+  Hiding the breakdown also hides its empty state; hiding all provider rows
+  removes their container and divider. Accounting and the summary remain intact.
+- `price_currency` defaults to USD; USD never invokes the rate helper or makes
+  an external request. Fetch Frankfurter's daily reference rate only for a
+  visible, nonzero provider cost in a selected non-USD currency. Cache valid
+  rates for 24 hours and failed lookups for five minutes. Only currency codes
+  leave the server. Validate pair, positive finite rate, and date; on failure,
+  show the original USD amount with an explicit USD label and explanation.
 - Streaming main turns request LiteLLM's terminal usage event for every
   provider through the transport's `stream_options.include_usage` injection,
   so provider input/output and cache tokens reach the summary. The response
@@ -56,7 +68,8 @@
 
 - Keep prompt accounting out of rendered-text heuristics.
 - Keep provider-reported usage separate from the six estimated context buckets.
-- Keep the API response limited to counts needed by the UI.
+- Keep the API response limited to usage counts, whitelisted display flags,
+  and effective price-currency metadata.
 - Preserve the upward, right-aligned popover beside the model/profile selectors. Its minimum strip footprint is bounded by the available width; shared `x-overflow` positions the same popover when the indicator enters the overflow menu. `data-overflow-label` names the entry; `data-overflow-icon` retains its live percentage ring.
 
 ## Verification

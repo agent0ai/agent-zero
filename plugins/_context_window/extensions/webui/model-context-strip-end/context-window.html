@@ -57,9 +57,10 @@
         <template x-if="$store.contextWindow.usage.provider.hasData">
           <div class="context-window-provider">
             <template x-if="$store.contextWindow.usage.provider.price.hasData">
-              <div class="context-window-provider-row context-window-provider-price">
+              <div class="context-window-provider-row">
                 <span>Price</span>
-                <span class="context-window-value" x-text="$store.contextWindow.usage.provider.price.label"></span>
+                <span class="context-window-value" :title="$store.contextWindow.usage.provider.price.title"
+                      x-text="$store.contextWindow.usage.provider.price.label"></span>
               </div>
             </template>
             <template x-if="$store.contextWindow.usage.provider.cache.hasData">
@@ -186,15 +187,6 @@
     min-height: 1.35rem;
     color: color-mix(in srgb, var(--color-text) 72%, transparent);
     font-size: .76rem;
-  }
-  .context-window-provider-price {
-    margin-bottom: .25rem;
-    color: var(--color-text);
-    font-size: .82rem;
-  }
-  .context-window-provider-price .context-window-value {
-    font-size: 1rem;
-    font-weight: 600;
   }
   .context-window-meter {
     height: .45rem;

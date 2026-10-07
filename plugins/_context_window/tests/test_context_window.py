@@ -15,10 +15,10 @@ if str(ROOT) not in sys.path:
 
 import models
 from agent import Agent, LoopData
-from helpers import extension, extract_tools, history, litellm_transport
+from helpers import cache, extension, extract_tools, history, litellm_transport
 from helpers.llm_result import LLMResult
 from plugins._context_window.api.context_window import ContextWindow
-from plugins._context_window.helpers import usage
+from plugins._context_window.helpers import currency, usage
 
 
 class _Log:
@@ -93,7 +93,12 @@ async def test_usage_follows_prompt_sources_and_reconciles_to_total(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_api_returns_only_counts_and_effective_limit(monkeypatch):
+@pytest.mark.parametrize("display", [
+    {},
+    {"show_breakdown": False, "show_cache_hit": False, "private": "not exposed"},
+    {"price_currency": "EUR"},
+])
+async def test_api_returns_only_counts_and_display_flags(monkeypatch, display):
     agent = SimpleNamespace(
         DATA_NAME_CTX_WINDOW="ctx_window",
         get_data=lambda _key: {
@@ -111,6 +116,15 @@ async def test_api_returns_only_counts_and_effective_limit(monkeypatch):
         "plugins._context_window.api.context_window.get_chat_model_config",
         lambda _agent: {"ctx_length": 128_000},
     )
+    monkeypatch.setattr(
+        "plugins._context_window.api.context_window.plugins.get_plugin_config",
+        lambda plugin_name: display if plugin_name == "_context_window" else None,
+    )
+    async def unexpected_lookup(_currency):
+        raise AssertionError("Missing prices must not fetch exchange rates")
+    monkeypatch.setattr(
+        "plugins._context_window.api.context_window.get_exchange_rate", unexpected_lookup
+    )
 
     result = await handler.process({"context": "ctx-1"}, SimpleNamespace())
 
@@ -126,8 +140,174 @@ async def test_api_returns_only_counts_and_effective_limit(monkeypatch):
             "extras": 0,
         },
         "provider_usage": {},
+        "price_currency": {"code": "USD", "rate": 1, "date": ""},
+        "display": {
+            "show_breakdown": display.get("show_breakdown", True),
+            "show_price": True,
+            "show_cache_hit": display.get("show_cache_hit", True),
+            "show_tokens": True,
+        },
     }
     assert "text" not in result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("config, cost, expected_code, lookup", [
+    ({}, 0.05, "USD", False),
+    ({"price_currency": "USD"}, 0.05, "USD", False),
+    ({"price_currency": "EUR", "show_price": False}, 0.05, "USD", False),
+    ({"price_currency": "EUR"}, 0, "EUR", False),
+    ({"price_currency": "EUR"}, 0.05, "EUR", True),
+    ({"price_currency": "../../EUR"}, 0.05, "USD", False),
+])
+async def test_currency_lookup_only_for_visible_nonzero_non_usd_prices(
+    monkeypatch, config, cost, expected_code, lookup
+):
+    handler = object.__new__(ContextWindow)
+    agent = SimpleNamespace(DATA_NAME_CTX_WINDOW="ctx_window", get_data=lambda _key: {})
+    handler.use_context = lambda _id: SimpleNamespace(streaming_agent=None, agent0=agent)
+    module = "plugins._context_window.api.context_window"
+    monkeypatch.setattr(f"{module}.plugins.get_plugin_config", lambda _name: config)
+    monkeypatch.setattr(f"{module}.get_chat_model_config", lambda _agent: {})
+    monkeypatch.setattr(f"{module}.latest_provider_usage", lambda _agent: {"cost": cost})
+    calls = []
+
+    async def get_rate(code):
+        calls.append(code)
+        return {"code": code, "rate": 0.9, "date": "2026-10-07"}
+
+    monkeypatch.setattr(f"{module}.get_exchange_rate", get_rate)
+    result = await handler.process({"context": "chat-1"}, SimpleNamespace())
+    assert calls == (["EUR"] if lookup else [])
+    assert result["price_currency"]["code"] == expected_code
+    assert result["provider_usage"] == {"cost": cost}
+    if lookup:
+        async def failed_rate(_code):
+            return None
+        monkeypatch.setattr(f"{module}.get_exchange_rate", failed_rate)
+        result = await handler.process({"context": "chat-1"}, SimpleNamespace())
+        assert result["price_currency"] == {
+            "code": "USD", "rate": 1, "date": "", "requested": "EUR",
+        }
+
+
+@pytest.mark.asyncio
+async def test_exchange_rate_cache_validation_and_failure_backoff(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(currency, "CACHE_AREA", "context_currency_test")
+    cache.clear(currency.CACHE_AREA)
+    data = {"base": "USD", "quote": "EUR", "rate": 0.9, "date": "2026-10-07"}
+    calls = []
+
+    def respond(request):
+        calls.append(str(request.url))
+        if isinstance(data, Exception):
+            raise data
+        return httpx.Response(200, json=data)
+
+    client = httpx.AsyncClient
+    monkeypatch.setattr(currency.httpx, "AsyncClient", lambda **kwargs: client(
+        transport=httpx.MockTransport(respond), **kwargs
+    ))
+    assert await currency.get_exchange_rate("USD") is None
+    assert await currency.get_exchange_rate("../../EUR") is None
+    assert calls == []
+    expected = {"code": "EUR", "rate": 0.9, "date": "2026-10-07"}
+    assert await currency.get_exchange_rate("EUR") == expected
+    assert await currency.get_exchange_rate("EUR") == expected
+    assert len(calls) == 1
+    for invalid in (
+        {"rate": 0}, {"rate": -1}, {"rate": "NaN"}, {"rate": True},
+        {"base": "GBP"}, {"quote": "JPY"}, {"date": "invalid"},
+        httpx.ConnectError("offline"),
+    ):
+        data = invalid if isinstance(invalid, Exception) else {
+            "base": "USD", "quote": "EUR", "rate": 0.9, "date": "2026-10-07", **invalid,
+        }
+        cache.add(currency.CACHE_AREA, "EUR", (0, expected))
+        assert await currency.get_exchange_rate("EUR") is None
+        count = len(calls)
+        assert await currency.get_exchange_rate("EUR") is None
+        assert len(calls) == count
+    assert all(url == "https://api.frankfurter.dev/v2/rate/USD/EUR" for url in calls)
+    cache.clear(currency.CACHE_AREA)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="Node.js is required")
+def test_webui_display_toggles_are_independent():
+    source = (ROOT / "plugins/_context_window/webui/context-window-store.js").read_text(
+        encoding="utf-8"
+    )
+    source = "\n".join(line for line in source.splitlines() if not line.startswith("import "))
+    source = """
+const createStore = (_name, model) => model;
+const callJsonApi = async () => globalThis.payload;
+const chatsStore = {};
+const preferencesStore = { registerUiControlVisibility() {} };
+""" + source
+    module_url = "data:text/javascript;base64," + base64.b64encode(
+        source.encode("utf-8")
+    ).decode("ascii")
+    script = f"""
+import assert from "node:assert/strict";
+const {{ store }} = await import({module_url!r});
+globalThis.payload = {{
+  tokens: 120, context_window: 1000, usage: {{ messages: 42 }},
+  provider_usage: {{ input_tokens: 100, cached_tokens: 98, output_tokens: 10, cost: 0.0275 }},
+}};
+const keys = ["show_breakdown", "show_price", "show_cache_hit", "show_tokens"];
+for (let mask = 0; mask < 16; mask++) {{
+  payload.display = Object.fromEntries(keys.map((key, i) => [key, Boolean(mask & (1 << i))]));
+  const value = await store.refresh("chat-1");
+  assert.equal(value.hasBreakdown, Boolean(mask & 1));
+  assert.equal(value.rows.length, mask & 1 ? 7 : 0);
+  assert.equal(value.missingBreakdown, false);
+  assert.equal(value.provider.price.hasData, Boolean(mask & 2));
+  assert.equal(value.provider.cache.hasData, Boolean(mask & 4));
+  assert.equal(Boolean(value.provider.tokens), Boolean(mask & 8));
+  assert.equal(value.provider.hasData, Boolean(mask & 14));
+  assert.equal(value.summaryTokens, "120/1K tokens");
+  assert.equal(value.ringLabel, "12%");
+}}
+delete payload.display;
+let value = await store.refresh("chat-1");
+assert.equal(value.rows.length, 7);
+assert.equal(value.provider.price.label, "$0.0275");
+assert.equal(value.provider.cache.label, "98%");
+assert.equal(value.provider.tokens, "100 → 10");
+payload.price_currency = {{ code: "EUR", rate: 0.9, date: "2026-10-07" }};
+value = await store.refresh("chat-1");
+assert.equal(value.provider.price.label, "€0.0248");
+assert.ok(value.provider.price.title.includes("2026-10-07"));
+payload.provider_usage.cost = 0.0001;
+value = await store.refresh("chat-1");
+assert.equal(value.provider.price.label, "<€0.001");
+payload.provider_usage.cost = 0;
+value = await store.refresh("chat-1");
+assert.equal(value.provider.price.label, "€0");
+payload.provider_usage.cost = 0.0275;
+payload.price_currency = {{ code: "USD", rate: 1, date: "", requested: "EUR" }};
+value = await store.refresh("chat-1");
+assert.equal(value.provider.price.label, "$0.0275 (USD)");
+assert.ok(value.provider.price.title.includes("unavailable"));
+delete payload.price_currency;
+payload.provider_usage.cost = 0;
+value = await store.refresh("chat-1");
+assert.equal(value.provider.price.label, "$0");
+payload.provider_usage.cost = 0.0001;
+value = await store.refresh("chat-1");
+assert.equal(value.provider.price.label, "<$0.001");
+payload.usage = {{}};
+payload.provider_usage = {{}};
+value = await store.refresh("chat-1");
+assert.equal(value.missingBreakdown, true);
+assert.equal(value.provider.hasData, false);
+payload.display = {{ show_breakdown: false }};
+value = await store.refresh("chat-1");
+assert.equal(value.missingBreakdown, false);
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True)
 
 
 def test_webui_and_accounting_are_plugin_owned():
@@ -171,10 +351,10 @@ def test_webui_and_accounting_are_plugin_owned():
     assert "context-window-cache-meter" not in component
     assert "price: {" in context_store
     assert "hasData: cost !== null" in context_store
-    assert 'label: cost === null ? "" : formatCost(cost)' in context_store
+    assert 'label: cost === null ? "" : formatCost(cost *' in context_store
     assert "usage.provider.price.hasData" in component
     assert "usage.provider.price.label" in component
-    assert 'value < 0.001 ? "<$0.001"' in context_store
+    assert 'value > 0 && value < 0.001' in context_store
     assert "maximumSignificantDigits: 3" in context_store
     assert "border-top: 1px solid var(--color-border)" in component
     assert " → " in context_store
