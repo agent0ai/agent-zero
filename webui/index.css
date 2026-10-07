@@ -1360,6 +1360,11 @@ nav ul li a img {
   vertical-align: middle;
 }
 
+x-icon[name="stop"] {
+  background-color: currentColor;
+  clip-path: inset(25% round 0.08em);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
