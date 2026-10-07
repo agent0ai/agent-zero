@@ -20,8 +20,8 @@ langchain-core==0.3.49
 langchain-community==0.3.19
 langchain-unstructured==0.1.6
 liteparse==2.0.3
-litellm==1.88.1  # CVE-2026-42271 fix: patched floor is 1.83.7
-openai==2.41.1
+litellm==1.104.0
+openai==2.54.0
 openai-whisper==20250625
 lxml_html_clean>=0.4.0  # CVE-2024-52595 fix: XSS CWE-79 CVSS 8.4
 markdown==3.7
@@ -30,7 +30,7 @@ newspaper3k==0.2.8
 paramiko==3.5.0
 patchright==1.61.2
 pypdf==6.0.0
-python-dotenv==1.1.0
+python-dotenv==1.2.2
 pytz==2024.2
 sentence-transformers==3.0.1
 tiktoken==0.8.0
@@ -64,7 +64,12 @@ wsproto>=1.2.0
 Pillow>=10.2.0  # security floor: heap buffer overflow CWE-122, eval injection CWE-95, DoS CWE-400
 nltk>=3.9.3  # security floor: RCE CWE-94, code injection CWE-94
 h11>=0.16.0  # security floor: HTTP request smuggling CWE-444
-urllib3>=2.6.0  # security floor: resource exhaustion CWE-770, data amplification CWE-409
+urllib3>=2.8.0  # security floor: proxy TLS verification and streaming resource exhaustion
 cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
 werkzeug>=3.0.3  # security floor: RCE CWE-94
 starlette==1.0.1  # security fix: Host header validation bypass GHSA-86qp-5c8j-p5mr
+aiohttp>=3.14.3  # security floor: malformed-response parser and WebSocket handling
+anyio>=4.14.2  # security floor: TLS hostname validation and subprocess handling
+filelock>=3.20.3  # security floor: symlink attacks during lock creation
+fsspec>=2026.6.0  # security floor: template injection in reference filesystems
+multidict>=6.9.1  # security floor: items-view reference leaks

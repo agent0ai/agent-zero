@@ -32,6 +32,8 @@
 
 - Run `pytest` for broad changes.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
+- Run `pytest tests/test_litellm_sdk.py -q` for LiteLLM/OpenAI upgrades. Its loopback provider exercises the installed SDK's sync/async calls, streaming, tool/state preservation, fallback, embeddings, and Anthropic cache markers without real keys or external requests.
+- Run `pytest tests/test_framework_dependencies.py -q` for dependency migration changes; verify stale self-update environments, process restart, and already-current image installs.
 
 ## Child DOX Index
 

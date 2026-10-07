@@ -24,6 +24,7 @@
 - `models.py` owns model-provider configuration and LiteLLM integration. `get_api_key_raw()` reads the stored key or key list for settings/editing; `get_api_key()` selects a runtime key and runs provider extension hooks.
 - `models.apply_rate_limiter` skips token counting and returns no limiter when all request, input, and output limits are unset; any configured limit retains normal accounting.
 - `requirements.txt` includes HTTPX's SOCKS extra so framework clients support SOCKS proxy environment variables before plugin setup.
+- LiteLLM and OpenAI pins must remain compatible. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.
 - Native agent-turn response callbacks may receive a display-only commentary preview as their full text; legacy callbacks, accumulated model output, usage and native dispatch retain the original text and result metadata.
 - `run_ui.py` is the WebUI entry point.
 - `DockerfileLocal` must remain compatible with the contracts under `docker/`.
@@ -45,6 +46,7 @@
 - Copy live core-plugin changes back into tracked source under `plugins/`.
 - Develop new custom plugins under ignored `usr/plugins/`; tracked bundled plugins live under `plugins/`.
 - Use the framework runtime for backend and plugin-hook verification, not the separate agent execution runtime.
+- Dependency changes must cover both image installation declarations and existing self-updated instances. Use startup migrations for core dependencies and the owning installation hooks for plugin dependencies.
 
 ## Permissions
 
