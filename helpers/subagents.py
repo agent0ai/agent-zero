@@ -69,7 +69,10 @@ def get_agents_dict(
     merged: dict[str, SubAgentListItem] = dict(default_agents)
 
     # merge with plugin agents
-    for plugin_dir in plugins.get_enabled_plugin_paths(None, "agents"):
+    plugin_dirs = plugins.get_enabled_plugin_paths(None, "agents")
+    for plugin_dir in sorted(
+        plugin_dirs, key=plugins.get_plugin_root_priority, reverse=True
+    ):
         plugin_agents = _get_agents_list_from_dir(plugin_dir, origin="plugin")
         merged = _merge_agent_dicts(merged, plugin_agents)
 
@@ -124,7 +127,10 @@ def load_agent_data(name: str, project_name: str | None = None) -> SubAgent:
 
     # merge with plugin agents
     # TODO review this
-    for plugin_dir in plugins.get_enabled_plugin_paths(None, "agents"):
+    plugin_dirs = plugins.get_enabled_plugin_paths(None, "agents")
+    for plugin_dir in sorted(
+        plugin_dirs, key=plugins.get_plugin_root_priority, reverse=True
+    ):
         plugin_agent = _load_agent_data_from_dir(plugin_dir, name, origin="plugin")
         merged = _merge_agent(merged, plugin_agent)
 
@@ -257,7 +263,11 @@ def _merge_agent_metadata(
 def get_agents_roots() -> list[str]:
     # from helpers import plugins
 
-    plugin_agents = plugins.get_enabled_plugin_paths(None, "agents")
+    plugin_agents = sorted(
+        plugins.get_enabled_plugin_paths(None, "agents"),
+        key=plugins.get_plugin_root_priority,
+        reverse=True,
+    )
     project_agents = files.find_existing_paths_by_pattern("usr/projects/*/.a0proj/agents")
     paths = [
         files.get_abs_path(DEFAULT_AGENTS_DIR),

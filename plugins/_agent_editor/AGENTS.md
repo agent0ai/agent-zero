@@ -15,6 +15,8 @@
 
 ## Local Contracts
 
+- Plugin profile metadata layers merge bundled roots before user roots using
+  stable root-priority sorting, matching runtime profile loading and catalogs.
 - The editor performs zero model calls.
 - Profile list requests stay lightweight: summary rows inspect only sparse
   editor-owned keys and files and never construct full save or removal plans.

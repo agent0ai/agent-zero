@@ -67,9 +67,11 @@ class ProviderManager:
         merged = self._normalise_yaml(self._load_yaml(base_path))
 
         # Merge plugin provider configs (enabled plugins only)
-        from helpers.plugins import get_enabled_plugin_paths
+        from helpers.plugins import get_enabled_plugin_paths, get_plugin_root_priority
         plugin_yamls = get_enabled_plugin_paths(None, "conf", "model_providers.yaml")
-        for plugin_yaml_path in plugin_yamls:
+        for plugin_yaml_path in sorted(
+            plugin_yamls, key=get_plugin_root_priority, reverse=True
+        ):
             plugin_data = self._normalise_yaml(self._load_yaml(plugin_yaml_path))
             for p_type, providers in plugin_data.items():
                 if p_type not in merged:

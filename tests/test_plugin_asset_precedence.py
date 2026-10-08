@@ -1,12 +1,14 @@
 """User plugin assets must take precedence over bundled plugin assets."""
 
+import asyncio
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from agent import Agent
-from helpers import cache, extension, files, plugins, subagents
+from helpers import cache, extension, files, plugins, providers, responses_tools, subagents
 
 
 @pytest.fixture
@@ -178,3 +180,122 @@ def test_empty_asset_results_are_cached(plugin_tree, monkeypatch):
 
     monkeypatch.setattr(plugins, "get_enabled_plugins", unexpected_lookup)
     assert plugins.get_enabled_plugin_paths(None, "missing") == []
+
+def test_provider_merges_apply_user_roots_last_and_preserve_same_root_order(plugin_tree):
+    roots = [
+        plugin_tree("_alpha", bundled=True), plugin_tree("_zulu", bundled=True),
+        plugin_tree("alpha"), plugin_tree("zulu"),
+    ]
+    for root in roots:
+        (root / "conf").mkdir()
+        (root / "conf/model_providers.yaml").write_text(
+            json.dumps({"chat": {"codex_oauth": {
+                "name": root.name,
+                "kwargs": {"api_base": f"https://{root.name}.example/v1"},
+            }}}),
+            encoding="utf-8",
+        )
+
+    config = providers.ProviderManager().get_provider_config("chat", "codex_oauth")
+    assert config["name"] == "zulu"
+    assert config["kwargs"]["api_base"] == "https://zulu.example/v1"
+
+    for root in roots[2:]:
+        (root / ".toggle-0").touch()
+    cache.clear("*(plugins)*")
+    config = providers.ProviderManager().get_provider_config("chat", "codex_oauth")
+    assert config["name"] == "_zulu"
+
+
+@pytest.mark.parametrize("reader", ["load", "catalog", "all_catalog", "editor"])
+def test_profile_merges_preserve_root_order_and_higher_scope_overrides(
+    plugin_tree, tmp_path, monkeypatch, reader
+):
+    from plugins._agent_editor.helpers import editor
+
+    monkeypatch.setattr(editor, "USER_AGENTS_ROOT", tmp_path / "usr/agents")
+    roots = [
+        plugin_tree("_alpha", bundled=True), plugin_tree("_zulu", bundled=True),
+        plugin_tree("alpha"), plugin_tree("zulu"),
+    ]
+
+    def write_profile(root, title):
+        profile = root / "agents/researcher"
+        (profile / "prompts").mkdir(parents=True)
+        (profile / "agent.yaml").write_text(
+            f"title: {title}\ncontext: {title}\n", encoding="utf-8"
+        )
+        (profile / "prompts/agent.system.main.specifics.md").write_text(
+            title, encoding="utf-8"
+        )
+
+    def assert_profile(title, project_name=None):
+        if reader == "load":
+            profile = subagents.load_agent_data("researcher", project_name)
+            assert profile.title == profile.context == title
+            assert profile.prompts["agent.system.main.specifics.md"] == title
+        elif reader == "catalog":
+            assert subagents.get_agents_dict(project_name)["researcher"].title == title
+        elif reader == "editor":
+            state = editor.metadata_state("researcher", editor._EditorContext(project_name or ""))
+            assert state["title"]["effective"] == state["context"]["effective"] == title
+        else:
+            assert subagents.get_all_agents_list() == [{"key": "researcher", "label": title}]
+
+    for root in roots:
+        write_profile(root, root.name)
+    assert_profile("zulu")
+    assert plugins.get_enabled_plugin_paths(None, "agents") == [
+        str(root / "agents") for root in [*roots[2:], *roots[:2]]
+    ]
+
+    for root in roots[2:]:
+        (root / ".toggle-0").touch()
+    cache.clear("*(plugins)*")
+    assert_profile("_zulu")
+
+    write_profile(tmp_path / "usr", "User profile")
+    assert_profile("User profile")
+    write_profile(tmp_path / "usr/projects/demo/.a0proj", "Project profile")
+    assert_profile("Project profile", "demo")
+
+
+def test_model_prompt_native_schema_and_dispatch_use_the_same_plugin(
+    plugin_tree, monkeypatch, tmp_path
+):
+    from extensions.python.system_prompt._11_tools_prompt import build_prompt
+    from plugins._model_config.helpers import model_config
+
+    bundled = plugin_tree("_memory", bundled=True)
+    user = plugin_tree("db_hub")
+    for root, field in [(bundled, "text"), (user, "content")]:
+        schema = {"type": "object", "properties": {field: {"type": "string"}}}
+        (root / "prompts/agent.system.tool.memory.md").write_text(
+            f"### memory_save\n{root.name}\nInput schema for tool_args:\n"
+            + json.dumps(schema),
+            encoding="utf-8",
+        )
+    template = tmp_path / "usr/prompts/agent.system.tools.md"
+    template.parent.mkdir(parents=True)
+    template.write_text("{{tools}}", encoding="utf-8")
+    agent = object.__new__(Agent)
+    agent.config = SimpleNamespace(profile="")
+    agent.context = SimpleNamespace(get_data=lambda *args: None)
+    agent.data = {}
+    monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
+    monkeypatch.setattr(model_config, "get_chat_model_config", lambda _agent: {})
+    monkeypatch.setattr(model_config, "get_vision_model_config", lambda _agent: {})
+
+    for root, field, other in [(user, "content", bundled), (bundled, "text", user)]:
+        prompt = asyncio.run(build_prompt(agent))
+        assert prompt.count(root.name) == 1 and other.name not in prompt
+        native, names = responses_tools.build_responses_function_tools(agent)
+        assert len(native) == 1 and names == {"memory_save": "memory_save"}
+        assert root.name in native[0]["description"]
+        assert other.name not in native[0]["description"]
+        assert set(native[0]["parameters"]["properties"]) == {field}
+        tool = agent.get_tool("memory_save", None, {field: "probe"}, "", None)
+        assert asyncio.run(tool.execute()).message == root.name
+        (user / ".toggle-0").touch()
+        cache.clear("*(plugins)*")
+        cache.clear("*(extensions)*")

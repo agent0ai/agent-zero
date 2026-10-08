@@ -41,6 +41,11 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, plugin state, settings/state persistence.
 - Nonexistent profile layers return `None` instead of synthesizing empty overrides.
+- Profile loading and catalogs merge bundled plugin roots before user plugin
+  roots through a stable sort by `plugins.get_plugin_root_priority`, preserving
+  discovery order within each root and leaving cached path lists unchanged.
+  User/profile and project definitions still apply after plugin definitions;
+  asset lookup retains high-priority-first order.
 - Imported dependency areas include: `helpers`, `json`, `os`, `pydantic`, `typing`.
 
 ## Key Concepts
@@ -69,6 +74,9 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_plugin_asset_precedence.py` covers cross-root profile metadata,
+    prompt, catalog and editor overrides, same-root merge order and higher
+    user/project layers.
   - `tests/test_skills_runtime.py`
   - `tests/test_subagent_metadata_merge.py`
 

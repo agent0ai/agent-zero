@@ -554,7 +554,11 @@ def _profile_directories(
             Path(files.get_abs_path("agents", profile_id)),
         )
     ]
-    for directory in plugins.get_enabled_plugin_paths(agent, "agents", profile_id):
+    for directory in sorted(
+        plugins.get_enabled_plugin_paths(agent, "agents", profile_id),
+        key=plugins.get_plugin_root_priority,
+        reverse=True,
+    ):
         directories.append(("plugin", Path(directory)))
     directories.append(("user", USER_AGENTS_ROOT / profile_id))
 
