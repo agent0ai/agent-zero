@@ -15,6 +15,8 @@
 
 ## Local Contracts
 
+- Core leaked-call recovery runs first. Return on `skip_default_processing`; preserve rejected/truncated envelopes for core handling. Quoted tool examples bypass JSON repair and are never marked usable by `looks_like_tool_call`. Never select one call from multiple recognized envelopes.
+
 - Leave canonical `LLMResult.function_calls` and their accompanying text untouched in either transport. The agent dispatches those calls through the normal tool-policy gate; text repair must not suppress them or reinterpret a textual follow-up as another call.
 - Repaired and fallback JSON is always minified.
 - Usable Responses output text stays untouched for the core response-tool dispatcher. Recognizable tool intent still enters repair; Chat Completions non-tool output becomes `{"thoughts":[raw]}` and XML-like output becomes `{}` when suppression is enabled.
