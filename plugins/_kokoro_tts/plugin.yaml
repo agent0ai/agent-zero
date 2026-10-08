@@ -1,7 +1,7 @@
 name: _kokoro_tts
-title: Kokoro TTS
-description: Built-in Kokoro text-to-speech plugin with weighted voice blending and browser fallback.
-version: 1.1.0
+title: Local TTS (Kokoro & Paradee)
+description: Local speech with lightweight Paradee or blended Kokoro voices, with browser fallback.
+version: 1.2.0
 always_enabled: false
 settings_sections:
   - agent

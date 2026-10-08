@@ -2,15 +2,19 @@
   <div class="voice-plugin-card">
     <div class="voice-plugin-card-header">
       <div>
-        <div class="voice-plugin-title">Kokoro TTS</div>
+        <div class="voice-plugin-title">Local TTS</div>
         <div class="voice-plugin-description">
-          Server-side speech synthesis plugin. When disabled, Agent Zero falls back to browser-native TTS.
+          Paradee or Kokoro speech synthesis, with browser-native speech as the fallback.
         </div>
       </div>
       <span class="voice-plugin-badge" :class="`is-${$store.kokoroTts?.statusClass || 'warn'}`" x-text="$store.kokoroTts?.statusText || 'Idle'"></span>
     </div>
 
     <div class="voice-plugin-meta">
+      <div class="voice-plugin-meta-row">
+        <span>Model</span>
+        <span x-text="$store.kokoroTts?.modelName || ''"></span>
+      </div>
       <div class="voice-plugin-meta-row">
         <span>Voice</span>
         <code x-text="$store.kokoroTts?.voiceSummary || ''"></code>

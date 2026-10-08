@@ -1,6 +1,6 @@
 <html>
 <head>
-  <title>Kokoro TTS</title>
+  <title>Local TTS</title>
   <script type="module">
     import { store } from "/plugins/_kokoro_tts/webui/kokoro-tts-store.js";
   </script>
@@ -14,11 +14,10 @@
   >
     <template x-if="$store.kokoroTts">
       <div>
-        <div class="section-title">Kokoro TTS</div>
+        <div class="section-title">Local TTS</div>
         <div class="section-description">
-          Built-in Kokoro speech synthesis. Dependency installation remains on the
-          Docker/bootstrap path; disabling this plugin returns spoken output to the
-          browser fallback.
+          Local speech synthesis with Paradee or Kokoro. Disabling this plugin
+          returns spoken output to the browser fallback.
         </div>
 
         <div class="speech-plugin-grid">
@@ -30,6 +29,10 @@
             </div>
             <div class="status-row">
               <span class="status-key">Model</span>
+              <span class="status-value" x-text="$store.kokoroTts.modelName"></span>
+            </div>
+            <div class="status-row">
+              <span class="status-key">State</span>
               <span class="status-badge" :class="$store.kokoroTts.statusClass" x-text="$store.kokoroTts.statusText"></span>
             </div>
             <div class="status-row" x-show="$store.kokoroTts.packageVersion">

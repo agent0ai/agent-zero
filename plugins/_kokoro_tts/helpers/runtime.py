@@ -17,7 +17,7 @@ from helpers.notification import (
     NotificationType,
 )
 from helpers.print_style import PrintStyle
-from plugins._kokoro_tts.helpers import migration
+from plugins._kokoro_tts.helpers import migration, paradee
 
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 PLUGIN_NAME = "_kokoro_tts"
 DEFAULT_CONFIG = {
-    "voice": "am_puck,am_onyx",
+    "voice": "paradee",
     "voice_weights": {},
     "speed": 1.1,
 }
@@ -60,6 +60,12 @@ def normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
 
     if normalized["voice_weights"]:
         normalized["voice"] = ",".join(normalized["voice_weights"])
+    else:
+        voices = [part.strip() for part in normalized["voice"].split(",")]
+        if any(voice.lower() == "paradee" for voice in voices):
+            normalized["voice"] = ",".join(
+                voice for voice in voices if voice and voice.lower() != "paradee"
+            ) or "paradee"
 
     try:
         speed = float(config.get("speed", normalized["speed"]))
@@ -84,6 +90,8 @@ def is_globally_enabled() -> bool:
 
 
 async def preload(config: dict[str, Any] | None = None):
+    if normalize_config(config if config is not None else get_config())["voice"] == "paradee":
+        return await asyncio.to_thread(paradee.preload)
     return await _preload()
 
 
@@ -118,11 +126,15 @@ async def _preload():
         is_updating_model = False
 
 
-async def is_downloading() -> bool:
+async def is_downloading(config: dict[str, Any] | None = None) -> bool:
+    if normalize_config(config if config is not None else get_config())["voice"] == "paradee":
+        return paradee.model_status()["loading"]
     return is_updating_model
 
 
-async def is_downloaded() -> bool:
+async def is_downloaded(config: dict[str, Any] | None = None) -> bool:
+    if normalize_config(config if config is not None else get_config())["voice"] == "paradee":
+        return paradee.model_status()["ready"]
     return _pipeline is not None
 
 
@@ -130,6 +142,8 @@ async def synthesize_sentences(
     sentences: list[str], config: dict[str, Any] | None = None
 ) -> str:
     cfg = normalize_config(config or get_config())
+    if cfg["voice"] == "paradee" and not cfg["voice_weights"]:
+        return await asyncio.to_thread(paradee.synthesize, "\n".join(sentences), float(cfg["speed"]))
     return await _synthesize_sentences(
         sentences,
         voice=str(cfg["voice"]),

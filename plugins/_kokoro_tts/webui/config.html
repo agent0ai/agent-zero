@@ -1,11 +1,12 @@
 <html>
 <head>
-  <title>Kokoro TTS</title>
+  <title>Local TTS</title>
 </head>
 
 <body>
   <div x-data="{
     catalog: [
+      { id: 'paradee', label: 'Paradee · Heart', group: 'Paradee' },
       { id: 'af_alloy', label: 'Alloy', group: 'American Female' },
       { id: 'af_aoede', label: 'Aoede', group: 'American Female' },
       { id: 'af_bella', label: 'Bella', group: 'American Female' },
@@ -28,7 +29,7 @@
       { id: 'am_santa', label: 'Santa', group: 'American Male' },
     ],
     initConfig() {
-      if (!config.voice) config.voice = 'am_puck,am_onyx';
+      if (!config.voice) config.voice = 'paradee';
       const sanitized = {};
       const weights = config.voice_weights;
       if (weights && typeof weights === 'object' && !Array.isArray(weights)) {
@@ -47,10 +48,12 @@
     voiceIds() {
       const weighted = Object.keys(config.voice_weights || {});
       if (weighted.length) return weighted;
-      return String(config.voice || '')
+      const ids = String(config.voice || '')
         .split(',')
-        .map(id => id.trim())
-        .filter(id => /^[a-z]{2}_[a-z0-9_]+$/.test(id));
+        .map(id => id.trim().toLowerCase() === 'paradee' ? 'paradee' : id.trim())
+        .filter(id => id === 'paradee' || /^[a-z]{2}_[a-z0-9_]+$/.test(id));
+      const kokoroIds = ids.filter(id => id !== 'paradee');
+      return ids.includes('paradee') ? (kokoroIds.length ? kokoroIds : ['paradee']) : ids;
     },
     hasWeights() {
       return Object.keys(config.voice_weights || {}).length > 0;
@@ -76,6 +79,7 @@
       return total > 0 ? Math.round((this.weightFor(id) / total) * 100) : 0;
     },
     setWeight(id, rawWeight) {
+      if (id === 'paradee') return;
       const next = {};
       for (const voiceId of this.voiceIds()) next[voiceId] = this.weightFor(voiceId);
       next[id] = Math.min(10, Math.max(0.1, Number(rawWeight) || 1));
@@ -86,8 +90,13 @@
       config.voice_weights = {};
     },
     addVoice(id) {
+      if (id === 'paradee') {
+        config.voice_weights = {};
+        this.syncVoice([id]);
+        return;
+      }
       if (!id || !/^[a-z]{2}_[a-z0-9_]+$/.test(id)) return;
-      const ids = this.voiceIds();
+      const ids = this.voiceIds().filter(voiceId => voiceId !== 'paradee');
       if (!ids.includes(id)) ids.push(id);
       if (this.hasWeights()) {
         const next = {};
@@ -113,9 +122,9 @@
   }">
     <template x-if="config">
       <div class="plugin-config-page" x-init="initConfig()">
-        <div class="section-title">Kokoro TTS</div>
+        <div class="section-title">Local TTS</div>
         <div class="section-description">
-          Choose a voice or blend several voices in memory. Disabling this plugin
+          Choose Paradee for English speech, or blend Kokoro voices. Disabling this plugin
           returns spoken output to the browser speech API.
         </div>
 
@@ -123,16 +132,17 @@
           <div class="field-label">
             <div class="field-title">Voice expression</div>
             <div class="field-description">
-              Pick a voice below or enter Kokoro voice identifiers separated by commas for an equal blend.
+              Choose a voice below. Kokoro voice names separated by commas create an equal blend.
             </div>
           </div>
           <div class="field-control">
             <input
               type="text"
               list="kokoro-voice-catalog"
+              aria-label="Voice expression"
               x-model.trim="config.voice"
               @input="config.voice_weights = {}"
-              placeholder="am_puck,am_onyx"
+              placeholder="paradee"
             />
             <datalist id="kokoro-voice-catalog">
               <template x-for="voice in catalog" :key="voice.id">
@@ -146,12 +156,12 @@
           <div class="field-label">
             <div class="field-title">Voice blend</div>
             <div class="field-description">
-              Adjusting a weight enables a weighted blend. Voice packs remain in Kokoro's normal cache; no blend files are created.
+              Kokoro voices can be blended with adjustable weights. Paradee uses its own Heart voice and cannot be blended.
             </div>
           </div>
           <div class="field-control kokoro-blend-editor">
             <div class="kokoro-blend-toolbar">
-              <span class="kokoro-mode" x-text="hasWeights() ? 'Weighted' : 'Equal weights'"></span>
+              <span class="kokoro-mode" x-text="config.voice === 'paradee' ? 'Single voice' : (hasWeights() ? 'Weighted' : 'Equal weights')"></span>
               <button
                 type="button"
                 class="button"
@@ -164,7 +174,7 @@
 
             <template x-if="voiceIds().length === 0">
               <div class="kokoro-empty">
-                Enter a standard Kokoro voice identifier to use the blend editor.
+                Choose Paradee or enter a standard Kokoro voice name.
               </div>
             </template>
 
@@ -173,9 +183,9 @@
                 <div class="kokoro-voice-row">
                   <div class="kokoro-voice-copy">
                     <strong x-text="voiceInfo(id).label"></strong>
-                    <span x-text="`${id} · ${voiceInfo(id).group}`"></span>
+                    <span x-text="id === 'paradee' ? 'American English · Single voice' : `${id} · ${voiceInfo(id).group}`"></span>
                   </div>
-                  <label class="kokoro-weight">
+                  <label class="kokoro-weight" x-show="id !== 'paradee'">
                     <span x-text="`${weightPercent(id)}%`"></span>
                     <input
                       type="range"
@@ -201,8 +211,13 @@
               </template>
             </div>
 
-            <select @change="addVoice($event.target.value); $event.target.value = ''">
+            <select aria-label="Add a voice" @change="addVoice($event.target.value); $event.target.value = ''">
               <option value="">Add a voice...</option>
+              <optgroup label="Paradee">
+                <template x-for="voice in availableVoices('Paradee')" :key="voice.id">
+                  <option :value="voice.id" x-text="voice.label"></option>
+                </template>
+              </optgroup>
               <optgroup label="American Female">
                 <template x-for="voice in availableVoices('American Female')" :key="voice.id">
                   <option :value="voice.id" x-text="`${voice.label} (${voice.id})`"></option>
@@ -229,7 +244,7 @@
               max="3"
               step="0.1"
               x-model.number="config.speed"
-              aria-label="Kokoro speech speed"
+              aria-label="Speech speed"
             />
             <output x-text="`${Number(config.speed || 1.1).toFixed(1)}×`"></output>
           </div>
