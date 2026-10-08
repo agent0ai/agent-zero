@@ -455,8 +455,23 @@ def get_enabled_plugin_paths(agent: Agent | None, *subpaths: str) -> List[str]:
     enabled = get_enabled_plugins(agent)
     paths: list[str] = []
 
-    for plugin in enabled:
-        base_dir = find_plugin_dir(plugin)
+    # Discovery is alphabetical, but asset overrides follow root priority.
+    # Keep the existing order within each root so same-root collisions retain
+    # their precedence, while user plugins can override bundled plugins.
+    roots = [Path(root) for root in get_plugin_roots()]
+    resolved = [find_plugin_dir(plugin) for plugin in enabled]
+    resolved.sort(
+        key=lambda base_dir: next(
+            (
+                index
+                for index, root in enumerate(roots)
+                if base_dir and Path(base_dir).is_relative_to(root)
+            ),
+            len(roots),
+        )
+    )
+
+    for base_dir in resolved:
         if not base_dir:
             continue
 

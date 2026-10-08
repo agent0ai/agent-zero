@@ -48,6 +48,11 @@
 
 ## Runtime Contracts
 
+- Enabled asset paths follow `get_plugin_roots()` priority: user plugins before
+  bundled plugins, preserving discovery order within each root. First-match
+  tools, prompts and same-filename extensions therefore honor user plugin
+  overrides. This does not reorder the plugin list or change activation rules,
+  project/profile precedence, or extension execution order after deduplication.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Plugins marked `always_enabled` remain in runtime discovery regardless of
   stale global or scoped disable files, and disable attempts are rejected.
@@ -75,6 +80,9 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_plugin_asset_precedence.py` covers root priority, stable ordering,
+    tool/prompt/extension selection, higher-priority scoped overrides, disabled
+    plugin fallback, missing paths and cached empty results.
   - `tests/test_a0_connector_computer_use_metadata.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
