@@ -56,6 +56,7 @@
 - Transport-level preloading must remain outside `components.js`, `extensions.js`, and `initFw.js`; cache hits flow through their ordinary asynchronous requests.
 - `<x-component>` loading must process component `style`, `script`, and stylesheet-link assets only once, even when a component keeps its scoped `<style>` inside `<body>`.
 - Every `<x-component>` instance must await cached module-load promises before markup is appended so Alpine bindings only run after imported stores exist.
+- Each component import owns its loading placeholder: keep it while pending and remove that exact node on success or failure without touching replacement or nested loading indicators. Preserve error propagation and release the import lock so later attempts can run.
 - Frontend extension hooks such as `confirm_dialog_after_render` and `get_tool_message_handler` must preserve their mutable context contracts.
 - Sanitize or safely render user/model-provided HTML and markdown.
 - Convert standard TeX delimiters before Markdown parsing without touching inline or fenced code. Keep thought-card math rendering local to the agent-message handler rather than adding math flags to generic process-step or key/value rendering.
@@ -96,6 +97,7 @@
 ## Verification
 
 - Run targeted frontend/WebUI tests when available.
+- Run `pytest tests/test_webui_component_loader.py` for component-loader changes; its Node.js runtime regression covers pending loads, failures, retries, and placeholder ownership without extra JavaScript dependencies.
 - For message math changes, smoke-test both response Markdown and agent thought cards with inline and display TeX.
 - Manually smoke-test startup, API calls, WebSocket state sync, and affected UI flows after infrastructure changes.
 - For modal infrastructure, verify duplicate paths can stack, missing paths stay closable, Escape closes only the top modal, and click-outside requires both mouse down and mouse up on the overlay container.
