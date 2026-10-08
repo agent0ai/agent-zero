@@ -1,5 +1,5 @@
 from initialize import initialize_agent
-from helpers import dirty_json, files, subagents, projects
+from helpers import dirty_json, files, subagents, plugins
 from helpers.extension import Extension
 
 
@@ -10,7 +10,25 @@ class LoadProfileSettings(Extension):
         if not self.agent or not self.agent.config.profile:
             return
 
-        config_files = subagents.get_paths(self.agent, "settings.json", include_default=False, include_user=False)
+        profile = self.agent.config.profile
+        scoped_files = subagents.get_paths(
+            self.agent, "settings.json", include_default=False,
+            include_user=False, include_plugins=False,
+        )
+        default_settings = files.get_abs_path(subagents.DEFAULT_AGENTS_DIR, profile, "settings.json")
+        # Merge low-priority layers first, keeping discovery order within plugin roots.
+        config_files = [
+            *sorted(
+                plugins.get_enabled_plugin_paths(self.agent, "settings.json"),
+                key=plugins.get_plugin_root_priority, reverse=True,
+            ),
+            default_settings,
+            *sorted(
+                plugins.get_enabled_plugin_paths(self.agent, "agents", profile, "settings.json"),
+                key=plugins.get_plugin_root_priority, reverse=True,
+            ),
+            *(path for path in reversed(scoped_files) if path != default_settings),
+        ]
         settings_override = {}
         for settings_path in config_files:
             if files.exists(settings_path):

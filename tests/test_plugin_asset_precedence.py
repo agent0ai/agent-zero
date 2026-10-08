@@ -181,6 +181,7 @@ def test_empty_asset_results_are_cached(plugin_tree, monkeypatch):
     monkeypatch.setattr(plugins, "get_enabled_plugins", unexpected_lookup)
     assert plugins.get_enabled_plugin_paths(None, "missing") == []
 
+
 def test_provider_merges_apply_user_roots_last_and_preserve_same_root_order(plugin_tree):
     roots = [
         plugin_tree("_alpha", bundled=True), plugin_tree("_zulu", bundled=True),
@@ -240,6 +241,7 @@ def test_profile_merges_preserve_root_order_and_higher_scope_overrides(
             state = editor.metadata_state("researcher", editor._EditorContext(project_name or ""))
             assert state["title"]["effective"] == state["context"]["effective"] == title
         else:
+            # The global catalog includes profiles from every project.
             assert subagents.get_all_agents_list() == [{"key": "researcher", "label": title}]
 
     for root in roots:
@@ -254,10 +256,86 @@ def test_profile_merges_preserve_root_order_and_higher_scope_overrides(
     cache.clear("*(plugins)*")
     assert_profile("_zulu")
 
+    for root in roots[2:]:
+        (root / ".toggle-0").unlink()
+    cache.clear("*(plugins)*")
     write_profile(tmp_path / "usr", "User profile")
     assert_profile("User profile")
     write_profile(tmp_path / "usr/projects/demo/.a0proj", "Project profile")
     assert_profile("Project profile", "demo")
+
+
+def test_profile_settings_merge_preserves_root_and_scope_priorities(
+    plugin_tree, tmp_path, monkeypatch
+):
+    from extensions.python.agent_init import _15_load_profile_settings as hook
+
+    roots = [
+        plugin_tree("_alpha", bundled=True), plugin_tree("_zulu", bundled=True),
+        plugin_tree("alpha"), plugin_tree("zulu"),
+    ]
+
+    def write_settings(root, **values):
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / "settings.json"
+        path.write_text(json.dumps(values), encoding="utf-8")
+        return path
+
+    for root in roots:
+        write_settings(root, root_value=root.name, winner=root.name)
+        write_settings(
+            root / "agents/researcher", profile_value=root.name, winner=root.name
+        )
+    write_settings(tmp_path / "agents/researcher", default_only="inherited", winner="default")
+    write_settings(tmp_path, excluded_default=True)
+    write_settings(tmp_path / "usr", excluded_user=True)
+
+    received = []
+    errors = []
+    monkeypatch.setattr(
+        hook, "initialize_agent",
+        lambda override_settings: received.append(override_settings)
+        or SimpleNamespace(profile="default", mcp_servers=""),
+    )
+    agent = SimpleNamespace(
+        config=SimpleNamespace(profile="researcher", mcp_servers="inherited MCP"),
+        context=SimpleNamespace(
+            get_data=lambda *_args: "demo",
+            log=SimpleNamespace(log=lambda **entry: errors.append(entry)),
+        ),
+    )
+
+    def assert_settings(winner, plugin_winner="zulu"):
+        hook.LoadProfileSettings(agent).execute()
+        values = received[-1]
+        assert values["winner"] == winner
+        assert values["root_value"] == values["profile_value"] == plugin_winner
+        assert values["default_only"] == "inherited"
+        assert "excluded_default" not in values and "excluded_user" not in values
+        assert agent.config.profile == "researcher"
+        assert agent.config.mcp_servers == "inherited MCP"
+
+    assert_settings("zulu")
+    assert plugins.get_enabled_plugin_paths(agent, "settings.json") == [
+        str(root / "settings.json") for root in [*roots[2:], *roots[:2]]
+    ]
+    write_settings(tmp_path / "usr/agents/researcher", winner="user")
+    assert_settings("user")
+    project = tmp_path / "usr/projects/demo/.a0proj"
+    write_settings(project, winner="project")
+    assert_settings("project")
+    project_profile = write_settings(project / "agents/researcher", winner="")
+    assert_settings("")
+
+    for root in roots[2:]:
+        (root / ".toggle-0").touch()
+    cache.clear("*(plugins)*")
+    assert_settings("", "_zulu")
+
+    project_profile.write_text("[]", encoding="utf-8")
+    assert_settings("project", "_zulu")
+    assert len(errors) == 1 and errors[0]["type"] == "error"
+    assert str(project_profile) in errors[0]["content"]
 
 
 def test_model_prompt_native_schema_and_dispatch_use_the_same_plugin(
