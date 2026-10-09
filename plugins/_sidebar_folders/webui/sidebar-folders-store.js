@@ -64,7 +64,7 @@ export const store = createStore("sidebarFolders", {
         sort_by: SORTS.includes(result.data?.sort_by) ? result.data.sort_by : "created",
       };
     } catch (error) {
-      this.report(error);
+      this.report(error, true);
     }
   },
 
@@ -73,7 +73,7 @@ export const store = createStore("sidebarFolders", {
       const result = await callJsonApi(`/plugins/${PLUGIN}/layout`, {});
       this.order = result.order;
     } catch (error) {
-      this.report(error);
+      this.report(error, true);
     }
   },
 
@@ -474,7 +474,12 @@ export const store = createStore("sidebarFolders", {
     }
   },
 
-  report(error) {
+  report(error, background = false) {
+    if (background) {
+      // Background refresh failures (tab-focus reload) are expected noise; log, don't toast.
+      console.warn("Sidebar Folders background refresh failed:", error);
+      return;
+    }
     void toastFrontendError(error?.message || "Could not update sidebar folders", "Sidebar Folders");
   },
 });
