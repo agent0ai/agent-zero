@@ -24,8 +24,9 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, settings/state persistence, secret handling.
-- Imported dependency areas include: `datetime`, `helpers`, `helpers.localization`, `helpers.print_style`, `json`, `os`, `pathspec`, `platform`, `tempfile`, `typing`, `zipfile`.
+- Imported dependency areas include: `asyncio`, `datetime`, `helpers`, `helpers.localization`, `helpers.print_style`, `json`, `os`, `pathspec`, `platform`, `tempfile`, `typing`, `zipfile`.
 - `test_patterns(..., max_files=None)` is the unlimited scan mode. UI preview and dry-run callers may pass bounded limits, but real backup creation and restore clean-before-restore must use unlimited matching so archives and cleanup are not silently truncated.
+- Pattern scans run filesystem traversal and metadata reads in a worker thread to keep the calling event loop responsive. Literal `directory/**` include patterns prune unrelated subtrees, and final literal recursive exclusions prune already-excluded subtrees. Complex includes retain the full walk; exclusions followed by an include cannot prune. The final PathSpec matcher, file order, preview limits, hidden-file rules, and non-following directory-symlink behavior remain unchanged.
 - Default backup metadata includes persistent `/usr` data but excludes Time Travel shadow history under `usr/.time_travel/**` and Orchestrator state and credentials under `usr/plugins/_orchestrator/data/**`.
 - Restoring `usr/.env` preserves the destination instance's allowed origins while restoring authentication and other portable configuration from the archive.
 
@@ -44,6 +45,8 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_backup_scan.py`
+  - `tests/test_backup_large_archives.py`
   - `tests/test_download_toast_regressions.py`
   - `tests/test_office_document_store.py`
   - `tests/test_self_update_tag_filter.py`
