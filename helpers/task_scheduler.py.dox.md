@@ -83,6 +83,7 @@
 
 ## Runtime Contracts
 
+- `TaskPlan.get_next_launch_time` selects the earliest remaining timestamp without reordering `todo` or replacing its datetime objects. Aware timestamps use exact elapsed-UTC comparison keys, including DST folds; naive timestamps retain naive comparison. Factory-created and restored plans do not need to arrive in chronological order.
 - `SchedulerTaskList` keeps `usr/scheduler/tasks.json` as its default and prefers it when both formats exist. An existing `tasks.yaml` is supported when no JSON file exists; saves use the same selection and format. Loading never migrates, renames, or creates a second file.
 - JSON retains its existing Pydantic parser and `helpers.files` persistence path. Optional YAML uses `helpers.yaml` with the same task models. Invalid data raises before replacing the in-memory task list; YAML comments and formatting are regenerated on save.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
@@ -105,6 +106,7 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_task_scheduler_plan_order.py`
   - `tests/test_task_scheduler_timezone.py`
   - `tests/test_scheduler_editor.py`
   - `tests/test_timezone_regressions.py`
