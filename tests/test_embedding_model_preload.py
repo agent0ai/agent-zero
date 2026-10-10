@@ -1,4 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
+import os
+from pathlib import Path
+import subprocess
+import sys
 import threading
 from types import SimpleNamespace
 
@@ -7,9 +11,58 @@ import pytest
 import models
 
 
+def test_framework_imports_do_not_load_embedding_or_speech_runtimes():
+    result = subprocess.run(
+        [sys.executable, "-c", """
+import sys
+import models
+import preload
+for name in (
+    'sentence_transformers', 'torch', 'whisper',
+    'plugins._kokoro_tts.helpers.runtime',
+    'plugins._whisper_stt.helpers.runtime',
+):
+    assert name not in sys.modules, name
+"""],
+        cwd=Path(__file__).resolve().parents[1],
+        env={**os.environ, "LITELLM_LOCAL_MODEL_COST_MAP": "True"},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def _clear_local_embedding_models():
     with models._LOCAL_EMBEDDING_MODELS_LOCK:
         models._LOCAL_EMBEDDING_MODELS.clear()
+
+
+@pytest.mark.parametrize("skip_init", [False, True])
+def test_runtime_preload_overlaps_chat_restoration_within_extension_hooks(monkeypatch, skip_init):
+    import run_ui
+
+    calls = []
+
+    def extension_hook(point, agent, data):
+        calls.append(point.rsplit("/", 1)[-1])
+        if skip_init and point.endswith("/start"):
+            data["result"] = None
+
+    monkeypatch.setattr(run_ui.extension, "call_extensions_sync", extension_hook)
+    monkeypatch.setattr(run_ui.initialize, "initialize_preload", lambda: calls.append("preload"))
+    monkeypatch.setattr(
+        run_ui.initialize, "initialize_chats",
+        lambda: SimpleNamespace(result_sync=lambda: calls.append("chats")),
+    )
+    monkeypatch.setattr(run_ui.initialize, "initialize_mcp", lambda: calls.append("mcp"))
+    monkeypatch.setattr(run_ui.initialize, "initialize_job_loop", lambda: calls.append("jobs"))
+
+    run_ui.init_a0()
+
+    assert calls == (["start", "end"] if skip_init else [
+        "start", "preload", "chats", "mcp", "jobs", "end",
+    ])
 
 
 def test_local_embedding_preload_is_reused_with_runtime_model_config(monkeypatch):
@@ -19,7 +72,10 @@ def test_local_embedding_preload_is_reused_with_runtime_model_config(monkeypatch
         def __init__(self, model, **kwargs):
             created.append((model, kwargs))
 
-    monkeypatch.setattr(models, "SentenceTransformer", FakeSentenceTransformer)
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+    )
     _clear_local_embedding_models()
 
     try:
@@ -63,7 +119,10 @@ def test_local_embedding_cache_tracks_effective_constructor_options(monkeypatch)
         def __init__(self, model, **kwargs):
             created.append((model, kwargs))
 
-    monkeypatch.setattr(models, "SentenceTransformer", FakeSentenceTransformer)
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+    )
     _clear_local_embedding_models()
 
     try:
@@ -95,7 +154,10 @@ def test_concurrent_preload_and_runtime_share_one_model(monkeypatch):
             construction_started.set()
             assert release_construction.wait(timeout=2)
 
-    monkeypatch.setattr(models, "SentenceTransformer", FakeSentenceTransformer)
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+    )
     _clear_local_embedding_models()
 
     try:
@@ -130,7 +192,10 @@ def test_failed_model_change_keeps_the_working_cached_model(monkeypatch):
             if model == "broken":
                 raise RuntimeError("model unavailable")
 
-    monkeypatch.setattr(models, "SentenceTransformer", FakeSentenceTransformer)
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+    )
     _clear_local_embedding_models()
 
     try:
@@ -163,12 +228,14 @@ async def test_preload_uses_the_runtime_embedding_configuration(monkeypatch):
     )
     calls = []
     embedded = []
+    loop_thread = threading.get_ident()
 
     class FakeEmbeddings:
         async def aembed_query(self, text):
             embedded.append(text)
 
     def get_embedding_model(provider, name, **kwargs):
+        assert threading.get_ident() != loop_thread
         calls.append((provider, name, kwargs))
         return FakeEmbeddings()
 
@@ -187,3 +254,34 @@ async def test_preload_uses_the_runtime_embedding_configuration(monkeypatch):
         )
     ]
     assert embedded == ["test"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["openai", "huggingface"])
+async def test_preload_skips_remote_models_and_contains_local_failures(monkeypatch, provider):
+    import preload
+    from plugins._model_config.helpers import model_config
+
+    config = SimpleNamespace(provider=provider, name="example", build_kwargs=lambda: {})
+    calls = []
+    errors = []
+
+    def fail_embedding(*args, **kwargs):
+        calls.append(args)
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr(model_config, "get_embedding_model_config_object", lambda: config)
+    monkeypatch.setattr(models, "get_embedding_model", fail_embedding)
+    monkeypatch.setattr(
+        preload, "PrintStyle",
+        lambda: SimpleNamespace(print=lambda _: None, error=errors.append),
+    )
+
+    await preload.preload()
+
+    if provider == "huggingface":
+        assert calls == [("huggingface", "example")]
+        assert errors == ["Error in preload: model unavailable"]
+    else:
+        assert calls == []
+        assert errors == []

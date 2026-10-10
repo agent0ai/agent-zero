@@ -73,12 +73,12 @@ def create_flush_callback():
 
 @extension.extensible
 def init_a0():
+    initialize.initialize_preload()
     init_chats = initialize.initialize_chats()
     init_chats.result_sync()
 
     initialize.initialize_mcp()
     initialize.initialize_job_loop()
-    initialize.initialize_preload()
 
 
 if __name__ == "__main__":

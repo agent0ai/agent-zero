@@ -22,6 +22,7 @@
 - For v2.13 builds, retain the Python 3.13-compatible ATK, LibreOffice/UNO, and Xpra pins in `fs/ins/install_additional.sh`. Resolve them from the signed Debian `forky` archive dated `20260624T000000Z` and Xpra `trixie`, using build-scoped APT options that preserve normal Kali sources.
 - Do not bake secrets, local `.env` values, or user data into the image.
 - Runtime startup must ensure `/a0/usr/uploads` exists before supervised services start.
+- Runtime startup seeds APT package lists in the background only when no package index is cached (fresh images clear these at build time). Normal restarts skip the refresh; installation scripts and plugin hooks refresh metadata when installing packages.
 - Runtime startup raises the soft open-file limit toward `A0_NOFILE_LIMIT` (default `65535`) before supervisord starts, bounded by the container hard limit.
 - Self-update user-data backups skip Time Travel shadow history under `usr/.time_travel/` and transient Desktop agent state.
 - Self-update rollback stashes use immutable Git object IDs for creation checks and restoration; resolve the matching reflog selector only when dropping that stash, preserving unrelated entries. Failed restoration retains the stash.

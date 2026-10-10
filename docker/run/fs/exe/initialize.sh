@@ -44,6 +44,12 @@ raise_open_file_limit() {
     fi
 }
 
+initialize_package_lists() {
+    if ! compgen -G "/var/lib/apt/lists/*_Packages*" > /dev/null; then
+        apt-get update > /dev/null 2>&1 &
+    fi
+}
+
 raise_open_file_limit
 
 # Copy all contents from persistent /per to root directory (/) without overwriting
@@ -56,8 +62,7 @@ mkdir -p /a0/usr/uploads
 chmod 444 /root/.bashrc
 chmod 444 /root/.profile
 
-# update package list to save time later
-apt-get update > /dev/null 2>&1 &
+initialize_package_lists
 
 # let supervisord handle the services
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

@@ -14,6 +14,7 @@ from typing import (
     AsyncIterator,
     Tuple,
     TypedDict,
+    TYPE_CHECKING,
 )
 
 from litellm import embedding
@@ -43,8 +44,10 @@ from langchain_core.messages import (
     SystemMessage,
 )
 from langchain.embeddings.base import Embeddings
-from sentence_transformers import SentenceTransformer
 from pydantic import ConfigDict
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 
 DEFAULT_LITELLM_GLOBAL_KWARGS: dict[str, Any] = {
@@ -832,17 +835,19 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         return self.embed([text])[0]
 
 
-_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], SentenceTransformer] = {}
+_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], "SentenceTransformer"] = {}
 _LOCAL_EMBEDDING_MODELS_LOCK = threading.Lock()
 
 
 def _get_local_embedding_model(
     model: str, kwargs: dict[str, Any]
-) -> SentenceTransformer:
+) -> "SentenceTransformer":
     key = (model, json.dumps(kwargs, sort_keys=True, default=repr))
     with _LOCAL_EMBEDDING_MODELS_LOCK:
         cached = _LOCAL_EMBEDDING_MODELS.get(key)
         if cached is None:
+            from sentence_transformers import SentenceTransformer
+
             cached = SentenceTransformer(model, **kwargs)
             _LOCAL_EMBEDDING_MODELS.clear()
             _LOCAL_EMBEDDING_MODELS[key] = cached
