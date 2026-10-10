@@ -32,6 +32,9 @@
 - Goal state changes publish a context revision through the shared state-push
   lifecycle; the WebUI refreshes on context or revision changes and never polls
   the Goal API while idle.
+- Snapshot refreshes run without delaying chat rendering. Clear the previous
+  chat's goal when refreshing a new selection; only the latest selected-chat
+  request may apply results, and stale requests must not finish a newer load.
 
 ## Work Guidance
 

@@ -59,6 +59,8 @@
   tool calls without another refresh, when the final response completes the run,
   and when the active chat log GUID changes (including Clear Chat). Streamed
   updates to an existing generation or tool log do not refetch it.
+- Snapshot-triggered usage refreshes must not delay message rendering. Apply
+  results only from the latest request while its chat is still selected.
 - `_model_config` supplies the effective model limit and the
   `model-context-strip-end` WebUI slot; it does not own this feature's state.
 - The `contextWindowUsage` Interface setting defaults to visible on mobile and

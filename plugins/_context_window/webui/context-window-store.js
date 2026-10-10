@@ -156,7 +156,7 @@ const model = {
     }
     try {
       const data = await callJsonApi(API_PATH, { context: contextId });
-      if (requestSeq === this.loadSeq) this.usage = buildUsage(data);
+      if (requestSeq === this.loadSeq && contextId === this.contextId) this.usage = buildUsage(data);
     } catch (error) {
       if (requestSeq === this.loadSeq) console.error("Context window load failed:", error);
     }

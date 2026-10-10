@@ -243,7 +243,7 @@ def test_webui_display_toggles_are_independent():
     source = """
 const createStore = (_name, model) => model;
 const callJsonApi = async () => globalThis.payload;
-const chatsStore = {};
+const chatsStore = { getSelectedChatId: () => "chat-1" };
 const preferencesStore = { registerUiControlVisibility() {} };
 """ + source
     module_url = "data:text/javascript;base64," + base64.b64encode(

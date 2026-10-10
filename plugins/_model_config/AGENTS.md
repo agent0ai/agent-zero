@@ -51,6 +51,12 @@
 - Concurrent agent-profile catalog loads for the same chat share one request;
   across chats, only the newest request may replace selector state or finish
   its loading lifecycle.
+- Snapshot-triggered profile and preset refreshes run independently of chat
+  rendering and of each other. Only the latest refresh for the selected chat
+  may apply selector state; older completions must not clear a newer loading flag.
+- Ignore refreshes for unselected chats before advancing the request sequence.
+  Pending preset/profile saves keep their original chat target; preset save or
+  clear results may update the selector only while that chat is selected.
 - Preset editor reset actions must remove the user override through the preset API and refresh the open draft from bundled defaults.
 - Preset rename, delete, and reset actions must repair scoped config and durable/live chat references; removed definitions fall back to `Default`.
 - Save/reset embedding comparisons use the matching before/after preset snapshots, including Default inheritance. Do not reload the collection per preset or persist a cross-request cache for this comparison.

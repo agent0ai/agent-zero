@@ -30,7 +30,7 @@ function rootToolNos(logs) {
     .filter(Number.isInteger))];
 }
 
-export default async function refreshContextWindow(ctx) {
+export default function refreshContextWindow(ctx) {
   const snapshot = ctx?.snapshot;
   const contextId = String(snapshot?.context || "");
   if (!contextId) {
@@ -72,5 +72,5 @@ export default async function refreshContextWindow(ctx) {
   lastLogGuid = logGuid;
   if (generationKey) lastGenerationKey = generationKey;
   toolCallsSinceRefresh = 0;
-  await contextWindowStore.refresh(contextId);
+  void contextWindowStore.refresh(contextId);
 }

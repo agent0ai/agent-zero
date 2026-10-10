@@ -31,6 +31,7 @@ export const switcherState = {
   switcherEffectivePreset: "Default",
   switcherPresets: [],
   switcherLoading: true,
+  switcherLoadSeq: 0,
   agentProfiles: [],
   agentProfilesLoading: true,
   agentProfilesLoaded: false,
@@ -56,7 +57,7 @@ export const switcherMethods = {
           action: "list",
           context_id: contextId,
         });
-        if (requestSeq !== this.agentProfilesLoadSeq) return this.agentProfiles;
+        if (requestSeq !== this.agentProfilesLoadSeq || contextId !== (window.Alpine?.store("chats")?.selected || "")) return this.agentProfiles;
         this.agentProfiles = (data.profiles || [])
           .filter(profile => profile.id && !["_example", "default"].includes(profile.id) && profile.enabled !== false)
           .map(profile => ({
@@ -218,9 +219,12 @@ export const switcherMethods = {
   },
 
   async refreshSwitcher(contextId) {
+    if (contextId !== (window.Alpine?.store("chats")?.selected || "")) return;
+    const requestSeq = ++this.switcherLoadSeq;
     this.switcherLoading = true;
     try {
       const state = await this.loadSwitcherState(contextId);
+      if (requestSeq !== this.switcherLoadSeq || contextId !== (window.Alpine?.store("chats")?.selected || "")) return;
       this.switcherAllowed = state.allowed;
       this.switcherPresets = state.presets;
       this.switcherOverride = state.override;
@@ -229,13 +233,13 @@ export const switcherMethods = {
     } catch (e) {
       console.error('Model switcher refresh failed:', e);
     } finally {
-      this.switcherLoading = false;
+      if (requestSeq === this.switcherLoadSeq) this.switcherLoading = false;
     }
   },
 
   async selectPresetSwitch(contextId, presetName) {
     const data = await this.setPresetOverride(contextId, presetName);
-    if (data) {
+    if (data && contextId === (window.Alpine?.store("chats")?.selected || "")) {
       const selected = data.preset_name || presetName;
       this.switcherOverride = { preset_name: selected };
       this.switcherEffectivePreset = selected;
@@ -245,7 +249,7 @@ export const switcherMethods = {
 
   async clearOverrideSwitch(contextId) {
     const data = await this.clearOverride(contextId);
-    if (data) {
+    if (data && contextId === (window.Alpine?.store("chats")?.selected || "")) {
       this.switcherOverride = null;
       this.switcherEffectivePreset = data.effective_preset || this.switcherConfiguredPreset || 'Default';
     }

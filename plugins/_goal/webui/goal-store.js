@@ -12,6 +12,7 @@ const GOAL_API_PATH = "/plugins/_goal/goal";
 const model = {
   goal: null,
   loading: false,
+  loadSeq: 0,
   saving: false,
   editing: false,
   draft: "",
@@ -101,12 +102,18 @@ const model = {
 
   async refresh(force = false) {
     const contextId = this.contextId;
+    if (!force && this.loading && contextId === this.lastContextId) return;
+    const requestSeq = ++this.loadSeq;
+    if (contextId !== this.lastContextId) {
+      this.goal = null;
+      this.editing = false;
+    }
+    this.lastContextId = contextId;
     if (!contextId) {
       this.goal = null;
-      this.lastContextId = "";
+      this.loading = false;
       return;
     }
-    if (!force && this.loading) return;
 
     this.loading = true;
     try {
@@ -114,16 +121,16 @@ const model = {
         action: "get",
         context_id: contextId,
       });
+      if (requestSeq !== this.loadSeq || contextId !== this.contextId) return;
       this.goal = response?.goal || null;
       this.now = Date.now();
-      this.lastContextId = contextId;
       if (!this.goal) this.editing = false;
     } catch (error) {
+      if (requestSeq !== this.loadSeq || contextId !== this.contextId) return;
       console.error("Failed to load goal:", error);
       this.goal = null;
-      this.lastContextId = contextId;
     } finally {
-      this.loading = false;
+      if (requestSeq === this.loadSeq) this.loading = false;
     }
   },
 
