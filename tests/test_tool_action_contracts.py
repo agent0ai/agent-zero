@@ -109,10 +109,25 @@ def _skill_instruction_name(message) -> str:
     return ""
 
 
+def _fake_coerce_bool(value, default):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return bool(value)
+
+
 def _install_tool_stub(monkeypatch) -> None:
     tool_stub = types.ModuleType("helpers.tool")
     tool_stub.Tool = _FakeTool
     tool_stub.Response = _FakeResponse
+    tool_stub.coerce_bool = _fake_coerce_bool
     monkeypatch.setitem(sys.modules, "helpers.tool", tool_stub)
 
 
@@ -682,7 +697,7 @@ def test_memory_load_coerces_numeric_string_args(monkeypatch):
     ]
 
 
-def test_behaviour_adjustment_normalizes_duplicate_rules(monkeypatch):
+def test_behavior_adjustment_normalizes_duplicate_rules(monkeypatch):
     _install_tool_stub(monkeypatch)
     monkeypatch.syspath_prepend(str(Path.cwd()))
 
@@ -698,8 +713,8 @@ def test_behaviour_adjustment_normalizes_duplicate_rules(monkeypatch):
     memory_stub.get_memory_subdir_abs = lambda agent: "/tmp"
     monkeypatch.setitem(sys.modules, "plugins._memory.helpers.memory", memory_stub)
 
-    sys.modules.pop("plugins._memory.tools.behaviour_adjustment", None)
-    module = importlib.import_module("plugins._memory.tools.behaviour_adjustment")
+    sys.modules.pop("plugins._behavior_adjustment.tools.behavior_adjustment", None)
+    module = importlib.import_module("plugins._behavior_adjustment.tools.behavior_adjustment")
 
     rules = module.normalize_ruleset(
         "## Behavioral rules\n"
@@ -712,30 +727,30 @@ def test_behaviour_adjustment_normalizes_duplicate_rules(monkeypatch):
     assert rules == "## Behavioral rules\n* Favor Linux commands.\n* Token rule.\n"
 
 
-def test_behaviour_prompts_preserve_exact_rules_and_avoid_promptinclude():
-    behaviour_prompt_path = Path(
-        "plugins/_memory/prompts/agent.system.tool.behaviour.md"
+def test_behavior_prompts_preserve_exact_rules_and_avoid_promptinclude():
+    behavior_prompt_path = Path(
+        "plugins/_behavior_adjustment/prompts/agent.system.tool.behavior.md"
     )
-    behaviour_prompt = behaviour_prompt_path.read_text(encoding="utf-8")
-    merge_prompt = Path("prompts/behaviour.merge.sys.md").read_text(
+    behavior_prompt = behavior_prompt_path.read_text(encoding="utf-8")
+    merge_prompt = Path("plugins/_behavior_adjustment/prompts/behavior.merge.sys.md").read_text(
         encoding="utf-8"
     )
     promptinclude_prompt = Path(
         "plugins/_promptinclude/prompts/agent.system.promptinclude.md"
     ).read_text(encoding="utf-8")
 
-    assert "exact-response rules" in behaviour_prompt
-    assert "preserve it verbatim" in behaviour_prompt
-    assert "do not edit promptinclude files" in behaviour_prompt
-    assert not Path("prompts/agent.system.tool.behaviour.md").exists()
+    assert "exact-response rules" in behavior_prompt
+    assert "preserve it verbatim" in behavior_prompt
+    assert "do not edit promptinclude files" in behavior_prompt
+    assert not Path("prompts/agent.system.tool.behavior.md").exists()
     assert "respond exactly with a phrase" in merge_prompt
-    assert "behaviour_adjustment" not in promptinclude_prompt
+    assert "behavior_adjustment" not in promptinclude_prompt
 
 
 def _load_a2a_chat_tool(monkeypatch):
     _install_tool_stub(monkeypatch)
-    sys.modules.pop("tools.a2a_chat", None)
-    return importlib.import_module("tools.a2a_chat")
+    sys.modules.pop("plugins._a2a_chat.tools.a2a_chat", None)
+    return importlib.import_module("plugins._a2a_chat.tools.a2a_chat")
 
 
 def test_a2a_extracts_latest_assistant_text_from_history(monkeypatch):
@@ -799,9 +814,9 @@ def test_a2a_empty_response_message_is_explicit_failure(monkeypatch):
 
 
 def test_notify_user_prompt_documents_numeric_priority_values():
-    prompt = Path("prompts/agent.system.tool.notify_user.md").read_text(
-        encoding="utf-8"
-    )
+    prompt = Path(
+        "plugins/_notify_user/prompts/agent.system.tool.notify_user.md"
+    ).read_text(encoding="utf-8")
 
     assert "priority values: `20` high urgency, `10` normal urgency" in prompt
 
@@ -830,7 +845,7 @@ def test_local_model_tool_use_guide_stays_prompt_profile_plugin_only():
     guide = Path("docs/guides/local-model-tool-use.md").read_text(encoding="utf-8")
 
     assert "Tiny Local" in guide
-    assert "agents/tiny-local/" in guide
+    assert "plugins/_agent_profiles/agents/tiny-local/" in guide
     assert "*.promptinclude.md" in guide
     assert "Do not change `agent.py`" in guide
     assert "Do not change `helpers/extract_tools.py`" in guide
@@ -877,8 +892,8 @@ def _load_scheduler_tool(monkeypatch):
     projects_stub.load_basic_project_data = lambda project: {}
     monkeypatch.setitem(sys.modules, "helpers.projects", projects_stub)
 
-    sys.modules.pop("tools.scheduler", None)
-    return importlib.import_module("tools.scheduler")
+    sys.modules.pop("plugins._scheduler.tools.scheduler", None)
+    return importlib.import_module("plugins._scheduler.tools.scheduler")
 
 
 def test_scheduler_accepts_action_alias(monkeypatch):
@@ -1016,10 +1031,54 @@ def test_scheduler_invalid_timezone_returns_repairable_message(monkeypatch):
     assert "Invalid timezone: Mars/Base" in response.message
 
 
+def test_scheduler_invalid_state_returns_repairable_message(monkeypatch):
+    module = _load_scheduler_tool(monkeypatch)
+
+    class FakeTaskState:
+        IDLE = "idle"
+        VALUES = {"idle", "running", "disabled", "error"}
+
+        def __init__(self, value):
+            if str(value).strip().lower() not in self.VALUES:
+                raise ValueError(f"unknown state: {value}")
+            self.value = str(value).strip().lower()
+
+    module.TaskState = FakeTaskState
+
+    class FakeTask:
+        uuid = "task-1"
+        state = "idle"
+        context_id = ""
+
+    async def reload():
+        return None
+
+    module.TaskScheduler = types.SimpleNamespace(
+        get=lambda: types.SimpleNamespace(
+            reload=reload,
+            get_task_by_uuid=lambda uuid: FakeTask(),
+        )
+    )
+
+    tool = module.SchedulerTool(
+        _FakeAgent(),
+        "scheduler",
+        None,
+        {"action": "update_task", "uuid": "task-1", "state": "paused"},
+        "",
+        None,
+    )
+
+    response = asyncio.run(tool.execute(**tool.args))
+
+    assert "Invalid task state: paused" in response.message
+    assert "Use one of: idle, running, disabled, error." in response.message
+
+
 def test_scheduler_prompt_includes_update_timezone_and_dedicated_context():
     project_root = Path(__file__).resolve().parents[1]
     text = (
-        project_root / "prompts/agent.system.tool.scheduler.md"
+        project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md"
     ).read_text(encoding="utf-8")
 
     assert "update_task" in text
@@ -1042,7 +1101,7 @@ def test_corrected_tool_prompts_only_teach_action_contract():
     prompt_paths = [
         project_root / "plugins/_text_editor/prompts/agent.system.tool.text_editor.md",
         project_root / "prompts/agent.system.tool.skills.md",
-        project_root / "prompts/agent.system.tool.scheduler.md",
+        project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md",
         project_root / "plugins/_a0_connector/prompts/agent.system.tool.text_editor_remote.md",
         project_root / "plugins/_office/prompts/agent.system.tool.office_artifact.md",
         project_root / "plugins/_office/skills/office-artifacts/SKILL.md",
