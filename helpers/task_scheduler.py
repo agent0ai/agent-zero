@@ -148,7 +148,13 @@ class TaskPlan(BaseModel):
         self.done = sorted(self.done)
 
     def get_next_launch_time(self) -> datetime | None:
-        return self.todo[0] if self.todo else None
+        utc_epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return min(
+            self.todo,
+            # Compare instants across DST folds without rounding or UTC overflow.
+            key=lambda dt: dt - utc_epoch if dt.utcoffset() is not None else dt,
+            default=None,
+        )
 
     def should_launch(self) -> datetime | None:
         next_launch_time = self.get_next_launch_time()
