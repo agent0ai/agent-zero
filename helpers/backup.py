@@ -364,7 +364,9 @@ class BackupService:
         zip_path = os.path.join(temp_dir, f"{backup_name}.zip")
 
         try:
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            with zipfile.ZipFile(
+                zip_path, 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False
+            ) as zipf:
                 # Add comprehensive metadata
                 metadata = {
                     # Basic backup information
