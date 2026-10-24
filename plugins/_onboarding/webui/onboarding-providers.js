@@ -27,7 +27,7 @@ export const MORE_CLOUD_PROVIDER_IDS = [
   "other",
 ];
 
-export const LOCAL_PROVIDER_IDS = ["ollama", "lm_studio", "omlx", "llama_cpp", "vllm", "other"];
+export const LOCAL_PROVIDER_IDS = ["ollama", "lm_studio", "omlx", "llama_cpp", "vllm", "openllm", "other"];
 
 export const ONBOARDING_PROVIDER_OVERRIDES = {
   a0_venice: {
@@ -229,6 +229,15 @@ export const ONBOARDING_PROVIDER_OVERRIDES = {
     api_key_mode: "required",
     model_list_autoload: true,
     short_description: "OpenAI API models for general work.",
+  },
+  openllm: {
+    logo: "/plugins/_onboarding/webui/assets/provider-logos/openllm.svg",
+    setup_url: "https://www.openllm.sh/sign-in",
+    docs_url: "https://docs.openllm.sh/quickstart",
+    default_api_base: "http://host.docker.internal:8787/v1",
+    api_key_mode: "optional",
+    model_list_autoload: true,
+    short_description: "Your subscriptions, API keys, and local models behind one endpoint.",
   },
   openrouter: {
     logo: "https://openrouter.ai/favicon.ico",

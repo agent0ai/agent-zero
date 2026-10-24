@@ -119,6 +119,9 @@ def test_onboarding_provider_grid_names_are_present_in_metadata():
     assert 'default_api_base: "http://host.docker.internal:8000/v1"' in provider_ui
     assert 'logo: "/plugins/_onboarding/webui/assets/provider-logos/vllm.svg"' in provider_ui
     assert 'docs_url: "https://docs.vllm.ai/en/stable/serving/online_serving/"' in provider_ui
+    assert 'logo: "/plugins/_onboarding/webui/assets/provider-logos/openllm.svg"' in provider_ui
+    assert 'docs_url: "https://docs.openllm.sh/quickstart"' in provider_ui
+    assert 'default_api_base: "http://host.docker.internal:8787/v1"' in provider_ui
     assert 'logo: "/plugins/_onboarding/webui/assets/provider-logos/cerebras.svg"' in provider_ui
     assert 'docs_url: "https://inference-docs.cerebras.ai/quickstart"' in provider_ui
     assert 'default_chat_model: "gpt-oss-120b"' in provider_ui
@@ -132,6 +135,8 @@ def test_onboarding_provider_grid_names_are_present_in_metadata():
     assert "oMLX" in provider_yaml
     assert "http://host.docker.internal:8000/v1" in provider_yaml
     assert "vLLM" in provider_yaml
+    assert "OpenLLM" in provider_yaml
+    assert "http://host.docker.internal:8787/v1" in provider_yaml
     assert "Nebius Token Factory" in provider_yaml
     assert "https://api.tokenfactory.nebius.com/v1" in provider_yaml
     assert not (PROJECT_ROOT / "plugins/_model_config/conf/model_providers.yaml").exists()
@@ -152,6 +157,7 @@ def test_onboarding_provider_grid_names_are_present_in_metadata():
         "llama.cpp",
         "oMLX",
         "vLLM",
+        "OpenLLM",
     ]:
         assert name in provider_yaml + provider_ui
 
@@ -186,6 +192,7 @@ def test_onboarding_provider_grid_names_are_present_in_metadata():
         "zai-logo.svg",
         "omlx.svg",
         "vllm.svg",
+        "openllm.svg",
     ]:
         assert logo in provider_ui
 
@@ -193,6 +200,7 @@ def test_onboarding_provider_grid_names_are_present_in_metadata():
     assert (PROJECT_ROOT / "plugins/_onboarding/webui/assets/provider-logos/cerebras.svg").exists()
     assert (PROJECT_ROOT / "plugins/_onboarding/webui/assets/provider-logos/omlx.svg").exists()
     assert (PROJECT_ROOT / "plugins/_onboarding/webui/assets/provider-logos/vllm.svg").exists()
+    assert (PROJECT_ROOT / "plugins/_onboarding/webui/assets/provider-logos/openllm.svg").exists()
 
 
 def test_nebius_provider_config_uses_native_route_with_token_factory_endpoint():

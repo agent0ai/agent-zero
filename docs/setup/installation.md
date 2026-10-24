@@ -552,6 +552,7 @@ Use the naming format required by your selected provider:
 | oMLX | API-visible model name from `/v1/models` | `Qwen3-0.6B-4bit` |
 | llama.cpp | API-visible model name from `/v1/models` or `--alias` | `local-gguf` |
 | vLLM | Hugging Face model ID or served model alias | `Qwen/Qwen2.5-1.5B-Instruct` |
+| OpenLLM | Alias or model ID from `/v1/models` | `plus` or `claude_code/claude-sonnet-5` |
 
 > [!TIP]
 > If you see "Invalid model ID," verify the provider and naming format on the provider website, or search the web for "<name-of-ai-model> model naming".
@@ -685,6 +686,41 @@ By default, Agent Zero expects vLLM at `http://host.docker.internal:8000/v1`, ma
 
 > [!NOTE]
 > vLLM serves one model at a time by default. Use a generation model for Chat and Utility slots, and a separate embedding-capable vLLM server if you want vLLM embeddings.
+
+---
+
+## Using OpenLLM (Subscriptions, API Keys, and Local Models)
+
+[OpenLLM](https://www.openllm.sh) runs a local daemon with an OpenAI-compatible API at `http://localhost:8787/v1`. One endpoint serves the subscriptions you already pay for (Claude, ChatGPT, Cursor, Kimi, Grok), your provider API keys, and your own local or self-hosted models, with fallback between them. The daemon holds every credential, so Agent Zero needs no API key.
+
+### Installing OpenLLM
+
+[Sign in to OpenLLM](https://www.openllm.sh/sign-in) and add a device, then run the install command it gives you on the machine that should serve requests:
+
+```bash
+curl -fsSL https://www.openllm.sh/install \
+  | OPENLLM_API_KEY='sk-llm-YOUR_DEVICE_KEY' bash
+openllm status
+```
+
+Connect your subscriptions and keys in the OpenLLM app. Confirm the daemon lists your models:
+
+```bash
+curl http://localhost:8787/v1/models
+```
+
+### Configuring OpenLLM in Agent Zero
+
+1. In Agent Zero Settings, choose **OpenLLM** as the Chat model or Utility model provider.
+2. Use a fallback alias such as `ultra`, `plus`, or `lite`, or any chat model ID from `/v1/models`. Agent Zero lists only models the daemon marks as chat-capable. An alias tries the next model in its chain when one provider is rate-limited or down; a concrete model ID always uses that model.
+3. Leave the API key empty. Agent Zero includes a Docker-friendly default for the daemon at `http://host.docker.internal:8787/v1`.
+4. Click `Save` to confirm your settings.
+
+> [!NOTE]
+> The daemon listens on host loopback. Docker Desktop for macOS reaches it through `host.docker.internal` without extra setup. On Linux Docker, forward the port to the Docker bridge, for example `socat TCP-LISTEN:8787,bind=172.17.0.1,reuseaddr,fork TCP:127.0.0.1:8787`, and keep that port limited to trusted clients.
+
+> [!IMPORTANT]
+> OpenLLM listens locally but forwards prompts to the providers you connect. Browser privacy settings that require a local chat model treat OpenLLM as remote.
 
 ---
 

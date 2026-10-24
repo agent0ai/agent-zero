@@ -24,6 +24,7 @@
 - Check API-key readiness only for the effective model configuration; unused global presets must not produce Welcome-screen warnings.
 - Successful chat preset selection or override clearing emits `model-setup-changed` so the setup gate retries its original pending prompt against that chat's effective configuration without touching composer drafts. Failed saves emit no readiness signal.
 - Coordinate OAuth-backed providers with `_oauth` instead of hardcoding provider-specific auth here.
+- Model discovery applies `models_list.capabilities_field` only when a provider declares it: listed models whose capability list omits the requested model type are dropped before name filtering; entries without the field are kept.
 - Model discovery never substitutes the generic LiteLLM registry for an OAuth account catalog (`api_key_mode: oauth`). Preserve source/error details; label API-key-provider registry suggestions as unverified and report failed discovery through standard notifications without exposing raw endpoint URLs.
 - `model_config_get` exposes `model_configured` as a derived chat-model readiness flag from provider, model name, and API-key availability.
 - Non-default presets may inherit omitted main, utility, or embedding slots and durable tuning from `Default`, but must replace or clear per-slot `kwargs` so provider-specific extra params never leak across model providers.
