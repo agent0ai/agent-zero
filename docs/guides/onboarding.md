@@ -34,7 +34,7 @@ Google Cloud Gemini, or xAI Grok instead of pasting a provider key.
 ![AI account picker with Codex, Copilot, Google Cloud Gemini, and Grok](../res/usage/onboarding/onboarding-account-provider.png)
 
 Choose **Local** when you want to connect to Ollama, LM Studio, oMLX, llama.cpp,
-vLLM, or another model server running on your machine.
+vLLM, OpenLLM, or another model server running on your machine.
 
 ![Local model provider picker with Ollama, LM Studio, oMLX, llama.cpp, and vLLM](../res/usage/onboarding/onboarding-local-ollama-main.png)
 
