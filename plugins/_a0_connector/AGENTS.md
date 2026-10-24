@@ -92,6 +92,7 @@
 - `computer_use_remote` action results may report `requested_dispatch`, `actual_dispatch`, and `foreground_fallback_used` (`fallback_used` legacy); these are output-only fields, not tool args. `scroll` reads `dx`/`dy` with legacy aliases `delta_x`/`delta_y`; document only canonical args in model-facing prompts.
 - `computer_use_remote` reads legacy `name` as an `operation` fallback for element/ax/uia actions; it stays out of model-facing prompts.
 - Model preset definitions exposed through v1 are global; project arguments select scope but never create project-owned definitions. Model switcher state reports the effective main, utility, and embedding models and preserves embedding-change notifications.
+- The capability-gated `composer_controls` API is authenticated and CSRF-protected. Dispatch `connector_controls` through the existing agent-scoped extension loader, not a separate registry or arbitrary URL/code dispatcher. Plugins own descriptors, domain validation, revisions, and mutations; Core and the CLI must not name optional plugins. The list/set contract is documented in [README.md](README.md). An absent or scoped-out control returns 404 on set; older clients remain unaffected.
 - The protected v1 `agent_editor` route delegates to the bundled Agent Editor
   API and must not define another profile schema or write profile files itself.
 - The protected v1 `agents_list` response uses the shared agent presentation
@@ -109,6 +110,7 @@
 - Cross-platform first-call session startup and no-retry boundaries are covered in the sibling connector's `tests/test_plugin_backend.py`; Core prompt gating remains covered by `tests/test_a0_connector_prompt_gating.py`.
 - Launcher gateway regression coverage lives in
   `tests/test_a0_connector_launcher_gateway.py`.
+- Generic composer control dispatch, scope, validation, and security contracts are covered by `tests/test_a0_connector_composer_controls.py`.
 
 ## Child DOX Index
 

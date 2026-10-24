@@ -47,6 +47,7 @@ _OPTIONAL_FEATURES: dict[str, tuple[str, ...]] = {
     "installed_plugins": ("helpers.plugins",),
     "model_presets": ("plugins._model_config.helpers.model_config",),
     "model_switcher": ("plugins._model_config.helpers.model_config",),
+    "composer_controls": ("plugins._a0_connector.api.v1.composer_controls",),
     "browser_runtime_config": ("plugins._browser.helpers.config", "helpers.plugins"),
     "compact_chat": (
         "plugins._chat_compaction.helpers.compactor",

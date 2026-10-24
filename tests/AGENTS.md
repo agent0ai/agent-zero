@@ -21,6 +21,7 @@
   CSRF-protected control, acknowledgement timeout, identity lifecycle,
   context-bound CLI routing precedence, duplicate/multiple-host behavior,
   scope-driven availability, and emergency disconnect without a live host.
+- Composer control tests use unrelated fake extensions and verify scoped dispatch, capability negotiation, authentication/CSRF requirements, invalid input rejection, and unchanged plugin error responses without depending on optional plugins.
 
 ## Work Guidance
 
