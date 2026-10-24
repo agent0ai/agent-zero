@@ -222,6 +222,152 @@ assert.equal(notificationConsumer.notifications.find(item => item.id === 'job-a'
     subprocess.run(["node", "--input-type=module", "-e", script], check=True, timeout=15)
 
 
+def test_state_push_after_handshake_timeout_finishes_chat_loading() -> None:
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required for the handshake-timeout regression.")
+    source = (
+        PROJECT_ROOT / "webui" / "components" / "sync" / "sync-store.js"
+    ).read_text(encoding="utf-8")
+    source = re.sub(r"^import .*\n", "", source, flags=re.M)
+    source = source.replace("export { store, SYNC_MODES };", "")
+    script = """
+import assert from "node:assert/strict";
+
+let now = 0;
+let nextTimerId = 1;
+const timers = new Map();
+globalThis.setTimeout = (callback, delay = 0) => {
+  const id = nextTimerId++;
+  timers.set(id, {callback, dueAt: now + Number(delay)});
+  return id;
+};
+globalThis.clearTimeout = id => timers.delete(id);
+function advanceClock(ms) {
+  const target = now + ms;
+  while (true) {
+    const next = [...timers.entries()]
+      .filter(([, timer]) => timer.dueAt <= target)
+      .sort((left, right) => left[1].dueAt - right[1].dueAt)[0];
+    if (!next) break;
+    const [id, timer] = next;
+    timers.delete(id);
+    now = timer.dueAt;
+    timer.callback();
+  }
+  now = target;
+}
+
+let requestTimeoutMs = null;
+const handlers = new Map();
+const socket = {
+  addHandlers() {}, onConnect() {}, onDisconnect() {},
+  on(name, handler) { handlers.set(name, handler); },
+  isConnected: () => true,
+  request(eventType, _payload, options) {
+    assert.equal(eventType, "state_request");
+    requestTimeoutMs = options.timeoutMs;
+    return new Promise((resolve, reject) => {
+      globalThis.setTimeout(() => reject(new Error("Request timeout")), requestTimeoutMs);
+    });
+  },
+};
+const getNamespacedClient = () => socket;
+const createStore = (_name, model) => model;
+const chatTopStore = {};
+const notificationStore = {
+  toastStack: [],
+  frontendWarning: async () => {},
+  frontendSuccess: async () => {},
+};
+const buildStateRequestPayload = () => ({
+  context: "chat", log_from: 0, notifications_from: 0,
+});
+const Extensions = {};
+const getMessageCacheKey = () => "message";
+
+let chatLoading = true;
+let applied = 0;
+const applySnapshot = async (snapshot, options = {}) => {
+  assert.equal(snapshot.context, "chat");
+  if (snapshot.log_guid === "reset-guid") {
+    await options.onLogGuidReset?.();
+    return {updated: false, resynced: true};
+  }
+  applied += 1;
+  chatLoading = false;
+};
+"""
+    script += source
+    script += """
+const requestOutcome = store.sendStateRequest({forceFull: true}).then(
+  () => null,
+  error => error,
+);
+assert.equal(store.mode, SYNC_MODES.HANDSHAKE_PENDING);
+advanceClock(requestTimeoutMs);
+const timeoutError = await requestOutcome;
+assert.match(timeoutError.message, /timeout/i);
+assert.equal(store.mode, SYNC_MODES.DEGRADED);
+assert.equal(chatLoading, true);
+
+store._enqueuePush({
+  data: {
+    runtime_epoch: "epoch",
+    seq: 1,
+    snapshot: {
+      context: "chat",
+      log_guid: "log-guid",
+      log_version: 1,
+      logs: [],
+      contexts: [],
+      tasks: [],
+    },
+  },
+});
+await store._pushQueue;
+
+assert.equal(chatLoading, false, "DEGRADED state_push did not finish chat loading");
+assert.equal(applied, 1);
+assert.equal(store.lastSeq, 1);
+assert.equal(store.mode, SYNC_MODES.HEALTHY);
+
+let resyncs = 0;
+store.sendStateRequest = async options => {
+  assert.equal(options.forceFull, true);
+  resyncs += 1;
+};
+
+store.mode = SYNC_MODES.DEGRADED;
+store.lastSeq = 1;
+store._enqueuePush({
+  data: {runtime_epoch: "epoch", seq: 3, snapshot: {context: "chat", log_guid: "log-guid"}},
+});
+await store._pushQueue;
+assert.equal(resyncs, 1, "DEGRADED push skipped sequence validation");
+assert.equal(applied, 1);
+
+store.mode = SYNC_MODES.DEGRADED;
+store.lastSeq = 1;
+store._enqueuePush({
+  data: {runtime_epoch: "other-epoch", seq: 2, snapshot: {context: "chat", log_guid: "log-guid"}},
+});
+await store._pushQueue;
+assert.equal(resyncs, 2, "DEGRADED push skipped runtime epoch validation");
+assert.equal(applied, 1);
+
+store.mode = SYNC_MODES.DEGRADED;
+store.lastSeq = 1;
+store._enqueuePush({
+  data: {runtime_epoch: "epoch", seq: 2, snapshot: {context: "chat", log_guid: "reset-guid"}},
+});
+await store._pushQueue;
+assert.equal(resyncs, 3, "DEGRADED push skipped log GUID validation");
+assert.equal(applied, 1);
+assert.ok(requestTimeoutMs >= 10000, "busy-instance handshake timeout remained too aggressive");
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, timeout=15)
+
+
 def test_message_layout_yield_finishes_when_browser_stops_animation_frames() -> None:
     if not shutil.which("node"):
         pytest.skip("Node.js is required for the layout-yield regression.")
