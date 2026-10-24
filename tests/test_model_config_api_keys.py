@@ -607,6 +607,42 @@ def test_provider_key_modes_for_local_and_ollama_cloud():
     assert model_config.provider_requires_api_key("vllm") is False
     assert model_config.provider_requires_api_key("other") is False
     assert model_config.provider_requires_api_key("ollama_cloud") is True
+    assert model_config.provider_requires_api_key("openllm") is False
+
+
+def test_openllm_provider_defaults_to_docker_reachable_daemon(monkeypatch):
+    import yaml
+
+    provider_config = yaml.safe_load(
+        (PROJECT_ROOT / "conf" / "model_providers.yaml").read_text(encoding="utf-8")
+    )
+    openllm = provider_config["chat"]["openllm"]
+
+    assert openllm["name"] == "OpenLLM"
+    assert openllm["litellm_provider"] == "hosted_vllm"
+    assert openllm["kwargs"]["a0_api_mode"] == "chat"
+    assert openllm["kwargs"]["api_base"] == "http://host.docker.internal:8787/v1"
+    assert "api_key" not in openllm["kwargs"]
+    assert openllm["models_list"]["default_base"] == "http://host.docker.internal:8787"
+    assert openllm["models_list"]["endpoint_url"] == "/v1/models"
+    assert openllm["models_list"]["capabilities_field"] == "capabilities"
+    assert "openllm" not in provider_config["embedding"]
+
+    monkeypatch.setattr(models, "get_api_key", lambda provider: "None")
+
+    chat = models.get_chat_model("openllm", "plus")
+    assert chat.model_name == "hosted_vllm/plus"
+    assert chat.kwargs["api_base"] == "http://host.docker.internal:8787/v1"
+    assert "api_key" not in chat.kwargs
+
+    bridged = models.get_chat_model(
+        "openllm",
+        "plus",
+        api_base="http://172.17.0.1:8787/v1",
+        api_key="sk-llm-test",
+    )
+    assert bridged.kwargs["api_base"] == "http://172.17.0.1:8787/v1"
+    assert bridged.kwargs["api_key"] == "sk-llm-test"
 
 
 def test_local_provider_defaults_are_docker_friendly():

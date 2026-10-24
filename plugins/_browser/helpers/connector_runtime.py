@@ -62,6 +62,8 @@ HOST_BROWSER_SELECTION_KEY = getattr(
 )
 get_browser_config = browser_config.get_browser_config
 _LOCAL_PROVIDERS = {"ollama", "lm_studio", "llama_cpp", "omlx", "vllm"}
+# Gateways that listen locally but forward prompts to remote providers.
+_REMOTE_GATEWAY_PROVIDERS = {"openllm"}
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
 _SENSITIVE_ACTIONS = {"content", "detail", "evaluate", "screenshot", "screenshot_file"}
 _KEY_ALIASES = {
@@ -706,6 +708,8 @@ def _agent_uses_local_chat_model(agent: Any) -> bool:
     if not isinstance(cfg, dict):
         return False
     provider = str(cfg.get("provider", "") or "").strip().lower()
+    if provider in _REMOTE_GATEWAY_PROVIDERS:
+        return False
     if provider in _LOCAL_PROVIDERS:
         return True
     api_base = str(cfg.get("api_base", "") or cfg.get("base_url", "") or "").strip()
