@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 import models
 
 
@@ -46,3 +48,36 @@ def test_langchain_embedding_methods_use_embed_entry_point():
     assert wrapper.embed_query("query") == [0.0]
     assert wrapper.embed_documents(["first", "second"]) == [[0.0], [1.0]]
     assert calls == [["query"], ["first", "second"]]
+
+
+def _wrapper_returning(monkeypatch, data):
+    monkeypatch.setattr(
+        models, "embedding", lambda **_kwargs: SimpleNamespace(data=data)
+    )
+    monkeypatch.setattr(models, "configure_litellm", lambda: None)
+    monkeypatch.setattr(models, "_merge_litellm_call_kwargs", lambda kwargs: dict(kwargs))
+    monkeypatch.setattr(models, "apply_rate_limiter_sync", lambda *_args: None)
+    return models.LiteLLMEmbeddingWrapper("qwen/qwen3-embedding:8b", "openai")
+
+
+def test_embed_reads_vectors_from_wrapped_gateway_response(monkeypatch):
+    # Shape returned by some OpenAI-compatible gateways (issue #1942):
+    # {"data": {"object": "list", "data": [{"embedding": [...]}]}}
+    wrapper = _wrapper_returning(
+        monkeypatch,
+        {
+            "model": "qwen/qwen3-embedding:8b",
+            "object": "list",
+            "usage": {"prompt_tokens": 2, "total_tokens": 2},
+            "data": [{"index": 0, "embedding": [0.1, 0.2]}],
+        },
+    )
+
+    assert wrapper.embed_query("example") == [0.1, 0.2]
+
+
+def test_embed_reports_unreadable_response_clearly(monkeypatch):
+    wrapper = _wrapper_returning(monkeypatch, {"error": "nope"})
+
+    with pytest.raises(ValueError, match="expected 'data' to be a list"):
+        wrapper.embed(["example"])
