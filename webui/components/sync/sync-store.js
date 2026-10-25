@@ -395,7 +395,7 @@ const model = {
       let response;
       try {
         debug("[syncStore] state_request sent", payload);
-        response = await stateSocket.request("state_request", payload, { timeoutMs: 2000 });
+        response = await stateSocket.request("state_request", payload, { timeoutMs: 10000 });
       } catch (error) {
         this.needsHandshake = true;
         // If the socket isn't connected, we are disconnected (poll may or may not work).
@@ -504,8 +504,7 @@ const model = {
 
   async _handlePush(envelope) {
     if (this.mode === SYNC_MODES.DEGRADED) {
-      debug("[syncStore] ignoring state_push while DEGRADED");
-      return;
+      debug("[syncStore] state_push received while DEGRADED (processing)");
     }
 
     const data = envelope && envelope.data ? envelope.data : null;
