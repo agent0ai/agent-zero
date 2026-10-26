@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 import requests
@@ -122,6 +123,69 @@ def search(
             }
         )
     return results
+
+
+def search_parallel(
+    queries: list[str],
+    max_results: int = ANYSEARCH_MAX_RESULTS,
+    max_workers: int = 4,
+    tag: str = "",
+    params: dict | None = None,
+    zone: str = "",
+    language: str = "",
+) -> dict[str, list[dict]]:
+    """Run several searches concurrently and return one list per query.
+
+    AnySearch exposes no batch endpoint, so parallel search is done by
+    issuing one request per query from a thread pool. Duplicate queries
+    are collapsed and the mapping follows the input order.
+
+    A query that fails maps to an empty list instead of aborting the whole
+    batch: one bad query must not destroy the results of the others, which
+    is exactly why a caller would fan out in the first place.
+
+    Args:
+        queries: The queries to execute.
+        max_results: Maximum number of results per query.
+        max_workers: Size of the thread pool.
+        tag: Vertical domain tag applied to every query, for example
+            ``"code.doc"``.
+        params: Tag specific parameters applied to every query.
+        zone: ``"cn"`` or ``"intl"``; empty means the server default.
+        language: Language code, empty means the server default.
+
+    Returns:
+        dict[str, list[dict]]: Mapping from query to its result list.
+
+    Raises:
+        ValueError: If zone is not empty, ``"cn"`` or ``"intl"``.
+    """
+    if zone and zone not in ("cn", "intl"):
+        raise ValueError(f"Invalid zone: {zone}. Use 'cn' or 'intl'.")
+
+    unique_queries = list(dict.fromkeys(queries))
+    if not unique_queries:
+        return {}
+
+    workers = max(1, min(int(max_workers), len(unique_queries)))
+
+    def run(query: str) -> list[dict]:
+        try:
+            return search(
+                query=query,
+                max_results=max_results,
+                tag=tag,
+                params=params,
+                zone=zone,
+                language=language,
+            )
+        except Exception:
+            # Failure isolation: one query must not sink the batch.
+            return []
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        batches = list(pool.map(run, unique_queries))
+    return dict(zip(unique_queries, batches))
 
 
 def extract(url: str) -> dict:
