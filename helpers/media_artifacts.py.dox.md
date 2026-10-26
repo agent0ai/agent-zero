@@ -32,6 +32,8 @@
 
 ## Runtime Contracts
 
+- Base64 byte limits refer to decoded payload bytes. The pre-decode size estimate accounts for up to two padding characters in a complete final quartet, so a canonical payload exactly at the limit remains valid. Strict base64 validation and the post-decode byte-limit check still apply; oversized input is rejected before decoding.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, network calls.
@@ -54,6 +56,7 @@
 - Related tests observed by source search:
   - `tests/test_mcp_handler_multimodal.py`
   - `tests/test_media_artifacts.py`
+  - `tests/test_media_artifact_size_limits.py`
 
 ## Child DOX Index
 
