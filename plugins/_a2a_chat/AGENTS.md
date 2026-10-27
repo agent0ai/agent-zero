@@ -11,6 +11,7 @@
 - `helpers/fasta2a_client.py` owns the FastA2A client connection, message dispatch, and task polling.
 - `prompts/` owns the tool prompt and the framework messages for failures.
 - `plugin.yaml` and `README.md` own metadata and docs.
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 ## Local Contracts
 

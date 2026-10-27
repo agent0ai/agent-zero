@@ -13,6 +13,7 @@
 - `extensions/webui/page-head/` and `webui/css/` own the badge accent styles.
 - `prompts/` owns the tool prompt and the notification-sent framework message.
 - `plugin.yaml` and `README.md` own metadata and docs.
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 ## Local Contracts
 

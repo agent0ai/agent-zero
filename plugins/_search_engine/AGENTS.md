@@ -11,6 +11,7 @@
 - `extensions/webui/get_process_step_types/` owns the `search_engine` process step type registration.
 - `prompts/` owns the tool prompt.
 - `plugin.yaml` and `README.md` own metadata and docs.
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 ## Local Contracts
 

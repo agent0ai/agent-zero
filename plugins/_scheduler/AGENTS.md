@@ -17,6 +17,7 @@
 - `extensions/webui/welcome-actions-start/` owns the Tasks card on the welcome screen, contributed through the `welcome-actions-start` point.
 - `extensions/webui/page-head/` owns the scheduler and datepicker asset loading; core `webui/index.html` owns the shared flatpickr preload.
 - `plugin.yaml` and `README.md` own metadata and docs.
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 ## Local Contracts
 

@@ -12,6 +12,7 @@
 - `extensions/python/system_prompt/_20_behavior_prompt.py` owns rules injection at the front of the system prompt.
 - `prompts/` owns the tool prompt, default ruleset, merge templates, update confirmation, and the rules system fragment.
 - `plugin.yaml` and `README.md` own metadata and docs.
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 ## Local Contracts
 

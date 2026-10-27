@@ -12,6 +12,7 @@
 - `extensions/webui/` owns the tool's message presentation.
 - `webui/css/` owns the HLD badge accent loaded through the `extensions/webui/page-head/` extension.
 - `plugin.yaml` and `README.md` own metadata and docs.
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 ## Local Contracts
 
