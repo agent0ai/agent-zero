@@ -22,6 +22,16 @@
 
 ## Runtime Contracts
 
+- Stream usability (T104/F-323): after `stream()`/`astream()` completes, a chat
+  stream with no content delta and no `LLMResult` raises
+  `ProviderUnusableResponseError`. The parser synthesizes `finish_reason="stop"`
+  from an empty body and litellm fabricates chunks from HTML, so neither finish
+  reason nor raw event count may be used as the usability signal; the result
+  object is built only from real output items or reported usage.
+- Provider-boundary errors stay provider-shaped (`APIError` and friends) so the
+  F-207 recovery hook can classify them; only the silent-empty case is converted
+  here.
+
 - Keep provider selection and provider-specific defaults outside this helper; callers pass a resolved LiteLLM model name and kwargs.
 - Strip Agent Zero internal kwargs before sending requests to LiteLLM.
 - Validate internal `responses_history_context` against selected prepared local input, bind its stable-prefix digest to actual affinity/tool schemas, and project eligible groups through `responses_history`. Strip the control on every provider path and omit its digest from Chat/fallback result metadata.

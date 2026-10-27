@@ -19,6 +19,7 @@ from litellm import (
 )
 
 from helpers import images, responses_history
+from helpers.errors import ProviderUnusableResponseError
 from helpers.llm_result import LLMResult
 from helpers.responses_tools import project_system_prompt
 
@@ -289,6 +290,7 @@ class LiteLLMTransport:
                     self.last_result = self._stream_result_from_parser(
                         parser, request
                     )
+                self._assert_usable(got_any_chunk=got_any_chunk)
                 exhausted = True
                 return
             except Exception as exc:
@@ -339,6 +341,7 @@ class LiteLLMTransport:
                     self.last_result = self._stream_result_from_parser(
                         parser, request
                     )
+                self._assert_usable(got_any_chunk=got_any_chunk)
                 exhausted = True
                 return
             except Exception as exc:
@@ -348,6 +351,27 @@ class LiteLLMTransport:
             finally:
                 if iterator is not None and not exhausted:
                     await _close_async_stream(iterator)
+
+    def _assert_usable(self, *, got_any_chunk: bool) -> None:
+        """A provider that answered with nothing usable is a repairable fault.
+
+        T104 (measured 2026-10-26): a block page served with HTTP 200 yields no
+        chunks, no finish reason and no result - and no exception, so the turn
+        ran on with an empty model response. HTTP 403 was already recovered by
+        the provider-stream hook; this closes the silent half.
+        """
+        # `last_finish_reason` is NOT usable (the parser synthesizes "stop" from an
+        # empty body) and neither is the raw event count (litellm fabricates
+        # chunks from an HTML body - measured: 2 events, no content). The chat
+        # parser returns an LLMResult ONLY when there are output items or reported
+        # usage, so a None result means the provider gave us nothing usable.
+        if got_any_chunk or self.last_result is not None:
+            return
+        raise ProviderUnusableResponseError(
+            "provider returned an unusable response: no content, tool calls or "
+            "usage (typically a WAF/block page). Retry this turn; if it repeats, "
+            "check the provider's status page or the network path."
+        )
 
     def _recover(self, exc: Exception, *, got_any_chunk: bool) -> bool:
         if (

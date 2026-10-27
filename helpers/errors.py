@@ -86,6 +86,16 @@ class RepairableException(Exception):
     pass
 
 
+class ProviderUnusableResponseError(RepairableException):
+    """The provider answered, but with nothing a turn can use.
+
+    T104: a WAF/block page served with HTTP 200 produces zero stream chunks and
+    no exception at all, so no recovery hook could fire and the turn ended with
+    an empty model response. Raising a RepairableException here routes it into
+    the existing repair cycle (`_50_handle_repairable_exception`) instead.
+    """
+
+
 class InterventionException(Exception):
     """An exception type raised on user intervention, skipping rest of message loop iteration."""
 

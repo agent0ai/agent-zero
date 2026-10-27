@@ -12,6 +12,7 @@
 - `errors.py.dox.md` owns durable notes about responsibilities, contracts, side effects, and verification for that implementation.
 - Classes:
 - `RepairableException` (`Exception`)
+- `ProviderUnusableResponseError` (`RepairableException`) - raised when a provider answered but produced nothing a turn can use (T104/F-323: an HTTP 200 WAF page yields fabricated chunks, no content and no usage). Because it is repairable, the agent repair cycle turns it into a warning and the monologue continues.
 - `InterventionException` (`Exception`)
 - `HandledException` (`Exception`)
 - Top-level functions:
@@ -20,6 +21,8 @@
 - `format_error(e: Exception, start_entries=..., end_entries=..., error_message_position: Literal['top', 'bottom', 'none']=...)`
 
 ## Runtime Contracts
+
+- `ProviderUnusableResponseError` must never carry a provider body: the message is a clean one-liner (F-207 privacy contract). Raised only from `helpers/litellm_transport.py` after a stream completes unusably.
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
