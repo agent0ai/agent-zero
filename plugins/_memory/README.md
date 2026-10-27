@@ -14,7 +14,8 @@ This plugin stores memories and knowledge embeddings in a FAISS-backed vector da
 - **Knowledge preloading**
   - Loads configured knowledge directories into memory when a database is initialized.
 - **Memory tools**
-  - Includes tools for saving, loading, deleting, and forgetting memories.
+  - Uses one `memory` tool with `load`, `save`, `delete`, and `forget` actions.
+  - Old `memory_load`, `memory_save`, `memory_delete`, and `memory_forget` calls use the same implementation. Existing action permissions remain effective; permission to load memory does not grant permission to delete it.
 - **Automatic conversation memory**
   - Stores durable preferences, project facts, and recurring constraints while filtering transient action-history fragments before insertion.
 - **Dashboard APIs**

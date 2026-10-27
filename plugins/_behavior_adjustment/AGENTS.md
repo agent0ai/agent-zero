@@ -7,6 +7,7 @@
 ## Ownership
 
 - `tools/behavior_adjustment.py` owns ruleset merge, normalization, and persistence.
+- `tools/behaviour_adjustment.py` re-exports the same implementation for legacy calls; shared tool policy checks both spellings and the old memory-plugin ID.
 - The tool logs its message as type `behavior_adjustment` with an `icon://psychology Adjusting behavior` headline; `extensions/webui/get_message_handler/` owns the `BEH` badge presentation and `extensions/webui/get_process_step_types/` registers the type.
 - `extensions/python/system_prompt/_20_behavior_prompt.py` owns rules injection at the front of the system prompt.
 - `prompts/` owns the tool prompt, default ruleset, merge templates, update confirmation, and the rules system fragment.

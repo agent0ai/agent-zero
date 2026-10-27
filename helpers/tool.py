@@ -15,7 +15,7 @@ class Response:
     additional: dict[str, Any] | None = None
 
 def coerce_bool(value: Any, default: bool) -> bool:
-    """Coerce a tool argument to bool: booleans pass, common true/false strings map, unknown values fall back to truthiness."""
+    """Parse boolean tool arguments; missing or unrecognized values use the default."""
     if value is None:
         return default
     if isinstance(value, bool):
@@ -26,7 +26,9 @@ def coerce_bool(value: Any, default: bool) -> bool:
             return True
         if normalized in {"0", "false", "no", "off"}:
             return False
-    return bool(value)
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return default
 
 class Tool:
 

@@ -147,13 +147,20 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
             continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
+        parameters = _schema_for_tool(agent, tool_name, prompt)
+        if tool_name == "memory":
+            actions = tool_policy.allowed_memory_actions(agent, _policy=policy)
+            if actions is not None:
+                parameters.setdefault("properties", {})["action"] = {
+                    "type": "string", "enum": actions
+                }
         tools.append(
             {
                 "type": "function",
                 "name": native_name,
                 "strict": False,
                 "description": _native_tool_description(description, tool_name),
-                "parameters": _schema_for_tool(agent, tool_name, prompt),
+                "parameters": parameters,
             }
         )
 

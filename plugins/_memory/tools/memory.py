@@ -11,7 +11,7 @@ DEFAULT_LIMIT = 10
 class MemoryTool(Tool):
 
     async def execute(self, action="", **kwargs) -> Response:
-        action = _normalize_action(action)
+        action = self._action(action)
         if action == "load":
             return await self._load(**kwargs)
         if action == "save":
@@ -87,7 +87,7 @@ class MemoryTool(Tool):
         )
 
     def get_heading(self):
-        action = _normalize_action(self.args.get("action"))
+        action = self._action(self.args.get("action"))
         if action == "save":
             detail = str(self.args.get("text") or "").strip()
             text = f"Saving memory: {truncate_text(detail, 60)}" if detail else "Saving memory"
@@ -105,6 +105,12 @@ class MemoryTool(Tool):
             text = f"Searching memories: {truncate_text(detail, 60)}" if detail else "Searching memories"
             return f"icon://saved_search {text}"
         return "icon://psychology Using memory"
+
+    def _action(self, action) -> str:
+        # Legacy names fix the action even if a caller supplies a conflicting argument.
+        if self.name in {"memory_load", "memory_save", "memory_delete", "memory_forget"}:
+            return self.name.removeprefix("memory_")
+        return _normalize_action(action)
 
 
 def _normalize_action(action) -> str:

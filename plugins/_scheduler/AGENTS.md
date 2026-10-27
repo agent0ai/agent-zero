@@ -23,7 +23,7 @@
 - The tool and API endpoints delegate to the shared `helpers.task_scheduler` engine, which stays in core and is also used by `api/scheduler_tick.py`, `helpers/job_loop.py`, chat lifecycle endpoints, and `_chat_naming`.
 - The plugin declares `always_enabled: true`: the core scheduling engine keeps running tasks it created even when plugin code is absent, so the plugin must not be disableable into a state where tasks run without any way to manage them.
 - Plugin API routes resolve as `/api/plugins/_scheduler/<handler>` via the standard plugin API resolution in `helpers/api.py`.
-- Core consumers of the tasks store (`webui/index.js`, `chats-store.js`) read it through a soft `getStore("tasks")` accessor so the plugin can be disabled without breaking the sidebar.
+- Core snapshot and chat-selection consumers import the always-enabled plugin's tasks store directly, ensuring it exists before the first snapshot even when the sidebar has not mounted.
 - Timezone aliases (local/user/default/current/current_timezone) resolve via `helpers.localization`; cron validation rejects malformed expressions before task creation.
 - `wait_for_task` polls task state until completion, failure, or idempotent runs.
 

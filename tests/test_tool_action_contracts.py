@@ -126,7 +126,9 @@ def _fake_coerce_bool(value, default):
             return True
         if normalized in {"0", "false", "no", "off"}:
             return False
-    return bool(value)
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return default
 
 
 def _install_tool_stub(monkeypatch) -> None:
