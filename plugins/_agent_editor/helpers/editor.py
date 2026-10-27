@@ -332,35 +332,38 @@ def _editor_tool_state(agent: EditorAgent, scope: dict[str, Any]) -> dict[str, A
         for item in catalog if item["available"]
         for alias in tool_policy.LEGACY_TOOL_IDS.get(item["id"], ())
     }
-    memory = next((item for item in catalog if item["id"] == tool_policy.MEMORY_TOOL_ID), None)
-    memory_ids = [f"{tool_policy.MEMORY_TOOL_ID}_{action}" for action in tool_policy.MEMORY_ACTIONS]
+    action_tools = {item["id"]: item for item in catalog if item.get("actions") and item["id"] not in aliases}
+    action_ids = {
+        tool_id: [tool_policy.action_policy_id(tool_id, action) for action in item["actions"]]
+        for tool_id, item in action_tools.items()
+    }
     rows = {item["id"]: dict(item) for item in catalog if item["id"] not in aliases}
     for item in rows.values():
         item["tool_names"] = list(dict.fromkeys(
             entry["name"] for entry in catalog
             if aliases.get(entry["id"], entry["id"]) == item["id"]
         ))
-    if memory:
-        # Edit memory actions independently; a tool-wide block must not hide their state.
-        rows.pop(tool_policy.MEMORY_TOOL_ID)
-        for action, tool_id in zip(tool_policy.MEMORY_ACTIONS, memory_ids):
+    for parent_id, parent in action_tools.items():
+        # Project whole-tool rules onto actions so each control matches execution.
+        parent_names = rows.pop(parent_id)["tool_names"]
+        for action, tool_id in zip(parent["actions"], action_ids[parent_id]):
             item = rows.setdefault(tool_id, {
-                **memory, "id": tool_id, "name": f"memory:{action}", "tool_names": [],
+                **parent, "id": tool_id, "name": f'{parent["name"]}:{action}', "tool_names": [],
             })
-            item["label"] = f"Memory: {action.title()}"
-            if memory["available"]:
+            item.pop("actions", None)
+            item["label"] = f'{parent["name"].replace("_", " ").title()}: {action.replace("_", " ").title()}'
+            if parent["available"]:
                 item["available"] = True
-                item["tool_names"].append("memory")
+                item["tool_names"] = list(dict.fromkeys([*item["tool_names"], *parent_names]))
 
     def project_policy(raw: dict[str, Any]) -> dict[str, Any]:
         policy = tool_policy.normalize_policy(raw)
         for key in ("allowed", "blocked"):
             policy[key] = list(dict.fromkeys(
-                aliases.get(projected_id, projected_id)
+                projected_id
                 for tool_id in policy[key]
-                for projected_id in (
-                    memory_ids if memory and tool_id == tool_policy.MEMORY_TOOL_ID else [tool_id]
-                )
+                for canonical_id in [aliases.get(tool_id, tool_id)]
+                for projected_id in action_ids.get(canonical_id, [canonical_id])
             ))
         policy["allowed"] = [tool_id for tool_id in policy["allowed"] if tool_id not in policy["blocked"]]
         return policy
@@ -1235,7 +1238,7 @@ def _string_list(value: Any, label: str) -> list[str]:
 def _valid_tool_id(value: str) -> bool:
     return bool(
         re.fullmatch(
-            r"(?:local:[^\s/:]+|(?:mcp|plugin):[^\s/:]+:[^\s/:]+)",
+            r"(?:(?:local:[^\s/:]+|plugin:[^\s/:]+:[^\s/:]+)(?::[a-z0-9_]+)?|mcp:[^\s/:]+:[^\s/:]+)",
             value,
         )
     )

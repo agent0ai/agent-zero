@@ -67,8 +67,9 @@
   switch. Advanced gives Tools, MCPs, and Skills separate sections while keeping
   unavailable retained IDs reviewable. Framework-required tools remain absent.
 - Editor tool state folds saved one-to-one legacy IDs into their available
-  replacements with block precedence. Memory uses four action controls and
-  projects tool-wide rules onto them without changing access. This projection
+  replacements with block precedence. Bundled multi-action tools expose action
+  controls from the shared tool catalog and project tool-wide rules onto them
+  without changing access. Memory keeps its four legacy action IDs. This projection
   stays in the draft until an explicit policy edit is saved; opening the editor
   does not migrate files. Catalog `tool_names` keeps skill warnings aligned with
   the executable names, including aliases and the unified memory tool.

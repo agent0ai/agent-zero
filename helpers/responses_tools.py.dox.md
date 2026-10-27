@@ -31,7 +31,7 @@
   is controlled by the effective model preset rather than Agent Editor.
 - Resolve a fresh policy once per schema build and reuse it only within that
   build; runtime execution remains independently policy-gated.
-- The bundled unified memory schema lists only policy-allowed actions; legacy action permissions never expand into permission for the whole tool.
+- Bundled multi-action schemas list only policy-allowed actions in their selector (`action` or code execution's `runtime`); legacy memory action permissions never expand into permission for the whole tool. Selector metadata comes from `helpers.tool_actions` and applies only to the resolved bundled implementation.
 - `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
 - Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 

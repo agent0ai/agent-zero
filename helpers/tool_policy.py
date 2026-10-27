@@ -7,14 +7,16 @@ from typing import Any
 
 from helpers import files, plugins, subagents
 from helpers.errors import RepairableException
+from helpers.tool_actions import (
+    BUNDLED_ACTIONS, MEMORY_ACTIONS, MEMORY_TOOL_ID, ToolActions,
+    action_policy_id, bundled_path, requested_actions,
+)
 
 
 PLUGIN_NAME = "_tool_access"
 PROMPT_PREFIX = "agent.system.tool."
 PROMPT_SUFFIX = ".md"
 NON_CONFIGURABLE_TOOLS = frozenset({"response", "vision_load"})
-MEMORY_TOOL_ID = "plugin:_memory:memory"
-MEMORY_ACTIONS = ("load", "save", "delete", "forget")
 LEGACY_TOOL_IDS = {
     f"plugin:_{name}:{name}": (f"local:{name}",)
     for name in ("a2a_chat", "notify_user", "scheduler", "search_engine", "wait")
@@ -76,6 +78,7 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
     descriptions = _tool_descriptions(agent, set(tool_paths))
     catalog: list[dict[str, Any]] = []
     seen: set[str] = set()
+    action_ids: set[str] = set()
     for name, tool_path in tool_paths.items():
         if name in NON_CONFIGURABLE_TOOLS:
             continue
@@ -83,6 +86,9 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
         if tool_id in seen:
             continue
         seen.add(tool_id)
+        actions = _actions_for_path(tool_id, tool_path)
+        if actions:
+            action_ids.update(action_policy_id(tool_id, action) for action in actions.actions)
         catalog.append(
             {
                 "id": tool_id,
@@ -91,6 +97,7 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
                 "origin": origin,
                 "description": descriptions.get(name, ""),
                 "available": True,
+                **({"actions": list(actions.actions)} if actions else {}),
             }
         )
 
@@ -132,7 +139,7 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
     policy = get_policy(agent)
     for tool_id in [*policy["allowed"], *policy["blocked"]]:
         if (
-            tool_id in seen
+            tool_id in seen or tool_id in action_ids
             or _tool_name_from_id(tool_id) in NON_CONFIGURABLE_TOOLS
         ):
             continue
@@ -166,18 +173,34 @@ def canonical_mcp_id(tool_name: str) -> str:
 
 
 def _canonical_tool_id(agent: Any, tool_name: str) -> str:
+    return _tool_identity(agent, tool_name)[0]
+
+
+def _tool_identity(agent: Any, tool_name: str) -> tuple[str, str]:
     if mcp_id := canonical_mcp_id(tool_name):
         try:
             from helpers.mcp_handler import MCPConfig
 
             if MCPConfig.get_for_agent(agent).has_tool(tool_name):
-                return mcp_id
+                return mcp_id, ""
         except Exception:
             pass
 
     paths = subagents.get_paths(agent, "tools", f"{tool_name}.py")
     path = next((candidate for candidate in paths if files.exists(candidate)), "")
-    return _canonical_from_path(path, tool_name)[0] if path else f"local:{tool_name}"
+    return (_canonical_from_path(path, tool_name)[0] if path else f"local:{tool_name}"), path
+
+
+def _actions_for_path(tool_id: str, path: str) -> ToolActions | None:
+    spec = BUNDLED_ACTIONS.get(tool_id)
+    if spec and path and os.path.realpath(path) == os.path.realpath(files.get_abs_path(bundled_path(tool_id))):
+        return spec
+    return None
+
+
+def get_tool_actions(agent: Any, tool_name: str) -> ToolActions | None:
+    tool_id, path = _tool_identity(agent, tool_name)
+    return _actions_for_path(tool_id, path)
 
 
 def resolve_tool(
@@ -186,9 +209,15 @@ def resolve_tool(
     *,
     canonical_id: str = "",
     action: str | None = None,
+    tool_args: dict[str, Any] | None = None,
     _policy: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
-    tool_id = canonical_id or _canonical_tool_id(agent, tool_name)
+    if canonical_id:
+        tool_id = canonical_id
+        spec = BUNDLED_ACTIONS.get(tool_id)
+    else:
+        tool_id, path = _tool_identity(agent, tool_name)
+        spec = _actions_for_path(tool_id, path)
     requested = str(tool_name or "").strip()
     name = _tool_name_from_id(tool_id) if requested == tool_id else requested
     if name in NON_CONFIGURABLE_TOOLS:
@@ -199,25 +228,29 @@ def resolve_tool(
     if policy["mode"] != "custom":
         return ToolPolicyDecision(True, tool_id, "inherited", "inherit")
 
-    if tool_id == MEMORY_TOOL_ID and action is None:
-        decisions = [
-            resolve_tool(
-                agent, tool_name, canonical_id=tool_id, action=value, _policy=policy
-            )
-            for value in MEMORY_ACTIONS
-        ]
-        return next((decision for decision in decisions if decision.allowed), decisions[0])
-
     policy_ids = {tool_id, *LEGACY_TOOL_IDS.get(tool_id, ())}
     if tool_id == "plugin:_behavior_adjustment:behaviour_adjustment":
         policy_ids.update(LEGACY_TOOL_IDS["plugin:_behavior_adjustment:behavior_adjustment"])
         policy_ids.add("plugin:_behavior_adjustment:behavior_adjustment")
-    if tool_id == MEMORY_TOOL_ID:
-        memory_action = str(action or "").strip().lower().replace("-", "_")
-        if memory_action in MEMORY_ACTIONS:
-            policy_ids.add(f"{MEMORY_TOOL_ID}_{memory_action}")
-    elif tool_id in {f"{MEMORY_TOOL_ID}_{value}" for value in MEMORY_ACTIONS}:
+    if spec:
+        discovery = tool_args is None and action is None
+        actions = list(spec.actions) if discovery else requested_actions(
+            tool_id, tool_args if tool_args is not None else {spec.argument: action}
+        )
+        decisions = [
+            _resolve_policy_ids(policy, tool_id, policy_ids | {action_policy_id(tool_id, value)})
+            for value in actions
+        ]
+        if discovery:
+            return next((decision for decision in decisions if decision.allowed), decisions[0])
+        return next((decision for decision in decisions if not decision.allowed), decisions[0])
+    if tool_id in {action_policy_id(MEMORY_TOOL_ID, value) for value in MEMORY_ACTIONS}:
         policy_ids.add(MEMORY_TOOL_ID)
+
+    return _resolve_policy_ids(policy, tool_id, policy_ids)
+
+
+def _resolve_policy_ids(policy: dict[str, Any], tool_id: str, policy_ids: set[str]) -> ToolPolicyDecision:
 
     if policy_ids.intersection(policy["blocked"]):
         return ToolPolicyDecision(
@@ -243,8 +276,9 @@ def ensure_tool_allowed(
     *,
     canonical_id: str = "",
     action: str | None = None,
+    tool_args: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
-    decision = resolve_tool(agent, tool_name, canonical_id=canonical_id, action=action)
+    decision = resolve_tool(agent, tool_name, canonical_id=canonical_id, action=action, tool_args=tool_args)
     if decision.allowed:
         return decision
     profile = str(getattr(getattr(agent, "config", None), "profile", "") or "default")
@@ -256,15 +290,22 @@ def ensure_tool_allowed(
 def allowed_memory_actions(
     agent: Any, *, _policy: dict[str, Any] | None = None
 ) -> list[str] | None:
-    """Retain per-action permissions only for the resolved bundled memory tool."""
-    if _canonical_tool_id(agent, "memory") != MEMORY_TOOL_ID:
+    return allowed_tool_actions(agent, "memory", _policy=_policy)
+
+
+def allowed_tool_actions(
+    agent: Any, tool_name: str, *, _policy: dict[str, Any] | None = None,
+) -> list[str] | None:
+    tool_id, path = _tool_identity(agent, tool_name)
+    spec = _actions_for_path(tool_id, path)
+    if not spec:
         return None
     policy = _policy if _policy is not None else get_policy(agent)
     return [
         action
-        for action in MEMORY_ACTIONS
+        for action in spec.actions
         if resolve_tool(
-            agent, "memory", canonical_id=MEMORY_TOOL_ID, action=action, _policy=policy
+            agent, tool_name, canonical_id=tool_id, action=action, _policy=policy
         ).allowed
     ]
 
@@ -296,17 +337,18 @@ def filter_tool_prompts(
         _filter_tool_prompt(prompt_file, prompt, known_names, allowed_names)
         for prompt_file, prompt in prompts
     ]
-    if "memory" in prompt_names:
-        actions = allowed_memory_actions(agent, _policy=policy)
-        if actions is not None and len(actions) < len(MEMORY_ACTIONS):
+    for name in sorted(prompt_names & allowed_names):
+        spec = get_tool_actions(agent, name)
+        actions = allowed_tool_actions(agent, name, _policy=policy) if spec else None
+        if spec and actions is not None and len(actions) < len(spec.actions):
             for index, (prompt_file, prompt) in enumerate(prompts):
-                if filtered[index] and "memory" in _prompt_tool_names(
+                if filtered[index] and name in _prompt_tool_names(
                     prompt_file, prompt, known_names
                 ):
                     filtered[index] += (
-                        "\nPermitted memory actions for this agent: "
+                        f"\nPermitted {name} actions for this agent: "
                         + ", ".join(actions)
-                        + ". All other memory actions are blocked.\n"
+                        + f". All other {name} actions are blocked.\n"
                     )
     return filtered
 
@@ -465,4 +507,5 @@ def tool_prompt_description(
 
 
 def _tool_name_from_id(tool_id: str) -> str:
-    return str(tool_id or "").rsplit(":", 1)[-1]
+    parts = str(tool_id or "").split(":")
+    return parts[min(2 if parts[0] in {"plugin", "mcp"} else 1, len(parts) - 1)]

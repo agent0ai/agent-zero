@@ -20,7 +20,7 @@ class BrowserContextExtras(Extension):
         runtime = await get_runtime(self.agent.context.id, create=False)
         if not runtime:
             return
-        if not tool_policy.resolve_tool(self.agent, "browser").allowed:
+        if not tool_policy.resolve_tool(self.agent, "browser", action="list").allowed:
             return
 
         try:
@@ -40,7 +40,10 @@ class BrowserContextExtras(Extension):
 
         section = ["currently open web browsers", "\n".join(rows)]
         last_id = listing.get("last_interacted_browser_id")
-        if last_id:
+        if last_id and all(
+            tool_policy.resolve_tool(self.agent, "browser", action=action).allowed
+            for action in ("state", "content")
+        ):
             try:
                 state = await runtime.call("state", last_id)
                 content = await runtime.call("content", last_id, None)

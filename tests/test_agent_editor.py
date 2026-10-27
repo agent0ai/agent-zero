@@ -239,6 +239,7 @@ def compatibility_catalog(monkeypatch):
     catalog = [{
         "id": tool_id, "name": tool_id.rsplit(":", 1)[-1],
         "label": tool_id, "description": "", "origin": "Agent Zero", "available": True,
+        **({"actions": list(policy.MEMORY_ACTIONS)} if tool_id == policy.MEMORY_TOOL_ID else {}),
     } for tool_id in ids]
     monkeypatch.setattr(policy, "get_tool_catalog", lambda _agent: catalog)
     return catalog

@@ -18,11 +18,11 @@
 - Custom configuration stores independent `default` and `mcp_default`
   fallbacks; explicit canonical IDs remain shared in `allowed` and `blocked`.
 - Required final-response capability is never disabled.
-- Forward execution arguments to shared policy resolution so unified memory retains the permissions of its former individual tools.
+- Forward the complete execution arguments to shared policy resolution so action defaults, aliases, browser batches, reset flags, and parallel operations cannot bypass permissions. Unified memory retains the permissions of its former individual tools.
 
 ## Verification
 
-- Run `tests/test_tool_policy.py`.
+- Run `tests/test_tool_policy.py` and `tests/test_tool_action_policy.py`.
 
 ## Child DOX Index
 

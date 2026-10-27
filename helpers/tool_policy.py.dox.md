@@ -17,6 +17,7 @@
   allowed/required flags from the backend.
 - `tool_prompt_description` owns compact editor catalog summaries; Responses owns full native tool descriptions and schema projection.
 - `resolve_tool` returns the effective decision and provenance.
+- `get_tool_actions` and `allowed_tool_actions` expose the resolved bundled action contract and allowed actions; catalog entries carry an `actions` list for editor projection.
 - `ensure_tool_allowed` raises the stable repairable runtime policy error and
   accepts an explicit canonical ID from transports that already resolved one.
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
@@ -45,7 +46,8 @@
   invocation supplies its explicit namespaced ID.
 - Moved bundled tools honor their saved core IDs; behavior adjustment honors its old plugin/spelling ID. Matching legacy IDs remain editable in the catalog while their replacement is available. Explicit blocks win across both IDs; unrelated profile overrides retain their own identity.
 - Unified memory checks both its tool-wide ID and the corresponding legacy action ID. Without an action, discovery exposes memory if any action is allowed; execution checks the requested action through `ensure_tool_allowed`. Legacy memory names stay action-specific, and a tool-wide block also blocks those aliases.
-- `allowed_memory_actions` supplies the bundled memory action permissions to text prompts and native schemas; it returns `None` for a profile override with its own identity.
+- All registered bundled multi-action tools check whole-tool and action IDs with explicit-block precedence. Discovery exposes a tool when any action is allowed; execution supplies `tool_args` (including an empty dict) to resolve defaults and compound operations. Omitting both arguments and action is a discovery query, never an execution check.
+- `allowed_tool_actions` supplies the allowed enum to native schemas and the permitted-action note to textual prompts. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that
@@ -62,7 +64,7 @@
 
 ## Verification
 
-- Run `tests/test_tool_policy.py` and the prompt/Responses/MCP focused tests.
+- Run `tests/test_tool_policy.py`, `tests/test_tool_action_policy.py`, and the prompt/Responses/MCP focused tests.
 
 ## Child DOX Index
 

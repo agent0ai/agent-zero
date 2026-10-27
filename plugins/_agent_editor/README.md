@@ -14,6 +14,11 @@ Skills default switch. Easy places each chooser below its default switch;
 Advanced gives Tools, MCPs, and Skills separate searchable sections and adds
 retained unavailable entries plus ACE-based prompt editing.
 
+Bundled tools with multiple operations expose separate action controls, such as
+Text Editor: Read / Write / Patch and Scheduler: List Tasks / Delete Task.
+Existing whole-tool choices appear as matching action choices. Opening a profile
+does not rewrite its policy; only an explicit permission edit saves those choices.
+
 Main prompt sections such as Tips open ready to edit under readable titles,
 with their customization status beside the title. A compact Saves to row shows
 the destination and copy action; variable hints appear below the editor.
