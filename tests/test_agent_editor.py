@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 from io import BytesIO
 import json
 from pathlib import Path
@@ -225,6 +226,166 @@ def test_state_catalog_is_complete_truthful_and_omits_internal_tools() -> None:
     }.intersection({"response", "vision_load"})
 
 
+@pytest.fixture
+def compatibility_catalog(monkeypatch):
+    policy = editor.tool_policy
+    ids = dict.fromkeys([
+        *policy.LEGACY_TOOL_IDS,
+        *(item for aliases in policy.LEGACY_TOOL_IDS.values() for item in aliases),
+        policy.MEMORY_TOOL_ID,
+        *(f"{policy.MEMORY_TOOL_ID}_{action}" for action in policy.MEMORY_ACTIONS),
+        "mcp:docs:read", "local:custom",
+    ])
+    catalog = [{
+        "id": tool_id, "name": tool_id.rsplit(":", 1)[-1],
+        "label": tool_id, "description": "", "origin": "Agent Zero", "available": True,
+    } for tool_id in ids]
+    monkeypatch.setattr(policy, "get_tool_catalog", lambda _agent: catalog)
+    return catalog
+
+
+@pytest.mark.parametrize("tool_id,aliases", editor.tool_policy.LEGACY_TOOL_IDS.items())
+def test_editor_folds_legacy_choices_without_changing_runtime_access(
+    compatibility_catalog, monkeypatch, tool_id, aliases,
+):
+    owner = editor.tool_policy
+    agent = editor.EditorAgent("researcher")
+    for default, choice in itertools.product(("allow", "block"), ("allowed", "blocked")):
+        raw = owner.normalize_policy({"mode": "custom", "default": default, choice: list(aliases)})
+        monkeypatch.setattr(owner, "get_policy", lambda _agent: raw)
+        state = editor._editor_tool_state(agent, raw)
+        assert state["policy"] == state["effective_policy"]
+        assert tool_id in state["policy"][choice]
+        assert not set(aliases).intersection(item["id"] for item in state["catalog"])
+        for item in compatibility_catalog:
+            if item["id"] in aliases:
+                continue
+            before = owner.resolve_tool(agent, item["name"], canonical_id=item["id"], _policy=raw)
+            after = owner.resolve_tool(agent, item["name"], canonical_id=item["id"], _policy=state["policy"])
+            assert before.allowed == after.allowed
+        assert raw[choice] == list(aliases), "opening the editor must not mutate saved policy"
+
+
+def test_editor_memory_projection_preserves_every_action_combination(
+    compatibility_catalog, monkeypatch,
+):
+    owner = editor.tool_policy
+    agent = editor.EditorAgent("researcher")
+    memory_ids = [owner.MEMORY_TOOL_ID, *(f"{owner.MEMORY_TOOL_ID}_{action}" for action in owner.MEMORY_ACTIONS)]
+    for default in ("allow", "block"):
+        for choices in itertools.product(("default", "allowed", "blocked"), repeat=len(memory_ids)):
+            raw = owner.normalize_policy({
+                "mode": "custom", "default": default,
+                **{key: [tool_id for tool_id, choice in zip(memory_ids, choices) if choice == key]
+                   for key in ("allowed", "blocked")},
+            })
+            monkeypatch.setattr(owner, "get_policy", lambda _agent: raw)
+            state = editor._editor_tool_state(agent, raw)
+            projected = state["policy"]
+            assert not set(projected["allowed"]).intersection(projected["blocked"])
+            assert owner.MEMORY_TOOL_ID not in {item["id"] for item in state["catalog"]}
+            for action in owner.MEMORY_ACTIONS:
+                before = owner.resolve_tool(agent, "memory", canonical_id=owner.MEMORY_TOOL_ID, action=action, _policy=raw)
+                after = owner.resolve_tool(agent, "memory", canonical_id=owner.MEMORY_TOOL_ID, action=action, _policy=projected)
+                assert before.allowed == after.allowed, (raw, action, projected)
+
+
+def test_editor_does_not_fold_a_profile_tool_into_an_unavailable_plugin(monkeypatch):
+    owner = editor.tool_policy
+    catalog = [{"id": "local:wait", "name": "wait", "label": "Wait", "available": True}]
+    raw = owner.normalize_policy({"mode": "custom", "blocked": ["local:wait"]})
+    monkeypatch.setattr(owner, "get_tool_catalog", lambda _agent: catalog)
+    monkeypatch.setattr(owner, "get_policy", lambda _agent: raw)
+    state = editor._editor_tool_state(editor.EditorAgent("researcher"), raw)
+    assert state["policy"] == raw
+    assert [item["id"] for item in state["catalog"]] == ["local:wait"]
+
+
+def test_editor_controls_save_legacy_changes_and_keep_memory_actions_independent(
+    compatibility_catalog, monkeypatch, user_root,
+):
+    import re
+    import shutil
+    import subprocess
+
+    if not shutil.which("node"):
+        pytest.skip("node is required")
+    owner = editor.tool_policy
+    raw = owner.normalize_policy({
+        "mode": "custom", "default": "allow",
+        "allowed": ["plugin:_memory:memory_load", "plugin:_wait:wait"],
+        "blocked": ["local:wait", "plugin:_memory:memory", "plugin:_memory:behaviour_adjustment"],
+    })
+    monkeypatch.setattr(owner, "get_policy", lambda _agent: raw)
+    state = editor._editor_tool_state(editor.EditorAgent("researcher"), raw)
+    source = (Path(__file__).resolve().parents[1] / "plugins/_agent_editor/webui/agent-editor-store.js").read_text()
+    source = re.sub(r"^import .*?;\n", "", source, flags=re.MULTILINE)
+    script = "const createStore = (_name, value) => value;\n" + source
+    script += "\nstore.state = {tools: " + json.dumps(state) + "};\n"
+    script += r"""
+const {default: assert} = await import('node:assert/strict');
+store.draft = {toolPolicy: structuredClone(store.state.tools.policy), prompts: {}, metadataResets: []};
+store.initialDraft = structuredClone(store.draft);
+assert.equal('tool_policy' in store.buildPatch(), false, 'opening must not migrate saved IDs');
+store.draft.title = 'Renamed agent';
+assert.equal('tool_policy' in store.buildPatch(), false, 'metadata edits must not migrate saved IDs');
+const row = id => store.state.tools.catalog.find(item => item.id === id);
+assert.equal(store.policyItemState('tool', 'plugin:_wait:wait'), 'block');
+assert.deepEqual(store.skillWarnings({allowed_tools: ['wait']}), ['wait']);
+store.setPolicyItem('tool', 'plugin:_wait:wait', 'allow');
+assert.equal(store.isToolAllowed(row('plugin:_wait:wait')), true);
+assert.deepEqual(store.skillWarnings({allowed_tools: ['wait']}), []);
+assert.deepEqual(store.skillWarnings({allowed_tools: ['behavior_adjustment', 'behaviour_adjustment']}),
+  ['behavior_adjustment', 'behaviour_adjustment']);
+store.setPolicyItem('tool', 'plugin:_behavior_adjustment:behavior_adjustment', 'allow');
+assert.deepEqual(store.skillWarnings({allowed_tools: ['behaviour_adjustment']}), []);
+assert.deepEqual(store.skillWarnings({allowed_tools: ['memory', 'memory_load']}), ['memory', 'memory_load']);
+store.setPolicyItem('tool', 'plugin:_memory:memory_load', 'allow');
+for (const action of ['load', 'save', 'delete', 'forget']) {
+  assert.equal(store.isToolAllowed(row('plugin:_memory:memory_' + action)), action === 'load');
+}
+assert.deepEqual(store.skillWarnings({allowed_tools: ['memory', 'memory_load', 'memory_delete']}), ['memory_delete']);
+assert.deepEqual(store.buildPatch().tool_policy, store.draft.toolPolicy);
+store.setPolicyItem('tool', 'plugin:_wait:wait', 'default');
+assert.equal(store.policyItemState('tool', 'plugin:_wait:wait'), 'default');
+assert.equal(store.isToolAllowed(row('plugin:_wait:wait')), true);
+console.log(JSON.stringify(store.draft.toolPolicy));
+"""
+    result = subprocess.run(["node", "--input-type=module"], input=script, text=True, capture_output=True, check=True)
+    edited = json.loads(result.stdout)
+    plan = editor.build_change_plan({"profile_id": "researcher", "tool_policy": edited})
+    editor.apply_change_plan(plan)
+    saved = json.loads((user_root / "researcher/plugins/_tool_access/config.json").read_text())
+    assert saved == edited
+    for name, tool_id in (("wait", "plugin:_wait:wait"), ("behaviour_adjustment", "plugin:_behavior_adjustment:behaviour_adjustment")):
+        assert owner.resolve_tool(None, name, canonical_id=tool_id, _policy=saved).allowed
+    for action in owner.MEMORY_ACTIONS:
+        assert owner.resolve_tool(None, "memory", canonical_id=owner.MEMORY_TOOL_ID, action=action, _policy=saved).allowed == (action == "load")
+    monkeypatch.setattr(owner, "get_policy", lambda _agent: saved)
+    assert editor._editor_tool_state(editor.EditorAgent("researcher"), saved)["policy"] == edited
+
+
+def test_editor_memory_actions_do_not_claim_a_profile_override_name(
+    compatibility_catalog, monkeypatch,
+):
+    owner = editor.tool_policy
+    load_id = f"{owner.MEMORY_TOOL_ID}_load"
+    catalog = [item for item in compatibility_catalog if item["id"] != load_id]
+    catalog.append({
+        "id": "local:memory_load", "name": "memory_load", "label": "Custom load",
+        "available": True,
+    })
+    raw = owner.normalize_policy({"mode": "custom", "blocked": [owner.MEMORY_TOOL_ID]})
+    monkeypatch.setattr(owner, "get_tool_catalog", lambda _agent: catalog)
+    monkeypatch.setattr(owner, "get_policy", lambda _agent: raw)
+    state = editor._editor_tool_state(editor.EditorAgent("researcher"), raw)
+    rows = {item["id"]: item for item in state["catalog"]}
+    assert rows[load_id]["tool_names"] == ["memory"]
+    assert rows["local:memory_load"]["tool_names"] == ["memory_load"]
+    assert owner.resolve_tool(None, "memory_load", canonical_id="local:memory_load", _policy=state["policy"]).allowed
+    assert not owner.resolve_tool(None, "memory", canonical_id=owner.MEMORY_TOOL_ID, action="load", _policy=state["policy"]).allowed
+
+
 def test_builtin_prompt_override_never_touches_bundled_profile(user_root: Path) -> None:
     bundled = Path("agents/researcher")
     before = {path: path.read_bytes() for path in bundled.rglob("*") if path.is_file()}
@@ -427,6 +588,7 @@ def test_project_tool_policy_reads_effective_access_and_writes_project_scope(
     effective_policy = {
         "mode": "custom",
         "default": "allow",
+        "mcp_default": "allow",
         "allowed": [],
         "blocked": ["local:shell"],
     }

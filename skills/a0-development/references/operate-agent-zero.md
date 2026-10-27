@@ -12,7 +12,7 @@ Compose existing features to complete the outcome: a research workspace can comb
 - Projects: `/a0/api/projects.py`, `/a0/helpers/projects.py`.
 - Chats: `/a0/api/chat_create.py`, `/a0/api/agent_profile_set.py`, `/a0/api/poll.py`, `/a0/helpers/state_snapshot.py`.
 - Starting work: `/a0/api/message.py`, `/a0/api/message_async.py`, `/a0/api/api_message.py`.
-- Tasks: `/a0/api/scheduler_task_create.py`, `/a0/api/scheduler_task_update.py`, `/a0/helpers/task_scheduler.py`.
+- Tasks: `/a0/plugins/_scheduler/api/scheduler_task_create.py`, `/a0/plugins/_scheduler/api/scheduler_task_update.py`, `/a0/helpers/task_scheduler.py`.
 - Other routes: `/a0/api/` and `/a0/plugins/<plugin>/api/`; inspect each handler and its nearest DOX before unfamiliar operations.
 
 ## Connect To The Correct Instance
@@ -78,7 +78,7 @@ IDs are not interchangeable:
 | `agent_profile_set` | `context_id`, `agent_profile` | `agent_profile` |
 | `message_async`, `poll`, `history_get`, `pause`, `stop`, `chat_remove` | `context` | Context-dependent response |
 | `chat_export` | `ctxid` | `ctxid`, `content` |
-| `scheduler_task_update`, `scheduler_task_run`, `scheduler_task_delete` | `task_id` | Use `task.uuid` from creation/listing |
+| `plugins/_scheduler/scheduler_task_update`, `plugins/_scheduler/scheduler_task_run`, `plugins/_scheduler/scheduler_task_delete` | `task_id` | Use `task.uuid` from creation/listing |
 
 ## Projects And Chats
 
@@ -147,27 +147,27 @@ The external API is a different contract: `POST /api/api_message` uses `X-API-KE
 
 Prefer the `scheduler` tool when available; load `scheduled-tasks` for detailed scheduling. The HTTP API also manages the same saved tasks, including a project association selected at creation.
 
-- List: POST `scheduler_tasks_list` with `{}`; result is `tasks`.
-- Create: POST `scheduler_task_create` with `name`, `prompt`, optional `system_prompt`, `attachments`, and `project_name`.
+- List: POST `plugins/_scheduler/scheduler_tasks_list` with `{}`; result is `tasks`.
+- Create: POST `plugins/_scheduler/scheduler_task_create` with `name`, `prompt`, optional `system_prompt`, `attachments`, and `project_name`.
 - Type is selected by payload: a nonempty `schedule` creates a recurring task; otherwise a nonempty `plan` creates a planned task; neither creates an adhoc task. Do not send both.
 - Recurring `schedule` is an object with cron strings `minute`, `hour`, `day`, `month`, `weekday`, plus an IANA `timezone`. Use the user's intended timezone.
 - HTTP planned shape is `{"plan": {"todo": ["<future ISO datetime with UTC offset>"]}}`, not the scheduler tool's list shorthand. Verify returned planned dates.
-- Update: POST `scheduler_task_update` with `task_id` and changed fields such as `name`, `prompt`, `schedule`, `plan`, or `state`. `state: "disabled"` disables; `state: "idle"` re-enables.
-- Run now: POST `scheduler_task_run` with `task_id`. Acceptance is not completion; check the returned task and later list state/results.
-- Delete: POST `scheduler_task_delete` with `task_id`. This also handles a running task and its dedicated context.
+- Update: POST `plugins/_scheduler/scheduler_task_update` with `task_id` and changed fields such as `name`, `prompt`, `schedule`, `plan`, or `state`. `state: "disabled"` disables; `state: "idle"` re-enables.
+- Run now: POST `plugins/_scheduler/scheduler_task_run` with `task_id`. Acceptance is not completion; check the returned task and later list state/results.
+- Delete: POST `plugins/_scheduler/scheduler_task_delete` with `task_id`. This also handles a running task and its dedicated context.
 
 Creation uses a dedicated context; `project_name` cannot be changed through the update endpoint. Top-level `timezone` also updates runtime localization, so use explicit planned offsets or `schedule.timezone` when that is the intended scope. Do not copy tool-only fields such as `dedicated_context` into HTTP payloads and assume they are honored.
 
 For a saved draft that must not run automatically, create an adhoc task and disable it:
 
 ```python
-task = api("scheduler_task_create", {
+task = api("plugins/_scheduler/scheduler_task_create", {
     "name": "Research draft", "prompt": "<work to run when requested>",
     "project_name": name,
 })["task"]
 task_id = task["uuid"]
-api("scheduler_task_update", {"task_id": task_id, "state": "disabled"})
-saved = next(t for t in api("scheduler_tasks_list", {})["tasks"] if t["uuid"] == task_id)
+api("plugins/_scheduler/scheduler_task_update", {"task_id": task_id, "state": "disabled"})
+saved = next(t for t in api("plugins/_scheduler/scheduler_tasks_list", {})["tasks"] if t["uuid"] == task_id)
 assert saved["state"] == "disabled"
 ```
 

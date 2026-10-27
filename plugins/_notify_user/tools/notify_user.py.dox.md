@@ -22,6 +22,7 @@
 - Update this file whenever tool arguments, output shape, `break_loop` behavior, intervention handling, prompt instructions, or side effects change.
 - `NotifyUserTool` is a `Tool`.
 - `NotifyUserTool` defines `execute(...)`.
+- Priority names `normal` and `high` are the current prompt/schema contract; legacy numeric `10` and `20` remain accepted at execution for saved prompts and resumed calls.
 - Every call logs as the dedicated `notify_user` type with an `icon://notifications Notifying user: <title>` headline naming the title, or a plain notifying headline without a title; `extensions/webui/get_message_handler/` owns the `NTF` badge presentation and `get_process_step_types/` registers the type.
 - Imported dependency areas include: `agent`, `helpers.notification`, `helpers.strings`, `helpers.tool`, `uuid`.
 

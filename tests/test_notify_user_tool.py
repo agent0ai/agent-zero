@@ -59,23 +59,31 @@ async def test_execute_defaults_to_high_priority(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_execute_maps_priority_names(monkeypatch):
+@pytest.mark.parametrize("priority,expected", [
+    ("normal", NotificationPriority.NORMAL),
+    ("high", NotificationPriority.HIGH),
+    (10, NotificationPriority.NORMAL),
+    (20, NotificationPriority.HIGH),
+])
+async def test_execute_maps_current_and_legacy_priorities(monkeypatch, priority, expected):
     manager = _FakeNotificationManager()
-    tool = _make_tool({"message": "hi", "priority": "normal"}, manager, monkeypatch)
+    tool = _make_tool({"message": "hi", "priority": priority}, manager, monkeypatch)
 
     await tool.execute()
 
-    assert manager.calls[0]["priority"] is NotificationPriority.NORMAL
+    assert len(manager.calls) == 1
+    assert manager.calls[0]["priority"] is expected
 
 
 @pytest.mark.anyio
-async def test_execute_rejects_unknown_priority(monkeypatch):
+@pytest.mark.parametrize("priority", ["urgent", 0, 30, None, [], {}])
+async def test_execute_rejects_unknown_priority(monkeypatch, priority):
     manager = _FakeNotificationManager()
-    tool = _make_tool({"message": "hi", "priority": "urgent"}, manager, monkeypatch)
+    tool = _make_tool({"message": "hi", "priority": priority}, manager, monkeypatch)
 
     response = await tool.execute()
 
-    assert response.message == "Invalid notification priority: urgent"
+    assert response.message == f"Invalid notification priority: {priority}"
     assert response.break_loop is False
     assert manager.calls == []
 

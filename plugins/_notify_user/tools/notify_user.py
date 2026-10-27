@@ -4,7 +4,12 @@ from agent import AgentContext
 from helpers.notification import NotificationPriority, NotificationType
 from helpers.strings import truncate_text
 
-PRIORITY_ALIASES = {"normal": NotificationPriority.NORMAL, "high": NotificationPriority.HIGH}
+PRIORITY_ALIASES = {
+    "normal": NotificationPriority.NORMAL,
+    "high": NotificationPriority.HIGH,
+    10: NotificationPriority.NORMAL,
+    20: NotificationPriority.HIGH,
+}
 
 class NotifyUserTool(Tool):
 

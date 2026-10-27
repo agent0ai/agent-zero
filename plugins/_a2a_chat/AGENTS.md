@@ -15,7 +15,7 @@
 ## Local Contracts
 
 - Session state is stored on `agent.data["_a2a_sessions"]`, keyed by a normalized agent URL that strips an explicit `/a2a` suffix.
-- The `reset` argument coerces through the shared `coerce_bool` helper instead of returning a repairable error; absent values default to `false`, other unrecognized values fall back to truthiness.
+- The `reset` argument coerces through the shared `coerce_bool` helper instead of returning a repairable error; absent and unrecognized values default to `false`, while numbers retain their truthiness.
 - Remote text extraction prefers the newest assistant history message, then status message, then artifacts; an empty extraction returns a distinct failed-response error instead of success.
 - The tool reports a2a unavailability without raising.
 

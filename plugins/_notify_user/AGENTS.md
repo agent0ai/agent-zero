@@ -16,7 +16,7 @@
 
 ## Local Contracts
 
-- `priority` accepts `normal` and `high` names and maps to `NotificationPriority` values; unknown names and types return tool errors instead of raising.
+- `priority` advertises `normal` and `high` names and also accepts legacy numeric values `10` and `20`, mapping both forms to `NotificationPriority`; unknown names and types return tool errors instead of raising.
 - The tool uses the shared `AgentContext.get_notification_manager()`; it owns no notification storage of its own.
 - The WebUI handler registers only for the `notify_user` message type and reuses `drawMessageToolSimple` with code `NTF`.
 - Agent notifications use the longer 30 second display time so they survive brief chat switches.
