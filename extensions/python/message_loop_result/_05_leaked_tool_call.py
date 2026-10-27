@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 from helpers.extension import Extension
@@ -66,13 +67,16 @@ class LeakedToolCall(Extension):
         if status == "quoted":
             return
 
-        # History insertion owns Responses state advancement. Keep the warning
-        # static so the existing exact-match counter sees it.
+        # Do not teach the next turn to repeat rejected syntax or replay it via
+        # provider output items. Keep the original result for diagnostics.
         result_data["skip_default_processing"] = True
         log_item = params.get("log_item_generating")
         self.agent.hist_add_ai_response(
-            response, id=log_item.id if log_item else "", llm_result=llm_result
+            "{}", id=log_item.id if log_item else "",
+            llm_result=replace(llm_result, response="{}", output_items=[]),
         )
+        if llm_result.mode == "responses" and llm_result.response_id:
+            self.agent._clear_responses_pending_state()
         prompt = (
             "fw.msg_truncated_tool_call.md"
             if status == "truncated"

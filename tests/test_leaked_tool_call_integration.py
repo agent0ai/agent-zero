@@ -231,6 +231,8 @@ async def test_message_loop_retries_then_displays_recovered_response(
     assert len(ai_messages) == 2
     if first_text == "READY" and doctor:
         assert json.loads(ai_messages[0].content) == {"thoughts": ["READY"]}
+    elif first_text != "READY":
+        assert ai_messages[0].content == "{}"
     else:
         assert ai_messages[0].content == first_text
     assert json.loads(ai_messages[1].content)["tool_args"] == {"text": "done"}
@@ -264,6 +266,7 @@ def test_rejected_turn_skips_dispatch_and_stops_at_budget(doctor, mode, text):
             assert run_hooks(agent, result, doctor)["skip_default_processing"] is True
         assert result.response == text
         assert len(agent.history) == iteration + 1
+        assert agent.history[-1] == "{}", "Rejected syntax must not be fed back to the model"
         assert len(agent.warnings) == iteration + 1
         assert len(agent.remembered) == iteration + 1
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 3
@@ -332,7 +335,7 @@ def test_discovered_recovery_hook_runs_before_context_doctor(monkeypatch):
     )
 
 
-def test_rejected_response_advances_real_history_state_once(monkeypatch):
+def test_rejected_response_sanitizes_history_and_breaks_provider_continuation(monkeypatch):
     from helpers import history
 
     monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
@@ -357,16 +360,26 @@ def test_rejected_response_advances_real_history_state_once(monkeypatch):
         response="<function=response><parameter=text>cut off",
         response_id="synthetic-rejected-turn",
         provider_model_key="test/model",
+        output_items=[ResponseItem.from_any({
+            "type": "message", "role": "assistant",
+            "content": [{"type": "output_text", "text": "<function=response><parameter=text>cut off"}],
+        })],
     )
     data = {"llm_result": result}
     LeakedToolCall(agent).execute(data)
     assert data["skip_default_processing"] is True
-    assert remembered == [result]
+    assert len(remembered) == 1
+    assert remembered[0].response_id == result.response_id
     messages = agent.history.all_messages()
     assert len(messages) == 1
+    assert messages[0].content == "{}"
+    assert "<function=" not in json.dumps(messages[0].metadata)
+    assert result.output_items[0].data["content"][0]["text"].startswith("<function="), "Keep original diagnostic output"
     state = agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)
-    assert state["response_id"] == "synthetic-rejected-turn"
+    assert "response_id" not in state and "previous_response_id" not in state
+    assert state["response_ids"] == ["synthetic-rejected-turn"]
     assert state["history_counter"] == messages[0].sequence
+    assert agent._responses_state_for_model(SimpleNamespace(model_name="test/model")) == {}
 
 
 @pytest.mark.parametrize(
