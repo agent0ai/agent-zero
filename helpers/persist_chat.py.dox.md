@@ -18,7 +18,11 @@
 - `save_tmp_chat(context: AgentContext)`: Save context to the chats folder
 - `save_tmp_chats()`: Save all contexts to the chats folder
 - `load_tmp_chats()`: Load all contexts from the chats folder
-- `_get_chat_file_path(ctxid: str)`
+- `_get_chat_file_path(ctxid: str)`: Legacy `chat.json` path (read/migrate only).
+- `_get_chat_jsonl_path(ctxid: str)`: Active `chat.jsonl` path.
+- `_read_jsonl_documents(path: str)`: Parse `chat.jsonl`, skipping malformed lines.
+- `_documents_to_context_data(docs)`: Rebuild the legacy-shaped context dict from JSONL documents.
+- `_migrate_legacy_chat_file(ctxid: str)`: Rename a migrated `chat.json` to `chat.json.legacy`.
 - `chat_file_exists(ctxid: str) -> bool`
 - `_convert_v080_chats()`
 - `load_json_chats(jsons: list[str])`: Load contexts from JSON strings
@@ -35,7 +39,7 @@
 - `_deserialize_agents(agents: list[dict[str, Any]], config: AgentConfig, context: AgentContext) -> Agent`
 - `_deserialize_log(data: dict[str, Any]) -> 'Log'`
 - `_safe_json_serialize(obj, **kwargs)`
-- Notable constants/configuration names: `CHATS_FOLDER`, `LOG_SIZE`, `CHAT_FILE_NAME`, `SAVED_CHAT_CONTEXT_DATA_KEY`.
+- Notable constants/configuration names: `CHATS_FOLDER`, `CHAT_FILE_NAME` (legacy), `CHAT_JSONL_NAME`, `LEGACY_CHAT_SUFFIX`, `SAVED_CHAT_CONTEXT_DATA_KEY`.
 
 ## Runtime Contracts
 
@@ -45,11 +49,13 @@
 - Imported dependency areas include: `agent`, `collections`, `datetime`, `helpers`, `helpers.localization`, `helpers.log`, `initialize`, `json`, `typing`, `uuid`.
 - Serialized chats store `agent_profile` both at the context level for the main chat and on each serialized agent so subordinate profiles survive server restart.
 - Deserialization must rebuild each agent with its serialized profile when present, falling back to the context profile for older chat files.
-- Chat loading skips directories that do not contain `chat.json`; malformed existing chat files still report load errors.
+- Chat storage is `usr/chats/<ctxid>/chat.jsonl`: line 1 is a `{"t":"meta", ...}` document holding the serialized context minus the log plus `log_meta` (`guid`, `progress`, `progress_no`); every following `{"t":"log", ...}` line is one full log item, untrimmed (the former `LOG_SIZE=1000` disk cap silently discarded older items; removed 2026-10-27).
+- Chat loading prefers `chat.jsonl`; a folder with only a legacy `chat.json` loads it, is saved in the new format, and the legacy file is renamed `chat.json.legacy` (kept as rollback; never re-migrated while `chat.jsonl` exists). A failed migration is reported as a migration error, not a load error, and retried on the next boot.
+- Chat loading skips directories without either file; malformed JSONL lines cost their own item only.
 - `load_tmp_chats()` reuses one Git version through `settings.version_cache_scope()` for its per-file restoration loop. Each agent still receives normal settings/credential reads and initialization hooks; the scope expires after the load, including failures.
-- Chat saves write and fsync a same-directory temporary file, atomically replace `chat.json`, and fsync the directory so an interrupted save cannot truncate the previous chat.
+- Chat saves write and fsync a same-directory temporary file, atomically replace `chat.jsonl`, and fsync the directory so an interrupted save cannot truncate the previous chat.
 - Contexts are marked with private `SAVED_CHAT_CONTEXT_DATA_KEY` only after a successful save or load from disk so snapshot code can detect deleted chat files without hiding fresh unsaved chats.
-- `chat_file_exists(ctxid)` reads the current `chat.json` path so snapshot pruning can confirm a missing file after taking an earlier directory listing.
+- `chat_file_exists(ctxid)` accepts either format so snapshot pruning can confirm a missing file after taking an earlier directory listing.
 - Chat and message-file removal reject empty or whitespace-only context IDs before provider or filesystem deletion begins.
 
 ## Key Concepts
@@ -69,6 +75,7 @@
 - Related tests observed by source search:
   - `tests/test_api_chat_lifetime.py`
   - `tests/test_browser_agent_regressions.py`
+  - `tests/test_persist_chat_jsonl.py`
   - `tests/test_persist_chat_log_ids.py`
   - `tests/test_snapshot_parity.py`
   - `tests/test_subagent_profiles.py`

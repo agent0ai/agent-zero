@@ -24,7 +24,7 @@ def test_deserialize_log_preserves_item_id() -> None:
     assert restored.logs[1].id is None
 
 
-def test_load_tmp_chats_skips_directories_without_chat_json(monkeypatch, capsys) -> None:
+def test_load_tmp_chats_skips_directories_without_chat_jsonl(monkeypatch, capsys) -> None:
     from helpers import persist_chat
 
     monkeypatch.setattr(persist_chat, "_convert_v080_chats", lambda: None)
@@ -41,12 +41,12 @@ def test_load_tmp_chats_skips_directories_without_chat_json(monkeypatch, capsys)
     monkeypatch.setattr(
         persist_chat.files,
         "exists",
-        lambda path: str(path).endswith("/valid/chat.json"),
+        lambda path: str(path).endswith("/valid/chat.jsonl"),
     )
     monkeypatch.setattr(
         persist_chat.files,
         "read_file",
-        lambda path: json.dumps({"id": "valid"}),
+        lambda path: json.dumps({"t": "meta", "id": "valid"}) + "\n",
     )
     monkeypatch.setattr(
         persist_chat,
@@ -106,11 +106,11 @@ def test_save_tmp_chat_preserves_existing_file_until_atomic_replace(
     from agent import AgentContextType
     from helpers import persist_chat
 
-    path = tmp_path / "chat.json"
+    path = tmp_path / "chat.jsonl"
     path.write_text("previous", encoding="utf-8")
     context = SimpleNamespace(id="chat", type=AgentContextType.USER, data={})
 
-    monkeypatch.setattr(persist_chat, "_get_chat_file_path", lambda _ctxid: str(path))
+    monkeypatch.setattr(persist_chat, "_get_chat_jsonl_path", lambda _ctxid: str(path))
     monkeypatch.setattr(persist_chat, "_serialize_context", lambda _context: {"new": True})
     real_replace = persist_chat.os.replace
 
@@ -128,5 +128,7 @@ def test_save_tmp_chat_preserves_existing_file_until_atomic_replace(
     monkeypatch.setattr(persist_chat.os, "replace", real_replace)
     persist_chat.save_tmp_chat(context)
 
-    assert json.loads(path.read_text(encoding="utf-8")) == {"new": True}
+    final_doc = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert final_doc["t"] == "meta"
+    assert final_doc["new"] is True
     assert context.data[persist_chat.SAVED_CHAT_CONTEXT_DATA_KEY] is True

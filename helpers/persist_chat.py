@@ -15,8 +15,10 @@ from initialize import initialize_agent
 from helpers.log import Log, LogItem
 
 CHATS_FOLDER = "usr/chats"
-LOG_SIZE = 1000
+# Legacy whole-file format; still read and migrated on load, never written.
 CHAT_FILE_NAME = "chat.json"
+CHAT_JSONL_NAME = "chat.jsonl"
+LEGACY_CHAT_SUFFIX = ".legacy"
 SAVED_CHAT_CONTEXT_DATA_KEY = "_persist_chat_saved"
 
 
@@ -48,15 +50,27 @@ def get_chat_msg_files_folder(ctxid: str):
     return files.get_abs_path(get_chat_folder_path(ctxid), "messages")
 
 def save_tmp_chat(context: AgentContext):
-    """Save context to the chats folder"""
+    """Save context to the chats folder as JSONL (meta line + one line per log
+    item, untrimmed). The legacy chat.json whole-file format is no longer
+    written; it is migrated on load."""
     # Skip saving BACKGROUND contexts as they should be ephemeral
     if context.type == AgentContextType.BACKGROUND:
         return
 
-    path = _get_chat_file_path(context.id)
+    path = _get_chat_jsonl_path(context.id)
     data = _serialize_context(context)
-    js = _safe_json_serialize(data, ensure_ascii=False)
-    _write_atomic(path, js)
+    meta = {k: v for k, v in data.items() if k != "log"}
+    meta["t"] = "meta"
+    log_data = data.get("log") or {}
+    meta["log_meta"] = {
+        "guid": log_data.get("guid"),
+        "progress": log_data.get("progress"),
+        "progress_no": log_data.get("progress_no"),
+    }
+    lines = [_safe_json_serialize(meta, ensure_ascii=False)]
+    for item in log_data.get("logs", []):
+        lines.append(_safe_json_serialize({"t": "log", **item}, ensure_ascii=False))
+    _write_atomic(path, "\n".join(lines) + "\n")
     mark_chat_saved(context)
 
 
@@ -69,25 +83,93 @@ def save_tmp_chats():
         save_tmp_chat(context)
 
 
+def _read_jsonl_documents(path: str) -> list[dict[str, Any]]:
+    """Parse a chat.jsonl file; malformed lines cost their own item, never the chat."""
+    docs: list[dict[str, Any]] = []
+    try:
+        content = files.read_file(path)
+    except Exception:
+        return docs
+    for line in content.splitlines():
+        if not line.strip():
+            continue
+        try:
+            doc = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(doc, dict):
+            docs.append(doc)
+    return docs
+
+
+def _documents_to_context_data(docs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    meta = next((d for d in docs if d.get("t") == "meta"), None)
+    if meta is None:
+        return None
+    log_meta = meta.get("log_meta") or {}
+    items = []
+    for doc in docs:
+        if doc.get("t") != "log":
+            continue
+        item = {k: v for k, v in doc.items() if k != "t"}
+        items.append(item)
+    data = {k: v for k, v in meta.items() if k not in ("t", "log_meta")}
+    data["log"] = {
+        "guid": log_meta.get("guid"),
+        "logs": items,
+        "progress": log_meta.get("progress"),
+        "progress_no": log_meta.get("progress_no"),
+    }
+    return data
+
+
+def _migrate_legacy_chat_file(ctxid: str) -> None:
+    """Rename a migrated chat.json away so future loads use chat.jsonl only."""
+    legacy = _get_chat_file_path(ctxid)
+    try:
+        files.move_file(legacy, legacy + LEGACY_CHAT_SUFFIX)
+    except Exception as e:
+        print(f"Error renaming legacy chat file for {ctxid}: {e}")
+
+
 def load_tmp_chats():
-    """Load all contexts from the chats folder"""
+    """Load all contexts from the chats folder (chat.jsonl first, legacy
+    chat.json migrated on first successful load)."""
     _convert_v080_chats()
     folders = files.list_files(CHATS_FOLDER, "*")
-    json_files = []
+    chat_sources = []
     for folder_name in folders:
+        jsonl_file = _get_chat_jsonl_path(folder_name)
+        if files.exists(jsonl_file):
+            chat_sources.append((folder_name, jsonl_file, False))
+            continue
         chat_file = _get_chat_file_path(folder_name)
         if files.exists(chat_file):
-            json_files.append(chat_file)
+            chat_sources.append((folder_name, chat_file, True))
 
     ctxids = []
     with settings.version_cache_scope():
-        for file in json_files:
+        for folder_name, file, is_legacy in chat_sources:
             try:
-                js = files.read_file(file)
-                data = json.loads(js)
+                if is_legacy:
+                    data = json.loads(files.read_file(file))
+                else:
+                    docs = _read_jsonl_documents(file)
+                    data = _documents_to_context_data(docs)
+                    if data is None:
+                        raise ValueError("chat.jsonl has no meta document")
                 ctx = _deserialize_context(data)
                 mark_chat_saved(ctx)
                 ctxids.append(ctx.id)
+                if is_legacy:
+                    # The chat loaded; best-effort conversion to the new format.
+                    # A failed migration leaves the legacy file for the next boot.
+                    try:
+                        save_tmp_chat(ctx)
+                        mark_chat_saved(ctx)
+                        _migrate_legacy_chat_file(folder_name)
+                    except Exception as e:
+                        print(f"Error migrating chat {file} to JSONL: {e}")
             except Exception as e:
                 print(f"Error loading chat {file}: {e}")
     return ctxids
@@ -97,9 +179,15 @@ def _get_chat_file_path(ctxid: str):
     return files.get_abs_path(CHATS_FOLDER, ctxid, CHAT_FILE_NAME)
 
 
+def _get_chat_jsonl_path(ctxid: str):
+    return files.get_abs_path(CHATS_FOLDER, ctxid, CHAT_JSONL_NAME)
+
+
 def chat_file_exists(ctxid: str) -> bool:
-    """True if this context has a persisted chat.json on disk."""
-    return files.exists(_get_chat_file_path(ctxid))
+    """True if this context has a persisted chat on disk (either format)."""
+    return files.exists(_get_chat_jsonl_path(ctxid)) or files.exists(
+        _get_chat_file_path(ctxid)
+    )
 
 
 def _write_atomic(path: str, content: str) -> None:
@@ -129,12 +217,12 @@ def mark_chat_saved(context: AgentContext) -> None:
 
 
 def saved_chat_ids() -> set[str]:
-    return {
-        files.basename(files.dirname(path))
-        for path in files.find_existing_paths_by_pattern(
-            files.get_abs_path(CHATS_FOLDER, "*", CHAT_FILE_NAME)
-        )
-    }
+    names = files.find_existing_paths_by_pattern(
+        files.get_abs_path(CHATS_FOLDER, "*", CHAT_JSONL_NAME)
+    ) + files.find_existing_paths_by_pattern(
+        files.get_abs_path(CHATS_FOLDER, "*", CHAT_FILE_NAME)
+    )
+    return {files.basename(files.dirname(path)) for path in names}
 
 
 def _convert_v080_chats():
@@ -241,7 +329,9 @@ def _serialize_agent(agent: Agent):
 def _serialize_log(log: Log):
     # Guard against concurrent log mutations while serializing.
     with log._lock:
-        logs = [item.output() for item in log.logs[-LOG_SIZE:]]  # serialize LogItem objects
+        # Untrimmed by design: the LOG_SIZE=1000 disk cap silently discarded
+        # older log items on every save (measured loss, 2026-10-24 analysis).
+        logs = [item.output() for item in log.logs]  # serialize LogItem objects
         guid = log.guid
         progress = log.progress
         progress_no = log.progress_no
