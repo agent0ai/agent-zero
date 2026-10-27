@@ -43,6 +43,9 @@
 - Policy IDs are namespaced as `local:`, `plugin:<id>:`, or `mcp:<server>:`.
   Generic execution resolves canonical IDs from executable paths; MCP
   invocation supplies its explicit namespaced ID.
+- Moved bundled tools honor their saved core IDs; behavior adjustment honors its old plugin/spelling ID. Matching legacy IDs remain editable in the catalog while their replacement is available. Explicit blocks win across both IDs; unrelated profile overrides retain their own identity.
+- Unified memory checks both its tool-wide ID and the corresponding legacy action ID. Without an action, discovery exposes memory if any action is allowed; execution checks the requested action through `ensure_tool_allowed`. Legacy memory names stay action-specific, and a tool-wide block also blocks those aliases.
+- `allowed_memory_actions` supplies the bundled memory action permissions to text prompts and native schemas; it returns `None` for a profile override with its own identity.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that

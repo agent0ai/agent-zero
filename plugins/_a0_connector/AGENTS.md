@@ -14,6 +14,7 @@
 
 ## Local Contracts
 
+- `tools/computer_use_remote.py` logs its message as the dedicated `computer_use_remote` type with an `icon://desktop_windows` gerund headline naming the action, such as `Computer use: Capturing screen`; `extensions/webui/get_message_handler/` owns the `DSK` badge presentation in its own lilac accent shared with the agent-to-agent badge, distinct from the execution badge's purple accent and `extensions/webui/get_process_step_types/` registers the type.
 - `tools/text_editor_remote.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension; keep remote edits visually consistent with local edits.
 - Remote text editing reuses the shipped `_text_editor` patch and log helpers. Disabling local editor discovery does not remove these Python modules; removing the bundled dependency is unsupported.
 - Preserve session-auth and `auth.handlers` activation assumptions.
@@ -34,6 +35,7 @@
 - Never re-add a connector prompt that the effective project/profile tool policy
   blocks.
 - Do not bypass WebSocket authentication or leak connector session data.
+- `helpers/event_bridge.py` preserves `tool_start` events for dedicated tool log types as well as legacy `tool` logs. Wait/countdown logs remain status events.
 - Host Files transfers use authenticated HTTP for both directions. Download receipts use opaque, request-scoped slots in server-owned temporary directories; the protected `file_browser_transfer` API rejects expired slots, enforces byte limits and rechecks host access. Cleanup and receipt publication share a lock so late requests cannot recreate expired files. WebSocket control/results retain the negotiated limits. Editor inherits the configurable File Browser text limit (10 MiB by default).
 - Context kill/remove extensions release pending transfer state synchronously before task shutdown and send best-effort abort notices on the shared background worker, covering native Stop/reset/delete as well as Connector routes.
 - HTTP capabilities and `connector_hello` advertise

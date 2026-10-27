@@ -1091,8 +1091,9 @@ const model = {
   skillWarnings(skill) {
     const warnings = [];
     for (const toolName of skill.allowed_tools || []) {
-      const tool = (this.state?.tools?.catalog || []).find((item) => item.name === toolName);
-      if (tool && !this.isToolAllowed(tool)) warnings.push(toolName);
+      const tools = (this.state?.tools?.catalog || []).filter((item) =>
+        (item.tool_names || [item.name]).includes(toolName));
+      if (tools.length && !tools.some((item) => this.isToolAllowed(item))) warnings.push(toolName);
     }
     return warnings;
   },

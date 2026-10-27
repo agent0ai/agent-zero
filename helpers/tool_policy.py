@@ -13,6 +13,16 @@ PLUGIN_NAME = "_tool_access"
 PROMPT_PREFIX = "agent.system.tool."
 PROMPT_SUFFIX = ".md"
 NON_CONFIGURABLE_TOOLS = frozenset({"response", "vision_load"})
+MEMORY_TOOL_ID = "plugin:_memory:memory"
+MEMORY_ACTIONS = ("load", "save", "delete", "forget")
+LEGACY_TOOL_IDS = {
+    f"plugin:_{name}:{name}": (f"local:{name}",)
+    for name in ("a2a_chat", "notify_user", "scheduler", "search_engine", "wait")
+}
+LEGACY_TOOL_IDS["plugin:_behavior_adjustment:behavior_adjustment"] = (
+    "plugin:_memory:behaviour_adjustment",
+    "plugin:_behavior_adjustment:behaviour_adjustment",
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +124,11 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
     except Exception:
         pass
 
+    legacy_entries = {
+        legacy_id: item
+        for item in catalog
+        for legacy_id in LEGACY_TOOL_IDS.get(item["id"], ())
+    }
     policy = get_policy(agent)
     for tool_id in [*policy["allowed"], *policy["blocked"]]:
         if (
@@ -123,6 +138,13 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
             continue
         seen.add(tool_id)
         name = _tool_name_from_id(tool_id)
+        if replacement := legacy_entries.get(tool_id):
+            catalog.append({
+                **replacement,
+                "id": tool_id,
+                "label": f'{replacement["label"]} (legacy permission)',
+            })
+            continue
         catalog.append(
             {
                 "id": tool_id,
@@ -163,6 +185,7 @@ def resolve_tool(
     tool_name: str,
     *,
     canonical_id: str = "",
+    action: str | None = None,
     _policy: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
     tool_id = canonical_id or _canonical_tool_id(agent, tool_name)
@@ -176,11 +199,31 @@ def resolve_tool(
     if policy["mode"] != "custom":
         return ToolPolicyDecision(True, tool_id, "inherited", "inherit")
 
-    if tool_id in policy["blocked"]:
+    if tool_id == MEMORY_TOOL_ID and action is None:
+        decisions = [
+            resolve_tool(
+                agent, tool_name, canonical_id=tool_id, action=value, _policy=policy
+            )
+            for value in MEMORY_ACTIONS
+        ]
+        return next((decision for decision in decisions if decision.allowed), decisions[0])
+
+    policy_ids = {tool_id, *LEGACY_TOOL_IDS.get(tool_id, ())}
+    if tool_id == "plugin:_behavior_adjustment:behaviour_adjustment":
+        policy_ids.update(LEGACY_TOOL_IDS["plugin:_behavior_adjustment:behavior_adjustment"])
+        policy_ids.add("plugin:_behavior_adjustment:behavior_adjustment")
+    if tool_id == MEMORY_TOOL_ID:
+        memory_action = str(action or "").strip().lower().replace("-", "_")
+        if memory_action in MEMORY_ACTIONS:
+            policy_ids.add(f"{MEMORY_TOOL_ID}_{memory_action}")
+    elif tool_id in {f"{MEMORY_TOOL_ID}_{value}" for value in MEMORY_ACTIONS}:
+        policy_ids.add(MEMORY_TOOL_ID)
+
+    if policy_ids.intersection(policy["blocked"]):
         return ToolPolicyDecision(
             False, tool_id, "scoped-policy", "custom", "blocked explicitly"
         )
-    if tool_id in policy["allowed"]:
+    if policy_ids.intersection(policy["allowed"]):
         return ToolPolicyDecision(True, tool_id, "scoped-policy", "custom")
 
     default_key = "mcp_default" if tool_id.startswith("mcp:") else "default"
@@ -199,14 +242,31 @@ def ensure_tool_allowed(
     tool_name: str,
     *,
     canonical_id: str = "",
+    action: str | None = None,
 ) -> ToolPolicyDecision:
-    decision = resolve_tool(agent, tool_name, canonical_id=canonical_id)
+    decision = resolve_tool(agent, tool_name, canonical_id=canonical_id, action=action)
     if decision.allowed:
         return decision
     profile = str(getattr(getattr(agent, "config", None), "profile", "") or "default")
     raise RepairableException(
         f'Tool "{tool_name}" is blocked for agent profile "{profile}".'
     )
+
+
+def allowed_memory_actions(
+    agent: Any, *, _policy: dict[str, Any] | None = None
+) -> list[str] | None:
+    """Retain per-action permissions only for the resolved bundled memory tool."""
+    if _canonical_tool_id(agent, "memory") != MEMORY_TOOL_ID:
+        return None
+    policy = _policy if _policy is not None else get_policy(agent)
+    return [
+        action
+        for action in MEMORY_ACTIONS
+        if resolve_tool(
+            agent, "memory", canonical_id=MEMORY_TOOL_ID, action=action, _policy=policy
+        ).allowed
+    ]
 
 
 def filter_tool_prompt(agent: Any, prompt_file: str, prompt: str) -> str:
@@ -232,10 +292,23 @@ def filter_tool_prompts(
         for name in known_names | prompt_names
         if resolve_tool(agent, name, _policy=policy).allowed
     }
-    return [
+    filtered = [
         _filter_tool_prompt(prompt_file, prompt, known_names, allowed_names)
         for prompt_file, prompt in prompts
     ]
+    if "memory" in prompt_names:
+        actions = allowed_memory_actions(agent, _policy=policy)
+        if actions is not None and len(actions) < len(MEMORY_ACTIONS):
+            for index, (prompt_file, prompt) in enumerate(prompts):
+                if filtered[index] and "memory" in _prompt_tool_names(
+                    prompt_file, prompt, known_names
+                ):
+                    filtered[index] += (
+                        "\nPermitted memory actions for this agent: "
+                        + ", ".join(actions)
+                        + ". All other memory actions are blocked.\n"
+                    )
+    return filtered
 
 
 def _filter_tool_prompt(

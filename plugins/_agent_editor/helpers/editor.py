@@ -234,7 +234,6 @@ def build_editor_state(
     profile_id = validate_profile_id(profile_id)
     agent = EditorAgent(profile_id, context)
     prompt_files = prompt_catalog(agent)
-    tool_catalog = tool_policy.get_tool_catalog(agent)
     from plugins._model_config.helpers import model_config
 
     presets: list[dict[str, Any]] = []
@@ -310,12 +309,7 @@ def build_editor_state(
     return {
         "profile": build_profile_state(profile_id, context),
         "prompts": prompt_files,
-        "tools": {
-            "policy": tool_policy.normalize_policy(tool_scope),
-            "effective_policy": tool_policy.get_policy(agent),
-            "has_override": any(key in tool_scope for key in _TOOL_POLICY_KEYS),
-            "catalog": tool_catalog,
-        },
+        "tools": _editor_tool_state(agent, tool_scope),
         "skills": {
             "policy": skill_policy,
             "effective_policy": effective_skill_policy,
@@ -328,6 +322,54 @@ def build_editor_state(
             "override": model_scope.get(model_config.MODEL_PRESET_CONFIG_KEY),
             "has_override": model_config.MODEL_PRESET_CONFIG_KEY in model_scope,
         },
+    }
+
+
+def _editor_tool_state(agent: EditorAgent, scope: dict[str, Any]) -> dict[str, Any]:
+    catalog = tool_policy.get_tool_catalog(agent)
+    aliases = {
+        alias: item["id"]
+        for item in catalog if item["available"]
+        for alias in tool_policy.LEGACY_TOOL_IDS.get(item["id"], ())
+    }
+    memory = next((item for item in catalog if item["id"] == tool_policy.MEMORY_TOOL_ID), None)
+    memory_ids = [f"{tool_policy.MEMORY_TOOL_ID}_{action}" for action in tool_policy.MEMORY_ACTIONS]
+    rows = {item["id"]: dict(item) for item in catalog if item["id"] not in aliases}
+    for item in rows.values():
+        item["tool_names"] = list(dict.fromkeys(
+            entry["name"] for entry in catalog
+            if aliases.get(entry["id"], entry["id"]) == item["id"]
+        ))
+    if memory:
+        # Edit memory actions independently; a tool-wide block must not hide their state.
+        rows.pop(tool_policy.MEMORY_TOOL_ID)
+        for action, tool_id in zip(tool_policy.MEMORY_ACTIONS, memory_ids):
+            item = rows.setdefault(tool_id, {
+                **memory, "id": tool_id, "name": f"memory:{action}", "tool_names": [],
+            })
+            item["label"] = f"Memory: {action.title()}"
+            if memory["available"]:
+                item["available"] = True
+                item["tool_names"].append("memory")
+
+    def project_policy(raw: dict[str, Any]) -> dict[str, Any]:
+        policy = tool_policy.normalize_policy(raw)
+        for key in ("allowed", "blocked"):
+            policy[key] = list(dict.fromkeys(
+                aliases.get(projected_id, projected_id)
+                for tool_id in policy[key]
+                for projected_id in (
+                    memory_ids if memory and tool_id == tool_policy.MEMORY_TOOL_ID else [tool_id]
+                )
+            ))
+        policy["allowed"] = [tool_id for tool_id in policy["allowed"] if tool_id not in policy["blocked"]]
+        return policy
+
+    return {
+        "policy": project_policy(scope),
+        "effective_policy": project_policy(tool_policy.get_policy(agent)),
+        "has_override": any(key in scope for key in _TOOL_POLICY_KEYS),
+        "catalog": sorted(rows.values(), key=lambda item: (item["label"].casefold(), item["id"])),
     }
 
 

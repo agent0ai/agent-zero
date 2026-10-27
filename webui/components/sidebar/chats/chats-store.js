@@ -11,7 +11,7 @@ import {
 } from "/index.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
-import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
+import { store as tasksStore } from "/plugins/_scheduler/webui/sidebar/tasks-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js";
 import { store as chatInputStore } from "/components/chat/input/input-store.js";
 

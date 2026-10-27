@@ -14,7 +14,8 @@ This plugin stores memories and knowledge embeddings in a FAISS-backed vector da
 - **Knowledge preloading**
   - Loads configured knowledge directories into memory when a database is initialized.
 - **Memory tools**
-  - Includes tools for saving, loading, deleting, forgetting, and behavior adjustment workflows.
+  - Uses one `memory` tool with `load`, `save`, `delete`, and `forget` actions.
+  - Old `memory_load`, `memory_save`, `memory_delete`, and `memory_forget` calls use the same implementation. Existing action permissions remain effective; permission to load memory does not grant permission to delete it.
 - **Automatic conversation memory**
   - Stores durable preferences, project facts, and recurring constraints while filtering transient action-history fragments before insertion.
 - **Dashboard APIs**
@@ -31,11 +32,7 @@ This plugin stores memories and knowledge embeddings in a FAISS-backed vector da
 - **Consolidation**
   - `helpers/memory_consolidation.py` contains memory consolidation logic.
 - **Tools**
-  - `tools/memory_save.py`
-  - `tools/memory_load.py`
-  - `tools/memory_delete.py`
-  - `tools/memory_forget.py`
-  - `tools/behaviour_adjustment.py`
+  - `tools/memory.py` (single tool, `action` selects load, save, delete or forget)
 - **API**
   - `api/memory_dashboard.py` powers the memory management dashboard.
   - `api/import_knowledge.py` and `api/knowledge_reindex.py` handle knowledge import and reindexing.
