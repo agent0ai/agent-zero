@@ -1,4 +1,4 @@
-"""Classify and authorize leaked calls before optional history cleanup."""
+"""Recover complete alternate-format calls before normal output repair."""
 
 from __future__ import annotations
 
@@ -27,39 +27,29 @@ class LeakedToolCall(Extension):
         if not isinstance(response, str) or not response:
             return
 
-        status, request = extract_leaked_tool_request(response)
-        if request is not None:
-            try:
-                if getattr(llm_result, "mode", None) == "chat_completions":
-                    _, name_map = build_responses_function_tools(self.agent)
-                else:
-                    name_map = self.agent.get_data("responses_tool_name_map")
-                if not isinstance(name_map, dict) or not all(
-                    isinstance(key, str) and isinstance(name, str)
-                    for key, name in name_map.items()
-                ):
-                    raise ValueError("Tool surface unavailable")
-                request["tool_name"] = original_tool_name(request["tool_name"], name_map)
-                name, args = normalize_tool_request(request)
-                name = original_tool_name(name, name_map)
-                if name not in name_map.values():
-                    raise ValueError("Tool not offered")
-                request = {"tool_name": name, "tool_args": args}
-            except Exception:
-                status, request = "rejected", None
-        if status == "clean":
+        _, request = extract_leaked_tool_request(response)
+        if request is None:
             return
-        params = self.agent.loop_data.params_temporary
-        if request is not None:
-            llm_result.response = json.dumps(
-                request, ensure_ascii=False, separators=(",", ":")
-            )
-            params["leaked_tool_call"] = "call"
-            self.agent.context.log.log(
-                type="info", content="Recovered a complete leaked tool call."
-            )
-            return
-        # Provider-reported truncation retains its existing warning and retry owner.
-        if getattr(llm_result, "truncated", False):
-            return
-        params["leaked_tool_call"] = status
+        try:
+            if getattr(llm_result, "mode", None) == "chat_completions":
+                _, name_map = build_responses_function_tools(self.agent)
+            else:
+                name_map = self.agent.get_data("responses_tool_name_map")
+            if not isinstance(name_map, dict) or not all(
+                isinstance(key, str) and isinstance(name, str)
+                for key, name in name_map.items()
+            ):
+                return
+            request["tool_name"] = original_tool_name(request["tool_name"], name_map)
+            name, args = normalize_tool_request(request)
+            name = original_tool_name(name, name_map)
+            if name not in name_map.values():
+                return
+        except Exception:
+            return  # Failed conversion must leave the normal repair path available.
+        llm_result.response = json.dumps(
+            {"tool_name": name, "tool_args": args}, ensure_ascii=False, separators=(",", ":")
+        )
+        self.agent.context.log.log(
+            type="info", content="Recovered a complete leaked tool call."
+        )
