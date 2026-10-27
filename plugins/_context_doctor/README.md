@@ -8,6 +8,6 @@ Repairs model tool call JSON before sending it to history and tool processing.
 - Accepts only complete Agent Zero tool calls (`tool_name` and object `tool_args`).
 - Stores repaired tool calls as compact JSON; log kvps retain streamed reasoning and add transformed fields.
 - Expands blank-line-separated thoughts into separate entries after repair when the split strategy is enabled.
-- Core recovery validates standalone leaked XML/native calls against offered tools before this plugin; rejected or truncated calls use bounded retries with `{}` in model history so malformed syntax is not repeated back to the model. Responses retries also drop the rejected turn's provider continuation and replayable output items.
+- Core recovery validates standalone leaked XML/DSML/native calls against offered tools before this plugin; rejected or truncated calls use bounded retries with `{}` in model history so malformed syntax is not repeated back to the model. Responses retries also drop the rejected turn's provider continuation and replayable output items.
 - Uses the core recovery decision without parsing it again; quoted tool examples remain non-executable.
 - Optionally replaces non-tool XML-like output with `{}`.

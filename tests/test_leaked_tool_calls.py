@@ -5,6 +5,72 @@ import pytest
 from helpers.extract_tools import extract_leaked_tool_request, extract_tool_request
 
 
+DSML_COMMAND = "cd /a0/usr/projects/disko && git log --oneline -15 && echo '=STATUS=' && git status --porcelain | head -5 && echo '=BRANCH=' && git branch --show-current"
+DSML_ARGS = {"runtime": "terminal", "session": 0, "reset": False, "code": DSML_COMMAND}
+DSML_EXAMPLE = (
+    '<｜DSML｜ calls> <｜DSML｜ invoke name="code_execution_tool"> '
+    '<｜DSML｜ parameter name="tool_args" string="false">'
+    + json.dumps(DSML_ARGS)
+    + '</｜DSML｜ parameter> </｜DSML｜ invoke> </｜DSML｜ calls>'
+)
+
+
+def test_recovers_reported_dsml_envelope_without_changing_arguments():
+    assert extract_tool_request(DSML_EXAMPLE) is None
+    assert extract_leaked_tool_request(DSML_EXAMPLE) == (
+        "call", {"tool_name": "code_execution_tool", "tool_args": DSML_ARGS}
+    )
+
+
+@pytest.mark.parametrize("wrap", [
+    lambda body: f'<｜DSML｜ calls><｜DSML｜ invoke name="x">{body}</｜DSML｜ invoke></｜DSML｜ calls>',
+    lambda body: f'<｜DSML｜function_calls><｜DSML｜invoke name="x">{body}</｜DSML｜invoke></｜DSML｜function_calls>',
+])
+def test_dsml_parameters_preserve_string_flags_and_json_types(wrap):
+    body = (
+        '<｜DSML｜ parameter name="text" string="true">  true\n & <tag>  </｜DSML｜ parameter>'
+        '<｜DSML｜ parameter name="data" string="false"> {"nested": [true, null, 2]} </｜DSML｜ parameter>'
+    )
+    assert extract_leaked_tool_request(wrap(body)) == (
+        "call", {"tool_name": "x", "tool_args": {"text": "  true\n & <tag>  ", "data": {"nested": [True, None, 2]}}}
+    )
+
+
+@pytest.mark.parametrize("body", [
+    '<｜DSML｜ parameter name="tool_args" string="false">[]</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="tool_args" string="true">{}</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="false">{"x":1,"x":2}</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="false">NaN</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="false">1e999</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="false">{"x":1,}</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="false">{"x":</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a">1</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="maybe">1</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="a" string="false">1</｜DSML｜ parameter>' * 2,
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="extra" string="false">1</｜DSML｜ parameter>',
+    'unparsed text',
+])
+def test_dsml_rejects_ambiguous_or_invalid_parameters(body):
+    text = f'<｜DSML｜ calls><｜DSML｜ invoke name="x">{body}</｜DSML｜ invoke></｜DSML｜ calls>'
+    assert extract_leaked_tool_request(text) == ("rejected", None)
+
+
+@pytest.mark.parametrize("text,status", [
+    (DSML_EXAMPLE + DSML_EXAMPLE, "rejected"),
+    ("Example: " + DSML_EXAMPLE, "rejected"),
+    (DSML_EXAMPLE + " explanation", "rejected"),
+    (f"```xml\n{DSML_EXAMPLE}\n```", "quoted"),
+    (f"Use `{DSML_EXAMPLE}` as an example.", "quoted"),
+    (DSML_EXAMPLE[:100], "truncated"),
+    ('<｜DSML｜ calls>', "truncated"),
+    ('<｜DSML｜ calls><｜DSML｜ invoke name="x"></｜DSML｜ invoke>'
+     '<｜DSML｜ invoke name="x"></｜DSML｜ invoke></｜DSML｜ calls>', "rejected"),
+])
+def test_dsml_rejects_multiple_partial_and_quoted_calls(text, status):
+    assert extract_leaked_tool_request(text) == (status, None)
+
+
 @pytest.mark.parametrize(
     "text",
     [

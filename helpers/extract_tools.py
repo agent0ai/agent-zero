@@ -252,11 +252,19 @@ def fix_json_string(json_string):
 
 _TOOL_XML_MARKER = re.compile(
     r"</?(?:tool_call\b|function(?:=|\b)|parameter(?:=|\b)|function_calls\b|"
-    r"invoke\b|minimax:tool_call\b)|<\|tool_calls_section_begin\|>"
+    r"invoke\b|minimax:tool_call\b|｜DSML｜)|<\|tool_calls_section_begin\|>"
 )
 _TOOL_NAME = r"[A-Za-z0-9_.:-]+"
 _TOOL_FUNCTION = re.compile(rf"<function=({_TOOL_NAME})>")
 _TOOL_PARAMETER = re.compile(rf"<parameter=({_TOOL_NAME})>")
+_TOOL_DSML_CALL = re.compile(
+    rf'<｜DSML｜\s*(calls|function_calls)>\s*<｜DSML｜\s*invoke name="({_TOOL_NAME})">'
+    r'(.*?)</｜DSML｜\s*invoke>\s*</｜DSML｜\s*\1>', re.DOTALL,
+)
+_TOOL_DSML_PARAMETER = re.compile(
+    rf'<｜DSML｜\s*parameter name="({_TOOL_NAME})" string="(true|false)">'
+    r'(.*?)</｜DSML｜\s*parameter>', re.DOTALL,
+)
 _TOOL_CANONICAL_MARKER = re.compile(r"""(?:["'`]?\btool_(?:name|args)["'`]?)\s*:""")
 _TOOL_CODE = re.compile(
     r"(?m)^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}\1[ \t]*(?:\n|$)|\Z)"
@@ -386,7 +394,37 @@ def _leaked_payload_at_start(text: str) -> tuple[Any, int]:
     raise ValueError("unsupported_tool_syntax")
 
 
+def _leaked_dsml_call(text: str) -> dict[str, Any]:
+    call = _TOOL_DSML_CALL.fullmatch(text)
+    if call is None:
+        if not re.search(r'</｜DSML｜\s*(?:calls|function_calls)>', text):
+            raise EOFError("incomplete_dsml_call")
+        raise ValueError("invalid_dsml_call")
+    body = call.group(3)
+    args: dict[str, Any] = {}
+    position = 0
+    while position < len(body):
+        if body[position].isspace():
+            position += 1
+            continue
+        parameter = _TOOL_DSML_PARAMETER.match(body, position)
+        if parameter is None:
+            raise ValueError("invalid_dsml_parameter")
+        key, is_string, value = parameter.groups()
+        if key in args or _TOOL_XML_MARKER.search(value):
+            raise ValueError("ambiguous_dsml_parameter")
+        args[key] = value if is_string == "true" else _TOOL_JSON_DECODER.decode(value)
+        position = parameter.end()
+    if "tool_args" in args:
+        if len(args) != 1 or not isinstance(args["tool_args"], dict):
+            raise ValueError("ambiguous_dsml_arguments")
+        args = args["tool_args"]
+    return {"tool_name": call.group(2), "tool_args": args}
+
+
 def _leaked_call_candidate(text: str) -> Any:
+    if text.startswith("<｜DSML｜"):
+        return _leaked_dsml_call(text)
     if text.startswith("<tool_call>"):
         inner = text[len("<tool_call>") :].lstrip()
         if not inner:
@@ -459,7 +497,7 @@ def extract_leaked_tool_request(response: str) -> tuple[str, dict[str, Any] | No
         return "truncated", None
 
     # Parse the outer envelope before masking code inside argument strings.
-    standalone = text.startswith(("<tool_call>", "<function=", "{", "["))
+    standalone = text.startswith(("<tool_call>", "<function=", "<｜DSML｜", "{", "["))
     visible = text if standalone else _TOOL_CODE.sub("", text)
     if not _has_tool_marker(visible):
         return ("quoted" if _has_tool_marker(text) else "clean"), None

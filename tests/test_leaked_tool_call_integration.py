@@ -96,9 +96,15 @@ def run_hooks(agent, result, doctor=True):
 
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
 @pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("text", [
+    '<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="response">'
+    '<｜DSML｜ parameter name="tool_args" string="false">{"text":"done"}</｜DSML｜ parameter>'
+    '</｜DSML｜ invoke></｜DSML｜ calls>',
+])
 @pytest.mark.asyncio
 async def test_recovered_response_executes_through_normal_dispatch(
-    monkeypatch, mode, doctor
+    monkeypatch, mode, doctor, text
 ):
     async def no_op(*args, **kwargs):
         pass
@@ -125,7 +131,7 @@ async def test_recovered_response_executes_through_normal_dispatch(
     agent.get_tool = lambda **kwargs: ResponseTool(agent=agent, **kwargs)
     agent.handle_intervention = no_op
     result = LLMResult(
-        response='<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>',
+        response=text,
         mode=mode,
     )
 
@@ -442,8 +448,12 @@ def test_surface_discovery_failure_retries_without_disclosing_exception(monkeypa
 
 
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("text", [
+    "<function=x></function>",
+    '<｜DSML｜ calls><｜DSML｜ invoke name="x"></｜DSML｜ invoke></｜DSML｜ calls>',
+])
 @pytest.mark.asyncio
-async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch, mode):
+async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch, mode, text):
     from helpers import tool_policy
     from helpers.errors import RepairableException
     from plugins._tool_access.extensions.python.tool_execute_before._10_enforce_tool_policy import (
@@ -488,7 +498,7 @@ async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch
     agent.loop_data = LoopData()
     agent.get_tool = lambda **kwargs: BlockedTool()
     agent.handle_intervention = no_op
-    result = LLMResult(response="<function=x></function>", mode=mode)
+    result = LLMResult(response=text, mode=mode)
     data = {"llm_result": result}
     LeakedToolCall(agent).execute(data)
     assert agent.loop_data.params_temporary["leaked_tool_call"] == "call"
