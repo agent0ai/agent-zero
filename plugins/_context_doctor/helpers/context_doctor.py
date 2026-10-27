@@ -127,9 +127,21 @@ def transform_response(
     """Repair model output, falling back to compact thoughts JSON for raw text."""
     value = _select_value(response)
     if value is None:
-        if suppress_xml and "<" in response and ">" in response:
-            return "{}"
-        value = {"thoughts": [response]}
+        return format_fallback(
+            response, suppress_xml=suppress_xml, split_thoughts=split_thoughts
+        )
+    if split_thoughts:
+        _split_thoughts(value)
+    return _compact_json(value)
+
+
+def format_fallback(
+    response: str, *, suppress_xml: bool, split_thoughts: bool = True
+) -> str:
+    """Format non-executable text without salvaging a tool call from it."""
+    if suppress_xml and "<" in response and ">" in response:
+        return "{}"
+    value = {"thoughts": [response]}
     if split_thoughts:
         _split_thoughts(value)
     return _compact_json(value)

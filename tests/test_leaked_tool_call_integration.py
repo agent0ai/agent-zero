@@ -6,6 +6,7 @@ import pytest
 from agent import Agent, LoopData
 from extensions.python.message_loop_result._05_leaked_tool_call import LeakedToolCall
 from extensions.python.message_loop_result._05_truncated_response import TruncatedResponse
+from extensions.python.message_loop_result._15_tool_call_retry import ToolCallRetry
 from extensions.python.message_loop_result._20_empty_response import EmptyResponse
 from extensions.python.message_loop_result._30_repeat_response import RepeatResponse
 from extensions.python._functions.agent.Agent.hist_add_warning.end import (
@@ -89,9 +90,103 @@ def run_hooks(agent, result, doctor=True):
     TruncatedResponse(agent).execute(data)
     if doctor:
         ContextDoctor(agent).execute(data)
+    ToolCallRetry(agent).execute(data)
     EmptyResponse(agent).execute(data)
     RepeatResponse(agent).execute(data)
     return data
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("suppress_xml", [True, False])
+@pytest.mark.parametrize("text", [
+    '<function=response><parameter=text>first\n\nsecond',
+    '<function_calls><invoke name="response"></invoke></function_calls>',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="missing"></｜DSML｜ invoke></｜DSML｜ calls>',
+])
+def test_context_doctor_controls_rejected_xml_history(monkeypatch, mode, doctor, suppress_xml, text):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": suppress_xml, "split_thoughts": True},
+    )
+    agent = FakeAgent()
+    result = LLMResult(response=text, mode=mode)
+    assert run_hooks(agent, result, doctor)["skip_default_processing"] is True
+    expected = {"thoughts": text.split("\n\n")} if doctor and not suppress_xml else {}
+    assert [json.loads(item) for item in agent.history] == [expected]
+    assert len(agent.warnings) == len(agent.remembered) == 1
+    assert result.response == text
+
+
+@pytest.mark.parametrize("suppress_xml", [True, False])
+@pytest.mark.parametrize("split_thoughts", [True, False])
+@pytest.mark.parametrize("update_log", [True, False])
+def test_context_doctor_formats_rejected_turn_before_core_retries(
+    monkeypatch, suppress_xml, split_thoughts, update_log
+):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {
+            "suppress_xml": suppress_xml, "split_thoughts": split_thoughts,
+            "update_log": update_log,
+        },
+    )
+    text = '<function=response><parameter=text>first\n\nsecond'
+    agent = FakeAgent()
+    log = Log()
+    item = log.log(type="agent", content=text, kvps={"reasoning": "kept", "tool_name": "response"})
+    agent.loop_data.params_temporary["log_item_generating"] = item
+    data = {"llm_result": LLMResult.from_chat(response=text)}
+
+    LeakedToolCall(agent).execute(data)
+    ContextDoctor(agent).execute(data)
+
+    expected = {} if suppress_xml else {"thoughts": text.split("\n\n") if split_thoughts else [text]}
+    formatted = json.dumps(expected, separators=(",", ":"))
+    assert not agent.history and not agent.warnings
+    assert not data.get("skip_default_processing")
+    assert item.kvps == {"reasoning": "kept", **expected}
+    assert item.content == (formatted if update_log else text)
+
+    ToolCallRetry(agent).execute(data)
+    ToolCallRetry(agent).execute(data)
+    assert data["skip_default_processing"] is True
+    assert agent.history == [formatted]
+    assert len(agent.warnings) == len(agent.remembered) == 1
+
+
+@pytest.mark.parametrize("text", [
+    '{"tool_name":"response","tool_args":{"text":"cut off',
+    '{"name":"unoffered","arguments":{}}',
+])
+def test_disabling_xml_suppression_does_not_retain_rejected_json(monkeypatch, text):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": False},
+    )
+    agent = FakeAgent()
+    assert run_hooks(agent, LLMResult.from_chat(response=text))["skip_default_processing"] is True
+    assert agent.history == ["{}"]
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("split_thoughts", [True, False])
+def test_normal_json_repair_still_belongs_to_context_doctor(monkeypatch, mode, split_thoughts):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"split_thoughts": split_thoughts},
+    )
+    result = LLMResult(
+        response='{"thoughts":["first\\n\\nsecond"],"tool_name":"response","tool_args":{"text":"ok",},}',
+        mode=mode,
+    )
+    agent = FakeAgent()
+    assert not run_hooks(agent, result).get("skip_default_processing")
+    assert json.loads(result.response) == {
+        "thoughts": ["first", "second"] if split_thoughts else ["first\n\nsecond"],
+        "tool_name": "response", "tool_args": {"text": "ok"},
+    }
+    assert not agent.warnings
 
 
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
@@ -315,6 +410,7 @@ def test_native_transport_calls_are_not_recovered_twice(item):
     )
     data = {"llm_result": result}
     LeakedToolCall(agent).execute(data)
+    ToolCallRetry(agent).execute(data)
     assert not data.get("skip_default_processing")
     assert not agent.history and not agent.warnings
     assert result.response == "<function=x>"
@@ -337,14 +433,21 @@ def test_discovered_recovery_hook_runs_before_context_doctor(monkeypatch):
     assert (
         names.index("LeakedToolCall")
         < names.index("ContextDoctor")
+        < names.index("ToolCallRetry")
         < names.index("EmptyResponse")
     )
 
 
-def test_rejected_response_sanitizes_history_and_breaks_provider_continuation(monkeypatch):
+@pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("suppress_xml", [True, False])
+def test_rejected_response_sanitizes_history_and_breaks_provider_continuation(monkeypatch, doctor, suppress_xml):
     from helpers import history
 
     monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": suppress_xml},
+    )
     agent = object.__new__(Agent)
     agent.data = {"responses_tool_name_map": {"response": "response"}}
     agent.loop_data = LoopData()
@@ -371,14 +474,16 @@ def test_rejected_response_sanitizes_history_and_breaks_provider_continuation(mo
             "content": [{"type": "output_text", "text": "<function=response><parameter=text>cut off"}],
         })],
     )
-    data = {"llm_result": result}
-    LeakedToolCall(agent).execute(data)
+    data = run_hooks(agent, result, doctor)
     assert data["skip_default_processing"] is True
     assert len(remembered) == 1
     assert remembered[0].response_id == result.response_id
     messages = agent.history.all_messages()
     assert len(messages) == 1
-    assert messages[0].content == "{}"
+    expected = {"thoughts": [result.response]} if doctor and not suppress_xml else {}
+    assert json.loads(messages[0].content) == expected
+    assert remembered[0].response == messages[0].content
+    assert not remembered[0].output_items
     assert "<function=" not in json.dumps(messages[0].metadata)
     assert result.output_items[0].data["content"][0]["text"].startswith("<function="), "Keep original diagnostic output"
     state = agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)
@@ -421,8 +526,7 @@ def test_chat_uses_current_surface_instead_of_a_stale_native_map(monkeypatch, su
     result = LLMResult.from_chat(
         response='{"name":"native_response","arguments":{"text":"done"}}'
     )
-    data = {"llm_result": result}
-    LeakedToolCall(agent).execute(data)
+    data = run_hooks(agent, result, doctor=False)
     assert calls == [agent]
     if surface:
         assert not data.get("skip_default_processing")
@@ -440,8 +544,7 @@ def test_surface_discovery_failure_retries_without_disclosing_exception(monkeypa
     result = LLMResult.from_chat(
         response='{"name":"response","arguments":{"text":"done"}}'
     )
-    data = {"llm_result": result}
-    LeakedToolCall(agent).execute(data)
+    data = run_hooks(agent, result, doctor=False)
     assert data["skip_default_processing"] is True
     assert agent.loop_data.params_temporary["leaked_tool_call"] == "rejected"
     assert "fixture-sensitive" not in str(agent.logs + agent.warnings)

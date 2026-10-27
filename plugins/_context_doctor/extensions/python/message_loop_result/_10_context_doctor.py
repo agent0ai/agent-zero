@@ -10,6 +10,7 @@ from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
 from helpers.print_style import PrintStyle
 from plugins._context_doctor.helpers.context_doctor import (
+    format_fallback,
     looks_like_tool_call,
     transform_response,
     update_log_item,
@@ -37,6 +38,21 @@ class ContextDoctor(Extension):
         config = get_plugin_config("_context_doctor", agent=self.agent) or {}
         params = getattr(getattr(self.agent, "loop_data", None), "params_temporary", {})
         recovery = params.get("leaked_tool_call")
+        if recovery in {"rejected", "truncated"}:
+            transformed = "{}"
+            if not config.get("suppress_xml", True) and "<" in response:
+                transformed = format_fallback(
+                    response, suppress_xml=False,
+                    split_thoughts=config.get("split_thoughts", True),
+                )
+            result_data["tool_call_retry_response"] = transformed
+            log_item = params.get("log_item_generating")
+            if log_item is not None:
+                update_log_item(
+                    self.agent, log_item, transformed,
+                    update_log=config.get("update_log", False), raw_response=response,
+                )
+            return  # Core owns the retry; rejected calls never enter JSON repair.
         if recovery == "quoted":
             transformed = json.dumps(
                 {"thoughts": [response]}, ensure_ascii=False, separators=(",", ":")

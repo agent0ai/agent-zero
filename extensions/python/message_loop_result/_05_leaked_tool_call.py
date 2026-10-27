@@ -1,9 +1,8 @@
-"""Recover leaked text calls before optional repair or final-answer fallback."""
+"""Classify and authorize leaked calls before optional history cleanup."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import replace
 from typing import Any
 
 from helpers.extension import Extension
@@ -64,28 +63,3 @@ class LeakedToolCall(Extension):
         if getattr(llm_result, "truncated", False):
             return
         params["leaked_tool_call"] = status
-        if status == "quoted":
-            return
-
-        # Do not teach the next turn to repeat rejected syntax or replay it via
-        # provider output items. Keep the original result for diagnostics.
-        result_data["skip_default_processing"] = True
-        log_item = params.get("log_item_generating")
-        self.agent.hist_add_ai_response(
-            "{}", id=log_item.id if log_item else "",
-            llm_result=replace(llm_result, response="{}", output_items=[]),
-        )
-        if llm_result.mode == "responses" and llm_result.response_id:
-            self.agent._clear_responses_pending_state()
-        prompt = (
-            "fw.msg_truncated_tool_call.md"
-            if status == "truncated"
-            else "fw.msg_leaked_tool_call.md"
-        )
-        warning = self.agent.read_prompt(prompt)
-        warning_message = self.agent.hist_add_warning(message=warning)
-        self.agent.context.log.log(
-            type="warning",
-            content=f"{self.agent.agent_name}: {warning}",
-            id=warning_message.id,
-        )
