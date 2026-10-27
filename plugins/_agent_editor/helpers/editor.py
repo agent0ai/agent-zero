@@ -351,6 +351,8 @@ def _editor_tool_state(agent: EditorAgent, scope: dict[str, Any]) -> dict[str, A
                 **parent, "id": tool_id, "name": f'{parent["name"]}:{action}', "tool_names": [],
             })
             item.pop("actions", None)
+            item["parent_tool"] = {key: parent[key] for key in ("id", "name", "label")}
+            item["action_label"] = action.replace("_", " ").title()
             item["label"] = f'{parent["name"].replace("_", " ").title()}: {action.replace("_", " ").title()}'
             if parent["available"]:
                 item["available"] = True

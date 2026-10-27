@@ -187,7 +187,7 @@
             <summary><span>Choose individual tools</span><x-icon name="expand_more"></x-icon></summary>
             <div class="policy-items" role="list" aria-label="Tools this agent can use">
               <template x-for="tool in $store.agentEditor.standardToolCatalog" :key="tool.id">
-                <div class="policy-item" role="listitem"><div class="policy-item-copy"><strong x-text="tool.label"></strong><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('tool') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'block')">Off</button></div></div>
+                <div><x-component path="/plugins/_agent_editor/webui/tool-policy-row.html"></x-component></div>
               </template>
               <p class="policy-empty" x-show="!$store.agentEditor.standardToolCatalog.length">No configurable tools are available.</p>
             </div>
@@ -315,10 +315,18 @@
           </section>
 
           <section x-show="$store.agentEditor.section === '3'" data-agent-editor-section="3" tabindex="-1" aria-labelledby="agent-section-3-title">
-            <header class="advanced-section-heading"><h3 id="agent-section-3-title">Tools</h3><p>Choose which tools this agent can use.</p></header>
+            <header class="advanced-section-heading"><h3 id="agent-section-3-title">Tools</h3><p>Set access for a whole tool, or expand it to choose individual actions.</p></header>
             <div class="future-policy-control"><strong>Allow tools by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('tool') === 'allow'" @change="$store.agentEditor.setPolicyDefault('tool', $event.target.checked ? 'allow' : 'block')" aria-label="Allow tools by default"><span class="toggler"></span></label></div>
             <div class="policy-filters tools"><label class="policy-search"><x-icon name="search"></x-icon><span class="sr-only">Search tools</span><input type="search" x-model="$store.agentEditor.toolSearch" placeholder="Search tools"></label><label>Origin <select x-model="$store.agentEditor.toolOrigin"><option value="all">All</option><template x-for="origin in $store.agentEditor.toolOrigins" :key="origin"><option :value="origin" x-text="origin"></option></template></select></label></div>
-            <section class="policy-group" aria-labelledby="tools-title"><header><h4 id="tools-title">Tools</h4><span x-text="$store.agentEditor.filteredTools('tool').length"></span></header><div class="policy-items"><p class="policy-empty" x-show="!$store.agentEditor.filteredTools('tool').length">No tools match these filters.</p><template x-for="tool in $store.agentEditor.filteredTools('tool')" :key="tool.id"><div class="policy-item"><div class="policy-item-copy"><strong x-text="tool.label"></strong><small x-text="tool.id"></small><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p><em x-show="tool.available === false">Unavailable — kept in your settings</em></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('tool') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('tool', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('tool', tool.id, 'block')">Off</button></div></div></template></div></section>
+            <section class="policy-group" aria-labelledby="tools-title">
+              <header><h4 id="tools-title">Tools</h4><span x-text="$store.agentEditor.filteredTools('tool').length"></span></header>
+              <div class="policy-items" role="list" aria-label="Tools this agent can use">
+                <p class="policy-empty" x-show="!$store.agentEditor.filteredTools('tool').length">No tools match these filters.</p>
+                <template x-for="tool in $store.agentEditor.filteredTools('tool')" :key="tool.id">
+                  <div><x-component path="/plugins/_agent_editor/webui/tool-policy-row.html"></x-component></div>
+                </template>
+              </div>
+            </section>
           </section>
 
           <section x-show="$store.agentEditor.section === '4'" data-agent-editor-section="4" tabindex="-1" aria-labelledby="agent-section-4-title">
@@ -515,6 +523,21 @@
   .policy-items small { color:var(--color-text-secondary); overflow-wrap:anywhere; }
   .policy-items em { color:var(--color-warning); font-size:.72rem; font-style:normal; }
   .policy-item-description { margin:0; color:var(--color-text-secondary); font-size:.75rem; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .tool-policy-header { padding:.8rem .55rem; }
+  .tool-policy-row.is-expanded { background:color-mix(in srgb,var(--color-input) 35%,transparent); border-radius:7px; }
+  .tool-actions-toggle { display:flex; align-items:center; gap:.4rem; width:100%; min-height:1.75rem; padding:0; border:0; background:transparent; color:var(--color-text); text-align:left; font:inherit; cursor:pointer; }
+  .tool-actions-toggle x-icon { flex:0 0 1.1rem; font-size:1.1rem; color:var(--color-text-secondary); }
+  .tool-actions-toggle:hover strong { text-decoration:underline; text-underline-offset:.2em; }
+  .tool-actions-toggle:focus-visible { outline:2px solid var(--color-text-secondary); outline-offset:3px; border-radius:3px; }
+  .tool-name,.tool-policy-description { margin-left:1.5rem; }
+  .tool-policy-description { display:flex; flex-direction:column; gap:.2rem; }
+  .tool-policy-description small { font-size:.68rem; }
+  .tool-policy-summary { font-size:.72rem; font-weight:500; color:var(--color-text); }
+  .tool-actions { margin:0 .55rem .75rem 2.05rem; }
+  .tool-actions-title { margin:0 0 .35rem; color:var(--color-text-secondary); font-size:.75rem; font-weight:600; }
+  .tool-action-row { align-items:center; padding:.55rem 0; }
+  .tool-action-name { font-size:.82rem; overflow-wrap:anywhere; }
+  .tool-actions-hint { margin:0 .55rem .5rem; color:var(--color-text-secondary); font-size:.72rem; }
   .policy-state-control { display:inline-flex; align-self:center; overflow:hidden; border:1px solid var(--color-border); border-radius:var(--border-radius-sm); background:var(--color-input); }
   .policy-state-control button { min-height:2rem; padding:.35rem .6rem; border:0; border-left:1px solid var(--color-border); border-radius:0; background:transparent; color:var(--color-text-secondary); cursor:pointer; font-size:.74rem; white-space:nowrap; }
   .policy-state-control button:first-child { border-left:0; }
@@ -603,6 +626,12 @@
     .policy-item { grid-template-columns:1fr; }
     .policy-state-control { width:100%; align-self:stretch; }
     .policy-state-control button { flex:1; }
+    .tool-policy-header { gap:.55rem; }
+    .tool-policy-header > .policy-state-control { width:auto; margin-left:1.5rem; justify-self:start; }
+    .tool-action-row { grid-template-columns:1fr; gap:.5rem; }
+    .tool-action-row .policy-state-control { width:auto; align-self:center; justify-self:start; }
+    .tool-action-row .policy-state-control button { padding:.35rem .45rem; }
+
     .agent-manager-list-header { flex-wrap:wrap; }
     .active-agent-display { width:100%; }
     .agent-manager-create { margin-left:auto; }

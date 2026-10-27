@@ -150,6 +150,10 @@ def test_editor_projection_preserves_whole_tool_and_action_rule_precedence(
                 raw[key].append(rule_id)
         state = editor._editor_tool_state(action_agent, raw)
         assert tool_id not in {row["id"] for row in state["catalog"]}
+        assert all(row["parent_tool"]["id"] == tool_id for row in state["catalog"])
+        assert {row["action_label"] for row in state["catalog"]} == {
+            action.replace("_", " ").title() for action in spec.actions
+        }
         for action in spec.actions:
             kwargs = {"canonical_id": tool_id, "action": action}
             before = tool_policy.resolve_tool(action_agent, name, **kwargs, _policy=raw)

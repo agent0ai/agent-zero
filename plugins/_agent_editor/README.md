@@ -14,8 +14,11 @@ Skills default switch. Easy places each chooser below its default switch;
 Advanced gives Tools, MCPs, and Skills separate searchable sections and adds
 retained unavailable entries plus ACE-based prompt editing.
 
-Bundled tools with multiple operations expose separate action controls, such as
-Text Editor: Read / Write / Patch and Scheduler: List Tasks / Delete Task.
+Bundled tools with multiple operations appear once in the list. Expand a tool
+to choose individual actions, such as Text Editor's Read / Write / Patch,
+with their available descriptions below the “Individual tool actions” subtitle.
+The tool's On / Default / Off controls apply to all its actions. A short summary
+appears when some actions are off; fully enabled tools need no summary.
 Existing whole-tool choices appear as matching action choices. Opening a profile
 does not rewrite its policy; only an explicit permission edit saves those choices.
 

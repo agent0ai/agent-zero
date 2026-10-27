@@ -12,6 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 STORE = ROOT / "plugins" / "_agent_editor" / "webui" / "agent-editor-store.js"
 MODAL = ROOT / "plugins" / "_agent_editor" / "webui" / "main.html"
+TOOL_ROW = MODAL.with_name("tool-policy-row.html")
 TOOLTIP_STORE = ROOT / "webui" / "components" / "tooltips" / "tooltip-store.js"
 SWITCHER = (
     ROOT
@@ -27,6 +28,7 @@ SWITCHER_MIXIN = ROOT / "plugins" / "_model_config" / "webui" / "switcher-mixin.
 
 def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls() -> None:
     modal = MODAL.read_text(encoding="utf-8")
+    tool_row = TOOL_ROW.read_text(encoding="utf-8")
     store = STORE.read_text(encoding="utf-8")
     switcher = SWITCHER.read_text(encoding="utf-8")
     tool_section = re.search(
@@ -102,12 +104,19 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert skill_section.count('class="policy-group"') == 1
     assert '<label>Category ' not in tool_section
     assert "indeterminate" not in modal
-    assert modal.count('class="policy-state-control" role="group"') == 6
-    assert modal.count(':aria-pressed="$store.agentEditor.policyItemState') == 18
+    assert modal.count('path="/plugins/_agent_editor/webui/tool-policy-row.html"') == 2
+    assert (modal + tool_row).count('class="policy-state-control" role="group"') == 6
+    assert (modal + tool_row).count(':aria-pressed="$store.agentEditor.policyItemState') == 15
+    assert tool_row.count(':aria-pressed="$store.agentEditor.toolGroupState') == 3
+    assert ':aria-expanded="$store.agentEditor.toolExpanded(tool)"' in tool_row
+    assert ':aria-controls="$id(\'tool-actions\')"' in tool_row
     assert '<details class="policy-description"' not in tool_section
     assert '<details class="policy-description"' not in mcp_section
     assert '<details class="policy-description"' not in skill_section
-    assert tool_section.count('class="policy-item-description"') == 1
+    assert tool_row.count('class="policy-item-description"') == 2
+    assert 'x-show="action.description" x-text="action.description"' in tool_row
+    assert '<p class="tool-actions-title">Individual tool actions</p>' in tool_row
+    assert 'border-left' not in re.search(r'\.tool-actions \{([^}]+)\}', modal)[1]
     assert mcp_section.count('class="policy-item-description"') == 1
     assert skill_section.count('class="policy-item-description"') == 1
     assert "Your changes override the built-in profile. The original files stay unchanged." in modal
@@ -190,7 +199,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "Applies to Tools and MCPs left on Default." not in modal
     assert "Applies to Skills left on Default." not in modal
     assert "No blocked tools" not in modal and "No blocked skills" not in modal
-    assert "policy-description" not in modal and "-webkit-line-clamp:2" not in modal
+    assert 'class="policy-description"' not in modal and "-webkit-line-clamp:2" not in modal
     assert 'class="prompt-file-list" role="region" aria-label="Prompt file list" tabindex="0"' in modal
     assert 'class="prompt-editor" role="region" aria-label="Selected prompt file" tabindex="0"' in modal
     assert "Preview combined prompt" not in modal
@@ -287,7 +296,7 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert "tri-state-item" not in modal
     assert "policy-state-legend" not in modal
     assert "policy-item-state" not in modal
-    assert modal.count("Default (${$store.agentEditor.policyDefault") == 6
+    assert (modal + tool_row).count("Default (${$store.agentEditor.policyDefault") == 6
     assert "border-radius:var(--border-radius-sm)" in modal
     assert "cyclePolicyItem" not in store_source and "policyAriaChecked" not in store_source
     assert ".agent-manager-card { grid-template-columns:3rem minmax(0,1fr) auto; align-items:start; }" in modal
@@ -355,6 +364,86 @@ ensureBootstrapTooltip(element);
 if (instance || element.hasAttribute("data-bs-original-title") || element.hasAttribute("data-bs-tooltip-initialized")) throw new Error("cleared title left a stale tooltip");
 """
     subprocess.run(["node", "--input-type=module", "-e", script], check=True)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node is required")
+def test_grouped_tool_controls_preserve_action_choices_and_search_scope() -> None:
+    source = re.sub(r"^import .*?;\n", "", STORE.read_text(), flags=re.MULTILINE)
+    checks = r"""
+const {default: assert} = await import('node:assert/strict');
+const parent = {id: 'plugin:_text_editor:text_editor', name: 'text_editor', label: 'Text Editor'};
+const actions = ['read', 'write', 'patch'].map(action => ({
+  id: `${parent.id}:${action}`, name: `text_editor:${action}`,
+  label: `Text Editor: ${action}`, action_label: action,
+  parent_tool: parent, description: 'Read, write, and patch files', origin: 'Plugin', available: true,
+}));
+const baseline = {mode: 'inherit', default: 'allow', mcp_default: 'allow', allowed: [], blocked: []};
+store.state = {tools: {catalog: [
+  ...actions,
+  {id: 'local:wait', name: 'wait', label: 'Wait', available: true},
+  {id: 'local:gone', name: 'gone', label: 'Gone', available: false},
+  {id: 'mcp:docs:read', name: 'docs.read', label: 'Docs', available: true},
+], effective_policy: structuredClone(baseline)}};
+store.draft = {toolPolicy: structuredClone(baseline)};
+store.initialDraft = structuredClone(store.draft);
+const original = JSON.stringify(store.state.tools.catalog);
+const group = store.standardToolCatalog.find(tool => tool.id === parent.id);
+assert.equal(store.standardToolCatalog.length, 2);
+assert.equal(group.actions.length, 3);
+assert.equal(group.label, 'Text Editor');
+assert.equal(store.toolGroupState(group), 'default');
+assert.equal(store.toolGroupSummary(group), '', 'all-enabled tools need no summary');
+assert.equal(store.toolExpanded(group), false);
+store.toggleToolActions(group);
+assert.equal(store.toolExpanded(group), true);
+assert.deepEqual(store.draft, store.initialDraft, 'expansion must not change permissions');
+
+store.setPolicyItem('tool', actions[1].id, 'block');
+assert.equal(store.toolGroupState(group), 'mixed');
+assert.equal(store.toolGroupSummary(group), '2 of 3 actions on');
+store.setToolGroup(group, 'allow');
+assert.equal(store.toolGroupState(group), 'allow');
+assert.equal(store.toolGroupSummary(group), '');
+assert.deepEqual(new Set(store.draft.toolPolicy.allowed), new Set(actions.map(item => item.id)));
+assert.equal(store.draft.toolPolicy.allowed.includes(parent.id), false, 'save action IDs, not a conflicting parent rule');
+store.setToolGroup(group, 'default');
+assert.deepEqual(store.draft, store.initialDraft, 'undo must restore inherited policy');
+
+store.toolSearch = 'write';
+const match = store.filteredTools('tool')[0];
+assert.equal(store.filteredTools('tool').length, 1);
+assert.equal(match.id, parent.id);
+assert.equal(match.actions.length, 3, 'search must retain the whole-tool control scope');
+assert.deepEqual(match.visibleActions.map(item => item.id), [actions[1].id]);
+assert.equal(store.toolExpanded(match), true, 'an action search opens its tool');
+store.toggleToolActions(match);
+assert.equal(store.toolExpanded(match), false, 'search results can still be collapsed');
+store.setToolGroup(match, 'block');
+assert.deepEqual(new Set(store.draft.toolPolicy.blocked), new Set(actions.map(item => item.id)));
+assert.equal(store.toolGroupSummary(match), '0 of 3 actions on');
+store.setToolGroup(match, 'default');
+store.toolSearch = 'Text Editor';
+assert.equal(store.filteredTools('tool')[0].visibleActions, undefined, 'a tool search shows all its actions');
+store.toolSearch = '';
+assert.equal(store.filteredTools('tool').length, 3, 'Advanced retains unavailable tools');
+assert.equal(store.filteredTools('mcp').length, 1);
+store.toolOrigin = 'Plugin';
+assert.equal(store.filteredTools('tool').length, 1);
+assert.equal(JSON.stringify(store.state.tools.catalog), original, 'grouping must not mutate the flat policy catalog');
+
+store.setPolicyItem('tool', actions[0].id, 'allow');
+assert.equal(store.toolGroupSummary(group), '', 'mixed pinned/default choices still need no all-on summary');
+store.setPolicyDefault('tool', 'block');
+assert.equal(store.toolGroupSummary(group), '1 of 3 actions on');
+store.setToolGroup(group, 'allow');
+store.setPolicyDefault('tool', 'allow');
+assert.equal(store.toolGroupState(group), 'allow', 'bulk On pins all actions across default changes');
+"""
+    subprocess.run(
+        ["node", "--input-type=module"],
+        input="const createStore = (_name, value) => value;\n" + source + "\n" + checks,
+        text=True, check=True,
+    )
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="node is required")

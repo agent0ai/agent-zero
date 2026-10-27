@@ -1,0 +1,72 @@
+<html>
+<body>
+<div x-data x-id="['tool-actions', 'tool-summary']" class="tool-policy-row" role="listitem"
+     :class="{ 'is-expanded': tool.actions.length && $store.agentEditor.toolExpanded(tool) }">
+  <div class="policy-item tool-policy-header">
+    <div class="policy-item-copy">
+      <template x-if="tool.actions.length">
+        <button type="button" class="tool-actions-toggle"
+                :aria-expanded="$store.agentEditor.toolExpanded(tool)"
+                :aria-controls="$id('tool-actions')"
+                :aria-label="`${tool.label} actions`"
+                @click="$store.agentEditor.toggleToolActions(tool)">
+          <x-icon :name="$store.agentEditor.toolExpanded(tool) ? 'expand_more' : 'chevron_right'"></x-icon>
+          <strong x-text="tool.label"></strong>
+        </button>
+      </template>
+      <template x-if="!tool.actions.length"><strong class="tool-name" x-text="tool.label"></strong></template>
+      <div class="tool-policy-description">
+        <p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p>
+        <small x-show="$store.agentEditor.mode === 'advanced'" x-text="tool.id"></small>
+        <span class="tool-policy-summary" :id="$id('tool-summary')"
+              x-show="$store.agentEditor.toolGroupSummary(tool)"
+              x-text="$store.agentEditor.toolGroupSummary(tool)"></span>
+        <em x-show="tool.available === false">Unavailable — kept in your settings</em>
+      </div>
+    </div>
+    <div class="policy-state-control" role="group"
+         :aria-label="tool.actions.length ? `${tool.label}: set all actions` : `${tool.label} access`"
+         :aria-describedby="tool.actions.length ? $id('tool-summary') : null">
+      <button type="button" :class="{ active: $store.agentEditor.toolGroupState(tool) === 'allow' }"
+              :aria-pressed="$store.agentEditor.toolGroupState(tool) === 'allow'"
+              @click="$store.agentEditor.setToolGroup(tool, 'allow')">On</button>
+      <button type="button" :class="{ active: $store.agentEditor.toolGroupState(tool) === 'default' }"
+              :aria-pressed="$store.agentEditor.toolGroupState(tool) === 'default'"
+              @click="$store.agentEditor.setToolGroup(tool, 'default')"
+              x-text="`Default (${$store.agentEditor.policyDefault('tool') === 'allow' ? 'on' : 'off'})`"></button>
+      <button type="button" :class="{ active: $store.agentEditor.toolGroupState(tool) === 'block' }"
+              :aria-pressed="$store.agentEditor.toolGroupState(tool) === 'block'"
+              @click="$store.agentEditor.setToolGroup(tool, 'block')">Off</button>
+    </div>
+  </div>
+  <div class="tool-actions" :id="$id('tool-actions')" x-cloak
+       x-show="tool.actions.length && $store.agentEditor.toolExpanded(tool)">
+    <p class="tool-actions-title">Individual tool actions</p>
+    <p class="tool-actions-hint" x-show="tool.visibleActions"
+       x-text="`${tool.visibleActions?.length} matching actions of ${tool.actions.length}. Controls above apply to the whole tool.`"></p>
+    <div role="list" :aria-label="`${tool.label} individual actions`">
+      <template x-for="action in (tool.visibleActions || tool.actions)" :key="action.id">
+        <div class="policy-item tool-action-row" role="listitem">
+          <div class="policy-item-copy">
+            <span class="tool-action-name" x-text="action.action_label"></span>
+            <p class="policy-item-description" x-show="action.description" x-text="action.description"></p>
+          </div>
+          <div class="policy-state-control" role="group" :aria-label="`${action.label} access`">
+            <button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', action.id) === 'allow' }"
+                    :aria-pressed="$store.agentEditor.policyItemState('tool', action.id) === 'allow'"
+                    @click="$store.agentEditor.setPolicyItem('tool', action.id, 'allow')">On</button>
+            <button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', action.id) === 'default' }"
+                    :aria-pressed="$store.agentEditor.policyItemState('tool', action.id) === 'default'"
+                    @click="$store.agentEditor.setPolicyItem('tool', action.id, 'default')"
+                    x-text="`Default (${$store.agentEditor.policyDefault('tool') === 'allow' ? 'on' : 'off'})`"></button>
+            <button type="button" :class="{ active: $store.agentEditor.policyItemState('tool', action.id) === 'block' }"
+                    :aria-pressed="$store.agentEditor.policyItemState('tool', action.id) === 'block'"
+                    @click="$store.agentEditor.setPolicyItem('tool', action.id, 'block')">Off</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+</body>
+</html>

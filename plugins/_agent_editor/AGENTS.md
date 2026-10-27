@@ -10,6 +10,7 @@
   owners into editor state and sparse change plans.
 - `api/` owns authenticated/CSRF-protected state, save, and avatar routes.
 - `webui/` owns the Alpine store, modal surface, styling, and client-side draft.
+- `webui/tool-policy-row.html` is the shared Easy/Advanced tool row and expandable action list.
 - `extensions/webui/` owns lifecycle registration on the shared modal stack and
   the global entry points used by existing WebUI surfaces.
 
@@ -73,6 +74,14 @@
   stays in the draft until an explicit policy edit is saved; opening the editor
   does not migrate files. Catalog `tool_names` keeps skill warnings aligned with
   the executable names, including aliases and the unified memory tool.
+- Action rows retain their flat policy IDs and carry `parent_tool` metadata for
+  presentation. Both modes group them under one tool; expanding reveals an
+  “Individual tool actions” subtitle and each action's available catalog
+  description, without a vertical guide line. The parent On/Default/Off
+  controls apply to every action. Expansion is view
+  state only. Show the enabled-action summary only when at least one action is
+  off. Advanced action searches reveal matching children without narrowing the
+  parent control's scope; opening and searching never write policy.
 - Model selection in both modes reuses `_model_config`'s compact preset dropdown
   and preset editor; Agent Editor persists only the scoped preset reference.
 - The exact `default` profile is an internal baseline and is omitted only from
