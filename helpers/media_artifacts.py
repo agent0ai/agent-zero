@@ -59,8 +59,16 @@ def compact_base64(data: str) -> str:
 
 
 def estimated_base64_decoded_size(data: str) -> int:
-    compact_length = len(compact_base64(data))
-    return (compact_length * 3) // 4
+    compact = compact_base64(data)
+    estimated_size = (len(compact) * 3) // 4
+    # A complete final quartet encodes fewer bytes when it contains padding.
+    # Subtract at most two bytes; malformed input is still validated below.
+    if len(compact) % 4 == 0:
+        if compact.endswith("=="):
+            estimated_size -= 2
+        elif compact.endswith("="):
+            estimated_size -= 1
+    return estimated_size
 
 
 def decode_base64_payload(
