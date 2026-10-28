@@ -114,6 +114,14 @@ chat:
     kwargs:
       a0_api_mode: chat
       api_base: "http://host.docker.internal:8080/v1"
+  llmbuzz:
+    name: llm.buzz
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "https://api.llm.buzz/api/v1/models"
+    kwargs:
+      a0_api_mode: chat
+      api_base: https://api.llm.buzz/api/v1
   mistral:
     name: Mistral AI
     litellm_provider: mistral
