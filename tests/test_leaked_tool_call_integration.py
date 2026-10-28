@@ -1,5 +1,7 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -193,20 +195,26 @@ def test_normal_json_repair_still_belongs_to_context_doctor(monkeypatch, mode, s
 
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
 @pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("update_log", [None, False, True])
 @pytest.mark.parametrize("text", [
     '<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>',
     '<｜DSML｜ calls><｜DSML｜ invoke name="response">'
     '<｜DSML｜ parameter name="tool_args" string="false">{"text":"done"}</｜DSML｜ parameter>'
     '</｜DSML｜ invoke></｜DSML｜ calls>',
+    '  {"name": "response", "arguments": {"text": "done"}}\n',
 ])
 @pytest.mark.asyncio
 async def test_recovered_response_executes_through_normal_dispatch(
-    monkeypatch, mode, doctor, text
+    monkeypatch, mode, doctor, update_log, text
 ):
     async def no_op(*args, **kwargs):
         pass
 
     monkeypatch.setattr(extension, "call_extensions_async", no_op)
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"update_log": update_log} if update_log is not None else {},
+    )
     monkeypatch.setattr(
         mcp_handler.MCPConfig,
         "get_instance",
@@ -222,9 +230,10 @@ async def test_recovered_response_executes_through_normal_dispatch(
     agent.agent_name = "A0"
     log = Log()
     agent.context = SimpleNamespace(log=log)
-    agent.loop_data.params_temporary["log_item_generating"] = log.log(
-        type="agent", id="generation"
+    generating = log.log(
+        type="agent", id="generation", content=text, kvps={"reasoning": "kept"},
     )
+    agent.loop_data.params_temporary["log_item_generating"] = generating
     agent.get_tool = lambda **kwargs: ResponseTool(agent=agent, **kwargs)
     agent.handle_intervention = no_op
     result = LLMResult(
@@ -233,6 +242,11 @@ async def test_recovered_response_executes_through_normal_dispatch(
     )
 
     assert not run_hooks(agent, result, doctor).get("skip_default_processing")
+    assert generating.content == (result.response if doctor and update_log else text)
+    assert generating.kvps["reasoning"] == "kept"
+    recovery_notices = [entry for entry in log.logs if entry.content == "Recovered a complete leaked tool call."]
+    assert len(recovery_notices) == 1
+    assert recovery_notices[0].type == "util"
     assert await Agent.process_llm_result_tools(agent, result) == "done"
     responses = [item for item in log.logs if item.type == "response"]
     assert len(responses) == 1
@@ -260,6 +274,51 @@ def test_context_doctor_repairs_missing_a0_delimiters_without_retry(mode, missin
     assert not data.get("skip_default_processing")
     assert json.loads(result.response) == expected
     assert not agent.warnings and not agent.history
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("doctor", [False, True])
+@pytest.mark.parametrize("update_log", [False, True])
+@pytest.mark.asyncio
+async def test_reported_dsml_parallel_headline_preserves_log_and_nested_calls(monkeypatch, mode, doctor, update_log):
+    text = Path(__file__).with_name("fixtures").joinpath("dsml_parallel_headline.txt").read_text()
+    args = json.loads(text.split('string="false">', 1)[1].split('</｜DSML｜ parameter>', 1)[0])
+    headline = "Reading the project file and searching for a relevant implementation"
+    monkeypatch.setattr(recovery, "build_responses_function_tools", lambda agent: ([], {"parallel": "parallel"}))
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"update_log": update_log},
+    )
+    monkeypatch.setattr(extension, "call_extensions_async", AsyncMock())
+    monkeypatch.setattr(
+        mcp_handler.MCPConfig, "get_instance",
+        lambda: SimpleNamespace(get_tool=lambda *args: None),
+    )
+    agent = object.__new__(Agent)
+    agent.agent_name = "A0"
+    agent.data = {"responses_tool_name_map": {"parallel": "parallel"}}
+    agent.loop_data = LoopData()
+    agent.context = SimpleNamespace(log=Log())
+    generating = agent.context.log.log(type="agent", content=text)
+    agent.loop_data.params_temporary["log_item_generating"] = generating
+    tool = SimpleNamespace(
+        before_execution=AsyncMock(), after_execution=AsyncMock(),
+        execute=AsyncMock(return_value=SimpleNamespace(break_loop=False)),
+    )
+    agent.get_tool = Mock(return_value=tool)
+    agent.handle_intervention = AsyncMock()
+    result = LLMResult(response=text, mode=mode)
+
+    assert not run_hooks(agent, result, doctor).get("skip_default_processing")
+    assert json.loads(result.response) == {"tool_name": "parallel", "tool_args": args, "headline": headline}
+    assert generating.content == (result.response if doctor and update_log else text)
+    if doctor:
+        assert generating.heading == f"A0: {headline}"
+        assert generating.kvps["headline"] == headline
+    await Agent.process_llm_result_tools(agent, result)
+    agent.get_tool.assert_called_once()
+    assert agent.get_tool.call_args.kwargs["name"] == "parallel"
+    tool.execute.assert_awaited_once_with(**args)
 
 
 @pytest.mark.parametrize("mode, first_text, doctor, turns", [

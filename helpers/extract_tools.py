@@ -416,9 +416,13 @@ def _leaked_dsml_call(text: str) -> dict[str, Any]:
         args[key] = value if is_string == "true" else _TOOL_JSON_DECODER.decode(value)
         position = parameter.end()
     if "tool_args" in args:
-        if len(args) != 1 or not isinstance(args["tool_args"], dict):
+        if (
+            args.keys() - {"tool_args", "headline"}
+            or not isinstance(args["tool_args"], dict)
+            or ("headline" in args and not isinstance(args["headline"], str))
+        ):
             raise ValueError("ambiguous_dsml_arguments")
-        args = args["tool_args"]
+        return {"tool_name": call.group(2), **args}
     return {"tool_name": call.group(2), "tool_args": args}
 
 
@@ -519,6 +523,8 @@ def extract_leaked_tool_request(response: str) -> tuple[str, dict[str, Any] | No
         name = request["tool_name"]
         if not isinstance(name, str) or not name or name != name.strip():
             return "rejected", None
+        if isinstance(candidate.get("headline"), str):
+            request["headline"] = candidate["headline"]
         return "call", request
     except EOFError:
         return "truncated", None

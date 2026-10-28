@@ -47,6 +47,7 @@ class ContextDoctor(Extension):
             and not extract_tools.is_misformatted_tool_request(response)
         ):
             return  # Core dispatches Responses output text through the response tool.
+        raw_response = result_data.setdefault("raw_response", response)
         llm_result.response = transformed
 
         # Treat as raw-text fallback when no usable tool call was extracted
@@ -64,7 +65,7 @@ class ContextDoctor(Extension):
                     log_item,
                     transformed,
                     update_log=config.get("update_log", False),
-                    raw_response=response,
+                    raw_response=raw_response,
                 )
 
             warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
@@ -93,7 +94,7 @@ class ContextDoctor(Extension):
                 log_item,
                 transformed,
                 update_log=config.get("update_log", False),
-                raw_response=response,
+                raw_response=raw_response,
             )
 
         # Extract final text from a response tool call

@@ -47,9 +47,11 @@ class LeakedToolCall(Extension):
                 return
         except Exception:
             return  # Failed conversion must leave the normal repair path available.
+        result_data.setdefault("raw_response", response)
+        request.update(tool_name=name, tool_args=args)
         llm_result.response = json.dumps(
-            {"tool_name": name, "tool_args": args}, ensure_ascii=False, separators=(",", ":")
+            request, ensure_ascii=False, separators=(",", ":")
         )
         self.agent.context.log.log(
-            type="info", content="Recovered a complete leaked tool call."
+            type="util", content="Recovered a complete leaked tool call."
         )

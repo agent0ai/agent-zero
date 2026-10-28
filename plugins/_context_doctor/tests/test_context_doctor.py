@@ -251,10 +251,11 @@ async def test_responses_text_reaches_core_response_dispatch(monkeypatch, text):
 
 
 @pytest.mark.parametrize("mode", ["responses", "chat_completions"])
-def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch, mode):
+@pytest.mark.parametrize("update_log", [False, True])
+def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch, mode, update_log):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
-        lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
+        lambda *args, **kwargs: {"suppress_xml": True, "update_log": update_log},
     )
     llm_result = SimpleNamespace(
         mode=mode,
@@ -273,10 +274,13 @@ def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch, 
         loop_data=SimpleNamespace(params_temporary={"log_item_generating": log_item}),
     )
 
-    ContextDoctor(agent).execute({"llm_result": llm_result})
+    raw_response = llm_result.response
+    result_data = {"llm_result": llm_result}
+    ContextDoctor(agent).execute(result_data)
+    ContextDoctor(agent).execute(result_data)
 
     assert llm_result.response == '{"tool_name":"response","tool_args":{"text":"ok"}}'
-    assert log_item.data["content"] != llm_result.response
+    assert log_item.data["content"] == (llm_result.response if update_log else raw_response)
     assert log_item.data["kvps"]["tool_name"] == "response"
     assert response_item.data == {"content": "ok"}
 

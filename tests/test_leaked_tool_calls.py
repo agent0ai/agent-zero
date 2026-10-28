@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -22,6 +23,17 @@ def test_recovers_reported_dsml_envelope_without_changing_arguments():
     )
 
 
+def test_recovers_reported_dsml_parallel_call_with_headline():
+    text = Path(__file__).with_name("fixtures").joinpath("dsml_parallel_headline.txt").read_text()
+    args = json.loads(text.split('string="false">', 1)[1].split('</｜DSML｜ parameter>', 1)[0])
+    assert extract_tool_request(text) is None
+    assert extract_leaked_tool_request(text) == ("call", {
+        "tool_name": "parallel",
+        "tool_args": args,
+        "headline": "Reading the project file and searching for a relevant implementation",
+    })
+
+
 @pytest.mark.parametrize("wrap", [
     lambda body: f'<｜DSML｜ calls><｜DSML｜ invoke name="x">{body}</｜DSML｜ invoke></｜DSML｜ calls>',
     lambda body: f'<｜DSML｜function_calls><｜DSML｜invoke name="x">{body}</｜DSML｜invoke></｜DSML｜function_calls>',
@@ -30,9 +42,10 @@ def test_dsml_parameters_preserve_string_flags_and_json_types(wrap):
     body = (
         '<｜DSML｜ parameter name="text" string="true">  true\n & <tag>  </｜DSML｜ parameter>'
         '<｜DSML｜ parameter name="data" string="false"> {"nested": [true, null, 2]} </｜DSML｜ parameter>'
+        '<｜DSML｜ parameter name="headline" string="true">An ordinary tool argument</｜DSML｜ parameter>'
     )
     assert extract_leaked_tool_request(wrap(body)) == (
-        "call", {"tool_name": "x", "tool_args": {"text": "  true\n & <tag>  ", "data": {"nested": [True, None, 2]}}}
+        "call", {"tool_name": "x", "tool_args": {"text": "  true\n & <tag>  ", "data": {"nested": [True, None, 2]}, "headline": "An ordinary tool argument"}}
     )
 
 
@@ -49,6 +62,11 @@ def test_dsml_parameters_preserve_string_flags_and_json_types(wrap):
     '<｜DSML｜ parameter name="a" string="false">1</｜DSML｜ parameter>' * 2,
     '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
     '<｜DSML｜ parameter name="extra" string="false">1</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="headline" string="false">{}</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="headline" string="true">One</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="headline" string="true">Two</｜DSML｜ parameter>',
     'unparsed text',
 ])
 def test_dsml_rejects_ambiguous_or_invalid_parameters(body):
@@ -88,6 +106,19 @@ def test_recovers_one_complete_call(text):
     status, request = extract_leaked_tool_request(text)
     assert status == "call"
     assert request == {"tool_name": "x", "tool_args": {"a": 1}}
+
+
+@pytest.mark.parametrize("wrap", [lambda text: text, lambda text: f"<tool_call>{text}</tool_call>"])
+@pytest.mark.parametrize("headline", [None, "Outer headline"])
+def test_leaked_json_keeps_outer_headline_without_promoting_nested_fields(wrap, headline):
+    args = {"headline": "Argument headline", "nested": {"headline": "Nested headline"}}
+    source = {"name": "x", "arguments": args}
+    expected = {"tool_name": "x", "tool_args": args}
+    if headline is not None:
+        source["headline"] = headline
+        expected["headline"] = headline
+
+    assert extract_leaked_tool_request(wrap(json.dumps(source))) == ("call", expected)
 
 
 def test_keeps_provider_names_for_authorization_at_the_result_hook():

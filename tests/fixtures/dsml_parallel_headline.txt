@@ -1,0 +1,6 @@
+<｜DSML｜ calls>
+<｜DSML｜ invoke name="parallel">
+<｜DSML｜ parameter name="tool_args" string="false">{"tool_calls": [{"tool_args": {"action": "read", "path": "/example/project/docs/overview.md"}, "tool_name": "text_editor"}, {"tool_args": {"code": "cd /tmp/example/frontend/app && echo '=== query cache ===' && grep -rn 'invalidateQueries\\|staleTime\\|keepPreviousData\\|placeholderData\\|enabled:' . | grep -v node_modules | head -20; echo '=== performance hooks ===' && grep -rn 'debounce\\|useDeferredValue\\|startTransition\\|useMemo\\|useCallback' components | grep -v node_modules | head -20; echo '=== storage events ===' && grep -rn 'addEventListener(\\\"storage\\\"\\|storage)' . | grep -v node_modules | head -10; echo '=== feature files ===' && ls components/features && sed -n 1,30p components/features/FeatureButton.tsx 2>/dev/null", "reset": false, "runtime": "terminal", "session": 0}, "tool_name": "code_execution_tool"}]}</｜DSML｜ parameter>
+<｜DSML｜ parameter name="headline" string="true">Reading the project file and searching for a relevant implementation</｜DSML｜ parameter>
+</｜DSML｜ invoke>
+</｜DSML｜ calls>
