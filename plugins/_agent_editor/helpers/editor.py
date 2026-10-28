@@ -230,10 +230,16 @@ def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
 def build_editor_state(
     profile_id: str,
     context: Any | None = None,
+    *,
+    mode: str = "advanced",
 ) -> dict[str, Any]:
+    if mode not in {"easy", "advanced"}:
+        raise ValueError("Unknown editor mode.")
     profile_id = validate_profile_id(profile_id)
     agent = EditorAgent(profile_id, context)
-    prompt_files = prompt_catalog(agent)
+    prompt_files = prompt_catalog(
+        agent, names={SPECIFICS_FILE} if mode == "easy" else None,
+    )
     from plugins._model_config.helpers import model_config
 
     presets: list[dict[str, Any]] = []
@@ -309,6 +315,7 @@ def build_editor_state(
     return {
         "profile": build_profile_state(profile_id, context),
         "prompts": prompt_files,
+        "prompts_complete": mode == "advanced",
         "tools": _editor_tool_state(agent, tool_scope),
         "skills": {
             "policy": skill_policy,
@@ -480,28 +487,40 @@ def _scope_has_overrides(profile_id: str, context: Any | None = None) -> bool:
     return any(any(key in _read_mapping(path) for key in keys) for path, keys in checks)
 
 
-def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
+def prompt_catalog(agent: EditorAgent, *, names: set[str] | None = None) -> list[dict[str, Any]]:
     roots = [Path(path) for path in subagents.get_paths(agent, "prompts")]
-    names = {
-        path.name
+    root_files = {
+        root: {
+            path.name: path
+            for path in root.glob("*")
+            if path.suffix in {".md", ".py"} and path.is_file()
+        }
         for root in roots
-        if root.is_dir()
-        for path in root.glob("*.md")
-        if path.is_file() and path.name not in NON_PROMPT_MARKDOWN
     }
+    names = set(names) if names is not None else {
+        name
+        for paths in root_files.values()
+        for name in paths
+        if name.endswith(".md") and name not in NON_PROMPT_MARKDOWN
+    }
+    processors = {name for paths in root_files.values() for name in paths if name.endswith(".py")}
     names.add(SPECIFICS_FILE)
     project_name = _context_project_name(agent.context)
     scope_prompt_dir = _profile_root(agent.config.profile, project_name) / "prompts"
     project_root = (
         Path(projects.get_project_meta(project_name)) if project_name else None
     )
+    sources = {
+        root: _prompt_source(root, scope_prompt_dir, project_root)
+        for root in roots if root_files[root]
+    }
     result: list[dict[str, Any]] = []
     for name in sorted(names, key=lambda value: (_prompt_group(value)[0], value)):
         occurrences: list[tuple[Path, str, str]] = []
         for root in roots:
-            path = root / name
-            if path.is_file():
-                kind, label = _prompt_source(root, scope_prompt_dir, project_root)
+            path = root_files[root].get(name)
+            if path is not None:
+                kind, label = sources[root]
                 occurrences.append((path, kind, label))
 
         effective = occurrences[0] if occurrences else None
@@ -557,9 +576,7 @@ def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
                 ],
                 "preview": preview,
                 "error": effective_error or override_error or inherited_error,
-                "dynamic_processor": any(
-                    (root / f"{Path(name).stem}.py").is_file() for root in roots
-                ),
+                "dynamic_processor": f"{Path(name).stem}.py" in processors,
             }
         )
     return result

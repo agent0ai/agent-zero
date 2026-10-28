@@ -45,7 +45,7 @@
     <p class="tool-actions-hint" x-show="tool.visibleActions"
        x-text="`${tool.visibleActions?.length} matching actions of ${tool.actions.length}. Controls above apply to the whole tool.`"></p>
     <div role="list" :aria-label="`${tool.label} individual actions`">
-      <template x-for="action in (tool.visibleActions || tool.actions)" :key="action.id">
+      <template x-for="action in ($store.agentEditor.toolExpanded(tool) ? (tool.visibleActions || tool.actions) : [])" :key="action.id">
         <div class="policy-item tool-action-row" role="listitem">
           <div class="policy-item-copy">
             <span class="tool-action-name" x-text="action.action_label"></span>

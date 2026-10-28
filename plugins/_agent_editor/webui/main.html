@@ -124,8 +124,8 @@
         </div>
         <div class="agent-editor-topbar-actions">
           <div class="agent-mode-switch" role="group" aria-label="Editor mode">
-            <button type="button" :class="{ active: $store.agentEditor.mode === 'easy' }" :aria-pressed="$store.agentEditor.mode === 'easy'" @click="$store.agentEditor.setMode('easy')">Easy</button>
-            <button type="button" :class="{ active: $store.agentEditor.mode === 'advanced' }" :aria-pressed="$store.agentEditor.mode === 'advanced'" @click="$store.agentEditor.setMode('advanced')">Advanced</button>
+            <button type="button" :class="{ active: $store.agentEditor.mode === 'easy' }" :aria-pressed="$store.agentEditor.mode === 'easy'" :disabled="$store.agentEditor.advancedLoading" @click="$store.agentEditor.setMode('easy')">Easy</button>
+            <button type="button" :class="{ active: $store.agentEditor.mode === 'advanced' }" :aria-pressed="$store.agentEditor.mode === 'advanced'" :disabled="$store.agentEditor.advancedLoading" @click="$store.agentEditor.setMode('advanced')" x-text="$store.agentEditor.advancedLoading ? 'Loading…' : 'Advanced'">Advanced</button>
           </div>
         </div>
       </header>
@@ -183,45 +183,52 @@
           <div class="agent-field-heading"><div><div class="agent-field-label">Capabilities</div><p>Choose the default access, or set individual items On or Off.</p></div></div>
           <div class="capability-policy-group">
             <div class="future-policy-control"><strong>Allow tools by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('tool') === 'allow'" @change="$store.agentEditor.setPolicyDefault('tool', $event.target.checked ? 'allow' : 'block')" aria-label="Allow tools by default"><span class="toggler"></span></label></div>
-            <details class="capability-accordion">
+            <details class="capability-accordion" x-data="{ expanded: false }" @toggle.self="expanded = $el.open">
             <summary><span>Choose individual tools</span><x-icon name="expand_more"></x-icon></summary>
+            <template x-if="expanded">
             <div class="policy-items" role="list" aria-label="Tools this agent can use">
               <template x-for="tool in $store.agentEditor.standardToolCatalog" :key="tool.id">
                 <div><x-component path="/plugins/_agent_editor/webui/tool-policy-row.html"></x-component></div>
               </template>
               <p class="policy-empty" x-show="!$store.agentEditor.standardToolCatalog.length">No configurable tools are available.</p>
             </div>
+            </template>
             </details>
           </div>
 
           <div class="capability-policy-group">
             <div class="future-policy-control"><strong>Allow MCPs by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('mcp') === 'allow'" @change="$store.agentEditor.setPolicyDefault('mcp', $event.target.checked ? 'allow' : 'block')" aria-label="Allow MCPs by default"><span class="toggler"></span></label></div>
-            <details class="capability-accordion">
+            <details class="capability-accordion" x-data="{ expanded: false }" @toggle.self="expanded = $el.open">
             <summary><span>Choose individual MCPs</span><x-icon name="expand_more"></x-icon></summary>
+            <template x-if="expanded">
             <div class="policy-items" role="list" aria-label="MCP tools this agent can use">
               <template x-for="tool in $store.agentEditor.mcpCatalog" :key="tool.id">
                 <div class="policy-item" role="listitem"><div class="policy-item-copy"><strong x-text="tool.label"></strong><p class="policy-item-description" x-show="tool.description" x-text="tool.description"></p></div><div class="policy-state-control" role="group" :aria-label="`${tool.label} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'allow'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'default'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('mcp') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('mcp', tool.id) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('mcp', tool.id) === 'block'" @click="$store.agentEditor.setPolicyItem('mcp', tool.id, 'block')">Off</button></div></div>
               </template>
               <p class="policy-empty" x-show="!$store.agentEditor.mcpCatalog.length">No MCP tools are available.</p>
             </div>
+            </template>
             </details>
           </div>
 
           <div class="capability-policy-group">
             <div class="future-policy-control"><strong>Allow skills by default</strong><label class="toggle"><input type="checkbox" :checked="$store.agentEditor.policyDefault('skill') === 'allow'" @change="$store.agentEditor.setPolicyDefault('skill', $event.target.checked ? 'allow' : 'block')" aria-label="Allow skills by default"><span class="toggler"></span></label></div>
-            <details class="capability-accordion">
+            <details class="capability-accordion" x-data="{ expanded: false }" @toggle.self="expanded = $el.open">
             <summary><span>Choose individual skills</span><x-icon name="expand_more"></x-icon></summary>
+            <template x-if="expanded">
             <div class="policy-items" role="list" aria-label="Skills this agent can use">
               <template x-for="skill in $store.agentEditor.skillCatalog" :key="skill.path">
                 <div class="policy-item" role="listitem"><div class="policy-item-copy"><strong x-text="skill.name"></strong><p class="policy-item-description" x-show="skill.description" x-text="skill.description"></p><em x-show="$store.agentEditor.skillWarnings(skill).length" x-text="`Expects blocked tool: ${$store.agentEditor.skillWarnings(skill).join(', ')}`"></em></div><div class="policy-state-control" role="group" :aria-label="`${skill.name} access`"><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'allow' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'allow'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'allow')">On</button><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'default' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'default'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'default')" x-text="`Default (${$store.agentEditor.policyDefault('skill') === 'allow' ? 'on' : 'off'})`"></button><button type="button" :class="{ active: $store.agentEditor.policyItemState('skill', skill.name) === 'block' }" :aria-pressed="$store.agentEditor.policyItemState('skill', skill.name) === 'block'" @click="$store.agentEditor.setPolicyItem('skill', skill.name, 'block')">Off</button></div></div>
               </template>
               <p class="policy-empty" x-show="!$store.agentEditor.skillCatalog.length">No configurable skills are available.</p>
             </div>
+            </template>
             </details>
           </div>
         </section>
       </main>
 
+      <template x-if="$store.agentEditor.advancedLoaded">
       <div class="agent-advanced" x-show="$store.agentEditor.mode === 'advanced'">
         <nav class="agent-advanced-nav" aria-label="Advanced editor sections">
           <template x-for="item in [{id:'1',label:'Identity'},{id:'2',label:'Prompt files'},{id:'3',label:'Tools'},{id:'4',label:'MCPs'},{id:'5',label:'Skills'},{id:'6',label:'Review'}]" :key="item.id">
@@ -371,6 +378,7 @@
           </section>
         </div>
       </div>
+      </template>
 
     </div>
   </template>

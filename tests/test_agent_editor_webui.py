@@ -88,7 +88,11 @@ def test_agent_editor_surface_has_normative_entry_points_and_accessible_controls
     assert modal.count("Edit Presets") == 2
     assert "Manage presets" not in modal
     assert "model-preset-row" not in modal
-    assert easy_surface.count('<details class="capability-accordion">') == 3
+    assert easy_surface.count('<details class="capability-accordion"') == 3
+    assert easy_surface.count('@toggle.self="expanded = $el.open"') == 3
+    assert easy_surface.count('<template x-if="expanded">') == 3
+    assert '<template x-if="$store.agentEditor.advancedLoaded">' in modal
+    assert 'action in ($store.agentEditor.toolExpanded(tool) ? (tool.visibleActions || tool.actions) : [])' in tool_row
     assert re.findall(r'<summary><span>(Choose individual (?:tools|MCPs|skills))</span><x-icon name="expand_more"></x-icon></summary>', easy_surface) == ["Choose individual tools", "Choose individual MCPs", "Choose individual skills"]
     assert '<details class="capability-accordion" open' not in easy_surface
     assert 'x-for="tool in $store.agentEditor.standardToolCatalog"' in easy_surface
@@ -442,6 +446,103 @@ assert.equal(store.toolGroupState(group), 'allow', 'bulk On pins all actions acr
     subprocess.run(
         ["node", "--input-type=module"],
         input="const createStore = (_name, value) => value;\n" + source + "\n" + checks,
+        text=True, check=True,
+    )
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node is required")
+def test_advanced_prompts_load_once_without_losing_edits_or_accepting_stale_results() -> None:
+    source = re.sub(r"^import .*?;\n", "", STORE.read_text(encoding="utf-8"), flags=re.MULTILINE)
+    harness = r"""
+const createStore = (_name, value) => value;
+const calls = [];
+let resolveLoad, rejectLoad;
+const callJsonApi = async (_endpoint, input) => {
+  calls.push(input);
+  return new Promise((resolve, reject) => { resolveLoad = resolve; rejectLoad = reject; });
+};
+globalThis.requestAnimationFrame = callback => callback();
+"""
+    checks = r"""
+import assert from 'node:assert/strict';
+const specifics = {filename: SPECIFICS, effective: 'Original instructions'};
+const extra = {filename: 'agent.system.main.tips.md', effective: 'Original tips'};
+const full = {prompts: [specifics, extra]};
+function reset() {
+  store.root = {isConnected: true, querySelector: () => null, closest: () => null};
+  store.projectName = 'demo';
+  store.mode = 'easy';
+  store.loading = false;
+  store.state = {
+    profile: {id: 'researcher', metadata: {title: {effective: 'Researcher'}}},
+    prompts: [specifics], prompts_complete: false,
+    model_preset: {}, tools: {}, skills: {},
+  };
+  store.makeDraft(false);
+}
+reset();
+const pending = store.setMode('advanced', '2');
+assert.equal(store.advancedLoading, true);
+assert.equal(store.mode, 'easy');
+assert.deepEqual(calls.at(-1), {action: 'prompts', profile_id: 'researcher', project_name: 'demo'});
+await store.setMode('advanced');
+assert.equal(calls.length, 1, 'double clicks do not start duplicate requests');
+store.instructions.value = 'Unsaved Easy edit';
+resolveLoad(full);
+await pending;
+assert.equal(store.advancedLoading, false);
+assert.equal(store.advancedLoaded, true);
+assert.equal(store.state.prompts_complete, true);
+assert.equal(store.mode, 'advanced');
+assert.equal(store.section, '2');
+assert.equal(store.instructions.value, 'Unsaved Easy edit');
+assert.equal(store.initialDraft.prompts[SPECIFICS].value, 'Original instructions');
+assert.equal(store.promptDirty(store.draft.prompts[extra.filename]), false);
+assert.equal(store.promptEditPending(store.draft.prompts[extra.filename]), false);
+assert.deepEqual(store.buildPatch().prompts.set, {[SPECIFICS]: 'Unsaved Easy edit'});
+store.instructions.value = 'Original instructions';
+assert.equal(store.dirty, false, 'loading more prompts must not create unsaved changes');
+store.draft.prompts[extra.filename].value = 'Unsaved Advanced edit';
+const ace = {destroy: () => assert.fail('mode switch destroyed ACE undo history')};
+store.promptEditor = ace;
+await store.setMode('easy');
+await store.setMode('advanced');
+assert.equal(calls.length, 1, 'loaded prompts are reused within the draft');
+assert.equal(store.promptEditor, ace);
+assert.equal(store.initialDraft.prompts[extra.filename].value, 'Original tips');
+assert.equal(store.draft.prompts[extra.filename].value, 'Unsaved Advanced edit');
+store.promptEditor = null;
+
+reset();
+const failed = store.setMode('advanced');
+rejectLoad(new Error('Could not load prompts'));
+await failed;
+assert.equal(store.mode, 'easy');
+assert.equal(store.advancedLoaded, false);
+assert.equal(store.advancedLoading, false);
+assert.equal(store.error, 'Could not load prompts');
+const retry = store.setMode('advanced', '6', false);
+resolveLoad(full);
+await retry;
+assert.equal(store.error, '');
+assert.equal(store.mode, 'advanced');
+assert.equal(store.section, '6', 'programmatic entry to Review also loads prompts');
+
+for (const stale of ['new-draft', 'scope', 'closed']) {
+  reset();
+  const oldRequest = store.setMode('advanced');
+  if (stale === 'new-draft') store.makeDraft(false);
+  if (stale === 'scope') store.projectName = 'another-project';
+  if (stale === 'closed') store.root.isConnected = false;
+  resolveLoad(full);
+  await oldRequest;
+  assert.equal(store.mode, 'easy', stale);
+  assert.equal(store.advancedLoaded, false, stale);
+  assert.equal(store.draft.prompts[extra.filename], undefined, stale);
+}
+"""
+    subprocess.run(
+        ["node", "--input-type=module"], input=harness + source + checks,
         text=True, check=True,
     )
 
@@ -849,7 +950,10 @@ const projectState = {
     { name: "New skill", path: "skills/new/SKILL.md", origin: "Project", description: "New", available: true, tags: [], allowed_tools: [] },
   ] },
 };
-loadHandler = () => ({ ok: true, state: projectState });
+loadHandler = payload => {
+  if (payload.mode !== "advanced") throw new Error("scope change omitted previously loaded Advanced prompts");
+  return { ok: true, state: projectState };
+};
 store.mode = "advanced";
 store.section = "6";
 store.projectName = "demo";

@@ -14,6 +14,10 @@ Skills default switch. Easy places each chooser below its default switch;
 Advanced gives Tools, MCPs, and Skills separate searchable sections and adds
 retained unavailable entries plus ACE-based prompt editing.
 
+Easy loads the main instructions first; the remaining prompt files load when
+you first open Advanced. Switching modes keeps unsaved edits and the prompt
+editor's undo history. Capability lists render their controls when expanded.
+
 Bundled tools with multiple operations appear once in the list. Expand a tool
 to choose individual actions, such as Text Editor's Read / Write / Patch,
 with their available descriptions below the “Individual tool actions” subtitle.

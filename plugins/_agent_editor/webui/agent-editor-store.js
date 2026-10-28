@@ -119,6 +119,8 @@ const model = {
   mode: "easy",
   section: "1",
   loading: false,
+  advancedLoaded: false,
+  advancedLoading: false,
   saving: false,
   avatarUploading: false,
   error: "",
@@ -375,7 +377,7 @@ const model = {
       await modelConfigStore.loadAgentProfiles(true);
       if (editorState) {
         await this.loadEditor(profile.id, false);
-        this.setMode(editorState.mode, editorState.section, false);
+        await this.setMode(editorState.mode, editorState.section, false);
       }
     } catch (error) {
       this.error = error.message || String(error);
@@ -452,6 +454,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: this.draft.creating ? "new-agent" : this.draft.profileId,
+        mode: this.advancedLoaded ? "advanced" : "easy",
         ...this.scopeInput(),
       });
       this.state = data.state;
@@ -519,6 +522,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: profileId,
+        mode: "easy",
         ...this.scopeInput(),
       });
       this.state = data.state;
@@ -537,6 +541,8 @@ const model = {
   },
 
   makeDraft(creating) {
+    this.advancedLoaded = this.state.prompts_complete !== false;
+    this.advancedLoading = false;
     this.expandedTools = {};
     const metadata = this.state.profile.metadata;
     const prompts = {};
@@ -699,7 +705,40 @@ const model = {
     this.setModalTitle("Manage agents");
   },
 
-  setMode(mode, section = "", preview = true) {
+  async setMode(mode, section = "", preview = true) {
+    if (this.advancedLoading) return;
+    if (mode === "advanced" && !this.advancedLoaded) {
+      if (this.loading || !this.draft) return;
+      const draft = this.draft;
+      const root = this.root;
+      const projectName = this.projectName;
+      this.advancedLoading = true;
+      this.error = "";
+      try {
+        const data = await callJsonApi(API, {
+          action: "prompts",
+          profile_id: this.state.profile.id,
+          ...this.scopeInput(),
+        });
+        if (this.draft !== draft || this.projectName !== projectName || root?.isConnected === false) return;
+        for (const item of data.prompts) {
+          if (draft.prompts[item.filename]) continue;
+          const value = String(item.effective || "");
+          const prompt = { ...item, value, initialValue: value, reset: false };
+          draft.prompts[item.filename] = prompt;
+          this.initialDraft.prompts[item.filename] = clone(prompt);
+          this.promptEditBaselines[item.filename] = { value, reset: false };
+        }
+        this.state.prompts = data.prompts;
+        this.state.prompts_complete = true;
+        this.advancedLoaded = true;
+      } catch (error) {
+        if (this.draft === draft && this.projectName === projectName) this.error = error.message || String(error);
+        return;
+      } finally {
+        if (this.draft === draft) this.advancedLoading = false;
+      }
+    }
     this.mode = mode === "advanced" ? "advanced" : "easy";
     if (section) this.setSection(section, preview);
     else if (preview && this.mode === "advanced" && this.section === "6") this.previewPlan();
@@ -1161,6 +1200,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: this.draft.profileId || "new-agent",
+        mode: "easy",
         ...this.scopeInput(),
       });
       this.state.model_presets = data.state.model_presets;
@@ -1403,7 +1443,7 @@ const model = {
       this.plan = data;
       this.planStatus = "ready";
       this.pendingMutation = { destructive };
-      this.setMode("advanced", "6", false);
+      await this.setMode("advanced", "6", false);
     } catch (error) {
       this.error = error.message || String(error);
     } finally {
