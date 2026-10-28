@@ -34,6 +34,22 @@ def test_recovers_reported_dsml_parallel_call_with_headline():
     })
 
 
+@pytest.mark.parametrize("headline", [None, "Read file"])
+def test_recovers_reported_dsml_with_repeated_tool_name(headline):
+    text = Path(__file__).with_name("fixtures").joinpath("dsml_text_editor_tool_name.txt").read_text()
+    expected = {
+        "tool_name": "text_editor",
+        "tool_args": {"action": "read", "path": "/a0/usr/projects/test/about-v3.md"},
+    }
+    if headline is not None:
+        text = text.replace('</｜DSML｜ invoke>',
+            f'<｜DSML｜ parameter name="headline" string="true">{headline}</｜DSML｜ parameter></｜DSML｜ invoke>')
+        expected["headline"] = headline
+
+    assert extract_tool_request(text) is None
+    assert extract_leaked_tool_request(text) == ("call", expected)
+
+
 @pytest.mark.parametrize("wrap", [
     lambda body: f'<｜DSML｜ calls><｜DSML｜ invoke name="x">{body}</｜DSML｜ invoke></｜DSML｜ calls>',
     lambda body: f'<｜DSML｜function_calls><｜DSML｜invoke name="x">{body}</｜DSML｜invoke></｜DSML｜function_calls>',
@@ -43,9 +59,10 @@ def test_dsml_parameters_preserve_string_flags_and_json_types(wrap):
         '<｜DSML｜ parameter name="text" string="true">  true\n & <tag>  </｜DSML｜ parameter>'
         '<｜DSML｜ parameter name="data" string="false"> {"nested": [true, null, 2]} </｜DSML｜ parameter>'
         '<｜DSML｜ parameter name="headline" string="true">An ordinary tool argument</｜DSML｜ parameter>'
+        '<｜DSML｜ parameter name="tool_name" string="true">Another tool argument</｜DSML｜ parameter>'
     )
     assert extract_leaked_tool_request(wrap(body)) == (
-        "call", {"tool_name": "x", "tool_args": {"text": "  true\n & <tag>  ", "data": {"nested": [True, None, 2]}, "headline": "An ordinary tool argument"}}
+        "call", {"tool_name": "x", "tool_args": {"text": "  true\n & <tag>  ", "data": {"nested": [True, None, 2]}, "headline": "An ordinary tool argument", "tool_name": "Another tool argument"}}
     )
 
 
@@ -67,6 +84,13 @@ def test_dsml_parameters_preserve_string_flags_and_json_types(wrap):
     '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
     '<｜DSML｜ parameter name="headline" string="true">One</｜DSML｜ parameter>'
     '<｜DSML｜ parameter name="headline" string="true">Two</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">different_tool</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="false">{}</｜DSML｜ parameter>',
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">x</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">x</｜DSML｜ parameter>',
     'unparsed text',
 ])
 def test_dsml_rejects_ambiguous_or_invalid_parameters(body):

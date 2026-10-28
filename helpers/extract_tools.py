@@ -417,9 +417,10 @@ def _leaked_dsml_call(text: str) -> dict[str, Any]:
         position = parameter.end()
     if "tool_args" in args:
         if (
-            args.keys() - {"tool_args", "headline"}
+            args.keys() - {"tool_args", "headline", "tool_name"}
             or not isinstance(args["tool_args"], dict)
             or ("headline" in args and not isinstance(args["headline"], str))
+            or args.get("tool_name", call.group(2)) != call.group(2)
         ):
             raise ValueError("ambiguous_dsml_arguments")
         return {"tool_name": call.group(2), **args}

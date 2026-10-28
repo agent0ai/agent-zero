@@ -279,12 +279,18 @@ def test_context_doctor_repairs_missing_a0_delimiters_without_retry(mode, missin
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
 @pytest.mark.parametrize("doctor", [False, True])
 @pytest.mark.parametrize("update_log", [False, True])
+@pytest.mark.parametrize("fixture, tool_name, headline", [
+    ("dsml_parallel_headline.txt", "parallel", "Reading the project file and searching for a relevant implementation"),
+    ("dsml_text_editor_tool_name.txt", "text_editor", None),
+])
 @pytest.mark.asyncio
-async def test_reported_dsml_parallel_headline_preserves_log_and_nested_calls(monkeypatch, mode, doctor, update_log):
-    text = Path(__file__).with_name("fixtures").joinpath("dsml_parallel_headline.txt").read_text()
+async def test_reported_dsml_calls_preserve_log_and_arguments(monkeypatch, mode, doctor, update_log, fixture, tool_name, headline):
+    text = Path(__file__).with_name("fixtures").joinpath(fixture).read_text()
     args = json.loads(text.split('string="false">', 1)[1].split('</｜DSML｜ parameter>', 1)[0])
-    headline = "Reading the project file and searching for a relevant implementation"
-    monkeypatch.setattr(recovery, "build_responses_function_tools", lambda agent: ([], {"parallel": "parallel"}))
+    expected = {"tool_name": tool_name, "tool_args": args}
+    if headline is not None:
+        expected["headline"] = headline
+    monkeypatch.setattr(recovery, "build_responses_function_tools", lambda agent: ([], {tool_name: tool_name}))
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
         lambda *args, **kwargs: {"update_log": update_log},
@@ -296,7 +302,7 @@ async def test_reported_dsml_parallel_headline_preserves_log_and_nested_calls(mo
     )
     agent = object.__new__(Agent)
     agent.agent_name = "A0"
-    agent.data = {"responses_tool_name_map": {"parallel": "parallel"}}
+    agent.data = {"responses_tool_name_map": {tool_name: tool_name}}
     agent.loop_data = LoopData()
     agent.context = SimpleNamespace(log=Log())
     generating = agent.context.log.log(type="agent", content=text)
@@ -310,14 +316,15 @@ async def test_reported_dsml_parallel_headline_preserves_log_and_nested_calls(mo
     result = LLMResult(response=text, mode=mode)
 
     assert not run_hooks(agent, result, doctor).get("skip_default_processing")
-    assert json.loads(result.response) == {"tool_name": "parallel", "tool_args": args, "headline": headline}
+    assert json.loads(result.response) == expected
     assert generating.content == (result.response if doctor and update_log else text)
     if doctor:
-        assert generating.heading == f"A0: {headline}"
-        assert generating.kvps["headline"] == headline
+        heading = headline or f"Using {tool_name}"
+        assert generating.heading == f"A0: {heading}"
+        assert generating.kvps.get("headline") == headline
     await Agent.process_llm_result_tools(agent, result)
     agent.get_tool.assert_called_once()
-    assert agent.get_tool.call_args.kwargs["name"] == "parallel"
+    assert agent.get_tool.call_args.kwargs["name"] == tool_name
     tool.execute.assert_awaited_once_with(**args)
 
 
@@ -439,6 +446,10 @@ async def test_message_loop_repairs_then_displays_response(
     "<function=response><parameter=text>two</parameter></function>",
     '{"tool_name":"response","tool_args":{"text":"one"}} '
     '{"tool_name":"response","tool_args":{"text":"two"}}',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="response">'
+    '<｜DSML｜ parameter name="tool_args" string="false">{"text":"done"}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">x</｜DSML｜ parameter>'
+    '</｜DSML｜ invoke></｜DSML｜ calls>',
 ])
 def test_failed_conversion_leaves_output_for_normal_processing(mode, text):
     agent = FakeAgent()
@@ -584,6 +595,10 @@ def test_surface_discovery_failure_falls_through_without_disclosing_exception(mo
 @pytest.mark.parametrize("text", [
     "<function=x></function>",
     '<｜DSML｜ calls><｜DSML｜ invoke name="x"></｜DSML｜ invoke></｜DSML｜ calls>',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="x">'
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">x</｜DSML｜ parameter>'
+    '</｜DSML｜ invoke></｜DSML｜ calls>',
 ])
 @pytest.mark.asyncio
 async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch, mode, text):
