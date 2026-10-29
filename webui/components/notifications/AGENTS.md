@@ -15,6 +15,8 @@
 
 - Use the notification system for user-facing success, warning, info, and error feedback.
 - Keep public helper names stable for core and plugin callers.
+- `notification_received` JS extensions receive `{ notification, source }` for backend arrivals/updates and frontend-only toasts before dismissal. `notification` is a shallow copy, `source` is `backend` or `frontend`, and dispatch does not delay rendering; consumers must deduplicate replayed snapshots and handle their own persistence failures.
+- `notification-header-actions-start` hosts plugin actions before Clear All, including when the notification list is empty.
 - Keep the toast stack visible above normal and legacy modal overlays while staying below confirmation dialogs.
 - Toasts keep the shared copy icon with a visible `Copy` label below the scrolling content, aligned with the text; Dismiss stays at the top right. Copy the full rendered title and message as plain text without opening the modal or dismissing the toast; pause dismissal while hovered or keyboard-focused.
 - Reload actions must persist their notification as read before refreshing the page.

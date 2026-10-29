@@ -29,6 +29,7 @@ from helpers.extension import get_webui_extension_manifest
 
 
 SURFACE_SCENARIOS: list[tuple[str, str]] = [
+    ("notification-header-actions-start", "webui/components/notifications/notification-modal.html"),
     ("sidebar-start", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-end", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-top-wrapper-start", "webui/components/sidebar/top-section/sidebar-top.html"),
