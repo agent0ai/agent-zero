@@ -8,10 +8,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-def test_state_monitor_defaults_to_ten_pushes_per_second() -> None:
+def test_state_monitor_batching_stays_below_response_stream_cadence() -> None:
     from helpers.state_monitor import StateMonitor
 
-    assert StateMonitor().debounce_seconds == 0.1
+    assert StateMonitor().debounce_seconds == 0.025
 
 
 @pytest.mark.asyncio

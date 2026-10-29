@@ -20,6 +20,59 @@ PROCESS_GROUP_DOM_JS = (
 MESSAGE_COLLAPSE_JS = PROJECT_ROOT / "webui" / "js" / "message-collapse.js"
 
 
+def test_response_updates_leave_scrolling_to_the_chat_viewport():
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required to execute the message-render regression.")
+
+    source = (PROJECT_ROOT / "webui" / "js" / "messages.js").read_text()
+    draw_message = source[
+        source.index("export function _drawMessage("):
+        source.index("\nfunction renderStandaloneMessageContent(")
+    ].replace("export function", "function", 1)
+    script = f"""
+import assert from "node:assert/strict";
+let measurements = 0, scrolls = 0, renders = 0;
+class Scroller {{
+  constructor(body) {{ measurements++; void body.scrollHeight; }}
+  reApplyScroll() {{ scrolls++; }}
+}}
+const renderStandaloneMessageContent = () => renders++;
+const isMassRender = () => false;
+const _windowedRender = false;
+{draw_message}
+
+function update(mainClass, expanded) {{
+  const body = {{ dataset: {{}}, scrollTop: 8,
+    get scrollHeight() {{
+      assert.notEqual(mainClass, "message-agent-response",
+        "response updates must not force layout for an inner scroll viewport");
+      return 100;
+    }},
+  }};
+  const message = {{
+    classList: {{ contains: name => name === "expanded" && expanded, remove() {{}} }},
+    querySelector: selector => selector === ".message-body" ? body : null,
+  }};
+  _drawMessage({{
+    messageContainer: {{ querySelector: () => message }},
+    mainClass, content: "streaming content", markdown: true,
+  }});
+  return body;
+}}
+
+update("message-agent-response", true);
+update("message-agent-response", false);
+assert.equal(measurements, 0);
+assert.equal(scrolls, 0);
+update("message-default", true);
+assert.equal(scrolls, 1, "other standalone messages must retain auto-scroll");
+assert.equal(update("message-default", false).scrollTop, 0);
+assert.equal(measurements, 2);
+assert.equal(renders, 4, "scroll changes must not skip content rendering");
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
+
+
 def test_text_editor_and_code_execution_keep_memory_search_in_the_process_group():
     if not shutil.which("node"):
         pytest.skip("Node.js is required to execute the message-window regression.")

@@ -42,7 +42,7 @@ class ConnectionProjection:
 class StateMonitor:
     """Per-sid dirty tracking with debounced snapshot push scheduling."""
 
-    def __init__(self, debounce_seconds: float = 0.1) -> None:
+    def __init__(self, debounce_seconds: float = 0.025) -> None:
         self.debounce_seconds = float(debounce_seconds)
         self._lock = threading.RLock()
         self._projections: dict[ConnectionIdentity, ConnectionProjection] = {}
@@ -223,7 +223,7 @@ class StateMonitor:
 
             # Throttled coalescing: schedule at most one push per debounce window.
             # Do not postpone the scheduled push on subsequent dirties; this keeps
-            # streaming updates smooth while still capping to <= 1 push / 100ms / sid.
+            # streaming updates live while bounding each connection's push rate.
             existing = self._debounce_handles.get(identity)
             if existing is not None and not existing.cancelled():
                 return

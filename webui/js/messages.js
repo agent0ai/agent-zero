@@ -1735,7 +1735,10 @@ export function _drawMessage({
 
   // reapply scroll position or autoscroll
   bodyDiv.dataset.scrollStabilization = "1";
-  const scroller = new Scroller(bodyDiv, { smooth: !isMassRender() });
+  // Responses grow in the chat viewport; their body has no independent scroll area.
+  const scroller = mainClass === "message-agent-response"
+    ? null
+    : new Scroller(bodyDiv, { smooth: !isMassRender() });
 
   const contentText = String(content ?? "");
   const lazyContent =
@@ -1777,9 +1780,11 @@ export function _drawMessage({
   }
 
   // reapply scroll position or reset for collapsed
-  messageDiv.classList.contains("expanded")
-    ? scroller.reApplyScroll()
-    : (bodyDiv.scrollTop = 0);
+  if (scroller) {
+    messageDiv.classList.contains("expanded")
+      ? scroller.reApplyScroll()
+      : (bodyDiv.scrollTop = 0);
+  }
 
   return messageDiv;
 }
