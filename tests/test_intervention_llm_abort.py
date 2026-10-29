@@ -5,6 +5,7 @@ from agent import AgentContext, UserMessage
 
 def test_nudge_stops_running_context_and_starts_nudge_message():
     context = AgentContext.__new__(AgentContext)
+    context.id = "nudge-context"
     calls = []
 
     class _Task:
