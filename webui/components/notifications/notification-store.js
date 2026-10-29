@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import * as API from "/js/api.js";
 import { openModal } from "/js/modals.js";
 import { formatDateTime, getCurrentUserISOString } from "/js/time-utils.js";
+import { createActionButton, copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
 
 export const NotificationType = {
   INFO: "info",
@@ -204,6 +205,12 @@ const model = {
       // execute after toast removed callback
       this.afterToastRemoved(toast, removedByUser);
     }
+  },
+
+  createToastCopyButton(content) {
+    const button = createActionButton("copy", "", () => copyToClipboard(content.innerText));
+    button.append("Copy");
+    return button;
   },
 
   // called by UI

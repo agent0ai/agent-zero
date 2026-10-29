@@ -16,6 +16,7 @@
 - Use the notification system for user-facing success, warning, info, and error feedback.
 - Keep public helper names stable for core and plugin callers.
 - Keep the toast stack visible above normal and legacy modal overlays while staying below confirmation dialogs.
+- Toasts keep the shared copy icon with a visible `Copy` label below the scrolling content, aligned with the text; Dismiss stays at the top right. Copy the full rendered title and message as plain text without opening the modal or dismissing the toast; pause dismissal while hovered or keyboard-focused.
 - Reload actions must persist their notification as read before refreshing the page.
 - Avoid exposing secrets or raw auth payloads in notification text.
 
@@ -25,7 +26,7 @@
 
 ## Verification
 
-- Smoke-test toast display, dismiss, modal details, and notification severity styling.
+- Smoke-test toast display, dismiss, modal details, and notification severity styling; check copy feedback and full text from long, scrolled toasts at desktop and mobile widths.
 
 ## Child DOX Index
 

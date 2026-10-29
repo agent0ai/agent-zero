@@ -13,11 +13,13 @@
                  x-show="$store.notificationStore.toastStack.length > 0">
 
             <template x-for="(toast, index) in $store.notificationStore.toastStack" :key="toast.toastId">
-                <div class="toast-item"
+                <div class="toast-item" x-data
                      :class="$store.notificationStore.getNotificationClass(toast.type)"
                      @click="$store.notificationStore.handleToastClick(toast.toastId, $event)"
                      @mouseenter="$store.notificationStore.clearToastTimer(toast.toastId)"
-                     @mouseleave="$store.notificationStore.restartToastTimer(toast.toastId)"
+                     @mouseleave="if (!$el.matches(':focus-within')) $store.notificationStore.restartToastTimer(toast.toastId)"
+                     @focusin="$store.notificationStore.clearToastTimer(toast.toastId)"
+                     @focusout="if (!$el.matches(':hover') && !$el.contains($event.relatedTarget)) $store.notificationStore.restartToastTimer(toast.toastId)"
                      x-transition:enter="toast-enter"
                      x-transition:leave="toast-leave">
 
@@ -27,23 +29,26 @@
                     </div>
 
                     <!-- Toast Content -->
-                    <div class="toast-content">
-                        <div class="toast-title"
-                             x-show="toast.title"
-                             x-text="toast.title">
+                    <div class="toast-body">
+                        <div class="toast-content" x-ref="content">
+                            <div class="toast-title"
+                                 x-show="toast.title"
+                                 x-text="toast.title">
+                            </div>
+                            <div class="toast-message"
+                                 x-html="toast.message">
+                            </div>
                         </div>
-                        <div class="toast-message"
-                             x-html="toast.message">
+
+                        <div class="toast-actions"
+                             x-create="$el.append($store.notificationStore.createToastCopyButton($refs.content))">
                         </div>
-                        <!-- <div class="toast-timestamp"
-                             x-text="$store.notificationStore.formatTimestamp(toast.timestamp)">
-                        </div> -->
                     </div>
 
                     <!-- Toast Dismiss -->
-                    <button class="toast-dismiss"
+                    <button class="toast-dismiss" type="button"
                             @click.stop="$store.notificationStore.dismissToast(toast.toastId)"
-                            title="Dismiss">
+                            title="Dismiss" aria-label="Dismiss">
                         <x-icon name="close"></x-icon>
                     </button>
                 </div>
@@ -72,7 +77,7 @@
         .toast-item {
             pointer-events: auto;
             display: flex;
-            align-items: flex-start;
+            align-items: stretch;
             gap: 12px;
             padding: 16px;
             background: var(--color-panel);
@@ -86,7 +91,8 @@
             position: relative;
             min-height: 60px;
             max-height: 15em;
-            overflow-y: auto;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .toast-item:hover {
@@ -130,9 +136,21 @@
         }
 
         /* Toast Content */
+        .toast-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            gap: var(--spacing-xs);
+        }
+
         .toast-content {
             flex: 1;
             min-width: 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-wrap: anywhere;
         }
 
         .toast-title {
@@ -160,8 +178,18 @@
             opacity: 0.6;
         }
 
-        /* Toast Dismiss */
+        /* Toast Actions */
+        .toast-actions {
+            align-self: flex-start;
+            flex-shrink: 0;
+        }
+
         .toast-dismiss {
+            align-self: flex-start;
+        }
+
+        .toast-dismiss,
+        .toast-actions .action-button {
             background: transparent; /* No background by default */
             border: none;
             border-radius: 4px;
@@ -173,7 +201,13 @@
             opacity: 1; /* Always visible */
         }
 
-        .toast-dismiss:hover {
+        .toast-actions .action-button {
+            gap: var(--spacing-xs);
+            padding: 4px 0;
+        }
+
+        .toast-dismiss:hover,
+        .toast-actions .action-button:hover {
             background: var(--color-panel);
             color: var(--color-primary);
         }
