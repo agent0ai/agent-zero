@@ -65,6 +65,13 @@ def _clear_runtime_caches():
     modules.purge_namespace("usr.plugins")
 
 
+@pytest.fixture(autouse=True)
+def _reset_runtime_caches():
+    _clear_runtime_caches()
+    yield
+    _clear_runtime_caches()
+
+
 def _prepare_a0_tree(monkeypatch, tmp_path: Path):
     from helpers import files, plugins
 

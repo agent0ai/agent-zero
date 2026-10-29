@@ -7,6 +7,22 @@ import types
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _restore_reimported_modules():
+    before = dict(sys.modules)
+    yield
+    for name, module in list(sys.modules.items()):
+        if not name.startswith(("plugins.", "tools.", "extensions.")) or before.get(name) is module:
+            continue
+        original = before.get(name)
+        if original is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = original
+
 
 @dataclass
 class _FakeResponse:
@@ -1409,3 +1425,14 @@ def test_computer_use_remote_capture_artifact_is_chat_scoped(monkeypatch, tmp_pa
     stored_path = tmp_path / display_ref.removeprefix("/a0/")
     assert stored_path.read_bytes() == b"fake"
     assert capture_id == stored_path.stem
+
+
+def test_extension_modules_do_not_keep_stubbed_helpers():
+    stubbed = []
+    for name, module in sys.modules.items():
+        if not name.startswith("extensions.python.message_loop_prompts_after"):
+            continue
+        helper = getattr(module, "skills_helper", None)
+        if helper is not None and getattr(helper, "__file__", None) is None:
+            stubbed.append(name)
+    assert stubbed == []
