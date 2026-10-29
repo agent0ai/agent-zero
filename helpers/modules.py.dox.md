@@ -15,13 +15,15 @@
 - `load_classes_from_folder(folder: str, name_pattern: str, base_class: Type[T], one_per_file: bool=...) -> list[Type[T]]`
 - `load_classes_from_file(file: str, base_class: type[T], one_per_file: bool=...) -> list[type[T]]`
 - `purge_namespace(namespace: str)`
-- Notable constants/configuration names: `T`.
+- Private helpers: `_framework_import_path()`, `_pin_framework_namespaces()`, `_is_framework_package(module, name)`, `_is_framework_namespace_name(name)`, `_snapshot_framework_modules()`, `_restore_framework_modules(snapshot)`.
+- Notable constants/configuration names: `T`, `FRAMEWORK_ROOT`, `FRAMEWORK_NAMESPACES`.
 
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
-- Observed side-effect areas: filesystem reads, filesystem deletion.
+- Dynamic imports run with the framework root first in `sys.path` and pin framework namespace packages (`api`, `helpers`, `plugins`, `tools`, `extensions`) so a plugin directory earlier in `sys.path` cannot shadow core packages. During the import, a cached same-named regular package outside the framework is replaced and its submodules are purged. The original `sys.path` and the previous framework namespace `sys.modules` entries (including a plugin's own `api.*` packages) are restored even when the import fails.
+- Observed side-effect areas: filesystem reads, filesystem deletion, temporary `sys.path` reordering, scoped `sys.modules` namespace pinning with restore.
 - Imported dependency areas include: `fnmatch`, `helpers.files`, `importlib`, `importlib.util`, `inspect`, `os`, `re`, `sys`, `types`, `typing`.
 
 ## Key Concepts
@@ -39,6 +41,7 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_plugin_syspath_isolation.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_docker_release_plan.py`
