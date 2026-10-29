@@ -137,5 +137,38 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
             }""")
             assert page.evaluate("window.notificationEvents.at(-1).source") == "backend"
             assert page.evaluate("store.notifications[0].title") == "Backend error"
+            for notification_id, title, action, notification_type in [
+                ("plugins_frontend_reload", "Plugin update", "Reload page", "info"),
+                ("update_check_available", "Newer version available", "Open updater", "info"),
+                ("oauth-codex-reconnect", "Reconnect Codex", "Open OAuth settings", "warning"),
+                (None, "Agent saved.", "Test in new chat", "success"),
+            ]:
+                page.evaluate("""sample => {
+                  const message = `<div><button @click.stop="window.nestedAction = true">${sample.action}</button></div>`;
+                  window.nestedAction = false;
+                  if (sample.id) {
+                    store.addToToastStack({ ...sample, message, display_time: 0 });
+                  } else {
+                    store.addFrontendToastOnly(sample.type, message, sample.title, 0, 'agent-editor-saved');
+                  }
+                }""", {"id": notification_id, "title": title, "action": action, "type": notification_type})
+                action_toast = page.locator(".toast-item").filter(has_text=title)
+                action_copy = action_toast.get_by_role("button", name="Copy", include_hidden=True)
+                playwright.expect(action_copy).to_be_hidden()
+                action_toast.get_by_role("button", name=action, exact=True).click()
+                assert page.evaluate("window.nestedAction")
+                assert page.evaluate("window.modalOpens") == 0
+                if notification_id == "plugins_frontend_reload":
+                    page.evaluate("""() => {
+                      store.toastStack.find(toast => toast.id === 'plugins_frontend_reload').message = 'Plain update text';
+                    }""")
+                    playwright.expect(action_copy).to_be_visible()
+                    page.evaluate("""() => {
+                      store.toastStack.find(toast => toast.id === 'plugins_frontend_reload').message = '<button>Reload page</button>';
+                    }""")
+                    playwright.expect(action_copy).to_be_hidden()
+                action_toast.get_by_role("button", name="Dismiss").click()
+                playwright.expect(action_toast).to_have_count(0)
+                playwright.expect(page.locator(".toast-item").filter(has_text="Other message").get_by_role("button", name="Copy")).to_be_visible()
         finally:
             browser.close()

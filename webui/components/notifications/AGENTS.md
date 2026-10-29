@@ -19,6 +19,7 @@
 - `notification-header-actions-start` hosts plugin actions before Clear All, including when the notification list is empty.
 - Keep the toast stack visible above normal and legacy modal overlays while staying below confirmation dialogs.
 - Toasts keep the shared copy icon with a visible `Copy` label below the scrolling content, aligned with the text; Dismiss stays at the top right. Copy the full rendered title and message as plain text without opening the modal or dismissing the toast; pause dismissal while hovered or keyboard-focused.
+- Hide the copy row whenever the rendered toast content contains a button; text-only toasts keep Copy. Nested actions and Dismiss remain available, including when message content changes.
 - Reload actions must persist their notification as read before refreshing the page.
 - Avoid exposing secrets or raw auth payloads in notification text.
 
