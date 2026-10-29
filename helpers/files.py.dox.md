@@ -48,6 +48,7 @@
 
 ## Runtime Contracts
 
+- Prompt condition nesting accepts the same whitespace after `if` as top-level conditions, including tabs and newlines. Only `endif` reduces nesting depth; false blocks omit their entire nested content before placeholders and file includes are expanded. Unterminated blocks and evaluation errors remain unchanged.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, plugin state, settings/state persistence, secret handling.
@@ -68,6 +69,7 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_prompt_condition_whitespace.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_default_prompt_budget.py`
