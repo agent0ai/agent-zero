@@ -39,6 +39,13 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
             route.fulfill(content_type="text/html", body=html)
         elif path == "/js/modals.js":
             route.fulfill(content_type="text/javascript", body="export async function openModal() { window.modalOpens++; }")
+        elif path == "/js/extensions.js":
+            route.fulfill(content_type="text/javascript", body="""
+              export async function callJsExtensions(point, data) {
+                (window.notificationEvents ??= []).push({ point, ...structuredClone(data) });
+                data.notification.title = 'Extension-owned copy';
+              }
+            """)
         else:
             asset = WEBUI / path.lstrip("/")
             route.fulfill(path=asset, content_type=mimetypes.guess_type(asset)[0])
@@ -68,6 +75,10 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
             playwright.expect(copy).to_be_visible()
             expected = "Error title\nFailure & details\n" + "Long traceback line\n" * 40 + "x" * 500 + "\nLAST LINE"
             assert content.inner_text() == expected
+            events = page.evaluate("window.notificationEvents")
+            assert [event["source"] for event in events] == ["frontend", "frontend"]
+            assert all(event["point"] == "notification_received" for event in events)
+            assert events[0]["notification"]["title"] == "Error title"
             before = copy.bounding_box()
             text_box = content.bounding_box()
             assert copy.inner_text().endswith("Copy")
@@ -121,5 +132,10 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
             dismiss.click()
             playwright.expect(toast).to_have_count(0)
             playwright.expect(page.locator(".toast-item")).to_have_count(1)
+            page.evaluate("""() => {
+              store.addOrUpdateNotification({ id: 'backend-test', title: 'Backend error', message: 'Details' });
+            }""")
+            assert page.evaluate("window.notificationEvents.at(-1).source") == "backend"
+            assert page.evaluate("store.notifications[0].title") == "Backend error"
         finally:
             browser.close()

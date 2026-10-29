@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as API from "/js/api.js";
 import { openModal } from "/js/modals.js";
+import { callJsExtensions } from "/js/extensions.js";
 import { formatDateTime, getCurrentUserISOString } from "/js/time-utils.js";
 import { createActionButton, copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
 
@@ -298,6 +299,10 @@ const model = {
 
   // Add or update a notification
   addOrUpdateNotification(notification) {
+    void callJsExtensions("notification_received", {
+      notification: { ...notification },
+      source: "backend",
+    });
     const existingIndex = this.notifications.findIndex(
       (n) => n.id === notification.id
     );
@@ -670,6 +675,11 @@ const model = {
 
     //adjust data before using
     this.adjustNotificationData(notification);
+
+    void callJsExtensions("notification_received", {
+      notification: { ...notification },
+      source: "frontend",
+    });
 
     // If notification has a group, remove any existing toasts with the same group
     if (group && String(group).trim() !== "") {
