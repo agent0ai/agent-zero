@@ -7,7 +7,7 @@
         <div class="discovery-slot"
              @modal-closed.window="$store.discoveryStore.refreshCards()"
              x-create="$store.discoveryStore.refreshCards()"
-             x-show="$store.discoveryStore.featureCards.length > 0 || $store.discoveryStore.oauthAccountCards.length > 0 || $store.discoveryStore.hasDismissedCards">
+             x-show="$store.discoveryStore.featureCards.length > 0 || $store.discoveryStore.oauthAccountCards.length > 0">
 
             <section class="discovery-features-panel" x-show="$store.discoveryStore.featureCards.length > 0">
                 <header class="discovery-panel-header">
@@ -101,14 +101,6 @@
                 </article>
             </template>
 
-            <div class="discovery-undismiss" x-show="$store.discoveryStore.hasDismissedCards">
-                <button type="button"
-                        class="discovery-undismiss-btn"
-                        @click="$store.discoveryStore.undismissCards()">
-                    <x-icon name="undo"></x-icon>
-                    <span>Show dismissed suggestions</span>
-                </button>
-            </div>
         </div>
     </template>
 
@@ -468,36 +460,6 @@
 
         .discovery-account-cta .material-symbols-outlined {
             font-size: 1.05rem;
-        }
-
-        .discovery-undismiss {
-            display: flex;
-            justify-content: flex-start;
-        }
-
-        .discovery-undismiss-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.35rem;
-            border: none;
-            background: transparent;
-            padding: 0;
-            color: var(--color-secondary);
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: 500;
-            transition: color 0.2s ease;
-        }
-
-        .discovery-undismiss-btn:hover,
-        .discovery-undismiss-btn:focus-visible {
-            color: var(--color-primary);
-            outline: none;
-        }
-
-        .discovery-undismiss-btn .material-symbols-outlined {
-            font-size: 1rem;
         }
 
         @media (hover: none) {

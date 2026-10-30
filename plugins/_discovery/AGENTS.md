@@ -16,6 +16,7 @@
 - CTA actions must match supported welcome-screen action contracts.
 - Keep card IDs unique and plugin-prefixed.
 - The Welcome screen `welcome-actions-end` surface renders feature channel cards plus the compact OAuth account-provider card; other hero discovery cards stay out of the lower welcome grid.
+- Welcome uses its single upper "Show all dismissed" control for discovery cards too; do not render a second restore button there. `undismissCards()` clears discovery storage and returns its refresh promise. Onboarding retains its own discovery restore control.
 - Do not hide discovery cards solely because model setup is incomplete; model setup gating belongs to the chat thread.
 
 ## Work Guidance

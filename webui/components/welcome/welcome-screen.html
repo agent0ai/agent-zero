@@ -14,18 +14,29 @@
                 <x-extension id="welcome-screen-start"></x-extension>
 
                 <main class="welcome-shell">
-                    <header class="welcome-hero">
-                        <h1>Hello! I'm Agent Zero <span aria-hidden="true">&#128075;</span></h1>
-                        <p x-text="$store.welcomeStore.heroSubtitle"></p>
-                    </header>
+                    <section class="welcome-intro" x-show="!$store.welcomeStore.hiddenSections.includes('intro')">
+                        <header class="welcome-hero">
+                            <div class="welcome-section-header">
+                                <h1>Hello! I'm Agent Zero <span aria-hidden="true">&#128075;</span></h1>
+                                <button class="welcome-panel-icon-button welcome-intro-dismiss"
+                                        type="button"
+                                        @click="$store.welcomeStore.dismissSection('intro')"
+                                        title="Hide greeting and composer"
+                                        aria-label="Hide greeting and composer">
+                                    <x-icon name="close"></x-icon>
+                                </button>
+                            </div>
+                            <p x-text="$store.welcomeStore.heroSubtitle"></p>
+                        </header>
 
-                    <section class="welcome-composer" aria-label="Start a new chat">
-                        <x-component path="chat/attachments/inputPreview.html"></x-component>
-                        <x-component path="chat/input/chat-bar-input.html"></x-component>
+                        <section class="welcome-composer" aria-label="Start a new chat">
+                            <x-component path="chat/attachments/inputPreview.html"></x-component>
+                            <x-component path="chat/input/chat-bar-input.html"></x-component>
+                        </section>
                     </section>
 
                     <section class="welcome-alerts"
-                             x-show="$store.welcomeStore.sortedBanners.length > 0 || $store.welcomeStore.hasDismissedBanners">
+                             x-show="$store.welcomeStore.sortedBanners.length > 0 || $store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards">
                         <div class="welcome-banners" x-show="$store.welcomeStore.sortedBanners.length > 0">
                             <x-extension id="welcome-banners-start"></x-extension>
                             <template x-for="banner in $store.welcomeStore.sortedBanners" :key="banner.id">
@@ -62,16 +73,25 @@
 
                         <button type="button"
                                 class="welcome-undismiss-button"
-                                x-show="$store.welcomeStore.hasDismissedBanners"
-                                :disabled="$store.welcomeStore.bannersLoading"
-                                @click="$store.welcomeStore.undismissBanners()">
+                                x-show="$store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards"
+                                :disabled="$store.welcomeStore.bannersLoading && !$store.welcomeStore.hiddenSections.length"
+                                @click="$store.welcomeStore.undismissAll()">
                             <x-icon name="undo"></x-icon>
-                            <span>Show dismissed notices</span>
+                            <span>Show all dismissed</span>
                         </button>
                     </section>
 
-                    <section class="welcome-quick-section">
-                        <h2>Quick Actions</h2>
+                    <section class="welcome-quick-section" x-show="!$store.welcomeStore.hiddenSections.includes('quick-actions')">
+                        <header class="welcome-section-header">
+                            <h2>Quick Actions</h2>
+                            <button class="welcome-panel-icon-button welcome-quick-dismiss"
+                                    type="button"
+                                    @click="$store.welcomeStore.dismissSection('quick-actions')"
+                                    title="Hide Quick Actions"
+                                    aria-label="Hide Quick Actions">
+                                <x-icon name="close"></x-icon>
+                            </button>
+                        </header>
                         <div class="welcome-actions">
                             <x-extension id="welcome-actions-start"></x-extension>
                             <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
@@ -200,6 +220,19 @@
             width: min(100%, 1220px);
             margin: 0 auto;
             padding-top: 4rem;
+        }
+
+        .welcome-intro {
+            display: flex;
+            flex-direction: column;
+            gap: inherit;
+        }
+
+        .welcome-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
         }
 
         .welcome-hero h1 {
@@ -406,7 +439,8 @@
         }
 
         .welcome-banner-dismiss:hover,
-        .welcome-undismiss-button:hover {
+        .welcome-undismiss-button:hover,
+        .welcome-undismiss-button:focus-visible {
             color: var(--color-text);
             background: color-mix(in srgb, var(--color-border) 45%, transparent);
         }
@@ -414,7 +448,7 @@
         .welcome-undismiss-button {
             justify-self: start;
             border-radius: 9px;
-            padding: 0.45rem 0.55rem;
+            padding: 0.45rem 0;
             font-size: 0.82rem;
         }
 
@@ -528,10 +562,6 @@
             grid-area: accounts;
         }
 
-        .welcome-lower-grid .discovery-undismiss {
-            grid-column: 1 / -1;
-        }
-
         .welcome-system-card {
             grid-area: system;
             min-width: 0;
@@ -559,20 +589,23 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 2rem;
-            height: 2rem;
+            flex: 0 0 auto;
+            width: 28px;
+            height: 28px;
             border: 0;
             border-radius: 8px;
             background: transparent;
-            color: color-mix(in srgb, var(--color-text) 64%, transparent);
+            color: var(--color-secondary);
+            opacity: 0.68;
             cursor: pointer;
             font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
         }
 
         .welcome-panel-icon-button:hover,
         .welcome-panel-icon-button:focus-visible {
+            opacity: 1;
             color: var(--color-text);
-            background: color-mix(in srgb, var(--color-border) 45%, transparent);
+            background: color-mix(in srgb, var(--color-border) 84%, transparent);
             outline: none;
         }
 
@@ -582,7 +615,19 @@
         }
 
         .welcome-panel-icon-button .material-symbols-outlined {
-            font-size: 1.18rem;
+            font-size: 1rem;
+        }
+
+        .light-mode .welcome-panel-icon-button,
+        .light-mode .welcome-shell .discovery-dismiss {
+            color: var(--color-text);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .welcome-intro:not(:hover):not(:focus-within) .welcome-intro-dismiss,
+            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-quick-dismiss {
+                opacity: 0;
+            }
         }
 
         .system-resource-body {
@@ -682,6 +727,11 @@
             .welcome-shell {
                 gap: 1.2rem;
                 padding-top: 4rem;
+            }
+
+            .welcome-intro-dismiss {
+                align-self: flex-start;
+                margin-top: 0.2rem;
             }
 
             .welcome-actions {

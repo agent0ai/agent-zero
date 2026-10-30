@@ -85,7 +85,7 @@ const model = {
 
   undismissCards() {
     localStorage.removeItem(STORAGE_KEY);
-    this.refreshCards();
+    return this.refreshCards();
   },
 
   async executeCta(action) {

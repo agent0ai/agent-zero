@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+import { createStore, getStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
@@ -11,6 +11,7 @@ const model = {
   bannersLoading: false,
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
+  hiddenSections: [],
   _initialized: false,
 
   get isVisible() {
@@ -20,6 +21,9 @@ const model = {
   init() {
     if (this._initialized) return;
     this._initialized = true;
+    this.hiddenSections = ["intro", "quick-actions"].filter(
+      (id) => localStorage.getItem(`welcome_hidden_${id}`) === "true",
+    );
 
     // Reload banners when a modal closes while the welcome screen is visible.
     document.addEventListener("modal-closed", () => {
@@ -223,11 +227,25 @@ const model = {
     this.hasDismissedBanners = this.getDismissedBannerIds().size > 0;
   },
 
-  undismissBanners() {
+  dismissSection(sectionId) {
+    localStorage.setItem(`welcome_hidden_${sectionId}`, "true");
+    if (!this.hiddenSections.includes(sectionId)) {
+      this.hiddenSections.push(sectionId);
+    }
+  },
+
+  undismissAll() {
+    for (const id of this.hiddenSections) {
+      localStorage.removeItem(`welcome_hidden_${id}`);
+    }
+    this.hiddenSections = [];
     localStorage.removeItem("dismissed_banners");
     sessionStorage.removeItem("dismissed_banners");
     this.hasDismissedBanners = false;
-    this.refreshBanners(true);
+    return Promise.all([
+      this.refreshBanners(true),
+      getStore("discoveryStore")?.undismissCards(),
+    ]);
   },
 
   getBannerClass(type) {
