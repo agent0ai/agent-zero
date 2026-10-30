@@ -181,14 +181,19 @@
 
                 <x-extension id="welcome-screen-end"></x-extension>
 
-                <div class="welcome-restore"
-                     x-show="$store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards">
+                <div class="welcome-restore">
                     <button type="button"
                             class="welcome-undismiss-button"
+                            x-show="$store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards"
                             :disabled="$store.welcomeStore.bannersLoading && !$store.welcomeStore.hiddenSections.length"
                             @click="$store.welcomeStore.undismissAll()">
                         <x-icon name="undo"></x-icon>
                         <span>Show all dismissed</span>
+                    </button>
+                    <button type="button" class="welcome-panel-icon-button"
+                            aria-label="Browse welcome plugins" title="Browse welcome plugins"
+                            @click="$store.welcomeStore.openWelcomePlugins()">
+                        <x-icon name="extension"></x-icon>
                     </button>
                 </div>
             </div>
@@ -199,7 +204,7 @@
         .welcome-container {
             position: relative;
             min-height: 100vh;
-            overflow: hidden;
+            overflow: clip;
             padding: clamp(4.8rem, 8vh, 6.4rem) clamp(1.25rem, 5.4vw, 6.5rem) 3.5rem;
             color: var(--color-text);
             font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
@@ -247,6 +252,9 @@
         }
 
         .welcome-restore {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
             margin-top: 1.55rem;
         }
 

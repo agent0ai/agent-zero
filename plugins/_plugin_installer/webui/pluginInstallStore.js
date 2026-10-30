@@ -45,6 +45,7 @@ const model = {
   page: 1,
   sortBy: "stars",
   browseFilter: "all",
+  initialBrowseFilter: "all",
   selectedPlugin: null,
 
   // Shared state
@@ -139,7 +140,7 @@ const model = {
     if (filterKey === "popular") return this._isPopularPlugin(plugin);
     if (filterKey === "new") return this._isNewPlugin(plugin);
     if (filterKey.startsWith("tag:")) {
-      return this._pluginPrimaryTag(plugin) === filterKey.slice(4);
+      return Array.isArray(plugin?.tags) && plugin.tags.includes(filterKey.slice(4));
     }
     return false;
   },
@@ -375,6 +376,8 @@ const model = {
 
   async openIndexView() {
     this.resetIndex();
+    this.setBrowseFilter(this.initialBrowseFilter);
+    this.initialBrowseFilter = "all";
     return this.fetchIndex({ force: true });
   },
 
@@ -442,12 +445,14 @@ const model = {
 
     const tagCounts = new Map();
     for (const plugin of plugins) {
-      const tag = this._pluginPrimaryTag(plugin);
-      if (!tag) continue;
-      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      for (const tag of new Set(Array.isArray(plugin.tags) ? plugin.tags.filter(Boolean) : [])) {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      }
     }
 
+    filters.push({ key: "tag:welcome", label: "Welcome", count: tagCounts.get("welcome") || 0 });
     for (const [tag, count] of Array.from(tagCounts.entries())
+      .filter(([tag]) => tag !== "welcome")
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 4)) {
       filters.push({

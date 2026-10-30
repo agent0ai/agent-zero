@@ -21,8 +21,10 @@
 - The welcome screen mounts the shared chat composer to start a new chat; keep it mutually exclusive with the normal chat input DOM.
 - Greeting/composer and Quick Actions can be hidden independently; `welcome_hidden_intro` and `welcome_hidden_quick-actions` persist these choices in localStorage. Hide with `x-show` so the mounted composer draft survives dismissal.
 - The single "Show all dismissed" control appears below all blocks and extension content for hidden sections, notices, or discovery cards. `undismissAll()` restores all three through their owning stores, tolerating discovery not being mounted. Keep the control flush with the sections' left edge.
+- The adjacent puzzle button always remains visible and opens Plugin Hub Browse with the `welcome` tag selected and any old search cleared.
 - Place section close controls beside their headings without extra cards. Greeting and Quick Actions close controls appear when their section is hovered or contains keyboard focus, and remain visible on touch devices. Match section and System Resources controls to discovery cards' muted close-button style; use the text color for these controls in light mode to retain contrast.
 - Keep the welcome container background transparent so the persistent right-panel background transition remains visible when entering and leaving Welcome.
+- Clip the decorative background with `overflow: clip`; do not create a nested hidden scroll container that can move when a block's handle receives focus.
 - Reserve the welcome composer's final minimum height before its nested input components hydrate.
 - On mobile, keep composer actions on one row and reduce only the placeholder font; editable text stays at least 16px. Quick-action buttons use a flex layout with native appearance disabled for stable initial and touch sizing.
 - Render `system-resources` as the dedicated System Resources panel, not as a generic alert banner.
