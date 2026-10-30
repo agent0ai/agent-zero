@@ -22,6 +22,7 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## User Guides
 
+- **[Migrate Agents](guides/migrate-agents.md):** Preview and import retained work from other agents, with a real Pi chat walkthrough and branch/file limits.
 - **[Usage Guide](guides/usage.md):** Practical tour of Agent Zero's main workflows.
 - **[Agent Zero Launcher](guides/launcher.md):** Fresh-machine setup, Installs, Instances, and workspace folder or Docker volume choices.
 - **[Use Local Folders With Agent Zero](guides/local-folders.md):** Bind mounts, persistent user data, separate work folders, Docker CLI/Desktop/Compose examples, and Launcher storage links.
@@ -95,6 +96,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [A0 CLI Connector](guides/a0-cli-connector.md)
 
 - [User Guides](#user-guides)
+  - [Migrate Agents](guides/migrate-agents.md)
   - [Usage Guide](guides/usage.md)
     - [Basic Operations](guides/usage.md#basic-operations)
       - [Customize Welcome](guides/usage.md#customize-welcome)

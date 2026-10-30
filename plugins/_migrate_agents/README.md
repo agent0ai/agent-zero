@@ -3,8 +3,9 @@
 ![Migrate Agents plugin thumbnail](webui/thumbnail.webp)
 
 Migrate Agents is a bundled Agent Zero plugin for bringing retained work
-home from the five most-used open agent harnesses:
+home from these agent harnesses:
 
+- Pi
 - OpenClaw
 - Hermes Agent
 - OpenCode
@@ -19,10 +20,13 @@ Credentials, authentication files, and hidden reasoning are excluded.
 
 Enable **Migrate Agents** in Plugins, then use its **Open** button.
 
+For the screenshot walkthrough, see [Migrate chats into Agent Zero](../../docs/guides/migrate-agents.md).
+
 ## Prepare an export
 
 | Source | Recommended input |
 | --- | --- |
+| Pi | Session `.jsonl` files from `~/.pi/agent/sessions/`, or your configured session directory; add `AGENTS.md` and skill folders separately |
 | OpenClaw | `openclaw backup create --verify`, an agent SQLite snapshot, or legacy transcript JSONL |
 | Hermes Agent | `hermes sessions export backup.jsonl --redact`, `~/.hermes/state.db`, or a folder/archive containing memories and skills |
 | OpenCode | `opencode export <session-id> > session.json`, repeated for each session you want |
@@ -32,6 +36,29 @@ Enable **Migrate Agents** in Plugins, then use its **Open** button.
 You can choose individual files, a whole directory, ZIP, TAR, or TAR.GZ. The
 preview is read-only. Import does not start until you review the manifest and
 confirm it.
+
+## Pi sessions and branches
+
+Choose the original JSONL sessions, not `pi --export` HTML output. Pi session
+versions 1, 2, and 3 are supported, including legacy headers without a version.
+When Pi uses a custom agent or session directory, select the sessions from
+that location instead.
+
+Each retained branch becomes a separate chat with its original message order.
+Shared ancestors appear in each branch; metadata-only branches do not create
+duplicate chats. The latest non-empty session name and original workspace are
+retained. Project creation does not copy that workspace's files.
+
+Tool arguments, results, errors, and public shell activity become inert historical
+records. They are never executed during import. Image content becomes a visible
+omission marker; copy any needed files separately.
+
+The import preserves retained original messages, rather than reconstructing Pi's
+current model context. System prompts, reasoning, compaction and branch summaries,
+context edits, extension records, and context-excluded shell commands are omitted.
+The preview warns when such context records were skipped. An imported chat can
+therefore be longer than Pi's compacted context and show text that a later context
+edit removed from the model's view. Review it before continuing or sharing.
 
 ## What maps cleanly
 
@@ -64,6 +91,7 @@ reasoning is excluded, and historical actions are not presented as replayable.
 - 100 MiB per file
 - 256 MiB expanded total
 - Preview lists are capped at 200 rows, while import still processes the full accepted bundle
+- Pi sessions are limited to 100 tree leaves and 100,000 expanded entries per file; repeated ancestors count toward a 256 MiB branch-data limit across the upload. This conservative limit counts complete source entries, including content later omitted. Broken trees and unsupported versions are skipped with a warning. Fork smaller sessions in Pi or upload fewer files when a limit is reached.
 - Modern OpenClaw conversation imports require its per-agent database or transcript artifacts; the global control-plane database does not contain chats
 
 ## Development

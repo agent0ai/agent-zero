@@ -19,6 +19,8 @@ from typing import Any, Iterable
 MAX_FILES = 5_000
 MAX_FILE_BYTES = 100 * 1024 * 1024
 MAX_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_PI_BRANCHES = 100
+MAX_PI_EXPANDED_ENTRIES = 100_000
 TEXT_SUFFIXES = {
     ".css",
     ".html",
@@ -51,6 +53,8 @@ SENSITIVE_NAMES = {
     ".env",
     "auth.json",
     "credentials.json",
+    "models.json",
+    "models-store.json",
     "openclaw.json",
     "settings.json",
 }
@@ -343,7 +347,7 @@ def _conversation(source_id: str, title: str, events: list[Event], **metadata: A
 
 def _json_lines(text: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for line_no, line in enumerate(text.splitlines(), 1):
+    for line_no, line in enumerate(text.split("\n"), 1):
         if not line.strip():
             continue
         try:
@@ -522,6 +526,142 @@ def _parse_openclaw_jsonl(asset: Upload) -> list[Conversation]:
     return [item] if item else []
 
 
+def _pi_messages(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    message = entry.get("message")
+    if entry.get("type") != "message" or not isinstance(message, dict):
+        return []
+    role = message.get("role")
+    when = entry.get("timestamp") or message.get("timestamp")
+    if role == "bashExecution" and not message.get("excludeFromContext"):
+        call_id = f"pi-shell-{entry['id']}"
+        status = "cancelled" if message.get("cancelled") else f"exit code {message.get('exitCode', 'unknown')}"
+        return [
+            {"role": "assistant", "timestamp": when, "content": [{"type": "tool_use", "id": call_id, "name": "bash", "input": {"command": message.get("command", "")}}]},
+            {"role": "tool", "timestamp": when, "tool_call_id": call_id, "tool_name": "bash", "content": f"[Pi user shell command; {status}]\n{message.get('output', '')}"},
+        ]
+    if role not in {"user", "assistant", "toolResult"}:
+        return []
+    content = message.get("content")
+    blocks = [{"type": "text", "text": content}] if isinstance(content, str) else content
+    clean: list[dict[str, Any]] = []
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text" and isinstance(block.get("text"), str):
+            clean.append({"type": "text", "text": block["text"]})
+        elif block.get("type") == "image":
+            clean.append({"type": "text", "text": "[Image attachment omitted; original image bytes were not imported.]"})
+        elif role == "assistant" and block.get("type") == "toolCall":
+            args = block.get("arguments", {})
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except (json.JSONDecodeError, RecursionError):
+                    args = {"raw_arguments": args}
+            clean.append({"type": "tool_use", "id": str(block.get("id") or ""), "name": str(block.get("name") or "tool"), "input": args if isinstance(args, dict) else {"value": args}})
+    if role == "toolResult":
+        text = _content_text(clean)
+        if message.get("isError"):
+            text = f"[Pi tool error]\n{text}"
+        return [{"role": "tool", "timestamp": when, "tool_call_id": str(message.get("toolCallId") or ""), "tool_name": str(message.get("toolName") or "tool"), "content": text}]
+    return [{"role": role, "timestamp": when, "content": clean}] if clean else []
+
+
+def _parse_pi(asset: Upload, byte_budget: int) -> tuple[list[Conversation], int]:
+    text = _text(asset)
+    rows = _json_lines(text)
+    if not rows or rows[0].get("type") != "session":
+        return [], 0
+    header = rows[0]
+    version = header.get("version", 1)
+    if type(version) is not int or version not in {1, 2, 3}:
+        raise ValueError("Unsupported Pi session version; expected 1, 2, or 3")
+    if len(rows) != sum(bool(line.strip()) for line in text.split("\n")):
+        raise ValueError("Pi session entries must be JSON objects")
+    if any(header.get(key) is not None and not isinstance(header[key], str) for key in ("id", "cwd", "parentSession")):
+        raise ValueError("Pi session identity and workspace fields must be strings")
+    session_id = str(header.get("id") or Path(asset.name).stem)
+    title = ""
+    entries: dict[str, dict[str, Any]] = {}
+    depths: dict[str, int] = {}
+    path_bytes: dict[str, int] = {}
+    parents: set[str] = set()
+    previous = None
+    omitted: dict[str, int] = {}
+    for index, raw in enumerate(rows[1:]):
+        entry = dict(raw)
+        if not isinstance(entry.get("type"), str):
+            raise ValueError("Pi entries must have a string type")
+        if entry["type"] == "message" and (not isinstance(entry.get("message"), dict) or not isinstance(entry["message"].get("role"), str)):
+            raise ValueError("Pi messages must have a string role")
+        if version == 1:
+            entry.update(id=f"legacy-{index}", parentId=previous)
+        entry_id, parent = entry.get("id"), entry.get("parentId")
+        if not isinstance(entry_id, str) or not entry_id or entry_id in entries:
+            raise ValueError("Pi session has missing or duplicate entry IDs")
+        if "parentId" not in entry or (parent is not None and (not isinstance(parent, str) or parent not in entries)):
+            raise ValueError("Pi session has a missing, cyclic, or out-of-order parent")
+        if entry.get("type") == "session":
+            raise ValueError("Choose separate Pi session files instead of concatenating them")
+        entries[entry_id] = entry
+        depths[entry_id] = depths[parent] + 1 if parent is not None else 1
+        path_bytes[entry_id] = len(json.dumps(entry, ensure_ascii=False).encode()) + (path_bytes[parent] if parent is not None else 0)
+        if parent is not None:
+            parents.add(parent)
+        previous = entry_id
+        if entry.get("type") == "session_info" and isinstance(entry.get("name"), str) and entry["name"].strip():
+            title = entry["name"].strip()
+        message = entry.get("message") if isinstance(entry.get("message"), dict) else {}
+        if entry.get("type") in {"compaction", "branch_summary", "context_edit", "custom", "custom_message"}:
+            kind = str(entry["type"])
+            omitted[kind] = omitted.get(kind, 0) + 1
+        elif entry.get("type") == "message" and (message.get("role") not in {"user", "assistant", "toolResult", "system", "bashExecution"} or message.get("excludeFromContext")):
+            omitted["excluded_messages"] = omitted.get("excluded_messages", 0) + 1
+
+    leaves = [key for key in entries if key not in parents]
+    expanded_bytes = sum(path_bytes[key] for key in leaves)
+    if len(leaves) > MAX_PI_BRANCHES or sum(depths[key] for key in leaves) > MAX_PI_EXPANDED_ENTRIES or expanded_bytes > MAX_TOTAL_BYTES:
+        raise ValueError("Pi session exceeds 100 branches, 100,000 expanded entries, or 256 MiB of branch data; fork smaller sessions in Pi first")
+    if expanded_bytes > byte_budget:
+        raise ValueError("Pi branches across this upload exceed 256 MiB; import fewer sessions at a time")
+    paths: list[tuple[str, tuple[str, ...], list[dict[str, Any]]]] = []
+    for leaf in leaves:
+        branch = []
+        cursor = leaf
+        while cursor is not None:
+            branch.append(entries[cursor])
+            cursor = entries[cursor]["parentId"]
+        ids: list[str] = []
+        messages: list[dict[str, Any]] = []
+        for entry in reversed(branch):
+            normalized = _pi_messages(entry)
+            if normalized:
+                ids.append(entry["id"])
+                messages.extend(normalized)
+        if ids:
+            paths.append((leaf, tuple(ids), messages))
+    # Metadata-only forks must not create duplicate or prefix-only chats.
+    retained: list[tuple[str, tuple[str, ...], list[dict[str, Any]]]] = []
+    for path in sorted(paths, key=lambda item: len(item[1]), reverse=True):
+        if not any(existing[1][:len(path[1])] == path[1] for existing in retained):
+            retained.append(path)
+    retained.sort(key=lambda item: leaves.index(item[0]))
+    result = []
+    for index, (leaf, _, messages) in enumerate(retained, 1):
+        events = _events_from_messages(messages)
+        base_title = title or next((event.text for event in events if event.kind == "user"), session_id)
+        branch_title = f"{_one_line(base_title, 64)} — branch {index}/{len(retained)}" if len(retained) > 1 else base_title
+        item = _conversation(
+            f"{session_id}:{leaf}", branch_title, events,
+            cwd=header.get("cwd"), session_id=session_id, session_version=version,
+            parent_session=header.get("parentSession"), leaf_entry_id=leaf,
+            branch_index=index, branch_count=len(retained), omitted_entries=omitted,
+        )
+        if item:
+            result.append(item)
+    return result, expanded_bytes
+
+
 def _sqlite(asset: Upload) -> tuple[sqlite3.Connection, str]:
     handle = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
     try:
@@ -666,12 +806,13 @@ def _discover_projects(bundle: Bundle) -> None:
 
 
 def parse_bundle(source: str, uploads: Iterable[Upload]) -> Bundle:
-    if source not in {"openclaw", "hermes", "opencode", "claude", "codex"}:
-        raise ValueError("Choose one of the five supported source harnesses")
+    if source not in {"openclaw", "hermes", "opencode", "claude", "codex", "pi"}:
+        raise ValueError("Choose a supported source harness")
     files = expand_uploads(uploads)
     bundle = Bundle(source)
     _discover_assets(files, bundle)
     seen: set[str] = set()
+    pi_expanded_bytes = 0
     for asset in files:
         lower = asset.name.lower()
         conversations: list[Conversation] = []
@@ -688,7 +829,14 @@ def parse_bundle(source: str, uploads: Iterable[Upload]) -> Bundle:
                 conversations = _parse_hermes_jsonl(asset)
             elif source == "openclaw" and lower.endswith(".jsonl"):
                 conversations = _parse_openclaw_jsonl(asset)
-        except (ValueError, sqlite3.DatabaseError) as exc:
+            elif source == "pi" and lower.endswith(".jsonl"):
+                conversations, expanded_bytes = _parse_pi(asset, MAX_TOTAL_BYTES - pi_expanded_bytes)
+                pi_expanded_bytes += expanded_bytes
+                if not conversations:
+                    bundle.warnings.append(f"{asset.name}: No supported Pi session messages were found")
+                if any(item.metadata.get("omitted_entries") for item in conversations):
+                    bundle.warnings.append(f"{asset.name}: Pi summaries, context edits, extension records, or context-excluded messages were omitted. Chats contain retained original public messages, not Pi's compacted or edited model context.")
+        except (ValueError, RecursionError, sqlite3.DatabaseError) as exc:
             bundle.warnings.append(f"{asset.name}: {exc}")
             continue
         for conversation in conversations:
@@ -700,6 +848,8 @@ def parse_bundle(source: str, uploads: Iterable[Upload]) -> Bundle:
     _discover_projects(bundle)
 
     for conversation in bundle.conversations:
+        conversation.title, count = _redact(conversation.title)
+        bundle.redactions += count
         for event in conversation.events:
             event.text, count = _redact(event.text)
             bundle.redactions += count
@@ -842,7 +992,7 @@ def build_a0_chat(conversation: Conversation, source: str) -> dict[str, Any]:
         "agent_profile": "default",
         "log": {"guid": str(uuid.uuid4()), "logs": logs, "progress": "", "progress_no": 0},
         "data": {
-            "_migrate_agents": {
+            "migrate_agents": {
                 "format_version": 1,
                 "source": source,
                 "source_id": conversation.source_id,

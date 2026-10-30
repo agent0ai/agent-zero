@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Own the bundled workflow for previewing and importing retained work from OpenClaw, Hermes Agent, OpenCode, Claude Code, and Codex.
+- Own the bundled workflow for previewing and importing retained work from Pi, OpenClaw, Hermes Agent, OpenCode, Claude Code, and Codex.
 
 ## Ownership
 
@@ -18,6 +18,8 @@
 - Credentials, authentication state, hidden reasoning, schedules, live services, and replayable tool execution stay excluded.
 - Imported knowledge and skills remain namespaced below `usr/knowledge/_migrate_agents/` and `usr/skills/_migrate_agents/`.
 - Preserve source provenance and do not claim transcript metadata can reconstruct unavailable project files.
+- Store native chat provenance in `data.migrate_agents`; underscore-prefixed context data is transient and stripped by chat persistence.
+- Pi JSONL versions 1–3 preserve retained public history as separate branch chats, with shared ancestors repeated. Validate parent links and bound branch expansion before normalization. Do not replay system messages, reasoning, compaction/branch summaries, context edits, extension records, or context-excluded shell commands; report omitted context records. Image bytes become omission markers. Tool arguments, results, errors, and public shell records use the shared redaction and inert-history path.
 
 ## Work Guidance
 
