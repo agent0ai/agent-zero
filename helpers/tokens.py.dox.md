@@ -20,6 +20,8 @@
 
 ## Runtime Contracts
 
+- `trim_to_tokens` keeps a prefix for `start` or a suffix for `end`. Its returned text, including the marker, must fit the `count_tokens` budget even when token density varies across the input. Recheck the initial estimate and reduce the retained character count until it fits; preserve whole Unicode code points rather than decoding partial tokens.
+- Preserve already-fitting input and already-safe initial trims. A nonpositive budget returns empty text; if no source characters remain and the marker alone cannot fit, return empty text rather than exceeding the cap. The trim is conservative, not a maximal-content search.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: secret handling.
@@ -40,6 +42,8 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_token_trimming.py`
+  - `tests/test_promptinclude_budgets.py`
   - `tests/test_chat_compaction.py`
   - `tests/test_default_prompt_budget.py`
   - `tests/test_history_compression_wait.py`
