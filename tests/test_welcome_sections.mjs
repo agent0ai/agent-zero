@@ -20,6 +20,7 @@ test('welcome sections hide independently, survive refresh and reload, and resto
   const session = new Map();
   const loadWelcome = () => {
     const store = loadStore('../webui/components/welcome/welcome-store.js', {
+      mountLayout() {},
       createStore: (_name, value) => value,
       getStore: () => undefined,
       localStorage: storage(local),
@@ -69,6 +70,7 @@ test('one restore action brings back sections, notices, accounts and channels', 
     { id: 'channels', type: 'feature' },
   ];
   const context = {
+    mountLayout() {},
     createStore: (name, value) => { stores.set(name, value); return value; },
     getStore: (name) => stores.get(name),
     localStorage: storage(local),

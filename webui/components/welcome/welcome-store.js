@@ -5,7 +5,10 @@ import { store as fileBrowserStore } from "/components/modals/file-browser/file-
 import * as API from "/js/api.js";
 import { getCurrentUserISOString } from "/js/time-utils.js";
 
+import { mountLayout } from "/components/welcome/welcome-layout.js";
+
 const model = {
+  mountLayout,
   // State
   banners: [],
   bannersLoading: false,
