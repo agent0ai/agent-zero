@@ -9,6 +9,8 @@
 - `plugin.yaml` owns metadata and always-enabled status.
 - `extensions/` owns backend or WebUI discovery contributions.
 - `webui/discovery-store.js` owns discovery UI state and actions.
+- `webui/assets/cli-connector-preview.png` is the connected-terminal capture shown at the end of onboarding. Show the current vanilla CLI controls from a neutral demo folder, with no personal paths and its full aspect ratio intact.
+- Update the onboarding image URL version when replacing that capture so existing browsers fetch the new asset.
 
 ## Local Contracts
 
