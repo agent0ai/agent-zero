@@ -677,6 +677,34 @@ class SchedulerTaskList(BaseModel):
         return self
 
 
+def _set_context_task(context: AgentContext, deferred_task: DeferredTask) -> None:
+    """Use a scheduler run as its chat's context.task until the run ends.
+
+    Running state, Stop, nudges, message interventions and the
+    message_loop_end/monologue_end hooks all key off context.task. A chat that
+    is already running keeps its own task. When the run ends, the previous task
+    is restored so later chat turns do not run on the scheduler's event loop,
+    and the WebUI state is marked dirty so the next push shows the run ended.
+    """
+    previous = context.task
+    # is_alive() is also false until the starting thread has stored the run's
+    # future, and add_done_callback() would raise before that.
+    if (previous and previous.is_alive()) or not deferred_task.is_alive():
+        return
+    context.task = deferred_task
+
+    def restore(_future) -> None:
+        if context.task is deferred_task:
+            context.task = previous
+        # Unless the run is cancelled, its own last dirty mark (from on_finish)
+        # comes while it is still alive. Like the AgentContext.run_task end
+        # hook, mark again once it is done.
+        from helpers.state_monitor_integration import mark_dirty_all
+        mark_dirty_all(reason="task_scheduler.TaskScheduler._run_task_done")
+
+    deferred_task.add_done_callback(restore)
+
+
 class TaskScheduler:
 
     _tasks: SchedulerTaskList
@@ -913,6 +941,7 @@ class TaskScheduler:
                 context = await self._get_chat_context(current_task)
                 context.set_data("scheduler_task_uuid", current_task.uuid)
                 AgentContext.use(context.id)
+                _set_context_task(context, deferred_task)
 
                 # Ensure the context is properly registered in the AgentContext._contexts
                 # This is critical for the polling mechanism to find and stream logs
@@ -983,6 +1012,9 @@ class TaskScheduler:
                 if updated_task and updated_task.state != TaskState.IDLE:
                     PrintStyle.warning(f"Fixing task state consistency: '{current_task.name}' state is not IDLE after success")
                     await self.update_task(task_uuid, state=TaskState.IDLE)
+
+                # Callers that got this run from AgentContext.communicate() await its response.
+                return result
 
             except asyncio.CancelledError:
                 PrintStyle.warning(f"Scheduler Task '{current_task.name}' cancelled by user")

@@ -70,6 +70,7 @@
 - `normalize_schedule_timezone(timezone_name: str | None) -> str`
 - `_now() -> datetime`
 - `_localize_task_datetime(dt: datetime) -> datetime`
+- `_set_context_task(context: AgentContext, deferred_task: DeferredTask) -> None`: Use a scheduler run as its chat's `context.task` until the run ends.
 - `serialize_datetime(dt: Optional[datetime]) -> Optional[str]`: Serialize a datetime object to ISO format string in the user's timezone.
 - `parse_datetime(dt_str: Optional[str]) -> Optional[datetime]`: Parse ISO format datetime string with timezone awareness.
 - `serialize_task_schedule(schedule: TaskSchedule) -> Dict[str, str]`: Convert TaskSchedule to a standardized dictionary format.
@@ -86,6 +87,8 @@
 - `SchedulerTaskList` keeps `usr/scheduler/tasks.json` as its default and prefers it when both formats exist. An existing `tasks.yaml` is supported when no JSON file exists; saves use the same selection and format. Loading never migrates, renames, or creates a second file.
 - JSON retains its existing Pydantic parser and `helpers.files` persistence path. Optional YAML uses `helpers.yaml` with the same task models. Invalid data raises before replacing the in-memory task list; YAML comments and formatting are regenerated on save.
 - Scheduler runs persist their owning task UUID in chat context data as `scheduler_task_uuid`. The `Agent.monologue/end` extension uses this association to atomically change an errored task to idle and persist its recovered result after a successful main-agent chat continuation. Legacy dedicated chats use their context ID as the task UUID; shared chats need the explicit association to avoid updating unrelated tasks. Failed continuations, subordinate results, and tasks no longer in error are ignored. Normal scheduler runs retain their existing callbacks and plan progression.
+- A scheduler run is its chat's `context.task` until it ends, unless that chat already has a live task, which stays in place. Running state, Stop, nudges, message interventions and the `message_loop_end`/`monologue_end` hooks therefore cover scheduled runs; a message sent to the chat during a run becomes an intervention instead of a second monologue. When the run ends, a done callback restores the previous task if `context.task` is still the run, so later chat turns do not reuse the scheduler's task and event loop. The same callback calls `mark_dirty_all`, like the `AgentContext.run_task` end hook does for chat turns: unless the run is cancelled, its own last dirty mark (from `on_finish()`) comes while it is still alive, so without this the WebUI's last push could still show the chat as running. On success the run's task resolves to the monologue result; after a handled failure it resolves to `None`; Stop and nudges cancel it.
+- Scheduler runs call `agent.monologue()` directly, so `process_chain_end` hooks, including queued-message auto-send, do not run after them.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, network calls, settings/state persistence, secret handling, scheduler state.
@@ -108,6 +111,7 @@
 - Related tests observed by source search:
   - `tests/test_task_scheduler_timezone.py`
   - `tests/test_task_scheduler_recovery.py`
+  - `tests/test_task_scheduler_context_task.py`
   - `tests/test_scheduler_editor.py`
   - `tests/test_timezone_regressions.py`
   - `tests/test_tool_action_contracts.py`
