@@ -1,9 +1,9 @@
+from helpers import response_recovery
 from helpers.errors import HandledException
 from helpers.extension import Extension
 from helpers.settings import get_settings
 
-
-STATE_KEY = "_unusable_response_failures"
+STATE_KEY = response_recovery.STATE_KEY
 
 
 class StopUnusableResponseLoop(Extension):
@@ -29,31 +29,8 @@ class StopUnusableResponseLoop(Extension):
         }:
             return
 
-        loop_data = getattr(self.agent, "loop_data", None)
-        state = getattr(loop_data, "params_persistent", None)
-        iteration = getattr(loop_data, "iteration", None)
-        if not isinstance(state, dict) or not isinstance(iteration, int):
-            return
-
-        previous = state.get(STATE_KEY, {})
-        if not isinstance(previous, dict):
-            previous = {}
-        previous_iteration = previous.get("iteration")
-        if previous_iteration == iteration:
-            return
-
-        count = (
-            previous.get("count", 0) + 1
-            if previous_iteration == iteration - 1
-            else 1
+        stop: HandledException | None = response_recovery.record_unusable_response(
+            self.agent, get_settings()["max_consecutive_unusable_responses"]
         )
-        state[STATE_KEY] = {"iteration": iteration, "count": count}
-        limit = get_settings()["max_consecutive_unusable_responses"]
-        if count < limit:
-            return
-
-        stop_message = self.agent.read_prompt(
-            "fw.msg_unusable_response_limit.md", limit=limit
-        )
-        self.agent.context.log.log(type="warning", content=stop_message)
-        data["exception"] = HandledException(stop_message)
+        if stop is not None:
+            data["exception"] = stop
