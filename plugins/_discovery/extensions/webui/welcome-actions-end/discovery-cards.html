@@ -133,7 +133,6 @@
         }
 
         .discovery-features-panel {
-            min-height: 100%;
             padding: 1.25rem 1.45rem;
         }
 
@@ -168,7 +167,7 @@
 
         .discovery-features {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
             gap: 0.65rem;
         }
 
@@ -482,45 +481,21 @@
             }
         }
 
-        @media (max-width: 768px) {
-            .discovery-features {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-            }
-
-            .discovery-feature-card {
-                display: inline-flex;
-                min-height: 0;
-                padding: 0.62rem 0.7rem;
-            }
-
-            .discovery-feature-thumb {
-                width: 32px;
-                height: 32px;
-            }
-
+        @container welcome-discovery (max-width: 520px) {
             .discovery-account-usage-row {
                 grid-template-columns: 1fr;
                 gap: 0.45rem;
             }
         }
 
-        @media (max-width: 520px) {
-            .discovery-slot {
-                margin-top: 0.15rem;
-            }
-
-            .discovery-feature-card {
-                padding-right: 0.7rem;
-            }
-
+        @container welcome-discovery (max-width: 400px) {
             .discovery-account-card {
                 padding: 1.05rem;
             }
 
             .discovery-account-header {
                 grid-template-columns: 1fr;
-                padding-right: 2.2rem;
+                padding-right: 4.2rem;
             }
 
             .discovery-account-cta {
