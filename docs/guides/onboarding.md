@@ -13,7 +13,7 @@ with your own key.
 Open the Web UI. The welcome screen can show account shortcuts, and the message
 composer is ready immediately.
 
-![Welcome screen with account and channel setup cards](../res/usage/onboarding/onboarding-start.png)
+![Welcome message box and Quick Actions](../res/usage/webui/welcome-start.png)
 
 If you send a message before models are configured, Agent Zero creates the chat,
 holds the message, and shows the model gate inside the conversation. Choose
@@ -57,6 +57,11 @@ prefill a utility provider and model, but it remains an explicit choice.
 
 Click **Finish setup** when the utility model looks right.
 
+If onboarding opened after your first message, Agent Zero retries that held
+message as soon as the selected model is configured. Do not send it a second
+time. Switching that chat to an already configured preset can also let it
+continue.
+
 ## Start Chatting
 
 The ready screen confirms that model setup is done. Optional setup cards may
@@ -64,7 +69,16 @@ appear for integrations such as Telegram, Email, WhatsApp, or plugins.
 
 ![Onboarding ready screen after setup](../res/usage/onboarding/onboarding-ready.png)
 
-Click **Start Chatting** to create a chat and begin using Agent Zero.
+Click **Start Chatting** to create a new chat. If your original message is already
+being answered, return to that existing chat instead.
+
+## Customize or restore Welcome
+
+Use a section's handle to move it, or its close button to hide it. If the
+greeting or message box disappears, **Show all dismissed** at the bottom
+restores it. Layout choices stay in this browser. The adjacent puzzle button
+opens Plugin Hub's welcome extensions. See the
+[Welcome controls](usage.md#customize-welcome) for screenshots and keyboard help.
 
 > [!IMPORTANT]
 > Do not reuse the fake key shown in this guide. Paste your own provider key,

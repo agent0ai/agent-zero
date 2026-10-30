@@ -1,17 +1,14 @@
 # Quick Start
 
-This guide gets you from install to a first useful chat. Keep it simple: start
-Agent Zero, add a model or API key, open the Web UI, and give it a concrete job.
+Start Agent Zero, open the Web UI, and give it a small, concrete job. If models
+need setup, Agent Zero keeps your first message while you configure them.
 
-## Installation (recommended)
+## Install and open Agent Zero
 
-Choose the path that matches your machine:
+Use [A0 Launcher](guides/launcher.md) for guided desktop setup. It can prepare
+the local runtime, install Agent Zero, and open local or remote Instances.
 
-- Use [A0 Launcher](guides/launcher.md) if you want a desktop app on a fresh
-  machine. It can set up the local runtime, download Agent Zero, open
-  Instances, or save a remote Instance URL.
-- Use A0 Install if you want the terminal path. The script handles Docker
-  detection, image pull, and container setup.
+For a terminal installation, use A0 Install:
 
 **macOS / Linux:**
 ```bash
@@ -23,19 +20,56 @@ curl -fsSL https://bash.agent-zero.ai | bash
 irm https://ps.agent-zero.ai | iex
 ```
 
-Follow the CLI prompts for port and authentication, complete onboarding, then open the Web UI URL from the terminal.
+Follow the installer prompts for port and authentication. Open the Web UI URL
+shown by Launcher or the terminal. See the [Installation Guide](setup/installation.md)
+for downloads, direct Docker, shared folders, and updates.
+
+## Send your first message
+
+The welcome screen has a message box. Type a request there and press Enter;
+Agent Zero creates the chat for you. **New Chat** in the sidebar also starts a
+fresh conversation.
+
+![Welcome screen with a message box and Quick Actions](res/usage/webui/welcome-start.png)
+
+Try a small task with an obvious result:
+
+```text
+Create a one-page Markdown plan for a 15-minute team kickoff.
+Include a goal, three agenda items, and next steps.
+Save it as /a0/usr/workdir/docs-demo-20261030/kickoff-plan.md.
+```
+
+If models are not configured, the chat offers **Cloud provider**, **AI account**,
+or **Local model**. Choose a path, set the main and utility models, and finish
+setup. Agent Zero retries the message it was holding; you do not need to send
+it again. See [First-Run Onboarding](guides/onboarding.md) for the walkthrough.
 
 > [!TIP]
-> To update later, open **Settings UI -> Update tab -> Open Self Update** (see [How to Update](setup/installation.md#how-to-update-agent-zero)). Backups are automatically managed internally.
+> If the welcome message box is hidden, use **Show all dismissed** at the bottom
+> of Welcome. See [Customize Welcome](guides/usage.md#customize-welcome).
 
-> [!NOTE]
-> For Launcher downloads, headless installer flags, direct Docker, manual Docker Desktop setup, volume mapping, and platform-specific detail, see the [Installation Guide](setup/installation.md).
+## Follow the work and open the result
 
-## Use Agent Zero on your real local files
+Watch the response and expand tool rows when you want to see what Agent Zero
+did. The example below writes a Markdown plan and returns a link to the file.
 
-If you want Agent Zero to work on the actual files on your computer, this is the important part.
+![A completed kickoff plan with tool activity and a link to the Markdown file](res/usage/webui/first-task-current.png)
 
-Agent Zero stays in Docker for safety. The A0 CLI installs and runs on your host machine. It is not another CLI agent; it is the connector that lets your running Agent Zero instance work on the real files on your real computer.
+Use **Pause Agent** and **Resume Agent** to pause and continue a conversation.
+Messages sent during a run enter its queue; use **Send now** on a queued item
+when you want to send that correction immediately. The
+[Usage Guide](guides/usage.md#while-agent-zero-is-working) explains the queue,
+Stop, Nudge, and other controls.
+
+## Optional: work on files on your computer
+
+Agent Zero normally works inside its container. To give it access to host
+files, use Launcher **Host access**, the
+[A0 CLI Connector](guides/a0-cli-connector.md), or an explicitly shared
+[local folder](guides/local-folders.md).
+
+For A0 CLI, run the installer on your host computer:
 
 **macOS / Linux:**
 ```bash
@@ -47,77 +81,9 @@ curl -LsSf https://cli.agent-zero.ai/install.sh | sh
 irm https://cli.agent-zero.ai/install.ps1 | iex
 ```
 
-Run those on the host machine, not inside the Agent Zero container.
-
-Then launch:
-
-```bash
-a0
-```
-
-Once `a0` connects, open or create a chat there. The reasoning still belongs to Agent Zero; the CLI is the host bridge that lets it work on real local files on your machine.
-
-For the full setup flow, host picker screenshots, command palette guidance, Browser mode commands, manual fallback install paths, remote-host tips, and a copy-ready brief for another agent, see the [A0 CLI Connector guide](guides/a0-cli-connector.md).
-
-### Open the Web UI and complete onboarding
-
-Open your browser and navigate to `http://localhost:<PORT>`. The Web UI will
-open on the welcome screen. If models still need setup, send a message or use
-the setup shortcuts to choose Cloud, AI account, or Local access, then select
-your main and utility models.
-
-![Agent Zero Web UI](res/setup/6-docker-a0-running-new.png)
-
-For a screenshot walkthrough using OpenRouter, see the
-[First-Run Onboarding guide](guides/onboarding.md).
-
-> [!NOTE]
-> Agent Zero supports hosted providers, account-backed providers, and local
-> models. Choose a strong main model for chat and a fast utility model for
-> internal tasks.
-
-### Start your first chat
-
-Once configured, you will see the Agent Zero dashboard.
-
-![Agent Zero dashboard](res/usage/webui/dashboard.png)
-
-Click **New Chat** and start with a specific request.
-
-Good first prompts:
-
-```text
-Create a short plan for organizing my project notes.
-```
-
-```text
-Use the Browser to research three options for this tool and summarize the tradeoffs.
-```
-
-```text
-Help me create a project for this repository and write good instructions for it.
-```
-
-> [!TIP]
-> The Web UI provides a comprehensive chat actions dropdown with options for managing conversations, including creating new chats, resetting, saving/loading, and many more advanced features. Chats are saved in JSON format in the `/usr/chats` directory.
->
-> ![Chat Actions Dropdown](res/quickstart/ui_chat_management.png)
-
----
-
-## Example Interaction
-
-Try a small request first so you can see how Agent Zero thinks, uses tools, and
-reports progress.
-
-1. Type a concrete request in the chat input and press Enter.
-2. Watch the streamed response and any tool calls.
-3. Redirect the agent if it starts moving in the wrong direction.
-4. Ask for the final result in the format you want.
-
-Here's an example of what you might see in the Web UI at step 3:
-
-![1](res/quickstart/image-24.png)
+Then run `a0` and connect to your running Agent Zero instance. The
+[connector guide](guides/a0-cli-connector.md) covers host selection and access
+controls.
 
 ## Next Steps
 Now that you've run a simple task, you can experiment with more complex requests. Try asking Agent Zero to:
@@ -127,8 +93,8 @@ Now that you've run a simple task, you can experiment with more complex requests
 - Open the Desktop when you want Linux GUI apps or LibreOffice Cowork.
 - Review Memory when Agent Zero seems to keep the wrong assumption.
 - Connect A0 CLI when Agent Zero should work on host-machine files.
-- Use **+ -> Skills** when you want to pin or remove a skill in the current chat.
-- Switch Agent Profiles from the menu near the chat input when you want a different working style.
+- Use **+ → Skills** when you want to pin or remove a skill in the current chat.
+- Choose an Agent Profile for a repeatable role, instructions, model preset, and capability permissions.
 - Use the first model dropdown when you want to choose or edit Model Presets.
 - Attach files and ask for a summary, edit, or conversion.
 - Create a scheduled task for recurring work.

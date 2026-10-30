@@ -1,7 +1,7 @@
 # Model Presets
 
 Model Presets are named, reusable model setups. Every setup contains a main,
-utility, and embedding model.
+utility, and embedding model, with an optional separate Vision Model.
 
 Use them when you want to switch a chat between setups such as "fast", "cheap",
 "local", "balanced", or "maximum power" without rebuilding the settings each
@@ -37,7 +37,9 @@ are never replaced.
 
 ## Edit Presets
 
-Click **Edit presets** from the same menu.
+Click **Edit Presets** from the same menu.
+
+![Main Model and Vision options in the preset editor](../res/usage/webui/model-presets-editor.png)
 
 From this screen you can:
 
@@ -64,6 +66,8 @@ non-default preset may inherit omitted advanced values from **Default**.
 ## Add A Preset
 
 Click **Add**, give it a name, choose models, then click **Save**.
+
+![A new Documentation demo preset before saving](../res/usage/webui/model-presets-add.png)
 
 Good preset names are easy to spot quickly:
 
@@ -107,7 +111,7 @@ editing a preset updates every scope that uses it.
 | Control | What it changes |
 | --- | --- |
 | **Model Preset** | Which main, utility, and embedding models power the chat. |
-| **Agent Profile** | The agent's role, tone, and prompt behavior. |
+| **Agent Profile** | Role, instructions, model preset, and capability permissions. |
 | **Project** | Workspace, files, memory, secrets, and project instructions. |
 | **Skill** | A specific procedure added to prompt protocol. |
 

@@ -12,6 +12,8 @@
 - `developer/` covers compact developer references and source handoffs.
 - `plans/` covers implementation plans, migration notes, and staged technical roadmaps.
 - `res/` contains documentation images and other documentation assets.
+- `quickstart.md` owns the install-to-first-result journey. `guides/usage.md` owns Welcome layout recovery, chat controls, and goals; `guides/agent-profiles.md` owns whole-tool and individual-action permission guidance.
+- Shared Web UI captures under `res/usage/webui/` must show real, optimized, neutral demo state without personal paths, account identities, or community controls presented as built-in features.
 
 ## Local Contracts
 

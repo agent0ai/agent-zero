@@ -11,7 +11,7 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## Quick Start
 
-- **[Quickstart Guide](quickstart.md):** Get up and running in 5 minutes with Agent Zero.
+- **[Quickstart Guide](quickstart.md):** Install Agent Zero, send your first message, and open the result.
 - **[Agent Zero Launcher](guides/launcher.md):** Use the desktop app to set up Docker, install Agent Zero, open Instances, or connect a remote Instance.
 - **[First-Run Onboarding](guides/onboarding.md):** Choose Cloud, AI account, or Local access, then select main and utility models.
 - **[Installation Guide](setup/installation.md):** A0 Launcher downloads, A0 Install, direct Docker, updates, and advanced Docker setup (includes [How to Update](setup/installation.md#how-to-update-agent-zero)).
@@ -97,6 +97,9 @@ docs focus on practical setup, screenshots, and user workflows.
 - [User Guides](#user-guides)
   - [Usage Guide](guides/usage.md)
     - [Basic Operations](guides/usage.md#basic-operations)
+      - [Customize Welcome](guides/usage.md#customize-welcome)
+      - [While Agent Zero Is Working](guides/usage.md#while-agent-zero-is-working)
+      - [Goals For Longer Work](guides/usage.md#set-a-goal-for-longer-work)
     - [Plugins And Plugin Hub](guides/usage.md#plugins-and-plugin-hub)
     - [Skills, Agent Profiles, And Model Presets](guides/usage.md#skills-agent-profiles-and-model-presets)
       - [Skills](guides/usage.md#skills)
