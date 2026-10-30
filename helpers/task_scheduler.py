@@ -88,6 +88,9 @@ class TaskType(str, Enum):
     PLANNED = "planned"
 
 
+_CRON_FIELD_NAMES = ("minute", "hour", "day", "month", "weekday")
+
+
 class TaskSchedule(BaseModel):
     minute: str
     hour: str
@@ -98,6 +101,26 @@ class TaskSchedule(BaseModel):
 
     def to_crontab(self) -> str:
         return f"{self.minute} {self.hour} {self.day} {self.month} {self.weekday}"
+
+
+def _validate_cron_schedule(schedule: TaskSchedule) -> None:
+    empty_fields = [
+        field for field in _CRON_FIELD_NAMES
+        if not getattr(schedule, field).strip()
+    ]
+    if empty_fields:
+        fields_label = ", ".join(empty_fields)
+        raise ValueError(
+            f"Invalid cron schedule: empty field(s) ({fields_label}). "
+            'Each cron field must be non-empty; use "*" as the wildcard/neutral value.'
+        )
+    for field in _CRON_FIELD_NAMES:
+        if len(getattr(schedule, field).split()) != 1:
+            raise ValueError(
+                f"Invalid cron schedule: field '{field}' cannot contain whitespace. "
+                'Each cron field must be a single token; use "*" as the wildcard/neutral value.'
+            )
+    CronTab(crontab=schedule.to_crontab())
 
 
 class TaskPlan(BaseModel):
@@ -382,6 +405,8 @@ class ScheduledTask(BaseTask):
         project_name: str | None = None,
         project_color: str | None = None,
     ):
+        # Validate with the execution parser before any task can be persisted.
+        _validate_cron_schedule(schedule)
         # Set timezone in schedule if provided
         if timezone is not None:
             schedule.timezone = normalize_schedule_timezone(timezone)
@@ -409,6 +434,9 @@ class ScheduledTask(BaseTask):
                schedule: TaskSchedule | None = None,
                **kwargs):
         with self._lock:
+            if schedule is not None:
+                # Reject invalid schedules before changing any of the task's fields.
+                _validate_cron_schedule(schedule)
             reset_schedule = ((schedule is not None and schedule != self.schedule)
                               or (state is not None and state != self.state))
             super().update(name=name,
