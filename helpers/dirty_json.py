@@ -1,4 +1,9 @@
 import json
+import re
+
+# A strict JSON escape of a UTF-16 low surrogate (DC00-DFFF): four ASCII hex digits.
+_LOW_SURROGATE_ESCAPE = re.compile(r"\\u([dD][c-fC-F][0-9a-fA-F]{2})")
+
 
 def try_parse(json_string: str):
     try:
@@ -293,7 +298,7 @@ class DirtyJson:
                         unicode_char += self.current_char
                         self._advance()
                     try:
-                        result += chr(int(unicode_char, 16))
+                        result += self._decode_unicode_escape(int(unicode_char, 16))
                     except ValueError:
                         # If invalid hex value, treat as literal
                         result += "\\u" + unicode_char
@@ -304,6 +309,21 @@ class DirtyJson:
         if self.current_char == quote_char:
             self._advance()  # Skip closing quote
         return result
+
+    def _decode_unicode_escape(self, code_unit: int) -> str:
+        """Decode an escaped UTF-16 code unit, joining a surrogate pair like json.loads.
+
+        A lone surrogate cannot be encoded as UTF-8, so it becomes U+FFFD.
+        """
+        if 0xD800 <= code_unit <= 0xDBFF:
+            low_escape = _LOW_SURROGATE_ESCAPE.match(self.json_string, self.index)
+            if low_escape:
+                self._advance(len(low_escape.group()))
+                low_unit = int(low_escape.group(1), 16)
+                return chr(0x10000 + ((code_unit - 0xD800) << 10) + (low_unit - 0xDC00))
+        if 0xD800 <= code_unit <= 0xDFFF:
+            return "\ufffd"
+        return chr(code_unit)
 
     def _is_closing_quote(self, is_key: bool) -> bool:
         next_index = self._skip_padding_from(self.index + 1)
