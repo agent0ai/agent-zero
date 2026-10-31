@@ -269,6 +269,7 @@ It is not a replacement for Git or backups. It is a practical safety layer for t
 | --- | --- |
 | Install or update Agent Zero | [Installation](./docs/setup/installation.md) |
 | Learn the UI and basic workflow | [Quickstart](./docs/quickstart.md) |
+| Add OpenCode Go or another provider plugin | [OpenCode Go setup](./docs/guides/opencode.md) |
 | Browse, annotate, and use Browser screenshots | [Browser guide](./docs/guides/browser.md) |
 | Use the Linux desktop and LibreOffice | [Desktop guide](./docs/guides/desktop.md) |
 | Connect Agent Zero to host-machine files and shell | [A0 CLI Connector](https://www.agent-zero.ai/p/docs/a0-cli-connector/) |

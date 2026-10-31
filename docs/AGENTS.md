@@ -9,6 +9,7 @@
 
 - `README.md`, `quickstart.md`, `guides/`, and `setup/` cover user-facing setup and workflows.
 - `guides/local-folders.md` owns Docker bind-mount examples and persistence guidance; `guides/launcher.md#workspace-storage` owns Launcher storage choices and folder mappings.
+- `guides/opencode.md` owns the fresh-instance OpenCode Go provider-plugin journey, with real captures under `res/usage/opencode/`. Onboarding shares its model-gate image. Keep model IDs tied to the provider's current catalog and distinguish verified setup from untested model responses.
 - `developer/` covers compact developer references and source handoffs.
 - `plans/` covers implementation plans, migration notes, and staged technical roadmaps.
 - `res/` contains documentation images and other documentation assets.

@@ -115,6 +115,10 @@ Open **Plugins** from the dashboard or sidebar to see what is installed.
 
 Use the **Browse** tab or **Install** button to open the Plugin Hub.
 
+Looking for a model provider? Choose the **Provider** filter. The
+[OpenCode Go guide](opencode.md) shows how to find a provider that is missing
+from onboarding, install its plugin, and configure the models.
+
 ![Plugin Hub](../res/usage/plugins/plugin-hub-main-view.png)
 
 Before installing a plugin, read its description, README, permissions, and source

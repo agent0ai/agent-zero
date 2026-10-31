@@ -19,7 +19,12 @@ If you send a message before models are configured, Agent Zero creates the chat,
 holds the message, and shows the model gate inside the conversation. Choose
 **Cloud provider**, **AI account**, or **Local model** to open onboarding.
 
-![Chat model gate with Cloud provider, AI account, and Local model choices](../res/usage/onboarding/onboarding-model-gate.png)
+![Chat model gate with Cloud, account, local and provider-plugin choices](../res/usage/opencode/model-gate.png)
+
+If your provider is missing from a grid, use **Didn't find your provider? Click
+to look in the Plugin Hub** underneath it. The Hub opens with **Provider**
+selected. Follow [OpenCode Go and Provider Plugins](opencode.md) for a complete
+example, from your first message through installation and model selection.
 
 ## Choose A Provider Path
 
