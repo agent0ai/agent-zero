@@ -608,7 +608,8 @@
             min-width: 0;
         }
 
-        .welcome-board > .is-paired {
+        .welcome-board > .is-paired,
+        .welcome-board > .welcome-system-card[data-welcome-size="half"] {
             grid-column: auto;
         }
 
@@ -882,7 +883,8 @@
             }
 
             .welcome-board { grid-template-columns: 1fr; }
-            .welcome-board > .is-paired { grid-column: 1 / -1; }
+            .welcome-board > .is-paired,
+            .welcome-board > .welcome-system-card[data-welcome-size="half"] { grid-column: 1 / -1; }
 
             .welcome-shell {
                 padding-top: 4rem;

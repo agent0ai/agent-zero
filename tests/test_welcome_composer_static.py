@@ -36,7 +36,8 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     for block in ("intro", "quick-actions", "accounts", "channels", "system"):
         assert f'data-welcome-block="{block}"' in welcome
     assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in welcome
-    assert ".welcome-board > .is-paired {\n            grid-column: auto;" in welcome
+    assert '.welcome-board > .is-paired,\n        .welcome-board > .welcome-system-card[data-welcome-size="half"] {\n            grid-column: auto;' in welcome
+    assert '.welcome-board > .welcome-system-card[data-welcome-size="half"] { grid-column: 1 / -1; }' in welcome
     assert "align-items: stretch;" in welcome
     assert ".welcome-composer .input-row {\n            min-height: 4.9rem;" in welcome
     assert "border-radius: 8px;" in welcome
