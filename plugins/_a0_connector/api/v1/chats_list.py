@@ -1,6 +1,8 @@
 """POST /api/plugins/_a0_connector/v1/chats_list."""
 from __future__ import annotations
 
+import asyncio
+
 from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
 
@@ -19,6 +21,18 @@ def _project_metadata(context, data: dict[str, object]) -> object:
 class ChatsList(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         from agent import AgentContext
+
+        if not isinstance(input, dict):
+            return Response("Chat list request must be an object.", status=400)
+        if "query" in input:
+            from plugins._sidebar_folders.helpers.search import search_contexts
+
+            query = input["query"]
+            if not isinstance(query, str) or len(query) > 200:
+                return Response("Query must be text of at most 200 characters.", status=400)
+            query = query.strip()
+            matches = await asyncio.to_thread(search_contexts, AgentContext.all(), query, {}) if query else []
+            return {"matches": matches}
 
         contexts: list[dict[str, object]] = []
         for context in AgentContext.all():
