@@ -337,6 +337,7 @@ export const store = createStore("oauthConfig", {
 
   providerDetailOpen(providerId) {
     if (!this.isOauthProvider(providerId)) return false;
+    if (providerId === CODEX_PROVIDER) return true;
     if (this.providerDevice(providerId)) return true;
     if (this.providerConnected(providerId)) return false;
     const status = this.providerStatus(providerId);

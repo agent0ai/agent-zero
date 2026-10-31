@@ -35,11 +35,25 @@ const store = vm.runInNewContext(`${source}\nstore`, {
   notificationStore: { dismissToast: id => dismissed.push(id) },
 });
 const provider = 'codex_oauth';
+const otherProvider = 'github_copilot_oauth';
+for (const connected of [false, true]) {
+  store.status = { provider_map: {
+    [provider]: { provider_id: provider, connected },
+    [otherProvider]: { provider_id: otherProvider, connected, supports_enterprise_domain: true },
+  } };
+  for (const selected of ['', provider, otherProvider]) {
+    store.selectedProviderId = selected;
+    assert.equal(store.providerDetailOpen(provider), true, 'Codex defaults stay visible regardless of connection or selection');
+    assert.equal(store.providerDetailOpen(otherProvider), !connected && selected === otherProvider);
+  }
+}
+assert.equal(store.providerDetailOpen('unknown_oauth'), false);
+store.selectedProviderId = '';
 store.status = { provider_map: { [provider]: { provider_id: provider, connected: true, reconnect_required: true } } };
 store.modelConfig = { chat_model: { provider, name: 'chosen-model' } };
 assert.equal(store.providerPrimaryLabel(provider), 'Reconnect');
 assert.equal(store.providerReadinessLabel(provider), 'Sign in again to continue');
-assert.equal(store.providerDetailOpen(provider), false);
+assert.equal(store.providerDetailOpen(provider), true);
 await store.connectProvider(provider);
 assert.equal(store.providerPrimaryLabel(provider), 'Waiting');
 assert.equal(store.providerDetailOpen(provider), true);
@@ -65,5 +79,7 @@ assert.equal(feedback.length, 0);
 assert.equal(store.providerConnected(provider), true);
 assert.equal(store.modelConfig.chat_model.name, 'chosen-model');
 assert.equal(store.providerPrimaryLabel(provider), 'Reconnect');
+assert.equal(store.providerDetailOpen(provider), true);
 await store.handleProviderConnected(provider, { statusLoaded: true });
+assert.equal(store.providerDetailOpen(provider), true);
 assert.deepEqual(dismissed, ['toast-oauth-codex-reconnect']);

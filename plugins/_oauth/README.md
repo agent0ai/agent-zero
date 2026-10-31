@@ -20,7 +20,7 @@ OAuth-backed model providers do not require users to enter API keys. Agent Zero 
 - Refreshes local tokens when needed.
 - If a refresh token expires or is revoked, shows an **Open OAuth settings** toast. Choose **Reconnect** on the Codex row and complete sign-in, then retry your request. No manual disconnect is needed; cancelling sign-in preserves the saved credentials and model choices.
 - Exposes the local OpenAI-compatible wrapper at `/oauth/codex/v1`.
-- Lets users choose default reasoning effort, visible reasoning summaries, and answer verbosity while preserving explicit per-request settings.
+- Keeps default reasoning effort, visible reasoning summaries, and answer verbosity editable below the quota before and after connecting. Save applies these defaults while preserving explicit per-request settings.
 
 ### GitHub Copilot (`github_copilot_oauth`)
 
