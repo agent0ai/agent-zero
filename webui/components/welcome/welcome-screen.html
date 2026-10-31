@@ -183,7 +183,7 @@
 
                 <div class="welcome-restore">
                     <button type="button"
-                            class="welcome-undismiss-button"
+                            class="welcome-panel-icon-button"
                             x-show="$store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards"
                             :disabled="$store.welcomeStore.bannersLoading && !$store.welcomeStore.hiddenSections.length"
                             @click="$store.welcomeStore.undismissAll()">
@@ -191,9 +191,9 @@
                         <span>Show all dismissed</span>
                     </button>
                     <button type="button" class="welcome-panel-icon-button"
-                            aria-label="Browse welcome plugins" title="Browse welcome plugins"
                             @click="$store.welcomeStore.openWelcomePlugins()">
                         <x-icon name="extension"></x-icon>
+                        <span>Find welcome screen plugins</span>
                     </button>
                 </div>
             </div>
@@ -254,6 +254,7 @@
         .welcome-restore {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 0.65rem;
             margin-top: 1.55rem;
         }
@@ -454,8 +455,7 @@
             outline: none;
         }
 
-        .welcome-banner-dismiss,
-        .welcome-undismiss-button {
+        .welcome-banner-dismiss {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -474,17 +474,32 @@
             margin: -0.2rem -0.2rem 0 0;
         }
 
-        .welcome-banner-dismiss:hover,
-        .welcome-undismiss-button:hover,
-        .welcome-undismiss-button:focus-visible {
+        .welcome-banner-dismiss:hover {
             color: var(--color-text);
             background: color-mix(in srgb, var(--color-border) 45%, transparent);
         }
 
-        .welcome-undismiss-button {
-            border-radius: 9px;
+        .welcome-restore .welcome-panel-icon-button {
+            width: auto;
+            height: auto;
+            gap: 0.4rem;
             padding: 0.45rem 0;
             font-size: 0.82rem;
+            transition: color 180ms ease, opacity 180ms ease;
+        }
+
+        .welcome-restore .welcome-panel-icon-button:hover,
+        .welcome-restore .welcome-panel-icon-button:focus-visible {
+            background: transparent;
+        }
+
+        .welcome-restore .welcome-panel-icon-button:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .welcome-restore .welcome-panel-icon-button { transition: none; }
         }
 
         .welcome-quick-section {
