@@ -32,6 +32,7 @@
 ## Verification
 
 - Run `pytest` for broad changes.
+- Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views and shared browser configuration.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
 - Run `node --test tests/test_onboarding.mjs` for onboarding defaults and completion staying in the original chat.
 - Run `pytest tests/test_litellm_sdk.py -q` for LiteLLM/OpenAI upgrades. Its loopback provider exercises the installed SDK's sync/async calls, streaming, tool/state preservation, fallback, embeddings, and Anthropic cache markers without real keys or external requests.

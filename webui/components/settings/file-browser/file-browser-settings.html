@@ -8,6 +8,15 @@
     <div class="section-description">These preferences apply to this browser and are used whenever Files opens.</div>
     <div>
     <div class="field">
+      <div class="field-label">
+        <label class="field-title" for="files-independent">Separate browsing per chat</label>
+        <div class="field-description" id="files-independent-description">Keep each chat's folder, selection and navigation history independent. Turn off to share one browsing session across chats. Welcome Files always has its own view.</div>
+      </div>
+      <div class="field-control">
+        <label class="toggle"><input id="files-independent" type="checkbox" aria-describedby="files-independent-description" x-model="$store.fileBrowser.preferences.independent" @change="$store.fileBrowser.savePreferences()"><span class="toggler"></span></label>
+      </div>
+    </div>
+    <div class="field">
       <div class="field-label"><label class="field-title" for="files-default-sort">Default sorting</label></div>
       <div class="field-control">
         <select id="files-default-sort" x-model="$store.fileBrowser.preferences.sortBy" @change="$store.fileBrowser.savePreferences()">

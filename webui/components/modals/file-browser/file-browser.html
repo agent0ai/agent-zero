@@ -17,13 +17,23 @@
   </head>
   <body class="file-browser-modal-body">
     <div
-      x-data
+      x-data="{
+        owner: xAttrs($el)?.owner || 'fileBrowser', mounted: null,
+        get fb() { return this.owner === 'fileBrowser' ? $store.fileBrowser.current : $store[this.owner]; },
+        mount() {
+          const next = this.fb;
+          if (this.mounted?.viewName === next?.viewName) return;
+          this.mounted?.onUnmount(this.$el);
+          this.mounted = next;
+          next?.onMount(this.$el, xAttrs(this.$el) || {});
+        }
+      }"
       class="file-browser-shell surface-workspace"
-      :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }"
-      x-create="$store.fileBrowser.onMount($el, xAttrs($el) || {})"
-      x-destroy="$store.fileBrowser.onUnmount($el)"
+      :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': xAttrs($el)?.mode === 'embedded' }"
+      x-effect="mount()"
+      x-destroy="mounted?.onUnmount($el)"
     >
-      <template x-if="$store.fileBrowser">
+      <template x-if="fb">
         <div
           class="file-browser-root"
           x-data="{
@@ -32,29 +42,29 @@
             toggleMenu(name, trigger, width) {
               const opening = this.menu !== name;
               this.closeMenu();
-              $store.fileBrowser.closeDropdown();
+              fb.closeDropdown();
               if (opening) {
-                this.menuTrigger = trigger; this.menuStyle = $store.fileBrowser.getDropdownStyle(trigger, width); this.menu = name;
+                this.menuTrigger = trigger; this.menuStyle = fb.getDropdownStyle(trigger, width); this.menu = name;
                 $nextTick(() => Array.from($refs[name + 'Menu']?.querySelectorAll('button') || []).find(button => button.checkVisibility())?.focus({preventScroll: true}));
               }
             }
           }"
-          x-effect="$store.fileBrowser.fileTree.follow($store.fileBrowser.browser.currentPath); $store.fileBrowser.isLoading; closeMenu()"
-          @resize.window="closeMenu(); $store.fileBrowser.clearPathSuggestions()"
-          @scroll.window.capture="if (!$event.target.closest?.('.path-navigator, .path-suggestions, .path-overflow-menu')) { closeMenu(); $store.fileBrowser.clearPathSuggestions(); }"
+          x-effect="fb.fileTree.follow(fb.browser.currentPath); fb.isLoading; closeMenu()"
+          @resize.window="closeMenu(); fb.clearPathSuggestions()"
+          @scroll.window.capture="if (!$event.target.closest?.('.path-navigator, .path-suggestions, .path-overflow-menu')) { closeMenu(); fb.clearPathSuggestions(); }"
           @keydown.escape.window.capture="if (menu) { $event.stopPropagation(); closeMenu(true); }"
-          :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }"
+          :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': fb.embedded }"
         >
           <!-- File Browser Content -->
           <div class="file-browser-content">
             <!-- Path navigator -->
             <div class="path-navigator-wrap">
-              <form class="path-navigator surface-toolbar" @submit.prevent="$store.fileBrowser.submitPath()">
+              <form class="path-navigator surface-toolbar" @submit.prevent="fb.submitPath()">
                 <button
                   type="button"
                   class="file-browser-header-button surface-control nav-history-button"
-                  @click="$store.fileBrowser.navigateBack()"
-                  :disabled="!$store.fileBrowser.history.length || $store.fileBrowser.isLoading"
+                  @click="fb.navigateBack()"
+                  :disabled="!fb.history.length || fb.isLoading"
                   aria-label="Go back"
                   title="Go back"
                 >
@@ -63,73 +73,72 @@
                 <button
                   type="button"
                   class="file-browser-header-button surface-control nav-history-button"
-                  @click="$store.fileBrowser.navigateForward()"
-                  :disabled="!$store.fileBrowser.forwardHistory.length || $store.fileBrowser.isLoading"
+                  @click="fb.navigateForward()"
+                  :disabled="!fb.forwardHistory.length || fb.isLoading"
                   aria-label="Go forward"
                   title="Go forward"
                 >
                   <x-icon aria-hidden="true" name="arrow_forward"></x-icon>
                 </button>
-                <template x-if="$store.fileBrowser.preferences.pathBar === 'raw' || $store.fileBrowser.pathEditing">
+                <template x-if="fb.preferences.pathBar === 'raw' || fb.pathEditing">
                   <div class="path-edit-group">
                     <button
                       type="button"
                       class="nav-button back-button surface-control"
-                      x-show="$store.fileBrowser.preferences.pathBar === 'raw'"
-                      @click="$store.fileBrowser.navigateUp()"
-                      @dragover="$store.fileBrowser.setDropTarget($store.fileBrowser.browser.parentPath, $event)"
-                      @dragleave="$store.fileBrowser.clearDropTarget($store.fileBrowser.browser.parentPath, $event)"
-                      @drop="$store.fileBrowser.dropItems($store.fileBrowser.browser.parentPath, 'parent folder', $event)"
-                      :class="{ 'is-drop-target': $store.fileBrowser.dragOverPath === $store.fileBrowser.browser.parentPath }"
-                      :disabled="!$store.fileBrowser.browser.parentPath || $store.fileBrowser.isLoading"
+                      x-show="fb.preferences.pathBar === 'raw'"
+                      @click="fb.navigateUp()"
+                      @dragover="fb.setDropTarget(fb.browser.parentPath, $event)"
+                      @dragleave="fb.clearDropTarget(fb.browser.parentPath, $event)"
+                      @drop="fb.dropItems(fb.browser.parentPath, 'parent folder', $event)"
+                      :class="{ 'is-drop-target': fb.dragOverPath === fb.browser.parentPath }"
+                      :disabled="!fb.browser.parentPath || fb.isLoading"
                       aria-label="Navigate up"
                       title="Navigate up"
                     >
                       <x-icon aria-hidden="true" name="arrow_upward"></x-icon>
                       <span class="nav-button-label">Up</span>
                     </button>
-                    <div class="path-input-shell" :class="{ 'has-error': $store.fileBrowser.pathError }" @mousedown.self.prevent @click.self="$store.fileBrowser.focusPathInput($el)">
+                    <div class="path-input-shell" :class="{ 'has-error': fb.pathError }" @mousedown.self.prevent @click.self="fb.focusPathInput($el)">
                       <input
-                        id="current-path"
                         class="path-input"
                         type="text"
-                        x-model="$store.fileBrowser.pathInput"
-                        x-create="$store.fileBrowser.pinPathInput($el); if ($store.fileBrowser.pathEditing) $nextTick(() => { if ($el.checkVisibility({checkOpacity: true})) $el.focus(); })"
-                        x-effect="$store.fileBrowser.pathInput; $store.fileBrowser.scrollPathInputNextFrame($el)"
+                        x-model="fb.pathInput"
+                        x-create="fb.pinPathInput($el); if (fb.pathEditing) $nextTick(() => { if ($el.checkVisibility({checkOpacity: true})) $el.focus(); })"
+                        x-effect="fb.pathInput; fb.scrollPathInputNextFrame($el)"
                         x-destroy="$el._pinResizeObserver?.disconnect()"
-                        @input="$store.fileBrowser.queuePathSuggestions($el)"
-                        @focus="$store.fileBrowser.showPathSuggestions($el)"
-                        @blur="$store.fileBrowser.hidePathSuggestions(); $store.fileBrowser.pinPathInputAfterBlur($el)"
-                        @keydown.arrow-down="if ($store.fileBrowser.movePathSuggestion(1)) $event.preventDefault()"
-                        @keydown.arrow-up="if ($store.fileBrowser.movePathSuggestion(-1)) $event.preventDefault()"
-                        @keydown.tab="if (!$event.shiftKey && $store.fileBrowser.selectPathSuggestion($el)) { $event.preventDefault(); $el.focus(); }"
-                        @keydown.escape.stop.prevent="$store.fileBrowser.exitPathEdit(true)"
-                        :aria-invalid="$store.fileBrowser.pathError ? 'true' : 'false'"
+                        @input="fb.queuePathSuggestions($el)"
+                        @focus="fb.showPathSuggestions($el)"
+                        @blur="fb.hidePathSuggestions(); fb.pinPathInputAfterBlur($el)"
+                        @keydown.arrow-down="if (fb.movePathSuggestion(1)) $event.preventDefault()"
+                        @keydown.arrow-up="if (fb.movePathSuggestion(-1)) $event.preventDefault()"
+                        @keydown.tab="if (!$event.shiftKey && fb.selectPathSuggestion($el)) { $event.preventDefault(); $el.focus(); }"
+                        @keydown.escape.stop.prevent="fb.exitPathEdit(true)"
+                        :aria-invalid="fb.pathError ? 'true' : 'false'"
                         aria-label="Directory path"
                         spellcheck="false"
                         autocomplete="off"
                       />
                       <button
-                        :type="$store.fileBrowser.pathEditing ? 'submit' : 'button'"
+                        :type="fb.pathEditing ? 'submit' : 'button'"
                         class="file-browser-header-button path-submit"
                         @mousedown.prevent
-                        @click="if (!$store.fileBrowser.pathEditing) $store.fileBrowser.focusPathInput($el)"
-                        :class="{ 'is-submitting': $store.fileBrowser.isPathSubmitting || $store.fileBrowser.isLoading }"
-                        :disabled="$store.fileBrowser.isPathSubmitting || $store.fileBrowser.isLoading"
-                        :aria-label="$store.fileBrowser.pathEditing ? 'Go to directory' : 'Edit directory path'"
+                        @click="if (!fb.pathEditing) fb.focusPathInput($el)"
+                        :class="{ 'is-submitting': fb.isPathSubmitting || fb.isLoading }"
+                        :disabled="fb.isPathSubmitting || fb.isLoading"
+                        :aria-label="fb.pathEditing ? 'Go to directory' : 'Edit directory path'"
                       >
                       </button>
                     </div>
                   </div>
                 </template>
-                <template x-if="$store.fileBrowser.preferences.pathBar !== 'raw' && !$store.fileBrowser.pathEditing">
-                  <div class="path-buttons-group" @click.self="$store.fileBrowser.startPathEdit()">
+                <template x-if="fb.preferences.pathBar !== 'raw' && !fb.pathEditing">
+                  <div class="path-buttons-group" @click.self="fb.startPathEdit()">
                     <button
                       type="button"
                       class="path-overflow-up"
                       :class="{ 'is-hidden': !crumbsOverflow }"
                       @click="toggleMenu('ancestors', $el, 220)"
-                      :disabled="!$store.fileBrowser.browser.parentPath || $store.fileBrowser.isLoading"
+                      :disabled="!fb.browser.parentPath || fb.isLoading"
                       :aria-expanded="menu === 'ancestors' ? 'true' : 'false'"
                       aria-label="Parent folders"
                       title="Parent folders"
@@ -144,8 +153,8 @@
                         :style="menuStyle"
                         @click.outside="closeMenu()"
                       >
-                        <template x-for="ancestor in $store.fileBrowser.pathCrumbs().slice(0, crumbsOverflow)" :key="ancestor.path">
-                          <button type="button" class="path-ancestor dropdown-item" @click="closeMenu(); $store.fileBrowser.navigateToFolder(ancestor.path)">
+                        <template x-for="ancestor in fb.pathCrumbs().slice(0, crumbsOverflow)" :key="ancestor.path">
+                          <button type="button" class="path-ancestor dropdown-item" @click="closeMenu(); fb.navigateToFolder(ancestor.path)">
                             <x-icon aria-hidden="true" name="folder"></x-icon><span x-text="ancestor.name"></span>
                           </button>
                         </template>
@@ -155,58 +164,59 @@
                       class="path-crumbs"
                       role="navigation"
                       aria-label="Directory path"
-                      x-data="{ measure() { requestAnimationFrame(() => { crumbsOverflow = $store.fileBrowser.measurePathCrumbFit($el, crumbsOverflow); }); } }"
+                      x-data="{ measure() { requestAnimationFrame(() => { crumbsOverflow = fb.measurePathCrumbFit($el, crumbsOverflow); }); } }"
                       x-create="$el._crumbFitObserver = new ResizeObserver(() => measure()); $el._crumbFitObserver.observe($el)"
                       x-destroy="$el._crumbFitObserver.disconnect()"
-                      x-effect="$store.fileBrowser.pathCrumbs(); measure()"
-                      @click.self="$store.fileBrowser.startPathEdit()"
+                      x-effect="fb.pathCrumbs(); measure()"
+                      @click.self="fb.startPathEdit()"
                     >
-                      <template x-for="(crumb, index) in $store.fileBrowser.pathCrumbs()" :key="crumb.path">
+                      <template x-for="(crumb, index) in fb.pathCrumbs()" :key="crumb.path">
                         <button
                           type="button"
                           class="path-crumb"
-                          :class="{ 'is-active': index === $store.fileBrowser.pathCrumbs().length - 1, 'is-drop-target': $store.fileBrowser.dragOverPath === crumb.path }"
-                          @click="$store.fileBrowser.navigateToFolder(crumb.path)"
-                          @dragover="$store.fileBrowser.setDropTarget(crumb.path, $event)"
-                          @dragleave="$store.fileBrowser.clearDropTarget(crumb.path, $event)"
-                          @drop="$store.fileBrowser.dropItems(crumb.path, crumb.name, $event)"
-                          :disabled="$store.fileBrowser.isLoading"
+                          :class="{ 'is-active': index === fb.pathCrumbs().length - 1, 'is-drop-target': fb.dragOverPath === crumb.path }"
+                          @click="fb.navigateToFolder(crumb.path)"
+                          @dragover="fb.setDropTarget(crumb.path, $event)"
+                          @dragleave="fb.clearDropTarget(crumb.path, $event)"
+                          @drop="fb.dropItems(crumb.path, crumb.name, $event)"
+                          :disabled="fb.isLoading"
                         >
                           <span class="path-crumb-name" x-text="crumb.name"></span
-                          ><span class="path-crumb-separator" aria-hidden="true" x-show="index < $store.fileBrowser.pathCrumbs().length - 1">›</span>
+                          ><span class="path-crumb-separator" aria-hidden="true" x-show="index < fb.pathCrumbs().length - 1">›</span>
                         </button>
                       </template>
                     </div>
-                    <button type="button" class="path-edit-toggle" :class="{ 'is-loading': $store.fileBrowser.isLoading }"
-                      :disabled="$store.fileBrowser.isLoading" aria-label="Edit directory path" @click="$store.fileBrowser.startPathEdit()">
+                    <button type="button" class="path-edit-toggle" :class="{ 'is-loading': fb.isLoading }"
+                      :disabled="fb.isLoading" aria-label="Edit directory path" @click="fb.startPathEdit()">
                     </button>
                   </div>
                 </template>
                 <template x-teleport="body">
                   <div
                     class="path-suggestions"
-                    x-show="$store.fileBrowser.pathSuggestions.length && $store.fileBrowser.pathSuggestionsOwner?.closest('.file-browser-root') === pathRoot && !$store.fileBrowser.pathError"
-                    :style="$store.fileBrowser.pathSuggestionsStyle"
+                    x-show="fb.pathSuggestions.length && fb.pathSuggestionsOwner?.closest('.file-browser-root') === pathRoot && !fb.pathError"
+                    :style="fb.pathSuggestionsStyle"
+                    x-effect="$el._fileBrowserOwner = fb.viewName"
                   >
-                    <template x-for="(suggestion, index) in $store.fileBrowser.pathSuggestions" :key="suggestion.path">
+                    <template x-for="(suggestion, index) in fb.pathSuggestions" :key="suggestion.path">
                       <button
                         type="button"
                         class="path-suggestion dropdown-item"
-                        :class="{ 'is-active': index === $store.fileBrowser.pathSuggestionIndex }"
+                        :class="{ 'is-active': index === fb.pathSuggestionIndex }"
                         @mousedown.prevent
-                        @click="$store.fileBrowser.pickPathSuggestion(suggestion)"
-                        @mouseenter="$store.fileBrowser.pathSuggestionIndex = index"
+                        @click="fb.pickPathSuggestion(suggestion)"
+                        @mouseenter="fb.pathSuggestionIndex = index"
                       >
                         <x-icon aria-hidden="true" name="folder"></x-icon><span x-text="suggestion.name"></span>
                       </button>
                     </template>
                   </div>
                 </template>
-                <span class="surface-toolbar-separator" aria-hidden="true" x-show="!$store.fileBrowser.isTextOpenPicker()"></span>
+                <span class="surface-toolbar-separator" aria-hidden="true" x-show="!fb.isTextOpenPicker()"></span>
                 <button
                   type="button"
                   class="file-browser-header-button btn-new-item surface-control"
-                  x-show="$store.fileBrowser.remoteAllowed('upload') && !$store.fileBrowser.isTextOpenPicker()"
+                  x-show="fb.remoteAllowed('upload') && !fb.isTextOpenPicker()"
                   @click="toggleMenu('new', $el, 180)"
                   :aria-expanded="menu === 'new' ? 'true' : 'false'"
                   aria-label="Create new"
@@ -225,8 +235,8 @@
                     <button
                       type="button"
                       class="new-item dropdown-item"
-                      x-show="!$store.fileBrowser.isPickerMode() && $store.fileBrowser.remoteAllowed('upload') && $store.fileBrowser.remoteAllowed('edit')"
-                      @click="closeMenu(); $store.fileBrowser.openNewFile()"
+                      x-show="!fb.isPickerMode() && fb.remoteAllowed('upload') && fb.remoteAllowed('edit')"
+                      @click="closeMenu(); fb.openNewFile()"
                       aria-label="New file"
                       title="New file"
                     >
@@ -235,8 +245,8 @@
                     <button
                       type="button"
                       class="new-item dropdown-item"
-                      x-show="!$store.fileBrowser.isTextOpenPicker() && $store.fileBrowser.remoteAllowed('upload')"
-                      @click="closeMenu(); $store.fileBrowser.beginNewFolder()"
+                      x-show="!fb.isTextOpenPicker() && fb.remoteAllowed('upload')"
+                      @click="closeMenu(); fb.beginNewFolder()"
                       aria-label="New folder"
                       title="New folder"
                     >
@@ -250,49 +260,49 @@
                   class="file-browser-header-button surface-control"
                   title="Toggle file tree"
                   aria-label="Toggle file tree"
-                  :aria-pressed="String($store.fileBrowser.fileTree.shown)"
-                  @click="$store.fileBrowser.fileTree.toggle($store.fileBrowser.browser.currentPath)"
+                  :aria-pressed="String(fb.fileTree.shown)"
+                  @click="fb.fileTree.toggle(fb.browser.currentPath)"
                 >
                   <x-icon name="account_tree"></x-icon>
                 </button>
                 <button
                   type="button"
                   class="file-browser-header-button surface-control"
-                  x-show="!$store.fileBrowser.isPickerMode()"
-                  @click="$store.fileBrowser.openSettings()"
+                  x-show="!fb.isPickerMode()"
+                  @click="fb.openSettings()"
                   title="File Browser Settings"
                   aria-label="File Browser Settings"
                 >
                   <x-icon aria-hidden="true" name="settings"></x-icon>
                 </button>
               </form>
-              <template x-if="$store.fileBrowser.pathError">
-                <div class="path-error" x-text="$store.fileBrowser.pathError"></div>
+              <template x-if="fb.pathError">
+                <div class="path-error" x-text="fb.pathError"></div>
               </template>
             </div>
-            <div x-show="$store.fileBrowser.selectedCount > 0 && !$store.fileBrowser.isPickerMode()" class="mass-action-toolbar file-mass-toolbar">
+            <div x-show="fb.selectedCount > 0 && !fb.isPickerMode()" class="mass-action-toolbar file-mass-toolbar">
               <div class="selection-summary">
                 <button
                   type="button"
                   class="selection-close"
-                  @click="$store.fileBrowser.clearSelection()"
-                  :disabled="$store.fileBrowser.isBulkBusy"
+                  @click="fb.clearSelection()"
+                  :disabled="fb.isBulkBusy"
                   title="Clear Selection"
                   aria-label="Clear selection"
                 >
                   <x-icon name="close"></x-icon>
                 </button>
-                <div class="selection-info" x-text="$store.fileBrowser.selectedCountLabel"></div>
+                <div class="selection-info" x-text="fb.selectedCountLabel"></div>
               </div>
 
               <div class="mass-actions">
                 <button
                   type="button"
                   class="btn btn-mass export"
-                  @click="$store.fileBrowser.bulkDownloadFiles()"
-                  :disabled="$store.fileBrowser.isBulkBusy"
+                  @click="fb.bulkDownloadFiles()"
+                  :disabled="fb.isBulkBusy"
                   title="Download Selected Items"
-                  x-show="$store.fileBrowser.remoteAllowed('download')"
+                  x-show="fb.remoteAllowed('download')"
                 >
                   <x-icon name="folder_zip"></x-icon>
                   Download ZIP
@@ -301,10 +311,10 @@
                 <button
                   type="button"
                   class="btn btn-mass delete"
-                  @click="$confirmClick($event, () => $store.fileBrowser.bulkDeleteFiles())"
-                  :disabled="$store.fileBrowser.isBulkBusy"
+                  @click="$confirmClick($event, () => fb.bulkDeleteFiles())"
+                  :disabled="fb.isBulkBusy"
                   title="Delete Selected Items"
-                  x-show="$store.fileBrowser.remoteAllowed('delete')"
+                  x-show="fb.remoteAllowed('delete')"
                   aria-label="Delete selected items"
                 >
                   <x-icon name="delete"></x-icon>
@@ -317,71 +327,71 @@
                 <!-- Files list -->
                 <div
                   class="files-list"
-                  :inert="$store.fileBrowser.isLoading || $store.fileBrowser.isRenaming || $store.fileBrowser.isBulkBusy"
-                  :class="{ 'file-icons-view': $store.fileBrowser.preferences.view === 'icons', 'is-loading': $store.fileBrowser.isLoading }"
-                  @scroll="$store.fileBrowser.closeDropdown(); closeMenu()"
+                  :inert="fb.isLoading || fb.isRenaming || fb.isBulkBusy"
+                  :class="{ 'file-icons-view': fb.preferences.view === 'icons', 'is-loading': fb.isLoading }"
+                  @scroll="fb.closeDropdown(); closeMenu()"
                 >
                   <div class="file-header">
                     <div class="file-cell-select">
                       <input
                         type="checkbox"
-                        :checked="$store.fileBrowser.allVisibleSelected"
-                        :indeterminate="$store.fileBrowser.someVisibleSelected && !$store.fileBrowser.allVisibleSelected"
-                        @change="$store.fileBrowser.toggleSelectAllVisible()"
-                        :disabled="$store.fileBrowser.selectableEntries.length === 0"
+                        :checked="fb.allVisibleSelected"
+                        :indeterminate="fb.someVisibleSelected && !fb.allVisibleSelected"
+                        @change="fb.toggleSelectAllVisible()"
+                        :disabled="fb.selectableEntries.length === 0"
                         title="Select visible items"
                         aria-label="Select visible items"
                       />
                     </div>
-                    <div class="file-cell" @click="$store.fileBrowser.toggleSort('name')">
+                    <div class="file-cell" @click="fb.toggleSort('name')">
                       Name
                       <span
-                        x-show="$store.fileBrowser.browser.sortBy === 'name'"
-                        x-text="$store.fileBrowser.browser.sortDirection === 'asc' ? '↑' : '↓'"
+                        x-show="fb.browser.sortBy === 'name'"
+                        x-text="fb.browser.sortDirection === 'asc' ? '↑' : '↓'"
                       ></span>
                     </div>
-                    <div class="file-cell-size" @click="$store.fileBrowser.toggleSort('size')">
+                    <div class="file-cell-size" @click="fb.toggleSort('size')">
                       Size
                       <span
-                        x-show="$store.fileBrowser.browser.sortBy === 'size'"
-                        x-text="$store.fileBrowser.browser.sortDirection === 'asc' ? '↑' : '↓'"
+                        x-show="fb.browser.sortBy === 'size'"
+                        x-text="fb.browser.sortDirection === 'asc' ? '↑' : '↓'"
                       ></span>
                     </div>
-                    <div class="file-cell-date" @click="$store.fileBrowser.toggleSort('date')">
+                    <div class="file-cell-date" @click="fb.toggleSort('date')">
                       Modified
                       <span
-                        x-show="$store.fileBrowser.browser.sortBy === 'date'"
-                        x-text="$store.fileBrowser.browser.sortDirection === 'asc' ? '↑' : '↓'"
+                        x-show="fb.browser.sortBy === 'date'"
+                        x-text="fb.browser.sortDirection === 'asc' ? '↑' : '↓'"
                       ></span>
                     </div>
                     <div class="file-cell-actions"></div>
                   </div>
 
                   <!-- File list entries -->
-                  <template x-if="$store.fileBrowser.visibleEntries.length">
-                    <template x-for="file in $store.fileBrowser.visibleEntries" :key="file.path">
+                  <template x-if="fb.visibleEntries.length">
+                    <template x-for="file in fb.visibleEntries" :key="file.path">
                       <div
                         class="file-item"
-                        @click="$store.fileBrowser.handleFileNameClick(file)"
+                        @click="fb.handleFileNameClick(file)"
                         :data-is-dir="file.is_dir"
-                        :draggable="!$store.fileBrowser.isPickerMode() && !$store.fileBrowser.isBulkBusy"
+                        :draggable="!fb.isPickerMode() && !fb.isBulkBusy"
                         :class="{
                         'selected': file.selected,
-                        'is-dragging': $store.fileBrowser.isDraggingPath(file.path),
-                        'is-drop-target': file.is_dir && $store.fileBrowser.dragOverPath === file.path
+                        'is-dragging': fb.isDraggingPath(file.path),
+                        'is-drop-target': file.is_dir && fb.dragOverPath === file.path
                       }"
-                        @dragstart="$store.fileBrowser.startDrag(file, $event)"
-                        @dragend="$store.fileBrowser.clearDragState()"
-                        @dragover="file.is_dir && $store.fileBrowser.setDropTarget(file.path, $event)"
-                        @dragleave="file.is_dir && $store.fileBrowser.clearDropTarget(file.path, $event)"
-                        @drop="file.is_dir && $store.fileBrowser.dropItems(file.path, file.name, $event)"
+                        @dragstart="fb.startDrag(file, $event)"
+                        @dragend="fb.clearDragState()"
+                        @dragover="file.is_dir && fb.setDropTarget(file.path, $event)"
+                        @dragleave="file.is_dir && fb.clearDropTarget(file.path, $event)"
+                        @drop="file.is_dir && fb.dropItems(file.path, file.name, $event)"
                       >
                         <label class="file-select-cell" @click.stop>
-                          <template x-if="!$store.fileBrowser.isTextOpenPicker() || !file.is_dir">
+                          <template x-if="!fb.isTextOpenPicker() || !file.is_dir">
                             <input
                               type="checkbox"
                               x-model="file.selected"
-                              :disabled="!$store.fileBrowser.isSelectableEntry(file)"
+                              :disabled="!fb.isSelectableEntry(file)"
                               :aria-label="`Select ${file.name}`"
                             />
                           </template>
@@ -392,7 +402,7 @@
                           </template>
                           <template x-if="!file.is_dir">
                             <img
-                              :src="'/public/' + (file.type === 'unknown' ? 'file' : ($store.fileBrowser.isArchive(file.name) ? 'archive' : file.type)) + '.svg'"
+                              :src="'/public/' + (file.type === 'unknown' ? 'file' : (fb.isArchive(file.name) ? 'archive' : file.type)) + '.svg'"
                               class="file-icon"
                               :alt="file.type"
                               draggable="false"
@@ -400,20 +410,20 @@
                           </template>
                           <span x-text="file.name"></span>
                         </div>
-                        <div class="file-size" x-text="file.is_dir ? '—' : $store.fileBrowser.formatFileSize(file.size)"></div>
-                        <div class="file-date" x-text="$store.fileBrowser.formatDate(file.modified)"></div>
-                        <div class="file-actions" x-data="{ fileActions: $el }" x-show="!$store.fileBrowser.isPickerMode()" @click.stop>
+                        <div class="file-size" x-text="file.is_dir ? '—' : fb.formatFileSize(file.size)"></div>
+                        <div class="file-date" x-text="fb.formatDate(file.modified)"></div>
+                        <div class="file-actions" x-data="{ fileActions: $el }" x-show="!fb.isPickerMode()" @click.stop>
                           <!-- Secondary single-item actions (Rename/...) are grouped under a dropdown -->
                           <div
                             class="dropdown file-actions-dropdown"
-                            @click.outside="$store.fileBrowser.closeDropdown()"
-                            @keydown.escape.window="$store.fileBrowser.closeDropdown()"
+                            @click.outside="fb.closeDropdown()"
+                            @keydown.escape.window="fb.closeDropdown()"
                           >
                             <button
                               type="button"
                               class="btn-icon-action dropdown-trigger"
-                              @click.stop="$store.fileBrowser.toggleDropdown(file.path, $event.currentTarget)"
-                              :aria-expanded="$store.fileBrowser.isDropdownOpen(file.path, fileActions).toString()"
+                              @click.stop="fb.toggleDropdown(file.path, $event.currentTarget)"
+                              :aria-expanded="fb.isDropdownOpen(file.path, fileActions).toString()"
                               aria-label="More actions"
                               title="More actions"
                             >
@@ -423,17 +433,17 @@
                             <template x-teleport="body">
                               <div
                                 class="dropdown-menu file-actions-menu"
-                                x-show="$store.fileBrowser.isDropdownOpen(file.path, fileActions)"
+                                x-show="fb.isDropdownOpen(file.path, fileActions)"
                                 x-transition
-                                :style="$store.fileBrowser.dropdownStyle"
+                                :style="fb.dropdownStyle"
                                 style="display: none"
-                                @click.stop="$store.fileBrowser.closeDropdown()"
+                                @click.stop="fb.closeDropdown()"
                               >
                                 <button
                                   type="button"
                                   class="dropdown-item"
-                                  x-show="$store.fileBrowser.isEditableFile(file)"
-                                  @click="$store.fileBrowser.openFileEditor(file)"
+                                  x-show="fb.isEditableFile(file)"
+                                  @click="fb.openFileEditor(file)"
                                 >
                                   <x-icon name="edit"></x-icon>
                                   <span>Edit</span>
@@ -442,19 +452,19 @@
                                 <button
                                   type="button"
                                   class="dropdown-item"
-                                  x-show="$store.fileBrowser.canOpenInActionMenu(file)"
-                                  @click="$store.fileBrowser.openInSurface(file)"
-                                  :title="$store.fileBrowser.surfaceActionTitle(file)"
+                                  x-show="fb.canOpenInActionMenu(file)"
+                                  @click="fb.openInSurface(file)"
+                                  :title="fb.surfaceActionTitle(file)"
                                 >
-                                  <x-icon :name="$store.fileBrowser.surfaceActionIcon(file)"></x-icon>
-                                  <span x-text="$store.fileBrowser.surfaceActionLabel(file)"></span>
+                                  <x-icon :name="fb.surfaceActionIcon(file)"></x-icon>
+                                  <span x-text="fb.surfaceActionLabel(file)"></span>
                                 </button>
 
                                 <button
                                   type="button"
                                   class="dropdown-item"
-                                  x-show="file.is_dir && $store.fileBrowser.remoteAllowed('download', file)"
-                                  @click="$store.fileBrowser.downloadFile(file)"
+                                  x-show="file.is_dir && fb.remoteAllowed('download', file)"
+                                  @click="fb.downloadFile(file)"
                                 >
                                   <x-icon name="folder_zip"></x-icon>
                                   <span>Download ZIP</span>
@@ -463,8 +473,8 @@
                                 <button
                                   type="button"
                                   class="dropdown-item"
-                                  x-show="!file.is_dir && !$store.fileBrowser.isRemote(file.path) && $store.fileBrowser.isArchive(file.name)"
-                                  @click="$store.fileBrowser.extractArchive(file)"
+                                  x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"
+                                  @click="fb.extractArchive(file)"
                                 >
                                   <x-icon name="unarchive"></x-icon>
                                   <span>Extract</span>
@@ -473,22 +483,22 @@
                                 <button
                                   type="button"
                                   class="dropdown-item"
-                                  x-show="$store.fileBrowser.remoteAllowed('rename', file)"
-                                  @click="$store.fileBrowser.beginRename(file)"
+                                  x-show="fb.remoteAllowed('rename', file)"
+                                  @click="fb.beginRename(file)"
                                 >
                                   <x-icon name="drive_file_rename_outline"></x-icon>
                                   <span>Rename</span>
                                 </button>
-                                <template x-if="$store.fileBrowser.isDropdownOpen(file.path, fileActions)">
-                                  <x-extension id="file-browser-actions-menu"></x-extension>
+                                <template x-if="fb.isDropdownOpen(file.path, fileActions)">
+                                  <template x-if="!fb.embedded"><x-extension id="file-browser-actions-menu"></x-extension></template>
                                 </template>
                               </div>
                             </template>
                           </div>
                           <button
                             class="btn-icon-action"
-                            x-show="!file.is_dir && $store.fileBrowser.remoteAllowed('download', file)"
-                            @click.stop="$store.fileBrowser.downloadFile(file)"
+                            x-show="!file.is_dir && fb.remoteAllowed('download', file)"
+                            @click.stop="fb.downloadFile(file)"
                             title="Download file"
                             aria-label="Download file"
                           >
@@ -496,8 +506,8 @@
                           </button>
                           <button
                             class="btn-icon-action danger"
-                            x-show="$store.fileBrowser.remoteAllowed('delete', file)"
-                            @click.stop="$confirmClick($event, () => $store.fileBrowser.deleteFile(file))"
+                            x-show="fb.remoteAllowed('delete', file)"
+                            @click.stop="$confirmClick($event, () => fb.deleteFile(file))"
                             title="Delete item"
                             aria-label="Delete item"
                           >
@@ -509,13 +519,13 @@
                   </template>
 
                   <!-- Empty state -->
-                  <template x-if="!$store.fileBrowser.browser.entries.length && !$store.fileBrowser.isLoading">
+                  <template x-if="!fb.browser.entries.length && !fb.isLoading">
                     <div class="no-files">No files found</div>
                   </template>
-                  <template x-if="$store.fileBrowser.browser.entries.length && !$store.fileBrowser.visibleEntries.length">
+                  <template x-if="fb.browser.entries.length && !fb.visibleEntries.length">
                     <div class="no-files">
                       <div>No matching files found</div>
-                      <button class="btn btn-cancel btn-clear-search" @click="$store.fileBrowser.clearSearch()">
+                      <button class="btn btn-cancel btn-clear-search" @click="fb.clearSearch()">
                         <x-icon name="close"></x-icon>
                         Clear
                       </button>
@@ -523,8 +533,8 @@
                   </template>
                 </div>
               </div>
-              <div class="file-tree-host" x-show="$store.fileBrowser.fileTree.shown" style="display: none">
-                <x-component path="modals/file-browser/file-tree.html" owner="fileBrowser"></x-component>
+              <div class="file-tree-host" x-show="fb.fileTree.shown" style="display: none">
+                <x-component path="modals/file-browser/file-tree.html" :owner="owner"></x-component>
               </div>
             </div>
           </div>
@@ -532,56 +542,58 @@
       </template>
 
       <!-- Modal Footer (outside template x-if so it exists immediately) -->
-      <template x-if="$store.fileBrowser">
-        <div class="modal-footer file-browser-footer" data-modal-footer :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas' }">
-          <div class="file-browser-picker-actions" x-show="$store.fileBrowser.isPickerMode() || $store.fileBrowser.renameInline" style="display: none">
-            <template x-if="$store.fileBrowser.renameInline">
-              <span class="picker-inline-label" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'New folder' : 'Rename'"></span>
+      <template x-if="fb">
+        <div class="modal-footer file-browser-footer" data-modal-footer
+          x-data="{ footerOwner: xAttrs($el)?.owner || 'fileBrowser', get fb() { return this.footerOwner === 'fileBrowser' ? $store.fileBrowser.current : $store[this.footerOwner]; } }"
+          :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': fb.embedded }">
+          <div class="file-browser-picker-actions" x-show="fb.isPickerMode() || fb.renameInline" style="display: none">
+            <template x-if="fb.renameInline">
+              <span class="picker-inline-label" x-text="fb.renameMode === 'create-folder' ? 'New folder' : 'Rename'"></span>
             </template>
-            <template x-if="$store.fileBrowser.isSaveAsPicker() && !$store.fileBrowser.renameInline">
+            <template x-if="fb.isSaveAsPicker() && !fb.renameInline">
               <input
                 type="text"
                 class="picker-filename-input"
-                x-model="$store.fileBrowser.pickerFilename"
-                @input="$store.fileBrowser.onPickerFilenameInput()"
-                @keydown.enter.prevent="$store.fileBrowser.confirmPicker()"
+                x-model="fb.pickerFilename"
+                @input="fb.onPickerFilenameInput()"
+                @keydown.enter.prevent="fb.confirmPicker()"
                 placeholder="File name"
                 aria-label="File name"
                 spellcheck="false"
               />
             </template>
-            <template x-if="$store.fileBrowser.renameInline">
+            <template x-if="fb.renameInline">
               <input
                 type="text"
                 class="picker-filename-input"
-                x-model="$store.fileBrowser.renameName"
+                x-model="fb.renameName"
                 x-create="$nextTick(() => { if ($el.checkVisibility({checkOpacity: true})) { $el.focus(); $el.select(); } })"
-                :disabled="$store.fileBrowser.isRenaming"
-                @keydown.escape.stop.prevent="$store.fileBrowser.closeRenameModal()"
-                @keydown.enter.prevent="$store.fileBrowser.confirmRename()"
-                :placeholder="$store.fileBrowser.renameMode === 'create-folder' ? 'Folder name' : 'New name'"
-                :aria-label="$store.fileBrowser.renameMode === 'create-folder' ? 'Folder name' : 'New name'"
+                :disabled="fb.isRenaming"
+                @keydown.escape.stop.prevent="fb.closeRenameModal()"
+                @keydown.enter.prevent="fb.confirmRename()"
+                :placeholder="fb.renameMode === 'create-folder' ? 'Folder name' : 'New name'"
+                :aria-label="fb.renameMode === 'create-folder' ? 'Folder name' : 'New name'"
                 spellcheck="false"
               />
             </template>
-            <template x-if="$store.fileBrowser.pickerFilenameError && !$store.fileBrowser.renameInline">
-              <span class="picker-inline-error" x-text="$store.fileBrowser.pickerFilenameError"></span>
+            <template x-if="fb.pickerFilenameError && !fb.renameInline">
+              <span class="picker-inline-error" x-text="fb.pickerFilenameError"></span>
             </template>
-            <template x-if="$store.fileBrowser.renameError">
-              <span class="picker-inline-error" x-text="$store.fileBrowser.renameError"></span>
+            <template x-if="fb.renameError">
+              <span class="picker-inline-error" x-text="fb.renameError"></span>
             </template>
             <button
               type="button"
               class="btn btn-ok picker-confirm-button"
-              :disabled="$store.fileBrowser.renameInline
-                ? ($store.fileBrowser.isRenaming || $store.fileBrowser.isLoading || !$store.fileBrowser.renameName.trim())
-                : (!$store.fileBrowser.canConfirmPicker() || $store.fileBrowser.isBulkBusy || $store.fileBrowser.isLoading)"
-              @click="$store.fileBrowser.renameInline ? $store.fileBrowser.confirmRename() : $store.fileBrowser.confirmPicker()"
-              x-text="$store.fileBrowser.renameInline ? ($store.fileBrowser.renameMode === 'create-folder' ? 'Create Folder' : 'Rename') : $store.fileBrowser.pickerConfirmLabel"
+              :disabled="fb.renameInline
+                ? (fb.isRenaming || fb.isLoading || !fb.renameName.trim())
+                : (!fb.canConfirmPicker() || fb.isBulkBusy || fb.isLoading)"
+              @click="fb.renameInline ? fb.confirmRename() : fb.confirmPicker()"
+              x-text="fb.renameInline ? (fb.renameMode === 'create-folder' ? 'Create Folder' : 'Rename') : fb.pickerConfirmLabel"
             ></button>
-            <button type="button" class="btn btn-cancel" :disabled="$store.fileBrowser.isBulkBusy || $store.fileBrowser.isRenaming" @click="$store.fileBrowser.renameInline ? $store.fileBrowser.closeRenameModal() : $store.fileBrowser.cancelPicker()">Cancel</button>
+            <button type="button" class="btn btn-cancel" :disabled="fb.isBulkBusy || fb.isRenaming" @click="fb.renameInline ? fb.closeRenameModal() : fb.cancelPicker()">Cancel</button>
           </div>
-          <label class="btn btn-upload" x-show="!$store.fileBrowser.isPickerMode() && !$store.fileBrowser.renameInline && $store.fileBrowser.remoteAllowed('upload')">
+          <label class="btn btn-upload" x-show="!fb.isPickerMode() && !fb.renameInline && fb.remoteAllowed('upload')">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path
                 stroke-linecap="round"
@@ -590,12 +602,12 @@
               />
             </svg>
             Upload Files
-            <input type="file" multiple accept="*" @change="$store.fileBrowser.handleFileUpload" style="display: none" />
+            <input type="file" multiple accept="*" @change="fb.handleFileUpload($event)" style="display: none" />
           </label>
           <button
             class="btn btn-cancel"
-            x-show="xAttrs($el)?.mode !== 'canvas' && !$store.fileBrowser.isPickerMode() && !$store.fileBrowser.renameInline"
-            @click="$store.fileBrowser.handleClose()"
+            x-show="!fb.embedded && xAttrs($el)?.mode !== 'canvas' && !fb.isPickerMode() && !fb.renameInline"
+            @click="fb.handleClose()"
           >
             Close Browser
           </button>
@@ -654,7 +666,7 @@
         min-height: 0;
       }
 
-      .file-browser-shell.is-surface {
+      .file-browser-shell:is(.is-surface, .is-embedded) {
         display: flex;
         flex: 1 1 auto;
         flex-direction: column;
@@ -672,7 +684,7 @@
         min-height: 400px;
       }
 
-      .file-browser-root.is-surface {
+      .file-browser-root:is(.is-surface, .is-embedded) {
         flex: 1 1 auto;
         min-height: 0;
       }
@@ -700,7 +712,7 @@
         min-height: 0;
       }
 
-      .file-browser-shell.is-surface .file-browser-content {
+      .file-browser-shell:is(.is-surface, .is-embedded) .file-browser-content {
         flex: 1 1 auto;
         overflow: hidden;
       }
@@ -721,7 +733,7 @@
         pointer-events: none;
       }
 
-      .file-browser-shell.is-surface .files-list,
+      .file-browser-shell:is(.is-surface, .is-embedded) .files-list,
       .modal-inner.file-browser-modal .files-list {
         flex: 1 1 auto;
         min-height: 0;
@@ -729,7 +741,7 @@
         background: var(--surface-background);
       }
 
-      .file-browser-shell.is-surface .file-header {
+      .file-browser-shell:is(.is-surface, .is-embedded) .file-header {
         position: sticky;
         top: 0;
         z-index: 2;
@@ -1280,7 +1292,7 @@
         container: file-browser-footer / inline-size;
       }
 
-      .file-browser-footer.is-surface {
+      .file-browser-footer:is(.is-surface, .is-embedded) {
         display: flex;
         flex: 0 0 auto;
         justify-content: flex-end;
@@ -1503,6 +1515,18 @@
           gap: 0.2rem;
           padding-right: 0.2rem;
         }
+      }
+      @container file-browser (max-width: 400px) {
+        .path-navigator { flex-wrap: wrap; }
+        .path-edit-group,
+        .path-buttons-group { flex-basis: calc(100% - 88px); }
+        .path-navigator > .surface-toolbar-separator { display: none; }
+        .path-navigator .btn-new-item { margin-left: auto; }
+        .file-header,
+        .file-item { grid-template-columns: 2.25rem minmax(0, 1fr) 7rem; }
+        .file-cell-size,
+        .file-size { display: none; }
+        .file-icon { margin: 0 0.5rem 0 0.25rem; }
       }
       @container file-browser-footer (max-width: 620px) {
         .file-browser-picker-actions {

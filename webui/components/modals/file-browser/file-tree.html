@@ -1,6 +1,6 @@
 <html>
 <body>
-  <aside class="file-tree" x-data="{ tree: $store[xAttrs($el).owner].fileTree }" aria-label="File tree"
+  <aside class="file-tree" x-data="{ owner: xAttrs($el).owner, get tree() { return $store[this.owner].fileTree; } }" aria-label="File tree"
     x-effect="tree.selectedPath; tree.shown; $nextTick(() => tree.scrollToSelected($el))">
     <div class="file-tree-filter">
       <x-icon name="search"></x-icon>

@@ -6,32 +6,32 @@
   </script>
 </head>
 <body>
-  <div x-data>
-    <template x-if="$store.fileBrowser">
-      <div class="rename-modal-root" x-destroy="$store.fileBrowser.resetRenameState()" x-init="$nextTick(() => $refs.renameInput?.focus())">
+  <div x-data="{ fb: $store.fileBrowser.renameView }">
+    <template x-if="fb">
+      <div class="rename-modal-root" x-destroy="fb.releaseRenameModal()" x-init="$nextTick(() => $refs.renameInput?.focus())">
         <div class="rename-form">
-          <label class="rename-label" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'New folder name' : 'New name'"></label>
+          <label class="rename-label" x-text="fb.renameMode === 'create-folder' ? 'New folder name' : 'New name'"></label>
           <input
             class="rename-input"
             type="text"
             x-ref="renameInput"
-            x-model="$store.fileBrowser.renameName"
-            @keydown.enter.prevent="$store.fileBrowser.confirmRename()"
-            :disabled="$store.fileBrowser.isRenaming"
+            x-model="fb.renameName"
+            @keydown.enter.prevent="fb.confirmRename()"
+            :disabled="fb.isRenaming"
           />
-          <template x-if="$store.fileBrowser.renameError">
-            <p class="rename-error" x-text="$store.fileBrowser.renameError"></p>
+          <template x-if="fb.renameError">
+            <p class="rename-error" x-text="fb.renameError"></p>
           </template>
-          <p class="rename-hint" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'Folder will be created in the current directory.' : 'Renaming will keep the item in the same directory.'"></p>
+          <p class="rename-hint" x-text="fb.renameMode === 'create-folder' ? 'Folder will be created in the current directory.' : 'Renaming will keep the item in the same directory.'"></p>
         </div>
       </div>
     </template>
   </div>
 
   <template x-if="$store.fileBrowser">
-    <div class="modal-footer" data-modal-footer>
-      <button class="btn btn-ok" @click="$store.fileBrowser.confirmRename()" :disabled="$store.fileBrowser.isRenaming || !$store.fileBrowser.renameName.trim()" x-text="$store.fileBrowser.renameMode === 'create-folder' ? 'Create Folder' : 'Rename'"></button>
-      <button class="btn btn-cancel" @click="$store.fileBrowser.closeRenameModal()" :disabled="$store.fileBrowser.isRenaming">Cancel</button>
+    <div class="modal-footer" data-modal-footer x-data="{ fb: $store.fileBrowser.renameView }">
+      <button class="btn btn-ok" @click="fb.confirmRename()" :disabled="fb.isRenaming || !fb.renameName.trim()" x-text="fb.renameMode === 'create-folder' ? 'Create Folder' : 'Rename'"></button>
+      <button class="btn btn-cancel" @click="fb.closeRenameModal()" :disabled="fb.isRenaming">Cancel</button>
     </div>
   </template>
 

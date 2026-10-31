@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+import { createStore, getStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
@@ -64,8 +64,24 @@ function delay(ms) {
   return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
-// Model migrated from legacy file_browser.js (lift-and-shift)
-const model = {
+const views = new Map();
+const configuration = createStore("fileBrowserConfiguration", {
+  modalOwner: null, renameOwner: null, settingsOwner: null,
+});
+const sharedFields = [
+  "limits", "textLimitMib", "transferLimitMib", "extractLimitMib", "archiveEntries",
+  "savingTextLimit", "preferences", "rememberLastDirectory", "settingsLoadPromise",
+  "settingsUpdatedHandler", "connections", "connectionProviders", "connectionDraft",
+  "connectionsBusy", "installedConnectionPlugins", "openingConnectionPlugin",
+];
+
+export function createFileBrowserView(name, { embedded = false, rememberKey = FILE_BROWSER_LAST_DIRECTORY_STORAGE_KEY } = {}) {
+  if (views.has(name)) return views.get(name);
+  let view;
+  const model = {
+  embedded,
+  viewName: name,
+  rememberKey,
   limits: null,
   textLimitMib: null,
   transferLimitMib: null,
@@ -104,7 +120,7 @@ const model = {
       globalThis.toastFrontendError?.(error.message, "File Browser Settings");
     } finally { this.savingTextLimit = false; }
   },
-  fileTree: createFileTree((file) => store.openTreeEntry(file), () => store.preferences.treeRoot),
+  fileTree: createFileTree((file) => view.openTreeEntry(file), () => view.preferences.treeRoot),
 
   async openTreeEntry(file) {
     await this.ensureLimits();
@@ -153,6 +169,8 @@ const model = {
   settingsUpdatedHandler: null,
   _floatingCleanup: null,
   _mountedElement: null,
+  _canvasElement: null,
+  _modalElement: null,
   _mountedDefaultLoadTimer: null,
   renameTarget: null,
   renameName: "",
@@ -263,10 +281,11 @@ const model = {
     } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
   },
   async openConnection(connection) {
+    const target = views.get(configuration.settingsOwner) || view;
     await window.closeModal("settings/settings.html");
     const path = "/@connections/" + connection.provider + "/" + connection.id;
-    return this._mountedElement?.getClientRects().length
-      ? this.navigateToFolder(path)
+    return target._mountedElement?.getClientRects().length
+      ? target.navigateToFolder(path)
       : openLatestSurface("files", { path, source: "file-browser-settings" });
   },
   async startDownload(files) {
@@ -282,7 +301,7 @@ const model = {
     link.remove();
   },
 
-  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false, treeRoot: "/a0", pathBar: "buttons" },
+  preferences: { sortBy: "name", sortDirection: "asc", view: "list", treeShown: false, treeRoot: "/a0", pathBar: "buttons", independent: true },
 
   normalizeTreeRoot(value) {
     if (typeof value !== "string" || !value.trim().startsWith("/")) return "";
@@ -310,6 +329,7 @@ const model = {
         treeShown: value.treeShown === true,
         treeRoot: this.normalizeTreeRoot(value.treeRoot) || "/a0",
         pathBar: value.pathBar === "raw" ? "raw" : "buttons",
+        independent: value.independent !== false,
       };
     } catch { /* Storage may be unavailable. Keep the defaults. */ }
     this.browser.sortBy = this.preferences.sortBy;
@@ -324,10 +344,10 @@ const model = {
       globalThis.toastFrontendError?.("Could not save file browser preferences.");
       return;
     }
-    this.browser.sortBy = this.preferences.sortBy;
-    this.browser.sortDirection = this.preferences.sortDirection;
-    this.fileTree.shown = this.preferences.treeShown;
-    await this.fileTree.follow(this.browser.currentPath);
+    await Promise.all([...views.values()].map(async browser => {
+      browser.applyPreferences();
+      if (browser._mountedElement) await browser.fileTree.follow(browser.browser.currentPath);
+    }));
   },
 
   async loadSettings() {
@@ -344,47 +364,54 @@ const model = {
   },
 
   async openSettings(providerId = "") {
+    configuration.settingsOwner = name;
     await this.loadSettings();
     this.connectionDraft = null;
     if (providerId) this.editConnection(null, providerId);
     const { store: settingsStore } = await import("/components/settings/settings-store.js");
-    return settingsStore.open("file-browser");
+    try { return await settingsStore.open("file-browser"); }
+    finally { if (configuration.settingsOwner === name) configuration.settingsOwner = null; }
   },
 
   // --- Lifecycle -----------------------------------------------------------
-  init() {
-    this.ensureLimits().catch(() => {});
-    if (this.settingsUpdatedHandler) return;
-    this.loadPreferences();
-    this.settingsUpdatedHandler = (event) => {
-      const value = event?.detail?.file_browser_remember_last_directory;
-      if (typeof value !== "boolean") return;
-      this.rememberLastDirectory = value;
-      if (!value) this.clearRememberedDirectory();
-    };
-    document.addEventListener("settings-updated", this.settingsUpdatedHandler);
+  init() { this.applyPreferences(); },
+
+  applyPreferences() {
+    this.browser.sortBy = this.preferences.sortBy;
+    this.browser.sortDirection = this.preferences.sortDirection;
+    this.fileTree.shown = this.preferences.treeShown;
+  },
+
+  get isPickerModal() { return configuration.modalOwner === name; },
+  get isRenameModal() { return configuration.renameOwner === name; },
+
+  ownsModal() {
+    return !this.embedded && Boolean(this._mountedElement?.closest?.(".file-browser-modal"));
   },
 
   onMount(element = null, options = {}) {
+    const mode = this.embedded ? "embedded" : options?.mode === "canvas" ? "canvas" : "modal";
+    if (mode === "canvas") this._canvasElement = element;
+    if (mode === "modal") this._modalElement = element;
+    if (mode === "canvas" && this._modalElement?.isConnected) return;
+    if (element && element === this._mountedElement) return;
     this._mountedElement = element;
     this._floatingCleanup?.();
     this._floatingCleanup = null;
-    const mode = options?.mode === "canvas" ? "canvas" : "modal";
-    if (mode === "modal") {
-      this.setupFloatingModal(element);
-    } else {
-      this.scheduleMountedDefaultLoad();
-    }
+    if (mode === "modal") this.setupFloatingModal(element);
+    this.scheduleMountedDefaultLoad();
   },
 
   onUnmount(element = null) {
+    if (element === this._canvasElement) this._canvasElement = null;
+    if (element === this._modalElement) this._modalElement = null;
     if (element && element !== this._mountedElement) return;
     if (!this.isSurfaceHandoff) {
       this._directoryRequest++;
       this.isLoading = false;
       this.pathEditing = false;
-      this.resetPickerState();
-      if (!this.isRenaming) this.resetRenameState();
+      if (!this.isBulkBusy && !this.isPickerModal) this.resetPickerState();
+      if (!this.isRenaming && !this.isRenameModal) this.resetRenameState();
     }
     this.clearPathSuggestions();
     this._mountedElement = null;
@@ -392,11 +419,14 @@ const model = {
     this._floatingCleanup?.();
     this._floatingCleanup = null;
     this.cancelMountedDefaultLoad();
+    if (this._canvasElement?.isConnected) this.onMount(this._canvasElement, { mode: "canvas" });
   },
 
   // --- Public API (called from button/link) --------------------------------
   async open(path = "", options = {}) {
+    if (this.embedded) return store.open(path || this.browser.currentPath, options);
     if (this.isLoading || this.isRenaming || this.isBulkBusy) return;
+    if (options.pickerMode) configuration.modalOwner = name;
     // Mounted canvas state survives an external picker, even when the panel is hidden.
     const surfaceActive = Boolean(document.querySelector(".file-browser-root.is-surface"));
     const retainedPath = surfaceActive ? this.browser.currentPath : "";
@@ -404,7 +434,7 @@ const model = {
 
     try {
       if (!window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
-        this.closePromise = window.openModal(FILE_BROWSER_MODAL_PATH, () => !this.isBulkBusy && !this.isRenaming);
+        this.closePromise = window.openModal(FILE_BROWSER_MODAL_PATH, () => !this.isBulkBusy && !this.isRenaming && !store.current.isBulkBusy && !store.current.isRenaming);
       } else {
         if (!this.closePromise) {
           // Surface controls can open the modal without going through this store.
@@ -437,6 +467,8 @@ const model = {
       console.error("File browser error:", error);
       this.error = error?.message || "Failed to load files";
       this.isLoading = false;
+    } finally {
+      if (configuration.modalOwner === name) configuration.modalOwner = null;
     }
   },
 
@@ -635,7 +667,7 @@ const model = {
   saveScrollPosition() {
     // Find the file browser modal's scrollable container
     // We look for the modal containing .file-browser-root to target the correct modal
-    const fileBrowserRoot = document.querySelector('.file-browser-root');
+    const fileBrowserRoot = this._mountedElement?.querySelector('.file-browser-root');
     if (fileBrowserRoot) {
       const modalScroll = fileBrowserRoot.closest('.modal-scroll');
       if (modalScroll) {
@@ -652,7 +684,7 @@ const model = {
     if (!scrollPos) return;
 
     const restore = () => {
-      const fileBrowserRoot = document.querySelector('.file-browser-root');
+      const fileBrowserRoot = this._mountedElement?.querySelector('.file-browser-root');
       if (fileBrowserRoot) {
         const modalScroll = fileBrowserRoot.closest('.modal-scroll');
         if (modalScroll) {
@@ -966,7 +998,7 @@ const model = {
     this.pathSuggestionIndex = (this.pathSuggestionIndex + delta + count) % count;
     this.runNextFrame(() => {
       for (const container of document.querySelectorAll(".path-suggestions")) {
-        if (container.getClientRects().length === 0) continue;
+        if (container._fileBrowserOwner !== name || container.getClientRects().length === 0) continue;
         const row = container.querySelectorAll(".path-suggestion")[this.pathSuggestionIndex];
         row?.scrollIntoView({ block: "nearest" });
       }
@@ -1027,7 +1059,7 @@ const model = {
   getRememberedDirectory() {
     if (!this.rememberLastDirectory) return "";
     try {
-      return localStorage.getItem(FILE_BROWSER_LAST_DIRECTORY_STORAGE_KEY) || "";
+      return localStorage.getItem(this.rememberKey) || "";
     } catch {
       return "";
     }
@@ -1038,18 +1070,18 @@ const model = {
     const directory = this.normalizeOpeningPath(path);
     if (!directory || directory === "$WORK_DIR") return;
     try {
-      localStorage.setItem(FILE_BROWSER_LAST_DIRECTORY_STORAGE_KEY, directory);
+      localStorage.setItem(this.rememberKey, directory);
     } catch {}
   },
 
   clearRememberedDirectory() {
     try {
-      localStorage.removeItem(FILE_BROWSER_LAST_DIRECTORY_STORAGE_KEY);
+      localStorage.removeItem(this.rememberKey);
     } catch {}
   },
 
   disposeScopedTooltips() {
-    const root = document.querySelector(".file-browser-root");
+    const root = this._mountedElement;
     const tooltipApi = globalThis.bootstrap?.Tooltip;
     if (!root || !tooltipApi) return;
 
@@ -1059,7 +1091,6 @@ const model = {
         instance?.dispose();
       } catch {}
     });
-    document.querySelectorAll(".tooltip").forEach((tooltip) => tooltip.remove());
   },
 
   // --- Modal helpers -------------------------------------------------------
@@ -1187,7 +1218,8 @@ const model = {
   },
 
   async closeOrRestorePicker() {
-    if (window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
+    if (!this.embedded && (this.ownsModal() || configuration.modalOwner === name)
+        && window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
       window.closeModal(FILE_BROWSER_MODAL_PATH);
     } else {
       // In-place picker over a live surface: restore the browser listing.
@@ -1209,6 +1241,8 @@ const model = {
     }
     if (this.isTextOpenPicker()) {
       this.togglePickerFile(file);
+    } else if (!this.isPickerMode()) {
+      return this.canOpenInSurface(file) ? this.openInSurface(file) : this.downloadFile(file);
     }
   },
 
@@ -1649,14 +1683,23 @@ const model = {
 
   openRenameModal(file, options = {}) {
     if (!this.beginRename(file, options)) return;
+    if (this.embedded) return;
+    configuration.renameOwner = name;
     this.renameInline = false;
     window.openModal("modals/file-browser/rename-modal.html", () => !this.isRenaming);
   },
 
   openNewFolderModal() {
     if (!this.beginNewFolder()) return;
+    if (this.embedded) return;
+    configuration.renameOwner = name;
     this.renameInline = false;
     window.openModal("modals/file-browser/rename-modal.html", () => !this.isRenaming);
+  },
+
+  releaseRenameModal() {
+    if (!this.isRenaming) this.resetRenameState();
+    if (configuration.renameOwner === name) configuration.renameOwner = null;
   },
 
   closeRenameModal() {
@@ -1981,7 +2024,7 @@ const model = {
   },
 
   async handleFileUpload(event) {
-    return store._handleFileUpload(event); // bind to model to ensure correct context
+    return this._handleFileUpload(event);
   },
 
   async openInSurface(file = {}, target = this.fileSurfaceTarget(file)) {
@@ -2028,7 +2071,7 @@ const model = {
       }
 
       this.disposeScopedTooltips();
-      await window.closeModal?.(FILE_BROWSER_MODAL_PATH);
+      if (this.ownsModal()) await window.closeModal?.(FILE_BROWSER_MODAL_PATH);
     } catch (error) {
       window.toastFrontendError?.(
         error?.message || "Could not open file",
@@ -2041,9 +2084,10 @@ const model = {
     try {
       const files = event.target.files;
       if (!files.length) return;
+      const path = this.browser.currentPath;
       const limits = await this.ensureLimits(true);
       const formData = new FormData();
-      formData.append("path", this.browser.currentPath);
+      formData.append("path", path);
       for (let f of files) {
         if (f.size > limits.max_file_bytes) {
           alert(`File ${f.name} exceeds the ${limits.max_file_bytes / (1024 * 1024)} MiB limit.`);
@@ -2057,9 +2101,11 @@ const model = {
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && !data.error) {
-        this.browser.entries = this.decorateEntries(data.data.entries || []);
-        this.browser.currentPath = data.data.current_path;
-        this.browser.parentPath = data.data.parent_path;
+        if (this.browser.currentPath === path) {
+          this.browser.entries = this.decorateEntries(data.data.entries || []);
+          this.browser.currentPath = data.data.current_path;
+          this.browser.parentPath = data.data.parent_path;
+        }
         if (data.failed && data.failed.length) {
           const msg = data.failed
             .map((f) => typeof f === "string" ? f : `${f.name}: ${f.error}`)
@@ -2100,7 +2146,67 @@ const model = {
 
 };
 
-export const store = createStore("fileBrowser", model);
+  for (const key of sharedFields) {
+    if (!Object.prototype.hasOwnProperty.call(configuration, key)) configuration[key] = model[key];
+    Object.defineProperty(model, key, {
+      enumerable: true, configurable: true,
+      get: () => configuration[key],
+      set: value => { configuration[key] = value; },
+    });
+  }
+  view = createStore(name, model);
+  views.set(name, view);
+  return view;
+}
+
+const primary = createFileBrowserView("fileBrowserShared");
+const facade = {
+  get current() {
+    if (configuration.modalOwner) return views.get(configuration.modalOwner);
+    const context = getStore("chats")?.selected;
+    return this.preferences.independent && context
+      ? createFileBrowserView(`fileBrowserChat_${context}`, { rememberKey: `fileBrowser.lastDirectory.${context}` })
+      : primary;
+  },
+  get renameView() { return views.get(configuration.renameOwner) || this.current; },
+  init() {
+    primary.loadPreferences();
+    primary.ensureLimits().catch(() => {});
+    if (configuration.settingsUpdatedHandler) return;
+    configuration.settingsUpdatedHandler = event => {
+      const value = event?.detail?.file_browser_remember_last_directory;
+      if (typeof value !== "boolean") return;
+      configuration.rememberLastDirectory = value;
+      if (!value) {
+        for (const browser of views.values()) browser.clearRememberedDirectory();
+        // Clear saved chat locations even for views not mounted this session.
+        try {
+          for (const key of Object.keys(localStorage)) {
+            if (key.startsWith("fileBrowser.lastDirectory.")) localStorage.removeItem(key);
+          }
+        } catch { /* Storage may be unavailable. Remembering remains disabled. */ }
+      }
+    };
+    document.addEventListener("settings-updated", configuration.settingsUpdatedHandler);
+  },
+};
+for (const key of Object.keys(primary)) {
+  if (key === "init") continue;
+  Object.defineProperty(facade, key, {
+    enumerable: true, configurable: true,
+    get() {
+      if (sharedFields.includes(key)) return configuration[key];
+      const browser = this.current;
+      const value = browser[key];
+      return typeof value === "function" ? value.bind(browser) : value;
+    },
+    set(value) {
+      if (sharedFields.includes(key)) configuration[key] = value;
+      else this.current[key] = value;
+    },
+  });
+}
+export const store = createStore("fileBrowser", facade);
 
 window.openFileLink = async function (path) {
   try {

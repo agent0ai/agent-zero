@@ -26,11 +26,12 @@ def flat(text: str) -> str:
 def run_store_check(checks: str) -> None:
     source = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
     source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
-    source = source.replace('export const store = createStore', 'const store = createStore')
+    source = source.replace('export const store = createStore', 'const store = createStore').replace('export function createFileBrowserView', 'function createFileBrowserView')
     preamble = '''
 import assert from 'node:assert/strict';
 const window = globalThis;
 const createStore = (_name, model) => model;
+const getStore = () => null;
 const createFileTree = () => ({ shown: false, follow: async () => {} });
 const localStorage = { getItem: () => null, setItem: () => {} };
 let surface = null;
@@ -201,7 +202,7 @@ assert.equal(store.renameMode, 'create-folder');
 store.closeRenameModal();
 ''')
     html = read("webui", "components", "modals", "file-browser", "file-browser.html")
-    assert 'x-if="$store.fileBrowser.isSaveAsPicker() && !$store.fileBrowser.renameInline"' in html
+    assert 'x-if="fb.isSaveAsPicker() && !fb.renameInline"' in html
     assert 'container: file-browser-footer / inline-size;' in html
     assert '@container file-browser-footer (max-width: 620px)' in html
 
@@ -334,9 +335,9 @@ def test_file_browser_editable_path_bar_and_remembered_directory_contract() -> N
     assert 'class="nav-button-label">Up</span>' in html
     assert "flex-direction: column;" in html
     assert ".nav-button-label" in html
-    assert 'x-model="$store.fileBrowser.pathInput"' in html
-    assert '@submit.prevent="$store.fileBrowser.submitPath()"' in html
-    assert '$store.fileBrowser.pathError' in html
+    assert 'x-model="fb.pathInput"' in html
+    assert '@submit.prevent="fb.submitPath()"' in html
+    assert 'fb.pathError' in html
 
     assert "FILE_BROWSER_LAST_DIRECTORY_STORAGE_KEY" in store
     assert 'callJsonApi("settings_get", null)' in store
@@ -366,7 +367,7 @@ def test_file_browser_path_controls_preserve_accessibility_and_cleanup():
     assert '@keydown.escape.stop.prevent=' in html
     assert 'x-destroy="$el._pinResizeObserver?.disconnect()"' in html
     assert 'x-destroy="$el._crumbFitObserver.disconnect()"' in html
-    assert ':inert="$store.fileBrowser.isLoading || $store.fileBrowser.isRenaming || $store.fileBrowser.isBulkBusy"' in html
+    assert ':inert="fb.isLoading || fb.isRenaming || fb.isBulkBusy"' in html
 
 
 def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
@@ -379,7 +380,7 @@ def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
     assert 'aria-label="New folder"' in html
     assert 'title="New folder"' in html
     assert 'aria-label="Create new"' in html
-    assert html.count('btn-new-item') == 1
+    assert html.split('<style>', 1)[0].count('btn-new-item') == 1
     assert ">New File<" not in html
     assert ">New Folder<" not in html
     assert 'class="file-search-shell"' not in html
@@ -396,7 +397,8 @@ def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
     assert "@container file-browser (max-width: 620px)" in html
     assert "grid-template-columns: 2.25rem minmax(0, 1fr) minmax(4.25rem, max-content) 8rem;" in flat(html)
     assert ".file-cell-date, .file-date { display: none;" in flat(html)
-    assert ".file-cell-size,\n    .file-size" not in html
+    assert "@container file-browser (max-width: 400px)" in html
+    assert ".file-cell-size, .file-size { display: none;" in flat(html)
 
     assert "hiding the Modified date column" in dox
     assert "One Create new (+) control owns both create actions" in dox
@@ -424,10 +426,10 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "picker-filename-input" in html
     assert "Open Selected" in store
     assert "Save Here" in store
-    assert "$store.fileBrowser.confirmPicker()" in html
+    assert "fb.confirmPicker()" in html
     assert "picker-selection-label" not in html
-    assert "$store.fileBrowser.isPickerMode()" in html
-    assert "$store.fileBrowser.isTextOpenPicker()" in html
+    assert "fb.isPickerMode()" in html
+    assert "fb.isTextOpenPicker()" in html
     assert "picker-confirm-button" in html
 
     assert "picker modes for Editor Open and Save As" in dox
@@ -440,10 +442,10 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert 'file-browser-actions-menu/*.html' in dox
     edit_button = html[dropdown_menu_index:html.index('<span>Edit</span>')]
     assert 'class="dropdown-item"' in edit_button
-    assert 'x-show="$store.fileBrowser.isEditableFile(file)"' in edit_button
-    assert '@click="$store.fileBrowser.openFileEditor(file)"' in edit_button
+    assert 'x-show="fb.isEditableFile(file)"' in edit_button
+    assert '@click="fb.openFileEditor(file)"' in edit_button
     assert 'always_enabled: true' in read("plugins", "_editor", "plugin.yaml")
-    assert 'x-show="$store.fileBrowser.canOpenInActionMenu(file)"' in html
+    assert 'x-show="fb.canOpenInActionMenu(file)"' in html
 
 
 def test_file_browser_extract_and_editor_download_actions() -> None:
@@ -452,8 +454,8 @@ def test_file_browser_extract_and_editor_download_actions() -> None:
     editor_html = read("plugins", "_editor", "webui", "editor-panel.html")
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
 
-    assert 'x-show="!file.is_dir && !$store.fileBrowser.isRemote(file.path) && $store.fileBrowser.isArchive(file.name)"' in browser_html
-    assert '$store.fileBrowser.extractArchive(file)' in browser_html
+    assert 'x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"' in browser_html
+    assert 'fb.extractArchive(file)' in browser_html
     assert "ARCHIVE_SUFFIXES" in browser_store
     assert 'fetchApi("/extract_work_dir_archive"' in browser_store
     assert "async extractArchive(file = {})" in browser_store
@@ -467,14 +469,14 @@ def test_file_browser_dropdown_escapes_scroll_container_and_header_is_opaque() -
     html = read("webui", "components", "modals", "file-browser", "file-browser.html")
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
 
-    assert '@scroll="$store.fileBrowser.closeDropdown(); closeMenu()"' in html
+    assert '@scroll="fb.closeDropdown(); closeMenu()"' in html
     assert 'const surfaceActive = Boolean(document.querySelector(".file-browser-root.is-surface"));' in store
     assert 'await this.openSurface(retainedPath);' in store
     assert 'overflow: auto;' in html
     assert 'x-teleport="body"' in html
     assert 'class="dropdown-menu file-actions-menu"' in html
-    assert ':style="$store.fileBrowser.dropdownStyle"' in html
-    assert '@click.stop="$store.fileBrowser.toggleDropdown(file.path, $event.currentTarget)"' in html
+    assert ':style="fb.dropdownStyle"' in html
+    assert '@click.stop="fb.toggleDropdown(file.path, $event.currentTarget)"' in html
     assert "getDropdownStyle(triggerElement," in store
     assert 'position: "fixed"' in store
     assert 'zIndex: "6000"' in store
@@ -512,8 +514,8 @@ def test_file_browser_is_registered_as_right_canvas_surface() -> None:
     assert 'data-surface-modal-path="modals/file-browser/file-browser.html"' in html
     assert 'class="surface-modal file-browser-modal modal-no-backdrop"' in html
     assert 'class="file-browser-modal-body"' in html
-    assert 'x-create="$store.fileBrowser.onMount($el, xAttrs($el) || {})"' in html
-    assert 'x-destroy="$store.fileBrowser.onUnmount($el)"' in html
+    assert 'next?.onMount(this.$el, xAttrs(this.$el) || {});' in html
+    assert 'x-destroy="mounted?.onUnmount($el)"' in html
     assert ".modal-inner.file-browser-modal" in html
     assert "resize: both" in html
     assert "openSurface(path" in store
@@ -577,9 +579,9 @@ def test_file_browser_drag_and_drop_contract() -> None:
     attachments = read("webui", "components", "chat", "attachments", "attachmentsStore.js")
     api = read("api", "rename_work_dir_file.py")
 
-    assert ':draggable="!$store.fileBrowser.isPickerMode() && !$store.fileBrowser.isBulkBusy"' in html
-    assert "$store.fileBrowser.dropItems(file.path, file.name, $event)" in html
-    assert "$store.fileBrowser.dropItems($store.fileBrowser.browser.parentPath, 'parent folder', $event)" in html
+    assert ':draggable="!fb.isPickerMode() && !fb.isBulkBusy"' in html
+    assert "fb.dropItems(file.path, file.name, $event)" in html
+    assert "fb.dropItems(fb.browser.parentPath, 'parent folder', $event)" in html
     start_drag = store[store.index("  startDrag("):store.index("  isDraggingPath(")]
     assert "this.clearSelection()" not in start_drag
     assert "file.selected = true" not in start_drag
@@ -596,17 +598,18 @@ def test_file_browser_drag_and_drop_contract() -> None:
 def test_file_browser_preferences_validate_and_restore_defaults():
     source = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
     source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
-    source = source.replace('export const store = createStore', 'const store = createStore')
+    source = source.replace('export const store = createStore', 'const store = createStore').replace('export function createFileBrowserView', 'function createFileBrowserView')
     script = '''
 import assert from 'node:assert/strict';
 const window = globalThis;
 const createStore = (_name, model) => model;
+const getStore = () => null;
 const createFileTree = () => ({ shown: false, follow: async () => {} });
 let saved = '{}';
 const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
 ''' + source + '''
 store.loadPreferences();
-assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false, treeRoot:'/a0', pathBar:'buttons'});
+assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false, treeRoot:'/a0', pathBar:'buttons', independent:true});
 store.preferences = {sortBy:'date', sortDirection:'desc', view:'icons', treeShown:true, treeRoot:'/a0/usr', pathBar:'raw'};
 await store.savePreferences();
 store.browser.sortBy = 'name';
@@ -632,7 +635,7 @@ for (const path of ['', 'usr', '/a0/../usr', '/a0/./usr', null, 42]) {
 
 saved = '{"sortBy":"invalid","view":"invalid","treeShown":"true"}';
 store.loadPreferences();
-assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false, treeRoot:'/a0', pathBar:'buttons'});
+assert.deepEqual(store.preferences, {sortBy:'name', sortDirection:'asc', view:'list', treeShown:false, treeRoot:'/a0', pathBar:'buttons', independent:true});
 const sorted = store.sortFiles([{name:'b',is_dir:false},{name:'a',is_dir:false},{name:'z',is_dir:true}]);
 assert.deepEqual(sorted.map(x=>x.name), ['z','a','b']);
 '''
@@ -642,11 +645,12 @@ assert.deepEqual(sorted.map(x=>x.name), ['z','a','b']);
 def test_file_browser_history_back_forward_stack_behavior():
     source = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
     source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
-    source = source.replace('export const store = createStore', 'const store = createStore')
+    source = source.replace('export const store = createStore', 'const store = createStore').replace('export function createFileBrowserView', 'function createFileBrowserView')
     script = '''
 import assert from 'node:assert/strict';
 const window = globalThis;
 const createStore = (_name, model) => model;
+const getStore = () => null;
 const createFileTree = () => ({ shown: false, follow: async () => {} });
 let saved = '{}';
 const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
