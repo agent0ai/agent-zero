@@ -138,6 +138,27 @@ v2.0 Instance. This avoids mixing an old root install with a new Docker image.
 
 See [Updating from v1.20 to v2.0](../setup/installation.md#updating-from-v120-to-v20).
 
+## Host Access
+
+Host access lets an open Instance use files, terminal commands, a supported
+browser, or Computer Use on the computer running Launcher. It starts off and
+is optional for your first chat.
+
+1. Open the Instance with **Open UI**.
+2. Click the computer icon beside its name in the Launcher tab bar.
+3. Choose the access and folder you need, then **Save**. Enable Browser or
+   Computer Use only when needed.
+
+Launcher maintains the supporting A0 CLI. You can install the
+[terminal client](a0-cli-connector.md) separately if you want to chat from a
+terminal or connect another computer. Closing the Instance tab stops its Host
+access connection. Remote Instances need explicit permission too.
+
+The folder setting selects where file operations and commands start; it does
+not restrict commands to that folder. Grant access only to an Instance you
+trust. See the [screenshot walkthrough](https://www.agent-zero.ai/p/docs/launcher/#host-access)
+for the permission controls.
+
 ## Capture Launcher Screenshots With Playwright
 
 Launcher is an Electron app, so browser-only Playwright commands are not enough.

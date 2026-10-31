@@ -16,6 +16,7 @@
 - `res/` contains documentation images and other documentation assets.
 - `guides/migrate-agents.md` owns the real Pi, Hermes and Claude Code CLI export, preview, import, file-copy and continuation journeys, with neutral captures under `res/usage/migration/`; source-format and parser contracts stay in the bundled Migrate Agents plugin. The migration and usage guides share the sidebar message-search capture and describe its loaded-conversation/filter limits.
 - `quickstart.md` owns the install-to-first-result journey. `guides/usage.md` owns Welcome layout recovery, chat controls, and goals; `guides/agent-profiles.md` owns whole-tool and individual-action permission guidance.
+- `setup/installation.md` and the root README share the Launcher download release and first-message, model-setup, same-chat sequence with the website Installation page. Keep optional Host access after the first result, persistent storage distinct from backups, and local Docker commands paired with their browser URLs. Reuse the verified kickoff-plan example in installation and quickstart; preserve existing manual-install and upgrade anchors.
 - `guides/onboarding.md` covers provider selection and completion: the final Continue action closes the wizard and keeps the existing chat. Keep its Codex Main/Utility suggestions aligned with OAuth provider metadata.
 - Shared Web UI captures under `res/usage/webui/` must show real, optimized, neutral demo state without personal paths, account identities, or community controls presented as built-in features.
 

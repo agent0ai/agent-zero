@@ -41,9 +41,14 @@ Save it as /a0/usr/workdir/docs-demo-20261030/kickoff-plan.md.
 ```
 
 If models are not configured, the chat offers **Cloud provider**, **AI account**,
-or **Local model**. Choose a path, set the main and utility models, and finish
-setup. Agent Zero retries the message it was holding; you do not need to send
-it again. See [First-Run Onboarding](guides/onboarding.md) for the walkthrough.
+or **Local model**. Choose a path and set the Main and Utility models. If your
+provider is missing, use the provider-plugin link. The [Codex guide](guides/codex.md)
+covers ChatGPT account sign-in; the [OpenCode Go guide](guides/opencode.md)
+covers installing a provider plugin.
+
+Click **Finish setup**, then **Continue** to close the wizard. Agent Zero
+resumes the message it was holding in the same chat; you do not need to send
+it again. See [First-Run Onboarding](guides/onboarding.md) for the full walkthrough.
 
 > [!TIP]
 > If the welcome message box is hidden, use **Show all dismissed** at the bottom
@@ -56,6 +61,10 @@ did. The example below writes a Markdown plan and returns a link to the file.
 
 ![A completed kickoff plan with tool activity and a link to the Markdown file](res/usage/webui/first-task-current.png)
 
+Open the returned file link to check the plan. If no reply arrives, check that
+setup finished and read any provider error in the chat. If the agent replies
+but does not provide a file, ask it to save the plan and return the link.
+
 Use **Pause Agent** and **Resume Agent** to pause and continue a conversation.
 Messages sent during a run enter its queue; use **Send now** on a queued item
 when you want to send that correction immediately. The
@@ -65,11 +74,12 @@ Stop, Nudge, and other controls.
 ## Optional: work on files on your computer
 
 Agent Zero normally works inside its container. To give it access to host
-files, use Launcher **Host access**, the
+files, use Launcher [Host access](guides/launcher.md#host-access), the
 [A0 CLI Connector](guides/a0-cli-connector.md), or an explicitly shared
 [local folder](guides/local-folders.md).
 
-For A0 CLI, run the installer on your host computer:
+Launcher maintains its supporting CLI. For terminal chat or a connection from
+another computer, run the A0 CLI installer on that computer:
 
 **macOS / Linux:**
 ```bash
