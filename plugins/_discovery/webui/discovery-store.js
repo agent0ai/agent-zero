@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { toastFrontendError } from "/components/notifications/notification-store.js";
 import { store as pluginListStore } from "/components/plugins/list/pluginListStore.js";
+import { store as pluginInstallStore } from "/plugins/_plugin_installer/webui/pluginInstallStore.js";
 import * as API from "/js/api.js";
 
 const STORAGE_KEY = "dismissed_discovery_cards";
@@ -47,6 +48,39 @@ const model = {
         .sort((left, right) => (right.priority || 0) - (left.priority || 0));
         
       this.hasDismissedCards = dismissed.size > 0;
+
+      if (!await pluginInstallStore.ensureIndexLoaded({ background: true })) return;
+      const installedResponse = await API.callJsonApi("plugins_list", {
+        filter: { custom: true, builtin: false, search: "" },
+      });
+      const installed = Array.isArray(installedResponse.plugins) ? installedResponse.plugins : [];
+      const channelCards = [];
+      for (const plugin of installed) {
+        const indexed = pluginInstallStore.index?.plugins?.[plugin.name];
+        const thumbnail = plugin.thumbnail_url || indexed?.thumbnail;
+        const action = `open-plugin-config:${plugin.name}`;
+        if (!Array.isArray(indexed?.tags) || !indexed.tags.includes("channels") ||
+            indexed.suspended || !plugin.has_config_screen || !thumbnail ||
+            banners.some((card) => card.cta_action === action)) continue;
+
+        channelCards.push({
+          id: `discovery-channel-${plugin.name}`,
+          type: "feature",
+          title: indexed.title || plugin.display_name || plugin.name,
+          description: indexed.description || plugin.description,
+          thumbnail,
+          cta_text: "Connect",
+          cta_action: action,
+          dismissible: true,
+          priority: 30,
+          show_in_onboarding: true,
+        });
+      }
+      const dismissedNow = this._getDismissedIds();
+      this.cards = [...this.cards, ...channelCards]
+        .filter((card) => !dismissedNow.has(card.id))
+        .sort((left, right) => (right.priority || 0) - (left.priority || 0));
+      this.hasDismissedCards = dismissedNow.size > 0;
     } catch (error) {
       console.error("Failed to fetch discovery cards:", error);
     } finally {

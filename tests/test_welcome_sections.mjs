@@ -99,6 +99,7 @@ test('one restore action brings back sections, notices, accounts and channels', 
     sessionStorage: storage(session),
     document: { addEventListener() {}, body: { dataset: {} } },
     API: { callJsonApi: async () => ({ banners }) },
+    pluginInstallStore: { ensureIndexLoaded: async () => false },
   };
   const welcome = loadStore('../webui/components/welcome/welcome-store.js', context);
   const discovery = loadStore('../plugins/_discovery/webui/discovery-store.js', { ...context });
@@ -132,4 +133,76 @@ test('one restore action brings back sections, notices, accounts and channels', 
   await welcome.undismissAll();
   assert.equal(discovery.featureCards.length, 1);
   assert.equal(discovery.hasDismissedCards, false);
+});
+
+test('channel discovery requires an installed tagged plugin with settings and a thumbnail', async () => {
+  const local = new Map();
+  const opened = [];
+  const indexed = { tags: ['integration', 'channels'], thumbnail: '/catalog.png' };
+  const index = { plugins: {
+    native: { ...indexed, title: 'Native channel' },
+    fallback: { ...indexed, title: 'Fallback channel' },
+    no_config: indexed,
+    no_thumbnail: { tags: ['channels'] },
+    similar_tag: { ...indexed, tags: ['channel-tools'] },
+    invalid_tags: { ...indexed, tags: 'channels' },
+    suspended: { ...indexed, suspended: 'Temporarily unavailable' },
+    uninstalled: indexed,
+    contributed: indexed,
+  } };
+  let installed = [
+    { name: 'native', has_config_screen: true, thumbnail_url: '/native.png' },
+    { name: 'fallback', has_config_screen: true },
+    { name: 'no_config', has_config_screen: false },
+    { name: 'no_thumbnail', has_config_screen: true },
+    { name: 'similar_tag', has_config_screen: true },
+    { name: 'invalid_tags', has_config_screen: true },
+    { name: 'suspended', has_config_screen: true },
+    { name: 'unlisted', has_config_screen: true, thumbnail_url: '/unlisted.png' },
+    { name: 'contributed', has_config_screen: true },
+  ];
+  const banners = [
+    { id: 'bundled', type: 'feature', priority: 50 },
+    { id: 'custom-contribution', type: 'feature', cta_action: 'open-plugin-config:contributed' },
+  ];
+  const pluginInstallStore = {
+    index,
+    ensureIndexLoaded: async () => true,
+  };
+  const store = loadStore('../plugins/_discovery/webui/discovery-store.js', {
+    createStore: (_name, value) => value,
+    localStorage: storage(local),
+    document: { body: { dataset: {} } },
+    pluginInstallStore,
+    pluginListStore: { openPluginConfig: async (name) => opened.push(name) },
+    API: { callJsonApi: async (path) => path === 'plugins_list' ? { plugins: installed } : { banners } },
+  });
+
+  await store.refreshCards();
+  assert.deepEqual(Array.from(store.featureCards, card => card.id), [
+    'bundled', 'discovery-channel-native', 'discovery-channel-fallback', 'custom-contribution',
+  ]);
+  const native = store.cards.find(card => card.id === 'discovery-channel-native');
+  const fallback = store.cards.find(card => card.id === 'discovery-channel-fallback');
+  assert.equal(native.title, 'Native channel');
+  assert.equal(native.thumbnail, '/native.png');
+  assert.equal(fallback.thumbnail, '/catalog.png');
+  await store.executeCta(native.cta_action);
+  await store.executeCta(fallback.cta_action);
+  assert.deepEqual(opened, ['native', 'fallback']);
+
+  store.dismissFeatureCards();
+  await store.refreshCards();
+  assert.equal(store.featureCards.length, 0);
+  await store.undismissCards();
+  assert.equal(store.featureCards.length, 4);
+
+  installed = installed.filter(plugin => plugin.name !== 'fallback');
+  installed[0].has_config_screen = false;
+  await store.refreshCards();
+  assert.deepEqual(Array.from(store.featureCards, card => card.id), ['bundled', 'custom-contribution']);
+
+  pluginInstallStore.ensureIndexLoaded = async () => false;
+  await store.refreshCards();
+  assert.equal(store.featureCards.length, 2);
 });
