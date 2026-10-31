@@ -46,6 +46,11 @@
                             </button>
                         </template>
                     </div>
+                    <button type="button" class="welcome-panel-icon-button welcome-panel-text-button discovery-channels-plugins"
+                            @click="$store.welcomeStore.openWelcomePlugins('channels')">
+                        <x-icon name="extension"></x-icon>
+                        <span>Find channels plugins</span>
+                    </button>
                 </section>
             </template>
 
@@ -169,6 +174,10 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
             gap: 0.65rem;
+        }
+
+        .discovery-channels-plugins {
+            margin-top: 0.75rem;
         }
 
         .discovery-feature-card {

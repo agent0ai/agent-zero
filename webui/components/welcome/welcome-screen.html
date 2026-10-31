@@ -190,14 +190,14 @@
 
                 <div class="welcome-restore">
                     <button type="button"
-                            class="welcome-panel-icon-button"
+                            class="welcome-panel-icon-button welcome-panel-text-button"
                             x-show="$store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards"
                             :disabled="$store.welcomeStore.bannersLoading && !$store.welcomeStore.hiddenSections.length"
                             @click="$store.welcomeStore.undismissAll()">
                         <x-icon name="undo"></x-icon>
                         <span>Show all dismissed</span>
                     </button>
-                    <button type="button" class="welcome-panel-icon-button"
+                    <button type="button" class="welcome-panel-icon-button welcome-panel-text-button"
                             @click="$store.welcomeStore.openWelcomePlugins()">
                         <x-icon name="extension"></x-icon>
                         <span>Find welcome screen plugins</span>
@@ -486,7 +486,7 @@
             background: color-mix(in srgb, var(--color-border) 45%, transparent);
         }
 
-        .welcome-restore .welcome-panel-icon-button {
+        .welcome-panel-icon-button.welcome-panel-text-button {
             width: auto;
             height: auto;
             gap: 0.4rem;
@@ -495,18 +495,18 @@
             transition: color 180ms ease, opacity 180ms ease;
         }
 
-        .welcome-restore .welcome-panel-icon-button:hover,
-        .welcome-restore .welcome-panel-icon-button:focus-visible {
+        .welcome-panel-icon-button.welcome-panel-text-button:hover,
+        .welcome-panel-icon-button.welcome-panel-text-button:focus-visible {
             background: transparent;
         }
 
-        .welcome-restore .welcome-panel-icon-button:focus-visible {
+        .welcome-panel-icon-button.welcome-panel-text-button:focus-visible {
             outline: 2px solid currentColor;
             outline-offset: 3px;
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .welcome-restore .welcome-panel-icon-button { transition: none; }
+            .welcome-panel-icon-button.welcome-panel-text-button { transition: none; }
         }
 
         .welcome-quick-section {

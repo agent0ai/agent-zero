@@ -9,12 +9,12 @@ import { mountLayout } from "/components/welcome/welcome-layout.js";
 
 const model = {
   mountLayout,
-  async openWelcomePlugins() {
+  async openWelcomePlugins(tag = "welcome") {
     const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
     const { store: plugins } = await import("/components/plugins/list/pluginListStore.js");
     installer.resetIndex();
-    installer.setBrowseFilter("tag:welcome");
-    installer.initialBrowseFilter = "tag:welcome";
+    installer.setBrowseFilter(`tag:${tag}`);
+    installer.initialBrowseFilter = `tag:${tag}`;
     await plugins.open("pluginHub");
   },
   // State

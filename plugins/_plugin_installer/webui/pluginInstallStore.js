@@ -452,8 +452,9 @@ const model = {
 
     filters.push({ key: "tag:welcome", label: "Welcome", count: tagCounts.get("welcome") || 0 });
     filters.push({ key: "tag:provider", label: "Provider", count: tagCounts.get("provider") || 0 });
+    filters.push({ key: "tag:channels", label: "Channels", count: tagCounts.get("channels") || 0 });
     for (const [tag, count] of Array.from(tagCounts.entries())
-      .filter(([tag]) => tag !== "welcome" && tag !== "provider")
+      .filter(([tag]) => tag !== "welcome" && tag !== "provider" && tag !== "channels")
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 4)) {
       filters.push({

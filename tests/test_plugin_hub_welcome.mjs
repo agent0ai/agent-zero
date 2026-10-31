@@ -39,7 +39,21 @@ test('Provider stays visible below the popular tags and only matches its exact t
   assert.equal(empty.browseFilters.find(filter => filter.key === 'tag:provider').count, 0);
 });
 
-for (const tag of ['welcome', 'provider']) {
+test('Channels stays discoverable before the tag exists and matches secondary tags exactly once', () => {
+  const store = load();
+  assert.equal(store.browseFilters.find(filter => filter.key === 'tag:channels').count, 0);
+  Object.defineProperty(store, 'pluginsList', { value: [
+    { key: 'eligible', tags: ['tools', 'models', 'search', 'files', 'data', 'channels', 'channels'] },
+    { key: 'excluded', description: 'Channels integration', tags: ['channel-tools'] },
+  ] });
+  store.setBrowseFilter('tag:channels');
+  assert.equal(store.filteredPlugins.length, 1);
+  assert.equal(store.filteredPlugins[0].key, 'eligible');
+  assert.equal(store.browseFilters.filter(filter => filter.key === 'tag:channels').length, 1);
+  assert.equal(store.browseFilters.find(filter => filter.key === 'tag:channels').count, 1);
+});
+
+for (const tag of ['welcome', 'provider', 'channels']) {
   test(`the requested ${tag} tag survives the initial Browse reset exactly once`, async () => {
     const store = load();
     store.search = 'old query';
