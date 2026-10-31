@@ -342,6 +342,11 @@ document.querySelector = (selector) => {
 };
 const leave = { type: "pointerout", pointerType: "mouse", relatedTarget: outside };
 const settleMenu = () => new Promise((resolve) => setTimeout(resolve, 220));
+store.menu = "search";
+store.menuTrigger = trigger;
+store.menuPointer(leave);
+await settleMenu();
+assert.equal(store.menu, "search", "moving the pointer away must not close a search being typed");
 store.menu = "options";
 store.menuTrigger = trigger;
 store.menuPointer(leave);

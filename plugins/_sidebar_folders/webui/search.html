@@ -1,0 +1,55 @@
+<html>
+<body>
+  <div x-data>
+    <template x-if="$store.sidebarFolders">
+      <div id="sidebar-chat-search" class="sidebar-chat-search" data-folder-menu="search"
+        :class="{ 'sidebar-folders-menu sidebar-search-popover': $store.sidebarFolders.config.search_mode === 'compact' }"
+        :style="$store.sidebarFolders.config.search_mode === 'compact' ? $store.sidebarFolders.menuStyle : {}"
+        :role="$store.sidebarFolders.config.search_mode === 'compact' ? 'dialog' : 'search'"
+        aria-label="Search chats and tasks"
+        x-show="$store.sidebarFolders.config.search_mode === 'standard' || ($store.sidebarFolders.config.search_mode === 'compact' && $store.sidebarFolders.menu === 'search')"
+        style="display: none;" @click.stop
+        @keydown.escape.stop="$store.sidebarFolders.clearSearch(); $store.sidebarFolders.closeMenu()">
+        <div class="sidebar-search-field">
+          <x-icon name="search"></x-icon>
+          <input type="search" x-ref="input" maxlength="200" aria-label="Search chats or messages"
+            placeholder="Search" x-model="$store.sidebarFolders.searchQuery"
+            @input.debounce.300ms="$store.sidebarFolders.search()" />
+          <button type="button" x-show="$store.sidebarFolders.searchQuery.length > 0" aria-label="Clear sidebar search"
+            @click="$store.sidebarFolders.clearSearch(); $refs.input.focus()"><x-icon name="close"></x-icon></button>
+        </div>
+      </div>
+    </template>
+  </div>
+  <style>
+    .sidebar-chat-search { flex: 0 0 auto; min-width: 0; margin: 0 var(--spacing-xs) var(--spacing-sm) var(--spacing-sm); }
+    .sidebar-search-field {
+      display: flex; align-items: center; gap: var(--spacing-xs); min-width: 0; min-height: 2.25rem;
+      padding: var(--spacing-xs) var(--spacing-sm); border-radius: var(--border-radius-sm); box-sizing: border-box;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+      background: color-mix(in srgb, var(--color-panel) 72%, var(--color-background) 28%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 18px 46px rgba(0, 0, 0, 0.18);
+      transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+    }
+    .sidebar-search-field > x-icon { flex-shrink: 0; font-size: 1rem; color: var(--color-text-muted); }
+    .sidebar-search-field input { flex: 1; width: 100%; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--color-text); font: inherit; font-size: var(--font-size-small); }
+    .sidebar-search-field input::placeholder { color: var(--color-text-muted); font-size: var(--font-size-small); opacity: 1; }
+    .sidebar-search-field input::-webkit-search-cancel-button, .sidebar-search-field input::-webkit-search-decoration { appearance: none; display: none; }
+    .sidebar-search-field:focus-within {
+      border-color: color-mix(in srgb, var(--color-border) 88%, var(--color-text) 12%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 22px 54px rgba(0, 0, 0, 0.22);
+    }
+    .sidebar-search-field button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 1.5rem; height: 1.5rem; padding: 0; border: 0; border-radius: var(--border-radius-sm); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+    .sidebar-search-field button x-icon { font-size: 1rem; }
+    .sidebar-search-field button:hover { color: var(--color-text); background: var(--color-background-hover); }
+    .sidebar-search-field button:focus-visible { outline: 1px solid var(--color-text); outline-offset: 1px; }
+    .sidebar-search-popover { padding: var(--spacing-sm); margin: 0; width: min(280px, calc(100vw - 16px)); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); background: var(--color-panel); box-shadow: 0 4px 16px #0003; }
+    #chats-section .sidebar-search-trigger.has-query { color: var(--color-text); background: var(--color-background-hover); }
+    @media (pointer: coarse) {
+      .sidebar-search-field { min-height: 44px; }
+      .sidebar-search-field input { font-size: 16px; }
+      .sidebar-search-field button { min-width: 32px; min-height: 32px; }
+    }
+  </style>
+</body>
+</html>

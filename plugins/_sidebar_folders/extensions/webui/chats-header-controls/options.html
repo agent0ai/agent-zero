@@ -10,6 +10,16 @@
     x-effect="$store.sidebar.rowMenuOpenId && $store.sidebarFolders.closeMenu()">
     <template x-if="$store.sidebarFolders">
       <div class="sidebar-folder-controls">
+        <template x-teleport.prepend="#newChat">
+        <button type="button" class="btn-icon-action chat-list-action-btn sidebar-search-trigger"
+          x-show="$store.sidebarFolders.config.search_mode === 'compact'"
+          :class="{ 'has-query': $store.sidebarFolders.searchActive }"
+          aria-label="Search chats or messages" title="Search chats or messages" aria-haspopup="dialog"
+          :aria-expanded="$store.sidebarFolders.menu === 'search'" aria-controls="sidebar-chat-search"
+          @click.stop="$store.sidebarFolders.openMenu('search', $event.currentTarget)">
+          <x-icon name="search"></x-icon>
+        </button>
+        </template>
         <button type="button" class="btn-icon-action" aria-label="Sidebar view options" title="Sidebar view options"
           aria-haspopup="menu" :aria-expanded="$store.sidebarFolders.menu === 'options'"
           @click.stop="$store.sidebarFolders.openMenu('options', $event.currentTarget)">
@@ -52,6 +62,12 @@
               @change="$store.sidebarFolders.setConfig({ activity_filter: $event.target.value })">
               <option value="all">Any time</option><option value="1">24 hours</option><option value="3">3 days</option>
               <option value="7">7 days</option><option value="30">30 days</option>
+            </select>
+          </label>
+          <label class="sidebar-option-field"><span>Search</span>
+            <select :value="$store.sidebarFolders.config.search_mode" :disabled="$store.sidebarFolders.busy"
+              @change="$store.sidebarFolders.setConfig({ search_mode: $event.target.value })">
+              <option value="standard">Standard</option><option value="compact">Compact</option><option value="none">No search</option>
             </select>
           </label>
         </div>

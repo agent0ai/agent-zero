@@ -9,6 +9,7 @@ import { store as pins } from "/plugins/_pin_to_top/webui/pin-to-top-store.js";
 
 const PLUGIN = "_sidebar_folders";
 const SORTS = ["recent", "created", "name", "manual"];
+const SEARCH_MODES = ["standard", "compact", "none"];
 let menuExitTimer = null;
 
 function timestamp(value) {
@@ -16,7 +17,12 @@ function timestamp(value) {
 }
 
 export const store = createStore("sidebarFolders", {
-  config: { folder_view: true, sort_by: "created", project_filter: "*", status_filter: "all", activity_filter: "all" },
+  config: { folder_view: true, sort_by: "created", project_filter: "*", status_filter: "all", activity_filter: "all", search_mode: "standard" },
+  searchQuery: "",
+  searchResults: {},
+  searchedQuery: "",
+  searching: false,
+  searchRequest: 0,
   order: { project: [], chat: [], task: [] },
   collapsed: {},
   lastSelection: {},
@@ -44,13 +50,14 @@ export const store = createStore("sidebarFolders", {
 
   mountList(kind) {
     sidebar.registerRowListExtension(kind, PLUGIN, {
-      hasView: () => this.config.folder_view,
+      hasView: () => this.config.folder_view || this.searchActive,
       sort: (rows) => this.sortRows(kind, rows),
     });
   },
 
   unmountList(kind) {
     sidebar.unregisterRowListExtension(kind, PLUGIN);
+    if (kind === "chat") this.clearSearch();
   },
 
   async refresh() {
@@ -67,8 +74,10 @@ export const store = createStore("sidebarFolders", {
         project_filter: typeof result.data?.project_filter === "string" ? result.data.project_filter : "*",
         status_filter: ["all", "running", "idle"].includes(result.data?.status_filter) ? result.data.status_filter : "all",
         activity_filter: ["all", "1", "3", "7", "30"].includes(result.data?.activity_filter) ? result.data.activity_filter : "all",
+        search_mode: SEARCH_MODES.includes(result.data?.search_mode) ? result.data.search_mode : "standard",
       };
       if (JSON.stringify(config) !== JSON.stringify(this.config)) this.config = config;
+      if (config.search_mode === "none") this.clearSearch();
     } catch (error) {
       this.report(error);
     }
@@ -93,12 +102,61 @@ export const store = createStore("sidebarFolders", {
       });
       if (!result.ok) throw new Error(result.error || "Could not save folder settings");
       this.config = config;
-      if ("folder_view" in change || "sort_by" in change) this.closeMenu();
+      if (config.search_mode === "none") this.clearSearch();
+      if ("folder_view" in change || "sort_by" in change || "search_mode" in change) this.closeMenu();
     } catch (error) {
       this.report(error);
     } finally {
       this.busy = false;
     }
+  },
+
+  get searchActive() { return this.config.search_mode !== "none" && Boolean(this.searchQuery.trim()); },
+  get searchPending() { return this.searchActive && (this.searching || this.searchedQuery !== this.searchQuery.trim()); },
+
+  clearSearch() {
+    this.searchRequest++;
+    this.searchQuery = "";
+    this.searchedQuery = "";
+    this.searchResults = {};
+    this.searching = false;
+  },
+
+  async search() {
+    if (!this.searchActive) return this.clearSearch();
+    const request = ++this.searchRequest;
+    const query = this.searchQuery.trim();
+    this.searchResults = {};
+    this.searching = true;
+    try {
+      const result = await callJsonApi(`/plugins/${PLUGIN}/search`, { query });
+      if (request === this.searchRequest && query === this.searchQuery.trim()) {
+        this.searchResults = Object.fromEntries(result.matches.map(match => [match.id, match]));
+      }
+    } catch (error) {
+      if (request === this.searchRequest && query === this.searchQuery.trim()) this.report(error);
+    } finally {
+      if (request === this.searchRequest) {
+        this.searchedQuery = query;
+        this.searching = false;
+      }
+    }
+  },
+
+  searchMatch(row, kind, children = null) {
+    if (!this.searchActive || this.searchedQuery !== this.searchQuery.trim()) return null;
+    for (const member of this.family(row, kind, children)) {
+      if (this.searchResults[member.id]) return this.searchResults[member.id];
+    }
+    return null;
+  },
+
+  openSearchMatch(row, kind) {
+    const match = this.searchMatch(row, kind);
+    if (!match) return;
+    this.closeMenu();
+    if (kind === "task") tasks.selectTask(match.id);
+    else chats.selectChat(match.id);
   },
 
   roots(kind) {
@@ -188,12 +246,17 @@ export const store = createStore("sidebarFolders", {
     return rows.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity) || 0);
   },
 
-  sections(kind, previous) {
+  sections(kind, previous, search = false) {
     const rows = this.roots(kind);
     const children = kind === "chat" ? this.childIndex() : null;
     const pinned = this.pinnedRows(kind, rows, children);
     const folders = this.groups(kind, rows, children);
-    const sections = pinned.length ? [{ id: null, pinned: true, rows: pinned }, ...folders] : folders;
+    let sections = pinned.length ? [{ id: null, pinned: true, rows: pinned }, ...folders] : folders;
+    if (search && this.searchActive) {
+      if (!this.config.folder_view) sections = [{ id: null, pinned: true, rows }];
+      sections = sections.map(group => ({ ...group, rows: group.rows.filter(row => this.searchMatch(row, kind, children)) }))
+        .filter(group => group.rows.length);
+    }
     if (previous?.length === sections.length && sections.every((group, index) => {
       const current = previous[index];
       return ["id", "pinned", "title", "color", "hasPinned"].every((key) => group[key] === current[key])
@@ -273,7 +336,7 @@ export const store = createStore("sidebarFolders", {
       const element = document.querySelector(`[data-folder-menu="${menu}"]`);
       if (!element || this.menu !== menu) return;
       this.menuStyle.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - element.offsetHeight - 8))}px`;
-      element.querySelector("button, select")?.focus({ preventScroll: true });
+      element.querySelector("input, button, select")?.focus({ preventScroll: true });
     });
   },
 
@@ -311,6 +374,7 @@ export const store = createStore("sidebarFolders", {
 
   menuPointer(event) {
     if (event.pointerType !== "mouse") return;
+    if (this.menu === "search") return this.cancelMenuExit();
     const scope = this.menuScope();
     if (!scope) return this.cancelMenuExit();
     const target = event.type === "pointerout" ? event.relatedTarget : event.target;

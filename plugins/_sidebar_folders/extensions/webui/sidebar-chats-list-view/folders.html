@@ -3,6 +3,7 @@
 <body>
   <div x-data="{ kind: 'chat' }" class="sidebar-folder-host"
     x-create="$store.sidebarFolders.mountList('chat')" x-destroy="$store.sidebarFolders.unmountList('chat')">
+    <x-component path="/plugins/_sidebar_folders/webui/search.html"></x-component>
     <x-component path="/plugins/_sidebar_folders/webui/folder-list.html"></x-component>
   </div>
 </body>
