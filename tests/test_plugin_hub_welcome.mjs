@@ -22,14 +22,35 @@ test('Welcome matches secondary tags, counts each plugin once, and stays discove
   assert.equal(empty.browseFilters.find(filter => filter.key === 'tag:welcome').count, 0);
 });
 
-test('a requested tag survives the initial Browse reset exactly once', async () => {
+test('Provider stays visible below the popular tags and only matches its exact tag', () => {
   const store = load();
-  store.search = 'old query';
-  store.initialBrowseFilter = 'tag:welcome';
-  store.fetchIndex = async () => true;
-  await store.openIndexView();
-  assert.equal(store.browseFilter, 'tag:welcome');
-  assert.equal(store.search, '');
-  await store.openIndexView();
-  assert.equal(store.browseFilter, 'all');
+  const popularTags = ['tools', 'models', 'search', 'files', 'data'];
+  Object.defineProperty(store, 'pluginsList', { value: [
+    { key: 'eligible', tags: [...popularTags, 'provider', 'provider'] },
+    { key: 'excluded', description: 'Another model provider', tags: popularTags },
+    { key: 'related', tags: [...popularTags, 'provider-tools'] },
+  ] });
+  store.setBrowseFilter('tag:provider');
+  assert.equal(store.filteredPlugins.length, 1);
+  assert.equal(store.filteredPlugins[0].key, 'eligible');
+  assert.equal(store.browseFilters.filter(filter => filter.key === 'tag:provider').length, 1);
+  assert.equal(store.browseFilters.find(filter => filter.key === 'tag:provider').count, 1);
+  const empty = load();
+  assert.equal(empty.browseFilters.find(filter => filter.key === 'tag:provider').count, 0);
 });
+
+for (const tag of ['welcome', 'provider']) {
+  test(`the requested ${tag} tag survives the initial Browse reset exactly once`, async () => {
+    const store = load();
+    store.search = 'old query';
+    store.page = 3;
+    store.initialBrowseFilter = `tag:${tag}`;
+    store.fetchIndex = async () => true;
+    await store.openIndexView();
+    assert.equal(store.browseFilter, `tag:${tag}`);
+    assert.equal(store.search, '');
+    assert.equal(store.page, 1);
+    await store.openIndexView();
+    assert.equal(store.browseFilter, 'all');
+  });
+}

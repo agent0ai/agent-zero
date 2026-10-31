@@ -64,6 +64,13 @@
                   <span class="model-gate-option-sub">Runs on your machine</span>
                 </button>
               </div>
+              <a href="#provider-plugins"
+                 class="model-gate-provider-link"
+                 x-show="!$store.modelGate.accountConnected"
+                 @click.prevent="$store.modelGate.openProviderPlugins()">
+                <x-icon aria-hidden="true" name="extension"></x-icon>
+                <span>or click here to browse provider plugins</span>
+              </a>
             </div>
 
             <p class="model-gate-footnote">
@@ -175,6 +182,20 @@
       font-size: 0.8rem;
       cursor: pointer;
       padding: 0;
+    }
+
+    .model-gate-provider-link {
+      display: inline-flex;
+      align-items: center;
+      justify-self: start;
+      gap: 0.4rem;
+      color: color-mix(in srgb, var(--color-text) 70%, transparent);
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+
+    .model-gate-provider-link x-icon {
+      font-size: 1rem;
     }
 
     .model-gate-chip {

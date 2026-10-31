@@ -858,6 +858,16 @@ export const store = createStore("onboarding", {
     await chatsStore.newChat();
   },
 
+  async openProviderPlugins() {
+    const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+    const { store: plugins } = await import("/components/plugins/list/pluginListStore.js");
+    await window.closeModal?.();
+    installer.resetIndex();
+    installer.setBrowseFilter("tag:provider");
+    installer.initialBrowseFilter = "tag:provider";
+    await plugins.open("pluginHub");
+  },
+
   async openAdvancedSettings() {
     await window.closeModal?.();
     await modelConfigStore.openPresetEditor(

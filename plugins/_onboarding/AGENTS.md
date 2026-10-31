@@ -15,6 +15,7 @@
 - Do not ask for or expose API keys outside approved settings/API flows.
 - Avoid blocking already-configured users with unnecessary onboarding prompts.
 - Completion updates the selected global model preset (normally immutable-name `Default`); advanced setup opens that preset in the shared editor.
+- Cloud, Account, and Local share a left-aligned, neutral puzzle-icon text button below their provider grids. It replaces the Account/Local pane notes and closes onboarding without saving before opening Plugin Hub Browse with the exact `provider` tag filter and no previous search.
 
 ## Work Guidance
 
