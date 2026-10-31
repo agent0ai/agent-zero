@@ -27,6 +27,10 @@ import uuid
 from helpers import errors
 from helpers import settings
 from helpers.log import LogItem
+from helpers.print_style import PrintStyle
+
+_OVERLAP_WARN_INTERVAL_S = 300.0
+_overlap_warn_state: dict[str, tuple[frozenset, float]] = {}
 
 import httpx
 
@@ -764,6 +768,109 @@ class MCPConfig(BaseModel):
                 cls.__instance = cls(servers_list=[], config_scope="global")
             return cls.__instance
 
+    def detect_tool_surface_overlaps(
+        self,
+        agent: Any | None = None,
+        *,
+        local_path_resolver: Any | None = None,
+    ) -> list[str]:
+        """Pure warn-only detection of residual MCP/local tool-name overlaps
+        (MCP-OVERLAP). Dispatch is never changed. Returns warning lines.
+
+        Classes: (1) a qualified MCP tool name ("server.tool") whose dotted
+        name also resolves to a local tools/<name>.py file; (2) the same raw
+        tool name exposed by more than one server or twice by one server;
+        (3) a project-scope server silently overwriting a same-named
+        global-scope server at config merge.
+        """
+        warnings: list[str] = []
+        try:
+            seen: dict[str, list[str]] = {}
+            for server in self.servers:
+                try:
+                    tools = server.get_tools()
+                except Exception:
+                    continue
+                for tool in tools:
+                    name = str(tool.get("name", "") or "")
+                    if not name:
+                        continue
+                    seen.setdefault(name, []).append(server.name)
+                    if "." in name:
+                        resolver = local_path_resolver
+                        if resolver is None and agent is not None:
+                            from helpers import subagents
+
+                            resolver = subagents.get_paths
+                        if resolver is not None:
+                            try:
+                                local = resolver(agent, "tools", name + ".py")
+                            except Exception:
+                                local = None
+                            if local:
+                                warnings.append(
+                                    f"MCP overlap: qualified tool '{server.name}.{name}' also resolves to local tool file {local}"
+                                )
+            for name, servers in sorted(seen.items()):
+                if len(servers) > 1:
+                    warnings.append(
+                        f"MCP overlap: raw tool name '{name}' exposed by multiple servers: {', '.join(sorted(set(servers)))}"
+                    )
+            if self.config_scope.startswith("project:"):
+                project_name = self.config_scope.split(":", 1)[1]
+                try:
+                    from helpers import projects, settings
+
+                    global_names = {
+                        str(s.get("name", "") or "").strip()
+                        for s in self.parse_config_string(
+                            settings.get_settings().get(
+                                "mcp_servers", DEFAULT_MCP_SERVERS_CONFIG
+                            )
+                        )
+                        if str(s.get("name", "") or "").strip()
+                    }
+                    project_names = {
+                        str(s.get("name", "") or "").strip()
+                        for s in self.parse_config_string(
+                            projects.load_project_mcp_servers(project_name)
+                        )
+                        if str(s.get("name", "") or "").strip()
+                    }
+                    for name in sorted(global_names & project_names):
+                        warnings.append(
+                            f"MCP overlap: server '{name}' defined in both global and project scope - project silently overrides global"
+                        )
+                except Exception:
+                    pass
+        except Exception:
+            return []
+        return warnings
+
+    def _warn_tool_surface_overlaps(self, agent: Any | None = None) -> None:
+        """Print one coalesced overlap warning per scope (interval-suppressed)."""
+        try:
+            lines = self.detect_tool_surface_overlaps(agent=agent)
+            if not lines:
+                return
+            import time as _time
+
+            key = frozenset(lines)
+            now = _time.monotonic()
+            state = _overlap_warn_state.get(self.config_scope)
+            if (
+                state
+                and state[0] == key
+                and (now - state[1]) < _OVERLAP_WARN_INTERVAL_S
+            ):
+                return
+            _overlap_warn_state[self.config_scope] = (key, now)
+            PrintStyle(
+                background_color="black", font_color="yellow", padding=True
+            ).print("[mcp_overlap] " + " | ".join(lines))
+        except Exception:
+            pass
+
     @classmethod
     def clear_project_instances(cls):
         with cls.__lock:
@@ -1156,6 +1263,8 @@ class MCPConfig(BaseModel):
         # just to wait for pending initialization
         with self.__lock:
             pass
+
+        self._warn_tool_surface_overlaps(agent=agent)
 
         def render(file: str, **kwargs: Any) -> str:
             if agent is not None:
