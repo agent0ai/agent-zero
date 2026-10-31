@@ -15,6 +15,7 @@ OAuth-backed model providers do not require users to enter API keys. Agent Zero 
 ### Codex/ChatGPT (`codex_oauth`)
 
 - Uses the existing Codex device-code flow.
+- Onboarding suggests `gpt-6.1-terra` for Main and `gpt-6-luna` for Utility when available in your account. You can choose other models from the live list.
 - Shows the sign-in code in a selectable box with a copy button that briefly turns into a green checkmark after copying.
 - Writes Codex-compatible credentials to an Agent Zero-owned `auth.json` file.
 - Refreshes local tokens when needed.

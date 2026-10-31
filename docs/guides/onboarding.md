@@ -36,6 +36,10 @@ Anthropic, Google, Venice, or another hosted provider.
 Choose **Account** when you want to sign in with Codex/ChatGPT, GitHub Copilot,
 Google Cloud Gemini, or xAI Grok instead of pasting a provider key.
 
+For Codex/ChatGPT, onboarding suggests `gpt-6.1-terra` for the Main model and
+`gpt-6-luna` for the Utility model when they are available in your account.
+You can choose different models from the list.
+
 ![AI account picker with Codex, Copilot, Google Cloud Gemini, and Grok](../res/usage/onboarding/onboarding-account-provider.png)
 
 Choose **Local** when you want to connect to Ollama, LM Studio, oMLX, llama.cpp,
@@ -72,10 +76,11 @@ continue.
 The ready screen confirms that model setup is done. Optional setup cards may
 appear for integrations such as Telegram, Email, WhatsApp, or plugins.
 
-![Onboarding ready screen after setup](../res/usage/onboarding/onboarding-ready.png)
+![Onboarding ready screen with Continue returning to the existing chat](../res/usage/onboarding/onboarding-ready.png)
 
-Click **Start Chatting** to create a new chat. If your original message is already
-being answered, return to that existing chat instead.
+Click **Continue** to close onboarding. If you started setup from a chat,
+you stay in that chat, where Agent Zero answers your held message. Completing
+onboarding does not create another chat.
 
 ## Customize or restore Welcome
 

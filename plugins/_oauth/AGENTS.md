@@ -37,6 +37,7 @@
 - OAuth settings must dispatch `model-setup-changed` when a provider connection completes; provider defaults may be inferred from one connected account, but model-name selection remains explicit.
 - `helpers/providers/registry.py` is the source of truth for connectable OAuth providers.
 - The models API must preserve the legacy plain `models` slug list and may add `model_metadata` entries for richer provider catalogs.
+- Codex metadata recommends `gpt-6.1-terra` for Main and `gpt-6-luna` for Utility during onboarding. An explicit configured model list keeps its own ordering; these recommendations do not replace or restrict the live account catalog.
 - OAuth provider config must not expose the dummy `oauth` API key in `conf/model_providers.yaml`; the dummy key is a runtime-only shim supplied by the `get_api_key` extension after the account provider reports connected.
 - Usage-plan metadata belongs only to connectable providers. Do not add metadata-only subscription families for providers this plugin cannot connect.
 - API handlers should remain provider-aware. Missing or blank `provider_id` defaults to Codex only for existing backward compatibility; falsey non-string IDs must not silently default.
