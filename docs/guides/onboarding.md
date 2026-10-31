@@ -40,6 +40,9 @@ For Codex/ChatGPT, onboarding suggests `gpt-6.1-terra` for the Main model and
 `gpt-6-luna` for the Utility model when they are available in your account.
 You can choose different models from the list.
 
+Follow [Codex with Your ChatGPT Account](codex.md) for the complete sign-in
+walkthrough, including the ChatGPT security setting and device code.
+
 ![AI account picker with Codex, Copilot, Google Cloud Gemini, and Grok](../res/usage/onboarding/onboarding-account-provider.png)
 
 Choose **Local** when you want to connect to Ollama, LM Studio, oMLX, llama.cpp,

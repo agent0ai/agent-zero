@@ -180,14 +180,14 @@ Install with a click from the Web UI, or publish your own to the index repositor
 
 See the [Skills guide](./docs/guides/skills.md), the [Create a Small Plugin](./docs/guides/create-plugin.md) tutorial, and the [MCP setup](./docs/guides/mcp-setup.md) guide.
 
-## Use Your OpenAI Codex Plan
+## Use Codex with Your ChatGPT Account
 
-<img alt="OAuth LLM plans in Agent Zero" src="docs/res/codex-screenshot.png" />
+<img alt="Account setup with the Codex/ChatGPT connection option" src="docs/res/usage/codex/account-provider.png" />
 <br>
 
-Agent Zero connects to your OpenAI Codex plan through the new OAuth flow. Sign in with your account, pick the Codex-backed provider, and let Agent Zero use the plan you already have. Click "Connect", enter the device code in the OpenAI page, choose your model, and you're set.
+Sign in with your ChatGPT account, choose Codex models, and continue in Agent Zero. Enable device code sign-in in ChatGPT, open **Account** in Agent Zero's onboarding, and connect **Codex/ChatGPT**. After you authorize on OpenAI's page and choose Main and Utility models, your first message resumes in the same chat.
 
-This is the first step toward account-backed LLM plans in Agent Zero. More integrations are coming, including Gemini CLI and Claude Code through extra-usage.
+Follow the [Codex account setup guide](./docs/guides/codex.md) for the complete walkthrough with screenshots.
 
 ## A0 CLI Connector: Extend Onto Your Host Machine
 
@@ -269,6 +269,7 @@ It is not a replacement for Git or backups. It is a practical safety layer for t
 | --- | --- |
 | Install or update Agent Zero | [Installation](./docs/setup/installation.md) |
 | Learn the UI and basic workflow | [Quickstart](./docs/quickstart.md) |
+| Connect your ChatGPT account and use Codex models | [Codex account setup](./docs/guides/codex.md) |
 | Add OpenCode Go or another provider plugin | [OpenCode Go setup](./docs/guides/opencode.md) |
 | Browse, annotate, and use Browser screenshots | [Browser guide](./docs/guides/browser.md) |
 | Use the Linux desktop and LibreOffice | [Desktop guide](./docs/guides/desktop.md) |

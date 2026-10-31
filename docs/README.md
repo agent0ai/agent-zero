@@ -22,6 +22,7 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## User Guides
 
+- **[Codex with Your ChatGPT Account](guides/codex.md):** Enable device code sign-in, connect your account, choose Main and Utility models, and continue your first chat.
 - **[OpenCode Go and Provider Plugins](guides/opencode.md):** Find a missing provider in the Plugin Hub, install OpenCode Go, and choose Main and Utility models.
 - **[Migrate Agents](guides/migrate-agents.md):** Move real Pi, Hermes Agent, and Claude Code chats, copy their working files, and continue the project in Agent Zero.
 - **[Usage Guide](guides/usage.md):** Practical tour of Agent Zero's main workflows.
@@ -97,6 +98,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [A0 CLI Connector](guides/a0-cli-connector.md)
 
 - [User Guides](#user-guides)
+  - [Codex with Your ChatGPT Account](guides/codex.md)
   - [OpenCode Go and Provider Plugins](guides/opencode.md)
   - [Migrate Agents](guides/migrate-agents.md)
   - [Usage Guide](guides/usage.md)
