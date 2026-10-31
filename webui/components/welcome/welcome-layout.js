@@ -302,7 +302,7 @@ export function mountLayout(root) {
     const directions = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1, Home: -Infinity, End: Infinity };
     if (event.key in directions) { event.preventDefault(); closeMenu(); moveBy(handle, directions[event.key]); }
   });
-  listen(root, "focusout", () => queueMicrotask(() => { if (menuHandle && !menu.contains(document.activeElement) && document.activeElement !== menuHandle) closeMenu(); }));
+  listen(root, "focusout", (event) => { if (menuHandle && !menu.contains(event.relatedTarget) && event.relatedTarget !== menuHandle) closeMenu(); });
   listen(window, "resize", () => { finish(true); closeMenu(); });
   listen(window, "blur", () => { finish(true); closeMenu(); });
   listen(document, "visibilitychange", () => { if (document.hidden) { finish(true); closeMenu(); } });

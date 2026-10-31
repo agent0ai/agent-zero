@@ -142,12 +142,19 @@
                         <section id="welcome-channels" class="welcome-discovery-block" data-welcome-block="channels" data-welcome-label="Connect Channels" data-welcome-size="half"
                                  x-show="$store.discoveryStore?.featureCards.length > 0"></section>
                         <article class="welcome-system-card" data-welcome-block="system" data-welcome-label="System Resources"
+                                 :data-welcome-size="$store.welcomeStore.systemWide ? 'full' : 'half'"
                                  x-show="$store.welcomeStore.systemResourceBanner"
                                  x-transition.opacity>
                             <header class="welcome-panel-header">
                                 <h2 x-text="$store.welcomeStore.systemResourceBanner?.title || 'System Resources'"></h2>
                                 <div class="welcome-panel-actions">
                                     <button type="button" data-welcome-handle></button>
+                                    <button class="welcome-panel-icon-button"
+                                            type="button"
+                                            :aria-label="$store.welcomeStore.systemWide ? 'Use half-width System Resources panel' : 'Expand System Resources panel'"
+                                            @click="$store.welcomeStore.toggleSystemWidth()">
+                                        <x-icon :name="$store.welcomeStore.systemWide ? 'close_fullscreen' : 'open_in_full'"></x-icon>
+                                    </button>
                                     <button class="welcome-panel-icon-button"
                                             type="button"
                                             :disabled="$store.welcomeStore.bannersLoading"
@@ -606,7 +613,7 @@
         }
 
         .welcome-discovery-block {
-            align-self: start;
+            display: grid;
             container: welcome-discovery / inline-size;
         }
 
@@ -619,12 +626,6 @@
             touch-action: none;
             user-select: none;
             -webkit-touch-callout: none;
-            opacity: 0;
-        }
-
-        [data-welcome-block]:hover .welcome-drag-handle,
-        [data-welcome-block]:focus-within .welcome-drag-handle,
-        .welcome-board .welcome-drag-handle[aria-expanded="true"] {
             opacity: 0.68;
         }
 
@@ -719,7 +720,6 @@
 
         @media (hover: none), (pointer: coarse) {
             .welcome-board .welcome-drag-handle {
-                opacity: 0.68;
                 min-width: 44px;
                 min-height: 44px;
             }
@@ -727,6 +727,7 @@
 
         .welcome-system-card {
             min-width: 0;
+            container: welcome-system / inline-size;
             border-radius: 8px;
             padding: 1.6rem 1.7rem;
             text-align: left;
@@ -787,7 +788,9 @@
 
         @media (hover: hover) and (pointer: fine) {
             .welcome-intro:not(:hover):not(:focus-within) .welcome-intro-dismiss,
-            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-quick-dismiss {
+            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-quick-dismiss,
+            .welcome-intro:not(:hover):not(:focus-within) .welcome-drag-handle:not([aria-expanded="true"]),
+            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-drag-handle:not([aria-expanded="true"]) {
                 opacity: 0;
             }
         }
@@ -856,6 +859,17 @@
             margin-top: 0.48rem;
             font-family: var(--font-family-code, "Roboto Mono", monospace);
             font-size: 0.88rem;
+        }
+
+        @container welcome-system (max-width: 520px) {
+            .system-resource-meter,
+            .system-resource-footer {
+                grid-template-columns: 1fr;
+            }
+
+            .system-resource-meter {
+                gap: 0.55rem;
+            }
         }
 
         @media (max-width: 1180px) {

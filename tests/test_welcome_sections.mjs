@@ -15,6 +15,28 @@ function loadStore(path, context) {
   return vm.runInNewContext(`${source}\nstore`, context);
 }
 
+test('System Resources width defaults to full and survives toggling and reload', () => {
+  const local = new Map([['welcome_block_order', '["accounts","system","channels"]']]);
+  const loadWelcome = () => {
+    const store = loadStore('../webui/components/welcome/welcome-store.js', {
+      mountLayout() {},
+      createStore: (_name, value) => value,
+      localStorage: storage(local),
+      document: { addEventListener() {} },
+    });
+    store.init();
+    return store;
+  };
+  const store = loadWelcome();
+  assert.equal(store.systemWide, true);
+  store.toggleSystemWidth();
+  assert.equal(store.systemWide, false);
+  assert.equal(loadWelcome().systemWide, false);
+  store.toggleSystemWidth();
+  assert.equal(loadWelcome().systemWide, true);
+  assert.equal(local.get('welcome_block_order'), '["accounts","system","channels"]');
+});
+
 test('welcome sections hide independently, survive refresh and reload, and restore with notices', async () => {
   const local = new Map([['dismissed_discovery_cards', '["channels"]']]);
   const session = new Map();

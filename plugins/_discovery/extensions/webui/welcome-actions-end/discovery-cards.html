@@ -50,7 +50,7 @@
             </template>
 
             <template x-teleport="#welcome-accounts">
-                <div>
+                <div class="discovery-account-list">
                     <template x-for="card in $store.discoveryStore.oauthAccountCards" :key="card.id">
                         <article class="discovery-account-card">
                             <button type="button" data-welcome-handle></button>
@@ -281,9 +281,15 @@
             font-size: 1rem;
         }
 
+        .discovery-account-list {
+            display: grid;
+            gap: 1rem;
+        }
+
         .discovery-account-card {
             position: relative;
             display: grid;
+            align-content: start;
             gap: 1rem;
             padding: 1.25rem 1.45rem 1.25rem;
         }

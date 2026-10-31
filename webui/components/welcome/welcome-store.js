@@ -23,6 +23,7 @@ const model = {
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
   hiddenSections: [],
+  systemWide: true,
   _initialized: false,
 
   get isVisible() {
@@ -32,6 +33,7 @@ const model = {
   init() {
     if (this._initialized) return;
     this._initialized = true;
+    this.systemWide = localStorage.getItem("welcome_system_wide") !== "false";
     this.hiddenSections = ["intro", "quick-actions"].filter(
       (id) => localStorage.getItem(`welcome_hidden_${id}`) === "true",
     );
@@ -42,6 +44,12 @@ const model = {
         this.refreshBanners(true);
       }
     });
+  },
+
+  toggleSystemWidth() {
+    this.systemWide = !this.systemWide;
+    try { localStorage.setItem("welcome_system_wide", String(this.systemWide)); }
+    catch (error) { console.warn("Could not save System Resources width", error); }
   },
 
   onCreate() {
