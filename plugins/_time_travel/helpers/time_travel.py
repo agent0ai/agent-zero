@@ -199,6 +199,9 @@ def real_path_for_display(display_path: str) -> Path:
     if normalized == "/a0":
         return Path(files.get_base_dir()).resolve(strict=False)
     if normalized.startswith("/a0/"):
+        # A dev checkout nested under /a0 produces real paths that also start with /a0
+        if files.is_in_base_dir(normalized):
+            return Path(normalized).resolve(strict=False)
         return Path(files.get_base_dir(), normalized.removeprefix("/a0/")).resolve(strict=False)
     return Path(normalized).expanduser().resolve(strict=False)
 
@@ -206,8 +209,12 @@ def real_path_for_display(display_path: str) -> Path:
 def canonical_workspace_display_path(display_path: str) -> str:
     normalized = normalize_display_path(display_path)
     real_path = real_path_for_display(normalized)
-    canonical = normalize_display_path(str(real_path))
-    return (canonical if canonical.startswith("/a0") else normalized).rstrip("/") or canonical
+    canonical = files.normalize_a0_path(str(real_path)).replace("\\", "/")
+    if canonical.startswith("/a0"):
+        canonical = posixpath.normpath(canonical)
+    else:
+        canonical = normalized
+    return canonical.rstrip("/") or canonical
 
 
 def configured_workdir_display_path() -> str:

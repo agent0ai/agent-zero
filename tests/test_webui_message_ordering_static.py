@@ -91,7 +91,12 @@ def test_context_switch_uses_three_bubble_chat_loading_splash():
     assert "'chat-active': $store.welcomeStore" in index_html
     assert "#right-panel.chat-active" in index_css
     assert "background-color 0.2s ease-out" in index_css
-    assert "background: var(--color-background)" not in welcome_html
+    welcome_container_css = re.search(
+        r"\.welcome-container \{(?P<body>.*?)\}",
+        welcome_html,
+        flags=re.DOTALL,
+    )
+    assert welcome_container_css and "background" not in welcome_container_css.group("body")
     assert "--three-bubble-loader-delay: 0.16s" in loading_css
     assert "--three-bubble-loader-delay: 0.32s" in loading_css
     assert "animation-delay: var(--three-bubble-loader-delay)" in loading_css

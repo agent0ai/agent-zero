@@ -50,6 +50,7 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
+- `fix_dev_path` remaps `/a0/...` display paths onto the local base dir, but a path already inside the checkout (a dev instance nested under `/a0`) is used as-is.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `abc`, `base64`, `fnmatch`, `glob`, `helpers`, `helpers.strings`, `json`, `mimetypes`, `os`, `re`, `shutil`, `simpleeval`, `tempfile`, `typing`, `zipfile`.
 

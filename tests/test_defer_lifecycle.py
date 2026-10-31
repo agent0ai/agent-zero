@@ -1,4 +1,5 @@
 import asyncio
+import gc
 from pathlib import Path
 import subprocess
 import sys
@@ -173,6 +174,7 @@ def test_kill_clears_stored_call_without_clearing_running_arguments():
         asyncio.run_coroutine_threadsafe(
             asyncio.sleep(0), task.event_loop_thread.loop
         ).result(2)
+        gc.collect()
         assert owner_ref() is None
     finally:
         if release and task.event_loop_thread.loop:

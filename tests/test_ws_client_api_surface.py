@@ -72,6 +72,7 @@ def test_state_pushes_coalesce_without_losing_deltas_or_sequence_checks() -> Non
     notifications = (
         "const createStore = (_name, model) => model;\n"
         "const API = {callJsonApi: async () => ({success: true})};\n"
+        "globalThis.callJsExtensions = async () => {};\n"
         + notifications
     )
     script = """
