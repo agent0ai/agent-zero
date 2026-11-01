@@ -26,6 +26,7 @@
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, settings/state persistence, secret handling.
 - Imported dependency areas include: `datetime`, `helpers`, `helpers.localization`, `helpers.print_style`, `json`, `os`, `pathspec`, `platform`, `tempfile`, `typing`, `zipfile`.
 - `test_patterns(..., max_files=None)` is the unlimited scan mode. UI preview and dry-run callers may pass bounded limits, but real backup creation and restore clean-before-restore must use unlimited matching so archives and cleanup are not silently truncated.
+- `create_backup(..., output_path=None)` accepts an optional server-owned output path for background jobs. Its caller owns the containing directory and final cleanup. The default retains the temporary archive return contract. `backup_name` remains archive metadata when an output path is supplied.
 - Default backup metadata includes persistent `/usr` data but excludes Time Travel shadow history under `usr/.time_travel/**` and Orchestrator state and credentials under `usr/plugins/_orchestrator/data/**`.
 - Restoring `usr/.env` preserves the destination instance's allowed origins while restoring authentication and other portable configuration from the archive.
 

@@ -492,6 +492,15 @@ Create a backup before:
 
 Open **Settings -> Backup & Restore** to create or restore a backup.
 
+Choose **Create Backup** to prepare the archive in the background. The dialog
+checks its status and downloads the ZIP when it is ready. You can close the
+dialog and reopen it in the same browser page, then choose **Resume Backup**
+to continue waiting or download the completed archive.
+
+One backup can be created or downloaded at a time. Completed archives remain
+available for one hour, until another backup starts, or until the server
+restarts. An expired result prompts you to create a fresh backup.
+
 Secrets are sensitive and may not always be included in backup archives. Keep a
 separate secure copy of credentials you depend on.
 
