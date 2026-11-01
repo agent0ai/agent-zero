@@ -29,30 +29,34 @@ Agent Zero is an open-source AI agent with its own Linux workspace. It can resea
 
 # Quick Start
 
-## Recommended: A0 Launcher
+Choose **[A0 Launcher](#desktop-setup)** for a desktop computer, or **[A0 Install](#servers-and-shell-access)** for a server or shell-only environment.
 
-**A0 Launcher** guides you through installing and opening Agent Zero. You will also need a supported AI account, a provider API key, or a local model server. Launcher helps set up Docker, which runs Agent Zero's Linux workspace.
+You will need a supported AI account, a provider API key, or a local model server to start chatting.
 
-| Your computer | Download Launcher v1.9 |
-| --- | --- |
-| Windows | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-x64.exe) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-arm64.exe) |
-| macOS | [Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-arm64.dmg) · [Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-x64.dmg) |
-| Linux | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-x64.AppImage) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-arm64.AppImage) |
+<a id="recommended-a0-launcher"></a>
+
+## Desktop setup
+
+**A0 Launcher is recommended for desktop computers.** It guides you through Docker setup, creates your Agent Zero instance, and opens the Web UI.
+
+**Download A0 Launcher v1.9** for your operating system and processor:
+
+| Platform | Intel / AMD (x64) | ARM64 |
+| --- | --- | --- |
+| Windows | [Windows x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-x64.exe) | [Windows ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-arm64.exe) |
+| macOS | [macOS Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-x64.dmg) | [macOS Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-arm64.dmg) |
+| Linux | [Linux x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-x64.AppImage) | [Linux ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-arm64.AppImage) |
 
 1. **Open Launcher** and follow any Docker setup prompt.
-2. **Create an Instance**, which is a separate Agent Zero setup. Choose **Download Agent Zero** or **Run Agent Zero**, keep the default version and persistent workspace, then click **Create**. Wait for **Running** and click **Open UI**.
-3. **Send a message** from the welcome screen. Try: "Create a one-page plan for a 15-minute team kickoff. Save it as a Markdown file and give me a link."
-4. **Connect a model** when the chat asks. Choose **Cloud provider**, **AI account**, or **Local model**. If your provider is missing, the provider-plugin link opens the Hub filtered to providers; follow the [OpenCode Go example](./docs/guides/opencode.md) to install one. Choose a **Main model** for conversations and a **Utility model** for summaries and chat names. They can use the same provider.
-5. Click **Finish setup** to resume your message, then **Continue** to close setup. Watch for the reply in the same chat and open the returned file link. You do not need to send the message again.
+2. **Create an Instance**, a separate Agent Zero setup. Choose **Download Agent Zero** or **Run Agent Zero**, keep the default version and persistent workspace, then click **Create**. Wait for **Running** and click **Open UI**.
 
-For screenshots and help, follow [Installation](./docs/setup/installation.md). The [Codex guide](./docs/guides/codex.md) shows ChatGPT account sign-in; the [OpenCode Go guide](./docs/guides/opencode.md) shows how to add a provider plugin.
+Continue with [your first message](#send-your-first-message), or see the [Installation guide](./docs/setup/installation.md) for screenshots and help.
 
-<details>
-<summary><strong>Other install paths</strong></summary>
+<a id="a0-install"></a>
 
-## A0 Install
+## Servers and shell access
 
-Use **A0 Install** from a terminal or SSH session. It helps set up Docker, creates Agent Zero, and keeps its data in a persistent workspace.
+**A0 Install is recommended when you have shell access but no graphical desktop**, such as a server or an SSH session. It runs interactively in your terminal, helps set up Docker where needed, and creates an Agent Zero instance with a persistent workspace.
 
 ### macOS / Linux
 
@@ -66,21 +70,22 @@ curl -fsSL https://bash.agent-zero.ai | bash
 irm https://ps.agent-zero.ai | iex
 ```
 
-### Headless / scripted
+Follow the prompts, then open the Web UI and [send your first message](#send-your-first-message). For a local install, use the printed URL. On a remote server, `localhost` refers to that server; follow the [VPS guide](./docs/setup/vps-deployment.md) for access and authentication before connecting from a browser on your own computer.
 
-For servers and automation, run the installer in Quick Start mode so it creates one instance and exits without opening menus:
+<a id="headless--scripted"></a>
 
-```bash
-curl -fsSL https://bash.agent-zero.ai | bash -s -- --quick-start --name agent-zero --port 5080
-```
+For setup without installer menus, see [scripted installation](./docs/setup/installation.md#headless--scripted) and the [full installer options](https://github.com/agent0ai/a0-install).
 
-```powershell
-& ([scriptblock]::Create((irm https://ps.agent-zero.ai))) -QuickStart -Name agent-zero -Port 5080
-```
+## Send your first message
 
-Use `--skip-runtime-setup` / `-SkipRuntimeSetup` when Docker must already be working and the installer should not try to set up a runtime. See the [A0 Install repository](https://github.com/agent0ai/a0-install) for all installer flags.
+1. **Send a message** from the welcome screen. Try: "Create a one-page plan for a 15-minute team kickoff. Save it as a Markdown file and give me a link."
+2. **Connect a model** when the chat asks. Choose **Cloud provider**, **AI account**, or **Local model**, then select a **Main model** for conversations and a **Utility model** for summaries and chat names. They can use the same provider.
+3. Click **Finish setup**, then **Continue** to close setup. Your original message resumes in the same chat; watch for the reply and open the returned file link.
 
-Open the URL printed by the installer. With the port above on your own computer, it is `http://localhost:5080`. For a remote server, follow the [VPS guide](./docs/setup/vps-deployment.md) to configure access and authentication.
+The [Codex guide](./docs/guides/codex.md) covers ChatGPT account sign-in. If your provider is missing, use the provider-plugin link to find it in the Hub; the [OpenCode Go guide](./docs/guides/opencode.md) walks through installation.
+
+<details>
+<summary><strong>Other install options</strong></summary>
 
 ## Docker already installed? Run this directly
 
@@ -88,17 +93,17 @@ Open the URL printed by the installer. With the port above on your own computer,
 docker run -d -p 127.0.0.1:5080:80 -v a0_usr:/a0/usr agent0ai/agent-zero
 ```
 
-Open `http://localhost:5080`, then follow steps 3 to 5 above. The `a0_usr` volume keeps your data when the container is replaced. Keep backups too. This command makes the Web UI available only on the Docker host; see the [Installation guide](./docs/setup/installation.md) for other setups.
-
-</details>
+Open `http://localhost:5080` on the Docker host, then [send your first message](#send-your-first-message). The `a0_usr` volume keeps your data when the container is replaced. Keep backups too. This command makes the Web UI available only on the Docker host; see the [Installation guide](./docs/setup/installation.md) for other setups.
 
 ## Troubleshooting
 
 - **Docker is not running:** start Docker Desktop or your Docker service, then reopen the Launcher or rerun the install command.
 - **Linux download won't open:** allow the AppImage to run as a program in its file properties, then open it again.
-- **Port is already in use:** choose another in Launcher. For the Docker command above, replace `5080` with a free port and use that port in your browser URL.
+- **Port is already in use:** choose another in Launcher or A0 Install. For the Docker command above, replace `5080` with a free port and use that port in your browser URL.
 - **No first reply:** check that setup finished and both models are available through your chosen provider. Read any connection or account error shown in the chat.
 - **Still blocked:** see the [Troubleshooting guide](./docs/guides/troubleshooting.md).
+
+</details>
 
 # Try These First
 
