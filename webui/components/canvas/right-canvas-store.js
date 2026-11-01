@@ -51,6 +51,7 @@ const model = {
   railPosition: null,
   railHeight: 0,
   _railObserver: null,
+  _railDragCleanup: null,
   isOverlayMode: false,
   isMobileMode: false,
   _initialized: false,
@@ -394,6 +395,7 @@ const model = {
   },
 
   unmountRail() {
+    this._railDragCleanup?.();
     this._railObserver?.disconnect();
     this._railObserver = null;
   },
@@ -405,26 +407,37 @@ const model = {
   },
 
   startRailDrag(event) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.isPrimary === false) return;
+    this._railDragCleanup?.();
     event.preventDefault();
     const handle = event.currentTarget;
     const rail = handle.closest(".right-canvas-rail");
     const bounds = this._rootElement.getBoundingClientRect();
     const rect = rail.getBoundingClientRect();
     const offset = event.clientY - (rect.top + rect.height / 2);
-    handle.setPointerCapture(event.pointerId);
+    const listeners = new AbortController();
+    const options = { signal: listeners.signal, capture: true };
     const move = (e) => {
+      if (e.pointerId !== event.pointerId) return;
+      if (e.buttons === 0) { end(); return; }
       const inset = this.railHeight / 2 + 8;
       const center = clamp(e.clientY - offset - bounds.top, inset, bounds.height - inset);
       this.railPosition = clamp(center / bounds.height, 0, 1);
     };
-    const end = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("lostpointercapture", end);
+    const end = (e) => {
+      if (e?.pointerId !== undefined && e.pointerId !== event.pointerId) return;
+      listeners.abort();
+      this._railDragCleanup = null;
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
       this.persist();
     };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("lostpointercapture", end);
+    this._railDragCleanup = end;
+    globalThis.addEventListener("pointermove", move, options);
+    globalThis.addEventListener("pointerup", end, options);
+    globalThis.addEventListener("pointercancel", end, options);
+    globalThis.addEventListener("blur", end, options);
+    handle.addEventListener("lostpointercapture", end, options);
+    try { handle.setPointerCapture(event.pointerId); } catch { /* Window listeners also handle drags without capture. */ }
   },
 
   moveRail(event) {
