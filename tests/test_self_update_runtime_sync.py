@@ -15,11 +15,15 @@ from extensions.python.startup_migration import _10_self_update_manager as migra
 
 
 SAFE_SOURCE = """#!/usr/bin/env python3
+import os
 import zipfile
 from pathlib import Path
 
 
 REPO_DIR = Path("/a0")
+DEFAULT_HEALTH_TIMEOUT_SECONDS = int(
+    os.environ.get("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "600")
+)
 
 
 def get_top_stash_oid(repo_dir):
@@ -102,10 +106,11 @@ def test_self_update_runtime_sync_upgrades_moving_stash_selectors(tmp_path):
 
 
 @pytest.mark.parametrize("current, old", [
+    ('"A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "600"', '"A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "180"'),
     ("compresslevel=1,", "compresslevel=6,"),
     ("strict_timestamps=False,", "strict_timestamps=True,"),
 ])
-def test_self_update_runtime_sync_upgrades_old_backup_settings(tmp_path, current, old):
+def test_self_update_runtime_sync_upgrades_old_runtime_settings(tmp_path, current, old):
     source = PROJECT_ROOT / "docker" / "run" / "fs" / "exe" / "self_update_manager.py"
     target = tmp_path / "self_update_manager.py"
     stale = source.read_text().replace(current, old)

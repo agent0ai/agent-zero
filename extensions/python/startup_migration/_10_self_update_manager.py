@@ -23,6 +23,7 @@ SELF_UPDATE_MANAGER_SOURCE_PATH = Path(
 )
 BACKUP_SUFFIX = ".startup-migration-backup"
 REQUIRED_RUNTIME_MARKERS = (
+    'os.environ.get("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "600")',
     "compresslevel=1,",
     "strict_timestamps=False,",
     "def get_top_stash_oid(",

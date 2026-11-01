@@ -357,7 +357,14 @@ def test_self_update_selector_tag_options_hide_latest_when_durable_updater_lacks
     assert higher_major_versions == []
 
 
-def test_self_update_update_info_uses_current_branch_for_latest_version(monkeypatch):
+@pytest.mark.parametrize("timeout_override, expected_timeout", [(None, 600), ("900", 900)])
+def test_self_update_update_info_uses_current_branch_for_latest_version(
+    monkeypatch, timeout_override, expected_timeout,
+):
+    if timeout_override is None:
+        monkeypatch.delenv("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", raising=False)
+    else:
+        monkeypatch.setenv("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", timeout_override)
     monkeypatch.setattr(
         self_update,
         "get_repo_version_info",
@@ -424,6 +431,8 @@ def test_self_update_update_info_uses_current_branch_for_latest_version(monkeypa
 
     info = self_update.get_update_info()
 
+    assert info["defaults"]["health_timeout_seconds"] == expected_timeout
+    assert load_self_update_manager().DEFAULT_HEALTH_TIMEOUT_SECONDS == expected_timeout
     assert info["current_branch_latest"] == {
         "branch": "main",
         "supported": True,
