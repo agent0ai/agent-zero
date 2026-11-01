@@ -272,13 +272,18 @@
             gap: 1rem;
         }
 
+        .welcome-hero .welcome-section-header {
+            container-type: inline-size;
+        }
+
         .welcome-hero h1 {
             margin: 0;
             color: var(--color-text);
-            font-size: clamp(2rem, 3.4vw, 2.75rem);
+            font-size: min(clamp(2rem, 3.4vw, 2.75rem), calc((100cqi - 56px - 1.35rem) / 12));
             font-weight: 440;
             letter-spacing: 0;
             line-height: 1.08;
+            white-space: nowrap;
         }
 
         .welcome-hero p {

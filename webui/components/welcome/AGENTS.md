@@ -27,6 +27,7 @@
 - Keep the welcome container background transparent so the persistent right-panel background transition remains visible when entering and leaving Welcome.
 - Clip the decorative background with `overflow: clip`; do not create a nested hidden scroll container that can move when a block's handle receives focus.
 - Reserve the welcome composer's final minimum height before its nested input components hydrate.
+- Keep the greeting and decorative wave together on one line. Size the heading to the space left by its two 28px move/hide controls and their gaps using the header's inline-size container; preserve the normal desktop font size when it fits.
 - On mobile, keep composer actions on one row and reduce only the placeholder font; editable text stays at least 16px. Quick-action buttons use a flex layout with native appearance disabled for stable initial and touch sizing.
 - Render `system-resources` as the dedicated System Resources panel, not as a generic alert banner.
 - System Resources defaults to a full row; its width control persists the half/full preference in `welcome_system_wide`. Honor half width on desktop even without a neighboring half-width block; mobile stays full width. Keep its meters and footer responsive to the panel width.
