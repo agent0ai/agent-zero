@@ -448,7 +448,11 @@ const model = {
       }
       const job = this.backupJob;
       while (!cancelled) {
-        const result = await callJsonApi('backup_create', { action: 'status', job_id: job.id });
+        // Closing releases this attempt even if its status request stalls.
+        const result = await Promise.race([
+          callJsonApi('backup_create', { action: 'status', job_id: job.id }),
+          new Promise(resolve => { wake = resolve; }),
+        ]);
         if (cancelled) return;
         if (!result.success || result.status === 'failed') {
           this.backupJob = null;

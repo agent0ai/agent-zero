@@ -1,6 +1,7 @@
 """Run one backup at a time independently of HTTP request lifetimes."""
 
 import asyncio
+import hashlib
 import logging
 import tempfile
 import threading
@@ -21,6 +22,7 @@ class BackupJob:
         default_factory=lambda: tempfile.TemporaryDirectory(prefix="a0-backup-")
     )
     status: str = "running"
+    sha256: str = ""
     downloads: set[BinaryIO] = field(default_factory=set)
     expired: bool = False
     timer: threading.Timer | None = None
@@ -61,14 +63,14 @@ class BackupJobs:
         with self._lock:
             return self._status(self._get(job_id))
 
-    def acquire_download(self, job_id: str) -> tuple[BinaryIO, str]:
+    def acquire_download(self, job_id: str) -> tuple[BinaryIO, str, str]:
         with self._lock:
             job = self._get(job_id)
             if job.status != "completed":
                 raise RuntimeError("Backup is not ready for download")
             stream = job.path.open("rb")
             job.downloads.add(stream)
-            return stream, f"{job.name}.zip"
+            return stream, f"{job.name}.zip", job.sha256
 
     def release_download(self, job_id: str, stream: BinaryIO) -> None:
         with self._lock:
@@ -95,6 +97,8 @@ class BackupJobs:
         try:
             with asyncio.Runner() as runner:
                 runner.run(create(str(job.path)))
+            with job.path.open("rb") as archive:
+                job.sha256 = hashlib.file_digest(archive, "sha256").hexdigest()
             status = "completed"
         except Exception:
             logger.exception("Backup creation failed")

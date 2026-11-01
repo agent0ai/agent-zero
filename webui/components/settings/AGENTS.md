@@ -17,6 +17,7 @@
 - File Browser appearance includes browser-local **Separate browsing per chat**, enabled by default. It switches the primary browser between retained per-chat views and a shared session; Welcome Files always keeps its own view. Sorting/view/path-bar/tree defaults remain shared.
 - Keep settings payloads synchronized with backend APIs and plugin settings contracts.
 - Backup creation starts a background job, polls its status with short authenticated requests, and downloads the completed ZIP. Closing the modal stops polling/download consumption and retains the job ID in the store; Resume Backup continues it. Failed or expired jobs allow a fresh backup, and successful downloads clear the resume state.
+- Closing detaches a pending status request immediately so Resume Backup can start a fresh attempt. Late responses from the closed attempt leave the resumed operation unchanged.
 - Settings tabs that expose plugin `settings_sections` must mount `settings/plugins/plugins-subsection.html` with matching `data-tab` and sidebar/nav section IDs.
 - Do not store secrets in localStorage, URLs, or console output.
 - Preserve Store Gating and modal footer conventions in settings components.

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import importlib.util
 import io
 import json
@@ -7,12 +8,13 @@ import tempfile
 import threading
 import types
 import zipfile
+from datetime import UTC
 from pathlib import Path
 
 import pytest
 from flask import Flask, request
 
-from helpers import login
+from helpers import backup, localization, login
 from helpers.api import csrf_protect, requires_auth
 from helpers.backup import BackupService
 from helpers.backup_jobs import BackupJobs
@@ -24,6 +26,14 @@ def backup_api(tmp_path, monkeypatch):
     entered, release, finished = (threading.Event() for _ in range(3))
     loops = []
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    clock = types.SimpleNamespace(
+        now_iso=lambda: "2026-01-01T00:00:00+00:00",
+        get_timezone=lambda: "UTC",
+        get_tzinfo=lambda: UTC,
+    )
+    monkeypatch.setattr(
+        backup, "Localization", types.SimpleNamespace(get=lambda: clock)
+    )
 
     def save_chats():
         loops.append(asyncio.get_running_loop())
@@ -147,6 +157,10 @@ def test_start_returns_during_blocked_work_and_downloads_real_archive(backup_api
     assert response.mimetype == "application/zip"
     assert "archive.zip" in response.headers["Content-Disposition"]
     assert response.content_length == len(response.data)
+    assert (
+        response.headers["X-Content-SHA256"]
+        == hashlib.sha256(response.data).hexdigest()
+    )
     with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
         payload = next(
             name for name in archive.namelist() if name.endswith("/payload.txt")
@@ -158,6 +172,39 @@ def test_start_returns_during_blocked_work_and_downloads_real_archive(backup_api
     response.close()
     response.close()
     assert not env.jobs._job.downloads
+
+
+def test_archive_creation_keeps_localization_state_isolated(backup_api, monkeypatch):
+    def unexpected_localization(*args, **kwargs):
+        raise AssertionError("backup fixture accessed process localization")
+
+    monkeypatch.setattr(localization.Localization, "get", unexpected_localization)
+    job_id = start(backup_api)
+    complete(backup_api)
+    response = backup_api.post(action="download", job_id=job_id)
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+        metadata = json.loads(archive.read("metadata.json"))
+        assert metadata["timestamp"] == "2026-01-01T00:00:00+00:00"
+        assert metadata["environment_info"]["timezone"] == "UTC"
+
+
+def test_download_uses_digest_prepared_by_worker(backup_api, monkeypatch):
+    job_id = start(backup_api)
+    complete(backup_api)
+
+    def unexpected_hash(*args, **kwargs):
+        raise AssertionError("download recalculated archive digest")
+
+    monkeypatch.setattr(hashlib, "file_digest", unexpected_hash)
+    for _ in range(2):
+        response = backup_api.post(action="download", job_id=job_id)
+        assert response.status_code == 200
+        assert (
+            response.headers["X-Content-SHA256"]
+            == hashlib.sha256(response.data).hexdigest()
+        )
+        response.close()
 
 
 def test_archive_expires_after_an_active_download_closes(backup_api):

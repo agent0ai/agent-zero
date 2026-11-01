@@ -26,7 +26,7 @@ class BackupCreate(ApiHandler):
                 return backup_jobs.status(input.get("job_id", ""))
             if action == "download":
                 job_id = input.get("job_id", "")
-                stream, name = backup_jobs.acquire_download(job_id)
+                stream, name, sha256 = backup_jobs.acquire_download(job_id)
                 try:
                     response = send_file(
                         stream,
@@ -35,6 +35,7 @@ class BackupCreate(ApiHandler):
                         mimetype="application/zip",
                     )
                     response.content_length = os.fstat(stream.fileno()).st_size
+                    response.headers["X-Content-SHA256"] = sha256
                     # Ensure WSGI closes the response and releases the archive lease.
                     response.direct_passthrough = False
                     response.call_on_close(

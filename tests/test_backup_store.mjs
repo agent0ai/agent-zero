@@ -121,6 +121,37 @@ test('expired jobs clear the resume state', async () => {
   assert.equal(store.loading, false);
 });
 
+test('a stalled status request can be detached and resumed before its late response', async () => {
+  let acceptOldStatus, acceptNewStatus;
+  const { store, calls, clicks } = setup({
+    json: () => new Promise(resolve => {
+      if (!acceptOldStatus) acceptOldStatus = resolve;
+      else acceptNewStatus = resolve;
+    }),
+  });
+  store.backupJob = { id: 'job-1', name: 'existing' };
+  const oldAttempt = store.createBackup();
+  store.onClose();
+  await Promise.race([
+    oldAttempt,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('cancelled polling remained busy')), 200)),
+  ]);
+  assert.equal(store.backupBusy, false);
+  const resumed = store.createBackup();
+  assert.equal(store.backupBusy, true);
+  acceptOldStatus({ success: false, status: 'failed', error: 'Stale failure' });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(store.backupBusy, true);
+  assert.equal(store.backupJob.id, 'job-1');
+  assert.equal(store.error, '');
+  acceptNewStatus({ success: true, status: 'completed' });
+  await resumed;
+  assert.deepEqual(calls.map(call => call.action), ['status', 'status', 'download']);
+  assert.deepEqual(clicks, ['existing.zip']);
+  assert.equal(store.backupJob, null);
+  assert.equal(store.backupBusy, false);
+});
+
 test('network errors preserve a known job for retry', async () => {
   const { store, clicks } = setup({ json: () => { throw new Error('Network unavailable'); } });
   store.backupJob = { id: 'job-1', name: 'existing' };

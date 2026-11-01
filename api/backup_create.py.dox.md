@@ -35,6 +35,8 @@
 
 ## Key Concepts
 
+- Background download responses include `Content-Length` and `X-Content-SHA256`. The digest is prepared by the background worker before completion and reused for each download.
+
 - Important called helpers/classes observed in the source: `save_tmp_chats`, `BackupService`, `send_file`, `backup_service.create_backup`, `line.strip`, `line.startswith`, `patterns_string.split`, `line.strip.startswith`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
