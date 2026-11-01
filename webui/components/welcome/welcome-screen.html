@@ -78,11 +78,19 @@
                             </section>
                         </section>
 
-                        <section class="welcome-quick-section" data-welcome-block="quick-actions" data-welcome-label="Quick Actions" x-show="!$store.welcomeStore.hiddenSections.includes('quick-actions')">
+                        <section class="welcome-quick-section" data-welcome-block="quick-actions" data-welcome-label="Quick Actions"
+                                 :data-welcome-size="$store.welcomeStore.quickActionsWide ? 'full' : 'half'"
+                                 x-show="!$store.welcomeStore.hiddenSections.includes('quick-actions')">
                             <header class="welcome-section-header">
                                 <h2>Quick Actions</h2>
                                 <div class="welcome-panel-actions">
                                     <button type="button" data-welcome-handle></button>
+                                    <button class="welcome-panel-icon-button"
+                                            type="button"
+                                            :aria-label="$store.welcomeStore.quickActionsWide ? 'Use half-width Quick Actions panel' : 'Expand Quick Actions panel'"
+                                            @click="$store.welcomeStore.toggleQuickActionsWidth()">
+                                        <x-icon :name="$store.welcomeStore.quickActionsWide ? 'close_fullscreen' : 'open_in_full'"></x-icon>
+                                    </button>
                                     <button class="welcome-panel-icon-button welcome-quick-dismiss"
                                             type="button"
                                             @click="$store.welcomeStore.dismissSection('quick-actions')"
@@ -96,42 +104,27 @@
                                 <x-extension id="welcome-actions-start"></x-extension>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
                                     <x-icon class="welcome-action-icon" name="folder"></x-icon>
-                                    <span class="welcome-action-copy">
-                                        <span class="welcome-action-title">Projects</span>
-                                        <span class="welcome-action-description">Organize and track your work.</span>
-                                    </span>
+                                    <span class="welcome-action-title">Projects</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('files')">
                                     <x-icon class="welcome-action-icon" name="folder_open"></x-icon>
-                                    <span class="welcome-action-copy">
-                                        <span class="welcome-action-title">Files</span>
-                                        <span class="welcome-action-description">Search and manage your files.</span>
-                                    </span>
+                                    <span class="welcome-action-title">Files</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('settings')">
                                     <x-icon class="welcome-action-icon" name="settings"></x-icon>
-                                    <span class="welcome-action-copy">
-                                        <span class="welcome-action-title">Settings</span>
-                                        <span class="welcome-action-description">Configure Agent Zero to your preferences.</span>
-                                    </span>
+                                    <span class="welcome-action-title">Settings</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('plugins')">
                                     <x-icon class="welcome-action-icon" name="extension"></x-icon>
-                                    <span class="welcome-action-copy">
-                                        <span class="welcome-action-title">Plugins</span>
-                                        <span class="welcome-action-description">Extend Agent Zero with integrations.</span>
-                                    </span>
+                                    <span class="welcome-action-title">Plugins</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
                                 <button type="button" class="welcome-action-card is-wide" @click="$store.welcomeStore.executeAction('website')">
                                     <x-icon class="welcome-action-icon" name="language"></x-icon>
-                                    <span class="welcome-action-copy">
-                                        <span class="welcome-action-title">Visit Website</span>
-                                        <span class="welcome-action-description">Explore Agent Zero online and resources.</span>
-                                    </span>
+                                    <span class="welcome-action-title">Visit Agent Zero Website</span>
                                     <x-icon class="welcome-action-arrow" name="open_in_new"></x-icon>
                                 </button>
                             </div>
@@ -511,7 +504,9 @@
 
         .welcome-quick-section {
             display: grid;
+            align-content: start;
             gap: 0.82rem;
+            container: welcome-quick / inline-size;
         }
 
         .welcome-quick-section h2,
@@ -535,7 +530,7 @@
             display: flex;
             align-items: center;
             gap: 1rem;
-            min-height: 6.1rem;
+            min-height: 4.6rem;
             border-radius: 8px;
             padding: 1.05rem 1rem;
             color: inherit;
@@ -570,24 +565,13 @@
             line-height: 1;
         }
 
-        .welcome-action-copy {
-            display: grid;
+        .welcome-action-title {
             flex: 1;
             min-width: 0;
-            gap: 0.28rem;
-        }
-
-        .welcome-action-title {
             color: var(--color-text);
             font-size: 1rem;
             font-weight: 520;
             line-height: 1.25;
-        }
-
-        .welcome-action-description {
-            color: color-mix(in srgb, var(--color-text) 58%, transparent);
-            font-size: 0.92rem;
-            line-height: 1.42;
         }
 
         .welcome-action-arrow {
@@ -609,6 +593,7 @@
         }
 
         .welcome-board > .is-paired,
+        .welcome-board > .welcome-quick-section[data-welcome-size="half"],
         .welcome-board > .welcome-system-card[data-welcome-size="half"] {
             grid-column: auto;
         }
@@ -873,17 +858,67 @@
             }
         }
 
+        @container welcome-quick (max-width: 1000px) {
+            .welcome-actions {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @container welcome-quick (max-width: 640px) {
+            .welcome-actions {
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
+                gap: 0.75rem;
+            }
+
+            .welcome-action-card,
+            .welcome-action-card.is-wide {
+                position: relative;
+                grid-column: auto;
+                flex-direction: column;
+                justify-content: center;
+                gap: 0.65rem;
+                aspect-ratio: 1;
+                min-height: 0;
+                padding: 0.75rem;
+                text-align: center;
+            }
+
+            .welcome-action-icon {
+                font-size: 2rem;
+            }
+
+            .welcome-action-title {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: none;
+                min-height: 2.6em;
+                font-size: 0.88rem;
+                line-height: 1.3;
+            }
+
+            .welcome-action-arrow {
+                display: none;
+            }
+
+            .welcome-action-arrow[name="open_in_new"] {
+                position: absolute;
+                top: 0.5rem;
+                right: 0.5rem;
+                display: inline-flex;
+                font-size: 1rem;
+                opacity: 0.5;
+            }
+        }
+
         @media (max-width: 1180px) {
             .welcome-container {
                 padding-inline: clamp(1.25rem, 4vw, 3rem);
             }
 
-            .welcome-actions {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
             .welcome-board { grid-template-columns: 1fr; }
             .welcome-board > .is-paired,
+            .welcome-board > .welcome-quick-section[data-welcome-size="half"],
             .welcome-board > .welcome-system-card[data-welcome-size="half"] { grid-column: 1 / -1; }
 
             .welcome-shell {
@@ -905,22 +940,6 @@
             .welcome-intro-dismiss {
                 align-self: flex-start;
                 margin-top: 0.2rem;
-            }
-
-            .welcome-actions {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-            }
-
-            .welcome-action-card,
-            .welcome-action-card.is-wide {
-                grid-column: auto;
-                min-height: 5.25rem;
-                padding: 0.85rem;
-            }
-
-            .welcome-action-icon {
-                font-size: 2rem;
             }
 
             .welcome-composer,

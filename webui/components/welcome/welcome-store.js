@@ -23,6 +23,7 @@ const model = {
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
   hiddenSections: [],
+  quickActionsWide: true,
   systemWide: true,
   _initialized: false,
 
@@ -33,6 +34,7 @@ const model = {
   init() {
     if (this._initialized) return;
     this._initialized = true;
+    this.quickActionsWide = localStorage.getItem("welcome_quick_actions_wide") !== "false";
     this.systemWide = localStorage.getItem("welcome_system_wide") !== "false";
     this.hiddenSections = ["intro", "quick-actions"].filter(
       (id) => localStorage.getItem(`welcome_hidden_${id}`) === "true",
@@ -44,6 +46,12 @@ const model = {
         this.refreshBanners(true);
       }
     });
+  },
+
+  toggleQuickActionsWidth() {
+    this.quickActionsWide = !this.quickActionsWide;
+    try { localStorage.setItem("welcome_quick_actions_wide", String(this.quickActionsWide)); }
+    catch (error) { console.warn("Could not save Quick Actions width", error); }
   },
 
   toggleSystemWidth() {

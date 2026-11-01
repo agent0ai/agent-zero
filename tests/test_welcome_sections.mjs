@@ -15,7 +15,10 @@ function loadStore(path, context) {
   return vm.runInNewContext(`${source}\nstore`, context);
 }
 
-test('System Resources width defaults to full and survives toggling and reload', () => {
+for (const [panel, property, toggle] of [
+  ['Quick Actions', 'quickActionsWide', 'toggleQuickActionsWidth'],
+  ['System Resources', 'systemWide', 'toggleSystemWidth'],
+]) test(`${panel} width defaults to full and survives toggling and reload independently`, () => {
   const local = new Map([['welcome_block_order', '["accounts","system","channels"]']]);
   const loadWelcome = () => {
     const store = loadStore('../webui/components/welcome/welcome-store.js', {
@@ -28,12 +31,14 @@ test('System Resources width defaults to full and survives toggling and reload',
     return store;
   };
   const store = loadWelcome();
-  assert.equal(store.systemWide, true);
-  store.toggleSystemWidth();
-  assert.equal(store.systemWide, false);
-  assert.equal(loadWelcome().systemWide, false);
-  store.toggleSystemWidth();
-  assert.equal(loadWelcome().systemWide, true);
+  assert.equal(store[property], true);
+  store[toggle]();
+  assert.equal(store[property], false);
+  assert.equal(loadWelcome()[property], false);
+  const otherProperty = property === 'systemWide' ? 'quickActionsWide' : 'systemWide';
+  assert.equal(loadWelcome()[otherProperty], true);
+  store[toggle]();
+  assert.equal(loadWelcome()[property], true);
   assert.equal(local.get('welcome_block_order'), '["accounts","system","channels"]');
 });
 
