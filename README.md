@@ -38,7 +38,7 @@ You will need a supported AI account, a provider API key, or a local model serve
 ## Desktop setup
 
 <p align="center">
-<img src="docs/res/usage/launcher/launcher-onboarding-runtime-download.png" alt="A0 Launcher onboarding, ready to download Agent Zero and create the first instance" width="544" />
+<img src="docs/res/usage/launcher/launcher-installation.png" alt="Agent Zero Launcher downloading Agent Zero with the installation walkthrough" width="100%" />
 </p>
 
 **A0 Launcher is recommended for desktop computers.** It guides you through Docker setup, creates your Agent Zero instance, and opens the Web UI.
