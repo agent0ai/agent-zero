@@ -13,7 +13,7 @@ Agent Zero is an open-source AI agent with its own Linux workspace. It can resea
 [![Docs](https://img.shields.io/badge/Docs-Read%20the%20guides-1F6FEB?style=for-the-badge&logo=readthedocs&logoColor=white)](./docs/)
 [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/B8KZKNsPpj)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsors-Thank%20you-FF69B4?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/agent0ai)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agent0ai/agent-zero)
+[![Ask DeepWiki](https://img.shields.io/badge/DeepWiki-Ask%20AI-20B2AA?style=for-the-badge)](https://deepwiki.com/agent0ai/agent-zero)
 
 [Quick Start](#quick-start) |
 [Why Agent Zero](#why-agent-zero) |
