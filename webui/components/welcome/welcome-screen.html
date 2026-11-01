@@ -84,14 +84,14 @@
                             <header class="welcome-section-header">
                                 <h2>Quick Actions</h2>
                                 <div class="welcome-panel-actions">
-                                    <button type="button" data-welcome-handle></button>
                                     <button class="welcome-panel-icon-button"
                                             type="button"
                                             :aria-label="$store.welcomeStore.quickActionsWide ? 'Use half-width Quick Actions panel' : 'Expand Quick Actions panel'"
                                             @click="$store.welcomeStore.toggleQuickActionsWidth()">
                                         <x-icon :name="$store.welcomeStore.quickActionsWide ? 'close_fullscreen' : 'open_in_full'"></x-icon>
                                     </button>
-                                    <button class="welcome-panel-icon-button welcome-quick-dismiss"
+                                    <button type="button" data-welcome-handle></button>
+                                    <button class="welcome-panel-icon-button"
                                             type="button"
                                             @click="$store.welcomeStore.dismissSection('quick-actions')"
                                             title="Hide Quick Actions"
@@ -141,7 +141,6 @@
                             <header class="welcome-panel-header">
                                 <h2 x-text="$store.welcomeStore.systemResourceBanner?.title || 'System Resources'"></h2>
                                 <div class="welcome-panel-actions">
-                                    <button type="button" data-welcome-handle></button>
                                     <button class="welcome-panel-icon-button"
                                             type="button"
                                             :aria-label="$store.welcomeStore.systemWide ? 'Use half-width System Resources panel' : 'Expand System Resources panel'"
@@ -156,6 +155,7 @@
                                             aria-label="Refresh System Resources">
                                         <x-icon name="refresh"></x-icon>
                                     </button>
+                                    <button type="button" data-welcome-handle></button>
                                     <button class="welcome-panel-icon-button"
                                             type="button"
                                             x-show="$store.welcomeStore.systemResourceBanner?.dismissible !== false"
@@ -779,9 +779,8 @@
 
         @media (hover: hover) and (pointer: fine) {
             .welcome-intro:not(:hover):not(:focus-within) .welcome-intro-dismiss,
-            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-quick-dismiss,
             .welcome-intro:not(:hover):not(:focus-within) .welcome-drag-handle:not([aria-expanded="true"]),
-            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-drag-handle:not([aria-expanded="true"]) {
+            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-panel-actions > .welcome-panel-icon-button:not([aria-expanded="true"]) {
                 opacity: 0;
             }
         }
