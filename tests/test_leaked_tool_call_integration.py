@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -328,13 +329,17 @@ async def test_reported_dsml_calls_preserve_log_and_arguments(monkeypatch, mode,
     tool.execute.assert_awaited_once_with(**args)
 
 
-@pytest.mark.parametrize("mode, first_text, doctor, turns", [
-    ("chat_completions", "READY", True, 2),
-    ("chat_completions", "READY", False, 2),
-    ("chat_completions", '{"name":"response","arguments":{"text":"unfinished', True, 2),
-    ("chat_completions", '{"name":"response","arguments":{"text":"unfinished', False, 2),
+@pytest.mark.parametrize("mode, first_text, doctor, turns, warning_count", [
+    ("chat_completions", '{"name":"response","arguments":{"text":"unfinished', True, 2, 0),
+    ("chat_completions", '{"name":"response","arguments":{"text":"unfinished', False, 2, 1),
     *[
-        (mode, text, True, 1)
+        (mode, text, doctor, 2, 0)
+        for mode in ("chat_completions", "responses")
+        for doctor in (False, True)
+        for text in ("", "READY", '{"thoughts":["Continue checking"]}')
+    ],
+    *[
+        (mode, text, True, 1, 0)
         for mode in ("chat_completions", "responses")
         for text in (
             '{"thoughts":["Respond now","tool_name":"response","tool_args":{"text":"done"}}',
@@ -345,7 +350,7 @@ async def test_reported_dsml_calls_preserve_log_and_arguments(monkeypatch, mode,
 ])
 @pytest.mark.asyncio
 async def test_message_loop_repairs_then_displays_response(
-    monkeypatch, mode, first_text, doctor, turns
+    monkeypatch, mode, first_text, doctor, turns, warning_count
 ):
     from helpers import history
     from extensions.python.response_stream._20_live_response import LiveResponse
@@ -359,14 +364,18 @@ async def test_message_loop_repairs_then_displays_response(
     agent.last_user_message = None
     agent.history = history.History(agent)
     agent.hist_add_message = agent.history.add_message
+    agent.history.add_message(False, "Original question")
     agent.parse_prompt = lambda name, **kwargs: kwargs["message"]
     agent.read_prompt = lambda name, **kwargs: read_prompt_file(
-        name, ["plugins/_context_doctor/prompts", "prompts"], **kwargs
+        name, (["plugins/_context_doctor/prompts"] if doctor else []) + ["prompts"],
+        **kwargs
     )
     log = Log()
     agent.context = SimpleNamespace(log=log, streaming_agent=None, task=None)
     agent.get_tool = lambda **kwargs: ResponseTool(agent=agent, **kwargs)
     calls = []
+    prompts = []
+    metadata = []
     complete = '<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>'
 
     async def no_op(*args, **kwargs):
@@ -375,17 +384,32 @@ async def test_message_loop_repairs_then_displays_response(
     async def fail(location, exception):
         raise exception
 
-    async def call_model(*, response_callback, **kwargs):
+    async def prepare_prompt(**kwargs):
+        return agent.history.current.output()
+
+    async def call_model(*, messages, response_callback, reasoning_callback, **kwargs):
         assert len(calls) < turns, "The repaired response should finish without an extra model call"
+        if calls and mode == "responses":
+            assert agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)["response_id"] == "turn-1"
+        prompts.append(deepcopy(messages))
         text = (first_text, complete)[len(calls)]
         calls.append(text)
         middle = len(text) // 2
         assert await response_callback(text[:middle], text[:middle]) is None
         assert await response_callback(text[middle:], text) is None
-        return LLMResult(
-            response=text, mode=mode, response_id=f"turn-{len(calls)}",
+        reasoning = "thinking" if not text else ""
+        if reasoning:
+            await reasoning_callback(reasoning, reasoning)
+        result = LLMResult(
+            response=text, reasoning=reasoning, mode=mode, response_id=f"turn-{len(calls)}",
             provider_model_key="test/model",
+            output_items=[ResponseItem.from_any({
+                "type": "reasoning", "id": "reasoning-1", "encrypted_content": "opaque",
+                "summary": [{"type": "summary_text", "text": reasoning}],
+            })] if reasoning else [],
         )
+        metadata.append(deepcopy(result.metadata()))
+        return result
 
     async def call_extensions(point, target=None, **kwargs):
         if point == "before_main_llm_call":
@@ -410,7 +434,7 @@ async def test_message_loop_repairs_then_displays_response(
         mcp_handler.MCPConfig, "get_instance",
         lambda: SimpleNamespace(get_tool=lambda *args: None),
     )
-    agent.prepare_prompt = no_op
+    agent.prepare_prompt = prepare_prompt
     agent.handle_intervention = no_op
     agent.handle_exception = fail
     agent.call_chat_model_turn = call_model
@@ -422,11 +446,19 @@ async def test_message_loop_repairs_then_displays_response(
     assert responses[0].id == f"turn-{turns}"
     assert responses[0].content == "done"
     assert responses[0].kvps["finished"] is True
+    assert len([item for item in log.logs if item.type == "warning"]) == warning_count
     ai_messages = [message for message in agent.history.all_messages() if message.ai]
     assert len(ai_messages) == turns
+    assert ai_messages[0].metadata == metadata[0]
     if turns == 2:
-        if doctor:
-            assert json.loads(ai_messages[0].content) == {"thoughts": [first_text]}
+        assert prompts[0] and prompts[1][:len(prompts[0])] == prompts[0]
+        if doctor or not first_text:
+            expected = (
+                json.loads(first_text) if first_text.startswith('{"thoughts"')
+                else {"thoughts": [first_text or "thinking"]}
+            )
+            assert json.loads(ai_messages[0].content) == expected
+            assert log.logs[0].kvps["thoughts"] == expected["thoughts"]
         else:
             assert ai_messages[0].content == first_text
     else:
@@ -475,6 +507,30 @@ def test_context_doctor_fallback_retains_existing_retry_limit():
         assert agent.history == ["{}"] * (iteration + 1)
         assert agent.warnings == [agent.read_prompt("fw.msg_thoughts_fallback.md")] * (iteration + 1)
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 3
+
+
+def test_mixed_no_action_turns_share_limit_and_only_show_final_stop():
+    agent = FakeAgent()
+    results = [
+        LLMResult.from_chat(response="Still checking"),
+        LLMResult.from_chat(response="", reasoning="Need another check"),
+        LLMResult.from_chat(response='{"thoughts":["Continue checking"]}'),
+    ]
+    for iteration, result in enumerate(results):
+        agent.loop_data.iteration = iteration
+        if iteration == 2:
+            with pytest.raises(HandledException):
+                run_hooks(agent, result)
+        else:
+            assert run_hooks(agent, result)["skip_default_processing"] is True
+            assert agent.logs == []
+
+    assert len(agent.history) == 3
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 3
+    assert agent.logs == [{
+        "type": "warning",
+        "content": agent.read_prompt("fw.msg_unusable_response_limit.md", limit=3),
+    }]
 
 
 def test_diagnostics_do_not_include_argument_contents():

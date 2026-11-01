@@ -105,6 +105,57 @@ def test_action_buttons_keep_order_and_mounted_nodes_during_updates(page):
     }""")
 
 
+@pytest.mark.parametrize("replay", [False, True])
+def test_free_text_between_tools_stays_in_one_process_group(page, replay):
+    from types import SimpleNamespace
+
+    from extensions.python._functions.agent.Agent.hist_add_ai_response.end._10_log_plain_responses import (
+        LogPlainResponses,
+    )
+    from helpers.llm_result import LLMResult
+    from helpers.log import Log
+
+    log = Log()
+    log.log(type="user", id="question", content="Check the sources")
+    log.log(type="agent", id="start", thoughts=["Starting the check"])
+    log.log(type="code_exe", id="lookup", content="First source found")
+    progress = log.log(type="agent", id="progress")
+    agent = SimpleNamespace(loop_data=SimpleNamespace(
+        params_temporary={"log_item_generating": progress},
+    ))
+    result = LLMResult(response="Checking a second source.")
+    LogPlainResponses(agent).execute(data={
+        "args": (agent, result.response), "kwargs": {"llm_result": result},
+    })
+    log.log(type="code_exe", id="check", content="Sources agree")
+    log.log(type="response", id="answer", content="Verified answer", finished=True)
+    records = [{key: getattr(item, key) for key in (
+        "no", "id", "type", "heading", "content", "kvps", "agentno",
+    )} for item in log.logs]
+
+    page.evaluate("""async ({records, replay}) => {
+      msgs.resetMessageRenderState();
+      prefs.detailMode = 'expanded';
+      if (replay) {
+        await msgs.setMessages(records);
+      } else {
+        for (const record of records.slice(0, -1)) {
+          await msgs.setMessages([record]);
+          check(!historyEl.querySelector('.process-group-response'),
+            'progress text became a final response');
+        }
+        await msgs.setMessages([records.at(-1)]);
+      }
+      check(historyEl.querySelectorAll('.process-group').length === 1,
+        'free text split the process group');
+      check(historyEl.querySelectorAll('.process-group-response').length === 1,
+        'only the response tool should create an answer bubble');
+      check(historyEl.textContent.includes('Checking a second source.'),
+        'progress thoughts disappeared');
+      check(historyEl.textContent.includes('Verified answer'), 'final answer disappeared');
+    }""", {"records": records, "replay": replay})
+
+
 def test_preset_switch_preserves_composer_and_saved_chat_draft(page):
     page.evaluate("""async () => {
       const input = (await import('/components/chat/input/input-store.js')).store;
