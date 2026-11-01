@@ -442,7 +442,11 @@ const model = {
 
       if (!this.backupJob) {
         const metadata = this.backupMetadataConfig;
-        const result = await callJsonApi('backup_create', { ...metadata, action: 'start' });
+        const result = await callJsonApi('backup_create', {
+          ...metadata,
+          include_hidden: metadata.include_hidden ?? true,
+          action: 'start',
+        });
         if (!result.success) throw new Error(result.error || 'Backup creation failed');
         this.backupJob = { id: result.job_id, name: metadata.backup_name };
       }

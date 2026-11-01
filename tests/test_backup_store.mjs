@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-function setup({ statuses = ['running', 'completed'], download, json } = {}) {
+function setup({ statuses = ['running', 'completed'], download, json, includeHidden } = {}) {
   const calls = [], clicks = [], toasts = [];
   let store;
   const source = readFileSync(new URL('../webui/components/settings/backup/backup-store.js', import.meta.url), 'utf8')
     .replace(/^import\b[\s\S]*?;\r?\n/gm, '')
     .replace('export { store };', '');
-  const metadata = { include_patterns: ['**'], exclude_patterns: [], backup_name: 'my-backup' };
+  const metadata = { include_patterns: ['**'], exclude_patterns: [], backup_name: 'my-backup', include_hidden: includeHidden };
   const context = vm.createContext({
     console, Intl, AbortController,
     setTimeout: callback => setTimeout(callback, 0), clearTimeout,
@@ -51,6 +51,16 @@ test('polls a running backup and downloads only the completed archive', async ()
   assert.equal(store.error, '');
   assert.ok(toasts.some(toast => toast[0] === 'Downloading...'));
 });
+
+for (const includeHidden of [undefined, null, true, false]) {
+  test(`backup creation normalizes include_hidden=${includeHidden}`, async () => {
+    const { store, calls, clicks } = setup({ includeHidden, statuses: ['completed'] });
+    await store.createBackup();
+    assert.equal(calls[0].action, 'start');
+    assert.equal(calls[0].include_hidden, includeHidden ?? true);
+    assert.deepEqual(clicks, ['my-backup.zip']);
+  });
+}
 
 test('a failed job shows its error and permits a fresh backup', async () => {
   const { store, calls, clicks } = setup({ statuses: ['failed'] });
