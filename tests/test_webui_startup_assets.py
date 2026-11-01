@@ -92,7 +92,8 @@ def test_safe_mode_disables_workers_before_rendering_index_directly() -> None:
     assert 'fetch("/ui/asset-bundle"' not in safe_html
     assert "navigator.serviceWorker.register" not in safe_html
     assert ' src="' not in safe_html
-    assert ' href="/' not in safe_html
+    assert safe_html.count(' href="/') == 1
+    assert 'href="/public/favicon.svg"' in safe_html
     assert 'request.args.get("__direct") == "1"' in ui_server
     assert "return await self.serve_index()" in ui_server
     assert 'files.read_file("webui/safe.html")' in ui_server
@@ -152,7 +153,8 @@ def test_startup_splash_is_handed_to_the_index_and_fades_when_ready() -> None:
     assert '<main id="startup-transition"' in splash_html
     assert 'localStorage.getItem("darkMode") === "false"' in splash_html
     assert ' src="' not in splash_html
-    assert ' href="/' not in splash_html
+    assert splash_html.count(' href="/') == 1
+    assert 'href="/public/favicon.svg"' in splash_html
 
 
 def test_generic_loading_indicator_has_a_shared_default_delay() -> None:
