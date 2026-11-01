@@ -52,6 +52,11 @@
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that
   share one Markdown prompt.
+- Bundled `input_remote` additionally requires the bundled `code_execution_remote`
+  terminal action, since its transport can execute commands. Resolve the
+  dependency by canonical ID with the same policy snapshot so profile shadows,
+  explicit grants, and default-deny policies cannot bypass it. Keep its own
+  independent permission check; granting execution alone does not grant input.
 - Catalog descriptions call the supplied agent's prompt loader instead of
   opening prompt files through a parallel path; the editor agent intentionally
   keeps its existing raw, no-processor implementation.
@@ -65,6 +70,7 @@
 ## Verification
 
 - Run `tests/test_tool_policy.py`, `tests/test_tool_action_policy.py`, and the prompt/Responses/MCP focused tests.
+- Run `tests/test_remote_input_policy.py` for the remote execution dependency across dispatch, text prompts, and native schemas.
 
 ## Child DOX Index
 
