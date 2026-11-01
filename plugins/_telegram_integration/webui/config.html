@@ -164,6 +164,20 @@
 
                     <div class="field">
                       <div class="field-label">
+                        <div class="field-title">Administrator users</div>
+                        <div class="field-description">Comma-separated @usernames or numeric IDs allowed to change
+                          plugins and tool permissions. They must also pass Allowed users. Leave empty to disable
+                          these settings changes from Telegram.</div>
+                      </div>
+                      <div class="field-control">
+                        <input type="text" aria-label="Administrator users" :value="$store.telegramConfig.adminUsersText(bot)"
+                          @input="$store.telegramConfig.setAdminUsers(bot, $event.target.value)"
+                          placeholder="@yourname, 123456789" />
+                      </div>
+                    </div>
+
+                    <div class="field">
+                      <div class="field-label">
                         <div class="field-title">Default project</div>
                         <div class="field-description">Optional fallback project for conversations from this bot.</div>
                       </div>

@@ -22,6 +22,7 @@
 - Resolve raw commands before adding the Telegram message envelope; its closing marker prevents queued/rendered text from being interpreted as a second postfix command. Custom/project definitions override bundled commands; keep Telegram's existing integration aliases and pickers for unoverridden commands.
 - `/commands` discovers the current chat's effective commands on each use. The native Telegram menu registers global commands at startup, maps hyphens to underscores, and obeys Telegram's name/description/count limits.
 - Render text/script results and supported effects in Telegram. Browser-only settings return guidance instead of pretending to open a modal; host computer permissions remain controlled by Launcher/CLI.
+- Settings menus and every settings callback require the current sender to pass both `allowed_users` and the separate `admin_users` list; an omitted or empty administrator list grants nobody settings access. Derive administration from the current bot configuration for each event, never from context or callback data.
 - Permission callbacks bind canonical tool IDs to the current context/project/profile, revalidate the live catalog, and refuse changes during an active run. Required tools stay outside the menu. Plugin toggles are instance-wide, protect always-enabled plugins, and keep Telegram/Commands enabled so the connection remains controllable.
 - `/new` creates and binds a fresh context without resetting the previous chat. `/clear` retains Telegram's existing reset behavior. Compaction confirms the current idle context and uses the existing backup-producing compactor.
 - Restart bots when their token, delivery mode, group mode, webhook URL, or webhook secret changes. Polling may start on the next job-loop tick after saving settings.
@@ -42,7 +43,7 @@
 ## Verification
 
 - Smoke-test connection checks, polling or webhook delivery, per-user context reuse, attachments, and replies when practical.
-- Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, and bot lifecycle regressions.
+- Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
 
 ## Child DOX Index
 
