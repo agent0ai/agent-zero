@@ -366,7 +366,8 @@ def create_usr_backup(
             temporary_backup,
             "w",
             compression=zipfile.ZIP_DEFLATED,
-            compresslevel=6,
+            compresslevel=1,
+            strict_timestamps=False,
         ) as archive:
             for root, dirs, files in os.walk(usr_dir):
                 root_path = Path(root)
