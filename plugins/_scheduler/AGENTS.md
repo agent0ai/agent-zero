@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Own the `scheduler` agent tool and the Tasks UI for managing saved tasks and schedules.
+- Own the `scheduler` agent tool and the Scheduled Tasks UI for managing saved tasks and schedules.
 
 ## Ownership
 
@@ -10,10 +10,10 @@
 - The tool logs its message as type `scheduler` with an `icon://calendar_month Schedule: <action>` headline; `extensions/webui/get_message_handler/` owns the `SCH` badge presentation and `extensions/webui/get_process_step_types/` registers the type.
 - `prompts/` owns the tool prompt and the framework repair messages.
 - `api/` owns the scheduler CRUD HTTP endpoints (`scheduler_task_create`, `scheduler_task_delete`, `scheduler_task_run`, `scheduler_task_update`, `scheduler_tasks_list`); core `api/scheduler_tick.py` stays with the scheduling engine.
-- `webui/scheduler/` owns the Tasks modal (store, modal, detail, editor, list) and `webui/css/` owns the scheduler styles loaded through the plugin `page-head` extension.
+- `webui/scheduler/` owns the Scheduled Tasks modal (store, modal, detail, editor, list) and `webui/css/` owns the scheduler styles loaded through the plugin `page-head` extension.
 - `webui/sidebar/` owns the sidebar tasks list and its store, injected through the `sidebar-extensions` extension point.
 - `extensions/webui/sidebar-extensions/` owns the plugin contribution to that extension point.
-- `extensions/webui/sidebar-quick-actions-dropdown-start/` owns the Tasks dropdown button, moved after the Files item via `x-move-after`.
+- `extensions/webui/sidebar-quick-actions-dropdown-start/` owns the Scheduled Tasks dropdown button, moved after the Files item via `x-move-after`.
 - `extensions/webui/welcome-actions-start/` owns the Scheduled Tasks card on the welcome screen, contributed through the `welcome-actions-start` point and using the shared Quick Actions tile layout.
 - `extensions/webui/page-head/` owns the scheduler and datepicker asset loading; core `webui/index.html` owns the shared flatpickr preload.
 - `plugin.yaml` and `README.md` own metadata and docs.
