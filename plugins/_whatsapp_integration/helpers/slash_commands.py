@@ -7,7 +7,7 @@ import tempfile
 from copy import deepcopy
 
 from agent import AgentContext
-from helpers import integration_commands, plugins, projects, tool_policy
+from helpers import integration_commands, plugins, projects, subagents, tool_policy
 from helpers.persist_chat import save_tmp_chat
 from plugins._commands.helpers import commands
 
@@ -36,7 +36,7 @@ def _page(items, args):
     return items[(page - 1) * PAGE_SIZE:page * PAGE_SIZE], f"Page {page}/{pages}"
 
 
-async def handle(context, text):
+async def handle(context, text, *, is_admin=False):
     """Return rendered agent input, or None for a completed control command."""
     invocation = commands.parse_slash_invocation(text)
     name, args = invocation['command_name'], invocation['raw_arguments']
@@ -62,7 +62,7 @@ async def handle(context, text):
                 await reply(context, f"Switched to {target.name or target.id}.")
                 return None
             if item and name in {'plugins', 'permissions'}:
-                await settings_menu(context, name, args)
+                await settings_menu(context, name, args, is_admin=is_admin)
                 return None
             if item and name == 'compact':
                 await compact(context, args)
@@ -82,6 +82,8 @@ async def handle(context, text):
                 await reply(context, f"Unknown command: /{name}. Use /commands to see commands for this chat.")
                 return None
             return text
+        if not custom and not is_admin and _is_admin_mutation(name, args, context):
+            raise PermissionError('This command change requires an administrator sender.')
         resolution = await commands.resolve_command_invocation(
             path=item['path'], slash_text=f"/{name} {args}".rstrip(),
             project_name=projects.get_context_project_name(context) or '', context_id=context.id,
@@ -90,6 +92,23 @@ async def handle(context, text):
     except Exception as exc:
         await reply(context, f"/{name} failed: {exc}")
         return None
+
+
+def _is_admin_mutation(name, args, context):
+    """Match the shared commands that write settings before returning effects."""
+    if name == 'profile':
+        if len(commands.parse_arguments(args)['positional']) < 2:
+            return False
+        desired = args.strip().strip("\"'").casefold()
+        profiles = subagents.get_available_agents_dict(projects.get_context_project_name(context) or None)
+        return not any(
+            desired in {profile_id.casefold(), (item.title or profile_id).casefold()}
+            for profile_id, item in profiles.items()
+        )
+    if name == 'browser':
+        parts = args.strip().lower().replace('-', '_').split()
+        return bool(parts and parts[0] in {'host', 'container', 'docker'})
+    return False
 
 
 async def apply_result(context, name, result):
@@ -201,11 +220,13 @@ def _activate_session(target):
     save_tmp_chat(target)
 
 
-async def settings_menu(context, name, args):
+async def settings_menu(context, name, args, *, is_admin=False):
     parts = shlex.split(args)
     if name == 'plugins':
         names = sorted(plugins.get_plugins_list())
         if len(parts) == 2 and parts[1] in {'on', 'off'}:
+            if not is_admin:
+                raise PermissionError('Plugin changes require an administrator sender.')
             plugin = parts[0]
             meta = plugins.get_plugin_meta(plugin) if plugin in names else None
             if not meta or meta.always_enabled or plugin in {'_commands', '_whatsapp_integration'}:
@@ -223,6 +244,8 @@ async def settings_menu(context, name, args):
     policy = tool_policy.get_policy(context.agent0)
     catalog = tool_policy.get_tool_catalog(context.agent0)
     if parts and parts[0] not in {'page'}:
+        if not is_admin:
+            raise PermissionError('Permission changes require an administrator sender.')
         if context.is_running():
             raise ValueError('Stop the active run before changing permissions.')
         if parts == ['inherit']:

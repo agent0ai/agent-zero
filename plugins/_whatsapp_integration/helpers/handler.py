@@ -252,7 +252,9 @@ async def _handle_control_message(
         return False
     context.data[CTX_WA_LAST_BODY] = text
     context.data[CTX_WA_LAST_MSG_ID] = msg.get('messageId', '')
-    rendered = await slash_commands.handle(context, text)
+    sender_number = normalize_number(msg.get("senderNumber", "") or msg.get("senderId", ""))
+    admin_numbers = normalize_allowed_numbers(config.get("admin_numbers"))
+    rendered = await slash_commands.handle(context, text, is_admin=sender_number in admin_numbers)
     if rendered is not None:
         msg['body'] = rendered
         return False
