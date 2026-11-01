@@ -47,13 +47,21 @@ function drawMessageCodeExe({
   ].filter(Boolean);
 
   const commandText = String(kvps?.code ?? "");
-  const outputText = String(content ?? "");
+  let outputText = String(content ?? "");
+  // Expand only the command preview for copying; keep the rendered log compact.
+  const commandLine = outputText.match(/^(bash>|PS>|python> |node> )([^\n]+)\n\n/);
+  if (
+    commandText && commandLine &&
+    commandText.replace(/\s+/g, " ").trim().startsWith(commandLine[2].replace(/\.\.\.$/, ""))
+  ) {
+    outputText = `${commandLine[1]}${commandText}\n\n${outputText.slice(commandLine[0].length)}`;
+  }
 
   const actionButtons = [];
   actionButtons.push(
     createActionButton("detail", "", () =>
       stepDetailStore.showStepDetail(
-        buildDetailPayload(arguments[0], { headerLabels }),
+        buildDetailPayload(arguments[0], { headerLabels, content: outputText }),
       ),
     ),
   );

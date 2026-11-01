@@ -105,6 +105,88 @@ def test_action_buttons_keep_order_and_mounted_nodes_during_updates(page):
     }""")
 
 
+@pytest.mark.parametrize("prompt", ["bash>", "PS>", "python> ", "node> "])
+def test_code_execution_copy_restores_command_without_expanding_preview(page, prompt):
+    command = (
+        "first  line " + "long-command " * 30
+        + "\n\n\tsecond '$& $1 $$' §§secret(TOKEN)\nlast line — END\n"
+    )
+    preview = " ".join(command[:250].split())[:97] + "..."
+    page.evaluate("""async ({command, prompt, preview}) => {
+      msgs.resetMessageRenderState();
+      prefs.detailMode = 'expanded';
+      window.originalExecCommand = document.execCommand;
+      document.execCommand = () => {
+        window.copiedOutput = document.querySelector('textarea').value;
+        return true;
+      };
+      window.originalOpenModal = window.openModal;
+      window.openModal = () => {};
+      await msgs.setMessages([row(1, 'code_exe', {
+        heading: 'icon://terminal code_execution_tool',
+        content: prompt + preview + '\\n\\n',
+        kvps: {runtime: 'terminal', session: 0, code: command},
+      })]);
+    }""", {"command": command, "prompt": prompt, "preview": preview})
+    try:
+        for output in ("", "first output\n", "first output\nlast output\n"):
+            content = prompt + preview + "\n\n" + output
+            page.evaluate("""async ({command, content}) => {
+              await msgs.setMessage(row(1, 'code_exe', {
+                heading: 'icon://terminal code_execution_tool', content,
+                kvps: {runtime: 'terminal', session: 0, code: command},
+              }));
+            }""", {"command": command, "content": content})
+            assert page.locator(".terminal-output").text_content() == content
+            page.get_by_role("button", name="Copy Output", exact=True).click()
+            expected = prompt + command + "\n\n" + output
+            assert page.evaluate("window.copiedOutput") == expected
+
+        page.get_by_role("button", name="Copy Command", exact=True).click()
+        assert page.evaluate("window.copiedOutput") == command
+        page.get_by_role("button", name="View details", exact=True).click()
+        copied_detail = page.evaluate("""async () => {
+          const {store} = await import('/components/modals/process-step-detail/step-detail-store.js');
+          return store.getStepPrimaryContent(store.selectedStepForDetail);
+        }""")
+        assert copied_detail == expected
+    finally:
+        page.evaluate("""() => {
+          document.execCommand = window.originalExecCommand;
+          window.openModal = window.originalOpenModal;
+        }""")
+
+
+def test_code_execution_copy_preserves_output_without_a_matching_preview(page):
+    page.evaluate("""async () => {
+      const original = document.execCommand;
+      let copied;
+      document.execCommand = () => {
+        copied = document.querySelector('textarea').value;
+        return true;
+      };
+      try {
+        for (const [command, content] of [
+          [undefined, 'bash>old command...\\n\\noutput'],
+          ['echo expected', 'bash>different command...\\n\\noutput'],
+          ['echo expected', 'plain output\\n\\nmore output'],
+          ['echo expected', 'bash>echo expected'],
+          ['first\\nsecond', 'bash>first\\nsecond\\n\\noutput'],
+        ]) {
+          msgs.resetMessageRenderState();
+          prefs.detailMode = 'expanded';
+          await msgs.setMessages([row(1, 'code_exe', {
+            content, kvps: {code: command},
+          })]);
+          await document.querySelector('[aria-label="Copy Output"]').__actionHandler();
+          check(copied === content, 'copy rewrote output without a matching command preview');
+        }
+      } finally {
+        document.execCommand = original;
+      }
+    }""")
+
+
 @pytest.mark.parametrize("replay", [False, True])
 def test_free_text_between_tools_stays_in_one_process_group(page, replay):
     from types import SimpleNamespace
