@@ -24,7 +24,7 @@ class TelegramCommandsTests(unittest.TestCase):
                 "label": "Code execution", "description": ""}
         policy = {"mode": "custom", "default": "block", "mcp_default": "block",
                   "allowed": [], "blocked": [item["id"]]}
-        bot_cfg = {"name": "test", "allowed_users": [42, 7], "admin_users": [7]}
+        bot_cfg = {"name": "test", "enabled": True, "allowed_users": [42, 7], "admin_users": [7]}
         query = SimpleNamespace(from_user=SimpleNamespace(id=42, username=None), answer=AsyncMock(),
                                 message=SimpleNamespace(chat=SimpleNamespace(id=1, type="private"), message_id=2))
         instance = SimpleNamespace(bot=SimpleNamespace(token="token"))
@@ -40,6 +40,8 @@ class TelegramCommandsTests(unittest.TestCase):
                  patch.object(ui.projects, "get_context_project_name", return_value=""), \
                  patch.object(ui.plugins, "get_enabled_plugins", return_value=["_commands"]), \
                  patch.object(ui.plugins, "get_plugin_config", return_value={"bots": [bot_cfg]}), \
+                 patch.object(ui.plugins, "get_toggle_state", return_value="enabled"), \
+                 patch.object(manager, "_has_scoped_settings", return_value=False), \
                  patch.object(ui.tool_policy, "get_tool_catalog", return_value=[item]), \
                  patch.object(ui.tool_policy, "get_policy", side_effect=lambda agent: json.loads(policy_path.read_text())), \
                  patch.object(ui.tc, "raw_send_text", new_callable=AsyncMock), \
@@ -161,6 +163,8 @@ class TelegramCommandsTests(unittest.TestCase):
         replacement = SimpleNamespace()
         async def check():
             with patch.object(manager.plugins, "get_plugin_config", return_value=normalized), \
+                 patch.object(manager.plugins, "get_toggle_state", return_value="enabled"), \
+                 patch.object(manager, "_has_scoped_settings", return_value=False), \
                  patch.object(manager, "ensure_dependencies"), \
                  patch.object(handler, "cleanup_old_attachments"), \
                  patch.object(bot_manager, "get_all_bots", return_value={"bot_123456": current}), \

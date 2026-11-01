@@ -28,7 +28,8 @@
 - Restart bots when their token, delivery mode, group mode, webhook URL, or webhook secret changes. Polling may start on the next job-loop tick after saving settings.
 - Webhook dispatch requires an active webhook and a matching nonempty secret header. Setup requires a random 32–256 character secret using letters, digits, `_` or `-`; polling and webhook removal revoke HTTP delivery.
 - Install Telegram dependencies into the framework runtime only when required.
-- Keep project and agent-profile configuration scopes available through the shared plugin settings modal.
+- Bot configuration and activation are global; project/profile scopes are unsupported and backend writes must reject them. Project binding routes chats, not bot settings.
+- Legacy scoped configs or activation overrides pause all bots and block each incoming event until reviewed and removed. Preserve those files for manual migration and notify the operator. Every event requires a currently enabled global bot; never fall back to captured settings after removal or disablement.
 - Agent profile picker actions change the top-level chat profile and must
   preserve existing subordinate agent profiles. Picker rows and direct matches
   use the shared presentation catalog while current status may still report an
@@ -43,6 +44,7 @@
 ## Verification
 
 - Smoke-test connection checks, polling or webhook delivery, per-user context reuse, attachments, and replies when practical.
+- Run `tests/test_telegram_config_scope.py` for scope rejection, legacy-settings shutdown, current authorization and disable/removal handling.
 - Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
 
 ## Child DOX Index

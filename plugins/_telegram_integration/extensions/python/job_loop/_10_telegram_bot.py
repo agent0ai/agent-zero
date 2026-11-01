@@ -4,6 +4,7 @@ from typing import Any
 from helpers.extension import Extension
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
+from helpers.notification import NotificationManager, NotificationPriority, NotificationType
 from helpers import plugins
 from plugins._telegram_integration.helpers.dependencies import ensure_dependencies, has_aiogram
 
@@ -14,7 +15,23 @@ PLUGIN_NAME: str = "_telegram_integration"
 class TelegramBotManager(Extension):
 
     async def execute(self, **kwargs: Any) -> None:
-        config = plugins.get_plugin_config(PLUGIN_NAME) or {}
+        if _has_scoped_settings():
+            config = {}
+            NotificationManager.send_notification(
+                type=NotificationType.ERROR,
+                priority=NotificationPriority.HIGH,
+                title="Telegram settings need review",
+                message=(
+                    "Telegram delivery is paused because project or agent-profile settings exist. "
+                    "Review those settings and activation overrides, apply the intended access rules "
+                    "in global Telegram settings, then remove the scoped copies."
+                ),
+                id="telegram-unsupported-scopes",
+            )
+        elif plugins.get_toggle_state(PLUGIN_NAME) == "enabled":
+            config = plugins.get_plugin_config(PLUGIN_NAME) or {}
+        else:
+            config = {}
         bots_cfg = config.get("bots", [])
         enabled_names = {
             b["name"] for b in bots_cfg if b.get("enabled") and b.get("name") and b.get("token")
@@ -44,7 +61,8 @@ class TelegramBotManager(Extension):
             cleanup_old_attachments,
         )
 
-        cleanup_old_attachments()
+        if bots_cfg:
+            cleanup_old_attachments()
 
         running = get_all_bots()
 
@@ -121,11 +139,24 @@ class TelegramBotManager(Extension):
 
 # Wrapper functions for aiogram handlers
 
+def _has_scoped_settings() -> bool:
+    return any(
+        entry.get("project_name") or entry.get("agent_profile")
+        for pattern in (plugins.CONFIG_FILE_NAME, plugins.TOGGLE_FILE_PATTERN)
+        for entry in plugins.find_plugin_assets(
+            pattern, plugin_name=PLUGIN_NAME,
+            project_name="*", agent_profile="*", only_first=False,
+        )
+    )
+
+
 def _get_current_bot_cfg(bot_name: str) -> dict:
     """Fetch the latest bot config by name, so handlers always use fresh settings."""
+    if _has_scoped_settings() or plugins.get_toggle_state(PLUGIN_NAME) != "enabled":
+        return {}
     config = plugins.get_plugin_config(PLUGIN_NAME) or {}
     for b in config.get("bots", []):
-        if b.get("name") == bot_name:
+        if b.get("name") == bot_name and b.get("enabled"):
             return b
     return {}
 
@@ -133,5 +164,7 @@ def _get_current_bot_cfg(bot_name: str) -> dict:
 def _make_handler(handler_fn):
     """Create a wrapper that resolves fresh bot config on every call."""
     async def _wrapped(event, bot_name: str, bot_cfg: dict):
-        await handler_fn(event, bot_name, _get_current_bot_cfg(bot_name) or bot_cfg)
+        current = _get_current_bot_cfg(bot_name)
+        if current:
+            await handler_fn(event, bot_name, current)
     return _wrapped

@@ -12,6 +12,20 @@
     <template x-if="config">
       <div class="tg-page">
         <div class="section-title">Telegram</div>
+        <div class="field-description">
+          Bot settings and access rules apply globally. Use Default project and User project mapping to route conversations.
+        </div>
+        <div class="field-description" x-show="context.projectName || context.agentProfileKey">
+          These legacy scoped settings are available for review. Reopen Telegram settings to edit the global configuration.
+        </div>
+        <button type="button" class="btn btn-field" @click="context.openConfigListModal()">
+          Show existing configurations
+        </button>
+        <button type="button" class="btn btn-field"
+          x-show="($store.pluginToggle?.configs || []).some(item => item.project_name || item.agent_profile)"
+          @click="window.openModal('/components/plugins/toggle/plugin-toggles.html')">
+          Review saved activation overrides
+        </button>
 
         <template x-if="$store.telegramConfig.didInit && $store.telegramConfig.bots.length === 0">
           <div class="tg-empty">

@@ -94,8 +94,12 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
 ## Configuration Scope
 
 - **Settings section**: `external`
-- **Per-project config**: `true`
-- **Per-agent config**: `true`
+- **Per-project config**: `false`
+- **Per-agent config**: `false`
+
+Bot settings, allowed users, administrators, and activation apply globally. Use each bot's default project and user project mapping to route conversations.
+
+If an older version saved project- or profile-specific settings or activation overrides, Telegram delivery pauses until those copies are reviewed and removed. In Telegram settings, use **Show existing configurations** and, when shown, **Review saved activation overrides** to inspect them. Reopen Telegram settings and apply the intended access rules globally before deleting scoped copies. Existing files are preserved and are never merged automatically. Removing or disabling a global bot, or disabling the plugin globally, blocks new updates immediately, before the next lifecycle tick.
 
 ## Plugin Metadata
 

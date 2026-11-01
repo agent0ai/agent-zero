@@ -64,6 +64,7 @@
 - Config hooks receive `hook_context={"caller": caller}` with one of `ui`,
   `agent`, or `api`; this is behavioral context, not an authorization boundary.
 - Plugin list, enabled-plugin, and enabled-path lookups cache empty results like any other value; `clear_plugin_cache` and plugin watchdog events invalidate them.
+- Configuration saves and activation changes reject project/profile scopes unsupported by the plugin manifest before writing files or clearing overrides. Existing scoped assets remain readable/listable for migration.
 - Project- and agent-scoped plugin changes invalidate runtime caches without a
   frontend reload prompt because the loaded WebUI extension bundle is global.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
