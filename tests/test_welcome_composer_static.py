@@ -70,7 +70,7 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert '<x-icon name="extension"></x-icon>' in discovery_cards
     assert 'welcome-panel-icon-button welcome-panel-text-button' in discovery_cards
     assert 'class="discovery-feature-card" type="button"' in " ".join(discovery_cards.split())
-    assert "`${card.cta_text || 'Connect'} ${card.title}`" in discovery_cards
+    assert 'class="discovery-feature-title" x-text="card.title"' in discovery_cards
     assert "discovery-feature-card > .btn" not in discovery_cards
     assert "discovery-feature-head" not in discovery_cards
     assert "discovery-account-header" in discovery_cards
