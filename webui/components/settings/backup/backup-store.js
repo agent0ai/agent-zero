@@ -1,4 +1,5 @@
 import { createStore } from "/js/AlpineStore.js";
+import { callJsonApi } from "/js/api.js";
 import {
   formatDateTime,
   getCurrentUserDateString,
@@ -30,6 +31,9 @@ const model = {
   includeHidden: false,
   previewStats: { total: 0, truncated: false },
   backupEditor: null,
+  backupJob: null,
+  backupBusy: false,
+  stopBackupPolling: null,
 
   // Enhanced file preview state
   previewMode: 'grouped', // 'grouped' or 'flat'
@@ -67,6 +71,7 @@ const model = {
   },
 
   resetState() {
+    this.cancelBackup();
     this.loading = false;
     this.error = '';
     this.backupFile = null;
@@ -409,14 +414,23 @@ const model = {
     }
   },
 
-  // Backup Creation using direct API call
+  // Create the archive in the background, then download the completed file.
   async createBackup() {
-    // Validate backup metadata first
-    if (!this.validateBackupMetadata()) {
+    if (this.backupBusy || (!this.backupJob && !this.validateBackupMetadata())) {
       return;
     }
 
     const downloadToastGroup = this.createDownloadToastGroup("backup-create");
+    let cancelled = false;
+    let wake = () => {};
+    const downloadController = new AbortController();
+    this.backupBusy = true;
+    this.stopBackupPolling = () => {
+      cancelled = true;
+      wake();
+      downloadController.abort();
+      window.toastFrontendInfo?.('Backup continues in the background. Reopen Backup to resume the download.', 'Backup', 8, downloadToastGroup);
+    };
 
     try {
       this.loading = true;
@@ -426,29 +440,51 @@ const model = {
       this.addFileOperation('Starting backup creation...');
       this.showDownloadPreparingToast(downloadToastGroup);
 
-      const metadata = this.backupMetadataConfig;
+      if (!this.backupJob) {
+        const metadata = this.backupMetadataConfig;
+        const result = await callJsonApi('backup_create', { ...metadata, action: 'start' });
+        if (!result.success) throw new Error(result.error || 'Backup creation failed');
+        this.backupJob = { id: result.job_id, name: metadata.backup_name };
+      }
+      const job = this.backupJob;
+      while (!cancelled) {
+        const result = await callJsonApi('backup_create', { action: 'status', job_id: job.id });
+        if (cancelled) return;
+        if (!result.success || result.status === 'failed') {
+          this.backupJob = null;
+          throw new Error(result.error || 'Backup creation failed');
+        }
+        if (result.status === 'completed') break;
+        await new Promise(resolve => {
+          const timer = setTimeout(resolve, 1000);
+          wake = () => { clearTimeout(timer); resolve(); };
+        });
+      }
+      if (cancelled) return;
+      this.loadingMessage = 'Downloading backup...';
 
-      // Use fetch directly since backup_create returns a file download, not JSON
       const response = await fetchApi('/backup_create', {
         method: 'POST',
+        signal: downloadController.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          include_patterns: metadata.include_patterns,
-          exclude_patterns: metadata.exclude_patterns,
-          include_hidden: metadata.include_hidden ?? true,
-          backup_name: metadata.backup_name
+          action: 'download',
+          job_id: job.id,
         })
       });
 
-      if (response.ok) {
+      if (cancelled) return;
+      if (response.ok && response.headers.get('content-type')?.includes('application/zip')) {
         // Handle file download
         const blob = await response.blob();
+        if (cancelled) return;
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${metadata.backup_name}.zip`;
+        a.download = `${job.name}.zip`;
         a.click();
         window.URL.revokeObjectURL(url);
+        this.backupJob = null;
 
         this.addFileOperation('Backup created and downloaded successfully!');
         this.showDownloadStartedToast(downloadToastGroup);
@@ -457,6 +493,7 @@ const model = {
         const errorText = await response.text();
         try {
           const errorJson = JSON.parse(errorText);
+          if (errorJson.code === 'backup_not_found') this.backupJob = null;
           this.error = errorJson.error || 'Backup creation failed';
         } catch {
           this.error = `Backup creation failed: ${response.status} ${response.statusText}`;
@@ -466,11 +503,23 @@ const model = {
       }
 
     } catch (error) {
-      this.error = `Backup error: ${error.message}`;
-      this.addFileOperation(`Error: ${error.message}`);
+      if (cancelled) return;
+      let message = error.message;
+      // A restarted server or expired result requires a fresh backup.
+      try {
+        const detail = JSON.parse(message);
+        if (detail.code === 'backup_not_found') {
+          this.backupJob = null;
+        }
+        message = detail.error || message;
+      } catch { /* Network errors retain the job for retry. */ }
+      this.error = `Backup error: ${message}`;
+      this.addFileOperation(`Error: ${message}`);
       this.showDownloadErrorToast(downloadToastGroup, this.error);
     } finally {
-      this.loading = false;
+      if (!cancelled) this.loading = false;
+      this.backupBusy = false;
+      this.stopBackupPolling = null;
     }
   },
 
@@ -507,6 +556,7 @@ const model = {
   },
 
   cancelBackup() {
+    this.stopBackupPolling?.();
     if (this.progressEventSource) {
       this.progressEventSource.close();
       this.progressEventSource = null;
