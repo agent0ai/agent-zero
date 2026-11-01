@@ -367,7 +367,8 @@ def _handle_project(context: "AgentContext", args: str) -> str:
         )
 
     desired = _strip_quotes(args)
-    if _normalize_lookup(desired) in _CLEAR_VALUES:
+    normalized = _normalize_lookup(desired)
+    if not desired or (normalized and normalized in _CLEAR_VALUES):
         if not current_name:
             return "No project is active."
         projects.deactivate_project(context.id)
@@ -409,7 +410,8 @@ def _handle_model(context: "AgentContext", args: str) -> str:
         return "Config switching is disabled in Model Configuration."
 
     desired = _strip_quotes(args)
-    if _normalize_lookup(desired) in _MODEL_INHERIT_VALUES:
+    normalized = _normalize_lookup(desired)
+    if not desired or (normalized and normalized in _MODEL_INHERIT_VALUES):
         if not current_override:
             return "Already using the scoped model preset."
         context.set_data("chat_model_override", None)
@@ -514,7 +516,7 @@ def _strip_quotes(value: str) -> str:
 def _normalize_lookup(value: str) -> str:
     lowered = value.lower().strip()
     lowered = re.sub(r"[\s_\-]+", " ", lowered)
-    lowered = re.sub(r"[^a-z0-9 ]+", "", lowered)
+    lowered = re.sub(r"[^\w ]+", "", lowered)
     return lowered.strip()
 
 
@@ -539,6 +541,8 @@ def _match_named_item(
     keys: tuple[str, ...],
 ) -> tuple[dict | None, list[dict]]:
     normalized = _normalize_lookup(desired)
+    if not normalized:
+        return None, []
     exact_matches: list[dict] = []
 
     for item in items:

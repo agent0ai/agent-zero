@@ -25,6 +25,8 @@
   catalog, though status may report an existing chat using the utility profile.
 - `/model <preset>` stores a per-chat global preset reference, `/model inherit` clears it, and status always reports the effective scoped-or-chat preset. `Default` is a real selectable preset, not an alias for clearing the chat selection.
 
+- Name matching preserves Unicode letters and numbers while retaining case-insensitive, whitespace/hyphen/underscore normalization and punctuation removal. Empty normalized lookup keys do not select an item or clear a selection; explicit empty quoted arguments and documented reset aliases retain their existing reset behavior. No Unicode normalization-form equivalence is implied.
+
 ## Key Concepts
 
 - Important called helpers/classes include `mq.get_queue`, `mq.send_all_aggregated`, `mark_dirty_for_context`, `projects.activate_project`, `initialize_agent`, `model_config.get_effective_preset_name`, `model_config.get_presets`, `context.get_data`, `context.set_data`, and `save_tmp_chat`.
