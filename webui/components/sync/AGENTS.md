@@ -14,6 +14,7 @@
 
 - Keep sync state compatible with WebSocket state-sync events.
 - Apply `state_push` snapshots sequentially because WebSocket subscribers do not await async callbacks; later pushes must not race earlier full renders.
+- A push received while `DEGRADED` must still pass the normal runtime epoch, sequence gap, and log GUID validation so a late handshake acknowledgement cannot leave the UI starving.
 - Coalesce contiguous pending pushes for the same runtime, context, and log GUID before rendering. Keep the latest version of every distinct log record, preserve omitted collection deltas, and validate the entire sequence span; gaps and resets retain normal resynchronization behavior. Pass notifications in arrival order because grouped-toast replacement has read-status side effects.
 - A queued state push that finishes after transport loss must not overwrite the
   `DISCONNECTED` mode or flush reconnect notifications.
