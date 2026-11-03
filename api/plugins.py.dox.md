@@ -22,6 +22,7 @@
 - `Plugins` defines `process(...)`.
 - Toggle requests that try to disable an `always_enabled` plugin return HTTP
   400 without changing plugin state.
+- Unsupported configuration/activation scopes return HTTP 400 without writes; save-hook validation failures also return HTTP 400. Existing configuration listing, reading and deletion remain available for migration.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, plugin state, settings/state persistence.
 - Imported dependency areas include: `helpers`, `helpers.api`, `helpers.localization`, `json`, `os`, `subprocess`, `sys`.
 

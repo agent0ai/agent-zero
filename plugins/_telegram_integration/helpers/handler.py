@@ -96,11 +96,8 @@ def cleanup_old_attachments():
 
 # Access control
 
-def _is_allowed(bot_cfg: dict, user_id: int, username: str | None) -> bool:
-    allowed = bot_cfg.get("allowed_users") or []
-    if not allowed:
-        return True  # empty = allow all
-    for entry in allowed:
+def _matches_users(entries, user_id: int, username: str | None) -> bool:
+    for entry in entries or []:
         entry_str = str(entry).strip()
         if entry_str.startswith("@"):
             if username and f"@{username}" == entry_str:
@@ -113,6 +110,16 @@ def _is_allowed(bot_cfg: dict, user_id: int, username: str | None) -> bool:
                 if username and entry_str.lower() == username.lower():
                     return True
     return False
+
+
+def _is_allowed(bot_cfg: dict, user_id: int, username: str | None) -> bool:
+    allowed = bot_cfg.get("allowed_users") or []
+    return not allowed or _matches_users(allowed, user_id, username)
+
+
+def _is_admin(bot_cfg: dict, user_id: int, username: str | None) -> bool:
+    """Administrative access is explicit; an empty list grants nobody access."""
+    return _matches_users(bot_cfg.get("admin_users"), user_id, username)
 
 
 def _get_project(bot_cfg: dict, user_id: int) -> str:
@@ -182,6 +189,7 @@ async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
         return
     text = await slash_commands.handle(
         context, instance.bot.token, message.chat.id, message.message_id, text,
+        is_admin=_is_admin(bot_cfg, user.id, user.username),
     )
     if text is None:
         return
@@ -271,6 +279,7 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
             handled, command_text = await slash_commands.handle_callback(
                 context, instance.bot.token, query.message.chat.id,
                 query.message.message_id, text,
+                is_admin=_is_admin(bot_cfg, user.id, user.username),
             )
             if handled:
                 if command_text is None:
@@ -298,7 +307,8 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
         if text is None:
             return
         text = await slash_commands.handle(context, instance.bot.token,
-            query.message.chat.id, query.message.message_id, text)
+            query.message.chat.id, query.message.message_id, text,
+            is_admin=_is_admin(bot_cfg, user.id, user.username))
         if text is None:
             return
 

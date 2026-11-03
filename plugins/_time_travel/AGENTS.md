@@ -14,6 +14,9 @@
 ## Local Contracts
 
 - Keep history operations scoped to Agent Zero-owned workdir/project workspaces.
+- Display-path mapping must resolve real paths inside a dev checkout that itself lives under `/a0`, without doubling the base dir.
+- Canonical workspace display paths are posix-normalized and workspace ids derive from that normalized string, so equivalent inputs keep stable ids.
+- Nested dev checkouts switch once from physical to logical canonical paths, so their workspace ids change and older shadow repos stay on disk unreachable; production instances based at `/a0` keep their ids.
 - Revert and travel operations must avoid unintended writes outside managed workspace paths.
 - Preserve enough metadata for clear preview and diff inspection before destructive actions.
 

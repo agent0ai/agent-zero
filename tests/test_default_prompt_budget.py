@@ -85,7 +85,8 @@ async def test_default_agent0_prompt_contracts():
     assert "- tool_args: key value pairs tool arguments" in system_text
     assert '"*.promptinclude.md" files in workdir auto-injected' in system_text
     assert '"tool_name": "call_subordinate"' in system_text
-    assert "always use specialized subordinate agents" in system_text
+    assert "your current profile: agent0" in system_text
+    assert "do work matching your profile yourself" in system_text
     assert "delegate them to separate subordinates" in system_text
     assert '"tool_name": "parallel"' in system_text
     assert "Each `tool_calls` item is a normal tool request object" in system_text
@@ -166,7 +167,8 @@ async def test_block_all_policy_does_not_advertise_configurable_tools(
     assert "memory tools" not in system_text.casefold()
     assert "using tools and subordinates" not in system_text.casefold()
     assert "subordinate agent orchestration" not in system_text.casefold()
-    assert "always use specialized subordinate agents" not in system_text.casefold()
+    assert "do work matching your profile yourself" not in system_text.casefold()
+    assert "distinct bounded subtasks or independent reviews" not in system_text.casefold()
     assert "delegate them to separate subordinates" not in system_text.casefold()
 
 

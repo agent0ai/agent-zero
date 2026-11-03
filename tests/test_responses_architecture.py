@@ -893,7 +893,7 @@ async def test_agent_executes_native_responses_function_call_and_records_output(
 
 
 @pytest.mark.asyncio
-async def test_agent_routes_chat_retries_and_native_responses_text() -> None:
+async def test_agent_never_promotes_plain_text_to_a_response_call() -> None:
     agent = object.__new__(Agent)
     processed: list[str] = []
     executed: list[dict] = []
@@ -940,15 +940,15 @@ async def test_agent_routes_chat_retries_and_native_responses_text() -> None:
         assert await Agent.process_llm_result_tools(
             agent, LLMResult(response=message)
         ) is None
-    assert processed == []
-    assert executed == [
-        {
-            "tool_name": "response",
-            "tool_args": {"text": message},
-            "message": message,
-        }
-        for message in responses_messages
-    ]
+    assert processed == list(responses_messages)
+    assert executed == []
+
+    processed.clear()
+    assert await Agent.process_llm_result_tools(agent, LLMResult.from_response({
+        "output_text": "Found a useful source; checking it now.",
+        "output": [{"type": "web_search_call", "id": "search_1"}],
+    })) is None
+    assert processed == [] and executed == []
 
     processed.clear()
     executed.clear()

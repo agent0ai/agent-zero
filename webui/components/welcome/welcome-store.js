@@ -1,16 +1,30 @@
-import { createStore } from "/js/AlpineStore.js";
+import { createStore, getStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
 import * as API from "/js/api.js";
 import { getCurrentUserISOString } from "/js/time-utils.js";
 
+import { mountLayout } from "/components/welcome/welcome-layout.js";
+
 const model = {
+  mountLayout,
+  async openWelcomePlugins(tag = "welcome") {
+    const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+    const { store: plugins } = await import("/components/plugins/list/pluginListStore.js");
+    installer.resetIndex();
+    installer.setBrowseFilter(`tag:${tag}`);
+    installer.initialBrowseFilter = `tag:${tag}`;
+    await plugins.open("pluginHub");
+  },
   // State
   banners: [],
   bannersLoading: false,
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
+  hiddenSections: [],
+  quickActionsWide: true,
+  systemWide: true,
   _initialized: false,
 
   get isVisible() {
@@ -20,6 +34,11 @@ const model = {
   init() {
     if (this._initialized) return;
     this._initialized = true;
+    this.quickActionsWide = localStorage.getItem("welcome_quick_actions_wide") !== "false";
+    this.systemWide = localStorage.getItem("welcome_system_wide") !== "false";
+    this.hiddenSections = ["intro", "quick-actions"].filter(
+      (id) => localStorage.getItem(`welcome_hidden_${id}`) === "true",
+    );
 
     // Reload banners when a modal closes while the welcome screen is visible.
     document.addEventListener("modal-closed", () => {
@@ -27,6 +46,18 @@ const model = {
         this.refreshBanners(true);
       }
     });
+  },
+
+  toggleQuickActionsWidth() {
+    this.quickActionsWide = !this.quickActionsWide;
+    try { localStorage.setItem("welcome_quick_actions_wide", String(this.quickActionsWide)); }
+    catch (error) { console.warn("Could not save Quick Actions width", error); }
+  },
+
+  toggleSystemWidth() {
+    this.systemWide = !this.systemWide;
+    try { localStorage.setItem("welcome_system_wide", String(this.systemWide)); }
+    catch (error) { console.warn("Could not save System Resources width", error); }
   },
 
   onCreate() {
@@ -223,11 +254,25 @@ const model = {
     this.hasDismissedBanners = this.getDismissedBannerIds().size > 0;
   },
 
-  undismissBanners() {
+  dismissSection(sectionId) {
+    localStorage.setItem(`welcome_hidden_${sectionId}`, "true");
+    if (!this.hiddenSections.includes(sectionId)) {
+      this.hiddenSections.push(sectionId);
+    }
+  },
+
+  undismissAll() {
+    for (const id of this.hiddenSections) {
+      localStorage.removeItem(`welcome_hidden_${id}`);
+    }
+    this.hiddenSections = [];
     localStorage.removeItem("dismissed_banners");
     sessionStorage.removeItem("dismissed_banners");
     this.hasDismissedBanners = false;
-    this.refreshBanners(true);
+    return Promise.all([
+      this.refreshBanners(true),
+      getStore("discoveryStore")?.undismissCards(),
+    ]);
   },
 
   getBannerClass(type) {

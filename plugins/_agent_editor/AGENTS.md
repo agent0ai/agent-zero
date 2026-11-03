@@ -19,6 +19,16 @@
 - Plugin profile metadata layers merge bundled roots before user roots using
   stable root-priority sorting, matching runtime profile loading and catalogs.
 - The editor performs zero model calls.
+- Editor loads request `mode: easy` for only the main instruction prompt;
+  omitted API modes retain the full catalog. The first Advanced entry loads
+  the remaining prompts through the same scoped, authenticated handler and
+  merges them into draft and checkpoints without overwriting Easy edits.
+  Ignore late responses after the draft, scope or modal changes. Scope reloads
+  include the full catalog once Advanced has been used.
+- Prompt catalogs inventory Markdown and processor files once per root per
+  request and reuse source labels. Keep ordered inheritance, raw reads,
+  recursive include previews and unreadable-file reporting; never retain the
+  inventory across requests or run prompt processors.
 - Profile list requests stay lightweight: summary rows inspect only sparse
   editor-owned keys and files and never construct full save or removal plans.
 - Writes are limited to the selected profile layer — global
@@ -82,6 +92,10 @@
   state only. Show the enabled-action summary only when at least one action is
   off. Advanced action searches reveal matching children without narrowing the
   parent control's scope; opening and searching never write policy.
+- Closed Easy capability lists and collapsed action rows mount their controls
+  only when expanded. Advanced mounts after its first prompt load, then stays
+  mounted when returning to Easy so ACE undo history survives. Opening or closing
+  these views must not change policy or lose pending prompt edits.
 - Model selection in both modes reuses `_model_config`'s compact preset dropdown
   and preset editor; Agent Editor persists only the scoped preset reference.
 - The exact `default` profile is an internal baseline and is omitted only from

@@ -22,12 +22,14 @@
 - Resolve raw commands before adding the Telegram message envelope; its closing marker prevents queued/rendered text from being interpreted as a second postfix command. Custom/project definitions override bundled commands; keep Telegram's existing integration aliases and pickers for unoverridden commands.
 - `/commands` discovers the current chat's effective commands on each use. The native Telegram menu registers global commands at startup, maps hyphens to underscores, and obeys Telegram's name/description/count limits.
 - Render text/script results and supported effects in Telegram. Browser-only settings return guidance instead of pretending to open a modal; host computer permissions remain controlled by Launcher/CLI.
+- Settings menus and every settings callback require the current sender to pass both `allowed_users` and the separate `admin_users` list; an omitted or empty administrator list grants nobody settings access. Derive administration from the current bot configuration for each event, never from context or callback data.
 - Permission callbacks bind canonical tool IDs to the current context/project/profile, revalidate the live catalog, and refuse changes during an active run. Required tools stay outside the menu. Plugin toggles are instance-wide, protect always-enabled plugins, and keep Telegram/Commands enabled so the connection remains controllable.
 - `/new` creates and binds a fresh context without resetting the previous chat. `/clear` retains Telegram's existing reset behavior. Compaction confirms the current idle context and uses the existing backup-producing compactor.
 - Restart bots when their token, delivery mode, group mode, webhook URL, or webhook secret changes. Polling may start on the next job-loop tick after saving settings.
 - Webhook dispatch requires an active webhook and a matching nonempty secret header. Setup requires a random 32–256 character secret using letters, digits, `_` or `-`; polling and webhook removal revoke HTTP delivery.
 - Install Telegram dependencies into the framework runtime only when required.
-- Keep project and agent-profile configuration scopes available through the shared plugin settings modal.
+- Bot configuration and activation are global; project/profile scopes are unsupported and backend writes must reject them. Project binding routes chats, not bot settings.
+- Legacy scoped configs or activation overrides pause all bots and block each incoming event until reviewed and removed. Preserve those files for manual migration and notify the operator. Every event requires a currently enabled global bot; never fall back to captured settings after removal or disablement.
 - Agent profile picker actions change the top-level chat profile and must
   preserve existing subordinate agent profiles. Picker rows and direct matches
   use the shared presentation catalog while current status may still report an
@@ -42,7 +44,8 @@
 ## Verification
 
 - Smoke-test connection checks, polling or webhook delivery, per-user context reuse, attachments, and replies when practical.
-- Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, and bot lifecycle regressions.
+- Run `tests/test_telegram_config_scope.py` for scope rejection, legacy-settings shutdown, current authorization and disable/removal handling.
+- Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
 
 ## Child DOX Index
 

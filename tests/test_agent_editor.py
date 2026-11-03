@@ -1461,6 +1461,81 @@ def test_editor_preview_raw_reads_markdown_without_running_dynamic_processor(
     assert item["dynamic_processor"] is True
 
 
+def test_prompt_catalog_discovery_preserves_layers_and_refreshes_between_requests(
+    user_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scoped = user_root / "researcher" / "prompts"
+    inherited = tmp_path / "base-prompts"
+    scoped.mkdir(parents=True)
+    (inherited / "parts").mkdir(parents=True)
+    filename = editor.SPECIFICS_FILE
+    (scoped / filename).write_text('Local {{ include original }}')
+    (inherited / filename).write_text('Base {{ include "parts/nested.md" }}')
+    (inherited / "parts/nested.md").write_text("{{value}}")
+    processor = inherited / filename.replace(".md", ".py")
+    processor.write_text("raise RuntimeError('must not execute')")
+    (inherited / "directory.md").mkdir()
+    (inherited / "broken.md").symlink_to(inherited / "missing.md")
+    (inherited / "invalid.md").write_bytes(b"\xff")
+    monkeypatch.setattr(editor.subagents, "get_paths", lambda *_args: [
+        str(scoped), str(tmp_path / "absent"), str(inherited),
+    ])
+    agent = editor.EditorAgent("researcher")
+    first = {item["filename"]: item for item in editor.prompt_catalog(agent)}
+    assert first[filename]["preview"] == "Local Base {{value}}"
+    assert first[filename]["override"] == 'Local {{ include original }}'
+    assert first[filename]["inherited"] == 'Base {{ include "parts/nested.md" }}'
+    assert first[filename]["dynamic_processor"] is True
+    assert first["invalid.md"]["state"] == "Conflict"
+    assert "directory.md" not in first and "broken.md" not in first
+
+    (scoped / filename).unlink()
+    processor.unlink()
+    (inherited / "parts/nested.md").write_text("Updated")
+    (scoped / "new.md").write_text("New prompt")
+    second = {item["filename"]: item for item in editor.prompt_catalog(agent)}
+    assert second[filename]["preview"] == "Base Updated"
+    assert second[filename]["has_override"] is False
+    assert second[filename]["dynamic_processor"] is False
+    assert second["new.md"]["override"] == "New prompt"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("project_name", ["", "demo"])
+async def test_easy_load_defers_prompt_reads_and_keeps_full_api_compatible(
+    project_scope: tuple[editor._EditorContext, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    project_name: str,
+) -> None:
+    handler = AgentEditor(None, None)  # type: ignore[arg-type]
+    request = {"profile_id": "researcher", "project_name": project_name}
+    full = (await handler.process({**request, "action": "load"}, None))["state"]
+    assert full["prompts_complete"] is True
+    assert len(full["prompts"]) > 1
+    reads = []
+    read_prompt = editor._prompt_text
+
+    def track_prompt(path):
+        if path is not None:
+            reads.append(path.name)
+        return read_prompt(path)
+
+    monkeypatch.setattr(editor, "_prompt_text", track_prompt)
+    easy = (await handler.process({**request, "action": "load", "mode": "easy"}, None))["state"]
+    assert reads and set(reads) == {editor.SPECIFICS_FILE}
+    assert easy == {
+        **full,
+        "prompts": [row for row in full["prompts"] if row["filename"] == editor.SPECIFICS_FILE],
+        "prompts_complete": False,
+    }
+    deferred = await handler.process({**request, "action": "prompts"}, None)
+    assert deferred == {"ok": True, "prompts": full["prompts"]}
+    invalid_mode = await handler.process({**request, "action": "load", "mode": "invalid"}, None)
+    assert invalid_mode.status_code == 400
+    invalid_scope = await handler.process({**request, "action": "prompts", "project_name": "../outside"}, None)
+    assert invalid_scope.status_code == 400
+
+
 def test_editor_api_keeps_default_auth_and_csrf_protection() -> None:
     for handler in (AgentEditor, AgentEditorAvatar):
         assert handler.requires_auth() is True

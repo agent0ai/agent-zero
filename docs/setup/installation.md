@@ -1,38 +1,106 @@
 # Installation Guide
 
-## **Goal:** Go from zero to a first working chat with minimal setup.
-
----
+Install Agent Zero, connect a model, and get your first reply. On a desktop,
+start with Launcher. For a terminal or server, use [A0 Install or Docker](#a0-install).
 
 ## Quick Start (Recommended)
 
-Agent Zero runs as a Docker container, and you now have two friendly ways to get
-there:
-
-- **A0 Launcher** is the desktop app. It can download Agent Zero, create and
-  manage Instances, and help set up the local container runtime when needed.
-- **A0 Install** is the terminal installer. It is best for SSH sessions,
-  servers, scripted setup, recovery shells, or users who prefer commands.
-
-If Docker is already installed and running, you can also start the container
-directly.
+You need a supported AI account, a provider API key, or a local model server.
+Launcher helps set up Docker, which runs Agent Zero's Linux workspace.
 
 ### A0 Launcher
 
-Use **A0 Launcher** when you want the guided desktop path. Download the app for
-your platform, open it, and let it check Docker or set up a runtime before it
-downloads Agent Zero.
+**1. Download and open Launcher.** Choose your operating system, then your
+processor type. Apple Silicon means an M-series Mac; most other desktop and
+laptop computers use x64.
 
 #### Downloads
 
-| Architecture | macOS | Linux | Windows |
-| --- | --- | --- | --- |
-| x86 | [Mac Intel](https://github.com/agent0ai/a0-launcher/releases/download/v0.9/a0-launcher-0.9-macos-x64.dmg) | [Linux x86](https://github.com/agent0ai/a0-launcher/releases/download/v0.9/a0-launcher-0.9-linux-x64.AppImage) | [Windows x86](https://github.com/agent0ai/a0-launcher/releases/download/v0.9/a0-launcher-0.9-windows-x64.exe) |
-| ARM64 | [Mac Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v0.9/a0-launcher-0.9-macos-arm64.dmg) | [Linux ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v0.9/a0-launcher-0.9-linux-arm64.AppImage) | [Windows ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v0.9/a0-launcher-0.9-windows-arm64.exe) |
+| Your computer | Download Launcher v1.9 |
+| --- | --- |
+| Windows | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-x64.exe) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-arm64.exe) |
+| macOS | [Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-arm64.dmg) · [Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-x64.dmg) |
+| Linux | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-x64.AppImage) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-arm64.AppImage) |
 
-See the [A0 Launcher v0.9 release](https://github.com/agent0ai/a0-launcher/releases/tag/v0.9)
-for release notes and updater metadata. See the
-[Launcher guide](../guides/launcher.md) for the first-run walkthrough.
+On Linux, you may need to allow the AppImage to run as a program in its file
+properties first. See the [v1.9 release notes](https://github.com/agent0ai/a0-launcher/releases/tag/v1.9).
+
+**2. Create and open Agent Zero.** An **Instance** is a separate Agent Zero
+setup with its own chats, settings, and workspace. Follow any Docker setup
+prompt, then choose **Download Agent Zero** or **Run Agent Zero**. Keep
+**latest** and the persistent workspace selected, then click **Create**. Wait
+for **Running**, then click **Open UI**. Optional Host access can stay off.
+
+See the [Launcher guide](../guides/launcher.md) for screenshots and storage options.
+
+### Send your first message
+
+**3. Send a small task** from the welcome message box. Agent Zero creates the
+chat for you. Try:
+
+```text
+Create a one-page Markdown plan for a 15-minute team kickoff.
+Include a goal, three agenda items, and next steps.
+Save it as /a0/usr/workdir/docs-demo-20261030/kickoff-plan.md.
+```
+
+![Welcome screen with a message box and Quick Actions](../res/usage/webui/welcome-start.png)
+
+### Connect a model
+
+**4. Choose how to connect.** If no model is configured, the chat holds your
+message and shows these choices:
+
+![Chat model gate with Cloud, account, local and provider-plugin choices](../res/usage/opencode/model-gate.png)
+
+- **Cloud provider:** connect with a provider API key.
+- **AI account:** sign in to a supported account. The [Codex guide](../guides/codex.md)
+  walks through ChatGPT account setup.
+- **Local model:** connect Ollama, LM Studio, or another model server. See
+  [local server addresses](#local-model-server-addresses-from-docker) before connecting from Docker.
+
+If your provider is missing, click the provider-plugin link below the choices,
+or **Didn't find your provider? Click to look in the Plugin Hub** under a grid.
+The [OpenCode Go guide](../guides/opencode.md) shows how to install a provider
+plugin, refresh the page, and choose its models.
+
+Select the **Main model** for conversations and the **Utility model** for
+tasks such as summaries and chat names. You can use the same provider for both.
+Leave other settings at their defaults to begin with. Click **Finish setup**,
+then **Continue** on the final screen to close the wizard. The integrations
+offered there are optional.
+
+### Open your first result
+
+**5. Continue in the same chat.** Your original message resumes when setup is
+saved; do not send it again. For the kickoff task, look for a reply and a link
+to `kickoff-plan.md`. Open the file to check it. Your plan may differ from this
+example.
+
+![Completed kickoff plan with tool activity and a link to the Markdown file](../res/usage/webui/first-task-current.png)
+
+- **No reply?** Check that setup finished and both models are available through
+  your provider. Read any connection or account error shown in the chat.
+- **A reply, but no file?** Ask the agent to save the plan at the requested
+  path and return a link.
+- **Still stuck?** Open the [Troubleshooting guide](../guides/troubleshooting.md).
+
+Next, explore [Browser](../guides/browser.md), [Desktop and documents](../guides/desktop.md),
+or [Projects](../guides/projects.md). You can also [import chats from Pi, Hermes,
+or Claude Code](../guides/migrate-agents.md).
+
+### Optional: work on your own computer
+
+Agent Zero can work in its Linux workspace without access to the rest of your
+computer. When you want local files, commands, or a host browser, use Launcher
+[Host access](../guides/launcher.md#host-access). Launcher maintains the supporting
+CLI for you. Choose the permissions you need.
+
+For terminal chat or a connection from another computer, install
+[A0 CLI](../guides/a0-cli-connector.md) on that computer and run `a0`.
+For a shared folder alone, see [Use Local Folders](../guides/local-folders.md).
+
+## Terminal and Docker installation
 
 ### A0 Install
 
@@ -68,18 +136,33 @@ working and the installer should not try to set up a runtime. See the
 [A0 Install repository](https://github.com/agent0ai/a0-install) for all
 installer flags.
 
+Open the URL printed by the installer. With port `5080` on your own computer,
+it is `http://localhost:5080`. For a remote server, follow the
+[VPS guide](vps-deployment.md) for access and authentication.
+
 ### Docker already installed? Run this directly
 
 ```bash
-docker run -p 80:80 -v a0_usr:/a0/usr agent0ai/agent-zero
+docker run -d -p 127.0.0.1:5080:80 -v a0_usr:/a0/usr agent0ai/agent-zero
 ```
 
-Once the install completes, open the URL shown in your terminal or Launcher to
-access the Web UI. Complete onboarding, add your model provider or API key, then
-continue to [Step 3: Configure Agent Zero](#step-3-configure-agent-zero).
+Open `http://localhost:5080` on the Docker host, then [send your first message](#send-your-first-message).
+If the port is occupied, replace `5080` with a free port and use it in your URL.
+This command makes the Web UI available only on that computer.
 
-> [!TIP]
-> Need Agent Zero to reach host-machine files, shell, or a host browser? Install the optional [A0 CLI Connector](../guides/a0-cli-connector.md), then run `a0` to connect your terminal to this Agent Zero instance.
+### Persistent storage and backups
+
+The command above uses the named Docker volume `a0_usr` for settings, chats,
+memory, projects, and custom plugins. Reuse that volume when replacing the
+container, and keep it separate from other running Instances. In Launcher,
+keep **Persistent workspace** selected, or choose a Docker volume in
+[Workspace storage](../guides/launcher.md#workspace-storage).
+
+Persistent storage keeps data when a container is replaced. A backup gives
+you a separate copy to restore after mistakes or loss. Use both. Create a
+backup from **Settings -> Check for Updates -> Backup & Restore**, or from
+the Launcher Instance menu. See [Use Local Folders](../guides/local-folders.md)
+if you want to use a host folder instead of a Docker volume.
 
 ---
 
@@ -375,13 +458,13 @@ folder. In Launcher, use [Workspace storage](../guides/launcher.md#workspace-sto
 
 ```bash
 mkdir -p /home/user/agent-zero-data
-docker run -d -p 127.0.0.1:50080:80 \
+docker run -d -p 127.0.0.1:5080:80 \
   --mount type=bind,source=/home/user/agent-zero-data,target=/a0/usr \
   agent0ai/agent-zero
 ```
 
 Replace the host path with your own. This example opens at
-`http://localhost:50080`; choose another host port if it is already in use.
+`http://localhost:5080`; choose another host port if it is already in use.
 
 The container will start and show in the "Containers" tab:
 
@@ -410,10 +493,10 @@ Open `http://localhost:<PORT>` in your browser. The Web UI will open - Agent Zer
 
 ## Step 3: Configure Agent Zero
 
-The UI opens on the welcome screen. If model setup is missing, send a message
-or use the setup shortcuts to choose Cloud, AI account, or Local access, then
-select your main and utility models. For the screenshot walkthrough, see the
-[First-Run Onboarding guide](../guides/onboarding.md).
+For your first chat, follow [Connect a model](#connect-a-model) above. The
+[First-Run Onboarding guide](../guides/onboarding.md) shows the complete wizard.
+The settings below are available when you want to change or fine-tune your
+setup later; you do not need to configure every section to get started.
 
 ### Settings Configuration
 
@@ -465,7 +548,7 @@ Use `claude-sonnet-4-5` for Anthropic, but use `anthropic/claude-sonnet-4-5` for
 - **Temperature:** Adjust the determinism of utility responses
 
 > [!NOTE]
-> Utility models need to be strong enough to extract and consolidate memory reliably. Very small models (e.g., 4B) often fail at this; 70B-class models or high-quality cloud "flash/mini" models work best.
+> Choose a Utility model that handles summaries and memory tasks reliably. Test it with your own work before switching to a smaller local model just to save resources.
 
 ### Embedding Model Settings [Optional]
 
@@ -519,20 +602,22 @@ Learn more about Remote Function Calls in the [Development Setup guide](dev-setu
 
 ---
 
-## Choosing Your LLMs
+<a id="choosing-your-llms"></a>
 
-The Settings page is the control center for selecting the Large Language Models (LLMs) that power Agent Zero. You can choose different LLMs for different roles:
+## Choosing your models
 
-| LLM Role | Description |
+In Settings, you can choose different models for different jobs:
+
+| Model | What it does |
 | --- | --- |
-| `chat_llm` | This is the primary LLM used for conversations, agent reasoning, and tool use. Vision support controls image understanding. |
-| `utility_llm` | This LLM handles internal tasks like summarizing messages, managing memory, and processing internal prompts. Using a smaller, less expensive model here can improve efficiency. |
-| `embedding_llm` | The embedding model shipped with A0 runs on CPU and is responsible for generating embeddings used for memory retrieval and knowledge base lookups. Changing the `embedding_llm` will re-index all of A0's memory. |
+| Main | Handles your conversations and uses tools to do the work. Choose a model with image support if you want it to understand pictures. |
+| Utility | Handles summaries, chat names, and memory tasks. |
+| Embedding | Helps find relevant memory and knowledge. The default runs locally on the CPU. Changing it requires rebuilding the memory index. |
 
 **How to Change:**
 
 1. Open Settings page in the Web UI.
-2. Choose the provider for the LLM for each role (Main Model, Utility Model, Embedding Model) and write the model name.
+2. Choose the provider and model for Main, Utility, or Embedding.
 3. Click "Save" to apply the changes.
 
 > [!NOTE]
@@ -542,11 +627,12 @@ The Settings page is the control center for selecting the Large Language Models 
 
 #### Model Naming by Provider
 
-Use the naming format required by your selected provider:
+Use the naming format required by your selected provider. These are naming
+examples, not model recommendations:
 
 | Provider | Model Name Format | Example |
 | --- | --- | --- |
-| OpenAI | Model name only | `claude-sonnet-4-5` |
+| Anthropic | Model name only | `claude-sonnet-4-5` |
 | OpenRouter | Provider prefix mostly required | `anthropic/claude-sonnet-4-5` |
 | Ollama | Model name only | `gpt-oss:20b` |
 | oMLX | API-visible model name from `/v1/models` | `Qwen3-0.6B-4bit` |
@@ -571,8 +657,8 @@ If the model server only listens on host loopback, for example `127.0.0.1:<port>
 #### Utility Model Guidance
 
 - Utility models handle summarization and memory extraction.
-- Very small models (about 4B) usually fail at reliable context extraction.
-- Aim for ~70B class models or strong cloud "flash/mini" models for better results.
+- Check that your chosen model produces useful summaries and memories with your own work.
+- A smaller local model may use fewer resources, but loading successfully does not establish that it can handle those tasks.
 
 #### Reasoning/Thinking Models
 
@@ -849,7 +935,7 @@ A0_SET_agent_memory_subdir=production
 When running Docker, you can pass these as environment variables:
 
 ```bash
-docker run -p 50080:80 \
+docker run -d -p 127.0.0.1:5080:80 -v a0_usr:/a0/usr \
   -e A0_SET_chat_model_provider=anthropic \
   -e A0_SET_chat_model_name=claude-3-5-sonnet-20241022 \
   agent0ai/agent-zero
@@ -857,6 +943,7 @@ docker run -p 50080:80 \
 
 **Notes:**
 
+- Open `http://localhost:5080` on the Docker host after startup. This example binds to that computer only.
 - These provide initial default values when settings.json doesn't exist or when new settings are added to the application. Once a value is saved in settings.json, it takes precedence over these environment variables.
 - Sensitive settings (API keys, passwords) use their existing environment variables
 - Container/process restart required for changes to take effect

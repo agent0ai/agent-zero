@@ -60,6 +60,46 @@ class MigrationTests(unittest.TestCase):
         self.assertNotIn("private", text)
         self.assertNotIn("branch", text)
 
+    def test_claude_preserves_title_and_tool_results_without_extra_user_turns(self):
+        rows = [
+            {"type": "custom-title", "sessionId": "c1", "customTitle": "Original title"},
+            {"type": "user", "sessionId": "c1", "cwd": "/demo", "message": {"role": "user", "content": "Read the plan"}},
+            {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/demo/plan.md"}}]}},
+            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "Plan contents"}]}},
+            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "missing", "is_error": True, "content": [{"type": "text", "text": "Not found"}]}, {"type": "text", "text": "Try the other file"}]}},
+            {"type": "custom-title", "sessionId": "c1", "customTitle": "Cafe plan"},
+            {"type": "custom-title", "sessionId": "another", "customTitle": "Unrelated"},
+            {"type": "custom-title", "sessionId": "c1", "customTitle": ""},
+        ]
+        bundle = migration.parse_bundle("claude", [migration.Upload("session.jsonl", jsonl(*rows))])
+        chat = bundle.conversations[0]
+        self.assertEqual(chat.title, "Cafe plan")
+        self.assertEqual([event.kind for event in chat.events], ["user", "tool", "tool", "user"])
+        self.assertEqual(chat.events[1].tool_result, "Plan contents")
+        self.assertEqual(chat.events[2].tool_name, "unmatched tool result")
+        self.assertEqual(chat.events[2].tool_result, "[Tool error]\nNot found")
+        self.assertEqual(chat.events[3].text, "Try the other file")
+
+    def test_claude_title_without_session_id_in_renamed_export(self):
+        rows = [
+            {"type": "custom-title", "customTitle": "Cafe plan"},
+            {"type": "user", "sessionId": "c1", "message": {"role": "user", "content": "Read the plan"}},
+        ]
+        bundle = migration.parse_bundle("claude", [migration.Upload("renamed.jsonl", jsonl(*rows))])
+        self.assertEqual(bundle.conversations[0].title, "Cafe plan")
+
+    def test_openclaw_matched_tool_error_is_not_a_user_turn(self):
+        rows = [
+            {"type": "session", "id": "o1"},
+            {"type": "message", "message": {"role": "user", "content": "Read the plan"}},
+            {"type": "message", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/demo/plan.md"}}]}},
+            {"type": "message", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "is_error": True, "content": "Not found"}]}},
+        ]
+        bundle = migration.parse_bundle("openclaw", [migration.Upload("trace.jsonl", jsonl(*rows))])
+        events = bundle.conversations[0].events
+        self.assertEqual([event.kind for event in events], ["user", "tool"])
+        self.assertEqual(events[1].tool_result, "[Tool error]\nNot found")
+
     def test_opencode_export_keeps_text_and_completed_tool(self):
         data = {
             "info": {"id": "ses_1", "title": "Ship it", "directory": "/repo"},

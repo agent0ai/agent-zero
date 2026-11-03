@@ -20,7 +20,7 @@ The profile menu is beside the chat input.
   availability of profiles.
 
 Changing the selected profile affects only that chat. To choose the profile for
-future Global chats, open **Settings -> Agent Config**.
+future Global chats, open **Settings → Agent → Agent Config**.
 
 ## Create or edit a profile in Easy mode
 
@@ -48,20 +48,38 @@ for testing without changing the old chat's history.
 Easy mode has separate default switches and expandable lists for **Tools**,
 **MCPs**, and **Skills**.
 
-![Easy capability editor with Browser explicitly Off and other tools on Default](../res/usage/webui/agent-editor-easy-permissions.png)
+![Easy capability editor with individual text editor actions](../res/usage/webui/agent-editor-easy-permissions.png)
 
 Each item has three states:
 
 | State | Meaning |
 | --- | --- |
-| **On** | Always allow this item for the profile. |
+| **On** | Explicitly allow this item for the profile. |
 | **Default (on/off)** | Follow the category's **Allow ... by default** switch. |
 | **Off** | Block this item for the profile. |
 
 Changing a category default affects current and future items that remain on
 **Default**. Explicit **On** and **Off** decisions stay pinned. Tools and MCPs
-have separate defaults even though their decisions are stored by the same Tool
-Access policy owner. Skills use their own visibility policy.
+have separate defaults. Skills use their own visibility policy.
+
+### Allow individual tool actions
+
+Expand a tool's arrow to see **Individual tool actions**. For example, the text
+editor can have **Read** allowed while **Write** and **Patch** are off. Each
+action has its own On, Default, and Off choice.
+
+The controls on the parent tool apply to **all** its actions, including actions
+hidden by an Advanced search. Set the parent first, then adjust individual
+actions. Expanding or searching a list does not change permissions.
+
+These choices apply in the selected Global or project profile scope. Check
+**Advanced → Review** before saving to see the exact changes.
+
+> [!IMPORTANT]
+> Tool permissions control those tool calls; they are not a filesystem sandbox.
+> Allowing terminal execution can still let the agent read or write files even
+> if the text editor's write action is off. Review the other allowed capabilities
+> when you want a profile to work read-only.
 
 > [!NOTE]
 > Skill access controls discovery and new loading. It does not remove skill
@@ -125,7 +143,7 @@ as Easy mode, with search and origin filtering. Advanced mode can also show a
 retained decision for an item that is not currently available, so you can clear
 or change stale configuration.
 
-![Advanced Tools policy with Browser explicitly Off](../res/usage/webui/agent-editor-advanced-tools.png)
+![Advanced Tools with individual text editor actions](../res/usage/webui/agent-editor-advanced-tools.png)
 
 ### Review before saving
 
@@ -157,6 +175,9 @@ permission owners.
 - `/permissions` edits Tools, MCPs, and Skills for the current profile. Each row
   cycles through **Default**, **On**, and **Off**; Tools and MCPs have independent
   defaults.
+
+The CLI lists individual tool actions as separate rows. Use the Web UI's Agent
+Editor when you prefer to expand them under their parent tool.
 
 ![A0 CLI profile menu after quick-creating a profile](../res/usage/a0-cli/a0-cli-profile-menu.png)
 
@@ -243,11 +264,14 @@ Canonical IDs use these forms:
 | --- | --- | --- |
 | Core/local tool | `local:<tool>` | `local:call_subordinate` |
 | Plugin tool | `plugin:<plugin-id>:<tool>` | `plugin:_code_execution:code_execution_tool` |
+| Bundled tool action | `plugin:<plugin-id>:<tool>:<action>` | `plugin:_text_editor:text_editor:read` |
 | MCP tool | `mcp:<server>:<tool>` | `mcp:deep_wiki:ask_question` |
 
 An ID in `allowed` is **On**; an ID in `blocked` is **Off**; an ID in neither
 list follows `default` or `mcp_default`. Runtime-required response handling is
-not offered as a configurable tool.
+not offered as a configurable tool. Explicit blocks take precedence over allows
+across whole-tool and action rules. Memory retains its legacy action IDs such as
+`plugin:_memory:memory_load`; prefer the editor when changing these policies.
 
 MCP server definitions themselves still belong in **Settings -> MCP**. The
 profile policy decides which discovered MCP tools the agent may use; it does

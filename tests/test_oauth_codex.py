@@ -112,7 +112,7 @@ def test_chat_messages_to_response_body_uses_current_codex_default_model():
     assert body["model"] == "gpt-5.5"
 
 
-def test_codex_provider_metadata_uses_upstream_models_only_by_default(monkeypatch):
+def test_codex_provider_metadata_recommends_main_and_utility_without_restricting_catalog(monkeypatch):
     monkeypatch.setattr(
         codex_provider,
         "_codex_config",
@@ -125,8 +125,28 @@ def test_codex_provider_metadata_uses_upstream_models_only_by_default(monkeypatc
 
     metadata = codex_provider.CodexOAuthProvider().metadata()
 
-    assert metadata.default_model == "gpt-5.5"
-    assert metadata.default_models == []
+    assert metadata.default_model == "gpt-6.1-terra"
+    assert metadata.default_models == ["gpt-6.1-terra", "gpt-6-luna"]
+
+    monkeypatch.setattr(codex, "fetch_models", lambda: ["another-account-model"])
+    assert codex_provider.CodexOAuthProvider().models() == ["another-account-model"]
+
+
+def test_codex_provider_metadata_preserves_configured_model_order(monkeypatch):
+    monkeypatch.setattr(
+        codex_provider,
+        "_codex_config",
+        lambda: {
+            "models": ["custom-main", "custom-utility"],
+            "proxy_base_path": "/oauth/codex",
+            "callback_path": "/auth/callback",
+        },
+    )
+
+    metadata = codex_provider.CodexOAuthProvider().metadata()
+
+    assert metadata.default_model == "custom-main"
+    assert metadata.default_models == ["custom-main", "custom-utility"]
 
 
 def test_codex_fetch_models_omits_fake_client_version(monkeypatch):

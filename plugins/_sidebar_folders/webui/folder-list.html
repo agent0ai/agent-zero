@@ -2,10 +2,11 @@
 <head></head>
 <body>
   <div x-data="{ sections: [] }" class="sidebar-folder-host">
-    <template x-if="$store.sidebarFolders && $store.sidebarFolders.config.folder_view">
+    <template x-if="$store.sidebarFolders && ($store.sidebarFolders.config.folder_view || $store.sidebarFolders.searchActive)">
       <div class="sidebar-folder-host" x-effect="$store.sidebarFolders.revealSelection(kind, $store.chats.selected)">
         <ul class="config-list sidebar-folder-list no-scrollbar" :class="kind === 'chat' ? 'chats-config-list' : 'tasks-config-list'"
-          x-effect="sections = $store.sidebarFolders.sections(kind, sections)"
+          x-effect="sections = $store.sidebarFolders.sections(kind, sections, true)"
+          :aria-busy="$store.sidebarFolders.searchPending"
           :aria-label="kind === 'chat' ? 'Chat folders' : 'Task folders'" @dragend="$store.sidebarFolders.endDrag()"
           @dragleave="if (!$el.contains($event.relatedTarget)) $store.sidebarFolders.dropTarget = null">
           <template x-for="group in sections" :key="group.pinned ? 'pinned' : 'project:' + group.id">
@@ -25,10 +26,11 @@
                 @pointerdown="if ($event.target.closest('.sidebar-folder-toggle')) actionsFocused = false"
                 @dragstart.stop="$store.sidebarFolders.startDrag($event, 'project', group.id)">
                 <button type="button" class="sidebar-folder-toggle"
-                  :aria-expanded="$store.sidebarFolders.isOpen(kind, group.id)"
+                  :disabled="$store.sidebarFolders.searchActive"
+                  :aria-expanded="$store.sidebarFolders.searchActive || $store.sidebarFolders.isOpen(kind, group.id)"
                   @click="$store.sidebarFolders.toggleFolder(kind, group.id)">
                   <span class="project-color-ball" :style="{ backgroundColor: group.color || 'transparent' }"></span>
-                  <x-icon :name="$store.sidebarFolders.isOpen(kind, group.id) ? 'folder_open' : 'folder'"></x-icon>
+                  <x-icon :name="$store.sidebarFolders.searchActive || $store.sidebarFolders.isOpen(kind, group.id) ? 'folder_open' : 'folder'"></x-icon>
                   <span class="sidebar-folder-title" x-text="group.title"></span>
                   <x-icon class="sidebar-folder-pin" name="push_pin" x-show="$store.pinToTop.isProjectPinned(group.id)"></x-icon>
                 </button>
@@ -44,7 +46,7 @@
                 </button>
               </div>
               </template>
-              <template x-if="group.pinned || $store.sidebarFolders.isOpen(kind, group.id)">
+              <template x-if="group.pinned || $store.sidebarFolders.searchActive || $store.sidebarFolders.isOpen(kind, group.id)">
               <ul class="sidebar-folder-threads" :class="{ 'sidebar-pinned-threads': group.pinned }">
                 <template x-for="(item, itemIndex) in group.rows" :key="item.id">
                   <li class="sidebar-folder-thread" :class="[
@@ -52,6 +54,7 @@
                     kind === 'chat' ? 'chat-tree-item' : 'task-list-item',
                     !group.pinned && $store.sidebar.hasRowDividerBefore(kind, item, itemIndex, group.rows) ? 'sidebar-list-divider' : '',
                   ].join(' ')" :data-folder-thread="item.id" draggable="true"
+                    x-data="{ get match() { return $store.sidebarFolders.searchMatch(item, kind); } }"
                     @dragstart.stop="$store.sidebarFolders.startDrag($event, kind, item.id, item.project?.name || '')"
                     @dragover="$store.sidebarFolders.dragOver($event, kind, group.id, item, $event.currentTarget, group.rows)"
                     @drop="$store.sidebarFolders.drop($event, kind, group.id, item)">
@@ -65,6 +68,13 @@
                         <x-component path="/plugins/_scheduler/webui/sidebar/task-row.html"></x-component>
                       </div>
                     </template>
+                    <template x-if="match && (!match.title || match.id !== item.id)">
+                      <button type="button" class="sidebar-search-match"
+                        :class="{ 'sidebar-search-parent': kind === 'chat' && $store.chats.hasChildren(item.id) }"
+                        @click="$store.sidebarFolders.openSearchMatch(item, kind)">
+                        <span class="sidebar-search-match-text"><template x-for="(part, index) in match.parts" :key="index"><span :class="{ 'sidebar-search-hit': part.match }" x-text="part.text"></span></template></span>
+                      </button>
+                    </template>
                   </li>
                 </template>
                 <li class="sidebar-folder-empty" x-show="!group.rows.length">
@@ -76,13 +86,23 @@
           </template>
         </ul>
         <div class="empty-list-message" x-show="!sections.length">
-          <p x-text="kind === 'chat' ? 'No matching chats.' : 'No matching tasks.'"></p>
+          <p role="status" x-text="$store.sidebarFolders.searchPending ? 'Searching…' : (kind === 'chat' ? 'No matching chats.' : 'No matching tasks.')"></p>
         </div>
       </div>
     </template>
   </div>
   <style>
     .sidebar-folder-host, .sidebar-folder-host > x-component { display: contents; }
+    #left-panel .sidebar-folder-host > .empty-list-message { color: var(--color-text-muted); opacity: 1; }
+    .sidebar-search-match { display: block; box-sizing: border-box; width: 100%; padding: 0 var(--spacing-xs) var(--spacing-xs) calc(var(--spacing-xs) + 1em); margin: calc(-1 * var(--spacing-xxs)) 0 0; border: 0; border-radius: var(--border-radius-sm); background: transparent; color: var(--color-text-muted); font: inherit; text-align: left; cursor: pointer; }
+    .sidebar-search-match.sidebar-search-parent { padding-left: calc(var(--spacing-md) + var(--spacing-xs) + 1em); }
+    .sidebar-search-match-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: var(--font-size-small); line-height: 1.35; }
+    .sidebar-search-hit { color: var(--color-text); font-weight: 600; }
+    .sidebar-search-match:hover { color: var(--color-text); }
+    .sidebar-search-match:focus-visible { outline: 1px solid var(--color-text); outline-offset: -1px; }
+    @media (pointer: coarse) {
+      .sidebar-search-match { min-height: 2.75rem; padding-top: var(--spacing-xxs); }
+    }
     .sidebar-folder-list { overflow-x: hidden; overflow-y: auto; }
     .sidebar-folder-list > li.sidebar-folder { display: block; position: relative; padding: 0 0 var(--spacing-xxs); }
     .sidebar-folder-list > li.sidebar-pinned-group { margin-bottom: var(--spacing-xs); padding-bottom: var(--spacing-xs); border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent); }
@@ -90,6 +110,7 @@
     .sidebar-folder-row:hover { background: var(--color-background-hover); }
     .sidebar-folder-toggle { display: flex; flex: 1; align-items: center; min-width: 0; gap: var(--spacing-xs); padding: var(--spacing-xs); margin: 0; border: 0; background: transparent; color: var(--color-text); text-align: left; cursor: pointer; font: inherit; font-size: var(--font-size-small); }
     .sidebar-folder-toggle > x-icon { flex-shrink: 0; font-size: 18px; color: var(--color-text-muted); }
+    .sidebar-folder-toggle:disabled { opacity: 1; cursor: default; }
     .sidebar-folder-toggle > .sidebar-folder-pin { font-size: 12px; }
     .sidebar-folder-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
     .sidebar-folder-toggle .project-color-ball { border: 1px solid var(--color-border); }

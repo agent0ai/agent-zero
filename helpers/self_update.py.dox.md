@@ -52,6 +52,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, subprocess/runtime control, settings/state persistence.
+- `get_update_info().defaults.health_timeout_seconds` exposes `A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS` (default 600 seconds) so browser reconnect polling follows the updater's configured health window.
 - Imported dependency areas include: `__future__`, `datetime`, `helpers`, `helpers.localization`, `os`, `pathlib`, `re`, `subprocess`, `tempfile`, `time`, `typing`.
 
 ## Key Concepts

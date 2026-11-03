@@ -13,19 +13,11 @@
                  class="welcome-container">
                 <x-extension id="welcome-screen-start"></x-extension>
 
-                <main class="welcome-shell">
-                    <header class="welcome-hero">
-                        <h1>Hello! I'm Agent Zero <span aria-hidden="true">&#128075;</span></h1>
-                        <p x-text="$store.welcomeStore.heroSubtitle"></p>
-                    </header>
-
-                    <section class="welcome-composer" aria-label="Start a new chat">
-                        <x-component path="chat/attachments/inputPreview.html"></x-component>
-                        <x-component path="chat/input/chat-bar-input.html"></x-component>
-                    </section>
-
+                <main class="welcome-shell" x-data="{ cleanupLayout: null }"
+                      x-create="void (cleanupLayout = $store.welcomeStore.mountLayout($el))"
+                      x-destroy="cleanupLayout?.()">
                     <section class="welcome-alerts"
-                             x-show="$store.welcomeStore.sortedBanners.length > 0 || $store.welcomeStore.hasDismissedBanners">
+                             x-show="$store.welcomeStore.sortedBanners.length > 0">
                         <div class="welcome-banners" x-show="$store.welcomeStore.sortedBanners.length > 0">
                             <x-extension id="welcome-banners-start"></x-extension>
                             <template x-for="banner in $store.welcomeStore.sortedBanners" :key="banner.id">
@@ -59,73 +51,102 @@
                             </template>
                             <x-extension id="welcome-banners-end"></x-extension>
                         </div>
-
-                        <button type="button"
-                                class="welcome-undismiss-button"
-                                x-show="$store.welcomeStore.hasDismissedBanners"
-                                :disabled="$store.welcomeStore.bannersLoading"
-                                @click="$store.welcomeStore.undismissBanners()">
-                            <x-icon name="undo"></x-icon>
-                            <span>Show dismissed notices</span>
-                        </button>
                     </section>
 
-                    <section class="welcome-quick-section">
-                        <h2>Quick Actions</h2>
-                        <div class="welcome-actions">
-                            <x-extension id="welcome-actions-start"></x-extension>
-                            <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
-                                <x-icon class="welcome-action-icon" name="folder"></x-icon>
-                                <span class="welcome-action-copy">
+                    <div class="welcome-board">
+                        <section class="welcome-intro" data-welcome-block="intro" data-welcome-label="Greeting and composer" x-show="!$store.welcomeStore.hiddenSections.includes('intro')">
+                            <header class="welcome-hero">
+                                <div class="welcome-section-header">
+                                    <h1>Hello! I'm Agent Zero <span aria-hidden="true">&#128075;</span></h1>
+                                    <div class="welcome-panel-actions">
+                                        <button type="button" data-welcome-handle></button>
+                                        <button class="welcome-panel-icon-button welcome-intro-dismiss"
+                                                type="button"
+                                                @click="$store.welcomeStore.dismissSection('intro')"
+                                                title="Hide greeting and composer"
+                                                aria-label="Hide greeting and composer">
+                                            <x-icon name="close"></x-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p x-text="$store.welcomeStore.heroSubtitle"></p>
+                            </header>
+
+                            <section class="welcome-composer" aria-label="Start a new chat">
+                                <x-component path="chat/attachments/inputPreview.html"></x-component>
+                                <x-component path="chat/input/chat-bar-input.html"></x-component>
+                            </section>
+                        </section>
+
+                        <section class="welcome-quick-section" data-welcome-block="quick-actions" data-welcome-label="Quick Actions"
+                                 :data-welcome-size="$store.welcomeStore.quickActionsWide ? 'full' : 'half'"
+                                 x-show="!$store.welcomeStore.hiddenSections.includes('quick-actions')">
+                            <header class="welcome-section-header">
+                                <h2>Quick Actions</h2>
+                                <div class="welcome-panel-actions">
+                                    <button class="welcome-panel-icon-button"
+                                            type="button"
+                                            :aria-label="$store.welcomeStore.quickActionsWide ? 'Use half-width Quick Actions panel' : 'Expand Quick Actions panel'"
+                                            @click="$store.welcomeStore.toggleQuickActionsWidth()">
+                                        <x-icon :name="$store.welcomeStore.quickActionsWide ? 'close_fullscreen' : 'open_in_full'"></x-icon>
+                                    </button>
+                                    <button type="button" data-welcome-handle></button>
+                                    <button class="welcome-panel-icon-button"
+                                            type="button"
+                                            @click="$store.welcomeStore.dismissSection('quick-actions')"
+                                            title="Hide Quick Actions"
+                                            aria-label="Hide Quick Actions">
+                                        <x-icon name="close"></x-icon>
+                                    </button>
+                                </div>
+                            </header>
+                            <div class="welcome-actions">
+                                <x-extension id="welcome-actions-start"></x-extension>
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
+                                    <x-icon class="welcome-action-icon" name="folder"></x-icon>
                                     <span class="welcome-action-title">Projects</span>
-                                    <span class="welcome-action-description">Organize and track your work.</span>
-                                </span>
-                                <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
-                            </button>
-                            <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('files')">
-                                <x-icon class="welcome-action-icon" name="folder_open"></x-icon>
-                                <span class="welcome-action-copy">
+                                    <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
+                                </button>
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('files')">
+                                    <x-icon class="welcome-action-icon" name="folder_open"></x-icon>
                                     <span class="welcome-action-title">Files</span>
-                                    <span class="welcome-action-description">Search and manage your files.</span>
-                                </span>
-                                <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
-                            </button>
-                            <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('settings')">
-                                <x-icon class="welcome-action-icon" name="settings"></x-icon>
-                                <span class="welcome-action-copy">
+                                    <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
+                                </button>
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('settings')">
+                                    <x-icon class="welcome-action-icon" name="settings"></x-icon>
                                     <span class="welcome-action-title">Settings</span>
-                                    <span class="welcome-action-description">Configure Agent Zero to your preferences.</span>
-                                </span>
-                                <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
-                            </button>
-                            <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('plugins')">
-                                <x-icon class="welcome-action-icon" name="extension"></x-icon>
-                                <span class="welcome-action-copy">
+                                    <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
+                                </button>
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('plugins')">
+                                    <x-icon class="welcome-action-icon" name="extension"></x-icon>
                                     <span class="welcome-action-title">Plugins</span>
-                                    <span class="welcome-action-description">Extend Agent Zero with integrations.</span>
-                                </span>
-                                <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
-                            </button>
-                            <button type="button" class="welcome-action-card is-wide" @click="$store.welcomeStore.executeAction('website')">
-                                <x-icon class="welcome-action-icon" name="language"></x-icon>
-                                <span class="welcome-action-copy">
-                                    <span class="welcome-action-title">Visit Website</span>
-                                    <span class="welcome-action-description">Explore Agent Zero online and resources.</span>
-                                </span>
-                                <x-icon class="welcome-action-arrow" name="open_in_new"></x-icon>
-                            </button>
-                        </div>
-                    </section>
+                                    <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
+                                </button>
+                                <button type="button" class="welcome-action-card is-wide" @click="$store.welcomeStore.executeAction('website')">
+                                    <x-icon class="welcome-action-icon" name="language"></x-icon>
+                                    <span class="welcome-action-title">Visit Agent Zero Website</span>
+                                    <x-icon class="welcome-action-arrow" name="open_in_new"></x-icon>
+                                </button>
+                            </div>
+                        </section>
 
-                    <section class="welcome-lower-grid">
-                        <x-extension id="welcome-actions-end"></x-extension>
-
-                        <article class="welcome-system-card"
+                        <section id="welcome-accounts" class="welcome-discovery-block" data-welcome-block="accounts" data-welcome-label="Your AI accounts" data-welcome-size="half"
+                                 x-show="$store.discoveryStore?.oauthAccountCards.length > 0"></section>
+                        <section id="welcome-channels" class="welcome-discovery-block" data-welcome-block="channels" data-welcome-label="Connect Channels" data-welcome-size="half"
+                                 x-show="$store.discoveryStore?.featureCards.length > 0"></section>
+                        <article class="welcome-system-card" data-welcome-block="system" data-welcome-label="System Resources"
+                                 :data-welcome-size="$store.welcomeStore.systemWide ? 'full' : 'half'"
                                  x-show="$store.welcomeStore.systemResourceBanner"
                                  x-transition.opacity>
                             <header class="welcome-panel-header">
                                 <h2 x-text="$store.welcomeStore.systemResourceBanner?.title || 'System Resources'"></h2>
                                 <div class="welcome-panel-actions">
+                                    <button class="welcome-panel-icon-button"
+                                            type="button"
+                                            :aria-label="$store.welcomeStore.systemWide ? 'Use half-width System Resources panel' : 'Expand System Resources panel'"
+                                            @click="$store.welcomeStore.toggleSystemWidth()">
+                                        <x-icon :name="$store.welcomeStore.systemWide ? 'close_fullscreen' : 'open_in_full'"></x-icon>
+                                    </button>
                                     <button class="welcome-panel-icon-button"
                                             type="button"
                                             :disabled="$store.welcomeStore.bannersLoading"
@@ -134,6 +155,7 @@
                                             aria-label="Refresh System Resources">
                                         <x-icon name="refresh"></x-icon>
                                     </button>
+                                    <button type="button" data-welcome-handle></button>
                                     <button class="welcome-panel-icon-button"
                                             type="button"
                                             x-show="$store.welcomeStore.systemResourceBanner?.dismissible !== false"
@@ -147,10 +169,33 @@
                             <div class="welcome-system-body"
                                  x-html="$store.welcomeStore.systemResourceBanner?.html || ''"></div>
                         </article>
-                    </section>
+                    </div>
+                    <x-extension id="welcome-actions-end"></x-extension>
+                    <p id="welcome-layout-help" class="welcome-layout-sr">Drag to move a section, or click for move options. Use arrow keys to move, Home for first, and End for last.</p>
+                    <p class="welcome-layout-sr" data-layout-status role="status" aria-live="polite" aria-atomic="true"></p>
+                    <div id="welcome-layout-menu" class="welcome-layout-menu" role="group" aria-label="Move section" hidden>
+                        <button type="button" data-move="-1"><x-icon name="arrow_upward"></x-icon>Move up</button>
+                        <button type="button" data-move="1"><x-icon name="arrow_downward"></x-icon>Move down</button>
+                    </div>
                 </main>
 
                 <x-extension id="welcome-screen-end"></x-extension>
+
+                <div class="welcome-restore">
+                    <button type="button"
+                            class="welcome-panel-icon-button welcome-panel-text-button"
+                            x-show="$store.welcomeStore.hasDismissedBanners || $store.welcomeStore.hiddenSections.length > 0 || $store.discoveryStore?.hasDismissedCards"
+                            :disabled="$store.welcomeStore.bannersLoading && !$store.welcomeStore.hiddenSections.length"
+                            @click="$store.welcomeStore.undismissAll()">
+                        <x-icon name="undo"></x-icon>
+                        <span>Show all dismissed</span>
+                    </button>
+                    <button type="button" class="welcome-panel-icon-button welcome-panel-text-button"
+                            @click="$store.welcomeStore.openWelcomePlugins()">
+                        <x-icon name="extension"></x-icon>
+                        <span>Find welcome screen plugins</span>
+                    </button>
+                </div>
             </div>
         </template>
     </div>
@@ -159,7 +204,7 @@
         .welcome-container {
             position: relative;
             min-height: 100vh;
-            overflow: hidden;
+            overflow: clip;
             padding: clamp(4.8rem, 8vh, 6.4rem) clamp(1.25rem, 5.4vw, 6.5rem) 3.5rem;
             color: var(--color-text);
             font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
@@ -168,9 +213,9 @@
         .welcome-container > x-extension,
         .welcome-actions > x-extension,
         .welcome-banners > x-extension,
-        .welcome-lower-grid > x-extension,
-        .welcome-lower-grid > x-extension > x-component,
-        .welcome-lower-grid > x-extension > x-component > div[x-data] {
+        .welcome-shell > x-extension,
+        .welcome-shell > x-extension > x-component,
+        .welcome-shell > x-extension > x-component > div[x-data] {
             display: contents;
         }
 
@@ -191,24 +236,54 @@
             opacity: 0.055;
         }
 
-        .welcome-shell {
+        .welcome-shell,
+        .welcome-restore {
             position: relative;
             z-index: 1;
+            width: min(100%, 1220px);
+            margin: 0 auto;
+        }
+
+        .welcome-shell {
             display: flex;
             flex-direction: column;
             gap: 1.55rem;
-            width: min(100%, 1220px);
-            margin: 0 auto;
             padding-top: 4rem;
+        }
+
+        .welcome-restore {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            margin-top: 1.55rem;
+        }
+
+        .welcome-intro {
+            display: flex;
+            flex-direction: column;
+            gap: 1.55rem;
+        }
+
+        .welcome-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .welcome-hero .welcome-section-header {
+            container-type: inline-size;
         }
 
         .welcome-hero h1 {
             margin: 0;
             color: var(--color-text);
-            font-size: clamp(2rem, 3.4vw, 2.75rem);
+            font-size: min(clamp(2rem, 3.4vw, 2.75rem), calc((100cqi - 56px - 1.35rem) / 12));
             font-weight: 440;
             letter-spacing: 0;
             line-height: 1.08;
+            white-space: nowrap;
         }
 
         .welcome-hero p {
@@ -385,8 +460,7 @@
             outline: none;
         }
 
-        .welcome-banner-dismiss,
-        .welcome-undismiss-button {
+        .welcome-banner-dismiss {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -405,22 +479,39 @@
             margin: -0.2rem -0.2rem 0 0;
         }
 
-        .welcome-banner-dismiss:hover,
-        .welcome-undismiss-button:hover {
+        .welcome-banner-dismiss:hover {
             color: var(--color-text);
             background: color-mix(in srgb, var(--color-border) 45%, transparent);
         }
 
-        .welcome-undismiss-button {
-            justify-self: start;
-            border-radius: 9px;
-            padding: 0.45rem 0.55rem;
+        .welcome-panel-icon-button.welcome-panel-text-button {
+            width: auto;
+            height: auto;
+            gap: 0.4rem;
+            padding: 0.45rem 0;
             font-size: 0.82rem;
+            transition: color 180ms ease, opacity 180ms ease;
+        }
+
+        .welcome-panel-icon-button.welcome-panel-text-button:hover,
+        .welcome-panel-icon-button.welcome-panel-text-button:focus-visible {
+            background: transparent;
+        }
+
+        .welcome-panel-icon-button.welcome-panel-text-button:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .welcome-panel-icon-button.welcome-panel-text-button { transition: none; }
         }
 
         .welcome-quick-section {
             display: grid;
+            align-content: start;
             gap: 0.82rem;
+            container: welcome-quick / inline-size;
         }
 
         .welcome-quick-section h2,
@@ -444,7 +535,7 @@
             display: flex;
             align-items: center;
             gap: 1rem;
-            min-height: 6.1rem;
+            min-height: 4.6rem;
             border-radius: 8px;
             padding: 1.05rem 1rem;
             color: inherit;
@@ -479,24 +570,13 @@
             line-height: 1;
         }
 
-        .welcome-action-copy {
-            display: grid;
+        .welcome-action-title {
             flex: 1;
             min-width: 0;
-            gap: 0.28rem;
-        }
-
-        .welcome-action-title {
             color: var(--color-text);
             font-size: 1rem;
             font-weight: 520;
             line-height: 1.25;
-        }
-
-        .welcome-action-description {
-            color: color-mix(in srgb, var(--color-text) 58%, transparent);
-            font-size: 0.92rem;
-            line-height: 1.42;
         }
 
         .welcome-action-arrow {
@@ -505,36 +585,140 @@
             opacity: 0.8;
         }
 
-        .welcome-lower-grid {
+        .welcome-board {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            grid-template-areas:
-                "accounts accounts channels channels"
-                "system system system system";
-            gap: 1rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.55rem 1rem;
             align-items: stretch;
         }
 
-        .welcome-lower-grid .discovery-slot {
+        [data-welcome-block] {
+            grid-column: 1 / -1;
+            min-width: 0;
+        }
+
+        .welcome-board > .is-paired,
+        .welcome-board > .welcome-quick-section[data-welcome-size="half"],
+        .welcome-board > .welcome-system-card[data-welcome-size="half"] {
+            grid-column: auto;
+        }
+
+        .welcome-discovery-block {
+            display: grid;
+            container: welcome-discovery / inline-size;
+        }
+
+        .welcome-shell .discovery-slot {
             display: contents;
         }
 
-        .welcome-lower-grid .discovery-features-panel {
-            grid-area: channels;
-            min-height: 0;
+        .welcome-board .welcome-drag-handle {
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            opacity: 0.68;
         }
 
-        .welcome-lower-grid .discovery-account-card {
-            grid-area: accounts;
+        .welcome-board .welcome-drag-handle:focus-visible {
+            opacity: 1;
+            outline: 2px solid var(--color-text);
+            outline-offset: 2px;
         }
 
-        .welcome-lower-grid .discovery-undismiss {
-            grid-column: 1 / -1;
+        .welcome-drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .welcome-board .is-dragging {
+            opacity: 0.38;
+            outline: 1px dashed var(--color-text-secondary);
+            outline-offset: 5px;
+        }
+
+        .welcome-drag-ghost, .welcome-drop-marker {
+            position: fixed;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        .welcome-drag-ghost {
+            padding: 0.65rem 0.9rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-panel);
+            color: var(--color-text);
+            box-shadow: 0 8px 24px #0004;
+            font-size: 0.9rem;
+            max-width: calc(100vw - 24px);
+        }
+
+        .welcome-drop-marker {
+            background: var(--color-text);
+            border-radius: 2px;
+        }
+
+        .welcome-layout-menu {
+            position: fixed;
+            z-index: 2001;
+            min-width: 150px;
+            padding: 0.3rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-panel);
+            box-shadow: 0 8px 24px #0003;
+        }
+
+        .welcome-layout-menu button {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            width: 100%;
+            padding: 0.6rem;
+            border: 0;
+            border-radius: 5px;
+            background: transparent;
+            color: var(--color-text);
+            font: inherit;
+            font-size: 0.85rem;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .welcome-layout-menu button:hover, .welcome-layout-menu button:focus-visible {
+            background: var(--color-background);
+        }
+
+        .welcome-layout-menu button:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .welcome-layout-menu x-icon {
+            font-size: 1rem;
+        }
+
+        .welcome-layout-sr {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+
+        @media (hover: none), (pointer: coarse) {
+            .welcome-board .welcome-drag-handle {
+                min-width: 44px;
+                min-height: 44px;
+            }
         }
 
         .welcome-system-card {
-            grid-area: system;
             min-width: 0;
+            container: welcome-system / inline-size;
             border-radius: 8px;
             padding: 1.6rem 1.7rem;
             text-align: left;
@@ -559,20 +743,23 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 2rem;
-            height: 2rem;
+            flex: 0 0 auto;
+            width: 28px;
+            height: 28px;
             border: 0;
             border-radius: 8px;
             background: transparent;
-            color: color-mix(in srgb, var(--color-text) 64%, transparent);
+            color: var(--color-secondary);
+            opacity: 0.68;
             cursor: pointer;
             font-family: var(--font-family-main, "Rubik", Arial, Helvetica, sans-serif);
         }
 
         .welcome-panel-icon-button:hover,
         .welcome-panel-icon-button:focus-visible {
+            opacity: 1;
             color: var(--color-text);
-            background: color-mix(in srgb, var(--color-border) 45%, transparent);
+            background: color-mix(in srgb, var(--color-border) 84%, transparent);
             outline: none;
         }
 
@@ -582,7 +769,20 @@
         }
 
         .welcome-panel-icon-button .material-symbols-outlined {
-            font-size: 1.18rem;
+            font-size: 1rem;
+        }
+
+        .light-mode .welcome-panel-icon-button,
+        .light-mode .welcome-shell .discovery-dismiss {
+            color: var(--color-text);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .welcome-intro:not(:hover):not(:focus-within) .welcome-intro-dismiss,
+            .welcome-intro:not(:hover):not(:focus-within) .welcome-drag-handle:not([aria-expanded="true"]),
+            .welcome-quick-section:not(:hover):not(:focus-within) .welcome-panel-actions > .welcome-panel-icon-button:not([aria-expanded="true"]) {
+                opacity: 0;
+            }
         }
 
         .system-resource-body {
@@ -651,22 +851,79 @@
             font-size: 0.88rem;
         }
 
+        @container welcome-system (max-width: 520px) {
+            .system-resource-meter,
+            .system-resource-footer {
+                grid-template-columns: 1fr;
+            }
+
+            .system-resource-meter {
+                gap: 0.55rem;
+            }
+        }
+
+        @container welcome-quick (max-width: 1000px) {
+            .welcome-actions {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @container welcome-quick (max-width: 640px) {
+            .welcome-actions {
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
+                gap: 0.75rem;
+            }
+
+            .welcome-action-card,
+            .welcome-action-card.is-wide {
+                position: relative;
+                grid-column: auto;
+                flex-direction: column;
+                justify-content: center;
+                gap: 0.65rem;
+                aspect-ratio: 1;
+                min-height: 0;
+                padding: 0.75rem;
+                text-align: center;
+            }
+
+            .welcome-action-icon {
+                font-size: 2rem;
+            }
+
+            .welcome-action-title {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: none;
+                min-height: 2.6em;
+                font-size: 0.88rem;
+                line-height: 1.3;
+            }
+
+            .welcome-action-arrow {
+                display: none;
+            }
+
+            .welcome-action-arrow[name="open_in_new"] {
+                position: absolute;
+                top: 0.5rem;
+                right: 0.5rem;
+                display: inline-flex;
+                font-size: 1rem;
+                opacity: 0.5;
+            }
+        }
+
         @media (max-width: 1180px) {
             .welcome-container {
                 padding-inline: clamp(1.25rem, 4vw, 3rem);
             }
 
-            .welcome-actions {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .welcome-lower-grid {
-                grid-template-columns: 1fr;
-                grid-template-areas:
-                    "accounts"
-                    "channels"
-                    "system";
-            }
+            .welcome-board { grid-template-columns: 1fr; }
+            .welcome-board > .is-paired,
+            .welcome-board > .welcome-quick-section[data-welcome-size="half"],
+            .welcome-board > .welcome-system-card[data-welcome-size="half"] { grid-column: 1 / -1; }
 
             .welcome-shell {
                 padding-top: 4rem;
@@ -684,20 +941,9 @@
                 padding-top: 4rem;
             }
 
-            .welcome-actions {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-            }
-
-            .welcome-action-card,
-            .welcome-action-card.is-wide {
-                grid-column: auto;
-                min-height: 5.25rem;
-                padding: 0.85rem;
-            }
-
-            .welcome-action-icon {
-                font-size: 2rem;
+            .welcome-intro-dismiss {
+                align-self: flex-start;
+                margin-top: 0.2rem;
             }
 
             .welcome-composer,

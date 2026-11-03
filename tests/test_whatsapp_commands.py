@@ -1,4 +1,5 @@
 import asyncio
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -37,6 +38,78 @@ def run(coroutine):
 
 
 class WhatsAppCommandsTests(unittest.TestCase):
+    def test_poll_requires_current_sender_admin_for_persistent_settings(self):
+        from plugins._agent_editor.helpers import editor
+        ctx = FakeContext('context')
+        ctx.config.profile = 'restricted'
+        ctx.data['wa_sender_number'] = '222'
+        item = {'id': 'plugin:_code_execution:code_execution_tool', 'name': 'code_execution_tool', 'label': 'Code execution'}
+        policy = {'mode': 'custom', 'default': 'block', 'mcp_default': 'block', 'allowed': [], 'blocked': [item['id']]}
+        catalog = [{'name': name, 'source_scope_key': 'builtin'} for name in ('permissions', 'plugins')]
+        meta = SimpleNamespace(title='Code execution', always_enabled=False)
+
+        async def check(root):
+            policy_path = root / 'restricted/plugins/_tool_access/config.json'
+            policy_path.parent.mkdir(parents=True)
+            policy_path.write_text(json.dumps(policy))
+            original = policy_path.read_bytes()
+            with patch.multiple(editor, USER_AGENTS_ROOT=root, _invalidate_profile_caches=lambda: None), \
+                 patch.object(slash.plugins, 'determine_plugin_asset_path', return_value=str(policy_path)), \
+                 patch.object(slash.projects, 'get_context_project_name', return_value=''), \
+                 patch.object(slash.tool_policy, 'get_policy', side_effect=lambda agent: json.loads(policy_path.read_text())), \
+                 patch.object(slash.tool_policy, 'get_tool_catalog', return_value=[item]), \
+                 patch.object(slash.plugins, 'get_plugins_list', return_value=['_code_execution']), \
+                 patch.object(slash.plugins, 'get_plugin_meta', return_value=meta), \
+                 patch.object(slash.plugins, 'toggle_plugin') as toggle, \
+                 patch.object(slash, 'available_commands', return_value=catalog), \
+                 patch.object(slash, 'reply', new_callable=AsyncMock), \
+                 patch.object(handler.plugins, 'get_enabled_plugins', return_value=['_whatsapp_integration', '_commands']), \
+                 patch.multiple(handler, _refresh_typing=AsyncMock(), _find_chats_by_jid=lambda jid: [ctx.id], save_tmp_chat=lambda ctx: None), \
+                 patch.object(handler.wa_client, 'get_messages', new_callable=AsyncMock) as messages, \
+                 patch.object(handler.wa_client, 'send_typing', new_callable=AsyncMock), \
+                 patch.object(handler.AgentContext, 'get', return_value=ctx):
+                for allowed, admins, sender in (
+                    (['111'], None, '111'), (['111'], [], '111'), (['111'], ['222'], '111'),
+                    (['111'], ['222'], '222'), ([], [], '999'), ([], ['222'], ''),
+                ):
+                    config = {'enabled': True, 'allowed_numbers': allowed}
+                    if admins is not None:
+                        config['admin_numbers'] = admins
+                    for body in (f'/permissions {item["id"]} allow', '/plugins _code_execution on'):
+                        with self.subTest(allowed=allowed, admins=admins, sender=sender, body=body):
+                            policy_path.write_bytes(original)
+                            toggle.reset_mock()
+                            messages.return_value = [{'senderNumber': sender, 'body': body, 'chatId': ctx.data['wa_chat_id']}]
+                            await handler.poll_messages(config)
+                            toggle.assert_not_called()
+                            self.assertEqual(policy_path.read_bytes(), original)
+                            self.assertFalse(slash.tool_policy.resolve_tool(ctx.agent0, item['name'], canonical_id=item['id']).allowed)
+
+                config = {'enabled': True, 'allowed_numbers': ['111', '+222'], 'admin_numbers': ' +222, '}
+                msg = {'senderId': '00222:17@s.whatsapp.net', 'chatId': ctx.data['wa_chat_id'],
+                       'body': f'/permissions {item["id"]} allow'}
+                messages.return_value = [msg]
+                await handler.poll_messages(config)
+                saved = policy_path.read_bytes()
+                self.assertEqual(json.loads(saved)['allowed'], [item['id']])
+                self.assertEqual(json.loads(saved)['blocked'], [])
+                self.assertTrue(slash.tool_policy.ensure_tool_allowed(ctx.agent0, item['name'], canonical_id=item['id']).allowed)
+                toggle.reset_mock()
+                msg['body'] = '/plugins _code_execution on'
+                await handler.poll_messages(config)
+                toggle.assert_called_once_with('_code_execution', True)
+
+                config['admin_numbers'] = []
+                toggle.reset_mock()
+                await handler.poll_messages(config)
+                toggle.assert_not_called()
+                msg['body'] = f'/permissions {item["id"]} block'
+                await handler.poll_messages(config)
+                self.assertEqual(policy_path.read_bytes(), saved)
+
+        with tempfile.TemporaryDirectory() as root:
+            run(check(Path(root)))
+
     def test_shared_resolver_custom_overrides_and_effects(self):
         ctx = FakeContext('test')
         async def check(root):
@@ -44,6 +117,8 @@ class WhatsAppCommandsTests(unittest.TestCase):
             (root / 'summarize.txt').write_text('Summarize: {raw}')
             (root / 'stop.command.yaml').write_text('name: stop\ndescription: Custom stop\ntype: text\ntemplate_path: stop.txt\n')
             (root / 'stop.txt').write_text('Override: {raw}')
+            for name in ('profile', 'browser'):
+                (root / f'{name}.command.yaml').write_text(f'name: {name}\ndescription: Custom command\ntype: text\ntemplate_path: stop.txt\n')
             with patch.object(commands, 'get_scope_directory', return_value=str(root)), \
                  patch.object(commands, '_iter_precedence_scopes', return_value=['']), \
                  patch.object(commands, 'get_scope_payload', return_value={}), \
@@ -56,6 +131,8 @@ class WhatsAppCommandsTests(unittest.TestCase):
                 self.assertEqual(await slash.handle(ctx, '/summarize hello\nworld'), 'Summarize: hello\nworld')
                 self.assertEqual(await slash.handle(ctx, 'hello /summarize'), 'Summarize: hello')
                 self.assertEqual(await slash.handle(ctx, '/stop custom'), 'Override: custom')
+                self.assertEqual(await slash.handle(ctx, '/profile "New helper" "Instructions"'), 'Override: "New helper" "Instructions"')
+                self.assertEqual(await slash.handle(ctx, '/browser host'), 'Override: host')
                 self.assertEqual(await slash.handle(ctx, 'Read /a0/file'), 'Read /a0/file')
                 self.assertIsNone(await slash.handle(ctx, '/missing'))
                 self.assertIn('Unknown command', reply.call_args.args[1])
@@ -74,6 +151,57 @@ class WhatsAppCommandsTests(unittest.TestCase):
                 self.assertEqual(reply.call_args.args[1], 'Goal set.')
         with tempfile.TemporaryDirectory() as root:
             run(check(Path(root)))
+
+    def test_builtin_profile_creation_and_browser_changes_require_admin(self):
+        from plugins._agent_editor.helpers import editor
+        ctx = FakeContext('context')
+        catalog = [item for item in commands.list_builtin_commands() if item['name'] in {'profile', 'browser'}]
+
+        async def check():
+            with patch.object(slash, 'available_commands', return_value=catalog), \
+                 patch.object(commands, '_get_context', return_value=ctx), \
+                 patch.object(slash.AgentContext, 'get', return_value=ctx), \
+                 patch.object(slash.projects, 'get_context_project_name', return_value=''), \
+                 patch.object(slash.subagents, 'get_available_agents_dict', return_value={'helper': SimpleNamespace(title='My helper')}), \
+                 patch.object(slash.integration_commands, 'try_handle_command', return_value=None), \
+                 patch.object(slash.plugins, 'get_plugin_config', return_value={}), \
+                 patch.object(slash.plugins, 'save_plugin_config') as save_browser, \
+                 patch.object(editor, 'save_easy_profile', return_value=('new-profile', {})) as create, \
+                 patch('helpers.state_monitor_integration.mark_dirty_for_context'), \
+                 patch.object(commands, 'resolve_command_invocation', wraps=commands.resolve_command_invocation) as resolve, \
+                 patch.object(slash, 'reply', new_callable=AsyncMock) as reply:
+                for text in ('/profile "New helper" "Instructions"', '/profile New helper --verbose',
+                             '/browser host', '/browser container', '/browser docker', '/browser HOST'):
+                    with self.subTest(text=text):
+                        resolve.reset_mock()
+                        create.reset_mock()
+                        save_browser.reset_mock()
+                        await slash.handle(ctx, text)
+                        self.assertIn('administrator sender', reply.call_args.args[1])
+                        resolve.assert_not_awaited()
+                        create.assert_not_called()
+                        save_browser.assert_not_called()
+                        await slash.handle(ctx, text, is_admin=True)
+                        resolve.assert_awaited_once()
+                        if text.startswith('/profile'):
+                            create.assert_called_once()
+                        else:
+                            save_browser.assert_called_once()
+                            self.assertEqual(save_browser.call_args.args[0], '_browser')
+
+                for text in ('/profile', '/profile helper', '/profile My helper', '/profile "My helper"',
+                             '/profile helper --verbose', '/browser status', '/browser state', '/browser'):
+                    with self.subTest(text=text):
+                        resolve.reset_mock()
+                        create.reset_mock()
+                        save_browser.reset_mock()
+                        reply.reset_mock()
+                        await slash.handle(ctx, text)
+                        resolve.assert_awaited_once()
+                        create.assert_not_called()
+                        save_browser.assert_not_called()
+                        self.assertTrue(all('administrator sender' not in call.args[1] for call in reply.call_args_list))
+        run(check())
 
     def test_active_chat_binding_and_isolation(self):
         old = FakeContext('ZZZZ', last='2026-01-01')
@@ -176,18 +304,36 @@ class WhatsAppCommandsTests(unittest.TestCase):
         async def check():
             with patch.object(slash.tool_policy, 'get_policy', side_effect=lambda agent: dict(policy)), \
                  patch.object(slash.tool_policy, 'get_tool_catalog', return_value=[item]), \
+                 patch.object(slash.projects, 'get_context_project_name', return_value=''), \
+                 patch.object(slash.plugins, 'get_plugins_list', return_value=['example']), \
+                 patch.object(slash.plugins, 'get_plugin_meta', return_value=SimpleNamespace(title='Example', always_enabled=False)), \
+                 patch.object(slash.plugins, 'get_toggle_state', return_value='disabled'), \
+                 patch.object(slash.plugins, 'toggle_plugin') as toggle, \
                  patch.object(slash, 'reply', new_callable=AsyncMock), \
                  patch.object(editor, 'build_change_plan', return_value='plan') as build, \
                  patch.object(editor, 'apply_change_plan') as apply:
-                await slash.settings_menu(ctx, 'permissions', 'core:test block')
+                for name in ('plugins', 'permissions'):
+                    await slash.settings_menu(ctx, name, '')
+                    await slash.settings_menu(ctx, name, 'page 1')
+                for args in ('core:test allow', 'core:test block', 'core:test default', 'default allow', 'mcp_default allow', 'inherit'):
+                    with self.subTest(args=args), self.assertRaises(PermissionError):
+                        await slash.settings_menu(ctx, 'permissions', args)
+                with self.assertRaises(PermissionError):
+                    await slash.settings_menu(ctx, 'plugins', 'example on')
+                build.assert_not_called()
+                apply.assert_not_called()
+                toggle.assert_not_called()
+                await slash.settings_menu(ctx, 'plugins', 'example on', is_admin=True)
+                toggle.assert_called_once_with('example', True)
+                await slash.settings_menu(ctx, 'permissions', 'core:test block', is_admin=True)
                 self.assertEqual(build.call_args.args[0]['tool_policy']['blocked'], ['core:test'])
                 self.assertEqual(build.call_args.args[0]['tool_policy']['mcp_default'], 'block')
                 apply.assert_called_once_with('plan')
                 with self.assertRaises(ValueError):
-                    await slash.settings_menu(ctx, 'permissions', 'core:response block')
+                    await slash.settings_menu(ctx, 'permissions', 'core:response block', is_admin=True)
                 ctx.running = True
                 with self.assertRaises(ValueError):
-                    await slash.settings_menu(ctx, 'permissions', 'core:test allow')
+                    await slash.settings_menu(ctx, 'permissions', 'core:test allow', is_admin=True)
         run(check())
 
     def test_compaction_requires_current_idle_context_confirmation(self):

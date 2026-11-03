@@ -22,11 +22,12 @@
 ## Local Contracts
 
 - Core model code such as `models.py` must stay provider-agnostic. Do not add Codex, GitHub Copilot, Gemini, xAI, or other OAuth provider knowledge outside plugin-owned config or plugin hooks.
-- Keep the Codex client version explicitly pinned in `default_config.yaml` and update the pin with each adopted version (currently `0.160.1`) for upstream version headers and catalog discovery without an installed CLI. Existing saved plugin settings take precedence; this default does not migrate blank or explicit overrides. A blank override probes `codex --version` and omits the version if no CLI is available; it does not discover new releases.
+- Keep the Codex client version explicitly pinned in `default_config.yaml` and update the pin with each adopted version (currently `0.166.0`) for upstream version headers and catalog discovery without an installed CLI. Existing saved plugin settings take precedence; this default does not migrate blank or explicit overrides. A blank override probes `codex --version` and omits the version if no CLI is available; it does not discover new releases.
 - Add OAuth model providers in `_oauth/conf/model_providers.yaml`, not `_model_config/provider_metadata.yaml`.
 - Provider cards and model slot actions must be driven by backend provider status. Do not reintroduce hardcoded frontend provider lists or fallback provider catalogs.
 - OAuth account surfaces in settings, discovery, and onboarding must use the provider registry/status summary rather than Codex-only frontend state.
 - OAuth settings pending-auth controls such as device codes, manual callback input, and provider setup fields must render inline under the relevant provider row, not as a detached section below all providers.
+- Codex response defaults stay visible and editable in its provider row below usage quotas, regardless of connection status or selected provider; setup and pending-auth controls retain their own visibility rules. Provider details use theme text and muted-text colors instead of inheriting the global connected-state green.
 - Device challenge codes use a selectable standalone box and an accessible copy button, reusing the shared clipboard and button-feedback helpers: successful copies briefly show a green checkmark and retain OAuth notifications.
 - OAuth device-code polling must honor provider `interval`, `expires_at`, and `slow_down` updates; do not poll immediately or keep a stale fixed interval after a provider asks the client to slow down.
 - OAuth settings model slots must keep provider choice editable per slot, list only connected OAuth account providers, and persist the selected provider IDs into `chat_model.provider` and `utility_model.provider`.
@@ -36,6 +37,7 @@
 - OAuth settings must dispatch `model-setup-changed` when a provider connection completes; provider defaults may be inferred from one connected account, but model-name selection remains explicit.
 - `helpers/providers/registry.py` is the source of truth for connectable OAuth providers.
 - The models API must preserve the legacy plain `models` slug list and may add `model_metadata` entries for richer provider catalogs.
+- Codex metadata recommends `gpt-6.1-terra` for Main and `gpt-6-luna` for Utility during onboarding. An explicit configured model list keeps its own ordering; these recommendations do not replace or restrict the live account catalog.
 - OAuth provider config must not expose the dummy `oauth` API key in `conf/model_providers.yaml`; the dummy key is a runtime-only shim supplied by the `get_api_key` extension after the account provider reports connected.
 - Usage-plan metadata belongs only to connectable providers. Do not add metadata-only subscription families for providers this plugin cannot connect.
 - API handlers should remain provider-aware. Missing or blank `provider_id` defaults to Codex only for existing backward compatibility; falsey non-string IDs must not silently default.

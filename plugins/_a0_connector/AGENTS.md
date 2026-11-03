@@ -18,6 +18,7 @@
 - `tools/text_editor_remote.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension; keep remote edits visually consistent with local edits.
 - Remote text editing reuses the shipped `_text_editor` patch and log helpers. Disabling local editor discovery does not remove these Python modules; removing the bundled dependency is unsupported.
 - Preserve session-auth and `auth.handlers` activation assumptions.
+- `v1/chats_list` keeps the normal list response unchanged. An optional string `query` (at most 200 characters) returns read-only `matches` over those loaded contexts, using the bundled `_sidebar_folders.helpers.search` pure helper independently of its UI activation/config. Return only IDs, title flags and bounded literal text parts; blank queries do not scan. Preserve the existing protected route's authentication. CLI search scope/order stays with its original candidate list.
 - Keep remote tool prompts synchronized with remote tool behavior and disclose
   them only from connected CLI metadata: no connected CLI hides all remote tool
   prompts, remote file metadata enables `text_editor_remote`, F4-enabled remote
@@ -28,6 +29,11 @@
   execution with framework-owned `allow_running`. It shares connection, write
   access, timeout, transfer, and disconnect handling; ordinary model args cannot
   enable `allow_running`. There is no `runtime=input` or `code` input alias.
+- `input_remote` requires both its own policy permission and the bundled
+  `plugin:_a0_connector:code_execution_remote` terminal action. Shared policy resolution
+  applies the dependency to prompts, native schemas, and execution; the input
+  wrapper rechecks that exact capability before rewriting args or dispatching,
+  including when a profile shadows the execution tool name.
 - Computer Use prompts keep `element_index` top-level and semantic `target` syntax in backend skills. macOS `app-scoped-semantic-targeting` enables explicit app/window scope; older clients use the indexed window workflow. Native `get_window_state.mode` only labels output and stays out of model-facing guidance.
 - `computer_use_remote` starts a missing chat session inside the first requested action only after the host returns `COMPUTER_USE_SESSION_REQUIRED` before dispatch. Start once on the same socket/context and resume with the returned session ID and a fresh operation ID. Never auto-replace an explicit session binding, retry permission/ambiguous failures, or start from `status`/`stop_session`; keep existing host enablement, trust, and platform approval checks. Attach the requested action's capture, not an extra startup capture.
 - Host Computer Use skills begin with `list_windows` or `capture`. Linux X11/XWayland viewer guidance lives in `skills/host-computer-use-linux/references/x11-viewers.md` and requires independently enabled host code execution for shell techniques. Permission denials remain stop conditions; the internal Docker/Xpra desktop and standalone X11 backend selection are unchanged.
@@ -109,6 +115,8 @@
 ## Verification
 
 - Run connector-specific tests or smoke-test HTTP and `/ws` integration when changing runtime behavior.
+- Run `tests/test_remote_input_policy.py` for remote-input authorization, zero dispatch on denial, prompt/schema gating, and preserved host access controls.
+- Run `python -m pytest tests/test_a0_connector_chat_search.py plugins/_sidebar_folders/tests/test_search.py -q` for the query branch, unchanged list shape, input validation and shared excerpt behavior.
 - Cross-platform first-call session startup and no-retry boundaries are covered in the sibling connector's `tests/test_plugin_backend.py`; Core prompt gating remains covered by `tests/test_a0_connector_prompt_gating.py`.
 - Launcher gateway regression coverage lives in
   `tests/test_a0_connector_launcher_gateway.py`.

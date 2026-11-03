@@ -36,7 +36,7 @@ async def reply(token, chat_id, message_id, text, markup=None):
         markup = None
 
 
-async def handle(context, token, chat_id, message_id, text) -> str | None:
+async def handle(context, token, chat_id, message_id, text, *, is_admin=False) -> str | None:
     """Return agent input, or None when the command was handled without an LLM."""
     invocation = commands.parse_slash_invocation(text)
     name = invocation["command_name"]
@@ -88,13 +88,15 @@ async def handle(context, token, chat_id, message_id, text) -> str | None:
             path=item["path"], slash_text=line,
             project_name=projects.get_context_project_name(context) or "", context_id=context.id,
         )
-        return await apply_result(context, token, chat_id, message_id, name, resolution["result"])
+        return await apply_result(
+            context, token, chat_id, message_id, name, resolution["result"], is_admin=is_admin,
+        )
     except Exception as exc:
         await reply(token, chat_id, message_id, f"/{name} failed: {exc}")
         return None
 
 
-async def apply_result(context, token, chat_id, message_id, name, result):
+async def apply_result(context, token, chat_id, message_id, name, result, *, is_admin=False):
     text = str(result.get("text") or "")
     notes = []
     for effect in result.get("effects") or []:
@@ -162,7 +164,7 @@ async def apply_result(context, token, chat_id, message_id, name, result):
         elif kind in {"open_modal", "open_plugin_config", "open_agent_editor"}:
             if name in {"plugins", "permissions"}:
                 from plugins._telegram_integration.helpers import settings_ui
-                await settings_ui.show(context, token, chat_id, message_id, name)
+                await settings_ui.show(context, token, chat_id, message_id, name, is_admin=is_admin)
             else:
                 notes.append(f"Open /{name} in the Agent Zero WebUI to edit these settings.")
         else:
@@ -220,13 +222,13 @@ async def compact_menu(context, token, chat_id, message_id):
         {"inline_keyboard": [[{"text": "Compact", "callback_data": f"a0:compact:{context.id}"}]]})
 
 
-async def handle_callback(context, token, chat_id, message_id, data):
+async def handle_callback(context, token, chat_id, message_id, data, *, is_admin=False):
     """Return (handled, agent text) for command menu callbacks."""
     if not data.startswith("a0:"):
         return False, None
     _, action, value = data.split(":", 2)
     from plugins._telegram_integration.helpers import settings_ui
-    if await settings_ui.handle_callback(context, token, chat_id, message_id, action, value):
+    if await settings_ui.handle_callback(context, token, chat_id, message_id, action, value, is_admin=is_admin):
         return True, None
     if action == "page":
         await send_menu(context, token, chat_id, message_id, int(value))
@@ -241,7 +243,7 @@ async def handle_callback(context, token, chat_id, message_id, data):
         await reply(token, chat_id, message_id, f"/{value}{' ' + hint if hint else ''}\nSend this command with any arguments, or run it now.",
             {"inline_keyboard": [[{"text": f"Run /{value}", "callback_data": f"a0:run:{value}"}]]})
     elif action == "run":
-        return True, await handle(context, token, chat_id, message_id, f"/{value}")
+        return True, await handle(context, token, chat_id, message_id, f"/{value}", is_admin=is_admin)
     elif action == "compact":
         if value != context.id or context.is_running():
             raise ValueError("This confirmation is no longer current. Send /compact again.")

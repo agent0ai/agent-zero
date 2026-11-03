@@ -11,6 +11,7 @@
 - `webui/thumbnail.webp` supplies the plugin gallery thumbnail at 256×256 pixels and under 20 KB.
 - `api/layout.py` persists independent project/chat/task order lists through `helpers.kvp`.
 - `api/move_chat.py` changes project context for an entire chat family.
+- `api/search.py` and `helpers/search.py` search loaded non-background chat/task titles and message logs; task titles use the scheduler's display name. `webui/search.html` owns the single sidebar input, inline or in a popover.
 
 ## Local Contracts
 
@@ -37,24 +38,30 @@
 - Extend list rows `--spacing-xs` beyond the header controls, with the same inset after their last action button. Keep header positions fixed so folder, chat, and worker action columns align in both views.
 - Folder actions reuse the standard chat action buttons with a subtle border at rest. Show them on pointer hover, keyboard focus, or while the folder menu is open; touch devices also show them for expanded folders.
 - Folder-row new-chat and overflow buttons use accessible labels without tooltips; Chats header controls retain their tooltips.
-- Sidebar menus share their pointer scope with the opening row or header. Dismiss after leaving both, allowing a short gap-crossing delay; also dismiss when focus leaves, the surrounding list scrolls, the window resizes, or the header extension unmounts. Mouse cleanup must not interrupt touch interaction or scrolling inside a menu.
+- Sidebar menus share their pointer scope with the opening row or header. Dismiss after leaving both, allowing a short gap-crossing delay; also dismiss when focus leaves, the surrounding list scrolls, the window resizes, or the header extension unmounts. The search popover stays open on pointer leave so typing is not interrupted; outside click, Escape, focus exit, scroll, resize, and unmount still dismiss it. Mouse cleanup must not interrupt touch interaction or scrolling inside a menu.
 - Resolve the core row menu through its `rowActionsMenu` reference, not shared menu styling classes that community plugins may also use. Header integrations must preserve the core header and its `chats-header-controls` extension point.
 - The two list-view extension points are display-only alternatives. Disabling the plugin restores the core lists and existing chat/task controls.
 - Register view and sorting callbacks when each list-view extension mounts, and unregister them when it unmounts. Importing the store from another plugin must not hide or filter the core lists while this plugin is disabled.
+- Search defaults to Standard below the Chats heading. Compact teleports an owned magnifier immediately before New Chat and opens the same input as a popover. No search clears the query and hides both controls. Mode saves in plugin config; query/results stay transient and clear when the chat-list extension unmounts.
+- The search placeholder is **Search**; retain its descriptive accessible label. Inline and popover inputs match the composer background, border, and 160ms focus/shadow transition while retaining compact sidebar sizing.
+- A search filters both sidebar lists within their existing project/status/activity filters and preserves families when a child matches. Show bounded plain-text excerpts linked to the actual matching chat or task. Temporarily reveal matching folders without saving expansion changes; flat mode uses the same rows without folder headings. Search must not alter `roots()`, shared sorting, or default `sections()` calls used by Welcome Chats; only sidebar rendering opts into search.
+- Debounce input, reject stale results/errors, invalidate requests on clear/disable/unmount, and retain auth/CSRF plus the 200-character API query limit. Use literal Unicode case-insensitive matching, not regex or model calls.
+- Search previews return server-split text parts with Unicode-safe match emphasis; render only through `x-text`. Keep short leading context, two visible lines aligned with the title, and no hover fill. Omit repeated root-title excerpts, but retain clickable child-title matches. Preview cleanup removes common Markdown formatting only when the literal match survives; never parse transcript HTML.
 
 ## Work Guidance
 
 - Reuse project creation/edit/file dialogs, notifications, native drag events, and Material `x-icon` elements.
 - View, sort, and Project/Status/Last activity filters share the plugin configuration API and save automatically from the sidebar menu. Missing or invalid filters fall back to all projects/statuses/times. This plugin has no separate configuration page.
 - Project moves and ordering use drag and drop, without move actions in thread menus. Folder-row creation uses the same `chat_add_on` icon as the New chat menu action.
-- Header, folder, chat, worker, and task action buttons share hover/focus treatment. The two Chats header icons use `1.125rem` inside the existing button frames, preserving action-column alignment with the smaller row icons. Header borders appear only on hover; row buttons retain their resting borders. Use `--spacing-xs` between buttons and at row ends. Keep these sidebar-scoped overrides in the plugin's header extension and retain row visibility behavior and confirmation states.
-- The options menu contains only View (Folders / Flat mode), Sort by, Project, Status, and Last activity. Keep native dropdowns consistent with Settings: muted borders, the small radius token, and an opaque menu-colored surface so native option lists remain readable. Use `--spacing-xs` gaps between fields and `--spacing-sm` outer padding. Show focus outlines for keyboard navigation, without a lingering pointer-click ring. Folder expansion belongs to individual folder rows.
+- Header, folder, chat, worker, and task action buttons share hover/focus treatment. Chats header icons use `1.125rem` inside the existing button frames, preserving action-column alignment with the smaller row icons. Header borders appear only on hover; row buttons retain their resting borders. Use `--spacing-xs` between buttons and at row ends. Keep these sidebar-scoped overrides in the plugin's header extension and retain row visibility behavior and confirmation states.
+- The options menu contains View (Folders / Flat mode), Sort by, Project, Status, Last activity, and Search as its final field (Standard / Compact / No search). Keep native dropdowns consistent with Settings: muted borders, the small radius token, and an opaque menu-colored surface so native option lists remain readable. Use `--spacing-xs` gaps between fields and `--spacing-sm` outer padding. Show focus outlines for keyboard navigation, without a lingering pointer-click ring. Folder expansion belongs to individual folder rows.
 - Sort copy uses **Last active**. Chats and tasks share **All**, **Working**, and **Idle**. A family is Working if any member runs without being paused or disabled; otherwise it is Idle, including completed/waiting chats, paused chats, and disabled tasks.
 
 ## Verification
 
 - `python -m pytest plugins/_sidebar_folders/tests/test_folders.py tests/test_chat_create.py tests/test_sidebar_row_actions.py tests/test_chat_working_animation.py tests/test_webui_chat_deletion.py -q`
 - `node plugins/_sidebar_folders/tests/test_frontend.mjs`
+- `node --test plugins/_sidebar_folders/tests/test_search_frontend.mjs` and `python -m pytest plugins/_sidebar_folders/tests/test_search.py -q`; verify all search modes, reload persistence, result clearing, child/task matches, popover dismissal/focus, and independence from Welcome Chats.
 - Check unchanged window-focus refreshes avoid sidebar DOM updates; activity metadata must still update clocks, status and names, with regrouping when ordering, filters or family membership change.
 - Verify live creation in an explicit project, folder/flat switching, nesting, pins, drag ordering, cross-project chat moves, no-project moves, task actions, reload persistence, and desktop/mobile/light-mode layouts.
 

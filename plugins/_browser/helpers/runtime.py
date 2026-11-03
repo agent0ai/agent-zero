@@ -3168,26 +3168,28 @@ class _BrowserRuntimeCore:
     async def _ensure_dom_helper(self, page: Any) -> None:
         if self._dom_helper_source is None:
             self._dom_helper_source = DOM_HELPER_PATH.read_text(encoding="utf-8")
-        await self._ensure_helper_source(
-            page,
-            self._dom_helper_source,
-            "() => Boolean(globalThis.__spaceBrowserDomHelper__?.captureDocument)",
-        )
-
-    async def _ensure_helper_source(self, page: Any, source: str, ready_script: str) -> None:
         targets = [page]
         frames = getattr(page, "frames", None)
         if isinstance(frames, list) and frames:
             targets = frames
         for target in targets:
             try:
-                has_helper = await target.evaluate(ready_script, isolated_context=True)
+                state = await target.evaluate(
+                    "() => ({version: globalThis.__spaceBrowserDomHelper__?.version || '',"
+                    " ready: Boolean(globalThis.__spaceBrowserDomHelper__?.captureDocument)})",
+                    isolated_context=True,
+                )
             except Exception:
                 continue
-            if has_helper:
+            if state["version"] and state["version"] != "2":
+                raise RuntimeError(
+                    "Reload the browser page before updating the DOM helper "
+                    "to remove legacy message listeners."
+                )
+            if state["version"] == "2" and state["ready"]:
                 continue
             with contextlib.suppress(Exception):
-                await target.evaluate(source, isolated_context=True)
+                await target.evaluate(self._dom_helper_source, isolated_context=True)
 
 _runtimes: dict[str, BrowserRuntimeSession] = {}
 _shared_runtime: BrowserRuntime | None = None

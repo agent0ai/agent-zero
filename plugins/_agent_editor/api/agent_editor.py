@@ -21,7 +21,15 @@ class AgentEditor(ApiHandler):
                 profile_id = editor.validate_profile_id(input.get("profile_id"))
                 return {
                     "ok": True,
-                    "state": editor.build_editor_state(profile_id, context),
+                    "state": editor.build_editor_state(
+                        profile_id, context, mode=str(input.get("mode") or "advanced"),
+                    ),
+                }
+            if action == "prompts":
+                profile_id = editor.validate_profile_id(input.get("profile_id"))
+                return {
+                    "ok": True,
+                    "prompts": editor.prompt_catalog(editor.EditorAgent(profile_id, context)),
                 }
             if action == "quick_create":
                 profile_id, receipt = editor.save_easy_profile(

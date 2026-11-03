@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.
+- Keep command previews compact in rendered execution output. `code-exe-handler.js` restores a matching command prefix from the already-masked `kvps.code` for Copy Output and step details, preserving command whitespace and the output body. Existing log size limits remain; copying cannot recover text already discarded by those limits.
 
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
 - A direct parallel code job retains its worker and loop-bound shell until the command ends or is cancelled. Output timeouts publish model-facing progress to the registered job and continue polling; callers use parallel job IDs. Close parallel shells explicitly on that worker loop on completion or cancellation, including partially connected shells. Top-level sessions retain their ordinary timeout/output/reset behavior.
@@ -37,6 +38,7 @@
 ## Verification
 
 - Smoke-test terminal, Python, Node.js, output polling, and reset paths after tool changes.
+- Run `pytest tests/test_webui_plugin_process_types.py -q` for compact execution previews, full stored command copying, and streamed action updates.
 
 ## Child DOX Index
 

@@ -1,7 +1,6 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
-import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import {
   LOCAL_PROVIDER_IDS,
   MORE_CLOUD_PROVIDER_IDS,
@@ -342,7 +341,7 @@ export const store = createStore("onboarding", {
   primaryButtonLabel() {
     if (this.step === "setup") return "Choose utility model";
     if (this.step === "utility") return this.saving ? "Saving" : "Finish setup";
-    if (this.step === "ready") return "Start Chatting";
+    if (this.step === "ready") return "Continue";
     return "Continue";
   },
 
@@ -854,8 +853,17 @@ export const store = createStore("onboarding", {
   },
 
   async startChatting() {
-    window.closeModal?.();
-    await chatsStore.newChat();
+    await window.closeModal?.();
+  },
+
+  async openProviderPlugins() {
+    const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+    const { store: plugins } = await import("/components/plugins/list/pluginListStore.js");
+    await window.closeModal?.();
+    installer.resetIndex();
+    installer.setBrowseFilter("tag:provider");
+    installer.initialBrowseFilter = "tag:provider";
+    await plugins.open("pluginHub");
   },
 
   async openAdvancedSettings() {

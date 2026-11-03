@@ -14,6 +14,7 @@
                 <!-- Modal Header Actions -->
                 <div class="modal-subheader">
                     <div class="notification-header-actions">
+                        <x-extension id="notification-header-actions-start"></x-extension>
                         <button class="notification-action" @click="$store.notificationStore?.clearAll()"
                             :disabled="!$store.notificationStore || $store.notificationStore.getDisplayNotifications().length === 0"
                             title="Clear All">
