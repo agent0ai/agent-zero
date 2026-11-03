@@ -18,7 +18,15 @@ async def test_code_job_keeps_polling_after_output_timeout_without_reexecuting(m
     tool.agent = agent
     tool.args = {"runtime": "terminal", "session": 0, "code": "long command"}
     tool.state = SimpleNamespace(shells={0: shell})
-    cfg = {"output_timeouts": {"first_output_timeout": 1}}
+    cfg = {
+        "output_timeouts": {"first_output_timeout": 1},
+        "code_exec_timeouts": {
+            "first_output_timeout": 1,
+            "between_output_timeout": 1,
+            "max_exec_timeout": 2,
+            "dialog_timeout": 1,
+        },
+    }
     monkeypatch.setattr(code, "_get_config", lambda _: cfg)
     monkeypatch.setattr(parallel_tools, "get_parallel_worker_job", lambda _: job)
     tool.execute_terminal_command = AsyncMock(return_value="START; output timeout")
@@ -39,9 +47,14 @@ async def test_code_job_keeps_polling_after_output_timeout_without_reexecuting(m
         assert result.message == ("START; DONE" if parallel else "START; output timeout")
     tool.execute_terminal_command.assert_awaited_once()
     if parallel:
-        tool.get_terminal_output.assert_awaited_once_with(
-            cfg, session=0, reset_full_output=False, timeouts=cfg["output_timeouts"],
-        )
+        tool.get_terminal_output.assert_awaited_once()
+        # deadline is time-based, so assert the call shape structurally
+        kwargs = tool.get_terminal_output.await_args.kwargs
+        assert kwargs["session"] == 0
+        assert kwargs["reset_full_output"] is False
+        assert kwargs["timeouts"] == cfg["code_exec_timeouts"]
+        assert "deadline" in kwargs
+        assert "attempts" in kwargs
         shell.session.close.assert_awaited_once()
     else:
         tool.get_terminal_output.assert_not_called()

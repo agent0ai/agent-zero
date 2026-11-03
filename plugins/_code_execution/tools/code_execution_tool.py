@@ -73,6 +73,14 @@ class CodeExecution(Tool):
         reset = coerce_bool(self.args.get("reset", False), False) or runtime_arg == "reset"
 
         cfg = _get_config(self.agent)
+        # One cumulative deadline for the whole terminal/python/nodejs dispatch.
+        # Re-polls must not restart the clock: each pass through
+        # get_terminal_output() resets its own start time, so without a shared
+        # deadline a wedged shell loops marker-after-marker until an outer
+        # caller kills it, and max_exec_timeout never fires cumulatively.
+        max_exec_timeout = cfg["code_exec_timeouts"]["max_exec_timeout"]
+        deadline = time.time() + max_exec_timeout
+        self.execution_failed = False
 
         if runtime_arg == "python":
             response = await self.execute_python_code(
@@ -98,12 +106,18 @@ class CodeExecution(Tool):
             )
 
         if job and runtime_arg in {"terminal", "python", "nodejs"}:
+            attempts = 0
             while self.state.shells[session].running:
+                attempts += 1
                 job.result = response
                 response = await self.get_terminal_output(
                     cfg, session=session, reset_full_output=False,
-                    timeouts=cfg["output_timeouts"],
+                    timeouts=cfg["code_exec_timeouts"],
+                    deadline=deadline,
+                    attempts=attempts,
                 )
+                if self.execution_failed or time.time() >= deadline:
+                    break
 
         if not response:
             response = self.agent.read_prompt(
@@ -273,7 +287,12 @@ class CodeExecution(Tool):
         sleep_time=0.5,
         prefix="",
         timeouts: dict | None = None,
+        deadline: float | None = None,
+        attempts: int = 0,
     ):
+        # ``deadline`` is an absolute epoch timestamp shared across automatic
+        # re-polls of one dispatch. Without it each re-poll restarts the clock
+        # (see _execute) and cumulative execution limits never fire.
         self.state = await self.prepare_state(cfg, session=session)
 
         # Override timeouts if a dict is provided
@@ -365,6 +384,25 @@ class CodeExecution(Tool):
                             self.log.update(heading=heading)
                             self.mark_session_idle(session)
                             return truncated_output
+
+            # Cumulative deadline shared across automatic re-polls.
+            # Exhausting it without output is a failed call, not a finished run.
+            if deadline is not None and now >= deadline:
+                total_wait = int(now - (deadline - max_exec_timeout))
+                self.execution_failed = True
+                sysinfo = self.agent.read_prompt(
+                    "fw.code.execution_failed.md",
+                    total_wait=total_wait,
+                    attempts=attempts,
+                    session=session,
+                )
+                response = self.agent.read_prompt("fw.code.info.md", info=sysinfo)
+                if truncated_output:
+                    response = truncated_output + "\n\n" + response
+                PrintStyle.warning(sysinfo)
+                heading = self.get_heading_from_output(truncated_output, 0)
+                self.log.update(content=prefix + response, heading=heading)
+                return response
 
             # Check for max execution time
             if now - start_time > max_exec_timeout:
