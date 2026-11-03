@@ -1,5 +1,8 @@
 import json
+from copy import deepcopy
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -94,16 +97,125 @@ def run_hooks(agent, result, doctor=True):
     return data
 
 
+@pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("suppress_xml", [True, False])
+@pytest.mark.parametrize("text", [
+    '<function=response><parameter=text>first\n\nsecond',
+    '<function_calls><invoke name="response"></invoke></function_calls>',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="missing"></｜DSML｜ invoke></｜DSML｜ calls>',
+])
+def test_context_doctor_owns_unrecovered_xml_history(monkeypatch, doctor, suppress_xml, text):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": suppress_xml, "split_thoughts": True},
+    )
+    agent = FakeAgent()
+    result = LLMResult.from_chat(response=text)
+    data = run_hooks(agent, result, doctor)
+    if doctor:
+        expected = {} if suppress_xml else {"thoughts": text.split("\n\n")}
+        assert data["skip_default_processing"] is True
+        assert [json.loads(item) for item in agent.history] == [expected]
+        assert result.response == agent.history[0]
+        assert agent.warnings == [agent.read_prompt("fw.msg_thoughts_fallback.md")]
+        assert len(agent.remembered) == 1
+    else:
+        assert not data.get("skip_default_processing")
+        assert result.response == text
+        assert not agent.history and not agent.warnings
+
+
+@pytest.mark.parametrize("suppress_xml", [True, False])
+@pytest.mark.parametrize("split_thoughts", [True, False])
+@pytest.mark.parametrize("update_log", [True, False])
+def test_context_doctor_formats_fallback_history_and_log(
+    monkeypatch, suppress_xml, split_thoughts, update_log
+):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {
+            "suppress_xml": suppress_xml, "split_thoughts": split_thoughts,
+            "update_log": update_log,
+        },
+    )
+    text = '<function=response><parameter=text>first\n\nsecond'
+    agent = FakeAgent()
+    log = Log()
+    item = log.log(type="agent", content=text, kvps={"reasoning": "kept", "tool_name": "response"})
+    agent.loop_data.params_temporary["log_item_generating"] = item
+    result = LLMResult.from_chat(response=text)
+    data = run_hooks(agent, result)
+    ContextDoctor(agent).execute(data)
+
+    expected = {} if suppress_xml else {"thoughts": text.split("\n\n") if split_thoughts else [text]}
+    formatted = json.dumps(expected, separators=(",", ":"))
+    assert item.kvps == {"reasoning": "kept", **expected}
+    assert item.content == (formatted if update_log else text)
+    assert data["skip_default_processing"] is True
+    assert result.response == formatted
+    assert agent.history == [formatted]
+    assert agent.warnings == [agent.read_prompt("fw.msg_thoughts_fallback.md")]
+    assert len(agent.remembered) == 1
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("text, expected_args", [
+    ('{"tool_name":"response","tool_args":{"text":"cut off', {"text": "cut off"}),
+    ('{"tool_name":"x","tool_args":{"nested":{"values":[1,2', {"nested": {"values": [1, 2]}}),
+    ('```json\n{"tool_name":"response","tool_args":{"text":"done"}}\n```', {"text": "done"}),
+    ('{"tool_name":"response","tool_args":{"text":"one"}} '
+     '{"tool_name":"response","tool_args":{"text":"two"}}', {"text": "one"}),
+])
+def test_context_doctor_retains_existing_salvage_behavior(mode, text, expected_args):
+    agent = FakeAgent()
+    result = LLMResult(response=text, mode=mode)
+    assert not run_hooks(agent, result).get("skip_default_processing")
+    assert json.loads(result.response)["tool_args"] == expected_args
+    assert not agent.history and not agent.warnings
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("split_thoughts", [True, False])
+def test_normal_json_repair_still_belongs_to_context_doctor(monkeypatch, mode, split_thoughts):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"split_thoughts": split_thoughts},
+    )
+    result = LLMResult(
+        response='{"thoughts":["first\\n\\nsecond"],"tool_name":"response","tool_args":{"text":"ok",},}',
+        mode=mode,
+    )
+    agent = FakeAgent()
+    assert not run_hooks(agent, result).get("skip_default_processing")
+    assert json.loads(result.response) == {
+        "thoughts": ["first", "second"] if split_thoughts else ["first\n\nsecond"],
+        "tool_name": "response", "tool_args": {"text": "ok"},
+    }
+    assert not agent.warnings
+
+
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
 @pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("update_log", [None, False, True])
+@pytest.mark.parametrize("text", [
+    '<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="response">'
+    '<｜DSML｜ parameter name="tool_args" string="false">{"text":"done"}</｜DSML｜ parameter>'
+    '</｜DSML｜ invoke></｜DSML｜ calls>',
+    '  {"name": "response", "arguments": {"text": "done"}}\n',
+])
 @pytest.mark.asyncio
 async def test_recovered_response_executes_through_normal_dispatch(
-    monkeypatch, mode, doctor
+    monkeypatch, mode, doctor, update_log, text
 ):
     async def no_op(*args, **kwargs):
         pass
 
     monkeypatch.setattr(extension, "call_extensions_async", no_op)
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"update_log": update_log} if update_log is not None else {},
+    )
     monkeypatch.setattr(
         mcp_handler.MCPConfig,
         "get_instance",
@@ -119,17 +231,23 @@ async def test_recovered_response_executes_through_normal_dispatch(
     agent.agent_name = "A0"
     log = Log()
     agent.context = SimpleNamespace(log=log)
-    agent.loop_data.params_temporary["log_item_generating"] = log.log(
-        type="agent", id="generation"
+    generating = log.log(
+        type="agent", id="generation", content=text, kvps={"reasoning": "kept"},
     )
+    agent.loop_data.params_temporary["log_item_generating"] = generating
     agent.get_tool = lambda **kwargs: ResponseTool(agent=agent, **kwargs)
     agent.handle_intervention = no_op
     result = LLMResult(
-        response='<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>',
+        response=text,
         mode=mode,
     )
 
     assert not run_hooks(agent, result, doctor).get("skip_default_processing")
+    assert generating.content == (result.response if doctor and update_log else text)
+    assert generating.kvps["reasoning"] == "kept"
+    recovery_notices = [entry for entry in log.logs if entry.content == "Recovered a complete leaked tool call."]
+    assert len(recovery_notices) == 1
+    assert recovery_notices[0].type == "util"
     assert await Agent.process_llm_result_tools(agent, result) == "done"
     responses = [item for item in log.logs if item.type == "response"]
     assert len(responses) == 1
@@ -139,18 +257,100 @@ async def test_recovered_response_executes_through_normal_dispatch(
     assert agent.loop_data.current_tool is None
 
 
-@pytest.mark.parametrize(
-    "mode, first_text",
-    [
-        ("chat_completions", '{"name":"response","arguments":{"text":"unfinished'),
-        ("responses", '{"name":"response","arguments":{"text":"unfinished'),
-        ("chat_completions", "READY"),
-    ],
-)
-@pytest.mark.parametrize("doctor", [True, False])
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("missing", ["thoughts_bracket", "final_brace", "both"])
+def test_context_doctor_repairs_missing_a0_delimiters_without_retry(mode, missing):
+    expected = {
+        "thoughts": ["Respond now"], "headline": "Done",
+        "tool_name": "response", "tool_args": {"text": "done"},
+    }
+    text = json.dumps(expected)
+    if missing in {"thoughts_bracket", "both"}:
+        text = text.replace('"Respond now"]', '"Respond now"')
+    if missing in {"final_brace", "both"}:
+        text = text[:-1]
+    agent = FakeAgent()
+    result = LLMResult(response=text, mode=mode)
+    data = run_hooks(agent, result)
+    assert not data.get("skip_default_processing")
+    assert json.loads(result.response) == expected
+    assert not agent.warnings and not agent.history
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("doctor", [False, True])
+@pytest.mark.parametrize("update_log", [False, True])
+@pytest.mark.parametrize("fixture, tool_name, headline", [
+    ("dsml_parallel_headline.txt", "parallel", "Reading the project file and searching for a relevant implementation"),
+    ("dsml_text_editor_tool_name.txt", "text_editor", None),
+])
 @pytest.mark.asyncio
-async def test_message_loop_retries_then_displays_recovered_response(
-    monkeypatch, mode, first_text, doctor
+async def test_reported_dsml_calls_preserve_log_and_arguments(monkeypatch, mode, doctor, update_log, fixture, tool_name, headline):
+    text = Path(__file__).with_name("fixtures").joinpath(fixture).read_text()
+    args = json.loads(text.split('string="false">', 1)[1].split('</｜DSML｜ parameter>', 1)[0])
+    expected = {"tool_name": tool_name, "tool_args": args}
+    if headline is not None:
+        expected["headline"] = headline
+    monkeypatch.setattr(recovery, "build_responses_function_tools", lambda agent: ([], {tool_name: tool_name}))
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"update_log": update_log},
+    )
+    monkeypatch.setattr(extension, "call_extensions_async", AsyncMock())
+    monkeypatch.setattr(
+        mcp_handler.MCPConfig, "get_instance",
+        lambda: SimpleNamespace(get_tool=lambda *args: None),
+    )
+    agent = object.__new__(Agent)
+    agent.agent_name = "A0"
+    agent.data = {"responses_tool_name_map": {tool_name: tool_name}}
+    agent.loop_data = LoopData()
+    agent.context = SimpleNamespace(log=Log())
+    generating = agent.context.log.log(type="agent", content=text)
+    agent.loop_data.params_temporary["log_item_generating"] = generating
+    tool = SimpleNamespace(
+        before_execution=AsyncMock(), after_execution=AsyncMock(),
+        execute=AsyncMock(return_value=SimpleNamespace(break_loop=False)),
+    )
+    agent.get_tool = Mock(return_value=tool)
+    agent.handle_intervention = AsyncMock()
+    result = LLMResult(response=text, mode=mode)
+
+    assert not run_hooks(agent, result, doctor).get("skip_default_processing")
+    assert json.loads(result.response) == expected
+    assert generating.content == (result.response if doctor and update_log else text)
+    if doctor:
+        heading = headline or f"Using {tool_name}"
+        assert generating.heading == f"A0: {heading}"
+        assert generating.kvps.get("headline") == headline
+    await Agent.process_llm_result_tools(agent, result)
+    agent.get_tool.assert_called_once()
+    assert agent.get_tool.call_args.kwargs["name"] == tool_name
+    tool.execute.assert_awaited_once_with(**args)
+
+
+@pytest.mark.parametrize("mode, first_text, doctor, turns, warning_count", [
+    ("chat_completions", '{"name":"response","arguments":{"text":"unfinished', True, 2, 0),
+    ("chat_completions", '{"name":"response","arguments":{"text":"unfinished', False, 2, 1),
+    *[
+        (mode, text, doctor, 2, 0)
+        for mode in ("chat_completions", "responses")
+        for doctor in (False, True)
+        for text in ("", "READY", '{"thoughts":["Continue checking"]}')
+    ],
+    *[
+        (mode, text, True, 1, 0)
+        for mode in ("chat_completions", "responses")
+        for text in (
+            '{"thoughts":["Respond now","tool_name":"response","tool_args":{"text":"done"}}',
+            '{"thoughts":["Respond now"],"tool_name":"response","tool_args":{"text":"done"}',
+            '{"thoughts":["Respond now","tool_name":"response","tool_args":{"text":"done"}',
+        )
+    ],
+])
+@pytest.mark.asyncio
+async def test_message_loop_repairs_then_displays_response(
+    monkeypatch, mode, first_text, doctor, turns, warning_count
 ):
     from helpers import history
     from extensions.python.response_stream._20_live_response import LiveResponse
@@ -164,14 +364,18 @@ async def test_message_loop_retries_then_displays_recovered_response(
     agent.last_user_message = None
     agent.history = history.History(agent)
     agent.hist_add_message = agent.history.add_message
+    agent.history.add_message(False, "Original question")
     agent.parse_prompt = lambda name, **kwargs: kwargs["message"]
     agent.read_prompt = lambda name, **kwargs: read_prompt_file(
-        name, ["plugins/_context_doctor/prompts", "prompts"], **kwargs
+        name, (["plugins/_context_doctor/prompts"] if doctor else []) + ["prompts"],
+        **kwargs
     )
     log = Log()
     agent.context = SimpleNamespace(log=log, streaming_agent=None, task=None)
     agent.get_tool = lambda **kwargs: ResponseTool(agent=agent, **kwargs)
     calls = []
+    prompts = []
+    metadata = []
     complete = '<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>'
 
     async def no_op(*args, **kwargs):
@@ -180,17 +384,32 @@ async def test_message_loop_retries_then_displays_recovered_response(
     async def fail(location, exception):
         raise exception
 
-    async def call_model(*, response_callback, **kwargs):
-        assert len(calls) < 2, "The recovered response did not finish the loop"
+    async def prepare_prompt(**kwargs):
+        return agent.history.current.output()
+
+    async def call_model(*, messages, response_callback, reasoning_callback, **kwargs):
+        assert len(calls) < turns, "The repaired response should finish without an extra model call"
+        if calls and mode == "responses":
+            assert agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)["response_id"] == "turn-1"
+        prompts.append(deepcopy(messages))
         text = (first_text, complete)[len(calls)]
         calls.append(text)
         middle = len(text) // 2
         assert await response_callback(text[:middle], text[:middle]) is None
         assert await response_callback(text[middle:], text) is None
-        return LLMResult(
-            response=text, mode=mode, response_id=f"turn-{len(calls)}",
+        reasoning = "thinking" if not text else ""
+        if reasoning:
+            await reasoning_callback(reasoning, reasoning)
+        result = LLMResult(
+            response=text, reasoning=reasoning, mode=mode, response_id=f"turn-{len(calls)}",
             provider_model_key="test/model",
+            output_items=[ResponseItem.from_any({
+                "type": "reasoning", "id": "reasoning-1", "encrypted_content": "opaque",
+                "summary": [{"type": "summary_text", "text": reasoning}],
+            })] if reasoning else [],
         )
+        metadata.append(deepcopy(result.metadata()))
+        return result
 
     async def call_extensions(point, target=None, **kwargs):
         if point == "before_main_llm_call":
@@ -215,66 +434,103 @@ async def test_message_loop_retries_then_displays_recovered_response(
         mcp_handler.MCPConfig, "get_instance",
         lambda: SimpleNamespace(get_tool=lambda *args: None),
     )
-    agent.prepare_prompt = no_op
+    agent.prepare_prompt = prepare_prompt
     agent.handle_intervention = no_op
     agent.handle_exception = fail
     agent.call_chat_model_turn = call_model
 
     assert await Agent.monologue.__wrapped__(agent) == "done"
-    assert calls == [first_text, complete]
+    assert calls == [first_text, complete][:turns]
     responses = [item for item in log.logs if item.type == "response"]
     assert len(responses) == 1
-    assert responses[0].id == "turn-2"
+    assert responses[0].id == f"turn-{turns}"
     assert responses[0].content == "done"
     assert responses[0].kvps["finished"] is True
+    assert len([item for item in log.logs if item.type == "warning"]) == warning_count
     ai_messages = [message for message in agent.history.all_messages() if message.ai]
-    assert len(ai_messages) == 2
-    if first_text == "READY" and doctor:
-        assert json.loads(ai_messages[0].content) == {"thoughts": ["READY"]}
+    assert len(ai_messages) == turns
+    assert ai_messages[0].metadata == metadata[0]
+    if turns == 2:
+        assert prompts[0] and prompts[1][:len(prompts[0])] == prompts[0]
+        if doctor or not first_text:
+            expected = (
+                json.loads(first_text) if first_text.startswith('{"thoughts"')
+                else {"thoughts": [first_text or "thinking"]}
+            )
+            assert json.loads(ai_messages[0].content) == expected
+            assert log.logs[0].kvps["thoughts"] == expected["thoughts"]
+        else:
+            assert ai_messages[0].content == first_text
     else:
-        assert ai_messages[0].content == first_text
-    assert json.loads(ai_messages[1].content)["tool_args"] == {"text": "done"}
+        assert not agent.loop_data.params_persistent.get(response_loop.STATE_KEY)
+        assert not [item for item in log.logs if item.type == "warning"]
+    assert json.loads(ai_messages[-1].content)["tool_args"] == {"text": "done"}
     if mode == "responses":
-        assert agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)["response_id"] == "turn-2"
+        assert agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)["response_id"] == f"turn-{turns}"
 
 
-@pytest.mark.parametrize("doctor", [True, False])
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
-@pytest.mark.parametrize(
-    "text",
-    [
-        "<function=response><parameter=text>cut off",
-        '{"tool_name":"response","tool_args":{"text":"cut off',
-        '<tool_call>{"name":"unoffered","arguments":{}}</tool_call>',
-        "<function=response><parameter=text>one</parameter></function>"
-        "<function=response><parameter=text>two</parameter></function>",
-        '{"tool_name":"response","tool_args":{"text":"one"}} '
-        '{"tool_name":"response","tool_args":{"text":"two"}}',
-    ],
-)
-def test_rejected_turn_skips_dispatch_and_stops_at_budget(doctor, mode, text):
+@pytest.mark.parametrize("text", [
+    "<function=response><parameter=text>cut off",
+    '{"tool_name":"response","tool_args":{"text":"cut off',
+    '<tool_call>{"name":"unoffered","arguments":{}}</tool_call>',
+    "<function=response><parameter=text>one</parameter></function>"
+    "<function=response><parameter=text>two</parameter></function>",
+    '{"tool_name":"response","tool_args":{"text":"one"}} '
+    '{"tool_name":"response","tool_args":{"text":"two"}}',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="response">'
+    '<｜DSML｜ parameter name="tool_args" string="false">{"text":"done"}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">x</｜DSML｜ parameter>'
+    '</｜DSML｜ invoke></｜DSML｜ calls>',
+])
+def test_failed_conversion_leaves_output_for_normal_processing(mode, text):
+    agent = FakeAgent()
+    result = LLMResult(response=text, mode=mode)
+    data = {"llm_result": result}
+    LeakedToolCall(agent).execute(data)
+    assert not data.get("skip_default_processing")
+    assert result.response == text
+    assert not agent.history and not agent.warnings and not agent.logs
+    assert not agent.loop_data.params_temporary
+
+
+def test_context_doctor_fallback_retains_existing_retry_limit():
     agent = FakeAgent()
     for iteration in range(3):
         agent.loop_data.iteration = iteration
-        result = LLMResult(response=text, mode=mode)
+        result = LLMResult.from_chat(response="<function=response><parameter=text>cut off")
         if iteration == 2:
             with pytest.raises(HandledException):
-                run_hooks(agent, result, doctor)
+                run_hooks(agent, result)
         else:
-            assert run_hooks(agent, result, doctor)["skip_default_processing"] is True
-        assert result.response == text
-        assert len(agent.history) == iteration + 1
-        assert len(agent.warnings) == iteration + 1
-        assert len(agent.remembered) == iteration + 1
+            assert run_hooks(agent, result)["skip_default_processing"] is True
+        assert agent.history == ["{}"] * (iteration + 1)
+        assert agent.warnings == [agent.read_prompt("fw.msg_thoughts_fallback.md")] * (iteration + 1)
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 3
 
 
-def test_missing_or_empty_surface_cannot_enable_recovery():
-    for surface in ({}, None):
-        agent = FakeAgent()
-        agent.name_map = surface
-        result = LLMResult(response='{"name":"response","arguments":{"text":"done"}}')
-        assert run_hooks(agent, result)["skip_default_processing"] is True
+def test_mixed_no_action_turns_share_limit_and_only_show_final_stop():
+    agent = FakeAgent()
+    results = [
+        LLMResult.from_chat(response="Still checking"),
+        LLMResult.from_chat(response="", reasoning="Need another check"),
+        LLMResult.from_chat(response='{"thoughts":["Continue checking"]}'),
+    ]
+    for iteration, result in enumerate(results):
+        agent.loop_data.iteration = iteration
+        if iteration == 2:
+            with pytest.raises(HandledException):
+                run_hooks(agent, result)
+        else:
+            assert run_hooks(agent, result)["skip_default_processing"] is True
+            assert agent.logs == []
+
+    assert len(agent.history) == 3
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 3
+    assert agent.logs == [{
+        "type": "warning",
+        "content": agent.read_prompt("fw.msg_unusable_response_limit.md", limit=3),
+    }]
 
 
 def test_diagnostics_do_not_include_argument_contents():
@@ -282,8 +538,8 @@ def test_diagnostics_do_not_include_argument_contents():
     result = LLMResult(
         response='<tool_call>{"name":"x","arguments":{"secret":"fixture-secret"}}</tool_call>'
     )
-    data = run_hooks(agent, result)
-    assert "fixture-secret" not in str(agent.loop_data.params_temporary.get("leaked_tool_call"))
+    run_hooks(agent, result)
+    assert not agent.loop_data.params_temporary
     assert "fixture-secret" not in str(agent.logs)
 
 
@@ -332,43 +588,6 @@ def test_discovered_recovery_hook_runs_before_context_doctor(monkeypatch):
     )
 
 
-def test_rejected_response_advances_real_history_state_once(monkeypatch):
-    from helpers import history
-
-    monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
-    agent = object.__new__(Agent)
-    agent.data = {"responses_tool_name_map": {"response": "response"}}
-    agent.loop_data = LoopData()
-    agent.agent_name = "A0"
-    agent.history = history.History(agent)
-    agent.parse_prompt = lambda template, **kwargs: kwargs["message"]
-    agent.hist_add_message = agent.history.add_message
-    agent.context = SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: None))
-    agent.read_prompt = lambda name: read_prompt_file(name, ["prompts"])
-    agent.hist_add_warning = lambda **kwargs: SimpleNamespace(id="warning")
-    remembered = []
-
-    def remember(result, message):
-        remembered.append(result)
-        Agent._remember_llm_result_state(agent, result, message)
-
-    agent._remember_llm_result_state = remember
-    result = LLMResult(
-        response="<function=response><parameter=text>cut off",
-        response_id="synthetic-rejected-turn",
-        provider_model_key="test/model",
-    )
-    data = {"llm_result": result}
-    LeakedToolCall(agent).execute(data)
-    assert data["skip_default_processing"] is True
-    assert remembered == [result]
-    messages = agent.history.all_messages()
-    assert len(messages) == 1
-    state = agent.get_data(Agent.DATA_NAME_RESPONSES_STATE)
-    assert state["response_id"] == "synthetic-rejected-turn"
-    assert state["history_counter"] == messages[0].sequence
-
-
 @pytest.mark.parametrize(
     "text",
     [
@@ -402,17 +621,18 @@ def test_chat_uses_current_surface_instead_of_a_stale_native_map(monkeypatch, su
     result = LLMResult.from_chat(
         response='{"name":"native_response","arguments":{"text":"done"}}'
     )
-    data = {"llm_result": result}
-    LeakedToolCall(agent).execute(data)
+    data = run_hooks(agent, result, doctor=False)
     assert calls == [agent]
     if surface:
         assert not data.get("skip_default_processing")
         assert result.response == '{"tool_name":"response","tool_args":{"text":"done"}}'
     else:
-        assert data["skip_default_processing"] is True
+        assert not data.get("skip_default_processing")
+        assert result.response == '{"name":"native_response","arguments":{"text":"done"}}'
+        assert not agent.history and not agent.warnings
 
 
-def test_surface_discovery_failure_retries_without_disclosing_exception(monkeypatch):
+def test_surface_discovery_failure_falls_through_without_disclosing_exception(monkeypatch):
     def failed_build(agent):
         raise RuntimeError("fixture-sensitive-provider-details")
 
@@ -421,16 +641,23 @@ def test_surface_discovery_failure_retries_without_disclosing_exception(monkeypa
     result = LLMResult.from_chat(
         response='{"name":"response","arguments":{"text":"done"}}'
     )
-    data = {"llm_result": result}
-    LeakedToolCall(agent).execute(data)
-    assert data["skip_default_processing"] is True
-    assert agent.loop_data.params_temporary["leaked_tool_call"] == "rejected"
-    assert "fixture-sensitive" not in str(agent.logs + agent.warnings)
+    data = run_hooks(agent, result, doctor=False)
+    assert not data.get("skip_default_processing")
+    assert result.response == '{"name":"response","arguments":{"text":"done"}}'
+    assert not agent.history and not agent.warnings and not agent.logs
 
 
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("text", [
+    "<function=x></function>",
+    '<｜DSML｜ calls><｜DSML｜ invoke name="x"></｜DSML｜ invoke></｜DSML｜ calls>',
+    '<｜DSML｜ calls><｜DSML｜ invoke name="x">'
+    '<｜DSML｜ parameter name="tool_args" string="false">{}</｜DSML｜ parameter>'
+    '<｜DSML｜ parameter name="tool_name" string="true">x</｜DSML｜ parameter>'
+    '</｜DSML｜ invoke></｜DSML｜ calls>',
+])
 @pytest.mark.asyncio
-async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch, mode):
+async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch, mode, text):
     from helpers import tool_policy
     from helpers.errors import RepairableException
     from plugins._tool_access.extensions.python.tool_execute_before._10_enforce_tool_policy import (
@@ -475,10 +702,10 @@ async def test_recovered_call_still_obeys_execution_time_tool_policy(monkeypatch
     agent.loop_data = LoopData()
     agent.get_tool = lambda **kwargs: BlockedTool()
     agent.handle_intervention = no_op
-    result = LLMResult(response="<function=x></function>", mode=mode)
+    result = LLMResult(response=text, mode=mode)
     data = {"llm_result": result}
     LeakedToolCall(agent).execute(data)
-    assert agent.loop_data.params_temporary["leaked_tool_call"] == "call"
+    assert json.loads(result.response) == {"tool_name": "x", "tool_args": {}}
     with pytest.raises(RepairableException, match='Tool "x" is blocked'):
         await Agent.process_llm_result_tools(agent, result)
     assert agent.loop_data.current_tool is None
@@ -496,34 +723,6 @@ def test_recovery_maps_aliases_before_and_after_action_normalization(monkeypatch
     }
 
 
-@pytest.mark.parametrize("text", [
-    '<tool_call>{"name":"response","arguments":{"text":"done"}}</tool_call>',
-    'Example: ```json\n{"tool_name":"response","tool_args":{"text":"done"}}\n```',
-    '{"name":"response","arguments":{"text":"half',
-    '{"tool_name":"response","tool_args":{}} {"tool_name":"response","tool_args":{}}',
-])
-def test_recovery_classifies_once_and_doctor_does_not_repair_again(monkeypatch, text):
-    from plugins._context_doctor.extensions.python.message_loop_result import (
-        _10_context_doctor as doctor,
-    )
-
-    classify = recovery.extract_leaked_tool_request
-    calls = []
-
-    def counted(response):
-        calls.append(response)
-        return classify(response)
-
-    def unexpected_repair(*args, **kwargs):
-        pytest.fail("Context Doctor reinterpreted an already classified turn")
-
-    monkeypatch.setattr(recovery, "extract_leaked_tool_request", counted)
-    monkeypatch.setattr(doctor, "transform_response", unexpected_repair)
-    monkeypatch.setattr(doctor, "looks_like_tool_call", unexpected_repair)
-    run_hooks(FakeAgent(), LLMResult.from_chat(response=text))
-    assert calls == [text]
-
-
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
 @pytest.mark.parametrize("doctor", [True, False])
 def test_provider_truncation_retains_existing_warning_owner(mode, doctor):
@@ -535,7 +734,6 @@ def test_provider_truncation_retains_existing_warning_owner(mode, doctor):
     data = run_hooks(agent, result, doctor)
     assert data["skip_default_processing"] is True
     assert agent.warnings == [agent.read_prompt("fw.msg_output_limit.md")]
-    assert "leaked_tool_call" not in agent.loop_data.params_temporary
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
 
 
@@ -551,20 +749,25 @@ def test_complete_recovered_call_survives_provider_output_limit():
 
 
 @pytest.mark.parametrize("name_map", [None, {}, [], {"x": None}, {1: "x"}])
-def test_missing_or_invalid_offered_map_cannot_authorize_recovery(name_map):
+def test_missing_or_invalid_offered_map_leaves_output_unchanged(name_map):
     agent = FakeAgent()
     agent.name_map = name_map
-    data = run_hooks(agent, LLMResult(response='{"name":"x","arguments":{}}'))
-    assert data["skip_default_processing"] is True
-    assert agent.loop_data.params_temporary["leaked_tool_call"] == "rejected"
+    text = '{"name":"x","arguments":{}}'
+    result = LLMResult(response=text)
+    data = run_hooks(agent, result, doctor=False)
+    assert not data.get("skip_default_processing")
+    assert result.response == text
+    assert not agent.history and not agent.warnings
 
 
 @pytest.mark.parametrize("mode", ["chat_completions", "responses"])
-def test_existing_tool_is_not_recovered_unless_offered(monkeypatch, mode):
+def test_existing_tool_is_not_converted_unless_offered(monkeypatch, mode):
     names = {"x": "x"}
     monkeypatch.setattr(recovery, "build_responses_function_tools", lambda agent: ([], names))
     agent = FakeAgent(name_map=names)
-    result = LLMResult(response='{"name":"response","arguments":{"text":"done"}}', mode=mode)
-    data = run_hooks(agent, result)
-    assert data["skip_default_processing"] is True
-    assert agent.loop_data.params_temporary["leaked_tool_call"] == "rejected"
+    text = '{"name":"response","arguments":{"text":"done"}}'
+    result = LLMResult(response=text, mode=mode)
+    data = run_hooks(agent, result, doctor=False)
+    assert not data.get("skip_default_processing")
+    assert result.response == text
+    assert not agent.history and not agent.warnings

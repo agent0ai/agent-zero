@@ -29,6 +29,7 @@
 - LiteLLM and OpenAI pins must remain compatible. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.
 - Native agent-turn response callbacks may receive a display-only commentary preview as their full text; legacy callbacks, accumulated model output, usage and native dispatch retain the original text and result metadata.
 - `run_ui.py` is the WebUI entry point.
+- `pytest.ini` and root `conftest.py` own test discovery: `tests` and `plugins` testpaths with importlib import mode, `tests/` importable for sibling test imports, and handler modules named like tests kept out of collection.
 - `prepare.py` migrates and loads legacy `.env` configuration before writing the root password; `helpers/migration.py` owns preservation of existing files and symlink handling.
 - `DockerfileLocal` must remain compatible with the contracts under `docker/`.
 - Runtime or user state under `usr/` and `tmp/` is intentionally outside tracked DOX unless the user explicitly asks otherwise.
@@ -40,7 +41,7 @@
 - Preserve authentication and CSRF protections.
 - Use Linux paths and commands in examples.
 - When a live Dockerized Agent Zero target is explicitly named, verify that exact runtime instead of assuming a fixed localhost port.
-- Message-loop completion flows through a response tool with `break_loop`; plain or malformed Chat Completions text enters repair, and native Responses output text is normalized through the same response-tool path.
+- Message-loop completion requires an explicit response-tool call with `break_loop`. Free text in either transport remains generation thoughts and silently continues; never synthesize a response-tool call from prose. Malformed tool intent keeps its repair path.
 - Reuse the startup-preloaded local embedding model for matching runtime configurations; wrappers retain their own rate-limit configuration while sharing the underlying inference model.
 - Embedding wrappers expose batch-shaped `embed(inputs)` for provider-ready inputs; keep `embed_documents` and `embed_query` as LangChain compatibility adapters.
 - Embedding requests never forward the chat-only `a0_api_mode` control to providers.

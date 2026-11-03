@@ -4,10 +4,11 @@ Repairs model tool call JSON before sending it to history and tool processing.
 
 ## Behavior
 
-- Uses `json_repair` after native parsing has completed.
-- Accepts only complete Agent Zero tool calls (`tool_name` and object `tool_args`).
+- Uses `json_repair` on completed model output, including missing brackets, braces and unfinished arguments.
+- Selects a repaired Agent Zero tool call (`tool_name` and object `tool_args`) or preserves model-authored thoughts and headlines.
 - Stores repaired tool calls as compact JSON; log kvps retain streamed reasoning and add transformed fields.
 - Expands blank-line-separated thoughts into separate entries after repair when the split strategy is enabled.
-- Core recovery validates standalone leaked XML/native calls against offered tools before this plugin; rejected or truncated calls use bounded retries.
-- Uses the core recovery decision without parsing it again; quoted tool examples remain non-executable.
-- Optionally replaces non-tool XML-like output with `{}`.
+- Core first attempts conversion of complete alternate-format XML/DSML/native calls. Unconverted text still reaches Context Doctor's normal repair path.
+- With **Update log content** off (default), View Details keeps the original model output, including recovered XML/DSML. Turn it on to show repaired JSON instead. Recovery notices use the UTL badge and follow **Show utility messages**.
+- When no valid tool call is present, prose in either API mode and model-authored thoughts/headlines stay in the current generation as thoughts. The agent retries silently with an internal tool-call reminder; only an explicit response-tool call delivers the final answer. Unusable XML-like output is suppressed by default; turning suppression off keeps it as thoughts. The configured consecutive-failure limit still stops recovery with a visible notice.
+- Repaired calls use normal tool dispatch and permissions. Native transport calls and earlier output-limit handling retain their existing paths.

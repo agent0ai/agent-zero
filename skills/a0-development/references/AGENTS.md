@@ -22,6 +22,7 @@
 - Prefer pointing to narrower `AGENTS.md` files instead of copying long subtree contracts.
 - Keep examples minimal and compatible with the current helper classes.
 - Operation examples must distinguish HTTP payloads from agent-tool arguments, identify scope and side effects, and verify returned IDs/state.
+- Scheduler operations use the `_scheduler` plugin API routes under `/api/plugins/_scheduler/`; the scheduling engine remains in `helpers/task_scheduler.py`.
 - Do not include hardcoded default WebUI ports or environment-specific credentials.
 
 ## Work Guidance

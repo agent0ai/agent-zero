@@ -23,27 +23,23 @@ class LogPlainResponses(Extension):
             message = call_args[1]
         if not isinstance(message, str) or not message:
             return
+        if not getattr(llm_result, "response", message).strip():
+            return
         if (
             extract_tools.extract_tool_request(message) is not None
             or extract_tools.is_misformatted_tool_request(message)
         ):
             return
+        parsed = extract_tools.json_parse_dirty(message)
+        if isinstance(parsed, dict) and ("thoughts" in parsed or "headline" in parsed):
+            return
 
         params = getattr(getattr(self.agent, "loop_data", None), "params_temporary", None)
         if not isinstance(params, dict) or "log_item_response" in params:
-            return
-        if params.get("leaked_tool_call") in {"rejected", "truncated"}:
             return
 
         log_item = params.get("log_item_generating")
         if log_item is None:
             return
 
-        params["log_item_response"] = log_item
-        log_item.update(
-            type="response",
-            heading="",
-            content=message,
-            finished=True,
-            update_progress="none",
-        )
+        log_item.update(content=message, thoughts=[message])

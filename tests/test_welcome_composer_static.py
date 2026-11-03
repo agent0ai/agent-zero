@@ -31,15 +31,14 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert "get heroSubtitle()" in welcome_store
     assert 'return "How can I help you today?";' in welcome_store
     assert '<h2>Quick Actions</h2>' in welcome
-    assert 'class="welcome-lower-grid"' in welcome
+    assert 'class="welcome-board"' in welcome
     assert 'x-extension id="welcome-actions-end"' in welcome
-    assert "grid-template-columns: repeat(4, minmax(0, 1fr));" in welcome
-    assert '"accounts accounts channels channels"' in welcome
-    assert '"system system system system"' in welcome
+    for block in ("intro", "quick-actions", "accounts", "channels", "system"):
+        assert f'data-welcome-block="{block}"' in welcome
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in welcome
+    assert '.welcome-board > .is-paired,\n        .welcome-board > .welcome-quick-section[data-welcome-size="half"],\n        .welcome-board > .welcome-system-card[data-welcome-size="half"] {\n            grid-column: auto;' in welcome
+    assert '.welcome-board > .welcome-system-card[data-welcome-size="half"] { grid-column: 1 / -1; }' in welcome
     assert "align-items: stretch;" in welcome
-    assert ".welcome-lower-grid .discovery-slot {\n            display: contents;" in welcome
-    assert ".welcome-lower-grid .discovery-account-card {\n            grid-area: accounts;" in welcome
-    assert "grid-area: system;" in welcome
     assert ".welcome-composer .input-row {\n            min-height: 4.9rem;" in welcome
     assert "border-radius: 8px;" in welcome
     assert 'aria-label="Refresh System Resources"' in welcome
@@ -66,8 +65,12 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert 'aria-label="Dismiss Connect Channels"' in discovery_cards
     assert "dismissFeatureCards()" in discovery_cards
     assert "dismissFeatureCards() {" in discovery_store
-    assert 'class="discovery-feature-card"\n                                type="button"' in discovery_cards
-    assert "`${card.cta_text || 'Connect'} ${card.title}`" in discovery_cards
+    assert "Find channels plugins" in discovery_cards
+    assert "$store.welcomeStore.openWelcomePlugins('channels')" in discovery_cards
+    assert '<x-icon name="extension"></x-icon>' in discovery_cards
+    assert 'welcome-panel-icon-button welcome-panel-text-button' in discovery_cards
+    assert 'class="discovery-feature-card" type="button"' in " ".join(discovery_cards.split())
+    assert 'class="discovery-feature-title" x-text="card.title"' in discovery_cards
     assert "discovery-feature-card > .btn" not in discovery_cards
     assert "discovery-feature-head" not in discovery_cards
     assert "discovery-account-header" in discovery_cards
@@ -78,6 +81,8 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert "x-if=\"$store.welcomeStore && $store.welcomeStore.isVisible\"" in index
     assert "x-if=\"!$store.welcomeStore || !$store.welcomeStore.isVisible\"" in index
     assert "Connect Channels" in discovery_cards
+    assert 'x-teleport="#welcome-accounts"' in discovery_cards
+    assert 'x-teleport="#welcome-channels"' in discovery_cards
     assert "oauthAccountCards" in discovery_cards
     assert "discovery-account-card" in discovery_cards
     assert "topHeroCards" not in discovery_cards

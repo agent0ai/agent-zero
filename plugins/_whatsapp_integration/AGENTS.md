@@ -17,11 +17,13 @@
 
 - Treat WhatsApp sessions, QR data, phone numbers, attachments, and bridge state as sensitive.
 - Keep allowed-number and group-response controls enforced.
+- Derive administration from each inbound message's normalized sender number and the separate `admin_numbers` list in the current poll configuration, never from stored chat identity. An omitted or empty list grants nobody administrative access; administrators still pass sender and group checks.
 - Enforce sender and group authorization in the bridge before downloading media, and contain every media write beneath the configured cache directory.
 - Keep Python dispatch checks and number normalization; propagate normalized authorization settings through all bridge startup paths and restart on policy changes.
 - Resolve prefix/postfix commands before wrapping incoming text or captions; preserve attachments on rendered prompts. Unknown leading commands return help without invoking the model. Closing message markers keep rendered and queued text from resolving twice.
 - Command discovery uses `_commands.helpers.commands.list_context_commands`; project/global overrides retain precedence, and Telegram-specific controls are not advertised.
 - WhatsApp menus use explicit text commands, not Telegram buttons or dependencies. Plugin toggles protect required plugins and the WhatsApp/Commands connection; permission changes use Agent Editor's existing sparse writer and canonical tool catalog and require an idle editable profile.
+- Plugin toggles and tool-policy writes require administration at the WhatsApp settings mutation boundary. Gate built-in profile creation and browser-runtime changes before shared command resolution; retain read-only menus, profile selection, and custom-command precedence, using the shared argument parser for profile creation checks.
 - `wa_active` persists the selected context. `/new` preserves previous chats, and `/chat` and `/sessions` stay within the originating WhatsApp JID. Existing chats without a selection fall back to recency, never random context-ID order.
 - `/compact` requires confirmation naming the current idle context and reuses the backup-producing compactor. `/copy` sends a temporary transcript document from the bridge media directory and removes it after delivery.
 - Do not leave unmanaged bridge services outside plugin-owned runtime paths.
@@ -35,8 +37,8 @@
 ## Verification
 
 - Run `node --test tests/test_whatsapp_bridge.mjs` and `pytest tests/test_whatsapp_bridge_manager.py tests/test_whatsapp_number_utils.py tests/test_whatsapp_storage_paths.py` from the repository root.
-- Run `pytest tests/test_whatsapp_commands.py tests/test_telegram_commands.py plugins/_commands/tests` for command resolution, isolation, permissions, exports, and shared-catalog regressions.
-- Run `node --test tests/test_whatsapp_config_store.mjs` for pairing lifecycle changes; verify the two-column pairing layout and its mobile stack in the WebUI.
+- Run `pytest tests/test_whatsapp_commands.py tests/test_telegram_commands.py plugins/_commands/tests` for command resolution, isolation, administrator-only writes and revocation, permissions, exports, and shared-catalog regressions.
+- Run `node --test tests/test_whatsapp_config_store.mjs` for pairing lifecycle and independent sender/administrator list handling; verify the two-column pairing layout and its mobile stack in the WebUI.
 - Smoke-test dependency install, bridge start, QR pairing, allowed-number filtering, message routing, and replies when practical.
 
 ## Child DOX Index

@@ -86,6 +86,27 @@ function setPolicyItemState(policy, id, state) {
   if (state === "block") policy.blocked.push(id);
 }
 
+function groupToolActions(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const parent = item.parent_tool;
+    if (!parent) {
+      groups.set(item.id, { ...item, actions: [] });
+      continue;
+    }
+    if (!groups.has(parent.id)) {
+      groups.set(parent.id, { ...item, ...parent, actions: [] });
+    }
+    groups.get(parent.id).actions.push(item);
+  }
+  return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function toolMatches(item, query, includeDescription = true) {
+  return [item.label, item.name, item.id, item.origin, includeDescription ? item.description : ""]
+    .join(" ").toLowerCase().includes(query);
+}
+
 function escapeHtml(value) {
   const element = document.createElement("div");
   element.textContent = String(value || "");
@@ -98,6 +119,8 @@ const model = {
   mode: "easy",
   section: "1",
   loading: false,
+  advancedLoaded: false,
+  advancedLoading: false,
   saving: false,
   avatarUploading: false,
   error: "",
@@ -113,6 +136,7 @@ const model = {
   promptFileSearch: "",
   toolSearch: "",
   toolOrigin: "all",
+  expandedTools: {},
   skillSearch: "",
   skillOrigin: "all",
   promptEditor: null,
@@ -353,7 +377,7 @@ const model = {
       await modelConfigStore.loadAgentProfiles(true);
       if (editorState) {
         await this.loadEditor(profile.id, false);
-        this.setMode(editorState.mode, editorState.section, false);
+        await this.setMode(editorState.mode, editorState.section, false);
       }
     } catch (error) {
       this.error = error.message || String(error);
@@ -430,6 +454,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: this.draft.creating ? "new-agent" : this.draft.profileId,
+        mode: this.advancedLoaded ? "advanced" : "easy",
         ...this.scopeInput(),
       });
       this.state = data.state;
@@ -497,6 +522,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: profileId,
+        mode: "easy",
         ...this.scopeInput(),
       });
       this.state = data.state;
@@ -515,6 +541,9 @@ const model = {
   },
 
   makeDraft(creating) {
+    this.advancedLoaded = this.state.prompts_complete !== false;
+    this.advancedLoading = false;
+    this.expandedTools = {};
     const metadata = this.state.profile.metadata;
     const prompts = {};
     for (const item of this.state.prompts || []) {
@@ -592,7 +621,7 @@ const model = {
   },
 
   get standardToolCatalog() {
-    return this.toolCatalog.filter((item) => !String(item.id || "").startsWith("mcp:"));
+    return groupToolActions(this.toolCatalog.filter((item) => !String(item.id || "").startsWith("mcp:")));
   },
 
   get mcpCatalog() {
@@ -676,7 +705,40 @@ const model = {
     this.setModalTitle("Manage agents");
   },
 
-  setMode(mode, section = "", preview = true) {
+  async setMode(mode, section = "", preview = true) {
+    if (this.advancedLoading) return;
+    if (mode === "advanced" && !this.advancedLoaded) {
+      if (this.loading || !this.draft) return;
+      const draft = this.draft;
+      const root = this.root;
+      const projectName = this.projectName;
+      this.advancedLoading = true;
+      this.error = "";
+      try {
+        const data = await callJsonApi(API, {
+          action: "prompts",
+          profile_id: this.state.profile.id,
+          ...this.scopeInput(),
+        });
+        if (this.draft !== draft || this.projectName !== projectName || root?.isConnected === false) return;
+        for (const item of data.prompts) {
+          if (draft.prompts[item.filename]) continue;
+          const value = String(item.effective || "");
+          const prompt = { ...item, value, initialValue: value, reset: false };
+          draft.prompts[item.filename] = prompt;
+          this.initialDraft.prompts[item.filename] = clone(prompt);
+          this.promptEditBaselines[item.filename] = { value, reset: false };
+        }
+        this.state.prompts = data.prompts;
+        this.state.prompts_complete = true;
+        this.advancedLoaded = true;
+      } catch (error) {
+        if (this.draft === draft && this.projectName === projectName) this.error = error.message || String(error);
+        return;
+      } finally {
+        if (this.draft === draft) this.advancedLoading = false;
+      }
+    }
     this.mode = mode === "advanced" ? "advanced" : "easy";
     if (section) this.setSection(section, preview);
     else if (preview && this.mode === "advanced" && this.section === "6") this.previewPlan();
@@ -1026,6 +1088,34 @@ const model = {
     this.collapsePolicy(kind);
   },
 
+  toolGroupState(tool) {
+    const states = new Set((tool.actions.length ? tool.actions : [tool])
+      .map((item) => this.policyItemState("tool", item.id)));
+    return states.size === 1 ? [...states][0] : "mixed";
+  },
+
+  setToolGroup(tool, state) {
+    this.customizePolicy("tool");
+    for (const item of tool.actions.length ? tool.actions : [tool]) {
+      setPolicyItemState(this.draft.toolPolicy, item.id, state);
+    }
+    this.collapsePolicy("tool");
+  },
+
+  toolGroupSummary(tool) {
+    const allowed = tool.actions.filter((item) => this.isToolAllowed(item)).length;
+    if (allowed === tool.actions.length) return "";
+    return `${allowed} of ${tool.actions.length} actions on`;
+  },
+
+  toolExpanded(tool) {
+    return this.expandedTools[`${tool.id}:${tool.search || ""}`] ?? Boolean(tool.actionMatch);
+  },
+
+  toggleToolActions(tool) {
+    this.expandedTools[`${tool.id}:${tool.search || ""}`] = !this.toolExpanded(tool);
+  },
+
   collapsePolicy(kind) {
     const isSkill = kind === "skill";
     const key = isSkill ? "skillPolicy" : "toolPolicy";
@@ -1070,12 +1160,18 @@ const model = {
 
   filteredTools(group = "tool") {
     const query = this.toolSearch.trim().toLowerCase();
-    return (this.state?.tools?.catalog || []).filter((item) => {
+    const items = (this.state?.tools?.catalog || []).filter((item) => {
       const isMcp = String(item.id || "").startsWith("mcp:");
       if ((group === "mcp") !== isMcp) return false;
       if (this.toolOrigin !== "all" && item.origin !== this.toolOrigin) return false;
-      return !query || [item.label, item.name, item.id, item.description, item.origin]
-        .join(" ").toLowerCase().includes(query);
+      return true;
+    });
+    if (group === "mcp") return items.filter((item) => !query || toolMatches(item, query));
+    return groupToolActions(items).flatMap((tool) => {
+      if (!query || toolMatches(tool, query, false)) return [{ ...tool, search: query }];
+      const visibleActions = tool.actions.filter((item) => toolMatches(item, query, false));
+      if (visibleActions.length) return [{ ...tool, search: query, visibleActions, actionMatch: true }];
+      return toolMatches(tool, query) ? [{ ...tool, search: query }] : [];
     });
   },
 
@@ -1091,8 +1187,9 @@ const model = {
   skillWarnings(skill) {
     const warnings = [];
     for (const toolName of skill.allowed_tools || []) {
-      const tool = (this.state?.tools?.catalog || []).find((item) => item.name === toolName);
-      if (tool && !this.isToolAllowed(tool)) warnings.push(toolName);
+      const tools = (this.state?.tools?.catalog || []).filter((item) =>
+        (item.tool_names || [item.name]).includes(toolName));
+      if (tools.length && !tools.some((item) => this.isToolAllowed(item))) warnings.push(toolName);
     }
     return warnings;
   },
@@ -1103,6 +1200,7 @@ const model = {
       const data = await callJsonApi(API, {
         action: "load",
         profile_id: this.draft.profileId || "new-agent",
+        mode: "easy",
         ...this.scopeInput(),
       });
       this.state.model_presets = data.state.model_presets;
@@ -1345,7 +1443,7 @@ const model = {
       this.plan = data;
       this.planStatus = "ready";
       this.pendingMutation = { destructive };
-      this.setMode("advanced", "6", false);
+      await this.setMode("advanced", "6", false);
     } catch (error) {
       this.error = error.message || String(error);
     } finally {

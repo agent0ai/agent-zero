@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.
+- Keep command previews compact in rendered execution output. `code-exe-handler.js` restores a matching command prefix from the already-masked `kvps.code` for Copy Output and step details, preserving command whitespace and the output body. Existing log size limits remain; copying cannot recover text already discarded by those limits.
 
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
 - A direct parallel code job retains its worker and loop-bound shell until the command ends or is cancelled. Output timeouts publish model-facing progress to the registered job and continue polling; callers use parallel job IDs. Close parallel shells explicitly on that worker loop on completion or cancellation, including partially connected shells. Top-level sessions retain their ordinary timeout/output/reset behavior.
@@ -26,6 +27,7 @@
 - Windows cleanup uses the native process methods without looking up POSIX-only signals; the pywinpty adapter passes SIGTERM for forced termination. POSIX close retains process-group TERM-then-KILL escalation.
 - Local and SSH session wrappers must synchronously release their owned process or connection resources when discarded.
 - Explicitly target local versus SSH execution runtimes.
+- The `input` tool logs a prefix-free `icon://keyboard Using tool 'input'` heading and forwards keyboard input through the code execution tool and its log.
 - The tool's `allow_running` flag is framework-set (for example by the `input` tool's terminal dispatch); it is not a model-facing arg and stays undocumented in prompts.
 - Do not hardcode secrets, SSH credentials, or local user paths.
 
@@ -36,6 +38,7 @@
 ## Verification
 
 - Smoke-test terminal, Python, Node.js, output polling, and reset paths after tool changes.
+- Run `pytest tests/test_webui_plugin_process_types.py -q` for compact execution previews, full stored command copying, and streamed action updates.
 
 ## Child DOX Index
 

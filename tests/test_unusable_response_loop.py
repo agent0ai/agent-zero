@@ -1,6 +1,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from helpers.errors import HandledException
 from helpers.files import read_prompt_file
 from helpers.settings import get_default_settings, normalize_settings
@@ -22,8 +24,6 @@ def _agent():
         "fw.msg_misformat.md": "misformatted",
         "fw.msg_repeat.md": "repeated",
         "fw.msg_empty_response.md": "empty response",
-        "fw.msg_leaked_tool_call.md": "leaked call",
-        "fw.msg_truncated_tool_call.md": "truncated call",
         "fw.msg_reasoning_only.md": "reasoning only",
         "fw.msg_thoughts_fallback.md": "thoughts fallback",
         "fw.msg_output_limit.md": "output limit",
@@ -119,6 +119,41 @@ def test_thoughts_fallback_warning_counts_toward_the_limit(monkeypatch):
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
 
 
+@pytest.mark.parametrize("prompt", [
+    "fw.msg_misformat.md",
+    "fw.msg_repeat.md",
+    "fw.msg_empty_response.md",
+    "fw.msg_reasoning_only.md",
+    "fw.msg_output_limit.md",
+])
+def test_core_retry_limit_without_context_doctor_prompts(monkeypatch, prompt):
+    monkeypatch.setattr(
+        response_loop, "get_settings", lambda: {"max_consecutive_unusable_responses": 1}
+    )
+    agent = _agent()
+    agent.read_prompt = lambda name, **kwargs: read_prompt_file(
+        name, ["prompts"], **kwargs
+    )
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    data = _run(extension, agent, agent.read_prompt(prompt))
+
+    assert isinstance(data["exception"], HandledException)
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
+
+
+def test_unrelated_warning_without_context_doctor_prompts():
+    agent = _agent()
+    agent.read_prompt = lambda name, **kwargs: read_prompt_file(
+        name, ["prompts"], **kwargs
+    )
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    assert _run(extension, agent, "unrelated warning")["exception"] is None
+    assert agent.loop_data.params_persistent == {}
+    assert agent.context.log.entries == []
+
+
 def test_general_settings_expose_the_default_failure_limit():
     settings = get_default_settings()
     assert settings["max_consecutive_unusable_responses"] == 5
@@ -149,18 +184,18 @@ def test_output_limit_warning_counts_toward_the_limit(monkeypatch):
     assert isinstance(data["exception"], HandledException)
 
 
-def test_leaked_and_truncated_warnings_share_budget_and_count_once(monkeypatch):
+def test_fallback_and_misformat_warnings_share_budget_and_count_once(monkeypatch):
     monkeypatch.setattr(
         response_loop, "get_settings", lambda: {"max_consecutive_unusable_responses": 3}
     )
     agent = _agent()
     extension = response_loop.StopUnusableResponseLoop(agent=agent)
-    assert _run(extension, agent, "leaked call")["exception"] is None
-    assert _run(extension, agent, "truncated call")["exception"] is None
+    assert _run(extension, agent, "thoughts fallback")["exception"] is None
+    assert _run(extension, agent, "misformatted")["exception"] is None
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
     agent.loop_data.iteration = 1
     assert _run(extension, agent, "misformatted")["exception"] is None
     agent.loop_data.iteration = 2
     assert isinstance(
-        _run(extension, agent, "truncated call")["exception"], HandledException
+        _run(extension, agent, "misformatted")["exception"], HandledException
     )

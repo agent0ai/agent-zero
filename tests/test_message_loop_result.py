@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from helpers.llm_result import LLMResult
+from helpers.log import Log
 
 from extensions.python.message_loop_result import _20_empty_response as empty_response
 from extensions.python.message_loop_result._05_truncated_response import TruncatedResponse
@@ -75,7 +76,7 @@ def test_empty_result_skips_default_processing():
     assert _run(agent)["skip_default_processing"] is True
     assert agent.history == []
     assert agent.warnings == []
-    assert agent.logs == [{"type": "warning", "content": "A0: empty"}]
+    assert agent.logs == [{"type": "warning", "content": "empty"}]
 
 
 def test_empty_result_counts_toward_unusable_response_limit(monkeypatch):
@@ -122,7 +123,7 @@ def test_repeat_skips_default_processing():
     assert agent.logs == [
         {
             "type": "warning",
-            "content": "A0: Repeated response detected. Retrying.",
+            "content": "Repeated response detected. Retrying.",
             "id": "warning",
         }
     ]
@@ -136,20 +137,62 @@ def test_repeat_ignores_reasoning():
     assert agent.warnings == ["repeat"]
 
 
-def test_reasoning_only_retries_with_agent_warning():
+@pytest.mark.parametrize("truncated", [False, True])
+def test_reasoning_only_retries_silently_and_preserves_thoughts(truncated):
     agent = FakeAgent("", reasoning="thinking", last_response="previous")
+    item = Log().log(type="agent", id="generation", reasoning="thinking")
+    agent.loop_data.params_temporary["log_item_generating"] = item
 
-    result = _run(agent)
+    result = _run(agent, truncated=truncated)
 
     assert result["skip_default_processing"] is True
     assert agent.warnings == ["reasoning only"]
-    assert agent.logs == [
-        {
-            "type": "warning",
-            "content": "A0: Reasoning-only response detected. Retrying.",
-            "id": "warning",
-        }
-    ]
+    assert agent.history == ['{"thoughts":["thinking"]}']
+    assert agent.logs == []
+    assert item.type == "agent"
+    assert item.kvps["thoughts"] == ["thinking"]
+    assert item.kvps["reasoning"] == "thinking"
+    assert item.content == "thinking"
+    assert result["llm_result"].response == ""
+    assert result["llm_result"].reasoning == "thinking"
+
+
+@pytest.mark.parametrize("item", [
+    {"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": "{}"},
+    {"type": "web_search_call", "id": "search_1"},
+])
+def test_reasoning_with_native_action_is_not_retried(item):
+    agent = FakeAgent("", reasoning="thinking")
+    result = LLMResult.from_response({"output": [item]})
+    result.response = ""
+    result.reasoning = "thinking"
+    data = {"llm_result": result}
+
+    EmptyResponse(agent).execute(data)
+
+    assert not data.get("skip_default_processing")
+    assert not agent.history and not agent.warnings and not agent.logs
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("text, thoughts", [
+    ("I am checking another source.", ["I am checking another source."]),
+    ('{"thoughts":["Checking"]}', ["Checking"]),
+    ('{"status":"working"}', ['{"status":"working"}']),
+])
+def test_prose_retries_silently_without_context_doctor(mode, text, thoughts):
+    agent = FakeAgent(text)
+    item = Log().log(type="agent", id="generation")
+    agent.loop_data.params_temporary["log_item_generating"] = item
+
+    data = _run(agent, mode=mode)
+
+    assert data["skip_default_processing"] is True
+    assert agent.history == [text]
+    assert agent.warnings == ["misformatted"]
+    assert agent.logs == []
+    assert item.type == "agent" and item.kvps["thoughts"] == thoughts
+    assert "log_item_response" not in agent.loop_data.params_temporary
 
 
 @pytest.mark.parametrize("old_text,new_text,old_query,new_query,old_batch,new_batch,repeated", [
@@ -242,7 +285,7 @@ def test_truncated_result_warns_about_output_limit_instead_of_misformat():
     assert agent.history == []
     assert agent.warnings == ["output limit"]
     assert agent.logs == [
-        {"type": "warning", "content": "A0: truncated (length)", "id": "warning"}
+        {"type": "warning", "content": "truncated (length)", "id": "warning"}
     ]
 
 

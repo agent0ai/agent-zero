@@ -28,6 +28,7 @@
 - Component HTML loaded by the shared loader may include `<title>`, module scripts, body content, and scoped styles; modal content uses the same loader path.
 - Do not bypass WebSocket origin/auth/CSRF assumptions from frontend code.
 - `index.js` rechecks the selected context after asynchronous snapshot hooks and message rendering; an older snapshot must not replace selection or sidebar state after a chat switch or creation.
+- Snapshot and chat-selection consumers import the always-enabled scheduler's tasks store before synchronization starts; sidebar mounting must not determine whether the first task collection is retained.
 - `index.js`'s `sendMessage` reports accepted dispatch or queue insertion with `true`; busy, rejected, or failed sends must not consume a setup-gate prompt. Release its send latch before resuming a deferred gate retry.
 - Avoid editing vendored files unless intentionally updating the vendor asset.
 - Startup scripts in `index.html` must be local and non-parser-blocking: use ES modules, `defer`, or `async` for every script with `src`.

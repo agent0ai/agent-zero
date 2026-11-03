@@ -29,6 +29,7 @@ from helpers.extension import get_webui_extension_manifest
 
 
 SURFACE_SCENARIOS: list[tuple[str, str]] = [
+    ("notification-header-actions-start", "webui/components/notifications/notification-modal.html"),
     ("sidebar-start", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-end", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-top-wrapper-start", "webui/components/sidebar/top-section/sidebar-top.html"),
@@ -40,9 +41,10 @@ SURFACE_SCENARIOS: list[tuple[str, str]] = [
     ("sidebar-chats-list-start", "webui/components/sidebar/chats/chats-list.html"),
     ("sidebar-chats-list-view", "webui/components/sidebar/chats/chats-list.html"),
     ("sidebar-chats-list-end", "webui/components/sidebar/chats/chats-list.html"),
-    ("sidebar-tasks-list-start", "webui/components/sidebar/tasks/tasks-list.html"),
-    ("sidebar-tasks-list-view", "webui/components/sidebar/tasks/tasks-list.html"),
-    ("sidebar-tasks-list-end", "webui/components/sidebar/tasks/tasks-list.html"),
+    ("sidebar-tasks-list-start", "plugins/_scheduler/webui/sidebar/tasks-list.html"),
+    ("sidebar-tasks-list-view", "plugins/_scheduler/webui/sidebar/tasks-list.html"),
+    ("sidebar-tasks-list-end", "plugins/_scheduler/webui/sidebar/tasks-list.html"),
+    ("sidebar-extensions", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-row-actions-menu", "webui/components/sidebar/left-sidebar.html"),
     ("sidebar-bottom-wrapper-start", "webui/components/sidebar/bottom/sidebar-bottom.html"),
     ("sidebar-bottom-wrapper-end", "webui/components/sidebar/bottom/sidebar-bottom.html"),

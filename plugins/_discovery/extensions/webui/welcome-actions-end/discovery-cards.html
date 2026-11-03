@@ -7,108 +7,115 @@
         <div class="discovery-slot"
              @modal-closed.window="$store.discoveryStore.refreshCards()"
              x-create="$store.discoveryStore.refreshCards()"
-             x-show="$store.discoveryStore.featureCards.length > 0 || $store.discoveryStore.oauthAccountCards.length > 0 || $store.discoveryStore.hasDismissedCards">
+             x-show="$store.discoveryStore.featureCards.length > 0 || $store.discoveryStore.oauthAccountCards.length > 0">
 
-            <section class="discovery-features-panel" x-show="$store.discoveryStore.featureCards.length > 0">
-                <header class="discovery-panel-header">
-                    <div class="discovery-panel-copy">
-                        <h2>Connect Channels</h2>
-                        <p>Extend Agent Zero across your favorite platforms.</p>
-                    </div>
-                    <button class="discovery-dismiss discovery-panel-dismiss"
-                            type="button"
-                            x-show="$store.discoveryStore.featureCards.some(card => card.dismissible !== false)"
-                            @click.stop="$store.discoveryStore.dismissFeatureCards()"
-                            aria-label="Dismiss Connect Channels"
-                            title="Dismiss">
-                        <x-icon name="close"></x-icon>
-                    </button>
-                </header>
-
-                <div class="discovery-features">
-                    <template x-for="card in $store.discoveryStore.featureCards" :key="card.id">
-                        <button class="discovery-feature-card"
-                                type="button"
-                                @click="$store.discoveryStore.executeCta(card.cta_action)">
-                            <span class="discovery-feature-thumb">
-                                <template x-if="card.thumbnail">
-                                    <img :src="card.thumbnail" :alt="card.title" loading="lazy">
-                                </template>
-                                <template x-if="!card.thumbnail && card.icon">
-                                    <x-icon class="discovery-feature-icon" :name="card.icon"></x-icon>
-                                </template>
-                            </span>
-                            <span class="discovery-feature-title" x-text="`${card.cta_text || 'Connect'} ${card.title}`"></span>
-                        </button>
-                    </template>
-                </div>
-            </section>
-
-            <template x-for="card in $store.discoveryStore.oauthAccountCards" :key="card.id">
-                <article class="discovery-account-card">
-                    <button class="discovery-dismiss"
-                            type="button"
-                            x-show="card.dismissible"
-                            @click.stop="$store.discoveryStore.dismissCard(card.id)"
-                            :aria-label="`Dismiss ${card.title}`"
-                            title="Dismiss">
-                        <x-icon name="close"></x-icon>
-                    </button>
-
-                    <header class="discovery-account-header">
-                        <div class="discovery-account-copy">
-                            <h2 x-text="card.title"></h2>
-                            <p x-show="card.description" x-text="card.description"></p>
+            <template x-teleport="#welcome-channels">
+                <section class="discovery-features-panel" x-show="$store.discoveryStore.featureCards.length > 0">
+                    <header class="discovery-panel-header">
+                        <div class="discovery-panel-copy">
+                            <h2>Connect Channels</h2>
+                            <p>Extend Agent Zero across your favorite platforms.</p>
                         </div>
-                        <button class="btn btn primary discovery-account-cta"
-                                type="button"
-                                @click="$store.discoveryStore.executeCta(card.cta_action)">
-                            <span x-text="card.cta_text"></span>
-                            <x-icon name="arrow_forward"></x-icon>
-                        </button>
+                        <div class="welcome-panel-actions">
+                            <button type="button" data-welcome-handle></button>
+                            <button class="discovery-dismiss discovery-panel-dismiss"
+                                    type="button"
+                                    x-show="$store.discoveryStore.featureCards.some(card => card.dismissible !== false)"
+                                    @click.stop="$store.discoveryStore.dismissFeatureCards()"
+                                    aria-label="Dismiss Connect Channels"
+                                    title="Dismiss">
+                                <x-icon name="close"></x-icon>
+                            </button>
+                        </div>
                     </header>
 
-                    <div class="discovery-account-chips" x-show="(card.account_chips || []).length > 0">
-                        <template x-for="chip in card.account_chips || []" :key="chip.provider_id || chip.label">
-                            <span class="discovery-account-chip" :class="{ 'is-connected': chip.connected }">
-                                <span class="discovery-account-chip-dot" aria-hidden="true"></span>
-                                <span class="discovery-account-chip-label" x-text="chip.label"></span>
-                                <span class="discovery-account-chip-detail" x-show="chip.detail" x-text="chip.detail"></span>
-                            </span>
+                    <div class="discovery-features">
+                        <template x-for="card in $store.discoveryStore.featureCards" :key="card.id">
+                            <button class="discovery-feature-card"
+                                    type="button"
+                                    @click="$store.discoveryStore.executeCta(card.cta_action)">
+                                <span class="discovery-feature-thumb">
+                                    <template x-if="card.thumbnail">
+                                        <img :src="card.thumbnail" :alt="card.title" loading="lazy">
+                                    </template>
+                                    <template x-if="!card.thumbnail && card.icon">
+                                        <x-icon class="discovery-feature-icon" :name="card.icon"></x-icon>
+                                    </template>
+                                </span>
+                                <span class="discovery-feature-title" x-text="card.title"></span>
+                            </button>
                         </template>
                     </div>
-
-                    <div class="discovery-account-usage" x-show="(card.usage_windows || []).length > 0">
-                        <template x-for="window in card.usage_windows || []" :key="window.key || window.title">
-                            <div class="discovery-account-usage-row">
-                                <div class="discovery-account-usage-label">
-                                    <span x-text="window.title"></span>
-                                    <small x-show="$store.discoveryStore.formatReset(window)"
-                                           x-text="`Resets in ${$store.discoveryStore.formatReset(window)}`"></small>
-                                </div>
-                                <div class="discovery-account-usage-meter">
-                                    <span class="discovery-account-usage-track">
-                                        <span class="discovery-account-usage-fill"
-                                              :style="`width: ${$store.discoveryStore.usageWidth(window)}`"></span>
-                                    </span>
-                                    <span class="discovery-account-usage-value"
-                                          x-text="$store.discoveryStore.formatRemainingPercent(window)"></span>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-
-                </article>
+                    <button type="button" class="welcome-panel-icon-button welcome-panel-text-button discovery-channels-plugins"
+                            @click="$store.welcomeStore.openWelcomePlugins('channels')">
+                        <x-icon name="extension"></x-icon>
+                        <span>Find channels plugins</span>
+                    </button>
+                </section>
             </template>
 
-            <div class="discovery-undismiss" x-show="$store.discoveryStore.hasDismissedCards">
-                <button type="button"
-                        class="discovery-undismiss-btn"
-                        @click="$store.discoveryStore.undismissCards()">
-                    <x-icon name="undo"></x-icon>
-                    <span>Show dismissed suggestions</span>
-                </button>
-            </div>
+            <template x-teleport="#welcome-accounts">
+                <div class="discovery-account-list">
+                    <template x-for="card in $store.discoveryStore.oauthAccountCards" :key="card.id">
+                        <article class="discovery-account-card">
+                            <button type="button" data-welcome-handle></button>
+                            <button class="discovery-dismiss"
+                                    type="button"
+                                    x-show="card.dismissible"
+                                    @click.stop="$store.discoveryStore.dismissCard(card.id)"
+                                    :aria-label="`Dismiss ${card.title}`"
+                                    title="Dismiss">
+                                <x-icon name="close"></x-icon>
+                            </button>
+
+                            <header class="discovery-account-header">
+                                <div class="discovery-account-copy">
+                                    <h2 x-text="card.title"></h2>
+                                    <p x-show="card.description" x-text="card.description"></p>
+                                </div>
+                                <button class="btn btn primary discovery-account-cta"
+                                        type="button"
+                                        @click="$store.discoveryStore.executeCta(card.cta_action)">
+                                    <span x-text="card.cta_text"></span>
+                                    <x-icon name="arrow_forward"></x-icon>
+                                </button>
+                            </header>
+
+                            <div class="discovery-account-chips" x-show="(card.account_chips || []).length > 0">
+                                <template x-for="chip in card.account_chips || []" :key="chip.provider_id || chip.label">
+                                    <span class="discovery-account-chip" :class="{ 'is-connected': chip.connected }">
+                                        <span class="discovery-account-chip-dot" aria-hidden="true"></span>
+                                        <span class="discovery-account-chip-label" x-text="chip.label"></span>
+                                        <span class="discovery-account-chip-detail" x-show="chip.detail" x-text="chip.detail"></span>
+                                    </span>
+                                </template>
+                            </div>
+
+                            <div class="discovery-account-usage" x-show="(card.usage_windows || []).length > 0">
+                                <template x-for="window in card.usage_windows || []" :key="window.key || window.title">
+                                    <div class="discovery-account-usage-row">
+                                        <div class="discovery-account-usage-label">
+                                            <span x-text="window.title"></span>
+                                            <small x-show="$store.discoveryStore.formatReset(window)"
+                                                   x-text="`Resets in ${$store.discoveryStore.formatReset(window)}`"></small>
+                                        </div>
+                                        <div class="discovery-account-usage-meter">
+                                            <span class="discovery-account-usage-track">
+                                                <span class="discovery-account-usage-fill"
+                                                      :style="`width: ${$store.discoveryStore.usageWidth(window)}`"></span>
+                                            </span>
+                                            <span class="discovery-account-usage-value"
+                                                  x-text="$store.discoveryStore.formatRemainingPercent(window)"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                        </article>
+                    </template>
+
+                </div>
+            </template>
         </div>
     </template>
 
@@ -131,7 +138,6 @@
         }
 
         .discovery-features-panel {
-            min-height: 100%;
             padding: 1.25rem 1.45rem;
         }
 
@@ -166,8 +172,12 @@
 
         .discovery-features {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
             gap: 0.65rem;
+        }
+
+        .discovery-channels-plugins {
+            margin-top: 0.75rem;
         }
 
         .discovery-feature-card {
@@ -280,20 +290,30 @@
             font-size: 1rem;
         }
 
+        .discovery-account-list {
+            display: grid;
+            gap: 1rem;
+        }
+
         .discovery-account-card {
             position: relative;
             display: grid;
+            align-content: start;
             gap: 1rem;
             padding: 1.25rem 1.45rem 1.25rem;
         }
 
+        .discovery-account-card > [data-welcome-handle] { position: absolute; top: 0.65rem; right: 2.7rem; }
+        @media (pointer: coarse) {
+            .discovery-account-card > [data-welcome-handle] { top: 0.15rem; }
+        }
         .discovery-account-header {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
             gap: 0.95rem;
             align-items: center;
             min-width: 0;
-            padding-right: 2.1rem;
+            padding-right: 4.2rem;
         }
 
         .discovery-account-copy {
@@ -470,81 +490,27 @@
             font-size: 1.05rem;
         }
 
-        .discovery-undismiss {
-            display: flex;
-            justify-content: flex-start;
-        }
-
-        .discovery-undismiss-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.35rem;
-            border: none;
-            background: transparent;
-            padding: 0;
-            color: var(--color-secondary);
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: 500;
-            transition: color 0.2s ease;
-        }
-
-        .discovery-undismiss-btn:hover,
-        .discovery-undismiss-btn:focus-visible {
-            color: var(--color-primary);
-            outline: none;
-        }
-
-        .discovery-undismiss-btn .material-symbols-outlined {
-            font-size: 1rem;
-        }
-
         @media (hover: none) {
             .discovery-dismiss {
                 opacity: 0.68;
             }
         }
 
-        @media (max-width: 768px) {
-            .discovery-features {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-            }
-
-            .discovery-feature-card {
-                display: inline-flex;
-                min-height: 0;
-                padding: 0.62rem 0.7rem;
-            }
-
-            .discovery-feature-thumb {
-                width: 32px;
-                height: 32px;
-            }
-
+        @container welcome-discovery (max-width: 520px) {
             .discovery-account-usage-row {
                 grid-template-columns: 1fr;
                 gap: 0.45rem;
             }
         }
 
-        @media (max-width: 520px) {
-            .discovery-slot {
-                margin-top: 0.15rem;
-            }
-
-            .discovery-feature-card {
-                padding-right: 0.7rem;
-            }
-
+        @container welcome-discovery (max-width: 400px) {
             .discovery-account-card {
                 padding: 1.05rem;
             }
 
             .discovery-account-header {
                 grid-template-columns: 1fr;
-                padding-right: 2.2rem;
+                padding-right: 4.2rem;
             }
 
             .discovery-account-cta {

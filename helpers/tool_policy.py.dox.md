@@ -17,6 +17,7 @@
   allowed/required flags from the backend.
 - `tool_prompt_description` owns compact editor catalog summaries; Responses owns full native tool descriptions and schema projection.
 - `resolve_tool` returns the effective decision and provenance.
+- `get_tool_actions` and `allowed_tool_actions` expose the resolved bundled action contract and allowed actions; catalog entries carry an `actions` list for editor projection.
 - `ensure_tool_allowed` raises the stable repairable runtime policy error and
   accepts an explicit canonical ID from transports that already resolved one.
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
@@ -43,10 +44,19 @@
 - Policy IDs are namespaced as `local:`, `plugin:<id>:`, or `mcp:<server>:`.
   Generic execution resolves canonical IDs from executable paths; MCP
   invocation supplies its explicit namespaced ID.
+- Moved bundled tools honor their saved core IDs; behavior adjustment honors its old plugin/spelling ID. Matching legacy IDs remain editable in the catalog while their replacement is available. Explicit blocks win across both IDs; unrelated profile overrides retain their own identity.
+- Unified memory checks both its tool-wide ID and the corresponding legacy action ID. Without an action, discovery exposes memory if any action is allowed; execution checks the requested action through `ensure_tool_allowed`. Legacy memory names stay action-specific, and a tool-wide block also blocks those aliases.
+- All registered bundled multi-action tools check whole-tool and action IDs with explicit-block precedence. Discovery exposes a tool when any action is allowed; execution supplies `tool_args` (including an empty dict) to resolve defaults and compound operations. Omitting both arguments and action is a discovery query, never an execution check.
+- `allowed_tool_actions` supplies the allowed enum to native schemas and the permitted-action note to textual prompts. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that
   share one Markdown prompt.
+- Bundled `input_remote` additionally requires the bundled `code_execution_remote`
+  terminal action, since its transport can execute commands. Resolve the
+  dependency by canonical ID with the same policy snapshot so profile shadows,
+  explicit grants, and default-deny policies cannot bypass it. Keep its own
+  independent permission check; granting execution alone does not grant input.
 - Catalog descriptions call the supplied agent's prompt loader instead of
   opening prompt files through a parallel path; the editor agent intentionally
   keeps its existing raw, no-processor implementation.
@@ -59,7 +69,8 @@
 
 ## Verification
 
-- Run `tests/test_tool_policy.py` and the prompt/Responses/MCP focused tests.
+- Run `tests/test_tool_policy.py`, `tests/test_tool_action_policy.py`, and the prompt/Responses/MCP focused tests.
+- Run `tests/test_remote_input_policy.py` for the remote execution dependency across dispatch, text prompts, and native schemas.
 
 ## Child DOX Index
 

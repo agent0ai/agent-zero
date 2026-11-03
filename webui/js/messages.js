@@ -155,8 +155,6 @@ export async function getMessageHandler(type) {
       return drawMessageResponse;
     case "tool":
       return drawMessageTool;
-    case "progress":
-      return drawMessageProgress;
     case "mcp":
       return drawMessageMcp;
     case "subagent":
@@ -1737,7 +1735,10 @@ export function _drawMessage({
 
   // reapply scroll position or autoscroll
   bodyDiv.dataset.scrollStabilization = "1";
-  const scroller = new Scroller(bodyDiv, { smooth: !isMassRender() });
+  // Responses grow in the chat viewport; their body has no independent scroll area.
+  const scroller = mainClass === "message-agent-response"
+    ? null
+    : new Scroller(bodyDiv, { smooth: !isMassRender() });
 
   const contentText = String(content ?? "");
   const lazyContent =
@@ -1779,9 +1780,11 @@ export function _drawMessage({
   }
 
   // reapply scroll position or reset for collapsed
-  messageDiv.classList.contains("expanded")
-    ? scroller.reApplyScroll()
-    : (bodyDiv.scrollTop = 0);
+  if (scroller) {
+    messageDiv.classList.contains("expanded")
+      ? scroller.reApplyScroll()
+      : (bodyDiv.scrollTop = 0);
+  }
 
   return messageDiv;
 }
@@ -2237,16 +2240,6 @@ export async function drawMessageTool({
 
   if (!tool_name) {
     return drawMessageToolSimple({ ...arguments[0] });
-  } else if (kvps._tool_name === "skills_tool") {
-    const displayKvps = { ...(kvps || {}) };
-    delete displayKvps._tool_name;
-    return drawMessageToolSimple({ ...arguments[0], code: "SKL", displayKvps });
-  } else if (kvps._tool_name === "vision_load") {
-    return drawMessageToolSimple({ ...arguments[0], code: "EYE" });
-  } else if (kvps._tool_name === "search_engine") {
-    return drawMessageToolSimple({ ...arguments[0], code: "WEB" });
-  } else if (kvps._tool_name.startsWith("memory_")) {
-    return drawMessageToolSimple({ ...arguments[0], code: "MEM" });
   }
 
   /** @type {{ tool_name: string, kvps: any, handler: Function | undefined }} */
@@ -2513,36 +2506,6 @@ export function drawMessageHint({
   });
 
   return { element };
-}
-
-/**
- * @param {MessageHandlerArgs & Record<string, any>} param0
- * @returns {MessageHandlerResult}
- */
-export function drawMessageProgress({
-  id,
-  type,
-  heading,
-  content,
-  kvps,
-  timestamp,
-  agentno = 0,
-  ...additional
-}) {
-  const title = cleanStepTitle(heading || content);
-  let displayKvps = { ...kvps };
-
-  return drawProcessStep({
-    id,
-    title,
-    code: "HDL",
-    classes: undefined,
-    kvps: displayKvps,
-    content,
-    // contentClasses: [],
-    actionButtons: [],
-    log: arguments[0],
-  });
 }
 
 /**

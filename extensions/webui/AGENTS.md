@@ -15,6 +15,7 @@
 
 - HTML contributions must be valid component fragments and include Alpine state only where needed.
 - JavaScript extension modules must export a default function.
+- `get_tool_message_handler` reuses the skills and vision renderers for saved `type="tool"` logs with `_tool_name`; dedicated new log types use `get_message_handler`.
 - Extension code must not assume a plugin is installed unless it guards that dependency.
 - Keep extension point names synchronized with `x-extension` IDs and `callJsExtensions()` callers.
 

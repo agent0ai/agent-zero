@@ -21,15 +21,12 @@ function ensureConfig(config) {
   if (!config.poll_interval_seconds) config.poll_interval_seconds = 3;
   if (typeof config.allow_group !== "boolean") config.allow_group = false;
 
-  if (Array.isArray(config.allowed_numbers)) return;
-  if (typeof config.allowed_numbers === "string") {
-    config.allowed_numbers = config.allowed_numbers
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item);
-    return;
+  for (const field of ["allowed_numbers", "admin_numbers"]) {
+    if (Array.isArray(config[field])) continue;
+    config[field] = typeof config[field] === "string"
+      ? config[field].split(",").map((item) => item.trim()).filter((item) => item)
+      : [];
   }
-  config.allowed_numbers = [];
 }
 
 export const store = createStore("whatsappConfig", {
@@ -145,6 +142,19 @@ export const store = createStore("whatsappConfig", {
   setAllowed(value) {
     ensureConfig(this.config);
     this.config.allowed_numbers = value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item);
+  },
+
+  adminText() {
+    ensureConfig(this.config);
+    return (this.config?.admin_numbers || []).join(", ");
+  },
+
+  setAdmins(value) {
+    ensureConfig(this.config);
+    this.config.admin_numbers = value
       .split(",")
       .map((item) => item.trim())
       .filter((item) => item);

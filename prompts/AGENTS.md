@@ -14,8 +14,6 @@
 
 ## Local Contracts
 
-- Leaked/truncated tool-call retry prompts are static messages matched by the unusable-response counter; keep per-turn diagnostics outside their text.
-
 - Do not include secrets, real API keys, or private user data in prompt templates.
 - Keep placeholder names, include aliases, and template assumptions synchronized with prompt-loading code and extensions.
 - `agent.system.main.communication.native.md` owns native function-call formatting; profiles may override it alongside the legacy communication template. Shared communication additions remain transport-neutral; the brace terminator belongs only to legacy JSON formatting.
@@ -24,6 +22,7 @@
 - Shared solving guidance owns observable success, evidence-driven replanning, task progress notes, source-preserving synthesis, and bug reproduction; specialist methods belong in profile specifics.
 - Maintain clear separation between core behavior prompts and profile/plugin-specific customization.
 - Delegation catalogs show profile IDs, titles, and context (description fallback) on separate lines; preserve project-scoped discovery.
+- Delegation guidance identifies the caller's current profile, routes work needing other expertise, and reserves same-profile children for distinct bounded subtasks or independent reviews. Keep all available profiles in the catalog; this is guidance, not a runtime ban or depth cap.
 - Environment prompts keep runtime boundaries visible and route framework/API procedures to `a0-development` references.
 - Keep configurable capability names and usage guidance in their
   `agent.system.tool.*.md` prompts so tool policy removes the guidance together

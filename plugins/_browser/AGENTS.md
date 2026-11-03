@@ -9,6 +9,7 @@
 
 - `plugin.yaml` and `default_config.yaml` own metadata and browser settings defaults.
 - `tools/browser.py` owns the agent-facing browser tool.
+- The tool logs its message with an `icon://captive_portal` gerund headline naming the action and target URL, such as `Browser: Opening <url>`; `extensions/webui/get_tool_message_handler/` owns the `WWW` badge presentation.
 - `helpers/` owns the Patchright runtime, private interactive display, selectors, URL helpers, extension management, and connector runtime logic.
 - `api/` owns status, extension, and browser WebSocket handlers.
 - `assets/`, `prompts/`, `skills/`, `extensions/`, and `webui/` own browser scripts, prompts, skill guidance, hook contributions, and UI.
@@ -16,6 +17,8 @@
 ## Local Contracts
 
 - Keep browser actions safe around external pages, credentials, and user data.
+- DOM-helper messaging accepts only non-opaque same-origin documents, uses exact target origins, and binds responses to the requested child window and operation. Use the effective Window origin so inherited-origin `about:blank` and `srcdoc` frames work; cross-origin frame RPC fails closed while direct automation entry points remain available.
+- DOM helper v2 and internal runtime readiness checks reject in-place upgrades: reload existing pages to remove legacy anonymous message listeners. Host connectors receive the helper source through its existing SHA-256 update path; restart existing host browsers and reconnect before reloading restored tabs to discard old initialization scripts.
 - Preserve Patchright lifecycle cleanup and WebSocket viewer compatibility across regular host browsers and Electron WebContentsView embedding.
 - Keep the WebUI Browser inside its own modal/canvas affordance; do not replace it with page-level navigation.
 - Default the visible WebUI Browser to the authenticated Xpra HTML5 viewer for its existing Patchright page. Keep live CDP screencast and lightweight snapshots as automatic fallbacks.
@@ -51,7 +54,7 @@
 - Prefer DOM/CDP browser actions with refs, selectors, frame-chain refs, and screenshots over viewport coordinate input. Coordinates remain a visual fallback.
 - Do not hardcode user-specific browser paths or secrets.
 - Browser model-preset selection resolves omitted preset fields from `_model_config`'s global `Default` preset, not from an unrelated currently scoped model selection. After the first Browser tool call, use the selected preset for subsequent model turns in that monologue and clear it at monologue end.
-- Open-browser runtime state (tab listing, last interacted browser, page content) is per-loop dynamic context: it must flow through the `message_loop_prompts_after` extension into `loop_data.extras_temporary` (rendered as message extras), never into the system prompt, so the system prompt stays cache-stable across turns. The extension must check the profile Browser tool policy first and inject nothing when the tool is blocked.
+- Open-browser runtime state (tab listing, last interacted browser, page content) is per-loop dynamic context: it must flow through the `message_loop_prompts_after` extension into `loop_data.extras_temporary` (rendered as message extras), never into the system prompt, so the system prompt stays cache-stable across turns. The extension must check the profile Browser `list` permission before listing and both `state` and `content` before reading the last page.
 - Browser tool results serialize minified JSON for agent history; any JSON beautification for display stays plugin-local in the WebUI tool handler (`browser-tool-handler.js`), never in shared `helpers/tool.py` where it would apply to every tool.
 - History screenshot capture skips `list`, `state`, `content`, `detail`, `evaluate`, closing actions, and batches containing only those actions. Preserve history previews for other actions and reuse explicit screenshot results without capturing again.
 - `evaluate` requires a non-empty `script` string in single and multi calls. Reject missing input instead of evaluating `undefined`; preserve legitimate JavaScript null/undefined results.
@@ -86,6 +89,7 @@
 ## Verification
 
 - Smoke-test browser launch, navigation, DOM capture, and WebUI viewer after runtime changes.
+- Run `pytest tests/test_browser_dom_security.py` for real-Chromium origin isolation, parent/frame/opener attacks, response binding, same-origin frame actions, and legacy-helper upgrades. Run `pytest tests/test_browser_agent_regressions.py tests/test_host_browser_connector.py` for internal runtime and distributed helper compatibility.
 - For viewer render-path changes, verify direct iframe interaction reaches the same page controlled by Patchright, separate contexts use separate displays, and an unavailable Xpra runtime falls back to CDP screencast/snapshot rendering.
 - Run browser prompt/skill regression tests after changing browser prompt or Browser plugin skills.
 

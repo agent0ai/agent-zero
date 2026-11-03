@@ -9,9 +9,17 @@
 
 - `README.md`, `quickstart.md`, `guides/`, and `setup/` cover user-facing setup and workflows.
 - `guides/local-folders.md` owns Docker bind-mount examples and persistence guidance; `guides/launcher.md#workspace-storage` owns Launcher storage choices and folder mappings.
+- `guides/opencode.md` owns the fresh-instance OpenCode Go provider-plugin journey, with real captures under `res/usage/opencode/`. Onboarding shares its model-gate image. Keep model IDs tied to the provider's current catalog and distinguish verified setup from untested model responses.
+- `guides/codex.md` owns ChatGPT device-code permission, Codex account sign-in, Main/Utility selection and continuation in the original chat. Its real captures under `res/usage/codex/` must hide account identities and device codes; reuse the current onboarding-ready capture. Link it from the README, docs index and Onboarding.
 - `developer/` covers compact developer references and source handoffs.
 - `plans/` covers implementation plans, migration notes, and staged technical roadmaps.
 - `res/` contains documentation images and other documentation assets.
+- `guides/migrate-agents.md` owns the real Pi, Hermes and Claude Code CLI export, preview, import, file-copy and continuation journeys, with neutral captures under `res/usage/migration/`; source-format and parser contracts stay in the bundled Migrate Agents plugin. The migration and usage guides share the sidebar message-search capture and describe its loaded-conversation/filter limits.
+- `quickstart.md` owns the install-to-first-result journey. `guides/usage.md` owns Welcome layout recovery, chat controls, and goals; `guides/agent-profiles.md` owns whole-tool and individual-action permission guidance.
+- `setup/installation.md` and the root README share the Launcher download release and first-message, model-setup, same-chat sequence with the website Installation page. Keep optional Host access after the first result, persistent storage distinct from backups, and local Docker commands paired with their browser URLs. Reuse the verified kickoff-plan example in installation and quickstart; preserve existing manual-install and upgrade anchors.
+- The root README recommends Launcher for desktops and keeps A0 Install visible for servers and shell access, followed by shared first-message steps. Its Launcher installation screenshot is `res/usage/launcher/launcher-installation.png`; present Apple Silicon as the primary Mac download and label Intel for Intel Macs only. Keep direct Docker and troubleshooting in the "Other install options" accordion; link to the installation guide for scripted setup.
+- `guides/onboarding.md` covers provider selection and completion: the final Continue action closes the wizard and keeps the existing chat. Keep its Codex Main/Utility suggestions aligned with OAuth provider metadata.
+- Shared Web UI captures under `res/usage/webui/` must show real, optimized, neutral demo state without personal paths, account identities, or community controls presented as built-in features.
 
 ## Local Contracts
 

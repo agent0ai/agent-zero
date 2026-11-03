@@ -8,5 +8,7 @@ allow_group: false
 # allow_group: respond in group chats when mentioned or replied to
 allowed_numbers: []
 # Example: ["34652029134", "1234567890"]
+admin_numbers: []
+# Allowed senders permitted to change administrative settings. Empty = no administrators.
 project: ""
 agent_instructions: ""

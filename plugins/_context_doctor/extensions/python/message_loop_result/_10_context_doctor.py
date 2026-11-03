@@ -8,9 +8,7 @@ from typing import Any, override
 from helpers import extract_tools
 from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
-from helpers.print_style import PrintStyle
 from plugins._context_doctor.helpers.context_doctor import (
-    looks_like_tool_call,
     transform_response,
     update_log_item,
 )
@@ -27,7 +25,7 @@ class ContextDoctor(Extension):
         # Extract LLM response
         llm_result = result_data.get("llm_result")
         # Canonical calls already belong to the agent's policy-gated dispatcher.
-        if getattr(llm_result, "function_calls", None):
+        if getattr(llm_result, "function_calls", None) or getattr(llm_result, "builtin_items", None):
             return
         response = getattr(llm_result, "response", None)
         if not isinstance(response, str) or not response.strip():
@@ -35,33 +33,16 @@ class ContextDoctor(Extension):
 
         # Repair response before default processing
         config = get_plugin_config("_context_doctor", agent=self.agent) or {}
-        params = getattr(getattr(self.agent, "loop_data", None), "params_temporary", {})
-        recovery = params.get("leaked_tool_call")
-        if recovery == "quoted":
-            transformed = json.dumps(
-                {"thoughts": [response]}, ensure_ascii=False, separators=(",", ":")
-            )
-            is_tool_call = False
-        elif recovery == "call":
-            transformed, is_tool_call = response, True
-        else:
-            transformed = transform_response(
-                response,
-                suppress_xml=config.get("suppress_xml", True),
-                split_thoughts=config.get("split_thoughts", True),
-            )
-            is_tool_call = looks_like_tool_call(response, transformed)
-        if (
-            getattr(llm_result, "mode", None) == "responses"
-            and not is_tool_call
-            and not extract_tools.is_misformatted_tool_request(response)
-        ):
-            return  # Core dispatches Responses output text through the response tool.
+        transformed = transform_response(
+            response,
+            suppress_xml=config.get("suppress_xml", True),
+            split_thoughts=config.get("split_thoughts", True),
+        )
+        raw_response = result_data.setdefault("raw_response", response)
         llm_result.response = transformed
 
-        # Treat as raw-text fallback when no usable tool call was extracted
-        if not is_tool_call:
-            # Manually add ai response and warnings
+        # Preserve output without an action and ask the model to continue silently.
+        if extract_tools.extract_tool_request(transformed) is None:
             log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
             self.agent.hist_add_ai_response(
                 transformed,
@@ -74,17 +55,11 @@ class ContextDoctor(Extension):
                     log_item,
                     transformed,
                     update_log=config.get("update_log", False),
-                    raw_response=response,
+                    raw_response=raw_response,
                 )
 
             warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
-            warning_message = self.agent.hist_add_warning(message=warning)
-            PrintStyle(font_color="orange", padding=True).print(warning)
-            self.agent.context.log.log(
-                type="warning",
-                content=f"{self.agent.agent_name}: {self.agent.read_prompt('fw.msg_thoughts_fallback_response.md')}",
-                id=warning_message.id,
-            )
+            self.agent.hist_add_warning(message=warning)
             result_data["skip_default_processing"] = True
             return
 
@@ -103,7 +78,7 @@ class ContextDoctor(Extension):
                 log_item,
                 transformed,
                 update_log=config.get("update_log", False),
-                raw_response=response,
+                raw_response=raw_response,
             )
 
         # Extract final text from a response tool call

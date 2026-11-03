@@ -23,13 +23,14 @@ class StopUnusableResponseLoop(Extension):
             self.agent.read_prompt("fw.msg_misformat.md"),
             self.agent.read_prompt("fw.msg_repeat.md"),
             self.agent.read_prompt("fw.msg_empty_response.md"),
-            self.agent.read_prompt("fw.msg_leaked_tool_call.md"),
-            self.agent.read_prompt("fw.msg_truncated_tool_call.md"),
             self.agent.read_prompt("fw.msg_reasoning_only.md"),
-            self.agent.read_prompt("fw.msg_thoughts_fallback.md"),
             self.agent.read_prompt("fw.msg_output_limit.md"),
         }:
-            return
+            try:
+                if message != self.agent.read_prompt("fw.msg_thoughts_fallback.md"):
+                    return
+            except FileNotFoundError:
+                return
 
         loop_data = getattr(self.agent, "loop_data", None)
         state = getattr(loop_data, "params_persistent", None)

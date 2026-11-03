@@ -23,7 +23,7 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
   - `/commands` also provides a paginated menu of Agent Zero's built-in, enabled-plugin, global, and active-project commands. Custom commands use the same templates, scripts, and scope precedence as the WebUI, including prefix and postfix syntax.
   - `/stop`, `/goal`, and `/rename` execute their existing Agent Zero commands. `/compact` offers confirmation before summarizing, preserving the existing conversation backup. `/copy` sends the transcript as a text file; `/attach` explains Telegram's native attachment control.
   - `/models` and `/presets` open the model preset picker; `/chats` opens the session picker, and `/chat <id>` switches sessions. `/browser` offers runtime buttons.
-  - `/plugins` provides paginated instance-wide plugin toggles. `/permissions` edits the current profile's tool permissions, including Allow/Block/Default per tool, separate Tools/MCP defaults, and inherited policy. Always-required tools and the Telegram connection remain protected. Computer Use permissions stay with A0 Launcher/CLI.
+  - For users listed separately as bot administrators, `/plugins` provides paginated instance-wide plugin toggles and `/permissions` edits the current profile's tool permissions, including Allow/Block/Default per tool, separate Tools/MCP defaults, and inherited policy. An empty administrator list disables these settings changes from Telegram. Always-required tools and the Telegram connection remain protected. Computer Use permissions stay with A0 Launcher/CLI.
   - Telegram's native command menu includes global commands at bot startup. Hyphenated commands also accept an underscore spelling, such as `/computer_use`; use `/commands` for freshly added or project-specific commands.
   - `/status` shows project, model, agent profile, and queue state.
   - `/project <name>` switches the active project for the current chat.
@@ -58,6 +58,7 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
   - Optional WebUI notifications for incoming Telegram messages.
 - **Access control**
   - Per-bot allow-list by Telegram user ID or @username. Empty list = open to all.
+  - A separate `admin_users` list grants access to plugin and tool-permission settings. Administrators must also pass `allowed_users`; an omitted or empty administrator list grants nobody settings access. Each message and callback uses the current bot configuration, so removing an administrator also revokes existing menu buttons.
 - **Project binding**
   - Map individual Telegram users to specific Agent Zero projects; supports a default-project fallback.
   - Inherits model overrides from sibling contexts in the same project.
@@ -93,8 +94,12 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
 ## Configuration Scope
 
 - **Settings section**: `external`
-- **Per-project config**: `true`
-- **Per-agent config**: `true`
+- **Per-project config**: `false`
+- **Per-agent config**: `false`
+
+Bot settings, allowed users, administrators, and activation apply globally. Use each bot's default project and user project mapping to route conversations.
+
+If an older version saved project- or profile-specific settings or activation overrides, Telegram delivery pauses until those copies are reviewed and removed. In Telegram settings, use **Show existing configurations** and, when shown, **Review saved activation overrides** to inspect them. Reopen Telegram settings and apply the intended access rules globally before deleting scoped copies. Existing files are preserved and are never merged automatically. Removing or disabling a global bot, or disabling the plugin globally, blocks new updates immediately, before the next lifecycle tick.
 
 ## Plugin Metadata
 

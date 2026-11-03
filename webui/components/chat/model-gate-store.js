@@ -133,6 +133,15 @@ export const store = createStore("modelGate", {
     void Promise.resolve(modalPromise).then(() => this.dispatchPendingIfConfigured());
   },
 
+  async openProviderPlugins() {
+    const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+    const { store: plugins } = await import("/components/plugins/list/pluginListStore.js");
+    installer.resetIndex();
+    installer.setBrowseFilter("tag:provider");
+    installer.initialBrowseFilter = "tag:provider";
+    await plugins.open("pluginHub");
+  },
+
   async openAdvancedModelConfiguration() {
     try {
       const data = await callJsonApi("/plugins/_model_config/model_config_get", { context_id: this.pending?.context || "" });

@@ -2,17 +2,23 @@
 
 ## Purpose
 
-- Own the WebUI file browser workflow for modal and right-canvas Files surface entry points.
+- Own the shared WebUI file browser for modal, right-canvas and embedded welcome entry points.
 
 ## Ownership
 
 - `file-browser.html` owns file list markup, path controls, scoped styles, and modal/canvas footer behavior.
 - `../../settings/file-browser/file-browser-settings.html` owns the shared Settings fields for default sort, list/icon view, tree visibility and starting folder, plus the saved remote connection list/form and per-connection permissions.
-- `file-browser-store.js` owns directory loading, remembered-location state, selection, upload/download/delete actions, and surface handoff state.
+- `file-browser-store.js` owns the reusable view factory, shared configuration, directory loading, remembered locations, selection, file actions and surface handoff. Its `fileBrowser` facade preserves existing callers while selecting the active chat view.
 - `file-tree.js` and `file-tree.html` own the shared lazy directory tree; Files and Editor each retain independent tree state.
 - `rename-modal.html` owns the rename and create-folder prompt for external callers (Editor, Desktop) that have no live browser footer; inside the browser both flows use the shared footer input.
 
 ## Local Contracts
+
+- `createFileBrowserView(name, { embedded, rememberKey })` returns one stable view per name. The existing `fileBrowser` store forwards actions to its `current` view with methods bound before asynchronous work. Chat views are independent by default; `preferences.independent = false` selects the shared primary view. Current directories, entries/selection, history, requests, menus, inline actions and trees are view-local. Uploads capture their destination before awaiting limits and update only a matching current folder. Appearance/defaults, limits and remote connection settings remain shared.
+- The browser-local **Separate browsing per chat** setting switches between retained chat views and one shared session. Remembered chat paths use `fileBrowser.lastDirectory.<context>`; the existing shared key remains compatible. The server's remember-location setting controls all views. Welcome uses its own remembered key and stays independent in either chat mode.
+- `file-browser.html` accepts an `owner` store name and `mode="embedded"` for plugin cards. Its local `fb` binding tracks the current primary view or the explicit embedded owner, and the relocated footer owns its own binding. Embedded markup uses the real path/list/tree/actions/footer; `.is-surface` remains canvas-only. Never embed the old singleton template without feature-detecting the factory.
+- External picker modals and external rename prompts retain their originating view across chat changes. Embedded New file still uses its own inline creation state. Embedded file opening/cancel/teardown must not close or reset another browser. A mounted modal takes precedence over its hidden canvas copy; removing it restores canvas mount ownership.
+- Legacy `file-browser-actions-menu` extensions remain primary-only because they may explicitly target `$store.fileBrowser`. Embedded views retain built-in actions and remote providers, but do not run unsafe singleton-bound third-party row handlers. Settings and connection-field extensions keep their existing shared owner.
 
 - Keep `open(path)` as the modal entry point for workflows that await browser close.
 - `openFileLink` path-link clicks reuse a live browser in place: an open browser modal or a visible docked Files surface navigates through `navigateToFolder` instead of stacking a second window; with no live browser it falls back to `open(path)` preserving the clicked path.
@@ -47,19 +53,20 @@
 - The list pane uses `padding: 0 6px`, a borderless list container/header bottom, and square file rows. Folder rows use the same `folder` Material Symbol as the tree; file-type SVGs remain for files. All list icons use a fixed 22px slot, with a 22px folder glyph, so folder and file names align. Folder glyphs match the muted gray in `webui/public/file.svg`.
 - Keep the list compact: 4px vertical header padding and 5px vertical item padding. The path-submit button is borderless and transparent, with subtle hover feedback.
 - One Create new (+) control owns both create actions across canvas and modal modes: its dropdown lists New file and New folder with accessible labels, each item keeping its original permission and picker visibility guards; the menu reuses the teleported dropdown chrome and closes on pick, outside click, Escape, and list scroll.
-- Keep Up, path, the Create new control, the tree toggle, and the settings gear in one compact row, with equal button heights. Do not add a separate search or totals row.
+- Keep Up, path, the Create new control, the tree toggle, and the settings gear in one compact row, with equal button heights. Below 400px, wrap actions below navigation and hide the size column to preserve readable paths and file names. Do not add a separate search or totals row.
 - Breadcrumbs (`preferences.pathBar = buttons`) and Text (`raw`) share one editable path input. Clicking empty breadcrumb space enters editing; the blank trailing slot remains a named keyboard-operable button with a visible focus outline and loading spinner, without a pencil icon. Enter submits the typed path, Escape cancels, and blur exits editing. Preserve caret position while typing and right-end visibility when unfocused.
 - Autocomplete lists matching directories through the shared API; `/` must request filesystem root. Complete connection roots (`/@connections/<provider>/<id>` and legacy `/@ssh/<id>`) list their children with or without a trailing slash; namespaces and incomplete connection IDs do not trigger requests. Typing debounces requests; cancellation, new input, navigation, and teardown invalidate pending results. Tab accepts a suggestion and lists its children; Enter submits the typed value. Anchor the dropdown to its owning input so hidden hosts cannot show duplicates.
 - Path input and breadcrumb observers belong to their mounted elements and disconnect on destruction. Breadcrumb overflow and toolbar menus are local Alpine state, independent across canvas/modal hosts. Keep whole ancestors accessible through the overflow menu and retain drag/drop on crumbs. Connection provider namespace segments are not browsable ancestors.
 - Toolbar menus close on action, outside click, Escape, navigation, surrounding scroll, and resize. Dropdown scrolling itself must remain usable. Keep the loading indicator slot stable and preserve the current listing during fetches; loading rows must be inert to both keyboard and pointer interaction.
 - Back/Forward move between history stacks only after successful navigation. Fresh successful navigation clears forward history; failed or same-folder navigation does not. Ignore stale directory responses after newer requests or teardown.
-- `beginRename(file)` and `beginNewFolder()` edit names in the shared footer input. `openRenameModal(file, options)` and `openNewFolderModal()` always open `rename-modal.html`; callers need no presentation flags. Rename state captures its directory and duplicate-check entries without retargeting Files. Pending rename/create requests block cancellation until their result is applied. New folder temporarily replaces the Save As filename field and preserves its draft on return. The footer owns its responsive container so filename inputs use the full width on narrow hosts.
+- `beginRename(file)` and `beginNewFolder()` edit names in the shared footer input. `openRenameModal(file, options)` and `openNewFolderModal()` open `rename-modal.html` for primary/external callers and use the inline footer in embedded views; callers need no presentation flags. Rename state captures its directory and duplicate-check entries without retargeting Files. Pending rename/create requests block cancellation until their result is applied. New folder temporarily replaces the Save As filename field and preserves its draft on return. The footer owns its responsive container so filename inputs use the full width on narrow hosts.
 - New file configures the existing Files footer in place and creates an empty file through Editor, never overwriting existing names. External Editor Open/Save As use `open()` and a modal, even if a hidden canvas Files instance exists; an already-open Files modal is activated through the shared modal helper and its close promise preserved, including when parked behind another surface. Mounted canvas listings restore their prior directory after the modal closes. Surface docking preserves active picker state.
 
 - File rows open files and navigate into folders on whole-row click (name cell passive, pointer cursor); the selection label and action cells opt out with `@click.stop`.
 - Preserve surface actions that route supported files to Browser, Desktop, or Editor.
 - Keep native drag moves available outside picker modes: dragging an unselected row moves only that row without changing selection, dragging a selected row moves the selection, folder rows accept drops, and Up moves items to the parent directory. Moves must reject overwrites and self-nesting.
 - File and folder entries in the shared tree must not have native or Bootstrap tooltips.
+- Keep the tree filter's clear icon in the neutral text palette, matching other file controls.
 - Folder names open folders through the host action, expanding them if needed; chevrons toggle branches without navigating. Indent branch status messages to the child-name column at each depth.
 - Tree branches load through the existing authenticated file-list API on expansion; filtering covers loaded folders. Keep only the filter above the raw tree, without path, parent, or refresh controls. Show the root row and retain the hierarchy from the configured local starting folder (default `/a0`) or `/@connections` for remote paths, lazily expanding the current directory's ancestors within that root. Store `treeRoot` in `fileBrowser.preferences`, load it on store initialization for Editor-only sessions, and share it with Editor while retaining independent tree state. Path-bar navigation outside the configured root must not widen it. Preserve other loaded branches within the same root and share pending directory loads.
 - Keep the tree on the right in canvas and modal modes; at narrow panel widths it overlays the content below the toolbar. Tree file clicks reuse picker selection or existing file-opening actions.
@@ -75,7 +82,7 @@
 ## Verification
 
 - Smoke-test opening Files as a modal and from the right-canvas rail.
-- Run targeted file-browser tests after behavior changes.
+- Run `node --test tests/test_file_browser_views.mjs` for chat/view isolation, shared-mode toggling, captured callbacks, picker ownership, permissions and teardown. Run the existing targeted file-browser pytest suites for modal/canvas compatibility.
 - Run `tests/test_file_tree.py` for lazy tree loading, path normalization, filtering, errors, and host cleanup.
 
 ## Child DOX Index

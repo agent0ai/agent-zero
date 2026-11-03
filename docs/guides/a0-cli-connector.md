@@ -50,8 +50,11 @@ a0
 ### Connection picker
 
 On launch, A0 CLI opens a host picker. If it finds Agent Zero on this machine,
-click **Connect**. If Agent Zero is somewhere else, click **Enter URL manually**
+click **Connect**. If Agent Zero is somewhere else, click **Enter a URL**
 and paste the address.
+
+With one local instance and no conflicting saved host, the CLI can connect
+automatically. Use `a0 --no-auto-connect` to keep the picker open.
 
 ![A0 CLI host picker](../res/usage/a0-cli/a0-cli-host-picker.png)
 
@@ -74,8 +77,9 @@ If **Remember this host** is enabled, the CLI saves that address for next time.
 
 ### The connected shell
 
-After connecting, the shell shows the Agent Zero address, current project, model,
-local folder, Agent Zero workspace, and the message box.
+After connecting, the shell shows chat tabs, the Agent Zero address, current
+project, selected model and preset, host folder, Agent Zero workspace, and the
+message box. Use **+** to open a new chat, or select a tab to return to an open chat.
 
 ![A0 CLI connected shell](../res/usage/a0-cli/a0-cli-start.png)
 
@@ -253,11 +257,12 @@ is ready:
 
 ![A0 CLI Browser status](../res/usage/a0-cli/a0-cli-browser-status.png)
 
-`/browser host` switches the active chat to Bring Your Own Browser mode:
+Run `/browser host`, or choose **Browser: Use Host** in the command palette,
+to switch to Bring Your Own Browser mode for the current Global or project scope:
 
-![A0 CLI Bring Your Own Browser mode](../res/usage/a0-cli/a0-cli-browser-host-mode.png)
+![A0 CLI command palette with Browser: Use Host selected](../res/usage/a0-cli/a0-cli-browser-host-mode.png)
 
-Run `/browser container` to switch that chat back to Docker browser mode.
+Run `/browser container` to switch that scope back to Docker browser mode.
 
 `/browser privacy` reminds users where the Browser content policy lives:
 

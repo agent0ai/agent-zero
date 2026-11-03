@@ -36,6 +36,12 @@ class TruncatedResponse(Extension):
                 return
         elif isinstance(response, str) and extract_tools.extract_tool_request(response):
             return
+        elif (
+            isinstance(response, str) and not response.strip()
+            and getattr(llm_result, "reasoning", "").strip()
+            and not getattr(llm_result, "builtin_items", None)
+        ):
+            return  # Reasoning-only recovery preserves the emitted thoughts.
 
         # Name truncation as the cause instead of the generic misformat warning.
         warning = self.agent.read_prompt("fw.msg_output_limit.md")
@@ -47,7 +53,7 @@ class TruncatedResponse(Extension):
         PrintStyle(font_color="orange", padding=True).print(notice)
         self.agent.context.log.log(
             type="warning",
-            content=f"{self.agent.agent_name}: {notice}",
+            content=notice,
             id=warning_message.id,
         )
         result_data["skip_default_processing"] = True

@@ -14,6 +14,17 @@ const IMPORT_API = "/api/plugins/_migrate_agents/migration_import";
 
 export const sources = [
   {
+    id: "pi",
+    name: "Pi",
+    logo: "/plugins/_migrate_agents/webui/assets/pi.svg",
+    accent: "mint",
+    hint: "Chats, branches, projects, instructions and skills",
+    guideTitle: "Find your Pi sessions",
+    guideLabel: "Folder to select",
+    command: "~/.pi/agent/sessions",
+    guideNote: "Choose session .jsonl files or their folder, not an HTML export. Custom session directories also work. Retained branches become separate chats. Add AGENTS.md and skill folders separately; project files and image bytes are not copied.",
+  },
+  {
     id: "openclaw",
     name: "OpenClaw",
     logo: "/plugins/_migrate_agents/webui/assets/openclaw.svg",

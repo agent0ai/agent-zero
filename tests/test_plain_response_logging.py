@@ -64,7 +64,7 @@ def test_live_log_updates_omit_unchanged_collections(monkeypatch):
     ]
 
 
-def test_responses_plain_text_completion_finishes_generating_log_as_response():
+def test_responses_plain_text_stays_in_the_generating_log_as_thoughts():
     agent, item = _agent_with_generating_log()
     data = {
         "args": (agent, "Plain final answer."),
@@ -73,12 +73,12 @@ def test_responses_plain_text_completion_finishes_generating_log_as_response():
 
     LogPlainResponses(agent=agent).execute(data=data)
 
-    assert item.type == "response"
-    assert item.heading == ""
+    assert item.type == "agent"
+    assert item.heading == "A0: Calling LLM..."
     assert item.content == "Plain final answer."
-    assert item.update_progress == "none"
-    assert item.kvps["finished"] is True
-    assert agent.loop_data.params_temporary["log_item_response"] is item
+    assert item.kvps["thoughts"] == ["Plain final answer."]
+    assert "finished" not in item.kvps
+    assert "log_item_response" not in agent.loop_data.params_temporary
 
 
 def test_responses_tool_json_keeps_generating_log_as_agent_step():
@@ -99,19 +99,9 @@ def test_responses_tool_json_keeps_generating_log_as_agent_step():
     assert "log_item_response" not in agent.loop_data.params_temporary
 
 
-@pytest.mark.parametrize("status", ["rejected", "truncated"])
-def test_rejected_leaked_call_is_not_displayed_as_a_final_response(status):
-    agent, item = _agent_with_generating_log()
-    agent.loop_data.params_temporary["leaked_tool_call"] = status
-    LogPlainResponses(agent).execute(data={
-        "args": (agent, '<tool_call>{"name":"response","arguments":{"text":"half'),
-        "kwargs": {"llm_result": SimpleNamespace(mode="responses")},
-    })
-    assert item.type == "agent"
-    assert "log_item_response" not in agent.loop_data.params_temporary
 
 
-def test_responses_plain_json_completion_finishes_generating_log_as_response():
+def test_responses_plain_json_stays_in_the_generating_log_as_thoughts():
     agent, item = _agent_with_generating_log()
     data = {
         "args": (agent, '{"status":"ok"}'),
@@ -120,9 +110,10 @@ def test_responses_plain_json_completion_finishes_generating_log_as_response():
 
     LogPlainResponses(agent=agent).execute(data=data)
 
-    assert item.type == "response"
+    assert item.type == "agent"
     assert item.content == '{"status":"ok"}'
-    assert agent.loop_data.params_temporary["log_item_response"] is item
+    assert item.kvps["thoughts"] == ['{"status":"ok"}']
+    assert "log_item_response" not in agent.loop_data.params_temporary
 
 
 def test_responses_plain_text_completion_does_not_replace_live_response_log():
@@ -268,5 +259,20 @@ def test_native_tool_commentary_keeps_generating_step():
     LogPlainResponses(agent=agent).execute(data={
         "args": (agent, result.response), "kwargs": {"llm_result": result},
     })
+    assert item.type == "agent"
+    assert "log_item_response" not in agent.loop_data.params_temporary
+
+
+@pytest.mark.parametrize("response", ["", '{"thoughts":["thinking"]}', '{"headline":"Checking"}'])
+def test_recovered_thoughts_do_not_become_a_final_response(response):
+    from helpers.llm_result import LLMResult
+
+    agent, item = _agent_with_generating_log()
+    result = LLMResult(response=response, reasoning="thinking")
+    LogPlainResponses(agent=agent).execute(data={
+        "args": (agent, response or '{"thoughts":["thinking"]}'),
+        "kwargs": {"llm_result": result},
+    })
+
     assert item.type == "agent"
     assert "log_item_response" not in agent.loop_data.params_temporary

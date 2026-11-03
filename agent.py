@@ -1138,7 +1138,10 @@ class Agent:
                 if result:
                     return result
             return None
-        if llm_result.builtin_items and not llm_result.response:
+        if (
+            llm_result.builtin_items
+            and extract_tools.extract_tool_request(llm_result.response) is None
+        ):
             return None
         message = llm_result.response
         if not message and llm_result.reasoning:
@@ -1147,18 +1150,6 @@ class Agent:
                 or extract_tools.is_misformatted_tool_request(llm_result.reasoning)
             ):
                 message = llm_result.reasoning
-        if (
-            llm_result.mode == "responses"
-            and isinstance(message, str)
-            and bool(message.strip())
-            and extract_tools.extract_tool_request(message) is None
-            and not extract_tools.is_misformatted_tool_request(message)
-        ):
-            return await self._execute_tool_request(
-                tool_name="response",
-                tool_args={"text": message},
-                message=message,
-            )
         return await self.process_tools(message)
 
     async def _execute_tool_request(
@@ -1207,7 +1198,7 @@ class Agent:
             PrintStyle(font_color="red", padding=True).print(error_detail)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: {error_detail}",
+                content=error_detail,
                 id=wmsg.id,
             )
             return None
@@ -1531,7 +1522,7 @@ class Agent:
                 wmsg = self.hist_add_warning(error_detail)
                 PrintStyle(font_color="red", padding=True).print(error_detail)
                 self.context.log.log(
-                    type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
+                    type="warning", content=error_detail, id=wmsg.id
                 )
         else:
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
@@ -1539,7 +1530,7 @@ class Agent:
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found.",
+                content="Message misformat, no valid tool request found.",
                 id=wmsg.id,
             )
 
