@@ -409,6 +409,9 @@ class DirtyJson:
             "]",
             "\n",
         ]:
+            # Leave a // or /* comment for _skip_whitespace, as after a number.
+            if self.current_char == "/" and self._peek(1) in ["/", "*"]:
+                break
             result += self.current_char
             self._advance()
         return result.strip()

@@ -32,6 +32,7 @@
 
 - Important called helpers/classes observed in the source: `DirtyJson.parse_string`, `json.dumps`, `json.loads`, `self._reset`, `self.stack.pop`, `DirtyJson`, `parser.parse`, `self.get_start_pos`, `self._parse`, `self._advance`, `self._skip_whitespace`, `self._parse_object_content`, `self._parse_array_content`, `self._skip_padding_from`, `self._looks_like_missing_comma_before_key`, `result.strip`, `self.current_char.isspace`, `self._parse_value`, `self._continue_parsing`, `self._parse_object`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
+- A bare value that starts like a number but is not one (`1.2.3`, `2024-01-01`, `+1-555-0100`, a lone `-`) is returned as stripped text up to the next `,`, `}`, `]`, newline or `//` / `/*` comment, instead of raising `ValueError`; real numbers still come back as `int` or `float`.
 
 ## Work Guidance
 
