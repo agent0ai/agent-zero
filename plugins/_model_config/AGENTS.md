@@ -25,6 +25,7 @@
 - Successful chat preset selection or override clearing emits `model-setup-changed` so the setup gate retries its original pending prompt against that chat's effective configuration without touching composer drafts. Failed saves emit no readiness signal.
 - Coordinate OAuth-backed providers with `_oauth` instead of hardcoding provider-specific auth here.
 - Model discovery never substitutes the generic LiteLLM registry for an OAuth account catalog (`api_key_mode: oauth`). Preserve source/error details; label API-key-provider registry suggestions as unverified and report failed discovery through standard notifications without exposing raw endpoint URLs.
+- Providers may set `models_list.litellm_fallback: false` when their transport's registry does not represent their catalogue; failed or empty discovery must then retain the endpoint's source/error without substituting registry models.
 - `model_config_get` exposes `model_configured` as a derived chat-model readiness flag from provider, model name, and API-key availability.
 - Non-default presets may inherit omitted main, utility, or embedding slots and durable tuning from `Default`, but must replace or clear per-slot `kwargs` so provider-specific extra params never leak across model providers.
 - The optional `vision` slot is strictly per preset and never inherited from `Default`; an empty slot disables the separate Vision Model for that preset.
