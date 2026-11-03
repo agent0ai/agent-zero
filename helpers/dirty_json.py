@@ -379,6 +379,7 @@ class DirtyJson:
         return result.strip()
 
     def _parse_number(self):
+        start = self.index
         number_str = ""
         while self.current_char is not None and (
             self.current_char.isdigit()
@@ -389,7 +390,28 @@ class DirtyJson:
         try:
             return int(number_str)
         except ValueError:
+            pass
+        try:
             return float(number_str)
+        except ValueError:
+            # Not a number after all (a version like 1.2.3, a date like
+            # 2024-01-01, a lone "-"): keep the text as an unquoted value
+            # instead of failing the whole document.
+            return self._parse_bare_value_from(start)
+
+    def _parse_bare_value_from(self, start: int):
+        self.index = start
+        self.current_char = self.json_string[start]
+        result = ""
+        while self.current_char is not None and self.current_char not in [
+            ",",
+            "}",
+            "]",
+            "\n",
+        ]:
+            result += self.current_char
+            self._advance()
+        return result.strip()
 
     def _parse_unquoted_string(self):
         result = ""
