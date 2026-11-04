@@ -118,12 +118,13 @@ class PrintStyle:
     def get(self, *args, sep=' ', **kwargs):
         text = self._format_args(args, sep)
 
-        # Automatically mask secrets in all print output
+        # Automatically mask secrets in all print output. Build the masking
+        # manager fresh on every call: its value list is a snapshot, and a
+        # cached instance would never mask secrets added mid-session.
         try:
-            if not hasattr(self, "secrets_mgr"):
-                from helpers.secrets import get_secrets_manager
-                self.secrets_mgr = get_secrets_manager()
-            text = self.secrets_mgr.mask_values(text)
+            from helpers.secrets import get_secrets_masking_manager
+
+            text = get_secrets_masking_manager().mask_values(text)
         except Exception:
             # If masking fails, proceed without masking to avoid breaking functionality
             pass

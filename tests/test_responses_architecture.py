@@ -153,7 +153,7 @@ def test_native_generation_thoughts_preserve_result_and_mask_log(monkeypatch):
         {"type": "function_call", "name": "lookup", "call_id": "call_a", "arguments": '{"q":"a0"}'},
     ]})
     original = json.dumps(result.to_dict(), sort_keys=True)
-    monkeypatch.setattr("helpers.log.get_secrets_manager", lambda context: SimpleNamespace(
+    monkeypatch.setattr("helpers.log.get_secrets_masking_manager", lambda context: SimpleNamespace(
         mask_values=lambda text: text.replace("sample-secret", "[MASKED]")))
     log = Log()
     item = log.log(type="agent", kvps={"reasoning": "existing summary"})

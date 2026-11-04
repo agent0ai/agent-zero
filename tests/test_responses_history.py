@@ -130,7 +130,7 @@ def test_prepared_context_lifecycle_and_post_hook_changes(monkeypatch):
     agent.loop_data = LoopData()
     model = LiteLLMChatWrapper(model="test", provider="openai", model_config=None, a0_api_mode="responses")
     prompt = [SystemMessage("Rules"), HumanMessage("Question")]
-    monkeypatch.setattr(secrets, "get_secrets_manager", lambda _: SimpleNamespace(mask_values=lambda text: text))
+    monkeypatch.setattr(secrets, "get_secrets_masking_manager", lambda _: SimpleNamespace(mask_values=lambda text: text))
     history.remember_prompt(agent.loop_data, ChatPromptTemplate.from_messages(prompt).format(), prompt[0], [])
     call = {"model": model, "messages": prompt, "responses_prompt_replacements": {"Rules": "Override"}}
     prepared = history.prepare_call(agent, call)
@@ -139,7 +139,7 @@ def test_prepared_context_lifecycle_and_post_hook_changes(monkeypatch):
     model.kwargs["a0_api_mode"] = "chat"
     with monkeypatch.context() as chat:
         chat.setattr(model, "_convert_messages", lambda _: pytest.fail("Chat must not prepare replay input"))
-        chat.setattr(secrets, "get_secrets_manager", lambda _: pytest.fail("Chat must not prepare replay masking"))
+        chat.setattr(secrets, "get_secrets_masking_manager", lambda _: pytest.fail("Chat must not prepare replay masking"))
         assert "responses_history_context" not in history.prepare_call(agent, call)
     model.kwargs["a0_api_mode"] = "responses"
     for changed in (
@@ -165,7 +165,7 @@ def test_current_and_retained_extras_use_the_same_secret_mask(monkeypatch):
     model = LiteLLMChatWrapper(model="test", provider="openai", model_config=None, a0_api_mode="responses")
     prompt = [SystemMessage("Rules"), HumanMessage("Question\nProvider: private-value")]
     mask = lambda text: text.replace("private-value", "MASKED_KEY")
-    monkeypatch.setattr(secrets, "get_secrets_manager", lambda _: SimpleNamespace(mask_values=mask))
+    monkeypatch.setattr(secrets, "get_secrets_masking_manager", lambda _: SimpleNamespace(mask_values=mask))
     history.remember_prompt(agent.loop_data, ChatPromptTemplate.from_messages(prompt).format(), prompt[0], [])
     prepared = history.prepare_call(agent, {"model": model, "messages": prompt})
     original = prepared["responses_history_context"]["prompt"]

@@ -1,5 +1,5 @@
 from helpers.extension import Extension
-from helpers.secrets import get_secrets_manager
+from helpers.secrets import get_secrets_masking_manager
 
 
 class MaskToolSecrets(Extension):
@@ -11,7 +11,7 @@ class MaskToolSecrets(Extension):
         # model call data
         call_data:dict = kwargs.get("call_data", {})
             
-        secrets_mgr = get_secrets_manager(self.agent.context)
+        secrets_mgr = get_secrets_masking_manager(self.agent.context)
         
         # mask system and user message
         if system:=call_data.get("system"):
