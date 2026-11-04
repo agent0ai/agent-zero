@@ -13,6 +13,7 @@
 
 ## Local Contracts
 
+- Agent Config shows the unusable response limit below the default agent profile; Advanced Settings contains the knowledge subdirectory and project inheritance controls.
 - `file-browser/` owns the Files settings page, with appearance, remote folders/plugin controls, file limits and archives in that order. Use standard stacked Settings field rows rather than a bespoke two-column grid. The Files gear and provider plugin shortcuts open this category. Appearance includes the browser-local tree starting folder shared by Files and Editor, defaulting to `/a0`. Remember-location is a normal Settings draft; existing immediate Files limit writes also update the open Settings draft to avoid stale overwrite. Appearance also owns the Files path bar style (`buttons` breadcrumbs default or `raw` plain text path with the Up button), shown in Settings as Breadcrumbs and Text.
 - File Browser appearance includes browser-local **Separate browsing per chat**, enabled by default. It switches the primary browser between retained per-chat views and a shared session; Welcome Files always keeps its own view. Sorting/view/path-bar/tree defaults remain shared.
 - Keep settings payloads synchronized with backend APIs and plugin settings contracts.
