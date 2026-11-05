@@ -2,7 +2,7 @@
 run terminal, python, or nodejs commands
 args:
 - `runtime`: `terminal`, `python`, `nodejs`, or `output`
-- `code`: command or script code
+- `code`: command or script code as a single string; required for `terminal`, `python`, and `nodejs`
 - `session`: terminal session id; default `0`
 - `reset`: kill a session before running; `true` or `false`
 rules:
