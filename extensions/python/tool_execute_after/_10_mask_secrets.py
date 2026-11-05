@@ -1,5 +1,5 @@
 from helpers.extension import Extension
-from helpers.secrets import get_secrets_manager
+from helpers.secrets import get_secrets_masking_manager
 from helpers.tool import Response
 
 
@@ -11,5 +11,5 @@ class MaskToolSecrets(Extension):
 
         if not response:
             return
-        secrets_mgr = get_secrets_manager(self.agent.context)
+        secrets_mgr = get_secrets_masking_manager(self.agent.context)
         response.message = secrets_mgr.mask_values(response.message)

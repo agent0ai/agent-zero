@@ -3,6 +3,7 @@ from pathlib import Path
 from helpers.tool import Tool, Response
 from helpers.extension import call_extensions_async
 from helpers import plugins, runtime
+from helpers.secrets import is_sibling_project_secrets_path
 from plugins._text_editor.helpers.file_ops import (
     FileInfo,
     read_file,
@@ -36,6 +37,18 @@ class TextEditor(Tool):
 
     async def execute(self, **kwargs):
         action = _current_action(self, kwargs)
+        path = str(kwargs.get("path") or self.args.get("path") or "")
+        # An agent must never read, write, or patch another project's
+        # secrets.env through this tool. Ordinary project files are
+        # unaffected; shell-level access is a separate, documented limit.
+        if action in ("read", "write", "patch") and path:
+            context = getattr(self.agent, "context", None) if self.agent else None
+            if is_sibling_project_secrets_path(path, context):
+                return self._error(
+                    action,
+                    path,
+                    "access to another project's secrets file is not allowed",
+                )
         if action == "read":
             return await self._read(**kwargs)
         elif action == "write":

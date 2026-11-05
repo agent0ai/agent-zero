@@ -29,7 +29,7 @@ def prepare_call(agent: Any, call_data: dict) -> dict:
     from langchain_core.prompts import ChatPromptTemplate
     from helpers import history
     from helpers.litellm_transport import ResponsesTransport, TransportMode
-    from helpers.secrets import get_secrets_manager
+    from helpers.secrets import get_secrets_masking_manager
 
     model, messages = call_data["model"], call_data["messages"]
     params = agent.loop_data.params_temporary
@@ -51,7 +51,7 @@ def prepare_call(agent: Any, call_data: dict) -> dict:
         )
         return rendered[0].get("content") if len(rendered) == 1 else None
 
-    mask = get_secrets_manager(agent.context).mask_values
+    mask = get_secrets_masking_manager(agent.context).mask_values
     prompt = ResponsesTransport.input_from_model_messages(model, messages)
     prefix = ResponsesTransport.input_from_model_messages(model, prepared["prefix"])
     kwargs["responses_history_context"] = {

@@ -257,7 +257,7 @@ class CodeExecution(Tool):
     def format_command_for_output(self, command: str):
         short_cmd = command[:250]
         short_cmd = " ".join(short_cmd.split())
-        short_cmd = secrets.get_secrets_manager(self.agent.context).mask_values(short_cmd)
+        short_cmd = secrets.get_secrets_masking_manager(self.agent.context).mask_values(short_cmd)
         short_cmd = truncate_text_string(short_cmd, 100)
         return f"{short_cmd}"
 

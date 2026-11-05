@@ -24,17 +24,24 @@
   - `get_keys(self) -> List[str]`
   - `get_secrets_for_prompt(self) -> str`
   - `create_streaming_filter(self) -> 'StreamingSecretsFilter'`
+- `SecretsMaskingManager` (no explicit base class)
+  - `mask_values(self, text: str, min_length: int = 4, placeholder: str = "***") -> str`
+  - `create_streaming_filter(self) -> 'StreamingSecretsFilter'`
 - Top-level functions:
 - `alias_for_key(key: str, placeholder: str=...) -> str`
 - `get_secrets_manager(context: 'AgentContext|None'=...) -> SecretsManager`
 - `get_project_secrets_manager(project_name: str, merge_with_global: bool=...) -> SecretsManager`
 - `get_default_secrets_manager() -> SecretsManager`
+- `get_secrets_masking_manager(context: 'AgentContext|None'=...) -> SecretsMaskingManager`
+- `is_sibling_project_secrets_path(path: str, context: 'AgentContext|None'=...) -> bool`
 - Notable constants/configuration names: `ALIAS_PATTERN`, `DEFAULT_SECRETS_FILE`, `_RUNTIME_CREDENTIAL_KEYS`.
 
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - The agent-facing `get_secrets_manager` masks and unpacks `API_KEY_*` and login/password credentials from `usr/.env`, every value from the global `usr/secrets.env`, and every value from the active project's `secrets.env`; ordinary runtime settings are not treated as secrets. `get_default_secrets_manager` remains scoped to the single writable `usr/secrets.env` file.
+- Resolution and masking are separate responsibilities and must stay separate. `get_secrets_manager` (and `get_project_secrets_manager`) resolve placeholders and must remain scoped to the global files plus the active project only: the tool-execution unmask hook resolves placeholders through it, so widening it to sibling projects would let one project spend another's credentials. Output masking goes through `get_secrets_masking_manager`, a values-only facility (no key store, so it can never resolve placeholders) that covers the global files plus EVERY project's `secrets.env`, collecting values one file at a time so duplicate keys with different values in different projects are all masked with the generic `***` placeholder. Masking is context-independent: no active project still masks all projects' values.
+- `is_sibling_project_secrets_path` decides whether a path is another project's `<project>/.a0proj/secrets.env` for the current context, checking both the lexical path and the symlink-resolved path component-wise. The text-editor tool denies such reads, writes, and patches. This is a tool-layer boundary only: shell/Python/Node execution and the remote editor (a different machine's filesystem) are outside it, and no claim of complete filesystem isolation is made.
 - Secret serialization escapes backslashes, double quotes, and carriage returns in double-quoted values so global and project saves preserve their parsed values across disk reads and masked edits. Literal line feeds remain multiline; empty values, comments, and deletion semantics are unchanged.
 - Masked secret merging matches keys using the same uppercase convention as parsing and masking, preserving values from lowercase or mixed-case entries. Explicit empty values still clear a secret, and omitted keys are deleted.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
@@ -57,6 +64,7 @@
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_secrets.py`
+  - `tests/test_text_editor_secrets_guard.py`
   - `tests/test_plugin_scan_prompt.py`
   - `tests/test_print_style.py`
   - `tests/test_time_travel.py`

@@ -49,10 +49,20 @@ class StreamingSecretsFilter:
     - Holds the longest suffix of the current buffer that matches any secret prefix
       (with minimum trigger length of 3) to avoid leaking partial secrets across chunks.
     - On finalize(), any unresolved partial is masked with '***'.
+    - When `placeholder` is given, full secret values are replaced with that
+      literal instead of a per-key alias. The alias form cannot represent
+      values that share a key across files, so masking-only callers that
+      aggregate values from many files must use the placeholder form.
     """
 
-    def __init__(self, key_to_value: Dict[str, str], min_trigger: int = 3):
+    def __init__(
+        self,
+        key_to_value: Dict[str, str],
+        min_trigger: int = 3,
+        placeholder: Optional[str] = None,
+    ):
         self.min_trigger = max(1, int(min_trigger))
+        self.placeholder = placeholder
         # Map value -> key for placeholder construction
         self.value_to_key: Dict[str, str] = {
             v: k for k, v in key_to_value.items() if isinstance(v, str) and v
@@ -74,6 +84,9 @@ class StreamingSecretsFilter:
         # Sort by length desc to avoid partial overlaps
         for val in sorted(self.secret_values, key=len, reverse=True):
             if not val:
+                continue
+            if self.placeholder is not None:
+                text = text.replace(val, self.placeholder)
                 continue
             key = self.value_to_key.get(val, "")
             if key:
@@ -558,3 +571,137 @@ def get_project_secrets_manager(project_name: str, merge_with_global: bool = Fal
 @extensible
 def get_default_secrets_manager() -> SecretsManager:
     return SecretsManager.get_instance()
+
+
+class SecretsMaskingManager:
+    """Masking-only view over every secret VALUE on this instance.
+
+    This facility exists so output masking can cover all projects without
+    widening secret RESOLUTION: it stores a flat list of values, never a
+    key -> value store, so it cannot resolve placeholders or supply
+    credentials to any caller. Values are collected one file at a time
+    (global files plus every project's secrets.env), which preserves
+    duplicate keys with different values across projects — a single
+    merged dict would silently drop all but one value per key.
+
+    Masking is deliberately context-independent: sibling values are
+    masked even when no project is active, because the absence of an
+    active project must not widen what an agent can see in plaintext.
+    """
+
+    def __init__(self, values):
+        seen = set()
+        unique = []
+        for value in values:
+            if isinstance(value, str) and value and value not in seen:
+                seen.add(value)
+                unique.append(value)
+        # Longest first so a value that contains another is masked whole.
+        self._values = sorted(unique, key=len, reverse=True)
+
+    def mask_values(
+        self, text: str, min_length: int = 4, placeholder: str = "***"
+    ) -> str:
+        """Replace actual secret values with a generic placeholder."""
+        if not text:
+            return text
+        result = text
+        for value in self._values:
+            if value and len(value.strip()) >= min_length:
+                result = result.replace(value, placeholder)
+        return result
+
+    def create_streaming_filter(self) -> "StreamingSecretsFilter":
+        """Create a streaming filter snapshotting the current values."""
+        return StreamingSecretsFilter(
+            {str(index): value for index, value in enumerate(self._values)},
+            placeholder=SecretsManager.MASK_VALUE,
+        )
+
+
+def _collect_all_secret_values() -> List[str]:
+    """Collect every non-empty secret value: global files + all projects.
+
+    Each file is loaded through its own single-file SecretsManager so
+    duplicate keys in different files are never merged away. Unreadable
+    files contribute nothing; masking must never break its caller.
+    """
+    from helpers import projects
+
+    secret_files = [DEFAULT_SECRETS_FILE, dotenv.get_dotenv_file_path()]
+    for name in projects.get_project_names():
+        secret_files.append(
+            files.get_abs_path(projects.get_project_meta(name), "secrets.env")
+        )
+    values: List[str] = []
+    for path in secret_files:
+        try:
+            values.extend(SecretsManager.get_instance(path).load_secrets().values())
+        except Exception:
+            continue
+    return values
+
+
+@extensible
+def get_secrets_masking_manager(
+    context: "AgentContext|None" = None,
+) -> SecretsMaskingManager:
+    """Return the masking-only manager for agent-visible output.
+
+    `context` is accepted for call-site symmetry with
+    get_secrets_manager() but intentionally ignored: masking covers
+    every project's values regardless of the active project. Use this
+    for mask_values()/streaming-filter call sites ONLY — never for
+    placeholder resolution, which must stay scoped to the active
+    project via get_secrets_manager().
+    """
+    return SecretsMaskingManager(_collect_all_secret_values())
+
+
+def is_sibling_project_secrets_path(
+    path: str, context: "AgentContext|None" = None
+) -> bool:
+    """True if `path` is another project's secrets.env for this context.
+
+    Both the lexical path (after `..` normalization, symlinks intact)
+    and the fully resolved path (symlinks resolved) are checked
+    component-wise, so traversal (`../`), absolute paths, and symlinked
+    project directories cannot bypass the check. Only the exact file
+    `<project>/.a0proj/secrets.env` is matched; ordinary project files
+    are never denied. With no active project, every project's
+    secrets.env counts as a sibling file. This predicate decides
+    access only — it never reads file contents.
+    """
+    from helpers import projects
+
+    active: Optional[str] = None
+    if not context:
+        try:
+            from agent import AgentContext
+
+            context = AgentContext.current()
+        except Exception:
+            context = None
+    if context is not None:
+        try:
+            active = projects.get_context_project_name(context)
+        except Exception:
+            active = None
+
+    parent = os.path.realpath(projects.get_projects_parent_folder())
+    resolved_path = files.get_abs_path(os.path.expanduser(path))
+    candidates = (
+        os.path.abspath(resolved_path),
+        os.path.realpath(resolved_path),
+    )
+    for candidate in candidates:
+        rel = os.path.relpath(candidate, parent)
+        parts = rel.split(os.sep)
+        if (
+            len(parts) == 3
+            and parts[1] == projects.PROJECT_META_DIR
+            and parts[2] == "secrets.env"
+            and parts[0] != active
+        ):
+            return True
+    return False

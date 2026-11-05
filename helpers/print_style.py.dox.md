@@ -33,7 +33,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `self._get_rgb_color_code`, `html.escape.replace`, `sep.join`, `self._format_args`, `sanitize_string`, `self._add_padding_if_needed`, `end.endswith`, `sys.stdin.readlines`, `PrintStyle._prefixed_args`, `self.secrets_mgr.mask_values`, `self._get_styled_text`, `self._get_html_styled_text`.
+- Important called helpers/classes observed in the source: `self._get_rgb_color_code`, `html.escape.replace`, `sep.join`, `self._format_args`, `sanitize_string`, `self._add_padding_if_needed`, `end.endswith`, `sys.stdin.readlines`, `PrintStyle._prefixed_args`, `get_secrets_masking_manager().mask_values`, `self._get_styled_text`, `self._get_html_styled_text`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

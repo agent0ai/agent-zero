@@ -465,6 +465,12 @@ def _load_text_editor_tool(monkeypatch: pytest.MonkeyPatch):
 
     extension_stub = types.ModuleType("helpers.extension")
 
+    # text_editor imports helpers.secrets, which needs the real extensible
+    # decorator from helpers.extension even under this stub.
+    from helpers.extension import extensible as _real_extensible
+
+    extension_stub.extensible = _real_extensible
+
     async def call_extensions_async(name: str, *args, **kwargs):
         calls.append((name, kwargs.get("data")))
 

@@ -374,6 +374,29 @@ def get_active_projects_list():
     return _get_projects_list(get_projects_parent_folder())
 
 
+def get_project_names() -> list[str]:
+    """Sorted names of project directories, without loading project data.
+
+    Hidden (dot-prefixed) entries are skipped: they are not projects.
+    Symlinked directories are skipped explicitly: a symlink may point
+    outside the projects tree, and enumeration for security-sensitive
+    uses (e.g. collecting every project's secrets for output masking)
+    must not follow it. A missing parent folder yields an empty list.
+    """
+    names: list[str] = []
+    parent = get_projects_parent_folder()
+    for name in files.get_subdirectories(parent):
+        if name.startswith("."):
+            continue
+        if os.path.islink(os.path.join(parent, name)):
+            continue
+        try:
+            names.append(validate_project_name(name))
+        except ValueError:
+            continue
+    return sorted(names)
+
+
 def _get_projects_list(parent_dir):
     projects = []
 

@@ -7,7 +7,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Literal, Optional, TYPE_CHECKING, TypeVar, cast
 
-from helpers.secrets import get_secrets_manager
+from helpers.secrets import get_secrets_masking_manager
 from helpers.strings import truncate_text_by_ratio
 
 
@@ -421,7 +421,7 @@ class Log:
         """Recursively mask secrets in nested objects."""
         try:
             from agent import AgentContext
-            secrets_mgr = get_secrets_manager(self.context or AgentContext.current())
+            secrets_mgr = get_secrets_masking_manager(self.context or AgentContext.current())
 
             # debug helper to identify context mismatch
             # self_id = self.context.id if self.context else None
