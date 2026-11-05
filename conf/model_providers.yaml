@@ -47,6 +47,13 @@ chat:
     litellm_provider: cometapi
     models_list:
       endpoint_url: "https://api.cometapi.com/v1/models"
+  bytez:
+    name: Bytez
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.bytez.com/models/v2/openai
+      api_key: 4459f2d75bd547755b1212f6cbd00396
+      API_KEY_OPENAI: 4459f2d75bd547755b1212f6cbd00396
   deepseek:
     name: DeepSeek
     litellm_provider: deepseek
@@ -195,6 +202,12 @@ embedding:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "Agent Zero"
         "X-OpenRouter-Categories": "personal-agent,cloud-agent"
+  bytez:
+    name: Bytez
+    litellm_provider: openai
+    kwargs:
+      api_base: https://api.bytez.com/models/v2/openai
+      api_key: 4459f2d75bd547755b1212f6cbd00396
   other:
     name: Other OpenAI compatible
     litellm_provider: openai

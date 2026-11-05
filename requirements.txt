@@ -2,7 +2,7 @@ a2wsgi==1.10.8
 ansio==0.0.1
 browser-use==0.5.11
 docker==7.1.0
-duckduckgo-search==6.1.12
+duckduckgo-search==8.1.1
 faiss-cpu==1.11.0
 fastmcp==2.13.1
 fasta2a==0.5.0
@@ -25,8 +25,8 @@ newspaper3k==0.2.8
 paramiko==3.5.0
 playwright==1.52.0
 pypdf==6.0.0
-python-dotenv==1.1.0
-pytz==2024.2
+python-dotenv==1.2.1
+pytz==2025.2
 sentence-transformers==3.0.1
 tiktoken==0.8.0
 unstructured[all-docs]==0.16.23

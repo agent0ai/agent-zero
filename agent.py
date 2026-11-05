@@ -879,9 +879,14 @@ class Agent:
 
         if tool_request is not None:
             raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
-            tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
+            
+            if not raw_tool_name:
+                tool_request = None # Treat as misformat
+                tool_name = ""
+            else:
+                tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
 
-            tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
+                tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
 
             # Split raw_tool_name into tool_name and tool_method if applicable
@@ -975,11 +980,16 @@ class Agent:
     @extension.extensible
     async def validate_tool_request(self, tool_request: Any):
         if not isinstance(tool_request, dict):
-            raise ValueError("Tool request must be a dictionary")
-        if not tool_request.get("tool_name") or not isinstance(tool_request.get("tool_name"), str):
-            raise ValueError("Tool request must have a tool_name (type string) field")
-        if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
-            raise ValueError("Tool request must have a tool_args (type dictionary) field")
+            return # Let process_tools handle the misformat
+        
+        tool_name = tool_request.get("tool_name", tool_request.get("tool"))
+        if not tool_name or not isinstance(tool_name, str):
+            return # Let process_tools handle the misformat
+            
+        tool_args = tool_request.get("tool_args", tool_request.get("args"))
+        if tool_args is None: tool_args = {} # allow empty args
+        if not isinstance(tool_args, dict):
+            return # Let process_tools handle the misformat
 
 
 
