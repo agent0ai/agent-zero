@@ -1,3 +1,5 @@
+import { mapWithConcurrency } from "./concurrency.js";
+
 // Import a component into a target element
 // Import a component and recursively load its nested components
 // Returns the parsed document for additional processing
@@ -203,16 +205,14 @@ export async function loadComponents(roots = [document.documentElement]) {
 
     if (components.length === 0) return;
 
-    await Promise.all(
-      components.map(async (component) => {   
+    await mapWithConcurrency(components, async (component) => {   
         const path = component.getAttribute("path");
         if (!path) {
           console.error("x-component missing path attribute:", component);
           return;
         }
         await importComponent(path, component);
-      })
-    );
+      });
   } catch (error) {
     console.error("Error loading components:", error);
   }
