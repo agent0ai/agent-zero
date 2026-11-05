@@ -68,6 +68,14 @@ class CodeExecution(Tool):
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
         runtime_arg = self.args.get("runtime", "").lower().strip()
+        if runtime_arg in {"python", "nodejs", "terminal"}:
+            code = self.args.get("code")
+            if not isinstance(code, str):
+                return (
+                    "Invalid code argument: expected a string, "
+                    f"received {type(code).__name__}."
+                )
+
         session = int(self.args.get("session", 0))
         self.allow_running = coerce_bool(self.args.get("allow_running", False), False)
         reset = coerce_bool(self.args.get("reset", False), False) or runtime_arg == "reset"
