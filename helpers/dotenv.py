@@ -1,3 +1,4 @@
+import locale
 import os
 import re
 from typing import Any
@@ -21,24 +22,33 @@ def get_dotenv_value(key: str, default: Any = None):
     # load_dotenv()       
     return os.getenv(key, default)
 
+def _read_env_lines(dotenv_path: str) -> list[str]:
+    # Loaders (python-dotenv) always read .env as UTF-8, so writes must be UTF-8 too.
+    # Older versions wrote with the platform locale encoding on Windows; tolerate those
+    # bytes so a legacy file can still be updated instead of crashing the save.
+    with open(dotenv_path, "rb") as f:
+        raw = f.read()
+    try:
+        return raw.decode("utf-8").splitlines(keepends=True)
+    except UnicodeDecodeError:
+        return raw.decode(locale.getencoding(), errors="replace").splitlines(keepends=True)
+
 def save_dotenv_value(key: str, value: str, reload_env: bool = True):
     if value is None:
         value = ""
     dotenv_path = get_dotenv_file_path()
     if not os.path.isfile(dotenv_path):
-        with open(dotenv_path, "w") as f:
+        with open(dotenv_path, "w", encoding="utf-8") as f:
             f.write("")
-    with open(dotenv_path, "r+") as f:
-        lines = f.readlines()
-        found = False
-        for i, line in enumerate(lines):
-            if re.match(rf"^\s*{key}\s*=", line):
-                lines[i] = f"{key}={value}\n"
-                found = True
-        if not found:
-            lines.append(f"\n{key}={value}\n")
-        f.seek(0)
+    lines = _read_env_lines(dotenv_path)
+    found = False
+    for i, line in enumerate(lines):
+        if re.match(rf"^\s*{key}\s*=", line):
+            lines[i] = f"{key}={value}\n"
+            found = True
+    if not found:
+        lines.append(f"\n{key}={value}\n")
+    with open(dotenv_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
-        f.truncate()
     if reload_env:
         load_dotenv()
