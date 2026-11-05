@@ -24,6 +24,7 @@
 #     format:         Response parsing format: "openai" (default), "google", "ollama".
 #     params:         Extra query parameters for the listing request.
 #     default_base:   Default base URL for local/self-hosted providers.
+#     litellm_fallback: Set false when the transport's registry is not this provider's catalogue.
 
 chat:
   a0_venice:
@@ -68,6 +69,18 @@ chat:
       endpoint_url: "https://api.deepseek.com/models"
     kwargs:
       a0_api_mode: chat
+  fortytwo:
+    name: Fortytwo
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "/models"
+      litellm_fallback: false
+    kwargs:
+      a0_api_mode: chat
+      api_base: https://api.fortytwo.network/v1
+      extra_headers:
+        "HTTP-Referer": "https://agent-zero.ai/"
+        "X-Title": "Agent Zero"
   github_copilot:
     name: GitHub Copilot
     litellm_provider: github_copilot
