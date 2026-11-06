@@ -93,3 +93,34 @@ def test_value_can_still_end_before_quoted_key_when_comma_is_missing() -> None:
     parsed = DirtyJson.parse_string('{"first":"one" "second":"two"}')
 
     assert parsed == {"first": "one", "second": "two"}
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ('{"version": 1.2.3}', {"version": "1.2.3"}),
+        (
+            '{"tool_name":"x","tool_args":{"date": 2024-01-01, "n": 2}}',
+            {"tool_name": "x", "tool_args": {"date": "2024-01-01", "n": 2}},
+        ),
+        ('{"phone": +1-555-0100}', {"phone": "+1-555-0100"}),
+        ('{"sign": -, "ok": true}', {"sign": "-", "ok": True}),
+        ("[1.2.3, 4]", ["1.2.3", 4]),
+        (
+            '{"date": 2024-01-01 /* note */, "n": 2}',
+            {"date": "2024-01-01", "n": 2},
+        ),
+        ('{"v": 1.2.3 // note\n}', {"v": "1.2.3"}),
+    ],
+)
+def test_number_like_bare_value_is_kept_as_text(payload, expected) -> None:
+    parser = DirtyJson()
+
+    assert parser.parse(payload) == expected
+    assert parser.completed is True
+
+
+def test_numbers_still_parse_as_numbers() -> None:
+    parsed = DirtyJson.parse_string('{"i": -12, "f": 1.5e3, "p": +7}')
+
+    assert parsed == {"i": -12, "f": 1500.0, "p": 7}
