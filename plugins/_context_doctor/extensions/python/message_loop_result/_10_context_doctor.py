@@ -59,7 +59,12 @@ class ContextDoctor(Extension):
                 )
 
             warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
-            self.agent.hist_add_warning(message=warning)
+            warning_message = self.agent.hist_add_warning(message=warning)
+            self.agent.context.log.log(
+                type="util",
+                content=self.agent.read_prompt("fw.msg_thoughts_fallback_response.md"),
+                id=warning_message.id,
+            )
             result_data["skip_default_processing"] = True
             return
 

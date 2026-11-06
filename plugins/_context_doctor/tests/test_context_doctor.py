@@ -239,10 +239,12 @@ def test_responses_text_is_preserved_as_thoughts_without_final_dispatch(monkeypa
         "content": [{"type": "output_text", "text": text}],
     }]})
     metadata = result.metadata()
+    logs = []
     agent = SimpleNamespace(
         loop_data=SimpleNamespace(params_temporary={}),
+        context=SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: logs.append(kwargs))),
         hist_add_ai_response=Mock(),
-        hist_add_warning=Mock(),
+        hist_add_warning=Mock(return_value=SimpleNamespace(id="warning")),
         read_prompt=lambda name: name,
     )
     data = {"llm_result": result}
@@ -253,6 +255,13 @@ def test_responses_text_is_preserved_as_thoughts_without_final_dispatch(monkeypa
     agent.hist_add_ai_response.assert_called_once_with(
         result.response, id="", llm_result=result,
     )
+    assert logs == [
+        {
+            "type": "util",
+            "content": "fw.msg_thoughts_fallback_response.md",
+            "id": "warning",
+        }
+    ]
     assert "log_item_response" not in agent.loop_data.params_temporary
 
 
@@ -337,7 +346,7 @@ def test_extension_does_not_use_legacy_response_message_key(monkeypatch):
     ('{"thoughts":["Continue checking"]}', "responses", {"thoughts": ["Continue checking"]}),
     ('{"headline":"Checking"}', "chat_completions", {"headline": "Checking"}),
 ])
-def test_extension_retries_missing_action_without_visible_warning(monkeypatch, response, mode, expected):
+def test_extension_retries_missing_action_with_util_notice(monkeypatch, response, mode, expected):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
         lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
@@ -355,6 +364,7 @@ def test_extension_retries_missing_action_without_visible_warning(monkeypatch, r
         loop_data=SimpleNamespace(params_temporary={"log_item_generating": log_item}),
         read_prompt=lambda name, **kwargs: {
             "fw.msg_thoughts_fallback.md": "fallback warning",
+            "fw.msg_thoughts_fallback_response.md": "fallback notice",
         }[name],
         hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
         hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
@@ -368,7 +378,9 @@ def test_extension_retries_missing_action_without_visible_warning(monkeypatch, r
     assert json.loads(llm_result.response) == expected
     assert ai_responses == [llm_result.response]
     assert warnings == ["fallback warning"]
-    assert logs == []
+    assert logs == [
+        {"type": "util", "content": "fallback notice", "id": "warning"}
+    ]
     assert log_item.data["kvps"]["reasoning"] == "thinking"
     assert log_item.data["content"] == response
 

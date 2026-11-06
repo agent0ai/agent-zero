@@ -56,7 +56,15 @@ class EmptyResponse(Extension):
             warning = self.agent.read_prompt(
                 "fw.msg_misformat.md" if has_response else "fw.msg_reasoning_only.md"
             )
-            self.agent.hist_add_warning(message=warning)
+            warning_message = self.agent.hist_add_warning(message=warning)
+            notice = self.agent.read_prompt(
+                "fw.msg_misformat_response.md"
+                if has_response
+                else "fw.msg_reasoning_only_response.md"
+            )
+            self.agent.context.log.log(
+                type="util", content=notice, id=warning_message.id
+            )
             result_data["skip_default_processing"] = True
             return
 

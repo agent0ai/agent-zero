@@ -45,7 +45,7 @@
 - Use Linux paths and commands in examples.
 - When a live Dockerized Agent Zero target is explicitly named, verify that exact runtime instead of assuming a fixed localhost port.
 - Target a freshly pulled image for the v3 beta. Use the current API contract directly and describe setup or permission failures in terms of the action the user can take.
-- Message-loop completion requires an explicit response-tool call with `break_loop`. Free text in either transport remains generation thoughts and silently continues; never synthesize a response-tool call from prose. Malformed tool intent keeps its repair path.
+- Message-loop completion requires an explicit response-tool call with `break_loop`. Free text in either transport remains generation thoughts and never synthesizes a response-tool call from prose; recovery notices and their visibility live in the message-loop-result contract. Malformed tool intent keeps its repair path.
 - Reuse the startup-preloaded local embedding model for matching runtime configurations; wrappers retain their own rate-limit configuration while sharing the underlying inference model.
 - Embedding wrappers expose batch-shaped `embed(inputs)` for provider-ready inputs; keep `embed_documents` and `embed_query` as LangChain compatibility adapters.
 - The bundled local encoder is the checksum-pinned all-MiniLM-L6-v2 ONNX pipeline in `helpers/local_embeddings.py`. Build/setup prepares assets explicitly; inference is offline. Other local models or inference-changing kwargs fail explicitly until separately validated. Keep logical provider/model/cache identity only with persisted-index parity evidence. Source upgrades retain old optional packages/cache for private consumers and rollback; rebuilt images omit them.
