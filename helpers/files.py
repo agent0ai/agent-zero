@@ -180,7 +180,7 @@ def evaluate_text_conditions(_content: str, **kwargs):
                 # Unterminated if-block, do not modify text
                 return text
             token = m.group(1)
-            depth += 1 if token.startswith("if ") else -1
+            depth += -1 if token == "endif" else 1
             if depth == 0:
                 break
             pos = m.end()
