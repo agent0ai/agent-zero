@@ -25,8 +25,9 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
+- `\uXXXX` string escapes decode like `json.loads`, including UTF-16 surrogate pairs (`\ud83c\udf78` becomes U+1F378). A lone surrogate escape becomes U+FFFD, where `json.loads` would keep it, because tools and logs encode parsed strings as UTF-8.
 - Observed side-effect areas: filesystem writes, settings/state persistence.
-- Imported dependency areas include: `json`.
+- Imported dependency areas include: `json`, `re`.
 
 ## Key Concepts
 
