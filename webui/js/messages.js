@@ -29,6 +29,11 @@ import { addBlankTargetsToLinks } from "/js/html-links.js";
 import { sanitizeHtml } from "/js/safe-markdown.js";
 import { createThreeBubbleLoader } from "/js/loading-indicators.js";
 import { measureMessageCollapseOverflow } from "./message-collapse.js";
+import {
+  getCurrentStep,
+  isAtLiveTail,
+  isGroupComplete,
+} from "/components/messages/process-group/process-group-dom.js";
 
 // Delay before collapsing previous steps when a new step is added
 const STEP_COLLAPSE_DELAY = {
@@ -349,6 +354,7 @@ async function renderMessageWindow({
 
       await nextAnimationFrame();
       refreshCollapsibleMessageOverflow(history);
+      resumeCurrentDetailCollapse(history);
       if (anchor) {
         anchorRestored = restoreMessageWindowAnchor(history, anchor) ||
           anchorRestored;
@@ -1166,6 +1172,15 @@ function captureMessageExpansionState(history) {
         `${kind}:${element.id}`,
         element.classList.contains("expanded"),
       );
+      if (kind === "step" && element.dataset.clicked === "true") {
+        state.set(`clicked:${element.id}`, true);
+      }
+      if (kind === "step" && element.dataset.collapseDeadline) {
+        state.set(
+          `deadline:${element.id}`,
+          Number(element.dataset.collapseDeadline) - Date.now(),
+        );
+      }
     });
   history
     .querySelectorAll("[data-message-key] > .message")
@@ -1180,8 +1195,15 @@ function captureMessageExpansionState(history) {
 
 async function restoreMessageExpansionState(history, state) {
   const pending = [];
+  const clicked = new Set();
+  const deadlines = new Map();
+  for (const key of state.keys()) {
+    if (key.startsWith("clicked:")) clicked.add(key.slice(8));
+    if (key.startsWith("deadline:")) deadlines.set(key.slice(9), state.get(key));
+  }
   for (const [key, expanded] of state) {
     let element = null;
+    if (key.startsWith("clicked:") || key.startsWith("deadline:")) continue;
     if (key.startsWith("group:") || key.startsWith("step:")) {
       const separator = key.indexOf(":");
       const kind = key.slice(0, separator);
@@ -1198,6 +1220,10 @@ async function restoreMessageExpansionState(history, state) {
       element = container?.querySelector(":scope > .message") || null;
     }
     if (!element || !history.contains(element)) continue;
+    if (clicked.has(element.id)) element.dataset.clicked = "true";
+    if (deadlines.has(element.id)) {
+      element.dataset.collapseDeadline = String(Date.now() + deadlines.get(element.id));
+    }
     if (typeof element.__setExpanded === "function") {
       pending.push(Promise.resolve(element.__setExpanded(expanded)));
     } else {
@@ -1205,6 +1231,32 @@ async function restoreMessageExpansionState(history, state) {
     }
   }
   await Promise.allSettled(pending);
+}
+
+function liveProcessGroup(history) {
+  const groups = history?.querySelectorAll(".process-group") || [];
+  return groups[groups.length - 1] || null;
+}
+
+function resumeCurrentDetailCollapse(history) {
+  if (!history || preferencesStore.detailMode !== "current") return;
+  if (!isAtLiveTail(history)) return;
+  const group = liveProcessGroup(history);
+  if (!group || isGroupComplete(group)) return;
+  const currentStep = getCurrentStep(history);
+  history.querySelectorAll(".process-step.expanded").forEach((step) => {
+    if (step === currentStep || step.dataset.clicked === "true") return;
+    const delay =
+      STEP_COLLAPSE_DELAY[step.getAttribute("data-log-type")] ||
+      STEP_COLLAPSE_DELAY.other;
+    const deadline = Number(step.dataset.collapseDeadline);
+    scheduleStepCollapse(
+      step,
+      Number.isFinite(deadline)
+        ? Math.max(0, deadline - Date.now())
+        : delay,
+    );
+  });
 }
 
 function nextAnimationFrame() {
@@ -3019,6 +3071,7 @@ function scheduleStepCollapse(
   // Schedule the collapse
   const timeoutId = setTimeout(() => {
     stepElement.removeAttribute("data-collapse-timeout-id");
+    delete stepElement.dataset.collapseDeadline;
 
     if (stepElement.dataset.clicked === "true") {
       console.log(`Skip clicked collapse: ${stepElement.id}`);
@@ -3035,8 +3088,8 @@ function scheduleStepCollapse(
     toggleStepCollapse(stepElement, false);
   }, delayMs);
 
-  // Store the timeout ID
   stepElement.setAttribute("data-collapse-timeout-id", String(timeoutId));
+  stepElement.dataset.collapseDeadline = String(Date.now() + delayMs);
 }
 
 function setupProcessStepHandlers(stepElement, stepHeader) {
@@ -3073,6 +3126,7 @@ function cancelStepCollapse(stepElement) {
   const timeoutId = Number(timeoutIdStr);
   if (!Number.isNaN(timeoutId)) clearTimeout(timeoutId);
   stepElement.removeAttribute("data-collapse-timeout-id");
+  delete stepElement.dataset.collapseDeadline;
 }
 
 /**

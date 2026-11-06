@@ -18,6 +18,7 @@ PROCESS_GROUP_DOM_JS = (
     / "process-group-dom.js"
 )
 MESSAGE_COLLAPSE_JS = PROJECT_ROOT / "webui" / "js" / "message-collapse.js"
+MESSAGES_JS = PROJECT_ROOT / "webui" / "js" / "messages.js"
 
 
 def test_response_updates_leave_scrolling_to_the_chat_viewport():
@@ -632,3 +633,251 @@ def test_virtual_window_preserves_live_and_navigation_contracts():
     assert "Load ${Math.min" not in messages
     assert "overflow-anchor: none" in message_css
     assert ".message-container.message-window-restored" in message_css
+
+
+def _run_node_script(tmp_path, script):
+    script_path = tmp_path / "probe.mjs"
+    script_path.write_text(script, encoding="utf-8")
+    subprocess.run(["node", str(script_path)], check=True, text=True)
+
+
+def test_window_rebuild_reuses_remaining_collapse_time(tmp_path):
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required to execute the step-collapse regression.")
+
+    source = MESSAGES_JS.read_text(encoding="utf-8")
+    assert "resumeCurrentDetailCollapse(history);" in source
+    assert "collapseDeadline" in source
+
+    capture_start = source.index("function captureMessageExpansionState(")
+    resume_start = source.index("function resumeCurrentDetailCollapse(")
+    resume_end = source.index("\nfunction nextAnimationFrame(", resume_start)
+    helpers = source[capture_start:resume_end]
+
+    dom_source = PROCESS_GROUP_DOM_JS.read_text(encoding="utf-8").replace(
+        'import { store as preferencesStore } from '
+        '"/components/sidebar/bottom/preferences/preferences-store.js";\n',
+        'const preferencesStore = { detailMode: "current", showUtils: false };\n',
+    )
+    module_path = tmp_path / "collapse-deadline.mjs"
+    module_path.write_text(
+        dom_source
+        + "const STEP_COLLAPSE_DELAY = { agent: 2000, other: 4000 };\n"
+        "const scheduled = [];\n"
+        "const scheduleStepCollapse = (step, delay) => scheduled.push([step.id, delay]);\n"
+        + helpers
+        + "\nexport { captureMessageExpansionState, restoreMessageExpansionState,"
+        " resumeCurrentDetailCollapse, scheduled, preferencesStore };\n",
+        encoding="utf-8",
+    )
+    script = f"""
+import assert from "node:assert/strict";
+import {{
+  captureMessageExpansionState,
+  restoreMessageExpansionState,
+  resumeCurrentDetailCollapse,
+  scheduled,
+}} from {module_path.as_uri()!r};
+
+const makeStep = (id, {{ expanded = false, deadline = null }} = {{}}) => {{
+  const classes = new Set(expanded ? ["process-step", "expanded"] : ["process-step"]);
+  return {{
+    id,
+    dataset: deadline === null ? {{}} : {{ collapseDeadline: String(deadline) }},
+    classList: {{
+      contains: (name) => classes.has(name),
+      add: (name) => classes.add(name),
+      delete: (name) => classes.delete(name),
+      toggle: (name, force) => (force ? classes.add(name) : classes.delete(name)),
+    }},
+    setAttribute() {{}},
+    getAttribute: (name) => (name === "data-log-type" ? "agent" : null),
+    __setExpanded(expanded) {{
+      if (expanded) classes.add("expanded");
+      else classes.delete("expanded");
+    }},
+  }};
+}};
+
+const mkHistory = (steps, {{ end = 100, total = 100 }} = {{}}) => ({{
+  dataset: {{ messageWindowEnd: String(end), messageWindowTotal: String(total) }},
+  steps,
+  querySelectorAll(selector) {{
+    if (selector === ".process-step.expanded") {{
+      return steps.filter((step) => step.classList.contains("expanded"));
+    }}
+    if (selector === ".process-group") return steps.length ? [{{
+      hasAttribute: () => false,
+      querySelector: () => null,
+      querySelectorAll: (inner) => inner === ".process-step" ? steps : [],
+    }}] : [];
+    if (selector.includes(".process-step[id]")) return steps;
+    return [];
+  }},
+  contains: (element) => steps.includes(element),
+}});
+
+const before = Date.now();
+const oldSteps = [
+  makeStep("halfway", {{ expanded: true, deadline: before + 1000 }}),
+  makeStep("plain", {{ expanded: true }}),
+  makeStep("fresh", {{ expanded: true }}),
+];
+const state = captureMessageExpansionState(mkHistory(oldSteps));
+assert.equal(state.get("deadline:halfway") <= 1000, true);
+assert.equal(state.has("deadline:plain"), false);
+
+const newSteps = [makeStep("halfway"), makeStep("plain"), makeStep("fresh")];
+const history = mkHistory(newSteps);
+await restoreMessageExpansionState(history, state);
+assert.equal(newSteps[0].dataset.collapseDeadline >= before + 900, true);
+assert.equal(newSteps[1].dataset.collapseDeadline, undefined);
+
+resumeCurrentDetailCollapse(history);
+assert.equal(scheduled.length, 2, "current live step stays exempt");
+assert.equal(scheduled[0][0], "halfway");
+assert.equal(scheduled[0][1] <= 1000, true, "carried step keeps its remaining time");
+assert.equal(scheduled[1][0], "plain");
+assert.equal(scheduled[1][1], 2000, "fresh step gets the full delay");
+"""
+    _run_node_script(tmp_path, script)
+
+
+def test_window_rebuild_rearms_step_collapse_for_current_detail_mode(tmp_path):
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required to execute the step-collapse regression.")
+
+    source = MESSAGES_JS.read_text(encoding="utf-8")
+    assert "resumeCurrentDetailCollapse(history);" in source
+
+    capture_start = source.index("function captureMessageExpansionState(")
+    resume_start = source.index("function resumeCurrentDetailCollapse(")
+    resume_end = source.index("\nfunction nextAnimationFrame(", resume_start)
+    helpers = source[capture_start:resume_end]
+
+    dom_source = PROCESS_GROUP_DOM_JS.read_text(encoding="utf-8").replace(
+        'import { store as preferencesStore } from '
+        '"/components/sidebar/bottom/preferences/preferences-store.js";\n',
+        'const preferencesStore = { detailMode: "current", showUtils: false };\n',
+    )
+    module_path = tmp_path / "collapse.mjs"
+    module_path.write_text(
+        dom_source
+        + "const STEP_COLLAPSE_DELAY = { agent: 2000, other: 4000 };\n"
+        "const scheduled = [];\n"
+        "const scheduleStepCollapse = (step, delay) => scheduled.push([step.id, delay]);\n"
+        + helpers
+        + "\nexport { captureMessageExpansionState, restoreMessageExpansionState,"
+        " resumeCurrentDetailCollapse, scheduled, preferencesStore };\n",
+        encoding="utf-8",
+    )
+    script = f"""
+import assert from "node:assert/strict";
+import {{
+  captureMessageExpansionState,
+  restoreMessageExpansionState,
+  resumeCurrentDetailCollapse,
+  scheduled,
+  preferencesStore,
+}} from {module_path.as_uri()!r};
+
+const makeStep = (id, {{ expanded = false, clicked = false, logType = "agent" }} = {{}}) => {{
+  const classes = new Set(expanded ? ["process-step", "expanded"] : ["process-step"]);
+  return {{
+    id,
+    dataset: clicked ? {{ clicked: "true" }} : {{}},
+    classList: {{
+      contains: (name) => classes.has(name),
+      add: (name) => classes.add(name),
+      delete: (name) => classes.delete(name),
+      toggle: (name, force) => (force ? classes.add(name) : classes.delete(name)),
+    }},
+    setAttribute() {{}},
+    getAttribute: (name) => (name === "data-log-type" ? logType : null),
+    __setExpanded(expanded) {{
+      if (expanded) classes.add("expanded");
+      else classes.delete("expanded");
+    }},
+  }};
+}};
+
+const mkGroup = (steps, {{ complete = false }} = {{}}) => ({{
+  classList: new Set(),
+  hasAttribute: (name) => complete && name === "data-group-complete",
+  querySelector: (selector) =>
+    complete && selector === ".process-group-response" ? {{}} : null,
+  querySelectorAll: (selector) => (selector === ".process-step" ? steps : []),
+}});
+
+const mkHistory = (steps, {{ end = 100, total = 100, complete = false }} = {{}}) => ({{
+  dataset: {{ messageWindowEnd: String(end), messageWindowTotal: String(total) }},
+  steps,
+  groups: [mkGroup(steps, {{ complete }})],
+  querySelectorAll(selector) {{
+    if (selector === ".process-step.expanded") {{
+      return steps.filter((step) => step.classList.contains("expanded"));
+    }}
+    if (selector === ".process-group") return this.groups;
+    if (selector.includes(".process-step[id]")) return steps;
+    return [];
+  }},
+  contains: (element) => steps.includes(element),
+}});
+
+const oldSteps = [
+  makeStep("old-expanded", {{ expanded: true }}),
+  makeStep("old-clicked", {{ expanded: true, clicked: true }}),
+  makeStep("sec", {{ expanded: true }}),
+  makeStep("current", {{ expanded: true }}),
+];
+const state = captureMessageExpansionState(mkHistory(oldSteps));
+
+const newSteps = [
+  makeStep("old-expanded"),
+  makeStep("old-clicked"),
+  makeStep("sec"),
+  makeStep("current"),
+];
+const history = mkHistory(newSteps);
+await restoreMessageExpansionState(history, state);
+assert.equal(
+  newSteps[1].dataset.clicked,
+  "true",
+  "a hand-opened step must stay marked as clicked across a rebuild",
+);
+assert.equal(newSteps[0].dataset.clicked, undefined);
+
+scheduled.length = 0;
+resumeCurrentDetailCollapse(history);
+assert.deepEqual(
+  scheduled,
+  [["old-expanded", 2000], ["sec", 2000]],
+  "collapsing re-arms only for previous unclicked steps, never the current one",
+);
+
+scheduled.length = 0;
+resumeCurrentDetailCollapse(mkHistory(newSteps, {{ end: 60, total: 100 }}));
+assert.deepEqual(
+  scheduled,
+  [],
+  "historical windows must not arm the live collapse timer",
+);
+
+scheduled.length = 0;
+resumeCurrentDetailCollapse(mkHistory(newSteps, {{ complete: true }}));
+assert.deepEqual(
+  scheduled,
+  [],
+  "a completed group has no current step and arms nothing",
+);
+
+scheduled.length = 0;
+preferencesStore.detailMode = "expanded";
+resumeCurrentDetailCollapse(history);
+assert.deepEqual(
+  scheduled,
+  [],
+  "other detail modes keep their own expansion rules",
+);
+"""
+    _run_node_script(tmp_path, script)
