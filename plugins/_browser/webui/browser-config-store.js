@@ -161,6 +161,7 @@ export const store = createStore("browserConfig", {
   extensionDeleteLoadingPath: "",
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
+  hostBrowserStatusRefreshing: false,
   hostBrowserStatusRefreshTimer: null,
   hostBrowserSetupOpening: "",
   hostBrowserCustomEndpoint: "",
@@ -180,6 +181,7 @@ export const store = createStore("browserConfig", {
     this.extensionDeleteLoadingPath = "";
     this.hostBrowserStatus = null;
     this.hostBrowserStatusLoading = false;
+    this.hostBrowserStatusRefreshing = false;
     this.hostBrowserSetupOpening = "";
     this.hostBrowserCustomEndpoint = "";
     this.hostBrowserCustomMode = false;
@@ -325,8 +327,13 @@ export const store = createStore("browserConfig", {
   },
 
   async loadHostBrowserStatus() {
-    if (this.hostBrowserStatusLoading) return;
-    this.hostBrowserStatusLoading = true;
+    if (this.hostBrowserStatusLoading || this.hostBrowserStatusRefreshing) return;
+    const initial = !this.hostBrowserStatus;
+    if (initial) {
+      this.hostBrowserStatusLoading = true;
+    } else {
+      this.hostBrowserStatusRefreshing = true;
+    }
     try {
       const response = await callJsonApi(BROWSER_STATUS_API, {});
       this.hostBrowserStatus = response?.host_browser || { connectors: [] };
@@ -334,6 +341,7 @@ export const store = createStore("browserConfig", {
       this.hostBrowserStatus = { connectors: [] };
     } finally {
       this.hostBrowserStatusLoading = false;
+      this.hostBrowserStatusRefreshing = false;
     }
   },
 
