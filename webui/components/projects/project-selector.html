@@ -8,18 +8,32 @@
 </head>
 
 <body>
-    <div x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" class="dropdown project-dropdown-container">
+    <div x-data="{
+            open: false,
+            dropdownMaxHeight: 550,
+            resizeDropdown() {
+                const rect = this.$el.getBoundingClientRect();
+                this.dropdownMaxHeight = Math.max(0, window.innerHeight - rect.bottom - 16);
+            },
+            toggleDropdown() {
+                this.open = !this.open;
+                if (this.open) this.$nextTick(() => this.resizeDropdown());
+            },
+        }"
+        @resize.window="open && resizeDropdown()"
+        :style="{ '--project-dropdown-available-height': dropdownMaxHeight + 'px' }"
+        @click.outside="open = false" @keydown.escape.window="open = false" class="dropdown project-dropdown-container">
         <template x-if="$store.projects && $store.chats && $store.chats.selectedContext">
             <div>
                 <template x-if="$store.chats.selectedContext.project?.name">
-                    <button @click="open = !open" type="button" class="button project-dropdown-button">
+                    <button @click="toggleDropdown()" type="button" class="button project-dropdown-button">
                         <span class="project-color-ball" :style="$store.chats.selectedContext.project.color ? { backgroundColor: $store.chats.selectedContext.project.color } : { border: '1px solid var(--color-border)' }"></span>
                         <span x-text="$store.chats.selectedContext.project.title"></span>
                         <x-icon class="icon" name="arrow_drop_down"></x-icon>
                     </button>
                 </template>
                 <template x-if="!$store.chats.selectedContext.project?.name">
-                    <button @click="open = !open" type="button" class="button project-dropdown-button">
+                    <button @click="toggleDropdown()" type="button" class="button project-dropdown-button">
                         No project
                         <x-icon class="icon" name="arrow_drop_down"></x-icon>
                     </button>
@@ -83,6 +97,7 @@
     .project-dropdown-container .dropdown-menu {
         margin-top: 0;
         top: calc(100% - 1px);
+        max-height: min(70vh, var(--project-dropdown-available-height, 70vh));
     }
 
     /* Override shared dropdown opacity here so project items do not look muted while hovering edges. */

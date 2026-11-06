@@ -21,10 +21,13 @@
 - Agent Editor owns profile-scoped availability mutations. Project edit payloads
   do not include that state, so unrelated project saves cannot restore stale
   toggle values.
+- `project-selector.html` caps its dropdown with `--project-dropdown-available-height`, recomputed from the trigger's viewport position on open and on window resize, so the menu never extends past the window bottom and its rows stay scrollable in short windows. The cap floors at zero like the model switcher, so a trigger near the bottom edge yields a collapsed menu instead of a menu outside the viewport; the shared `.dropdown-menu` `overflow-y: auto` provides the scrolling.
+- `#time-date-container` stacks above the composer `#input-section`, so the open project dropdown paints over the chat input; the mobile sidebar overlay stays one layer above the container. Do not lower the container below the composer again.
 
 ## Work Guidance
 
 - Verify project edit flows when changing shared project store state.
+- Resize the window short and tall with the project dropdown open to confirm the menu still fits and scrolls.
 
 ## Verification
 
