@@ -15,6 +15,7 @@ USAGE_KEYS = (
     "skills",
     "mcp_tools",
     "system_prompt",
+    "protocol",
     "extras",
 )
 MEASURED_KEYS = tuple(key for key in USAGE_KEYS if key != "system_prompt")
@@ -72,7 +73,8 @@ def capture_context(agent: Any, loop_data: Any) -> None:
         extras_values,
         include_empty=True,
     )
-    parts["extras"] = _output_tokens(agent, "extras", protocol + extras)
+    parts["protocol"] = _output_tokens(agent, "protocol", protocol)
+    parts["extras"] = _output_tokens(agent, "extras", extras)
 
 
 def finalize(agent: Any) -> None:
