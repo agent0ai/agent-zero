@@ -72,6 +72,10 @@ const model = {
     return Array.from(event?.dataTransfer?.types || []).includes("Files");
   },
 
+  isInternalDropTarget(event) {
+    return !!event?.target?.closest?.("[data-internal-dropzone]");
+  },
+
   // Setup drag and drop event handlers
   setupDragDropHandlers() {
     console.log("Setting up drag and drop handlers...");
@@ -97,7 +101,7 @@ const model = {
         if (!this.isExternalFileDrag(e)) return;
         console.log("Drag enter detected");
         dragCounter++;
-        if (dragCounter === 1) {
+        if (dragCounter === 1 && !this.isInternalDropTarget(e)) {
           console.log("Showing drag drop overlay");
           this.showDragDropOverlay();
         }
@@ -118,15 +122,27 @@ const model = {
       false
     );
 
+    // keep the overlay out of registered internal dropzones
+    document.addEventListener(
+      "dragover",
+      (e) => {
+        if (!this.isExternalFileDrag(e)) return;
+        if (this.isInternalDropTarget(e)) this.hideDragDropOverlay();
+        else this.showDragDropOverlay();
+      },
+      false
+    );
+
     // Handle drop
     document.addEventListener(
       "drop",
       async (e) => {
         if (!this.isExternalFileDrag(e)) return;
-        const dataTransfer = e.dataTransfer;
-        console.log("Drop detected with files:", dataTransfer?.files?.length || 0);
         dragCounter = 0;
         this.hideDragDropOverlay();
+        if (this.isInternalDropTarget(e)) return;
+        const dataTransfer = e.dataTransfer;
+        console.log("Drop detected with files:", dataTransfer?.files?.length || 0);
 
         let files = [];
         try {

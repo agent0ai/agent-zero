@@ -16,6 +16,7 @@ const model = {
   error: "",
 
   skillsFile: null,
+  dragActive: false,
   namespace: "",
   conflict: "skip", // skip|overwrite|rename
   projectKey: "", // selected project key, empty means All
@@ -35,6 +36,7 @@ const model = {
     this.error = "";
     this.preview = null;
     this.result = null;
+    this.dragActive = false;
   },
 
   onClose() {
@@ -59,6 +61,32 @@ const model = {
     const file = event.target.files[0];
     if (!file) return;
 
+    await this.acceptSkillsFile(file);
+  },
+
+  setDragActive(active) {
+    this.dragActive = !!active;
+  },
+
+  handleDragLeave(event) {
+    if (event.relatedTarget?.closest?.("[data-internal-dropzone]")) return;
+    this.dragActive = false;
+  },
+
+  async handleDrop(event) {
+    this.dragActive = false;
+    const file = Array.from(event.dataTransfer?.files || []).find((candidate) =>
+      candidate.name.toLowerCase().endsWith(".zip")
+    );
+    if (!file) {
+      this.error = "Please drop a skills .zip file";
+      return;
+    }
+
+    await this.acceptSkillsFile(file);
+  },
+
+  async acceptSkillsFile(file) {
     this.skillsFile = file;
     this.error = "";
     this.result = null;
@@ -66,11 +94,7 @@ const model = {
 
     // default namespace from file name (minus .zip)
     const base = file.name.replace(/\.zip$/i, "");
-    if (!this.namespace) {
-      this.namespace = sanitizeNamespace(base);
-    } else {
-      this.namespace = sanitizeNamespace(this.namespace);
-    }
+    this.namespace = sanitizeNamespace(this.namespace || base);
 
     await this.previewImport();
   },
