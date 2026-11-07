@@ -53,7 +53,7 @@
 - The modal shell structure is `.modal` > `.modal-inner` > `.modal-header`, `.modal-scroll` containing `.modal-bd`, and `.modal-footer-slot`.
 - `data-modal-footer` content is relocated from modal body into `.modal-footer-slot`.
 - Click-outside close requires both `mousedown` and `mouseup` on the outer `.modal` container.
-- `scrollModal(id)` scrolls inside the top modal's `.modal-scroll`.
+- `scrollModal(id)` scrolls the top modal's effective vertical scroller: it walks up from the target to the first scrollable ancestor and falls back to the top modal's `.modal-scroll`, so modals whose scoped styles make an inner body the scroller stay reachable.
 - Keep extension loader cache keys and extension point names stable for plugins.
 - The rendered index supplies a complete `runtimeInfo.webuiExtensions` manifest; `extensions.js` must resolve HTML and JavaScript extension paths from it without per-extension-point startup API calls, while retaining `/api/load_webui_extensions` as a compatibility fallback when the manifest is unavailable.
 - HTML extensions render as `<x-component>` tags. Automatic discovery reuses the pending or completed load when an element moves with the same extension ID. Explicit reloads rebuild its children. JavaScript extensions must export a default function.

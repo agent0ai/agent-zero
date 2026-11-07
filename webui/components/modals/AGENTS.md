@@ -17,6 +17,8 @@
 - Use `openModal(path)` and `closeModal()` from `/js/modals.js`.
 - Keep footer content marked with `data-modal-footer` when using pinned modal actions.
 - Do not introduce a parallel overlay, backdrop, or teleport modal system.
+- `process-step-detail/` keeps its header action buttons at the shared compact `.btn-action-header` size; modal-local styles may align and center them but must not force a taller `min-height`.
+- `process-step-detail/` fits the shared modal shell through a `.modal-inner.step-detail-modal`-scoped flex chain reaching `.step-detail-container`, with the pinned header on a fixed shell and `.modal-body` as the modal-local scroller that ends above the shell clip line at any window height; keep every chain level flexed so the panel fills the modal width and height.
 
 ## Work Guidance
 

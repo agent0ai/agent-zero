@@ -16,7 +16,6 @@
 - Its `.canvas-modal` layout hosts the retained canvas shell with its existing tabs and controls; preserve the standard blocking backdrop and keep content constrained to the viewport.
 - `surfaces.css` owns surface modal switchers, action rails, draggable header affordances, focus-button state, and right-canvas surface primitives. Files, Editor, and Browser opt into `surface-workspace` for the lighter panel palette, common toolbar chrome, flat `surface-control` buttons, and group separators. Surface modal headers share a 48px border-box height with centered titles and controls; component styles must not override their sizing. Surface modal header controls are borderless in normal, hover, and active states; preserve group separators and keyboard focus outlines. Tab bars and toolbars share a 48px baseline with vertically centered controls. File trees use `--color-background` to contrast with the lighter `--color-panel` workspace. Keep these styles opt-in and preserve viewer/content themes; primary empty-state actions such as Open Browser retain their existing button styling.
 - `index.css` defines global theme variables such as `--color-*`, `--spacing-*`, `--font-size-*`, and `--transition-speed`; `--color-surface-translucent` is the shared glass fill for floating header and canvas surfaces and stays theme-derived through the chat background.
-
 - `tables.css` owns the shared selection summary and borderless close control used by Files and Memory.
 - `surfaces.css` renders `x-icon[name="tuxee"]` on a pseudo-element with the Desktop plugin's luminance mask and `currentColor`. The host hides the icon-name text and can carry a badge background behind the emblem.
 
@@ -30,8 +29,8 @@
 - Shared compact text actions use `.text-button`; component-local styles may adjust layout or sizing but must not be the only definition of the primitive.
 - Modal footer action order is positive action first, dismissive or negative action second.
 - Modal footers use `.modal-footer` plus `data-modal-footer`; do not redefine `.btn`, `.modal-footer`, `.modal-inner`, or `.modal-scroll` inside components.
-- Shared modal sizing keeps `.modal-inner` centered with `width: 90%`, `max-width: 960px`, and `max-height: 90vh`.
-- Tall modal bodies must scroll inside `.modal-scroll`; pinned footer content must stay outside that scroll area.
+- Shared modal sizing keeps `.modal-inner` centered with `width: min(92vw, 980px)`, `max-width: calc(100vw - 24px)`, and `max-height: min(88vh, 900px)`.
+- Tall modal bodies must scroll inside `.modal-scroll`; pinned footer content must stay outside that scroll area. A modal may scope a different inner scroller only through its own `modal-inner` class variant when its pinned header layout needs a fixed shell, as the step detail modal does with `.modal-body`; `scrollModal()` resolves the effective scroller either way.
 - `.modal-floating` must keep the full-screen shell pointer-transparent while `.modal-inner` remains pointer-active.
 - Use `.modal-no-backdrop` only for backdrop suppression without click-through floating behavior.
 - Shared modal layers must stay above the mobile right-canvas rail while confirmation dialogs remain above normal modals.
