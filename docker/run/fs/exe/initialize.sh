@@ -53,7 +53,7 @@ initialize_package_lists() {
 raise_open_file_limit
 
 # Copy all contents from persistent /per to root directory (/) without overwriting
-cp -r --no-preserve=ownership,mode /per/* /
+cp -rn --no-preserve=ownership,mode /per/* /
 
 # Ensure upload storage exists before API and connector callers can reference it.
 mkdir -p /a0/usr/uploads
