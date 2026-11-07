@@ -113,17 +113,17 @@ def test_goal_webui_uses_state_revisions_instead_of_polling():
 
 def test_goal_composer_menu_prefills_without_sending():
     plugin_root = Path(__file__).resolve().parents[1]
-    injector = (
+    fragment = (
         plugin_root
         / "extensions"
         / "webui"
-        / "initFw_end"
-        / "goal-menu-injector.js"
+        / "chat-input-more-menu"
+        / "goal-menu.html"
     ).read_text()
 
-    assert 'chatInputStore.message = "/goal ";' in injector
-    assert "chatInputStore.focus();" in injector
-    assert "sendMessage" not in injector
+    assert "$store.chatInput.message = '/goal '" in fragment
+    assert "$store.chatInput.focus();" in fragment
+    assert "sendMessage" not in fragment
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="node is required")

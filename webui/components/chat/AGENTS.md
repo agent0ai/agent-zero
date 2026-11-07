@@ -26,6 +26,7 @@
 - Text-only and attachment sends must render the first user turn immediately with the request message ID so the backend log merges into the same row.
 - Unsent composer text is kept as a separate browser-session draft for each selected chat and restored when switching contexts; a Welcome-screen prompt must follow the chat created for its first send. Preset changes and setup-gate retries must preserve any new unsent composer draft.
 - Composer text uses the main UI font by default; typing a triple-backtick fence and pressing Enter turns that line into a visual code block that serializes back to fenced Markdown, while pasted fenced Markdown stays plain text.
+- The composer "+" More actions menu ends with the `chat-input-more-menu` extension point; plugins contribute `.chat-bottom-menu-item` buttons declaratively instead of injecting menu DOM from scripts, and built-in Goal mode and Skills entries load through it.
 - The contenteditable composer sizes naturally between its CSS minimum and maximum heights; do not freeze measured scroll heights into pixels during mounting or editing.
 - The backend rejects dispatches when no chat model is configured: a `user_message_ui` extension in `_model_config` flags the chat and `/message_async` returns a `model_not_configured` payload before logging or dispatching. The client opens the setup gate from that response and must not round-trip a per-send configuration pre-check.
 - While the setup gate is open, the composer remains typeable but send is blocked until setup succeeds.

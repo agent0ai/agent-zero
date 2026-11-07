@@ -1,0 +1,15 @@
+<html>
+<body>
+  <div x-data>
+    <button
+      type="button"
+      class="chat-bottom-menu-item"
+      id="skills-chat-more-item"
+      @click="$store.chatInput.closeChatMoreMenu(); $store.pluginSettingsPrototype.openConfig('_skills', $store.chats.selectedContext?.project?.name || '', '', { focus: 'chat', hideSettingsActions: true, title: 'Skills' })"
+    >
+      <x-icon aria-hidden="true" name="menu_book"></x-icon>
+      <span>Skills</span>
+    </button>
+  </div>
+</body>
+</html>
