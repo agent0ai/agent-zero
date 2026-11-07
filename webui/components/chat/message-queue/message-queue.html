@@ -21,7 +21,7 @@
             </button>
           </div>
         </div>
-        <div class="queue-items no-scrollbar">
+        <div class="queue-items">
           <template x-for="(item, index) in $store.messageQueue.allItems" :key="item.id">
             <div class="queue-item" :class="{ 'queue-item-pending': item.pending }">
               <div class="queue-item-content">

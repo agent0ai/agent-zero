@@ -23,3 +23,9 @@ def test_failed_queue_adds_drop_pending_entries():
 
     assert store_js.count("_dropPendingItem(tempId)") >= 3
 
+
+def test_queue_preview_keeps_app_scrollbar():
+    queue_html = read("webui", "components", "chat", "message-queue", "message-queue.html")
+
+    assert '<div class="queue-items">' in queue_html
+    assert 'queue-items no-scrollbar' not in queue_html
