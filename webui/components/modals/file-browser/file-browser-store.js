@@ -1,6 +1,7 @@
 import { toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { createStore, getStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
+import { fetchWorkDirFileLimits } from "/js/workdir-file-limits.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { mediaKind, mediaPreview } from "/components/modals/file-browser/file-preview.js";
 import { mountFileGestures } from "/components/modals/file-browser/file-gestures.js";
@@ -89,12 +90,11 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   savingTextLimit: false,
   async ensureLimits(force = false) {
     if (this.limits && !force) return this.limits;
-    const response = await fetchApi("/get_work_dir_files?limits=1");
-    const data = await response.json();
-    if (!response.ok || !data.limits?.max_text_bytes || !data.limits?.max_file_bytes) {
+    const limits = await fetchWorkDirFileLimits();
+    if (!limits.max_text_bytes || !limits.max_file_bytes) {
       throw new Error("File Browser limits are unavailable.");
     }
-    this.limits = data.limits;
+    this.limits = limits;
     return this.limits;
   },
   async saveSizeLimit(kind = "text") {

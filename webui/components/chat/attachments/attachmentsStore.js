@@ -1,5 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { fetchApi } from "/js/api.js";
+import { fetchWorkDirFileLimits } from "/js/workdir-file-limits.js";
+import { toastFrontendError } from "/components/notifications/notification-store.js";
 import { store as imageViewerStore } from "../../modals/image-viewer/image-viewer-store.js";
 
 const model = {
@@ -291,10 +293,11 @@ const model = {
   },
 
   // File handling logic (moved from index.js)
-  handleFiles(files) {
+  async handleFiles(files) {
     const fileList = Array.from(files || []);
     console.log("handleFiles called with", fileList.length, "files");
-    fileList.forEach((file) => {
+    const acceptedFiles = await this.filterOversizedFiles(fileList);
+    acceptedFiles.forEach((file) => {
       if (!file?.name) return;
 
       console.log("Processing file:", file.name, file.type);
@@ -324,6 +327,32 @@ const model = {
         this.addAttachment(attachment);
       }
     });
+  },
+
+  async filterOversizedFiles(files) {
+    let limitBytes = null;
+    try {
+      limitBytes = await this.getAttachmentLimitBytes();
+    } catch (error) {
+      console.error("Attachment size limits are unavailable, skipping the size check:", error);
+      return files;
+    }
+    return files.filter((file) => {
+      if (!file?.name || file.size <= limitBytes) return true;
+      toastFrontendError(
+        `File ${file.name} exceeds the ${limitBytes / (1024 * 1024)} MiB attachment size limit.`,
+        "Attachment rejected"
+      );
+      return false;
+    });
+  },
+
+  async getAttachmentLimitBytes() {
+    const limits = await fetchWorkDirFileLimits();
+    if (!limits.max_file_bytes) {
+      throw new Error("Attachment size limits are unavailable.");
+    }
+    return limits.max_file_bytes;
   },
 
   // Get attachments for sending message
