@@ -9,7 +9,7 @@ rm -rf /var/lib/apt/lists/*
 
 # The official Python image provides the global interpreter and pip.
 python -m pip install --no-cache-dir --upgrade \
-    pip pipx ipython uv 'depfix==0.12.6'
+    pip pipx ipython uv 'depfix==0.12.7'
 
 # Install CPU-only variants before the application requirements are resolved.
 # Match the application's NumPy and LiteLLM/Filelock bounds so its bulk solve
