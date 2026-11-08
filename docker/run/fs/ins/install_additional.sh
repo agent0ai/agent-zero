@@ -33,7 +33,7 @@ XPRA_PACKAGES=(
 
 # Match the official Debian base; do not cross-upgrade it from a rolling snapshot.
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates wget
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates wget libsndfile1
 wget -O /usr/share/keyrings/xpra.asc https://xpra.org/xpra.asc
 cat >/etc/apt/sources.list.d/xpra.sources <<EOF
 Types: deb

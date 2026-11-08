@@ -21,6 +21,7 @@
 - Run framework services and local agent/user Python execution in the official image's global Python environment; do not create or activate a virtual environment.
 - Install LibreOffice/UNO and GTK from the Debian trixie base repositories; retain compatible Xpra component pins from signed Xpra trixie. Do not cross-upgrade the official base from Kali/forky snapshots. Refresh Xpra through `plugins/_desktop/helpers/refresh_xpra_index.sh`; its signed compressed index preserves the ARM64 metadata workaround.
 - Do not bake secrets, local `.env` values, or user data into the image.
+- Install `libsndfile1` for the selected platform-neutral SoundFile wheel and embedding/audio imports.
 - Runtime startup must ensure `/a0/usr/uploads` exists before supervised services start.
 - Runtime startup seeds APT package lists in the background only when no package index is cached (fresh images clear these at build time). Normal restarts skip the refresh; installation scripts and plugin hooks refresh metadata when installing packages.
 - Runtime startup raises the soft open-file limit toward `A0_NOFILE_LIMIT` (default `65535`) before supervisord starts, bounded by the container hard limit.
