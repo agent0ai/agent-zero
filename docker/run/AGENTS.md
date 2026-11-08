@@ -19,6 +19,7 @@
 - `BRANCH` is required for branch-based Docker builds.
 - Preserve exposed ports for SSH, HTTP, and tunneled services unless docs and workflows are updated together.
 - Run framework services and local agent/user Python execution in the official image's global Python environment; do not create or activate a virtual environment.
+- Run Supervisor's event listener with Debian's `/usr/bin/python3`, matching the apt-owned Supervisor package; application services still use the official global Python.
 - Install LibreOffice/UNO and GTK from the Debian trixie base repositories; retain compatible Xpra component pins from signed Xpra trixie. Do not cross-upgrade the official base from Kali/forky snapshots. Refresh Xpra through `plugins/_desktop/helpers/refresh_xpra_index.sh`; its signed compressed index preserves the ARM64 metadata workaround.
 - Do not bake secrets, local `.env` values, or user data into the image.
 - Install `libsndfile1` for the selected platform-neutral SoundFile wheel and embedding/audio imports.

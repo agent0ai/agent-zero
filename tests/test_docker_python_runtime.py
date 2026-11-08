@@ -75,12 +75,12 @@ def test_torch_pruning_targets_only_development_artifacts() -> None:
     assert "/site-packages/torch/bin" in install_script
 
 
-def test_python_service_entrypoints_use_the_global_runtime() -> None:
+def test_python_service_entrypoints_use_their_own_runtime() -> None:
     supervisor = _read(SUPERVISOR_CONFIG)
     trigger = _read(TRIGGER_SELF_UPDATE)
 
     assert (
-        "command=/usr/local/bin/python /exe/supervisor_event_listener.py"
+        "command=/usr/bin/python3 /exe/supervisor_event_listener.py"
         in supervisor
     )
     assert 'exec depfix run "$SCRIPT_DIR/self_update_manager.py"' in trigger
@@ -134,8 +134,8 @@ def test_runtime_dependencies_and_playwright_use_depfix_store() -> None:
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_playwright.sh"
     )
 
-    assert "depfix==0.12.5" in install_python
-    assert "depfix==0.12.5" in requirements
+    assert "depfix==0.12.6" in install_python
+    assert "depfix==0.12.6" in requirements
     assert "depfix pip install -r /git/agent-zero/requirements.txt" in install_a0
     assert "uv pip install" not in install_a0
     assert "uv pip install" not in install_playwright

@@ -1,6 +1,6 @@
 a2wsgi==1.10.8
 ansio==0.0.1
-depfix==0.12.5
+depfix==0.12.6
 # docker==7.1.0
 # duckduckgo-search==6.1.12
 pyreqwest-impersonate==0.5.3  # freeze nearest wheel-backed release; 0.5.5 is source-only
