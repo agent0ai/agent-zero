@@ -309,10 +309,8 @@ def test_outer_base_image_omits_legacy_ocr_system_packages():
         for path in (ROOT / "docker" / "base" / "fs" / "ins").glob("*.sh")
     )
 
-    assert "install_base_packages4.sh" not in dockerfile
-    assert not (
-        ROOT / "docker" / "base" / "fs" / "ins" / "install_base_packages4.sh"
-    ).exists()
+    assert "tesseract-ocr" not in dockerfile
+    assert "poppler-utils" not in dockerfile
     assert "tesseract-ocr" not in install_scripts
     assert "poppler-utils" not in install_scripts
 

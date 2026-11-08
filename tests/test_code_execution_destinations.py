@@ -104,6 +104,7 @@ def test_local_python_execution_uses_depfix_store_fallback(monkeypatch: pytest.M
         return command
 
     monkeypatch.setattr(tool, "terminal_session", capture)
+    monkeypatch.setattr(tool, "format_command_for_output", lambda command: command)
     command = asyncio.run(tool.execute_python_code({}, 0, "import flask"))
 
     assert command == "depfix run -m IPython -- -c 'import flask'"

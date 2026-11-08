@@ -770,9 +770,10 @@ def test_browser_playwright_fallback_runs_depfix_managed_module(monkeypatch, tmp
         "depfix",
         "run",
         "-m",
-        "playwright",
+        "patchright",
         "install",
         "chromium",
+        "--no-shell",
     ]
     assert commands[0][1]["env"]["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path)
 
