@@ -14,7 +14,7 @@ from helpers.print_style import PrintStyle
 _REQUIREMENTS_FILE = Path(files.get_abs_path("requirements.txt"))
 _PACKAGES = {
     "litellm", "openai", "python-dotenv", "aiohttp", "anyio", "urllib3",
-    "filelock", "fsspec", "multidict",
+    "filelock", "fsspec", "multidict", "depfix",
 }
 
 

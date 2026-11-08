@@ -134,8 +134,8 @@ def test_runtime_dependencies_and_playwright_use_depfix_store() -> None:
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_playwright.sh"
     )
 
-    assert "depfix" in install_python
-    assert "depfix" in requirements
+    assert "depfix==0.12.5" in install_python
+    assert "depfix==0.12.5" in requirements
     assert "depfix pip install -r /git/agent-zero/requirements.txt" in install_a0
     assert "uv pip install" not in install_a0
     assert "uv pip install" not in install_playwright

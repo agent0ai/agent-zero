@@ -21,6 +21,7 @@
 - Install the signed gVisor apt package in a throwaway stage and copy `runsc` plus its Sentry, Sentry prewarmer, proc umounter and file-descriptor parking sidecars into the final image; do not include its containerd shim, checkpoint gofer, or metric server.
 - Keep daemonless `skopeo` and `umoci` image tooling available to the bundled sandboxing plugin.
 - Seed CPU Torch/Torchvision with `numpy<2` and `filelock>=3.20.3,<4`, matching the application graph so Depfix can retain CPU selections during its bulk solve.
+- Pin the global Depfix bootstrap to the application requirement so cached package planning preserves requested extras.
 - Keep Debian's `build-essential` toolchain and CMake available for source-distributed Python dependencies resolved into Depfix's shared store.
 - Sandbox root filesystems are runtime-managed cache content; do not add a baked sandbox rootfs unless its lifecycle and provenance contract is updated with the plugin.
 - Do not install SearXNG, create its service user or virtualenv, or copy its configuration into the base image; the placeholder integration is owned by `plugins/_searxng/`.
