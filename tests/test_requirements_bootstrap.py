@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -84,3 +85,36 @@ def test_bootstrap_preserves_other_conflicts(monkeypatch, bootstrap, reason):
     with pytest.raises(Conflict) as caught:
         activate()
     assert caught.value is bootstrap
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux startup serialization")
+def test_activation_holds_process_lock_until_finished(tmp_path):
+    import fcntl
+
+    source = tmp_path / "requirements.py"
+    source.write_text((ROOT / "requirements.py").read_text())
+    script = """
+import runpy, sys
+from types import SimpleNamespace
+def activate(path):
+    print('activating', flush=True)
+    assert sys.stdin.readline().strip() == 'finish'
+sys.modules['depfix'] = SimpleNamespace(default_requirements=activate)
+runpy.run_path(sys.argv[1])
+"""
+    process = subprocess.Popen(
+        [sys.executable, "-c", script, str(source)],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+    )
+    try:
+        assert process.stdout.readline().strip() == "activating"
+        with (tmp_path / "tmp/requirements.lock").open("a") as lock:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            process.communicate("finish\n", timeout=10)
+            assert process.returncode == 0
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()

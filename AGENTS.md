@@ -51,6 +51,7 @@
 - Develop new custom plugins under ignored `usr/plugins/`; tracked bundled plugins live under `plugins/`.
 - In Docker, use the global `/usr/local/bin/python` runtime for framework, plugin-hook, and local agent-code verification.
 - `requirements.py` activates Depfix defaults from the repository-relative `requirements.txt` and must remain the first application import in production Python entrypoints.
+- Linux processes sharing a checkout serialize dependency activation through `tmp/requirements.lock`, so cold graph verification cannot exhaust another startup process's Depfix cache-writer timeout. Preserve kernel lock release on errors, process exit and the one-time bootstrap exec.
 - For those four entrypoints only, an initial loader dependency ownership conflict may restart Python once using the verified graph's Depfix dependency paths. Preserve the selected artifacts, existing import path, original interpreter arguments and all ownership checks; embedded imports and other conflicts must fail normally. This bootstrap uses the pinned Depfix manifest/cache API and must be rechecked when upgrading Depfix.
 - Dependency changes must cover both image installation declarations and existing self-updated instances. Use startup migrations for core dependencies and the owning installation hooks for plugin dependencies.
 

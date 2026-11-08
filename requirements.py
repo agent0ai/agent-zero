@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 import depfix
 
@@ -8,7 +9,6 @@ def _activate():
         depfix.default_requirements(requirements)
     except depfix.SharedImportConflictError as error:
         import os
-        import sys
 
         bootstrap_names = {"depfix", "packaging", "pathspec", "platformdirs", "uv"}
         entrypoints = {"prepare.py", "preload.py", "run_ui.py", "run_tunnel.py"}
@@ -56,4 +56,14 @@ def _activate():
         os.execve(sys.executable, [sys.executable, *sys.orig_argv[1:]], env)
 
 
-_activate()
+if sys.platform == "linux":
+    import fcntl
+
+    # Cold graph verification can outlast Depfix's cache-writer timeout.
+    lock_path = Path(__file__).with_name("tmp") / "requirements.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        _activate()
+else:
+    _activate()
