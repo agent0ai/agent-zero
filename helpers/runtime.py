@@ -152,10 +152,16 @@ def call_development_function_sync(
 ) -> T:
     # run async function in sync manner
     result_queue = queue.Queue()
+    error_box: list[BaseException] = []
 
     def run_in_thread():
-        result = asyncio.run(call_development_function(func, *args, **kwargs))
-        result_queue.put(result)
+        try:
+            result = asyncio.run(call_development_function(func, *args, **kwargs))
+        except BaseException as e:
+            # Keep the original exception; a dead thread must not surface as queue.Empty.
+            error_box.append(e)
+        else:
+            result_queue.put(result)
 
     thread = threading.Thread(target=run_in_thread)
     thread.start()
@@ -163,6 +169,9 @@ def call_development_function_sync(
 
     if thread.is_alive():
         raise TimeoutError("Function call timed out after 30 seconds")
+
+    if error_box:
+        raise error_box[0]
 
     result = result_queue.get_nowait()
     return cast(T, result)
