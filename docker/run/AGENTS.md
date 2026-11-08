@@ -19,7 +19,7 @@
 - `BRANCH` is required for branch-based Docker builds.
 - Preserve exposed ports for SSH, HTTP, and tunneled services unless docs and workflows are updated together.
 - Run framework services and local agent/user Python execution in the official image's global Python environment; do not create or activate a virtual environment.
-- Retain the Python 3.13-compatible ATK, LibreOffice/UNO, and Xpra pins in `fs/ins/install_additional.sh`. Resolve them from the signed Debian `forky` archive dated `20260624T000000Z` and Xpra `trixie`, using build-scoped APT options that preserve normal Kali sources. Refresh Xpra through `plugins/_desktop/helpers/refresh_xpra_index.sh` from the cloned repository; its signed compressed index avoids upstream's empty ARM64 `Packages` metadata without clearing the Debian indexes.
+- Install LibreOffice/UNO and GTK from the Debian trixie base repositories; retain compatible Xpra component pins from signed Xpra trixie. Do not cross-upgrade the official base from Kali/forky snapshots. Refresh Xpra through `plugins/_desktop/helpers/refresh_xpra_index.sh`; its signed compressed index preserves the ARM64 metadata workaround.
 - Do not bake secrets, local `.env` values, or user data into the image.
 - Runtime startup must ensure `/a0/usr/uploads` exists before supervised services start.
 - Runtime startup seeds APT package lists in the background only when no package index is cached (fresh images clear these at build time). Normal restarts skip the refresh; installation scripts and plugin hooks refresh metadata when installing packages.

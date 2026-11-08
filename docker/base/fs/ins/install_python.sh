@@ -12,7 +12,9 @@ python -m pip install --no-cache-dir --upgrade \
     pip pipx ipython uv depfix
 
 # Install CPU-only variants before the application requirements are resolved.
-depfix pip install torch torchvision \
+# Match the application's NumPy and LiteLLM/Filelock bounds so its bulk solve
+# can retain these CPU packages instead of dropping all installed preferences.
+depfix pip install torch torchvision 'numpy<2' 'filelock>=3.20.3,<4' \
     --index-url https://download.pytorch.org/whl/cpu
 
 # PyTorch wheels include development-only test suites, C++ headers, and helper binaries.

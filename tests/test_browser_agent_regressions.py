@@ -2751,32 +2751,24 @@ def test_browser_docker_installs_full_chromium_to_tmp_cache():
     assert "  xclip \\" in install_additional
 
 
-def test_browser_docker_pins_python_313_compatible_desktop_packages():
+def test_browser_docker_uses_base_distribution_and_compatible_xpra():
     install_additional = (
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_additional.sh"
     ).read_text(encoding="utf-8")
 
-    assert 'https://snapshot.debian.org/archive/debian/20260624T000000Z/' in install_additional
-    assert 'Dir::Etc::sourceparts=-' in install_additional
-    assert 'LIBREOFFICE_VERSION="4:26.2.4.2-1"' in install_additional
+    assert "snapshot.debian.org" not in install_additional
     assert 'XPRA_VERSION="6.5.2-r0-1"' in install_additional
     assert 'XPRA_HTML5_VERSION="19-r1-1"' in install_additional
     assert 'XPRA_HTML5_VERSION="21-r1-1"' in install_additional
-    assert '"python3-uno=$LIBREOFFICE_VERSION"' in install_additional
-    from plugins._desktop import hooks as desktop_hooks
-    assert f'ATK_VERSION="{desktop_hooks.ATK_VERSION}"' in install_additional
-    for package in desktop_hooks.ATK_RUNTIME_PACKAGES:
-        assert f'"{package}=$ATK_VERSION"' in install_additional
-    assert '  "${ATK_PACKAGES[@]}" \\' in install_additional
-    assert "PYTHON_VERSION" not in install_additional
-    assert '--allow-downgrades' in install_additional
+    assert '"python3-uno"' in install_additional
+    assert "  gir1.2-atk-1.0 \\" in install_additional
     assert "  gir1.2-gtk-3.0 \\" in install_additional
     assert '"xpra-client=$XPRA_VERSION"' in install_additional
     assert '"xpra-client-gtk3=$XPRA_VERSION"' in install_additional
     assert '"xpra-server=$XPRA_VERSION"' in install_additional
     assert '"xpra-html5=$XPRA_HTML5_VERSION"' in install_additional
     assert "apt-get download" not in install_additional
-    assert install_additional.index('cat >/etc/apt/a0-desktop.list') < install_additional.index('apt-get "${APT_OPTIONS[@]}" update')
+    assert "refresh_xpra_index.sh" in install_additional
     assert "https://xpra.org/beta" not in install_additional
 
 

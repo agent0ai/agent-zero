@@ -157,3 +157,16 @@ def test_runtime_python_launchers_enable_depfix_store_fallback() -> None:
     assert "exec depfix run /exe/self_update_manager.py docker-run-ui" in run_a0
     assert "exec depfix run /a0/run_tunnel.py" in run_tunnel
     assert 'exec depfix run "$SCRIPT_DIR/self_update_manager.py"' in trigger_update
+
+
+def test_runsc_process_sidecars_are_shipped():
+    dockerfile = _read(BASE_DOCKERFILE)
+    for sidecar in ("gvisor_sentry", "gvisor-sentry-prewarmer", "gvisor-proc-umounter", "runsc-fd-parking"):
+        assert f"/usr/bin/gvisor-bin/{sidecar} /usr/bin/gvisor-bin/{sidecar}" in dockerfile
+
+
+def test_cpu_bootstrap_matches_application_dependency_bounds():
+    script = _read(INSTALL_PYTHON)
+    assert "'numpy<2'" in script
+    assert "'filelock>=3.20.3,<4'" in script
+    assert "--index-url https://download.pytorch.org/whl/cpu" in script

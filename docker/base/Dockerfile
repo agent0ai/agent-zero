@@ -64,5 +64,10 @@ RUN bash /ins/configure_ssh.sh
 # after install
 RUN bash /ins/after_install.sh
 
+# Current runsc also needs these sandbox-process helpers.
+COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor-sentry-prewarmer /usr/bin/gvisor-bin/gvisor-sentry-prewarmer
+COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor-proc-umounter /usr/bin/gvisor-bin/gvisor-proc-umounter
+COPY --from=gvisor-package /usr/bin/gvisor-bin/runsc-fd-parking /usr/bin/gvisor-bin/runsc-fd-parking
+
 # Keep container running infinitely
 CMD ["tail", "-f", "/dev/null"]

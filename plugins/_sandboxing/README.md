@@ -71,8 +71,8 @@ without putting credentials in command arguments or plugin metadata.
 ## gVisor runtime
 
 The base build installs the signed gVisor apt package in a throwaway stage and
-copies only `runsc` plus its required `gvisor_sentry` sidecar into the final
-image. The containerd shim, remote-checkpoint gofer, and optional metric server
+copies `runsc` plus its required Sentry, Sentry prewarmer, proc umounter,
+and file-descriptor parking sidecars into the final image. The containerd shim, remote-checkpoint gofer, and optional metric server
 are omitted. `skopeo` and `umoci` remain available, and no sandbox rootfs is
 baked into the image. The local Compose example keeps the outer container
 unprivileged with `no-new-privileges`, uses an init reaper for detached
