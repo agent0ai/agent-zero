@@ -1,10 +1,8 @@
 import asyncio
-from datetime import datetime
 import time
 from helpers.task_scheduler import TaskScheduler
 from helpers.print_style import PrintStyle
 from helpers import errors
-from helpers import runtime
 
 
 SLEEP_TIME = 60
@@ -17,13 +15,6 @@ async def run_loop():
     global pause_time, keep_running
 
     while True:
-        if runtime.is_development():
-            # Signal to container that the job loop should be paused
-            # if we are runing a development instance to avoid duble-running the jobs
-            try:
-                await runtime.call_development_function(pause_loop)
-            except Exception as e:
-                PrintStyle().error("Failed to pause job loop by development instance: " + errors.error_text(e))
         if not keep_running and (time.time() - pause_time) > (SLEEP_TIME * 2):
             resume_loop()
         if keep_running:

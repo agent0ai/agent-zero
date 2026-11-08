@@ -8,12 +8,8 @@ class Status(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         migration.ensure_config_seeded()
 
-        package_version = ""
+        package_version = runtime.package_version
         package_error = ""
-        try:
-            package_version = importlib.metadata.version("openai-whisper")
-        except Exception as e:
-            package_error = str(e)
 
         return {
             "plugin": "_whisper_stt",

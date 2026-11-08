@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from plugins._document_query.helpers.fetch import FetchedDocument
+from plugins._document_query.helpers.document import FetchedDocument
 from plugins._document_query.helpers.ocr_dependencies import (
     ensure_pdf_ocr_dependencies,
     ensure_tesseract_dependencies,

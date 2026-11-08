@@ -10,7 +10,7 @@ timeouts and thread-safe parsers.
 - **LiteParse first path** - fast local parsing for PDFs and supported document/image formats, with legacy fallbacks
 - **Adaptive OCR** - long PDFs skip OCR automatically to avoid pathological parse times
 - **Adaptive indexing** - very large extracted documents increase chunk size to keep embedding work bounded
-- **Bounded parser execution** - sync parsers are offloaded to asyncio.to_thread and globally capped across chats
+- **Bounded parser execution** - parsing runs in a serialized sandbox worker with request deadlines and cancellation cleanup
 - **Configurable timeouts** - per-document and gather-level timeouts
 - **Expanded format support** - PDF, HTML, text, YAML, XML, TOML, JS, TS, images, and catch-all Unstructured
 
@@ -34,35 +34,12 @@ See default_config.yaml for all options. Key settings:
 | liteparse_enabled | true | Prefer LiteParse before legacy parser fallbacks |
 | liteparse_num_workers | 2 | Max LiteParse OCR workers per parser job |
 | liteparse_ocr_auto_disable_pages | 30 | Disable OCR for PDFs at or above this effective page count |
-| thread_offload | true | Offload sync parsers to thread pool |
+| thread_offload | true | Legacy setting; parsing now always runs in the sandbox |
 
-LiteParse is installed into the shared Agent Zero Python runtime from hooks.py during
-plugin install/startup. If installation fails, the plugin logs the error and
-continues with the legacy parser fallbacks.
-
-LiteParse always runs in a child process so native parser and OCR failures stay
-isolated from the Web UI process.
-
-## On-demand system OCR dependencies
-
-The outer Agent Zero base image does not include Tesseract or Poppler. LiteParse
-2.0.3 has its own bundled Tesseract backend, so its normal parsing path does not
-need the operating-system packages.
-
-The legacy fallbacks install only what they are about to use:
-
-- Embedded-image OCR in `PdfParser` and image OCR through Unstructured install
-  `tesseract-ocr` and `tesseract-ocr-script-latn` immediately before the first
-  system Tesseract call.
-- Full-page PDF OCR installs those packages plus `poppler-utils` immediately
-  before `pdf2image` renders pages for Tesseract.
-
-Installation uses noninteractive apt, is serialized across parser threads, and
-waits out transient apt/dpkg locks. Already-installed commands and packages are
-reused. A first fallback OCR request can therefore take longer; later requests
-reuse the installed runtime packages. On systems without apt or without root or
-non-interactive sudo access, only the fallback request fails with an actionable
-error. Normal parsing remains unaffected.
+LiteParse and all parsing/OCR dependencies install only inside the plugin sandbox.
+Tesseract and Poppler remain lazy legacy fallbacks there. The host fetches each
+input once and passes its bytes privately; indexing and model queries stay in
+Agent Zero. Memory PDF/HTML import reuses the same sandbox.
 
 ## Parsers
 
@@ -81,3 +58,11 @@ error. Normal parsing remains unaffected.
 2. Set mimetypes class attribute
 3. Implement _parse_sync(document, config)
 4. Register in helpers/parsers/__init__.py
+
+## Sandbox runtime
+
+Heavy execution and dependency installation run inside a child gVisor sandbox on
+first use. Root files and model downloads persist; no extra host service starts
+at Agent Zero startup. Manage it with `python -m helpers.sandbox list` and the
+existing start/stop/delete commands. See [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md)
+for sharing, lifecycle and upgrade behavior.

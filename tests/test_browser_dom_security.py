@@ -1,4 +1,5 @@
 import re
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -222,7 +223,7 @@ async def test_dom_rpc_binds_responses_to_requested_frame_and_operation(browser_
 
 async def test_dom_rpc_upgrade_requires_reload(browser_context):
     from patchright.async_api import Error
-    from plugins._browser.helpers.runtime import _BrowserRuntimeCore
+    from plugins._browser.sandbox.runtime import _BrowserRuntimeCore
 
     page = await browser_context.new_page()
     await page.goto('http://victim.test/')
@@ -246,3 +247,24 @@ async def test_dom_rpc_upgrade_requires_reload(browser_context):
     assert await attack(page, child, 'parent', True) == []
     assert await page.evaluate('() => typeof globalThis.legacyRequests', isolated_context=True) == 'undefined'
     assert await page.evaluate(STATE, isolated_context=False) == {'value': 'private@example.test', 'clicks': 0, 'submits': 0}
+
+
+@pytest.mark.parametrize('nested', [False, True])
+async def test_file_upload_resolves_captured_helper_reference(browser_context, nested):
+    from plugins._browser.sandbox.runtime import _BrowserRuntimeCore, BrowserPage
+    import json
+    page = await browser_context.new_page()
+    await page.goto('http://victim.test/')
+    target = await add_frame(page, 'victim') if nested else page
+    await target.evaluate("() => { const input=document.createElement('input'); input.type='file'; input.id='fixture-file'; document.body.append(input); }", isolated_context=False)
+    core = _BrowserRuntimeCore('fixture')
+    core.pages[1] = BrowserPage(1, page, 'fixture')
+    async def ready(): pass
+    core.ensure_started = ready
+    core._state = lambda _: asyncio.sleep(0, result={'id':1})
+    capture = await core.content(1)
+    ref = re.search(r'\[input file (\d+)\]', capture['document']).group(1)
+    core.request_uploads.set({json.dumps(['fixture.txt', None]): {'paths':['fixture.txt'], 'files':[
+        {'name':'fixture.txt','mimeType':'text/plain','buffer':'c2VsZWN0ZWQ='}]}})
+    await core.upload_file(1, ref, path='fixture.txt')
+    assert await target.locator('#fixture-file').evaluate('(input) => input.files[0].text()') == 'selected'

@@ -532,7 +532,7 @@ def test_host_computer_use_ranks_before_linux_desktop_for_host_screen_queries(mo
         assert results[0].name == "host-computer-use"
 
     xpra_results = runtime.search_skills(
-        "operate Agent Zero built-in Xpra Desktop LibreOffice GUI",
+        "operate Agent Zero built-in Tuxee Desktop GUI",
         limit=2,
     )
     assert xpra_results[0].name == "linux-desktop"

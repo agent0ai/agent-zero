@@ -171,6 +171,7 @@ jobs:
         if: steps.resolve.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
+          # docker/run/Dockerfile bundles the sandbox OCI image for each platform.
           context: ${{ env.DOCKERFILE_DIR }}
           file: ${{ env.DOCKERFILE_PATH }}
           platforms: ${{ env.DOCKER_PLATFORMS }}

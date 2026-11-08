@@ -609,8 +609,11 @@ def fix_dev_path(path: str):
     "On dev environment, convert /a0/... paths to local absolute paths"
     from helpers.runtime import is_development
 
-    if is_development() and path.startswith("/a0/") and not is_in_base_dir(path):
-        path = path.removeprefix("/a0/")
+    if is_development() and not is_in_base_dir(path):
+        if path == "/a0":
+            return get_base_dir()
+        if path.startswith("/a0/"):
+            path = path.removeprefix("/a0/")
     return get_abs_path(path)
 
 

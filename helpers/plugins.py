@@ -123,15 +123,22 @@ def register_watchdogs():
 
     def on_plugin_change(events: list[WatchItem], frontend_reload: bool = True):
         plugin_names: list[str] = []
+        changed_paths = []
         for path, _event in events:
             path = path.replace("\\", "/")
             if "/plugins/" not in path:
                 continue
-            plugin_name = path.split("/plugins/", 1)[1].split("/", 1)[0]
+            plugin_name, _, asset = path.split("/plugins/", 1)[1].partition("/")
+            # Guest rootfs packages may also contain hooks.py or extensions/.
+            if not (asset.startswith("extensions/") or asset in {HOOKS_SCRIPT, '.toggle-0', '.toggle-1'}):
+                continue
+            changed_paths.append(path)
             if plugin_name and plugin_name not in plugin_names:
                 plugin_names.append(plugin_name)
+        if not changed_paths:
+            return
         print_style.PrintStyle.debug("Plugins watchdog triggered", plugin_names)
-        python_change = any(path.endswith('.py') for path, _event in events)
+        python_change = any(path.endswith('.py') for path in changed_paths)
         after_plugin_change(
             plugin_names or None,
             python_change=python_change,

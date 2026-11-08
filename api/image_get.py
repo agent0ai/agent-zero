@@ -1,11 +1,8 @@
-import base64
 import os
 from pathlib import Path
 from urllib.parse import quote
 from helpers.api import ApiHandler, Request, Response, send_file
 from helpers import files, runtime
-import io
-from mimetypes import guess_type
 
 
 IMAGE_EXTENSIONS = (
@@ -49,41 +46,10 @@ class ImageGet(ApiHandler):
             except ValueError as exc:
                 return Response(str(exc), status=403, mimetype="text/plain")
 
-            # in development environment, try to serve the image from local file system if exists, otherwise from docker
-            if runtime.is_development():
-                if files.exists(local_path):
-                    response = send_file(local_path)
-                else:
-                    # Try fetching from Docker via RFC as fallback
-                    try:
-                        remote_path = await runtime.call_development_function(
-                            _resolve_allowed_image_path, path
-                        )
-                        if await runtime.call_development_function(
-                            files.exists, remote_path
-                        ):
-                            b64_content = await runtime.call_development_function(
-                                files.read_file_base64, remote_path
-                            )
-                            file_content = base64.b64decode(b64_content)
-                            mime_type, _ = guess_type(filename)
-                            if not mime_type:
-                                mime_type = "application/octet-stream"
-                            response = send_file(
-                                io.BytesIO(file_content),
-                                mimetype=mime_type,
-                                as_attachment=False,
-                                download_name=filename,
-                            )
-                        else:
-                            response = _send_fallback_icon("image")
-                    except Exception:
-                        response = _send_fallback_icon("image")
+            if files.exists(local_path):
+                response = send_file(local_path)
             else:
-                if files.exists(local_path):
-                    response = send_file(local_path)
-                else:
-                    response = _send_fallback_icon("image")
+                response = _send_fallback_icon("image")
 
             _set_image_headers(response, filename, file_ext)
             return response

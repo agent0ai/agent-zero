@@ -18,6 +18,8 @@
 
 ## Runtime Contracts
 
+- Invoke the existing file helpers locally in both development and production; await their async entry points. Path validation, response shapes and mutation hooks remain unchanged.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `DeleteWorkDirFile` is an `ApiHandler`.
@@ -27,7 +29,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `FileBrowser`, `browser.delete_file`, `file_path.startswith`, `runtime.call_development_function`, `extension.call_extensions_async`.
+- Important called helpers/classes observed in the source: `FileBrowser`, `browser.delete_file`, `file_path.startswith`, `extension.call_extensions_async`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

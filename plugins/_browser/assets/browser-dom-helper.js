@@ -4,7 +4,7 @@
   const VERSION = "2";
   const REQUEST_TIMEOUT_MS = 800;
 
-  if (globalThis[DOM_HELPER_KEY]?.version === VERSION) {
+  if (globalThis[DOM_HELPER_KEY]?.version === VERSION && globalThis[DOM_HELPER_KEY]?.elementForNode) {
     return;
   }
   if (globalThis[DOM_HELPER_KEY]?.version) {
@@ -1348,6 +1348,16 @@
     },
     detailNode(frameChain, nodeId) {
       return routeOperation("detail_node", { frameChain, nodeId });
+    },
+    elementForNode(frameChain, nodeId) {
+      const chain = normalizeFrameChain(frameChain);
+      if (chain[0] !== helperFrameId) throw new Error("Browser frame identity changed; capture again.");
+      if (chain.length === 1) return getElementByNodeId(nodeId, "fileInput");
+      const child = childFramesById.get(chain[1]);
+      if (!child || !globalThis.origin || globalThis.origin === "null" || child.origin !== globalThis.origin) {
+        throw new Error("File input references require a non-opaque same-origin frame.");
+      }
+      return child[DOM_HELPER_KEY].elementForNode(chain.slice(1), nodeId);
     },
     frameId: helperFrameId,
     scrollNode(frameChain, nodeId) {

@@ -1,3 +1,4 @@
+import json
 import os
 from copy import deepcopy
 
@@ -824,8 +825,11 @@ def get_utility_model_config(agent=None) -> dict:
 
 def get_embedding_model_config(agent=None) -> dict:
     """Get embedding model config from the effective preset."""
-    cfg = get_effective_config(agent)
-    model_cfg = deepcopy(cfg.get("embedding_model", {}))
+    return _normalize_embedding_model_config(get_effective_config(agent).get("embedding_model", {}))
+
+
+def _normalize_embedding_model_config(config: dict) -> dict:
+    model_cfg = deepcopy(config)
     provider = str(model_cfg.get("provider") or "").strip().lower()
     name = str(model_cfg.get("name") or "").strip().strip('"').strip("'")
 
@@ -947,6 +951,50 @@ def get_embedding_model_config_object(agent=None) -> models.ModelConfig:
     """Get a ModelConfig object for embeddings (needed by memory plugin)."""
     cfg = get_embedding_model_config(agent)
     return build_model_config(cfg, models.ModelType.EMBEDDING)
+
+
+def get_saved_embedding_model_configs() -> list[models.ModelConfig]:
+    """Resolve saved presets and raw chat overrides without restoring agents."""
+    from helpers import projects, settings
+
+    configs = [get_embedding_model_config_object()]
+    for preset in get_presets():
+        config = resolve_config_settings({MODEL_PRESET_CONFIG_KEY: preset["name"]})
+        configs.append(build_model_config(
+            _normalize_embedding_model_config(config.get("embedding_model", {})),
+            models.ModelType.EMBEDDING,
+        ))
+    for path in files.find_existing_paths_by_pattern(
+        files.get_abs_path("usr", "chats", "*", "chat.json")
+    ):
+        try:
+            chat = json.loads(files.read_file(path))
+        except (OSError, ValueError):
+            # Chat restoration reports unreadable files; leave them untouched.
+            continue
+        data = chat.get("data") if isinstance(chat, dict) else None
+        override = data.get("chat_model_override") if isinstance(data, dict) else None
+        if not isinstance(override, dict) or "preset_name" in override:
+            continue
+        profile = str(chat.get("agent_profile") or settings.get_settings()["agent_profile"] or "")
+        profiles = {profile}
+        agents = chat.get("agents")
+        for agent in agents if isinstance(agents, list) else []:
+            if isinstance(agent, dict):
+                profiles.add(str(agent.get("agent_profile") or profile).strip())
+        for profile in profiles:
+            config = build_config_from_preset(
+                override,
+                get_config(project_name=data.get(projects.CONTEXT_DATA_KEY_PROJECT),
+                           agent_profile=profile),
+                strip_api_key=False,
+                slots=("embedding",),
+            )
+            configs.append(build_model_config(
+                _normalize_embedding_model_config(config.get("embedding_model", {})),
+                models.ModelType.EMBEDDING,
+            ))
+    return configs
 
 
 def get_chat_providers():

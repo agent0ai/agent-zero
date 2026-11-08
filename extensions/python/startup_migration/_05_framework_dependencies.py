@@ -14,7 +14,7 @@ from helpers.print_style import PrintStyle
 _REQUIREMENTS_FILE = Path(files.get_abs_path("requirements.txt"))
 _PACKAGES = {
     "litellm", "openai", "python-dotenv", "aiohttp", "anyio", "urllib3",
-    "filelock", "fsspec", "multidict", "depfix",
+    "filelock", "fsspec", "multidict", "onnxruntime", "tokenizers", "numpy", "huggingface-hub",
 }
 
 
@@ -31,7 +31,7 @@ class FrameworkDependencies(Extension):
             raise RuntimeError("Framework dependency update requires 'uv'.")
         PrintStyle.info("Updating framework dependencies:", ", ".join(outdated))
         subprocess.check_call(
-            [uv, "pip", "install", "--python", sys.executable, *map(str, requirements)],
+            [uv, "pip", "install", "--no-cache", "--python", sys.executable, *map(str, requirements)],
             timeout=60,
         )
         outdated = _outdated(requirements)

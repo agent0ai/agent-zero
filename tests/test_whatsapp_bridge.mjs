@@ -82,3 +82,30 @@ test('slash commands survive text, captions, wrappers and group mention removal'
   const group = await receive(t, { textOnly: true, body: '@999 /stop', group: true, allowGroup: true, mention: true });
   assert.equal(group.queue[0].body, '/stop');
 });
+
+
+test('bridge authorization precedes routing and outgoing media stays inside the cache', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'a0-wa-boundary-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const cache = path.join(root, 'cache'); fs.mkdirSync(cache);
+  const outside = path.join(root, 'private.txt'); fs.writeFileSync(outside, 'PRIVATE');
+  const inside = path.join(cache, 'selected.txt'); fs.writeFileSync(inside, 'SELECTED');
+  const link = path.join(cache, 'escape'); fs.symlinkSync(outside, link);
+  const routes = {}, middleware = [], sent = [];
+  const express = Object.assign(() => ({use(fn) {middleware.push(fn)}, get() {}, post(route, fn) {routes[route] = fn}}), {json() {return () => {}}});
+  const sandbox = vm.createContext({...fs, path, randomBytes, URL, console, Buffer,
+    process: {argv:['node',bridgePath,'--session',path.join(root,'session'),'--cache-dir',cache], env:{A0_BRIDGE_TOKEN:'fixture'}},
+    express, pino:()=>({})});
+  vm.runInContext(`${source}\nsock = {sendMessage:async(id, value)=>{sent.push(value);return {key:{id:'fixture'}}}}; connectionState='connected';`, vm.createContext({...sandbox, sent}));
+  let status, next=0;
+  const res={status(value){status=value;return this},json(value){return value}};
+  middleware[0]({headers:{}},res,()=>next++); assert.equal(status,401);assert.equal(next,0);
+  middleware[0]({headers:{authorization:'Bearer wrong'}},res,()=>next++);assert.equal(next,0);
+  middleware[0]({headers:{authorization:'Bearer fixture'}},res,()=>next++);assert.equal(next,1);
+  for (const filePath of [outside,link]) {
+    await routes['/send-media']({body:{chatId:'fixture',filePath}},res); assert.equal(status,403);
+  }
+  assert.equal(sent.length,0);
+  await routes['/send-media']({body:{chatId:'fixture',filePath:inside}},res);
+  assert.equal(sent[0].document.toString(),'SELECTED');
+});

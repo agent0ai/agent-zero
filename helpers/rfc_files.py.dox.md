@@ -3,7 +3,7 @@
 ## Purpose
 
 - Own the `rfc_files.py` helper module.
-- This module exposes RFC-safe filesystem operations.
+- This legacy-named module exposes local synchronous filesystem operations.
 - Keep this file-level DOX profile synchronized with `rfc_files.py` because this directory is intentionally flat.
 
 ## Ownership
@@ -44,6 +44,9 @@
 
 ## Runtime Contracts
 
+- Public operations call retained implementation functions directly in every runtime mode. Preserve path resolution, backup-directory lookup, return values and filesystem errors; no dispatcher thread or network is involved.
+- Binary implementation helpers retain their base64 argument/result contracts for compatibility; public binary operations still return bytes.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.
@@ -51,7 +54,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `os.path.abspath`, `os.path.join`, `find_file_in_dirs`, `runtime.call_development_function_sync`, `base64.b64decode`, `get_abs_path`, `base64.b64encode.decode`, `FileNotFoundError`, `os.path.exists`, `os.path.basename`, `os.path.isfile`, `Exception`, `os.makedirs`, `os.remove`, `os.path.isdir`, `shutil.rmtree`, `os.listdir`, `items.sort`, `tempfile.NamedTemporaryFile`, `zipfile.ZipFile`.
+- Important called helpers/classes observed in the source: `os.path.abspath`, `os.path.join`, `find_file_in_dirs`, `base64.b64decode`, `get_abs_path`, `base64.b64encode.decode`, `FileNotFoundError`, `os.path.exists`, `os.path.basename`, `os.path.isfile`, `Exception`, `os.makedirs`, `os.remove`, `os.path.isdir`, `shutil.rmtree`, `os.listdir`, `items.sort`, `tempfile.NamedTemporaryFile`, `zipfile.ZipFile`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -63,7 +66,7 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- Run `pytest tests/test_local_development_calls.py` for local filesystem contracts and errors with development dispatch disabled.
 
 ## Child DOX Index
 

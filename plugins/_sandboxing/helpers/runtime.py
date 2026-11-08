@@ -4,7 +4,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from helpers import files, plugins
+from helpers import files, plugins, runtime
+
+from plugins._sandboxing.helpers.builtin_image import BUILTIN_IMAGE
 
 from plugins._sandboxing.helpers.images import (
     SandboxImageConfig,
@@ -39,7 +41,7 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         "skopeo_path": str(raw.get("skopeo_path") or "/usr/bin/skopeo").strip(),
         "umoci_path": str(raw.get("umoci_path") or "/usr/bin/umoci").strip(),
         "default_image": str(
-            raw.get("default_image") or "docker.io/library/python:3.13-slim-bookworm"
+            raw.get("default_image") or BUILTIN_IMAGE
         ).strip(),
         "registry_auth_file": str(raw.get("registry_auth_file") or "").strip(),
         "image_cache_dir": str(
@@ -83,12 +85,15 @@ def manager_config(
 ) -> tuple[SandboxConfig, SandboxImageConfig]:
     raw = normalize_config(plugins.get_plugin_config(PLUGIN_NAME, agent=agent) or {})
     state_dir = _absolute_path(raw["state_dir"])
+    instance_id = runtime.get_persistent_id()
     sandbox = SandboxConfig(
         runsc=_absolute_path(raw["runsc_path"]),
-        instances_dir=state_dir / "instances",
+        instances_dir=state_dir / "instances" / instance_id,
         runsc_root=_absolute_path(raw["runsc_root"]),
         shared_dir=_absolute_path(raw["shared_dir"]),
         default_image=str(raw["default_image"]),
+        instance_id=instance_id,
+        user_dir=_absolute_path("usr"),
         temporary_lifetime_days=float(raw["temporary_lifetime_days"]),
         start_timeout=float(raw["start_timeout"]),
         stop_timeout=float(raw["stop_timeout"]),
@@ -98,6 +103,7 @@ def manager_config(
     )
     auth_file = str(raw["registry_auth_file"] or "")
     images = SandboxImageConfig(
+        runsc=_absolute_path(raw["runsc_path"]),
         skopeo=_absolute_path(raw["skopeo_path"]),
         umoci=_absolute_path(raw["umoci_path"]),
         cache_dir=_absolute_path(raw["image_cache_dir"]),

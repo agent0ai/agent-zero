@@ -3,13 +3,15 @@ import json
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
+import sys
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from plugins._browser.helpers import runtime as runtime_module
+from plugins._browser.sandbox import runtime as runtime_module
 from plugins._browser.helpers.config import normalize_browser_config
-from plugins._browser.helpers.runtime import BrowserPage, BrowserRuntime, _BrowserRuntimeCore
+from plugins._browser.helpers.runtime import BrowserRuntime
+from plugins._browser.sandbox.runtime import BrowserPage, _BrowserRuntimeCore
 from plugins._browser.tools.browser import Browser
 
 
@@ -23,7 +25,7 @@ async def test_listing_only_starts_cold_browser_when_tabs_need_restoring(monkeyp
     core = _BrowserRuntimeCore("listing-test")
     started = AsyncMock()
     monkeypatch.setattr(core, "ensure_started", started)
-    monkeypatch.setattr(runtime_module, "has_restorable_browser_tabs", lambda context_id: restorable)
+    monkeypatch.setattr(core, "_has_restorable_tabs", lambda: restorable)
 
     assert (await getattr(core, method)())["browsers"] == []
     assert started.await_count == int(restorable)
@@ -43,7 +45,7 @@ async def test_navigation_uses_requested_readiness_without_extra_settling(monkey
     monkeypatch.setattr(core, "_register_page", AsyncMock(return_value=core.pages[1]))
     monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
     monkeypatch.setattr(core, "_settle", AsyncMock(side_effect=AssertionError("Redundant wait")))
-    monkeypatch.setattr(runtime_module, "get_browser_config", lambda: {})
+    monkeypatch.setitem(sys.modules, "patchright.async_api", SimpleNamespace(Error=RuntimeError, TimeoutError=TimeoutError))
 
     await core.open("https://example.com", wait_until=wait_until)
     await core.navigate(1, "https://example.com", wait_until=wait_until)
@@ -170,9 +172,7 @@ def _evaluate_runtime(monkeypatch, timeout=0.1):
     monkeypatch.setattr(core, "ensure_started", AsyncMock())
     monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 3}))
     monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
-    monkeypatch.setattr(runtime_module, "get_browser_config", lambda agent=None: {
-        "evaluate_timeout_seconds": timeout,
-    })
+    core.request_options.set({"evaluate_timeout_seconds": timeout})
     return core, page, session
 
 
@@ -362,7 +362,7 @@ async def test_browser_worker_propagates_cancellation_and_waits_for_cleanup(monk
     started = loop.create_future()
     cleaned = []
 
-    async def work():
+    async def work(*args, **kwargs):
         loop.call_soon_threadsafe(started.set_result, None)
         try:
             await asyncio.sleep(1)
@@ -370,7 +370,7 @@ async def test_browser_worker_propagates_cancellation_and_waits_for_cleanup(monk
             await asyncio.sleep(0.01)
             cleaned.append(True)
 
-    monkeypatch.setattr(runtime._core, "evaluate", work)
+    monkeypatch.setattr(runtime._core, "call", work)
     try:
         task = asyncio.create_task(runtime.call("evaluate"))
         await asyncio.wait_for(started, 1)
@@ -379,10 +379,10 @@ async def test_browser_worker_propagates_cancellation_and_waits_for_cleanup(monk
             await asyncio.wait_for(task, 2)
         assert cleaned == [True]
 
-        async def pending():
+        async def pending(*args, **kwargs):
             return len([task for task in asyncio.all_tasks() if task is not asyncio.current_task()])
 
-        monkeypatch.setattr(runtime._core, "state", pending)
+        monkeypatch.setattr(runtime._core, "call", pending)
         assert await runtime.call("state") == 0
     finally:
         runtime._worker.kill(terminate_thread=True)

@@ -24,7 +24,6 @@ const CONNECTION_PLUGINS = [
   title,
   thumbnail: `https://raw.githubusercontent.com/agent0ai/a0-plugins/main/plugins/file_browser_${id}/thumbnail.webp`,
 }));
-const DESKTOP_EXTENSIONS = new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]);
 const BROWSER_EXTENSIONS = new Set([
   "html",
   "htm",
@@ -47,11 +46,6 @@ const SURFACE_ACTIONS = {
     label: "Edit",
     icon: "edit",
     title: "Edit",
-  },
-  desktop: {
-    label: "Open in Desktop",
-    icon: "desktop_windows",
-    title: "Open document in Desktop",
   },
   browser: {
     label: "Open in Browser",
@@ -1109,7 +1103,6 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     if (!file || file.is_dir) return "";
     const ext = this.fileExtension(file);
     if (BROWSER_EXTENSIONS.has(ext)) return "browser";
-    if (DESKTOP_EXTENSIONS.has(ext)) return "desktop";
     return this.isEditableFile(file) ? "editor" : "";
   },
 
@@ -1117,7 +1110,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     if (!this.remoteAllowed("edit", file)) return false;
     if (!file || file.is_dir || !this.limits || file.size > this.limits.max_text_bytes || this.isArchive(file.name || file.path)) return false;
     const ext = this.fileExtension(file);
-    return !DESKTOP_EXTENSIONS.has(ext)
+    return !new Set(["odt", "ods", "odp", "docx", "xlsx", "pptx"]).has(ext)
       && !["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "mp3", "mp4", "wav", "webm", "ogg", "woff", "woff2", "ttf"].includes(ext);
   },
 
@@ -2059,15 +2052,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
             }
           }
         }
-        if (target === "desktop") {
-          const { store: desktopStore } = await import("/plugins/_desktop/webui/desktop-store.js");
-          if (!this.storeHasPath(desktopStore, path)) {
-            const session = await desktopStore.openPath(path);
-            if (!session || session.ok === false) {
-              throw new Error(desktopStore.error || "Document could not be opened.");
-            }
-          }
-        }
+
       }
 
       this.disposeScopedTooltips();

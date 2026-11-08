@@ -1122,20 +1122,30 @@ def test_load_auth_serializes_refresh_across_processes(tmp_path):
     release_refresh = context.Event()
     calls = context.Queue()
     results = context.Queue()
+    first_ready = context.Event()
+    second_ready = context.Event()
     process_args = (str(auth_path), refresh_started, release_refresh, calls, results)
-    first = context.Process(target=_load_auth_in_process, args=process_args)
-    second = context.Process(target=_load_auth_in_process, args=process_args)
+    first = context.Process(target=_load_auth_in_process, args=(*process_args, first_ready))
+    second = context.Process(target=_load_auth_in_process, args=(*process_args, second_ready))
 
     first.start()
-    assert refresh_started.wait(timeout=2)
-    assert calls.get(timeout=2) == "refresh-0"
-    second.start()
-    with pytest.raises(queue.Empty):
-        calls.get(timeout=0.2)
-
-    release_refresh.set()
-    first.join(timeout=3)
-    second.join(timeout=3)
+    try:
+        # Child imports can be cold; measure contention only after both processes are ready.
+        assert first_ready.wait(timeout=20)
+        assert refresh_started.wait(timeout=2)
+        assert calls.get(timeout=2) == "refresh-0"
+        second.start()
+        assert second_ready.wait(timeout=20)
+        with pytest.raises(queue.Empty):
+            calls.get(timeout=0.2)
+    finally:
+        release_refresh.set()
+        for child in (first, second):
+            if child.pid is not None:
+                child.join(timeout=5)
+                if child.is_alive():
+                    child.terminate()
+                    child.join(timeout=5)
 
     assert first.exitcode == 0
     assert second.exitcode == 0
@@ -1214,17 +1224,18 @@ def _rotated_tokens() -> dict[str, str]:
     }
 
 
-def _load_auth_in_process(auth_path: str, refresh_started, release_refresh, calls, results) -> None:
+def _load_auth_in_process(auth_path: str, refresh_started, release_refresh, calls, results, ready) -> None:
     codex.resolve_auth_write_path = lambda: Path(auth_path)
     codex._auth_lock_path = lambda _path: Path(auth_path).parent / ".auth.lock"
 
     def refresh_tokens(refresh_token: str) -> dict[str, str]:
         calls.put(refresh_token)
         refresh_started.set()
-        assert release_refresh.wait(timeout=5)
+        assert release_refresh.wait(timeout=30)
         return _rotated_tokens()
 
     codex.refresh_tokens = refresh_tokens
+    ready.set()
     results.put(codex.load_auth().refresh_token)
 
 

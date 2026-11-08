@@ -20,8 +20,9 @@
 - DOM-helper messaging accepts only non-opaque same-origin documents, uses exact target origins, and binds responses to the requested child window and operation. Use the effective Window origin so inherited-origin `about:blank` and `srcdoc` frames work; cross-origin frame RPC fails closed while direct automation entry points remain available.
 - DOM helper v2 and internal runtime readiness checks reject in-place upgrades: reload existing pages to remove legacy anonymous message listeners. Host connectors receive the helper source through its existing SHA-256 update path; restart existing host browsers and reconnect before reloading restored tabs to discard old initialization scripts.
 - Preserve Patchright lifecycle cleanup and WebSocket viewer compatibility across regular host browsers and Electron WebContentsView embedding.
+- Failed or cancelled internal startup closes both the driver and its sandbox display before retry.
 - Keep the WebUI Browser inside its own modal/canvas affordance; do not replace it with page-level navigation.
-- Default the visible WebUI Browser to the authenticated Xpra HTML5 viewer for its existing Patchright page. Keep live CDP screencast and lightweight snapshots as automatic fallbacks.
+- Default the visible WebUI Browser to the authenticated noVNC viewer for its existing Patchright page. Keep live CDP screencast and lightweight snapshots as automatic fallbacks.
 - Do not block an available interactive viewer on a redundant Chromium screenshot; capture initial snapshots only for fallback transports.
 - Keep headful Chromium in a normal window with its own toolbar clipped above the private display; do not use browser fullscreen, which shows Chromium's exit warning.
 - Persist open-tab ownership and URLs through the shared KVP store; automatically restore the current chat when its Browser surface opens in per-chat mode and every saved chat in shared mode, then hide Chromium's redundant crash-restore advisory.
@@ -30,12 +31,13 @@
 - Reuse the private display's native dimensions when interactive-viewer requests omit a size. Page CSS viewport dimensions change with zoom and must not resize the display during navigation or tab switching.
 - Keep exactly one interactive viewer iframe connected during canvas/modal handoff so hidden surfaces cannot compete to resize the same display.
 - Complete tab switching when the viewer subscription succeeds and reuses the interactive viewer URL; the shared iframe does not reload for each tab. New viewer URLs and fallback frames retain their load/render completion path.
-- Notify the active Xpra client of its new frame geometry before resizing the backing display; after an interactive canvas/modal handoff, reconcile once after Xpra's deferred resize so Chromium cannot retain the previous surface size.
-- Present the Xpra shadow window as the raw browser canvas: remove its HTML decoration and shadow pointer while preserving exact viewport geometry.
-- Keep one internal Chromium, Xvfb, and Xpra runtime per Agent Zero process with one unguessable gateway token.
-- Apply the shared `virtual_desktop.XPRA_START_ENV` defaults when launching Xpra; preserve inherited timeout overrides. Disable local shared-memory transport for the WebSocket viewer.
+- Agent Zero owns display resizing and Chromium window fitting. noVNC scales the framebuffer but must not independently resize the server; preserve one iframe through canvas/modal handoff.
+- Keep one child sandbox containing the Patchright driver, Chromium and Tuxee’s minimal Xvnc per Agent Zero process, with one unguessable gateway token. The thin host client sends browser operations over validated runsc exec pipes; the guest owns the entire Patchright runtime, including its Python API and Node driver. No CDP listening port is exposed. Cancellation waits for guest cleanup and screencast frames use acknowledgements.
+- Browser's installer reuses the image Python through a symlinked venv and its pip; it does not use the shared workers' Python 3.12/uv bootstrap. Replace an old interpreter environment on installer upgrade, preserve matching environments, and remove retired guest uv runtimes while retaining any interpreter supplied by a custom image. Reuse an image Node 22+ through the Patchright driver symlink; custom images without a suitable Node retain the SDK binary. Keep GTK dialogs and international fonts, but omit Xvfb and the shared display's X utilities/legacy X fonts. Retire obsolete viewer packages with their unused apt dependencies only inside this private service guest.
+- The WebUI startup clock belongs to the current Browser request, resets for each new launch, and keeps ticking independently of status polls after the dependency worker is ready. Nested startup requests share the clock; cleanup cancels both timers and rejects late responses. Only an active installer may report quiet-output warnings.
+- Repeated private-display sizes are no-ops: A0 owns display geometry. Update cached dimensions and GTK chooser settings only after a successful resize; failed resizes must remain retryable.
 - Synchronous context cleanup shares the named BrowserCleanup event loop. Cancel only the cleanup task on completion/timeout; an individual context must not terminate the shared thread used by concurrent resets.
-- Bind Browser Xpra endpoints to loopback, route them through the authenticated virtual-desktop gateway, and keep file transfer, URL opening, printing, and audio disabled.
+- Bind VNC to IPv4 loopback with fresh VncAuth credentials and a private Xauthority cookie. `helpers/viewer_gateway.py` serves only owned sessions at `/browser/vnc/`, with A0 authentication, same-origin checks, bounded binary input and private no-store credentials. No extra HTTP daemon or published port.
 - Paint live screencast frames through the Browser panel canvas/ImageBitmap path when available; keep the `<img>`/data URL path for snapshots and fallback rendering.
 - Push internal screencast frames from the runtime to the WebSocket consumer after subscription; keep `read/pop_screencast_frame` as fallback/tooling APIs, not the WebUI hot path.
 - Keep Browser viewer frame transport capability-negotiated: updated clients may request binary/slim screencast frames, while older clients must keep the base64/full-metadata fallback. Do not let the WebUI advertise binary frames unless its Socket.IO client reconstructs attachments as real `Blob`, `ArrayBuffer`, or typed-array values.
@@ -44,6 +46,8 @@
 - On first shared-profile use after an upgrade, adopt the first requesting chat's legacy Browser profile when one exists.
 - Empty viewer subscriptions and closing the last tab clear the address, page state, viewer, and switching flags. Context changes invalidate pending surface, subscription, and command results before awaiting session refresh; stale completions must not restore another chat or clear the current startup state. Structured subscription errors release switching state just like transport failures.
 - Show an accessible in-panel startup state while the on-demand shared Browser runtime is cold-starting; keep that one runtime warm until Browser configuration changes or Agent Zero shuts down.
+- Poll authenticated `browser_startup_status` while opening the first browser; HTTP status exposes the same `startup` snapshot. Polling must never start a guest or wait for the setup lock. Show installer stage, elapsed time and output inactivity without exposing raw logs; invalidate late polls on context changes/cleanup. A ready worker means dependencies are ready, before Chromium/viewer startup completes.
+- Empty viewer subscriptions retain the first-install allowance; the first open command and subscription share the worker setup deadline. Ordinary warm commands retain their shorter timeout.
 - Listing tabs must not cold-start Chromium when there are no saved tabs to restore. Preserve per-chat/shared and legacy-session restoration when saved tabs exist.
 - Navigation waits only for the requested readiness: agent tools default to `domcontentloaded`, while WebUI navigation/new tabs and restored tabs use `commit`. Do not follow navigation with another load wait or fixed settle delay; retain settling for interaction actions. Read title, back-navigation availability, and loading state in one page evaluation.
 - Keep narrow WebUI Browser controls usable by grouping navigation with Annotate/settings above a full-width address bar.
@@ -71,13 +75,14 @@
 - Annotation voice input reuses Whisper STT's configured draft/send delivery mode and shared microphone state.
 - Internal-browser proxy settings map directly to Playwright's persistent-context proxy option, never to Bring Your Own Browser, and changes must restart active internal runtimes.
 - Run internal Chromium headful through Patchright on the private virtual display; do not add user-agent or header spoofing on top of the patched driver.
-- Browser keyboard layout settings (`keyboard_layout`/`keyboard_variant`, e.g. `de`/`mac`) apply the configured XKB layout to the private browser display with setxkbmap and pin it on the Xpra shadow server so non-US keyboards type their printed characters; layout changes flow through `browser_runtime_config` and restart internal runtimes. Fallback canvas input forwards AltGraph and macOS Option text without converting ordinary Alt shortcuts into text.
+- Browser keyboard layout settings (`keyboard_layout`/`keyboard_variant`, e.g. `de`/`mac`) apply the configured XKB layout to the private browser display with setxkbmap so non-US keyboards type their printed characters; layout changes flow through `browser_runtime_config` and restart internal runtimes. Fallback canvas input forwards AltGraph and macOS Option text without converting ordinary Alt shortcuts into text.
 - Browser startup and on-demand launch must converge on the Chromium revision declared by Patchright; let its installer select the host architecture rather than hardcoding x64 or ARM downloads.
-- `hooks.prepare_playwright_cache()` owns reconciliation of the pinned Patchright package and Chromium binary so repository self-updates and fresh images use the same setup path.
-- `hooks.install()` also installs HTTPX's SOCKS extra in the framework runtime when `socksio` is missing; this supports shared HTTP clients using proxy environment variables independently of Chromium's proxy settings.
+- `sandbox/install.sh` owns the pinned guest Patchright package, Chromium revision and native display dependencies. First use installs them into the selected OCI image; subsequent starts reuse its disk root. Startup registers authenticated viewer routes without installing or launching a browser.
+- Installer stages remain boot-scoped. Mount `/usr/local/lib/tuxee-gui` read-only at `/opt/tuxee-gui`: it contains the shared native display tools, their matching loader/libraries and XKB data. Do not bind host `/usr` or expose host display sockets. Source installations lacking this bundle build it in the guest with the same pinned recipe. `install_deps.py` lists direct Chromium libraries and international fonts for the pinned Patchright SDK; update that manifest with SDK upgrades. Keep `libx11-xcb1` explicit: headful Chromium loads it dynamically. Resolve only those dependencies, not the SDK dry-run’s Xvfb dependency closure. The guest build fallback removes its temporary development packages after bundling. Retain GTK and explicitly select `dbus-x11` for native file/save dialogs without pulling a system bus/PAM. The display sizes GTK’s keyfile-backed picker preferences; no window manager or session-bus daemon is needed. Chromium and driver installation remain separate progress stages; upgrades retire Xpra/Xvfb and their unused Mesa/LLVM dependency closure.
+- HTTPX SOCKS support belongs to root requirements; no Patchright/Playwright distribution or bundled driver belongs to the outer image. Plugin installation is lazy and leaves the host Python environment unchanged.
 - Browser startup must install the shared virtual-desktop route hook itself; do not make Browser depend on the Desktop plugin being enabled.
 - Use shared `surface-workspace`, toolbar/control, and separator styles from `webui/css/surfaces.css`; match the lighter Files/Browser panel palette and preserve disabled, active, and keyboard focus states.
-- When Chromium is absent, the runtime fallback invokes Patchright as a module through `depfix run`; do not assume the Patchright console script is on ordinary `PATH`.
+- Expose only the persistent browser profile, browser downloads and explicitly enabled extension directories to the guest. Uploads cross as selected file bytes; screenshots return through the driver. Never signal host PIDs from guest Chromium singleton files.
 
 ## Work Guidance
 
@@ -91,9 +96,9 @@
 
 - Smoke-test browser launch, navigation, DOM capture, and WebUI viewer after runtime changes.
 - Run `pytest tests/test_browser_dom_security.py` for real-Chromium origin isolation, parent/frame/opener attacks, response binding, same-origin frame actions, and legacy-helper upgrades. Run `pytest tests/test_browser_agent_regressions.py tests/test_host_browser_connector.py` for internal runtime and distributed helper compatibility.
-- For viewer render-path changes, verify direct iframe interaction reaches the same page controlled by Patchright, separate contexts use separate displays, and an unavailable Xpra runtime falls back to CDP screencast/snapshot rendering.
+- For viewer render-path changes, verify direct iframe interaction reaches the same page controlled by Patchright, chat tab ownership remains enforced, and an unavailable interactive viewer falls back to CDP screencast/snapshot rendering.
 - Run browser prompt/skill regression tests after changing browser prompt or Browser plugin skills.
 
 ## Child DOX Index
 
-No child DOX files.
+- [webui/vendor/novnc/AGENTS.md](webui/vendor/novnc/AGENTS.md): pinned noVNC sources, local fixes and licenses.

@@ -30,6 +30,8 @@ class IncludeSandboxDestinations(Extension):
             return
         reserved = {"default", "local", "host"}
         for sandbox in sandboxes:
+            if sandbox.service:
+                continue
             destination_id = (
                 f"sandbox:{sandbox.name}" if sandbox.name in reserved else sandbox.name
             )

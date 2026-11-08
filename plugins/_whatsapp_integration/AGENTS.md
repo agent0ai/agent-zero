@@ -6,7 +6,7 @@
 
 ## Ownership
 
-- `helpers/bridge_manager.py` owns bridge lifecycle.
+- `helpers/bridge_manager.py` controls a persistent child sandbox; `sandbox/worker.py` owns the bridge and locked npm installation on first start. `helpers/wa_client.py` stages outgoing media into the existing shared media directory.
 - `helpers/handler.py` and `helpers/wa_client.py` own message routing and bridge API interaction.
 - `helpers/slash_commands.py` adapts the shared Commands resolver to WhatsApp text menus, settings, chat selection, transcript export, and compaction confirmation.
 - `helpers/storage_paths.py`, attachment helpers, and number utilities own storage, attachment, and phone-number handling.
@@ -14,6 +14,8 @@
 - `api/`, `prompts/`, `extensions/`, `default_config.yaml`, `plugin.yaml`, `README.md`, and `webui/` own QR/start/disconnect/test endpoints, prompt fragments, hooks, settings, metadata, docs, and UI.
 
 ## Local Contracts
+
+- Incoming/outgoing attachment staging calls local readers/writers in every mode; outgoing reads resolve development `/a0` aliases. Preserve the bridge media directory and selected-byte transport into its sandbox; development RFC is not involved.
 
 - Treat WhatsApp sessions, QR data, phone numbers, attachments, and bridge state as sensitive.
 - Keep allowed-number and group-response controls enforced.
@@ -27,6 +29,7 @@
 - `wa_active` persists the selected context. `/new` preserves previous chats, and `/chat` and `/sessions` stay within the originating WhatsApp JID. Existing chats without a selection fall back to recency, never random context-ID order.
 - `/compact` requires confirmation naming the current idle context and reuses the backup-producing compactor. `/copy` sends a temporary transcript document from the bridge media directory and removes it after delivery.
 - Do not leave unmanaged bridge services outside plugin-owned runtime paths.
+- Mount only existing session and media directories read/write into the guest; retain login state on stop, retry and restart. Disabled checks do not provision. The existing enabled job-loop path starts inbound reception; no incoming message is needed to start it. Keep the bridge on loopback with a per-process bearer token; npm and Baileys remain inside the guest.
 - Use the shared project/profile scope selector and Advanced accordion. Configuration is the sole plugin UI; keep pairing and connection controls there.
 
 ## Work Guidance

@@ -7,8 +7,8 @@ import shutil
 import subprocess
 import threading
 
-from helpers import system_packages
-from helpers.print_style import PrintStyle
+import logging
+import time
 
 
 TESSERACT_APT_PACKAGES = (
@@ -66,7 +66,7 @@ def _ensure_dependencies(
 
         missing_packages = _missing_apt_packages(packages)
         packages_to_install = missing_packages or list(packages)
-        PrintStyle.info(
+        logging.info(
             "Document Query: installing on-demand OCR dependencies: "
             + " ".join(packages_to_install)
         )
@@ -150,16 +150,15 @@ def _apt_command_prefix() -> list[str]:
 def _run_apt_command(
     command: list[str], *, timeout: int
 ) -> subprocess.CompletedProcess[str]:
-    return system_packages.run_apt_with_retries(
-        lambda: subprocess.run(
-            command,
-            check=False,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"},
-        )
-    )
+    deadline = time.monotonic() + timeout
+    while True:
+        result = subprocess.run(command, check=False, text=True, capture_output=True,
+                                timeout=max(1, deadline - time.monotonic()),
+                                env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})
+        if result.returncode == 0 or "lock" not in (result.stderr or "").lower() or time.monotonic() >= deadline:
+            return result
+        time.sleep(1)
+
 
 
 def _require_success(result: subprocess.CompletedProcess[str], action: str) -> None:

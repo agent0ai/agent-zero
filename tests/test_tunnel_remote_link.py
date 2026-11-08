@@ -81,21 +81,21 @@ def write_zip_archive(path, members):
 
 
 HELPER_MODULES = [
-    "helpers.cli_tunnel",
-    "helpers.cloudflare_tunnel",
-    "helpers.microsoft_tunnel",
-    "helpers.serveo_tunnel",
-    "helpers.tailscale_tunnel",
-    "helpers.tunnel_common",
-    "helpers.tunnel_manager",
+    "plugins._tunnel.sandbox.providers.cli_tunnel",
+    "plugins._tunnel.sandbox.providers.cloudflare_tunnel",
+    "plugins._tunnel.sandbox.providers.microsoft_tunnel",
+    "plugins._tunnel.sandbox.providers.serveo_tunnel",
+    "plugins._tunnel.sandbox.providers.tailscale_tunnel",
+    "plugins._tunnel.sandbox.providers.tunnel_common",
+    "plugins._tunnel.sandbox.providers.tunnel_manager",
 ]
 
 
 def remote_link_modules():
     return types.SimpleNamespace(
-        cli=importlib.import_module("helpers.cli_tunnel"),
-        microsoft=importlib.import_module("helpers.microsoft_tunnel"),
-        tailscale=importlib.import_module("helpers.tailscale_tunnel"),
+        cli=importlib.import_module("plugins._tunnel.sandbox.providers.cli_tunnel"),
+        microsoft=importlib.import_module("plugins._tunnel.sandbox.providers.microsoft_tunnel"),
+        tailscale=importlib.import_module("plugins._tunnel.sandbox.providers.tailscale_tunnel"),
     )
 
 
@@ -113,12 +113,12 @@ def tunnel_manager_module(monkeypatch):
         notifier=FakeNotifier(),
     )
     monkeypatch.setitem(sys.modules, "flaredantic", fake_flaredantic)
-    helpers_package = sys.modules.get("helpers")
+    helpers_package = sys.modules.get("plugins._tunnel.sandbox.providers")
     for module_name in HELPER_MODULES:
         sys.modules.pop(module_name, None)
         if helpers_package and hasattr(helpers_package, module_name.rsplit(".", 1)[-1]):
             delattr(helpers_package, module_name.rsplit(".", 1)[-1])
-    module = importlib.import_module("helpers.tunnel_manager")
+    module = importlib.import_module("plugins._tunnel.sandbox.providers.tunnel_manager")
     yield module
     for module_name in HELPER_MODULES:
         sys.modules.pop(module_name, None)
@@ -128,7 +128,7 @@ def tunnel_manager_module(monkeypatch):
 
 def test_remote_link_provider_options_match_supported_remote_link_providers():
     html = (
-        PROJECT_ROOT / "webui/components/settings/tunnel/tunnel-section.html"
+        PROJECT_ROOT / "plugins/_tunnel/webui/panel.html"
     ).read_text(encoding="utf-8")
 
     assert html.count("<option value=") == 4
@@ -187,10 +187,10 @@ def test_tailscale_cli_commands_are_wired(tunnel_manager_module):
 
 def test_remote_link_providers_have_dedicated_helper_modules():
     helper_files = {
-        "cloudflared": PROJECT_ROOT / "helpers/cloudflare_tunnel.py",
-        "microsoft": PROJECT_ROOT / "helpers/microsoft_tunnel.py",
-        "serveo": PROJECT_ROOT / "helpers/serveo_tunnel.py",
-        "tailscale": PROJECT_ROOT / "helpers/tailscale_tunnel.py",
+        "cloudflared": PROJECT_ROOT / "plugins/_tunnel/sandbox/providers/cloudflare_tunnel.py",
+        "microsoft": PROJECT_ROOT / "plugins/_tunnel/sandbox/providers/microsoft_tunnel.py",
+        "serveo": PROJECT_ROOT / "plugins/_tunnel/sandbox/providers/serveo_tunnel.py",
+        "tailscale": PROJECT_ROOT / "plugins/_tunnel/sandbox/providers/tailscale_tunnel.py",
     }
 
     assert all(path.exists() for path in helper_files.values())

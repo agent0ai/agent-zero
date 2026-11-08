@@ -50,6 +50,8 @@ Use framework management APIs so hooks, caches and UI state stay consistent. Con
 
 **Installation and removal must run the plugin's `hooks.py` lifecycle through these APIs. Never use `execute.py` or ask the user to click Execute for setup, dependency installation, required initialization, or uninstall cleanup.** If a plugin requires such a step, treat it as a plugin defect and route the fix to `a0-create-plugin`; do not silently use the manual workaround.
 
+Guest dependencies should normally provision automatically in existing sandboxes on first use, or at enablement/startup when an early feature or configured listener needs readiness. This delegation preserves hook ownership; hooks still execute in the framework. Main-environment packages need a documented reason tied to functionality that must run there and a minimal dependency set. See [sandbox placement](../../docs/developer/plugin-sandboxes.md#choosing-dependency-location); a cold guest alone is not failed installation.
+
 Verify the API result and read back installed/config/toggle state. Preserve unrelated scoped overrides and local code changes. Do not use raw Git pulls or folder deletion as substitutes for normal lifecycle APIs.
 
 For a broken plugin, first check its identity, installation, effective toggle/config and relevant error. If the failure is in plugin code, use the brief troubleshooting guidance in `a0-create-plugin`.

@@ -20,6 +20,8 @@
 
 ## Runtime Contracts
 
+- Invoke the existing file helpers locally in both development and production; await their async entry points. Path validation, response shapes and mutation hooks remain unchanged.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `RenameWorkDirFile` is an `ApiHandler`.
@@ -29,7 +31,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `FileBrowser`, `browser.rename_item`, `browser.create_folder`, `browser.move_items`, `strip`, `runtime.call_development_function`, `posixpath.join`, `file_path.startswith`, `extension.call_extensions_async`, `str.rstrip`, `posixpath.dirname`.
+- Important called helpers/classes observed in the source: `FileBrowser`, `browser.rename_item`, `browser.create_folder`, `browser.move_items`, `strip`, `posixpath.join`, `file_path.startswith`, `extension.call_extensions_async`, `str.rstrip`, `posixpath.dirname`.
 - The `move` action accepts `paths` plus `destinationPath`, emits the standard mutation hook, and returns the refreshed `currentPath` listing used by drag-and-drop clients.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 

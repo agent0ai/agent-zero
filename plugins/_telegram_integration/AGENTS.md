@@ -11,7 +11,7 @@
 - `helpers/slash_commands.py` adapts the shared Commands resolver and effects to Telegram replies, menus, session bindings, exports, and compaction confirmation.
 - `helpers/settings_ui.py` owns Telegram plugin toggles and tool-permission menus, delegating writes to the existing plugin and Agent Editor owners.
 - `hooks.py` normalizes saved/read bot configurations, supplies stable names for unnamed bots, and rejects duplicate names on save.
-- `helpers/dependencies.py` and `requirements.txt` own framework-runtime dependency bootstrap.
+- `helpers/sandbox.py` owns thin request/event adapters; `sandbox/` owns aiogram, polling, webhook parsing and file transport in a persistent guest.
 - `api/`, `prompts/`, `extensions/`, `default_config.yaml`, `plugin.yaml`, `README.md`, and `webui/` own tests/webhook endpoints, prompt fragments, hooks, settings, metadata, docs, and UI.
 - `webui/config.html` is the sole plugin WebUI, including bot setup and connection checks.
 
@@ -27,7 +27,7 @@
 - `/new` creates and binds a fresh context without resetting the previous chat. `/clear` retains Telegram's existing reset behavior. Compaction confirms the current idle context and uses the existing backup-producing compactor.
 - Restart bots when their token, delivery mode, group mode, webhook URL, or webhook secret changes. Polling may start on the next job-loop tick after saving settings.
 - Webhook dispatch requires an active webhook and a matching nonempty secret header. Setup requires a random 32–256 character secret using letters, digits, `_` or `-`; polling and webhook removal revoke HTTP delivery.
-- Install Telegram dependencies into the framework runtime only when required.
+- Provision the guest on connection test or configured bot enablement/job-loop startup, never unconditional boot. Guest restart generations recreate registered bots; disabling stops workers without deleting configuration. Keep SDK errors sanitized and request secrets out of logs. Polling tasks and webhook deliveries retain current authorization checks in the outer control layer.
 - Bot configuration and activation are global; project/profile scopes are unsupported and backend writes must reject them. Project binding routes chats, not bot settings.
 - Legacy scoped configs or activation overrides pause all bots and block each incoming event until reviewed and removed. Preserve those files for manual migration and notify the operator. Every event requires a currently enabled global bot; never fall back to captured settings after removal or disablement.
 - Agent profile picker actions change the top-level chat profile and must
@@ -45,7 +45,7 @@
 
 - Smoke-test connection checks, polling or webhook delivery, per-user context reuse, attachments, and replies when practical.
 - Run `tests/test_telegram_config_scope.py` for scope rejection, legacy-settings shutdown, current authorization and disable/removal handling.
-- Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
+- Run `python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
 
 ## Child DOX Index
 

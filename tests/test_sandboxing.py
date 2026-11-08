@@ -12,6 +12,7 @@ import pytest
 
 from plugins._sandboxing.helpers.images import (
     SandboxImageConfig,
+    SandboxImageError,
     SandboxImageInfo,
     SandboxImageManager,
     image_info_dict,
@@ -185,8 +186,9 @@ def test_image_reference_and_digest_validation_is_conservative() -> None:
             validate_digest(digest)
 
 
-def test_daemonless_image_pull_is_digest_pinned_and_atomic(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("local_archive", [False, True])
+def test_daemonless_image_load_is_digest_pinned_and_atomic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, local_archive: bool
 ) -> None:
     executable = tmp_path / "tool"
     executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -232,15 +234,41 @@ def test_daemonless_image_pull_is_digest_pinned_and_atomic(
 
     monkeypatch.setattr(images, "_run", fake_run)
 
-    info = images.pull("docker.io/example/sandbox:latest")
+    reference = "docker.io/example/sandbox:latest"
+    if local_archive:
+        archive = tmp_path / "image.tar"
+        archive.write_bytes(b"test archive")
+        info = images.import_archive(archive, reference)
+    else:
+        info = images.pull(reference)
 
     assert info.digest == IMAGE_DIGEST
     assert info.rootfs and info.rootfs.is_dir()
     copy = next(command for command in calls if "copy" in command)
-    assert (
-        f"docker://docker.io/example/sandbox@{IMAGE_DIGEST}" in copy
-    )
+    if local_archive:
+        inspected = next(command for command in calls if "inspect" in command)[-1]
+        assert inspected.startswith(f"docker-archive:{images.config.cache_dir}/.pull-")
+        assert inspected in copy
+    else:
+        assert f"docker://docker.io/example/sandbox@{IMAGE_DIGEST}" in copy
+    calls.clear()
+    assert images.ensure(reference).digest == IMAGE_DIGEST
+    assert not calls
     assert not any(path.name.startswith(".pull-") for path in images.config.cache_dir.iterdir())
+
+
+def test_image_archive_import_rejects_unsafe_or_oversized_sources(manager, tmp_path):
+    archive = tmp_path / "image.tar"
+    link = tmp_path / "link.tar"
+    link.symlink_to(archive)
+    for source in (archive, link, tmp_path):
+        with pytest.raises(SandboxImageError, match="regular non-symlink"):
+            manager.images.import_archive(source, "sandbox:local")
+    archive.touch()
+    with archive.open("wb") as output:
+        output.truncate(manager.images.config.max_image_bytes + 1)
+    with pytest.raises(SandboxImageError, match="size limit"):
+        manager.images.import_archive(archive, "sandbox:local")
 
 
 def test_image_cleanup_preserves_every_sandbox_reference(
@@ -327,7 +355,7 @@ def test_runsc_commands_select_fast_or_disk_overlay(manager: SandboxManager) -> 
         "--allow-rootfs-tar-annotation",
         "--rootless=true",
         "--platform=systrap",
-        "--directfs=false",
+        "--directfs=true",
         "--file-access=exclusive",
         "--file-access-mounts=shared",
     ):
@@ -664,7 +692,10 @@ def test_docker_image_contains_sandbox_runtime_contract() -> None:
     assert "containerd-shim-runsc-v1" not in dockerfile
     assert "checkpointgofer" not in dockerfile
     assert "runsc-metric-server" not in dockerfile
-    assert "ca-certificates util-linux procps iproute2 skopeo umoci" in packages
+    assert "ca-certificates util-linux procps iproute2 gpg libgpgme11t64 libsqlite3-0" in packages
+    assert "COPY --from=gvisor-package /usr/bin/skopeo /usr/bin/umoci /usr/bin/" in dockerfile
+    assert "COPY --from=gvisor-package /etc/containers/ /etc/containers/" in dockerfile
+    assert "COPY --from=gvisor-package /usr/share/containers/ /usr/share/containers/" in dockerfile
     assert "gnupg" not in packages
     assert "privileged: false" in compose
     assert "seccomp:unconfined" in compose

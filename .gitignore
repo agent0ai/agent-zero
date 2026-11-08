@@ -22,10 +22,7 @@
 /instruments/
 /logs/
 
-# Handle tmp and usr directory
-tmp/**
-!tmp/**/
-
+# Handle usr directory
 # hack to keep .gitkeep but ignore nested repos
 # Ignore everything under usr
 usr/**
@@ -48,3 +45,7 @@ agent_history.gif
 .agent/**
 .claude/**
 .playwright-cli/
+
+# Ignore runtime scratch data, including nested directory markers.
+/tmp/**
+!/tmp/.gitkeep

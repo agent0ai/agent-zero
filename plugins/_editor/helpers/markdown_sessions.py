@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from plugins._office.helpers import document_store
+from plugins._editor.helpers import document_store
 
 
 @dataclass

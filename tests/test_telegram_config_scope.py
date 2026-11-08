@@ -5,7 +5,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from aiogram.types import Update
+from plugins._telegram_integration.helpers.sandbox import TelegramEvent
+
+class Update:
+    @staticmethod
+    def model_validate(value):
+        return TelegramEvent(value, None)
 
 from api.plugins import Plugins
 from helpers import cache, files, plugins
@@ -31,7 +36,6 @@ def telegram_config(monkeypatch, tmp_path):
     config = {"bots": [{"name": "scope_test", "token": "123456:fake", "enabled": True,
                         "allowed_users": [], "default_project": "project"}]}
     plugins.save_plugin_config(PLUGIN, "", "", config)
-    monkeypatch.setattr(manager, "ensure_dependencies", Mock())
     monkeypatch.setattr(manager.NotificationManager, "send_notification", Mock())
     monkeypatch.setattr(handler, "cleanup_old_attachments", Mock())
     return config
@@ -90,7 +94,6 @@ async def test_legacy_scoped_settings_stop_bots_and_block_every_update(telegram_
     stop.assert_awaited_once_with("scope_test")
     create.assert_not_called()
     handler.cleanup_old_attachments.assert_not_called()
-    manager.ensure_dependencies.assert_not_called()
     manager.NotificationManager.send_notification.assert_called_once()
     assert legacy.read_text() == contents
 

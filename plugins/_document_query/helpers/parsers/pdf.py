@@ -2,8 +2,8 @@
 
 import os
 
-from helpers.print_style import PrintStyle
-from plugins._document_query.helpers.fetch import FetchedDocument
+import logging
+from plugins._document_query.helpers.document import FetchedDocument
 from plugins._document_query.helpers.ocr_dependencies import (
     ensure_pdf_ocr_dependencies,
     ensure_tesseract_dependencies,
@@ -43,14 +43,14 @@ class PdfParser(BaseParser):
             )
             return "\n".join(e.page_content for e in loader.load())
         except Exception as e:
-            PrintStyle.error(f"PyMuPDF parsing failed: {e}")
+            logging.error(f"PyMuPDF parsing failed: {e}")
             return ""
 
     def _parse_with_ocr(self, file_path: str) -> str:
         import pdf2image, pytesseract
 
         ensure_pdf_ocr_dependencies()
-        PrintStyle.debug(f"FALLBACK: OCR for {file_path}")
+        logging.debug(f"FALLBACK: OCR for {file_path}")
         pages = pdf2image.convert_from_path(file_path)
         return "\n\n".join(pytesseract.image_to_string(p) for p in pages)
 

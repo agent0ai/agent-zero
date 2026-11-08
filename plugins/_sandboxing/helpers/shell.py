@@ -27,6 +27,8 @@ class SandboxInteractiveSession:
 
     async def connect(self) -> None:
         manager = get_manager(agent=self.agent)
+        if (manager.config.instances_dir / self.name / "metadata.json").exists() and manager.inspect(self.name).service:
+            raise RuntimeError("plugin service sandboxes are not agent execution destinations")
         _, sandbox_type, network = defaults(agent=self.agent)
         await asyncio.to_thread(
             manager.ensure_running,

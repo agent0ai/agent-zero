@@ -52,13 +52,15 @@ Honor an explicit local-only or community-contribution request. For a new plugin
 
 ## Required Lifecycle Contract
 
-**Plugin setup, dependency installation, required initialization, and uninstall cleanup MUST use lifecycle functions in the plugin-root `hooks.py`. Never put these operations in `execute.py`, and never require an Execute button or manual post-install command to make a plugin usable.**
+**Plugin setup, dependency installation, required initialization, and uninstall cleanup MUST remain owned by lifecycle functions in the plugin-root `hooks.py`; guest provisioning may delegate to automatic worker setup. Never put these operations in `execute.py`, and never require an Execute button or manual post-install command to make a plugin usable.**
 
-- `install()` prepares dependencies and initializes the plugin automatically after installation and again after updates. Make it safe to rerun.
+- `install()` handles required installation/update state and initialization, safely on reruns. Prefer guest-owned manifests/installers and persistent sandbox environments for plugin-owned dependencies; automatic provisioning can wait for first actual use. Early-needed features and configured listeners must prepare at enablement/startup, before receiving work.
 - `pre_update()` stops plugin-owned processes or prepares state before an update when needed.
 - `uninstall()` stops plugin-owned processes, removes registrations, and removes plugin-owned dependencies/resources before the framework deletes the plugin directory. Preserve shared dependencies and unrelated user data.
 - Keep lifecycle ownership in `hooks.py`; it may delegate to plugin-local helpers. If boot-time initialization is needed, a startup extension may call the same helper or hook; it does not replace install/uninstall hooks.
 - Omit `execute.py` unless there is a separate, explicitly requested manual operation unrelated to setup, dependency installation, required initialization, updates, or removal.
+
+Keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework and call existing sandbox workers for Python/Node/native packages, heavy inference, browser/document/media work and integration clients. Main-environment dependencies are legitimate only for functionality that must execute there: document the concrete need and keep them minimal. Hooks still run in the framework. Read [Choosing dependency location](../../docs/developer/plugin-sandboxes.md#choosing-dependency-location) and `references/implementation.md` for current interfaces and lifecycle ownership.
 
 ## Read Only What The Task Needs
 
@@ -66,7 +68,7 @@ After loading this skill, use `skills_tool` with `action: "read_file"`, `skill_n
 
 | Work | Reference |
 |---|---|
-| Manifest, layout, backend, tools, settings, hooks, runtime verification | `references/implementation.md` |
+| Manifest, layout, backend, tools, settings, hooks, sandbox dependencies, runtime verification | `references/implementation.md` |
 | Channel integrations: shared slash commands, effects, menus, authorization | [references/channel-commands.md](references/channel-commands.md) |
 | Alpine stores, settings UI, `x-overflow` controls, notifications, custom message/process-step handlers | [references/webui.md](references/webui.md) |
 | Review existing code or verify a completed change | `references/review.md` |

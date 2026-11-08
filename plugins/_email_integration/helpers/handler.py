@@ -11,7 +11,7 @@ import os
 import uuid
 
 from agent import Agent, AgentContext, AgentContextType, UserMessage
-from helpers import guids, plugins, files, runtime
+from helpers import guids, plugins, files
 from helpers import message_queue as mq
 from helpers import integration_commands
 from helpers.persist_chat import save_tmp_chat
@@ -568,7 +568,7 @@ async def send_email_reply(
         password=cfg.get("password", ""),
     )
 
-    # Read attachment files via RFC (they live in the execution runtime)
+    # Read attachment files locally.
     attachment_data = await _read_attachments_via_rfc(attachments)
 
     last_body = context.data.get(disp.CTX_EMAIL_LAST_BODY, "").strip()
@@ -588,7 +588,7 @@ async def send_email_reply(
 
 
 # ------------------------------------------------------------------
-# Attachment reading (via RFC into execution runtime)
+# Local attachment reading (legacy helper name retained)
 # ------------------------------------------------------------------
 
 async def _read_attachments_via_rfc(
@@ -601,7 +601,7 @@ async def _read_attachments_via_rfc(
 
     results: list[tuple[str, bytes]] = []
     for path in paths:
-        data = await runtime.call_development_function(read_attachment, path)
+        data = read_attachment(files.fix_dev_path(path))
         if data["error"]:
             PrintStyle.error(f"Email attachment: {data['error']}")
             continue

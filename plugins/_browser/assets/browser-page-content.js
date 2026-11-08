@@ -2690,17 +2690,9 @@
     const entry = requireReferenceEntry(referenceId, {
       actionLabel: "fileInput"
     });
-    if (entry.helperBacked) {
-      throw createNamedError(
-        "BrowserPageContentActionError",
-        `Browser page content cannot upload files through helper-backed reference "${entry.referenceId}".`,
-        {
-          code: "browser_page_content_file_input_helper_backed"
-        }
-      );
-    }
-
-    const element = entry.element;
+    const element = entry.helperBacked
+      ? globalThis[DOM_HELPER_KEY].elementForNode(entry.frameChain, entry.nodeId)
+      : entry.element;
     const isFileInput = (candidate) => {
       return getTagName(candidate) === "INPUT"
         && String(candidate.getAttribute?.("type") || candidate.type || "").toLowerCase() === "file";

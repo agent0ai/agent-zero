@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from pathlib import Path
 
 from plugins._kokoro_tts.helpers import runtime
@@ -67,11 +68,11 @@ def test_weighted_blend_reuses_the_existing_pipeline() -> None:
 def test_synthesis_forwards_normalized_weights(monkeypatch) -> None:
     captured: dict = {}
 
-    async def fake_synthesize(sentences, **kwargs):
-        captured.update({"sentences": sentences, **kwargs})
-        return "audio"
+    async def fake_synthesize(payload, **kwargs):
+        captured.update({"sentences": payload["sentences"], **payload["config"]})
+        return {"audio": "audio", "version": "0.9.2"}
 
-    monkeypatch.setattr(runtime, "_synthesize_sentences", fake_synthesize)
+    monkeypatch.setattr(runtime.worker, "acall", fake_synthesize)
 
     result = asyncio.run(
         runtime.synthesize_sentences(
@@ -112,3 +113,20 @@ def test_settings_expose_catalog_weights_and_speed_without_disk_blends() -> None
     assert "create_blend" not in config_ui
     assert "lang_code" not in config_ui
     assert "voiceSummary" in store
+
+
+def test_custom_voice_passes_selected_bytes_and_restart_invalidates_status(monkeypatch, tmp_path):
+    voice = tmp_path / 'custom.pt'
+    voice.write_bytes(b'voice pack')
+    captured = {}
+    async def call(payload, **kwargs):
+        captured.update(payload)
+        return {'audio': 'audio', 'version': '0.9.2'}
+    monkeypatch.setattr(runtime.worker, 'acall', call)
+    monkeypatch.setattr(runtime.worker, 'ready', True)
+    monkeypatch.setattr(runtime.worker, 'generation', 10)
+    asyncio.run(runtime.synthesize_sentences(['Hello'], {'voice': str(voice)}))
+    assert base64.b64decode(captured['voice_files'][str(voice)]) == b'voice pack'
+    assert asyncio.run(runtime.is_downloaded({'voice': str(voice)}))
+    monkeypatch.setattr(runtime.worker, 'generation', 11)
+    assert not asyncio.run(runtime.is_downloaded({'voice': str(voice)}))

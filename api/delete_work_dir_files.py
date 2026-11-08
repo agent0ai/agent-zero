@@ -1,6 +1,6 @@
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
-from helpers import runtime, extension
+from helpers import extension
 from api import get_work_dir_files
 from helpers.file_archives import normalize_paths
 
@@ -17,7 +17,7 @@ class DeleteWorkDirFiles(ApiHandler):
         if not paths:
             return {"error": "No file paths provided"}
 
-        result = await runtime.call_development_function(delete_files, paths)
+        result = await delete_files(paths)
         deleted = result["deleted"]
         failed = result["failed"]
 
@@ -33,9 +33,7 @@ class DeleteWorkDirFiles(ApiHandler):
                 },
             )
 
-        files_result = await runtime.call_development_function(
-            get_work_dir_files.get_files, current_path
-        )
+        files_result = await get_work_dir_files.get_files(current_path)
 
         if not deleted:
             return {

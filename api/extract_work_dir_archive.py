@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from helpers import extension, runtime
+from helpers import extension
 from helpers.api import ApiHandler, Input, Output, Request
 from api import get_work_dir_files
 
@@ -17,7 +17,7 @@ class ExtractWorkDirArchive(ApiHandler):
             path = f"/{path}"
 
         try:
-            extracted_path = await runtime.call_development_function(extract_archive, path)
+            extracted_path = extract_archive(path)
         except (OSError, ValueError) as exc:
             return {"error": str(exc)}
 
@@ -32,5 +32,5 @@ class ExtractWorkDirArchive(ApiHandler):
                 "current_path": current_path,
             },
         )
-        listing = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
+        listing = await get_work_dir_files.get_files(current_path)
         return {"data": listing, "extracted_path": extracted_path}

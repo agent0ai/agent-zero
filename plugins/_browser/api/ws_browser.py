@@ -20,6 +20,7 @@ from plugins._browser.helpers.runtime import (
     has_restorable_browser_tabs,
     list_runtime_sessions,
 )
+from plugins._browser.helpers.sandbox import worker
 
 
 FRAME_READ_TIMEOUT_SECONDS = 0.5
@@ -55,6 +56,8 @@ class WsBrowser(WsHandler):
         if not event.startswith("browser_"):
             return None
 
+        if event == "browser_startup_status":
+            return {"startup": await asyncio.to_thread(worker.status)}
         if event == "browser_viewer_subscribe":
             return await self._subscribe(data, sid)
         if event == "browser_viewer_unsubscribe":

@@ -33,7 +33,9 @@ result = api("plugins/_plugin_installer/plugin_install", {
 
 Use the actual Index identity; do not overwrite an existing plugin. `git_token` is optional for a private repository; do not log it. A ZIP install uses multipart form fields `action=install_zip` and file field `plugin_file`, not a JSON body.
 
-The framework validates and places the plugin under `usr/plugins/`, runs `hooks.py:install()` for dependency setup and required initialization, and refreshes state. No `execute.py` or manual post-install step should be needed; treat that requirement as a plugin defect and use `a0-create-plugin` to fix it. Re-fetch the Index or plugin list to verify installed identity; inspect effective activation separately. Do not import framework installation helpers into the separate task-code runtime.
+The framework validates and places the plugin under `usr/plugins/`, runs `hooks.py:install()` for required installation state and initialization, and refreshes state. Hooks may delegate guest provisioning to automatic worker setup; a cold guest can be ready for first use without already having packages installed. No `execute.py` or manual post-install step should be needed; treat that requirement as a plugin defect and use `a0-create-plugin` to fix it. Re-fetch the Index or plugin list to verify installed identity; inspect effective activation separately. Do not import framework installation helpers into the separate task-code runtime.
+
+Prefer guest-owned dependencies in existing persistent sandboxes. Main-environment dependencies require a documented need for functionality that must execute there and a minimal set; hooks running in the framework are not a reason to install guest libraries there. Follow the [sandbox pattern](../../../docs/developer/plugin-sandboxes.md#choosing-dependency-location), including idempotent setup/retry. Configured listeners and early-needed features prepare at enablement/startup before receiving work; do not wait for a message an unstarted receiver cannot receive. Verify readiness at the appropriate point within the authorized operation, without adding a manual setup workflow.
 
 ## Update
 

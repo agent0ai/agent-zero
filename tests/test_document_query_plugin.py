@@ -373,7 +373,7 @@ def test_pdf_ocr_dependencies_install_once_across_threads(monkeypatch):
         lambda: ["apt-get"],
     )
     monkeypatch.setattr(ocr_dependencies, "_run_apt_command", run_apt)
-    monkeypatch.setattr(ocr_dependencies.PrintStyle, "info", lambda _message: None)
+    monkeypatch.setattr(ocr_dependencies.logging, "info", lambda _message: None)
 
     threads = [
         threading.Thread(target=ocr_dependencies.ensure_pdf_ocr_dependencies)
@@ -404,8 +404,8 @@ def test_pdf_ocr_dependencies_install_once_across_threads(monkeypatch):
 
 def test_pdf_full_page_ocr_installs_before_poppler_and_tesseract(monkeypatch):
     events = []
-    import pdf2image
-    import pytesseract
+    pdf2image = pytest.importorskip("pdf2image")
+    pytesseract = pytest.importorskip("pytesseract")
 
     monkeypatch.setattr(
         pdf_module,
@@ -429,7 +429,7 @@ def test_pdf_full_page_ocr_installs_before_poppler_and_tesseract(monkeypatch):
 
 def test_embedded_image_tesseract_install_is_lazy(monkeypatch):
     events = []
-    import pytesseract
+    pytesseract = pytest.importorskip("pytesseract")
 
     monkeypatch.setattr(
         pdf_module,
@@ -481,16 +481,10 @@ def test_compatibility_imports_point_to_plugin_classes():
     assert CompatTool is DocumentQueryTool
 
 
-def test_liteparse_is_installed_by_docker_and_plugin_hook_requirements():
-    root_requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-    hooks_source = (
-        ROOT / "plugins" / "_document_query" / "hooks.py"
-    ).read_text(encoding="utf-8")
-
-    assert "liteparse==2.0.3" in root_requirements
-    assert "_ROOT_REQUIREMENTS_FILE" in hooks_source
-    assert document_query_hooks._liteparse_requirement() == "liteparse==2.0.3"
-    assert not (ROOT / "plugins" / "_document_query" / "requirements.txt").exists()
+def test_liteparse_is_installed_only_in_the_guest():
+    assert 'liteparse==' not in (ROOT / 'requirements.txt').read_text()
+    assert 'liteparse==2.0.3' in (ROOT / 'plugins/_document_query/sandbox/requirements.txt').read_text()
+    assert document_query_hooks.install() is True
 
 
 def test_default_config_bounds_liteparse_runtime_concurrency():
@@ -644,7 +638,7 @@ def test_liteparse_parser_always_uses_subprocess(monkeypatch):
     assert parser._parse_sync(fetched, {"liteparse_subprocess": False}) == "ok"
 
 
-def test_liteparse_subprocess_uses_depfix_store_fallback(monkeypatch):
+def test_liteparse_subprocess_uses_current_interpreter(monkeypatch):
     fetched = FetchedDocument(
         uri="/tmp/report.pdf",
         source_uri="/tmp/report.pdf",
@@ -665,8 +659,7 @@ def test_liteparse_subprocess_uses_depfix_store_fallback(monkeypatch):
 
     assert parser._parse_subprocess(fetched, {}) == "ok"
     assert calls[0][0] == [
-        "depfix",
-        "run",
+        sys.executable,
         "-m",
         "plugins._document_query.helpers.parsers.liteparse_worker",
     ]
@@ -821,7 +814,12 @@ def test_query_optimize_prompt_filename_is_spelled_correctly():
     assert "fw.document_query.optimize_query.md" in helper_source
 
 
-def test_parser_progress_is_user_facing_and_generic():
+def test_parser_progress_is_user_facing_and_generic(monkeypatch):
+    from plugins._document_query.helpers.sandbox import worker
+    async def parse(payload, **kwargs):
+        assert payload['mimetype'] == 'text/plain'
+        return 'parsed'
+    monkeypatch.setattr(worker, 'acall', parse)
     fetched = FetchedDocument(
         uri="/tmp/example.txt",
         source_uri="/tmp/example.txt",
@@ -845,10 +843,15 @@ def test_parser_progress_is_user_facing_and_generic():
     )
 
     assert content == "parsed"
-    assert progress == ["Parsing document content"]
+    assert progress == ["Parsing document content in sandbox"]
 
 
-def test_parse_document_limits_parser_concurrency_across_helpers():
+def test_parse_document_limits_parser_concurrency_across_helpers(monkeypatch):
+    from plugins._document_query.helpers.sandbox import worker
+    async def parse(payload, **kwargs):
+        document = FetchedDocument(uri=payload['uri'], scheme='file', mimetype='text/plain', content=b'')
+        return await CountingAsyncParser()._parse_async(document, {})
+    monkeypatch.setattr(worker, 'acall', parse)
     CountingAsyncParser.active = 0
     CountingAsyncParser.max_active = 0
     fetched_a = FetchedDocument(

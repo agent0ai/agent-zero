@@ -6,7 +6,6 @@ from helpers.errors import format_error
 from helpers.print_style import PrintStyle
 from helpers.notification import NotificationManager, NotificationPriority, NotificationType
 from helpers import plugins
-from plugins._telegram_integration.helpers.dependencies import ensure_dependencies, has_aiogram
 
 
 PLUGIN_NAME: str = "_telegram_integration"
@@ -36,13 +35,6 @@ class TelegramBotManager(Extension):
         enabled_names = {
             b["name"] for b in bots_cfg if b.get("enabled") and b.get("name") and b.get("token")
         }
-
-        # Avoid installing aiogram on idle ticks when Telegram is not configured.
-        if not enabled_names and not has_aiogram():
-            return
-
-        if enabled_names:
-            ensure_dependencies()
 
         from plugins._telegram_integration.helpers.bot_manager import (
             get_all_bots,
@@ -90,7 +82,8 @@ class TelegramBotManager(Extension):
                 )
                 if current_mode == running_mode and current_group_mode == inst.group_mode and same_connection:
                     # Same mode and still alive → skip
-                    if (inst.task and not inst.task.done()) or inst.webhook_active:
+                    from plugins._telegram_integration.helpers.sandbox import worker
+                    if worker.ready and inst.generation == worker.generation and ((inst.task and not inst.task.done()) or inst.webhook_active):
                         continue
                 # Mode changed or instance died — stop and recreate
                 await stop_bot(name)

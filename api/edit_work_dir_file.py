@@ -3,7 +3,7 @@ import os
 
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
-from helpers import runtime, extension
+from helpers import extension
 
 
 class EditWorkDirFile(ApiHandler):
@@ -27,7 +27,7 @@ class EditWorkDirFile(ApiHandler):
                 if not file_path.startswith("/"):
                     file_path = f"/{file_path}"
 
-                data = await runtime.call_development_function(load_file, file_path)
+                data = await load_file(file_path)
                 return {"data": data}
 
             file_path = input.get("path", "")
@@ -42,7 +42,7 @@ class EditWorkDirFile(ApiHandler):
             
             FileBrowser.text_bytes(content)
             
-            res = await runtime.call_development_function(save_file, file_path, content)
+            res = save_file(file_path, content)
             if not res:
                 return {"error": "Failed to save file"}
 
@@ -58,7 +58,6 @@ class EditWorkDirFile(ApiHandler):
             return {"ok": True}
         except Exception as e:
             # Extract clean error message from exception
-            # RPC calls may return full tracebacks in exception strings
             return {"error": self._extract_error_message(str(e))}
 
 

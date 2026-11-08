@@ -17,13 +17,15 @@
 
 ## Runtime Contracts
 
+- `get_root_password` reads the local configured root password in every mode, returning an empty string when unset. It does not transmit or log credentials. `_provide_root_password` retains its encrypted-response contract for explicit compatibility callers.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Imported dependency areas include: `helpers`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `runtime.is_dockerized`, `_get_root_password`, `crypto.encrypt_data`, `crypto._generate_private_key`, `crypto._generate_public_key`, `crypto.decrypt_data`, `dotenv.get_dotenv_value`, `runtime.call_development_function`.
+- Important called helpers/classes observed in the source: `_get_root_password`, `crypto.encrypt_data`, `dotenv.get_dotenv_value`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -35,7 +37,7 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- Run `pytest tests/test_local_development_calls.py` for local credentials, empty defaults and unchanged error propagation.
 
 ## Child DOX Index
 

@@ -1,5 +1,5 @@
 from helpers.extension import Extension
-from helpers import plugins, files, runtime
+from helpers import plugins, files
 from helpers import projects
 from helpers.settings import get_settings_for_prompt
 from agent import Agent, LoopData
@@ -25,8 +25,7 @@ class PromptInclude(Extension):
             return
 
         name_pattern = config.get("name_pattern", "*.promptinclude.md")
-        result = await runtime.call_development_function(
-            scan_promptinclude_files,
+        result = scan_promptinclude_files(
             scan_path,
             name_pattern=name_pattern,
             max_depth=config.get("max_depth", 10),
@@ -49,10 +48,9 @@ def _resolve_workdir(agent: Agent) -> str:
     project_name = projects.get_context_project_name(agent.context)
     if project_name:
         folder = projects.get_project_folder(project_name)
-        if runtime.is_development():
-            folder = files.normalize_a0_path(folder)
-        return folder
-    return get_settings_for_prompt()["workdir_path"]
+        return files.fix_dev_path(folder)
+    workdir = get_settings_for_prompt()["workdir_path"]
+    return files.fix_dev_path(workdir) if workdir else workdir
 
 
 def _format_includes(agent: Agent, result: ScanResult) -> str:

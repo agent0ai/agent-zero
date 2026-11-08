@@ -3,6 +3,7 @@ import errno
 from dataclasses import dataclass
 import re
 import shlex
+import sys
 import time
 from typing import Any
 
@@ -199,7 +200,7 @@ class CodeExecution(Tool):
                     agent=self.agent,
                 )
             elif destination.kind == "local" and ssh_enabled:
-                cwd = await self.ensure_cwd()
+                cwd = self._get_cwd(ssh=True)
                 ssh_pass = await _resolve_ssh_pass(cfg["ssh_pass"])
                 shell = SSHInteractiveSession(
                     self.agent.context.log,
@@ -227,8 +228,8 @@ class CodeExecution(Tool):
     async def execute_python_code(self, cfg: dict, session: int, code: str, reset: bool = False):
         escaped_code = shlex.quote(code)
         runner = (
-            "depfix run -m IPython --"
-            if self._destination().kind == "local"
+            f"{shlex.quote(sys.executable)} -m IPython"
+            if self._destination().kind == "local" and not cfg["ssh_enabled"] and not runtime.is_windows()
             else "ipython"
         )
         command = f"{runner} -c {escaped_code}"
@@ -623,19 +624,20 @@ class CodeExecution(Tool):
             raise RuntimeError("Code execution state is not prepared")
         return self.state.shells[self._session_key(session)]
 
-    async def ensure_cwd(self) -> str | None:
+    def _get_cwd(self, *, ssh: bool = False) -> str | None:
         project_name = projects.get_context_project_name(self.agent.context)
         if project_name:
             path = projects.get_project_folder(project_name)
-        else:
-            set = settings.get_settings()
-            path = set.get("workdir_path")
+            return files.normalize_a0_path(path) if ssh else path
+        return settings.get_settings().get("workdir_path")
 
+    async def ensure_cwd(self) -> str | None:
+        path = self._get_cwd()
         if not path:
             return None
 
-        normalized = files.normalize_a0_path(path)
-        await runtime.call_development_function(make_dir, normalized)
+        normalized = files.fix_dev_path(path)
+        make_dir(normalized)
         return normalized
 
 

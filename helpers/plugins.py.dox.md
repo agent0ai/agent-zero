@@ -76,6 +76,8 @@
 - Important called helpers/classes observed in the source: `re.compile`, `Field`, `watchdog.add_watchdog`, `clear_plugin_cache`, `send_frontend_reload_notification`, `DeferredTask.start_task`, `get_plugin_roots`, `get_plugin_name_from_path`, `result.sort`, `cache.add`, `get_enhanced_plugins_list`, `find_plugin_dir`, `files.get_abs_path`, `files.exists`, `call_plugin_hook`, `delete_plugin`, `files.delete_dir`, `after_plugin_change`, `get_enabled_plugins`, `get_plugins_list`, `get_plugin_meta`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
+- Plugin watchdog invalidation only admits direct plugin hooks, toggles and extensions; dependency files inside sandbox disk roots must not unload live services.
+
 ## Work Guidance
 
 - Preserve public helper APIs used by core code and plugins unless every caller is updated.

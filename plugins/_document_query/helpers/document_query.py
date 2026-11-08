@@ -1,9 +1,4 @@
-"""Document query helper with thread-safe parsers and configurable timeouts.
-
-Extracted from the monolithic helpers/document_query.py into a plugin
-with parser strategy pattern where every document parser is offloaded to
-a thread pool and bounded by configurable timeouts.
-"""
+"""Document fetching, sandbox parsing and host indexing with bounded timeouts."""
 
 import asyncio
 import json
@@ -500,26 +495,8 @@ class DocumentQueryHelper:
         timeout: float,
         thread_offload: bool,
     ) -> str:
-        errors_seen = []
-        semaphore = _parser_semaphore(self.config)
-        for parser in parsers:
-            try:
-                async with semaphore:
-                    self.progress_callback("Parsing document content")
-                    content = await parser.parse(
-                        document=document,
-                        config=self.config,
-                        timeout=timeout,
-                        thread_offload=thread_offload,
-                    )
-                if content:
-                    return content
-                errors_seen.append(f"{parser.__class__.__name__}: no content")
-            except Exception as e:
-                errors_seen.append(f"{parser.__class__.__name__}: {e}")
-                PrintStyle.error(f"Document parser failed: {errors_seen[-1]}")
-
-        raise ValueError(
-            f"No parser succeeded for mimetype '{document.mimetype}' ({document.uri}): "
-            + "; ".join(errors_seen)
-        )
+        from plugins._document_query.helpers.sandbox import worker, parser_request
+        async with _parser_semaphore(self.config):
+            self.progress_callback("Parsing document content in sandbox")
+            request, mounts = parser_request(document, self.config)
+            return await worker.acall(request, timeout=timeout, mounts=mounts)

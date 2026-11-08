@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import io
 from types import SimpleNamespace
 
@@ -42,17 +41,15 @@ def test_directory_download_cleans_owned_zip(tmp_path, monkeypatch, development,
         result = original_zip(path)
         archive_paths.append(Path(result))
         return result
-    async def call(function, *args, **kwargs):
-        result = function(*args, **kwargs)
-        return await result if inspect.isawaitable(result) else result
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Development dispatch must not be used")
     def broken(*args, **kwargs):
         raise OSError("interrupted")
     monkeypatch.setattr(files, "zip_dir", make_zip)
     monkeypatch.setattr(runtime, "is_development", lambda: development)
-    monkeypatch.setattr(runtime, "call_development_function", call)
+    monkeypatch.setattr(runtime, "call_development_function", no_dispatch)
     if fail:
-        monkeypatch.setattr(files if development else endpoint,
-                            "read_file_base64" if development else "stream_file_download", broken)
+        monkeypatch.setattr(endpoint, "stream_file_download", broken)
     handler = endpoint.DownloadFile(None, None)
     request = SimpleNamespace(args={"path": str(source)})
     if fail:

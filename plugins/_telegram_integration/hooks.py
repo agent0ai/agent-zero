@@ -18,3 +18,17 @@ def save_plugin_config(settings=None, **kwargs):
     if len(names) != len(set(names)):
         raise ValueError("Each Telegram bot must have a different name.")
     return config
+
+
+def disable():
+    from plugins._telegram_integration.helpers.bot_manager import get_all_bots
+    from plugins._telegram_integration.helpers.sandbox import worker
+    for instance in list(get_all_bots().values()):
+        instance.webhook_active = False
+        instance.webhook_secret = ''
+        for task in list(instance.deliveries):
+            task.get_loop().call_soon_threadsafe(task.cancel)
+        if instance.task and not instance.task.done():
+            instance.task.get_loop().call_soon_threadsafe(instance.task.cancel)
+    get_all_bots().clear()
+    worker.stop()

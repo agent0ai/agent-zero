@@ -411,6 +411,8 @@ def install_route_hooks() -> None:
         from uvicorn.middleware.wsgi import WSGIMiddleware
 
         from helpers import fasta2a_server, mcp_server
+        from plugins._desktop.helpers.gateway import TuxeeGateway
+        from plugins._browser.helpers.viewer_gateway import BrowserVncGateway
 
         with startup_monitor.stage("wsgi.middleware.create"):
             wsgi_app = WSGIMiddleware(self.webapp)
@@ -424,6 +426,8 @@ def install_route_hooks() -> None:
         with startup_monitor.stage("starlette.app.create"):
             starlette_app = Starlette(
                 routes=[
+                    Mount("/browser/vnc", app=BrowserVncGateway(self.webapp)),
+                    Mount("/desktop/tuxee", app=TuxeeGateway(self.webapp)),
                     Mount("/desktop", app=VirtualDesktopGateway(self.webapp, "/desktop")),
                     Mount("/mcp", app=mcp_app),
                     Mount("/a2a", app=a2a_app),

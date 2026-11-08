@@ -19,7 +19,7 @@ import sys
 import models
 import preload
 for name in (
-    'sentence_transformers', 'torch', 'whisper',
+    'sentence_transformers', 'torch', 'onnxruntime', 'whisper',
     'plugins._kokoro_tts.helpers.runtime',
     'plugins._whisper_stt.helpers.runtime',
 ):
@@ -156,7 +156,7 @@ def test_startup_continues_after_ten_seconds_with_model_still_loading(monkeypatc
             warmed.set()
             return [[1.0] for _ in inputs]
 
-    monkeypatch.setitem(sys.modules, "sentence_transformers", SimpleNamespace(SentenceTransformer=HeldModel))
+    monkeypatch.setitem(sys.modules, "helpers.local_embeddings", SimpleNamespace(OnnxSentenceTransformer=HeldModel))
     monkeypatch.setattr(model_config, "get_embedding_model_config_object", lambda: config)
     monkeypatch.setattr(models, "get_provider_config", lambda *_args: None)
     monkeypatch.setattr(models, "get_api_key_raw", lambda *_args: "None")
@@ -238,7 +238,7 @@ def test_real_preload_startup_handles_ready_or_unavailable_models(monkeypatch, s
         if point.endswith("/initialize_preload/end"):
             data["result"].add_done_callback(lambda _: preload_done.set())
 
-    monkeypatch.setitem(sys.modules, "sentence_transformers", SimpleNamespace(SentenceTransformer=Model))
+    monkeypatch.setitem(sys.modules, "helpers.local_embeddings", SimpleNamespace(OnnxSentenceTransformer=Model))
     monkeypatch.setattr(models, "get_provider_config", lambda *_args: None)
     monkeypatch.setattr(models, "get_api_key_raw", lambda *_args: "None")
     monkeypatch.setattr(model_config, "get_embedding_model_config_object", lambda: config)
@@ -285,8 +285,8 @@ def test_local_embedding_preload_is_reused_with_runtime_model_config(monkeypatch
             created.append((model, kwargs))
 
     monkeypatch.setitem(
-        sys.modules, "sentence_transformers",
-        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+        sys.modules, "helpers.local_embeddings",
+        SimpleNamespace(OnnxSentenceTransformer=FakeSentenceTransformer),
     )
     _clear_local_embedding_models()
 
@@ -332,8 +332,8 @@ def test_local_embedding_cache_tracks_effective_constructor_options(monkeypatch)
             created.append((model, kwargs))
 
     monkeypatch.setitem(
-        sys.modules, "sentence_transformers",
-        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+        sys.modules, "helpers.local_embeddings",
+        SimpleNamespace(OnnxSentenceTransformer=FakeSentenceTransformer),
     )
     _clear_local_embedding_models()
 
@@ -367,8 +367,8 @@ def test_concurrent_preload_and_runtime_share_one_model(monkeypatch):
             assert release_construction.wait(timeout=2)
 
     monkeypatch.setitem(
-        sys.modules, "sentence_transformers",
-        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+        sys.modules, "helpers.local_embeddings",
+        SimpleNamespace(OnnxSentenceTransformer=FakeSentenceTransformer),
     )
     _clear_local_embedding_models()
 
@@ -405,8 +405,8 @@ def test_failed_model_change_keeps_the_working_cached_model(monkeypatch):
                 raise RuntimeError("model unavailable")
 
     monkeypatch.setitem(
-        sys.modules, "sentence_transformers",
-        SimpleNamespace(SentenceTransformer=FakeSentenceTransformer),
+        sys.modules, "helpers.local_embeddings",
+        SimpleNamespace(OnnxSentenceTransformer=FakeSentenceTransformer),
     )
     _clear_local_embedding_models()
 
@@ -534,7 +534,7 @@ def test_watchdog_setup_overlaps_real_warmup_before_mcp_and_http(monkeypatch, st
             assert preload_done.wait(2)
             calls.append("watchdogs_end")
 
-    monkeypatch.setitem(sys.modules, "sentence_transformers", SimpleNamespace(SentenceTransformer=Model))
+    monkeypatch.setitem(sys.modules, "helpers.local_embeddings", SimpleNamespace(OnnxSentenceTransformer=Model))
     monkeypatch.setattr(model_config, "get_embedding_model_config_object", lambda: config)
     monkeypatch.setattr(models, "get_provider_config", lambda *_args: None)
     monkeypatch.setattr(models, "get_api_key_raw", lambda *_args: "None")

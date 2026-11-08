@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from helpers.api import ApiHandler, Request
 from plugins._editor.helpers import markdown_sessions
-from plugins._office.helpers import document_store
+from plugins._editor.helpers import document_store
 
 
 class EditorSession(ApiHandler):
@@ -125,8 +125,7 @@ class EditorSession(ApiHandler):
         if not document_store.is_editor_document(doc):
             return {
                 "ok": False,
-                "error": f".{doc.get('extension', '')} documents use the Desktop surface.",
-                "requires_desktop": True,
+                "error": "Editor supports UTF-8 text files only.",
                 "document": _public_doc(doc),
             }
 

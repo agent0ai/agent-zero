@@ -43,7 +43,7 @@ such as `-v /home/user/agent-zero-data:/a0/usr`, creates a **bind mount**.
 ## Keep Agent Zero User Data In A Local Folder
 
 Mount your dedicated data folder at **`/a0/usr`** to keep settings, chats,
-memory, projects, and custom plugins outside the container. The folder itself
+memory, application logs, projects, and custom plugins outside the container. The folder itself
 contains `settings.json`, `chats/`, and other user data; you do not need to add
 another `usr` folder inside it.
 
@@ -99,6 +99,21 @@ Compose resolves `./agent-zero-data` relative to the Compose file's directory.
 > also keeps application code from the host and can interfere with image
 > upgrades. For a major version upgrade, follow the
 > [backup and restore instructions](../setup/installation.md#updating-from-v120-to-v20).
+
+## Application Logs
+
+Application print output is saved as UTF-8 plain text in `usr/logs` (Docker:
+`/a0/usr/logs`). Each process creates a unique `.log` file with a UTC timestamp
+in its name. Messages retain line breaks, blank lines, indentation and Unicode;
+console colors and HTML presentation are not written to these files. Existing
+secret masking applies. Chat history and its UI remain separate.
+
+The directory is created automatically and is included in user-data mounts and
+backups. Logs are not rotated or automatically deleted; remove unneeded files
+when the instance is stopped. Older top-level `logs` folders are left intact,
+without conversion or automatic relocation. Back those up separately before
+replacing an older container. Docker service output remains available through
+`docker logs`; self-update and sandbox diagnostic logs keep their own locations.
 
 ## Share A Separate Work Folder
 

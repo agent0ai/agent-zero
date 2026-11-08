@@ -13,6 +13,8 @@
 
 ## Local Contracts
 
+- Text read/write/patch operations invoke the shipped file helpers locally in every runtime mode, preserving freshness, metadata and extension hooks. The local tool resolves development `/a0` aliases before reads, writes, patches and freshness tracking; shared file helpers used by the remote editor retain remote path semantics.
+
 - `extensions/webui/get_process_step_types/text-editor-types.js` registers `text_editor` as a process-step type so raw-log grouping matches the plugin's message renderer.
 
 - `patch` supports line-number `edits`, context `patch_text`, and exact `old_text`/`new_text` replacement. Line edits remain supported and require fresh read state; they are not deprecated.

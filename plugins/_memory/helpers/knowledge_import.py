@@ -4,10 +4,10 @@ import hashlib
 from typing import Any, Dict, Literal, TypedDict
 from langchain_community.document_loaders import (
     CSVLoader,
-    PyPDFLoader,
     TextLoader,
-    UnstructuredHTMLLoader,
 )
+from functools import partial
+from plugins._document_query.helpers.sandbox import KnowledgeLoader
 from helpers.log import LogItem
 from helpers.print_style import PrintStyle
 
@@ -49,9 +49,9 @@ def load_knowledge(
     # Note: Using TextLoader for JSON and MD to avoid parsing issues with consolidation
     file_types_loaders = {
         "txt": TextLoader,
-        "pdf": PyPDFLoader,
+        "pdf": partial(KnowledgeLoader, mimetype="application/pdf"),
         "csv": CSVLoader,
-        "html": UnstructuredHTMLLoader,
+        "html": partial(KnowledgeLoader, mimetype="text/html"),
         "json": TextLoader,  # Use TextLoader for better consolidation compatibility
         "md": TextLoader,    # Use TextLoader for better consolidation compatibility
     }

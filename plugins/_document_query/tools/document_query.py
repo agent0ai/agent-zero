@@ -32,6 +32,8 @@ class DocumentQueryTool(Tool):
             if ("query" in kwargs and kwargs["query"])
             else []
         )
+        from plugins._document_query.helpers.sandbox import worker
+
         try:
             progress = []
 
@@ -42,6 +44,8 @@ class DocumentQueryTool(Tool):
             helper = DocumentQueryHelper(
                 self.agent, progress_callback, stream_callback=self._stream_answer
             )
+            progress_callback("Preparing document parser")
+            await worker.aprepare()
             if not queries:
                 gather_timeout = helper.config.get("gather_timeout", 120)
                 try:
@@ -67,6 +71,8 @@ class DocumentQueryTool(Tool):
                 message=self.agent.read_prompt("fw.document_query.error.md", error=e),
                 break_loop=False,
             )
+        finally:
+            await asyncio.to_thread(worker.stop)
 
     def _stream_answer(self, text: str):
         self.log.update(content=text)

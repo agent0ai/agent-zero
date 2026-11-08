@@ -8,8 +8,8 @@ if [ "$1" != "local" ]; then
     rm -rf /git/agent-zero
 fi
 
-# Refresh the branch and re-resolve once against the already populated Depfix
-# store. Runtime assets are deliberately installed only on this final pass.
+# Refresh the branch and reuse installed packages. Runtime assets are
+# deliberately installed only on this final pass.
 bash /ins/install_A0.sh "$@"
-bash /ins/install_playwright.sh "$@"
-depfix run /git/agent-zero/preload.py --dockerized=true
+(cd /git/agent-zero && /usr/local/bin/python -m helpers.local_embeddings)
+/usr/local/bin/python /git/agent-zero/preload.py --dockerized=true

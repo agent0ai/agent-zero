@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import threading
@@ -15,6 +16,8 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+
+from plugins._sandboxing.helpers import builtin_image
 
 
 ImageStatus = Literal["ready", "broken"]
@@ -34,6 +37,7 @@ class SandboxImageConfig:
     umoci: Path
     cache_dir: Path
     default_image: str
+    runsc: Path = Path("/usr/bin/runsc")
     auth_file: Path | None = None
     cleanup_days: float = 30.0
     pull_timeout: float = 900.0
@@ -50,7 +54,7 @@ class SandboxImageInfo:
     status: ImageStatus
     created_at: str
     last_used_at: str
-    size_bytes: int
+    size_bytes: int | None
     os: str = ""
     architecture: str = ""
     used_by: tuple[str, ...] = ()
@@ -111,6 +115,7 @@ class SandboxImageManager:
             ("skopeo", config.skopeo),
             ("umoci", config.umoci),
             ("image cache", config.cache_dir),
+            ("runsc", config.runsc),
         ):
             if not path.is_absolute():
                 raise SandboxImageError(f"{label} path must be absolute: {path}")
@@ -213,6 +218,8 @@ class SandboxImageManager:
                 cached = self._find_reference_locked(requested)
                 if cached is not None:
                     return self._touch_reference_locked(cached, requested)
+            if requested == builtin_image.BUILTIN_IMAGE:
+                return self._builtin_locked(expected)
             pull_reference = (
                 self._pinned_reference(requested, expected) if expected else requested
             )
@@ -225,6 +232,49 @@ class SandboxImageManager:
 
     def pull(self, reference: str = "") -> SandboxImageInfo:
         return self.ensure(reference, refresh=True)
+
+    def import_archive(self, archive: Path, reference: str) -> SandboxImageInfo:
+        """Import a local `docker save` archive under a cache reference."""
+        reference = normalize_image_reference(reference)
+        if archive.is_symlink() or not archive.is_file():
+            raise SandboxImageError("image archive must be a regular non-symlink file")
+        if archive.stat().st_size > self.config.max_image_bytes:
+            raise SandboxImageError("image archive exceeds the configured size limit")
+        self._ensure_layout()
+        with self._cache_lock(), tempfile.TemporaryDirectory(
+            prefix=".pull-", dir=self.config.cache_dir
+        ) as temporary:
+            # Inspect and copy the same private archive even if the source is replaced.
+            snapshot = Path(temporary) / "image.tar"
+            shutil.copyfile(archive, snapshot)
+            if snapshot.stat().st_size > self.config.max_image_bytes:
+                raise SandboxImageError("image archive exceeds the configured size limit")
+            return self._pull_locked(
+                reference,
+                expected_digest=None,
+                display_reference=reference,
+                update_alias=True,
+                source=f"docker-archive:{snapshot}",
+            )
+
+    def _builtin_locked(self, expected: str | None) -> SandboxImageInfo:
+        def load(layout: Path) -> SandboxImageInfo:
+            return self._pull_locked(
+                builtin_image.BUILTIN_IMAGE,
+                expected_digest=expected,
+                display_reference=builtin_image.BUILTIN_IMAGE,
+                update_alias=expected is None,
+                source=f"oci:{layout}:image",
+            )
+
+        if builtin_image.BUNDLE_PATH.is_dir():
+            try:
+                return load(builtin_image.BUNDLE_PATH)
+            except SandboxImageError:
+                # A damaged or incompatible bundle can be rebuilt on first use.
+                pass
+        with tempfile.TemporaryDirectory(prefix=".pull-", dir=self.config.cache_dir) as temporary:
+            return load(builtin_image.build_image(self, Path(temporary)))
 
     def touch(self, digest: str) -> None:
         digest = validate_digest(digest)
@@ -312,12 +362,13 @@ class SandboxImageManager:
         expected_digest: str | None,
         display_reference: str,
         update_alias: bool,
+        source: str | None = None,
     ) -> SandboxImageInfo:
         self._require_tools()
         inspect_argv = [
             *self._skopeo_command("inspect"),
             "--no-tags",
-            f"docker://{reference}",
+            source or f"docker://{reference}",
         ]
         _, output, _, _ = self._run(
             inspect_argv,
@@ -328,10 +379,10 @@ class SandboxImageManager:
             inspected = json.loads(output)
         except json.JSONDecodeError as exc:
             raise SandboxImageError(
-                f"registry returned invalid metadata for {reference!r}: {exc}"
+                f"image returned invalid metadata for {reference!r}: {exc}"
             ) from exc
         if not isinstance(inspected, dict):
-            raise SandboxImageError(f"registry returned invalid metadata for {reference!r}")
+            raise SandboxImageError(f"image returned invalid metadata for {reference!r}")
         digest = validate_digest(str(inspected.get("Digest") or expected_digest or ""))
         if expected_digest is not None and digest != expected_digest:
             raise SandboxImageError(
@@ -360,7 +411,7 @@ class SandboxImageManager:
                 if update_alias:
                     self._set_alias_locked(display_reference, digest)
                 return info
-        pinned = self._pinned_reference(reference, digest)
+        source = source or f"docker://{self._pinned_reference(reference, digest)}"
         temporary = Path(tempfile.mkdtemp(prefix=".pull-", dir=self.config.cache_dir))
         try:
             layout = temporary / "layout"
@@ -368,7 +419,7 @@ class SandboxImageManager:
             self._run(
                 [
                     *self._skopeo_command("copy"),
-                    f"docker://{pinned}",
+                    source,
                     f"oci:{layout}:image",
                 ],
                 timeout=self.config.pull_timeout,
@@ -518,7 +569,7 @@ class SandboxImageManager:
         try:
             size_bytes = max(0, int(value.get("size_bytes")))
         except (TypeError, ValueError):
-            size_bytes = self._allocated_bytes(path)
+            size_bytes = None
         return SandboxImageInfo(
             digest=digest,
             reference=reference,
@@ -662,7 +713,7 @@ class SandboxImageManager:
             status="broken",
             created_at="",
             last_used_at="",
-            size_bytes=self._allocated_bytes(path),
+            size_bytes=None,
             runtime_error=error,
         )
 
@@ -821,15 +872,15 @@ class SandboxImageManager:
         while pending:
             current = pending.pop()
             try:
-                stat = current.lstat()
+                info = current.lstat()
             except OSError:
                 continue
-            identity = (stat.st_dev, stat.st_ino)
+            identity = (info.st_dev, info.st_ino)
             if identity in seen:
                 continue
             seen.add(identity)
-            total += getattr(stat, "st_blocks", (stat.st_size + 511) // 512) * 512
-            if current.is_dir() and not current.is_symlink():
+            total += getattr(info, "st_blocks", (info.st_size + 511) // 512) * 512
+            if stat.S_ISDIR(info.st_mode):
                 with contextlib.suppress(OSError):
                     pending.extend(current.iterdir())
         return total

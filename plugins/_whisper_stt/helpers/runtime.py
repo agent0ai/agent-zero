@@ -6,9 +6,9 @@ import warnings
 from typing import Any
 
 import numpy as np
-import whisper
 
-from helpers import files, plugins
+from helpers import plugins
+from helpers.sandbox_worker import SandboxWorker
 from helpers.notification import (
     NotificationManager,
     NotificationPriority,
@@ -42,7 +42,8 @@ AUDIO_BYTES_PER_SAMPLE = 4
 AUDIO_MAX_BYTES = AUDIO_MAX_FRAMES * AUDIO_BYTES_PER_SAMPLE
 AUDIO_MAX_BASE64_CHARS = ((AUDIO_MAX_BYTES + 2) // 3) * 4
 
-_model = None
+worker = SandboxWorker(PLUGIN_NAME)
+package_version = ""
 _model_name = ""
 is_updating_model = False
 
@@ -104,7 +105,7 @@ def get_config() -> dict[str, Any]:
 
 
 def get_loaded_model_name() -> str:
-    return _model_name
+    return _model_name if worker.ready else ""
 
 
 def is_globally_enabled() -> bool:
@@ -120,34 +121,12 @@ async def preload(model_name: str | None = None):
 
 
 async def _preload(model_name: str):
-    global _model, _model_name, is_updating_model
-
-    while is_updating_model:
-        await asyncio.sleep(0.1)
-
+    global _model_name, is_updating_model, package_version
+    is_updating_model = True
     try:
-        is_updating_model = True
-        if not _model or _model_name != model_name:
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Loading Whisper model...",
-                display_time=99,
-                group="whisper-preload",
-            )
-            PrintStyle.standard(f"Loading Whisper model: {model_name}")
-            _model = whisper.load_model(
-                name=model_name,
-                download_root=files.get_abs_path("/tmp/models/whisper"),
-            )
-            _model_name = model_name
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Whisper model loaded.",
-                display_time=2,
-                group="whisper-preload",
-            )
+        result = await worker.acall({'action': 'preload', 'model': model_name}, timeout=600)
+        _model_name = model_name
+        package_version = result['version']
     finally:
         is_updating_model = False
 
@@ -157,7 +136,7 @@ async def is_downloading() -> bool:
 
 
 async def is_downloaded() -> bool:
-    return _model is not None
+    return worker.ready and bool(_model_name)
 
 
 async def transcribe(
@@ -175,14 +154,18 @@ async def transcribe(
 async def _transcribe(
     model_name: str, audio_samples: np.ndarray, *, language: str | None = None
 ) -> dict[str, Any]:
-    await _preload(model_name)
-
-    kwargs: dict[str, Any] = {"fp16": False}
-    if language:
-        kwargs["language"] = language
-
-    result = _model.transcribe(audio_samples, **kwargs)  # type: ignore[union-attr]
-    return result if isinstance(result, dict) else {}
+    global _model_name, is_updating_model, package_version
+    is_updating_model = True
+    try:
+        result = await worker.acall({
+            'action': 'transcribe', 'model': model_name, 'language': language,
+            'audio': base64.b64encode(audio_samples.astype('<f4').tobytes()).decode('ascii'),
+        }, timeout=600)
+        _model_name = model_name
+        package_version = result['version']
+        return result['transcript']
+    finally:
+        is_updating_model = False
 
 
 class AudioPayloadError(ValueError):

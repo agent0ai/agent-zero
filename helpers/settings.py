@@ -654,22 +654,6 @@ def _apply_timezone_setting(previous: Settings | None, browser_timezone: str | N
         return
 
     localization.set_timezone(target_timezone)
-    current_timezone = localization.get_timezone()
-    if current_timezone == previous_timezone:
-        return
-
-    try:
-        from helpers import plugins
-
-        plugins.call_plugin_hook(
-            "_office",
-            "timezone_changed",
-            None,
-            previous_timezone=previous_timezone,
-            timezone=current_timezone,
-        )
-    except Exception:
-        return
 
 
 def _apply_settings(previous: Settings | None, browser_timezone: str | None = None):

@@ -1,0 +1,10 @@
+liteparse==2.0.3
+langchain-community==0.3.19
+unstructured[all-docs]==0.16.23
+unstructured-client==0.31.0
+pymupdf==1.25.3
+pypdf==6.0.0
+pytesseract==0.3.13
+pdf2image==1.17.0
+markdownify==1.1.0
+chardet<6

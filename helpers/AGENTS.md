@@ -8,7 +8,7 @@
 ## Ownership
 
 - Helper modules provide reusable services; feature-specific route handlers belong in `api/`, tool behavior in `tools/`, and plugin-local logic inside plugin directories.
-- Security, auth, settings, file access, plugin discovery, extension dispatch, notifications, state snapshots, scheduler, tunnel, and WebSocket primitives live here.
+- Security, auth, settings, file access, plugin discovery, extension dispatch, notifications, state snapshots, scheduler, sandbox access, tunnel-origin discovery, and WebSocket primitives live here.
 
 ## Local Contracts
 
@@ -30,6 +30,9 @@
 - The `*.py.dox.md` file owns helper purpose, public classes/functions, cross-module contracts, persistence or side effects, path/security assumptions, important dependencies, and verification guidance.
 - When a helper module is added, removed, renamed, or behaviorally changed, update its matching `*.py.dox.md` in the same change.
 - Do not leave stale file-level DOX after helper deletion or rename.
+
+- `local_embeddings.py` owns pinned offline MiniLM ONNX assets and inference; its file DOX records accepted model/configuration and parity verification boundaries.
+- `sandbox_worker.py` owns lazy plugin worker handoff, cancellation and idle cleanup; `native_display.py` owns standard-library XRandR operations reusable inside guests.
 
 ## Work Guidance
 

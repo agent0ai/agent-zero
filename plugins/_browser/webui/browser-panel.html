@@ -324,6 +324,7 @@
 	            <div class="browser-empty browser-starting" role="status" aria-live="polite">
 	              <x-icon class="spinning" name="progress_activity"></x-icon>
 	              <span x-text="$store.browserPage.browserLoadingLabel()"></span>
+	              <small aria-live="off" x-show="$store.browserPage.browserStartupDetail()" x-text="$store.browserPage.browserStartupDetail()"></small>
 	            </div>
 	          </template>
         </div>

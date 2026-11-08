@@ -21,61 +21,12 @@ from plugins._kokoro_tts.helpers import migration, paradee, runtime
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture
-def dependency_versions(monkeypatch):
-    versions = {"onnxruntime": "1.19.2", "en-core-web-sm": "3.8.0"}
-
-    def version(name):
-        if name not in versions:
-            raise hooks.importlib.metadata.PackageNotFoundError(name)
-        return versions[name]
-
-    monkeypatch.setattr(hooks.importlib.metadata, "version", version)
-    return versions
-
-
-def test_current_dependencies_skip_installer(monkeypatch, dependency_versions):
-    monkeypatch.setattr(hooks.shutil, "which", lambda name: pytest.fail("Installer lookup"))
+def test_dependency_hooks_leave_host_environment_untouched(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_call', lambda *args, **kwargs: pytest.fail('Host installation'))
     assert hooks.install()
-
-
-@pytest.mark.parametrize("package,old_version", [
-    ("onnxruntime", None), ("onnxruntime", "1.17.0"), ("en-core-web-sm", None),
-])
-def test_dependency_setup_installs_only_missing_packages(monkeypatch, dependency_versions, package, old_version):
-    current = dependency_versions.copy()
-    dependency_versions.pop(package)
-    if old_version:
-        dependency_versions[package] = old_version
-    expected = hooks._missing_requirements()
-    calls = []
-    monkeypatch.setattr(hooks.shutil, "which", lambda name: "/usr/bin/uv")
-
-    def install(command, **kwargs):
-        calls.append((command, kwargs))
-        dependency_versions.update(current)
-
-    monkeypatch.setattr(hooks.subprocess, "check_call", install)
-    assert hooks.install()
-    assert hooks.install()
-    assert calls == [(["/usr/bin/uv", "pip", "install", "--python", sys.executable, *expected], {"timeout": 60})]
-    assert len(expected) == 1
-
-
-def test_dependency_failure_logs_without_blocking_startup(monkeypatch, dependency_versions):
-    dependency_versions.pop("onnxruntime")
-    monkeypatch.setattr(hooks.shutil, "which", lambda name: None)
-    assert hooks.ensure_dependencies(raise_on_error=False) is False
-    with pytest.raises(RuntimeError, match="dependency setup failed"):
-        hooks.install()
-
-
-def test_dependency_setup_rechecks_after_install(monkeypatch, dependency_versions):
-    dependency_versions.pop("onnxruntime")
-    monkeypatch.setattr(hooks.shutil, "which", lambda name: "/usr/bin/uv")
-    monkeypatch.setattr(hooks.subprocess, "check_call", lambda *args, **kwargs: None)
-    with pytest.raises(RuntimeError, match="still unavailable"):
-        hooks.install()
+    assert hooks.ensure_dependencies()
+    requirements = (PROJECT_ROOT / 'plugins/_kokoro_tts/sandbox/requirements.txt').read_text()
+    assert 'onnxruntime' in requirements and 'en-core-web-sm' in requirements
 
 
 def test_startup_and_reenable_call_the_plugin_hook(monkeypatch):
@@ -128,29 +79,22 @@ def test_saved_kokoro_voice_and_global_toggle_are_preserved(monkeypatch, tmp_pat
     assert not runtime.is_globally_enabled()
 
 
-def test_paradee_dispatch_never_loads_the_kokoro_pipeline(monkeypatch):
+def test_paradee_dispatch_and_status_use_guest_engine(monkeypatch):
     calls = []
-    monkeypatch.setattr(paradee, "synthesize", lambda text, speed: calls.append((text, speed)) or "audio")
-    monkeypatch.setattr(runtime, "_synthesize_sentences", lambda *args, **kwargs: pytest.fail("Kokoro dispatch"))
-    result = asyncio.run(runtime.synthesize_sentences(["Hello", "World"], {"voice": "paradee", "speed": 1.4}))
-    assert result == "audio"
-    assert calls == [("Hello\nWorld", 1.4)]
-
-
-def test_preload_and_status_follow_the_selected_model(monkeypatch):
-    monkeypatch.setattr(paradee, "preload", lambda: "paradee-model")
-    monkeypatch.setattr(paradee, "model_status", lambda: {"ready": True, "loading": False})
-    monkeypatch.setattr(runtime, "_pipeline", None)
-    assert asyncio.run(runtime.preload({"voice": "paradee"})) == "paradee-model"
-    assert asyncio.run(runtime.is_downloaded({"voice": "paradee"}))
-    assert not asyncio.run(runtime.is_downloaded({"voice": "af_heart"}))
-    monkeypatch.setattr(runtime, "get_config", lambda: runtime.normalize_config({"voice": "paradee"}))
-    monkeypatch.setattr(runtime, "is_globally_enabled", lambda: True)
-    monkeypatch.setattr(migration, "ensure_migrated", lambda: False)
-    status = asyncio.run(Status(None, None).process({}, None))
-    assert status["engine"] == "paradee"
-    assert status["model"] == {"ready": True, "loading": False}
-    assert status["package"]["name"] == "onnxruntime"
+    async def call(payload, **kwargs):
+        calls.append(payload)
+        return {'audio': 'audio', 'version': '1.19.2'}
+    monkeypatch.setattr(runtime.worker, 'acall', call)
+    monkeypatch.setattr(runtime.worker, 'ready', True)
+    monkeypatch.setattr(runtime, '_loaded_engines', set())
+    result = asyncio.run(runtime.synthesize_sentences(['Hello', 'World'], {'voice': 'paradee', 'speed': 1.4}))
+    assert result == 'audio'
+    assert calls[0]['config']['voice'] == 'paradee'
+    assert calls[0]['sentences'] == ['Hello', 'World']
+    assert asyncio.run(runtime.is_downloaded({'voice': 'paradee'}))
+    assert not asyncio.run(runtime.is_downloaded({'voice': 'af_heart'}))
+    monkeypatch.setattr(runtime.worker, 'ready', False)
+    assert not asyncio.run(runtime.is_downloaded({'voice': 'paradee'}))
 
 
 def test_phoneme_chunks_keep_all_long_input():
@@ -182,7 +126,7 @@ def test_synthesis_produces_wav_and_forwards_speed(monkeypatch):
 
 
 def test_missing_phonemizer_never_installs_packages(monkeypatch):
-    import spacy
+    spacy = pytest.importorskip("spacy")
 
     monkeypatch.setattr(spacy.util, "is_package", lambda name: False)
     monkeypatch.setattr(spacy.cli, "download", lambda *args: pytest.fail("Runtime package installation"))

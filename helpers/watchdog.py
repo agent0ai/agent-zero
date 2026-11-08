@@ -65,6 +65,8 @@ class _PendingBatch:
 class _WatchRegistry:
     def __init__(self):
         self._lock = threading.RLock()
+        self._refresh_lock = threading.Lock()
+        self._refresh_pending = False
         self._observer: Any = None
         self._watches: dict[str, _Watch] = {}
         self._watch_ids_by_group: dict[str, set[str]] = {}
@@ -117,7 +119,8 @@ class _WatchRegistry:
                     pending.timer.cancel()
             self._watches.update(watches)
             self._watch_ids_by_group[id] = set(watches)
-            self._refresh_observer()
+            self._refresh_pending = True
+        self._refresh_observer()
 
     def remove(self, id: str) -> bool:
         with self._lock:
@@ -129,8 +132,10 @@ class _WatchRegistry:
                 if pending and pending.timer:
                     pending.timer.cancel()
             if removed:
-                self._refresh_observer()
-            return removed
+                self._refresh_pending = True
+        if removed:
+            self._refresh_observer()
+        return removed
 
     def clear(self) -> None:
         with self._lock:
@@ -138,7 +143,8 @@ class _WatchRegistry:
             self._watch_ids_by_group.clear()
             pending_batches = list(self._pending_batches.values())
             self._pending_batches.clear()
-            self._refresh_observer()
+            self._refresh_pending = True
+        self._refresh_observer()
         for pending in pending_batches:
             if pending.timer:
                 pending.timer.cancel()
@@ -220,22 +226,40 @@ class _WatchRegistry:
             handler(items)
 
     def _refresh_observer(self) -> None:
-        target_roots = _covering_roots(watch.root for watch in self._watches.values())
-        if not target_roots:
-            self._stop_observer()
+        # Watchdog dispatch holds its own lock; never wait for it with ours held.
+        if not self._refresh_lock.acquire(blocking=False):
             return
-        observer = self._observer
-        if observer is None:
-            observer = self._create_observer()
-            self._observer = observer
-            observer.start()
-        if target_roots == self._scheduled_roots:
-            return
-        observer = cast(Any, observer)
-        observer.unschedule_all()
-        for root in target_roots:
-            observer.schedule(_DispatchHandler(self, root), root, recursive=True)
-        self._scheduled_roots = target_roots
+        released = False
+        try:
+            while True:
+                with self._lock:
+                    self._refresh_pending = False
+                    target_roots = _covering_roots(watch.root for watch in self._watches.values())
+                    observer = self._observer
+                    scheduled_roots = self._scheduled_roots
+                if not target_roots:
+                    self._stop_observer()
+                else:
+                    if observer is None:
+                        observer = self._create_observer()
+                        with self._lock:
+                            self._observer = observer
+                        observer.start()
+                    if target_roots != scheduled_roots:
+                        observer.unschedule_all()
+                        for root in target_roots:
+                            observer.schedule(_DispatchHandler(self, root), root, recursive=True)
+                        with self._lock:
+                            self._scheduled_roots = target_roots
+                with self._lock:
+                    if not self._refresh_pending:
+                        # Release before a new registration can miss this refresh.
+                        self._refresh_lock.release()
+                        released = True
+                        return
+        finally:
+            if not released:
+                self._refresh_lock.release()
 
     def _stop_observer(self) -> None:
         with self._lock:

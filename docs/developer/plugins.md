@@ -13,6 +13,7 @@ manual.
 | Goal | Start here |
 | --- | --- |
 | Build your first plugin | [Create a Small Plugin](../guides/create-plugin.md) |
+| Choose where plugin dependencies run | [Sandboxed plugin runtimes](plugin-sandboxes.md#choosing-dependency-location) |
 | Understand how plugins are loaded | [DeepWiki](https://deepwiki.com/agent0ai/agent-zero) |
 | Decide what is safe to publish | [Sharing and Safety](sharing-and-safety.md) |
 | Contribute a plugin upstream | [Contributing Guide](../guides/contribution.md) |
@@ -39,6 +40,22 @@ version: 1.0.0
 
 Ask Agent Zero to keep the first version small. A tiny plugin that does one
 visible thing is easier to test, review, and share.
+
+## Plugin Dependencies
+
+Prefer existing sandbox/worker facilities for plugin-owned Python, Node and native
+packages, including inference, browser/document/media workers and integration
+clients. Keep lightweight tools, hooks, configuration and authenticated API/UI
+adapters in the framework and call the guest. Install in the main environment
+only when functionality must execute there; document that concrete need and keep
+the dependency set minimal. Hooks still run in the framework.
+
+Lifecycle hooks and management APIs own setup and cleanup. They can delegate to
+automatic guest setup on first use, or at enablement/startup for features and
+listeners that need early readiness; no manual post-install step is required.
+Use the [sandbox guide](plugin-sandboxes.md#choosing-dependency-location) for the
+existing pattern. Lazy setup reduces the shipped/default dependency footprint,
+but may not reduce total disk usage after the feature is used.
 
 ## Sharing A Plugin
 

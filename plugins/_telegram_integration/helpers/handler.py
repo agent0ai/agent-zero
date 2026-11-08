@@ -5,10 +5,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager, suppress
 
-from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.types import Message as TgMessage, CallbackQuery
+from plugins._telegram_integration.helpers.sandbox import Bot, TelegramEvent as TgMessage, TelegramEvent as CallbackQuery
 
 from agent import AgentContext, UserMessage
 from helpers import plugins, files, projects
@@ -537,7 +534,7 @@ async def send_telegram_reply(
     reply_to = context.data.get(CTX_TG_REPLY_TO)
 
     try:
-        async with _temp_bot(instance.bot.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)) as reply_bot:
+        async with _temp_bot(instance.bot.token, parse_mode="HTML") as reply_bot:
             if attachments:
                 for path in attachments:
                     local_path = files.fix_dev_path(path)

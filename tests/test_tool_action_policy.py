@@ -92,7 +92,6 @@ async def test_aliases_cannot_bypass_action_blocks(monkeypatch, action_agent, to
 @pytest.mark.parametrize("name,args,blocked_action", [
     ("browser", {}, "state"),
     ("goal", {}, "get"),
-    ("office_artifact", {}, "status"),
     ("skills_tool", {}, "list"),
     ("skills_tool", {"action": "", "method": "load"}, "load"),
     ("browser", {"action": "multi", "calls": [{"action": "state"}, {"action": "evaluate", "script": "1"}]}, "evaluate"),

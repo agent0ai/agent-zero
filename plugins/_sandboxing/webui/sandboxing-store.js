@@ -18,6 +18,7 @@ const model = {
   busy: false,
   busyNames: {},
   busyImages: {},
+  storage: {},
   pollTimer: null,
   formInitialized: false,
   form: { name: "", sandbox_type: "temporary", network: "host", image: "" },
@@ -70,6 +71,28 @@ const model = {
       toastFrontendError(error?.message || "Sandbox doctor failed.");
     } finally {
       this.busy = false;
+    }
+  },
+
+  storageFor(sandbox) {
+    const value = this.storage[sandbox.name];
+    return value?.created_at === sandbox.created_at ? value : null;
+  },
+
+  async measureStorage(sandbox) {
+    if (this.storageFor(sandbox)?.loading) return;
+    const { name, created_at } = sandbox;
+    this.storage[name] = { created_at, loading: true };
+    try {
+      const response = await callJsonApi(API_PATH, { action: "disk_usage", name });
+      if (!response?.ok) throw new Error(response?.error || "Could not calculate disk usage.");
+      if (this.storage[name]?.created_at === created_at) {
+        this.storage[name].size_bytes = response.size_bytes;
+      }
+    } catch (error) {
+      toastFrontendError(error?.message || "Could not calculate disk usage.");
+    } finally {
+      if (this.storage[name]?.created_at === created_at) this.storage[name].loading = false;
     }
   },
 
@@ -182,6 +205,7 @@ const model = {
   },
 
   formatSize(bytes) {
+    if (bytes == null) return "Not calculated";
     let value = Number(bytes || 0);
     const units = ["B", "KiB", "MiB", "GiB", "TiB"];
     let unit = 0;

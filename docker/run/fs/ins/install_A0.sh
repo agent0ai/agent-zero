@@ -26,5 +26,5 @@ else
     }
 fi
 
-# Materialize the complete application dependency graph in Depfix's shared store.
-depfix pip install -r /git/agent-zero/requirements.txt
+# Install application dependencies into the framework's global Python environment.
+uv pip install --no-cache --python /usr/local/bin/python -r /git/agent-zero/requirements.txt

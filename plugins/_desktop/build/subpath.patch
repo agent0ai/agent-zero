@@ -1,0 +1,264 @@
+diff --git a/web/app.ts b/web/app.ts
+index 4acad3d..b34e1b1 100644
+--- a/web/app.ts
++++ b/web/app.ts
+@@ -143,7 +143,7 @@ function showLogin() {
+     cancelTransfers();
+     setUploadConcurrency();
+     root.replaceChildren();
+-    location.replace('/');
++    location.replace('./');
+ }
+ async function load(signal?: AbortSignal) {
+     const value = await api<{
+@@ -1626,7 +1626,7 @@ async function openSettings() {
+     details.append(el('h3', '', t("app.connection")), el('p', '', !https ? t("app.plainHTTP") : certificate === 'public' ? t("settings.certificateExpiry", { date: new Date(tls.expires).toLocaleString(locale()) }) : certificate === 'local' ? t("app.encryptedWithALocalCertificate") : t("app.encryptedHTTPS")));
+     if (certificate === 'local') {
+         const link = el('a', 'text-link', t("app.downloadLocalCACertificate"));
+-        link.href = '/api/tls/ca';
++        link.href = 'api/tls/ca';
+         link.download = 'tuxee-local-ca.crt';
+         details.append(link);
+     }
+diff --git a/web/audio.ts b/web/audio.ts
+index efa46f4..b12a628 100644
+--- a/web/audio.ts
++++ b/web/audio.ts
+@@ -88,7 +88,7 @@ class UserAudio {
+             await context.resume();
+             if (this.context !== context) return;
+             unlock.abort();
+-            const url = new URL('/api/audio', location.href);
++            const url = new URL('api/audio', location.href);
+             url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+             const socket = this.socket = new WebSocket(url);
+             socket.binaryType = 'arraybuffer';
+diff --git a/web/build.mjs b/web/build.mjs
+index 9f3f4de..25a6c52 100644
+--- a/web/build.mjs
++++ b/web/build.mjs
+@@ -9,7 +9,7 @@ await check();
+ await build({ entryPoints: ['web/terminal/runtime.ts'], bundle: true, format: 'iife', globalName: 'tuxeeEngine', platform: 'browser', target: 'es2015', minify: true, outfile: 'internal/terminal/engine.js', banner: { js: 'globalThis.TextEncoder = class { encode(s) { return new Uint8Array(__encodeUTF8(s)); } };' } });
+ await rm('web/dist', { recursive: true, force: true });
+ await mkdir('web/dist', { recursive: true });
+-const bundle = await build({ entryPoints: ['web/app.ts'], bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true, outdir: 'web/dist', write: false, metafile: true, legalComments: 'eof', loader: { '.webp': 'file' }, assetNames: 'assets/[name]-[hash]', publicPath: '/' });
++const bundle = await build({ entryPoints: ['web/app.ts'], bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true, outdir: 'web/dist', write: false, metafile: true, legalComments: 'eof', loader: { '.webp': 'file' }, assetNames: 'assets/[name]-[hash]', publicPath: './' });
+ assert.ok(Object.values(bundle.metafile.outputs).every(output => output.imports.every(imported => !imported.external || imported.kind === 'url-token' && imported.path.startsWith('data:'))), 'frontend must have no external runtime imports');
+ for (const file of bundle.outputFiles.filter(file => !/\.(js|css)$/.test(file.path))) {
+     await mkdir(dirname(file.path), { recursive: true });
+diff --git a/web/display-clipboard.ts b/web/display-clipboard.ts
+index 0098b35..d38c1bd 100644
+--- a/web/display-clipboard.ts
++++ b/web/display-clipboard.ts
+@@ -19,7 +19,7 @@ export function displayClipboard(screen: HTMLElement, rfb: RFB, owner: HTMLEleme
+     let pending: Copy | undefined, fallback: HTMLElement | undefined, closeDialog: (() => void) | undefined;
+     let version = 0, interacted = false, pasteShift = false, remoteVersion = -1, pasting = false;
+     let reading: AbortController | undefined;
+-    const url = new URL('/api' + options.path + '/clipboard/events', location.href);
++    const url = new URL('api' + options.path + '/clipboard/events', location.href);
+     url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+     let changes: WebSocket | undefined, attempt = 0;
+     let reconnect: ReturnType<typeof setTimeout> | undefined, connecting: ReturnType<typeof setTimeout> | undefined;
+diff --git a/web/display.ts b/web/display.ts
+index 385819b..ea011e8 100644
+--- a/web/display.ts
++++ b/web/display.ts
+@@ -149,7 +149,7 @@ export class TerminalDisplay {
+         try {
+             const session = await api<{ password: string }>(`/terminals/${this.id()}/display`, 'GET', undefined, request.signal);
+             if (this.disposed || request.signal.aborted) return;
+-            const url = new URL(`/api/terminals/${this.id()}/display/ws`, location.href);
++            const url = new URL(`api/terminals/${this.id()}/display/ws`, location.href);
+             url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+             const rfb = this.rfb = new RFB(this.screen, url.href, { credentials: session });
+             rfb.scaleViewport = true; rfb.resizeSession = true; rfb.background = '#111827'; this.resize();
+diff --git a/web/editor.ts b/web/editor.ts
+index c0c770b..9928f02 100644
+--- a/web/editor.ts
++++ b/web/editor.ts
+@@ -290,7 +290,7 @@ export class FileInspector {
+         this.page = undefined; this.draft = undefined; this.pageIndex = 0; this.positions = [{ offset: 0, line: 1 }]; this.loading = false;
+         this.body.replaceChildren();
+         this.changed(this.file.path, false);
+-        const kind = mediaKind(this.file.name), url = `/api/preview/${encodeURIComponent(this.file.name)}?path=${encodeURIComponent(this.file.path)}`;
++        const kind = mediaKind(this.file.name), url = `api/preview/${encodeURIComponent(this.file.name)}?path=${encodeURIComponent(this.file.path)}`;
+         this.media = kind !== undefined;
+         if (kind === 'image') {
+             this.imageViewer = new ImageViewer(this.body, url, this.file.name);
+diff --git a/web/favicon.ts b/web/favicon.ts
+index b66dec1..2aa3488 100644
+--- a/web/favicon.ts
++++ b/web/favicon.ts
+@@ -2,12 +2,12 @@ const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')!;
+ const emblem = new Image();
+ let markerColor = '';
+ emblem.onload = () => setFaviconColor(markerColor);
+-emblem.src = '/favicon.png';
++emblem.src = 'favicon.png';
+ 
+ export function setFaviconColor(color = '') {
+     markerColor = color;
+     if (!color || !emblem.complete || !emblem.naturalWidth) {
+-        link.href = '/favicon.png';
++        link.href = 'favicon.png';
+         return;
+     }
+     const canvas = document.createElement('canvas');
+diff --git a/web/file-size.ts b/web/file-size.ts
+index dcbdfb7..0940822 100644
+--- a/web/file-size.ts
++++ b/web/file-size.ts
+@@ -29,7 +29,7 @@ export function folderSize(paths: string[], signal: AbortSignal): HTMLElement {
+         heartbeat();
+         try {
+             const headers = requestHeaders();
+-            const response = await fetch('/api/file-size', {
++            const response = await fetch('api/file-size', {
+                 method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ paths }), signal: current.signal
+             });
+diff --git a/web/index.html b/web/index.html
+index f3a7aac..b7d0fc9 100644
+--- a/web/index.html
++++ b/web/index.html
+@@ -3,7 +3,7 @@
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark light"><title>Tuxee {{hostname}}</title>
+ <meta name="tuxee-hostname" content="{{hostname}}">
+ <meta name="tuxee-version" content="{{version}}">
+-<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
++<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+ <meta name="description" content="{{tagline}}">
+ <meta property="og:type" content="website">
+ <meta property="og:title" content="Tuxee">
+diff --git a/web/login/index.html b/web/login/index.html
+index c891c09..6633cff 100644
+--- a/web/login/index.html
++++ b/web/login/index.html
+@@ -1,7 +1,7 @@
+ <!doctype html>
+ <html lang="{{language}}" dir="{{direction}}" data-theme="dark">
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><title>Tuxee</title>
+-<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
++<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+ <meta name="description" content="{{tagline}}">
+ <meta property="og:type" content="website">
+ <meta property="og:title" content="Tuxee">
+diff --git a/web/login/login.js b/web/login/login.js
+index cf26bcd..57925cc 100644
+--- a/web/login/login.js
++++ b/web/login/login.js
+@@ -14,7 +14,7 @@ function el(tag, cls = '', text = '') {
+ async function api(path, body) {
+     let response;
+     try {
+-        response = await fetch('/api' + path, {
++        response = await fetch('api' + path, {
+             method: body === undefined ? 'GET' : 'POST', cache: 'no-store',
+             headers: { 'Content-Type': 'application/json', 'X-Tuxee-Client': 'web' },
+             body: body === undefined ? undefined : JSON.stringify(body)
+@@ -27,7 +27,7 @@ async function api(path, body) {
+ }
+ const page = el('div', 'login-page'), content = el('div', 'login-content'), form = el('form', 'login-form');
+ const logo = el('img', 'login-logo');
+-logo.src = '/login-logo.webp'; logo.width = logo.height = 512; logo.draggable = false;
++logo.src = 'login-logo.webp'; logo.width = logo.height = 512; logo.draggable = false;
+ const language = el('select', 'login-language');
+ language.name = 'language'; language.dir = 'ltr';
+ for (const item of catalog.languages) {
+@@ -86,7 +86,7 @@ form.onsubmit = async event => {
+     const value = password.value; password.value = '';
+     try {
+         await api('/login', { username: username.value, password: value, language: catalog.language });
+-        location.replace('/');
++        location.replace('./');
+     } catch (error) { status.textContent = error.message; language.disabled = submit.disabled = false; }
+ };
+ content.append(form); page.append(content); document.querySelector('#app').append(page);
+@@ -98,5 +98,5 @@ window.addEventListener('resize', viewport); visualViewport?.addEventListener('r
+ if (username.autofocus) username.focus();
+ // A login in another tab becomes visible on return, without idle polling.
+ window.addEventListener('focus', () => {
+-    if (!submit.disabled) void api('/connection').then(state => { if (state.authenticated) location.replace('/'); }).catch(() => {});
++    if (!submit.disabled) void api('/connection').then(state => { if (state.authenticated) location.replace('./'); }).catch(() => {});
+ });
+diff --git a/web/sw.js b/web/sw.js
+index 42c5435..014e4b1 100644
+--- a/web/sw.js
++++ b/web/sw.js
+@@ -18,7 +18,7 @@ self.addEventListener('message', event => {
+ });
+ self.addEventListener('fetch', event => {
+     const url = new URL(event.request.url), id = url.searchParams.get('transfer');
+-    if (url.origin !== self.location.origin || url.pathname !== '/api/download' || !id)
++    if (url.origin !== self.location.origin || url.pathname !== new URL('api/download', self.registration.scope).pathname || !id)
+         return;
+     event.respondWith((async () => {
+         const item = downloads.get(id);
+diff --git a/web/term.ts b/web/term.ts
+index a41867a..c355a56 100644
+--- a/web/term.ts
++++ b/web/term.ts
+@@ -610,7 +610,9 @@ export class TerminalView implements View {
+         this.resizing = false; this.lastSize = '';
+         this.state('connecting');
+         const terminal = this.panel.terminal;
+-        const ws = this.socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/terminals/${terminal}/ws?viewer=${this.viewer}`);
++        const url = new URL(`api/terminals/${terminal}/ws?viewer=${this.viewer}`, location.href);
++        url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
++        const ws = this.socket = new WebSocket(url);
+         ws.binaryType = 'arraybuffer';
+         let received = 0, queuedBytes = 0, queuedFrames = 0;
+         const current = () => !this.disposed && this.socket === ws && ws.readyState === WebSocket.OPEN;
+diff --git a/web/transfers.ts b/web/transfers.ts
+index be1009e..93e1158 100644
+--- a/web/transfers.ts
++++ b/web/transfers.ts
+@@ -42,7 +42,7 @@ export async function upload(path: string, file: File, signal: AbortSignal, uniq
+     signal.throwIfAborted();
+     return new Promise((resolve, reject) => {
+         const xhr = new XMLHttpRequest(), abort = () => xhr.abort();
+-        xhr.open('POST', `/api/upload?path=${encodeURIComponent(path)}&unique=${unique}`);
++        xhr.open('POST', `api/upload?path=${encodeURIComponent(path)}&unique=${unique}`);
+         for (const [name, value] of Object.entries(requestHeaders())) xhr.setRequestHeader(name, value);
+         xhr.setRequestHeader('X-Tuxee-Size', String(file.size));
+         xhr.upload.onprogress = event => { if (event.lengthComputable) progress?.(Math.min(event.loaded, file.size)); };
+@@ -149,7 +149,7 @@ export function prepareDownloads() {
+         if (!('serviceWorker' in navigator) || !isSecureContext)
+             return false;
+         try {
+-            await navigator.serviceWorker.register('/sw.js');
++            await navigator.serviceWorker.register('sw.js');
+             await navigator.serviceWorker.ready;
+             if (!navigator.serviceWorker.controller)
+                 await new Promise<void>(resolve => { const timeout = setTimeout(resolve, 3000); navigator.serviceWorker.addEventListener('controllerchange', () => { clearTimeout(timeout); resolve(); }, { once: true }); });
+@@ -183,7 +183,7 @@ export async function download(path: string, name: string, owner?: HTMLElement)
+         create(id, t("transfers.downloading", { name }), () => navigator.serviceWorker.controller?.postMessage({ cancel: id }), owner);
+     }
+     const link = el('a');
+-    link.href = `/api/download?path=${encodeURIComponent(path)}&transfer=${id}`;
++    link.href = `api/download?path=${encodeURIComponent(path)}&transfer=${id}`;
+     // Content-Disposition starts the download; the download attribute bypasses service workers in Chromium.
+     document.body.append(link);
+     link.click();
+@@ -199,7 +199,7 @@ export async function downloadArchive(path: string, paths: string[], owner?: HTM
+         token = prepared.token;
+         controller.signal.throwIfAborted();
+         frame = el('iframe'); frame.hidden = true;
+-        frame.src = `/api/download?archive=${encodeURIComponent(token)}`;
++        frame.src = `api/download?archive=${encodeURIComponent(token)}`;
+         document.body.append(frame);
+         while (!controller.signal.aborted) {
+             const status = await api<{ size: number; done: boolean; error?: string }>(`/download-archive?token=${encodeURIComponent(token)}`, 'GET', undefined, controller.signal);
+diff --git a/web/ui.ts b/web/ui.ts
+index 105af7b..dd45dce 100644
+--- a/web/ui.ts
++++ b/web/ui.ts
+@@ -72,7 +72,7 @@ export function requestHeaders() { return { 'X-Tuxee-CSRF': csrf, 'X-Tuxee-Clien
+ export async function api<T = any>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
+     const token = csrf;
+     try {
+-        const response = await fetch(`/api${path}`, { method, cache: 'no-store', headers: { ...requestHeaders(), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal });
++        const response = await fetch(`api${path}`, { method, cache: 'no-store', headers: { ...requestHeaders(), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal });
+         if (response.status >= 500) window.dispatchEvent(new Event('tuxee-connection-check'));
+         if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('application/json')) throw new Error(t("ui.unexpectedAPIResponse"));
+         const data = await response.json();

@@ -5,7 +5,7 @@ echo "====================BASE PACKAGES2 START===================="
 
 apt-get update
 apt-get install -y --no-install-recommends \
-    libasound2t64 openssh-server supervisor
+    openssh-server supervisor
 
 rm -rf /var/lib/apt/lists/* # for docker layers size
 

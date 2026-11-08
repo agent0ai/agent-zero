@@ -159,7 +159,6 @@ def _cleanup_obsolete() -> None:
     to_remove = [
         "knowledge/default",
         "memory",
-        "logs",
     ]
     for path in to_remove:
         if files.exists(path):

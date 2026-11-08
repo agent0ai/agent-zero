@@ -1,0 +1,8 @@
+name: _tunnel
+title: Remote Control
+description: On-demand remote access through a persistent gVisor sandbox.
+version: 0.1.0
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false

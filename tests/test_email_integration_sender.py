@@ -1,8 +1,10 @@
 import asyncio
 import smtplib
+import pytest
+pytest.importorskip("imapclient")
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from plugins._email_integration.helpers import imap_client, smtp_client
+from plugins._email_integration.sandbox import imap_client, smtp_client
 
 
 def test_imap_sender_validation_and_reply_recipient():

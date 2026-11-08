@@ -50,9 +50,11 @@ class FakeMediaBot:
         return type("Message", (), {"message_id": 13})()
 
 
-def test_telegram_client_native_media_helpers(monkeypatch):
+def test_telegram_client_native_media_helpers(monkeypatch, tmp_path):
     bot = FakeMediaBot()
-    monkeypatch.setattr(tc.os.path, "isfile", lambda path: True)
+    monkeypatch.chdir(tmp_path)
+    for name in ("voice.ogg", "song.mp3", "clip.mp4"):
+        (tmp_path / name).write_bytes(b"fixture")
 
     voice_id = asyncio.run(tc.send_voice(bot, 123, "voice.ogg", reply_to_message_id=456))
     audio_id = asyncio.run(tc.send_audio(bot, 123, "song.mp3", reply_to_message_id=456))
@@ -60,6 +62,7 @@ def test_telegram_client_native_media_helpers(monkeypatch):
 
     assert (voice_id, audio_id, video_id) == (11, 12, 13)
     assert [kind for kind, _ in bot.calls] == ["voice", "audio", "video"]
+    assert bot.calls[0][1]["voice"] == {"file_name": "voice.ogg", "file_data": "Zml4dHVyZQ=="}
     assert bot.calls[0][1]["chat_id"] == 123
     assert bot.calls[0][1]["reply_to_message_id"] == 456
 

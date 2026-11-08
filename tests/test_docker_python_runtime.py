@@ -1,7 +1,7 @@
-import runpy
-import sys
+import ast
 from pathlib import Path
-from types import SimpleNamespace
+
+import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -61,18 +61,23 @@ def test_docker_installs_into_global_python_without_virtualenv() -> None:
     install_script = _read(INSTALL_PYTHON)
     assert not SETUP_VENV.exists()
     assert "python -m pip install" in install_script
+    assert "pipx==1.16.7" in install_script.split()
+    assert "--no-compile" in install_script
+    assert "PYTHONDONTWRITEBYTECODE=1" in _read(BASE_DOCKERFILE)
     assert "python3-venv" not in install_script
     assert " -m venv " not in install_script
     assert "bin/activate" not in install_script
 
 
-def test_torch_pruning_targets_only_development_artifacts() -> None:
+def test_outer_runtime_uses_onnx_without_training_dependencies() -> None:
     install_script = _read(INSTALL_PYTHON)
-
-    assert "rm -rf" in install_script
-    assert "/site-packages/torch/test" in install_script
-    assert "/site-packages/torch/include" in install_script
-    assert "/site-packages/torch/bin" in install_script
+    requirements = _read(REQUIREMENTS)
+    assert "torch" not in install_script
+    for package in ("sentence-transformers", "torch", "torchvision", "scipy", "scikit-learn", "transformers"):
+        assert not any(line.startswith(package + "=") for line in requirements.splitlines())
+    assert "onnxruntime==1.23.2" in requirements
+    final_pass = _read(PROJECT_ROOT / "docker/run/fs/ins/install_A02.sh")
+    assert final_pass.index("-m helpers.local_embeddings") < final_pass.index("preload.py")
 
 
 def test_python_service_entrypoints_use_their_own_runtime() -> None:
@@ -83,23 +88,20 @@ def test_python_service_entrypoints_use_their_own_runtime() -> None:
         "command=/usr/bin/python3 /exe/supervisor_event_listener.py"
         in supervisor
     )
-    assert 'exec depfix run "$SCRIPT_DIR/self_update_manager.py"' in trigger
+    assert 'exec /usr/local/bin/python "$SCRIPT_DIR/self_update_manager.py"' in trigger
 
 
-def test_requirements_bootstrap_is_independent_of_working_directory(
-    monkeypatch, tmp_path: Path
-) -> None:
-    captured: list[Path] = []
-    monkeypatch.setitem(
-        sys.modules,
-        "depfix",
-        SimpleNamespace(default_requirements=lambda path: captured.append(Path(path))),
-    )
-    monkeypatch.chdir(tmp_path)
-
-    runpy.run_path(str(PROJECT_ROOT / "requirements.py"))
-
-    assert captured == [PROJECT_ROOT / "requirements.txt"]
+@pytest.mark.parametrize("entrypoint", ["prepare.py", "preload.py", "run_ui.py", "run_tunnel.py"])
+def test_entrypoints_use_installed_dependencies_without_bootstrap(entrypoint: str) -> None:
+    tree = ast.parse(_read(PROJECT_ROOT / entrypoint))
+    imports = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.add(node.module.split(".")[0])
+    assert imports.isdisjoint({"requirements", "depfix"})
+    assert not (PROJECT_ROOT / "requirements.py").exists()
 
 
 def test_tracked_outer_docker_setup_has_no_virtualenv_or_legacy_python_runtime() -> None:
@@ -125,7 +127,7 @@ def test_tracked_outer_docker_setup_has_no_virtualenv_or_legacy_python_runtime()
         assert forbidden not in combined
 
 
-def test_runtime_dependencies_and_playwright_use_depfix_store() -> None:
+def test_runtime_dependencies_and_playwright_use_global_python() -> None:
     install_python = _read(INSTALL_PYTHON)
     requirements = _read(REQUIREMENTS)
     install_a0 = _read(PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_A0.sh")
@@ -134,29 +136,32 @@ def test_runtime_dependencies_and_playwright_use_depfix_store() -> None:
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_playwright.sh"
     )
 
-    assert "depfix==0.12.7" in install_python
-    assert "depfix==0.12.7" in requirements
-    assert "depfix pip install -r /git/agent-zero/requirements.txt" in install_a0
-    assert "uv pip install" not in install_a0
+    assert "depfix" not in install_python + requirements + install_a0 + install_a02 + install_playwright
+    assert "uv pip install --no-cache --python /usr/local/bin/python -r /git/agent-zero/requirements.txt" in install_a0
+    assert "python -m pip install --no-cache-dir --no-compile" in install_python
     assert "uv pip install" not in install_playwright
-    assert "depfix run -m patchright install chromium --no-shell" in install_playwright
+    assert "patchright install" not in install_playwright
     assert 'bash /ins/install_A0.sh "$@"' in install_a02
-    assert 'bash /ins/install_playwright.sh "$@"' in install_a02
-    assert "depfix run /git/agent-zero/preload.py --dockerized=true" in install_a02
+    assert 'bash /ins/install_playwright.sh "$@"' not in install_a02
+    assert "/usr/local/bin/python /git/agent-zero/preload.py --dockerized=true" in install_a02
     assert "pip cache purge" not in install_a02
     assert "uv cache" not in install_a02
 
 
-def test_runtime_python_launchers_enable_depfix_store_fallback() -> None:
+def test_runtime_python_launchers_use_global_python() -> None:
     run_a0 = _read(PROJECT_ROOT / "docker" / "run" / "fs" / "exe" / "run_A0.sh")
     run_tunnel = _read(
         PROJECT_ROOT / "docker" / "run" / "fs" / "exe" / "run_tunnel_api.sh"
     )
     trigger_update = _read(TRIGGER_SELF_UPDATE)
 
-    assert "exec depfix run /exe/self_update_manager.py docker-run-ui" in run_a0
-    assert "exec depfix run /a0/run_tunnel.py" in run_tunnel
-    assert 'exec depfix run "$SCRIPT_DIR/self_update_manager.py"' in trigger_update
+    assert "exec /usr/local/bin/python /exe/self_update_manager.py docker-run-ui" in run_a0
+    assert "python" not in run_tunnel
+    supervisor = _read(PROJECT_ROOT / "docker/run/fs/etc/supervisor/conf.d/supervisord.conf")
+    assert "program:run_tunnel_api" not in supervisor
+    assert 'exec /usr/local/bin/python "$SCRIPT_DIR/self_update_manager.py"' in trigger_update
+    for dockerfile in (PROJECT_ROOT / "DockerfileLocal", PROJECT_ROOT / "docker/run/Dockerfile"):
+        assert "ENV PYTHONDONTWRITEBYTECODE=1" in _read(dockerfile)
 
 
 def test_runsc_process_sidecars_are_shipped():
@@ -165,8 +170,7 @@ def test_runsc_process_sidecars_are_shipped():
         assert f"/usr/bin/gvisor-bin/{sidecar} /usr/bin/gvisor-bin/{sidecar}" in dockerfile
 
 
-def test_cpu_bootstrap_matches_application_dependency_bounds():
-    script = _read(INSTALL_PYTHON)
-    assert "'numpy<2'" in script
-    assert "'filelock>=3.20.3,<4'" in script
-    assert "--index-url https://download.pytorch.org/whl/cpu" in script
+def test_shared_numpy_and_filelock_bounds_remain_declared():
+    requirements = _read(REQUIREMENTS)
+    assert "numpy>=1.26.4,<2" in requirements
+    assert "filelock>=3.20.3" in requirements

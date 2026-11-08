@@ -1,0 +1,24 @@
+<html>
+<head><title>Remote Control</title></head>
+<body>
+  <div x-data>
+    <template x-if="config">
+      <div>
+        <div class="field">
+          <div class="field-label"><div class="field-title">Default provider</div></div>
+          <div class="field-control"><select x-model="config.provider"><option value="cloudflared">Cloudflare Tunnel</option><option value="tailscale">Tailscale</option><option value="microsoft">Microsoft Dev Tunnels</option><option value="serveo">Serveo</option></select></div>
+        </div>
+        <div class="field">
+          <div class="field-label"><div class="field-title">Sandbox image</div><div class="field-description">Leave empty to use the system default. Applies when the tunnel sandbox is first created.</div></div>
+          <div class="field-control"><input type="text" x-model="config.image" aria-label="Sandbox image"></div>
+        </div>
+        <div class="field">
+          <div class="field-label"><div class="field-title">Target port</div><div class="field-description">Zero follows Agent Zero’s runtime port. Save changes before starting the tunnel.</div></div>
+          <div class="field-control"><input type="number" min="0" max="65535" x-model.number="config.port" aria-label="Target port"></div>
+        </div>
+        <x-component path="/plugins/_tunnel/webui/panel.html"></x-component>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

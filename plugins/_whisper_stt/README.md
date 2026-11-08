@@ -6,7 +6,7 @@ Built-in speech-to-text plugin backed by Whisper.
 
 - Registers Whisper as the active STT provider when the plugin is enabled.
 - Owns the microphone runtime, device selector UI, message delivery mode, and plugin APIs.
-- Keeps dependency installation and model bootstrap on the Docker/bootstrap path.
+- Installs dependencies and downloads the selected model inside an on-demand sandbox; startup does not load Whisper.
 - Captures mono PCM with `AudioWorklet`, resamples it in the browser, and passes a
   validated float32 array directly to Whisper without a media decoder or temporary file.
 
@@ -36,3 +36,11 @@ The transcribe request contains `audio` using PCM wire contract v1:
 The backend rejects unsupported metadata, malformed/truncated data, non-finite or
 out-of-range samples, and duration/byte-limit violations before loading a model.
 Raw PCM is neither written to disk nor logged.
+
+## Sandbox runtime
+
+Heavy execution and dependency installation run inside a child gVisor sandbox on
+first use. Root files and model downloads persist; no extra host service starts
+at Agent Zero startup. Manage it with `python -m helpers.sandbox list` and the
+existing start/stop/delete commands. See [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md)
+for sharing, lifecycle and upgrade behavior.

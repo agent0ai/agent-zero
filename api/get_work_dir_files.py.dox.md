@@ -19,6 +19,8 @@
 
 ## Runtime Contracts
 
+- Invoke the existing file helpers locally in both development and production; await their async entry points. Path validation, response shapes and mutation hooks remain unchanged.
+
 - Responses include FileBrowser-owned `limits`; `?limits=1` returns only those constraints without listing a directory. Files and Editor use this metadata instead of separate frontend caps.
 
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
@@ -30,8 +32,8 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `FileBrowser`, `browser.get_files`, `runtime.call_development_function`.
-- Empty `path` requests and explicit `$WORK_DIR` requests resolve to the default workdir path before `FileBrowser` is called, so the WebUI never receives an empty startup path for the default file browser view.
+- Important called helpers/classes observed in the source: `FileBrowser`, `browser.get_files`.
+- Empty `path` requests and explicit `$WORK_DIR` requests resolve to `/a0` (the local checkout in development) before `FileBrowser` is called. Local listings translate `/a0` aliases and return local paths for subsequent mutations; remote-provider paths bypass that translation.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

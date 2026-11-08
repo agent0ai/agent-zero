@@ -137,15 +137,14 @@ async def apply_result(context, token, chat_id, message_id, name, result, *, is_
         elif kind == "attach_files":
             notes.append("Use Telegram's attachment button to send photos or files, with an optional command in the caption.")
         elif kind == "copy_transcript":
-            from aiogram import Bot
-            from aiogram.types import BufferedInputFile
+            from plugins._telegram_integration.helpers.sandbox import Bot, buffered_file
             from helpers.history import output_text
             transcript = output_text(context.agent0.history.output(), ai_label="assistant", human_label="user")
             if not transcript:
                 notes.append("This chat has no transcript yet.")
             else:
                 async with Bot(token) as bot:
-                    await bot.send_document(chat_id, BufferedInputFile(transcript.encode("utf-8"), filename="transcript.txt"))
+                    await bot.send_document(chat_id=chat_id, document=buffered_file(transcript.encode("utf-8"), filename="transcript.txt"))
         elif kind == "computer_use":
             notes.append(str(effect.get("fallback") or "Use Host access in A0 Launcher to change computer permissions."))
         elif kind == "test_agent_profile":

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import shlex
+import sys
 from types import SimpleNamespace
 
 import pytest
 
+from helpers import runtime
 from plugins._code_execution.helpers import destinations as destination_helper
 from plugins._code_execution.helpers.destinations import ExecutionDestination
 from plugins._code_execution.tools import input as input_tool_module
@@ -50,8 +53,8 @@ def test_sandbox_extension_advertises_default_and_all_managed_sandboxes(
         "get_manager",
         lambda agent=None: SimpleNamespace(
             list=lambda: [
-                SimpleNamespace(name="default", sandbox_type="temporary", network="host", status="running"),
-                SimpleNamespace(name="research", sandbox_type="permanent", network="none", status="stopped"),
+                SimpleNamespace(service=False, name="default", sandbox_type="temporary", network="host", status="running"),
+                SimpleNamespace(service=False, name="research", sandbox_type="permanent", network="none", status="stopped"),
             ]
         ),
     )
@@ -96,18 +99,29 @@ def test_code_execution_session_keys_include_destination() -> None:
     assert tool._session_key(0) == 0
 
 
-def test_local_python_execution_uses_depfix_store_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("destination,ssh_enabled,windows", [
+    ("local", False, False), ("local", True, False),
+    ("sandbox", False, False), ("local", False, True),
+])
+def test_python_execution_uses_destination_interpreter(
+    monkeypatch: pytest.MonkeyPatch, destination: str, ssh_enabled: bool, windows: bool,
+) -> None:
     tool = object.__new__(CodeExecution)
-    tool.destination = ExecutionDestination("local", "local", "Local", "Local")
+    tool.destination = ExecutionDestination(destination, destination, destination, destination)
+    monkeypatch.setattr(sys, "executable", "/runtime with spaces/bin/python")
+    monkeypatch.setattr(runtime, "is_windows", lambda: windows)
 
     async def capture(_cfg, _session, command, _reset, _prefix):
         return command
 
     monkeypatch.setattr(tool, "terminal_session", capture)
     monkeypatch.setattr(tool, "format_command_for_output", lambda command: command)
-    command = asyncio.run(tool.execute_python_code({}, 0, "import flask"))
+    command = asyncio.run(tool.execute_python_code({"ssh_enabled": ssh_enabled}, 0, "import flask"))
 
-    assert command == "depfix run -m IPython -- -c 'import flask'"
+    assert shlex.split(command) == (
+        [sys.executable, "-m", "IPython"]
+        if destination == "local" and not ssh_enabled and not windows else ["ipython"]
+    ) + ["-c", "import flask"]
 
 
 def test_input_uses_connector_input_operation_for_host(

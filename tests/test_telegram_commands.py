@@ -7,7 +7,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from aiogram.types import Update
+from plugins._telegram_integration.helpers.sandbox import TelegramEvent
+
+class Update:
+    @staticmethod
+    def model_validate(value):
+        return TelegramEvent(value, None)
 
 from plugins._commands.helpers import commands
 from plugins._telegram_integration import hooks
@@ -159,13 +164,13 @@ class TelegramCommandsTests(unittest.TestCase):
 
         manager = importlib.import_module("plugins._telegram_integration.extensions.python.job_loop._10_telegram_bot")
         current = SimpleNamespace(bot=SimpleNamespace(token="old"), webhook_active=False,
-                                  group_mode="mention", task=SimpleNamespace(done=lambda: False))
+                                  group_mode="mention", generation=0, task=SimpleNamespace(done=lambda: False))
         replacement = SimpleNamespace()
         async def check():
             with patch.object(manager.plugins, "get_plugin_config", return_value=normalized), \
                  patch.object(manager.plugins, "get_toggle_state", return_value="enabled"), \
                  patch.object(manager, "_has_scoped_settings", return_value=False), \
-                 patch.object(manager, "ensure_dependencies"), \
+                 patch.object(bot_manager.worker, "ready", True), \
                  patch.object(handler, "cleanup_old_attachments"), \
                  patch.object(bot_manager, "get_all_bots", return_value={"bot_123456": current}), \
                  patch.object(bot_manager, "stop_bot", new_callable=AsyncMock) as stop, \
@@ -304,26 +309,7 @@ class TelegramCommandsTests(unittest.TestCase):
         template = (Path(__file__).resolve().parents[1] / "plugins/_telegram_integration/prompts/fw.telegram.user_message.md").read_text()
         envelope = template.replace("{{sender}}", "Tester").replace("{{body}}", "literal /goal")
         self.assertEqual(commands.parse_slash_invocation(envelope)["command_name"], "")
-        async def check():
-            received = []
-            async def receive(message):
-                received.append(message.text)
-            with patch.object(bot_manager, "_bots", {}):
-                bot = bot_manager.create_bot("test", "123456:test", receive, receive,
-                                             on_command_control=receive, group_mode="off")
-                try:
-                    for chat_type, text in [("group", "/status"), ("group", "/start"), ("private", "/goal test")]:
-                        update = Update.model_validate({"update_id": 1, "message": {
-                            "message_id": 1, "date": 1700000000, "text": text,
-                            "from": {"id": 42, "is_bot": False, "first_name": "Test"},
-                            "chat": {"id": 42, "type": chat_type},
-                            "entities": [{"type": "bot_command", "offset": 0, "length": len(text.split()[0])}],
-                        }})
-                        await bot.dispatcher.feed_update(bot.bot, update)
-                    self.assertEqual(received, ["/goal test"])
-                finally:
-                    await bot.bot.session.close()
-        asyncio.run(check())
+
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
 ## Ownership
 
 - `api/` owns synthesize and status endpoints.
-- `helpers/runtime.py` owns voice normalization and model dispatch; `helpers/paradee.py` owns the CPU ONNX runtime and phonemizer.
+- `helpers/runtime.py` owns voice normalization and sandbox dispatch; `sandbox/paradee.py`, `voices.py` and `worker.py` own CPU inference and voice blends.
 - `helpers/migration.py` preserves the legacy `tts_kokoro` enable/disable setting.
 - `hooks.py` owns config hooks and idempotent Paradee dependency setup. Plugin-owned startup and enable extensions invoke the same `ensure_dependencies` hook.
 - `webui/` owns settings and speech UI integration.
@@ -15,13 +15,13 @@
 
 ## Local Contracts
 
-- Additional Paradee dependencies (ONNX Runtime and the English spaCy model) belong to `hooks.py`, targeted at the current framework interpreter. Setup runs on install/update, enabled-plugin startup, and re-enable; already-current environments skip installation. Failures are logged and leave browser fallback available. Never install during synthesis or config reads.
+- Dependencies belong to `sandbox/install.sh` and install on first use inside the guest. Startup, install hooks and config reads never install host packages or load models. Failures retain browser fallback. Stop the child worker after 120 seconds of inactivity and on disable; keep dependency/model files on disk.
 - Preserve browser-native fallback when the plugin is disabled or unavailable.
 - Do not expose generated speech artifacts outside intended response paths.
 - Preserve `voice` and `speed` configuration compatibility; weighted blends stay in memory and use positive finite weights.
 - `voice: paradee` selects the single American English Heart voice and is the default for unconfigured settings. Saved Kokoro voices, blends, speed, and enable/disable choices remain unchanged; no provider-choice migration or dialog is needed.
 - Valid Kokoro weights take precedence over the voice string. Paradee is never a weighted voice; mixed expressions discard its reserved token and retain the Kokoro selection.
-- Paradee model assets stay under ignored `usr/plugins/_kokoro_tts/paradee/`, pinned to the Hugging Face `v1.0` revision. Long text is split without dropping phonemes and generated audio remains in response memory.
+- Paradee assets stay under `/var/lib/a0-models/paradee` in the private sandbox disk root, pinned to Hugging Face `v1.0`. Long text is split without dropping phonemes. Private IPC envelopes are cleared after acknowledgement; generated audio is returned through the existing API.
 - Model preload and status must describe the selected engine. The frontend voice picker replaces the selection when crossing between Paradee and Kokoro.
 
 ## Work Guidance

@@ -1,5 +1,5 @@
 """Image parser — delegates to Unstructured's local partitioner."""
-from plugins._document_query.helpers.fetch import FetchedDocument
+from plugins._document_query.helpers.document import FetchedDocument
 from .base import BaseParser
 from .unstructured import UnstructuredParser
 

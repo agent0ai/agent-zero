@@ -147,56 +147,32 @@ from plugins.my_plugin.helpers.runtime import do_work
 
 ## Required Lifecycle Hooks (`hooks.py`)
 
-**All plugin setup, dependency installation, required initialization, and uninstall cleanup MUST be owned by functions in the plugin-root `hooks.py`. These operations MUST NOT live in `execute.py`, including when described as manual setup, post-install, repair, or maintenance.** Installation through the Plugins UI/API must leave the plugin ready to use without an Execute button or an extra setup command.
+**All plugin setup, dependency installation, required initialization, and uninstall cleanup MUST remain owned by functions in the plugin-root `hooks.py`; guest provisioning may delegate to automatic worker setup. These operations MUST NOT live in `execute.py`, including when described as manual setup, post-install, repair, or maintenance.** Installation through the Plugins UI/API must leave an automatic path to readiness without an Execute button or an extra setup command.
 
 The framework calls exported functions through `helpers.plugins.call_plugin_hook(...)`:
 
 | Hook | When it runs | Responsibility |
 |---|---|---|
-| `install()` | After Git/ZIP installation and again after a successful code update | Prepare dependencies, required assets/state, migrations, registrations, and initialization. Safe to rerun without duplicating resources or overwriting user data. |
+| `install()` | After Git/ZIP installation and again after a successful code update | Prepare required installation/update state, migrations, registrations and initialization; guest packages/assets may provision automatically on first use or enablement. Safe to rerun without duplicating resources or overwriting user data. |
 | `pre_update()` | Immediately before updating plugin code | Stop plugin-owned processes or prepare state when required. |
 | `uninstall()` | Before the framework deletes the custom plugin directory | Stop owned processes, unregister integrations, and remove plugin-owned dependencies and resources. |
 
-Hooks run inside the **global Docker Python environment**; sandbox dependencies explicitly target that sandbox, and may be sync or async. Keep lifecycle entrypoints in `hooks.py`; delegate implementation to plugin-local helpers as needed. For example, with the corresponding helper functions implemented by the plugin:
-
-```python
-from usr.plugins.my_plugin.helpers import runtime
-
-
-def install():
-    runtime.install_dependencies()
-    runtime.initialize()
-
-
-def pre_update():
-    runtime.stop()
-
-
-def uninstall():
-    runtime.stop()
-    runtime.unregister()
-    runtime.remove_owned_dependencies()
-```
+Hooks run inside the **global Docker Python environment** and may be sync or async. Their execution location does not determine where dependencies belong. Keep lifecycle entrypoints in `hooks.py`; delegate guest provisioning to existing automatic worker setup and plugin-local helpers. The [Document Query hooks](../../../plugins/_document_query/hooks.py) and [sandbox adapter](../../../plugins/_document_query/helpers/sandbox.py) show lazy guest setup and owned stop/delete behavior; use the [sandbox guide](../../../docs/developer/plugin-sandboxes.md#choosing-dependency-location) for current interfaces and custom-plugin path limits.
 
 Use plugin-owned dependency directories where possible so cleanup is precise. Reuse compatible shared dependencies; never uninstall shared packages or services needed by Agent Zero or another plugin. Remove owned services, symlinks, registrations, and generated resources too; directory deletion alone does not undo external side effects. Preserve unrelated data and document any plugin-owned user data that uninstall deletes.
 
-Check subprocess results and raise on setup failure rather than reporting success. Clean up partial initialization so install/update can be retried. Required setup must not be deferred solely to first-use API handlers or startup extensions. If initialization must run again at boot, let the startup extension call the same hook or initialization helper while respecting disabled state.
+Check subprocess results and raise on setup failure rather than reporting success. Clean up partial initialization so install/update and guest setup can be retried; record setup success only after it completes. Guest packages and models may provision on first actual use and persist across stops. Features needed early and configured inbound listeners must prepare at enablement/startup before receiving work, while respecting disabled state; do not delay a receiver until a message it cannot receive. Startup extensions may call the same helper or hook without replacing install/uninstall ownership. Disable stops owned workers; uninstall removes their owned resources.
 
 ### Manual Actions (`execute.py`)
 
 Omit `execute.py` by default. It is only for a separate, explicitly requested manual action unrelated to the plugin lifecycle, such as exporting a diagnostic report. Never use it to install/uninstall dependencies, perform required setup or initialization, apply required update migrations, or remove the plugin. Renaming lifecycle work as maintenance does not change this rule.
 
 ### Environment targeting rules
-- If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the same Python environment that is running Agent Zero.
-- That is correct for dependencies needed by the plugin inside the framework runtime.
-- If the dependency is meant for the isolated sandbox runtime or for OS-level tools, do **not** assume the current environment is correct.
 
-Instead, explicitly switch targets in a subprocess:
-- invoke the exact Python interpreter for the target runtime
-- activate the target virtualenv in the subprocess before running `pip`
-- run the relevant OS package manager from a subprocess configured for the intended environment
-
-In Docker, `hooks.py` affects `/usr/local/bin/python`; dependencies intended for a sandbox must be installed inside that sandbox.
+- Prefer existing sandbox/worker facilities for plugin-owned Python/Node/native packages, inference, browser/document/media workers and external integration clients. Keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework; call the guest without importing its libraries there.
+- Reuse guest-owned manifests/installers and persistent environments. Execute pip/npm/apt inside the guest through the existing manager/worker; choosing a host subprocess or virtualenv alone does not enter a sandbox.
+- Add a main-environment dependency only for functionality that must execute there, with a concrete explanation in the plugin README and the smallest dependency set. `sys.executable -m pip install ...` in a hook targets Agent Zero's Python (`/usr/local/bin/python` in Docker); it is not a guest installer.
+- Check that optional guest dependencies stay out of main requirements and no feature import/general boot path eagerly installs them. Intentional readiness for enabled early-needed features/listeners is separate. Lazy provisioning reduces the shipped/default footprint but may not reduce total disk after feature use.
 
 ---
 
@@ -219,6 +195,6 @@ Provide its callable contract in a policy-filtered `agent.system.tool.*.md` prom
 
 ## Local Verification
 
-Verify the named Docker runtime and source sync first. Use `depfix run` with `/usr/local/bin/python` for framework imports and hooks; use the local execution destination when modifying Agent Zero. Compile changed Python, run focused tests, then exercise the actual API/tool/UI path. For lifecycle changes, exercise normal install, repeated install/update, and uninstall through management APIs using isolated test data; confirm readiness without Execute and removal of owned dependencies without touching shared ones. Check effective configuration, plugin toggles, and cleanup. A successful import is not a live behavior test.
+Verify the named Docker runtime and source sync first. Use `/usr/local/bin/python` directly for framework imports and hooks; use the local execution destination when modifying Agent Zero. Compile changed Python, run focused tests, then exercise the actual API/tool/UI path. For lifecycle changes, exercise normal install, repeated install/update, and uninstall through management APIs using isolated test data; confirm readiness without Execute and removal of owned dependencies without touching shared ones. Check effective configuration, plugin toggles, and cleanup. A successful import is not a live behavior test.
 
 For local-only plugins, a GitHub repository and Index submission are unnecessary. Do not add dependencies, pages, tools, or hooks that the requested feature does not need.

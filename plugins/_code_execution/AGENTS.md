@@ -13,6 +13,8 @@
 
 ## Local Contracts
 
+- Local workdir creation resolves development paths with `files.fix_dev_path`. Explicit SSH receives the configured remote workdir (project paths use `/a0` aliases) without creating a host-local directory. Empty SSH passwords fall back to the local root password; other hosts need explicit credentials. Connected-host and sandbox transports remain separate.
+
 - `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.
 - Keep command previews compact in rendered execution output. `code-exe-handler.js` restores a matching command prefix from the already-masked `kvps.code` for Copy Output and step details, preserving command whitespace and the output body. Existing log size limits remain; copying cannot recover text already discarded by those limits.
 
@@ -32,7 +34,7 @@
 - Keep `destination=default` isolated through registered destination extensions; `local` means the Agent Zero operating system, and connected-host routing reuses the authenticated connector transport.
 - Key persistent sessions by destination and session id so output, input, and reset cannot cross execution boundaries.
 - Do not hardcode secrets, SSH credentials, or local user paths.
-- Local Python snippets run IPython through `depfix run` so imports can use packages materialized in the shared Depfix store; sandbox Python remains owned by the sandbox image.
+- Direct local POSIX Python snippets run IPython with the framework's `sys.executable`; Windows, SSH and sandbox sessions use the target's `ipython` command.
 
 ## Work Guidance
 

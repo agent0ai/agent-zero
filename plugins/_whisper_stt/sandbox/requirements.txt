@@ -1,0 +1,2 @@
+openai-whisper==20250625
+numpy<2

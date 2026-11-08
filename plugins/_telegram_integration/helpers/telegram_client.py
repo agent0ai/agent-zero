@@ -1,14 +1,7 @@
 import os
 import re
 
-import aiohttp
-from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import (
-    FSInputFile,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from plugins._telegram_integration.helpers.sandbox import Bot, TelegramBadRequest, input_file, rpc
 
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
@@ -77,10 +70,10 @@ async def send_file(
         if not os.path.isfile(file_path):
             PrintStyle.error(f"Telegram: file not found: {file_path}")
             return None
-        input_file = FSInputFile(file_path)
+        attachment = input_file(file_path)
         msg = await bot.send_document(
             chat_id=chat_id,
-            document=input_file,
+            document=attachment,
             caption=caption[:1024] if caption else None,
             reply_to_message_id=reply_to_message_id,
         )
@@ -102,10 +95,10 @@ async def send_photo(
         if not os.path.isfile(photo_path):
             PrintStyle.error(f"Telegram: photo not found: {photo_path}")
             return None
-        input_file = FSInputFile(photo_path)
+        attachment = input_file(photo_path)
         msg = await bot.send_photo(
             chat_id=chat_id,
-            photo=input_file,
+            photo=attachment,
             caption=caption[:1024] if caption else None,
             reply_to_message_id=reply_to_message_id,
         )
@@ -127,10 +120,10 @@ async def send_voice(
         if not os.path.isfile(voice_path):
             PrintStyle.error(f"Telegram: voice file not found: {voice_path}")
             return None
-        input_file = FSInputFile(voice_path)
+        attachment = input_file(voice_path)
         msg = await bot.send_voice(
             chat_id=chat_id,
-            voice=input_file,
+            voice=attachment,
             caption=caption[:1024] if caption else None,
             reply_to_message_id=reply_to_message_id,
         )
@@ -152,10 +145,10 @@ async def send_audio(
         if not os.path.isfile(audio_path):
             PrintStyle.error(f"Telegram: audio file not found: {audio_path}")
             return None
-        input_file = FSInputFile(audio_path)
+        attachment = input_file(audio_path)
         msg = await bot.send_audio(
             chat_id=chat_id,
-            audio=input_file,
+            audio=attachment,
             caption=caption[:1024] if caption else None,
             reply_to_message_id=reply_to_message_id,
         )
@@ -177,10 +170,10 @@ async def send_video(
         if not os.path.isfile(video_path):
             PrintStyle.error(f"Telegram: video file not found: {video_path}")
             return None
-        input_file = FSInputFile(video_path)
+        attachment = input_file(video_path)
         msg = await bot.send_video(
             chat_id=chat_id,
-            video=input_file,
+            video=attachment,
             caption=caption[:1024] if caption else None,
             reply_to_message_id=reply_to_message_id,
         )
@@ -194,7 +187,7 @@ async def send_video(
 
 def build_inline_keyboard(
     buttons: list[list[dict]],
-) -> InlineKeyboardMarkup:
+) -> dict:
     """Build inline keyboard from a list of rows.
     Each row is a list of dicts with keys: text, callback_data or url.
     """
@@ -203,16 +196,16 @@ def build_inline_keyboard(
         row_buttons = []
         for btn in row:
             if "url" in btn:
-                row_buttons.append(InlineKeyboardButton(
+                row_buttons.append(dict(
                     text=btn["text"], url=btn["url"],
                 ))
             else:
-                row_buttons.append(InlineKeyboardButton(
+                row_buttons.append(dict(
                     text=btn["text"],
                     callback_data=btn.get("callback_data", btn["text"]),
                 ))
         rows.append(row_buttons)
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return dict(inline_keyboard=rows)
 
 
 async def send_text_with_keyboard(
@@ -317,17 +310,9 @@ async def raw_edit_reply_markup(
 
 
 async def _raw_post(token: str, method: str, payload: dict[str, object]) -> dict:
-    url = f"{TELEGRAM_API_BASE}/bot{token}/{method}"
     try:
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=payload) as response:
-                data = await response.json(content_type=None)
-                if response.status != 200 or not data.get("ok"):
-                    PrintStyle.debug(f"Telegram {method} failed: {data}")
-                return data if isinstance(data, dict) else {}
-    except Exception as e:
-        PrintStyle.debug(f"Telegram {method} failed: {format_error(e)}")
+        return await rpc({'action': 'raw', 'token': token, 'method': method, 'kwargs': payload})
+    except Exception:
         return {}
 
 # File download
@@ -339,7 +324,7 @@ async def download_file(
 ) -> str | None:
     """Download a file by file_id to destination path. Returns path or None on error."""
     try:
-        file = await bot.get_file(file_id)
+        file = await bot.get_file(file_id=file_id)
         if not file.file_path:
             return None
         os.makedirs(os.path.dirname(destination), exist_ok=True)

@@ -8,13 +8,14 @@ def test_shared_editor_file_routing_and_dirty_tabs():
     def model(path):
         source = Path(path).read_text()
         source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
-        return source.replace('export const store = createStore', 'const store = createStore')
+        return source.replace('export ', '')
 
     browser = model('webui/components/modals/file-browser/file-browser-store.js')
     editor = model('plugins/_editor/webui/editor-store.js')
     script = r'''
 import assert from 'node:assert/strict';
 const window = globalThis;
+const getStore = () => null;
 const createStore = (_name, model) => model;
 const createFileTree = () => ({});
 const getNamespacedClient = () => ({ addHandlers() {} });
@@ -31,7 +32,7 @@ for (const name of ['file.py', 'probe.jsonl', 'config.yaml', 'Dockerfile', '.env
   assert.equal(fileBrowserStore.fileSurfaceTarget(file(name)), 'editor', name);
 }
 assert.equal(fileBrowserStore.fileSurfaceTarget(file('page.html')), 'browser');
-assert.equal(fileBrowserStore.fileSurfaceTarget(file('sheet.xlsx')), 'desktop');
+assert.equal(fileBrowserStore.fileSurfaceTarget(file('sheet.xlsx')), '');
 assert.equal(fileBrowserStore.isEditableFile(file('page.html')), true);
 assert.equal(fileBrowserStore.isEditableFile(file('image.png')), false);
 assert.equal(fileBrowserStore.isEditableFile({ ...file('big.py'), size: 43 }), false);

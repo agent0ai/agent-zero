@@ -7,7 +7,7 @@ ssh_enabled: auto
 ssh_addr: ""
 ssh_port: 55022
 ssh_user: root
-# ssh_pass: uses root_password from RFC exchange when empty
+# ssh_pass: uses the local root_password when empty; set explicitly for other SSH hosts
 ssh_pass: ""
 
 # Timeouts for python/nodejs/terminal runtimes (seconds)

@@ -23,13 +23,15 @@
 
 ## Runtime Contracts
 
+- Resolve and validate local image paths in both modes, preserving development `/a0/` mapping, symlink/root containment and SVG security headers. Missing images use the existing icon fallback without contacting a sibling.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `ImageGet` is an `ApiHandler`.
 - `ImageGet` defines `process(...)`.
 - `ImageGet` defines `get_methods(...)`.
-- Observed side-effect areas: filesystem reads, network calls, subprocess/runtime control, settings/state persistence.
-- Imported dependency areas include: `base64`, `helpers`, `helpers.api`, `io`, `mimetypes`, `os`, `pathlib`, `urllib.parse`.
+- Observed side-effect areas: filesystem reads.
+- Imported dependency areas include: `helpers`, `helpers.api`, `os`, `pathlib`, `urllib.parse`.
 
 ## Key Concepts
 

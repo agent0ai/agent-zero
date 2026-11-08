@@ -11,7 +11,7 @@ This guide will show you how to setup a local development environment for Agent 
 
 > [!NOTE]
 > - Agent Zero runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
-> - Developing and debugging in a container would be complicated though, therefore we use a hybrid approach where the python framework runs on your machine (in VS Code for example) and only connects to a Dockerized instance when it needs to execute code or use other pre-installed functionality like the built-in search engine.
+> - The Python framework can also run on your machine in an IDE. File operations and scheduler jobs run in that local process. Code execution uses the selected local, SSH, connected-host or sandbox destination; it does not require a sibling Agent Zero instance for development RFC calls.
 
 
 ## To follow this guide you will need:
@@ -60,27 +60,43 @@ Now when you select one of the python files in the project, you should see prope
 ![VS Code Python environments](../res/dev/devinst-3.png)
 ![VS Code Python environments](../res/dev/devinst-4.png)
 
-- Your new environment should be automatically activated. If not, select it in the lower right corner. You might need to open a new terminal in VS Code to reflect the changes with `Terminal > New Terminal` or clicking the `+` button in the terminal tab. Your terminal prompt should now start with your environment name/path, in my case `(/home/user/agent-zero/.conda)` This shows the environment is active in the terminal.
+- Your new environment should be automatically activated. If not, select it in the lower right corner. You might need to open a new terminal in VS Code to reflect the changes with `Terminal > New Terminal` or clicking the `+` button in the terminal tab. Your terminal prompt should now start with your environment name/path, for example `(/home/user/agent-zero/.conda)`. This shows the environment is active in the terminal.
 
 ![VS Code env terminal](../res/dev/devinst-5.png)
 
 3. Install dependencies. Run these commands from the project root:
 
 ```bash
-pip install -r requirements.txt
-PLAYWRIGHT_BROWSERS_PATH=./tmp/playwright patchright install chromium --no-shell
+python -m pip install -r requirements.txt
+python -m helpers.local_embeddings
+PLAYWRIGHT_BROWSERS_PATH=./tmp/playwright python -m patchright install chromium --no-shell
 ```
 
 The first command installs Python dependencies.
 
-The second command installs full Patchright Chromium into `./tmp/playwright`,
-relative to the project root. Docker images use the absolute path
-`/a0/tmp/playwright` and ship Chromium preinstalled. The Docker build differs
-from this local-development setup: it materializes `requirements.txt` once in
-Depfix's shared store, then invokes the pinned Playwright module through Depfix
-to install Chromium without installing the Python package a second time.
+The second command downloads and verifies the pinned local embedding model for
+offline inference. Run it before starting the framework. If you configure a
+custom embedding `cache_folder`, rerun it after saving that setting so the same
+folder is prepared. See [Local ONNX embeddings](../developer/onnx-embeddings.md)
+for supported settings.
 
-If you skip the second command, local development can still download Chromium on
+The third command installs full Patchright Chromium into `./tmp/playwright`,
+relative to the project root. Docker images use the absolute path
+`/a0/tmp/playwright` and ship Chromium preinstalled. Docker builds install
+`requirements.txt` into `/usr/local/bin/python`'s global environment and use
+that interpreter to install Chromium. Application startup uses installed
+packages directly, without activating a dependency graph.
+
+Keep `PYTHONDONTWRITEBYTECODE=1` in the runtime environment, including IDE launch
+settings. Docker sets it automatically. This avoids import-time bytecode events
+triggering a known file-watcher deadlock during startup.
+
+For images built with the retired shared dependency store, rebuild both the
+base and runtime images. A source-only self-update does not install all packages
+into global Python or replace the image's service launchers. Preserve the
+existing `usr/` volume when recreating the container.
+
+If you skip the third command, local development can still download Chromium on
 first Browser use through `ensure_playwright_binary()` in
 `plugins/_browser/helpers/playwright.py`. Pre-installing avoids that wait.
 
@@ -91,7 +107,7 @@ Errors in the code editor caused by missing packages should now be gone. If not,
 
 ## Step 4: Run Agent Zero in the IDE
 Great work! Now you should be able to run Agent Zero from your IDE including real-time debugging.
-It will not be able to do code execution and few other features requiring the Docker container just yet, but most of the framework will already work.
+Local file operations and scheduler jobs work without another Agent Zero instance. Select the code execution destination explicitly as described below; sandboxed plugins provision their own runtimes.
 
 1. The project is pre-configured for debugging. Go to Debugging tab, select "run_ui.py" and click the green play button (or press F5 by default). The configuration can be found at `.vscode/launch.json`.
 
@@ -101,12 +117,12 @@ The framework will run at the default port 5000. If you open `http://localhost:5
 
 You can also set the bind host via `"--host=0.0.0.0"` (or `WEB_UI_HOST=0.0.0.0`).
 
-It may take a while the first time. You should see output like the screenshot below. The RFC error is ok for now as we did not yet connect our local development to another instance in docker.
+It may take a while the first time. The screenshot below is from an older setup; its development RFC error is no longer part of the local startup workflow.
 ![First run](../res/dev/devinst-7.png)
 
 
 After inserting my API key in settings, my Agent Zero instance works. I can send a simple message and get a response.
-Some tools like code execution will not work yet because they need to be connected to a Dockerized instance.
+For code execution, configure the desired runtime as described below.
 
 ![First message](../res/dev/devinst-8.png)
 
@@ -122,48 +138,39 @@ Some tools like code execution will not work yet because they need to be connect
 ![Debugging](../res/dev/devinst-10.png)
 
 
-## Step 5: Run another instance of Agent Zero in Docker
-- Some parts of A0 require standardized linux environment, additional web services and preinstalled binaries that would be unneccessarily complex to set up in a local environment.
-- To make development easier, we can use existing A0 instance in docker and forward some requests to be executed there using SSH and RFC (Remote Function Call).
+## Step 5: Choose the execution runtime
 
-1. Pull the docker image `agent0ai/agent-zero` from Docker Hub and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
-If you want, you can also map the `/a0` folder to our local project folder as well, this way we can update our local instance and the docker instance at the same time.
-This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/home/user/agent-zero`:
+File browsing, editing, image loading, attachment staging and scheduler jobs run
+locally in development. Stored `/a0` paths are development aliases for the local
+checkout where these operations resolve them; a second Agent Zero instance and
+an RFC password are not required.
 
-![docker run](../res/dev/devinst-11.png)
-![docker run](../res/dev/devinst-12.png)
+Code execution destinations remain explicit:
 
+- For the framework's own operating system, select `destination: local` and set
+  **Code Execution** plugin `ssh_enabled` to `false`.
+- For isolation, use the configured sandbox destination. See the
+  [sandbox guide](../../plugins/_sandboxing/README.md#gvisor-runtime) for runtime requirements.
+- For a connected host, use the authenticated Connector destination.
+- For SSH, use the configuration below. The plugin's `auto` setting still selects
+  SSH when the framework is not Dockerized, so set it to `false` for local TTY use.
 
-## Step 6: Configure SSH and RFC connection
-- The last step is to configure the local development (VS Code) instance and the dockerized instance to communicate with each other. This is very simple and can be done in the settings in the Web UI of both instances.
-- In my example the dark themed instance is the VS Code one, the light themed one is the dockerized instance.
+## Step 6: Configure optional SSH execution
 
-1. Open the "Settings" page in the Web UI of your dockerized instance and go in the "Development" section.
-2. Set the `RFC Password` field to a new password and save.
-3. Open the "Settings" page in the Web UI of your local instance and go in the "Development" section.
-4. Here set the `RFC Password` field to the same password you used in the dockerized instance. Also set the SSH port and HTTP port the same numbers you used when creating the container - in my case `8822` for SSH and `8880` for HTTP. The `RFC Destination URL` will most probably stay `localhost` as both instances are running on the host machine.
-5. Click save and test by asking your agent to do something in the terminal, like "Get current OS version". It should be able to communicate with the dockerized instance via RFC and SSH and execute the command there, responding with Debian GNU/Linux 13 (Trixie).
+An SSH target can be a host or a container with an SSH server. Configure the
+**Code Execution** plugin's `ssh_enabled`, `ssh_addr`, `ssh_port`, `ssh_user` and
+`ssh_pass` fields for that target. Set the address and credentials explicitly for
+a separate host; an empty `ssh_addr` retains the legacy `rfc_url` hostname fallback,
+and an empty `ssh_pass` reads the local instance's root password without RFC.
 
-My Dockerized instance:
-![Dockerized instance](../res/dev/devinst-14.png)
+Configure a workdir that exists on the SSH target. Explicit SSH keeps that remote
+path; it does not use or create the developer's local checkout directory. Project
+workdirs retain their `/a0/...` paths on SSH, so they must also exist on the target.
+Local and remote filesystems are not automatically synchronized.
 
-My VS Code instance:
-![VS Code instance](../res/dev/devinst-13.png)
-
-## RFC Notes (Host IDE + Docker Execution)
-Agent Zero runs code inside the container by default. If you are running the framework locally in your IDE but want tools (like code execution) to run in Docker, configure RFC in **Settings -> Development** and point it to a running Agent Zero container. This routes execution through SSH/RFC to the container while keeping the UI and agent loop on your host.
-
-
-# Congratulations!
-
-You have successfully set up a complete Agent Zero development environment! You now have:
-
-- A local development instance running in your IDE with full debugging capabilities
-- A dockerized instance for code execution and system operations
-- RFC and SSH communication between both instances
-- The ability to develop, debug, and test Agent Zero features seamlessly
-
-You're now ready to contribute to Agent Zero, create custom extensions, or modify the framework to suit your needs. Happy coding!
+Test the selected destination with a terminal command such as `pwd` and `uname -a`.
+The legacy RFC settings and endpoints remain available for compatibility, but do
+not route ordinary development file operations or scheduler jobs.
 
 
 ## Next steps

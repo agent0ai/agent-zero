@@ -2,7 +2,7 @@
 # unbundled npm dependency tree.
 FROM node:22-trixie-slim AS node-runtime
 
-# Install the signed gVisor package outside the final image. Current gVisor
+# Install the signed gVisor package and OCI tools outside the final image. Current gVisor
 # releases split the Sentry from runsc, while the other packaged executables
 # support containerd, remote checkpoints, or optional metrics.
 FROM debian:trixie-slim AS gvisor-package
@@ -15,7 +15,7 @@ RUN apt-get update \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
         > /etc/apt/sources.list.d/gvisor.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends runsc \
+    && apt-get install -y --no-install-recommends runsc skopeo umoci \
     && test -x /usr/bin/runsc \
     && test -x /usr/bin/gvisor-bin/gvisor_sentry \
     && rm -rf /var/lib/apt/lists/*
@@ -25,12 +25,17 @@ FROM python:3.12-slim-trixie AS runtime
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV UV_SYSTEM_PYTHON=1 \
-    PIP_ROOT_USER_ACTION=ignore
+    PIP_ROOT_USER_ACTION=ignore \
+    PYTHONDONTWRITEBYTECODE=1
 
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=gvisor-package /usr/bin/runsc /usr/bin/runsc
 COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor_sentry /usr/bin/gvisor-bin/gvisor_sentry
+# Skopeo uses registry configuration and shared libraries, not Debian's CNI stack.
+COPY --from=gvisor-package /usr/bin/skopeo /usr/bin/umoci /usr/bin/
+COPY --from=gvisor-package /etc/containers/ /etc/containers/
+COPY --from=gvisor-package /usr/share/containers/ /usr/share/containers/
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 

@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import quote, urlencode
@@ -44,6 +44,7 @@ class VirtualDesktopEndpoint:
     owner: str = "desktop"
     title: str = "Desktop"
     resize: ResizeCallback | None = None
+    password: str = field(default="", repr=False)
 
 
 class VirtualDesktopRegistry:
@@ -84,6 +85,7 @@ def register_session(
     owner: str = "desktop",
     title: str = "Desktop",
     resize: ResizeCallback | None = None,
+    password: str = "",
 ) -> None:
     get_registry().register(
         VirtualDesktopEndpoint(
@@ -93,6 +95,7 @@ def register_session(
             owner=str(owner),
             title=str(title),
             resize=resize,
+            password=password,
         ),
     )
 
@@ -212,183 +215,24 @@ def _package_installed(package: str) -> bool:
     return result.returncode == 0 and "install ok installed" in result.stdout
 
 
-def normalize_size(
-    width: int | float | str,
-    height: int | float | str,
-    *,
-    max_width: int = MAX_WIDTH,
-    max_height: int = MAX_HEIGHT,
-    min_width: int = MIN_WIDTH,
-    min_height: int = MIN_HEIGHT,
-) -> tuple[int, int]:
-    requested_width = max(1, int(float(width or DEFAULT_WIDTH)))
-    requested_height = max(1, int(float(height or DEFAULT_HEIGHT)))
-    scale = min(max_width / requested_width, max_height / requested_height, 1.0)
-    if scale < 1.0:
-        requested_width = max(1, math.floor(requested_width * scale))
-        requested_height = max(1, math.floor(requested_height * scale))
-    return (
-        max(min_width, min(max_width, requested_width)),
-        max(min_height, min(max_height, requested_height)),
-    )
+from helpers.native_display import normalize_size
 
 
-def resize_display(
-    *,
-    display: int,
-    width: int,
-    height: int,
-    max_width: int = MAX_WIDTH,
-    max_height: int = MAX_HEIGHT,
-    window_class: str = "",
-    keys: tuple[str, ...] = (),
-    xauthority: str = "",
-    home: str = "",
-    settle_seconds: float = 0.15,
-) -> dict[str, Any]:
-    target_width, target_height = normalize_size(width, height, max_width=max_width, max_height=max_height)
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return {"ok": False, "error": "xrandr is not installed."}
-
-    env = _display_env(display, xauthority=xauthority, home=home)
-    current_before = current_display_size(display, xauthority=xauthority, home=home)
-    if current_before == (target_width, target_height):
-        if window_class:
-            fit_window(
-                display=display,
-                width=target_width,
-                height=target_height,
-                window_class=window_class,
-                keys=keys,
-                xauthority=xauthority,
-                home=home,
-            )
-        return {"ok": True, "width": target_width, "height": target_height, "resized": False}
-
-    _ensure_xrandr_mode(env, target_width, target_height)
-    result = _select_xrandr_mode(env, target_width, target_height)
-    if result.returncode != 0:
-        result = subprocess.run(
-            [xrandr, "--fb", f"{target_width}x{target_height}"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=4,
-            env=env,
-        )
-    if settle_seconds > 0:
-        time.sleep(settle_seconds)
-    current = current_display_size(display, xauthority=xauthority, home=home)
-    ok = current == (target_width, target_height)
-    if ok:
-        if window_class:
-            fit_window(
-                display=display,
-                width=target_width,
-                height=target_height,
-                window_class=window_class,
-                keys=keys,
-                xauthority=xauthority,
-                home=home,
-            )
-        return {"ok": True, "width": target_width, "height": target_height, "resized": True}
-    detail = (result.stderr or result.stdout or "xrandr resize failed").strip()
-    return {
-        "ok": False,
-        "error": detail,
-        "width": current[0] if current else target_width,
-        "height": current[1] if current else target_height,
-    }
+def resize_display(*, display, width, height, max_width=MAX_WIDTH, max_height=MAX_HEIGHT,
+                   window_class="", keys=(), xauthority="", home="", settle_seconds=0.15):
+    from helpers import native_display
+    result = native_display.resize_display(
+        display=display, width=width, height=height, max_width=max_width, max_height=max_height,
+        env=_display_env(display, xauthority=xauthority, home=home), settle_seconds=settle_seconds)
+    if result.get('ok') and window_class:
+        fit_window(display=display, width=result['width'], height=result['height'],
+                   window_class=window_class, keys=keys, xauthority=xauthority, home=home)
+    return result
 
 
-def _ensure_xrandr_mode(env: dict[str, str], width: int, height: int) -> None:
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return
-    output, existing_modes = _xrandr_output_modes(env)
-    if not output:
-        return
-    mode = f"{width}x{height}"
-    if mode not in existing_modes:
-        subprocess.run(
-            [xrandr, "--newmode", mode, "0", str(width), "0", "0", "0", str(height), "0", "0", "0"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-            env=env,
-        )
-        subprocess.run(
-            [xrandr, "--addmode", output, mode],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-            env=env,
-        )
-
-
-def _select_xrandr_mode(env: dict[str, str], width: int, height: int) -> subprocess.CompletedProcess[str]:
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return subprocess.CompletedProcess([], 1, "", "xrandr is not installed.")
-    output, _ = _xrandr_output_modes(env)
-    if not output:
-        return subprocess.CompletedProcess([], 1, "", "No connected XRandR output found.")
-    mode = f"{width}x{height}"
-    return subprocess.run(
-        [xrandr, "--output", output, "--mode", mode],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=4,
-        env=env,
-    )
-
-
-def _xrandr_output_modes(env: dict[str, str]) -> tuple[str, set[str]]:
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return "", set()
-    result = subprocess.run(
-        [xrandr, "-q"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=4,
-        env=env,
-    )
-    output = ""
-    modes: set[str] = set()
-    for line in result.stdout.splitlines():
-        output_match = re.match(r"^(\S+)\s+connected\b", line)
-        if output_match:
-            output = output_match.group(1)
-            continue
-        if output:
-            mode_match = re.match(r"^\s+(\d+x\d+)\b", line)
-            if mode_match:
-                modes.add(mode_match.group(1))
-    return output, modes
-
-
-def current_display_size(display: int, *, xauthority: str = "", home: str = "") -> tuple[int, int] | None:
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return None
-    result = subprocess.run(
-        [xrandr, "-q"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=4,
-        env=_display_env(display, xauthority=xauthority, home=home),
-    )
-    match = re.search(r"\bcurrent\s+(\d+)\s+x\s+(\d+)", result.stdout)
-    if not match:
-        return None
-    return int(match.group(1)), int(match.group(2))
+def current_display_size(display, *, xauthority="", home=""):
+    from helpers import native_display
+    return native_display.current_display_size(display, env=_display_env(display, xauthority=xauthority, home=home))
 
 
 def fit_window_until(

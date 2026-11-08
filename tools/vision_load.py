@@ -10,7 +10,6 @@ from helpers import (
     history,
     images,
     parallel_tools,
-    runtime,
 )
 from helpers.tool import Response, Tool
 from helpers.strings import truncate_text
@@ -99,7 +98,8 @@ class VisionLoad(Tool):
                     self.images_dict[display_path] = stored_ref
                     self.loaded_paths.append(display_path)
                 continue
-            if not await runtime.call_development_function(files.exists, str(path)):
+            path = files.fix_dev_path(path)
+            if not files.exists(path):
                 continue
 
             if path not in self.images_dict:

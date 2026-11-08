@@ -122,7 +122,13 @@
                 </div>
               </div>
               <dl class="sandbox-details">
-                <div><dt>Private data</dt><dd x-text="$store.sandboxingStore.formatSize(sandbox.size_bytes)"></dd></div>
+                <div><dt>Private data</dt><dd aria-live="polite">
+                  <span x-text="$store.sandboxingStore.formatSize($store.sandboxingStore.storageFor(sandbox)?.size_bytes)"></span>
+                  <button class="button secondary" type="button"
+                          :disabled="Boolean($store.sandboxingStore.storageFor(sandbox)?.loading)"
+                          @click="$store.sandboxingStore.measureStorage(sandbox)"
+                          x-text="$store.sandboxingStore.storageFor(sandbox)?.loading ? 'Calculating…' : 'Calculate'"></button>
+                </dd></div>
                 <div><dt>Last used</dt><dd x-text="$store.sandboxingStore.formatDate(sandbox.last_used_at)"></dd></div>
                 <div><dt>Snapshot</dt><dd x-text="$store.sandboxingStore.formatDate(sandbox.snapshot_at)"></dd></div>
                 <div><dt>Expires</dt><dd x-text="sandbox.expires_at ? $store.sandboxingStore.formatDate(sandbox.expires_at) : 'Never'"></dd></div>

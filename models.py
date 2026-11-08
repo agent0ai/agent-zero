@@ -47,7 +47,7 @@ from langchain.embeddings.base import Embeddings
 from pydantic import ConfigDict
 
 if TYPE_CHECKING:
-    from sentence_transformers import SentenceTransformer
+    from helpers.local_embeddings import OnnxSentenceTransformer
 
 
 DEFAULT_LITELLM_GLOBAL_KWARGS: dict[str, Any] = {
@@ -836,27 +836,27 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         return self.embed([text])[0]
 
 
-_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], "SentenceTransformer"] = {}
+_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], "OnnxSentenceTransformer"] = {}
 _LOCAL_EMBEDDING_MODELS_LOCK = threading.Lock()
 
 
 def _get_local_embedding_model(
     model: str, kwargs: dict[str, Any]
-) -> "SentenceTransformer":
+) -> "OnnxSentenceTransformer":
     key = (model, json.dumps(kwargs, sort_keys=True, default=repr))
     with _LOCAL_EMBEDDING_MODELS_LOCK:
         cached = _LOCAL_EMBEDDING_MODELS.get(key)
         if cached is None:
-            from sentence_transformers import SentenceTransformer
+            from helpers.local_embeddings import OnnxSentenceTransformer
 
-            cached = SentenceTransformer(model, **kwargs)
+            cached = OnnxSentenceTransformer(model, **kwargs)
             _LOCAL_EMBEDDING_MODELS.clear()
             _LOCAL_EMBEDDING_MODELS[key] = cached
         return cached
 
 
 class LocalSentenceTransformerWrapper(Embeddings):
-    """Local wrapper for sentence-transformers models to avoid HuggingFace API calls"""
+    """Compatibility wrapper for the validated offline ONNX sentence transformer."""
 
     def __init__(
         self,
@@ -872,7 +872,7 @@ class LocalSentenceTransformerWrapper(Embeddings):
         if model.startswith("sentence-transformers/"):
             model = model[len("sentence-transformers/") :]
 
-        # Filter kwargs for SentenceTransformer only (no LiteLLM params like 'stream_timeout')
+        # Keep local constructor options separate from LiteLLM transport options.
         st_allowed_keys = {
             "device",
             "cache_folder",

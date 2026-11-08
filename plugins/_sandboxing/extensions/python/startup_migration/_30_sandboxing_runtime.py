@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 
 from helpers.extension import Extension
+from helpers import plugins
 from helpers.print_style import PrintStyle
 from plugins._sandboxing.helpers.runtime import get_manager
 
@@ -33,6 +34,11 @@ def _prepare() -> None:
             PrintStyle.warning("Sandbox runtime doctor reported errors:", errors)
         elif warnings:
             PrintStyle.warning("Sandbox runtime doctor reported warnings:", warnings)
+        for info in manager.list():
+            owner = info.ownership.get("plugin_id")
+            if owner and plugins.get_toggle_state(owner) != "enabled" and info.desired_running:
+                manager.stop(info.name)
+        manager.restore_standalone()
         deleted = manager.cleanup_expired()
         deleted_images = manager.cleanup_images()
         if deleted:

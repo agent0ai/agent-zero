@@ -9,6 +9,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import threading
@@ -62,7 +63,7 @@ _ABSENT_MARKERS = (
     "container does not exist",
 )
 _PROTECTED_MOUNT_ROOTS = ("/proc", "/dev", "/sys", "/etc", "/shared")
-_OWNERSHIP_KEYS = ("chat_id", "project_id", "agent_id")
+_OWNERSHIP_KEYS = ("chat_id", "project_id", "agent_id", "plugin_id")
 
 
 class SandboxError(RuntimeError):
@@ -91,6 +92,8 @@ class SandboxConfig:
     state_timeout: float = 3.0
     delete_timeout: float = 5.0
     max_output_bytes: int = 1_048_576
+    instance_id: str = ""
+    user_dir: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,10 +108,14 @@ class SandboxInfo:
     expires_at: str | None
     image_ref: str = ""
     image_digest: str = ""
-    size_bytes: int = 0
+    size_bytes: int | None = None
     mounts: tuple[SandboxMount, ...] = ()
     ownership: Mapping[str, str | None] = field(default_factory=dict)
     runtime_error: str | None = None
+    instance_id: str = ""
+    standalone: bool = False
+    service: bool = False
+    desired_running: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,15 +150,15 @@ def allocated_bytes(path: Path) -> int:
     while pending:
         current = pending.pop()
         try:
-            stat = current.lstat()
+            info = current.lstat()
         except OSError:
             continue
-        identity = (stat.st_dev, stat.st_ino)
+        identity = (info.st_dev, info.st_ino)
         if identity in seen:
             continue
         seen.add(identity)
-        total += getattr(stat, "st_blocks", (stat.st_size + 511) // 512) * 512
-        if current.is_dir() and not current.is_symlink():
+        total += getattr(info, "st_blocks", (info.st_size + 511) // 512) * 512
+        if stat.S_ISDIR(info.st_mode):
             with contextlib.suppress(OSError):
                 pending.extend(current.iterdir())
     return total
@@ -180,9 +187,14 @@ class SandboxManager:
             raise SandboxError("shared exchange and image cache must be separate")
         self._locks_guard = threading.Lock()
         self._locks: dict[str, threading.RLock] = {}
+        self._child_pipes: dict[str, int] = {}
 
     @staticmethod
     def _validated_config(config: SandboxConfig) -> SandboxConfig:
+        if config.instance_id and not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", config.instance_id):
+            raise SandboxError("invalid Agent Zero instance ID")
+        if config.user_dir is not None and not config.user_dir.is_absolute():
+            raise SandboxError("user directory must be absolute")
         paths = {
             "runsc": config.runsc,
             "instances_dir": config.instances_dir,
@@ -281,6 +293,21 @@ class SandboxManager:
                     results.append(self._broken_info(entry.name, str(exc)))
         return results
 
+    def is_running(self, name: str) -> bool:
+        """Check liveness without scanning the guest filesystem for disk usage."""
+        name = validate_name(name)
+        state, _ = self._runtime_state(name, self._read_metadata(name))
+        return bool(state and state.get("status") == "running")
+
+    def disk_usage(self, name: str) -> int:
+        """Measure on explicit request, without holding lifecycle locks."""
+        name = validate_name(name)
+        path = self._instance_path(name)
+        if path.is_symlink() or not path.is_dir():
+            raise SandboxError(f"sandbox {name!r} does not exist")
+        self._read_metadata(name)
+        return allocated_bytes(path)
+
     def inspect(self, name: str) -> SandboxInfo:
         name = validate_name(name)
         path = self._instance_path(name)
@@ -304,7 +331,7 @@ class SandboxManager:
                 status = "broken"
                 error = f"unexpected runsc status {observed!r}"
         elif runtime_is_absent(error):
-            if snapshot is None:
+            if snapshot is None and not self._disk_root(name, metadata):
                 status = "stale"
             elif metadata.get("last_known_status") == "stopped":
                 status = "stopped"
@@ -336,11 +363,25 @@ class SandboxManager:
         image: str = "",
         mounts: Sequence[SandboxMount | Mapping[str, Any]] = (),
         ownership: Mapping[str, str | None] | None = None,
+        standalone: bool = False,
+        service: bool = False,
+        share_usr: bool = True,
+        host_root: bool = False,
+        command: Sequence[str] = (),
     ) -> SandboxInfo:
         name = validate_name(name)
         network = self._validate_network(network)
         sandbox_type = self._validate_type(sandbox_type)
-        normalized_mounts = self._normalize_mounts(mounts)
+        requested_mounts = list(mounts)
+        if share_usr and self.config.user_dir is not None:
+            self.config.user_dir.mkdir(parents=True, exist_ok=True)
+            requested_mounts.append(SandboxMount(self.config.user_dir, "/a0/usr", False))
+        if host_root:
+            requested_mounts.append(SandboxMount(Path("/"), "/host", False))
+        normalized_mounts = self._normalize_mounts(requested_mounts)
+        if not host_root and any(m.source == Path("/") for m in normalized_mounts):
+            raise SandboxError("mounting the host root requires host_root=True")
+        command = self._validate_command(command)
         normalized_owner = self._normalize_ownership(ownership)
         self._ensure_layout()
         with self._index_lock(exclusive=False):
@@ -373,6 +414,13 @@ class SandboxManager:
             now = self._now()
             metadata: dict[str, Any] = {
                 "schema_version": SCHEMA_VERSION,
+                "instance_id": self.config.instance_id,
+                "filesystem": "disk",
+                "standalone": bool(standalone),
+                "service": bool(service),
+                "desired_running": True,
+                "command": command,
+                "host_root": bool(host_root),
                 "name": name,
                 "sandbox_type": sandbox_type,
                 "network": network,
@@ -389,6 +437,15 @@ class SandboxManager:
                 "ownership": normalized_owner,
             }
             try:
+                copied = self._run_captured(
+                    ["cp", "-a", "--reflink=auto", "--", str(image_info.rootfs), str(path / "rootfs")],
+                    timeout=self.config.snapshot_timeout,
+                    operation="prepare writable sandbox filesystem",
+                )
+                if copied[0]:
+                    raise SandboxError(f"filesystem copy failed: {copied[2][-2000:]}")
+                if not self._disk_root(name, metadata):
+                    raise SandboxError("failed to prepare writable sandbox filesystem")
                 self._refresh_bundle(name, metadata)
                 self._atomic_write_json(path / "metadata.json", metadata)
                 self._launch(name, metadata)
@@ -486,6 +543,31 @@ class SandboxManager:
             timeout=timeout,
         )
 
+    def set_mounts(self, name: str, mounts: Sequence[SandboxMount]) -> None:
+        """Update explicit binds of a stopped service, preserving its disk root."""
+        normalized = self._normalize_mounts(mounts)
+        if any(m.source == Path('/') for m in normalized):
+            raise SandboxError('Host root must be explicitly enabled at creation')
+        with self._operation_lock(name):
+            metadata = self._read_metadata(name)
+            state, _ = self._runtime_state(name, metadata)
+            if state and state.get('status') != 'stopped':
+                raise SandboxError('Stop the sandbox before changing mounts')
+            metadata['mounts'] = [self._mount_json(mount) for mount in normalized]
+            self._atomic_write_json(self._instance_path(name) / 'metadata.json', metadata)
+
+    def process_command(self, name: str, argv: Sequence[str], *, cwd: str = "/workspace") -> list[str]:
+        """Validated argv for an administrative caller that owns subprocess pipes/lifetime."""
+        args = self._validate_command(argv)
+        if not args:
+            raise SandboxError("exec requires a non-empty argv")
+        cwd = self._validate_guest_path(cwd, label="cwd")
+        with self._operation_lock(name):
+            metadata = self._read_metadata(name)
+            self._require_running(name, metadata)
+            self._touch_locked(name, metadata)
+            return self._runsc_command(name, metadata, "exec", f"--cwd={cwd}", "--user=0:0", name, *args)
+
     def interactive_command(self, name: str, *, cwd: str = "/workspace") -> list[str]:
         name = validate_name(name)
         cwd = self._validate_guest_path(cwd, label="cwd")
@@ -519,8 +601,10 @@ class SandboxManager:
             metadata = self._read_metadata(name)
             state, error = self._runtime_state(name, metadata)
             snapshot = self._valid_snapshot(name, metadata)
+            metadata["desired_running"] = False
+            self._atomic_write_json(self._instance_path(name) / "metadata.json", metadata)
             if state is None:
-                if runtime_is_absent(error) and snapshot is not None:
+                if runtime_is_absent(error) and (snapshot is not None or self._disk_root(name, metadata)):
                     metadata["last_known_status"] = "stopped"
                     self._atomic_write_json(
                         self._instance_path(name) / "metadata.json", metadata
@@ -535,7 +619,7 @@ class SandboxManager:
                 self._stop_runtime(name, metadata)
             elif status != "stopped":
                 raise SandboxError(f"cannot stop sandbox {name!r} from status {status!r}")
-            elif snapshot is None:
+            elif snapshot is None and not self._disk_root(name, metadata):
                 raise SandboxError(
                     f"sandbox {name!r} is stopped but has no restartable snapshot"
                 )
@@ -554,6 +638,7 @@ class SandboxManager:
         self._ensure_shared_directory()
         with self._operation_lock(name):
             metadata = self._read_metadata(name)
+            metadata["desired_running"] = True
             try:
                 self.images.ensure(
                     str(metadata.get("image_ref") or ""),
@@ -573,12 +658,63 @@ class SandboxManager:
             elif error and not runtime_is_absent(error):
                 raise SandboxError(f"cannot determine runtime state for {name!r}: {error}")
             snapshot = self._valid_snapshot(name, metadata)
-            if snapshot is None:
-                raise SandboxError(f"sandbox {name!r} has no valid restart snapshot")
+            if snapshot is None and not self._disk_root(name, metadata):
+                raise SandboxError(f"sandbox {name!r} has no valid restart snapshot or disk filesystem")
             self._refresh_bundle(name, metadata, snapshot=snapshot)
             self._launch(name, metadata)
             self._touch_locked(name, metadata)
         return self.inspect(name)
+
+    def restart(self, name: str) -> SandboxInfo:
+        self.stop(name)
+        return self.start(name)
+
+    def set_command(self, name: str, command: Sequence[str]) -> None:
+        """Set the next boot command; stop the sandbox before changing it."""
+        command = self._validate_command(command)
+        with self._operation_lock(name):
+            metadata = self._read_metadata(name)
+            state, error = self._runtime_state(name, metadata)
+            if state and state.get("status") != "stopped":
+                raise SandboxError("stop the sandbox before setting its command")
+            if state is None and not runtime_is_absent(error):
+                raise SandboxError("cannot determine sandbox state")
+            metadata["command"] = command
+            self._atomic_write_json(self._instance_path(name) / "metadata.json", metadata)
+
+    def restore_standalone(self) -> list[str]:
+        restored = []
+        for info in self.list():
+            if info.standalone and info.desired_running and info.status in {"stopped", "recoverable"}:
+                self.start(info.name)
+                restored.append(info.name)
+        return restored
+
+    def read_file(self, name: str, relative: str, *, limit: int = 65536) -> str:
+        """Read bounded service output without spawning an exec process."""
+        metadata = self._read_metadata(validate_name(name))
+        root = self._disk_root(name, metadata)
+        if root is None:
+            raise SandboxError("direct reads require a disk-backed sandbox")
+        parts = PurePosixPath(relative).parts
+        if not parts or relative.startswith("/") or any(p in {".", ".."} for p in parts):
+            raise SandboxError("invalid sandbox file path")
+        # Open each component without following guest-controlled symlinks.
+        fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                os.close(fd)
+                fd = next_fd
+            target = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+            with os.fdopen(target, "rb") as handle:
+                import stat
+                if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                    raise SandboxError("sandbox output must be a regular file")
+                handle.seek(max(0, os.fstat(handle.fileno()).st_size - limit))
+                return handle.read(limit).decode("utf-8", errors="replace")
+        finally:
+            os.close(fd)
 
     def delete(self, name: str, *, missing_ok: bool = False) -> bool:
         name = validate_name(name)
@@ -786,6 +922,10 @@ class SandboxManager:
             raise SandboxError(f"sandbox {name!r} metadata is not an object")
         if value.get("schema_version") != SCHEMA_VERSION or value.get("name") != name:
             raise SandboxError(f"sandbox {name!r} has incompatible metadata")
+        owner = value.get("instance_id", "")
+        if owner and owner != self.config.instance_id:
+            raise SandboxError("sandbox belongs to another Agent Zero instance")
+        self._validate_command(value.get("command", []))
         self._validate_network(value.get("network"))
         self._validate_type(value.get("sandbox_type"))
         for key in ("created_at", "last_used_at"):
@@ -844,10 +984,13 @@ class SandboxManager:
             expires_at=expires,
             image_ref=str(metadata.get("image_ref") or ""),
             image_digest=str(metadata.get("image_digest") or ""),
-            size_bytes=allocated_bytes(self._instance_path(name)),
             mounts=mounts,
             ownership=dict(self._normalize_ownership(metadata.get("ownership"))),
             runtime_error=runtime_error,
+            instance_id=str(metadata.get("instance_id") or ""),
+            standalone=bool(metadata.get("standalone", True)),
+            service=bool(metadata.get("service", False)),
+            desired_running=bool(metadata.get("desired_running", False)),
         )
 
     def _broken_info(self, name: str, error: str) -> SandboxInfo:
@@ -862,7 +1005,6 @@ class SandboxManager:
             expires_at=None,
             image_ref="",
             image_digest="",
-            size_bytes=allocated_bytes(self._instance_path(name)),
             ownership={key: None for key in _OWNERSHIP_KEYS},
             runtime_error=error,
         )
@@ -908,19 +1050,29 @@ class SandboxManager:
             if sandbox_type == "temporary"
             else f"--overlay2=root:dir={path / 'overlay'}"
         )
+        if metadata.get("filesystem") == "disk":
+            overlay = "--overlay2=none"
+        runtime_root = self.config.runsc_root
+        args = list(arguments)
+        if metadata.get("instance_id"):
+            runtime_root = runtime_root / str(metadata["instance_id"])
+            runtime_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+            offset = 2 if args and args[0] == "tar" else 1
+            if name in args[offset:]:
+                args[args.index(name, offset)] = f"a0-{metadata['instance_id']}-{name}"
         return [
             str(self.config.runsc),
             "--allow-rootfs-tar-annotation",
-            f"--root={self.config.runsc_root}",
+            f"--root={runtime_root}",
             "--rootless=true",
             "--platform=systrap",
-            "--directfs=false",
+            "--directfs=true",
             "--file-access=exclusive",
             "--file-access-mounts=shared",
             f"--network={network}",
             overlay,
             f"--log={path / 'logs' / f'runsc-{command_name}.log'}",
-            *arguments,
+            *args,
         ]
 
     def _oci_config(
@@ -950,6 +1102,7 @@ class SandboxManager:
         environment.update(
             {
                 "HOME": "/root",
+                "A0_INSTANCE_ID": str(metadata.get("instance_id") or ""),
                 "LANG": environment.get("LANG", "C.UTF-8"),
                 "TERM": "xterm-256color",
                 "PAGER": "cat",
@@ -981,7 +1134,9 @@ class SandboxManager:
             {"destination": "/run", "type": "tmpfs", "source": "tmpfs", "options": ["nosuid", "nodev", "mode=755"]},
             {"destination": "/etc/resolv.conf", "type": "bind", "source": str(bundle / "resolv.conf"), "options": ["bind", "ro", "nosuid", "nodev", "noexec"]},
             {"destination": "/etc/hosts", "type": "bind", "source": str(bundle / "hosts"), "options": ["bind", "ro", "nosuid", "nodev", "noexec"]},
-            {"destination": "/shared", "type": "bind", "source": str(self.config.shared_dir), "options": ["rbind", "rw", "nosuid", "nodev"]},
+            ({"destination": "/shared", "type": "tmpfs", "source": "tmpfs", "options": ["nosuid", "nodev", "mode=700"]}
+             if metadata.get('service') else
+             {"destination": "/shared", "type": "bind", "source": str(self.config.shared_dir), "options": ["rbind", "rw", "nosuid", "nodev"]}),
         ]
         for item in self._normalize_mounts(metadata.get("mounts", [])):
             options = ["rbind", "ro" if item.read_only else "rw", "nosuid", "nodev"]
@@ -993,12 +1148,31 @@ class SandboxManager:
                     "options": options,
                 }
             )
+        # Sharing usr must not let a guest rewrite its own control metadata or image cache.
+        for item in self._normalize_mounts(metadata.get("mounts", [])):
+            if item.source == Path("/") and metadata.get("host_root"):
+                continue
+            for private in (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.runsc_root):
+                try:
+                    relative = private.relative_to(item.source)
+                except ValueError:
+                    continue
+                mounts.append({
+                    "destination": str(PurePosixPath(item.destination) / relative.as_posix()),
+                    "type": "tmpfs", "source": "tmpfs",
+                    "options": ["ro", "nosuid", "nodev", "noexec", "mode=000", "size=4096"],
+                })
+        command = self._validate_command(metadata.get("command", [])) or [
+            "/bin/sh", "-c", "trap 'exit 0' TERM INT; while :; do sleep 3600; done"
+        ]
+        if not metadata.get("standalone", True):
+            command = ["/bin/sh", "-c", "trap 'exit 0' TERM INT; (read -r line <&3; kill -TERM $$) & exec_child=; \"$@\" & exec_child=$!; wait \"$exec_child\"", "a0-child", *command]
         config: dict[str, Any] = {
             "ociVersion": "1.0.2",
             "process": {
                 "terminal": False,
                 "user": {"uid": 0, "gid": 0},
-                "args": ["/bin/sh", "-c", "trap 'exit 0' TERM INT; while :; do sleep 3600; done"],
+                "args": command,
                 "env": [f"{key}={value}" for key, value in environment.items()],
                 "cwd": "/workspace",
                 "capabilities": {
@@ -1011,7 +1185,7 @@ class SandboxManager:
                 "noNewPrivileges": False,
                 "rlimits": [{"type": "RLIMIT_NOFILE", "hard": 65535, "soft": 65535}],
             },
-            "root": {"path": str(image.rootfs), "readonly": False},
+            "root": {"path": str(self._disk_root(name, metadata) or image.rootfs), "readonly": False},
             "hostname": name,
             "mounts": mounts,
             "linux": {
@@ -1026,6 +1200,7 @@ class SandboxManager:
                 ],
             },
         }
+        config["annotations"] = {"dev.agent-zero.instance": str(metadata.get("instance_id", ""))}
         if snapshot is not None:
             config["annotations"] = {"dev.gvisor.tar.rootfs.upper": str(snapshot)}
         return config
@@ -1053,6 +1228,24 @@ class SandboxManager:
         )
 
     def _launch(self, name: str, metadata: dict[str, Any]) -> None:
+        read_fd = write_fd = None
+        if not metadata.get("standalone", True):
+            read_fd, write_fd = os.pipe()
+        try:
+            self._launch_runtime(name, metadata, read_fd)
+            if write_fd is not None:
+                old = self._child_pipes.pop(name, None)
+                if old is not None:
+                    os.close(old)
+                self._child_pipes[name] = write_fd
+                write_fd = None
+        finally:
+            if read_fd is not None:
+                os.close(read_fd)
+            if write_fd is not None:
+                os.close(write_fd)
+
+    def _launch_runtime(self, name: str, metadata: dict[str, Any], read_fd: int | None) -> None:
         path = self._instance_path(name)
         bundle = path / "bundle"
         logs = path / "logs"
@@ -1062,6 +1255,7 @@ class SandboxManager:
             metadata,
             "run",
             "--detach",
+            *([f"--pass-fd={read_fd}:3"] if read_fd is not None else []),
             f"--bundle={bundle}",
             f"--user-log={logs / 'user.log'}",
             name,
@@ -1072,6 +1266,7 @@ class SandboxManager:
             try:
                 detached_result = subprocess.run(
                     detached,
+                    pass_fds=(read_fd,) if read_fd is not None else (),
                     stdin=subprocess.DEVNULL,
                     stdout=output,
                     stderr=subprocess.STDOUT,
@@ -1084,10 +1279,10 @@ class SandboxManager:
         state = None
         error = "detached run command timed out"
         if detached_result is not None and detached_result.returncode == 0:
-            state, error = self._wait_for_status(name, metadata, {"running"}, self.config.start_timeout)
+            state, error = self._wait_for_status(name, metadata, {"running", "stopped"}, self.config.start_timeout)
         elif detached_result is not None:
             error = f"detached run exited {detached_result.returncode}"
-        if state is None or state.get("status") != "running":
+        if state is None or state.get("status") not in {"running", "stopped"}:
             self._append_log(
                 launcher_log,
                 f"detached launch unavailable ({error}); trying attached fallback",
@@ -1103,6 +1298,7 @@ class SandboxManager:
                         name,
                         metadata,
                         "run",
+                        *([f"--pass-fd={read_fd}:3"] if read_fd is not None else []),
                         f"--bundle={bundle}",
                         f"--user-log={logs / 'user.log'}",
                         name,
@@ -1111,6 +1307,7 @@ class SandboxManager:
                     stdout=output,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
+                    pass_fds=(read_fd,) if read_fd is not None else (),
                     shell=False,
                 )
             metadata["launch_mode"] = "attached-fallback"
@@ -1138,10 +1335,12 @@ class SandboxManager:
         else:
             metadata["launch_mode"] = "detached"
             metadata["launcher_pid"] = None
-        metadata["last_known_status"] = "running"
+        metadata["last_known_status"] = str(state.get("status"))
         self._atomic_write_json(path / "metadata.json", metadata)
 
     def _save_locked(self, name: str, metadata: dict[str, Any]) -> None:
+        if self._disk_root(name, metadata):
+            return
         path = self._instance_path(name)
         snapshot = path / ROOTFS_SNAPSHOT
         descriptor, temp_name = tempfile.mkstemp(prefix=f".{ROOTFS_SNAPSHOT}.", dir=path)
@@ -1245,7 +1444,12 @@ class SandboxManager:
         if result.stdout:
             self._append_log(path / "logs" / "launcher.log", result.stdout)
         state, error = self._runtime_state(name, metadata)
-        return state is None and (result.returncode == 0 or runtime_is_absent(error))
+        removed = state is None and (result.returncode == 0 or runtime_is_absent(error))
+        if removed:
+            fd = self._child_pipes.pop(name, None)
+            if fd is not None:
+                os.close(fd)
+        return removed
 
     def _wait_for_status(
         self,
@@ -1484,6 +1688,24 @@ class SandboxManager:
     @staticmethod
     def _now() -> str:
         return dt.datetime.now(dt.timezone.utc).isoformat()
+
+    @staticmethod
+    def _validate_command(command: Sequence[str]) -> list[str]:
+        if isinstance(command, (str, bytes)) or not isinstance(command, (list, tuple)):
+            raise SandboxError("command must be an argument list")
+        if any(not isinstance(arg, str) or "\0" in arg for arg in command):
+            raise SandboxError("invalid command argument")
+        if command and not command[0]:
+            raise SandboxError("command executable must not be empty")
+        return list(command)
+
+    def _disk_root(self, name: str, metadata: Mapping[str, Any]) -> Path | None:
+        if metadata.get("filesystem") != "disk":
+            return None
+        path = self._instance_path(name) / "rootfs"
+        if path.is_symlink() or not path.is_dir():
+            raise SandboxError("sandbox disk filesystem is missing or unsafe")
+        return path
 
     def _instance_path(self, name: str) -> Path:
         validate_name(name)

@@ -1,6 +1,5 @@
 import asyncio
 import importlib
-import inspect
 import os
 import sys
 import types
@@ -474,12 +473,10 @@ def _load_text_editor_tool(monkeypatch: pytest.MonkeyPatch):
     plugins_stub.get_plugin_config = lambda *args, **kwargs: {}
 
     runtime_stub = types.ModuleType("helpers.runtime")
+    runtime_stub.is_development = lambda: False
 
-    async def call_development_function(func, *args, **kwargs):
-        result = func(*args, **kwargs)
-        if inspect.isawaitable(result):
-            return await result
-        return result
+    def call_development_function(*args, **kwargs):
+        raise AssertionError("Text editor must use local functions")
 
     runtime_stub.call_development_function = call_development_function
 

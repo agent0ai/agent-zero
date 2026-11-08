@@ -49,10 +49,6 @@ BUNDLED_ACTIONS = {
         "element_action", "ax_snapshot", "ax_action", "uia_snapshot", "uia_action",
         "move", "click", "scroll", "key", "type", "stop_session",
     )),
-    "plugin:_office:office_artifact": ToolActions((
-        "create", "open", "read", "edit", "inspect", "version_history",
-        "restore_version", "export", "status",
-    ), default="status", aliases={"extract": "read", "update": "edit", "patch": "edit"}),
     "plugin:_goal:goal": ToolActions(
         ("get", "create", "update"), default="get",
         aliases={"show": "get", "status": "get", "set": "create", "complete": "update", "blocked": "update"},

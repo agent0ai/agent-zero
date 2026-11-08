@@ -51,7 +51,7 @@ always_enabled: false
 
 ## Plugin Script (`execute.py`)
 
-Plugins can include an optional `execute.py` at the plugin root for user-triggered operations such as setup, post-install steps, maintenance, repairs, migrations, or resource refreshes. Users trigger it from the Plugin List UI.
+Plugins can include an optional `execute.py` at the plugin root for separate, explicitly requested manual operations such as exporting a diagnostic report. Users trigger it from the Plugin List UI. Setup, dependency installation, required initialization, update migrations and uninstall cleanup belong to lifecycle hooks, never a mandatory Execute or post-install step.
 
 Guidelines:
 - Treat it as a manual plugin script, not as the primary way to use the plugin
@@ -64,9 +64,9 @@ Guidelines:
 Plugins can also include an optional `hooks.py` at the plugin root. The framework loads it on demand and can call exported hook functions by name through `helpers.plugins.call_plugin_hook(...)`.
 
 - `hooks.py` runs inside the **Agent Zero framework runtime and Python environment**.
-- Use it for framework-internal work such as install hooks, cache preparation, registration, or filesystem setup.
-- If it runs `sys.executable -m pip install ...`, packages are installed into the same Python environment that runs Agent Zero.
-- If you need to install into an isolated task sandbox or into the system environment, explicitly target that destination from a subprocess by selecting its interpreter or package manager.
+- Hooks own install/update/uninstall through framework APIs and may delegate guest provisioning to automatic worker setup at first use or enablement/startup when readiness is needed.
+- Prefer existing sandboxes for plugin-owned dependencies; keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework. Follow [Choosing dependency location](../docs/developer/plugin-sandboxes.md#choosing-dependency-location) for worker interfaces, guest installers and cleanup.
+- `sys.executable -m pip install ...` in a hook installs into Agent Zero's environment. Use main-environment dependencies only for code that must run there, document the concrete need and keep them minimal. Hooks running there do not justify installing guest libraries there.
 
 In Docker, `hooks.py` and local Python execution share the official image's global Python environment; sandbox destinations retain their own environments.
 

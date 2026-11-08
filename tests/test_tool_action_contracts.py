@@ -1158,12 +1158,6 @@ def test_corrected_tool_prompts_only_teach_action_contract():
         project_root / "prompts/agent.system.tool.skills.md",
         project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md",
         project_root / "plugins/_a0_connector/prompts/agent.system.tool.text_editor_remote.md",
-        project_root / "plugins/_office/prompts/agent.system.tool.office_artifact.md",
-        project_root / "plugins/_office/skills/office-artifacts/SKILL.md",
-        project_root / "plugins/_office/skills/markdown-documents/SKILL.md",
-        project_root / "plugins/_office/skills/writer-documents/SKILL.md",
-        project_root / "plugins/_office/skills/calc-spreadsheets/SKILL.md",
-        project_root / "plugins/_office/skills/impress-presentations/SKILL.md",
     ]
     forbidden = (
         "text_editor:",

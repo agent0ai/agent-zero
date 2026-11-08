@@ -23,7 +23,7 @@ import express from 'express';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import path from 'path';
-import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, realpathSync } from 'fs';
 import { randomBytes } from 'crypto';
 import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
@@ -413,6 +413,13 @@ async function startSocket() {
 
 // HTTP server
 const app = express();
+app.use((req, res, next) => {
+  const token = process.env.A0_BRIDGE_TOKEN;
+  if (!token || req.headers.authorization !== `Bearer ${token}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+});
 app.use(express.json());
 
 // Poll for new messages
@@ -507,6 +514,10 @@ app.post('/send-media', async (req, res) => {
       return res.status(404).json({ error: `File not found: ${filePath}` });
     }
 
+    const relative = path.relative(realpathSync(CACHE_DIR), realpathSync(filePath));
+    if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      return res.status(403).json({ error: 'Media must be in the bridge cache' });
+    }
     const buffer = readFileSync(filePath);
     const ext = filePath.toLowerCase().split('.').pop();
     const type = mediaType || inferMediaType(ext);

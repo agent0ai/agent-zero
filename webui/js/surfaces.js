@@ -5,7 +5,6 @@ export const SURFACE_MODE_FLOATING = "modal";
 export const SURFACE_MODAL_GROUP = "surfaces";
 
 const LEGACY_SURFACE_IDS = new Map([
-  ["office", "desktop"],
 ]);
 
 const registeredSurfaces = new Map();

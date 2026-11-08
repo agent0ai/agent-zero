@@ -1,6 +1,6 @@
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
-from helpers import runtime, extension
+from helpers import extension
 from api import get_work_dir_files
 import posixpath
 
@@ -26,9 +26,7 @@ class RenameWorkDirFile(ApiHandler):
                 ]
                 if not destination_path.startswith("/"):
                     destination_path = f"/{destination_path}"
-                moved_paths = await runtime.call_development_function(
-                    move_items, file_paths, destination_path
-                )
+                moved_paths = await move_items(file_paths, destination_path)
                 res = bool(moved_paths)
                 changed_paths = [*file_paths, *moved_paths]
             elif action in {"rename", "create-folder"}:
@@ -40,9 +38,7 @@ class RenameWorkDirFile(ApiHandler):
                     parent_path = input.get("parentPath", current_path)
                     if not parent_path:
                         return {"error": "Parent path is required"}
-                    res = await runtime.call_development_function(
-                        create_folder, parent_path, new_name
-                    )
+                    res = await create_folder(parent_path, new_name)
                     changed_paths = [
                         posixpath.join(str(parent_path).rstrip("/"), new_name)
                     ]
@@ -52,9 +48,7 @@ class RenameWorkDirFile(ApiHandler):
                         return {"error": "Path is required"}
                     if not file_path.startswith("/"):
                         file_path = f"/{file_path}"
-                    res = await runtime.call_development_function(
-                        rename_item, file_path, new_name
-                    )
+                    res = await rename_item(file_path, new_name)
                     changed_paths = [
                         file_path,
                         posixpath.join(posixpath.dirname(file_path), new_name),
@@ -73,9 +67,7 @@ class RenameWorkDirFile(ApiHandler):
                         "current_path": current_path,
                     },
                 )
-                result = await runtime.call_development_function(
-                    get_work_dir_files.get_files, current_path
-                )
+                result = await get_work_dir_files.get_files(current_path)
                 return {"data": result}
 
             error_msg = {

@@ -28,9 +28,12 @@ class Sandbox(Tool):
         image = str(image or self.args.get("image") or "").strip()
         try:
             manager = get_manager(agent=self.agent)
+            if name and action not in {"create", "new", "pull_image", "refresh_image", "inspect_image", "delete_image"}:
+                if manager.inspect(name).service:
+                    raise SandboxError("plugin service sandboxes are managed by their owning plugin")
             if action in {"list", "ls"}:
                 values = await asyncio.to_thread(manager.list)
-                payload = [sandbox_info_dict(value) for value in values]
+                payload = [sandbox_info_dict(value) for value in values if not value.service]
                 return self._json({"sandboxes": payload})
             if action in {"images", "list_images"}:
                 values = await asyncio.to_thread(manager.list_images)

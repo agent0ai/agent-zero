@@ -2,7 +2,7 @@ from pathlib import Path
 
 from helpers.tool import Tool, Response
 from helpers.extension import call_extensions_async
-from helpers import plugins, runtime
+from helpers import files, plugins
 from plugins._text_editor.helpers.file_ops import (
     FileInfo,
     read_file,
@@ -56,14 +56,14 @@ class TextEditor(Tool):
     async def _read(self, path: str = "", **kwargs) -> Response:
         if not path:
             return self._error("read", path, "path is required")
+        path = files.fix_dev_path(str(Path(path).expanduser().absolute()))
 
         cfg = _get_config(self.agent)
         line_from = int(kwargs.get("line_from", 1))
         raw_to = kwargs.get("line_to")
         line_to = int(raw_to) if raw_to is not None else None
 
-        result = await runtime.call_development_function(
-            read_file,
+        result = read_file(
             path,
             line_from=line_from,
             line_to=line_to,
@@ -75,7 +75,7 @@ class TextEditor(Tool):
         if result["error"]:
             return self._error("read", path, result["error"])
 
-        info = await runtime.call_development_function(file_info, path)
+        info = file_info(path)
         record_file_state(
             self.agent,
             info,
@@ -109,6 +109,7 @@ class TextEditor(Tool):
     ) -> Response:
         if not path:
             return self._error("write", path, "path is required")
+        path = files.fix_dev_path(str(Path(path).expanduser().absolute()))
 
         # Extension point
         ext_data = {"path": path, "content": content}
@@ -116,9 +117,7 @@ class TextEditor(Tool):
             "text_editor_write_before", agent=self.agent, data=ext_data
         )
 
-        result = await runtime.call_development_function(
-            write_file, ext_data["path"], ext_data["content"]
-        )
+        result = write_file(ext_data["path"], ext_data["content"])
 
         if result["error"]:
             return self._error("write", path, result["error"])
@@ -129,7 +128,7 @@ class TextEditor(Tool):
             data={"path": path, "total_lines": result["total_lines"]},
         )
 
-        info = await runtime.call_development_function(file_info, path)
+        info = file_info(path)
         record_file_state(
             self.agent,
             info,
@@ -138,8 +137,7 @@ class TextEditor(Tool):
         )
 
         cfg = _get_config(self.agent)
-        read_result = await runtime.call_development_function(
-            read_file,
+        read_result = read_file(
             info["expanded"],
             line_from=1,
             line_to=result["total_lines"],
@@ -167,6 +165,7 @@ class TextEditor(Tool):
     ) -> Response:
         if not path:
             return self._error("patch", path, "path is required")
+        path = files.fix_dev_path(str(Path(path).expanduser().absolute()))
         patch_request, err = parse_patch_request(
             edits,
             patch_text,
@@ -177,7 +176,7 @@ class TextEditor(Tool):
         if err:
             return self._error("patch", path, err)
 
-        info = await runtime.call_development_function(file_info, path)
+        info = file_info(path)
         if not info["is_file"]:
             return self._error("patch", path, "file not found")
 
@@ -222,9 +221,7 @@ class TextEditor(Tool):
         )
 
         try:
-            total_lines = await runtime.call_development_function(
-                apply_patch, ext_data["path"], ext_data["edits"]
-            )
+            total_lines = apply_patch(ext_data["path"], ext_data["edits"])
         except Exception as exc:
             return self._error("patch", path, str(exc))
 
@@ -235,9 +232,7 @@ class TextEditor(Tool):
         )
 
         # Refresh file info after patch for updated mtime
-        post_info = await runtime.call_development_function(
-            file_info, expanded
-        )
+        post_info = file_info(expanded)
         apply_patch_post_state(
             self.agent,
             post_info,
@@ -279,8 +274,7 @@ class TextEditor(Tool):
         )
 
         try:
-            result = await runtime.call_development_function(
-                apply_exact_replace_file,
+            result = apply_exact_replace_file(
                 ext_data["path"],
                 ext_data["old_text"],
                 ext_data["new_text"],
@@ -300,9 +294,7 @@ class TextEditor(Tool):
             },
         )
 
-        post_info = await runtime.call_development_function(
-            file_info, ext_data["path"]
-        )
+        post_info = file_info(ext_data["path"])
         mark_file_state_stale(self.agent, post_info, key=_MTIME_KEY)
 
         patch_content = await _read_exact_replace_region(
@@ -341,8 +333,7 @@ class TextEditor(Tool):
         )
 
         try:
-            result = await runtime.call_development_function(
-                apply_context_patch_file,
+            result = apply_context_patch_file(
                 ext_data["path"],
                 ext_data["patch_text"],
             )
@@ -362,9 +353,7 @@ class TextEditor(Tool):
             },
         )
 
-        post_info = await runtime.call_development_function(
-            file_info, ext_data["path"]
-        )
+        post_info = file_info(ext_data["path"])
         mark_file_state_stale(self.agent, post_info, key=_MTIME_KEY)
 
         patch_content = await _read_context_patch_region(
@@ -417,8 +406,7 @@ async def _read_patch_region(
     max_to = max(e["to"] for e in edits)
     end_line = max_to + added - removed + 3
 
-    result = await runtime.call_development_function(
-        read_file,
+    result = read_file(
         path,
         line_from=max(min_from - 1, 1),
         line_to=min(end_line, total_lines),
@@ -438,8 +426,7 @@ async def _read_context_patch_region(
     line_from = min(max(int(result["line_from"]), 1), total_lines)
     line_to = min(max(int(result["line_to"]), line_from) + 3, total_lines)
 
-    read_result = await runtime.call_development_function(
-        read_file,
+    read_result = read_file(
         path,
         line_from=max(line_from - 1, 1),
         line_to=line_to,
@@ -459,8 +446,7 @@ async def _read_exact_replace_region(
     line_from = min(max(int(result["line_from"]), 1), total_lines)
     line_to = min(max(int(result["line_to"]), line_from) + 3, total_lines)
 
-    read_result = await runtime.call_development_function(
-        read_file,
+    read_result = read_file(
         path,
         line_from=max(line_from - 1, 1),
         line_to=line_to,

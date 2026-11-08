@@ -116,36 +116,18 @@ def test_transcribe_api_returns_400_for_invalid_pcm(
     assert response.get_data(as_text=True) == "Unsupported audio payload version"
 
 
-def test_whisper_receives_samples_without_filename_or_subprocess(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_whisper_sends_validated_pcm_to_guest(monkeypatch):
     expected = np.array([0.0, 0.25, -0.25], dtype=np.float32)
-    received: dict[str, object] = {}
-
-    async def fake_preload(_model_name: str) -> None:
-        return None
-
-    class FakeModel:
-        def transcribe(self, audio: np.ndarray, **kwargs: object) -> dict[str, str]:
-            received["audio"] = audio
-            received["kwargs"] = kwargs
-            return {"text": "hello", "language": "en"}
-
-    def reject_subprocess(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("PCM transcription must not launch a subprocess")
-
-    monkeypatch.setattr(runtime, "_preload", fake_preload)
-    monkeypatch.setattr(runtime, "_model", FakeModel())
-    monkeypatch.setattr(subprocess, "Popen", reject_subprocess)
-
-    result = asyncio.run(
-        runtime.transcribe(pcm_payload(expected), {"language": "auto"})
-    )
-
-    assert result["text"] == "hello"
-    assert isinstance(received["audio"], np.ndarray)
-    np.testing.assert_array_equal(received["audio"], expected)
-    assert received["kwargs"] == {"fp16": False}
+    received = {}
+    async def call(payload, **kwargs):
+        received.update(payload)
+        return {'transcript': {'text': 'hello', 'language': 'en'}, 'version': '20250625'}
+    monkeypatch.setattr(runtime.worker, 'acall', call)
+    result = asyncio.run(runtime.transcribe(pcm_payload(expected), {'language': 'auto'}))
+    assert result['text'] == 'hello'
+    np.testing.assert_array_equal(np.frombuffer(base64.b64decode(received['audio']), dtype='<f4'), expected)
+    assert received['language'] is None
+    assert 'path' not in received
 
 
 def test_browser_pcm_helpers_mix_resample_and_encode_little_endian(

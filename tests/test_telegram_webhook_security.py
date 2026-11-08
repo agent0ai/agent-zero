@@ -16,7 +16,8 @@ class TelegramWebhookSecurityTests(unittest.TestCase):
         async def receive(message):
             received.append((message.from_user.id, message.text))
 
-        with patch.object(bm, "_bots", {}):
+        with patch.object(bm, "_bots", {}), patch.object(bm, 'cache_bot_info', new_callable=AsyncMock), \
+             patch.object(bm, 'rpc', new_callable=AsyncMock) as rpc:
             instance = bm.create_bot("security_test", "123456:test", receive, receive)
             app = Flask(__name__)
             api.register_api_route(app, threading.Lock())
@@ -27,6 +28,7 @@ class TelegramWebhookSecurityTests(unittest.TestCase):
                 "chat": {"id": 424242, "type": "private"},
                 "text": "POC_CONFIRMED",
             }}
+            rpc.return_value = [{'kind': 'message', 'event': payload['message']}]
             try:
                 for active, secret, header, expected in [
                     (False, "", "", 403),
@@ -71,12 +73,13 @@ class TelegramWebhookSecurityTests(unittest.TestCase):
                         self.assertEqual(register.await_args.kwargs["secret_token"], "x" * 32)
                         self.assertTrue(instance.webhook_active)
                     with patch.object(instance.bot, "delete_webhook", new_callable=AsyncMock), patch.object(
-                        instance.dispatcher, "start_polling", new_callable=AsyncMock
-                    ):
+                        bm, "cache_bot_info", new_callable=AsyncMock
+                    ), patch.object(bm, "rpc", new_callable=AsyncMock, return_value=[]):
                         task = await bm.start_polling(instance)
                         self.assertFalse(instance.webhook_active)
                         self.assertEqual(instance.webhook_secret, "")
-                        await task
+                        await bm.stop_polling(instance)
+                        self.assertTrue(task.cancelled())
                 finally:
                     await instance.bot.session.close()
         asyncio.run(run())

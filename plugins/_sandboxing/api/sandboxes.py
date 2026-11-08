@@ -38,6 +38,9 @@ class Sandboxes(ApiHandler):
                     "diagnostics": diagnostics,
                 }
             name = str(input.get("name") or "").strip()
+            if action == "disk_usage":
+                size = await asyncio.to_thread(manager.disk_usage, name)
+                return {"ok": True, "name": name, "size_bytes": size}
             if action == "create":
                 default_name, default_type, default_network = defaults()
                 item = await asyncio.to_thread(
@@ -47,11 +50,17 @@ class Sandboxes(ApiHandler):
                     network=str(input.get("network") or default_network),
                     image=str(input.get("image") or manager.config.default_image),
                     mounts=input.get("mounts") or [],
+                    standalone=input.get("standalone") is True,
+                    share_usr=input.get("share_usr", True) is True,
+                    host_root=input.get("host_root") is True,
+                    command=input.get("command") or [],
                 )
             elif action in {"start", "wake"}:
                 item = await asyncio.to_thread(manager.start, name)
             elif action in {"stop", "sleep"}:
                 item = await asyncio.to_thread(manager.stop, name)
+            elif action == "restart":
+                item = await asyncio.to_thread(manager.restart, name)
             elif action == "save":
                 item = await asyncio.to_thread(manager.save, name)
             elif action == "inspect":

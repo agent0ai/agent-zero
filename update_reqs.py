@@ -1,10 +1,10 @@
-import pkg_resources
+import importlib.metadata
 import re
 
 def get_installed_version(package_name):
     try:
-        return pkg_resources.get_distribution(package_name).version
-    except pkg_resources.DistributionNotFound:
+        return importlib.metadata.version(package_name)
+    except importlib.metadata.PackageNotFoundError:
         return None
 
 def update_requirements():

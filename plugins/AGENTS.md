@@ -28,8 +28,10 @@
 - `webui/config.html` settings UIs must bind plugin values to `config.*` and modal state/actions to `context.*` through `$store.pluginSettingsPrototype`.
 - Plugin model provider overrides belong in plugin `conf/model_providers.yaml` and merge after base `conf/model_providers.yaml`.
 - Global and scoped activation are independent and use `.toggle-1` and `.toggle-0`; `always_enabled: true` forces ON and disables UI toggles.
-- `hooks.py` runs in the global Docker Python environment. Explicitly target an isolated sandbox or the operating system when a plugin must prepare those environments.
-- `execute.py` is manual user-triggered setup, maintenance, repair, migration, or refresh work; automatic framework behavior belongs in hooks or lifecycle extensions.
+- Prefer the existing [sandbox/worker facilities](../docs/developer/plugin-sandboxes.md#choosing-dependency-location) for plugin-owned Python, Node and native packages, heavy inference, browser/document/media workers and external integration dependencies. Keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework; call the guest without importing guest-only libraries or adding them to root requirements or global pip/npm/apt installs.
+- Main-environment dependencies are legitimate only for functionality that must execute there. Document the concrete need in the plugin README and keep that dependency set minimal. `hooks.py` still runs in the framework's global Docker Python environment; sandboxing workers does not isolate plugin hooks.
+- Hooks own install/update/uninstall through framework APIs and may delegate guest provisioning to automatic worker setup. Reuse guest-owned manifests/installers and persistent environments with idempotent setup/retry; provision at first actual use, or at enablement/startup for early-needed features and configured listeners. Disable stops owned workers; uninstall cleans up owned resources while preserving shared dependencies and unrelated user data.
+- `execute.py` is only for separate, explicitly requested manual actions unrelated to lifecycle setup, dependency installation, required initialization, updates or removal. Never require it or a user-run post-install command to make a plugin usable.
 - Plugin routes are `GET /plugins/<name>/<path>`, `POST /api/plugins/<name>/<handler>`, and `POST /api/plugins` for management actions.
 - `_a0_connector` WebSocket history replay must stay bounded: emit large chat history as paged `connector_context_snapshot` payloads, keep `last_sequence` as the Agent Zero log-output cursor, and avoid sending an entire long transcript in one frame.
 - Frontend plugin HTML extensions live under `extensions/webui/<point>/`, include a root Alpine scope, and use `x-move-*` directives when targeting static breakpoints.
@@ -43,6 +45,8 @@
 - Community discovery cards should use `type: "feature"`; reserve `hero` cards for core system features.
 - Supported discovery CTA actions are `open-plugin-config:<plugin_folder_name>`, `open-plugin-hub`, and `open-url:<url>`.
 - Plugin deletion or disablement should not leave unmanaged services, symlinks, or files outside plugin-owned paths unless explicitly documented with cleanup.
+
+- Document parsing/OCR, local speech inference, messaging/mail transports and the internal browser runtime execute in child sandboxes with on-demand installers; thin plugin tools, settings and authenticated API/UI adapters stay in the framework.
 
 ## Work Guidance
 
@@ -58,6 +62,7 @@
 
 ## Verification
 
+- Check that optional guest dependencies stay out of main requirements and feature import/general boot paths do not eagerly install them; verify intentional enablement/startup readiness for configured listeners and other early-needed features. See the [sandbox guide](../docs/developer/plugin-sandboxes.md#choosing-dependency-location).
 - Run plugin-specific tests after changing a bundled plugin.
 - Run framework tests for touched extension points, API handlers, tools, settings, or WebUI surfaces.
 - For plugins with external services or browser/desktop integrations, perform a targeted smoke check when practical.
@@ -95,7 +100,6 @@ Direct child DOX files:
 | [_model_config/AGENTS.md](_model_config/AGENTS.md) | Model selection, presets, API-key checks, and scoped overrides. |
 | [_notify_user/AGENTS.md](_notify_user/AGENTS.md) | User notification tool for chats that run on their own. |
 | [_oauth/AGENTS.md](_oauth/AGENTS.md) | OAuth-backed model-provider connections and local proxy routes. |
-| [_office/AGENTS.md](_office/AGENTS.md) | LibreOffice office artifacts and office canvas sessions. |
 | [_onboarding/AGENTS.md](_onboarding/AGENTS.md) | First-time model onboarding wizard. |
 | [_orchestrator/AGENTS.md](_orchestrator/AGENTS.md) | External terminal coding-agent orchestration skill, adapter status, and settings UI. |
 | [_pin_to_top/AGENTS.md](_pin_to_top/AGENTS.md) | Built-in chat, task, and project-folder sidebar pinning. |
@@ -106,6 +110,7 @@ Direct child DOX files:
 | [_scheduler/AGENTS.md](_scheduler/AGENTS.md) | Scheduler agent tool, Scheduled Tasks WebUI, CRUD API endpoints, and sidebar task list. |
 | [_search_engine/AGENTS.md](_search_engine/AGENTS.md) | Live web search tool via local SearXNG. |
 | [_sidebar_folders/AGENTS.md](_sidebar_folders/AGENTS.md) | Project folder presentation, filters, sorting, drag ordering, and chat project moves. |
+| [_tunnel/AGENTS.md](_tunnel/AGENTS.md) | On-demand remote-control providers, sandbox installers, and settings. |
 | [_sandboxing/AGENTS.md](_sandboxing/AGENTS.md) | Direct gVisor sandbox lifecycle, runtime OCI image cache, execution destinations, and management UI. |
 | [_searxng/AGENTS.md](_searxng/AGENTS.md) | Disabled SearXNG search placeholder and historical sandbox-reimplementation notes. |
 | [_skills/AGENTS.md](_skills/AGENTS.md) | Active and hidden skill configuration and prompt injection. |

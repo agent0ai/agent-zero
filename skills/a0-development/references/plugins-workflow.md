@@ -4,6 +4,7 @@
 
 - Plugin contract: `/a0/plugins/AGENTS.md`
 - Plugin helper code: `/a0/helpers/plugins.py`
+- Sandbox placement and interfaces: [Sandboxed plugin runtimes](../../../docs/developer/plugin-sandboxes.md#choosing-dependency-location), `/a0/helpers/sandbox.py` and `/a0/helpers/sandbox_worker.py`
 - Plugin entrypoints: `/a0/skills/a0-create-plugin/SKILL.md` and `/a0/skills/a0-manage-plugin/SKILL.md`
 - Root development contract: `/a0/AGENTS.md`
 
@@ -32,8 +33,9 @@ Use root framework directories only when changing bundled framework behavior its
 - Bundled plugins under `plugins/` may use `plugins.<plugin_name>...` imports.
 - User plugins under `usr/plugins/` should use `usr.plugins.<plugin_name>...` imports.
 - Avoid `sys.path` hacks and symlink-dependent imports.
-- `hooks.py` runs inside the global Docker Python environment. Install/update setup and dependency installation belong in `install()`; cleanup and removal of owned dependencies belong in `uninstall()`. Never use `execute.py` for these operations. Follow the required lifecycle contract in `a0-create-plugin`.
-- If a plugin must prepare the isolated sandbox runtime or system packages, it must explicitly target that environment in a subprocess.
+- Prefer existing sandboxes for plugin-owned Python/Node/native packages, heavy inference, browser/document/media workers and external integration clients. Keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework and call the guest without importing guest-only libraries or adding them to main requirements/global installs.
+- Main-environment dependencies are legitimate only for functionality that must execute there; document the concrete need and keep that set minimal. `hooks.py` still runs in the framework's global Docker Python environment, so worker sandboxing does not isolate hooks.
+- Hooks and framework management APIs own install/update/uninstall; guest setup may delegate to existing automatic workers using guest-owned manifests/installers and persistent environments. Provision at first actual use, or at enablement/startup for early-needed features and configured listeners. Preserve idempotent retry, disabled-state behavior and owned cleanup; never require `execute.py` or a manual post-install command. Follow `a0-create-plugin` and the sandbox source anchors above, including the current bundled-only `SandboxWorker` path limit.
 
 ## Manifest And Configuration
 
@@ -84,6 +86,7 @@ Plugin UI errors, warnings, success, and info should use the A0 notification sys
 
 ## Verification
 
+- Check optional guest dependencies stay out of main requirements and feature import/general boot paths do not eagerly install them. Verify first-use setup/retry and early listener readiness where needed; lazy setup reduces the default footprint, not necessarily total disk after use.
 - Run plugin-specific tests after changing a bundled plugin.
 - Run framework tests for touched tools, API handlers, extension points, settings, or WebUI surfaces.
 - Smoke-test external-service, browser, desktop, or connector integrations when practical.

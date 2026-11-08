@@ -37,6 +37,8 @@
 - Important called helpers/classes observed in the source: `self.relative_path`, `self.session_request`, `self.query`, `virtual_desktop.proxy_for_token`, `WebSocket`, `self.upstream_target`, `WSConnection`, `writer.write`, `rest.partition`, `unquote`, `quote`, `http.client.HTTPConnection`, `query_string.decode`, `urlsplit`, `location.startswith`, `path.startswith`, `parse_qs`, `login.get_credentials_hash`, `SecureCookieSessionInterface.get_signing_serializer`, `dict.get.decode`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
+- Register the plugin-owned Tuxee gateway before the generic `/desktop` mount; its HTTP/WebSocket authentication and prefix handling belong to `plugins/_desktop/helpers/gateway.py`. Register the plugin-owned Browser noVNC gateway at `/browser/vnc`; it owns native VNC streaming and same-origin admission. The generic gateway remains for legacy consumers.
+
 ## Work Guidance
 
 - Preserve public helper APIs used by core code and plugins unless every caller is updated.
@@ -46,9 +48,7 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- Related tests observed by source search:
-  - `tests/test_office_canvas_setup.py`
-  - `tests/test_office_document_store.py`
+- Run `tests/test_browser_vnc.py`, `tests/test_browser_agent_regressions.py` and `tests/test_tuxee_gateway.py`.
 
 ## Child DOX Index
 

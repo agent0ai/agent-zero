@@ -99,7 +99,7 @@ def test_default_skill_descriptions_fit_preview_and_remain_searchable(monkeypatc
         ("Chrome Web Store", "browser-extension-control"),
         ("extension permissions", "browser-extension-control"),
         ("connect local files", "setup-a0-cli"),
-        ("Word document", "writer-documents"),
+        ("Word document", "document-query"),
         ("Docker desktop terminal", "linux-desktop"),
         ("framework development", "a0-development"),
     ]:

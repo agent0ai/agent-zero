@@ -11,12 +11,8 @@ class Status(ApiHandler):
         engine = "paradee" if config["voice"] == "paradee" else "kokoro"
         package_name = "onnxruntime" if engine == "paradee" else "kokoro"
 
-        package_version = ""
+        package_version = runtime.package_versions.get(engine, "")
         package_error = ""
-        try:
-            package_version = importlib.metadata.version(package_name)
-        except Exception as e:
-            package_error = str(e)
 
         return {
             "plugin": "_kokoro_tts",

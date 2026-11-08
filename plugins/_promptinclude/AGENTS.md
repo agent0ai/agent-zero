@@ -13,6 +13,8 @@
 
 ## Local Contracts
 
+- Scan the local workdir in every mode; resolve development `/a0/` paths locally instead of converting project folders to sibling-container paths.
+
 - Respect gitignore-style filtering, per-file budgets, and total token budgets.
 - Include only intended promptinclude files from configured workspaces.
 - Keep scan result status fields accurate for skipped, cropped, and included files.

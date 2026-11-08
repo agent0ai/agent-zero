@@ -40,7 +40,7 @@ Use this skill to develop Agent Zero or operate an existing instance on the user
 
 1. Source and nearest DOX beat memory, examples, and this skill if they disagree.
 2. Before editing, read the applicable `AGENTS.md` chain from the repo root to every file you expect to touch.
-3. New capabilities should usually be plugins. For plugin-specific work, load `a0-create-plugin` for authoring/review/contribution or `a0-manage-plugin` for discovery and lifecycle operations.
+3. New capabilities should usually be plugins. Prefer existing sandboxes for plugin-owned dependencies; keep lightweight framework adapters and only dependencies required by functionality that must run there, with that need documented. Read `references/plugins-workflow.md` for placement and lifecycle guidance. For plugin-specific work, load `a0-create-plugin` for authoring/review/contribution or `a0-manage-plugin` for discovery and lifecycle operations.
 4. Do not assume ports. Discover WebUI host/port from startup output, launcher or Docker mapping, or explicit `--host`, `--port`, `WEB_UI_HOST`, and `WEB_UI_PORT` configuration.
 5. In Docker, framework checks and local agent/user Python execution use the official image's global Python environment; isolated sandbox images keep independent runtimes.
 6. Treat `/a0/` as the runtime framework root inside Docker. In local development it means the repository root. If a live container matters, prove that `/a0` matches the checkout before trusting source-only conclusions.
@@ -63,7 +63,7 @@ Load references with:
 | Python/WebUI extension discovery, hook points, ordering, implicit hooks | `references/extensions.md` |
 | HTTP API, WebSocket handlers, WebUI extension surfaces | `references/api-webui.md` |
 | Agent profiles, prompts, skills, projects | `references/agents-prompts-skills-projects.md` |
-| Plugin-first workflow, where to put new work, handoffs to plugin skills | `references/plugins-workflow.md` |
+| Plugin-first workflow, sandbox dependency placement, handoffs to plugin skills | `references/plugins-workflow.md` |
 
 ## Working Flow
 

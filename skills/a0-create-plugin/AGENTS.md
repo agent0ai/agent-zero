@@ -13,7 +13,8 @@
 ## Local Contracts
 
 - New custom plugins must default to `usr/plugins/`.
-- Setup, dependencies, required initialization, and uninstall cleanup belong to plugin-root `hooks.py` lifecycle functions; never recommend `execute.py` for these operations. Keep examples and review checks consistent with this rule.
+- Setup, dependencies, required initialization, and uninstall cleanup remain owned by plugin-root `hooks.py` lifecycle functions; guest provisioning may be delegated to automatic worker setup on first use or enablement/startup when readiness is needed. Never recommend `execute.py` for these operations. Keep examples and review checks consistent with this rule.
+- Prefer existing sandboxes for plugin-owned dependencies; keep main-environment dependencies minimal and justified by functionality that must execute there. Link the shared sandbox guide rather than duplicating its runtime details.
 - Honor an explicit local/community choice; ask once when it is unknown before creating a new plugin.
 - Keep review and contribution discoverable through this entrypoint; do not recreate separate router/debug/review/contribution skills.
 - Keep plugin manifest, settings, extension layout, Store Gating, and notification guidance synchronized with `plugins/AGENTS.md` and WebUI contracts.

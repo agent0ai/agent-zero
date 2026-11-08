@@ -923,8 +923,6 @@ def restore_git_state(
 
 
 def launch_ui_process(repo_dir: Path, logger: AttemptLogger) -> subprocess.Popen[bytes]:
-    run_office_cleanup_hook(repo_dir, logger)
-
     prepare_script = repo_dir / "prepare.py"
     if prepare_script.exists():
         logger.log("Running prepare.py before UI start")
@@ -943,31 +941,6 @@ def launch_ui_process(repo_dir: Path, logger: AttemptLogger) -> subprocess.Popen
         ],
         cwd=repo_dir,
     )
-
-
-def run_office_cleanup_hook(repo_dir: Path, logger: AttemptLogger) -> None:
-    hook_path = repo_dir / "plugins" / "_office" / "hooks.py"
-    if not hook_path.exists():
-        return
-    try:
-        if str(repo_dir) not in sys.path:
-            sys.path.insert(0, str(repo_dir))
-        spec = importlib.util.spec_from_file_location("a0_office_hooks", hook_path)
-        if spec is None or spec.loader is None:
-            logger.log("Office cleanup hook could not be loaded.")
-            return
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        cleanup = getattr(module, "cleanup_stale_runtime_state", None)
-        if not callable(cleanup):
-            return
-        result = cleanup()
-        if isinstance(result, dict) and result.get("errors"):
-            logger.log(f"Office cleanup hook reported errors: {result.get('errors')}")
-        else:
-            logger.log("Office cleanup hook completed.")
-    except Exception as exc:
-        logger.log(f"Office cleanup hook skipped after error: {exc}")
 
 
 def wait_for_health(

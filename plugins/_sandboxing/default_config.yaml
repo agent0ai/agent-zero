@@ -1,7 +1,7 @@
 runsc_path: /usr/bin/runsc
 skopeo_path: /usr/bin/skopeo
 umoci_path: /usr/bin/umoci
-default_image: docker.io/library/python:3.13-slim-bookworm
+default_image: agent-zero-sandbox:1
 registry_auth_file: ""
 image_cache_dir: usr/plugins/_sandboxing/images
 state_dir: usr/plugins/_sandboxing/runtime

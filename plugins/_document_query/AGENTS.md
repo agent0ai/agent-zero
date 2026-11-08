@@ -18,10 +18,11 @@
 
 - Respect configured size, timeout, retry, parser concurrency, and OCR limits.
 - Fetch local and remote resources safely and avoid leaking document contents beyond intended prompt/tool use.
-- Keep optional Python dependency installation targeted to the current global Docker Python interpreter.
+- Parser packages and OCR system dependencies belong only to `sandbox/install.sh` and the guest runtime; host hooks never install them. `helpers/sandbox.py` stages requested document bytes and serves both Document Query and Memory knowledge loaders.
 - Keep Tesseract, its Latin language data, and Poppler out of the base image. Install Tesseract immediately before a system-backed image OCR call and add Poppler only for a PDF OCR fallback.
 - LiteParse uses its bundled OCR implementation and must not trigger installation of the legacy system OCR packages.
-- The crash-isolated LiteParse worker starts through `depfix run` so a fresh interpreter can import the Depfix-managed application graph.
+- LiteParse subprocesses use the guest interpreter. Parser source depends only on the standalone `helpers/document.py` value object, standard-library logging and guest packages. First-use installation is outside the document processing deadline; cancellation stops the child sandbox.
+- The tool stops its prepared worker on every exit, including cache hits and fetch failures before any parse.
 
 ## Work Guidance
 

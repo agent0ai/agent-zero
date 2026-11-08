@@ -43,6 +43,8 @@
 
 ## Runtime Contracts
 
+- Observer scheduling/unscheduling must run outside the registry lock: watchdog dispatch holds its own observer lock while calling us. Serialize refreshes without blocking callbacks, and replay a pending refresh after concurrent registrations. Verify the lock ordering with `tests/test_watchdog_registration.py`.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.

@@ -737,14 +737,14 @@ def test_host_computer_use_does_not_fall_back_to_linux_desktop_skill():
     assert "Do not substitute the `linux-desktop` skill" in computer_stub
     assert "Never switch to `linux-desktop`" in host_skill
     assert "Those paths only see the internal Agent Zero runtime" in host_skill
-    assert "Docker/Xpra" in linux_frontmatter["description"]
+    assert "Docker/Tuxee" in linux_frontmatter["description"]
     assert "not the user's host computer" in linux_frontmatter["description"]
     assert "host-computer-use" in linux_skill
     assert "computer_use_remote" in linux_skill
-    assert "`desktopctl.sh` only targets the internal Agent Zero Xpra display" in linux_skill
+    assert "Tuxee only controls the internal Agent Zero container" in linux_skill
     assert "use the OS" not in linux_frontmatter["triggers"]
     assert "terminal app" not in linux_frontmatter["triggers"]
-    assert any("Xpra" in trigger for trigger in linux_frontmatter["triggers"])
+    assert any("Tuxee" in trigger for trigger in linux_frontmatter["triggers"])
 
 
 def test_connector_skill_root_follows_connection_without_mutating_cached_paths(monkeypatch):

@@ -19,14 +19,16 @@
 
 ## Runtime Contracts
 
+- Development uses the local scheduler and job-loop extensions without pausing itself or contacting a sibling. Explicit `pause_loop`/`resume_loop`, stale-pause recovery, tick error handling and the sleep interval remain intact.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: scheduler state.
-- Imported dependency areas include: `asyncio`, `datetime`, `helpers`, `helpers.print_style`, `helpers.task_scheduler`, `time`.
+- Imported dependency areas include: `asyncio`, `helpers`, `helpers.print_style`, `helpers.task_scheduler`, `time`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `time.time`, `runtime.is_development`, `scheduler.tick`, `call_extensions_async`, `resume_loop`, `asyncio.sleep`, `runtime.call_development_function`, `PrintStyle.error`, `scheduler_tick`, `errors.format_error`, `PrintStyle`, `errors.error_text`.
+- Important called helpers/classes observed in the source: `time.time`, `scheduler.tick`, `call_extensions_async`, `resume_loop`, `asyncio.sleep`, `PrintStyle.error`, `scheduler_tick`, `errors.format_error`, `PrintStyle`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -40,6 +42,7 @@
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_api_chat_lifetime.py`
+  - `tests/test_local_development_calls.py`
 
 ## Child DOX Index
 

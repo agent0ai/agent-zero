@@ -1,13 +1,9 @@
 import asyncio
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Awaitable
 
-from aiogram import Bot, Dispatcher, Router, F
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode, ChatType, ContentType
-from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, Message
+from plugins._telegram_integration.helpers.sandbox import Bot, TelegramEvent, worker, decode, rpc
 from helpers import integration_commands
 
 from helpers.errors import format_error
@@ -19,13 +15,14 @@ from helpers.print_style import PrintStyle
 class BotInstance:
     name: str
     bot: Bot
-    dispatcher: Dispatcher
-    router: Router
+    handlers: dict
     task: asyncio.Task | None = None  # polling task
     webhook_active: bool = False  # True when webhook mode is registered
     webhook_secret: str = ""  # secret for webhook verification
     webhook_url: str = ""
     group_mode: str = "mention"  # current group_mode setting
+    generation: int = 0
+    deliveries: set = field(default_factory=set)
     bot_info: object | None = None  # cached result of bot.get_me()
 
 # Bot registry (singleton, persists across module reloads)
@@ -52,46 +49,11 @@ def create_bot(
     on_new_members: Callable[..., Awaitable] | None = None,
     group_mode: str = "mention",
 ) -> BotInstance:
-    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp = Dispatcher()
-    router = Router()
-
-    # Register command handlers
-    command_filters = [F.chat.type == ChatType.PRIVATE] if group_mode == "off" else []
-    router.message.register(on_command_start, CommandStart(), *command_filters)
-    if on_command_control:
-        router.message.register(
-            on_command_control,
-            Command(commands=integration_commands.command_names(integration="telegram")),
-            *command_filters,
-        )
-
-    if on_callback_query:
-        router.callback_query.register(on_callback_query)
-
-    if on_new_members:
-        router.message.register(on_new_members, F.content_type == ContentType.NEW_CHAT_MEMBERS)
-
-    # Register message handler with group filtering
-    if group_mode == "off":
-        # Private chats only
-        router.message.register(
-            on_message, F.chat.type == ChatType.PRIVATE,
-        )
-    elif group_mode == "mention":
-        # Private chats: all messages; Groups: only when mentioned/replied
-        router.message.register(
-            on_message, F.chat.type == ChatType.PRIVATE,
-        )
-        router.message.register(
-            _make_group_mention_filter(on_message, bot),
-        )
-    else:
-        # All messages in all chats
-        router.message.register(on_message)
-
-    dp.include_router(router)
-    instance = BotInstance(name=name, bot=bot, dispatcher=dp, router=router, group_mode=group_mode)
+    bot = Bot(token, parse_mode='HTML')
+    instance = BotInstance(name=name, bot=bot, group_mode=group_mode, handlers={
+        'message': on_message, 'start': on_command_start, 'control': on_command_control,
+        'callback': on_callback_query, 'members': on_new_members,
+    })
     _bots[name] = instance
     return instance
 
@@ -101,13 +63,13 @@ async def register_bot_commands(instance: BotInstance) -> None:
     from plugins._telegram_integration.helpers.slash_commands import menu_commands
 
     commands = [
-        BotCommand(command=name, description=description)
+        dict(command=name, description=description)
         for name, description in menu_commands()
     ]
     if not commands:
         return
     try:
-        await instance.bot.set_my_commands(commands)
+        await instance.bot.set_my_commands(commands=commands)
         PrintStyle.info(f"Telegram ({instance.name}): registered {len(commands)} bot commands")
     except Exception as e:
         PrintStyle.error(f"Telegram ({instance.name}): failed to register bot commands: {format_error(e)}")
@@ -115,82 +77,56 @@ async def register_bot_commands(instance: BotInstance) -> None:
 
 async def cache_bot_info(instance: BotInstance):
     """Fetch and cache bot info. Call after create_bot."""
-    if not instance.bot_info:
-        instance.bot_info = await instance.bot.get_me()
+    await worker.aprepare()
+    if not instance.bot_info or instance.generation != worker.generation:
+        info = await rpc({'action': 'create', 'name': instance.name, 'token': instance.bot.token,
+                                   'group_mode': instance.group_mode,
+                                   'commands': integration_commands.command_names(integration='telegram')})
+        instance.bot_info = decode(info, instance.bot)
+        instance.generation = worker.generation
     return instance.bot_info
 
 
-def _make_group_mention_filter(handler: Callable, bot: Bot):
-    """Create a group message handler that only responds to mentions and replies."""
-    async def _group_handler(message: Message):
-        if message.chat.type == ChatType.PRIVATE:
-            return
-        # Use cached bot_info from the instance
-        bot_info = None
-        for b in _bots.values():
-            if b.bot is bot:
-                bot_info = b.bot_info
-                break
-        if not bot_info:
-            bot_info = await bot.get_me()
-        bot_username = bot_info.username or ""
+async def dispatch_events(instance, events, *, wait=False):
+    deliveries = []
+    for event in events:
+        handler = instance.handlers.get(event['kind'])
+        if handler:
+            task = asyncio.create_task(handler(TelegramEvent(event['event'], instance.bot)))
+            instance.deliveries.add(task)
+            deliveries.append(task)
+            def finished(task):
+                instance.deliveries.discard(task)
+                if not task.cancelled() and task.exception():
+                    PrintStyle.error(f'Telegram delivery failed ({type(task.exception()).__name__})')
+            task.add_done_callback(finished)
+    if wait:
+        await asyncio.gather(*deliveries)
 
-        # Check for reply to bot
-        if message.reply_to_message and message.reply_to_message.from_user:
-            if message.reply_to_message.from_user.id == bot_info.id:
-                await handler(message)
-                return
 
-        # Check for @mention in text or caption (media messages use caption)
-        text = message.text or message.caption or ""
-        entities = message.entities or message.caption_entities or []
+async def feed_webhook(instance, update):
+    await cache_bot_info(instance)
+    events = await rpc({'action': 'webhook', 'name': instance.name, 'update': update})
+    await dispatch_events(instance, events, wait=True)
 
-        if text and f"@{bot_username}" in text:
-            await handler(message)
-            return
 
-        # Check entities for mention
-        for entity in entities:
-            if entity.type == "mention":
-                mention_text = text[entity.offset:entity.offset + entity.length]
-                if mention_text.lower() == f"@{bot_username.lower()}":
-                    await handler(message)
-                    return
-
-    _group_handler.__name__ = f"_group_handler_{id(handler)}"
-    return _group_handler
-
-# Polling
-
-async def start_polling(instance: BotInstance) -> asyncio.Task:
-    # Ensure any leftover webhook is removed before polling
+async def start_polling(instance):
     await remove_webhook(instance)
-
-    async def _poll():
-        try:
-            PrintStyle.info(f"Telegram ({instance.name}): starting polling")
-            await instance.dispatcher.start_polling(
-                instance.bot,
-                handle_signals=False,
-            )
-        except asyncio.CancelledError:
-            PrintStyle.info(f"Telegram ({instance.name}): polling cancelled")
-        except Exception as e:
-            PrintStyle.error(f"Telegram ({instance.name}): polling error: {format_error(e)}")
-
-    task = asyncio.create_task(_poll())
-    instance.task = task
-    return task
+    await cache_bot_info(instance)
+    await rpc({'action': 'start_polling', 'name': instance.name})
+    async def poll():
+        while True:
+            events = await rpc({'action': 'events', 'name': instance.name})
+            await dispatch_events(instance, events)
+            await asyncio.sleep(.25)
+    instance.task = asyncio.create_task(poll())
+    return instance.task
 
 
-async def stop_polling(instance: BotInstance):
+async def stop_polling(instance):
     if instance.task and not instance.task.done():
-        await instance.dispatcher.stop_polling()
         instance.task.cancel()
-        try:
-            await instance.task
-        except asyncio.CancelledError:
-            pass
+        await asyncio.gather(instance.task, return_exceptions=True)
     instance.task = None
 
 # Webhook
@@ -228,11 +164,18 @@ async def stop_bot(name: str):
     instance = _bots.pop(name, None)
     if not instance:
         return
+    for task in list(instance.deliveries):
+        task.cancel()
+    await asyncio.gather(*instance.deliveries, return_exceptions=True)
     if instance.task and not instance.task.done():
         await stop_polling(instance)
     else:
         await remove_webhook(instance)
     try:
+        if worker.ready:
+            await rpc({'action': 'stop', 'name': name})
+        if not _bots:
+            await asyncio.to_thread(worker.stop)
         await instance.bot.session.close()
     except Exception:
         pass

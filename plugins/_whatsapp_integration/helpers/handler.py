@@ -11,7 +11,7 @@ import re
 import uuid
 
 from agent import Agent, AgentContext, UserMessage
-from helpers import plugins, files, runtime
+from helpers import plugins, files
 from helpers import message_queue as mq
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
@@ -391,7 +391,7 @@ async def send_wa_reply(
     except Exception as e:
         return str(e)
 
-    # Send attachments via RFC (files may live in execution runtime)
+    # Stage local attachments for the bridge
     if attachments:
         host_paths = await _read_attachments_to_host(attachments)
         for host_path in host_paths:
@@ -415,18 +415,18 @@ async def send_wa_reply(
 
 
 # ------------------------------------------------------------------
-# Attachment reading (via RFC into execution runtime)
+# Local attachment staging
 # ------------------------------------------------------------------
 
 async def _read_attachments_to_host(
     paths: list[str],
 ) -> list[str]:
-    """Read files from execution runtime and write to host media cache."""
+    """Read local files and write to the bridge media cache."""
     from plugins._whatsapp_integration.helpers.attachment_reader import read_attachment
 
     host_paths: list[str] = []
     for path in paths:
-        data = await runtime.call_development_function(read_attachment, path)
+        data = read_attachment(files.fix_dev_path(path))
         if data["error"]:
             PrintStyle.warning(f"WhatsApp attachment: {data['error']}")
             continue
@@ -444,7 +444,7 @@ async def _read_attachments_to_host(
 async def _save_incoming_media(
     media_urls: list[str],
 ) -> list[str]:
-    """Save incoming media files into execution runtime via RFC."""
+    """Save incoming media files into the local media directory."""
     from plugins._whatsapp_integration.helpers.attachment_writer import write_attachment
 
     runtime_paths: list[str] = []
@@ -455,9 +455,7 @@ async def _save_incoming_media(
         with open(host_path, "rb") as f:
             content_b64 = base64.b64encode(f.read()).decode()
         rel_path = os.path.join(MEDIA_FOLDER, name)
-        result = await runtime.call_development_function(
-            write_attachment, rel_path, content_b64,
-        )
+        result = write_attachment(rel_path, content_b64,)
         if result.get("error"):
             PrintStyle.warning(f"WhatsApp media save: {result['error']}")
             runtime_paths.append(host_path)  # fallback to host path
