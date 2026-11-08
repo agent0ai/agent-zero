@@ -3,7 +3,7 @@
 ## Purpose
 
 - Own the `search_engine.py` agent tool.
-- This module runs web search through the configured search helper.
+- This module delegates to the SearXNG placeholder and preserves search-log presentation; it does not contact a live search service. String placeholder results pass through unchanged.
 - Keep this file-level DOX profile synchronized with `search_engine.py` because this directory is intentionally flat.
 
 ## Ownership
@@ -25,7 +25,7 @@
 - Update this file whenever tool arguments, output shape, `break_loop` behavior, intervention handling, prompt instructions, or side effects change.
 - `SearchEngine` is a `Tool`.
 - `SearchEngine` defines `execute(...)`.
-- Imported dependency areas include: `helpers.errors`, `helpers.searxng`, `helpers.strings`, `helpers.tool`, `uuid`.
+- Imported dependency areas include: `helpers.errors`, `plugins._searxng.helpers.searxng`, `helpers.strings`, `helpers.tool`, `uuid`.
 
 ## Key Concepts
 

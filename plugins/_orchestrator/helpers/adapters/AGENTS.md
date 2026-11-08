@@ -24,7 +24,7 @@
 
 - A0 Headless:
   - Host resolution is config `a0.host`, then `AGENT_ZERO_HOST`, then `http://localhost:80` inside the Agent Zero container.
-  - The Docker fallback binary is `/opt/venv/bin/a0` when plain `a0` is unavailable.
+  - The Docker fallback binary is `/usr/local/bin/a0` when plain `a0` is unavailable.
   - Status means the host socket is reachable; login/target choice is handled by the skill.
 - Codex CLI:
   - Detect plugin-owned `data/codex/auth.json` before external `CODEX_HOME` or `~/.codex/auth.json`.
@@ -53,11 +53,11 @@
 
 - Run adapter tests:
   ```bash
-  docker exec 8dc967046cda bash -lc 'cd /a0 && /opt/venv-a0/bin/python plugins/_orchestrator/tests/test_status_adapters.py'
+  docker exec 8dc967046cda bash -lc 'cd /a0 && python plugins/_orchestrator/tests/test_status_adapters.py'
   ```
 - For syntax-only adapter edits:
   ```bash
-  docker exec 8dc967046cda bash -lc 'cd /a0 && /opt/venv-a0/bin/python -m py_compile plugins/_orchestrator/helpers/adapters/*.py'
+  docker exec 8dc967046cda bash -lc 'cd /a0 && python -m py_compile plugins/_orchestrator/helpers/adapters/*.py'
   ```
 
 ## Child DOX Index

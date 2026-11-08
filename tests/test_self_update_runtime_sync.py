@@ -135,7 +135,12 @@ def test_self_update_runtime_sync_starts_codex_refresh(monkeypatch, tmp_path):
     )
 
     assert migration.start_codex_cli_refresh(manager_path) == ""
-    assert calls[0][0][0] == [sys.executable, str(manager_path), "refresh-codex"]
+    assert calls[0][0][0] == [
+        "depfix",
+        "run",
+        str(manager_path),
+        "refresh-codex",
+    ]
     assert calls[0][1]["start_new_session"] is True
 
 

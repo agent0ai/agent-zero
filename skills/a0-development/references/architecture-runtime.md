@@ -6,22 +6,14 @@
 - WebUI entry point: `/a0/run_ui.py`
 - Runtime arguments and WebUI port resolution: `/a0/helpers/runtime.py`
 - Docker Python runtimes: `/a0/docker/base/fs/ins/install_python.sh`
-- Docker framework activation: `/a0/docker/run/fs/ins/setup_venv.sh`
 - Docker UI launch manager: `/a0/docker/run/fs/exe/self_update_manager.py`
 - Search/discovery roots: `/a0/helpers/subagents.py`, `/a0/helpers/skills.py`, `/a0/helpers/projects.py`
 
-## Runtime Split
+## Python Runtime
 
-Agent Zero has two Docker Python runtimes:
+The outer Docker container is based on `python:3.12-slim-trixie`. Its global Python environment runs the WebUI backend, API, scheduler, agent loop, framework imports, plugin hooks, framework-side tools, and local agent/user Python execution. The image does not create or activate a virtual environment.
 
-| Runtime | Python | Purpose |
-|---|---|---|
-| `/opt/venv-a0` | 3.12.4 | Framework runtime. Runs the WebUI backend, API, scheduler, agent loop, framework imports, plugin hooks, and framework-side tools. |
-| `/opt/venv` | 3.13 | Agent execution runtime. Use for Python code executed on behalf of the agent or user task dependencies. |
-
-Use `/opt/venv-a0` for framework import checks, WebUI startup checks, API/plugin hook behavior, and `py_compile` of framework code inside Docker. Use `/opt/venv` only when the feature explicitly targets agent/user code execution.
-
-Do not claim a package works in the framework because it imports in `/opt/venv`, and do not claim user-code execution works because it imports in `/opt/venv-a0`.
+Use `/usr/local/bin/python` for framework import checks, WebUI startup checks, API/plugin hook behavior, and local `py_compile` checks. Code run in an isolated sandbox uses the Python supplied by that sandbox image and is not evidence about the outer image's global environment, or vice versa.
 
 ## Ports And URLs
 

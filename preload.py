@@ -1,3 +1,4 @@
+import requirements
 import asyncio
 from helpers import runtime
 from helpers.print_style import PrintStyle

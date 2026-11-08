@@ -104,3 +104,10 @@ async def test_execute_survives_search_failure(monkeypatch):
 
     assert response.break_loop is False
     assert "search failed" in response.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_search_reports_unfinished_sandbox_integration_without_network():
+    response = await _make_tool().execute(query="test")
+    assert response.message == "the searxng plugin is not yet fully implemented"
+    assert response.break_loop is False

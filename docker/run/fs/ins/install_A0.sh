@@ -26,19 +26,5 @@ else
     }
 fi
 
-. "/ins/setup_venv.sh" "$@"
-
-# moved to base image
-# # Ensure the virtual environment and pip setup
-# pip install --upgrade pip ipython requests
-# # Install some packages in specific variants
-# pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-# Install remaining A0 python packages
-uv pip install -r /git/agent-zero/requirements.txt
-
-# install playwright
-bash /ins/install_playwright.sh "$@"
-
-# Preload A0
-python /git/agent-zero/preload.py --dockerized=true
+# Materialize the complete application dependency graph in Depfix's shared store.
+depfix pip install -r /git/agent-zero/requirements.txt

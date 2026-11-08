@@ -77,6 +77,7 @@
 - `hooks.install()` also installs HTTPX's SOCKS extra in the framework runtime when `socksio` is missing; this supports shared HTTP clients using proxy environment variables independently of Chromium's proxy settings.
 - Browser startup must install the shared virtual-desktop route hook itself; do not make Browser depend on the Desktop plugin being enabled.
 - Use shared `surface-workspace`, toolbar/control, and separator styles from `webui/css/surfaces.css`; match the lighter Files/Browser panel palette and preserve disabled, active, and keyboard focus states.
+- When Chromium is absent, the runtime fallback invokes Patchright as a module through `depfix run`; do not assume the Patchright console script is on ordinary `PATH`.
 
 ## Work Guidance
 

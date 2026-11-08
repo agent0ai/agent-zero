@@ -4,7 +4,6 @@ import os
 import shutil
 import stat
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +97,7 @@ def ensure_self_update_manager_runtime_current(
 def start_codex_cli_refresh(manager_path: Path | str) -> str:
     try:
         subprocess.Popen(
-            [sys.executable, str(manager_path), "refresh-codex"],
+            ["depfix", "run", str(manager_path), "refresh-codex"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

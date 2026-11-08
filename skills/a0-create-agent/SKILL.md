@@ -309,7 +309,7 @@ The root `/a0/prompts` directory contains powerful defaults. A profile can overr
 | `agent.system.main.communication.md` | A different response contract, such as no `thoughts` array, a different JSON schema, plain Markdown answers, or a domain-specific output envelope. This is the main lever for output format changes. |
 | `agent.system.main.solving.md` | A different problem-solving loop, delegation policy, verification standard, or autonomy level. |
 | `agent.system.main.tips.md` | Different file-handling, skill-use, memory, or operational best-practice defaults. |
-| `agent.system.main.environment.md` | A different runtime/environment description than the default Kali/Docker Agent Zero environment. |
+| `agent.system.main.environment.md` | A different runtime/environment description than the default Debian Trixie Docker environment. |
 | `agent.system.main.role.md` | A fundamentally different base identity. Rare; prefer `specifics.md` unless replacing the base role is intentional. |
 | `agent.system.tool.response.md` | Different final-response tool instructions, such as stricter final formatting or use of includes for long output. |
 | `fw.user_message.md` / `fw.ai_response.md` | Different framework message wrapping. Advanced and fragile; override only with a clear reason. |
@@ -322,7 +322,7 @@ When a blueprint includes any of these, add an entry to `prompt_strategy.root_pr
 |---|---|---|
 | `agent.system.main.role.md` | Replace the base role framing wholesale (rare — most profiles layer via `specifics.md` instead) | `/a0/agents/agent0/prompts/agent.system.main.role.md` |
 | `agent.system.main.communication.md` | Change reply format / communication style | `/a0/agents/developer/prompts/agent.system.main.communication.md`, `/a0/agents/researcher/prompts/...` |
-| `agent.system.main.environment.md` | Describe a non-default runtime environment | `/a0/agents/hacker/prompts/agent.system.main.environment.md` (Kali/Docker) |
+| `agent.system.main.environment.md` | Describe a non-default runtime environment | `/a0/agents/hacker/prompts/agent.system.main.environment.md` (Debian/security tooling) |
 | `agent.system.tool.<name>.md` | Document a profile-specific tool (see Step 6) | `/a0/agents/_example/prompts/agent.system.tool.example_tool.md` |
 
 > [!TIP]

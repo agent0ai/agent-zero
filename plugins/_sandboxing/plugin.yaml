@@ -1,0 +1,9 @@
+name: _sandboxing
+title: Sandboxing
+description: Fast isolated gVisor sandboxes for agent code execution.
+version: 0.2.0
+always_enabled: true
+settings_sections:
+  - agent
+per_project_config: false
+per_agent_config: false

@@ -19,6 +19,12 @@
 - Keep all `data-whisper-microphone` controls synchronized with the same microphone status.
 - Optional final-transcript handlers must receive the configured draft/send mode without changing the main chat microphone's delivery behavior.
 - Do not expose raw audio or transcriptions beyond intended UI/API paths.
+- Microphone uploads use the bounded PCM v1 contract documented in `README.md`:
+  16 kHz mono normalized little-endian float32, at most 120 seconds. Validate
+  metadata and bytes before model loading, and pass an ndarray to Whisper so no
+  filename decoder, temporary audio file, FFmpeg process, or raw-audio log is used.
+- Browser capture uses `AudioWorklet`; report unsupported browsers explicitly and
+  keep microphone streams, worklet nodes, timers, and audio contexts disposable.
 
 ## Work Guidance
 
@@ -26,7 +32,9 @@
 
 ## Verification
 
-- Smoke-test status, transcription, model/language settings, send/draft modes, and silence handling after changes.
+- Smoke-test status, PCM validation/transcription, model/language settings,
+  send/draft modes, device selection, repeated recording, teardown, permission
+  failures, unsupported browsers, and silence handling after changes.
 
 ## Child DOX Index
 

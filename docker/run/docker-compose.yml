@@ -2,6 +2,11 @@ services:
   agent-zero:
     container_name: agent-zero
     image: agent0ai/agent-zero:latest
+    init: true
+    privileged: false
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined
     volumes:
       - ./agent-zero:/a0
     ports:

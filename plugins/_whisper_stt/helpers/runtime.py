@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import os
-import tempfile
 import warnings
 from typing import Any
 
+import numpy as np
 import whisper
 
 from helpers import files, plugins
@@ -17,7 +16,6 @@ from helpers.notification import (
 )
 from helpers.print_style import PrintStyle
 from plugins._whisper_stt.helpers import migration
-
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -33,6 +31,16 @@ DEFAULT_CONFIG = {
 }
 VALID_MODEL_SIZES = {"tiny", "base", "small", "medium", "large", "turbo"}
 VALID_MESSAGE_MODES = {"send", "draft"}
+
+AUDIO_WIRE_VERSION = 1
+AUDIO_SAMPLE_RATE = 16_000
+AUDIO_CHANNELS = 1
+AUDIO_SAMPLE_FORMAT = "f32le"
+AUDIO_MAX_DURATION_SECONDS = 120
+AUDIO_MAX_FRAMES = AUDIO_SAMPLE_RATE * AUDIO_MAX_DURATION_SECONDS
+AUDIO_BYTES_PER_SAMPLE = 4
+AUDIO_MAX_BYTES = AUDIO_MAX_FRAMES * AUDIO_BYTES_PER_SAMPLE
+AUDIO_MAX_BASE64_CHARS = ((AUDIO_MAX_BYTES + 2) // 3) * 4
 
 _model = None
 _model_name = ""
@@ -78,7 +86,9 @@ def normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
         pass
 
     try:
-        waiting_timeout = int(config.get("waiting_timeout", normalized["waiting_timeout"]))
+        waiting_timeout = int(
+            config.get("waiting_timeout", normalized["waiting_timeout"])
+        )
         if waiting_timeout > 0:
             normalized["waiting_timeout"] = waiting_timeout
     except (TypeError, ValueError):
@@ -151,39 +161,82 @@ async def is_downloaded() -> bool:
 
 
 async def transcribe(
-    audio_bytes_b64: str, config: dict[str, Any] | None = None
+    audio_payload: dict[str, Any], config: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     cfg = normalize_config(config or get_config())
+    audio_samples = decode_audio_payload(audio_payload)
     return await _transcribe(
         str(cfg["model_size"]),
-        audio_bytes_b64,
+        audio_samples,
         language=_resolve_language(str(cfg["language"])),
     )
 
 
 async def _transcribe(
-    model_name: str, audio_bytes_b64: str, *, language: str | None = None
+    model_name: str, audio_samples: np.ndarray, *, language: str | None = None
 ) -> dict[str, Any]:
     await _preload(model_name)
 
-    audio_bytes = base64.b64decode(audio_bytes_b64)
+    kwargs: dict[str, Any] = {"fp16": False}
+    if language:
+        kwargs["language"] = language
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio_file:
-        audio_file.write(audio_bytes)
-        temp_path = audio_file.name
+    result = _model.transcribe(audio_samples, **kwargs)  # type: ignore[union-attr]
+    return result if isinstance(result, dict) else {}
+
+
+class AudioPayloadError(ValueError):
+    """Raised when the bounded PCM wire contract is invalid."""
+
+
+def decode_audio_payload(payload: dict[str, Any]) -> np.ndarray:
+    """Validate PCM v1 and return Whisper-ready mono float32 samples."""
+
+    if not isinstance(payload, dict):
+        raise AudioPayloadError("Audio payload must be an object")
+    if payload.get("version") != AUDIO_WIRE_VERSION:
+        raise AudioPayloadError("Unsupported audio payload version")
+    if payload.get("sample_rate") != AUDIO_SAMPLE_RATE:
+        raise AudioPayloadError("Unsupported audio sample rate")
+    if payload.get("channels") != AUDIO_CHANNELS:
+        raise AudioPayloadError("Unsupported audio channel count")
+    if payload.get("sample_format") != AUDIO_SAMPLE_FORMAT:
+        raise AudioPayloadError("Unsupported audio sample format")
+
+    frame_count = payload.get("frame_count")
+    if isinstance(frame_count, bool) or not isinstance(frame_count, int):
+        raise AudioPayloadError("Audio frame count must be an integer")
+    if frame_count <= 0:
+        raise AudioPayloadError("Audio payload is empty")
+    if frame_count > AUDIO_MAX_FRAMES:
+        raise AudioPayloadError("Audio duration exceeds 120 seconds")
+
+    encoded = payload.get("data")
+    if not isinstance(encoded, str) or not encoded:
+        raise AudioPayloadError("Audio data must be base64 text")
+    if len(encoded) > AUDIO_MAX_BASE64_CHARS:
+        raise AudioPayloadError("Audio payload exceeds the byte limit")
 
     try:
-        kwargs: dict[str, Any] = {"fp16": False}
-        if language:
-            kwargs["language"] = language
+        raw = base64.b64decode(encoded, validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise AudioPayloadError("Audio data is not valid base64") from exc
 
-        result = _model.transcribe(temp_path, **kwargs)  # type: ignore[union-attr]
-        return result if isinstance(result, dict) else {}
-    finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+    expected_bytes = frame_count * AUDIO_BYTES_PER_SAMPLE
+    if len(raw) != expected_bytes:
+        raise AudioPayloadError("Audio data length does not match frame count")
+    if len(raw) > AUDIO_MAX_BYTES:
+        raise AudioPayloadError("Audio payload exceeds the byte limit")
+
+    samples = np.frombuffer(raw, dtype="<f4")
+    if not np.isfinite(samples).all():
+        raise AudioPayloadError("Audio samples must be finite")
+    if np.any(np.abs(samples) > 1.0):
+        raise AudioPayloadError("Audio samples must be normalized")
+
+    # Whisper accepts a 16 kHz mono float32 ndarray and therefore skips load_audio,
+    # the only path in openai-whisper that launches ffmpeg.
+    return np.array(samples, dtype=np.float32, copy=True, order="C")
 
 
 def _resolve_language(language: str) -> str | None:

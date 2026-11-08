@@ -1,3 +1,4 @@
+import requirements
 from helpers import dotenv, migration, runtime, settings
 import string
 import random

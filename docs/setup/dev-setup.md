@@ -60,7 +60,7 @@ Now when you select one of the python files in the project, you should see prope
 ![VS Code Python environments](../res/dev/devinst-3.png)
 ![VS Code Python environments](../res/dev/devinst-4.png)
 
-- Your new environment should be automatically activated. If not, select it in the lower right corner. You might need to open a new terminal in VS Code to reflect the changes with `Terminal > New Terminal` or clicking the `+` button in the terminal tab. Your terminal prompt should now start with your environment name/path, in my case `(/Users/frdel/Desktop/agent-zero/.conda)` This shows the environment is active in the terminal.
+- Your new environment should be automatically activated. If not, select it in the lower right corner. You might need to open a new terminal in VS Code to reflect the changes with `Terminal > New Terminal` or clicking the `+` button in the terminal tab. Your terminal prompt should now start with your environment name/path, in my case `(/home/user/agent-zero/.conda)` This shows the environment is active in the terminal.
 
 ![VS Code env terminal](../res/dev/devinst-5.png)
 
@@ -75,7 +75,10 @@ The first command installs Python dependencies.
 
 The second command installs full Patchright Chromium into `./tmp/playwright`,
 relative to the project root. Docker images use the absolute path
-`/a0/tmp/playwright` and ship Chromium preinstalled.
+`/a0/tmp/playwright` and ship Chromium preinstalled. The Docker build differs
+from this local-development setup: it materializes `requirements.txt` once in
+Depfix's shared store, then invokes the pinned Playwright module through Depfix
+to install Chromium without installing the Python package a second time.
 
 If you skip the second command, local development can still download Chromium on
 first Browser use through `ensure_playwright_binary()` in
@@ -125,7 +128,7 @@ Some tools like code execution will not work yet because they need to be connect
 
 1. Pull the docker image `agent0ai/agent-zero` from Docker Hub and run it with a web port (`80`) mapped and SSH port (`22`) mapped.
 If you want, you can also map the `/a0` folder to our local project folder as well, this way we can update our local instance and the docker instance at the same time.
-This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/Users/frdel/Desktop/agent-zero`:
+This is how it looks in my example: port `80` is mapped to `8880` on the host and `22` to `8822`, `/a0` folder mapped to `/home/user/agent-zero`:
 
 ![docker run](../res/dev/devinst-11.png)
 ![docker run](../res/dev/devinst-12.png)
@@ -139,7 +142,7 @@ This is how it looks in my example: port `80` is mapped to `8880` on the host an
 2. Set the `RFC Password` field to a new password and save.
 3. Open the "Settings" page in the Web UI of your local instance and go in the "Development" section.
 4. Here set the `RFC Password` field to the same password you used in the dockerized instance. Also set the SSH port and HTTP port the same numbers you used when creating the container - in my case `8822` for SSH and `8880` for HTTP. The `RFC Destination URL` will most probably stay `localhost` as both instances are running on the host machine.
-5. Click save and test by asking your agent to do something in the terminal, like "Get current OS version". It should be able to communicate with the dockerized instance via RFC and SSH and execute the command there, responding with something like "Kali GNU/Linux Rolling".
+5. Click save and test by asking your agent to do something in the terminal, like "Get current OS version". It should be able to communicate with the dockerized instance via RFC and SSH and execute the command there, responding with Debian GNU/Linux 13 (Trixie).
 
 My Dockerized instance:
 ![Dockerized instance](../res/dev/devinst-14.png)

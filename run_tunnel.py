@@ -1,3 +1,4 @@
+import requirements
 import threading
 from flask import Flask, request
 from helpers import runtime, dotenv, process

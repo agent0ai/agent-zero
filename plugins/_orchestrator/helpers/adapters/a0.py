@@ -12,7 +12,7 @@ from plugins._orchestrator.helpers.adapters.base import TerminalAgentAdapter
 # Inside the Agent Zero container, the local WebUI listens on port 80,
 # so the default target is the instance running this very plugin.
 DEFAULT_HOST = "http://localhost:80"
-DEFAULT_DOCKER_A0_BINARY = "/opt/venv/bin/a0"
+DEFAULT_DOCKER_A0_BINARY = "/usr/local/bin/a0"
 
 
 class AgentZeroAdapter(TerminalAgentAdapter):

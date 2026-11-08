@@ -1,3 +1,3 @@
 # Search Engine
 
-Provides the `search_engine` tool, which queries the local SearXNG instance through the development runtime and returns the top titles, urls, and content snippets.
+Preserves the search tool and WebUI presentation while the sandboxed SearXNG integration is unfinished. Calls return `the searxng plugin is not yet fully implemented` without network activity. See [SearXNG](../_searxng/README.md) for the preserved implementation notes.

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,7 +81,8 @@ class LiteParseParser(BaseParser):
             timeout = float(config.get("per_document_timeout", 60))
             result = subprocess.run(
                 [
-                    sys.executable,
+                    "depfix",
+                    "run",
                     "-m",
                     "plugins._document_query.helpers.parsers.liteparse_worker",
                 ],

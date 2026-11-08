@@ -9,15 +9,19 @@ from plugins._code_execution.tools import code_execution_tool as code
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("destination", ["local", "default"])
 @pytest.mark.parametrize("parallel,cancel", [(False, False), (True, False), (True, True)])
-async def test_code_job_keeps_polling_after_output_timeout_without_reexecuting(monkeypatch, parallel, cancel):
+async def test_code_job_keeps_polling_after_output_timeout_without_reexecuting(monkeypatch, parallel, cancel, destination):
     shell = SimpleNamespace(running=True, session=SimpleNamespace(close=AsyncMock()))
     job = SimpleNamespace(result=None) if parallel else None
     agent = SimpleNamespace(handle_intervention=AsyncMock())
     tool = object.__new__(code.CodeExecution)
     tool.agent = agent
-    tool.args = {"runtime": "terminal", "session": 0, "code": "long command"}
-    tool.state = SimpleNamespace(shells={0: shell})
+    tool.args = {"destination": destination, "runtime": "terminal", "session": 0, "code": "long command"}
+    resolved = code.ExecutionDestination(destination, "local" if destination == "local" else "sandbox", destination, destination, target=destination)
+    tool.destination = resolved
+    tool.state = SimpleNamespace(shells={tool._session_key(0): shell})
+    monkeypatch.setattr(code, "resolve_code_execution_destination", AsyncMock(return_value=resolved))
     cfg = {"output_timeouts": {"first_output_timeout": 1}}
     monkeypatch.setattr(code, "_get_config", lambda _: cfg)
     monkeypatch.setattr(parallel_tools, "get_parallel_worker_job", lambda _: job)

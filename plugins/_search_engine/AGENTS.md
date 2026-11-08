@@ -15,7 +15,7 @@
 
 ## Local Contracts
 
-- Search runs through `helpers.searxng.search`, which proxies to the SearXNG URL inside the development runtime via `runtime.call_development_function`.
+- Search delegates to `plugins._searxng.helpers.searxng.search`, which returns the WIP not-implemented message without network activity. Preserve the upstream search presentation while sandboxed SearXNG is unfinished.
 - Result cap is `SEARCH_ENGINE_RESULTS = 10`; exceptions flow through `helpers.errors.handle_error` and return a failed-search message instead of raising.
 - The tool logs its message as type `search_engine` with an `icon://search Searching: <query>` headline. The WebUI message handler uses `drawMessageToolSimple` with code `SRC`, styled by the web access indigo styles shared with the browser badge that `extensions/webui/page-head/` loads; `extensions/webui/get_process_step_types/` registers the type. `get_tool_message_handler` reuses this renderer for saved `type="tool"` search logs.
 

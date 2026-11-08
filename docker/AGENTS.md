@@ -3,7 +3,7 @@
 ## Purpose
 
 - Own Docker build contexts and runtime container definitions.
-- Keep framework runtime, agent execution runtime, exposed ports, mounted paths, and image build assumptions explicit.
+- Keep the shared Python runtime, exposed ports, mounted paths, and image build assumptions explicit.
 
 ## Ownership
 
@@ -13,8 +13,10 @@
 
 ## Local Contracts
 
-- Preserve the two-runtime model: the Python 3.12 framework runtime under `/opt/venv-a0` runs the WebUI, APIs, scheduler, framework imports, and plugin hooks; the Python 3.13 agent execution runtime under `/opt/venv` runs agent terminal tasks and user code.
-- Verify backend imports and plugin hooks with `/opt/venv-a0`; packages installed into `/opt/venv` do not prove framework compatibility.
+- Base the outer image on `python:3.12-slim-trixie`; do not add Kali repositories, pyenv, or a virtual environment.
+- Install WebUI, API, scheduler, framework, plugin-hook, and local agent/user dependencies into the image's global Python environment.
+- Verify backend imports, plugin hooks, and local code execution with `/usr/local/bin/python`.
+- Keep build-time apt transactions self-contained: update, install or upgrade, and remove `/var/lib/apt/lists/*` in the same Docker `RUN`.
 - Do not bake secrets, local `.env` values, or user data into images.
 - Keep compose mounts aligned with `usr/` and other runtime-state expectations.
 - Image changes that affect GitHub publishing must stay synchronized with `.github/workflows/docker-publish.yml`.

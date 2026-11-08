@@ -2,7 +2,7 @@ import uuid
 
 from helpers.tool import Tool, Response
 from helpers.errors import handle_error
-from helpers.searxng import search as searxng
+from plugins._searxng.helpers.searxng import search as searxng
 from helpers.strings import truncate_text
 
 SEARCH_ENGINE_RESULTS = 10
@@ -29,6 +29,8 @@ class SearchEngine(Tool):
         return self.format_result_searxng(results, "Search Engine")
 
     def format_result_searxng(self, result, source):
+        if isinstance(result, str):
+            return result
         if isinstance(result, Exception):
             handle_error(result)
             return f"{source} search failed: {str(result)}"

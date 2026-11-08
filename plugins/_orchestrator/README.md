@@ -137,7 +137,7 @@ credentials too.
 
 ```yaml
 a0:
-  binary: a0          # falls back to /opt/venv/bin/a0 in Agent Zero Docker
+  binary: a0          # falls back to /usr/local/bin/a0 in Agent Zero Docker
   host: ""           # empty = AGENT_ZERO_HOST env, else local instance
 codex:
   binary: codex

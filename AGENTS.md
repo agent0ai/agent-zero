@@ -7,7 +7,7 @@
 
 ## Project
 
-- Stack: Python 3.12+ framework, Python 3.13 agent execution runtime, Flask, Alpine.js, LiteLLM, and Socket.IO.
+- Stack: Python 3.12+ framework, Flask, Alpine.js, LiteLLM, and Socket.IO. Docker uses the official Python image's global environment.
 - Start the WebUI with `python run_ui.py`; discover its URL from startup output, Docker mappings, or explicit configuration rather than assuming a port.
 - Run the full test suite with `pytest` or a focused file with `pytest tests/test_name.py`.
 - Human-facing documentation lives in `README.md` and `docs/`.
@@ -49,7 +49,8 @@
 - System section owners register request-only alternatives with `helpers.responses_tools`; `helpers.responses_history` owns their per-build state and prepared-history capture in existing loop parameters. Responses applies them to copied input, preserving original Chat/fallback messages and stored history.
 - Copy live core-plugin changes back into tracked source under `plugins/`.
 - Develop new custom plugins under ignored `usr/plugins/`; tracked bundled plugins live under `plugins/`.
-- Use the framework runtime for backend and plugin-hook verification, not the separate agent execution runtime.
+- In Docker, use the global `/usr/local/bin/python` runtime for framework, plugin-hook, and local agent-code verification.
+- `requirements.py` activates Depfix defaults from the repository-relative `requirements.txt` and must remain the first application import in production Python entrypoints.
 - Dependency changes must cover both image installation declarations and existing self-updated instances. Use startup migrations for core dependencies and the owning installation hooks for plugin dependencies.
 
 ## Permissions

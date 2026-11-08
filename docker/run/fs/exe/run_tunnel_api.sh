@@ -9,9 +9,8 @@ while [ ! -f /a0/run_tunnel.py ]; do
     sleep 1
 done
 
-. "/ins/setup_venv.sh" "$@"
-
-exec python /a0/run_tunnel.py \
+cd /a0
+exec depfix run /a0/run_tunnel.py \
     --dockerized=true \
     --port=80 \
     --tunnel_api_port=55520 \

@@ -8,10 +8,8 @@ if [ "$1" != "local" ]; then
     rm -rf /git/agent-zero
 fi
 
-# run the original install script again
+# Refresh the branch and re-resolve once against the already populated Depfix
+# store. Runtime assets are deliberately installed only on this final pass.
 bash /ins/install_A0.sh "$@"
-
-# remove python packages cache
-. "/ins/setup_venv.sh" "$@"
-pip cache purge
-uv cache prune
+bash /ins/install_playwright.sh "$@"
+depfix run /git/agent-zero/preload.py --dockerized=true

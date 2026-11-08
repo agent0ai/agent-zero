@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,7 @@ if str(ROOT) not in sys.path:
 
 from helpers import network as network_helper
 from plugins._document_query import hooks as document_query_hooks
+from plugins._document_query.helpers import ocr_dependencies
 from plugins._document_query.helpers.fetch import FetchedDocument, fetch_public_resource
 import plugins._document_query.helpers.document_query as document_query_module
 from plugins._document_query.helpers.document_query import (
@@ -23,8 +26,12 @@ from plugins._document_query.helpers.document_query import (
 from plugins._document_query.helpers.parsers.base import BaseParser
 from plugins._document_query.helpers.parsers import get_parsers_for_mimetype
 from plugins._document_query.helpers.parsers import liteparse as liteparse_module
+from plugins._document_query.helpers.parsers import pdf as pdf_module
+from plugins._document_query.helpers.parsers import unstructured as unstructured_module
 from plugins._document_query.helpers.parsers.liteparse import LiteParseParser
+from plugins._document_query.helpers.parsers.pdf import PdfParser
 from plugins._document_query.helpers.parsers.text import TextParser
+from plugins._document_query.helpers.parsers.unstructured import UnstructuredParser
 
 
 def run_async(coro):
@@ -264,6 +271,206 @@ def test_text_parser_uses_prefetched_content():
     assert text == '{"ok": true}'
 
 
+def test_unstructured_parser_uses_local_partitioner(monkeypatch, tmp_path):
+    document_path = tmp_path / "notes.bin"
+    document_path.write_bytes(b"opaque")
+    fetched = FetchedDocument(
+        uri=str(document_path),
+        source_uri=str(document_path),
+        scheme="file",
+        mimetype="application/octet-stream",
+        content=b"opaque",
+        local_path=str(document_path),
+    )
+    seen = []
+
+    monkeypatch.setattr(
+        unstructured_module,
+        "_partition_file",
+        lambda file_path: seen.append(file_path) or ["first", "second"],
+    )
+
+    assert UnstructuredParser()._parse_sync(fetched, {}) == "first\nsecond"
+    assert seen == [str(document_path)]
+
+
+def test_requirements_omit_legacy_langchain_unstructured_wrapper():
+    root_requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+
+    assert "langchain-unstructured" not in root_requirements
+
+
+def test_outer_base_image_omits_legacy_ocr_system_packages():
+    dockerfile = (ROOT / "docker" / "base" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    install_scripts = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "docker" / "base" / "fs" / "ins").glob("*.sh")
+    )
+
+    assert "install_base_packages4.sh" not in dockerfile
+    assert not (
+        ROOT / "docker" / "base" / "fs" / "ins" / "install_base_packages4.sh"
+    ).exists()
+    assert "tesseract-ocr" not in install_scripts
+    assert "poppler-utils" not in install_scripts
+
+
+def test_ocr_dependencies_skip_apt_when_already_available(monkeypatch):
+    monkeypatch.setattr(ocr_dependencies, "_READY_PROFILES", set())
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_dependencies_present",
+        lambda _packages, _commands: True,
+    )
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_run_apt_command",
+        lambda *_args, **_kwargs: pytest.fail("apt must not run"),
+    )
+
+    ocr_dependencies.ensure_pdf_ocr_dependencies()
+
+    assert ocr_dependencies._READY_PROFILES == {"pdf_ocr", "tesseract"}
+
+
+def test_ocr_dependencies_fail_only_at_fallback_without_apt_access(monkeypatch):
+    monkeypatch.setattr(ocr_dependencies, "_READY_PROFILES", set())
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_dependencies_present",
+        lambda _packages, _commands: False,
+    )
+    monkeypatch.setattr(ocr_dependencies, "_apt_command_prefix", lambda: [])
+
+    with pytest.raises(RuntimeError, match="Automatic installation requires apt-get"):
+        ocr_dependencies.ensure_tesseract_dependencies()
+
+
+def test_pdf_ocr_dependencies_install_once_across_threads(monkeypatch):
+    monkeypatch.setattr(ocr_dependencies, "_READY_PROFILES", set())
+    installed = False
+    calls = []
+
+    def dependencies_present(_packages, _commands):
+        return installed
+
+    def run_apt(command, *, timeout):
+        nonlocal installed
+        calls.append((command, timeout))
+        if "install" in command:
+            installed = True
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(ocr_dependencies, "_dependencies_present", dependencies_present)
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_missing_apt_packages",
+        lambda packages: list(packages),
+    )
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_apt_command_prefix",
+        lambda: ["apt-get"],
+    )
+    monkeypatch.setattr(ocr_dependencies, "_run_apt_command", run_apt)
+    monkeypatch.setattr(ocr_dependencies.PrintStyle, "info", lambda _message: None)
+
+    threads = [
+        threading.Thread(target=ocr_dependencies.ensure_pdf_ocr_dependencies)
+        for _ in range(4)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert calls == [
+        (["apt-get", "update"], 300),
+        (
+            [
+                "apt-get",
+                "install",
+                "-y",
+                "--no-install-recommends",
+                "tesseract-ocr",
+                "tesseract-ocr-script-latn",
+                "poppler-utils",
+            ],
+            900,
+        ),
+    ]
+    assert ocr_dependencies._READY_PROFILES == {"pdf_ocr", "tesseract"}
+
+
+def test_pdf_full_page_ocr_installs_before_poppler_and_tesseract(monkeypatch):
+    events = []
+    import pdf2image
+    import pytesseract
+
+    monkeypatch.setattr(
+        pdf_module,
+        "ensure_pdf_ocr_dependencies",
+        lambda: events.append("install"),
+    )
+    monkeypatch.setattr(
+        pdf2image,
+        "convert_from_path",
+        lambda _path: events.append("render") or ["page"],
+    )
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_string",
+        lambda _page: events.append("ocr") or "text",
+    )
+
+    assert PdfParser()._parse_with_ocr("scan.pdf") == "text"
+    assert events == ["install", "render", "ocr"]
+
+
+def test_embedded_image_tesseract_install_is_lazy(monkeypatch):
+    events = []
+    import pytesseract
+
+    monkeypatch.setattr(
+        pdf_module,
+        "ensure_tesseract_dependencies",
+        lambda: events.append("install"),
+    )
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_string",
+        lambda _image, lang: events.append(f"ocr:{lang}") or "embedded text",
+    )
+
+    parser = pdf_module._on_demand_tesseract_blob_parser()
+
+    assert events == []
+    assert parser._analyze_image(object()) == "embedded text"
+    assert events == ["install", "ocr:eng"]
+
+
+def test_unstructured_installs_ocr_packages_only_for_pdf_and_images(monkeypatch):
+    events = []
+    monkeypatch.setattr(
+        unstructured_module,
+        "ensure_tesseract_dependencies",
+        lambda: events.append("tesseract"),
+    )
+    monkeypatch.setattr(
+        unstructured_module,
+        "ensure_pdf_ocr_dependencies",
+        lambda: events.append("pdf"),
+    )
+
+    unstructured_module._ensure_ocr_dependencies("text/plain", "notes.txt")
+    unstructured_module._ensure_ocr_dependencies("image/png", "scan.png")
+    unstructured_module._ensure_ocr_dependencies("application/pdf", "scan.pdf")
+
+    assert events == ["tesseract", "pdf"]
+
+
 def test_compatibility_imports_point_to_plugin_classes():
     pytest.importorskip("langchain_core")
 
@@ -437,6 +644,34 @@ def test_liteparse_parser_always_uses_subprocess(monkeypatch):
     monkeypatch.setattr(parser, "_parse_in_process", fail_in_process)
 
     assert parser._parse_sync(fetched, {"liteparse_subprocess": False}) == "ok"
+
+
+def test_liteparse_subprocess_uses_depfix_store_fallback(monkeypatch):
+    fetched = FetchedDocument(
+        uri="/tmp/report.pdf",
+        source_uri="/tmp/report.pdf",
+        scheme="file",
+        mimetype="application/pdf",
+        content=b"",
+        local_path="/tmp/report.pdf",
+    )
+    parser = LiteParseParser()
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, stdout='{"text": "ok"}', stderr="")
+
+    monkeypatch.setattr(liteparse_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(parser, "_liteparse_kwargs", lambda *_args: {})
+
+    assert parser._parse_subprocess(fetched, {}) == "ok"
+    assert calls[0][0] == [
+        "depfix",
+        "run",
+        "-m",
+        "plugins._document_query.helpers.parsers.liteparse_worker",
+    ]
 
 
 def test_liteparse_auto_disables_ocr_for_large_text_pdf(monkeypatch):

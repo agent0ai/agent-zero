@@ -1,0 +1,41 @@
+<html>
+<head><title>Sandboxing</title></head>
+<body>
+  <div x-data>
+    <template x-if="config">
+      <div>
+        <div class="section-title">Sandbox defaults</div>
+        <div class="section-description">Ordinary code execution uses the default sandbox and creates or wakes it automatically.</div>
+        <div class="field"><div class="field-label"><div class="field-title">Default sandbox name</div></div><div class="field-control"><input type="text" maxlength="64" x-model="config.default_sandbox"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Default type</div><div class="field-description">Temporary uses a fast memory-backed upper layer. Permanent uses disk backing and never expires.</div></div><div class="field-control"><select x-model="config.default_type"><option value="temporary">Temporary</option><option value="permanent">Permanent</option></select></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Default network</div></div><div class="field-control"><select x-model="config.default_network"><option value="host">Host</option><option value="none">None</option></select></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Temporary lifetime</div><div class="field-description">Days since last use before a temporary sandbox is deleted.</div></div><div class="field-control"><input type="number" min="0.04" step="0.5" x-model.number="config.temporary_lifetime_days"></div></div>
+
+        <div class="section-title">Runtime images</div>
+        <div class="section-description">New sandboxes pull the configured Docker/OCI image at runtime. Existing sandboxes remain pinned to their original digest.</div>
+        <div class="field"><div class="field-label"><div class="field-title">Default image</div><div class="field-description">Docker Hub references may be short (for example python:3.13-slim-bookworm) or fully qualified.</div></div><div class="field-control"><input type="text" x-model="config.default_image"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Image cache directory</div></div><div class="field-control"><input type="text" x-model="config.image_cache_dir"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Unused image lifetime</div><div class="field-description">Unreferenced images are removed after this many days since last use.</div></div><div class="field-control"><input type="number" min="1" step="1" x-model.number="config.image_lifetime_days"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Registry auth file</div><div class="field-description">Optional path to a containers-auth.json file for private registries. Credentials are not copied into plugin metadata.</div></div><div class="field-control"><input type="text" x-model="config.registry_auth_file" placeholder="/run/secrets/containers-auth.json"></div></div>
+
+        <div class="section-title">Runtime paths</div>
+        <div class="section-description">Absolute paths are recommended in deployed images. Relative state paths resolve from the Agent Zero root.</div>
+        <div class="field"><div class="field-label"><div class="field-title">runsc executable</div></div><div class="field-control"><input type="text" x-model="config.runsc_path"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">skopeo executable</div></div><div class="field-control"><input type="text" x-model="config.skopeo_path"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">umoci executable</div></div><div class="field-control"><input type="text" x-model="config.umoci_path"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Private state directory</div></div><div class="field-control"><input type="text" x-model="config.state_dir"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">runsc runtime root</div></div><div class="field-control"><input type="text" x-model="config.runsc_root"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Shared exchange directory</div></div><div class="field-control"><input type="text" x-model="config.shared_dir"></div></div>
+
+        <div class="section-title">Limits</div>
+        <div class="field"><div class="field-label"><div class="field-title">Command timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.exec_timeout"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Snapshot timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.snapshot_timeout"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Maximum captured bytes</div><div class="field-description">Applied separately to stdout and stderr for one-shot manager execution.</div></div><div class="field-control"><input type="number" min="4096" step="4096" x-model.number="config.max_output_bytes"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Image pull timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.image_pull_timeout"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Image unpack timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.image_unpack_timeout"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">Maximum unpacked image bytes</div></div><div class="field-control"><input type="number" min="1048576" step="1048576" x-model.number="config.max_image_bytes"></div></div>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

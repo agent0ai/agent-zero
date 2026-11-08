@@ -2,11 +2,14 @@
 run terminal, python, or nodejs commands
 args:
 - `runtime`: `terminal`, `python`, `nodejs`, or `output`
+- `destination`: execution target from EXTRAS; default `default`
 - `code`: command or script code
 - `session`: terminal session id; default `0`
 - `reset`: kill a session before running; `true` or `false`
 rules:
 - place the command or script in `code`
+- use `destination=default` for ordinary isolated work; use `destination=local` only to inspect or modify Agent Zero itself
+- keep the same `destination` for a session's commands, output polls, interactive input, and reset
 - use `runtime=output` to poll running work
 - use `input` for interactive terminal prompts
 - if a session is stuck, call again with the same `session` and `reset=true`

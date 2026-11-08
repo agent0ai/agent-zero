@@ -4,10 +4,16 @@ import { callJsonApi } from "/js/api.js";
 import { sttService } from "/js/stt-service.js";
 import { ttsService } from "/js/tts-service.js";
 import { sendMessage, updateChatInput } from "/index.js";
+import {
+  PCM_MAX_DURATION_SECONDS,
+  concatenatePcmChunks,
+  encodePcmPayload,
+  resampleMonoPcm,
+} from "./audio-pcm.js";
 
 const PLUGIN_NAME = "_whisper_stt";
 
-const Status = {
+export const Status = {
   INACTIVE: "inactive",
   ACTIVATING: "activating",
   LISTENING: "listening",
@@ -46,7 +52,7 @@ function clearMicrophoneTooltip(element) {
   element.removeAttribute("data-bs-tooltip-initialized");
 }
 
-const model = {
+export const model = {
   runtimeInitialized: false,
   statusLoaded: false,
   loading: false,
@@ -402,17 +408,22 @@ const model = {
   },
 };
 
-class MicrophoneInput {
+export class MicrophoneInput {
   constructor(owner, updateCallback) {
     this.owner = owner;
     this.updateCallback = updateCallback;
     this.mediaStream = null;
-    this.mediaRecorder = null;
     this.audioContext = null;
     this.mediaStreamSource = null;
     this.analyserNode = null;
-    this.audioChunks = [];
-    this.lastChunk = null;
+    this.captureNode = null;
+    this.silentGain = null;
+    this.pcmChunks = [];
+    this.pcmFrameCount = 0;
+    this.recordingId = 0;
+    this.captureStopResolver = null;
+    this.captureOverflow = false;
+    this.disposed = false;
     this.messageSent = false;
     this.lastAudioTime = null;
     this.waitingTimer = null;
@@ -437,6 +448,7 @@ class MicrophoneInput {
   }
 
   async initialize() {
+    this.disposed = false;
     this.status = Status.ACTIVATING;
 
     try {
@@ -455,28 +467,14 @@ class MicrophoneInput {
 
       this.selectedDeviceId = selectedDevice?.deviceId || "";
       this.mediaStream = stream;
-      this.mediaRecorder = new MediaRecorder(stream);
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (
-          event.data.size > 0 &&
-          (this.status === Status.RECORDING || this.status === Status.WAITING)
-        ) {
-          if (this.lastChunk) {
-            this.audioChunks.push(this.lastChunk);
-            this.lastChunk = null;
-          }
-          this.audioChunks.push(event.data);
-        } else if (this.status === Status.LISTENING) {
-          this.lastChunk = event.data;
-        }
-      };
-
-      this.setupAudioAnalysis(stream);
+      await this.setupAudioPipeline(stream);
       return true;
     } catch (error) {
       console.error("[Whisper STT] Microphone initialization failed", error);
       globalThis.toast?.(
-        "Failed to access the microphone. Please check browser permissions.",
+        error?.name === "NotSupportedError"
+          ? "This browser does not support the AudioWorklet microphone pipeline required for local transcription."
+          : "Failed to access the microphone. Please check browser permissions.",
         "error",
       );
       this.status = Status.INACTIVE;
@@ -486,10 +484,6 @@ class MicrophoneInput {
   }
 
   handleStatusChange(previousStatus, nextStatus) {
-    if (nextStatus !== Status.RECORDING) {
-      this.lastChunk = null;
-    }
-
     switch (nextStatus) {
       case Status.INACTIVE:
         this.handleInactiveState();
@@ -517,8 +511,10 @@ class MicrophoneInput {
   }
 
   handleListeningState() {
-    this.stopRecording();
-    this.audioChunks = [];
+    void this.stopRecording();
+    this.pcmChunks = [];
+    this.pcmFrameCount = 0;
+    this.captureOverflow = false;
     this.hasStartedRecording = false;
     this.silenceStartTime = null;
     this.lastAudioTime = null;
@@ -527,11 +523,18 @@ class MicrophoneInput {
   }
 
   handleRecordingState() {
-    if (!this.mediaRecorder) return;
+    if (!this.captureNode) return;
 
-    if (!this.hasStartedRecording && this.mediaRecorder.state !== "recording") {
+    if (!this.hasStartedRecording) {
       this.hasStartedRecording = true;
-      this.mediaRecorder.start(1000);
+      this.recordingId += 1;
+      this.pcmChunks = [];
+      this.pcmFrameCount = 0;
+      this.captureOverflow = false;
+      this.captureNode.port.postMessage({
+        type: "start",
+        recordingId: this.recordingId,
+      });
     }
 
     clearTimeout(this.waitingTimer);
@@ -548,12 +551,22 @@ class MicrophoneInput {
   }
 
   handleProcessingState() {
-    this.stopRecording();
     void this.process();
   }
 
-  setupAudioAnalysis(stream) {
-    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  async setupAudioPipeline(stream) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass || !globalThis.AudioWorkletNode) {
+      throw new DOMException("AudioWorklet is unavailable", "NotSupportedError");
+    }
+
+    this.audioContext = new AudioContextClass();
+    if (!this.audioContext.audioWorklet) {
+      throw new DOMException("AudioWorklet is unavailable", "NotSupportedError");
+    }
+    await this.audioContext.audioWorklet.addModule(
+      `/plugins/${PLUGIN_NAME}/webui/pcm-capture-processor.js`,
+    );
     this.mediaStreamSource = this.audioContext.createMediaStreamSource(stream);
     this.analyserNode = this.audioContext.createAnalyser();
     this.analyserNode.fftSize = 2048;
@@ -561,6 +574,45 @@ class MicrophoneInput {
     this.analyserNode.maxDecibels = -10;
     this.analyserNode.smoothingTimeConstant = 0.85;
     this.mediaStreamSource.connect(this.analyserNode);
+
+    this.captureNode = new AudioWorkletNode(
+      this.audioContext,
+      "whisper-pcm-capture",
+      {
+        channelCount: 1,
+        channelCountMode: "explicit",
+        processorOptions: {
+          maxFrames: Math.ceil(
+            this.audioContext.sampleRate * PCM_MAX_DURATION_SECONDS,
+          ),
+        },
+      },
+    );
+    this.silentGain = this.audioContext.createGain();
+    this.silentGain.gain.value = 0;
+    this.captureNode.port.onmessage = (event) => this.handleCaptureMessage(event);
+    this.mediaStreamSource.connect(this.captureNode);
+    this.captureNode.connect(this.silentGain);
+    this.silentGain.connect(this.audioContext.destination);
+  }
+
+  handleCaptureMessage(event) {
+    const message = event.data || {};
+    if (message.recordingId !== this.recordingId) return;
+
+    if (message.type === "chunk" && message.samples instanceof ArrayBuffer) {
+      const chunk = new Float32Array(message.samples);
+      this.pcmChunks.push(chunk);
+      this.pcmFrameCount += chunk.length;
+    } else if (message.type === "stopped") {
+      this.captureStopResolver?.();
+      this.captureStopResolver = null;
+    } else if (message.type === "overflow") {
+      this.captureOverflow = true;
+      if (this.status === Status.RECORDING || this.status === Status.WAITING) {
+        this.status = Status.PROCESSING;
+      }
+    }
   }
 
   startAudioAnalysis() {
@@ -616,10 +668,16 @@ class MicrophoneInput {
   }
 
   stopRecording() {
-    if (this.mediaRecorder?.state === "recording") {
-      this.mediaRecorder.stop();
-      this.hasStartedRecording = false;
-    }
+    if (!this.captureNode || !this.hasStartedRecording) return Promise.resolve();
+
+    this.hasStartedRecording = false;
+    return new Promise((resolve) => {
+      this.captureStopResolver = resolve;
+      this.captureNode.port.postMessage({
+        type: "stop",
+        recordingId: this.recordingId,
+      });
+    });
   }
 
   densify(value) {
@@ -627,45 +685,49 @@ class MicrophoneInput {
   }
 
   async process() {
-    if (this.audioChunks.length === 0) {
+    const processingRecordingId = this.recordingId;
+    const sourceSampleRate = this.audioContext?.sampleRate;
+    if (!sourceSampleRate) return;
+
+    await this.stopRecording();
+
+    if (this.disposed || processingRecordingId !== this.recordingId) return;
+
+    if (this.pcmFrameCount === 0) {
       if (this.status === Status.PROCESSING) {
         this.status = Status.LISTENING;
       }
       return;
     }
 
-    const audioBlob = new Blob(this.audioChunks, { type: "audio/wav" });
-    const audio = await this.convertBlobToBase64(audioBlob);
+    const sourcePcm = concatenatePcmChunks(this.pcmChunks, this.pcmFrameCount);
+    const samples = resampleMonoPcm(
+      sourcePcm,
+      sourceSampleRate,
+    );
+    const audio = encodePcmPayload(samples);
 
     try {
       const result = await callJsonApi(`/plugins/${PLUGIN_NAME}/transcribe`, {
         audio,
       });
       const text = this.filterResult(result?.text || "");
-      if (text) {
+      if (text && !this.disposed && processingRecordingId === this.recordingId) {
         await this.updateCallback(text, true);
       }
     } catch (error) {
-      console.error("[Whisper STT] Transcription failed", error);
-      window.toastFetchError?.("Transcription error", error);
+      if (!this.disposed && processingRecordingId === this.recordingId) {
+        console.error("[Whisper STT] Transcription failed", error);
+        window.toastFetchError?.("Transcription error", error);
+      }
     } finally {
-      this.audioChunks = [];
+      this.pcmChunks = [];
+      this.pcmFrameCount = 0;
+      this.captureOverflow = false;
       if (this.status === Status.PROCESSING) {
         this.status = Status.LISTENING;
       }
     }
-  }
-
-  convertBlobToBase64(audioBlob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = String(reader.result || "");
-        resolve(result.split(",")[1] || "");
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(audioBlob);
-    });
   }
 
   filterResult(text) {
@@ -678,7 +740,7 @@ class MicrophoneInput {
       (normalized.startsWith("[") && normalized.endsWith("]"));
 
     if (wrapped) {
-      console.log(`[Whisper STT] Discarding transcription: ${normalized}`);
+      console.log("[Whisper STT] Discarding non-speech transcription result");
       return "";
     }
 
@@ -704,14 +766,20 @@ class MicrophoneInput {
   }
 
   dispose() {
+    this.disposed = true;
     clearTimeout(this.waitingTimer);
     this.waitingTimer = null;
     this.stopAudioAnalysis();
 
+    this.captureStopResolver?.();
+    this.captureStopResolver = null;
+
     try {
-      this.mediaRecorder?.stream?.getTracks?.().forEach((track) => track.stop());
+      this.captureNode?.disconnect?.();
+      this.silentGain?.disconnect?.();
+      this.mediaStreamSource?.disconnect?.();
     } catch (_error) {
-      // Ignore media cleanup failures.
+      // Ignore audio graph cleanup failures.
     }
 
     try {
@@ -727,12 +795,14 @@ class MicrophoneInput {
     }
 
     this.mediaStream = null;
-    this.mediaRecorder = null;
     this.mediaStreamSource = null;
     this.analyserNode = null;
+    this.captureNode = null;
+    this.silentGain = null;
     this.audioContext = null;
-    this.audioChunks = [];
-    this.lastChunk = null;
+    this.pcmChunks = [];
+    this.pcmFrameCount = 0;
+    this.captureOverflow = false;
     this.hasStartedRecording = false;
   }
 }

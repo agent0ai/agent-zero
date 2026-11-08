@@ -3,7 +3,11 @@ set -e
 
 echo "====================BASE PACKAGES4 START===================="
 
+# sandboxing
+apt-get update
 apt-get install -y --no-install-recommends \
-    tesseract-ocr tesseract-ocr-script-latn poppler-utils
+    ca-certificates util-linux procps iproute2 skopeo umoci
+
+rm -rf /var/lib/apt/lists/* # for docker layers size
 
 echo "====================BASE PACKAGES4 END===================="

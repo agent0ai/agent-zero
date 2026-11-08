@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Own terminal, Python, and Node.js code execution through persistent local or SSH-backed sessions.
+- Own terminal, Python, and Node.js code execution through destination-aware persistent sessions.
 
 ## Ownership
 
@@ -29,7 +29,10 @@
 - Explicitly target local versus SSH execution runtimes.
 - The `input` tool logs a prefix-free `icon://keyboard Using tool 'input'` heading and forwards keyboard input through the code execution tool and its log.
 - The tool's `allow_running` flag is framework-set (for example by the `input` tool's terminal dispatch); it is not a model-facing arg and stays undocumented in prompts.
+- Keep `destination=default` isolated through registered destination extensions; `local` means the Agent Zero operating system, and connected-host routing reuses the authenticated connector transport.
+- Key persistent sessions by destination and session id so output, input, and reset cannot cross execution boundaries.
 - Do not hardcode secrets, SSH credentials, or local user paths.
+- Local Python snippets run IPython through `depfix run` so imports can use packages materialized in the shared Depfix store; sandbox Python remains owned by the sandbox image.
 
 ## Work Guidance
 

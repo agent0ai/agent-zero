@@ -628,7 +628,8 @@ def test_browser_installs_current_patchright_chromium_for_host_architecture(
 
     def install(command, *, env):
         assert command == [
-            sys.executable,
+            "depfix",
+            "run",
             "-m",
             "patchright",
             "install",
@@ -742,6 +743,38 @@ def test_browser_playwright_binary_ignores_retired_usr_cache(monkeypatch, tmp_pa
     )
 
     assert get_playwright_binary() is None
+
+
+def test_browser_playwright_fallback_runs_depfix_managed_module(monkeypatch, tmp_path):
+    binary = tmp_path / "chromium" / "chrome"
+    discovered = iter((None, binary))
+    commands = []
+    monkeypatch.setattr(
+        browser_playwright_module,
+        "get_playwright_binary",
+        lambda: next(discovered),
+    )
+    monkeypatch.setattr(
+        browser_playwright_module,
+        "configure_playwright_env",
+        lambda: str(tmp_path),
+    )
+    monkeypatch.setattr(
+        browser_playwright_module.subprocess,
+        "check_call",
+        lambda command, **kwargs: commands.append((command, kwargs)),
+    )
+
+    assert browser_playwright_module.ensure_playwright_binary() == binary
+    assert commands[0][0] == [
+        "depfix",
+        "run",
+        "-m",
+        "playwright",
+        "install",
+        "chromium",
+    ]
+    assert commands[0][1]["env"]["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path)
 
 
 def test_browser_playwright_cache_migrates_valid_retired_usr_cache(monkeypatch, tmp_path):
@@ -2691,7 +2724,7 @@ def test_browser_docker_installs_full_chromium_to_tmp_cache():
     requirements = (PROJECT_ROOT / "requirements.txt").read_text(encoding="utf-8")
 
     assert "PLAYWRIGHT_BROWSERS_PATH=/a0/tmp/playwright" in script
-    assert "patchright install chromium --no-shell" in script
+    assert "depfix run -m patchright install chromium --no-shell" in script
     assert "playwright install chromium" not in script
     assert "uv pip install" not in script
     assert "patchright==1.61.2" in requirements

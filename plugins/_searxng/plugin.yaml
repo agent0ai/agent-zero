@@ -1,0 +1,8 @@
+name: _searxng
+title: SearXNG
+description: Placeholder for a future sandboxed SearXNG search integration.
+version: 0.1.0
+settings_sections: []
+per_project_config: false
+per_agent_config: false
+always_enabled: true

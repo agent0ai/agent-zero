@@ -66,9 +66,9 @@ Plugins can also include an optional `hooks.py` at the plugin root. The framewor
 - `hooks.py` runs inside the **Agent Zero framework runtime and Python environment**.
 - Use it for framework-internal work such as install hooks, cache preparation, registration, or filesystem setup.
 - If it runs `sys.executable -m pip install ...`, packages are installed into the same Python environment that runs Agent Zero.
-- If you need to install into the separate agent runtime or into the system environment, explicitly target that environment from a subprocess by selecting the correct interpreter, virtualenv, or package manager.
+- If you need to install into an isolated task sandbox or into the system environment, explicitly target that destination from a subprocess by selecting its interpreter or package manager.
 
-In Docker, `hooks.py` normally affects `/opt/venv-a0`; the agent execution runtime is `/opt/venv`.
+In Docker, `hooks.py` and local Python execution share the official image's global Python environment; sandbox destinations retain their own environments.
 
 ### Configuration Hook Context
 

@@ -28,7 +28,7 @@
 - `webui/config.html` settings UIs must bind plugin values to `config.*` and modal state/actions to `context.*` through `$store.pluginSettingsPrototype`.
 - Plugin model provider overrides belong in plugin `conf/model_providers.yaml` and merge after base `conf/model_providers.yaml`.
 - Global and scoped activation are independent and use `.toggle-1` and `.toggle-0`; `always_enabled: true` forces ON and disables UI toggles.
-- `hooks.py` runs in the framework runtime. Explicitly target another runtime if a plugin must prepare the agent execution environment.
+- `hooks.py` runs in the global Docker Python environment. Explicitly target an isolated sandbox or the operating system when a plugin must prepare those environments.
 - `execute.py` is manual user-triggered setup, maintenance, repair, migration, or refresh work; automatic framework behavior belongs in hooks or lifecycle extensions.
 - Plugin routes are `GET /plugins/<name>/<path>`, `POST /api/plugins/<name>/<handler>`, and `POST /api/plugins` for management actions.
 - `_a0_connector` WebSocket history replay must stay bounded: emit large chat history as paged `connector_context_snapshot` payloads, keep `last_sequence` as the Agent Zero log-output cursor, and avoid sending an entire long transcript in one frame.
@@ -106,6 +106,8 @@ Direct child DOX files:
 | [_scheduler/AGENTS.md](_scheduler/AGENTS.md) | Scheduler agent tool, Scheduled Tasks WebUI, CRUD API endpoints, and sidebar task list. |
 | [_search_engine/AGENTS.md](_search_engine/AGENTS.md) | Live web search tool via local SearXNG. |
 | [_sidebar_folders/AGENTS.md](_sidebar_folders/AGENTS.md) | Project folder presentation, filters, sorting, drag ordering, and chat project moves. |
+| [_sandboxing/AGENTS.md](_sandboxing/AGENTS.md) | Direct gVisor sandbox lifecycle, runtime OCI image cache, execution destinations, and management UI. |
+| [_searxng/AGENTS.md](_searxng/AGENTS.md) | Disabled SearXNG search placeholder and historical sandbox-reimplementation notes. |
 | [_skills/AGENTS.md](_skills/AGENTS.md) | Active and hidden skill configuration and prompt injection. |
 | [_telegram_integration/AGENTS.md](_telegram_integration/AGENTS.md) | Telegram bot integration and per-user chat sessions. |
 | [_text_editor/AGENTS.md](_text_editor/AGENTS.md) | Native text read, write, and patch tool. |

@@ -1,3 +1,4 @@
+import requirements
 import initialize
 from helpers import dotenv, extension, runtime
 from helpers.api import csrf_protect, requires_auth

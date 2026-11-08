@@ -1119,7 +1119,6 @@ def test_self_update_manager_desktop_ssh_cleanup_failure_does_not_block_startup(
         "load_request_file",
         lambda: (request_data, "branch: main\ntag: v1.2\n"),
     )
-    monkeypatch.setattr(manager, "clean_uv_cache", lambda logger: None)
     monkeypatch.setattr(
         manager,
         "clean_transient_desktop_agent_state",
@@ -1139,72 +1138,6 @@ def test_self_update_manager_desktop_ssh_cleanup_failure_does_not_block_startup(
     assert "Transient desktop agent cleanup skipped after error: cleanup boom" in (
         tmp_path / "a0-self-update.log"
     ).read_text(encoding="utf-8")
-
-
-def test_self_update_manager_clean_uv_cache_uses_uv_when_available(monkeypatch):
-    manager = load_self_update_manager()
-    commands = []
-    monkeypatch.setattr(
-        manager.shutil,
-        "which",
-        lambda executable: "/usr/local/bin/uv" if executable == "uv" else None,
-    )
-
-    def fake_run_command(command, *, cwd, logger, error_message=None):
-        commands.append((command, cwd, error_message))
-
-    monkeypatch.setattr(manager, "run_command", fake_run_command)
-
-    manager.clean_uv_cache(manager.NullLogger())
-
-    assert commands == [
-        (
-            ["/usr/local/bin/uv", "cache", "clean"],
-            None,
-            "Failed to clean uv cache during self-update.",
-        )
-    ]
-
-
-def test_self_update_manager_clean_uv_cache_skips_when_uv_missing(monkeypatch):
-    manager = load_self_update_manager()
-    commands = []
-    monkeypatch.setattr(manager.shutil, "which", lambda executable: None)
-    monkeypatch.setattr(
-        manager,
-        "run_command",
-        lambda command, **kwargs: commands.append(command),
-    )
-
-    manager.clean_uv_cache(manager.NullLogger())
-
-    assert commands == []
-
-
-def test_self_update_manager_clean_uv_cache_is_best_effort(monkeypatch):
-    manager = load_self_update_manager()
-    messages = []
-    monkeypatch.setattr(
-        manager.shutil,
-        "which",
-        lambda executable: "/usr/local/bin/uv" if executable == "uv" else None,
-    )
-
-    class Logger:
-        def log(self, message=""):
-            messages.append(message)
-
-        def log_block(self, title, content):
-            return None
-
-    def fail_run_command(command, **kwargs):
-        raise RuntimeError("cache cleanup failed")
-
-    monkeypatch.setattr(manager, "run_command", fail_run_command)
-
-    manager.clean_uv_cache(Logger())
-
-    assert any("uv cache clean skipped after error" in message for message in messages)
 
 
 def test_self_update_manager_refreshes_installed_codex_best_effort(monkeypatch):

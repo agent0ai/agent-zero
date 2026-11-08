@@ -618,24 +618,6 @@ def run_command(
     return completed
 
 
-def clean_uv_cache(logger: AttemptLogger) -> None:
-    uv_path = shutil.which("uv")
-    if not uv_path:
-        logger.log("uv executable not found, skipping uv cache clean.")
-        return
-
-    logger.log("Cleaning uv cache before continuing self-update startup.")
-    try:
-        run_command(
-            [uv_path, "cache", "clean"],
-            cwd=None,
-            logger=logger,
-            error_message="Failed to clean uv cache during self-update.",
-        )
-    except Exception as exc:
-        logger.log(f"uv cache clean skipped after error: {exc}")
-
-
 def refresh_codex_cli(logger: AttemptLogger) -> None:
     codex_path = shutil.which("codex")
     if not codex_path:
@@ -1438,7 +1420,6 @@ def docker_run_ui() -> int:
         logger.reset()
         logger.log(f"Consumed update file at {TRIGGER_FILE}")
         logger.log_block("Trigger file content", raw_text)
-        clean_uv_cache(logger)
         try:
             clean_transient_desktop_agent_state(REPO_DIR, logger)
         except Exception as exc:

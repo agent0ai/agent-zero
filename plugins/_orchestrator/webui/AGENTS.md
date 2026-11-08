@@ -36,7 +36,7 @@
   ```
 - Status API smoke after WebUI/API coupling changes:
   ```bash
-  docker exec 8dc967046cda bash -lc 'cd /a0 && /opt/venv-a0/bin/python plugins/_orchestrator/tests/test_status_adapters.py'
+  docker exec 8dc967046cda bash -lc 'cd /a0 && python plugins/_orchestrator/tests/test_status_adapters.py'
   ```
 
 ## Child DOX Index

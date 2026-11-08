@@ -157,7 +157,7 @@ The framework calls exported functions through `helpers.plugins.call_plugin_hook
 | `pre_update()` | Immediately before updating plugin code | Stop plugin-owned processes or prepare state when required. |
 | `uninstall()` | Before the framework deletes the custom plugin directory | Stop owned processes, unregister integrations, and remove plugin-owned dependencies and resources. |
 
-Hooks run inside the **Agent Zero framework runtime**, not the separate agent execution environment, and may be sync or async. Keep lifecycle entrypoints in `hooks.py`; delegate implementation to plugin-local helpers as needed. For example, with the corresponding helper functions implemented by the plugin:
+Hooks run inside the **global Docker Python environment**; sandbox dependencies explicitly target that sandbox, and may be sync or async. Keep lifecycle entrypoints in `hooks.py`; delegate implementation to plugin-local helpers as needed. For example, with the corresponding helper functions implemented by the plugin:
 
 ```python
 from usr.plugins.my_plugin.helpers import runtime
@@ -189,14 +189,14 @@ Omit `execute.py` by default. It is only for a separate, explicitly requested ma
 ### Environment targeting rules
 - If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the same Python environment that is running Agent Zero.
 - That is correct for dependencies needed by the plugin inside the framework runtime.
-- If the dependency is meant for the separate agent runtime or for OS-level tools, do **not** assume the current environment is correct.
+- If the dependency is meant for the isolated sandbox runtime or for OS-level tools, do **not** assume the current environment is correct.
 
 Instead, explicitly switch targets in a subprocess:
 - invoke the exact Python interpreter for the target runtime
 - activate the target virtualenv in the subprocess before running `pip`
 - run the relevant OS package manager from a subprocess configured for the intended environment
 
-In Docker, this usually means `hooks.py` affects `/opt/venv-a0` unless you intentionally target `/opt/venv` or another environment.
+In Docker, `hooks.py` affects `/usr/local/bin/python`; dependencies intended for a sandbox must be installed inside that sandbox.
 
 ---
 
@@ -219,6 +219,6 @@ Provide its callable contract in a policy-filtered `agent.system.tool.*.md` prom
 
 ## Local Verification
 
-Verify the named Docker runtime and source sync first. Use `/opt/venv-a0/bin/python` for framework imports and hooks, and `/opt/venv/bin/python` only for task-runtime code. Compile changed Python, run focused tests, then exercise the actual API/tool/UI path. For lifecycle changes, exercise normal install, repeated install/update, and uninstall through management APIs using isolated test data; confirm readiness without Execute and removal of owned dependencies without touching shared ones. Check effective configuration, plugin toggles, and cleanup. A successful import is not a live behavior test.
+Verify the named Docker runtime and source sync first. Use `depfix run` with `/usr/local/bin/python` for framework imports and hooks; use the local execution destination when modifying Agent Zero. Compile changed Python, run focused tests, then exercise the actual API/tool/UI path. For lifecycle changes, exercise normal install, repeated install/update, and uninstall through management APIs using isolated test data; confirm readiness without Execute and removal of owned dependencies without touching shared ones. Check effective configuration, plugin toggles, and cleanup. A successful import is not a live behavior test.
 
 For local-only plugins, a GitHub repository and Index submission are unnecessary. Do not add dependencies, pages, tools, or hooks that the requested feature does not need.

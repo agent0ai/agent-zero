@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sandboxes</title>
+  <script type="module">
+    import { store } from "/plugins/_sandboxing/webui/sandboxing-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.sandboxingStore">
+      <main class="sandbox-manager"
+            x-create="$store.sandboxingStore.onOpen()"
+            x-destroy="$store.sandboxingStore.onClose()">
+        <header class="sandbox-toolbar">
+          <div>
+            <div class="sandbox-title">gVisor Sandboxes</div>
+            <div class="sandbox-subtitle">
+              Fast isolated execution environments. Shared exchange:
+              <code x-text="$store.sandboxingStore.sharedDir || 'not configured'"></code>
+            </div>
+          </div>
+          <div class="sandbox-actions">
+            <button class="button secondary" type="button" @click="$store.sandboxingStore.doctor()">
+              <x-icon name="health_and_safety"></x-icon><span>Doctor</span>
+            </button>
+            <button class="button secondary" type="button" @click="$store.sandboxingStore.refresh()">
+              <x-icon name="refresh"></x-icon><span>Refresh</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="sandbox-create">
+          <label>
+            <span>Name</span>
+            <input type="text" maxlength="64" x-model="$store.sandboxingStore.form.name" placeholder="research">
+          </label>
+          <label>
+            <span>Type</span>
+            <select x-model="$store.sandboxingStore.form.sandbox_type">
+              <option value="temporary">Temporary · fast, expires</option>
+              <option value="permanent">Permanent · disk-backed</option>
+            </select>
+          </label>
+          <label>
+            <span>Network</span>
+            <select x-model="$store.sandboxingStore.form.network">
+              <option value="host">Host network</option>
+              <option value="none">No network</option>
+            </select>
+          </label>
+          <label>
+            <span>Image</span>
+            <input type="text" list="sandbox-image-references"
+                   x-model="$store.sandboxingStore.form.image"
+                   :placeholder="$store.sandboxingStore.defaults.image || 'docker.io/org/image:tag'">
+            <datalist id="sandbox-image-references">
+              <template x-for="image in $store.sandboxingStore.images" :key="image.digest">
+                <option :value="image.reference"></option>
+              </template>
+            </datalist>
+          </label>
+          <button class="button primary" type="button"
+                  :disabled="$store.sandboxingStore.busy || !$store.sandboxingStore.form.name.trim()"
+                  @click="$store.sandboxingStore.createSandbox()">
+            <x-icon name="add"></x-icon><span>Create</span>
+          </button>
+        </section>
+
+        <template x-if="$store.sandboxingStore.diagnostics.length">
+          <section class="sandbox-doctor">
+            <div class="sandbox-section-title">Runtime diagnostics</div>
+            <template x-for="line in $store.sandboxingStore.diagnostics" :key="line">
+              <div class="diagnostic-line" :class="line.split(':', 1)[0].toLowerCase()" x-text="line"></div>
+            </template>
+          </section>
+        </template>
+
+        <div class="sandbox-loading" x-show="$store.sandboxingStore.loading">
+          <x-icon class="spinning" name="progress_activity"></x-icon>
+          <span>Reading sandbox state…</span>
+        </div>
+
+        <section class="sandbox-grid" x-show="!$store.sandboxingStore.loading">
+          <template x-for="sandbox in $store.sandboxingStore.sandboxes" :key="sandbox.name">
+            <article class="sandbox-card">
+              <div class="sandbox-card-head">
+                <div>
+                  <div class="sandbox-name" x-text="sandbox.name"></div>
+                  <div class="sandbox-meta">
+                    <span class="status-pill" :class="sandbox.status" x-text="sandbox.status"></span>
+                    <span x-text="sandbox.sandbox_type"></span>
+                    <span x-text="`network: ${sandbox.network}`"></span>
+                  </div>
+                </div>
+                <div class="sandbox-card-actions">
+                  <button class="button icon" type="button" title="Start sandbox"
+                          x-show="['stopped', 'recoverable'].includes(sandbox.status)"
+                          :disabled="$store.sandboxingStore.isBusy(sandbox.name)"
+                          @click="$store.sandboxingStore.perform('start', sandbox)">
+                    <x-icon name="play_arrow"></x-icon>
+                  </button>
+                  <button class="button icon" type="button" title="Save snapshot"
+                          x-show="sandbox.status === 'running'"
+                          :disabled="$store.sandboxingStore.isBusy(sandbox.name)"
+                          @click="$store.sandboxingStore.perform('save', sandbox)">
+                    <x-icon name="save"></x-icon>
+                  </button>
+                  <button class="button icon" type="button" title="Stop sandbox"
+                          x-show="sandbox.status === 'running'"
+                          :disabled="$store.sandboxingStore.isBusy(sandbox.name)"
+                          @click="$store.sandboxingStore.perform('stop', sandbox)">
+                    <x-icon name="stop_circle"></x-icon>
+                  </button>
+                  <button class="button icon danger" type="button" title="Delete sandbox"
+                          :disabled="$store.sandboxingStore.isBusy(sandbox.name)"
+                          @click.stop="$confirmClick($event, () => $store.sandboxingStore.perform('delete', sandbox))">
+                    <x-icon name="delete"></x-icon>
+                  </button>
+                </div>
+              </div>
+              <dl class="sandbox-details">
+                <div><dt>Private data</dt><dd x-text="$store.sandboxingStore.formatSize(sandbox.size_bytes)"></dd></div>
+                <div><dt>Last used</dt><dd x-text="$store.sandboxingStore.formatDate(sandbox.last_used_at)"></dd></div>
+                <div><dt>Snapshot</dt><dd x-text="$store.sandboxingStore.formatDate(sandbox.snapshot_at)"></dd></div>
+                <div><dt>Expires</dt><dd x-text="sandbox.expires_at ? $store.sandboxingStore.formatDate(sandbox.expires_at) : 'Never'"></dd></div>
+                <div><dt>Destination</dt><dd><code x-text="sandbox.name === $store.sandboxingStore.defaults.name ? 'default' : sandbox.name"></code></dd></div>
+                <div><dt>Extra mounts</dt><dd x-text="(sandbox.mounts || []).length"></dd></div>
+                <div><dt>Image</dt><dd><code x-text="sandbox.image_ref || 'Unavailable'"></code></dd></div>
+                <div><dt>Image digest</dt><dd><code x-text="$store.sandboxingStore.shortDigest(sandbox.image_digest)"></code></dd></div>
+              </dl>
+              <div class="sandbox-error" x-show="sandbox.runtime_error" x-text="sandbox.runtime_error"></div>
+            </article>
+          </template>
+          <div class="sandbox-empty" x-show="!$store.sandboxingStore.sandboxes.length">
+            No sandboxes yet. The first ordinary code execution will create the default sandbox automatically.
+          </div>
+        </section>
+
+        <section class="sandbox-images">
+          <div class="sandbox-images-head">
+            <div>
+              <div class="sandbox-section-title">Sandbox images</div>
+              <div class="sandbox-subtitle">
+                Docker Hub/OCI images are pulled at runtime and pinned by digest. Unreferenced images unused for
+                <span x-text="$store.sandboxingStore.imageCleanupDays"></span> days are removed automatically.
+              </div>
+            </div>
+            <button class="button secondary" type="button"
+                    :disabled="$store.sandboxingStore.busy"
+                    @click="$store.sandboxingStore.cleanupImages()">
+              <x-icon name="auto_delete"></x-icon><span>Clean unused</span>
+            </button>
+          </div>
+          <div class="sandbox-image-pull">
+            <label>
+              <span>Docker image reference</span>
+              <input type="text" x-model="$store.sandboxingStore.imageForm.reference"
+                     placeholder="docker.io/organization/sandbox:latest">
+            </label>
+            <button class="button primary" type="button"
+                    :disabled="$store.sandboxingStore.busy || !$store.sandboxingStore.imageForm.reference.trim()"
+                    @click="$store.sandboxingStore.pullImage()">
+              <x-icon name="cloud_download"></x-icon><span>Pull / refresh</span>
+            </button>
+          </div>
+          <div class="sandbox-image-grid">
+            <template x-for="image in $store.sandboxingStore.images" :key="image.digest">
+              <article class="sandbox-image-card">
+                <div class="sandbox-card-head">
+                  <div>
+                    <div class="sandbox-name" x-text="image.reference || $store.sandboxingStore.shortDigest(image.digest)"></div>
+                    <div class="sandbox-meta">
+                      <span class="status-pill" :class="image.status" x-text="image.status"></span>
+                      <span x-text="[image.os, image.architecture].filter(Boolean).join(' / ') || 'platform unknown'"></span>
+                    </div>
+                  </div>
+                  <button class="button icon danger" type="button" title="Delete cached image"
+                          :disabled="$store.sandboxingStore.busyImages[image.digest] || (image.used_by || []).length > 0"
+                          @click.stop="$confirmClick($event, () => $store.sandboxingStore.deleteImage(image))">
+                    <x-icon name="delete"></x-icon>
+                  </button>
+                </div>
+                <dl class="sandbox-details">
+                  <div><dt>Digest</dt><dd><code x-text="$store.sandboxingStore.shortDigest(image.digest)"></code></dd></div>
+                  <div><dt>Cached size</dt><dd x-text="$store.sandboxingStore.formatSize(image.size_bytes)"></dd></div>
+                  <div><dt>Last used</dt><dd x-text="$store.sandboxingStore.formatDate(image.last_used_at)"></dd></div>
+                  <div><dt>Used by</dt><dd x-text="(image.used_by || []).join(', ') || 'No sandboxes'"></dd></div>
+                  <div><dt>References</dt><dd x-text="(image.references || []).join(', ') || 'Unknown'"></dd></div>
+                </dl>
+                <div class="sandbox-error" x-show="image.runtime_error" x-text="image.runtime_error"></div>
+              </article>
+            </template>
+            <div class="sandbox-empty" x-show="!$store.sandboxingStore.images.length">
+              No images are cached. Pull one here or create a sandbox to fetch the configured default.
+            </div>
+          </div>
+        </section>
+      </main>
+    </template>
+  </div>
+
+  <style>
+    .sandbox-manager { display:flex; flex-direction:column; gap:1rem; padding:1rem; }
+    .sandbox-toolbar, .sandbox-create, .sandbox-doctor, .sandbox-images { border:1px solid var(--color-border); border-radius:12px; background:color-mix(in srgb,var(--color-panel) 90%,transparent); padding:1rem; }
+    .sandbox-toolbar { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; }
+    .sandbox-title { font-size:1.15rem; font-weight:650; }
+    .sandbox-subtitle { color:var(--color-text-secondary); margin-top:.3rem; font-size:.88rem; }
+    .sandbox-actions, .sandbox-card-actions { display:flex; gap:.4rem; flex-wrap:wrap; }
+    .sandbox-create { display:grid; grid-template-columns:minmax(10rem,1.5fr) minmax(10rem,1fr) minmax(9rem,1fr) minmax(15rem,2fr) auto; gap:.75rem; align-items:end; }
+    .sandbox-create label, .sandbox-image-pull label { display:flex; flex-direction:column; gap:.35rem; }
+    .sandbox-create label > span, .sandbox-image-pull label > span { color:var(--color-text-secondary); font-size:.8rem; font-weight:600; }
+    .sandbox-section-title { font-weight:650; margin-bottom:.5rem; }
+    .diagnostic-line { font-family:"Roboto Mono",monospace; font-size:.78rem; padding:.2rem 0; overflow-wrap:anywhere; }
+    .diagnostic-line.error { color:var(--color-error); }
+    .diagnostic-line.warning { color:var(--color-warning); }
+    .sandbox-loading, .sandbox-empty { display:flex; align-items:center; gap:.5rem; color:var(--color-text-secondary); padding:1.25rem; border:1px dashed var(--color-border); border-radius:12px; }
+    .sandbox-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(22rem,1fr)); gap:.9rem; }
+    .sandbox-images { display:flex; flex-direction:column; gap:.9rem; }
+    .sandbox-images-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; }
+    .sandbox-image-pull { display:grid; grid-template-columns:minmax(16rem,1fr) auto; gap:.75rem; align-items:end; }
+    .sandbox-image-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(22rem,1fr)); gap:.9rem; }
+    .sandbox-image-card { border:1px solid var(--color-border); border-radius:10px; padding:.9rem; min-width:0; }
+    .sandbox-card { border:1px solid var(--color-border); border-radius:12px; background:color-mix(in srgb,var(--color-panel) 90%,transparent); padding:1rem; min-width:0; }
+    .sandbox-card-head { display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start; }
+    .sandbox-name { font-size:1.05rem; font-weight:650; overflow-wrap:anywhere; }
+    .sandbox-meta { display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; color:var(--color-text-secondary); font-size:.78rem; margin-top:.35rem; }
+    .status-pill { border-radius:999px; padding:.15rem .45rem; background:var(--color-border); color:var(--color-text); }
+    .status-pill.running { background:color-mix(in srgb,#2eaf65 24%,transparent); color:#54ce84; }
+    .status-pill.broken, .status-pill.stale { background:color-mix(in srgb,#d44 22%,transparent); color:#f08080; }
+    .sandbox-details { display:grid; grid-template-columns:1fr 1fr; gap:.65rem 1rem; margin:1rem 0 0; }
+    .sandbox-details div { min-width:0; }
+    .sandbox-details dt { color:var(--color-text-secondary); font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; }
+    .sandbox-details dd { margin:.2rem 0 0; font-size:.82rem; overflow-wrap:anywhere; }
+    .sandbox-error { color:var(--color-error); font-size:.78rem; margin-top:.8rem; overflow-wrap:anywhere; }
+    .button.primary, .button.secondary, .button.icon { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; }
+    .button.icon { min-width:2.2rem; padding:.45rem; }
+    .button.icon.danger { color:var(--color-error); }
+    .spinning { animation:sandbox-spin 1s linear infinite; }
+    @keyframes sandbox-spin { to { transform:rotate(360deg); } }
+    @media (max-width:780px) { .sandbox-toolbar, .sandbox-images-head { flex-direction:column; } .sandbox-create, .sandbox-image-pull { grid-template-columns:1fr; } .sandbox-grid, .sandbox-image-grid { grid-template-columns:1fr; } .sandbox-details { grid-template-columns:1fr; } }
+  </style>
+</body>
+</html>

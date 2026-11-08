@@ -11,9 +11,25 @@ class Input(Tool):
         
         # terminal session number
         session = int(self.args.get("session", 0))
+        destination = str(self.args.get("destination", "default") or "default")
 
         # forward keyboard input to code execution tool
-        args = {"runtime": "terminal", "code": keyboard, "session": session, "allow_running": True}
+        args = (
+            {
+                "runtime": "input",
+                "keyboard": keyboard,
+                "session": session,
+                "destination": destination,
+            }
+            if destination == "host"
+            else {
+                "runtime": "terminal",
+                "code": keyboard,
+                "session": session,
+                "allow_running": True,
+                "destination": destination,
+            }
+        )
         cet = CodeExecution(self.agent, "code_execution_tool", "", args, self.message, self.loop_data)
         cet.log = self.log
         return await cet.execute(**args)

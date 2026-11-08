@@ -561,7 +561,7 @@ Use `claude-sonnet-4-5` for Anthropic, but use `anthropic/claude-sonnet-4-5` for
 ### Built-in Voice Plugins
 
 - Agent Zero ships Whisper STT as the built-in `_whisper_stt` plugin and Kokoro TTS as the built-in `_kokoro_tts` plugin.
-- Docker/bootstrap remains responsible for installing the required speech dependencies such as `ffmpeg`, Kokoro, Whisper, and `soundfile`.
+- Docker/bootstrap installs the Whisper, Kokoro, and `soundfile` Python dependencies. Whisper microphone audio is browser-normalized PCM, so the container does not require FFmpeg.
 - Both plugins can be enabled or disabled independently from the Agent Plugins section in the Web UI.
 - Whisper model size, language, message handling, and silence behavior are configured from the plugin settings screen.
 - If `_kokoro_tts` is disabled, spoken output falls back to the browser's native speech synthesis instead of the container runtime.
