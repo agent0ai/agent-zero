@@ -2,7 +2,7 @@ import re
 import threading
 from io import StringIO
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
+from typing import Dict, Iterator, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
 from dotenv.parser import parse_stream
 from helpers.errors import RepairableException
 from helpers import dotenv, files
@@ -29,6 +29,24 @@ def alias_for_key(key: str, placeholder: str = "§§secret({key})") -> str:
     return placeholder.format(key=key)
 
 
+def _is_api_key(key: str) -> bool:
+    key = key.upper()
+    return key.startswith("API_KEY_") or key.endswith(("_API_KEY", "_API_TOKEN"))
+
+
+def _masking_values(key_to_value: Dict[str, str]) -> Iterator[Tuple[str, str]]:
+    for key, value in key_to_value.items():
+        if not isinstance(value, str) or not value:
+            continue
+        yield key, value
+        # Providers select individual keys from these lists; substitution keeps the full value.
+        if _is_api_key(key) and "," in value:
+            for member in value.split(","):
+                member = member.strip()
+                if member:
+                    yield key, member
+
+
 @dataclass
 class EnvLine:
     raw: str
@@ -45,22 +63,22 @@ class StreamingSecretsFilter:
 
     - Replaces full secret values with placeholders §§secret(KEY) when detected.
     - Holds the longest suffix of the current buffer that matches any secret prefix
-      (with minimum trigger length of 3) to avoid leaking partial secrets across chunks.
-    - On finalize(), any unresolved partial is masked with '***'.
+      to avoid leaking partial secrets across chunks.
+    - On finalize(), unresolved partials of at least min_trigger are masked with '***'.
     """
 
     def __init__(self, key_to_value: Dict[str, str], min_trigger: int = 3):
         self.min_trigger = max(1, int(min_trigger))
         # Map value -> key for placeholder construction
         self.value_to_key: Dict[str, str] = {
-            v: k for k, v in key_to_value.items() if isinstance(v, str) and v
+            v: k for k, v in _masking_values(key_to_value)
         }
         # Only keep non-empty values
         self.secret_values: List[str] = [v for v in self.value_to_key.keys() if v]
         # Precompute all prefixes for quick suffix matching
         self.prefixes: Set[str] = set()
         for v in self.secret_values:
-            for i in range(self.min_trigger, len(v) + 1):
+            for i in range(1, len(v) + 1):
                 self.prefixes.add(v[:i])
         self.max_len: int = max((len(v) for v in self.secret_values), default=0)
 
@@ -80,9 +98,9 @@ class StreamingSecretsFilter:
 
     def _longest_suffix_prefix(self, text: str) -> int:
         """Return length of longest suffix of text that is a known secret prefix.
-        Returns 0 if none found (or only shorter than min_trigger)."""
+        Returns 0 if none found."""
         max_check = min(len(text), self.max_len)
-        for length in range(max_check, self.min_trigger - 1, -1):
+        for length in range(max_check, 0, -1):
             suffix = text[-length:]
             if suffix in self.prefixes:
                 return length
@@ -117,7 +135,7 @@ class StreamingSecretsFilter:
             return ""
 
         hold_len = self._longest_suffix_prefix(self.pending)
-        if hold_len > 0:
+        if hold_len >= self.min_trigger:
             safe = self.pending[:-hold_len]
             # Mask unresolved partial
             result = safe + "***"
@@ -165,7 +183,7 @@ class SecretsManager:
                     line.raw
                     for line in self.parse_env_lines(content)
                     if line.type != "pair"
-                    or (line.key or "").upper().startswith("API_KEY_")
+                    or _is_api_key(line.key or "")
                     or (line.key or "").upper() in _RUNTIME_CREDENTIAL_KEYS
                 )
             parts.append(content)
@@ -317,7 +335,7 @@ class SecretsManager:
 
         # Sort by length (longest first) to avoid partial replacements
         for key, value in sorted(
-            secrets.items(), key=lambda x: len(x[1]), reverse=True
+            _masking_values(secrets), key=lambda x: len(x[1]), reverse=True
         ):
             if value and len(value.strip()) >= min_length:
                 result = result.replace(value, alias_for_key(key, placeholder))

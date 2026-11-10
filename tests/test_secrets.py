@@ -264,3 +264,78 @@ def test_masked_editor_hides_a_shadowed_value(tmp_path):
     assert masked == 'TOKEN="***"\nTOKEN=""'
     manager.save_secrets_with_merge(masked)
     assert manager.parse_env_content(path.read_text()) == {"TOKEN": ""}
+
+
+@pytest.mark.parametrize("chunk_size", range(1, len("synthetic-token") + 1))
+def test_streaming_secrets_are_masked_across_chunk_boundaries(chunk_size):
+    value = "synthetic-token"
+    stream = secrets.StreamingSecretsFilter({"TOKEN": value})
+    output = "".join(
+        stream.process_chunk(value[start:start + chunk_size])
+        for start in range(0, len(value), chunk_size)
+    ) + stream.finalize()
+
+    assert output == "§§secret(TOKEN)"
+    assert stream.finalize() == ""
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("ordinary text", "ordinary text"),
+    ("This is", "This is"),
+    ("tail sy", "tail sy"),
+    ("tail syn", "tail ***"),
+])
+def test_streaming_short_prefixes_preserve_the_final_mask_threshold(text, expected):
+    stream = secrets.StreamingSecretsFilter({"TOKEN": "synthetic-token"})
+
+    assert "".join(stream.process_chunk(char) for char in text) + stream.finalize() == expected
+
+
+@pytest.mark.parametrize("key", ["API_KEY_TEST_PROVIDER", "TEST_PROVIDER_API_KEY", "TEST_PROVIDER_API_TOKEN"])
+@pytest.mark.parametrize("pool", ["synthetic-first,synthetic-second", " synthetic-first, , synthetic-second , "])
+def test_provider_key_pools_mask_each_key_without_changing_stored_values(tmp_path, monkeypatch, key, pool):
+    path = tmp_path / "runtime.env"
+    path.write_text(f'{key}={json.dumps(pool)}\n')
+    monkeypatch.setattr(secrets.dotenv, "get_dotenv_file_path", lambda: str(path))
+    manager = secrets.SecretsManager(str(path))
+    alias = secrets.alias_for_key(key)
+
+    assert manager.replace_placeholders(alias) == pool
+    assert manager.mask_values(pool) == alias
+    assert manager.mask_values("keys: synthetic-first / synthetic-second.") == f"keys: {alias} / {alias}."
+    assert manager.mask_values("synthetic-first", placeholder="<{key}>") == f"<{key}>"
+    assert manager.get_secrets_for_prompt() == alias
+    assert manager.load_secrets() == {key: pool}
+
+    text = "keys: synthetic-first / synthetic-second."
+    for chunk_size in (1, 2, 7, len(text)):
+        stream = manager.create_streaming_filter()
+        output = "".join(
+            stream.process_chunk(text[start:start + chunk_size])
+            for start in range(0, len(text), chunk_size)
+        ) + stream.finalize()
+        assert output == f"keys: {alias} / {alias}."
+
+
+def test_commas_in_ordinary_secrets_do_not_create_individual_secrets(tmp_path):
+    path = tmp_path / "secrets.env"
+    value = "first-word,second-word"
+    path.write_text(f"PASSWORD={value}\n")
+    manager = secrets.SecretsManager(str(path))
+    text = f"first-word / second-word / {value}."
+    expected = "first-word / second-word / §§secret(PASSWORD)."
+
+    assert manager.mask_values(text) == expected
+    stream = manager.create_streaming_filter()
+    assert "".join(stream.process_chunk(char) for char in text) + stream.finalize() == expected
+
+
+def test_provider_key_pool_members_respect_the_text_mask_length_threshold(tmp_path):
+    path = tmp_path / "secrets.env"
+    path.write_text("API_KEY_TEST_PROVIDER=abc,def\n")
+    manager = secrets.SecretsManager(str(path))
+
+    assert manager.mask_values("abc / def") == "abc / def"
+    assert manager.mask_values("abc / def", min_length=3) == (
+        "§§secret(API_KEY_TEST_PROVIDER) / §§secret(API_KEY_TEST_PROVIDER)"
+    )
