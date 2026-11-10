@@ -24,6 +24,7 @@
 - Observed side-effect areas: filesystem reads, filesystem writes, secret handling.
 - Imported dependency areas include: `dotenv`, `files`, `os`, `re`, `typing`.
 - `save_dotenv_value(..., reload_env=False)` updates the persisted file without changing the running process environment.
+- Every successful file write invalidates registered `SecretsManager` caches before optional environment reloading, so all credential writers keep alias substitution and masking current. The secrets import is deferred to avoid the dotenv/secrets import cycle.
 
 ## Key Concepts
 

@@ -291,6 +291,32 @@ def test_streaming_short_prefixes_preserve_the_final_mask_threshold(text, expect
     assert "".join(stream.process_chunk(char) for char in text) + stream.finalize() == expected
 
 
+@pytest.mark.parametrize("reload_env", [False, True])
+def test_dotenv_writes_refresh_all_secret_managers(tmp_path, monkeypatch, reload_env):
+    path = tmp_path / "runtime.env"
+    key = "API_KEY_SECRET_TEST"
+    path.write_text(f"{key}=synthetic-old-value\n")
+    monkeypatch.setenv(key, "synthetic-old-value")
+    monkeypatch.setattr(secrets.dotenv, "get_dotenv_file_path", lambda: str(path))
+    monkeypatch.setattr(secrets.SecretsManager, "_instances", {})
+    managers = [
+        secrets.SecretsManager.get_instance(str(path)),
+        secrets.SecretsManager.get_instance(str(tmp_path / "global.env"), str(path)),
+    ]
+    for manager in managers:
+        assert manager.load_secrets()[key] == "synthetic-old-value"
+
+    for value in ("synthetic-new-value", ""):
+        secrets.dotenv.save_dotenv_value(key, value, reload_env=reload_env)
+        for manager in managers:
+            assert manager.replace_placeholders(secrets.alias_for_key(key)) == value
+            assert (secrets.alias_for_key(key) in manager.get_secrets_for_prompt()) == bool(value)
+            if value:
+                assert manager.mask_values(value) == secrets.alias_for_key(key)
+        expected_env = value if reload_env else "synthetic-old-value"
+        assert secrets.dotenv.get_dotenv_value(key) == expected_env
+
+
 @pytest.mark.parametrize("key", ["API_KEY_TEST_PROVIDER", "TEST_PROVIDER_API_KEY", "TEST_PROVIDER_API_TOKEN"])
 @pytest.mark.parametrize("pool", ["synthetic-first,synthetic-second", " synthetic-first, , synthetic-second , "])
 def test_provider_key_pools_mask_each_key_without_changing_stored_values(tmp_path, monkeypatch, key, pool):

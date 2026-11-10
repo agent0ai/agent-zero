@@ -53,9 +53,13 @@ import models
 
 def test_model_config_api_keys_can_be_cleared_via_backend(monkeypatch, tmp_path):
     from helpers import dotenv
+    from helpers.secrets import SecretsManager
 
     env_file = tmp_path / ".env"
     monkeypatch.setattr(dotenv, "get_dotenv_file_path", lambda: str(env_file))
+    monkeypatch.setattr(SecretsManager, "_instances", {})
+    manager = SecretsManager.get_instance(str(env_file))
+    assert manager.load_secrets() == {}
 
     for key in ("API_KEY_OPENROUTER", "OPENROUTER_API_KEY", "OPENROUTER_API_TOKEN"):
         monkeypatch.delenv(key, raising=False)
@@ -64,10 +68,13 @@ def test_model_config_api_keys_can_be_cleared_via_backend(monkeypatch, tmp_path)
 
     assert handler._set_keys({"keys": {"openrouter": "sk-test-openrouter"}}) == {"ok": True}
     assert models.get_api_key("openrouter") == "sk-test-openrouter"
+    assert manager.replace_placeholders("§§secret(API_KEY_OPENROUTER)") == "sk-test-openrouter"
+    assert manager.mask_values("sk-test-openrouter") == "§§secret(API_KEY_OPENROUTER)"
 
     assert handler._set_keys({"keys": {"openrouter": ""}}) == {"ok": True}
     assert models.get_api_key("openrouter") == "None"
     assert handler._reveal_key({"provider": "openrouter"}) == {"ok": True, "value": ""}
+    assert manager.replace_placeholders("§§secret(API_KEY_OPENROUTER)") == ""
 
 
 def test_api_key_reveal_preserves_the_pool_and_rotation_position(monkeypatch):
