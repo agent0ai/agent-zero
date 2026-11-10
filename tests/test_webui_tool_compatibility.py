@@ -55,6 +55,74 @@ def test_first_snapshot_retains_tasks_and_selection_before_sidebar_mount(page):
     assert result == {"registeredBeforeSnapshot": True, "ids": ["saved-task"], "context": "saved-task", "selected": "saved-task", "selectedChat": "saved-task"}
 
 
+@pytest.mark.parametrize("attachments", [False, True])
+@pytest.mark.parametrize("during_render", [False, True])
+def test_welcome_send_survives_first_snapshot_until_backend_log_arrives(page, attachments, during_render):
+    page.route("**/hold-first-render.js", lambda route: route.fulfill(
+        content_type="text/javascript", body='''export default async () => {
+            const hold = globalThis.holdFirstRender;
+            if (hold) {
+                globalThis.holdFirstRender = null;
+                globalThis.renderStarted();
+                await hold;
+            }
+        };'''))
+    result = page.evaluate('''async ({attachments, duringRender}) => {
+        const ui = await import('/index.js');
+        const {getStore} = await import('/js/AlpineStore.js');
+        const input = getStore('chatInput');
+        const originalFetch = globalThis.fetch;
+        let completeSend, messageId, requestStarted;
+        const sending = new Promise(resolve => { requestStarted = resolve; });
+        let releaseRender;
+        const rendering = new Promise(resolve => { globalThis.renderStarted = resolve; });
+        if (duringRender) {
+            globalThis.holdFirstRender = new Promise(resolve => { releaseRender = resolve; });
+            runtimeInfo.webuiExtensions.js.get_process_step_types = ['/hold-first-render.js'];
+        }
+        globalThis.fetch = (url, options) => {
+            if (url === '/api/csrf_token') return Promise.resolve(Response.json({ok:true, token:'fixture'}));
+            if (url === '/api/chat_create') return Promise.resolve(Response.json({ok:true, ctxid:'new-chat'}));
+            if (url === '/api/message_async') {
+                messageId = options.body instanceof FormData
+                    ? options.body.get('message_id') : JSON.parse(options.body).message_id;
+                requestStarted();
+                return new Promise(resolve => { completeSend = resolve; });
+            }
+            return originalFetch(url, options);
+        };
+        input.message = 'First Welcome prompt';
+        if (attachments) getStore('chatAttachments').getAttachmentsForSending = () => [
+            {file:new File(['fixture'], 'fixture.txt')}];
+        const send = input.sendMessage();
+        await (duringRender ? rendering : sending);
+        const snapshot = {context:'new-chat', contexts:[{id:'new-chat'}], tasks:[],
+            logs:[{no:0, id:'greeting', type:'response', content:'Hello!'}],
+            log_version:1, log_guid:'fixture'};
+        const userRows = () => document.querySelectorAll('#chat-history .message-user').length;
+        const applying = ui.applySnapshot(snapshot);
+        if (duringRender) releaseRender();
+        await applying;
+        await sending;
+        const whileSending = userRows();
+        const order = [...document.querySelectorAll('#chat-history .message-container')]
+            .map(element => element.id);
+        completeSend(Response.json({context:'new-chat'}));
+        await send;
+        const confirmed = {no:1, id:messageId, type:'user', content:'Server confirmed prompt', kvps:{}};
+        await ui.applySnapshot({...snapshot, logs:[confirmed], log_version:2});
+        const afterConfirmation = userRows();
+        const confirmedText = document.querySelector('#chat-history .message-user .message-text')?.textContent;
+        await ui.applySnapshot({...snapshot, log_version:3});
+        return {whileSending, greetingFirst:order[0] === 'message-greeting',
+            userLast:order.at(-1) === `message-${messageId}`, afterConfirmation,
+            confirmedText, afterRemoval:userRows()};
+    }''', {"attachments": attachments, "duringRender": during_render})
+    assert result == {"whileSending": 1, "greetingFirst": True, "userLast": True,
+        "afterConfirmation": 1, "confirmedText": "Server confirmed prompt",
+        "afterRemoval": 0}
+
+
 @pytest.mark.parametrize("tool_name,code", [("skills_tool", "SKL"), ("vision_load", "EYE"), ("search_engine", "SRC"), ("memory_load", "MEM"), ("memory_save", "MEM"), ("memory_delete", "MEM"), ("memory_forget", "MEM")])
 def test_saved_tool_logs_keep_their_specialized_renderer(page, tool_name, code):
     result = page.evaluate('''async ({tool_name}) => {

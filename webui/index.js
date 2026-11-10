@@ -398,6 +398,7 @@ export async function applySnapshot(snapshot, options = {}) {
   // If the chat has been reset, reset cursors and request a resync from the caller.
   // Note: on first snapshot after a context switch, lastLogGuid is intentionally empty,
   // so the mismatch is expected and should not trigger a second state_request/poll.
+  const firstSnapshot = !lastLogGuid;
   if (lastLogGuid != snapshot.log_guid) {
     if (lastLogGuid) {
       msgs.resetMessageRenderState();
@@ -415,7 +416,8 @@ export async function applySnapshot(snapshot, options = {}) {
 
   if (lastLogVersion != snapshot.log_version) {
     updated = true;
-    if (snapshot.logs?.[0]?.no === 0) {
+    // Context selection already cleared history; keep any first send rendered since then.
+    if (!firstSnapshot && snapshot.logs?.[0]?.no === 0) {
       msgs.resetMessageRenderState();
     }
     await setMessages(modelGateStore.mergeSyntheticMessages(snapshot.logs, context));
