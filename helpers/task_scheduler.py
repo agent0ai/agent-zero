@@ -344,6 +344,8 @@ class ScheduledTask(BaseTask):
         project_name: str | None = None,
         project_color: str | None = None,
     ):
+        # Validate with the execution parser before any task can be persisted.
+        CronTab(crontab=schedule.to_crontab())
         # Set timezone in schedule if provided
         if timezone is not None:
             schedule.timezone = normalize_schedule_timezone(timezone)
@@ -370,6 +372,9 @@ class ScheduledTask(BaseTask):
                context_id: str | None = None,
                schedule: TaskSchedule | None = None,
                **kwargs):
+        if schedule is not None:
+            # Reject invalid schedules before changing any of the task's fields.
+            CronTab(crontab=schedule.to_crontab())
         super().update(name=name,
                        state=state,
                        system_prompt=system_prompt,
