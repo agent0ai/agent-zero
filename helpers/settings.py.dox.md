@@ -57,6 +57,7 @@
 ## Runtime Contracts
 
 - Settings reads use `models.get_api_key_raw()` to preserve complete key lists without advancing runtime rotation or persisting keys synthesized by runtime hooks. Masking, authentication reloads, and intentional clearing retain their existing behavior.
+- Ordinary settings reads represent an unreadable secrets file as `None`, preserving unrelated settings access. Normalization retains this transient value, and saves skip secret writes for it even if the file becomes readable in the meantime. Frontend conversion and explicit secret edits still raise on read failures; they must never present a false empty editor or overwrite unreadable data. A missing file remains a valid empty store, and an explicit empty string still clears a readable store.
 - `ui_control_visibility` accepts dynamic `canvas:<surface-id>` entries as well as built-in controls, normalizes device values to booleans (default shown), and preserves choices for temporarily unavailable plugins.
 
 - `file_browser_max_text_size_mb` persists the instance-wide text-editing limit, default 10 MiB and normalized to 1–100. FileBrowser reads it directly so its scoped settings API can update it without restarting or reinitializing agents.

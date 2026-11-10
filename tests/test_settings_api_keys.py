@@ -4,6 +4,7 @@ import pytest
 
 import models
 from helpers import dotenv, settings
+from helpers.errors import RepairableException
 from helpers.secrets import SecretsManager
 
 
@@ -58,3 +59,80 @@ def test_raw_keys_do_not_include_runtime_oauth_placeholders(monkeypatch):
 
     assert models.get_api_key_raw(provider) == "None"
     assert models.get_api_key(provider) == DUMMY_API_KEY
+
+
+def test_settings_editor_does_not_present_secret_read_failures_as_empty_fields(tmp_path, monkeypatch):
+    path = tmp_path / "secrets.env"
+    stored = b"TOKEN=synthetic-existing-value\n# invalid UTF-8: \xff\n"
+    path.write_bytes(stored)
+    manager = SecretsManager(str(path))
+    monkeypatch.setattr(settings, "get_default_secrets_manager", lambda: manager)
+    monkeypatch.setattr(settings, "get_providers", lambda _: [])
+    monkeypatch.setattr(settings.dotenv, "get_dotenv_value", lambda _: None)
+    monkeypatch.setattr(settings, "get_default_settings", lambda: {"uvicorn_access_logs_enabled": False})
+    monkeypatch.setattr(settings.runtime, "is_dockerized", lambda: False)
+    monkeypatch.setattr(settings.subagents, "get_available_agents_dict", lambda _: {})
+    monkeypatch.setattr(settings.files, "get_subdirectories", lambda *args, **kwargs: [])
+    monkeypatch.setattr(settings, "_timezone_options", lambda: [])
+    monkeypatch.setattr(settings, "_resolve_runtime_timezone", lambda _: "UTC")
+    configured = {"api_keys": {}, "timezone": "UTC"}
+
+    with pytest.raises(RepairableException):
+        settings.convert_out(configured)
+    assert path.read_bytes() == stored
+
+
+@pytest.mark.parametrize("failure", ["permission", "encoding"])
+@pytest.mark.parametrize("recover_before_save", [False, True])
+def test_unavailable_secrets_allow_unrelated_settings_without_data_loss(
+    tmp_path, monkeypatch, failure, recover_before_save
+):
+    path = tmp_path / "secrets.env"
+    original = b"TOKEN=synthetic-existing-value\n"
+    stored = original + b"# invalid UTF-8: \xff\n" if failure == "encoding" else original
+    path.write_bytes(stored)
+    manager = SecretsManager(str(path))
+    monkeypatch.setattr(settings, "get_default_secrets_manager", lambda: manager)
+    monkeypatch.setattr(settings, "SETTINGS_FILE", str(tmp_path / "settings.json"))
+    monkeypatch.setattr(settings, "_settings", None)
+    monkeypatch.setattr(settings, "get_providers", lambda _: [])
+    monkeypatch.setattr(settings.dotenv, "get_dotenv_value", lambda key, default=None: default)
+    monkeypatch.setattr(settings.dotenv, "save_dotenv_value", lambda *args, **kwargs: None)
+    monkeypatch.setattr(settings.git, "get_version", lambda: "v1")
+    monkeypatch.setattr(settings.runtime, "get_persistent_id", lambda: "test-runtime")
+    monkeypatch.setattr(settings.runtime, "is_dockerized", lambda: False)
+    read_file = settings.files.read_file
+
+    with monkeypatch.context() as patch:
+        if failure == "permission":
+            def unreadable(filename, *args, **kwargs):
+                if filename == str(path):
+                    raise PermissionError("synthetic read failure")
+                return read_file(filename, *args, **kwargs)
+            patch.setattr(settings.files, "read_file", unreadable)
+
+        current = settings.get_settings()
+        assert current["secrets"] is None
+        updated = settings.set_settings_delta({"workdir_show": False}, apply=False)
+        assert updated["workdir_show"] is False
+        assert updated["secrets"] is None
+        assert path.read_bytes() == stored
+
+        with pytest.raises(RepairableException):
+            settings.set_settings_delta({"secrets": ""}, apply=False)
+        assert path.read_bytes() == stored
+
+        if recover_before_save:
+            path.write_bytes(original)
+            patch.setattr(settings.files, "read_file", read_file)
+        current["workdir_show"] = False
+        settings.set_settings(current, apply=False)
+        assert path.read_bytes() == (original if recover_before_save else stored)
+        persisted = json.loads((tmp_path / "settings.json").read_text())
+        assert persisted["workdir_show"] is False
+        assert persisted["secrets"] == ""
+
+    path.write_bytes(original)
+    assert settings.get_settings()["secrets"] == original.decode()
+    settings.set_settings_delta({"secrets": ""}, apply=False)
+    assert path.read_text() == ""

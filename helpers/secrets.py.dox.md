@@ -33,15 +33,17 @@
 
 ## Runtime Contracts
 
-- `get_secrets_for_prompt` lists only non-empty effective values, once per uppercase key at its last definition, preserving comments and order. Empty overrides still clear earlier values without changing loading, masking, editing, or substitution. Non-empty literals, including quoted whitespace, remain available. An empty inventory returns `""`, so the prompt template omits the secrets section.
-
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - The agent-facing `get_secrets_manager` masks and unpacks `API_KEY_*` and login/password credentials from `usr/.env`, every value from the global `usr/secrets.env`, and every value from the active project's `secrets.env`; ordinary runtime settings are not treated as secrets. `get_default_secrets_manager` remains scoped to the single writable `usr/secrets.env` file.
+- `get_secrets_for_prompt` lists only non-empty effective values, once per uppercase key at its last definition, preserving comments and order. Empty overrides still clear earlier values without changing loading, masking, editing, or substitution. Non-empty literals, including quoted whitespace, remain available. An empty inventory returns `""`, so the prompt template omits the secrets section.
+- Inline comments must leave the parsed dotenv key and value unchanged when removed; hashes and quotes inside values must not expose value fragments as comments. Malformed lines remain editable but are excluded from the prompt.
+- Missing files are empty stores. Other read failures raise `RepairableException` and must not be cached as empty data or presented as an empty editor. Merge-saves read current disk content, preserve current values behind masks, and abort on read errors even for empty or unmasked submissions.
+- The masked editor masks each populated line, including values shadowed by later empty entries. Effective last-definition precedence remains unchanged.
 - Secret serialization escapes backslashes, double quotes, and carriage returns in double-quoted values so global and project saves preserve their parsed values across disk reads and masked edits. Literal line feeds remain multiline; empty values, comments, and deletion semantics are unchanged.
 - Masked secret merging matches keys using the same uppercase convention as parsing and masking, preserving values from lowercase or mixed-case entries. Explicit empty values still clear a secret, and omitted keys are deleted.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, WebSocket state, settings/state persistence, secret handling.
-- Imported dependency areas include: `dataclasses`, `dotenv.parser`, `helpers`, `helpers.errors`, `helpers.extension`, `io`, `os`, `re`, `threading`, `time`, `typing`.
+- Imported dependency areas include: `dataclasses`, `dotenv.parser`, `helpers`, `helpers.errors`, `helpers.extension`, `io`, `re`, `threading`, `typing`.
 
 ## Key Concepts
 

@@ -170,3 +170,97 @@ def test_masked_secret_merge_uses_case_insensitive_keys(tmp_path, monkeypatch, s
     manager.save_secrets_with_merge(f'{submitted_key}=""\nNEW="***"\n# Edited')
     assert manager.load_secrets() == {stored_key.upper(): ""}
     assert "# Edited" in manager.read_secrets_raw()
+
+
+@pytest.mark.parametrize("content, comment", [
+    ("TOKEN=abc#synthetic-tail", ""),
+    ("TOKEN=#synthetic-tail", ""),
+    ("TOKEN= #synthetic-tail", ""),
+    ('TOKEN=abc"def"#synthetic-tail', ""),
+    ("TOKEN=abc'def'#synthetic-tail", ""),
+    ("TOKEN=abc # note", " # note"),
+    ("TOKEN='a#b'# note", " # note"),
+    ('TOKEN="q" # note', " # note"),
+    (r'TOKEN="a\"#b"# note', " # note"),
+    ('TOKEN="first\n#second" # note', " # note"),
+    ("export TOKEN = value # note", " # note"),
+    ("'TOKEN'=value # note", " # note"),
+])
+def test_secret_comments_follow_dotenv_parsing(tmp_path, content, comment):
+    path = tmp_path / "secrets.env"
+    path.write_text(content)
+    manager = secrets.SecretsManager(str(path))
+    original = manager.parse_env_content(content)
+
+    assert manager.get_secrets_for_prompt() == "§§secret(TOKEN)" + comment
+    masked = manager.get_masked_secrets()
+    assert masked == 'TOKEN="***"' + comment
+    manager.save_secrets_with_merge(masked)
+    assert manager.parse_env_content(path.read_text()) == original
+
+
+@pytest.mark.parametrize("malformed", ['BAD="synthetic-unterminated', "bad key=synthetic-value"])
+@pytest.mark.parametrize("runtime_file", [False, True])
+def test_secret_prompt_excludes_malformed_values(tmp_path, monkeypatch, malformed, runtime_file):
+    path = tmp_path / "secrets.env"
+    path.write_text("API_KEY_GOOD=synthetic-good\n" + malformed)
+    if runtime_file:
+        monkeypatch.setattr(secrets.dotenv, "get_dotenv_file_path", lambda: str(path))
+    manager = secrets.SecretsManager(str(path))
+
+    assert manager.get_secrets_for_prompt() == "§§secret(API_KEY_GOOD)"
+    assert malformed in manager.get_masked_secrets()
+
+
+@pytest.mark.parametrize("failure", ["permission", "encoding"])
+def test_secret_read_failures_do_not_empty_the_store_or_cache(tmp_path, monkeypatch, failure):
+    path = tmp_path / "secrets.env"
+    original = b"TOKEN=synthetic-existing-value\n"
+    stored = original + b"# invalid UTF-8: \xff\n" if failure == "encoding" else original
+    path.write_bytes(stored)
+    manager = secrets.SecretsManager(str(path))
+
+    with monkeypatch.context() as patch:
+        if failure == "permission":
+            def unreadable(*args, **kwargs):
+                raise PermissionError("synthetic read failure")
+            patch.setattr(secrets.files, "read_file", unreadable)
+
+        for submitted in ('TOKEN="***"\n', "NEW=synthetic-new-value\n", ""):
+            with pytest.raises(secrets.RepairableException):
+                manager.save_secrets_with_merge(submitted)
+            assert path.read_bytes() == stored
+
+        for read in (manager.read_secrets_raw, manager.get_masked_secrets, manager.load_secrets):
+            with pytest.raises(secrets.RepairableException):
+                read()
+
+        with pytest.raises(secrets.RepairableException):
+            manager.save_secrets_with_merge('TOKEN="***"\n')
+        assert path.read_bytes() == stored
+
+    path.write_bytes(original)
+    assert manager.load_secrets() == {"TOKEN": "synthetic-existing-value"}
+
+
+def test_masked_save_preserves_a_value_rotated_since_read(tmp_path):
+    path = tmp_path / "secrets.env"
+    path.write_text("TOKEN=synthetic-old-value\n")
+    manager = secrets.SecretsManager(str(path))
+    masked = manager.get_masked_secrets()
+    path.write_text("TOKEN=synthetic-rotated-value\n")
+
+    manager.save_secrets_with_merge(masked)
+
+    assert manager.parse_env_content(path.read_text()) == {"TOKEN": "synthetic-rotated-value"}
+
+
+def test_masked_editor_hides_a_shadowed_value(tmp_path):
+    path = tmp_path / "secrets.env"
+    path.write_text("TOKEN=synthetic-shadowed-value\nTOKEN=\n")
+    manager = secrets.SecretsManager(str(path))
+
+    masked = manager.get_masked_secrets()
+    assert masked == 'TOKEN="***"\nTOKEN=""'
+    manager.save_secrets_with_merge(masked)
+    assert manager.parse_env_content(path.read_text()) == {"TOKEN": ""}

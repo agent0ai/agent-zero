@@ -16,6 +16,7 @@ from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
 from helpers.secrets import get_default_secrets_manager
+from helpers.errors import RepairableException
 from helpers import dirty_json
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
@@ -100,7 +101,7 @@ class Settings(TypedDict):
     a2a_server_enabled: bool
 
     variables: str
-    secrets: str
+    secrets: str | None
 
     # LiteLLM global kwargs applied to all model calls
     litellm_global_kwargs: dict[str, Any]
@@ -341,10 +342,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
 
     #secrets
     secrets_manager = get_default_secrets_manager()
-    try:
-        out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
-    except Exception:
-        out["settings"]["secrets"] = ""
+    out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
 
     # mask API keys before sending to frontend
     if isinstance(out["settings"].get("api_keys"), dict):
@@ -475,6 +473,8 @@ def normalize_settings(settings: Settings) -> Settings:
     for key, value in default.items():
         if key not in copy:
             copy[key] = value
+        elif key == "secrets" and copy[key] is None:
+            continue  # Unavailable secrets must not become an empty or literal "None" submission.
         else:
             try:
                 copy[key] = type(value)(copy[key])  # type: ignore
@@ -530,8 +530,8 @@ def _load_sensitive_settings(settings: Settings):
     secrets_manager = get_default_secrets_manager()
     try:
         settings["secrets"] = secrets_manager.read_secrets_raw()
-    except Exception:
-        settings["secrets"] = ""
+    except RepairableException:
+        settings["secrets"] = None
 
 
 def _read_settings_file() -> Settings | None:
@@ -577,9 +577,9 @@ def _write_sensitive_settings(settings: Settings):
             set_root_password(settings["root_password"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
-    secrets_manager = get_default_secrets_manager()
     submitted_content = settings["secrets"]
-    secrets_manager.save_secrets_with_merge(submitted_content)
+    if submitted_content is not None:
+        get_default_secrets_manager().save_secrets_with_merge(submitted_content)
 
 
 

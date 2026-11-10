@@ -1,7 +1,5 @@
 import re
 import threading
-import time
-import os
 from io import StringIO
 from dataclasses import dataclass
 from typing import Dict, Optional, List, Literal, Set, Callable, Tuple, TYPE_CHECKING
@@ -38,7 +36,7 @@ class EnvLine:
     key: Optional[str] = None
     value: Optional[str] = None
     inline_comment: Optional[str] = (
-        None  # preserves trailing inline comment including leading spaces and '#'
+        None  # preserves trailing inline comment starting with '#'
     )
 
 
@@ -135,7 +133,6 @@ class SecretsManager:
 
     _instances: Dict[Tuple[str, ...], "SecretsManager"] = {}
     _secrets_cache: Optional[Dict[str, str]] = None
-    _last_raw_text: Optional[str] = None
 
     @classmethod
     def get_instance(cls, *secrets_files: str) -> "SecretsManager":
@@ -150,22 +147,19 @@ class SecretsManager:
         self._lock = threading.RLock()
         # instance-level list of secrets files
         self._files: Tuple[str, ...] = tuple(files) if files else (DEFAULT_SECRETS_FILE,)
-        self._raw_snapshots: Dict[str, str] = {}
         self._secrets_cache = None
-        self._last_raw_text = None
 
     def read_secrets_raw(self) -> str:
         """Read raw secrets file content from local filesystem (same system)."""
         parts: List[str] = []
-        self._raw_snapshots = {}
-
         for path in self._files:
             try:
                 content = files.read_file(path)
-            except Exception:
+            except FileNotFoundError:
                 content = ""
+            except Exception as e:
+                raise RepairableException(f"Failed to read secrets file: {path}") from e
 
-            self._raw_snapshots[path] = content
             if path == dotenv.get_dotenv_file_path():
                 content = "\n".join(
                     line.raw
@@ -176,9 +170,7 @@ class SecretsManager:
                 )
             parts.append(content)
 
-        combined = "\n".join(parts)
-        self._last_raw_text = combined
-        return combined
+        return "\n".join(parts)
 
     def _write_secrets_raw(self, content: str):
         """Write raw secrets file content to local filesystem."""
@@ -198,10 +190,6 @@ class SecretsManager:
             merged_secrets = (
                 self.parse_env_content(combined_raw) if combined_raw else {}
             )
-
-            # Only track the first file's raw text for single-file setups
-            if len(self._files) != 1:
-                self._last_raw_text = None
 
             self._secrets_cache = merged_secrets
             return merged_secrets
@@ -227,22 +215,15 @@ class SecretsManager:
                 "Merging secrets is disabled when multiple files are configured"
             )
         with self._lock:
-            # Prefer in-memory snapshot to avoid disk reads during save
-            primary_path = self._files[0]
-            if self._last_raw_text is not None:
-                existing_text = self._last_raw_text
-            else:
-                try:
-                    existing_text = files.read_file(primary_path)
-                    self._raw_snapshots[primary_path] = existing_text
-                except Exception as e:
-                    # If read fails and submitted contains masked values, abort to avoid losing values/comments
-                    if self.MASK_VALUE in submitted_content:
-                        raise RepairableException(
-                            "Saving secrets failed because existing secrets could not be read to preserve masked values and comments. Please retry."
-                        ) from e
-                    # No masked values, safe to treat as new file
-                    existing_text = ""
+            # Resolve masks against current values, including rotations since the editor opened.
+            try:
+                existing_text = files.read_file(self._files[0])
+            except FileNotFoundError:
+                existing_text = ""
+            except Exception as e:
+                raise RepairableException(
+                    "Saving secrets failed because existing secrets could not be read. Please retry."
+                ) from e
             merged_lines = self._merge_env(existing_text, submitted_content)
             merged_text = self._serialize_env_lines(merged_lines)
             self._write_secrets_raw(merged_text)
@@ -349,15 +330,13 @@ class SecretsManager:
         if not content:
             return ""
 
-        # Parse content for known keys using python-dotenv
-        secrets_map = self.parse_env_content(content)
         env_lines = self.parse_env_lines(content)
 
-        # Replace values with mask for keys present
+        # Mask each populated line, including values shadowed by later empty entries.
         for ln in env_lines:
             if ln.type == "pair" and ln.key is not None:
                 ln.key = ln.key.upper()
-                if ln.key in secrets_map and secrets_map[ln.key] != "":
+                if ln.value:
                     ln.value = self.MASK_VALUE
 
         return self._serialize_env_lines(env_lines)
@@ -378,8 +357,6 @@ class SecretsManager:
         """Clear the secrets cache"""
         with self._lock:
             self._secrets_cache = None
-            self._raw_snapshots = {}
-            self._last_raw_text = None
 
     @classmethod
     def _invalidate_all_caches(cls):
@@ -389,45 +366,22 @@ class SecretsManager:
     # ---------------- Internal helpers for parsing/merging ----------------
 
     def parse_env_lines(self, content: str) -> List[EnvLine]:
-        """Parse env file into EnvLine objects using python-dotenv, preserving comments and order.
-        We reconstruct key_part and inline_comment based on the original string.
-        """
+        """Parse env file using python-dotenv, preserving comments and order."""
         lines: List[EnvLine] = []
         for binding in parse_stream(StringIO(content)):
             orig = getattr(binding, "original", None)
             raw = getattr(orig, "string", "") if orig is not None else ""
             if binding.key and not binding.error:
-                # Determine key_part and inline_comment from original line
                 line_text = raw.rstrip("\n")
-                # Fallback to composed key_part if original not available
-                if "=" in line_text:
-                    left, right = line_text.split("=", 1)
-                else:
-                    right = ""
-                # Try to extract inline comment by scanning right side to comment start, respecting quotes
-                in_single = False
-                in_double = False
-                esc = False
-                comment_index = None
-                for i, ch in enumerate(right):
-                    if esc:
-                        esc = False
-                        continue
-                    if ch == "\\":
-                        esc = True
-                        continue
-                    if ch == "'" and not in_double:
-                        in_single = not in_single
-                        continue
-                    if ch == '"' and not in_single:
-                        in_double = not in_double
-                        continue
-                    if ch == "#" and not in_single and not in_double:
-                        comment_index = i
-                        break
                 inline_comment = None
-                if comment_index is not None:
-                    inline_comment = right[comment_index:]
+                # A comment can be removed without changing the parsed key or value.
+                for match in re.finditer("#", line_text):
+                    prefix = next(parse_stream(StringIO(line_text[:match.start()])), None)
+                    if prefix and not prefix.error and (
+                        prefix.key, prefix.value
+                    ) == (binding.key, binding.value):
+                        inline_comment = line_text[match.start():]
+                        break
                 lines.append(
                     EnvLine(
                         raw=line_text,
