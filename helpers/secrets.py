@@ -254,18 +254,32 @@ class SecretsManager:
         return list(secrets.keys())
 
     def get_secrets_for_prompt(self) -> str:
-        """Get formatted string of secret keys for system prompt"""
+        """Get non-empty secret aliases from their effective last definitions."""
         content = self.read_secrets_raw()
         if not content:
             return ""
 
-        env_lines = self.parse_env_lines(content)
+        seen: Set[str] = set()
+        env_lines: List[EnvLine] = []
+        for line in reversed(self.parse_env_lines(content)):
+            if line.type == "pair" and line.key is not None:
+                key = line.key.upper()
+                if key in seen:
+                    continue
+                seen.add(key)
+                if not line.value:
+                    continue
+            env_lines.append(line)
+
+        if not any(line.type == "pair" for line in env_lines):
+            return ""
+        env_lines.reverse()
         return self._serialize_env_lines(
             env_lines,
             with_values=False,
             with_comments=True,
             with_blank=True,
-            with_other=True,
+            with_other=False,
             key_formatter=alias_for_key,
         )
 

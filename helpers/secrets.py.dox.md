@@ -33,6 +33,8 @@
 
 ## Runtime Contracts
 
+- `get_secrets_for_prompt` lists only non-empty effective values, once per uppercase key at its last definition, preserving comments and order. Empty overrides still clear earlier values without changing loading, masking, editing, or substitution. Non-empty literals, including quoted whitespace, remain available. An empty inventory returns `""`, so the prompt template omits the secrets section.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - The agent-facing `get_secrets_manager` masks and unpacks `API_KEY_*` and login/password credentials from `usr/.env`, every value from the global `usr/secrets.env`, and every value from the active project's `secrets.env`; ordinary runtime settings are not treated as secrets. `get_default_secrets_manager` remains scoped to the single writable `usr/secrets.env` file.
 - Secret serialization escapes backslashes, double quotes, and carriage returns in double-quoted values so global and project saves preserve their parsed values across disk reads and masked edits. Literal line feeds remain multiline; empty values, comments, and deletion semantics are unchanged.

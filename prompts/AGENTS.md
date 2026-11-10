@@ -19,6 +19,7 @@
 - `agent.system.main.communication.native.md` owns native function-call formatting; profiles may override it alongside the legacy communication template. Shared communication additions remain transport-neutral; the brace terminator belongs only to legacy JSON formatting.
 - Native communication requests public commentary without a sentence limit; the display maps it to thoughts without adding fields to native arguments.
 - Prompt changes can alter agent behavior; keep edits narrow and intentional.
+- `agent.system.secrets.md` renders secret-alias guidance only when aliases are available; the variables section is conditional independently. `helpers/secrets.py` owns filtering the alias inventory.
 - Shared solving guidance owns observable success, evidence-driven replanning, task progress notes, source-preserving synthesis, and bug reproduction; specialist methods belong in profile specifics.
 - Maintain clear separation between core behavior prompts and profile/plugin-specific customization.
 - Delegation catalogs show profile IDs, titles, and context (description fallback) on separate lines; preserve project-scoped discovery.
