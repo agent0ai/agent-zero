@@ -412,8 +412,9 @@ class ScheduledTask(BaseTask):
             next_run = crontab.next(now=now_in_task_timezone, return_datetime=True)  # type: ignore
             if next_run is None:
                 return None
-            if next_run.tzinfo is None:
-                next_run = task_timezone.localize(next_run)
+            # CronTab attaches the current offset, even across DST transitions.
+            # Localize the future wall time, as its delay calculation does.
+            next_run = task_timezone.localize(next_run.replace(tzinfo=None))
             return next_run.astimezone(timezone.utc)
 
 
