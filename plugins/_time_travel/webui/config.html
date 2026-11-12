@@ -58,12 +58,12 @@
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Expire older snapshots</div>
-                        <div class="field-description">Off by default to preserve existing recovery points. Enabling this permanently expires older snapshots and older preserved timelines during cleanup. Recent snapshots, the current state and boundary checkpoints remain. Retained snapshot IDs may change. Checkpoints can be restored but cannot be reverted.</div>
+                        <div class="field-description">On by default to limit history growth. Cleanup permanently expires older snapshots and older preserved timelines. Recent snapshots, the current state and boundary checkpoints remain. Turn this off to disable snapshot expiry. Retained snapshot IDs may change. Checkpoints can be restored but cannot be reverted.</div>
                     </div>
                     <div class="field-control">
                         <label class="toggle">
                             <input type="checkbox" aria-label="Expire older snapshots" x-model="config.history_retention_enabled" :disabled="!config.retention_enabled"
-                                x-init="config.history_retention_enabled ??= false" />
+                                x-init="config.history_retention_enabled ??= true" />
                             <span class="toggler"></span>
                         </label>
                     </div>
@@ -107,8 +107,9 @@
                     <div class="field-label">
                         <div class="field-title">Delete inactive workspace histories after (days)</div>
                         <div class="field-description">
-                            Leave at 0 (the default) and workspace history is kept forever. Set a
-                            number — say 30 — and a workspace with no snapshot in that many days
+                            Leave at 0 (the default) to disable whole-history deletion; snapshot
+                            expiry above still applies. Set a number — say 30 — and a workspace
+                            with no snapshot or travel in that many days
                             has its history deleted. Time Travel simply starts a fresh history on
                             the workspace's next change.
                         </div>

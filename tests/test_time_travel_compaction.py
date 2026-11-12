@@ -132,19 +132,20 @@ def test_compaction_recovers_from_ref_transaction_or_gc_failure(history, monkeyp
     assert service._git("fsck", "--no-reflogs", check=False).returncode == 0
 
 
-def test_retention_requires_opt_in_and_expires_old_preserved_refs(history, tmp_path):
+def test_retention_defaults_expire_old_preserved_refs_but_respect_opt_out(history, tmp_path):
     work, service = history
     old = capture(work, service, 5, start=time.time() - 60 * 86400)
     service.travel(commit_hash=old[0])
     capture(work, service)
     before = refs(service)
     args = dict(shadow_root=str(service.workspace.shadow_path.parent), live_ids={service.workspace.id}, state_dir=str(tmp_path))
-    retention.sweep(cfg={}, **args)
+    retention.sweep(cfg={"history_retention_enabled": False}, **args)
     assert refs(service) == before
-    stats = retention.sweep(cfg={"history_retention_enabled": True, "history_max_snapshots": 3, "history_max_age_days": 1}, **args)
+    stats = retention.sweep(cfg={}, **args)
     assert stats["repositories_compacted"] == 1
     assert not service._git("for-each-ref", "--format=%(refname)", tt.PRESERVED_REF_PREFIX).stdout.strip()
-    assert len(service._rev_list_all()) == 4
+    assert len(service._rev_list_all()) == 8  # Seven changed snapshots plus their boundary checkpoint.
+    assert (work / "file.txt").read_text() == "version 7\n"
 
 
 def test_unmanaged_refs_prevent_destructive_cleanup(history):
@@ -171,8 +172,9 @@ def test_compaction_does_not_refresh_workspace_inactivity(history, tmp_path):
     assert retention._last_activity(str(service.workspace.shadow_path)) == old
 
 
-def test_snapshot_expiry_requires_a_boolean_opt_in():
-    assert not retention.effective_config({"history_retention_enabled": "false"})["history_retention_enabled"]
+@pytest.mark.parametrize("disabled", [False, "false", 0])
+def test_snapshot_expiry_preserves_explicit_disablement(disabled):
+    assert not retention.effective_config({"history_retention_enabled": disabled})["history_retention_enabled"]
 
 
 def test_maintenance_timeout_stops_git_children(tmp_path, monkeypatch):

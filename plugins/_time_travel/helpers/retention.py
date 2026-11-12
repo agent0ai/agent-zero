@@ -13,16 +13,17 @@ The sweep (driven from ``job_loop``, throttled by config) removes:
   forward-enumerated (project folders, the configured workdir, per-chat workdirs) and hashed
   with the same ``workspace_id_for`` derivation; anything outside that set has no owner and can
   never be shown in the UI again. Deleted once last activity is past a grace window.
-- AGED repositories — no snapshot in ``retention_max_age_days`` (0 = keep forever, the
-  default).
+- AGED repositories — no snapshot or travel in ``retention_max_age_days`` (0 disables
+  whole-history deletion for inactive workspaces, the default).
 - STALE LOCKS — ``repo.git/index.lock`` older than ``retention_stale_lock_minutes``;
   removal holds the workspace lock so it cannot race a capture, restore or compaction.
 - INVALID BACKUPS — ``repo.git.invalid*`` set-asides made for corrupt repositories, past the
   same grace window.
 
-Active snapshot expiry is separately opt-in. ``compaction.py`` preserves the current state,
-recent snapshots and checkpoint boundaries, then reclaims unreachable objects. All mutations
-share workspace locks with captures and restores; unknown ownership aborts cleanup. Deleting
+Active snapshot expiry is enabled by default and can be disabled separately. ``compaction.py``
+preserves the current state, recent snapshots and checkpoint boundaries, then reclaims
+unreachable objects. All mutations share workspace locks with captures and restores;
+unknown ownership aborts cleanup. Deleting
 an inactive history intentionally loses its recovery points, but never edits workspace files.
 
 Durable state next to the workspaces dir: ``retention.json`` (running totals + last sweep
@@ -56,7 +57,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "retention_max_age_days": 0,
     "retention_orphan_grace_hours": 24,
     "retention_stale_lock_minutes": 30,
-    "history_retention_enabled": False,
+    "history_retention_enabled": True,
     "history_max_snapshots": 500,
     "history_max_age_days": 30,
 }
