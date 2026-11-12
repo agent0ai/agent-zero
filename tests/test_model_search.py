@@ -84,6 +84,25 @@ def test_model_search_omits_auth_header_for_local_placeholder_keys():
     }
 
 
+def test_model_search_drops_models_missing_requested_capability():
+    handler = _handler()
+    listing = {
+        "data": [
+            {"id": "plus", "capabilities": ["chat", "tools", "streaming"]},
+            {"id": "grok/stt", "capabilities": ["transcription"]},
+            {"id": "grok/grok-imagine-video-1.5", "capabilities": ["video_generation"]},
+            {"id": "openai/text-embedding-3-small", "capabilities": ["embedding"]},
+            {"id": "no-capabilities"},
+        ]
+    }
+
+    chat = handler._drop_unsupported(listing, "capabilities", "chat")
+    assert handler._parse(chat, "openai") == ["plus", "no-capabilities"]
+    embedding = handler._drop_unsupported(listing, "capabilities", "embedding")
+    assert handler._parse(embedding, "openai") == ["openai/text-embedding-3-small", "no-capabilities"]
+    assert handler._drop_unsupported(listing, "", "chat") is listing
+
+
 def test_model_search_filters_non_chat_models():
     handler = _handler()
 

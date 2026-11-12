@@ -414,6 +414,22 @@ def test_host_browser_privacy_detects_local_model(monkeypatch):
     assert _agent_uses_local_chat_model(_agent()) is True
 
 
+def test_host_browser_privacy_treats_openllm_gateway_as_remote(monkeypatch):
+    from plugins._model_config.helpers import model_config
+
+    monkeypatch.setattr(
+        model_config,
+        "get_chat_model_config",
+        lambda agent=None: {
+            "provider": "openllm",
+            "name": "plus",
+            "api_base": "http://host.docker.internal:8787/v1",
+        },
+    )
+
+    assert _agent_uses_local_chat_model(_agent()) is False
+
+
 def test_connector_runtime_tolerates_legacy_config_module(monkeypatch):
     import plugins._browser.helpers.config as browser_config
     import plugins._browser.helpers.connector_runtime as connector_runtime_module
