@@ -7,6 +7,7 @@ from helpers import virtual_desktop_routes
 from helpers.extension import Extension
 from helpers.print_style import PrintStyle
 from plugins._browser import hooks
+from plugins._browser.helpers.interactive_view import cleanup_stale_displays
 
 
 _startup_migration_thread: threading.Thread | None = None
@@ -34,6 +35,10 @@ def _start_background_cache_migration() -> threading.Thread:
 
 
 def _migrate_cache_safely() -> None:
+    try:
+        cleanup_stale_displays()
+    except Exception as exc:
+        PrintStyle.warning("Browser display cleanup failed:", exc)
     try:
         _log_cache_migration_result(hooks.prepare_playwright_cache())
     except Exception as exc:

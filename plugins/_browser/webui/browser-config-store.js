@@ -49,6 +49,7 @@ function ensureConfig(config) {
   config.annotation_screenshots = normalizeBoolean(config.annotation_screenshots, false);
   config.browser_tab_scope = normalizeChoice(config.browser_tab_scope, BROWSER_TAB_SCOPES, "per_context");
   config.max_open_tabs = normalizeInt(config.max_open_tabs, DEFAULT_MAX_OPEN_TABS, MIN_MAX_OPEN_TABS, HARD_MAX_OPEN_TABS);
+  config.idle_timeout_minutes ??= 60;
   config.evaluate_timeout_seconds ??= 30;
   config.runtime_backend = normalizeRuntimeBackend(config.runtime_backend);
   config.proxy_server = String(config.proxy_server || "").trim();
@@ -195,6 +196,7 @@ export const store = createStore("browserConfig", {
   extensionActionLoading: false,
   extensionsRoot: "",
   openingBrowserPage: "",
+  stoppingBrowser: false,
   extensionDeleteLoadingPath: "",
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
@@ -261,6 +263,27 @@ export const store = createStore("browserConfig", {
       notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
     } finally {
       this.openingBrowserPage = "";
+    }
+  },
+
+  async stopBrowser() {
+    if (this.stoppingBrowser) return;
+    const confirmed = await showConfirmDialog({
+      title: "Stop internal browser",
+      message: "Stop the internal browser for all chats? Tab URLs and sign-ins are kept, but unsaved page edits will be lost. Open Browser again to restore the tabs.",
+      confirmText: "Stop browser",
+      type: "danger",
+    });
+    if (!confirmed) return;
+    this.stoppingBrowser = true;
+    try {
+      const response = await callJsonApi("/plugins/_browser/stop", {});
+      if (!response?.ok) throw new Error(response?.error || "Could not stop Browser.");
+      notificationStore.addFrontendToastOnly("success", "Internal browser stopped. Tabs will restore on next use.");
+    } catch (error) {
+      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      this.stoppingBrowser = false;
     }
   },
 

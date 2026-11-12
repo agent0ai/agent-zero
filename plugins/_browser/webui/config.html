@@ -49,6 +49,15 @@
             <span>Internal Docker browser selected. Host-browser connection settings are ignored for Browser tool runs.</span>
           </div>
 
+          <label class="browser-config-field" x-show="!context.projectName && !context.agentProfileKey">
+            <span class="browser-config-field-label">Internal browser idle timeout (minutes)</span>
+            <input type="number" min="0" max="1440" step="1" x-model.number="config.idle_timeout_minutes" />
+            <span class="browser-config-field-help">Stops the shared internal browser after all its chats and viewers are idle. Running or paused agents, browser actions, and downloads keep it open. Default: 60 minutes; 0 keeps it open indefinitely. Tab URLs and sign-ins are kept; unsaved page edits are lost. Applies to all chats.</span>
+          </label>
+          <button type="button" class="button" :disabled="$store.browserConfig.stoppingBrowser" @click="$store.browserConfig.stopBrowser()">
+            <span x-text="$store.browserConfig.stoppingBrowser ? 'Stopping…' : 'Stop internal browser'"></span>
+          </button>
+
           <details
             class="browser-config-proxy"
             x-show="$store.browserConfig.config.runtime_backend === 'container'"

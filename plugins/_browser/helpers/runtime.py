@@ -27,6 +27,8 @@ from plugins._browser.helpers.config import (
     DEFAULT_BROWSER_TAB_SCOPE,
     DEFAULT_HOMEPAGE_KEY,
     DEFAULT_MAX_OPEN_TABS,
+    DEFAULT_IDLE_TIMEOUT_MINUTES,
+    IDLE_TIMEOUT_KEY,
     DEFAULT_EVALUATE_TIMEOUT_SECONDS,
     EVALUATE_TIMEOUT_KEY,
     MAX_OPEN_TABS_KEY,
@@ -35,7 +37,7 @@ from plugins._browser.helpers.config import (
     get_browser_config,
     normalize_evaluate_timeout,
 )
-from plugins._browser.helpers.interactive_view import BrowserInteractiveView
+from plugins._browser.helpers.interactive_view import BrowserInteractiveView, cleanup_stale_displays
 from plugins._browser.helpers.url import normalize_url
 
 
@@ -654,6 +656,16 @@ class BrowserRuntime:
         self._core = _BrowserRuntimeCore(self.context_id)
         self._worker = DeferredTask(thread_name=f"BrowserRuntime-{self.context_id}")
         self._closed = False
+        self._worker.start_task(self._cleanup_loop)
+
+    async def _cleanup_loop(self) -> None:
+        while True:
+            await asyncio.sleep(60)
+            try:
+                await self.call("suspend")
+                await asyncio.to_thread(cleanup_stale_displays)
+            except Exception as exc:
+                PrintStyle.warning(f"Browser idle cleanup failed: {exc}")
 
     async def call(self, method: str, *args: Any, **kwargs: Any) -> Any:
         return await self.call_for(self.context_id, method, *args, **kwargs)
@@ -663,6 +675,7 @@ class BrowserRuntime:
         context_id: str,
         method: str,
         *args: Any,
+        touch: bool = True,
         **kwargs: Any,
     ) -> Any:
         if self._closed and method != "close":
@@ -673,12 +686,22 @@ class BrowserRuntime:
         async def runner():
             nonlocal running_task
             running_task = asyncio.current_task()
-            token = self._core.request_context_id.set(str(context_id or self.context_id))
+            core = self._core
+            if core._suspend_task:
+                await asyncio.shield(core._suspend_task)
+            token = core.request_context_id.set(str(context_id or self.context_id))
+            maintenance = method == "suspend"
+            if not maintenance:
+                core._active_calls += 1
             try:
-                fn = getattr(self._core, method)
+                fn = getattr(core, method)
                 return await fn(*args, **kwargs)
             finally:
-                self._core.request_context_id.reset(token)
+                if not maintenance:
+                    core._active_calls -= 1
+                    if touch and (method not in {"list", "list_all"} or core.pages):
+                        core._last_used = time.monotonic()
+                core.request_context_id.reset(token)
 
         future = self._worker.event_loop_thread.run_coroutine(runner())
         result = asyncio.wrap_future(future)
@@ -757,6 +780,10 @@ class _BrowserRuntimeCore:
         self._start_lock: asyncio.Lock | None = None
         self._registry_lock: asyncio.Lock | None = None
         self._closing = False
+        self._active_calls = 0
+        self._last_used = time.monotonic()
+        self._suspend_task: asyncio.Task | None = None
+        self._downloads: set[Any] = set()
         self._pending_popups: list[asyncio.Future[int]] = []
         self._pending_popup_contexts: dict[asyncio.Future[int], str] = {}
         self._background_popup_pages: set[int] = set()
@@ -805,7 +832,7 @@ class _BrowserRuntimeCore:
             or DEFAULT_BROWSER_TAB_SCOPE
         )
 
-    def _persist_browser_tabs(self) -> None:
+    def _persist_browser_tabs(self, *, strict: bool = False) -> None:
         if not self._restore_state_loaded or self._restoring_tabs:
             return
 
@@ -844,6 +871,8 @@ class _BrowserRuntimeCore:
         try:
             _save_browser_tabs(tabs)
         except Exception as exc:
+            if strict:
+                raise
             PrintStyle.warning(f"Browser tab recovery state could not be saved: {exc}")
             return
         self._restore_state_exists = True
@@ -1137,6 +1166,7 @@ class _BrowserRuntimeCore:
     async def _start(self) -> None:
         from plugins._browser import hooks
 
+        self._closing = False
         self._load_restore_state()
         preparation = hooks.prepare_playwright_cache()
         if preparation.get("errors") or not preparation.get("binary"):
@@ -1367,8 +1397,8 @@ class _BrowserRuntimeCore:
         if len(self._context_browser_ids()) >= self._max_open_tabs():
             raise self._tab_limit_error()
 
-    async def list(self, include_content: bool = False) -> dict[str, Any]:
-        if self.context or has_restorable_browser_tabs(self.current_context_id):
+    async def list(self, include_content: bool = False, *, restore: bool = True) -> dict[str, Any]:
+        if restore and (self.context or has_restorable_browser_tabs(self.current_context_id)):
             await self.ensure_started()
         ids = self._context_browser_ids()
         if not ids:
@@ -1399,8 +1429,8 @@ class _BrowserRuntimeCore:
             "last_interacted_browser_id": self.last_interacted_browser_id,
         }
 
-    async def list_all(self) -> dict[str, Any]:
-        if self.context or has_restorable_browser_tabs(self.current_context_id):
+    async def list_all(self, *, restore: bool = True) -> dict[str, Any]:
+        if restore and (self.context or has_restorable_browser_tabs(self.current_context_id)):
             await self.ensure_started()
         browser_ids = sorted(self.pages)
         return {
@@ -2775,6 +2805,53 @@ class _BrowserRuntimeCore:
             await page.keyboard.type(str(text))
         return True
 
+    async def suspend(self, *, if_idle: bool = True) -> bool:
+        from agent import AgentContext
+
+        if not (self.context or self.playwright or self.interactive_view.display is not None):
+            return True
+        pending = list({self._page_context_id(page) for page in self.pages.values()})
+        contexts = {}
+        while pending:
+            context_id = pending.pop()
+            if context_id in contexts:
+                continue
+            context = AgentContext.get(context_id)
+            if context is None:
+                continue
+            contexts[context_id] = context
+            # Synchronous subordinates execute inside their parent's task.
+            parent_id = context.output_data.get("parent_context_id") or context.data.get("_parallel_parent_context_id")
+            if parent_id:
+                pending.append(parent_id)
+        running = any(
+            context.is_running() and (if_idle or not context.paused)
+            for context in contexts.values()
+        )
+        if self._active_calls or self._downloads or running:
+            self._last_used = time.monotonic()
+            return False
+        if if_idle:
+            minutes = get_browser_config().get(IDLE_TIMEOUT_KEY, DEFAULT_IDLE_TIMEOUT_MINUTES)
+            chat_idle = min(
+                (time.time() - context.last_message.timestamp() for context in contexts.values()),
+                default=float("inf"),
+            )
+            if not minutes or min(time.monotonic() - self._last_used, chat_idle) < minutes * 60:
+                return False
+
+        # Persist before stopping: a failed save must leave the live tabs intact.
+        self._persist_browser_tabs(strict=True)
+        self._suspend_task = asyncio.current_task()
+        try:
+            await self.close()
+            self._discard_context_state()
+            self._restore_state_loaded = False
+            self.interactive_view.close()
+            return True
+        finally:
+            self._suspend_task = None
+
     async def close(self, delete_profile: bool = False) -> None:
         if delete_profile:
             with contextlib.suppress(Exception):
@@ -2936,6 +3013,16 @@ class _BrowserRuntimeCore:
                 self.pages.pop(browser_id, None)
 
         page.on("close", on_close)
+
+        async def on_download(download: Any) -> None:
+            self._downloads.add(download)
+            try:
+                await download.failure()
+            finally:
+                self._downloads.discard(download)
+                self._last_used = time.monotonic()
+
+        page.on("download", on_download)
 
         def on_navigated(frame: Any) -> None:
             main_frame = getattr(page, "main_frame", None)
@@ -3272,7 +3359,13 @@ def known_context_ids() -> list[str]:
         return sorted(_runtimes)
 
 
-async def list_runtime_sessions() -> list[dict[str, Any]]:
+async def suspend_runtime(*, if_idle: bool = True) -> bool:
+    with _runtime_lock:
+        runtime = _shared_runtime
+    return await runtime.call("suspend", if_idle=if_idle) if runtime else True
+
+
+async def list_runtime_sessions(*, restore: bool = True) -> list[dict[str, Any]]:
     with _runtime_lock:
         runtimes = list(_runtimes.items())
         shared_runtime = _shared_runtime
@@ -3283,7 +3376,7 @@ async def list_runtime_sessions() -> list[dict[str, Any]]:
     ) == "shared":
         request_context_id = runtimes[0][0] if runtimes else SHARED_RUNTIME_ID
         try:
-            listing = await shared_runtime.call_for(request_context_id, "list_all")
+            listing = await shared_runtime.call_for(request_context_id, "list_all", restore=restore, touch=restore)
         except Exception as exc:
             PrintStyle.warning(f"Shared Browser runtime list failed: {exc}")
             return []
@@ -3304,7 +3397,7 @@ async def list_runtime_sessions() -> list[dict[str, Any]]:
     sessions: list[dict[str, Any]] = []
     for context_id, runtime in runtimes:
         try:
-            listing = await runtime.call("list")
+            listing = await runtime.call("list", restore=restore, touch=restore)
         except Exception as exc:
             PrintStyle.warning(f"Browser runtime list failed for context {context_id}: {exc}")
             continue
