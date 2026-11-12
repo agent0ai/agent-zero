@@ -16,7 +16,7 @@ Browser boundary: do not use shell launchers such as `xdg-open`, `sensible-brows
 ## Access Modes
 
 - Remote execution can be disabled locally in the CLI. If the tool returns a disabled/no-client error, explain the required CLI toggle instead of falling back to the server runtime.
-- `input_remote` requires its own tool permission and the `terminal` action of `code_execution_remote`. Keyboard input can execute shell commands; allowing only output or other remote runtimes does not permit this tool.
+- `input_remote` and remote terminal execution are enabled by default in Agent Editor; no editor change is needed with the default policy. Custom policies must permit both `input_remote` and the `terminal` action of `code_execution_remote`. Keyboard input can execute shell commands, so a terminal block also blocks input.
 - Read&Write local file access allows mutating runtimes such as `terminal`, `python`, and `nodejs`.
 - Read only local file access blocks mutating runtimes. `runtime=output` and `runtime=reset` remain available for existing sessions.
 

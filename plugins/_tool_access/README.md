@@ -14,6 +14,13 @@ One resolver filters textual prompts and provider-native schemas, rejects local
 and MCP execution, and keeps delegated agents bound to their own effective scope.
 The required final-response capability is always available.
 
+Local `input`, remote `input_remote`, and remote terminal execution are enabled
+by default. No Agent Editor change is needed to use remote input once host
+execution and Read&Write access are enabled in the CLI or Launcher. In v2.15,
+custom policies that block remote terminal execution also block `input_remote`,
+because keyboard input can execute shell commands. Restricted profiles must
+permit both `input_remote` and the `terminal` action of `code_execution_remote`.
+
 Bundled tools with multiple actions support independent permissions for each
 action: memory, scheduler, local/remote text editors and code execution, browser,
 remote computer use, office artifacts, goals, skills, and parallel jobs.

@@ -30,7 +30,9 @@
   access, timeout, transfer, and disconnect handling; ordinary model args cannot
   enable `allow_running`. There is no `runtime=input` or `code` input alias.
 - `input_remote` requires both its own policy permission and the bundled
-  `plugin:_a0_connector:code_execution_remote` terminal action. Shared policy resolution
+  `plugin:_a0_connector:code_execution_remote` terminal action. Both are enabled
+  by the default policy without an Agent Editor grant. Custom restrictions remain
+  authoritative. Shared policy resolution
   applies the dependency to prompts, native schemas, and execution; the input
   wrapper rechecks that exact capability before rewriting args or dispatching,
   including when a profile shadows the execution tool name.
@@ -115,7 +117,7 @@
 ## Verification
 
 - Run connector-specific tests or smoke-test HTTP and `/ws` integration when changing runtime behavior.
-- Run `tests/test_remote_input_policy.py` for remote-input authorization, zero dispatch on denial, prompt/schema gating, and preserved host access controls.
+- Run `tests/test_remote_input_policy.py` for default access without editor grants, remote-input authorization, zero dispatch on denial, prompt/schema gating, and preserved host access controls.
 - Run `python -m pytest tests/test_a0_connector_chat_search.py plugins/_sidebar_folders/tests/test_search.py -q` for the query branch, unchanged list shape, input validation and shared excerpt behavior.
 - Cross-platform first-call session startup and no-retry boundaries are covered in the sibling connector's `tests/test_plugin_backend.py`; Core prompt gating remains covered by `tests/test_a0_connector_prompt_gating.py`.
 - Launcher gateway regression coverage lives in

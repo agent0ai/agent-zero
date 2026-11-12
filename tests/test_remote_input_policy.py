@@ -63,6 +63,31 @@ def remote_input(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("custom", [False, True])
+async def test_default_remote_input_needs_no_editor_grants(remote_input, custom):
+    state = remote_input
+    state.policy.update(tool_policy.normalize_policy(
+        tool_policy.plugins.get_default_plugin_config(tool_policy.PLUGIN_NAME)
+    ))
+    if custom:
+        state.policy["mode"] = "custom"
+    assert state.policy["allowed"] == state.policy["blocked"] == []
+    assert tool_policy.resolve_tool(state.agent, "input_remote").allowed
+    assert tool_policy.resolve_tool(state.agent, "code_execution_remote", action="terminal").allowed
+
+    prompts = [(path.name, path.read_text()) for path in (PLUGIN_ROOT / "prompts").glob("agent.system.tool.*.md")]
+    data = {"result": "\n".join(tool_policy.filter_tool_prompts(state.agent, prompts))}
+    IncludeRemoteToolStubs(agent=state.agent).execute(data=data)
+    assert '"tool_name": "input_remote"' in data["result"]
+    tools, _ = responses_tools.build_responses_function_tools(state.agent)
+    assert "input_remote" in {tool["name"] for tool in tools}
+
+    await EnforceToolPolicy(agent=state.agent).execute(tool_name="input_remote", tool_args={"keyboard": "yes"})
+    assert (await state.tool.execute(keyboard="yes")).message == "input sent"
+    assert len(state.manager.calls) == 1
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("explicit", [False, True])
 async def test_remote_input_cannot_dispatch_without_execution_permission(remote_input, explicit):
     state = remote_input
