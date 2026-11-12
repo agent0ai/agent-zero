@@ -45,7 +45,7 @@ walkthrough, including the ChatGPT security setting and device code.
 
 ![AI account picker with Codex, Copilot, Google Cloud Gemini, and Grok](../res/usage/onboarding/onboarding-account-provider.png)
 
-Choose **Local** when you want to connect to Ollama, LM Studio, oMLX, llama.cpp,
+Choose **Local** when you want to connect to Ollama, LM Studio, oMLX, Rapid-MLX, llama.cpp,
 vLLM, or another model server running on your machine.
 
 ![Local model provider picker with Ollama, LM Studio, oMLX, llama.cpp, and vLLM](../res/usage/onboarding/onboarding-local-ollama-main.png)

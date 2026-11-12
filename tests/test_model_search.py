@@ -121,3 +121,15 @@ def test_oauth_discovery_never_substitutes_generic_registry(monkeypatch, discove
     assert handler._litellm_fallback("account-provider", config) == []
     assert handler._litellm_fallback("unknown-provider", {}) == []
     assert handler._litellm_fallback("custom", {"litellm_provider": "openai"}) == ["unrelated-api-model"]
+
+
+def test_rapid_mlx_model_discovery_url_and_auth():
+    handler = _handler()
+    cfg = handler._get_provider_cfg("chat", "rapid_mlx")
+    assert handler._resolve_url(cfg["models_list"], cfg["kwargs"]["api_base"]) == (
+        "http://localhost:8000/v1/models", "openai",
+    )
+    assert handler._build_headers("rapid_mlx", "None", cfg) == {}
+    assert handler._build_headers("rapid_mlx", "test-key", cfg) == {
+        "Authorization": "Bearer test-key",
+    }
