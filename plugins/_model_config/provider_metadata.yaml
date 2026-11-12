@@ -7,6 +7,8 @@ chat:
     api_key_mode: none
   omlx:
     api_key_mode: none
+  rapid_mlx:
+    api_key_mode: none
   vllm:
     api_key_mode: none
   other:
@@ -22,6 +24,8 @@ embedding:
   ollama:
     api_key_mode: none
   omlx:
+    api_key_mode: none
+  rapid_mlx:
     api_key_mode: none
   vllm:
     api_key_mode: none

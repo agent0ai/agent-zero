@@ -521,6 +521,7 @@ def test_local_chat_providers_default_to_chat_completions():
         "ollama",
         "ollama_cloud",
         "omlx",
+        "rapid_mlx",
         "other",
         "vllm",
     )
@@ -529,6 +530,7 @@ def test_local_chat_providers_default_to_chat_completions():
         "llama_cpp",
         "ollama",
         "omlx",
+        "rapid_mlx",
         "vllm",
     )
 
@@ -755,7 +757,7 @@ def test_local_provider_runtime_defaults_and_overrides(monkeypatch):
     assert custom_vllm_chat.kwargs["api_key"] == "real-local-key"
 
 
-@pytest.mark.parametrize("provider", ["lm_studio", "llama_cpp", "omlx", "vllm"])
+@pytest.mark.parametrize("provider", ["lm_studio", "llama_cpp", "omlx", "rapid_mlx", "vllm"])
 def test_saved_local_api_keys_reach_every_model_slot(monkeypatch, tmp_path, provider):
     from helpers import dotenv
     from plugins._model_config.helpers import model_config
@@ -902,3 +904,31 @@ def test_docker_compose_maps_host_docker_internal_for_local_models():
     service = compose["services"]["agent-zero"]
 
     assert "host.docker.internal:host-gateway" in service["extra_hosts"]
+
+
+def test_rapid_mlx_provider_defaults_and_overrides(monkeypatch):
+    from helpers.providers import get_provider_config
+    from plugins._model_config.helpers import model_config
+
+    assert model_config.provider_requires_api_key("rapid_mlx") is False
+    assert model_config.provider_requires_api_key("rapid_mlx", "embedding") is False
+    assert "rapid_mlx" in model_config.LOCAL_PROVIDERS
+    monkeypatch.setattr(models, "get_api_key", lambda provider: "None")
+    for model_type, build in (
+        ("chat", models.get_chat_model),
+        ("embedding", models.get_embedding_model),
+    ):
+        cfg = get_provider_config(model_type, "rapid_mlx")
+        assert cfg["litellm_provider"] == "hosted_vllm"
+        assert cfg["kwargs"]["api_base"] == "http://localhost:8000/v1"
+        assert "api_key" not in cfg["kwargs"]
+        model = build("rapid_mlx", "local-model")
+        assert model.model_name == "hosted_vllm/local-model"
+        assert model.kwargs["api_base"] == "http://localhost:8000/v1"
+        assert "api_key" not in model.kwargs
+        custom = build("rapid_mlx", "local-model", api_base="http://localhost:8001/v1", api_key="test-key")
+        assert custom.kwargs["api_base"] == "http://localhost:8001/v1"
+        assert custom.kwargs["api_key"] == "test-key"
+    assert get_provider_config("chat", "rapid_mlx")["models_list"] == {
+        "endpoint_url": "/v1/models", "default_base": "http://localhost:8000",
+    }
