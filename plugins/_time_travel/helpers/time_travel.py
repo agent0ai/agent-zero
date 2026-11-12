@@ -8,9 +8,11 @@ import os
 import posixpath
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from functools import wraps
 from pathlib import Path
 from typing import Any, Iterable
@@ -746,14 +748,10 @@ class TimeTravelService:
             self._initialize_shadow_repo(quarantine_existing=True)
         self._ensure_current_head_ref()
 
-        self._git("config", "user.name", "Agent Zero Time Travel")
-        self._git("config", "user.email", "time-travel@agent-zero.local")
-        self._git("config", "core.autocrlf", "false")
-        self._git("config", "core.filemode", "true")
-
     @workspace_operation
     def current_hash(self) -> str:
-        self.ensure_repo()
+        if not self.workspace.repo_git_path.is_dir():
+            return ""
         completed = self._git("rev-parse", "--verify", "HEAD", check=False)
         return completed.stdout.strip() if completed.returncode == 0 else ""
 
@@ -823,46 +821,31 @@ class TimeTravelService:
     @workspace_operation
     def history_list(self, *, limit: int = 100, offset: int = 0, file_filter: str = "") -> dict[str, Any]:
         self._ensure_workspace_dir()
-        self.ensure_repo()
         limit = min(max(int(limit or 100), 1), 200)
         offset = max(int(offset or 0), 0)
         file_filter = str(file_filter or "").strip().lower()
         current = self.current_hash()
-        present = self.present_summary()
-
-        all_hashes = self._rev_list_all()
-        if file_filter:
-            all_hashes = [
-                commit_hash
-                for commit_hash in all_hashes
-                if any(
-                    file_filter in str(item.get("path") or "").lower()
-                    or file_filter in str(item.get("old_path") or "").lower()
-                    for item in self.commit_files(commit_hash)
-                )
-            ]
-
-        window = all_hashes[offset : offset + limit + 1]
+        window = self._history_window(limit + 1, offset, file_filter) if current else []
         visible = window[:limit]
         return {
             "ok": True,
             "context_id": self.workspace.context_id,
             "workspace": self.workspace.public(),
             "current_hash": current,
-            "present": present,
-            "commits": [self.commit_object(commit_hash, current_hash=current) for commit_hash in visible],
+            "present": None,
+            "commits": self._commit_objects(visible, current_hash=current),
             "has_more": len(window) > limit,
         }
 
     @workspace_operation
     def history_diff(self, *, commit_hash: str, path: str, mode: str = "commit") -> dict[str, Any]:
-        self.ensure_repo()
         path = self._safe_rel_path(path)
         mode = str(mode or "commit").strip().lower()
 
         if mode in {"present", "current"}:
             base = self.current_hash() or EMPTY_TREE
-            target, _paths = self._current_tree()
+            with self._present_view() as (view, target):
+                return view._patch_payload(base, target, path)
         else:
             commit_hash = self._validate_commit(commit_hash)
             base = self._first_parent(commit_hash) or EMPTY_TREE
@@ -872,7 +855,6 @@ class TimeTravelService:
 
     @workspace_operation
     def preview(self, *, operation: str, commit_hash: str) -> dict[str, Any]:
-        self.ensure_repo()
         operation = str(operation or "").strip().lower()
         commit_hash = self._validate_commit(commit_hash)
         current = self.current_hash() or EMPTY_TREE
@@ -963,14 +945,10 @@ class TimeTravelService:
 
     @workspace_operation
     def present_summary(self) -> dict[str, Any]:
-        self.ensure_repo()
-        current_tree, _paths = self._current_tree()
         current = self.current_hash()
         base = current or EMPTY_TREE
-        base_tree = self._commit_tree(current) if current else EMPTY_TREE
-        if base_tree == current_tree:
-            return clean_summary()
-        changed = self.diff_files(base, current_tree)
+        with self._present_view() as (view, current_tree):
+            changed = view.diff_files(base, current_tree)
         return {
             "dirty": bool(changed),
             "files_count": len(changed),
@@ -981,23 +959,27 @@ class TimeTravelService:
 
     def commit_object(self, commit_hash: str, *, current_hash: str = "") -> dict[str, Any]:
         commit_hash = self._validate_commit(commit_hash)
-        show = self._git("show", "-s", "--format=%H%x00%h%x00%cI%x00%s%x00%B", commit_hash).stdout
-        parts = show.split("\0", 4)
-        full_hash = parts[0].strip()
-        short_hash = parts[1].strip() if len(parts) > 1 else full_hash[:12]
-        timestamp = parts[2].strip() if len(parts) > 2 else ""
-        subject = parts[3].strip() if len(parts) > 3 else ""
-        body = parts[4] if len(parts) > 4 else ""
-        metadata = self._parse_metadata(body)
-        return {
-            "hash": full_hash,
-            "short_hash": short_hash,
-            "timestamp": timestamp,
-            "message": subject,
-            "is_current": bool(current_hash and full_hash == current_hash),
-            "metadata": metadata,
-            "files": self.commit_files(full_hash),
-        }
+        return self._commit_objects([commit_hash], current_hash=current_hash)[0]
+
+    def _commit_objects(self, hashes: list[str], *, current_hash: str) -> list[dict[str, Any]]:
+        if not hashes:
+            return []
+        fields = self._git("show", "-s", "--format=%H%x00%h%x00%cI%x00%s%x00%B%x00%P%x00", *hashes).stdout.split("\0")
+        commits = []
+        for index in range(0, len(fields) - 1, 6):
+            full_hash, short_hash, timestamp, subject, body, parents = fields[index:index + 6]
+            full_hash = full_hash.strip()
+            parent = parents.split()[0] if parents.strip() else EMPTY_TREE
+            commits.append({
+                "hash": full_hash,
+                "short_hash": short_hash,
+                "timestamp": timestamp,
+                "message": subject,
+                "is_current": full_hash == current_hash,
+                "metadata": self._parse_metadata(body),
+                "files": self.diff_files(parent, full_hash),
+            })
+        return commits
 
     def commit_files(self, commit_hash: str) -> list[dict[str, Any]]:
         commit_hash = self._validate_commit(commit_hash)
@@ -1011,11 +993,15 @@ class TimeTravelService:
             args.extend(["--", path_filter])
         output = self._git(*args).stdout
         entries = _parse_name_status(output)
+        stat_args = ["diff", "--numstat", "-z", "--find-renames", base, target]
+        if path_filter:
+            stat_args.extend(["--", path_filter])
+        stats = _parse_numstat(self._git(*stat_args).stdout) if entries else {}
         result: list[dict[str, Any]] = []
         for entry in entries:
             path = entry["path"]
             old_path = entry.get("old_path", "")
-            additions, deletions, binary = self._numstat(base, target, [p for p in (old_path, path) if p])
+            additions, deletions, binary = stats.get((old_path, path), (0, 0, False))
             action = STATUS_LABELS.get(entry["status"], entry["status"].lower())
             result.append(
                 {
@@ -1030,13 +1016,25 @@ class TimeTravelService:
             )
         return result
 
-    def _current_tree(self) -> tuple[str, list[str]]:
-        return self._stage_current_tree()
+    @contextmanager
+    def _present_view(self):
+        # Inspection must not leave uncommitted blobs or a modified index in saved history.
+        with tempfile.TemporaryDirectory(prefix="a0-time-travel-") as folder:
+            shadow = Path(folder) / "workspace"
+            view = TimeTravelService(replace(self.workspace, shadow_path=shadow, repo_git_path=shadow / "repo.git"))
+            view.ensure_repo()
+            objects = self.workspace.repo_git_path / "objects"
+            if objects.is_dir():
+                (view.workspace.repo_git_path / "objects/info/alternates").write_text(str(objects) + "\n")
+            tree, _paths = view._stage_current_tree()
+            yield view, tree
 
     def _stage_current_tree(self) -> tuple[str, list[str]]:
-        self.ensure_repo()
-        self._git("read-tree", "--empty")
         paths = list(iter_snapshot_paths(self.workspace.real_path, display_path=self.workspace.display_path))
+        indexed = set(self._git("ls-files", "-z").stdout.split("\0")) - {""}
+        removed = indexed - set(paths)
+        if removed:
+            self._git_bytes("update-index", "--force-remove", "-z", "--stdin", input=("\0".join(sorted(removed)) + "\0").encode("utf-8"))
         if paths:
             payload = "\0".join(paths).encode("utf-8") + b"\0"
             self._git_bytes(
@@ -1182,22 +1180,13 @@ class TimeTravelService:
     def _numstat(self, base: str, target: str, paths: list[str]) -> tuple[int, int, bool]:
         if not paths:
             return 0, 0, False
-        output = self._git("diff", "--numstat", "--find-renames", base, target, "--", *paths, check=False).stdout
-        additions = 0
-        deletions = 0
-        binary = False
-        for line in output.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split("\t")
-            if len(parts) < 2:
-                continue
-            if parts[0] == "-" or parts[1] == "-":
-                binary = True
-                continue
-            additions += _safe_int(parts[0])
-            deletions += _safe_int(parts[1])
-        return additions, deletions, binary
+        output = self._git("diff", "--numstat", "-z", "--find-renames", base, target, "--", *paths, check=False).stdout
+        stats = _parse_numstat(output).values()
+        return (
+            sum(item[0] for item in stats),
+            sum(item[1] for item in stats),
+            any(item[2] for item in stats),
+        )
 
     def _rev_list_all(self) -> list[str]:
         completed = self._git("rev-list", "--date-order", "--all", check=False)
@@ -1211,6 +1200,38 @@ class TimeTravelService:
                 result.append(commit)
                 seen.add(commit)
         return result
+
+    def _history_window(self, limit: int, offset: int, file_filter: str) -> list[str]:
+        if not file_filter:
+            result = self._git("rev-list", "--date-order", "--all", f"--skip={offset}", f"--max-count={limit}", check=False)
+            return result.stdout.splitlines() if result.returncode == 0 else []
+        matches = []
+        skipped = 0
+        cursor = 0
+        while len(matches) < limit:
+            batch = self._history_window(100, cursor, "")
+            if not batch:
+                break
+            cursor += len(batch)
+            records = self._git("show", "-z", "--format=%x00%H%x00", "--name-only", "--no-renames", *batch).stdout.split("\0")
+            index = 0
+            for commit in batch:
+                if records[index:index + 3] != ["", commit, ""]:
+                    raise TimeTravelError("Could not read history file names.")
+                index += 3
+                names = []
+                while index < len(records) and records[index]:
+                    names.append(records[index].removeprefix("\n") if not names else records[index])
+                    index += 1
+                if not any(file_filter in name.lower() for name in names):
+                    continue
+                if skipped < offset:
+                    skipped += 1
+                else:
+                    matches.append(commit)
+                if len(matches) == limit:
+                    break
+        return matches
 
     def _validate_commit(self, commit_hash: str) -> str:
         candidate = str(commit_hash or "").strip()
@@ -1371,6 +1392,10 @@ class TimeTravelService:
                 stdout=updated.stdout,
                 stderr=updated.stderr,
             )
+        self._git("config", "user.name", "Agent Zero Time Travel")
+        self._git("config", "user.email", "time-travel@agent-zero.local")
+        self._git("config", "core.autocrlf", "false")
+        self._git("config", "core.filemode", "true")
 
     def _loose_ref_exists(self, ref: str) -> bool:
         return self.workspace.repo_git_path.joinpath(*ref.split("/")).is_file()
@@ -1413,7 +1438,6 @@ class TimeTravelService:
             )
 
     def _git(self, *args: str, input: str | None = None, env: dict[str, str] | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
-        self.workspace.shadow_path.mkdir(parents=True, exist_ok=True)
         completed = subprocess.run(
             [
                 "git",
@@ -1441,7 +1465,6 @@ class TimeTravelService:
         return completed
 
     def _git_bytes(self, *args: str, input: bytes | None = None, check: bool = True) -> subprocess.CompletedProcess[bytes]:
-        self.workspace.shadow_path.mkdir(parents=True, exist_ok=True)
         completed = subprocess.run(
             [
                 "git",
@@ -1597,6 +1620,21 @@ def _parse_name_status(output: str) -> list[dict[str, str]]:
             entries.append({"status": status, "old_path": "", "path": path})
     entries.sort(key=lambda item: item.get("path") or item.get("old_path") or "")
     return entries
+
+
+def _parse_numstat(output: str) -> dict[tuple[str, str], tuple[int, int, bool]]:
+    records = output.split("\0")
+    stats = {}
+    index = 0
+    while index < len(records) - 1:
+        additions, deletions, path = records[index].split("\t", 2)
+        index += 1
+        old_path = ""
+        if not path:
+            old_path, path = records[index:index + 2]
+            index += 2
+        stats[(old_path, path)] = (_safe_int(additions), _safe_int(deletions), additions == "-" or deletions == "-")
+    return stats
 
 
 def _safe_int(value: str) -> int:

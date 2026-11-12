@@ -21,6 +21,8 @@
 - Revert and travel operations must avoid unintended writes outside managed workspace paths.
 - Git path arguments are literal. Capture exclusions also protect restore operations, including previously captured files and symlinked parent directories; conflicting restores fail before modifying files.
 - Serialize complete history operations per workspace. Lock files live outside removable workspace histories; cleanup skips busy histories, symlinks and unknown directory names. Failed owner discovery must not classify live histories as orphaned.
+- History listing never stages or scans workspace files. Pagination and file-name filtering use bounded Git batches; file statistics are batched per commit. Snapshots retain the index stat cache and remove deleted/excluded entries explicitly.
+- Current-change inspection is an explicit `history_present` action. Its temporary repository borrows saved objects read-only and is removed afterward; `present: null` means unchecked, never clean. Git work runs outside API event loops, and UI responses remain scoped to the active workspace/request.
 - Preserve enough metadata for clear preview and diff inspection before destructive actions.
 
 ## Work Guidance

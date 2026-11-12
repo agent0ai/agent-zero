@@ -115,6 +115,78 @@ def test_concurrent_snapshots_share_workspace_lock(workspace):
     assert len(service._rev_list_all()) == 1
 
 
+def test_browsing_and_present_inspection_do_not_change_saved_repository(workspace, monkeypatch):
+    root, service = workspace
+    path = root / "file.txt"
+    path.write_text("saved\n")
+    first = service.snapshot()
+    before = {str(p.relative_to(service.workspace.repo_git_path)): p.read_bytes()
+              for p in service.workspace.repo_git_path.rglob("*") if p.is_file()}
+    path.write_text("unsaved\n")
+    original = tt.iter_snapshot_paths
+
+    def no_scan(*args, **kwargs):
+        raise AssertionError("history listing must not scan workspace files")
+
+    monkeypatch.setattr(tt, "iter_snapshot_paths", no_scan)
+    history = service.history_list()
+    assert history["present"] is None
+    monkeypatch.setattr(tt, "iter_snapshot_paths", original)
+    assert service.present_summary()["dirty"]
+    assert "+unsaved" in service.history_diff(commit_hash=first.hash, path="file.txt", mode="present")["patch"]
+    after = {str(p.relative_to(service.workspace.repo_git_path)): p.read_bytes()
+             for p in service.workspace.repo_git_path.rglob("*") if p.is_file()}
+    assert after == before
+
+
+def test_history_listing_batches_statistics_and_filters(workspace, monkeypatch):
+    root, service = workspace
+    for i in range(10):
+        (root / f"item-{i}.txt").write_text(f"version {i}\n")
+        service.snapshot()
+    calls = []
+    original = subprocess.run
+
+    def record(command, *args, **kwargs):
+        calls.append(command)
+        return original(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", record)
+    history = service.history_list(limit=10)
+    assert len(history["commits"]) == 10
+    assert len(calls) <= 25
+    calls.clear()
+    filtered = service.history_list(limit=2, file_filter="ITEM-2")
+    assert len(filtered["commits"]) == 1
+    assert filtered["commits"][0]["files"][0]["path"] == "item-2.txt"
+    assert len(calls) <= 10
+
+
+def test_batched_stats_preserve_renames_binary_and_unusual_names(workspace):
+    root, service = workspace
+    name = "tab\tand\nnewline.txt"
+    (root / name).write_text("one\ntwo\n")
+    service.snapshot()
+    (root / name).rename(root / "renamed.txt")
+    (root / "binary").write_bytes(b"\0binary")
+    snapshot = service.snapshot()
+    changed = {item["path"]: item for item in snapshot.files}
+    assert changed["renamed.txt"]["old_path"] == name
+    assert changed["binary"]["binary"] is True
+    assert service.history_list(file_filter="newline")["commits"]
+
+
+def test_snapshot_removes_deleted_and_newly_excluded_index_entries(workspace, monkeypatch):
+    root, service = workspace
+    for name in ("keep", "gone", "exclude"):
+        (root / name).write_text("fixture\n")
+    service.snapshot()
+    (root / "gone").unlink()
+    monkeypatch.setattr(tt, "EXCLUDED_FILE_PATTERNS", tt.EXCLUDED_FILE_PATTERNS | {"exclude"})
+    service.snapshot()
+    assert tracked_paths(service) == {"keep"}
+
+
 def test_shadow_history_snapshot_diff_travel_preserve_refs_and_root_revert(workspace):
     root, service = workspace
     (root / "a.txt").write_text("one\n", encoding="utf-8")
