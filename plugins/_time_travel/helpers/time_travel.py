@@ -11,12 +11,16 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
 from typing import Any, Iterable
+
+from filelock import Timeout
 
 from helpers import files
 from helpers.localization import Localization
 from helpers.print_style import PrintStyle
+from plugins._time_travel.helpers.locking import workspace_lock
 
 
 PLUGIN_NAME = "_time_travel"
@@ -127,6 +131,18 @@ class GitCommandError(TimeTravelError):
         super().__init__(message)
         self.stdout = stdout
         self.stderr = stderr
+
+
+def workspace_operation(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        try:
+            with workspace_lock(self.workspace.shadow_path):
+                return method(self, *args, **kwargs)
+        except Timeout as exc:
+            raise TimeTravelConflictError("Workspace history is busy. Try again shortly.") from exc
+
+    return locked
 
 
 @dataclass(frozen=True)
@@ -719,7 +735,10 @@ class TimeTravelService:
     def __init__(self, workspace: WorkspaceInfo):
         self.workspace = workspace
 
+    @workspace_operation
     def ensure_repo(self) -> None:
+        if self.workspace.shadow_path.is_symlink() or self.workspace.repo_git_path.is_symlink():
+            raise TimeTravelError("History storage must not be a symlink.")
         self.workspace.shadow_path.mkdir(parents=True, exist_ok=True)
         if not self._shadow_repo_valid():
             self._repair_shadow_repo_head()
@@ -732,6 +751,7 @@ class TimeTravelService:
         self._git("config", "core.autocrlf", "false")
         self._git("config", "core.filemode", "true")
 
+    @workspace_operation
     def current_hash(self) -> str:
         self.ensure_repo()
         completed = self._git("rev-parse", "--verify", "HEAD", check=False)
@@ -741,6 +761,7 @@ class TimeTravelService:
         current = self.current_hash()
         return current[:12] if current else ""
 
+    @workspace_operation
     def snapshot(
         self,
         *,
@@ -799,6 +820,7 @@ class TimeTravelService:
             metadata=full_metadata,
         )
 
+    @workspace_operation
     def history_list(self, *, limit: int = 100, offset: int = 0, file_filter: str = "") -> dict[str, Any]:
         self._ensure_workspace_dir()
         self.ensure_repo()
@@ -832,6 +854,7 @@ class TimeTravelService:
             "has_more": len(window) > limit,
         }
 
+    @workspace_operation
     def history_diff(self, *, commit_hash: str, path: str, mode: str = "commit") -> dict[str, Any]:
         self.ensure_repo()
         path = self._safe_rel_path(path)
@@ -847,6 +870,7 @@ class TimeTravelService:
 
         return self._patch_payload(base, target, path)
 
+    @workspace_operation
     def preview(self, *, operation: str, commit_hash: str) -> dict[str, Any]:
         self.ensure_repo()
         operation = str(operation or "").strip().lower()
@@ -863,6 +887,7 @@ class TimeTravelService:
             raise TimeTravelError("Unsupported preview operation.")
 
         files_changed = self.diff_files(base, target)
+        self._check_restore_paths(files_changed)
         previews = []
         for item in files_changed[:12]:
             rel_path = str(item.get("path") or item.get("old_path") or "")
@@ -879,6 +904,7 @@ class TimeTravelService:
             "previews": previews,
         }
 
+    @workspace_operation
     def travel(self, *, commit_hash: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         self._ensure_workspace_dir()
         self.ensure_repo()
@@ -888,6 +914,7 @@ class TimeTravelService:
         if previous:
             self._preserve_ref(previous, reason="travel")
         affected = self.diff_files(previous or EMPTY_TREE, target)
+        self._check_restore_paths(affected)
         self._apply_commit_tree(previous or EMPTY_TREE, target, affected)
         self._git("update-ref", "HEAD", target)
         return {
@@ -900,12 +927,14 @@ class TimeTravelService:
             "affected_files": affected,
         }
 
+    @workspace_operation
     def revert(self, *, commit_hash: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         self._ensure_workspace_dir()
         self.ensure_repo()
         target = self._validate_commit(commit_hash)
         before = self.snapshot(trigger="before_revert", metadata=metadata or {})
         parent = self._first_parent(target) or EMPTY_TREE
+        self._check_restore_paths(self.diff_files(parent, target))
         patch = self._git_bytes("diff", "--binary", parent, target).stdout
         if patch:
             checked = self._git_bytes("apply", "--reverse", "--check", "--binary", "--whitespace=nowarn", input=patch, check=False)
@@ -932,6 +961,7 @@ class TimeTravelService:
             "affected_files": after.files,
         }
 
+    @workspace_operation
     def present_summary(self) -> dict[str, Any]:
         self.ensure_repo()
         current_tree, _paths = self._current_tree()
@@ -1039,6 +1069,20 @@ class TimeTravelService:
         for rel_path in sorted(set(write_paths)):
             self._materialize_tree_path(target, rel_path)
         self._prune_empty_dirs()
+
+    def _check_restore_paths(self, affected: list[dict[str, Any]]) -> None:
+        for item in affected:
+            for rel in (item.get("path"), item.get("old_path")):
+                if not rel:
+                    continue
+                path = self._workspace_child(rel)
+                if not is_snapshot_candidate(rel, is_dir=False):
+                    raise TimeTravelConflictError(f"Restore would change an excluded path: {rel}")
+                for parent in path.parents:
+                    if parent == self.workspace.real_path:
+                        break
+                    if _is_nested_git_worktree_dir(parent, self.workspace.real_path):
+                        raise TimeTravelConflictError(f"Restore would change a nested Git workspace: {rel}")
 
     def _materialize_tree_path(self, commit_hash: str, rel_path: str) -> None:
         rel_path = self._safe_rel_path(rel_path)
@@ -1250,6 +1294,11 @@ class TimeTravelService:
             path.relative_to(self.workspace.real_path)
         except ValueError:
             raise TimeTravelError("Invalid path.")
+        for parent in path.parents:
+            if parent == self.workspace.real_path:
+                break
+            if parent.is_symlink():
+                raise TimeTravelConflictError(f"Restore would follow a directory symlink: {rel}")
         return path
 
     def _rel_from_workspace(self, path: Path) -> str:
@@ -1260,6 +1309,9 @@ class TimeTravelService:
 
     def _git_env(self) -> dict[str, str]:
         env = os.environ.copy()
+        for key in ("GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS", "GIT_INDEX_FILE"):
+            env.pop(key, None)
+        env["GIT_LITERAL_PATHSPECS"] = "1"
         env["GIT_TERMINAL_PROMPT"] = "0"
         env["GIT_OPTIONAL_LOCKS"] = "0"
         return env
@@ -1470,6 +1522,12 @@ def is_snapshot_candidate(rel_path: str, *, is_dir: bool) -> bool:
     if name == ".time_travel" or ".time_travel" in parts:
         return False
     if name in {"secrets.env", "variables.env"}:
+        return False
+
+    directories = parts if is_dir else parts[:-1]
+    if any(part in EXCLUDED_DIR_NAMES or any(fnmatch.fnmatch(part, pattern) for pattern in EXCLUDED_DIR_PATTERNS) for part in directories):
+        return False
+    if not is_dir and any(fnmatch.fnmatch(name, pattern) for pattern in EXCLUDED_FILE_PATTERNS):
         return False
 
     if rel.startswith(".a0proj/"):

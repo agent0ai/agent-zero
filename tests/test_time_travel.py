@@ -36,6 +36,11 @@ def run_git(repo_dir: Path, *args: str, check: bool = True) -> str:
     return completed.stdout.strip()
 
 
+@pytest.fixture(autouse=True)
+def isolated_shadow_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(tt, "SHADOW_DISPLAY_ROOT", str(tmp_path / "history"))
+
+
 @pytest.fixture
 def workspace():
     name = f"tt-{uuid.uuid4().hex}"
@@ -52,6 +57,62 @@ def workspace():
 def tracked_paths(service: TimeTravelService, commit_hash: str = "HEAD") -> set[str]:
     output = service._git("ls-tree", "-r", "--name-only", commit_hash).stdout
     return {line.strip() for line in output.splitlines() if line.strip()}
+
+
+def test_snapshot_treats_git_pathspec_filenames_literally(workspace):
+    root, service = workspace
+    (root / ":(glob)*").write_text("literal filename\n")
+    (root / ".env").write_text("SYNTHETIC_SECRET=fixture\n")
+    (root / "secrets.env").write_text("fixture\n")
+    (root / "node_modules").mkdir()
+    (root / "node_modules" / "package.js").write_text("fixture\n")
+    snapshot = service.snapshot()
+    assert tracked_paths(service, snapshot.hash) == {":(glob)*"}
+
+
+def test_restore_refuses_newly_excluded_paths(workspace, monkeypatch):
+    root, service = workspace
+    (root / "keep.txt").write_text("baseline\n")
+    service.snapshot()
+    artifact = root / "artifact.bin"
+    artifact.write_bytes(b"old\0")
+    captured = service.snapshot()
+    monkeypatch.setattr(tt, "EXCLUDED_FILE_PATTERNS", tt.EXCLUDED_FILE_PATTERNS | {"artifact.bin"})
+    service.snapshot()
+    artifact.write_bytes(b"current\0")
+    for operation in (service.travel, service.revert):
+        with pytest.raises(TimeTravelConflictError, match="excluded path"):
+            operation(commit_hash=captured.hash)
+        assert artifact.read_bytes() == b"current\0"
+    with pytest.raises(TimeTravelConflictError, match="excluded path"):
+        service.preview(operation="travel", commit_hash=captured.hash)
+
+
+def test_restore_refuses_directory_symlink_escape(workspace, tmp_path):
+    root, service = workspace
+    folder = root / "folder"
+    folder.mkdir()
+    (folder / "file.txt").write_text("old\n")
+    captured = service.snapshot()
+    shutil.rmtree(folder)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "file.txt").write_text("protected\n")
+    folder.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(TimeTravelConflictError, match="symlink"):
+        service.revert(commit_hash=captured.hash)
+    assert (outside / "file.txt").read_text() == "protected\n"
+
+
+def test_concurrent_snapshots_share_workspace_lock(workspace):
+    from concurrent.futures import ThreadPoolExecutor
+
+    root, service = workspace
+    (root / "file.txt").write_text("one\n")
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: TimeTravelService(service.workspace).snapshot(), range(4)))
+    assert sum(result.created for result in results) == 1
+    assert len(service._rev_list_all()) == 1
 
 
 def test_shadow_history_snapshot_diff_travel_preserve_refs_and_root_revert(workspace):

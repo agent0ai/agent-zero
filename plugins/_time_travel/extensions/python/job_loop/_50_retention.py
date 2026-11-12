@@ -35,5 +35,6 @@ class TimeTravelRetention(Extension):
                     f"invalid={stats['invalid_backups_removed']} "
                     f"reclaimed={stats['bytes_reclaimed']}b"
                 )
-        except Exception:
+        except Exception as exc:
+            PrintStyle.error(f"Time Travel retention failed: {exc}")
             return

@@ -37,7 +37,12 @@ import json
 import os
 import shutil
 import time
+from pathlib import Path
 from typing import Any, Optional
+
+from filelock import Timeout
+
+from plugins._time_travel.helpers.locking import workspace_lock
 
 PLUGIN_NAME = "_time_travel"
 
@@ -109,22 +114,19 @@ def live_workspace_ids() -> set[str]:
     projects_root = time_travel.real_path_for_display("/a0/usr/projects")
     try:
         for name in os.listdir(projects_root):
-            if os.path.isdir(os.path.join(projects_root, name)):
+            if (projects_root / name).is_dir():
                 ids.add(time_travel.workspace_id_for(f"/a0/usr/projects/{name}"))
-    except Exception:
+    except FileNotFoundError:
         pass
 
-    try:
-        ids.add(time_travel.workspace_id_for(time_travel.configured_workdir_display_path()))
-    except Exception:
-        ids.add(time_travel.workspace_id_for("/a0/usr/workdir"))
+    ids.add(time_travel.workspace_id_for(time_travel.configured_workdir_display_path()))
 
     chats_root = time_travel.real_path_for_display("/a0/usr/chats")
     try:
         for name in os.listdir(chats_root):
-            if os.path.isdir(os.path.join(chats_root, name, "workdir")):
+            if (chats_root / name / "workdir").is_dir():
                 ids.add(time_travel.workspace_id_for(f"/a0/usr/chats/{name}/workdir"))
-    except Exception:
+    except FileNotFoundError:
         pass
 
     return ids
@@ -221,7 +223,7 @@ def _remove_tree(path: str, shadow_root: str) -> int:
     """rmtree guarded to the shadow root; returns bytes reclaimed (0 on refusal/failure)."""
     real = os.path.realpath(path)
     root = os.path.realpath(shadow_root)
-    if not real.startswith(root + os.sep):
+    if os.path.islink(path) or not real.startswith(root + os.sep):
         return 0
     size = _tree_bytes(real)
     try:
@@ -270,42 +272,53 @@ def sweep(
 
     for name in entries:
         entry = os.path.join(root, name)
-        if not os.path.isdir(entry):
+        if len(name) != 32 or any(char not in "0123456789abcdef" for char in name):
             continue
-        last = _last_activity(entry)
-
-        if name not in ids:
-            if now - last > grace_s:
-                stats["bytes_reclaimed"] += _remove_tree(entry, root)
-                stats["orphans_removed"] += 1
-                detail["orphans"].append(name)
+        if os.path.islink(entry) or not os.path.isdir(entry):
             continue
-
-        if max_age_s and now - last > max_age_s:
-            stats["bytes_reclaimed"] += _remove_tree(entry, root)
-            stats["aged_removed"] += 1
-            detail["aged"].append(name)
-            continue
-
-        lock = os.path.join(entry, "repo.git", "index.lock")
         try:
-            if os.path.isfile(lock) and now - os.stat(lock).st_mtime > lock_s:
-                os.remove(lock)
-                stats["stale_locks_removed"] += 1
-                detail["locks"].append(name)
-        except Exception:
-            pass
+            with workspace_lock(Path(entry)).acquire(timeout=0):
+                if os.path.islink(os.path.join(entry, "repo.git")):
+                    continue
+                last = _last_activity(entry)
 
-        try:
-            for sub in os.listdir(entry):
-                if sub.startswith("repo.git.invalid"):
-                    backup = os.path.join(entry, sub)
-                    if now - os.stat(backup).st_mtime > grace_s:
-                        stats["bytes_reclaimed"] += _remove_tree(backup, root)
-                        stats["invalid_backups_removed"] += 1
-                        detail["invalid"].append(f"{name}/{sub}")
-        except Exception:
-            pass
+                if name not in ids:
+                    if now - last > grace_s:
+                        stats["bytes_reclaimed"] += _remove_tree(entry, root)
+                        if not os.path.lexists(entry):
+                            stats["orphans_removed"] += 1
+                            detail["orphans"].append(name)
+                    continue
+
+                if max_age_s and now - last > max_age_s:
+                    stats["bytes_reclaimed"] += _remove_tree(entry, root)
+                    if not os.path.lexists(entry):
+                        stats["aged_removed"] += 1
+                        detail["aged"].append(name)
+                    continue
+
+                lock = os.path.join(entry, "repo.git", "index.lock")
+                try:
+                    if os.path.isfile(lock) and now - os.stat(lock).st_mtime > lock_s:
+                        os.remove(lock)
+                        stats["stale_locks_removed"] += 1
+                        detail["locks"].append(name)
+                except Exception:
+                    pass
+
+                try:
+                    for sub in os.listdir(entry):
+                        if sub.startswith("repo.git.invalid"):
+                            backup = os.path.join(entry, sub)
+                            if now - os.stat(backup).st_mtime > grace_s:
+                                stats["bytes_reclaimed"] += _remove_tree(backup, root)
+                                if not os.path.lexists(backup):
+                                    stats["invalid_backups_removed"] += 1
+                                    detail["invalid"].append(f"{name}/{sub}")
+                except Exception:
+                    pass
+        except Timeout:
+            continue
 
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     _write_marker(base, stats, stamp)
