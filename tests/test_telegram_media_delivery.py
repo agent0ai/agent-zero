@@ -81,7 +81,7 @@ def test_telegram_reply_routes_native_media_attachments(monkeypatch):
         )
         return len(calls)
 
-    monkeypatch.setattr(handler, "get_bot", lambda name: FakeBotInstance())
+    monkeypatch.setattr(handler.scopes, "authorized_bot", lambda context: FakeBotInstance())
     monkeypatch.setattr(handler, "_temp_bot", fake_temp_bot)
     monkeypatch.setattr(handler.files, "fix_dev_path", lambda path: path)
     monkeypatch.setattr(handler.tc, "send_photo", lambda *a, **kw: record("photo", *a, **kw))
@@ -106,3 +106,25 @@ def test_telegram_reply_routes_native_media_attachments(monkeypatch):
         {"kind": "video", "chat_id": 123, "path": "clip.mp4", "reply_to_message_id": 456},
         {"kind": "document", "chat_id": 123, "path": "archive.zip", "reply_to_message_id": 456},
     ]
+
+
+def test_incoming_attachment_names_cannot_escape_upload_directory(monkeypatch, tmp_path):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(handler.files, "_base_dir", str(tmp_path))
+    written = []
+    async def download(remote, destination):
+        Path(destination).write_bytes(b"attachment")
+        written.append(Path(destination))
+    bot = SimpleNamespace(get_file=AsyncMock(return_value=SimpleNamespace(file_path="remote")),
+                          download_file=download)
+    for filename in ("../../../../config.json", "/tmp/outside.txt", r"..\..\outside.txt", "report\0.txt"):
+        message = SimpleNamespace(photo=None, document=SimpleNamespace(
+            file_id="file", file_unique_id="unique", file_name=filename))
+        assert asyncio.run(handler._download_attachments(bot, message, bot_name="main"))
+    assert len(written) == 4
+    assert all(path.parent == tmp_path / "usr/uploads" for path in written)
+    assert all(path.read_bytes() == b"attachment" for path in written)
+    assert not (tmp_path / "config.json").exists()

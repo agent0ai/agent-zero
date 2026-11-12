@@ -5,37 +5,33 @@ from helpers.extension import Extension
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
 from helpers.notification import NotificationManager, NotificationPriority, NotificationType
-from helpers import plugins
 from plugins._telegram_integration.helpers.dependencies import ensure_dependencies, has_aiogram
-
-
-PLUGIN_NAME: str = "_telegram_integration"
+from plugins._telegram_integration.helpers import scopes
 
 
 class TelegramBotManager(Extension):
 
     async def execute(self, **kwargs: Any) -> None:
-        if _has_scoped_settings():
-            config = {}
+        try:
+            from plugins._telegram_integration.helpers.migration import prepare_upgrade
+            prepare_upgrade()
+            configured, conflicts = scopes.available_bots()
+        except Exception:
+            configured, conflicts = {}, ["Unreadable Telegram configuration"]
+        if conflicts:
             NotificationManager.send_notification(
                 type=NotificationType.ERROR,
                 priority=NotificationPriority.HIGH,
                 title="Telegram settings need review",
                 message=(
-                    "Telegram delivery is paused because project or agent-profile settings exist. "
-                    "Review those settings and activation overrides, apply the intended access rules "
-                    "in global Telegram settings, then remove the scoped copies."
+                    "Conflicting or unreadable Telegram settings were found. Each configured scope "
+                    "needs a separate bot token from @BotFather. Affected bots are paused; "
+                    "existing settings are retained. Review the saved configurations and the "
+                    "upgrade backup under usr/plugins/_telegram_integration/backups/config-scopes-v1."
                 ),
-                id="telegram-unsupported-scopes",
+                id="telegram-scope-conflicts",
             )
-        elif plugins.get_toggle_state(PLUGIN_NAME) == "enabled":
-            config = plugins.get_plugin_config(PLUGIN_NAME) or {}
-        else:
-            config = {}
-        bots_cfg = config.get("bots", [])
-        enabled_names = {
-            b["name"] for b in bots_cfg if b.get("enabled") and b.get("name") and b.get("token")
-        }
+        enabled_names = set(configured)
 
         # Avoid installing aiogram on idle ticks when Telegram is not configured.
         if not enabled_names and not has_aiogram():
@@ -61,8 +57,8 @@ class TelegramBotManager(Extension):
             cleanup_old_attachments,
         )
 
-        if bots_cfg:
-            cleanup_old_attachments()
+        if configured:
+            cleanup_old_attachments({key: bot.config for key, bot in configured.items()})
 
         running = get_all_bots()
 
@@ -72,10 +68,8 @@ class TelegramBotManager(Extension):
                 await stop_bot(name)
 
         # Start new bots
-        for bot_cfg in bots_cfg:
-            name = bot_cfg.get("name", "")
-            if not name or not bot_cfg.get("enabled") or not bot_cfg.get("token"):
-                continue
+        for name, scoped_bot in configured.items():
+            bot_cfg = scoped_bot.config
             if name in running:
                 inst = running[name]
                 current_mode = bot_cfg.get("mode", "polling")
@@ -139,32 +133,54 @@ class TelegramBotManager(Extension):
 
 # Wrapper functions for aiogram handlers
 
-def _has_scoped_settings() -> bool:
-    return any(
-        entry.get("project_name") or entry.get("agent_profile")
-        for pattern in (plugins.CONFIG_FILE_NAME, plugins.TOGGLE_FILE_PATTERN)
-        for entry in plugins.find_plugin_assets(
-            pattern, plugin_name=PLUGIN_NAME,
-            project_name="*", agent_profile="*", only_first=False,
-        )
-    )
-
-
-def _get_current_bot_cfg(bot_name: str) -> dict:
-    """Fetch the latest bot config by name, so handlers always use fresh settings."""
-    if _has_scoped_settings() or plugins.get_toggle_state(PLUGIN_NAME) != "enabled":
+def _get_current_bot_cfg(bot_name: str, event, captured: dict) -> dict:
+    from plugins._telegram_integration.helpers import handler
+    bots, _ = scopes.available_bots()
+    bot = bots.get(bot_name)
+    if not bot:
         return {}
-    config = plugins.get_plugin_config(PLUGIN_NAME) or {}
-    for b in config.get("bots", []):
-        if b.get("name") == bot_name and b.get("enabled"):
-            return b
-    return {}
+    mode = bot.config.get("mode", "polling")
+    if bot.config["token"] != captured.get("token") or mode != captured.get("mode", "polling"):
+        return {}
+    if mode == "webhook" and (
+        bot.config.get("webhook_url", "").rstrip("/") != captured.get("webhook_url", "").rstrip("/")
+        or bot.config.get("webhook_secret", "") != captured.get("webhook_secret", "")
+    ):
+        return {}
+    user = event.from_user
+    message = getattr(event, "message", None) or event
+    if not user or not getattr(message, "chat", None):
+        return {}
+    context = handler.get_bound_context(bot_name, user.id, message.chat.id)
+    if context:
+        project = handler.projects.get_context_project_name(context) or ""
+        profile = context.config.profile
+    else:
+        project, profile = scopes.initial_scope(bot, user.id)
+    config = scopes.resolve(bot, project, profile)
+    if not config or not handler._is_allowed(config, user.id, user.username):
+        return {}
+    if config.get("group_mode") == "off" and message.chat.type != "private":
+        return {}
+    return {**config, "_initial_scope": (project, profile)}
 
 
 def _make_handler(handler_fn):
     """Create a wrapper that resolves fresh bot config on every call."""
     async def _wrapped(event, bot_name: str, bot_cfg: dict):
-        current = _get_current_bot_cfg(bot_name)
+        try:
+            current = _get_current_bot_cfg(bot_name, event, bot_cfg)
+        except Exception:
+            PrintStyle.error("Telegram: could not resolve current access rules; update rejected")
+            return
         if current:
+            message = getattr(event, "message", None) or event
+            if (handler_fn.__name__ == "handle_message" and current.get("group_mode", "mention") == "mention"
+                    and message.chat.type != "private" and not (message.text or message.caption or "").startswith("/")):
+                from plugins._telegram_integration.helpers.bot_manager import get_bot, _make_group_mention_filter
+                instance = get_bot(bot_name)
+                if instance:
+                    await _make_group_mention_filter(partial(handler_fn, bot_name=bot_name, bot_cfg=current), instance.bot)(event)
+                return
             await handler_fn(event, bot_name, current)
     return _wrapped

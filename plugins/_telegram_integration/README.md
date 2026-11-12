@@ -13,15 +13,16 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
   - Active code paths call `helpers/dependencies.py::ensure_dependencies()` to install `aiogram` into the framework runtime on first use via `uv pip install --python <current interpreter> -r plugins/_telegram_integration/requirements.txt`.
 - **Bot lifecycle**
   - Managed by a `job_loop` extension that starts, restarts, or stops bots whenever plugin settings change.
-  - Supports both long-polling and webhook delivery modes. Webhook mode requires a random secret of 32–256 letters, digits, underscores or hyphens; generate one with `python -c 'import secrets; print(secrets.token_urlsafe(32))'`. Existing webhook configurations without a valid secret must be updated before starting the bot.
+  - Supports both long-polling and webhook delivery modes. Webhook mode requires a random secret of 32–256 letters, digits, underscores or hyphens; generate one with `python -c 'import secrets; print(secrets.token_urlsafe(32))'`. The upgrade migration supplies a secure secret for legacy webhook configurations that lack one.
   - The webhook endpoint rejects polling bots and requires a matching `X-Telegram-Bot-Api-Secret-Token` header before dispatch.
-  - Bot names are generated automatically if left empty. Each bot needs a unique name; saving a new token or webhook connection restarts that bot on the next maintenance tick (up to about a minute).
+  - Bot names are generated automatically if left empty. Existing names, including spaces and Unicode, are retained. Names must be unique within their configuration, fit within 128 characters, and exclude path separators and control characters. Saving a new token or webhook connection restarts that bot on the next maintenance tick (up to about a minute); events from the old connection are rejected immediately.
 - **Per-user chat sessions**
   - Each Telegram user gets a dedicated `AgentContext`, persisted across restarts via a JSON state file.
   - `/start` creates a context; `/new` starts fresh; `/clear` resets the current context.
   - `/commands` shows the shared integration command menu (`/help` is an alias).
   - `/commands` also provides a paginated menu of Agent Zero's built-in, enabled-plugin, global, and active-project commands. Custom commands use the same templates, scripts, and scope precedence as the WebUI, including prefix and postfix syntax.
   - `/stop`, `/goal`, and `/rename` execute their existing Agent Zero commands. `/compact` offers confirmation before summarizing, preserving the existing conversation backup. `/copy` sends the transcript as a text file; `/attach` explains Telegram's native attachment control.
+  - Session selection is limited to that Telegram bot, user, and chat, within an allowed project/profile. Explicit bot administrators can also attach an unbound WebUI chat in an allowed scope. Another Telegram user's chats remain inaccessible.
   - `/models` and `/presets` open the model preset picker; `/chats` opens the session picker, and `/chat <id>` switches sessions. `/browser` offers runtime buttons.
   - For users listed separately as bot administrators, `/plugins` provides paginated instance-wide plugin toggles and `/permissions` edits the current profile's tool permissions, including Allow/Block/Default per tool, separate Tools/MCP defaults, and inherited policy. An empty administrator list disables these settings changes from Telegram. Always-required tools and the Telegram connection remain protected. Computer Use permissions stay with A0 Launcher/CLI.
   - Telegram's native command menu includes global commands at bot startup. Hyphenated commands also accept an underscore spelling, such as `/computer_use`; use `/commands` for freshly added or project-specific commands.
@@ -59,6 +60,7 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
 - **Access control**
   - Per-bot allow-list by Telegram user ID or @username. Empty list = open to all.
   - A separate `admin_users` list grants access to plugin and tool-permission settings. Administrators must also pass `allowed_users`; an omitted or empty administrator list grants nobody settings access. Each message and callback uses the current bot configuration, so removing an administrator also revokes existing menu buttons.
+  - Replies, streamed progress, and heartbeats also check current access. New context snapshots omit bot tokens and webhook secrets.
 - **Project binding**
   - Map individual Telegram users to specific Agent Zero projects; supports a default-project fallback.
   - Inherits model overrides from sibling contexts in the same project.
@@ -93,13 +95,21 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
 
 ## Configuration Scope
 
-- **Settings section**: `external`
-- **Per-project config**: `false`
-- **Per-agent config**: `false`
+All four scopes are supported: global, project, agent profile, and project plus profile. A bot configured in a project starts conversations there and cannot switch out of that project. A profile-scoped bot starts with that profile and cannot switch to another profile. A combined scope enforces both. Global bots retain default-project and per-user project routing.
 
-Bot settings, allowed users, administrators, and activation apply globally. Use each bot's default project and user project mapping to route conversations.
+Each explicitly saved configuration needs its own Telegram bot token. Create another bot with **@BotFather**, copy the desired settings, and replace the token before saving in another scope. Telegram bot accounts are not cloned by copying their tokens. To move an existing bot instead, remove its token from the old configuration before saving it in the new scope; previous chats are retained, while the new scope starts its own session bindings.
 
-If an older version saved project- or profile-specific settings or activation overrides, Telegram delivery pauses until those copies are reviewed and removed. In Telegram settings, use **Show existing configurations** and, when shown, **Review saved activation overrides** to inspect them. Reopen Telegram settings and apply the intended access rules globally before deleting scoped copies. Existing files are preserved and are never merged automatically. Removing or disabling a global bot, or disabling the plugin globally, blocks new updates immediately, before the next lifecycle tick.
+Where no scoped configuration exists, normal configuration inheritance applies without starting another bot. Scoped activation overrides still apply to inherited bots: disabling Telegram in a destination project/profile blocks events there. An explicitly enabled scoped bot can run while global activation is disabled. Configurations replace the inherited bot list rather than merging lists.
+
+Existing scoped settings no longer pause every bot just because they exist. If multiple saved configurations contain the same Telegram bot identity, all conflicting connections remain paused until those tokens are separated or moved. This also detects old and rotated tokens for the same bot. Unreadable settings pause delivery rather than falling back to permissive rules. Use **Show existing configurations** to review saved copies; files are never deleted automatically.
+
+## Upgrading Existing Installations
+
+Before starting bots for the first time after this upgrade, Agent Zero saves an exact snapshot of existing Telegram configuration files, activation overrides, and session mappings in `usr/plugins/_telegram_integration/backups/config-scopes-v1/`. The manifest records each original path and checksum. The directory is private (`0700`) and backup files are private (`0600`), since configurations contain credentials.
+
+Existing tokens, bot names, allowlists, administrator lists, project mappings, instructions, and other settings are retained. Existing global bots keep their chat bindings. The only automatic configuration edit supplies a random secret for an old webhook configuration with a missing or invalid secret; valid secrets remain unchanged. The migration preserves symlinks and can resume after an interrupted write without rotating an already upgraded secret or replacing the original backup. It never grants administrator access or merges conflicting access rules.
+
+No manual migration command is required. Token conflicts stay preserved for review through the settings UI, as described above.
 
 ## Plugin Metadata
 

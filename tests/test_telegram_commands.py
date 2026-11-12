@@ -11,7 +11,7 @@ from aiogram.types import Update
 
 from plugins._commands.helpers import commands
 from plugins._telegram_integration import hooks
-from plugins._telegram_integration.helpers import bot_manager, handler, slash_commands as slash
+from plugins._telegram_integration.helpers import bot_manager, handler, scopes, slash_commands as slash
 
 
 class TelegramCommandsTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class TelegramCommandsTests(unittest.TestCase):
                 "label": "Code execution", "description": ""}
         policy = {"mode": "custom", "default": "block", "mcp_default": "block",
                   "allowed": [], "blocked": [item["id"]]}
-        bot_cfg = {"name": "test", "enabled": True, "allowed_users": [42, 7], "admin_users": [7]}
+        bot_cfg = {"name": "test", "token": "123456:fake", "enabled": True, "allowed_users": [42, 7], "admin_users": [7]}
         query = SimpleNamespace(from_user=SimpleNamespace(id=42, username=None), answer=AsyncMock(),
                                 message=SimpleNamespace(chat=SimpleNamespace(id=1, type="private"), message_id=2))
         instance = SimpleNamespace(bot=SimpleNamespace(token="token"))
@@ -41,7 +41,9 @@ class TelegramCommandsTests(unittest.TestCase):
                  patch.object(ui.plugins, "get_enabled_plugins", return_value=["_commands"]), \
                  patch.object(ui.plugins, "get_plugin_config", return_value={"bots": [bot_cfg]}), \
                  patch.object(ui.plugins, "get_toggle_state", return_value="enabled"), \
-                 patch.object(manager, "_has_scoped_settings", return_value=False), \
+                 patch.object(scopes, "configured_bots", return_value=[scopes.BotConfig("", "", bot_cfg)]), \
+                 patch.object(scopes, "enabled", return_value=True), \
+                 patch.object(handler, "get_bound_context", return_value=ctx), \
                  patch.object(ui.tool_policy, "get_tool_catalog", return_value=[item]), \
                  patch.object(ui.tool_policy, "get_policy", side_effect=lambda agent: json.loads(policy_path.read_text())), \
                  patch.object(ui.tc, "raw_send_text", new_callable=AsyncMock), \
@@ -56,14 +58,14 @@ class TelegramCommandsTests(unittest.TestCase):
                         bot_cfg.pop("admin_users", None)
                         if admins is not None:
                             bot_cfg["admin_users"] = admins
-                        await callback(query, "test", {})
+                        await callback(query, "test", dict(bot_cfg))
                         self.assertEqual(policy_path.read_bytes(), original)
                         self.assertFalse(ui.tool_policy.resolve_tool(
                             ctx.agent0, item["name"], canonical_id=item["id"]).allowed)
 
                 bot_cfg.update(allowed_users=[42, 7], admin_users=[7])
                 query.from_user.id = 7
-                await callback(query, "test", {})
+                await callback(query, "test", dict(bot_cfg))
                 saved = json.loads(policy_path.read_text())
                 self.assertEqual(saved["allowed"], [item["id"]])
                 self.assertEqual(saved["blocked"], [])
@@ -145,7 +147,8 @@ class TelegramCommandsTests(unittest.TestCase):
                                     self.assertIsNone(send.call_args.args[5])
         asyncio.run(check())
 
-    def test_config_names_and_connection_changes(self):
+    @patch.object(scopes, "configured_bots", return_value=[])
+    def test_config_names_and_connection_changes(self, _configured):
         config = {"bots": [{"name": "", "token": " 123456:secret ", "enabled": True, "admin_users": [7]}]}
         normalized = hooks.get_plugin_config(config)
         self.assertEqual(normalized["bots"][0]["name"], "bot_123456")
@@ -162,10 +165,12 @@ class TelegramCommandsTests(unittest.TestCase):
                                   group_mode="mention", task=SimpleNamespace(done=lambda: False))
         replacement = SimpleNamespace()
         async def check():
-            with patch.object(manager.plugins, "get_plugin_config", return_value=normalized), \
-                 patch.object(manager.plugins, "get_toggle_state", return_value="enabled"), \
-                 patch.object(manager, "_has_scoped_settings", return_value=False), \
+            with patch.object(scopes.plugins, "get_plugin_config", return_value=normalized), \
+                 patch.object(scopes.plugins, "get_toggle_state", return_value="enabled"), \
+                 patch.object(scopes, "configured_bots", return_value=[scopes.BotConfig("", "", normalized["bots"][0])]), \
+                 patch.object(scopes, "enabled", return_value=True), \
                  patch.object(manager, "ensure_dependencies"), \
+                 patch("plugins._telegram_integration.helpers.migration.prepare_upgrade"), \
                  patch.object(handler, "cleanup_old_attachments"), \
                  patch.object(bot_manager, "get_all_bots", return_value={"bot_123456": current}), \
                  patch.object(bot_manager, "stop_bot", new_callable=AsyncMock) as stop, \

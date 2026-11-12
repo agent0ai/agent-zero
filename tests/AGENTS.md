@@ -19,6 +19,7 @@
 - Keep tests deterministic and isolated from existing chats, uploads, downloads, plugin state, and settings.
 - Prefer exercising public helper/API contracts over fragile implementation details when practical.
 - Security regression tests should assert the protected behavior directly.
+- `test_telegram_config_scope.py` covers scoped bot ownership, token conflicts, current access rules, activation, connection revocation, outbound delivery, and session isolation using temporary plugin configuration.
 - Launcher gateway tests must cover feature negotiation, authenticated and
   CSRF-protected control, acknowledgement timeout, identity lifecycle,
   context-bound CLI routing precedence, duplicate/multiple-host behavior,

@@ -9,6 +9,7 @@ from helpers import integration_commands, plugins, projects
 from helpers.persist_chat import save_tmp_chat
 from plugins._commands.helpers import commands
 from plugins._telegram_integration.helpers import command_ui, telegram_client as tc
+from plugins._telegram_integration.helpers import scopes
 
 
 # These names retain Telegram's existing behavior and pickers for bundled commands.
@@ -179,7 +180,10 @@ async def apply_result(context, token, chat_id, message_id, name, result, *, is_
 async def select_session(context, target):
     if context.is_running() or target.is_running():
         raise ValueError("Stop the active run before switching sessions.")
+    if not scopes.can_select_session(context, target):
+        raise PermissionError("This Telegram user cannot access that session.")
     command_ui._copy_telegram_binding(context, target)
+    scopes.remember_config(target, scopes.context_config(target))
     command_ui._set_session_mapping(target)
     save_tmp_chat(target)
 
