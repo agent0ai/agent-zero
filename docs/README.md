@@ -39,6 +39,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[Memory Guide](guides/memory.md):** Search, edit, delete, and curate memories so useful context does not become stale noise.
 - **[Projects Tutorial](guides/projects.md):** Learn to create isolated workspaces with dedicated context and memory.
 - **[API Integration](guides/api-integration.md):** Add external APIs without writing code.
+- **[Telegram](guides/telegram.md):** Connect a private bot, choose projects and profiles, use groups or webhooks, and preserve existing settings when upgrading.
 - **[MCP Setup](guides/mcp-setup.md):** Configure Model Context Protocol servers.
 - **[A2A Setup](guides/a2a-setup.md):** Enable agent-to-agent communication.
 - **[Troubleshooting](guides/troubleshooting.md):** Solutions to common issues and FAQs.
@@ -139,6 +140,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [Memory Guide](guides/memory.md)
   - [Projects Tutorial](guides/projects.md)
   - [API Integration](guides/api-integration.md)
+  - [Telegram](guides/telegram.md)
   - [MCP Setup](guides/mcp-setup.md)
   - [A2A Setup](guides/a2a-setup.md)
   - [Troubleshooting](guides/troubleshooting.md)

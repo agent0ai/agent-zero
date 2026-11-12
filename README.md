@@ -278,6 +278,7 @@ It is not a replacement for Git or backups. It is a practical safety layer for t
 | Manage and curate memories | [Memory guide](./docs/guides/memory.md) |
 | Learn the everyday chat controls | [Usage guide](./docs/guides/usage.md) |
 | Configure MCP or external tools | [MCP setup](./docs/guides/mcp-setup.md) |
+| Talk to Agent Zero from Telegram | [Telegram setup](./docs/guides/telegram.md) |
 | Understand the architecture and internals | [DeepWiki for Agent Zero](https://deepwiki.com/agent0ai/agent-zero) |
 | Build an advanced extension | [Extensions](./docs/developer/extensions.md) |
 | Contribute to the project | [Contributing](./docs/guides/contribution.md) |

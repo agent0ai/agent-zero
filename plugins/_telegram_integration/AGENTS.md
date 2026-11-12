@@ -16,6 +16,7 @@
 - `helpers/dependencies.py` and `requirements.txt` own framework-runtime dependency bootstrap.
 - `api/`, `prompts/`, `extensions/`, `default_config.yaml`, `plugin.yaml`, `README.md`, and `webui/` own tests/webhook endpoints, prompt fragments, hooks, settings, metadata, docs, and UI.
 - `webui/config.html` is the sole plugin WebUI, including bot setup and connection checks.
+- `docs/guides/telegram.md` in the repository root owns the user setup walkthrough; keep its UI labels, scope examples, access guidance, and migration claims aligned with this plugin.
 
 ## Local Contracts
 

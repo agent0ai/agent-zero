@@ -2,6 +2,10 @@
 
 Communicate with Agent Zero via Telegram. Supports polling and webhook modes with per-user chat sessions, group mentions, inline keyboards, and file exchange.
 
+**Setting up your first bot?** Follow the [Telegram setup guide](../../docs/guides/telegram.md)
+for a screenshot-led walkthrough, private access, project/profile scopes, and
+upgrade troubleshooting. This reference describes the plugin's capabilities and implementation.
+
 ## What It Does
 
 This plugin connects one or more Telegram bots to Agent Zero. Each bot runs independently with its own token, mode (polling or webhook), access control list, and project binding. Users message the bot on Telegram, and Agent Zero processes the conversation just like a WebUI chat — including tool use, sub-agents, and file attachments.
