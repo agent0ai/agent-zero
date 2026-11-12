@@ -1,0 +1,14 @@
+<!-- Host-browser approvals belong beside the current chat's composer, not
+     in the unrelated container-browser viewer or its tab-ID namespace. -->
+<script type="module">
+  import { store } from "/plugins/_browser/webui/browser-approval-inbox-store.js";
+</script>
+<div class="browser-approval-inbox" x-data x-effect="$store.browserApprovalInbox.observe()" aria-label="Browser approvals for this chat">
+  <x-component path="/plugins/_browser/webui/browser-site-requests.html"></x-component>
+  <x-component path="/plugins/_browser/webui/browser-action-requests.html"></x-component>
+</div>
+<style>
+  .browser-approval-inbox { width: 100%; flex: 0 0 auto; max-height: min(45vh, 360px); overflow: auto; scrollbar-color: var(--color-border) transparent; }
+  .browser-approval-inbox .browser-site-requests { max-height: none; overflow: visible; }
+  .browser-approval-inbox:empty { display: none; }
+</style>

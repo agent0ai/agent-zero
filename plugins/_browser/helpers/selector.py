@@ -3,15 +3,25 @@ from __future__ import annotations
 from typing import Any
 
 from helpers.errors import RepairableException
-from plugins._browser.helpers.config import RUNTIME_BACKEND_KEY, get_browser_config
-from plugins._browser.helpers.runtime import get_runtime as get_container_runtime
-
+from plugins._browser.helpers.config import (
+    HOST_BROWSER_SELECTION_KEY,
+    RUNTIME_BACKEND_KEY,
+    get_browser_config,
+    parse_development_extension_browser_selection,
+    parse_extension_browser_selection,
+)
 
 DOCKER_BROWSER_RECOVERY_HELP = (
     "To use Agent Zero's internal Docker browser instead, open Browser settings and "
     "set Browser location to Internal Docker browser, or run `/browser container` "
     "from A0 CLI."
 )
+
+
+async def get_container_runtime(context_id: str):
+    from plugins._browser.helpers.runtime import get_runtime
+
+    return await get_runtime(context_id)
 
 
 async def get_tool_runtime(agent: Any):
@@ -21,6 +31,42 @@ async def get_tool_runtime(agent: Any):
 
     if backend == "container":
         return await get_container_runtime(context_id)
+
+    selection = config.get(HOST_BROWSER_SELECTION_KEY, "")
+    try:
+        development_selection = parse_development_extension_browser_selection(
+            selection
+        )
+    except ValueError as exc:
+        raise RepairableException(
+            "The development Chrome extension browser selection is invalid. "
+            "Choose it again from Browser settings. Agent Zero did not fall back."
+        ) from exc
+    if development_selection is not None:
+        raise RepairableException(
+            "This development browser connection has been retired. Pair and select the "
+            "production Chrome extension in Browser settings. No fallback was attempted."
+        )
+    try:
+        extension_selection = parse_extension_browser_selection(selection)
+    except ValueError as exc:
+        raise RepairableException(
+            "The Chrome extension browser selection is invalid. Choose a paired browser "
+            "from Browser settings and retry. Agent Zero did not fall back to another browser."
+        ) from exc
+    if extension_selection is not None:
+        from plugins._browser.helpers.extension_runtime import wait_selected_extension_runtime
+
+        runtime = await wait_selected_extension_runtime(agent, extension_selection.bridge_id)
+        if runtime is not None:
+            return runtime
+        raise RepairableException(
+            "The selected Chrome browser has not established a verified connection for this chat. "
+            "Keep Chrome open and check its Agent Zero extension connection status. "
+            "No browser action was sent by this attempt, and no other browser or tool was used. "
+            "Agent Zero did not fall back to another browser. "
+            "Do not repeat an earlier action whose outcome was unknown."
+        )
 
     sid = _select_host_browser_candidate_sid(context_id)
     if sid:

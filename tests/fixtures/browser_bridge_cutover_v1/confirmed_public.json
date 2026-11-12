@@ -1,0 +1,10 @@
+{
+  "contract": "a0.browser-bridge.cutover.v1",
+  "inspected_marker_count": 5,
+  "manifest_matched": true,
+  "matched_marker_count": 5,
+  "reason_code": "legacy_bridge_detected",
+  "schema_version": 1,
+  "state": "confirmed"
+}
+

@@ -1,0 +1,6 @@
+command_timeout_seconds: 30
+redelivery_seconds: 8
+stale_session_seconds: 600
+max_inspect_nodes: 40
+prompt_guidance: Legacy fixture only.
+

@@ -16,6 +16,7 @@ from helpers.defer import DeferredTask
 from helpers.print_style import PrintStyle
 from helpers import runtime
 from helpers.ws import ConnectionIdentity, ConnectionNotFoundError, WsHandler, _ws_debug_enabled, ws_debug
+from helpers.ws_principal import WsPrincipal, WsScopeDeniedError, restricted_correlation_id
 
 
 # Event validation
@@ -278,6 +279,8 @@ class ConnectionInfo:
     connected_at: datetime = field(default_factory=_utcnow)
     last_activity: datetime = field(default_factory=_utcnow)
     max_payload_bytes: int | None = None
+    principal: WsPrincipal | None = None
+    principal_validator: Callable[[WsPrincipal], bool] | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -324,6 +327,7 @@ class WsManager:
         self._dispatcher_loop: asyncio.AbstractEventLoop | None = None
         self._handler_worker: DeferredTask | None = None
         self._lifecycle_tasks: Set[asyncio.Task] = set()
+        self._scope_denials: Deque[dict[str, str]] = deque(maxlen=128)
 
     # Internal: development-only debug logging to avoid noise in production
     def _debug(self, message: str) -> None:
@@ -380,6 +384,8 @@ class WsManager:
         identity: ConnectionIdentity = (namespace, sid)
         with self.lock:
             if identity not in self.connections:
+                return False
+            if self.connections[identity].principal is not None:
                 return False
             self._diagnostic_watchers.add(identity)
         return True
@@ -614,6 +620,32 @@ class WsManager:
         handlers that have already passed security checks).
         """
         self._ensure_dispatcher_loop()
+        principal = self.principal_for_sid(namespace, sid)
+        if any(
+            h._principal is not None
+            and (h._principal is not principal or h._principal_sid != sid)
+            for h in handlers
+        ):
+            self.record_scope_denial()
+            return self._ack_error(
+                handler_id=self._identifier, code="SCOPE_DENIED",
+                message="Access denied", correlation_id="",
+            )
+        if principal is not None:
+            # Apply the same boundary even when callers bypass the namespace.
+            data = dict(data or {})
+            data["correlationId"] = restricted_correlation_id(data.get("correlationId"))
+            if not handlers or any(
+                h._principal is not principal or h._principal_sid != sid
+                or not principal.permits_inbound(event_type, h.identifier)
+                or not h.principal_is_active(principal)
+                for h in handlers
+            ):
+                self.record_scope_denial()
+                return self._ack_error(
+                    handler_id=self._identifier, code="SCOPE_DENIED",
+                    message="Access denied", correlation_id=data["correlationId"],
+                )
         incoming = dict(data or {})
         correlation_id = self._resolve_correlation_id(incoming)
 
@@ -637,17 +669,29 @@ class WsManager:
             info = self.connections.get((namespace, sid))
             if info:
                 info.last_activity = _utcnow()
+        if principal is not None and (info is None or info.principal is not principal):
+            return self._ack_error(
+                handler_id=self._identifier, code="SCOPE_DENIED",
+                message="Access denied", correlation_id=correlation_id,
+            )
 
         executions = await asyncio.gather(
             *[
-                self._invoke_handler(handler, event_type, dict(handler_payload), sid)
+                self._invoke_handler(handler, event_type, dict(handler_payload), sid, connection=info)
                 for handler in handlers
             ]
         )
 
         results = self._collect_results(
             executions, event_type, correlation_id, skip_none=True,
+            redacted=principal is not None,
         )
+
+        if principal is not None:
+            # Do not summarize values, keys, correlations or raw exceptions.
+            # This avoids turning development diagnostics into a second copy of
+            # sensitive browser traffic, including after a concurrent disconnect.
+            return {"correlationId": correlation_id, "results": results}
 
         await self._publish_diagnostic_event(
             lambda: {
@@ -729,6 +773,7 @@ class WsManager:
         correlation_id: str,
         *,
         skip_none: bool = False,
+        redacted: bool = False,
     ) -> List[dict[str, Any]]:
         """Build a result list from handler executions.
 
@@ -758,6 +803,7 @@ class WsManager:
                     )
                     continue
                 PrintStyle.error(
+                    "Restricted WebSocket handler failed" if redacted else
                     f"Error in handler {handler.identifier} for '{event_type}' "
                     f"(correlation {correlation_id}): {value}"
                 )
@@ -766,7 +812,7 @@ class WsManager:
                         handler_id=handler.identifier,
                         code=ERR_HANDLER_ERROR,
                         message="Internal server error",
-                        details=str(value),
+                        details=None if redacted else str(value),
                         correlation_id=correlation_id,
                         duration_ms=duration_ms,
                     )
@@ -774,6 +820,14 @@ class WsManager:
                 continue
 
             if isinstance(value, WsResult):
+                if redacted and not value._ok:
+                    code = (value._error or {}).get("code")
+                    results.append(self._build_error_result(
+                        handler_id=handler.identifier,
+                        code=code if code in {"SCOPE_DENIED", "INVALID_REQUEST", "NOT_READY"} else ERR_HANDLER_ERROR,
+                        message="Restricted request failed", correlation_id=correlation_id,
+                    ))
+                    continue
                 results.append(
                     value.as_result(
                         handler_id=handler.identifier,
@@ -807,12 +861,28 @@ class WsManager:
         event_type: str,
         payload: dict[str, Any],
         sid: str,
+        *, connection: ConnectionInfo | None = None,
     ) -> _HandlerExecution:
         instrument = self._diagnostics_active()
         start = time.perf_counter() if instrument else None
+        async def invoke():
+            if connection is not None:
+                with self.lock:
+                    current = self.connections.get((connection.namespace, sid))
+                if current is not connection:
+                    return WsResult.error(code="SCOPE_DENIED", message="Access denied")
+                principal = connection.principal
+                if principal is not None and (
+                    handler._principal is not principal
+                    or handler._principal_sid != sid
+                    or not principal.permits_inbound(event_type, handler.identifier)
+                    or not handler.principal_is_active(principal)
+                ):
+                    return WsResult.error(code="SCOPE_DENIED", message="Access denied")
+            return await handler.process(event_type, payload, sid)
         try:
             value = await self._get_handler_worker().execute_inside(
-                handler.process, event_type, payload, sid
+                invoke
             )
         except Exception as exc:  # pragma: no cover - handled by caller
             duration_ms = (
@@ -825,21 +895,54 @@ class WsManager:
         return _HandlerExecution(handler, value, duration_ms)
 
     async def handle_connect(
-        self, namespace: str, sid: str, user_id: str | None = None
+        self, namespace: str, sid: str, user_id: str | None = None,
+        *, principal: WsPrincipal | None = None,
+        principal_validator: Callable[[WsPrincipal], bool] | None = None,
     ) -> None:
         self._ensure_dispatcher_loop()
         user_bucket = user_id or "single_user"
         identity: ConnectionIdentity = (namespace, sid)
         with self.lock:
-            self.connections[identity] = ConnectionInfo(namespace=namespace, sid=sid)
+            if identity in self.connections:
+                raise ValueError("Connection already registered")
+            self.connections[identity] = ConnectionInfo(
+                namespace=namespace, sid=sid, principal=principal,
+                principal_validator=principal_validator,
+            )
             self._known_sids.add(identity)
             self._disconnect_times.pop(identity, None)
-            self.sid_to_user[identity] = user_bucket
-            self.user_to_sids[self._ALL_USERS_BUCKET].add(identity)
-            self.user_to_sids[user_bucket].add(identity)
+            if principal is not None:
+                # No legacy buffers, user buckets, hooks, restart or lifecycle
+                # broadcasts are permitted for restricted sessions.
+                self.buffers.pop(identity, None)
+                stale = [
+                    other for other, info in self.connections.items()
+                    if other != identity and other[0] == namespace
+                    and info.principal is not None
+                    and info.principal.principal_type == principal.principal_type
+                    and info.principal.principal_id == principal.principal_id
+                ]
+                for other in stale:
+                    self.connections.pop(other, None)
+                    self._known_sids.discard(other)
+                    self.buffers.pop(other, None)
+                    self._disconnect_times.pop(other, None)
+                    self._diagnostic_watchers.discard(other)
+            else:
+                self.sid_to_user[identity] = user_bucket
+                self.user_to_sids[self._ALL_USERS_BUCKET].add(identity)
+                self.user_to_sids[user_bucket].add(identity)
             connection_count = sum(
                 1 for conn_identity in self.connections if conn_identity[0] == namespace
             )
+        if principal is not None:
+            for old_namespace, old_sid in stale:
+                try:
+                    await self.socketio.disconnect(old_sid, namespace=old_namespace)
+                except Exception:
+                    # The prior generation is already unauthorized locally.
+                    PrintStyle.warning("Restricted WebSocket stale transport cleanup failed")
+            return
         if _ws_debug_enabled():
             PrintStyle.info(f"WebSocket connected: namespace={namespace} sid={sid}")
         await self._run_lifecycle(namespace, lambda h: h.on_connect(sid))
@@ -880,7 +983,15 @@ class WsManager:
         self._ensure_dispatcher_loop()
         identity: ConnectionIdentity = (namespace, sid)
         with self.lock:
-            self.connections.pop(identity, None)
+            info = self.connections.pop(identity, None)
+            if info is None:
+                return
+            if info is not None and info.principal is not None:
+                self._known_sids.discard(identity)
+                self._disconnect_times.pop(identity, None)
+                self.buffers.pop(identity, None)
+                self._diagnostic_watchers.discard(identity)
+                return
             # Keep identity in _known_sids so emit_to buffers instead of raising;
             # record disconnect time for TTL-based cleanup
             self._disconnect_times[identity] = _utcnow()
@@ -932,6 +1043,14 @@ class WsManager:
         handler_id: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_dispatcher_loop()
+        if self.principal_for_sid(namespace, sid) is not None:
+            # Restricted clients only use their authenticated per-SID handler;
+            # never select handlers from the global registry.
+            self.record_scope_denial()
+            return self._ack_error(
+                handler_id=self._identifier, code="SCOPE_DENIED",
+                message="Access denied", correlation_id="", ack=ack,
+            )
         incoming = dict(data or {})
         correlation_id = self._resolve_correlation_id(incoming)
         self._debug(
@@ -1059,7 +1178,7 @@ class WsManager:
 
         executions = await asyncio.gather(
             *[
-                self._invoke_handler(handler, event_type, dict(handler_payload), sid)
+                self._invoke_handler(handler, event_type, dict(handler_payload), sid, connection=info)
                 for handler in selected_handlers
             ]
         )
@@ -1216,8 +1335,8 @@ class WsManager:
         with self.lock:
             active_sids = [
                 conn_identity[1]
-                for conn_identity in self.connections.keys()
-                if conn_identity[0] == namespace
+                for conn_identity, info in self.connections.items()
+                if conn_identity[0] == namespace and info.principal is None
             ]
         if not active_sids:
             self._debug(
@@ -1326,7 +1445,17 @@ class WsManager:
         correlation_id: str | None = None,
         diagnostic: bool = False,
         max_payload_bytes: int | None = None,
+        expected_principal: WsPrincipal | None = None,
     ) -> None:
+        with self.lock:
+            connection = self.connections.get((namespace, sid))
+        principal = connection.principal if connection else None
+        if expected_principal is not None and principal is not expected_principal:
+            self.record_scope_denial()
+            raise WsScopeDeniedError("Restricted WebSocket identity mismatch")
+        if principal is not None and not principal.permits_outbound(event_type, handler_id):
+            self.record_scope_denial()
+            raise WsScopeDeniedError("Restricted WebSocket event denied")
         envelope = self._wrap_envelope(
             handler_id,
             data,
@@ -1370,19 +1499,20 @@ class WsManager:
                     known = False
 
         if connected:
-            self._debug(
-                "Emit to namespace=%s sid=%s event=%s eventId=%s correlationId=%s handlerId=%s"
-                % (
-                    namespace,
-                    sid,
-                    event_type,
-                    envelope.get("eventId"),
-                    envelope.get("correlationId"),
-                    envelope.get("handlerId"),
+            if principal is None:
+                self._debug(
+                    "Emit to namespace=%s sid=%s event=%s eventId=%s correlationId=%s handlerId=%s"
+                    % (
+                        namespace,
+                        sid,
+                        event_type,
+                        envelope.get("eventId"),
+                        envelope.get("correlationId"),
+                        envelope.get("handlerId"),
+                    )
                 )
-            )
             await self._run_on_dispatcher_loop(
-                self.socketio.emit(event_type, envelope, to=sid, namespace=namespace)
+                self._emit_for_connection(connection, event_type, envelope)
             )
             delivered = True
         else:
@@ -1398,7 +1528,7 @@ class WsManager:
                 )
             buffered = True
 
-        if not diagnostic:
+        if not diagnostic and principal is None:
             await self._publish_diagnostic_event(
                 lambda: {
                     "kind": "outbound",
@@ -1441,17 +1571,21 @@ class WsManager:
         excluded = self._normalize_sid_filter(exclude_sids)
 
         targets: list[str] = []
-        target_limits: dict[str, int | None] = {}
+        target_connections: dict[str, ConnectionInfo] = {}
         with self.lock:
             current_connections = list(self.connections.items())
-        for conn_identity, info in current_connections:
+        for conn_identity, connection in current_connections:
             if conn_identity[0] != namespace:
                 continue
             sid = conn_identity[1]
             if sid in excluded:
                 continue
+            # A broadcast has no per-context authorization. Even an allowlisted
+            # name must use explicit, handler-bound emit_to for restricted SIDs.
+            if connection.principal is not None:
+                continue
             targets.append(sid)
-            target_limits[sid] = info.max_payload_bytes
+            target_connections[sid] = connection
 
         rejected: list[WsPayloadTooLargeError] = []
         if targets:
@@ -1467,7 +1601,7 @@ class WsManager:
             )
             deliverable: list[str] = []
             for sid in targets:
-                limit = target_limits[sid]
+                limit = target_connections[sid].max_payload_bytes
                 if limit is not None and actual_bytes > limit:
                     rejected.append(
                         WsPayloadTooLargeError(event_type, actual_bytes, limit)
@@ -1476,7 +1610,7 @@ class WsManager:
                     deliverable.append(sid)
             coros = [
                 self._run_on_dispatcher_loop(
-                    self.socketio.emit(event_type, envelope, to=sid, namespace=namespace)
+                    self._emit_for_connection(target_connections[sid], event_type, envelope)
                 )
                 for sid in deliverable
             ]
@@ -1523,6 +1657,9 @@ class WsManager:
         correlation_id: str | None,
     ) -> None:
         namespace, sid = identity
+        info = self.connections.get(identity)
+        if identity not in self._known_sids or (info is not None and info.principal is not None):
+            return
         buffer = self.buffers[identity]
         buffer.append(
             BufferedEvent(
@@ -1543,6 +1680,11 @@ class WsManager:
 
     async def _flush_buffer(self, identity: ConnectionIdentity) -> None:
         self._ensure_dispatcher_loop()
+        with self.lock:
+            connection = self.connections.get(identity)
+        if connection is None or connection.principal is not None:
+            self.buffers.pop(identity, None)
+            return
         buffer = self.buffers.get(identity)
         if not buffer:
             return
@@ -1572,9 +1714,7 @@ class WsManager:
                 )
             )
             await self._run_on_dispatcher_loop(
-                self.socketio.emit(
-                    event.event_type, envelope, to=sid, namespace=namespace
-                )
+                self._emit_for_connection(connection, event.event_type, envelope)
             )
             delivered += 1
         if identity in self.buffers:
@@ -1583,6 +1723,41 @@ class WsManager:
             PrintStyle.info(
                 f"Flushed {delivered} buffered event(s) to namespace={namespace} sid={sid}"
             )
+
+    async def _emit_for_connection(self, connection, event_type, envelope) -> None:
+        # Authorization belongs to a connection generation, never just a SID.
+        # Run this check on the dispatcher loop immediately before transport.
+        if connection is None:
+            return
+        with self.lock:
+            if self.connections.get((connection.namespace, connection.sid)) is not connection:
+                return
+            principal = connection.principal
+            if principal is not None and not principal.permits_outbound(event_type, envelope.get("handlerId")):
+                raise WsScopeDeniedError("Restricted WebSocket event denied")
+        if principal is not None:
+            try:
+                active = connection.principal_validator is not None and connection.principal_validator(principal)
+            except Exception:
+                active = False
+            if not active:
+                self.record_scope_denial()
+                raise WsScopeDeniedError("Restricted WebSocket credential inactive")
+        with self.lock:
+            if self.connections.get((connection.namespace, connection.sid)) is not connection:
+                return
+        await self.socketio.emit(event_type, envelope, to=connection.sid, namespace=connection.namespace)
+
+    def record_scope_denial(self) -> None:
+        # Bounded local audit only; no attacker-supplied names, payload keys,
+        # correlation strings or proof/error material enters diagnostics.
+        with self.lock:
+            self._scope_denials.append({"code": "SCOPE_DENIED", "timestamp": self._timestamp()})
+
+    def principal_for_sid(self, namespace: str, sid: str) -> WsPrincipal | None:
+        with self.lock:
+            info = self.connections.get((namespace, sid))
+            return info.principal if info else None
 
     def _build_error_result(
         self,

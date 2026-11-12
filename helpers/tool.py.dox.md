@@ -20,6 +20,7 @@
   - `async before_execution(self, **kwargs)`
   - `async after_execution(self, response: Response, **kwargs)`
   - `get_log_object(self)`
+  - `get_display_args(self)`
   - `nice_key(self, key: str)`
 
 ## Runtime Contracts
@@ -29,6 +30,11 @@
 - `Tool` defines `execute(...)`.
 - `coerce_bool` accepts booleans, numbers and common true/false strings; missing or unrecognized values use the caller's default so malformed submit/reset arguments do not authorize an action.
 - `Tool.get_log_object` renders the generic fallback `icon://construction Using tool <name>` headline without an agent-name prefix, using the `<name:method>` shape when a method is set.
+- `get_display_args()` defaults to the original args, preserving existing tool
+  output. `before_execution` uses this projection for console output and
+  `tool_output_update` callbacks. Sensitive tools may return a redacted copy;
+  they must not mutate execution arguments and must separately project their
+  structured log. This is not a rewrite of the model's conversation history.
 - Observed side-effect areas: settings/state persistence.
 - Imported dependency areas include: `abc`, `agent`, `dataclasses`, `helpers.extension`, `helpers.print_style`, `helpers.strings`, `typing`.
 
@@ -50,6 +56,7 @@
   - `tests/test_tool_compatibility.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
+  - `tests/test_browser_extension_viewer_boundary.py`
   - `tests/test_default_prompt_budget.py`
   - `tests/test_dirty_json.py`
   - `tests/test_document_query_plugin.py`

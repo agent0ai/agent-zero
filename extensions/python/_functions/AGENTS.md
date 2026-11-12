@@ -20,6 +20,10 @@
 - The `Agent.monologue/end` hook reconciles successful main-agent continuations with errored scheduler tasks using the persisted task UUID (or the context ID for legacy dedicated chats). Use a checked scheduler update so disabled, removed, reassigned, and scheduler-managed running tasks are preserved; do not advance planned launch times again.
 - Recovery-loop circuit breakers must stop at the General Settings limit and render their user-visible cost warning from a core framework prompt. Core retries must work without optional plugin prompts; a missing Context Doctor fallback prompt does not affect the core warning budget.
 - Prompt settings snapshots must be task-local, accessed through `get_settings_for_prompt()`, and end with the matching `Agent.prepare_prompt` call, including exceptional exits.
+- The `UiServerRuntime.create/end` legacy browser guard is a Core hook so
+  disabling the connector cannot revive retired HTTP routes. It delegates
+  exact-journal checks to the plugin helper; it never starts retirement or
+  installs the production browser runtime.
 
 ## Work Guidance
 

@@ -1,0 +1,283 @@
+{
+  "core_control": {
+    "method": "browser.reconcile",
+    "contract_version": 1,
+    "bridge_id": "bridge-dev-1",
+    "load_generation_id": "load-dev-1",
+    "control_id": "reconcile-1",
+    "expected_contexts": [
+      {
+        "context_id": "context-1",
+        "browser_session_id": "browser-session-1",
+        "active_turn_ids": ["turn-1"]
+      }
+    ],
+    "event_cursors": [
+      {
+        "load_generation_id": "load-dev-1",
+        "last_acked_event_sequence": 7
+      }
+    ],
+    "known_control_ids": ["finalize-older-1"]
+  },
+  "extension_request": {
+    "contract_version": 1,
+    "control_id": "reconcile-1",
+    "expected_contexts": [
+      {
+        "context_id": "context-1",
+        "browser_session_id": "browser-session-1",
+        "active_turn_ids": ["turn-1"]
+      }
+    ],
+    "event_cursors": [
+      {
+        "load_generation_id": "load-dev-1",
+        "last_acked_event_sequence": 7
+      }
+    ],
+    "known_control_ids": ["finalize-older-1"]
+  },
+  "extension_result": {
+    "contract_version": 1,
+    "control_id": "reconcile-1",
+    "install_instance_id": "install-dev-1",
+    "load_generation_id": "load-dev-1",
+    "leases": [
+      {
+        "lease_id": "lease-1",
+        "tab_handle": "tab-1",
+        "load_generation_id": "load-dev-1",
+        "context_id": "context-1",
+        "browser_session_id": "browser-session-1",
+        "turn_id": "turn-1",
+        "origin": "created",
+        "disposition": "ephemeral",
+        "state": "active",
+        "site_origin": "https://example.test",
+        "identity": {
+          "browser_instance_id": "browser-instance-1",
+          "provider_tab_id": 21,
+          "provider_window_id": 4,
+          "document_id": null,
+          "document_epoch": 0
+        },
+        "group_intent_id": "group-intent-1",
+        "provider_group_id": 8,
+        "finalization_control_id": null,
+        "user_intervened": false,
+        "user_takeover_reason": null,
+        "is_protected": false,
+        "is_ambiguous": false,
+        "unresolved_reconciliation": false,
+        "overlay_attached": true,
+        "debugger_attached": false,
+        "retention_reason": null,
+        "revision": 1
+      }
+    ],
+    "inflight_operations": [
+      {
+        "load_generation_id": "load-dev-1",
+        "action_id": "action-inflight-1",
+        "kind": "navigate",
+        "canonical_parameter_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stage": "effect_started",
+        "created_at_ms": 1700000000000,
+        "updated_at_ms": 1700000000100
+      }
+    ],
+    "terminal_action_receipts": [
+      {
+        "load_generation_id": "load-dev-1",
+        "action_id": "action-terminal-1",
+        "kind": "open",
+        "canonical_parameter_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "stage": "succeeded",
+        "safe_receipt": {
+          "outcome": "applied",
+          "code": null,
+          "lease_handle_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "created_at_ms": 1700000000200,
+        "updated_at_ms": 1700000000300,
+        "acknowledged_at_ms": 1700000000400
+      }
+    ],
+    "pending_critical_events": [
+      {
+        "contract_version": 1,
+        "event_id": "event-8",
+        "load_generation_id": "load-dev-1",
+        "event_sequence": 8,
+        "delivery": "critical",
+        "event_type": "lease.changed",
+        "observed_at_ms": 1700000000500,
+        "context_id": "context-1",
+        "browser_session_id": "browser-session-1",
+        "turn_id": "turn-1",
+        "op_id": null,
+        "action_id": null,
+        "data": {
+          "lease_id_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "browser_id_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "state": "active",
+          "ownership": "created",
+          "disposition": "ephemeral",
+          "change": "created",
+          "reason_code": null
+        }
+      }
+    ],
+    "prior_generation_orphans": [
+      {
+        "load_generation_id": "load-dev-old-1",
+        "lease_handle_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "exact_identity_digest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "browser_instance_id": "browser-instance-old-1",
+        "provider_tab_id": 13,
+        "provider_window_id": 3,
+        "provider_group_id": null,
+        "context_id": "context-old-1",
+        "browser_session_id": "browser-session-old-1",
+        "turn_id": "turn-old-1",
+        "origin": "created",
+        "disposition": "ephemeral",
+        "state": "orphan",
+        "url_identity": {
+          "origin": "https://old.example.test",
+          "path_digest": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        },
+        "user_intervened": false,
+        "finalization_control_id": null,
+        "retention_reason": "generation_mismatch",
+        "updated_at_ms": 1700000000600
+      }
+    ]
+  },
+  "core_control_result": {
+    "contract_version": 1,
+    "method": "browser.reconcile",
+    "bridge_id": "bridge-dev-1",
+    "load_generation_id": "load-dev-1",
+    "control_id": "reconcile-1",
+    "ok": true,
+    "result": {
+      "contract_version": 1,
+      "control_id": "reconcile-1",
+      "install_instance_id": "install-dev-1",
+      "load_generation_id": "load-dev-1",
+      "leases": [
+        {
+          "lease_id": "lease-1",
+          "tab_handle": "tab-1",
+          "load_generation_id": "load-dev-1",
+          "context_id": "context-1",
+          "browser_session_id": "browser-session-1",
+          "turn_id": "turn-1",
+          "origin": "created",
+          "disposition": "ephemeral",
+          "state": "active",
+          "site_origin": "https://example.test",
+          "identity": {
+            "browser_instance_id": "browser-instance-1",
+            "provider_tab_id": 21,
+            "provider_window_id": 4,
+            "document_id": null,
+            "document_epoch": 0
+          },
+          "group_intent_id": "group-intent-1",
+          "provider_group_id": 8,
+          "finalization_control_id": null,
+          "user_intervened": false,
+          "user_takeover_reason": null,
+          "is_protected": false,
+          "is_ambiguous": false,
+          "unresolved_reconciliation": false,
+          "overlay_attached": true,
+          "debugger_attached": false,
+          "retention_reason": null,
+          "revision": 1
+        }
+      ],
+      "inflight_operations": [
+        {
+          "load_generation_id": "load-dev-1",
+          "action_id": "action-inflight-1",
+          "kind": "navigate",
+          "canonical_parameter_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "stage": "effect_started",
+          "created_at_ms": 1700000000000,
+          "updated_at_ms": 1700000000100
+        }
+      ],
+      "terminal_action_receipts": [
+        {
+          "load_generation_id": "load-dev-1",
+          "action_id": "action-terminal-1",
+          "kind": "open",
+          "canonical_parameter_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "stage": "succeeded",
+          "safe_receipt": {
+            "outcome": "applied",
+            "code": null,
+            "lease_handle_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "created_at_ms": 1700000000200,
+          "updated_at_ms": 1700000000300,
+          "acknowledged_at_ms": 1700000000400
+        }
+      ],
+      "pending_critical_events": [
+        {
+          "contract_version": 1,
+          "event_id": "event-8",
+          "load_generation_id": "load-dev-1",
+          "event_sequence": 8,
+          "delivery": "critical",
+          "event_type": "lease.changed",
+          "observed_at_ms": 1700000000500,
+          "context_id": "context-1",
+          "browser_session_id": "browser-session-1",
+          "turn_id": "turn-1",
+          "op_id": null,
+          "action_id": null,
+          "data": {
+            "lease_id_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "browser_id_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "state": "active",
+            "ownership": "created",
+            "disposition": "ephemeral",
+            "change": "created",
+            "reason_code": null
+          }
+        }
+      ],
+      "prior_generation_orphans": [
+        {
+          "load_generation_id": "load-dev-old-1",
+          "lease_handle_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "exact_identity_digest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "browser_instance_id": "browser-instance-old-1",
+          "provider_tab_id": 13,
+          "provider_window_id": 3,
+          "provider_group_id": null,
+          "context_id": "context-old-1",
+          "browser_session_id": "browser-session-old-1",
+          "turn_id": "turn-old-1",
+          "origin": "created",
+          "disposition": "ephemeral",
+          "state": "orphan",
+          "url_identity": {
+            "origin": "https://old.example.test",
+            "path_digest": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+          },
+          "user_intervened": false,
+          "finalization_control_id": null,
+          "retention_reason": "generation_mismatch",
+          "updated_at_ms": 1700000000600
+        }
+      ]
+    }
+  }
+}

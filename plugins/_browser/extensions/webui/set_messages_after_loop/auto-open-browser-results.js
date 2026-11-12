@@ -96,6 +96,9 @@ const FOCUS_ACTIONS = new Set([
 ]);
 
 function shouldSyncOpenBrowserCanvas(args = {}, payload = {}, result = {}) {
+  if (payload._browser_backend === "chrome_extension") return false;
+  const browserId = getBrowserId(payload, result);
+  if (typeof browserId === "string" && (browserId.startsWith("a0t1.") || browserId.startsWith("extension:"))) return false;
   if (!isBrowserCanvasAlreadyOpen()) return false;
   if (!isFresh(args.timestamp, payload.last_modified || result.last_modified)) return false;
   const action = String(payload.action || "").trim().toLowerCase().replace("-", "_");
