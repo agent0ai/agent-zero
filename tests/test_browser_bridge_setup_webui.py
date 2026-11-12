@@ -1,8 +1,10 @@
 from __future__ import annotations
+import json
 import re
 import shutil
 import pytest
 from pathlib import Path
+from urllib.parse import quote
 from browser_bridge_test_support import run_model, run_node
 
 
@@ -43,6 +45,33 @@ def test_alpine_store_registration_does_not_start_pairing_without_modal_config()
     source = re.sub(r"^import .*;\n", "", source, flags=re.M).replace("export const store =", "const store =")
     script = "const createStore=(_,model)=>model; const callJsonApi=()=>{throw Error('Unexpected API call')};\n" + source
     script += "\nawait store.init(); if(store.pairingPanelActive || store.pairingStatusLoading)throw Error('Registration started pairing');"
+    run_node(script)
+
+
+def test_pairing_and_internal_extension_actions_use_the_imported_notification_store():
+    source = (Path(__file__).resolve().parents[1] / "plugins/_browser/webui/browser-config-store.js").read_text()
+    stubs = {
+        "/js/AlpineStore.js": "export const createStore = (_, model) => model;",
+        "/js/api.js": "export const callJsonApi = async () => ({ok:true,name:'Test',path:'/test-extension',extensions:[]});",
+        "/js/confirmDialog.js": "export const showConfirmDialog = async () => true;",
+        "/components/notifications/notification-store.js": "export const store = {addFrontendToastOnly:(...args)=>globalThis.notices.push(args),frontendNotification:async value=>globalThis.notices.push(value)};",
+    }
+    script = "import assert from 'node:assert/strict'; globalThis.notices = [];\n"
+    for path, stub in stubs.items():
+        source = source.replace(json.dumps(path), json.dumps("data:text/javascript," + quote(stub)))
+    script += "const {store} = await import('data:text/javascript,' + encodeURIComponent(" + json.dumps(source) + "));\n"
+    script += r'''
+store.pairingNotice('success', 'Pairing notice');
+assert.equal(notices[0].message, 'Pairing notice');
+store.config = {extension_paths:[]};
+await store.installExtensionFromUrl();
+assert.equal(notices.at(-1)[0], 'info');
+store.extensionInstallUrl = 'https://chromewebstore.google.com/detail/' + 'a'.repeat(32);
+await store.installExtensionFromUrl();
+assert.equal(notices.at(-1)[0], 'success');
+assert.deepEqual(store.config.extension_paths, ['/test-extension']);
+assert.equal(store.extensionActionLoading, false);
+'''
     run_node(script)
 
 
@@ -319,7 +348,7 @@ CONFIG_STORE = (
 def _store_source() -> str:
     source = CONFIG_STORE.read_text(encoding="utf-8")
     source = re.sub(r"^import .*;\n", "", source, flags=re.M)
-    return "const notifications = {frontendNotification: async () => {}};\n" + source.replace(
+    return "const notificationStore = {frontendNotification: async () => {}};\n" + source.replace(
         'export const store = createStore("browserConfig", {',
         'const store = createStore("browserConfig", {',
     )

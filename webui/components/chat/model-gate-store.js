@@ -52,9 +52,9 @@ export const store = createStore("modelGate", {
     });
   },
 
-  async canSendToModel() {
+  async canSendToModel(contextId) {
     try {
-      const data = await callJsonApi("/plugins/_model_config/model_config_get", {});
+      const data = await callJsonApi("/plugins/_model_config/model_config_get", { context_id: contextId });
       this.applyModelStatus(data);
       if (!data?.model_configured) await this.refreshConnectedAccountState();
       return !!data?.model_configured;
@@ -133,9 +133,18 @@ export const store = createStore("modelGate", {
     void Promise.resolve(modalPromise).then(() => this.dispatchPendingIfConfigured());
   },
 
+  async openProviderPlugins() {
+    const { store: installer } = await import("/plugins/_plugin_installer/webui/pluginInstallStore.js");
+    const { store: plugins } = await import("/components/plugins/list/pluginListStore.js");
+    installer.resetIndex();
+    installer.setBrowseFilter("tag:provider");
+    installer.initialBrowseFilter = "tag:provider";
+    await plugins.open("pluginHub");
+  },
+
   async openAdvancedModelConfiguration() {
     try {
-      const data = await callJsonApi("/plugins/_model_config/model_config_get", {});
+      const data = await callJsonApi("/plugins/_model_config/model_config_get", { context_id: this.pending?.context || "" });
       await modelConfigStore.openPresetEditor(
         data?.selected_preset || data?.configured_preset || "Default"
       );
@@ -151,18 +160,13 @@ export const store = createStore("modelGate", {
 
   async dispatchPendingIfConfigured() {
     this.init();
-    if (this.dispatching || !this.pending) return;
-    const configured = await this.canSendToModel();
-    if (!configured) return;
-
     const pending = this.pending;
-    this.pending = null;
-    this.connected = true;
+    if (this.dispatching || !pending || globalThis.sendMessage?.inFlight) return;
     this.dispatching = true;
-    this.clearSavedPending();
     try {
-      await globalThis.sendMessage?.({
-        bypassModelGate: true,
+      const configured = await this.canSendToModel(pending.context);
+      if (!configured || this.pending !== pending || globalThis.sendMessage?.inFlight) return;
+      const accepted = await globalThis.sendMessage?.({
         skipExtensions: true,
         preserveInput: true,
         message: pending.message,
@@ -170,6 +174,10 @@ export const store = createStore("modelGate", {
         messageId: pending.messageId,
         context: pending.context,
       });
+      if (!accepted || this.pending !== pending) return;
+      this.pending = null;
+      this.connected = true;
+      this.clearSavedPending();
     } finally {
       this.dispatching = false;
     }

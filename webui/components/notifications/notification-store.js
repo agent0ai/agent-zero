@@ -1,7 +1,9 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as API from "/js/api.js";
 import { openModal } from "/js/modals.js";
+import { callJsExtensions } from "/js/extensions.js";
 import { formatDateTime, getCurrentUserISOString } from "/js/time-utils.js";
+import { createActionButton, copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
 
 export const NotificationType = {
   INFO: "info",
@@ -20,6 +22,17 @@ export const defaultPriority = NotificationPriority.NORMAL;
 
 const maxNotifications = 100;
 const maxToasts = 5;
+const toastIdPrefix = "toast-";
+
+// Notification action buttons are authored against the toast-stack scope, but the
+// same message HTML is also rendered inside the notifications modal. Resolve the
+// underlying notification ID from either surface so actions keep working there.
+const notificationIdFromToastId = (toastId) => {
+  if (typeof toastId !== "string" || !toastId.trim()) return "";
+  return toastId.startsWith(toastIdPrefix)
+    ? toastId.slice(toastIdPrefix.length)
+    : toastId;
+};
 
 const model = {
   notifications: Array(),
@@ -195,17 +208,32 @@ const model = {
     }
   },
 
+  createToastCopyButton(content) {
+    const button = createActionButton("copy", "", () => copyToClipboard(content.innerText));
+    button.append("Copy");
+    return button;
+  },
+
   // called by UI
   dismissToast(toastId) {
-    this.removeFromToastStack(toastId, true);
+    const toast = this.toastStack.find((t) => t.toastId === toastId);
+    if (toast) {
+      this.removeFromToastStack(toastId, true);
+      return;
+    }
+    // Clicked from the notifications modal: no toast to remove, but still
+    // mirror the toast dismissal by marking the notification as read.
+    const notificationId = notificationIdFromToastId(toastId);
+    if (notificationId) this.markAsRead(notificationId);
   },
 
   async dismissToastAndReload(toastId) {
     const toast = this.toastStack.find((item) => item.toastId === toastId);
-    if (!toast?.id) return;
+    const notificationId = toast?.id || notificationIdFromToastId(toastId);
+    if (!notificationId) return;
 
     const response = await API.callJsonApi("notifications_mark_read", {
-      notification_ids: [toast.id],
+      notification_ids: [notificationId],
     });
     if (response?.success) window.location.reload();
   },
@@ -271,6 +299,10 @@ const model = {
 
   // Add or update a notification
   addOrUpdateNotification(notification) {
+    void callJsExtensions("notification_received", {
+      notification: { ...notification },
+      source: "backend",
+    });
     const existingIndex = this.notifications.findIndex(
       (n) => n.id === notification.id
     );
@@ -643,6 +675,11 @@ const model = {
 
     //adjust data before using
     this.adjustNotificationData(notification);
+
+    void callJsExtensions("notification_received", {
+      notification: { ...notification },
+      source: "frontend",
+    });
 
     // If notification has a group, remove any existing toasts with the same group
     if (group && String(group).trim() !== "") {

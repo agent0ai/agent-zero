@@ -83,6 +83,8 @@ export const store = createStore("telegramConfig", {
   },
 
   async init(config, context = null) {
+    if (!config || typeof config !== "object") return;
+
     this.config = config || null;
     this.context = context;
     this.didInit = false;
@@ -130,6 +132,7 @@ export const store = createStore("telegramConfig", {
       webhook_url: "",
       webhook_secret: "",
       allowed_users: [],
+      admin_users: [],
       group_mode: "mention",
       welcome_enabled: false,
       welcome_message: "",
@@ -247,6 +250,17 @@ export const store = createStore("telegramConfig", {
 
   setWhitelist(bot, value) {
     bot.allowed_users = value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item);
+  },
+
+  adminUsersText(bot) {
+    return (bot.admin_users || []).join(", ");
+  },
+
+  setAdminUsers(bot, value) {
+    bot.admin_users = value
       .split(",")
       .map((item) => item.trim())
       .filter((item) => item);

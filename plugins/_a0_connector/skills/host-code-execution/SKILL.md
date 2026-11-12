@@ -16,6 +16,7 @@ Browser boundary: do not use shell launchers such as `xdg-open`, `sensible-brows
 ## Access Modes
 
 - Remote execution can be disabled locally in the CLI. If the tool returns a disabled/no-client error, explain the required CLI toggle instead of falling back to the server runtime.
+- `input_remote` and remote terminal execution are enabled by default in Agent Editor; no editor change is needed with the default policy. Custom policies must permit both `input_remote` and the `terminal` action of `code_execution_remote`. Keyboard input can execute shell commands, so a terminal block also blocks input.
 - Read&Write local file access allows mutating runtimes such as `terminal`, `python`, and `nodejs`.
 - Read only local file access blocks mutating runtimes. `runtime=output` and `runtime=reset` remain available for existing sessions.
 
@@ -24,6 +25,7 @@ Browser boundary: do not use shell launchers such as `xdg-open`, `sensible-brows
 - Use `runtime=terminal` for shell commands, `runtime=python` for Python snippets, and `runtime=nodejs` for Node.js snippets.
 - Reuse the same integer `session` while continuing a workflow; session state is local to the CLI frontend.
 - Use `runtime=output` when a previous command is still running or returned before the shell reached a prompt.
+- Use `input_remote` with `keyboard` and the same `session` to answer an interactive program.
 - Use `runtime=reset` when a session is stuck and no replacement command needs to run yet.
 - Use `reset: true` with `runtime=terminal`, `python`, or `nodejs` when a session is stuck and the next command should run immediately in a clean shell.
 - Match the remote host shell syntax. A Windows CLI may need PowerShell syntax even when Agent Zero runs on Linux.

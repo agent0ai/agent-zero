@@ -6,7 +6,7 @@ let lastContextId = "";
 let lastRevision = null;
 let lastScopeKey = "";
 
-export default async function refreshSwitcherOnOverrideRevision(ctx) {
+export default function refreshSwitcherOnOverrideRevision(ctx) {
   const snapshot = ctx?.snapshot;
   const contextId = String(snapshot?.context || "");
 
@@ -37,6 +37,6 @@ export default async function refreshSwitcherOnOverrideRevision(ctx) {
   lastContextId = contextId;
   lastRevision = revision;
   lastScopeKey = scopeKey;
-  if (scopeChanged) await modelConfigStore.loadAgentProfiles(true);
-  await modelConfigStore.refreshSwitcher(contextId);
+  if (scopeChanged) void modelConfigStore.loadAgentProfiles(true);
+  void modelConfigStore.refreshSwitcher(contextId);
 }

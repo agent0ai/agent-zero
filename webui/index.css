@@ -61,6 +61,7 @@
   --color-input-focus: var(--color-input-focus-dark);
   --color-background-hover: color-mix(in srgb, var(--color-border) 50%, transparent);
   --color-chat-background: var(--color-chat-background-dark);
+  --color-surface-translucent: color-mix(in srgb, var(--color-chat-background) 85%, transparent);
   --color-error-text:var(--color-error-text-dark);
   --color-warning-text:var(--color-warning-text-dark);
   --color-table-row: var(--color-table-row-dark);
@@ -103,6 +104,7 @@
   --color-primary: var(--color-primary-light);
   --color-secondary: var(--color-secondary-light);
   --color-accent: var(--color-accent-light);
+  --color-highlight: var(--color-highlight-light);
   --color-message-bg: var(--color-message-bg-light);
   --color-message-text: var(--color-message-text-light);
   --color-panel: var(--color-panel-light);
@@ -111,11 +113,22 @@
   --color-input-focus: var(--color-input-focus-light);
   --color-background-hover: color-mix(in srgb, var(--color-border) 50%, transparent);
   --color-chat-background: var(--color-chat-background-light);
+  --color-surface-translucent: color-mix(in srgb, var(--color-chat-background) 85%, transparent);
   --color-error-text:var(--color-error-text-light);
   --color-warning-text:var(--color-warning-text-light);
   --color-table-row: var(--color-table-row-light);
 } 
 
+
+.dark-mode input[type="checkbox"] {
+  color-scheme: dark;
+  accent-color: var(--color-input);
+}
+
+/* Keep the native mixed-state dash light against the dark accent. */
+.dark-mode input[type="checkbox"]:indeterminate {
+  color-scheme: light;
+}
 
 html {
   font-family: var(--font-family-main);
@@ -201,6 +214,7 @@ body,
   text-transform: none;
   letter-spacing: normal;
   word-break: normal;
+  overflow-wrap: anywhere;
   white-space: normal;
   opacity: 0;
   pointer-events: none;
@@ -1347,6 +1361,11 @@ nav ul li a img {
 
 .icon {
   vertical-align: middle;
+}
+
+x-icon[name="stop"] {
+  background-color: currentColor;
+  clip-path: inset(25% round 0.08em);
 }
 
 /* Animations */

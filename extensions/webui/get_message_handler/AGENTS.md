@@ -12,6 +12,8 @@
 
 - JavaScript modules must export a default function when present.
 - Preserve mutable context contracts used by `/js/messages.js`.
+- The default function receives `{ type, handler }` and may assign a handler returning `{ element, ... }`. Register custom process-step types through the sibling `get_process_step_types` hook; standalone types are omitted.
+- Pass the original handler argument as `log` to `drawProcessStep`. Keep each type's process/standalone role consistent when replacing a handler.
 - Do not render unsanitized model or user content.
 
 ## Work Guidance

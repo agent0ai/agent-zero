@@ -1,0 +1,1 @@
+<｜DSML｜ calls> <｜DSML｜ invoke name="text_editor"> <｜DSML｜ parameter name="tool_args" string="false">{"action": "read", "path": "/a0/usr/projects/test/about-v3.md"}</｜DSML｜ parameter> <｜DSML｜ parameter name="tool_name" string="true">text_editor</｜DSML｜ parameter> </｜DSML｜ invoke> </｜DSML｜ calls>

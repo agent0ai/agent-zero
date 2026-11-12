@@ -5,7 +5,7 @@ from plugins._kokoro_tts.helpers import runtime
 class Synthesize(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         if not runtime.is_globally_enabled():
-            return Response(status=409, response="Kokoro TTS plugin is disabled")
+            return Response(status=409, response="Local TTS plugin is disabled")
 
         text = str(input.get("text") or "").strip()
         if not text:

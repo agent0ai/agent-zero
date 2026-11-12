@@ -58,7 +58,7 @@ const model = {
       this.error = error instanceof Error ? error.message : String(error);
       this.unregisterProvider();
       if (!suppressError) {
-        void toastFrontendError(this.error, "Kokoro TTS");
+        void toastFrontendError(this.error, "Local TTS");
       }
     } finally {
       this.loading = false;
@@ -74,8 +74,9 @@ const model = {
           text,
         });
         if (!result?.success) {
-          throw new Error(result?.error || "Kokoro TTS synthesis failed.");
+          throw new Error(result?.error || "Local TTS synthesis failed.");
         }
+        this.modelReady = true;
 
         return {
           audioBase64: result.audio || "",
@@ -106,6 +107,7 @@ const model = {
   },
 
   get voiceSummary() {
+    if (this.config.voice === "paradee") return "Paradee · Heart";
     const entries = Object.entries(this.config.voice_weights || {});
     if (!entries.length) return this.config.voice || "";
 
@@ -114,6 +116,10 @@ const model = {
     return entries
       .map(([voice, weight]) => `${voice} ${Math.round((Number(weight) / total) * 100)}%`)
       .join(" · ");
+  },
+
+  get modelName() {
+    return this.config.voice === "paradee" ? "Paradee-8M" : "Kokoro-82M";
   },
 
   async openConfig() {

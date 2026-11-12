@@ -89,6 +89,9 @@ normalized = settings.normalize_settings({
         "contextWindowUsage": {"mobile": False, "desktop": True},
         "projectSelector": "invalid",
         "unknown": {"mobile": False},
+        "canvas:files": {"mobile": False, "desktop": True},
+        "canvas:plugin": {"mobile": "false", "desktop": False},
+        "canvas:": {"mobile": False},
     },
 })["ui_control_visibility"]
 print(json.dumps({"defaults": defaults, "normalized": normalized}))
@@ -108,3 +111,128 @@ print(json.dumps({"defaults": defaults, "normalized": normalized}))
     assert normalized["contextWindowUsage"] == {"mobile": False, "desktop": True}
     assert normalized["projectSelector"] == {"mobile": True, "desktop": True}
     assert "unknown" not in normalized
+    assert "canvas:" not in normalized
+    assert normalized["canvas:files"] == {"mobile": False, "desktop": True}
+    assert normalized["canvas:plugin"] == {"mobile": True, "desktop": False}
+
+
+def test_canvas_visibility_and_rail_position_behavior() -> None:
+    script = r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+function load(path, context = {}) {
+  const source = fs.readFileSync(path, 'utf8')
+    .replace(/^import [\s\S]*?;\n/gm, '')
+    .replace(/export const store = createStore[^;]+;/, '')
+    .replace(/export \{ store \};/, '');
+  return vm.runInNewContext(source + '\nmodel;', {
+    console, createStore: (_, model) => model, ...context,
+  });
+}
+const preferences = load('webui/components/sidebar/bottom/preferences/preferences-store.js');
+preferences.setUiVisibility({ 'canvas:files': { desktop: false, mobile: true },
+  'canvas:unavailable': { desktop: false, mobile: false } });
+preferences.registerUiControlVisibility('canvas:files');
+assert.equal(preferences.isUiControlVisible('canvas:files'), false);
+assert.equal(preferences.uiVisibilitySnapshot()['canvas:unavailable'].desktop, false);
+const local = new Map();
+const canvas = load('webui/components/canvas/right-canvas-store.js', {
+  preferencesStore: preferences,
+  chatsStore: { selected: 'test' },
+  normalizeSurfaceId: id => String(id || ''),
+  registerSurfaceDefinition: () => {},
+  getRegisteredSurfaces: () => [],
+  SURFACE_MODE_DOCKED: 'docked',
+  SURFACE_MODE_FLOATING: 'floating',
+  migratePersistedSurfaceState: value => value,
+  normalizeSurfaceMode: value => value,
+  localStorage: { getItem: key => local.get(key), setItem: (key, value) => local.set(key, value) },
+  sessionStorage: { setItem() {}, removeItem() {} },
+  performance: { getEntriesByType: () => [] },
+});
+canvas.applyLayoutState = () => {};
+canvas.setWidth = () => {};
+canvas.defaultWidth = () => 720;
+canvas.registerSurface({ id: 'files', title: 'Files' });
+canvas.registerSurface({ id: 'browser', title: 'Browser' });
+canvas.registerSurface({ id: 'action', title: 'Action', actionOnly: true });
+assert.equal(canvas.railSurfaces.map(s => s.id).join(','), 'browser,action');
+assert.equal(canvas.panelSurfaces.map(s => s.id).join(','), 'browser');
+preferences._isMobileViewport = true;
+assert.equal(canvas.panelSurfaces.map(s => s.id).join(','), 'files,browser');
+preferences._isMobileViewport = false;
+canvas.railHeight = 200;
+assert.match(canvas.railStyle(), /clamp\(108px, 33%, calc\(100% - 108px\)\)/);
+canvas.moveRail({key: 'End', preventDefault() {}});
+assert.equal(canvas.railPosition, 1);
+canvas.moveRail({key: 'ArrowDown', preventDefault() {}});
+assert.equal(canvas.railPosition, 1);
+canvas.moveRail({key: 'Home', preventDefault() {}});
+canvas.moveRail({key: 'ArrowUp', preventDefault() {}});
+assert.equal(canvas.railPosition, 0);
+canvas.moveRail({key: 'ArrowDown', preventDefault() {}});
+assert.equal(canvas.railPosition, 0.02);
+canvas.railPosition = null;
+canvas.restore();
+assert.equal(canvas.railPosition, 0.02);
+const listeners = new Map();
+const handle = {
+  closest: () => ({getBoundingClientRect: () => ({top: 200, height: 200})}),
+  setPointerCapture() {},
+  addEventListener: (type, fn) => listeners.set(type, fn),
+  removeEventListener: type => listeners.delete(type),
+};
+canvas._rootElement = {getBoundingClientRect: () => ({top: 0, height: 800})};
+canvas.startRailDrag({button: 0, clientY: 210, pointerId: 1, currentTarget: handle, preventDefault() {}});
+listeners.get('pointermove')({clientY: -1000});
+assert.equal(canvas.railPosition, 108 / 800);
+listeners.get('pointermove')({clientY: 2000});
+assert.equal(canvas.railPosition, 692 / 800);
+listeners.get('lostpointercapture')();
+assert.equal(listeners.size, 0);
+(async () => {
+  let modalId;
+  canvas.openModalSurface = async id => { modalId = id; return true; };
+  await canvas.open('files');
+  assert.equal(modalId, 'files');
+  assert.equal(canvas.isOpen, false);
+  await canvas.open('browser');
+  assert.equal(canvas.isOpen, true);
+  canvas.isOpen = false;
+  preferences.setUiVisibility(Object.fromEntries(canvas.surfaces.map(s =>
+    [`canvas:${s.id}`, {mobile: false, desktop: false}])));
+  assert.equal(await canvas.toggleCanvas(), false);
+  assert.equal(canvas.activeSurfaceId, '');
+})();
+let loading = true;
+let observer;
+let scrolled;
+const settings = load('webui/components/settings/settings-store.js', {
+  rightCanvasStore: canvas,
+  requestAnimationFrame: fn => fn(),
+  history: {replaceState() {}},
+  MutationObserver: class {
+    constructor(fn) { this.fn = fn; observer = this; }
+    observe() {}
+    disconnect() { this.disconnected = true; }
+  },
+});
+settings.activateSection = () => true;
+settings.updateActiveSectionFromScroll = () => {};
+settings.getSettingsPane = () => ({
+  querySelector: () => loading,
+  getBoundingClientRect: () => ({top: 100}),
+  scrollTop: 0,
+  scrollTo: options => {scrolled = options;},
+});
+settings.getSectionTarget = () => ({getBoundingClientRect: () => ({top: 800})});
+settings.scrollToSection('section-interface', null, 'instant');
+assert.equal(scrolled, undefined);
+loading = false;
+observer.fn();
+assert.equal(observer.disconnected, true);
+assert.equal(scrolled.top, 688);
+assert.equal(scrolled.behavior, 'instant');
+"""
+    subprocess.run(["node", "-e", script], cwd=ROOT, check=True, text=True)

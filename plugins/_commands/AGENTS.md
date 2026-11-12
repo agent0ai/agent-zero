@@ -35,6 +35,7 @@
 - Selected reference icons may use the composer highlight color while their labels keep the normal text color; serialized prompt text remains unchanged.
 - File and folder references stay inside the active chat workdir and list one directory at a time through the existing file-browser and chat-path APIs. Profile and effective MCP server references reuse their scoped catalogs; skill references use only entries visible in the active chat scope.
 - WebUI sends resolve through the picker effect path, while backend-originated messages resolve before reaching the agent.
+- Telegram and WhatsApp resolve raw messages through this catalog before adding message envelopes. `list_context_commands` filters the effective catalog by enabled plugins for the current chat; transport plugins adapt effects and retain their existing integration controls. Script/template execution remains owned here.
 - `/stop` uses the same shared cancellation operation as the composer Stop button, including progress cleanup and terminal logging.
 - `/profile` opens Manage agents without arguments, keeps existing profile
   selection, and creates through Agent Editor when given a name and instructions.

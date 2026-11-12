@@ -11,7 +11,11 @@ const UI_VISIBILITY_DEFAULTS = {
 
 function normalizeUiVisibility(value = {}) {
   return Object.fromEntries(
-    Object.entries(UI_VISIBILITY_DEFAULTS).map(([control, defaults]) => [
+    Object.entries({
+      ...Object.fromEntries(Object.keys(value || {}).filter((id) => id.startsWith("canvas:") && id.length > 7)
+        .map((id) => [id, { mobile: true, desktop: true }])),
+      ...UI_VISIBILITY_DEFAULTS,
+    }).map(([control, defaults]) => [
       control,
       {
         mobile: typeof value?.[control]?.mobile === "boolean" ? value[control].mobile : defaults.mobile,

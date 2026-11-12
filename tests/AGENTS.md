@@ -26,10 +26,17 @@ hook dispatch, and bounded loaded-context-only sweep behavior.
 
 ## Local Contracts
 
-- Tests must not require real API keys, network-only services, private user data, or local `usr/` runtime state.
+- Tests must not require real API keys, network-only services, private user data, or local `usr/` runtime state. Manual provider demos must guard model creation and requests behind their executable entry point so collection never runs them.
+- Root `pytest.ini` selects `tests` and `plugins` with importlib import mode; root `conftest.py` keeps `tests/` importable and ignores plugin API handler modules whose names match `test_*.py`.
+- Tests that reimport project modules under stubs, swap `files._base_dir`, or populate extension/plugin caches must restore them so later test files see pristine modules and caches.
 - Keep tests deterministic and isolated from existing chats, uploads, downloads, plugin state, and settings.
 - Prefer exercising public helper/API contracts over fragile implementation details when practical.
 - Security regression tests should assert the protected behavior directly.
+- `test_telegram_config_scope.py` covers scoped bot ownership, token conflicts, current access rules, activation, connection revocation, outbound delivery, and session isolation using temporary plugin configuration.
+- Browser log privacy tests exercise the real tool and pre-execution methods;
+  do not extract class fragments that omit inherited or heading behavior.
+- Combined WebSocket payload/principal tests drain owned lifecycle broadcasts
+  before measuring delivery, rather than relying on sleeps.
 - Static connector discovery coverage is consolidated in
   `test_browser_bridge_foundation_status.py`; do not repeat the same module
   stubs and feature-list assertions in each pairing/policy/approval/metadata
@@ -38,6 +45,7 @@ hook dispatch, and bounded loaded-context-only sweep behavior.
   CSRF-protected control, acknowledgement timeout, identity lifecycle,
   context-bound CLI routing precedence, duplicate/multiple-host behavior,
   scope-driven availability, and emergency disconnect without a live host.
+- Composer control tests use unrelated fake extensions and verify scoped dispatch, capability negotiation, authentication/CSRF requirements, invalid input rejection, and unchanged plugin error responses without depending on optional plugins.
 - Browser extension bridge foundation tests must remain host-independent and
   effect-free: use temporary legacy-plugin fixtures, assert redacted versioned
   projections, preserve existing container/A0 CLI CDP behavior, and prove that
@@ -66,6 +74,10 @@ hook dispatch, and bounded loaded-context-only sweep behavior.
   fixed JCS bytes, last-authenticated persistence, generic no-store endpoint
   failures, and continued absence from capability discovery until scoped
   WebSocket principal activation is complete.
+- Credential tests reuse the synthetic pairing store and real signature checks.
+  Self-revocation must persist before notification, survive caller cancellation
+  and notification loss, disconnect only the matching bridge/subject, and deny
+  stale or insufficiently scoped routes without changing credentials.
 - Browser bridge site-policy tests must use synthetic durable state and active
   pairing records. Prove exact HTTP(S)-origin canonicalization, rejection of
   userinfo, paths, queries, fragments, wildcards, ambiguous numeric hosts, and
@@ -206,7 +218,11 @@ hook dispatch, and bounded loaded-context-only sweep behavior.
 ## Verification
 
 - Run `pytest` for broad changes.
+- Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views and shared browser configuration.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
+- Run `node --test tests/test_onboarding.mjs` for onboarding defaults and completion staying in the original chat.
+- Run `pytest tests/test_litellm_sdk.py -q` for LiteLLM/OpenAI upgrades. Its loopback provider exercises the installed SDK's sync/async calls, streaming, tool/state preservation, fallback, embeddings, and Anthropic cache markers without real keys or external requests.
+- Run `pytest tests/test_framework_dependencies.py -q` for dependency migration changes; verify stale self-update environments, process restart, and already-current image installs.
 
 ## Child DOX Index
 

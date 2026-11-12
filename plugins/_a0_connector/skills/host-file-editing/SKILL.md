@@ -24,6 +24,11 @@ If the task belongs inside Agent Zero's own runtime, use the normal server-side 
 - Use `patch_text` for context-anchored edits, especially after inserts/deletes or when line numbers may have shifted.
 - Use `patch` with `edits` only for small line-range edits based on the latest remote read.
 - If freshness-aware line patching rejects an edit as stale, reread the file and retry with updated ranges.
+- Treat reads as bounded text previews (2,000 lines / 256 KiB). Follow
+  `next_line` for another small slice; use the authenticated HTTP transfer path
+  for complete large files and binary data.
+- Keep each write or patch payload within 256 KiB. Do not split a binary file
+  into text-editor calls.
 
 ## Patch Text Rules
 
@@ -40,3 +45,6 @@ If the task belongs inside Agent Zero's own runtime, use the normal server-side 
 - If no CLI is connected, ask the user to connect A0 CLI to this Agent Zero instance.
 - If writes are blocked, tell the user to switch local file access to Read&Write with F3.
 - If a request times out or the CLI disconnects, summarize the failure and wait for reconnection.
+- If the tool rejects binary or oversized content, use the CLI/Core HTTP
+  upload/download path when the workflow exposes it; otherwise ask the user to
+  attach or upload the file through A0 CLI.

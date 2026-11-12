@@ -9,6 +9,7 @@
 
 - `plugin.yaml` owns the always-enabled `_goal` plugin metadata.
 - `tools/goal.py` owns the single agent-facing goal tool, file-backed state under `usr/plugins/_goal/goals/`, and goal status normalization.
+- The tool logs its message as type `goal` with an `icon://flag` verb headline such as `Setting goal`, without quoting argument text; `extensions/webui/get_message_handler/` owns the `AIM` badge presentation and `extensions/webui/get_process_step_types/` registers the type.
 - `api/goal.py` owns the WebUI JSON API for reading, editing, pausing, resuming, and deleting goals.
 - `commands/` owns the `/goal` slash command contributed to `_commands`.
 - `webui/` and `extensions/webui/` own the composer goal strip, Goal mode shortcut, and inline controls.
@@ -19,6 +20,7 @@
 ## Local Contracts
 
 - Goal status values are `active`, `paused`, `complete`, and `blocked`.
+- The `goal` tool reads legacy action values `show`/`status` for `get`, `set` for `create`, and direct `complete`/`blocked` for `update` with `status`; prompts document only canonical actions.
 - Active goals are injected into agent extras; paused and blocked goals remain visible in the UI, while complete goals are hidden.
 - Goal records track accumulated active time with `elapsed_seconds` and `active_since`; pausing freezes elapsed time until resume.
 - User controls may pause, resume, edit, or delete a goal; destructive delete uses inline confirmation. Model tools may create goals and mark them complete or blocked.
@@ -31,6 +33,9 @@
 - Goal state changes publish a context revision through the shared state-push
   lifecycle; the WebUI refreshes on context or revision changes and never polls
   the Goal API while idle.
+- Snapshot refreshes run without delaying chat rendering. Clear the previous
+  chat's goal when refreshing a new selection; only the latest selected-chat
+  request may apply results, and stale requests must not finish a newer load.
 
 ## Work Guidance
 

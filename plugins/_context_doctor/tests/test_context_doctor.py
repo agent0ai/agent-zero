@@ -1,5 +1,11 @@
+import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
+import pytest
+
+from agent import Agent
+from helpers.llm_result import LLMResult
 from plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor import (
     ContextDoctor,
 )
@@ -162,12 +168,103 @@ def test_looks_like_tool_call_rejects_wrong_thoughts_type():
     assert not looks_like_tool_call('{"thoughts":"x"}', '{"thoughts":"x"}')
 
 
-def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["responses", "chat_completions"])
+@pytest.mark.parametrize("text", [
+    "Running the command now.",
+    '<tool>response</tool>',
+    '{"tool_name":"response","tool_args":{"text":"second call"}}',
+])
+async def test_extension_leaves_native_calls_and_accompanying_text_intact(monkeypatch, mode, text):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
-        lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
+        lambda *args, **kwargs: {},
+    )
+    llm_result = LLMResult.from_response({
+        "id": "resp_native",
+        "usage": {"input_tokens": 2048, "input_tokens_details": {"cached_tokens": 1024}},
+        "output": [
+            {"type": "message", "role": "assistant", "content": [
+                {"type": "output_text", "text": text},
+            ]},
+            {"type": "function_call", "name": "code_execution_tool",
+             "call_id": "call_native", "arguments": '{"runtime":"terminal","code":"echo hi"}'},
+        ],
+    }, mode=mode)
+    before = llm_result.to_dict()
+    result_data = {"llm_result": llm_result}
+
+    agent = SimpleNamespace(
+        agent_name="A0",
+        context=SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: None)),
+        loop_data=SimpleNamespace(params_temporary={}),
+        hist_add_ai_response=lambda *args, **kwargs: None,
+        hist_add_warning=lambda **kwargs: SimpleNamespace(id="warning"),
+        read_prompt=lambda name: name,
+        get_data=lambda key: {},
+        _log_response_builtin_items=AsyncMock(),
+        _execute_tool_request=AsyncMock(return_value=None),
+    )
+    ContextDoctor(agent).execute(result_data)
+
+    assert llm_result.to_dict() == before
+    assert not result_data.get("skip_default_processing")
+    assert [call.name for call in llm_result.function_calls] == ["code_execution_tool"]
+    await Agent.process_llm_result_tools(agent, llm_result)
+    agent._execute_tool_request.assert_awaited_once()
+    assert agent._execute_tool_request.call_args.kwargs["tool_name"] == "code_execution_tool"
+
+
+def test_leaves_results_handled_by_earlier_extensions_untouched():
+    response = '{"thoughts":["planning"],"tool_name":"response","tool_args":{"text":"cut'
+    result = LLMResult.from_chat(response=response, finish_reason="length")
+    agent = SimpleNamespace(hist_add_ai_response=AsyncMock(), hist_add_warning=AsyncMock())
+    data = {"llm_result": result, "skip_default_processing": True}
+
+    ContextDoctor(agent).execute(data)
+
+    assert result.response == response
+    agent.hist_add_ai_response.assert_not_called()
+    agent.hist_add_warning.assert_not_called()
+
+
+@pytest.mark.parametrize("text", ["Done.", "First paragraph.\n\nSecond paragraph.", "<p>Done.</p>"])
+def test_responses_text_is_preserved_as_thoughts_without_final_dispatch(monkeypatch, text):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": False},
+    )
+    result = LLMResult.from_response({"id": "resp_text", "output": [{
+        "type": "message", "role": "assistant", "phase": "commentary",
+        "content": [{"type": "output_text", "text": text}],
+    }]})
+    metadata = result.metadata()
+    agent = SimpleNamespace(
+        loop_data=SimpleNamespace(params_temporary={}),
+        hist_add_ai_response=Mock(),
+        hist_add_warning=Mock(),
+        read_prompt=lambda name: name,
+    )
+    data = {"llm_result": result}
+    ContextDoctor(agent).execute(data)
+    assert result.metadata() == metadata
+    assert data["skip_default_processing"] is True
+    assert json.loads(result.response) == {"thoughts": text.split("\n\n")}
+    agent.hist_add_ai_response.assert_called_once_with(
+        result.response, id="", llm_result=result,
+    )
+    assert "log_item_response" not in agent.loop_data.params_temporary
+
+
+@pytest.mark.parametrize("mode", ["responses", "chat_completions"])
+@pytest.mark.parametrize("update_log", [False, True])
+def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch, mode, update_log):
+    monkeypatch.setattr(
+        "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
+        lambda *args, **kwargs: {"suppress_xml": True, "update_log": update_log},
     )
     llm_result = SimpleNamespace(
+        mode=mode,
         response='{"tool_name":"response","tool_args":{"text":"ok",},}'
     )
     log_item = SimpleNamespace(
@@ -183,10 +280,13 @@ def test_extension_replaces_result_refreshes_log_and_response_item(monkeypatch):
         loop_data=SimpleNamespace(params_temporary={"log_item_generating": log_item}),
     )
 
-    ContextDoctor(agent).execute({"llm_result": llm_result})
+    raw_response = llm_result.response
+    result_data = {"llm_result": llm_result}
+    ContextDoctor(agent).execute(result_data)
+    ContextDoctor(agent).execute(result_data)
 
     assert llm_result.response == '{"tool_name":"response","tool_args":{"text":"ok"}}'
-    assert log_item.data["content"] != llm_result.response
+    assert log_item.data["content"] == (llm_result.response if update_log else raw_response)
     assert log_item.data["kvps"]["tool_name"] == "response"
     assert response_item.data == {"content": "ok"}
 
@@ -231,7 +331,13 @@ def test_extension_does_not_use_legacy_response_message_key(monkeypatch):
     assert "log_item_response" not in agent.loop_data.params_temporary
 
 
-def test_extension_handles_raw_text_fallback_with_warning_and_skip(monkeypatch):
+@pytest.mark.parametrize("response, mode, expected", [
+    ("Hello there…", "chat_completions", {"thoughts": ["Hello there…"]}),
+    ('{"thoughts":["Continue checking"]}', "chat_completions", {"thoughts": ["Continue checking"]}),
+    ('{"thoughts":["Continue checking"]}', "responses", {"thoughts": ["Continue checking"]}),
+    ('{"headline":"Checking"}', "chat_completions", {"headline": "Checking"}),
+])
+def test_extension_retries_missing_action_without_visible_warning(monkeypatch, response, mode, expected):
     monkeypatch.setattr(
         "plugins._context_doctor.extensions.python.message_loop_result._10_context_doctor.get_plugin_config",
         lambda *args, **kwargs: {"suppress_xml": True, "update_log": False},
@@ -249,21 +355,28 @@ def test_extension_handles_raw_text_fallback_with_warning_and_skip(monkeypatch):
         loop_data=SimpleNamespace(params_temporary={"log_item_generating": log_item}),
         read_prompt=lambda name, **kwargs: {
             "fw.msg_thoughts_fallback.md": "fallback warning",
-            "fw.msg_thoughts_fallback_response.md": "fallback notice",
         }[name],
         hist_add_ai_response=lambda message, **kwargs: ai_responses.append(message) or SimpleNamespace(id="ai"),
         hist_add_warning=lambda message: warnings.append(message) or SimpleNamespace(id="warning"),
     )
-    llm_result = SimpleNamespace(response="Hello there…")
+    llm_result = LLMResult(response=response, mode=mode)
     result_data = {"llm_result": llm_result}
 
     ContextDoctor(agent).execute(result_data)
 
     assert result_data["skip_default_processing"] is True
-    assert llm_result.response == '{"thoughts":["Hello there…"]}'
-    assert ai_responses == ['{"thoughts":["Hello there…"]}']
+    assert json.loads(llm_result.response) == expected
+    assert ai_responses == [llm_result.response]
     assert warnings == ["fallback warning"]
-    assert logs[0]["content"] == "A0: fallback notice"
-    assert logs[0]["id"] == "warning"
+    assert logs == []
     assert log_item.data["kvps"]["reasoning"] == "thinking"
-    assert log_item.data["content"] == "Hello there…"
+    assert log_item.data["content"] == response
+
+
+def test_extension_respects_already_handled_turn():
+    result = {
+        "llm_result": SimpleNamespace(response="<function=response>"),
+        "skip_default_processing": True,
+    }
+    ContextDoctor(SimpleNamespace()).execute(result)
+    assert result["llm_result"].response == "<function=response>"

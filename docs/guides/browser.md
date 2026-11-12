@@ -90,6 +90,10 @@ Many Browser steps also keep a small history screenshot. That means an older
 chat can show the page as it looked when the agent worked on it, not just the
 latest page frame.
 
+Reading page content, listing tabs, inspecting state or elements, and running
+JavaScript skip automatic history screenshots to keep these tasks quick.
+Ask for a screenshot when you need a visual record.
+
 ## Annotate Pages
 
 Annotate mode lets you mark a page element or region and send a targeted comment back into the chat. This is useful for UI review: you can point at the exact thing that needs to change instead of describing it from memory.

@@ -30,8 +30,8 @@
 - `get_version()`
 - `is_official_agent_zero_repo() -> bool`: Return True when origin points to agent0ai/agent-zero.
 - `clone_repo(url: str, dest: str, token: str | None=...)`: Clone a git repository. Uses http.extraHeader for token auth (never stored in URL/config).
-- `DirtyTreeConflictError`: Reports a plugin update that was rolled back because its local edits conflict with upstream.
-- `update_repo(repo_path: str, auto_stash: bool = True) -> Repo`: Temporarily stashes tracked plugin edits for an update, then restores them; on conflict it restores the original checkout and edits before raising `DirtyTreeConflictError`.
+- `DirtyTreeConflictError`: Reports the conflicting files when a plugin update is rolled back because local commits or edits conflict with upstream.
+- `update_repo(repo_path: str, auto_stash: bool = True) -> Repo`: Fetches the configured tracking branch and rebases local commits, temporarily stashing tracked edits. Aborts its own failed rebase and restores original commits and edits before reporting conflicts; refuses pre-existing Git operations.
 - `get_repo_status(repo_path: str) -> dict`: Get Git repository status, ignoring A0 project metadata files.
 - Notable constants/configuration names: `A0_IGNORE_PATTERNS`.
 
@@ -39,6 +39,7 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Git commit and release timestamp strings produced by `_format_git_timestamp` use UTC and omit a timezone suffix.
+- Update rollback restores staged edits with the stash index and preserves existing stash entries. Tracked A0 metadata participates in stashing so rollback cannot discard it. Rebase disables Git autostash and updates to other branch refs.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem writes, filesystem deletion, network calls, subprocess/runtime control, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `base64`, `dataclasses`, `datetime`, `git`, `giturlparse`, `helpers`, `helpers.localization`, `os`, `re`, `subprocess`, `urllib.parse`.

@@ -1,0 +1,80 @@
+.overflow-row {
+  position: relative;
+  flex-wrap: nowrap !important;
+  min-width: 0;
+}
+.overflow-item, .overflow-trigger {
+  flex-shrink: 0;
+}
+.overflow-trigger {
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 0;
+}
+.overflow-trigger:hover {
+  box-shadow: none;
+}
+.btn-icon-action.overflow-trigger > x-icon {
+  font-size: 1.5rem;
+}
+.overflow-trigger[hidden], .overflow-menu[hidden] {
+  display: none !important;
+}
+.overflow-hidden {
+  position: absolute !important;
+  visibility: hidden !important;
+  pointer-events: none;
+}
+.overflow-menu, .overflow-panel {
+  position: fixed !important;
+  inset: auto !important;
+  left: var(--overflow-left, 0px) !important;
+  top: var(--overflow-top, 0px) !important;
+  max-width: calc(100vw - 16px) !important;
+  max-height: min(var(--overflow-max-height, 70vh), var(--overflow-available-height, 100dvh), calc(100dvh - 16px)) !important;
+  box-sizing: border-box;
+  color: var(--color-text);
+  margin: 0;
+  overflow-y: auto;
+  z-index: 1010;
+}
+.overflow-menu {
+  width: max-content;
+  min-width: min(180px, calc(100vw - 16px));
+}
+.overflow-menu .dropdown-item {
+  display: flex;
+  min-height: 2.25rem;
+}
+.overflow-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 1.8rem;
+  pointer-events: none;
+}
+.overflow-icon:empty {
+  display: none;
+}
+.overflow-icon > * {
+  max-width: 100%;
+  max-height: 1.8rem;
+}
+.overflow-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.overflow-panel {
+  visibility: visible !important;
+  pointer-events: auto;
+  width: var(--overflow-width) !important;
+  min-width: 0 !important;
+  overflow-y: auto !important;
+  z-index: 1011 !important;
+}
+.overflow-menu button:focus-visible, .overflow-trigger:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: -2px;
+}

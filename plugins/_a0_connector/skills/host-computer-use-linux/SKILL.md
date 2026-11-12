@@ -1,13 +1,15 @@
 ---
 name: host-computer-use-linux
-description: Backend-specific Linux guidance for `computer_use_remote`. Load after `status` or `start_session` reports backend_family `linux`, backend_id `wayland`, or AT-SPI features. Covers AT-SPI structural targeting, Wayland portal caveats, and screenshot verification.
+description: Host Linux guidance for `computer_use_remote` when results report Linux, Wayland, X11, or AT-SPI features. Covers verified focus, AT-SPI targeting, XWayland app limitations, remote desktop viewers, and screenshot verification; excludes the internal Docker/Xpra desktop.
 ---
 
 # Host Computer Use - Linux
 
-Use this after `host-computer-use` when the connected A0 CLI reports the Linux/Wayland computer-use backend.
+Use this after `host-computer-use` when the connected A0 CLI or Launcher gateway reports a Linux computer-use backend. Start with the needed `list_windows` or `capture` observation; the shared tool starts a missing chat session automatically. Use `status` only when you need to inspect authorization or capabilities.
 
 Do not use this skill for macOS, Windows, Xpra, Docker, browser-only tasks, or the internal Agent Zero Desktop. If the backend is not Linux or does not advertise AT-SPI support, skip Linux structural actions and follow the generic host computer-use rules.
+
+For an X11/XWayland app or remote desktop viewer with an incomplete accessibility tree, read [X11 and viewer workflows](references/x11-viewers.md). Use its host-shell techniques only while Computer Use is enabled and authorized and host code execution is independently enabled. A backend limitation is not a permission denial.
 
 ## Linux AT-SPI Targeting
 
@@ -67,7 +69,7 @@ Targeting options:
 - If an action reports ambiguity, take a fresh snapshot and narrow the target with role plus title/name/description.
 - If an action reports a missing target, take a fresh snapshot before trying coordinates.
 
-## Wayland Notes
+## Focus and Observation
 
 Use screenshots for proof after every state-changing action. AT-SPI actions and keyboard events are attempts, not proof, and Wayland focus can reject or redirect input when the active window changes.
 
@@ -86,10 +88,16 @@ On GNOME/Wayland, useful shortcuts include:
 
 Treat every shortcut as an attempt. Inspect the fresh screenshot before saying it worked. If text lands in the wrong app, stop and reassess from `capture` or `ax_snapshot`; do not continue typing from assumed focus.
 
+A remote desktop viewer exposes the local viewer's controls, not necessarily the remote application's accessibility tree. Keep local window identity, viewer scaling, and the remote desktop separate. Use remote pixels only after inspecting the rendered viewer. Recalculate coordinates after resizing or changing scaling; local tool coordinates remain normalized to the host screen.
+
+When a popup is already open, do not refocus its parent window; this may dismiss the popup. Inspect a fresh frame and select the actual control, such as a scaling radio button, rather than assuming a click on nearby text selected it.
+
+Slow VNC viewers may drop fast typing and clicks. Wait for the resulting frame, verify field focus and masked character count, and use slower input if needed. Click confirmation fields explicitly when Tab does not move focus. A partial redraw or unchanged screenshot warrants one fresh capture before another action, not repeated credential submission.
+
 Some apps expose shallow AT-SPI trees unless their own accessibility support is enabled. If the AT-SPI tree is too shallow for a task, fall back in this order: app-native/browser tooling, reliable keyboard paths, then normalized coordinate clicks from a fresh screenshot.
 
 ## Permissions
 
-If `computer_use_remote` returns `COMPUTER_USE_AX_UNAVAILABLE`, `COMPUTER_USE_REARM_REQUIRED`, `COMPUTER_USE_APPROVAL_REQUIRED`, or `status=rearm required`, stop immediately and ask the user to re-arm or fix the Linux desktop accessibility/session state.
+If `computer_use_remote` returns `COMPUTER_USE_REARM_REQUIRED`, `COMPUTER_USE_APPROVAL_REQUIRED`, or `status=rearm required`, stop immediately and ask the user to re-arm or fix the Linux desktop session. If only `COMPUTER_USE_AX_UNAVAILABLE` is returned, stop structural actions and check the reported cause: use an already-authorized capture/input capability only for an accessibility availability limitation, never to evade an access denial.
 
 Do not bypass a permission or host-visibility failure with server screenshots, Docker commands, the built-in Linux Desktop/Xpra skill, or `code_execution_tool`.

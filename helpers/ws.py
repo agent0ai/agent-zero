@@ -300,6 +300,7 @@ class WsHandler:
         data: dict,
         *,
         correlation_id: str | None = None,
+        max_payload_bytes: int | None = None,
     ) -> None:
         if self._principal is not None and self._principal_sid != sid:
             raise WsScopeDeniedError("Restricted WebSocket identity mismatch")
@@ -307,6 +308,7 @@ class WsHandler:
             self._namespace, sid, event, data,
             handler_id=self.identifier,
             correlation_id=correlation_id,
+            max_payload_bytes=max_payload_bytes,
             **({"expected_principal": self._principal} if self._principal else {}),
         )
 
@@ -735,7 +737,12 @@ def register_ws_namespace(
                 )
                 if security_errors:
                     result["results"] = security_errors + result.get("results", [])
-                return result
+                return manager.constrain_ack_response(
+                    NAMESPACE,
+                    sid,
+                    event,
+                    result,
+                )
 
             # All handlers failed security or no manager — return collected errors
             if not passing_handlers:

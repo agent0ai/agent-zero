@@ -20,70 +20,22 @@
           <x-extension id="chats-header-controls"></x-extension>
         </div>
 
-
-
-        <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.topLevelContexts().length > 0">
-          <template x-for="(context, contextIndex) in $store.chats.topLevelContexts()" :key="context.id">
-            <li class="chat-tree-item"
-              :class="{ 'sidebar-list-divider': $store.sidebar.hasRowDividerBefore('chat', context, contextIndex, $store.chats.topLevelContexts()) }">
-              <div :class="{'chat-container': true, 'chat-has-children': $store.chats.hasChildren(context.id), 'chat-selected': context.id === $store.chats.selected}"
-                @click="$store.chats.selectChat(context.id)">
-                <button class="chat-expand-btn"
-                        x-show="$store.chats.hasChildren(context.id)"
-                        :class="{ 'is-visible': $store.chats.hasChildren(context.id), 'is-expanded': $store.chats.isExpanded(context.id) }"
-                        :aria-expanded="$store.chats.isExpanded(context.id)"
-                        :aria-label="$store.chats.isExpanded(context.id) ? 'Collapse chat children' : 'Expand chat children'"
-                        @click.stop="$store.chats.toggleChildren(context.id)">
-                  <x-icon
-                    :name="$store.chats.isExpanded(context.id) ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"></x-icon>
-                </button>
-                <div class="chat-list-button">
-                  <span :class="{'project-color-ball': true, 'heartbeat': context.running}"
-                    :style="context.project?.color ? { backgroundColor: context.project.color } : { border: '1px solid var(--color-border)' }"></span>
-                  <span class="chat-name"
-                    x-text="$store.chats.displayName(context)"></span>
-                </div>
-                <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
-                  <x-icon name="close"></x-icon>
-                </button>
-                <button type="button" class="btn-icon-action chat-list-action-btn" title="More chat actions"
-                  aria-label="More chat actions" aria-haspopup="menu"
-                  :aria-expanded="($store.sidebar.rowMenuOpenId === `chat:${context.id}`).toString()"
-                  @click.stop="$store.sidebar.rowMenuToggle(`chat:${context.id}`, 'chat', $event.currentTarget)">
-                  <x-icon name="more_vert"></x-icon>
-                </button>
-              </div>
-              <ul class="chat-child-list" x-show="$store.chats.isExpanded(context.id) && $store.chats.hasChildren(context.id)">
-                <template x-for="(child, childIndex) in $store.chats.childContexts(context.id)" :key="child.id">
-                  <li :class="{ 'sidebar-list-divider': $store.sidebar.hasRowDividerBefore('chat', child, childIndex, $store.chats.childContexts(context.id)) }">
-                    <div :class="{'chat-container': true, 'chat-child-container': true, 'chat-selected': child.id === $store.chats.selected}"
-                      @click="$store.chats.selectChat(child.id)">
-                      <div class="chat-child-indent"></div>
-                      <div class="chat-list-button">
-                        <span :class="{'project-color-ball': true, 'heartbeat': child.running}"
-                          :style="child.project?.color ? { backgroundColor: child.project.color } : { border: '1px solid var(--color-border)' }"></span>
-                        <span class="chat-name"
-                          x-text="$store.chats.displayName(child)"></span>
-                      </div>
-                      <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(child.id))">
-                        <x-icon name="close"></x-icon>
-                      </button>
-                      <button type="button" class="btn-icon-action chat-list-action-btn" title="More chat actions"
-                        aria-label="More chat actions" aria-haspopup="menu"
-                        :aria-expanded="($store.sidebar.rowMenuOpenId === `chat:${child.id}`).toString()"
-                        @click.stop="$store.sidebar.rowMenuToggle(`chat:${child.id}`, 'chat', $event.currentTarget)">
-                        <x-icon name="more_vert"></x-icon>
-                      </button>
-                    </div>
-                  </li>
-                </template>
-              </ul>
-            </li>
-          </template>
-        </ul>
-        <div class="empty-list-message" x-show="$store.chats.topLevelContexts().length === 0">
-          <p><i>No chats to list.</i></p>
-        </div>
+        <x-extension id="sidebar-chats-list-view" class="sidebar-list-view"></x-extension>
+        <template x-if="!$store.sidebar.hasListView('chat')">
+          <div class="sidebar-default-list">
+            <ul class="config-list chats-config-list no-scrollbar" x-show="$store.chats.topLevelContexts().length > 0">
+              <template x-for="(context, contextIndex) in $store.chats.topLevelContexts()" :key="context.id">
+                <li class="chat-tree-item"
+                  :class="{ 'sidebar-list-divider': $store.sidebar.hasRowDividerBefore('chat', context, contextIndex, $store.chats.topLevelContexts()) }">
+                  <x-component path="sidebar/chats/chat-tree.html"></x-component>
+                </li>
+              </template>
+            </ul>
+            <div class="empty-list-message" x-show="$store.chats.topLevelContexts().length === 0">
+              <p><i>No chats to list.</i></p>
+            </div>
+          </div>
+        </template>
         <x-extension id="sidebar-chats-list-end"></x-extension>
       </div>
     </template>
@@ -103,6 +55,7 @@
 
     .chats-list-container .section-header {
       margin: 0;
+      margin-right: auto;
     }
 
     /* Chats list container and items */
@@ -123,7 +76,7 @@
     }
 
     .chats-config-list > .chat-tree-item {
-      padding-block: 0.14rem;
+      padding-block: var(--spacing-xxs);
     }
 
     .chat-container {
@@ -132,7 +85,7 @@
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      min-height: 40px;
+      min-height: calc(var(--spacing-lg) + var(--spacing-xxs));
       border-radius: 4px;
       overflow: hidden;
       cursor: pointer;
@@ -146,9 +99,10 @@
 
     .chat-child-list {
       list-style: none;
-      padding: 0;
+      padding: 0 0 0 calc(var(--spacing-md) + var(--spacing-xs));
       margin: 0;
       width: 100%;
+      box-sizing: border-box;
     }
 
     .chats-config-list .chat-child-list > li {
@@ -156,18 +110,17 @@
       padding: 0;
     }
 
-    .chat-child-container {
-      min-height: 34px;
+    .chat-child-list .chat-child-list .chat-child-list {
+      padding-left: var(--spacing-sm);
     }
 
-    .chat-child-indent {
-      width: 18px;
-      flex-shrink: 0;
+    .chat-child-list .chat-child-list .chat-child-list .chat-child-list {
+      padding-left: 0;
     }
 
     .chat-expand-btn {
       position: absolute;
-      left: 2px;
+      left: var(--spacing-xxs);
       top: 50%;
       transform: translateY(-50%);
       width: 18px;
@@ -201,7 +154,7 @@
     }
 
     .chat-container.chat-has-children .chat-list-button {
-      padding-left: 24px;
+      padding-left: calc(var(--spacing-md) + var(--spacing-xs));
     }
 
     .chat-list-button {
@@ -209,18 +162,14 @@
       align-items: center;
       flex: 1 1 auto;
       min-width: 0;
-      padding: 8px 6px;
+      padding: var(--spacing-xs);
       overflow: hidden;
       gap: 0.5em;
     }
 
-    .project-color-ball {
-      width: 0.6em;
-      height: 0.6em;
-      border-radius: 50%;
-      display: inline-block;
-      box-sizing: border-box;
-      flex-shrink: 0;
+    .chat-list-button .project-color-ball {
+      width: 0.5em;
+      height: 0.5em;
     }
 
     .chats-list-container .project-color-ball.heartbeat {

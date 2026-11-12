@@ -7,7 +7,10 @@ class RecallRelevantSkills(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
         if not self.agent or loop_data.iteration != 0:
             return
-        if not tool_policy.resolve_tool(self.agent, "skills_tool").allowed:
+        if not all(
+            tool_policy.resolve_tool(self.agent, "skills_tool", action=action).allowed
+            for action in ("search", "load")
+        ):
             return
 
         content = loop_data.user_message.content if loop_data.user_message else ""

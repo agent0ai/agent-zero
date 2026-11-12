@@ -11,16 +11,18 @@ from helpers.state_monitor_integration import mark_dirty_all
 PLUGIN_NAME = "_chat_naming"
 MODE_ONCE = "once"
 MODE_ALWAYS = "always"
+MANUAL_NAME_KEY = "chat_naming_manual"
 RECENT_USER_MESSAGES = 4
 GENERATED_NAME_LIMIT = 40
 UTILITY_CONTEXT_INPUT_RATIO = 0.7
+INITIAL_SEED_METADATA = "initial_seed"
 
 
 def get_config(agent: Agent) -> dict[str, Any]:
     config = plugins.get_plugin_config(PLUGIN_NAME, agent=agent) or {}
-    mode = str(config.get("automatic_naming_mode", MODE_ONCE) or MODE_ONCE)
+    mode = str(config.get("automatic_naming_mode", MODE_ALWAYS) or MODE_ALWAYS)
     if mode not in {MODE_ONCE, MODE_ALWAYS}:
-        mode = MODE_ONCE
+        mode = MODE_ALWAYS
     return {
         "automatic_naming": bool(config.get("automatic_naming", True)),
         "automatic_naming_mode": mode,
@@ -31,6 +33,8 @@ def get_user_messages(agent: Agent, *, limit: int | None = RECENT_USER_MESSAGES)
     messages: list[str] = []
     for message in agent.history.all_messages():
         if message.ai:
+            continue
+        if message.metadata.get(INITIAL_SEED_METADATA):
             continue
         text = _user_message_text(message.content)
         if text:

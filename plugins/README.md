@@ -14,8 +14,8 @@ For detailed guides on how to create, extend, or configure plugins, refer to:
 - [`plugins/AGENTS.md`](AGENTS.md): Bundled and custom plugin architecture, manifest format, extension points, banners, and Plugin Index submission rules.
 - [`docs/developer/plugins.md`](../docs/developer/plugins.md): Human-facing developer guide covering the full plugin lifecycle.
 - [`AGENTS.md`](../AGENTS.md): Main framework guide and backend context.
-- [`skills/a0-plugin-router/SKILL.md`](../skills/a0-plugin-router/SKILL.md): Agent-facing entry point that routes plugin tasks to the appropriate specialist skill.
-- [`skills/a0-create-plugin/SKILL.md`](../skills/a0-create-plugin/SKILL.md): Agent-facing authoring workflow (local and community plugins).
+- [`skills/a0-create-plugin/SKILL.md`](../skills/a0-create-plugin/SKILL.md): Agent-facing authoring entrypoint with implementation, review, and contribution references.
+- [`skills/a0-manage-plugin/SKILL.md`](../skills/a0-manage-plugin/SKILL.md): Find useful Index plugins and manage installation, configuration, and lifecycle.
 
 ## What a Plugin Can Provide
 

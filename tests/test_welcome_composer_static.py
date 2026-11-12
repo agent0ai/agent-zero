@@ -31,15 +31,14 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert "get heroSubtitle()" in welcome_store
     assert 'return "How can I help you today?";' in welcome_store
     assert '<h2>Quick Actions</h2>' in welcome
-    assert 'class="welcome-lower-grid"' in welcome
+    assert 'class="welcome-board"' in welcome
     assert 'x-extension id="welcome-actions-end"' in welcome
-    assert "grid-template-columns: repeat(4, minmax(0, 1fr));" in welcome
-    assert '"accounts accounts channels channels"' in welcome
-    assert '"system system system system"' in welcome
+    for block in ("intro", "quick-actions", "accounts", "channels", "system"):
+        assert f'data-welcome-block="{block}"' in welcome
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in welcome
+    assert '.welcome-board > .is-paired,\n        .welcome-board > .welcome-quick-section[data-welcome-size="half"],\n        .welcome-board > .welcome-system-card[data-welcome-size="half"] {\n            grid-column: auto;' in welcome
+    assert '.welcome-board > .welcome-system-card[data-welcome-size="half"] { grid-column: 1 / -1; }' in welcome
     assert "align-items: stretch;" in welcome
-    assert ".welcome-lower-grid .discovery-slot {\n            display: contents;" in welcome
-    assert ".welcome-lower-grid .discovery-account-card {\n            grid-area: accounts;" in welcome
-    assert "grid-area: system;" in welcome
     assert ".welcome-composer .input-row {\n            min-height: 4.9rem;" in welcome
     assert "border-radius: 8px;" in welcome
     assert 'aria-label="Refresh System Resources"' in welcome
@@ -62,12 +61,16 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert 'const hashIndex = path.indexOf("#");' in welcome_store
     assert 'history.replaceState(null, "", `#${hash}`);' in welcome_store
     assert ".welcome-banner-html .btn,\n        .welcome-banner-html button" in welcome
-    assert "background-color: #4248f1;" in welcome
+    assert "background-color: var(--color-highlight);" in welcome
     assert 'aria-label="Dismiss Connect Channels"' in discovery_cards
     assert "dismissFeatureCards()" in discovery_cards
     assert "dismissFeatureCards() {" in discovery_store
-    assert 'class="discovery-feature-card"\n                                type="button"' in discovery_cards
-    assert "`${card.cta_text || 'Connect'} ${card.title}`" in discovery_cards
+    assert "Find channels plugins" in discovery_cards
+    assert "$store.welcomeStore.openWelcomePlugins('channels')" in discovery_cards
+    assert '<x-icon name="extension"></x-icon>' in discovery_cards
+    assert 'welcome-panel-icon-button welcome-panel-text-button' in discovery_cards
+    assert 'class="discovery-feature-card" type="button"' in " ".join(discovery_cards.split())
+    assert 'class="discovery-feature-title" x-text="card.title"' in discovery_cards
     assert "discovery-feature-card > .btn" not in discovery_cards
     assert "discovery-feature-head" not in discovery_cards
     assert "discovery-account-header" in discovery_cards
@@ -78,6 +81,8 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert "x-if=\"$store.welcomeStore && $store.welcomeStore.isVisible\"" in index
     assert "x-if=\"!$store.welcomeStore || !$store.welcomeStore.isVisible\"" in index
     assert "Connect Channels" in discovery_cards
+    assert 'x-teleport="#welcome-accounts"' in discovery_cards
+    assert 'x-teleport="#welcome-channels"' in discovery_cards
     assert "oauthAccountCards" in discovery_cards
     assert "discovery-account-card" in discovery_cards
     assert "topHeroCards" not in discovery_cards
@@ -100,7 +105,9 @@ def test_welcome_composer_can_create_a_chat_before_sending() -> None:
     assert index_js.index(optimistic_user) < index_js.index("if (hasAttachments)")
     assert "return response.ctxid;" in chats_store
     assert 'return "arrow_forward";' in input_store
-    assert "modelGateStore.canSendToModel()" in index_js
+    assert "modelGateStore.canSendToModel()" not in index_js
+    assert "modelGateStore.syntheticMessages(sendContext)" in index_js
+    assert "model_not_configured" in index_js
     assert "modelGateStore.mergeSyntheticMessages(snapshot.logs, context)" in index_js
     assert 'type: "model_setup_gate"' in gate_store
     assert 'STORAGE_KEY = "a0:model-gate-pending:v1"' in gate_store
@@ -122,7 +129,8 @@ def test_welcome_composer_can_create_a_chat_before_sending() -> None:
     assert "this.choice = \"\";" in gate_store
     assert 'document.addEventListener("model-configured"' in gate_store
     assert 'document.addEventListener("model-setup-changed"' in gate_store
-    assert "bypassModelGate: true" in gate_store
+    assert "bypassModelGate" not in gate_store
+    assert "skipExtensions: true" in gate_store
     assert "modelConfigStore.openPresetEditor(" in gate_store
     assert 'openPluginConfig("_oauth"' not in gate_store
     assert "Your message sends automatically once a model is connected." in gate_component
@@ -164,7 +172,7 @@ def test_welcome_composer_buttons_keep_target_geometry_without_glow() -> None:
     mic_css = _read("plugins/_whisper_stt/webui/whisper-stt.css")
 
     assert "#send-button {\n      order: 2;\n      border-radius: 12px;" in chat_bar
-    assert "background-color: #4248f1;" in chat_bar
+    assert "background-color: var(--color-highlight);" in chat_bar
     assert "background-color: #e67e22;" in chat_bar
     assert "linear-gradient" not in chat_bar
     assert "#microphone-button {\n  order: 1;" in mic_css

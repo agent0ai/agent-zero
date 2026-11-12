@@ -7,8 +7,6 @@ the deeper source-linked explanation.
 For architecture, backend flow, Web UI internals, plugin lifecycle, and API
 details, use [DeepWiki for Agent Zero](https://deepwiki.com/agent0ai/agent-zero).
 
-![Agent Zero first task](../res/usage/first-task.png)
-
 ## Basic Operations
 
 Agent Zero is built around a chat, a working Linux environment, and a Web UI that
@@ -25,15 +23,87 @@ Common places to start:
 - **Browser:** open the live Browser surface when you want to watch browsing or annotate a page.
 - **Desktop:** open the live Linux desktop when you want GUI apps, a terminal window, or LibreOffice Cowork.
 
-![Dashboard actions](../res/usage/webui/dashboard.png)
+![Welcome screen with a message box and Quick Actions](../res/usage/webui/welcome-start.png)
 
-The chat input also has action buttons for attachments, pausing, nudging, compacting,
-and opening helpful views such as context or history.
-
-![Action buttons](../res/usage/action-btns.png)
+Type directly into the welcome message box to start a new chat. If models need
+setup, the chat holds your message while you complete
+[onboarding](onboarding.md), then retries it once the model is configured.
 
 Use **Restart** from the sidebar when you need the framework to reload after
 settings or code changes.
+
+### Find a chat or message
+
+Use **Search** below **Chats** to enter a chat title or a phrase you remember.
+Matching message excerpts appear under the chat name. Click a result to open
+the conversation. Your project, status, and activity filters still apply.
+
+![Sidebar search finding a phrase in imported repair cafe conversations](../res/usage/migration/imported-message-search.png)
+
+Clear the query with the close button or Escape. If you do not see the field,
+open **Sidebar view options → Search → Standard**. **Compact** puts search
+behind a magnifier; **No search** hides it. Search covers the current chat list,
+not deleted or archived chats, and is separate from the Welcome Chats search.
+
+For conversations from another app, see [Move your chats into Agent Zero](migrate-agents.md).
+
+### Customize Welcome
+
+Drag a section's handle to move it, or click the handle for **Move up** and
+**Move down**. With the handle focused, arrow keys move the section; Home and
+End move it to the beginning or end.
+
+![Quick Actions move menu on the welcome screen](../res/usage/webui/welcome-layout.png)
+
+Use a section's close button to hide it. **Show all dismissed** at the bottom
+restores hidden sections, notices, and discovery cards, including the greeting
+and message box. It restores visibility without resetting your order. These
+layout choices are saved in this browser.
+
+![Welcome with the greeting and message box hidden and Show all dismissed available](../res/usage/webui/welcome-restore.png)
+
+The puzzle button beside the restore control opens Plugin Hub with welcome
+plugins selected. Additional panels depend on which plugins you have installed.
+
+### While Agent Zero is working
+
+Expand a tool row to inspect its details. Use the controls around the message
+box to steer the current chat:
+
+| Control | What it does |
+| --- | --- |
+| **Pause Agent / Resume Agent** | Pause processing and continue it later. |
+| **Stop agent** (square send button) | Stop the current run. It appears while the agent is running and the message box is empty. |
+| **Add to queue** | Add a follow-up while a run is active. Queued messages remain visible above the composer. |
+| **Send now / Send all** | Send one queued message immediately, or combine and send the queue. Remove an item to cancel that queued message. |
+| **Nudge** | Prompt the agent to continue when it needs another push. |
+| **Compact** | Summarize a long conversation to reduce the context it uses. |
+| **+ → History / Context** | Inspect the conversation history or the current model context. |
+
+![Chat actions including History, Context, Goal mode, and Skills](../res/usage/webui/chat-actions-current.png)
+
+When a result includes a file link, open it to inspect the artifact. Use a
+message's **Branch chat** action to try a different direction from that point;
+the original chat stays unchanged.
+
+### Set a goal for longer work
+
+Use **+ → Goal mode** to prefill `/goal `, then write a concrete objective and
+send it. For example:
+
+```text
+/goal Prepare the kickoff plan and a short review checklist
+```
+
+An active goal keeps the agent working through intermediate updates until it
+marks the goal complete or blocked. The goal strip lets you edit, pause,
+resume, or delete the goal. Pausing a goal is separate from **Pause Agent**;
+use the latter when you need to pause the chat's processing too.
+
+![Paused goal with edit, resume, and delete controls](../res/usage/webui/chat-goal.png)
+
+Goals belong to the current chat. Use [Tasks and Scheduling](#tasks-and-scheduling)
+when the work should run later or on a schedule.
 
 ## Plugins And Plugin Hub
 
@@ -45,6 +115,10 @@ Open **Plugins** from the dashboard or sidebar to see what is installed.
 
 Use the **Browse** tab or **Install** button to open the Plugin Hub.
 
+Looking for a model provider? Choose the **Provider** filter. The
+[OpenCode Go guide](opencode.md) shows how to find a provider that is missing
+from onboarding, install its plugin, and configure the models.
+
 ![Plugin Hub](../res/usage/plugins/plugin-hub-main-view.png)
 
 Before installing a plugin, read its description, README, permissions, and source
@@ -54,7 +128,7 @@ ones you trust and remove what you do not use.
 When you want to make your own first plugin, start with something small and
 visible. The [Create a Small Plugin](create-plugin.md) guide walks through a
 local Web UI plugin that adds an unread dot to the chat list and then reviews it
-with `a0-review-plugin`.
+with the review reference in `a0-create-plugin`.
 
 ## Skills, Agent Profiles, And Model Presets
 
@@ -79,8 +153,8 @@ list short and intentional. See the [Skills guide](skills.md).
 
 ### Agent Profiles
 
-Agent Profiles change the role, tone, and prompt instructions for the selected
-chat.
+Agent Profiles give the selected chat a role, instructions, model preset, and
+Tool, MCP, and Skill access policy.
 
 ![Agent Profile selector](../res/usage/webui/agent-profile-selector.png)
 
@@ -90,7 +164,7 @@ profile availability for Global or one project.
 
 ![Manage agents with a project-specific availability choice](../res/usage/webui/agent-profile-manager.png)
 
-Use **Settings -> Agent Config** when you want to change the default profile for
+Use **Settings → Agent → Agent Config** when you want to change the default profile for
 new Global chats.
 
 See the [Agent Profiles guide](agent-profiles.md).
@@ -102,7 +176,7 @@ Model Presets are named shortcuts for model choices. Use them for setups like
 
 ![Model preset selector](../res/usage/webui/model-preset-selector.png)
 
-Click **Edit presets** when you want to add or rename presets.
+Click **Edit Presets** when you want to add or rename presets.
 
 ![Model presets editor](../res/usage/webui/model-presets-editor.png)
 

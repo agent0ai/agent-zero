@@ -48,7 +48,7 @@ Use:
 {
   "tool_name": "computer_use_remote",
   "tool_args": {
-    "action": "start_session"
+    "action": "list_windows"
   }
 }
 ```
@@ -56,7 +56,7 @@ Use:
 Arguments:
 
 - `action`: `start_session`, `status`, `capture`, `list_windows`, `get_window_state`, `element_action`, `move`, `click`, `scroll`, `key`, `type`, `stop_session`
-- `session_id`: optional after `start_session`
+- `session_id`: optional explicit binding; normally omit it to reuse the current chat's session. An explicit stale/mismatched ID is not automatically replaced.
 - backend skills may document additional backend-only action values; use them only when backend metadata advertises matching support and after loading the backend-specific skill
 - `list_windows`: returns native top-level window records when the backend supports them
 - `get_window_state`: pass `pid` and/or `window_id`; returns a target-window accessibility tree with stable `element_index` values for the current state
@@ -74,7 +74,7 @@ If any tool result contains `COMPUTER_USE_REARM_REQUIRED` or `status=rearm requi
 
 ## Core Loop
 
-1. Call `start_session` first.
+1. Start with `list_windows` for a native app or `capture` for a screen. When this chat has no session, the tool starts it once and continues the request within the same call. Existing host enablement, trust mode, and platform approval checks still apply; no separate `start_session` step is needed per chat.
 2. Read the returned `backend_id`, `backend_family`, `features`, `contract_version`, and `capabilities`; load a backend-specific Computer Use skill when the task needs backend-only affordances.
 3. Prefer the structured `capabilities` object over guessing from OS names. Use `capabilities.identity.pid`, `capabilities.identity.window_id`, `capabilities.identity.element_index`, and `capabilities.dispatch.background` as the portable contract for the native background loop.
 4. If the backend advertises native window listing through capabilities or `native-window-list`, call `list_windows` before using coordinates.
@@ -89,7 +89,7 @@ If any tool result contains `COMPUTER_USE_REARM_REQUIRED` or `status=rearm requi
 
 ## Backend Skills
 
-- If the backend is Linux/Wayland or features include `atspi-tree-snapshot` / `atspi-structural-targeting`, load `host-computer-use-linux` before using Linux AT-SPI structural actions.
+- If the backend is Linux/Wayland/X11 or features include `atspi-tree-snapshot` / `atspi-structural-targeting`, load `host-computer-use-linux` for Linux targeting and X11/XWayland app workflows. Its host-shell workflow additionally requires enabled host code execution; it cannot replace denied Computer Use access.
 - If the backend is macOS or features include `accessibility-tree-snapshot` / `accessibility-structural-targeting`, load `host-computer-use-macos` before using macOS structural Accessibility actions.
 - If the backend is Windows or features include `uia-tree-snapshot` / `uia-structural-targeting`, load `host-computer-use-windows` before using Windows UI Automation structural actions.
 - Do not use backend-specific actions just because their argument names exist in the generic contract. Treat them as unavailable unless the connected CLI advertises the matching feature.
@@ -105,6 +105,7 @@ If any tool result contains `COMPUTER_USE_REARM_REQUIRED` or `status=rearm requi
 - Prefer accessibility and semantic UI paths first: shortcuts, command palettes, menu accelerators, address/search bars, focus traversal, and other keyboard-accessible controls.
 - Prefer `key` and `type` over pointer actions whenever a reliable keyboard path exists.
 - When a menu or popup is open, treat it as the active UI and prefer keyboard navigation over clicking small transient rows by coordinate.
+- Do not reactivate the parent window while its popup is open: activation can dismiss the popup and send the next click to the underlying content. Inspect the popup and its actual selected control, including radio buttons, before acting.
 - If a click dismisses a menu or popup without producing the expected next UI, treat that attempt as failed.
 - If the same approach has already failed twice without visible progress, switch strategy instead of repeating it.
 - Do not infer focus or task completion from chat logs, sidebars, tool summaries, or status text.

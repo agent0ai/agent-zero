@@ -34,6 +34,7 @@
 - `get_settings() -> Settings`
 - `reload_settings() -> Settings`
 - `set_runtime_settings_snapshot(settings: Settings) -> None`
+- `version_cache_scope(version: str | None = None)`: Reuse only the Git version within one synchronous operation, expiring inherited copies on exit.
 - `set_settings(settings: Settings, apply: bool=..., browser_timezone: str | None=...)`
 - `set_settings_delta(delta: dict, apply: bool=...)`
 - `merge_settings(original: Settings, delta: dict) -> Settings`
@@ -55,6 +56,13 @@
 
 ## Runtime Contracts
 
+- Settings reads use `models.get_api_key_raw()` to preserve complete key lists without advancing runtime rotation or persisting keys synthesized by runtime hooks. Masking, authentication reloads, and intentional clearing retain their existing behavior.
+- Ordinary settings reads represent an unreadable secrets file as `None`, preserving unrelated settings access. Normalization retains this transient value, and saves skip secret writes for it even if the file becomes readable in the meantime. Frontend conversion and explicit secret edits still raise on read failures; they must never present a false empty editor or overwrite unreadable data. A missing file remains a valid empty store, and an explicit empty string still clears a readable store.
+- `ui_control_visibility` accepts dynamic `canvas:<surface-id>` entries as well as built-in controls, normalizes device values to booleans (default shown), and preserves choices for temporarily unavailable plugins.
+
+- `file_browser_max_text_size_mb` persists the instance-wide text-editing limit, default 10 MiB and normalized to 1–100. FileBrowser reads it directly so its scoped settings API can update it without restarting or reinitializing agents.
+- `file_browser_max_transfer_size_mb` independently persists the Files transfer limit, default 100 MiB, normalized to a positive integer without an upper ceiling. It does not change Backup & Restore or WebSocket limits.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, network calls, subprocess/runtime control, model calls, WebSocket state, plugin state, settings/state persistence, secret handling, scheduler state.
@@ -64,6 +72,12 @@
 
 - Important called helpers/classes observed in the source: `TypeVar`, `files.get_abs_path`, `dotenv.get_dotenv_value`, `opts.insert`, `str.strip`, `_is_valid_timezone`, `str.strip.lower`, `_normalize_timezone_setting`, `SettingsOutput`, `get_default_settings`, `_ensure_option_present`, `_resolve_runtime_timezone`, `get_default_secrets_manager`, `get_settings`, `get_settings_for_prompt`, `normalize_settings`, `_load_sensitive_settings`, `deepcopy`, `settings.copy`, `_write_settings_file`, `reload_settings`, `set_settings`, `initialize_agent`.
 - Applying settings refreshes active context configs while preserving each subordinate agent's own profile.
+- `version_cache_scope()` eagerly resolves or accepts a Git version in a task-local
+  scope. Settings application and persisted-chat loading reuse it while retaining
+  per-agent normalization, credential reads, and initialization hooks. Nested scopes
+  restore their parent even on failure. Each scope clears its cache on exit so
+  inherited task contexts cannot retain or repopulate an expired version; reads
+  outside an active scope resolve the version afresh.
 - Applying settings starts a deferred `MCPConfig.update(...)` with the current `mcp_servers` string when global MCP server settings change.
 - `get_settings()` retains normalize-on-read behavior. Prompt-building callers
   explicitly use `get_settings_for_prompt()` to reuse one task-local snapshot
@@ -89,6 +103,9 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_settings_cache.py`
+  - `tests/test_settings_api_keys.py`
+  - `tests/test_settings_mcp.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_document_query_plugin.py`
   - `tests/test_download_toast_regressions.py`
@@ -102,3 +119,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+`file_browser_max_extract_size_mb` (default100 MiB) and `file_browser_max_archive_entries` (default1000) are independently configurable positive integers without upper ceilings. They govern File Browser archive operations, not Backup & Restore.

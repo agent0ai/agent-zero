@@ -1,6 +1,6 @@
 ---
 name: linux-desktop
-description: Use only for Agent Zero's built-in Docker/Xpra Linux Desktop, XFCE apps, LibreOffice GUI apps, file manager, terminal, or visual workflows inside the Agent Zero runtime. Not for A0 CLI /computer-use or computer_use_remote host control.
+description: "Control Agent Zero's Docker/Xpra desktop and GUI apps; not the user's host computer."
 version: "0.3.0"
 author: "Agent Zero Core Team"
 tags: ["linux", "desktop", "xfce", "libreoffice", "gui", "files", "terminal"]

@@ -58,6 +58,9 @@ def test_effective_config_defaults_and_clamps():
     assert cfg["retention_enabled"] is True
     assert cfg["retention_max_age_days"] == 0
     assert cfg["retention_sweep_interval_hours"] == 6
+    assert cfg["history_retention_enabled"] is True
+    assert cfg["history_max_snapshots"] == 500
+    assert cfg["history_max_age_days"] == 30
     clamped = retention.effective_config(
         {
             "retention_sweep_interval_hours": 0,
@@ -121,7 +124,7 @@ def test_sweep_matrix(tmp_path):
     assert os.path.isfile(os.path.join(shadow, "stray-file"))
 
 
-def test_max_age_zero_keeps_history_forever(tmp_path):
+def test_max_age_zero_keeps_inactive_workspace_history(tmp_path):
     shadow = str(tmp_path / "workspaces")
     state = str(tmp_path / "state")
     os.makedirs(shadow)

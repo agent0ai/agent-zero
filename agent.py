@@ -12,6 +12,7 @@ from helpers import (
     files,
     errors,
     history,
+    responses_history,
     tokens,
     context as context_helper,
     dirty_json,
@@ -39,7 +40,7 @@ from helpers.llm_result import (
     metadata_from_llm_result,
     result_from_metadata,
 )
-from helpers.litellm_transport import ResponsesTransport
+from helpers.litellm_transport import ResponsesTransport, TransportMode
 from helpers.responses_tools import build_responses_function_tools, original_tool_name
 
 _RESPONSE_STREAM_UPDATE_CHARS = 128
@@ -107,6 +108,8 @@ class AgentContext:
 
         # initialize agent at last (context is complete now)
         self.agent0 = agent0 or Agent(0, self.config, self)
+        if last_message is not None:
+            self.last_message = last_message
 
     @staticmethod
     def get(id: str):
@@ -457,6 +460,12 @@ class Agent:
                                 printer.print("Response: ")  # start of response
                             # Pass chunk and full data to extensions for processing
                             stream_data = {"chunk": chunk, "full": full}
+                            await extension.call_extensions_async(
+                                "response_stream_chunk",
+                                self,
+                                loop_data=self.loop_data,
+                                stream_data=stream_data,
+                            )
                             tool_request = extract_tools.extract_tool_request(full)
                             if tool_request is not None:
                                 try:
@@ -464,16 +473,10 @@ class Agent:
                                 except Exception:
                                     pass
                                 else:
-                                    await self.handle_response_stream(full)
+                                    await self.handle_response_stream(stream_data["full"])
                                     response_stream_pending = False
                                     return full.strip()
 
-                            await extension.call_extensions_async(
-                                "response_stream_chunk",
-                                self,
-                                loop_data=self.loop_data,
-                                stream_data=stream_data,
-                            )
                             # Stream masked chunk after extensions processed it
                             if stream_data.get("chunk"):
                                 printer.stream(stream_data["chunk"])
@@ -570,6 +573,7 @@ class Agent:
         )
 
         # set system prompt and message history
+        responses_history.start_prompt(loop_data)
         loop_data.system = await self.get_system_prompt(self.loop_data)
         loop_data.history_output = self.history.output()
 
@@ -610,6 +614,7 @@ class Agent:
             *history_langchain,
         ]
         full_text = ChatPromptTemplate.from_messages(full_prompt).format()
+        responses_history.remember_prompt(loop_data, full_text, full_prompt[0], protocol)
 
         # store as last context window content
         self.set_data(
@@ -725,7 +730,7 @@ class Agent:
         id: str = "",
         metadata: dict[str, Any] | None = None,
     ):
-        self.last_message = Localization.get().now()
+        self.context.last_message = Localization.get().now()
         # Allow extensions to process content before adding to history
         content_data = {"content": content}
         extension.call_extensions_sync(
@@ -770,9 +775,18 @@ class Agent:
 
     @extension.extensible
     def hist_add_ai_response(
-        self, message: str, llm_result: LLMResult, id: str = ""
+        self, message: str, llm_result: LLMResult | str | None = None, id: str = ""
     ):
-        self.loop_data.last_response = message
+        if isinstance(llm_result, str):
+            if id:
+                raise TypeError("History message ID supplied twice")
+            id, llm_result = llm_result, None
+        if llm_result is None:
+            llm_result = LLMResult.non_llm()
+        self.loop_data.last_response = (
+            llm_result.repeat_response_text() if llm_result.function_calls else message
+        )
+        message = llm_result.function_calls_text() or message
         content = self.parse_prompt("fw.ai_response.md", message=message)
         msg = self.hist_add_message(
             True,
@@ -930,7 +944,13 @@ class Agent:
         model_kwargs = getattr(model, "kwargs", {}) if model else {}
         if isinstance(model_kwargs, dict) and model_kwargs.get("responses_delete_on_chat_delete") is False:
             self.set_data("responses_delete_on_chat_delete", False)
-        response_tools, name_map = build_responses_function_tools(self)
+        # native function tools are only sent through the Responses API
+        api_mode = model_kwargs.get("a0_api_mode") if isinstance(model_kwargs, dict) else None
+        response_tools, name_map = (
+            build_responses_function_tools(self)
+            if TransportMode.from_value(api_mode) is TransportMode.RESPONSES
+            else ([], {})
+        )
         self.set_data(Agent.DATA_NAME_RESPONSES_TOOL_NAME_MAP, name_map)
 
         call_data = {
@@ -951,7 +971,7 @@ class Agent:
                 model,
                 history_counter,
             )
-        call_data["responses_local_input_items"] = self._responses_prompt_input_items(
+        call_data["responses_local_input_items"] = ResponsesTransport.input_from_model_messages(
             model,
             messages,
         )
@@ -961,6 +981,7 @@ class Agent:
         )
 
         turn_kwargs = {
+            **responses_history.prepare_call(self, call_data),
             "a0_responses_function_tools": call_data.get(
                 "a0_responses_function_tools"
             ),
@@ -1040,18 +1061,7 @@ class Agent:
 
         output = message.output()
         langchain_messages = history.output_langchain(output)
-        if hasattr(model, "_convert_messages"):
-            converted = model._convert_messages(langchain_messages)
-            return ResponsesTransport.input_from_messages(converted)
-        return []
-
-    def _responses_prompt_input_items(
-        self, model: Any, messages: list[BaseMessage]
-    ) -> list[dict[str, Any]]:
-        if not hasattr(model, "_convert_messages"):
-            return []
-        converted = model._convert_messages(messages)
-        return ResponsesTransport.input_from_messages(converted)
+        return ResponsesTransport.input_from_model_messages(model, langchain_messages)
 
     def _remember_llm_result_state(
         self, llm_result: LLMResult, history_message: history.Message
@@ -1128,7 +1138,10 @@ class Agent:
                 if result:
                     return result
             return None
-        if llm_result.builtin_items and not llm_result.response:
+        if (
+            llm_result.builtin_items
+            and extract_tools.extract_tool_request(llm_result.response) is None
+        ):
             return None
         message = llm_result.response
         if not message and llm_result.reasoning:
@@ -1137,18 +1150,6 @@ class Agent:
                 or extract_tools.is_misformatted_tool_request(llm_result.reasoning)
             ):
                 message = llm_result.reasoning
-        if (
-            llm_result.mode == "responses"
-            and isinstance(message, str)
-            and bool(message.strip())
-            and extract_tools.extract_tool_request(message) is None
-            and not extract_tools.is_misformatted_tool_request(message)
-        ):
-            return await self._execute_tool_request(
-                tool_name="response",
-                tool_args={"text": message},
-                message=message,
-            )
         return await self.process_tools(message)
 
     async def _execute_tool_request(
@@ -1197,7 +1198,7 @@ class Agent:
             PrintStyle(font_color="red", padding=True).print(error_detail)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: {error_detail}",
+                content=error_detail,
                 id=wmsg.id,
             )
             return None
@@ -1521,7 +1522,7 @@ class Agent:
                 wmsg = self.hist_add_warning(error_detail)
                 PrintStyle(font_color="red", padding=True).print(error_detail)
                 self.context.log.log(
-                    type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
+                    type="warning", content=error_detail, id=wmsg.id
                 )
         else:
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
@@ -1529,7 +1530,7 @@ class Agent:
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
             self.context.log.log(
                 type="warning",
-                content=f"{self.agent_name}: Message misformat, no valid tool request found.",
+                content="Message misformat, no valid tool request found.",
                 id=wmsg.id,
             )
 
@@ -1555,6 +1556,11 @@ class Agent:
                 return  # no reason to try
             response = DirtyJson.parse_string(stream)
             if isinstance(response, dict):
+                try:
+                    tool_name, tool_args = extract_tools.normalize_tool_request(response)
+                    response.update(tool_name=tool_name, tool_args=tool_args)
+                except ValueError:
+                    pass  # Tool fields may still be incomplete.
                 await extension.call_extensions_async(
                     "response_stream",
                     self,

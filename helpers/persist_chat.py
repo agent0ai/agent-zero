@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from agent import Agent, AgentConfig, AgentContext, AgentContextType
-from helpers import files, history, extension
+from helpers import extension, files, history, settings
 from helpers.litellm_transport import delete_stored_response_ids
 from helpers.localization import Localization
 from initialize import initialize_agent
@@ -80,20 +80,26 @@ def load_tmp_chats():
             json_files.append(chat_file)
 
     ctxids = []
-    for file in json_files:
-        try:
-            js = files.read_file(file)
-            data = json.loads(js)
-            ctx = _deserialize_context(data)
-            mark_chat_saved(ctx)
-            ctxids.append(ctx.id)
-        except Exception as e:
-            print(f"Error loading chat {file}: {e}")
+    with settings.version_cache_scope():
+        for file in json_files:
+            try:
+                js = files.read_file(file)
+                data = json.loads(js)
+                ctx = _deserialize_context(data)
+                mark_chat_saved(ctx)
+                ctxids.append(ctx.id)
+            except Exception as e:
+                print(f"Error loading chat {file}: {e}")
     return ctxids
 
 
 def _get_chat_file_path(ctxid: str):
     return files.get_abs_path(CHATS_FOLDER, ctxid, CHAT_FILE_NAME)
+
+
+def chat_file_exists(ctxid: str) -> bool:
+    """True if this context has a persisted chat.json on disk."""
+    return files.exists(_get_chat_file_path(ctxid))
 
 
 def _write_atomic(path: str, content: str) -> None:

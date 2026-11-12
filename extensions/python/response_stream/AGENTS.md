@@ -11,6 +11,7 @@
 ## Local Contracts
 
 - Keep streaming output synchronized with UI log items.
+- Agent.handle_response_stream normalizes complete tool name/argument aliases before these consumers; incomplete snapshots remain partial data. This display normalization does not execute or authorize tools.
 - Treat parsed stream snapshots as partial data; nested tool fields may be `None`
   until their values arrive.
 - Preserve include-alias replacement semantics where prompts/tools rely on them.

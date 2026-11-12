@@ -16,6 +16,9 @@
 - Install third-party plugins into `usr/plugins/`, not bundled `plugins/`.
 - Reject unsafe archive paths, missing manifests, invalid manifests, and plugin name conflicts.
 - Run plugin install hooks and refresh plugin state after successful changes.
+- Download fallback thumbnails only when no supported thumbnail exists; repository-provided images change through Git updates.
+- Browse tag filters match every tag on a plugin, counting each plugin once per tag. Keep Welcome, Provider, and Channels available even with zero results so welcome-screen, model-setup, and channel shortcuts have a visible selected filter.
+- Rebase local commits during Git updates; on conflicts restore the checkout and report the conflicting files through the existing structured error, persistent toast, and detail view.
 
 ## Work Guidance
 

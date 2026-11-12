@@ -455,7 +455,7 @@ def clone_repo(url: str, dest: str, token: str | None = None):
 
 
 class DirtyTreeConflictError(Exception):
-    """Raised when a dirty plugin cannot be updated without overwriting local edits."""
+    """Raised when a plugin update conflicts with local commits or edits."""
 
     def __init__(self, conflicting_files: list[str]):
         super().__init__(
@@ -466,20 +466,17 @@ class DirtyTreeConflictError(Exception):
 
 
 def _list_dirty_tracked_files(repo: "Repo") -> list[str]:
-    """Return tracked files with uncommitted modifications, excluding A0 metadata."""
-    def _is_a0_file(path: str) -> bool:
-        return path.startswith(".a0proj") or path == ".a0proj"
-
+    """Return tracked files with uncommitted modifications."""
     changed = {d.a_path for d in repo.index.diff(None)}
     changed.update(d.a_path for d in repo.index.diff("HEAD"))
-    return sorted(p for p in changed if p and not _is_a0_file(p))
+    return sorted(p for p in changed if p)
 
 
 def update_repo(repo_path: str, auto_stash: bool = True) -> Repo:
-    """Fast-forward the repo to its tracking branch.
+    """Update from the tracking branch, rebasing local commits onto upstream.
 
     When `auto_stash` is True (default) and the working tree has uncommitted
-    changes to tracked files, those changes are stashed before the pull and
+    changes to tracked files, those changes are stashed before the rebase and
     reapplied afterwards. If they conflict with the update, the repo and local
     edits are restored to their original state before `DirtyTreeConflictError`
     is raised.
@@ -491,7 +488,11 @@ def update_repo(repo_path: str, auto_stash: bool = True) -> Repo:
     if repo.head.is_detached:
         raise ValueError("Repository HEAD is detached.")
 
-    branch = repo.active_branch.name
+    if any(os.path.exists(os.path.join(repo.git_dir, name)) for name in (
+        "rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD",
+    )):
+        raise ValueError("A Git operation is already in progress. Finish or abort it before updating.")
+
     tracking_branch = repo.active_branch.tracking_branch()
     if tracking_branch is None:
         raise ValueError("Current branch has no tracking remote branch.")
@@ -508,22 +509,31 @@ def update_repo(repo_path: str, auto_stash: bool = True) -> Repo:
     def restore_original_state():
         repo.git.reset("--hard", original_head)
         if dirty_files:
-            repo.git.stash("pop")
+            repo.git.stash("pop", "--index")
 
     try:
         with repo.git.custom_environment(**env):
-            repo.remotes[tracking_branch.remote_name].pull(branch)
-    except Exception:
+            repo.remotes[tracking_branch.remote_name].fetch(tracking_branch.remote_head)
+            repo.git.rebase("--no-autostash", "--no-update-refs", tracking_branch.path)
+    except Exception as error:
+        conflicting_files = sorted(repo.index.unmerged_blobs())
+        if any(os.path.exists(os.path.join(repo.git_dir, name)) for name in (
+            "rebase-merge", "rebase-apply",
+        )):
+            repo.git.rebase("--abort")
         if dirty_files:
             restore_original_state()
+        if conflicting_files:
+            raise DirtyTreeConflictError(conflicting_files) from error
         raise
 
     if dirty_files:
         try:
             repo.git.stash("pop")
-        except Exception:
+        except Exception as error:
+            conflicting_files = sorted(repo.index.unmerged_blobs()) or dirty_files
             restore_original_state()
-            raise DirtyTreeConflictError(dirty_files)
+            raise DirtyTreeConflictError(conflicting_files) from error
 
     return repo
 

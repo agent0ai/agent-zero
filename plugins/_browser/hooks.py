@@ -140,6 +140,18 @@ def prepare_playwright_cache() -> dict:
 
 
 def install() -> dict:
+    with _SETUP_LOCK:
+        if importlib.util.find_spec("socksio") is None:
+            uv = shutil.which("uv")
+            if not uv:
+                raise RuntimeError("Browser plugin requires 'uv' to install HTTPX SOCKS support")
+            subprocess.check_call(
+                [uv, "pip", "install", "--python", sys.executable, "httpx[socks]"],
+                cwd=str(_PLUGIN_DIR),
+            )
+            importlib.invalidate_caches()
+            if importlib.util.find_spec("socksio") is None:
+                raise RuntimeError("Browser dependency 'socksio' is unavailable after installation")
     return prepare_playwright_cache()
 
 

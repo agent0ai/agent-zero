@@ -17,7 +17,11 @@ class RepeatResponse(Extension):
 
         llm_result = result_data.get("llm_result")
         response = getattr(llm_result, "response", "")
-        if not isinstance(response, str) or response != self.agent.loop_data.last_response:
+        repeat_response = (
+            llm_result.repeat_response_text()
+            if getattr(llm_result, "function_calls", None) else response
+        )
+        if not isinstance(repeat_response, str) or repeat_response != self.agent.loop_data.last_response:
             return
 
         warning = self.agent.read_prompt("fw.msg_repeat.md")
@@ -31,7 +35,7 @@ class RepeatResponse(Extension):
         PrintStyle(font_color="orange", padding=True).print(warning)
         self.agent.context.log.log(
             type="warning",
-            content=f"{self.agent.agent_name}: {self.agent.read_prompt('fw.msg_repeat_response.md')}",
+            content=self.agent.read_prompt('fw.msg_repeat_response.md'),
             id=warning_message.id,
         )
         result_data["skip_default_processing"] = True

@@ -10,6 +10,7 @@ from helpers.persist_chat import save_tmp_chat
 from helpers.state_monitor_integration import mark_dirty_for_context
 from plugins._model_config.helpers import model_config
 from plugins._telegram_integration.helpers import telegram_client as tc
+from plugins._telegram_integration.helpers import scopes
 from plugins._telegram_integration.helpers.constants import (
     CTX_TG_STREAM_ENABLED,
     CTX_TG_TOOLS_ENABLED,
@@ -351,7 +352,7 @@ def _session_view(
     *,
     selected: bool = False,
 ) -> tuple[str, dict | None]:
-    items = _session_items()
+    items = _session_items(context)
     current_label = _session_label(context)
     status = f"Current session: <b>{_html(current_label)}</b>"
     if context.is_running():
@@ -403,12 +404,15 @@ async def _select_model(context: AgentContext, index: int, *, clear: bool = Fals
 
 async def _select_project(context: AgentContext, index: int, *, clear: bool = False) -> None:
     if clear:
+        scopes.require_scope(context, "", context.config.profile)
         projects.deactivate_project(context.id)
         return
     items = [item for item in projects.get_active_projects_list() or [] if item.get("name")]
     if index < 0 or index >= len(items):
         return
-    projects.activate_project(context.id, str(items[index]["name"]))
+    project = str(items[index]["name"])
+    scopes.require_scope(context, project, context.config.profile)
+    projects.activate_project(context.id, project)
 
 
 async def _select_agent(context: AgentContext, index: int) -> None:
@@ -420,6 +424,7 @@ async def _select_agent(context: AgentContext, index: int) -> None:
     if index < 0 or index >= len(items):
         return
     profile = str(items[index]["key"])
+    scopes.require_scope(context, projects.get_context_project_name(context) or "", profile)
     config = initialize_agent(override_settings={"agent_profile": profile})
     context.config = config
     context.agent0.config = config
@@ -430,11 +435,11 @@ async def _select_agent(context: AgentContext, index: int) -> None:
 async def _select_session(context: AgentContext, index: int) -> AgentContext | None:
     if context.is_running():
         return None
-    items = _session_items()
+    items = _session_items(context)
     if index < 0 or index >= len(items):
         return None
     target = items[index].context
-    if target.is_running():
+    if target.is_running() or not scopes.can_select_session(context, target):
         return None
 
     _copy_telegram_binding(context, target)
@@ -445,7 +450,7 @@ async def _select_session(context: AgentContext, index: int) -> AgentContext | N
     return target
 
 
-def _session_items() -> list[SessionItem]:
+def _session_items(context) -> list[SessionItem]:
     contexts = sorted(
         AgentContext.all(),
         key=lambda item: str(item.output().get("last_message") or ""),
@@ -459,6 +464,7 @@ def _session_items() -> list[SessionItem]:
             running=item.is_running(),
         )
         for item in contexts
+        if scopes.can_select_session(context, item)
     ]
 
 

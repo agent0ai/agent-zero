@@ -28,6 +28,7 @@
 - `action="await"` waits for requested job IDs until completion or `timeout`; timeout returns running job handles without canceling them.
 - `action="collect"` returns completed job results without waiting.
 - `action="cancel"` requests cancellation for requested job IDs.
+- Legacy action values `background` (start with `wait=false`) and `wait` (same as `await`) still resolve; prompts document only canonical `start`/`await`/`collect`/`cancel`.
 - Recursive use of `parallel` from inside a direct background tool worker is blocked before execution; numbered subordinate child chats can use normal child-chat tools, including `parallel`, to create their next-level descendants.
 - Wrapped `call_subordinate` uses the same lifecycle as a top-level call. `job_id` identifies one parallel invocation, while its returned `context_id` identifies the reusable child agent for later `reset=false` calls.
 - The wrapper tool does not create its own visible process-step log; each wrapped child call owns the visible log row, and the wrapper result is recorded only in model history.

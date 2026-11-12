@@ -2,7 +2,7 @@ from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
 from helpers import runtime, extension
 from api import get_work_dir_files
-from api.download_work_dir_files import normalize_paths
+from helpers.file_archives import normalize_paths
 
 
 class DeleteWorkDirFiles(ApiHandler):

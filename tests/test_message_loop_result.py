@@ -1,6 +1,12 @@
+import json
 from types import SimpleNamespace
 
+import pytest
+from helpers.llm_result import LLMResult
+from helpers.log import Log
+
 from extensions.python.message_loop_result import _20_empty_response as empty_response
+from extensions.python.message_loop_result._05_truncated_response import TruncatedResponse
 from extensions.python.message_loop_result._20_empty_response import EmptyResponse
 from extensions.python.message_loop_result._30_repeat_response import RepeatResponse
 from extensions.python._functions.agent.Agent.hist_add_warning.end import (
@@ -36,6 +42,8 @@ class FakeAgent:
             "fw.msg_repeat_response.md": "Repeated response detected. Retrying.",
             "fw.msg_reasoning_only.md": "reasoning only",
             "fw.msg_reasoning_only_response.md": "Reasoning-only response detected. Retrying.",
+            "fw.msg_output_limit.md": "output limit",
+            "fw.msg_output_limit_response.md": f"truncated ({kwargs.get('finish_reason')})",
         }[name]
 
     def hist_add_ai_response(self, response, **kwargs):
@@ -50,10 +58,13 @@ class FakeAgent:
         return SimpleNamespace(id="warning")
 
 
-def _run(agent):
+def _run(agent, **llm_result):
     result_data = {
-        "llm_result": SimpleNamespace(response=agent.response, reasoning=agent.reasoning)
+        "llm_result": SimpleNamespace(
+            response=agent.response, reasoning=agent.reasoning, **llm_result
+        )
     }
+    TruncatedResponse(agent).execute(result_data)
     EmptyResponse(agent).execute(result_data)
     RepeatResponse(agent).execute(result_data)
     return result_data
@@ -65,7 +76,7 @@ def test_empty_result_skips_default_processing():
     assert _run(agent)["skip_default_processing"] is True
     assert agent.history == []
     assert agent.warnings == []
-    assert agent.logs == [{"type": "warning", "content": "A0: empty"}]
+    assert agent.logs == [{"type": "warning", "content": "empty"}]
 
 
 def test_empty_result_counts_toward_unusable_response_limit(monkeypatch):
@@ -112,7 +123,7 @@ def test_repeat_skips_default_processing():
     assert agent.logs == [
         {
             "type": "warning",
-            "content": "A0: Repeated response detected. Retrying.",
+            "content": "Repeated response detected. Retrying.",
             "id": "warning",
         }
     ]
@@ -126,17 +137,204 @@ def test_repeat_ignores_reasoning():
     assert agent.warnings == ["repeat"]
 
 
-def test_reasoning_only_retries_with_agent_warning():
+@pytest.mark.parametrize("truncated", [False, True])
+def test_reasoning_only_retries_silently_and_preserves_thoughts(truncated):
     agent = FakeAgent("", reasoning="thinking", last_response="previous")
+    item = Log().log(type="agent", id="generation", reasoning="thinking")
+    agent.loop_data.params_temporary["log_item_generating"] = item
 
-    result = _run(agent)
+    result = _run(agent, truncated=truncated)
 
     assert result["skip_default_processing"] is True
     assert agent.warnings == ["reasoning only"]
+    assert agent.history == ['{"thoughts":["thinking"]}']
+    assert agent.logs == []
+    assert item.type == "agent"
+    assert item.kvps["thoughts"] == ["thinking"]
+    assert item.kvps["reasoning"] == "thinking"
+    assert item.content == "thinking"
+    assert result["llm_result"].response == ""
+    assert result["llm_result"].reasoning == "thinking"
+
+
+@pytest.mark.parametrize("item", [
+    {"type": "function_call", "name": "lookup", "call_id": "call_1", "arguments": "{}"},
+    {"type": "web_search_call", "id": "search_1"},
+])
+def test_reasoning_with_native_action_is_not_retried(item):
+    agent = FakeAgent("", reasoning="thinking")
+    result = LLMResult.from_response({"output": [item]})
+    result.response = ""
+    result.reasoning = "thinking"
+    data = {"llm_result": result}
+
+    EmptyResponse(agent).execute(data)
+
+    assert not data.get("skip_default_processing")
+    assert not agent.history and not agent.warnings and not agent.logs
+
+
+@pytest.mark.parametrize("mode", ["chat_completions", "responses"])
+@pytest.mark.parametrize("text, thoughts", [
+    ("I am checking another source.", ["I am checking another source."]),
+    ('{"thoughts":["Checking"]}', ["Checking"]),
+    ('{"status":"working"}', ['{"status":"working"}']),
+])
+def test_prose_retries_silently_without_context_doctor(mode, text, thoughts):
+    agent = FakeAgent(text)
+    item = Log().log(type="agent", id="generation")
+    agent.loop_data.params_temporary["log_item_generating"] = item
+
+    data = _run(agent, mode=mode)
+
+    assert data["skip_default_processing"] is True
+    assert agent.history == [text]
+    assert agent.warnings == ["misformatted"]
+    assert agent.logs == []
+    assert item.type == "agent" and item.kvps["thoughts"] == thoughts
+    assert "log_item_response" not in agent.loop_data.params_temporary
+
+
+@pytest.mark.parametrize("old_text,new_text,old_query,new_query,old_batch,new_batch,repeated", [
+    ("Working.", "Working.", "first", "first", False, False, True),
+    ("Working.", "Different commentary.", "first", "first", False, False, False),
+    ("Working.", None, "first", "first", False, False, False),
+    (None, "Working.", "first", "first", False, False, False),
+    (json.dumps({"tool_name": "lookup", "tool_args": {"q": "first"}}),
+     None, "first", "first", False, False, False),
+    (None, None, "first", "first", False, False, True),
+    ("Working.", "Working.", "first", "second", False, False, False),
+    (None, None, "first", "second", False, False, False),
+    ("Working.", "Working.", "first", "first", False, True, False),
+    ("Working.", "Working.", "first", "first", True, True, True),
+    ("Working.", "Different commentary.", "first", "first", True, True, False),
+])
+def test_native_repeat_compares_complete_public_turn(
+    monkeypatch, old_text, new_text, old_query, new_query, old_batch, new_batch, repeated
+):
+    from agent import Agent, LoopData
+    from helpers import extension, history
+    from helpers.llm_result import LLMResult, result_from_metadata
+
+    def result(query, commentary, batch, identifier):
+        items = [{"type": "reasoning", "encrypted_content": identifier,
+                  "summary": [{"type": "summary_text", "text": identifier}]}]
+        if commentary is not None:
+            items.append({"type": "message", "phase": "commentary", "content": [
+                {"type": "output_text", "text": commentary}]})
+        items.append({"type": "function_call", "name": "lookup", "call_id": identifier,
+                      "arguments": {"q": query}})
+        if batch:
+            items.append({"type": "function_call", "name": "lookup", "call_id": identifier + "-2",
+                          "arguments": {"q": "another"}})
+        return LLMResult.from_response({"id": identifier, "output": items})
+
+    monkeypatch.setattr(extension, "call_extensions_sync", lambda *args, **kwargs: None)
+    agent = object.__new__(Agent)
+    agent.agent_name = "A0"
+    agent.data = {}
+    agent.loop_data = LoopData()
+    agent.history = history.History(agent)
+    agent.parse_prompt = lambda name, **kwargs: kwargs["message"]
+    agent.hist_add_message = agent.history.add_message
+    agent._remember_llm_result_state = lambda *args: None
+    agent.read_prompt = lambda *args, **kwargs: "repeat"
+    agent.context = SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: None))
+    previous = result(old_query, old_text, old_batch, "old")
+    current = result(new_query, new_text, new_batch, "new")
+    original = current.to_dict()
+    message = agent.hist_add_ai_response(previous.response, llm_result=previous)
+    data = {"llm_result": current}
+
+    RepeatResponse(agent).execute(data)
+
+    assert bool(data.get("skip_default_processing")) is repeated
+    assert message.content == previous.function_calls_text()
+    assert current.to_dict() == original
+    assert result_from_metadata(current.metadata()).repeat_response_text() == current.repeat_response_text()
+    messages = agent.history.all_messages()
+    assert len(messages) == (3 if repeated else 1)
+    if repeated:
+        assert messages[1].content == current.function_calls_text()
+        assert messages[1].metadata == current.metadata()
+
+
+@pytest.mark.parametrize("field", ["thoughts", "headline"])
+@pytest.mark.parametrize("change", ["same", "changed", "removed", "added"])
+def test_chat_repeat_includes_public_planning_fields(field, change):
+    previous = {"thoughts": ["Wait"], "headline": "Checking", "tool_name": "code_execution_tool",
+                "tool_args": {"runtime": "output", "session": 0}}
+    current = dict(previous)
+    if change == "changed":
+        current[field] = ["Still waiting"] if field == "thoughts" else "Checking again"
+    elif change == "removed":
+        current.pop(field)
+    elif change == "added":
+        previous.pop(field)
+    agent = FakeAgent(json.dumps(current), last_response=json.dumps(previous))
+
+    assert bool(_run(agent).get("skip_default_processing")) is (change == "same")
+
+
+def test_truncated_result_warns_about_output_limit_instead_of_misformat():
+    agent = FakeAgent('{"thoughts":["planning"],"tool_name":"response","tool_args":{"text":"cut')
+
+    result = _run(agent, finish_reason="length", truncated=True, function_calls=[])
+
+    assert result["skip_default_processing"] is True
+    assert agent.history == []
+    assert agent.warnings == ["output limit"]
     assert agent.logs == [
-        {
-            "type": "warning",
-            "content": "A0: Reasoning-only response detected. Retrying.",
-            "id": "warning",
-        }
+        {"type": "warning", "content": "truncated (length)", "id": "warning"}
     ]
+
+
+def test_truncated_result_with_complete_tool_request_is_processed_normally():
+    agent = FakeAgent('{"tool_name":"response","tool_args":{"text":"done"}}')
+
+    result = _run(agent, finish_reason="length", truncated=True, function_calls=[])
+
+    assert "skip_default_processing" not in result
+    assert agent.warnings == []
+
+
+@pytest.mark.parametrize("arguments,complete", [
+    ('{"text":"done"}', True),
+    ({"text": "done"}, True),
+    ('{}', True),
+    ('{"text":"cut', False),
+    ('', False),
+    ('[]', False),
+    (None, False),
+])
+def test_truncated_native_call_requires_complete_arguments(arguments, complete):
+    result = LLMResult.from_chat(
+        response="", finish_reason="length", output_items=[
+            {"type": "function_call", "name": "response", "call_id": "call_cut",
+             "arguments": arguments},
+        ],
+    )
+    agent = FakeAgent(result.response)
+    data = {"llm_result": result}
+
+    TruncatedResponse(agent).execute(data)
+
+    assert bool(data.get("skip_default_processing")) is not complete
+    assert agent.warnings == ([] if complete else ["output limit"])
+    assert agent.history == []
+
+
+def test_truncated_batch_retries_if_any_native_call_is_incomplete():
+    result = LLMResult.from_chat(
+        response="", finish_reason="length", output_items=[
+            {"type": "function_call", "name": "response", "arguments": arguments}
+            for arguments in ('{"text":"done"}', '{"text":"cut')
+        ],
+    )
+    agent = FakeAgent(result.response)
+    data = {"llm_result": result}
+
+    TruncatedResponse(agent).execute(data)
+
+    assert data["skip_default_processing"] is True
+    assert agent.warnings == ["output limit"]

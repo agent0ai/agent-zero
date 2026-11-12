@@ -11,7 +11,7 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## Quick Start
 
-- **[Quickstart Guide](quickstart.md):** Get up and running in 5 minutes with Agent Zero.
+- **[Quickstart Guide](quickstart.md):** Install Agent Zero, send your first message, and open the result.
 - **[Agent Zero Launcher](guides/launcher.md):** Use the desktop app to set up Docker, install Agent Zero, open Instances, or connect a remote Instance.
 - **[First-Run Onboarding](guides/onboarding.md):** Choose Cloud, AI account, or Local access, then select main and utility models.
 - **[Installation Guide](setup/installation.md):** A0 Launcher downloads, A0 Install, direct Docker, updates, and advanced Docker setup (includes [How to Update](setup/installation.md#how-to-update-agent-zero)).
@@ -22,8 +22,12 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## User Guides
 
+- **[Codex with Your ChatGPT Account](guides/codex.md):** Enable device code sign-in, connect your account, choose Main and Utility models, and continue your first chat.
+- **[OpenCode Go and Provider Plugins](guides/opencode.md):** Find a missing provider in the Plugin Hub, install OpenCode Go, and choose Main and Utility models.
+- **[Migrate Agents](guides/migrate-agents.md):** Move real Pi, Hermes Agent, and Claude Code chats, copy their working files, and continue the project in Agent Zero.
 - **[Usage Guide](guides/usage.md):** Practical tour of Agent Zero's main workflows.
-- **[Agent Zero Launcher](guides/launcher.md):** Fresh-machine Launcher walkthrough, Docker setup gate, Installs, Instances, and docs screenshot capture with Playwright/Electron.
+- **[Agent Zero Launcher](guides/launcher.md):** Fresh-machine setup, Installs, Instances, and workspace folder or Docker volume choices.
+- **[Use Local Folders With Agent Zero](guides/local-folders.md):** Bind mounts, persistent user data, separate work folders, Docker CLI/Desktop/Compose examples, and Launcher storage links.
 - **[First-Run Onboarding](guides/onboarding.md):** Set up OpenRouter, our proxy API or another provider with the guided wizard.
 - **[Browser Guide](guides/browser.md):** Use the built-in Browser, live Canvas surface, annotations, screenshots, host browser mode, and extensions.
 - **[Desktop Guide](guides/desktop.md):** Use the built-in Linux desktop, GUI apps, and LibreOffice Writer/Calc/Impress Cowork.
@@ -35,6 +39,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[Memory Guide](guides/memory.md):** Search, edit, delete, and curate memories so useful context does not become stale noise.
 - **[Projects Tutorial](guides/projects.md):** Learn to create isolated workspaces with dedicated context and memory.
 - **[API Integration](guides/api-integration.md):** Add external APIs without writing code.
+- **[Telegram](guides/telegram.md):** Connect a private bot, choose projects and profiles, use groups or webhooks, and preserve existing settings when upgrading.
 - **[MCP Setup](guides/mcp-setup.md):** Configure Model Context Protocol servers.
 - **[A2A Setup](guides/a2a-setup.md):** Enable agent-to-agent communication.
 - **[Troubleshooting](guides/troubleshooting.md):** Solutions to common issues and FAQs.
@@ -95,8 +100,14 @@ docs focus on practical setup, screenshots, and user workflows.
   - [A0 CLI Connector](guides/a0-cli-connector.md)
 
 - [User Guides](#user-guides)
+  - [Codex with Your ChatGPT Account](guides/codex.md)
+  - [OpenCode Go and Provider Plugins](guides/opencode.md)
+  - [Migrate Agents](guides/migrate-agents.md)
   - [Usage Guide](guides/usage.md)
     - [Basic Operations](guides/usage.md#basic-operations)
+      - [Customize Welcome](guides/usage.md#customize-welcome)
+      - [While Agent Zero Is Working](guides/usage.md#while-agent-zero-is-working)
+      - [Goals For Longer Work](guides/usage.md#set-a-goal-for-longer-work)
     - [Plugins And Plugin Hub](guides/usage.md#plugins-and-plugin-hub)
     - [Skills, Agent Profiles, And Model Presets](guides/usage.md#skills-agent-profiles-and-model-presets)
       - [Skills](guides/usage.md#skills)
@@ -118,6 +129,8 @@ docs focus on practical setup, screenshots, and user workflows.
     - [Memory Management](guides/usage.md#memory-management)
     - [Backup And Restore](guides/usage.md#backup-and-restore)
   - [Agent Zero Launcher](guides/launcher.md)
+    - [Workspace Storage](guides/launcher.md#workspace-storage)
+  - [Use Local Folders With Agent Zero](guides/local-folders.md)
   - [Browser Guide](guides/browser.md)
   - [Desktop Guide](guides/desktop.md)
   - [A0 CLI Connector](guides/a0-cli-connector.md)
@@ -128,6 +141,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [Memory Guide](guides/memory.md)
   - [Projects Tutorial](guides/projects.md)
   - [API Integration](guides/api-integration.md)
+  - [Telegram](guides/telegram.md)
   - [MCP Setup](guides/mcp-setup.md)
   - [A2A Setup](guides/a2a-setup.md)
   - [Troubleshooting](guides/troubleshooting.md)

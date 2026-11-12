@@ -98,10 +98,11 @@ def _retired_preset_references(
     ]
 
 
-def _embedding_signature(preset: dict | None):
+def _embedding_signature(preset: dict | None, default: dict | None = None):
     if not isinstance(preset, dict):
         return {}
-    default = model_config.resolve_preset(model_config.DEFAULT_PRESET_NAME) or {}
+    if default is None:
+        default = model_config.resolve_preset(model_config.DEFAULT_PRESET_NAME) or {}
     config = model_config.preset_to_config(default)
     if str(preset.get("name") or "") != model_config.DEFAULT_PRESET_NAME:
         config = model_config.build_config_from_preset(
@@ -111,6 +112,17 @@ def _embedding_signature(preset: dict | None):
         )
     embedding = config.get("embedding_model")
     return embedding if isinstance(embedding, dict) else {}
+
+
+def _embedding_signatures(presets: list) -> dict:
+    default = next(
+        (preset for preset in presets if preset.get("name") == model_config.DEFAULT_PRESET_NAME),
+        {},
+    )
+    return {
+        str(preset.get("name") or ""): _embedding_signature(preset, default)
+        for preset in presets
+    }
 
 
 def _notify_embedding_changed() -> None:
@@ -157,48 +169,34 @@ class ModelPresets(ApiHandler):
                     status=400,
                     response="Preset definitions are global; select a global preset for this project.",
                 )
-            previous_names = {
-                str(preset.get("name") or "") for preset in model_config.get_presets()
-            }
-            previous_embeddings = {
-                str(preset.get("name") or ""): _embedding_signature(preset)
-                for preset in model_config.get_presets()
-            }
+            previous = model_config.get_presets()
+            previous_names = {str(preset.get("name") or "") for preset in previous}
+            previous_embeddings = _embedding_signatures(previous)
             try:
                 model_config.save_presets(presets)
             except ValueError as exc:
                 return Response(status=400, response=str(exc))
-            saved_names = {
-                str(preset.get("name") or "") for preset in model_config.get_presets()
-            }
+            saved = model_config.get_presets()
+            saved_names = {str(preset.get("name") or "") for preset in saved}
             retired = _retired_preset_references(previous_names, saved_names)
             renames = input.get("renames") if isinstance(input.get("renames"), list) else []
             _rename_preset_references([*retired, *renames])
-            saved_embeddings = {
-                str(preset.get("name") or ""): _embedding_signature(preset)
-                for preset in model_config.get_presets()
-            }
+            saved_embeddings = _embedding_signatures(saved)
             if previous_embeddings != saved_embeddings:
                 _notify_embedding_changed()
-            return {"ok": True, "presets": model_config.get_presets()}
+            return {"ok": True, "presets": saved}
 
         elif action == "reset":
             if scope == "project" or project_name:
                 return Response(status=400, response="Project presets cannot be reset.")
             previous = model_config.get_presets()
-            previous_embeddings = {
-                str(preset.get("name") or ""): _embedding_signature(preset)
-                for preset in previous
-            }
+            previous_embeddings = _embedding_signatures(previous)
             presets = model_config.reset_presets()
             saved_names = {str(preset.get("name") or "") for preset in presets}
             previous_names = {str(preset.get("name") or "") for preset in previous}
             retired = _retired_preset_references(previous_names, saved_names)
             _rename_preset_references(retired)
-            current_embeddings = {
-                str(preset.get("name") or ""): _embedding_signature(preset)
-                for preset in presets
-            }
+            current_embeddings = _embedding_signatures(presets)
             if previous_embeddings != current_embeddings:
                 _notify_embedding_changed()
             return {"ok": True, "presets": presets}

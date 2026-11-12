@@ -1,6 +1,10 @@
 """Real Ed25519 rotation with synthetic public-record persistence only."""
 import base64
 import copy
+import asyncio
+import threading
+from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -9,7 +13,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from plugins._a0_connector.helpers.browser_bridge_credentials import BrowserBridgeCredentialStore, ROTATION_TTL_MS
 from plugins._a0_connector.helpers.browser_bridge_pairing import BrowserBridgePairingUnavailable
 from plugins._a0_connector.helpers.browser_bridge_auth import BrowserBridgeChallengeStore, BrowserBridgeChallengeFailed
+from plugins._a0_connector.helpers import browser_bridge_auth
+from plugins._a0_connector.helpers.browser_bridge_credential_control import BrowserBridgeCredentialController
+from plugins._a0_connector.helpers.browser_bridge_context import BrowserBridgeContextRoute
+from plugins._a0_connector.helpers.browser_bridge_runtime import BrowserBridgeRuntimeDenied
 from test_browser_bridge_challenge_foundation import _credential, _issue, _proof, _signature, BRIDGE_ID, SERVER_ID
+from test_browser_bridge_runtime_foundation import _principal
 
 
 def setup_rotation():
@@ -101,3 +110,87 @@ def test_failed_public_key_commit_never_returns_authenticated_principal():
     with pytest.raises(BrowserBridgeChallengeFailed):
         auth.verify(proof=proof, signature=_signature(new, proof))
     assert state == before
+
+
+@pytest.mark.parametrize("notification_fails", [False, True])
+def test_self_revoke_survives_caller_cancellation_and_disconnects_only_its_subject(monkeypatch, notification_fails):
+    async def scenario():
+        pairing, credentials, state, now, old, new, args = setup_rotation()
+        credentials.begin(**args)
+        auth = challenge_owner(pairing, credentials, now)
+        proof = _proof(_issue(auth))
+        monkeypatch.setattr(browser_bridge_auth, "get_browser_bridge_challenge_store", lambda: auth)
+        principal = _principal(BRIDGE_ID)
+        route = BrowserBridgeContextRoute(principal, "sid-current", "load-current")
+        started, release = asyncio.Event(), asyncio.Event()
+        retired, disconnected = [], []
+
+        async def emit(namespace, sid, event, data, **kwargs):
+            assert credentials.authentication_records(BRIDGE_ID, SERVER_ID) == ()
+            assert retired == [BRIDGE_ID]
+            assert (namespace, sid, event) == ("/ws", "sid-current", "connector_bridge_credential_status")
+            assert data == {"contract_version": 1, "action": "revoke", "rotation_id": None,
+                            "key_generation": 1, "status": "revoked", "expires_at_ms": None}
+            assert kwargs == {"handler_id": principal.handler_id, "expected_principal": principal}
+            started.set()
+            await release.wait()
+            if notification_fails:
+                raise OSError("synthetic notification loss")
+
+        async def disconnect(sid, *, namespace):
+            disconnected.append((namespace, sid))
+
+        manager = SimpleNamespace(
+            lock=threading.RLock(), emit_to=emit, socketio=SimpleNamespace(disconnect=disconnect),
+            connections={
+                ("/ws", sid): SimpleNamespace(principal=peer)
+                for sid, peer in [
+                    ("sid-current", principal), ("sid-same-subject", replace(principal)),
+                    ("sid-other-subject", replace(principal, subject_id="another-user")),
+                    ("sid-other-bridge", _principal("another-bridge")), ("sid-legacy", None),
+                ]
+            },
+        )
+        controller = BrowserBridgeCredentialController(
+            manager=manager, current=lambda candidate: candidate is route,
+            server_instance_id=lambda: SERVER_ID, retire_bridge=retired.append, credentials=credentials,
+        )
+        task = asyncio.create_task(controller.dispatch(route, {"contract_version": 1, "action": "revoke"}))
+        try:
+            await asyncio.wait_for(started.wait(), timeout=1)
+            assert state["document"]["bridges"][0]["state"] == "revoked"
+            assert "rotation" not in state["document"]["bridges"][0]
+            with pytest.raises(BrowserBridgeChallengeFailed):
+                auth.verify(proof=proof, signature=_signature(old, proof))
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        finally:
+            release.set()
+            await controller.close()
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        assert set(disconnected) == {("/ws", "sid-current"), ("/ws", "sid-same-subject")}
+        assert credentials.authentication_records(BRIDGE_ID, SERVER_ID) == ()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("denial", ["stale_route", "missing_scope"])
+def test_self_revoke_denied_route_cannot_change_credentials(denial):
+    pairing, credentials, state, now, old, new, args = setup_rotation()
+    before = copy.deepcopy(state)
+    principal = _principal(BRIDGE_ID)
+    if denial == "missing_scope":
+        principal = replace(principal, scopes=principal.scopes - {"bridge.connect"})
+    route = BrowserBridgeContextRoute(principal, "sid-current", "load-current")
+    retired = []
+    controller = BrowserBridgeCredentialController(
+        manager=None, current=lambda _: denial != "stale_route",
+        server_instance_id=lambda: SERVER_ID, retire_bridge=retired.append, credentials=credentials,
+    )
+    with pytest.raises(BrowserBridgeRuntimeDenied):
+        asyncio.run(controller.dispatch(route, {"contract_version": 1, "action": "revoke"}))
+    assert state == before
+    assert retired == []

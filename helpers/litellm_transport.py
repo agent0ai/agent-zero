@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
@@ -8,6 +9,7 @@ import json
 from typing import Any, AsyncIterator, Iterator, Optional
 
 from litellm import (
+    ContentPolicyViolationError,
     acompletion,
     adelete_responses,
     aresponses,
@@ -16,8 +18,9 @@ from litellm import (
     responses,
 )
 
-from helpers import images
+from helpers import images, responses_history
 from helpers.llm_result import LLMResult
+from helpers.responses_tools import project_system_prompt
 
 
 ChatChunk = dict[str, str]
@@ -26,6 +29,10 @@ ChatChunk = dict[str, str]
 class TransportMode(Enum):
     RESPONSES = "responses"
     CHAT_COMPLETIONS = "chat_completions"
+
+    @classmethod
+    def from_value(cls, value: Any) -> "TransportMode":
+        return cls.RESPONSES if str(value or "").lower().strip() in RESPONSES_ALIASES else cls.CHAT_COMPLETIONS
 
 
 class TransportRecovery(Enum):
@@ -42,6 +49,7 @@ NO_REASONING_EFFORT_ALIASES = {"", "0", "false", "no", "none", "off", "disabled"
 RESPONSES_UNSUPPORTED_CACHE: set[str] = set()
 RESPONSES_STATE_UNSUPPORTED_CACHE: set[str] = set()
 RESPONSES_BUILTIN_UNSUPPORTED_CACHE: dict[str, set[str]] = {}
+STREAM_USAGE_UNSUPPORTED_CACHE: set[str] = set()
 OPENAI_RESPONSES_EXTRA_BODY_PARAMS = {
     "context_management",
     "prompt_cache_retention",
@@ -88,7 +96,7 @@ class TransportPolicy:
         kwargs: dict[str, Any],
         messages: list[dict[str, Any]] | None = None,
     ) -> "TransportPolicy":
-        mode = cls._pop_mode(kwargs)
+        mode = TransportMode.from_value(kwargs.pop("a0_api_mode", None))
         allow_fallback = _coerce_bool(
             kwargs.pop("a0_responses_fallback", True), default=True
         )
@@ -137,13 +145,6 @@ class TransportPolicy:
             state=state,
         )
 
-    @staticmethod
-    def _pop_mode(kwargs: dict[str, Any]) -> TransportMode:
-        value = str(kwargs.pop("a0_api_mode", "") or "").lower().strip()
-        if value in RESPONSES_ALIASES:
-            return TransportMode.RESPONSES
-        return TransportMode.CHAT_COMPLETIONS
-
     @property
     def using_responses(self) -> bool:
         return self.mode is TransportMode.RESPONSES
@@ -181,8 +182,12 @@ class LiteLLMTransport:
     stop: Optional[list[str]] = None
     policy: TransportPolicy = field(init=False)
     last_result: LLMResult | None = field(init=False, default=None)
+    last_finish_reason: str = field(init=False, default="")
     last_request_state: str = field(init=False, default=RESPONSES_STATE_PROVIDER)
     explicit_prompt_caching: bool = field(init=False, default=False)
+    history_prefix_hash: str = field(init=False, default="")
+    history_extras: str = field(init=False, default="")
+    stream_usage_retried: bool = field(init=False, default=False)
 
     def __post_init__(self) -> None:
         self.kwargs = _without_stream_kwarg(dict(self.kwargs))
@@ -207,6 +212,7 @@ class LiteLLMTransport:
                 if self.policy.mode is TransportMode.CHAT_COMPLETIONS:
                     raw_response = completion(**self._chat_request(stream=False))
                     parsed = ChatCompletionsTransport.parse(raw_response)
+                    self.last_finish_reason = _finish_reason(raw_response)
                     self.last_result = self._llm_result_from_chat(
                         parsed, raw_response
                     )
@@ -231,6 +237,7 @@ class LiteLLMTransport:
                         **self._chat_request(stream=False)
                     )
                     parsed = ChatCompletionsTransport.parse(raw_response)
+                    self.last_finish_reason = _finish_reason(raw_response)
                     self.last_result = self._llm_result_from_chat(
                         parsed, raw_response
                     )
@@ -258,14 +265,18 @@ class LiteLLMTransport:
                     parser = ChatCompletionsStreamParser()
                     for chunk in iterator:
                         parsed = parser.parse(chunk)
+                        if parser.finish_reason:
+                            self.last_finish_reason = parser.finish_reason
+                            self.last_result = self._stream_result_from_chat_parser(parser)
                         if _has_chunk_delta(parsed):
                             got_any_chunk = True
                             yield parsed
                     parsed = parser.flush()
+                    self.last_finish_reason = parser.finish_reason
+                    self.last_result = self._stream_result_from_chat_parser(parser)
                     if _has_chunk_delta(parsed):
                         got_any_chunk = True
                         yield parsed
-                    self.last_result = self._stream_result_from_chat_parser(parser)
                 else:
                     request = self._responses_request(stream=True)
                     iterator = responses(**request)
@@ -296,17 +307,26 @@ class LiteLLMTransport:
             try:
                 if self.policy.mode is TransportMode.CHAT_COMPLETIONS:
                     iterator = await acompletion(**self._chat_request(stream=True))
+                    if iterator is None:
+                        raise RuntimeError(
+                            "LiteLLM returned no response stream. Check whether the gateway "
+                            "rejected the request or the API key budget was exceeded."
+                        )
                     parser = ChatCompletionsStreamParser()
                     async for chunk in iterator:  # type: ignore[union-attr]
                         parsed = parser.parse(chunk)
+                        if parser.finish_reason:
+                            self.last_finish_reason = parser.finish_reason
+                            self.last_result = self._stream_result_from_chat_parser(parser)
                         if _has_chunk_delta(parsed):
                             got_any_chunk = True
                             yield parsed
                     parsed = parser.flush()
+                    self.last_finish_reason = parser.finish_reason
+                    self.last_result = self._stream_result_from_chat_parser(parser)
                     if _has_chunk_delta(parsed):
                         got_any_chunk = True
                         yield parsed
-                    self.last_result = self._stream_result_from_chat_parser(parser)
                 else:
                     request = self._responses_request(stream=True)
                     iterator = await aresponses(**request)
@@ -355,7 +375,17 @@ class LiteLLMTransport:
             self.kwargs["responses_state"] = RESPONSES_STATE_LOCAL
             self.kwargs.pop("previous_response_id", None)
             return True
+        if self._recover_stream_usage_rejection(exc):
+            return True
         return recovery is TransportRecovery.FALLBACK_TO_CHAT
+
+    def _recover_stream_usage_rejection(self, exc: Exception) -> bool:
+        if self.stream_usage_retried or not _is_stream_usage_rejected_error(exc):
+            return False
+        self.stream_usage_retried = True
+        if self.policy.cache_key:
+            STREAM_USAGE_UNSUPPORTED_CACHE.add(self.policy.cache_key)
+        return True
 
     def _chat_request(self, *, stream: bool) -> dict[str, Any]:
         chat_kwargs = ChatCompletionsTransport.prepare_kwargs(
@@ -370,11 +400,20 @@ class LiteLLMTransport:
             "messages": ChatCompletionsTransport.prepare_messages(
                 self.messages,
                 model=self.model,
-                kwargs=chat_kwargs,
+                kwargs=self.kwargs,
             ),
             "stream": stream,
             **chat_kwargs,
         }
+        if (
+            stream
+            and not self.stream_usage_retried
+            and self.policy.cache_key not in STREAM_USAGE_UNSUPPORTED_CACHE
+        ):
+            request["stream_options"] = {
+                **(request.get("stream_options") or {}),
+                "include_usage": True,
+            }
         if self.stop is not None:
             request["stop"] = self.stop
         return request
@@ -389,6 +428,29 @@ class LiteLLMTransport:
         self.last_request_state = _normalize_responses_state(
             self.kwargs.get("responses_state")
         )
+        self.history_prefix_hash = ""
+        self.history_extras = ""
+        context = self.kwargs.get("responses_history_context")
+        if (
+            self.last_request_state == RESPONSES_STATE_LOCAL
+            and _has_tools(self.kwargs.get("a0_responses_function_tools"))
+            and isinstance(context, dict)
+            and all(isinstance(context.get(key), list) for key in ("prompt", "prefix", "groups"))
+        ):
+            replacements = self.kwargs.get("responses_prompt_replacements")
+            prompt = project_system_prompt(context.get("prompt", []), replacements)
+            if response_kwargs.get("input") == prompt:
+                prefix = project_system_prompt(context.get("prefix", []), replacements)
+                scope = {"affinity": self.policy.cache_key, "tools": response_kwargs.get("tools")}
+                self.history_prefix_hash = responses_history.prefix_hashes(prefix, scope)[-1]
+                self.history_extras = responses_history.prompt_extras(prompt, prefix)
+                if self.history_extras and isinstance(context.get("extras"), str):
+                    self.history_extras = context["extras"]
+                    prompt = deepcopy(prefix)
+                    responses_history.append_extras(prompt, self.history_extras)
+                response_kwargs["input"] = responses_history.project_history(
+                    prompt, context.get("groups", []), scope,
+                )
         return {
             "model": self.model,
             "stream": stream,
@@ -406,6 +468,7 @@ class LiteLLMTransport:
             output_items=parsed.get("_output_items"),
             provider_model_key=self.model,
             capability=self._capability_metadata(),
+            finish_reason=self.last_finish_reason,
         )
 
     def _llm_result_from_response(
@@ -421,20 +484,14 @@ class LiteLLMTransport:
             capability=self._capability_metadata(),
         )
         result.usage = _reported_usage(response)
+        result.history_extras = self.history_extras
         return result
 
     def _stream_result_from_parser(
         self, parser: "ResponsesEventParser", request: dict[str, Any]
     ) -> LLMResult | None:
-        if parser.completed_response is None:
-            return None
-        response = _object_to_dict(parser.completed_response)
-        output = _as_list(response.get("output"))
-        if parser.function_calls and not any(
-            _get_value(item, "type") == "function_call" for item in output
-        ):
-            response["output"] = [*output, *parser.function_calls.values()]
-        return self._llm_result_from_response(response, request)
+        response = parser.finish()
+        return self._llm_result_from_response(response, request) if response is not None else None
 
     def _stream_result_from_chat_parser(
         self, parser: "ChatCompletionsStreamParser"
@@ -449,6 +506,7 @@ class LiteLLMTransport:
             output_items=output_items,
             provider_model_key=self.model,
             capability=self._capability_metadata(),
+            finish_reason=self.last_finish_reason,
         )
 
     def _capability_metadata(self) -> dict[str, Any]:
@@ -456,6 +514,10 @@ class LiteLLMTransport:
             "mode": self.policy.mode.value,
             "state": self.policy.state,
             "cache_key": self.policy.cache_key,
+            **(
+                {responses_history.PREFIX_HASH: self.history_prefix_hash}
+                if self.policy.using_responses and self.history_prefix_hash else {}
+            ),
             "fallback_error": _exception_text(self.policy.fallback_error)
             if self.policy.fallback_error
             else "",
@@ -468,6 +530,29 @@ class LiteLLMTransport:
         }
 
 
+class _ChatReasoningFilter:
+    marker = "__ENCRYPTED_REASONING__"
+
+    def __init__(self) -> None:
+        self.pending = ""
+        self.encrypted = False
+
+    def feed(self, text: str, *, final: bool = False) -> str:
+        if self.encrypted:
+            return ""
+        text = self.pending + text
+        self.pending = ""
+        if self.marker in text:
+            self.encrypted = True
+            return text.partition(self.marker)[0]
+        if not final:
+            for length in range(min(len(text), len(self.marker) - 1), 0, -1):
+                if text.endswith(self.marker[:length]):
+                    self.pending = text[-length:]
+                    return text[:-length]
+        return text
+
+
 class ChatCompletionsTransport:
     @staticmethod
     def prepare_messages(
@@ -476,7 +561,7 @@ class ChatCompletionsTransport:
         model: str = "",
         kwargs: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        if _is_openai_prompt_cache_provider(model, kwargs or {}):
+        if _prompt_cache_mode(model, kwargs or {}) == "prompt_cache_key":
             stripped = _without_cache_control(messages)
             return stripped if isinstance(stripped, list) else messages
         return messages
@@ -491,18 +576,19 @@ class ChatCompletionsTransport:
         explicit_prompt_caching: bool = False,
     ) -> dict[str, Any]:
         chat_kwargs = dict(kwargs)
+        cache_mode = _prompt_cache_mode(model, chat_kwargs)
         _drop_internal_transport_kwargs(chat_kwargs)
         if not _has_tools(chat_kwargs.get("tools")):
             chat_kwargs.pop("tools", None)
             chat_kwargs.pop("tool_choice", None)
             chat_kwargs.pop("parallel_tool_calls", None)
-        if _is_openai_prompt_cache_provider(model, chat_kwargs):
+        if cache_mode == "prompt_cache_key":
             _prepare_openai_prompt_cache_params(
                 chat_kwargs,
                 messages or [],
                 model=model,
             )
-        elif _supports_cache_control_markers(model, chat_kwargs) and (
+        elif cache_mode == "cache_control" and (
             explicit_prompt_caching or _has_cache_control(messages or [])
         ):
             _apply_tool_cache_control(chat_kwargs)
@@ -511,8 +597,18 @@ class ChatCompletionsTransport:
         return {key: value for key, value in chat_kwargs.items() if value is not None}
 
     @staticmethod
-    def parse(chunk: Any) -> ChatChunk:
+    def parse(
+        chunk: Any, *, reasoning_filter: _ChatReasoningFilter | None = None
+    ) -> ChatChunk:
         choice = _first_choice(chunk)
+        finish_reason = _get_value(choice, "finish_reason")
+        if finish_reason in {"content_filter", "refusal"}:
+            raise ContentPolicyViolationError(
+                message=f"Model provider refused the response (finish_reason={finish_reason}). "
+                "Review the request and provider restrictions before retrying.",
+                model=str(_get_value(chunk, "model") or ""),
+                llm_provider="",
+            )
         delta = _get_value(choice, "delta") or {}
         message = _get_value(choice, "message") or _get_value(
             _get_value(choice, "model_extra") or {}, "message"
@@ -520,18 +616,27 @@ class ChatCompletionsTransport:
         response_delta = _get_value(delta, "content") or _get_value(
             message, "content"
         ) or ""
-        reasoning_delta = _get_value(delta, "reasoning_content") or _get_value(
-            message, "reasoning_content"
-        ) or ""
+        reasoning_delta = (
+            _get_value(delta, "reasoning_content")
+            or _get_value(message, "reasoning_content")
+            or _get_value(delta, "reasoning")
+            or _get_value(message, "reasoning")
+            or ""
+        )
+        reasoning_delta = (reasoning_filter or _ChatReasoningFilter()).feed(
+            reasoning_delta, final=reasoning_filter is None
+        )
         parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
-        if not response_delta:
-            tool_calls = _as_list(_get_value(message, "tool_calls"))
-            response_delta = ChatCompletionsTransport.tool_calls_text(tool_calls)
+        tool_calls = _as_list(_get_value(message, "tool_calls"))
+        call_text = ChatCompletionsTransport.tool_calls_text(tool_calls)
+        if call_text:
+            parsed["response_delta"] = call_text
+            parsed["_output_items"] = ChatCompletionsTransport.output_items(tool_calls)
             if response_delta:
-                parsed["response_delta"] = response_delta
-                parsed["_output_items"] = ChatCompletionsTransport.output_items(
-                    tool_calls
-                )
+                parsed["_output_items"].insert(0, {
+                    "type": "message", "role": "assistant",
+                    "content": [{"type": "output_text", "text": response_delta}],
+                })
         return parsed
 
     @classmethod
@@ -588,28 +693,35 @@ class ChatCompletionsTransport:
 
 class ChatCompletionsStreamParser:
     def __init__(self) -> None:
+        self.reasoning_filter = _ChatReasoningFilter()
         self.tool_calls: dict[str, dict[str, Any]] = {}
         self.order: list[str] = []
         self.emitted = False
         self.usage: dict[str, Any] = {}
+        self.finish_reason = ""
 
     def parse(self, chunk: Any) -> ChatChunk:
         if usage := _reported_usage(chunk):
             self.usage.update(usage)
-        parsed = ChatCompletionsTransport.parse(chunk)
+        parsed = ChatCompletionsTransport.parse(chunk, reasoning_filter=self.reasoning_filter)
         choice = _first_choice(chunk)
         delta = _get_value(choice, "delta") or {}
         self._append_tool_calls(_get_value(delta, "tool_calls"))
         self._append_legacy_function_call(_get_value(delta, "function_call"))
 
-        if _get_value(choice, "finish_reason") in {"tool_calls", "function_call"}:
+        if finish_reason := _finish_reason(chunk):
+            self.finish_reason = finish_reason
+        if finish_reason in {"tool_calls", "function_call"}:
             text = self._emit()
             if text and not parsed["response_delta"]:
                 parsed["response_delta"] = text
         return parsed
 
     def flush(self) -> ChatChunk:
-        return {"reasoning_delta": "", "response_delta": self._emit()}
+        return {
+            "reasoning_delta": self.reasoning_filter.feed("", final=True),
+            "response_delta": self._emit(),
+        }
 
     def function_calls_text(self) -> str:
         return ChatCompletionsTransport.tool_calls_text(self._ordered_tool_calls())
@@ -673,6 +785,12 @@ class ChatCompletionsStreamParser:
 
 
 class ResponsesTransport:
+    @staticmethod
+    def input_from_model_messages(model: Any, messages: list) -> list[dict[str, Any]]:
+        if not hasattr(model, "_convert_messages"):
+            return []
+        return ResponsesTransport.input_from_messages(model._convert_messages(messages))
+
     @classmethod
     def from_chat(
         cls,
@@ -684,6 +802,8 @@ class ResponsesTransport:
         request = cls.prepare_kwargs(kwargs, stop=stop, model=model, messages=messages)
         state = _normalize_responses_state(kwargs.get("responses_state"))
         input_items = cls._select_input_items(kwargs, messages, state)
+        if _has_tools(kwargs.get("a0_responses_function_tools")):
+            input_items = project_system_prompt(input_items, kwargs.get("responses_prompt_replacements"))
         request["input"] = input_items or ""
         cls.apply_state(request, kwargs, state=state)
         return request
@@ -699,7 +819,10 @@ class ResponsesTransport:
     ) -> dict[str, Any]:
         request = cls.prepare_kwargs(kwargs, stop=stop, model=model, messages=messages)
         state = _normalize_responses_state(kwargs.get("responses_state"))
-        request["input"] = list(input_items or []) or ""
+        items = list(input_items or [])
+        if _has_tools(kwargs.get("a0_responses_function_tools")):
+            items = project_system_prompt(items, kwargs.get("responses_prompt_replacements"))
+        request["input"] = items or ""
         cls.apply_state(request, kwargs, state=state)
         return request
 
@@ -771,6 +894,7 @@ class ResponsesTransport:
             request.pop("parallel_tool_calls", None)
 
         cls.prepare_prompt_caching(request, messages or [], model=model)
+        request.pop("a0_prompt_cache_mode", None)
 
         _ = stop
         return {key: value for key, value in request.items() if value is not None}
@@ -853,10 +977,10 @@ class ResponsesTransport:
         messages: list[dict[str, Any]],
         model: str = "",
     ) -> None:
-        if not _is_openai_prompt_cache_provider(model, request):
+        if _prompt_cache_mode(model, request) == "prompt_cache_key":
+            _prepare_openai_prompt_cache_params(request, messages, model=model)
+        elif not _is_openai_prompt_cache_provider(model, request):
             return
-
-        _prepare_openai_prompt_cache_params(request, messages, model=model)
 
         for key in OPENAI_RESPONSES_EXTRA_BODY_PARAMS:
             if key not in request:
@@ -1154,18 +1278,58 @@ class ResponsesEventParser:
     """Stateful parser for Responses streaming events."""
 
     def __init__(self) -> None:
-        self.function_calls: dict[str, dict[str, Any]] = {}
+        self.output_items: dict[str, dict[str, Any]] = {}
         self.output_index_keys: dict[str, str] = {}
         self.emitted_function_calls: set[str] = set()
-        self.streamed_response_calls: dict[str, str] = {}
+        self.streamed_function_calls: dict[str, str] = {}
+        self.pending_function_calls: dict[str, Any] = {}
+        self.commentary: dict[str, str] = {}
         self.seen_response_delta = False
         self.seen_reasoning_delta = False
         self.completed_response: Any = None
+
+    @property
+    def function_calls(self) -> dict[str, dict[str, Any]]:
+        return {key: item for key, item in self.output_items.items() if item.get("type") == "function_call"}
+
+    def finish(self) -> dict[str, Any] | None:
+        if self.completed_response is None:
+            if self.function_calls:
+                raise RuntimeError("Responses stream ended before native tool calls completed")
+            return None
+        response = _object_to_dict(self.completed_response)
+        output = list(_as_list(response.get("output")))
+        has_terminal_output = bool(output)
+        positions = {key: int(index) for index, key in self.output_index_keys.items()}
+        streamed = sorted(
+            enumerate(self.output_items.items()),
+            key=lambda entry: positions.get(entry[1][0], entry[0]),
+        )
+        for fallback_index, (key, item) in streamed:
+            if has_terminal_output and not item.get("id") and not item.get("call_id"):
+                continue  # An unidentified stream fragment cannot add another terminal call.
+            match = next((
+                index for index, final in enumerate(output)
+                if _get_value(final, "type") == item.get("type") and any(
+                    item.get(field) and item[field] == _get_value(final, field)
+                    for field in ("id", "call_id")
+                )
+            ), None)
+            if match is None:
+                output.insert(min(positions.get(key, fallback_index), len(output)), dict(item))
+            else:
+                output[match] = {
+                    **item,
+                    **{field: value for field, value in _object_to_dict(output[match]).items() if value is not None},
+                }
+        response["output"] = output
+        return response
 
     def parse(self, event: Any) -> ChatChunk:
         event_type = _get_value(event, "type") or ""
         response_delta = ""
         reasoning_delta = ""
+        is_commentary = False
 
         if event_type in {
             "response.output_text.delta",
@@ -1173,13 +1337,18 @@ class ResponsesEventParser:
             "response.text.delta",
         }:
             response_delta = str(_get_value(event, "delta") or "")
+            key = self._event_key(event)
+            item = self.output_items.get(key, {})
+            if event_type != "response.refusal.delta" and item.get("phase") == "commentary":
+                self.commentary[key] = self.commentary.get(key, "") + response_delta
+                is_commentary = True
         elif event_type in {
             "response.reasoning_summary_text.delta",
             "response.reasoning_text.delta",
         }:
             reasoning_delta = str(_get_value(event, "delta") or "")
         elif event_type == "response.output_item.added":
-            self._remember_function_call(_get_value(event, "item"), event)
+            self._remember_output_item(_get_value(event, "item"), event)
         elif event_type == "response.function_call_arguments.delta":
             response_delta = self._append_function_call_arguments(event)
         elif event_type == "response.function_call_arguments.done":
@@ -1188,6 +1357,8 @@ class ResponsesEventParser:
             response_delta = self._complete_output_item(_get_value(event, "item"), event)
         elif event_type == "response.completed":
             response_delta, reasoning_delta = self._complete_response(event)
+        elif event_type == "response.incomplete":
+            raise RuntimeError("Responses generation incomplete; tool calls were not executed")
         elif event_type == "response.failed":
             raise RuntimeError(self._response_error_message(event))
         elif event_type == "error":
@@ -1200,17 +1371,41 @@ class ResponsesEventParser:
         if reasoning_delta:
             self.seen_reasoning_delta = True
 
-        return {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
+        parsed = {"reasoning_delta": reasoning_delta, "response_delta": response_delta}
+        is_call = event_type in {
+            "response.function_call_arguments.delta", "response.function_call_arguments.done",
+        } or event_type == "response.output_item.done"
+        if self.commentary and response_delta and (is_commentary or is_call):
+            parsed["response_preview"] = self._commentary_preview()
+        return parsed
 
-    def _remember_function_call(self, item: Any, event: Any) -> str:
-        if _get_value(item, "type") != "function_call":
+    def _commentary_preview(self) -> str:
+        preview = {"thoughts": list(self.commentary.values())}
+        calls = [(key, item) for key, item in self.function_calls.items()
+                 if key in self.emitted_function_calls or key in self.streamed_function_calls]
+        if len(calls) == 1:
+            key, item = calls[0]
+            if key in self.streamed_function_calls:
+                return (json.dumps(preview, ensure_ascii=False)[:-1]
+                        + ',"tool_name":' + json.dumps(item["name"], ensure_ascii=False)
+                        + ',"tool_args":' + item["arguments"])
+            preview.update(ResponsesTransport.function_call_object(item))
+        elif calls:
+            preview.update(tool_name="parallel_tool_calls", tool_args={
+                "calls": [ResponsesTransport.function_call_object(item) for _, item in calls],
+            })
+        return json.dumps(preview, ensure_ascii=False)
+
+    def _remember_output_item(self, item: Any, event: Any) -> str:
+        item_type = _get_value(item, "type")
+        if not item_type:
             return ""
         key = self._event_key(event, item)
         if not key:
             return ""
-        current = self.function_calls.get(key, {})
-        merged = {**current, **_object_to_dict(item)}
-        self.function_calls[key] = merged
+        current = self.output_items.get(key, {})
+        merged = {**current, **{field: value for field, value in _object_to_dict(item).items() if value is not None}}
+        self.output_items[key] = merged
         output_index = _get_value(event, "output_index")
         if output_index is not None:
             self.output_index_keys[str(output_index)] = key
@@ -1220,46 +1415,58 @@ class ResponsesEventParser:
         key = self._event_key(event)
         if not key:
             return ""
-        current = self.function_calls.setdefault(key, {"type": "function_call"})
+        current = self.output_items.setdefault(key, {"type": "function_call"})
         delta = str(_get_value(event, "delta") or "")
         current["arguments"] = str(current.get("arguments") or "") + delta
-        if current.get("name") != "response":
+        if (
+            not current.get("name")
+            or key in self.emitted_function_calls
+            or key in self.pending_function_calls
+            or (self.streamed_function_calls and key not in self.streamed_function_calls)
+        ):
             return ""
-        if key not in self.streamed_response_calls:
-            self.streamed_response_calls[key] = str(current["arguments"])
-            return '{"tool_name":"response","tool_args":' + str(
-                current["arguments"]
+        if key not in self.streamed_function_calls:
+            self.streamed_function_calls[key] = str(current["arguments"])
+            return (
+                '{"tool_name":' + json.dumps(current["name"], ensure_ascii=False)
+                + ',"tool_args":' + str(current["arguments"])
             )
-        self.streamed_response_calls[key] += delta
+        self.streamed_function_calls[key] += delta
         return delta
 
     def _complete_function_call(self, event: Any) -> str:
         key = self._event_key(event)
         if not key:
             return ""
-        current = self.function_calls.setdefault(key, {"type": "function_call"})
+        current = self.output_items.setdefault(key, {"type": "function_call"})
         if _get_value(event, "arguments") is not None:
             current["arguments"] = _get_value(event, "arguments")
         if _get_value(event, "name"):
             current["name"] = _get_value(event, "name")
-        if key in self.streamed_response_calls:
-            return self._finish_response_call(key, current)
+        if key in self.streamed_function_calls:
+            return self._finish_function_call(key, current)
         return self._emit_function_call(key, current)
 
     def _complete_output_item(self, item: Any, event: Any) -> str:
-        key = self._remember_function_call(item, event)
-        if not key:
+        key = self._remember_output_item(item, event)
+        current = self.output_items.get(key, {})
+        if current.get("type") != "function_call":
             return ""
-        if key in self.streamed_response_calls:
-            return self._finish_response_call(key, self.function_calls[key])
-        return self._emit_function_call(key, self.function_calls[key])
+        if key in self.streamed_function_calls:
+            return self._finish_function_call(key, current)
+        return self._emit_function_call(key, current)
 
-    def _finish_response_call(self, key: str, item: Any) -> str:
-        streamed = self.streamed_response_calls.pop(key)
+    def _finish_function_call(self, key: str, item: Any) -> str:
+        streamed = self.streamed_function_calls.pop(key)
         arguments = str(_get_value(item, "arguments") or "")
         self.emitted_function_calls.add(key)
         tail = arguments[len(streamed) :] if arguments.startswith(streamed) else ""
-        return tail + "}"
+        pending = self.pending_function_calls
+        self.pending_function_calls = {}
+        return tail + "}" + "".join(
+            self._emit_function_call(pending_key, pending_item)
+            for pending_key, pending_item in pending.items()
+        )
 
     def _complete_response(self, event: Any) -> tuple[str, str]:
         self.completed_response = _get_value(event, "response")
@@ -1272,6 +1479,9 @@ class ResponsesEventParser:
 
     def _emit_function_call(self, key: str, item: Any) -> str:
         if key in self.emitted_function_calls:
+            return ""
+        if self.streamed_function_calls:
+            self.pending_function_calls[key] = item
             return ""
         text = ResponsesTransport.function_call_text(item)
         if text:
@@ -1301,6 +1511,7 @@ def clear_transport_capability_cache() -> None:
     RESPONSES_UNSUPPORTED_CACHE.clear()
     RESPONSES_STATE_UNSUPPORTED_CACHE.clear()
     RESPONSES_BUILTIN_UNSUPPORTED_CACHE.clear()
+    STREAM_USAGE_UNSUPPORTED_CACHE.clear()
 
 
 def delete_stored_response_ids(
@@ -1362,12 +1573,15 @@ def _drop_responses_only_kwargs(kwargs: dict[str, Any]) -> None:
     kwargs.pop("responses_delete_on_chat_delete", None)
     kwargs.pop("responses_input_items", None)
     kwargs.pop("responses_local_input_items", None)
+    kwargs.pop("responses_prompt_replacements", None)
+    kwargs.pop("responses_history_context", None)
     kwargs.pop("previous_response_id", None)
     kwargs.pop("_a0_responses_builtin_downgrades", None)
 
 
 def _drop_internal_transport_kwargs(kwargs: dict[str, Any]) -> None:
     _drop_legacy_transport_kwargs(kwargs)
+    kwargs.pop("a0_prompt_cache_mode", None)
     kwargs.pop("a0_explicit_prompt_caching", None)
     kwargs.pop("a0_responses_function_tools", None)
     kwargs.pop("responses_builtin_tools", None)
@@ -1438,7 +1652,7 @@ def apply_chat_prompt_cache_markers(
     model: str = "",
     kwargs: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    if not _supports_cache_control_markers(model, kwargs or {}):
+    if _prompt_cache_mode(model, kwargs or {}) != "cache_control":
         return [dict(message) for message in messages]
 
     prepared = [_strip_message_cache_control(message) for message in messages]
@@ -1460,18 +1674,13 @@ def _prompt_cache_message_indexes(messages: list[dict[str, Any]]) -> list[int]:
     if leading_context:
         indexes.append(leading_context[-1])
 
-    user_indexes = [
+    # The trailing user/tool result includes extras rebuilt on every turn.
+    assistant_indexes = [
         index
         for index, message in enumerate(messages)
-        if str(message.get("role") or "") == "user"
+        if str(message.get("role") or "") == "assistant" and message.get("content")
     ]
-    indexes.extend(user_indexes[-2:])
-
-    deduplicated: list[int] = []
-    for index in indexes:
-        if index not in deduplicated:
-            deduplicated.append(index)
-    return deduplicated[:3]
+    return indexes + assistant_indexes[-2:]
 
 
 def _strip_message_cache_control(message: dict[str, Any]) -> dict[str, Any]:
@@ -1495,6 +1704,8 @@ def _content_with_cache_control(content: Any) -> Any:
         for index in range(len(blocks) - 1, -1, -1):
             block = blocks[index]
             if isinstance(block, dict):
+                if block.get("type") in {"thinking", "redacted_thinking"}:
+                    continue
                 block["cache_control"] = marker
                 return blocks
             if isinstance(block, str):
@@ -1563,7 +1774,26 @@ def _should_preserve_cache_control_on_chat(
 ) -> bool:
     if not (_has_cache_control(messages) or _has_cache_control(kwargs.get("tools"))):
         return False
-    return not _is_native_responses_provider(model, kwargs)
+    return (
+        _prompt_cache_mode(model, kwargs) == "cache_control"
+        or not _is_native_responses_provider(model, kwargs)
+    )
+
+
+def _prompt_cache_mode(model: str, kwargs: dict[str, Any]) -> str:
+    value = kwargs.get("a0_prompt_cache_mode")
+    mode = "auto" if value is None else str(value).strip().lower()
+    if mode not in {"auto", "prompt_cache_key", "cache_control", "off"}:
+        raise ValueError(
+            "a0_prompt_cache_mode must be auto, prompt_cache_key, cache_control, or off"
+        )
+    if mode != "auto":
+        return mode
+    if _is_openai_prompt_cache_provider(model, kwargs):
+        return "prompt_cache_key"
+    if _supports_cache_control_markers(model, kwargs):
+        return "cache_control"
+    return "off"
 
 
 def _is_native_responses_provider(model: str, kwargs: dict[str, Any]) -> bool:
@@ -1624,7 +1854,10 @@ def _prepare_openai_prompt_cache_params(
     *,
     model: str = "",
 ) -> None:
-    if "prompt_cache_key" in request:
+    extra_body = request.get("extra_body")
+    if "prompt_cache_key" in request or (
+        isinstance(extra_body, dict) and "prompt_cache_key" in extra_body
+    ):
         return
 
     sanitized_messages = _without_cache_control(messages)
@@ -1804,6 +2037,13 @@ def _is_bad_request_error(exc: Exception) -> bool:
         return True
     text = _exception_text(exc).lower()
     return "400" in text and "bad request" in text
+
+
+def _is_stream_usage_rejected_error(exc: Exception) -> bool:
+    text = _exception_text(exc).lower()
+    if "stream_options" not in text:
+        return False
+    return _is_bad_request_error(exc) or _exception_status_code(exc) == 422
 
 
 def _is_server_error(exc: Exception) -> bool:
@@ -2001,6 +2241,10 @@ def _without_stream_kwarg(kwargs: dict[str, Any]) -> dict[str, Any]:
 def _first_choice(chunk: Any) -> Any:
     choices = _get_value(chunk, "choices") or []
     return choices[0] if choices else {}
+
+
+def _finish_reason(chunk: Any) -> str:
+    return str(_get_value(_first_choice(chunk), "finish_reason") or "")
 
 
 def _get_value(obj: Any, key: str) -> Any:

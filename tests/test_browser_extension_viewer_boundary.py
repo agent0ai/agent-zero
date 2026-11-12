@@ -1,47 +1,35 @@
 """Extension handles must never enter the incumbent container viewer lane."""
 import shutil
 import subprocess
-import ast
 import asyncio
 from pathlib import Path
-from types import SimpleNamespace, MethodType
+from types import SimpleNamespace
 
 import pytest
 
 
-def test_extension_log_projection_hides_input_without_mutating_tool_arguments():
-    root = Path(__file__).resolve().parents[1]
-    source = ast.parse((root / "plugins/_browser/tools/browser.py").read_text())
-    names = {"get_log_object", "_presentation_arguments", "get_display_args"}
-    methods = [node for node in ast.walk(source)
-               if isinstance(node, ast.FunctionDef) and node.name in names]
+def test_extension_log_projection_hides_input_without_mutating_tool_arguments(monkeypatch):
+    from helpers import tool
+    from plugins._browser.tools import browser
+
     config = {"runtime_backend": "host_required", "host_browser_selection": "extension:bridge-1"}
-    namespace = {"get_browser_config": lambda **kwargs: config,
-                 "parse_extension_browser_selection": lambda value: value or None}
-    exec(compile(ast.Module(body=methods, type_ignores=[]), "browser-log-projection", "exec"), namespace)
+    monkeypatch.setattr(browser, "get_browser_config", lambda **kwargs: config)
     args = {"action": "type", "text": "synthetic private text", "_browser_backend": "forged"}
     agent = SimpleNamespace(agent_name="Agent Zero", context=SimpleNamespace(log=SimpleNamespace(log=lambda **kwargs: kwargs)))
-    owner = SimpleNamespace(args=args, agent=agent, name="browser")
-    for name in names:
-        setattr(owner, name, MethodType(namespace[name], owner))
-    projected = namespace["get_log_object"](owner)["kvps"]
+    owner = browser.Browser(agent=agent, name="browser", method=None, args=args, message="", loop_data=None)
+    projected = owner.get_log_object()["kvps"]
     assert projected["text"] == "[Input text withheld]" and projected["_browser_backend"] == "chrome_extension"
     assert args["text"] == "synthetic private text" and args["_browser_backend"] == "forged"
     # Exercise the actual base pre-execution console/extension-output path.
-    base = ast.parse((root / "helpers/tool.py").read_text())
-    before = next(node for node in ast.walk(base)
-                  if isinstance(node, ast.AsyncFunctionDef) and node.name == "before_execution")
     output = []
     async def observe(_hook, _agent, ctx):
         output.append(ctx["content"])
-    namespace.update(PrintStyle=lambda **kwargs: SimpleNamespace(print=lambda *args: None, stream=lambda *args: None),
-                     call_extensions_async=observe)
-    exec(compile(ast.Module(body=[before], type_ignores=[]), "tool-display-projection", "exec"), namespace)
-    owner.nice_key = lambda key: key
-    asyncio.run(namespace["before_execution"](owner))
+    monkeypatch.setattr(tool, "PrintStyle", lambda **kwargs: SimpleNamespace(print=lambda *args: None, stream=lambda *args: None))
+    monkeypatch.setattr(tool, "call_extensions_async", observe)
+    asyncio.run(owner.before_execution())
     assert "synthetic private text" not in output and "[Input text withheld]" in output
     config["runtime_backend"] = "container"
-    projected = namespace["get_log_object"](owner)["kvps"]
+    projected = owner.get_log_object()["kvps"]
     assert "_browser_backend" not in projected and projected["text"] == args["text"]
 
 

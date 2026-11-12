@@ -22,6 +22,7 @@
 - `CreateChat` defines `process(...)`.
 - A newly created chat reconciles its profile after project inheritance, so it
   never keeps a profile unavailable in the inherited scope.
+- Optional `project_name` explicitly selects a project, with `""` meaning no project. Validate it before creating a context; an explicit choice overrides inheritance even when inheritance is disabled. Omitting it retains the existing behavior.
 - Observed side-effect areas: filesystem writes, model calls, plugin state, settings/state persistence.
 - Imported dependency areas include: `agent`, `helpers`, `helpers.api`.
 
@@ -40,6 +41,7 @@
 
 - Run endpoint-specific or API/WebSocket tests for changed behavior; smoke-test browser callers when no focused test exists.
 - Related tests observed by source search:
+  - `tests/test_chat_create.py`
   - `tests/test_browser_agent_regressions.py`
 
 ## Child DOX Index

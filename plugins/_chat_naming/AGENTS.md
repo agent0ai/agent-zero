@@ -7,7 +7,7 @@
 ## Ownership
 
 - `helpers/naming.py` owns user-message selection, name generation, and persistence.
-- `extensions/python/monologue_end/` owns configured automatic naming.
+- `extensions/python/monologue_start/` owns configured automatic naming.
 - `api/chat_name.py` owns modal reads, generation, and manual saves.
 - `webui/` and `extensions/webui/sidebar-row-actions-menu/` own the standard rename modal and row-menu action.
 - `prompts/` owns the Utility Model naming instructions.
@@ -16,14 +16,18 @@
 ## Local Contracts
 
 - Automatic naming reads scoped plugin config through the active chat agent.
-- Automatic naming runs after the monologue completes, so it cannot delay the Main Model.
+- Automatic naming is scheduled from `monologue_start` as a background task; never await its Utility Model request in the main inference path.
 - Utility Model input contains the current name and user messages only; assistant work and tool results are excluded.
+- The synthetic initial user seed marked `initial_seed` by the core greeting extension is excluded from user-message selection and never schedules a naming call; a genuine first user message names the chat immediately.
 - The complete naming prompt must remain within 70% of the effective Utility Model context window, preserving the newest user context when trimming is required.
-- `once` names only unnamed user chats from their first user message; `always` considers the latest user message plus recent user context.
+- `always` is the default and considers the latest user message plus recent user context; `once` names only unnamed user chats from their first user message. Preserve explicitly saved modes.
+- Manual renames (API `save` and `/rename <name>`) set persisted context data `chat_naming_manual` before the chat is saved. Automatic naming skips that chat while the flag is set. `/rename auto` clears the flag, then generates and saves a name.
+- Automatic naming does not save when `context.name` changed between scheduling and the Utility Model response.
 - Generated names are concise and normalized before persistence.
 - Renaming a parallel child updates both its context name and sidebar label.
+- Automatic naming skips delegated child contexts; their labels belong to `call_subordinate` or an explicit rename action, in both direct and parallel execution.
 - Manual task renames update both scheduler metadata and the task context name.
-- `/rename auto` uses the same generation and persistence helpers as the rename modal; any other non-empty argument is saved as the custom chat name.
+- `/rename auto` clears `chat_naming_manual` and uses the same generation and persistence helpers as the rename modal; any other non-empty argument is saved as the custom chat name and sets the flag.
 
 ## Work Guidance
 

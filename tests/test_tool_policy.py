@@ -154,6 +154,11 @@ def test_provider_native_schemas_omit_blocked_local_tool(
     )
 
     assert [tool["name"] for tool in tools] == ["allowed"]
+    description = tools[0]["description"]
+    assert "Keyboard input remains documented." in description
+    assert "blocked" not in description.lower()
+    assert "Arguments example:" in description
+    assert '"tool_name"' not in description
 
 
 @pytest.mark.asyncio
@@ -660,7 +665,8 @@ async def test_active_vision_model_uses_canonical_vision_prompt(
 
     assert prompt.count("canonical vision") == 1
     assert schemas[0]["name"] == "vision_load"
-    assert schemas[0]["description"] == "canonical vision"
+    assert "canonical vision" in schemas[0]["description"]
+    assert "args: `paths`, `query`" in schemas[0]["description"]
 
 
 def test_vision_prompt_stays_route_agnostic_and_batches_paths() -> None:
@@ -779,6 +785,16 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
     assert len(restricted_schemas) == 1
     assert set(allowed_name_map.values()) == {"docs.read", "docs.write"}
     assert name_map[restricted_schemas[0]["name"]] == "docs.read"
+    server_context = config.get_tools_prompt(agent=restricted_agent, include_tools=False)
+    assert "Context only: Documentation" in server_context
+    loop_data = SimpleNamespace(params_temporary={})
+    monkeypatch.setattr(mcp_handler.MCPConfig, "get_for_agent", lambda agent: config)
+    responses_tools.register_prompt(restricted_agent, loop_data, "mcp", restricted_prompt)
+    native_prompt = loop_data.params_temporary["responses_prompt_replacements"][restricted_prompt]
+    assert "Context only: Documentation" in native_prompt
+    assert "Server descriptions are context, not callable capabilities" in native_prompt
+    assert "tool_args" not in native_prompt and "docs.write" not in native_prompt
+    assert "Input schema" not in native_prompt
 
     reads = 0
 
@@ -791,13 +807,16 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
     assert config.get_tools_prompt(agent=_Agent(tmp_path)) == ""
     assert reads == 1
+    assert config.get_tools_prompt(agent=_Agent(tmp_path), include_tools=False) == ""
+    assert reads == 2
 
 
 @pytest.mark.asyncio
 async def test_browser_context_follows_profile_tool_policy(
     monkeypatch, tmp_path: Path
 ) -> None:
-    from plugins._browser.extensions.python.system_prompt import _20_browser_context
+    from agent import LoopData
+    from plugins._browser.extensions.python.message_loop_prompts_after import _20_browser_context
 
     runtime = SimpleNamespace(
         call=AsyncMock(
@@ -824,15 +843,15 @@ async def test_browser_context_follows_profile_tool_policy(
         _20_browser_context, "get_runtime", AsyncMock(return_value=runtime)
     )
 
-    system_prompt: list[str] = []
-    extension = _20_browser_context.BrowserContextPrompt(agent)
-    await extension.execute(system_prompt=system_prompt)
-    assert system_prompt == []
+    loop_data = LoopData()
+    extension = _20_browser_context.BrowserContextExtras(agent)
+    await extension.execute(loop_data=loop_data)
+    assert "browser_context" not in loop_data.extras_temporary
     runtime.call.assert_not_awaited()
 
     allowed = True
-    await extension.execute(system_prompt=system_prompt)
-    assert "currently open web browsers" in system_prompt[0]
+    await extension.execute(loop_data=loop_data)
+    assert "currently open web browsers" in loop_data.extras_temporary["browser_context"]
     runtime.call.assert_awaited_once_with("list")
 
 
@@ -1032,3 +1051,106 @@ def test_unknown_policy_ids_are_retained_as_unavailable(
             "available": False,
         }
     ]
+
+
+@pytest.mark.parametrize("tool_id,legacy_ids", tool_policy.LEGACY_TOOL_IDS.items())
+def test_moved_tools_retain_saved_permissions(tool_id, legacy_ids, tmp_path):
+    agent = _Agent(tmp_path)
+    for legacy_id in legacy_ids:
+        for default, allowed, blocked, expected in (
+            ("allow", [], [legacy_id], False),
+            ("block", [legacy_id], [], True),
+            ("allow", [tool_id], [legacy_id], False),
+            ("allow", [legacy_id], [tool_id], False),
+        ):
+            decision = tool_policy.resolve_tool(
+                agent, tool_id.rsplit(":", 1)[-1], canonical_id=tool_id,
+                _policy=_custom_policy(default=default, allowed=allowed, blocked=blocked),
+            )
+            assert decision.allowed is expected
+
+
+@pytest.fixture
+def memory_policy_agent(monkeypatch):
+    root = Path(__file__).resolve().parents[1]
+    plugin = root / "plugins/_memory"
+    agent = _Agent(plugin / "prompts")
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **kwargs: [str(plugin.joinpath(*parts))])
+    monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
+    monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
+    return agent
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("default,allowed,blocked,expected", [
+    ("block", ["plugin:_memory:memory_load"], [], ["load"]),
+    ("allow", [], ["plugin:_memory:memory_delete", "plugin:_memory:memory_forget"], ["load", "save"]),
+    ("block", ["plugin:_memory:memory"], [], ["load", "save", "delete", "forget"]),
+    ("allow", ["plugin:_memory:memory"], ["plugin:_memory:memory_delete"], ["load", "save", "forget"]),
+    ("allow", ["plugin:_memory:memory_load"], ["plugin:_memory:memory"], []),
+    ("block", [], [], []),
+])
+async def test_unified_memory_preserves_action_permissions_in_discovery_and_execution(
+    monkeypatch, memory_policy_agent, default, allowed, blocked, expected,
+):
+    agent = memory_policy_agent
+    policy = _custom_policy(default=default, allowed=allowed, blocked=blocked)
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: policy)
+    assert tool_policy.allowed_memory_actions(agent) == expected
+    schemas, names = responses_tools.build_responses_function_tools(agent)
+    assert set(names) == ({"memory"} if expected else set())
+    if expected:
+        assert schemas[0]["parameters"]["properties"]["action"]["enum"] == expected
+        if len(expected) < 4:
+            assert "Permitted memory actions for this agent: " + ", ".join(expected) in schemas[0]["description"]
+    for action in tool_policy.MEMORY_ACTIONS:
+        for name, args in (("memory", {"action": f" {action.upper()} "}), (f"memory_{action}", {"action": "delete"})):
+            if action in expected:
+                await EnforceToolPolicy(agent).execute(tool_name=name, tool_args=args)
+            else:
+                with pytest.raises(RepairableException, match="is blocked"):
+                    await EnforceToolPolicy(agent).execute(tool_name=name, tool_args=args)
+
+
+@pytest.mark.asyncio
+async def test_memory_execution_rechecks_changed_policy(monkeypatch, memory_policy_agent):
+    policy = _custom_policy(default="allow")
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: policy)
+    schemas, _ = responses_tools.build_responses_function_tools(memory_policy_agent)
+    assert "delete" in schemas[0]["parameters"]["properties"]["action"]["enum"]
+    policy["blocked"] = ["plugin:_memory:memory_delete"]
+    with pytest.raises(RepairableException):
+        await EnforceToolPolicy(memory_policy_agent).execute(tool_name="memory", tool_args={"action": "delete"})
+
+
+def test_memory_profile_override_does_not_inherit_bundled_action_policy(monkeypatch, tmp_path):
+    (tmp_path / "memory.py").write_text("")
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **kwargs: [str(tmp_path / parts[-1])])
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: _custom_policy(default="allow", blocked=["plugin:_memory:memory"]))
+    agent = _Agent(tmp_path)
+    assert tool_policy.allowed_memory_actions(agent) is None
+    assert tool_policy.resolve_tool(agent, "memory", action="delete").allowed
+
+
+def test_moved_tool_legacy_policy_stays_editable(monkeypatch, tmp_path):
+    root = Path(__file__).resolve().parents[1] / "plugins/_search_engine"
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **kwargs: [str(root.joinpath(*parts))])
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: _custom_policy(default="allow", blocked=["local:search_engine"]))
+    monkeypatch.setattr(mcp_handler.MCPConfig, "get_for_agent", lambda _agent: _NoMCPTools())
+    catalog = tool_policy.get_tool_catalog(_Agent(root / "prompts"))
+    legacy = next(item for item in catalog if item["id"] == "local:search_engine")
+    assert legacy["available"] is True
+    assert legacy["name"] == "search_engine"
+
+
+@pytest.mark.parametrize("blocked", [
+    "plugin:_memory:behaviour_adjustment",
+    "plugin:_behavior_adjustment:behavior_adjustment",
+])
+def test_legacy_behavior_call_cannot_bypass_policy(blocked, tmp_path):
+    decision = tool_policy.resolve_tool(
+        _Agent(tmp_path), "behaviour_adjustment",
+        canonical_id="plugin:_behavior_adjustment:behaviour_adjustment",
+        _policy=_custom_policy(default="allow", blocked=[blocked]),
+    )
+    assert decision.allowed is False

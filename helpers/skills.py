@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, TYPE_CHECKING, TypedDict
 
 from helpers import files, subagents, projects, file_tree, runtime
+from helpers.extension import extensible
 from helpers import plugins as plugin_helpers
 
 if TYPE_CHECKING:
@@ -67,6 +68,7 @@ def get_skills_base_dir() -> Path:
     return Path(files.get_abs_path("usr", "skills"))
 
 
+@extensible
 def get_skill_roots(
     agent: Agent|None=None,
 ) -> List[str]:

@@ -16,6 +16,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Import real modules first so setdefault stubs below never shadow them for later collectors.
+import agent
+import helpers.tool
+import helpers.ws
+import helpers.ws_manager
+import plugins._model_config.helpers.model_config
+
 
 class _TestAgentContext:
     @staticmethod
@@ -111,7 +118,11 @@ sys.modules.setdefault(
 )
 sys.modules.setdefault("helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool))
 sys.modules.setdefault("helpers.ws", SimpleNamespace(WsHandler=_TestWsHandler))
-sys.modules.setdefault("helpers.ws_manager", SimpleNamespace(WsResult=_TestWsResult))
+sys.modules.setdefault("helpers.ws_manager", SimpleNamespace(
+    WsResult=_TestWsResult,
+    WsPayloadTooLargeError=ValueError,
+    get_shared_ws_manager=lambda: _TestWsManager(),
+))
 _model_config_stub = ModuleType("plugins._model_config.helpers.model_config")
 _model_config_stub.get_presets = lambda: []
 _model_config_stub.get_preset_by_name = lambda name: None
@@ -204,8 +215,10 @@ def test_browser_config_normalizes_extension_paths(tmp_path):
         "extension_paths": [str(extension_dir)],
         "default_homepage": "about:blank",
         "autofocus_active_page": True,
+        "annotation_screenshots": False,
         "browser_tab_scope": "per_context",
         "max_open_tabs": 32,
+        "evaluate_timeout_seconds": 30.0,
         "runtime_backend": "container",
         "host_browser_privacy_policy": "allow",
         "host_browser_profile_mode": "existing",
@@ -393,6 +406,10 @@ def test_browser_config_store_lists_supported_host_targets_and_migrates_endpoint
         + "if (!store.hostBrowserSetupAvailable('edge')) throw new Error('installed Edge Dev setup is hidden');\n"
         + "const custom = 'ws://localhost:9333/devtools/browser/custom';\n"
         + "if (stableHostBrowserSelection(custom, browserStatus) !== custom) throw new Error('custom endpoint changed');\n"
+        + "store.config.extension_paths = ['/scoped/extension'];\n"
+        + "store.applyExtensionPayload({ extension_paths: ['/global/extension'], extensions: [] });\n"
+        + "if (store.config.extension_paths[0] !== '/scoped/extension') throw new Error('refresh replaced scoped or unsaved extensions');\n"
+
     )
 
     subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
@@ -659,6 +676,40 @@ def test_browser_hook_installs_patchright_for_existing_self_updated_runtime(monk
     browser_hooks_module._ensure_patchright_dependency()
 
     assert current is True
+
+
+@pytest.mark.parametrize("socks_installed", [False, True])
+def test_browser_install_ensures_httpx_socks_support(monkeypatch, socks_installed):
+    installed = socks_installed
+    calls = []
+
+    def find_spec(name):
+        assert name == "socksio"
+        return object() if installed else None
+
+    def install(command, *, cwd):
+        nonlocal installed
+        assert command == [
+            "/usr/local/bin/uv", "pip", "install", "--python", sys.executable,
+            "httpx[socks]",
+        ]
+        assert cwd == str(PROJECT_ROOT / "plugins" / "_browser")
+        calls.append(command)
+        installed = True
+
+    def prepare():
+        assert installed
+        return {"binary": "chromium"}
+
+    monkeypatch.setattr(browser_hooks_module.importlib.util, "find_spec", find_spec)
+    monkeypatch.setattr(browser_hooks_module.shutil, "which", lambda name: "/usr/local/bin/uv")
+    monkeypatch.setattr(browser_hooks_module.subprocess, "check_call", install)
+    monkeypatch.setattr(browser_hooks_module, "prepare_playwright_cache", prepare)
+
+    assert browser_hooks_module.install() == {"binary": "chromium"}
+    assert len(calls) == (0 if socks_installed else 1)
+    assert browser_hooks_module.install() == {"binary": "chromium"}
+    assert len(calls) == (0 if socks_installed else 1)
 
 
 def _write_playwright_binary(cache_dir: Path) -> Path:
@@ -988,41 +1039,23 @@ def test_browser_extension_manager_uses_modern_chrome_prodversion(monkeypatch):
     assert "prodversion=120.0.0.0" not in url
 
 
-def test_browser_extension_menu_exposes_agent_and_url_paths():
-    html = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html").read_text(
-        encoding="utf-8"
-    )
-    skill = (
-        PROJECT_ROOT
-        / "plugins"
-        / "_browser"
-        / "skills"
-        / "browser-extension-control"
-        / "SKILL.md"
-    )
-
-    assert "Create New Extension with A0" in html
-    assert "+ Create New with A0" not in html
-    assert "Input a Chrome Web Store URL" in html
-    assert "My Browser Extensions" not in html
-    assert "Browser LLM Preset" in html
-    assert "Chrome Extensions" in html
-    assert "Installed extensions" in html
-    assert "deleteExtension(extension)" not in html
-    assert "No extensions installed yet." not in html
-    assert "Browser Extension Settings" not in html
-    assert "<span>Settings</span>" in html
-    assert "extensionHasOpenUi(extension)" in html
-    assert "openExtensionUi(extension)" in html
-    assert "<span>Open</span>" in html
-    assert "hasExtensionInstallUrl()" in html
-    assert "malicious or buggy extensions" in html
-    assert "'Installing…' : 'Install URL'" in html
-    assert ':aria-busy="$store.browserPage.extensionActionLoading.toString()"' in html
-    assert "Large packages may take a few minutes." in (
-        PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-store.js"
-    ).read_text(encoding="utf-8")
-    assert skill.exists()
+def test_browser_quick_settings_and_config_management():
+    panel = (PROJECT_ROOT / "plugins/_browser/webui/browser-panel.html").read_text()
+    config = (PROJECT_ROOT / "plugins/_browser/webui/config.html").read_text()
+    for action in ("Create New Extension with A0", "Chrome Web Store URL", "Install URL", "Scan with A0"):
+        assert action not in panel
+        assert action in config
+    for label in ("Browser LLM Preset", "Chrome Extensions", "More settings", "Configure host browser", "Page zoom"):
+        assert label in panel
+    assert "Installed extensions" not in panel
+    assert "openExtensionUi(extension)" in panel
+    assert "setRuntimeBackend('host_required')" in panel
+    assert "setRuntimeBackend('container')" in panel
+    assert 'x-show="$store.browserPage.runtimeBackend === \'host_required\'"' in panel
+    for action in ("history", "clearData", "passwords", "addresses", "extensions", "downloadSettings", "downloads"):
+        assert f"openBrowserPage('{action}')" in config
+    assert "Do not include" in config
+    assert 'x-model.boolean="config.annotation_screenshots"' in config
 
 
 def test_browser_viewer_allows_slow_extension_startup():
@@ -1457,8 +1490,9 @@ def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
     assert "first load `browser-automation` with `skills_tool:load`" in prompt
     assert "`browser-automation` links to `browser-form-workflows`" in prompt
     assert "does not automatically load screenshots" in prompt
-    assert "chrome://inspect/#remote-debugging" in prompt
-    assert "opera://inspect/#remote-debugging" in prompt
+    browser_skill = (PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md").read_text(encoding="utf-8")
+    assert "chrome://inspect/#remote-debugging" in browser_skill
+    assert "opera://inspect/#remote-debugging" in browser_skill
     assert tokens.approximate_tokens(prompt) <= 650
     assert "already open" in config
     assert "already-open Browser surface" in config_html
@@ -1568,7 +1602,7 @@ def test_browser_ui_spinners_have_browser_local_animation():
         encoding="utf-8"
     )
 
-    assert ":class=\"{ spinning: $store.browserPage.extensionActionLoading }\"" in main_html
+    assert ":class=\"{ spinning: $store.browserConfig.extensionActionLoading }\"" in config_html
     assert "@keyframes browser-spin" in main_html
     assert "@keyframes browser-config-spin" in config_html
 
@@ -1614,6 +1648,155 @@ def test_browser_extension_settings_stay_user_facing():
     assert "Browser caches Playwright Chromium" not in config_html
 
 
+def test_browser_tab_switch_completes_without_reloading_shared_interactive_viewer():
+    source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text(encoding="utf-8")
+    source = source[source.index("const BROWSER_SUBSCRIBE_TIMEOUT_MS"):source.index("export const store")]
+    script = """
+import assert from 'node:assert/strict';
+let responseData;
+let superseded = false;
+const websocket = { request: async () => {
+  if (superseded) model._connectSequence++;
+  return { results: [{ ok: true, data: responseData }] };
+} };
+""" + source + """
+Object.assign(model, {
+  loading: false, contextId: 'ctx', activeBrowserContextId: 'ctx', activeBrowserId: 2,
+  _bindSocketEvents: async () => {},
+  currentViewportSize: () => ({ width: 900, height: 600 }),
+});
+for (const [transport, oldUrl, nextUrl, stale, busy] of [
+  ['interactive', '/viewer', '/viewer', false, false],
+  ['interactive', '', '/viewer', false, true],
+  ['interactive', '/viewer', '/new-viewer', false, true],
+  ['screencast', '/viewer', '', false, true],
+  ['snapshot', '', '', false, true],
+  ['interactive', '/viewer', '/viewer', true, true],
+]) {
+  Object.assign(model, {
+    viewerTransport: transport, interactiveViewUrl: oldUrl,
+    switchingBrowserId: 2, _surfaceSwitching: true,
+  });
+  responseData = {
+    browsers: [{ id: 2, context_id: 'ctx', loading: false }],
+    active_browser_id: 2, viewer_transport: transport,
+    interactive_view: { available: Boolean(nextUrl), url: nextUrl },
+  };
+  superseded = stale;
+  await model.connectViewer({ browserId: 2, contextId: 'ctx' });
+  assert.equal(model.isBusy(), busy, JSON.stringify([transport, oldUrl, nextUrl, stale]));
+  assert.equal(model.isBrowserLoading(model.browsers[0]), busy);
+  assert.equal(model._surfaceSwitching, busy);
+  assert.equal(model.switchingBrowserId, busy ? 2 : null);
+  assert.equal(model.interactiveViewUrl, stale ? oldUrl : nextUrl);
+}
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
+
+
+def test_browser_viewer_clears_empty_context_and_ignores_late_responses():
+    source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text(encoding="utf-8")
+    source = source[source.index("const BROWSER_SUBSCRIBE_TIMEOUT_MS"):source.index("export const store")]
+    script = """
+import assert from 'node:assert/strict';
+const ok = data => ({ results: [{ ok: true, data }] });
+const empty = context_id => ({ context_id, active_browser_id: null, browsers: [],
+  viewer_transport: 'snapshot', interactive_view: null });
+const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return {promise, resolve}; };
+let request = async () => ok(empty('empty'));
+const websocket = { request: (...args) => request(...args), emit: async () => {} };
+const chatsStore = { selected: 'old' };
+""" + source + """
+Object.assign(model, {
+  loading: false, _surfaceMounted: true,
+  contextId: 'old', activeBrowserContextId: 'old', activeBrowserId: 1,
+  browsers: [{ id: 1, context_id: 'old', currentUrl: 'https://old.example' }],
+  address: 'https://old.example', addressFocused: true,
+  frameState: { id: 1, currentUrl: 'https://old.example' },
+  switchingBrowserId: 1, _surfaceSwitching: true,
+  _bindSocketEvents: async () => {},
+  currentViewportSize: () => ({ width: 900, height: 600 }),
+  isVisibleBrowserSurface: () => true,
+  syncViewportAfterSurfaceOpen: async () => {},
+});
+// Empty subscriptions are authoritative, even if the previous tab still exists elsewhere.
+await model.connectViewer({ browserId: null, contextId: 'empty' });
+assert.equal(model.activeBrowserId, null);
+assert.equal(model.address, '');
+assert.equal(model.frameState, null);
+assert.equal(model.isBusy(), false);
+
+// A structured server failure must release the same spinner as a transport failure.
+for (const transportFailure of [false, true]) {
+  Object.assign(model, { switchingBrowserId: 1, _surfaceSwitching: true });
+  request = async () => {
+    if (transportFailure) throw new Error('offline');
+    return { results: [{ ok: false, error: { error: 'offline' } }] };
+  };
+  await assert.rejects(model.connectViewer({ contextId: 'empty' }), /offline/);
+  assert.equal(model.isBusy(), false);
+  assert.equal(model.connected, false);
+}
+
+// Two pending context refreshes finish out of order. Only the latest may subscribe.
+const slow = deferred();
+const fast = deferred();
+const subscriptions = [];
+model.refreshBrowserSessions = async id => {
+  if (id === 'slow') await slow.promise;
+  if (id === 'fast') await fast.promise;
+};
+request = async (event, data) => {
+  subscriptions.push(data.context_id);
+  return ok(empty(data.context_id));
+};
+const switchingSlow = model.syncViewerToSelectedContext('slow');
+await Promise.resolve();
+const switchingFast = model.syncViewerToSelectedContext('fast');
+await Promise.resolve();
+slow.resolve();
+await switchingSlow;
+assert.equal(model.loading, true);
+fast.resolve();
+await switchingFast;
+assert.deepEqual(subscriptions, ['fast']);
+assert.equal(model.contextId, 'fast');
+assert.equal(model.isBusy(), false);
+
+// Leaving a chat also invalidates an already pending viewer response.
+const pending = deferred();
+request = async () => pending.promise;
+const connecting = model.connectViewer({ browserId: 1, contextId: 'old' });
+await Promise.resolve();
+await Promise.resolve();
+await model.syncViewerToSelectedContext('');
+pending.resolve(ok({ active_browser_id: 1, browsers: model.browsers,
+  viewer_transport: 'interactive', interactive_view: { available: true, url: '/old-viewer' } }));
+await connecting;
+assert.equal(model.contextId, '');
+assert.equal(model.activeBrowserId, null);
+assert.equal(model.address, '');
+assert.equal(model.interactiveViewUrl, '');
+assert.equal(model.isBusy(), false);
+
+// A late open-command result cannot take the user back to their previous chat.
+const commandReply = deferred();
+request = async () => commandReply.promise;
+model.contextIdForNewBrowser = async () => 'old';
+const opening = model.command('open');
+await Promise.resolve();
+await model.syncViewerToSelectedContext('');
+commandReply.resolve(ok({ result: { id: 1, context_id: 'old', currentUrl: 'https://old.example' },
+  browsers: [{ id: 1, context_id: 'old' }] }));
+await opening;
+assert.equal(model.contextId, '');
+assert.equal(model.address, '');
+assert.equal(model.activeBrowserId, null);
+assert.equal(model.isBusy(), false);
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
+
+
 def test_browser_viewer_uses_tabs_for_session_switching():
     main_html = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html").read_text(
         encoding="utf-8"
@@ -1624,7 +1807,7 @@ def test_browser_viewer_uses_tabs_for_session_switching():
 
     assert 'class="browser-session-tabs" role="tablist"' in main_html
     assert 'class="browser-tab"' in main_html
-    assert 'class="browser-new-tab"' in main_html
+    assert 'class="browser-new-tab surface-control"' in main_html
     assert 'browser in $store.browserPage.visibleBrowsers()' in main_html
     assert ':key="$store.browserPage.browserTabKey(browser)"' in main_html
     assert "browser.context_id" in main_html
@@ -1669,7 +1852,6 @@ def test_browser_viewer_uses_tabs_for_session_switching():
     assert "browser-live-dot" not in main_html
     assert "async openNewBrowser()" in browser_store
     assert "browserTabTitle(browser)" in browser_store
-    assert "Scan with A0" in browser_store
     assert "Review with A0" not in browser_store
     assert "Using ${this.mainModelSummary}" in browser_store
 
@@ -1917,7 +2099,7 @@ def test_browser_navigation_errors_stay_inside_native_browser_page():
     assert "Error as PlaywrightError" in runtime
     assert "except PlaywrightError as exc:" in runtime
     assert "Browser navigation showed a native error page" in runtime
-    assert "await self._settle(page)" in runtime
+    assert "await page.goto(url, wait_until=wait_until, timeout=30000)" in runtime
     assert "except (PlaywrightError, PlaywrightTimeoutError):" in runtime
 
 
@@ -2105,9 +2287,9 @@ def test_browser_panel_groups_mobile_toolbar_controls_above_address():
         PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html"
     ).read_text(encoding="utf-8")
 
-    toolbar_index = panel.index('<div class="browser-toolbar">')
+    toolbar_index = panel.index('<div class="browser-toolbar surface-toolbar">')
     nav_index = panel.index('<div class="browser-navigation">', toolbar_index)
-    controls_index = panel.index('<div class="browser-session-controls">', toolbar_index)
+    controls_index = panel.index('<div class="browser-session-controls surface-toolbar-group">', toolbar_index)
     address_index = panel.index('<form class="browser-address-form"', toolbar_index)
 
     assert nav_index < controls_index < address_index
@@ -2541,20 +2723,27 @@ def test_browser_docker_pins_python_313_compatible_desktop_packages():
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_additional.sh"
     ).read_text(encoding="utf-8")
 
-    assert 'KALI_SUITE="kali-last-snapshot"' in install_additional
+    assert 'https://snapshot.debian.org/archive/debian/20260624T000000Z/' in install_additional
+    assert 'Dir::Etc::sourceparts=-' in install_additional
     assert 'LIBREOFFICE_VERSION="4:26.2.4.2-1"' in install_additional
     assert 'XPRA_VERSION="6.5.2-r0-1"' in install_additional
     assert 'XPRA_HTML5_VERSION="19-r1-1"' in install_additional
     assert 'XPRA_HTML5_VERSION="21-r1-1"' in install_additional
     assert '"python3-uno=$LIBREOFFICE_VERSION"' in install_additional
-    assert 'apt-get download "gir1.2-atk-1.0=$ATK_VERSION"' in install_additional
-    assert '  "$ATK_GIR_PACKAGE" \\' in install_additional
+    from plugins._desktop import hooks as desktop_hooks
+    assert f'ATK_VERSION="{desktop_hooks.ATK_VERSION}"' in install_additional
+    for package in desktop_hooks.ATK_RUNTIME_PACKAGES:
+        assert f'"{package}=$ATK_VERSION"' in install_additional
+    assert '  "${ATK_PACKAGES[@]}" \\' in install_additional
+    assert "PYTHON_VERSION" not in install_additional
+    assert '--allow-downgrades' in install_additional
     assert "  gir1.2-gtk-3.0 \\" in install_additional
     assert '"xpra-client=$XPRA_VERSION"' in install_additional
     assert '"xpra-client-gtk3=$XPRA_VERSION"' in install_additional
     assert '"xpra-server=$XPRA_VERSION"' in install_additional
     assert '"xpra-html5=$XPRA_HTML5_VERSION"' in install_additional
-    assert install_additional.index("apt-get download") < install_additional.index('s/kali-rolling/$KALI_SUITE')
+    assert "apt-get download" not in install_additional
+    assert install_additional.index('cat >/etc/apt/a0-desktop.list') < install_additional.index('apt-get "${APT_OPTIONS[@]}" update')
     assert "https://xpra.org/beta" not in install_additional
 
 
@@ -2636,6 +2825,30 @@ def test_browser_interactive_view_applies_keyboard_layout(monkeypatch):
     assert len(commands) == 1
 
 
+def test_browser_xpra_uses_websocket_transport_and_bounded_service_waits(monkeypatch, tmp_path):
+    view = BrowserInteractiveView("ctx-startup")
+    view.state_dir = tmp_path
+    view.display = 71
+    commands = []
+    monkeypatch.setenv("XPRA_SYSTEM_DBUS_TIMEOUT", "7")
+    monkeypatch.delenv("XPRA_SYSTEM_CUPS_TIMEOUT", raising=False)
+    monkeypatch.setattr(view, "_free_port", lambda: 44001)
+    monkeypatch.setattr(view, "_keyboard_xpra_args", lambda: [])
+    monkeypatch.setattr(view, "_wait_for_port", lambda *_: None)
+    monkeypatch.setattr(
+        browser_interactive_view_module.subprocess, "Popen",
+        lambda command, **kwargs: commands.append((command, kwargs)),
+    )
+
+    view._start_xpra("xpra")
+
+    command, kwargs = commands[0]
+    assert "--mmap=no" in command
+    assert "--bind-tcp=127.0.0.1:44001" in command
+    assert kwargs["env"]["XPRA_SYSTEM_DBUS_TIMEOUT"] == "7"
+    assert kwargs["env"]["XPRA_SYSTEM_CUPS_TIMEOUT"] == "1"
+
+
 def test_browser_interactive_views_use_isolated_loopback_sessions(monkeypatch, tmp_path):
     class FakeProcess:
         def __init__(self):
@@ -2710,9 +2923,10 @@ def test_browser_interactive_views_use_isolated_loopback_sessions(monkeypatch, t
 
 
 @pytest.mark.anyio
-async def test_browser_interactive_viewer_reuses_the_automated_page():
+@pytest.mark.parametrize("width,height", [(1200, 700), (0, 0)])
+async def test_browser_interactive_viewer_reuses_the_automated_page(width, height):
     class FakePage:
-        viewport_size = {"width": 1024, "height": 768}
+        viewport_size = {"width": 1800, "height": 1050}
 
     class FakeInteractiveView:
         def __init__(self):
@@ -2724,8 +2938,8 @@ async def test_browser_interactive_viewer_reuses_the_automated_page():
                 "available": True,
                 "token": "browser-token",
                 "url": "/desktop/session/browser-token/",
-                "width": width,
-                "height": height,
+                "width": width or 1200,
+                "height": height or 700,
             }
 
     page = FakePage()
@@ -2751,10 +2965,10 @@ async def test_browser_interactive_viewer_reuses_the_automated_page():
     core._stop_screencasts_for_browser = stop_screencasts
     core.set_viewport = set_viewport
 
-    result = await core.interactive_viewer(7, width=1200, height=700)
+    result = await core.interactive_viewer(7, width=width, height=height)
 
     assert core.pages[7].page is page
-    assert interactive_view.ensure_calls == [(1200, 700)]
+    assert interactive_view.ensure_calls == [(width, height)]
     assert stopped == [7]
     assert viewport_calls == [(7, 1200, 700, {"resize_interactive": True})]
     assert core.last_interacted_browser_id == 7
@@ -3498,7 +3712,7 @@ async def test_browser_viewer_subscribe_can_create_blank_tab_when_requested(monk
         def __init__(self) -> None:
             self.opened = False
 
-        async def call(self, method, *args):
+        async def call(self, method, *args, **kwargs):
             if method == "list":
                 if self.opened:
                     return {
@@ -3507,6 +3721,7 @@ async def test_browser_viewer_subscribe_can_create_blank_tab_when_requested(monk
                     }
                 return {"browsers": [], "last_interacted_browser_id": None}
             if method == "open":
+                assert kwargs == {"wait_until": "commit"}
                 self.opened = True
                 return {"id": 1, "state": {"id": 1, "currentUrl": "about:blank"}}
             raise AssertionError(method)
@@ -3851,11 +4066,8 @@ async def test_shared_browser_runtime_keeps_tabs_context_scoped():
             self.url = url
             self.closed = False
 
-        async def title(self):
-            return self.url
-
         async def evaluate(self, script, **kwargs):
-            return 1
+            return {"title": self.url, "canGoBack": False, "loading": False}
 
         async def close(self):
             self.closed = True
@@ -4459,11 +4671,8 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
                 Path(kwargs["path"]).write_bytes(b"image-bytes")
             return b"image-bytes"
 
-        async def title(self):
-            return "Blank"
-
         async def evaluate(self, script, payload=None, **kwargs):
-            return 1
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     core = _BrowserRuntimeCore(browser_runtime_module.SHARED_RUNTIME_ID)
     core.context = object()
@@ -4514,7 +4723,7 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
 
 @pytest.mark.anyio
 async def test_vision_load_materializes_ephemeral_browser_refs(monkeypatch, tmp_path):
-    monkeypatch.setitem(sys.modules, "helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool))
+    monkeypatch.setitem(sys.modules, "helpers.tool", SimpleNamespace(Response=_TestResponse, Tool=_TestTool, coerce_bool=helpers.tool.coerce_bool))
     history_stub = ModuleType("helpers.history")
 
     class _RawMessage(dict):
@@ -4601,10 +4810,7 @@ async def test_browser_runtime_ref_point_resolution_applies_offsets():
                     "rect": {"x": 10, "y": 20, "width": 100, "height": 40},
                     "selector": "#target",
                 }
-            return 1
-
-        async def title(self):
-            return "Blank"
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     core = _BrowserRuntimeCore("ctx")
     core.context = object()
@@ -4672,10 +4878,7 @@ async def test_browser_runtime_clipboard_paste_uses_dom_bridge():
                     "changed": True,
                     "default_prevented": False,
                 }
-            return 1
-
-        async def title(self):
-            return "Blank"
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")
@@ -4721,10 +4924,7 @@ async def test_browser_runtime_clipboard_paste_falls_back_to_keyboard_insert_tex
                     "changed": False,
                     "default_prevented": False,
                 }
-            return 1
-
-        async def title(self):
-            return "Blank"
+            return {"title": "Blank", "canGoBack": False, "loading": False}
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")
@@ -4930,6 +5130,179 @@ def test_legacy_browser_dependency_is_removed():
     assert ("browser" + "-use") not in (PROJECT_ROOT / "requirements.txt").read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_context_cleanup_preserves_shared_event_loop(monkeypatch, timeout):
+    calls = []
+
+    class CleanupTask:
+        def __init__(self, thread_name):
+            calls.append(("thread", thread_name))
+
+        def start_task(self, fn, context_id, **kwargs):
+            calls.append(("close", context_id))
+
+        def result_sync(self, timeout):
+            if should_timeout:
+                raise TimeoutError("cleanup timed out")
+
+        def kill(self, terminate_thread=False):
+            assert not terminate_thread, "Other context cleanup tasks share this thread"
+            calls.append(("cancel", None))
+
+    should_timeout = timeout
+    monkeypatch.setattr(browser_runtime_module, "DeferredTask", CleanupTask)
+    if timeout:
+        with pytest.raises(TimeoutError):
+            browser_runtime_module.close_runtime_sync("first")
+    else:
+        browser_runtime_module.close_runtime_sync("first")
+    assert calls == [("thread", "BrowserCleanup"), ("close", "first"), ("cancel", None)]
+
+
+def test_browser_download_preferences_preserve_user_settings(monkeypatch, tmp_path):
+    monkeypatch.setattr(browser_runtime_module.files, "get_abs_path", lambda *parts: str(tmp_path.joinpath(*parts)))
+    core = _BrowserRuntimeCore("downloads")
+    path = core.profile_dir / "Default" / "Preferences"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"download": {"prompt_for_download": True}, "unrelated": {"keep": 1}}))
+    core._prepare_download_preferences()
+    saved = json.loads(path.read_text())
+    assert saved["download"] == {"prompt_for_download": True, "default_directory": str(core.downloads_dir)}
+    assert saved["unrelated"] == {"keep": 1}
+    saved["download"]["default_directory"] = "/custom/downloads"
+    path.write_text(json.dumps(saved))
+    core._prepare_download_preferences()
+    assert json.loads(path.read_text()) == saved
+
+
+@pytest.mark.anyio
+async def test_browser_zoom_targets_private_display_and_rejects_invalid_direction(monkeypatch):
+    core = _BrowserRuntimeCore("zoom")
+    calls = []
+
+    async def started():
+        pass
+
+    async def focused():
+        calls.append("focus")
+
+    async def state(browser_id):
+        return {"id": browser_id, "zoom": 110}
+
+    core.ensure_started = started
+    core._state = state
+    core.interactive_view.display = 77
+    core.pages[1] = BrowserPage(id=1, page=SimpleNamespace(bring_to_front=focused), context_id="zoom")
+    monkeypatch.setattr(browser_runtime_module.shutil, "which", lambda name: "/usr/bin/xdotool")
+    monkeypatch.setattr(browser_runtime_module.subprocess, "run", lambda command, **kwargs: calls.append((command, kwargs)))
+    assert await core.zoom(1, "in") == {"id": 1, "zoom": 110}
+    assert calls[0] == "focus"
+    command, options = calls[1]
+    assert command == ["/usr/bin/xdotool", "key", "--clearmodifiers", "ctrl+plus"]
+    assert options["env"]["DISPLAY"] == ":77"
+    assert options["check"] is True and options["timeout"] == 3
+    with pytest.raises(ValueError, match="Zoom direction"):
+        await core.zoom(1, "in; arbitrary-command")
+    assert len(calls) == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("enabled,capture,expected", [(False, True, False), (True, False, False), (True, True, True)])
+async def test_annotation_screenshots_require_saved_opt_in_and_explicit_capture(monkeypatch, enabled, capture, expected):
+    calls = []
+    agent = object()
+
+    class Runtime:
+        async def call(self, method, *args, **kwargs):
+            calls.append(method)
+            return {"image": "anBlZw==", "mime": "image/jpeg"} if method == "screenshot" else {"kind": "element"}
+
+    async def runtime(*args, **kwargs):
+        return Runtime()
+
+    def config(agent=None):
+        assert agent is not None
+        return {"annotation_screenshots": enabled}
+
+    monkeypatch.setattr(ws_browser_module, "get_runtime", runtime)
+    monkeypatch.setattr(ws_browser_module.AgentContext, "get", lambda context_id: SimpleNamespace(agent0=agent))
+    monkeypatch.setattr(ws_browser_module, "get_browser_config", config)
+    handler = ws_browser_module.WsBrowser(SimpleNamespace(), threading.RLock(), manager=None)
+    result = await handler.process("browser_viewer_annotation", {
+        "context_id": "ctx", "browser_id": 1, "capture_screenshot": capture,
+        "payload": {"kind": "element"},
+    }, "sid")
+    assert ("screenshot" in result) is expected
+    if capture:
+        assert result["annotation_screenshots"] is enabled
+    assert calls == (["annotation_target", "screenshot"] if expected else ["annotation_target"])
+    assert normalize_browser_config({})["annotation_screenshots"] is False
+    assert normalize_browser_config({"annotation_screenshots": "false"})["annotation_screenshots"] is False
+
+
+@pytest.mark.anyio
+async def test_quick_browser_location_saves_current_project_and_validates_input(monkeypatch):
+    from plugins._browser.api import extensions as api
+
+    saved = []
+    context = SimpleNamespace()
+    agent = SimpleNamespace(context=context)
+    handler = api.Extensions(SimpleNamespace(), threading.RLock())
+    monkeypatch.setattr(handler, "_agent_from_input", lambda data: agent)
+    monkeypatch.setattr(handler, "_browser_extension_payload", lambda agent=None: {"ok": True})
+    monkeypatch.setattr(api, "get_browser_config", lambda agent=None: {"runtime_backend": "container", "proxy_server": "http://proxy.test"})
+    monkeypatch.setattr(api.projects, "get_context_project_name", lambda ctx: "my-project")
+    monkeypatch.setattr(api.plugins, "save_plugin_config", lambda *args: saved.append(args))
+    for value in ("host_required", "container"):
+        assert await handler.process({"action": "set_runtime_backend", "context_id": "ctx", "runtime_backend": value}, None) == {"ok": True}
+        assert saved[-1] == ("_browser", "my-project", "", {"runtime_backend": value, "proxy_server": "http://proxy.test"})
+    for value in ("wrong", [], None):
+        result = await handler.process({"action": "set_runtime_backend", "runtime_backend": value}, None)
+        assert result["ok"] is False
+    monkeypatch.setattr(handler, "_agent_from_input", lambda data: None)
+    result = await handler.process({"action": "set_runtime_backend", "context_id": "deleted", "runtime_backend": "container"}, None)
+    assert result["ok"] is False
+    assert len(saved) == 2
+
+
+def test_browser_annotation_attachments_and_quick_setting_failure():
+    source = (PROJECT_ROOT / "plugins/_browser/webui/browser-store.js").read_text()
+    source = source[source.index("const BROWSER_SUBSCRIBE_TIMEOUT_MS"):source.index("export const store")]
+    script = """
+import assert from 'node:assert/strict';
+let response;
+let request;
+const notices = [];
+const notificationStore = { addFrontendToastOnly: (...args) => notices.push(args) };
+const callJsonApi = async (path, payload) => { request = payload; return response; };
+const attachmentsStore = { files: [], getAttachmentDisplayInfo: () => ({}), addAttachment(item) { this.files.push(item); } };
+""" + source + """
+Object.assign(model, { resolveContextId: () => 'ctx', contextId: 'ctx', activeBrowserContextId: 'ctx' });
+model.annotationComments = [
+  {id: 'ours', contextId: 'ctx', browserId: 1, screenshot: {image: btoa('jpeg')}},
+  {id: 'other', contextId: 'other', browserId: 2, screenshot: {image: btoa('private')}},
+];
+model.attachAnnotationScreenshots();
+assert.equal(attachmentsStore.files.length, 0);
+model.annotationScreenshots = true;
+model.attachAnnotationScreenshots();
+assert.equal(attachmentsStore.files.length, 1);
+assert.equal(await attachmentsStore.files[0].file.text(), 'jpeg');
+assert.equal(attachmentsStore.files[0].name, 'annotation-1-ours.jpg');
+response = {ok: true, runtime_backend: 'host_required', annotation_screenshots: false};
+await model.setRuntimeBackend('host_required');
+assert.equal(request.context_id, 'ctx');
+assert.equal(model.runtimeBackend, 'host_required');
+assert.equal(model.runtimeBackendSaving, false);
+response = {ok: false, error: 'save failed'};
+await model.setRuntimeBackend('container');
+assert.equal(model.runtimeBackend, 'host_required');
+assert.equal(model.runtimeBackendSaving, false);
+assert.deepEqual(notices.at(-1), ['error', 'save failed']);
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
 
 
 @pytest.mark.anyio

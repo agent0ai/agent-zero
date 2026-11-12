@@ -120,7 +120,7 @@ def test_instance_rollout_gate_is_not_persisted_in_project_browser_config() -> N
 
 
 def test_project_config_save_validation_blocks_new_extension_selection() -> None:
-    with pytest.raises(ValueError, match="pairing and activation"):
+    with pytest.raises(ValueError, match="protected browser selection flow"):
         validate_extension_browser_selection_change(
             proposed_value="extension:Bridge-Case-1",
             current_value="chrome-cdp",
@@ -163,7 +163,7 @@ def test_project_config_save_validation_allows_preservation_and_deactivation() -
 def test_project_config_save_validation_blocks_backend_only_activation() -> None:
     selection = "extension:Bridge-Case-1"
 
-    with pytest.raises(ValueError, match="pairing and activation"):
+    with pytest.raises(ValueError, match="protected browser selection flow"):
         validate_extension_browser_selection_change(
             proposed_value=selection,
             current_value=selection,

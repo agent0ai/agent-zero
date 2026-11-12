@@ -10,12 +10,25 @@
   owners into editor state and sparse change plans.
 - `api/` owns authenticated/CSRF-protected state, save, and avatar routes.
 - `webui/` owns the Alpine store, modal surface, styling, and client-side draft.
+- `webui/tool-policy-row.html` is the shared Easy/Advanced tool row and expandable action list.
 - `extensions/webui/` owns lifecycle registration on the shared modal stack and
   the global entry points used by existing WebUI surfaces.
 
 ## Local Contracts
 
+- Plugin profile metadata layers merge bundled roots before user roots using
+  stable root-priority sorting, matching runtime profile loading and catalogs.
 - The editor performs zero model calls.
+- Editor loads request `mode: easy` for only the main instruction prompt;
+  omitted API modes retain the full catalog. The first Advanced entry loads
+  the remaining prompts through the same scoped, authenticated handler and
+  merges them into draft and checkpoints without overwriting Easy edits.
+  Ignore late responses after the draft, scope or modal changes. Scope reloads
+  include the full catalog once Advanced has been used.
+- Prompt catalogs inventory Markdown and processor files once per root per
+  request and reuse source labels. Keep ordered inheritance, raw reads,
+  recursive include previews and unreadable-file reporting; never retain the
+  inventory across requests or run prompt processors.
 - Profile list requests stay lightweight: summary rows inspect only sparse
   editor-owned keys and files and never construct full save or removal plans.
 - Writes are limited to the selected profile layer — global
@@ -46,9 +59,13 @@
   Removing or deleting in project scope never mutates those inherited layers;
   only agents created in the selected scope are deletable.
 - Bundled `agents/` files are read-only.
-- Advanced prompt text is edited with a full-height bundled ACE editor in
-  Markdown mode. The selected file's customization path sits below its name;
-  per-file close/check actions discard or accept the current edit checkpoint,
+- Advanced prompt text is edited directly with a full-height bundled ACE editor
+  in Markdown mode. Main instruction sections use readable titles and the
+  current customization status. A compact Saves to row shows the destination
+  once with a copy action; variable hints sit below the editor and omit Python
+  implementation details. Preserve authored placeholders on save and never run
+  processors in the editor.
+  Per-file close/check actions discard or accept the current edit checkpoint,
   while the editor's global save remains the only persistence boundary.
 - New profiles require a display name and non-empty agent instructions in both
   Easy and Advanced; existing Advanced prompt edits retain per-file semantics.
@@ -60,6 +77,25 @@
   places each initially closed native accordion directly below its default
   switch. Advanced gives Tools, MCPs, and Skills separate sections while keeping
   unavailable retained IDs reviewable. Framework-required tools remain absent.
+- Editor tool state folds saved one-to-one legacy IDs into their available
+  replacements with block precedence. Bundled multi-action tools expose action
+  controls from the shared tool catalog and project tool-wide rules onto them
+  without changing access. Memory keeps its four legacy action IDs. This projection
+  stays in the draft until an explicit policy edit is saved; opening the editor
+  does not migrate files. Catalog `tool_names` keeps skill warnings aligned with
+  the executable names, including aliases and the unified memory tool.
+- Action rows retain their flat policy IDs and carry `parent_tool` metadata for
+  presentation. Both modes group them under one tool; expanding reveals an
+  “Individual tool actions” subtitle and each action's available catalog
+  description, without a vertical guide line. The parent On/Default/Off
+  controls apply to every action. Expansion is view
+  state only. Show the enabled-action summary only when at least one action is
+  off. Advanced action searches reveal matching children without narrowing the
+  parent control's scope; opening and searching never write policy.
+- Closed Easy capability lists and collapsed action rows mount their controls
+  only when expanded. Advanced mounts after its first prompt load, then stays
+  mounted when returning to Easy so ACE undo history survives. Opening or closing
+  these views must not change policy or lose pending prompt edits.
 - Model selection in both modes reuses `_model_config`'s compact preset dropdown
   and preset editor; Agent Editor persists only the scoped preset reference.
 - The exact `default` profile is an internal baseline and is omitted only from

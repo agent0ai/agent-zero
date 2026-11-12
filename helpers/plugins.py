@@ -241,8 +241,17 @@ def get_plugin_name_from_path(path: str | Path) -> str:
     return ""
 
 
+def get_plugin_root_priority(path: str | Path | None) -> int:
+    """Return root order for a plugin asset; unrecognized paths rank last."""
+    roots = get_plugin_roots()
+    for priority, root in enumerate(roots):
+        if path and Path(path).is_relative_to(root):
+            return priority
+    return len(roots)
+
+
 def get_plugins_list():
-    if cached := cache.get(PLUGINS_LIST_CACHE_AREA, ""):
+    if (cached := cache.get(PLUGINS_LIST_CACHE_AREA, "")) is not None:
         return cached
 
     result: list[str] = []
@@ -445,16 +454,21 @@ def get_plugin_paths(*subpaths: str) -> List[str]:
 
 
 def get_enabled_plugin_paths(agent: Agent | None, *subpaths: str) -> List[str]:
-    if cached := cache.get(
-        ENABLED_PLUGINS_PATHS_CACHE_AREA, cache.determine_cache_key(agent, *subpaths)
-    ):
+    if (
+        cached := cache.get(
+            ENABLED_PLUGINS_PATHS_CACHE_AREA, cache.determine_cache_key(agent, *subpaths)
+        )
+    ) is not None:
         return cached
 
     enabled = get_enabled_plugins(agent)
     paths: list[str] = []
 
-    for plugin in enabled:
-        base_dir = find_plugin_dir(plugin)
+    # Stable root ordering preserves same-root asset precedence.
+    resolved = [find_plugin_dir(plugin) for plugin in enabled]
+    resolved.sort(key=get_plugin_root_priority)
+
+    for base_dir in resolved:
         if not base_dir:
             continue
 
@@ -476,9 +490,11 @@ def get_enabled_plugin_paths(agent: Agent | None, *subpaths: str) -> List[str]:
 
 
 def get_enabled_plugins(agent: Agent | None):
-    if cached := cache.get(
-        ENABLED_PLUGINS_LIST_CACHE_AREA, cache.determine_cache_key(agent)
-    ):
+    if (
+        cached := cache.get(
+            ENABLED_PLUGINS_LIST_CACHE_AREA, cache.determine_cache_key(agent)
+        )
+    ) is not None:
         return cached
 
     plugins = get_plugins_list()
@@ -553,6 +569,13 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
     )
 
 
+def _validate_plugin_scope(meta: PluginMetadata | None, project_name: str, agent_profile: str) -> None:
+    if meta and project_name and not meta.per_project_config:
+        raise ValueError(f'Plugin "{meta.name}" does not support project-scoped settings.')
+    if meta and agent_profile and not meta.per_agent_config:
+        raise ValueError(f'Plugin "{meta.name}" does not support agent-profile-scoped settings.')
+
+
 @extension.extensible
 def toggle_plugin(
     plugin_name: str,
@@ -562,6 +585,7 @@ def toggle_plugin(
     clear_overrides: bool = False,
 ):
     meta = get_plugin_meta(plugin_name)
+    _validate_plugin_scope(meta, project_name, agent_profile)
     if meta and meta.always_enabled and not enabled:
         raise ValueError(f'Plugin "{plugin_name}" is always enabled.')
 
@@ -683,6 +707,7 @@ def save_plugin_config(
     settings: dict,
     caller: CallerContext = "api",
 ):
+    _validate_plugin_scope(get_plugin_meta(plugin_name), project_name, agent_profile)
     file_path = determine_plugin_asset_path(
         plugin_name, project_name, agent_profile, CONFIG_FILE_NAME
     )

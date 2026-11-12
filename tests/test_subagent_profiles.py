@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import asyncio
+import threading
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from agent import Agent, AgentConfig, AgentContext
 from helpers import persist_chat, projects, settings
+from helpers.defer import DeferredTask
 from helpers.errors import RepairableException
 
 
@@ -18,6 +23,7 @@ class _FakeContext:
         self.output_data = {}
         self.created_at = datetime.now(timezone.utc)
         self.agent0 = None
+        self.task = None
 
     def get_data(self, key: str, recursive: bool = True):
         return self.data.get(key)
@@ -32,7 +38,11 @@ class _FakeContext:
         self.output_data[key] = value
 
     def is_running(self) -> bool:
-        return False
+        return bool(self.task and self.task.is_alive())
+
+    def run_task(self, func, *args):
+        self.task = DeferredTask().start_task(func, *args)
+        return self.task
 
 
 class _FakeParentAgent:
@@ -207,6 +217,100 @@ async def test_call_subordinate_reset_false_reuses_numbered_child(monkeypatch) -
     assert second.additional == first.additional
 
 
+@pytest.mark.parametrize(
+    "project_name,project_preset,profile_project",
+    [
+        ("", None, ""),
+        ("demo", None, ""),
+        ("demo", "Default", ""),
+        ("demo", "Project", ""),
+        ("demo", "Project", "demo"),
+    ],
+    ids=["no-project", "project-inherits", "project-default", "project-preset", "project-profile"],
+)
+@pytest.mark.parametrize("preset", [None, "Default", "Cheap", "Missing"])
+@pytest.mark.parametrize(
+    "override",
+    [None, {"preset_name": "Expensive"}, {"provider": "test", "name": "Expensive"}],
+)
+def test_subordinate_preserves_scoped_model_preset(
+    monkeypatch, tmp_path, project_name, project_preset, profile_project, preset, override
+) -> None:
+    import tools.call_subordinate as call_subordinate
+    from helpers import cache, files, plugins
+    from plugins._model_config.helpers import model_config
+
+    monkeypatch.setattr(files, "_base_dir", str(tmp_path))
+    monkeypatch.setattr(cache, "_cache", {})
+    monkeypatch.setattr(AgentContext, "_contexts", {})
+    monkeypatch.setattr(persist_chat, "save_tmp_chat", lambda _context: None)
+    monkeypatch.setattr(
+        call_subordinate,
+        "initialize_agent",
+        lambda override_settings=None: AgentConfig(
+            mcp_servers="", profile=override_settings["agent_profile"]
+        ),
+    )
+
+    plugin_source = Path(__file__).resolve().parents[1] / "plugins" / "_model_config"
+    for filename in ("plugin.yaml", "hooks.py", "default_config.yaml"):
+        files.write_file(
+            files.get_abs_path("plugins", "_model_config", filename),
+            (plugin_source / filename).read_text(encoding="utf-8"),
+        )
+    files.write_file(
+        files.get_abs_path("usr/plugins/_model_config/presets.yaml"),
+        json.dumps([
+            {
+                "name": name,
+                **{
+                    slot: {"provider": "test", "name": name}
+                    for slot in ("chat", "utility", "embedding")
+                },
+            }
+            for name in ("Default", "Cheap", "Project", "Expensive")
+        ]),
+    )
+    for profile in ("agent0", "developer"):
+        files.write_file(files.get_abs_path("agents", profile, "agent.yaml"), "{}")
+    if project_name:
+        projects.create_project(project_name, {"title": "Demo"})
+    for project, profile, selection in (
+        (project_name, "", project_preset),
+        (profile_project, "developer", preset),
+    ):
+        if selection is not None:
+            files.write_file(
+                plugins.determine_plugin_asset_path("_model_config", project, profile, "config.json"),
+                json.dumps({"model_preset": selection}),
+            )
+
+    parent = Agent(0, AgentConfig(mcp_servers="", profile="agent0"))
+    if project_name:
+        projects.activate_project(parent.context.id, project_name, mark_dirty=False)
+    parent.context.set_data("chat_model_override", override)
+    child = call_subordinate.get_or_create_subordinate(
+        parent, profile="developer", reset=True
+    )
+
+    configured = preset if profile_project and preset else project_preset or preset
+    configured = configured if configured in {"Cheap", "Project"} else "Default"
+    expected = "Expensive" if configured == "Default" and override else configured
+    assert child.config.profile == "developer"
+    assert projects.get_context_project_name(child.context) == (project_name or None)
+    assert model_config.get_configured_preset_name(child) == configured
+    assert model_config.get_chat_model_config(child)["name"] == expected
+    assert child.context.get_data("chat_model_override") == (
+        override if configured == "Default" else None
+    )
+    assert parent.context.get_data("chat_model_override") == override
+
+    child.context.set_data("chat_model_override", {"preset_name": "Expensive"})
+    resumed = call_subordinate.get_or_create_subordinate(parent, context_id=child.context.id)
+    assert resumed is child
+    assert model_config.get_chat_model_config(resumed)["name"] == "Expensive"
+
+
 def test_subordinate_tree_numbers_each_generation(monkeypatch) -> None:
     import tools.call_subordinate as call_subordinate
 
@@ -358,6 +462,7 @@ def test_persisted_numbered_child_is_reusable_after_reload(monkeypatch) -> None:
         parent.agent0,
         reset=True,
         message="persist me",
+        name="Original worker",
     )
     context_id = child.context.id
     try:
@@ -378,6 +483,12 @@ def test_persisted_numbered_child_is_reusable_after_reload(monkeypatch) -> None:
         assert restored.get_output_data("parent_agent_number") == 0
         assert resumed is restored.agent0
         assert resumed.get_data(Agent.DATA_NAME_SUPERIOR) is parent.agent0
+        assert restored.name == restored.get_output_data("parent_context_label") == "Original worker"
+        call_subordinate.get_or_create_subordinate(parent.agent0, context_id=context_id, name="Renamed worker")
+        renamed = persist_chat._serialize_context(restored)
+        AgentContext.remove(context_id)
+        restored = persist_chat._deserialize_context(renamed)
+        assert restored.name == restored.get_output_data("parent_context_label") == "Renamed worker"
     finally:
         AgentContext.remove(context_id)
         AgentContext.remove(parent_id)
@@ -440,4 +551,69 @@ async def test_agent_profile_set_uses_scope_and_preserves_subagent_profile(
         assert child.config.profile == "developer"
         assert requested_scopes == [project_name]
     finally:
+        AgentContext.remove(context_id)
+
+
+@pytest.mark.asyncio
+async def test_agent_profile_set_allows_switch_during_run(monkeypatch) -> None:
+    import api.agent_profile_set as agent_profile_set
+
+    monkeypatch.setattr(
+        agent_profile_set.subagents,
+        "get_agents_dict",
+        lambda scope: {"researcher": SimpleNamespace(title="Researcher", enabled=True)},
+    )
+    monkeypatch.setattr(
+        agent_profile_set,
+        "initialize_agent",
+        lambda override_settings=None: AgentConfig(
+            mcp_servers="",
+            profile=(override_settings or {}).get("agent_profile", "agent0"),
+        ),
+    )
+    monkeypatch.setattr(agent_profile_set, "save_tmp_chat", lambda _context: None)
+    monkeypatch.setattr(
+        agent_profile_set,
+        "mark_dirty_for_context",
+        lambda *_args, **_kwargs: None,
+    )
+
+    context_id = "ctx-profile-switch-running"
+    AgentContext.remove(context_id)
+    context = AgentContext(
+        config=AgentConfig(mcp_servers="", profile="agent0"),
+        id=context_id,
+        set_current=False,
+    )
+    started = threading.Event()
+    release = threading.Event()
+
+    async def block_run() -> None:
+        started.set()
+        while not release.is_set():
+            await asyncio.sleep(0.02)
+
+    context.task = DeferredTask().start_task(block_run)
+    try:
+        assert started.wait(2)
+        assert context.is_running()
+
+        handler = agent_profile_set.SetAgentProfile.__new__(
+            agent_profile_set.SetAgentProfile
+        )
+        response = await handler.process(
+            {"context_id": context_id, "agent_profile": "researcher"},
+            request=None,  # type: ignore[arg-type]
+        )
+
+        assert response["ok"] is True
+        assert context.config.profile == "researcher"
+        assert context.agent0.config.profile == "researcher"
+    finally:
+        release.set()
+        if context.task:
+            try:
+                context.task.result_sync(timeout=2)
+            except Exception:
+                pass
         AgentContext.remove(context_id)

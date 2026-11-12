@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - Do not retry controlled flow exceptions such as `HandledException` and `RepairableException`.
+- Do not retry LiteLLM `ContentPolicyViolationError`; leave it for the core critical-error handler to log and stop, without injecting repair instructions or clearing media.
 - Keep retry counts scoped per monologue.
 - Preserve clear agent-facing history injection when retrying a critical exception.
 

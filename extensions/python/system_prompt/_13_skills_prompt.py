@@ -22,7 +22,10 @@ class SkillsPrompt(Extension):
 
 @extensible
 async def build_prompt(agent: Agent) -> str:
-    if not tool_policy.resolve_tool(agent, "skills_tool").allowed:
+    if not all(
+        tool_policy.resolve_tool(agent, "skills_tool", action=action).allowed
+        for action in ("list", "load")
+    ):
         return ""
 
     available = skills_helper.list_skills(agent=agent)

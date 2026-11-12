@@ -45,8 +45,19 @@
         <div class="field-description">Model identifier. Click the field or search icon to browse available models.</div>
       </div>
       <div class="field-control" style="position:relative;"
-           x-data="{ results: [], open: false, searching: false,
-             doSearch() { if (this.searching) return; this.searching = true; $store.modelConfig.searchModels(_prov, model.name, searchType, _apiBase).then(r => { this.results = r; this.open = true; }).finally(() => this.searching = false); },
+           x-data="{ results: [], source: '', open: false, searching: false,
+             doSearch() {
+               if (this.searching) return;
+               this.searching = true;
+               const provider = _prov, apiBase = _apiBase, draft = model;
+               $store.modelConfig.searchModelsDetailed(provider, '', searchType, apiBase).then(r => {
+                 if (provider !== _prov || apiBase !== _apiBase || draft !== model) return;
+                 this.results = r.models;
+                 this.source = r.source;
+                 this.open = true;
+                 if (r.error) globalThis.toastFrontendError?.('Could not load models from the provider. Check its connection and endpoint settings.', 'Model search');
+               }).finally(() => this.searching = false);
+             },
              openSearch(trigger) { trigger?.scrollIntoView({ block: 'center' }); this.doSearch(); },
              grouped() { return $store.modelConfig.groupResults(this.results, model.name); }
            }"
@@ -64,6 +75,7 @@
           <x-icon class="model-search-spinner" :style="!searching && 'opacity:0'" name="progress_activity"></x-icon>
         </button>
         <div class="model-search-results" x-show="open && results.length > 0" x-transition.opacity>
+          <div class="model-search-item disabled" x-show="source === 'litellm_registry'">Catalog suggestions — availability not verified</div>
           <template x-for="m in grouped().matched" :key="'m_'+m">
             <div class="model-search-item matched" @click="model.name = m; open = false;" x-text="m"></div>
           </template>
@@ -312,12 +324,13 @@
           <div class="field-label">
             <div class="field-title">Additional parameters</div>
             <div class="field-description">
-              Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines. Value can be JSON objects; unquoted is treated as object/number, quoted as string.
+              Any other parameters supported by <a href='https://docs.litellm.ai/docs/set_keys' target='_blank'>LiteLLM</a>. Format is KEY=VALUE on individual lines. Values can be JSON objects, arrays, numbers, lowercase true/false/null, or text. Quote strings to keep values such as "true" as text.
+              <div x-show="modelType !== 'embedding'">For custom providers, set <code>a0_prompt_cache_mode=prompt_cache_key</code> or <code>a0_prompt_cache_mode=cache_control</code> to match the provider's cache support. The default is <code>auto</code>; <code>off</code> disables automatic cache hints.</div>
             </div>
           </div>
           <div class="field-control">
             <textarea x-model="model._kwargs_text"
-                      @change="model.kwargs = $store.modelConfig.textToKwargs(model._kwargs_text)"></textarea>
+                      @change="$store.modelConfig.updateModelKwargs(model)"></textarea>
           </div>
         </div>
 
@@ -364,7 +377,7 @@
   .model-search-btn:disabled {
     cursor: default;
   }
-  .model-search-btn > span {
+  .model-search-btn > x-icon {
     grid-area: 1 / 1;
     font-size: 18px;
     transition: opacity 0.15s;

@@ -9,6 +9,7 @@ from typing import Any
 
 from helpers import files
 from helpers.print_style import PrintStyle
+from helpers.strings import truncate_text
 from helpers.tool import Response, Tool
 from plugins._browser.helpers.config import (
     activate_browser_model, get_browser_config, parse_extension_browser_selection,
@@ -18,7 +19,9 @@ from plugins._browser.helpers.extension_runtime import ExtensionBrowserError
 
 
 HISTORY_SCREENSHOT_QUALITY = 62
-HISTORY_SCREENSHOT_ACTION_DENYLIST = {"close", "close_all"}
+HISTORY_SCREENSHOT_ACTION_DENYLIST = {
+    "close", "close_all", "list", "state", "content", "detail", "evaluate",
+}
 
 
 async def get_runtime(context_id: str, create: bool = True, agent: Any | None = None):
@@ -83,6 +86,11 @@ class Browser(Tool):
         except Exception as exc:
             PrintStyle.warning(f"Browser model preset could not be activated: {exc}")
         try:
+            if action == "evaluate" and (not isinstance(script, str) or not script.strip()):
+                return Response(
+                    message="Browser evaluate failed: evaluate requires a non-empty 'script' string",
+                    break_loop=False,
+                )
             runtime = await get_runtime(self.agent.context.id, agent=self.agent)
         except Exception as exc:
             return Response(message=f"Browser runtime unavailable: {exc}", break_loop=False)
@@ -313,7 +321,7 @@ class Browser(Tool):
                     message=f"Unknown browser action: {action}",
                     break_loop=False,
                 )
-            await self._record_history_screenshot(runtime, action, result, browser_id)
+            await self._record_history_screenshot(runtime, action, result, browser_id, calls=calls)
         except Exception as exc:
             if isinstance(exc, ExtensionBrowserError) and exc.code in {
                 "ORIGIN_BLOCKED", "APPROVAL_REQUIRED", "APPROVAL_DENIED", "APPROVAL_EXPIRED",
@@ -356,11 +364,68 @@ class Browser(Tool):
     def get_log_object(self):
         return self.agent.context.log.log(
             type="tool",
-            heading=f"icon://captive_portal {self.agent.agent_name}: Using browser",
+            heading=self.get_heading(),
             content="",
             kvps=self._presentation_arguments(),
             _tool_name=self.name,
         )
+
+    _HEADING_ALIASES = {
+        "setactive": "set_active",
+        "activate": "set_active",
+        "focus": "set_active",
+        "typesubmit": "type_submit",
+        "keychord": "key_chord",
+    }
+
+    _HEADING_VERBS = {
+        "open": "Opening",
+        "navigate": "Navigating to",
+        "list": "Listing tabs",
+        "state": "Reading state",
+        "content": "Reading content",
+        "detail": "Inspecting",
+        "click": "Clicking",
+        "hover": "Hovering",
+        "double_click": "Double-clicking",
+        "right_click": "Right-clicking",
+        "drag": "Dragging",
+        "type": "Typing",
+        "type_submit": "Typing",
+        "submit": "Submitting",
+        "scroll": "Scrolling",
+        "select_option": "Selecting",
+        "set_checked": "Toggling",
+        "upload_file": "Uploading",
+        "evaluate": "Evaluating",
+        "key_chord": "Pressing",
+        "keyboard": "Typing",
+        "mouse": "Moving pointer",
+        "wheel": "Scrolling",
+        "clipboard": "Using clipboard",
+        "set_viewport": "Resizing viewport",
+        "back": "Going back",
+        "forward": "Going forward",
+        "reload": "Reloading",
+        "close": "Closing",
+        "close_all": "Closing all tabs",
+        "multi": "Running batch",
+        "screenshot": "Taking screenshot",
+        "set_active": "Selecting tab",
+        "copy": "Copying",
+        "cut": "Cutting",
+        "paste": "Pasting",
+    }
+
+    def get_heading(self):
+        action = str(self.args.get("action") or "").strip().lower()
+        action = self._HEADING_ALIASES.get(action, action)
+        verb = self._HEADING_VERBS.get(action, "Working")
+        text = f"Browser: {verb}" if action else "Browser"
+        url = str(self.args.get("url") or "").strip()
+        if action in {"open", "navigate"} and url:
+            text += f" {truncate_text(url, 60)}"
+        return f"icon://captive_portal {text}"
 
     @staticmethod
     def _require_ref(ref: int | str | None) -> int | str:
@@ -461,10 +526,18 @@ class Browser(Tool):
         action: str,
         result: Any,
         requested_browser_id: int | str | None = None,
+        *,
+        calls: list[dict[str, Any]] | None = None,
     ) -> None:
         if not getattr(self, "log", None):
             return
         if action in HISTORY_SCREENSHOT_ACTION_DENYLIST:
+            return
+        if action == "multi" and calls and all(
+            str(call.get("action") or "").strip().lower().replace("-", "_")
+            in HISTORY_SCREENSHOT_ACTION_DENYLIST
+            for call in calls
+        ):
             return
 
         screenshot = result if action == "screenshot" and isinstance(result, dict) else None
@@ -603,6 +676,6 @@ class Browser(Tool):
         if action == "content" and isinstance(result, dict):
             if set(result.keys()) == {"document"}:
                 return str(result.get("document") or "")
-            return json.dumps(result, indent=2, ensure_ascii=False)
+            return json.dumps(result, ensure_ascii=False, separators=(",", ":"))
 
-        return json.dumps(result, indent=2, ensure_ascii=False, default=str)
+        return json.dumps(result, ensure_ascii=False, separators=(",", ":"), default=str)

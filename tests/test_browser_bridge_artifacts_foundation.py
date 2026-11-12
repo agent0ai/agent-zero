@@ -80,7 +80,7 @@ def test_default_authorizer_denies_before_spool_creation(tmp_path):
 
 
 def test_private_spool_verifies_and_is_consumed_once_without_path_descriptor(tmp_path):
-    binding = _binding()
+    binding = _binding(artifact_id="private-artifact-identity-canary")
     payload = b"verified screenshot bytes"
     receiver = BrowserBridgeArtifactReceiver(
         spool_parent=tmp_path,
@@ -108,7 +108,7 @@ def test_private_spool_verifies_and_is_consumed_once_without_path_descriptor(tmp
         assert progress.next_chunk_index == 2
         descriptor = receiver.complete(binding)
         assert descriptor.as_dict() == {
-            "artifact_id": "artifact-1",
+            "artifact_id": binding.artifact_id,
             "mime_type": "image/png",
             "byte_count": len(payload),
             "sha256": _digest(payload),

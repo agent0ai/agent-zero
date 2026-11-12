@@ -31,7 +31,7 @@ class MarkdownSession:
 
 
 class MarkdownSessionManager:
-    """Owns native Editor sessions for Markdown and plain text documents."""
+    """Owns native Editor sessions for UTF-8 text and code files."""
 
     def __init__(self) -> None:
         self._sessions: dict[str, MarkdownSession] = {}
@@ -39,13 +39,13 @@ class MarkdownSessionManager:
 
     def open(self, doc: dict[str, Any], sid: str = "", context_id: str = "", refresh: bool = False) -> dict[str, Any]:
         ext = str(doc["extension"]).lower()
-        if ext not in document_store.EDITOR_TEXT_EXTENSIONS:
-            raise ValueError(f"Editor is only available for Markdown and text files. Open .{ext} files in the Desktop.")
+        if not document_store.is_editor_document(doc):
+            raise ValueError(f"Editor is only available for text files. Open .{ext} files in the Desktop.")
 
         normalized_context = str(context_id or "")
         if refresh:
             try:
-                doc = document_store.register_document(doc["path"], context_id=normalized_context)
+                doc = document_store.register_document(doc["path"], context_id=normalized_context, file_browser=True)
             except Exception:
                 pass
 
@@ -87,6 +87,7 @@ class MarkdownSessionManager:
     def input(self, session_id: str, text: str | None = None, patch: dict[str, Any] | None = None) -> dict[str, Any]:
         session = self._require(session_id)
         if text is not None:
+            document_store.editor_text_bytes(str(text))
             session.text = str(text)
         elif patch:
             session.text = _apply_text_patch(session.text, patch)
@@ -123,7 +124,7 @@ class MarkdownSessionManager:
             "version": document_store.item_version(updated),
         }
 
-    def save_as(self, session_id: str, path: str, text: str | None = None) -> dict[str, Any]:
+    def save_as(self, session_id: str, path: str, text: str | None = None, *, file_browser: bool = False) -> dict[str, Any]:
         session = self._require(session_id)
         if text is not None:
             session.text = str(text)
@@ -133,6 +134,7 @@ class MarkdownSessionManager:
             path,
             session.text,
             context_id=session.context_id,
+            file_browser=file_browser,
         )
         old_file_id = session.file_id
         session.file_id = updated["file_id"]
@@ -173,7 +175,7 @@ class MarkdownSessionManager:
             doc = document_store.get_document(normalized)
         except Exception:
             return {"ok": False, "refreshed": 0, "sessions": []}
-        if str(doc.get("extension") or "").lower() not in document_store.EDITOR_TEXT_EXTENSIONS:
+        if not document_store.is_editor_document(doc):
             return {"ok": True, "refreshed": 0, "sessions": []}
 
         refreshed = self._refresh_file_sessions(
@@ -203,7 +205,7 @@ class MarkdownSessionManager:
                 continue
             session = sessions[0]
             try:
-                doc = document_store.register_document(session.path, context_id=session.context_id)
+                doc = document_store.register_document(session.path, context_id=session.context_id, file_browser=True)
             except Exception:
                 try:
                     doc = document_store.get_document(file_id)
@@ -312,7 +314,7 @@ class MarkdownSessionManager:
 
         if expected_sha and current_sha != expected_sha:
             if current_exists and desired_sha == current_sha:
-                updated = document_store.register_document(path, context_id=session.context_id)
+                updated = document_store.register_document(path, context_id=session.context_id, file_browser=True)
                 session.dirty = False
                 session.path = updated["path"]
                 session.title = updated["basename"]
@@ -449,7 +451,7 @@ def _refresh_registered_doc(doc: dict[str, Any], context_id: str = "") -> dict[s
     try:
         path = Path(doc["path"])
         if path.exists():
-            return document_store.register_document(path, context_id=context_id)
+            return document_store.register_document(path, context_id=context_id, file_browser=True)
     except Exception:
         pass
     return doc

@@ -5,13 +5,17 @@ import asyncio
 import uuid
 from typing import Any
 
-from helpers.tool import Response, Tool
-from helpers.ws import NAMESPACE
-from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
+from helpers.tool import Response, Tool, coerce_bool
+from helpers.ws_manager import (
+    ConnectionNotFoundError,
+    WsPayloadTooLargeError,
+    get_shared_ws_manager,
+)
 
 from plugins._a0_connector.helpers.exec_config import build_exec_config
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_exec_op,
+    emit_connector_event,
     remote_exec_metadata_for_sid,
     remote_file_metadata_for_sid,
     remote_tool_sids_for_context,
@@ -34,19 +38,11 @@ _TIMEOUT_KEYS = (
 class CodeExecutionRemote(Tool):
     """Send shell-backed frontend execution operations to the connected CLI machine."""
 
-    @staticmethod
-    def _runtime_requires_write_access(runtime: str) -> bool:
-        return runtime in {"terminal", "python", "nodejs", "input"}
+    _allow_running = False
 
     @staticmethod
-    def _coerce_bool(value: Any) -> bool:
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return bool(value)
-        if isinstance(value, str):
-            return value.strip().lower() in {"1", "true", "yes", "on"}
-        return False
+    def _runtime_requires_write_access(runtime: str) -> bool:
+        return runtime in {"terminal", "python", "nodejs"}
 
     @staticmethod
     def _timeout_group_for_runtime(
@@ -55,7 +51,7 @@ class CodeExecutionRemote(Tool):
     ) -> dict[str, int] | None:
         if runtime == "output":
             source = exec_config.get("output_timeouts")
-        elif runtime in {"terminal", "python", "nodejs", "input"}:
+        elif runtime in {"terminal", "python", "nodejs"}:
             source = exec_config.get("code_exec_timeouts")
         else:
             return None
@@ -105,12 +101,9 @@ class CodeExecutionRemote(Tool):
 
     async def execute(self, **kwargs: Any) -> Response:
         runtime = str(self.args.get("runtime", "")).strip().lower()
-        if runtime not in {"terminal", "python", "nodejs", "output", "input", "reset"}:
+        if runtime not in {"terminal", "python", "nodejs", "output", "reset"}:
             return Response(
-                message=(
-                    "runtime is required (terminal, python, nodejs, output, reset, "
-                    "or input [deprecated compatibility alias])"
-                ),
+                message="runtime is required (terminal, python, nodejs, output, reset)",
                 break_loop=False,
             )
 
@@ -166,28 +159,19 @@ class CodeExecutionRemote(Tool):
             "session": session,
             "context_id": context_id,
         }
-        if runtime != "reset" and self._coerce_bool(self.args.get("reset")):
+        if runtime != "reset" and coerce_bool(self.args.get("reset"), False):
             payload["reset"] = True
 
         if runtime in {"terminal", "python", "nodejs"}:
             code = self.args.get("code")
-            if code is None or not str(code).strip():
+            if code is None or (not self._allow_running and not str(code).strip()):
                 return Response(
                     message=f"code is required for runtime={runtime}",
                     break_loop=False,
                 )
             payload["code"] = str(code)
-
-        elif runtime == "input":
-            keyboard = self.args.get("keyboard")
-            if keyboard is None:
-                keyboard = self.args.get("code")
-            if keyboard is None:
-                return Response(
-                    message="keyboard is required for runtime=input",
-                    break_loop=False,
-                )
-            payload["keyboard"] = str(keyboard)
+            if self._allow_running:
+                payload["allow_running"] = True
 
         elif runtime == "reset":
             reason = self.args.get("reason")
@@ -210,14 +194,17 @@ class CodeExecutionRemote(Tool):
         )
 
         try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
+            await emit_connector_event(
                 sid,
                 EXEC_OP_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             result = await asyncio.wait_for(future, timeout=wait_timeout)
+        except WsPayloadTooLargeError as exc:
+            clear_pending_exec_op(op_id)
+            return Response(message=str(exc), break_loop=False)
         except ConnectionNotFoundError:
             clear_pending_exec_op(op_id)
             return Response(

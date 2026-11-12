@@ -12,11 +12,6 @@ from urllib.parse import urlparse
 from helpers import chat_media, media_artifacts
 
 try:
-    from helpers.ws import NAMESPACE
-except Exception:
-    NAMESPACE = "/ws"
-
-try:
     from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 except Exception:
     class ConnectionNotFoundError(RuntimeError):
@@ -27,6 +22,7 @@ except Exception:
 
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_browser_op,
+    emit_connector_event,
     host_browser_metadata_for_context,
     host_browser_metadata_for_sid,
     select_host_browser_candidate_sid,
@@ -35,10 +31,12 @@ from plugins._a0_connector.helpers.ws_runtime import (
 )
 from plugins._browser.helpers import config as browser_config
 from plugins._browser.helpers.url import normalize_url
+from plugins._browser.helpers.runtime import run_browser_calls
 
 
 BROWSER_OP_EVENT = "connector_browser_op"
 BROWSER_OP_TIMEOUT = 120.0
+EVALUATE_CANCEL_TIMEOUT_SECONDS = 20.0
 DOM_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-page-content.js"
 MAX_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
@@ -289,6 +287,17 @@ class ConnectorBrowserRuntime:
         return normalized
 
     async def _dispatch(self, payload: dict[str, Any]) -> Any:
+        if payload.get("action") == "multi":
+            return await run_browser_calls(payload.get("calls"), self._dispatch_call)
+        if payload.get("action") == "evaluate":
+            script = payload.get("script")
+            if not isinstance(script, str) or not script.strip():
+                raise ValueError("evaluate requires a non-empty 'script' string")
+            payload[browser_config.EVALUATE_TIMEOUT_KEY] = browser_config.normalize_evaluate_timeout(
+                get_browser_config(self.agent).get(
+                    browser_config.EVALUATE_TIMEOUT_KEY, browser_config.DEFAULT_EVALUATE_TIMEOUT_SECONDS
+                )
+            )
         payload.setdefault("profile_mode", self._host_browser_profile_mode())
         self._enforce_privacy(payload)
         sid = self._select_sid()
@@ -314,6 +323,15 @@ class ConnectorBrowserRuntime:
             sid = self._select_sid() or sid
 
         return await self._send_browser_op(sid, self._with_browser_helpers(sid, payload))
+
+    async def _dispatch_call(self, call: dict[str, Any]) -> Any:
+        payload = self._normalize_multi_calls([call])[0]
+        return await self._dispatch({
+            **payload,
+            "action": str(payload.get("action") or "").strip().lower().replace("-", "_"),
+            "context_id": self.context_id,
+            "op_id": str(uuid.uuid4()),
+        })
 
     def _host_browser_profile_mode(self) -> str:
         config = get_browser_config(self.agent)
@@ -357,6 +375,13 @@ class ConnectorBrowserRuntime:
         return payload
 
     async def _send_browser_op(self, sid: str, payload: dict[str, Any]) -> Any:
+        if payload.get("action") == "evaluate" and "evaluate_timeout_v1" not in (
+            (host_browser_metadata_for_sid(sid) or {}).get("features") or []
+        ):
+            raise RuntimeError(
+                "Host evaluate requires a connector with evaluate_timeout_v1 support. "
+                "Update A0 CLI/Launcher or use the Internal Docker browser; no script was sent."
+            )
         op_id = str(payload["op_id"])
         loop = asyncio.get_running_loop()
         future: asyncio.Future[dict[str, Any]] = loop.create_future()
@@ -367,24 +392,50 @@ class ConnectorBrowserRuntime:
             loop=loop,
             context_id=self.context_id,
         )
-        try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
-                sid,
-                BROWSER_OP_EVENT,
-                payload,
+        is_evaluate = payload.get("action") == "evaluate"
+        wait_timeout = (
+            payload[browser_config.EVALUATE_TIMEOUT_KEY] + EVALUATE_CANCEL_TIMEOUT_SECONDS
+            if is_evaluate else BROWSER_OP_TIMEOUT
+        )
+        if payload.get("action") == "cancel_evaluate":
+            wait_timeout = EVALUATE_CANCEL_TIMEOUT_SECONDS
+
+        async def exchange():
+            await emit_connector_event(
+                sid, BROWSER_OP_EVENT, payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
-            response = await asyncio.wait_for(future, timeout=BROWSER_OP_TIMEOUT)
+            return await asyncio.shield(future)
+
+        try:
+            response = await asyncio.wait_for(exchange(), timeout=wait_timeout)
         except ConnectionNotFoundError as exc:
             raise RuntimeError(
                 "The selected A0 CLI disconnected before the host browser request could be delivered."
             ) from exc
         except asyncio.TimeoutError as exc:
+            if is_evaluate:
+                message = (
+                    "Host evaluate response timed out after "
+                    f"{wait_timeout:g} seconds (evaluate deadline "
+                    f"{payload[browser_config.EVALUATE_TIMEOUT_KEY]:g} seconds)"
+                )
+                try:
+                    await self._cancel_evaluate(sid, op_id)
+                except RuntimeError as recovery_error:
+                    raise RuntimeError(f"{message}; {recovery_error}") from None
+                raise RuntimeError(f"{message}; host cancellation confirmed.") from exc
             raise RuntimeError(
                 f"Timed out waiting for A0 CLI host browser action={payload.get('action')!r}."
             ) from exc
+        except asyncio.CancelledError:
+            if is_evaluate:
+                await self._cancel_evaluate(sid, op_id)
+            raise
         finally:
+            if not future.done():
+                future.cancel()
             clear_pending_browser_op(op_id)
 
         if not isinstance(response, dict):
@@ -396,6 +447,25 @@ class ConnectorBrowserRuntime:
                 )
             )
         return response.get("result")
+
+    async def _cancel_evaluate(self, sid: str, op_id: str) -> None:
+        cleanup = asyncio.create_task(self._send_browser_op(sid, {
+            "op_id": str(uuid.uuid4()), "context_id": self.context_id,
+            "action": "cancel_evaluate", "target_op_id": op_id,
+        }))
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                break
+        try:
+            result = cleanup.result()
+        except Exception:
+            raise RuntimeError("Host evaluate cancellation could not be confirmed; the host may still be executing") from None
+        if not isinstance(result, dict) or not (result.get("cancelled") or result.get("completed")):
+            raise RuntimeError("Host evaluate cancellation could not be confirmed; the host may still be executing")
 
     def _select_sid(self) -> str | None:
         return (

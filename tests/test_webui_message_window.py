@@ -20,6 +20,96 @@ PROCESS_GROUP_DOM_JS = (
 MESSAGE_COLLAPSE_JS = PROJECT_ROOT / "webui" / "js" / "message-collapse.js"
 
 
+def test_response_updates_leave_scrolling_to_the_chat_viewport():
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required to execute the message-render regression.")
+
+    source = (PROJECT_ROOT / "webui" / "js" / "messages.js").read_text()
+    draw_message = source[
+        source.index("export function _drawMessage("):
+        source.index("\nfunction renderStandaloneMessageContent(")
+    ].replace("export function", "function", 1)
+    script = f"""
+import assert from "node:assert/strict";
+let measurements = 0, scrolls = 0, renders = 0;
+class Scroller {{
+  constructor(body) {{ measurements++; void body.scrollHeight; }}
+  reApplyScroll() {{ scrolls++; }}
+}}
+const renderStandaloneMessageContent = () => renders++;
+const isMassRender = () => false;
+const _windowedRender = false;
+{draw_message}
+
+function update(mainClass, expanded) {{
+  const body = {{ dataset: {{}}, scrollTop: 8,
+    get scrollHeight() {{
+      assert.notEqual(mainClass, "message-agent-response",
+        "response updates must not force layout for an inner scroll viewport");
+      return 100;
+    }},
+  }};
+  const message = {{
+    classList: {{ contains: name => name === "expanded" && expanded, remove() {{}} }},
+    querySelector: selector => selector === ".message-body" ? body : null,
+  }};
+  _drawMessage({{
+    messageContainer: {{ querySelector: () => message }},
+    mainClass, content: "streaming content", markdown: true,
+  }});
+  return body;
+}}
+
+update("message-agent-response", true);
+update("message-agent-response", false);
+assert.equal(measurements, 0);
+assert.equal(scrolls, 0);
+update("message-default", true);
+assert.equal(scrolls, 1, "other standalone messages must retain auto-scroll");
+assert.equal(update("message-default", false).scrollTop, 0);
+assert.equal(measurements, 2);
+assert.equal(renders, 4, "scroll changes must not skip content rendering");
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
+
+
+def test_text_editor_and_code_execution_keep_memory_search_in_the_process_group():
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required to execute the message-window regression.")
+
+    module_url = "data:text/javascript;base64," + base64.b64encode(
+        MESSAGE_WINDOW_JS.read_bytes()
+    ).decode("ascii")
+    script = f"""
+import assert from "node:assert/strict";
+import {{ MessageWindow, PROCESS_STEP_TYPES, classifyMessageRenderUnits }} from {module_url!r};
+
+for (const type of ["code_exe", "text_editor", "custom_plugin_step"]) {{
+  const classify = messages => classifyMessageRenderUnits(messages, new Set([...PROCESS_STEP_TYPES, type]));
+  const logs = [{{ no: 0, type: "user" }}, {{ no: 1, type: "agent" }},
+    ...Array.from({{ length: 65 }}, (_, i) => ({{ no: i + 2, type }}))];
+  const windowed = new MessageWindow({{
+    getUnitKeys: messages => classify(messages).map(unit => unit.key),
+  }});
+  windowed.reset(logs);
+  windowed.merge([{{ no: 67, type: "util", heading: "Searching memories..." }}]);
+  const units = classify(windowed.visibleMessages());
+  assert.equal(units.length, 67, `${{type}} must retain the whole process group`);
+  assert.ok(units.every(unit => unit.group === units[0].group && unit.isStep),
+    `${{type}} must keep memory search inside the substantive group`);
+
+  const prefixed = classify([{{ type: "util" }}, {{ type }}]);
+  assert.ok(prefixed[0].group && prefixed[0].group === prefixed[1].group);
+  const completed = classify([
+    {{ type }}, {{ type: "response", agentno: 0 }}, {{ type: "util" }},
+  ]);
+  assert.equal(completed[0].group, completed[1].group);
+  assert.equal(completed[2].group, null, "post-response utilities must stay separate");
+}}
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, text=True)
+
+
 def test_message_window_keeps_tail_and_pages_bidirectionally():
     if not shutil.which("node"):
         pytest.skip("Node.js is required to execute the message-window regression.")
@@ -27,7 +117,7 @@ def test_message_window_keeps_tail_and_pages_bidirectionally():
     source = MESSAGE_WINDOW_JS.read_bytes()
     module_url = "data:text/javascript;base64," + base64.b64encode(source).decode("ascii")
     script = f"""
-import {{ MessageWindow, classifyMessageRenderUnits }} from {module_url!r};
+import {{ MessageWindow, PROCESS_STEP_TYPES, classifyMessageRenderUnits }} from {module_url!r};
 
 function assert(condition, message) {{
   if (!condition) throw new Error(message);
@@ -41,7 +131,7 @@ const pluginBackedGroup = [
   {{ no: 5, id: "step-5", type: "code_exe" }},
   {{ no: 6, id: "response-1", type: "response", agentno: 0 }},
 ];
-const pluginBackedUnits = classifyMessageRenderUnits(pluginBackedGroup);
+const pluginBackedUnits = classifyMessageRenderUnits(pluginBackedGroup, new Set([...PROCESS_STEP_TYPES, "code_exe"]));
 assert(
   pluginBackedUnits.every((unit) => unit.key === pluginBackedUnits[0].key),
   "code execution records must remain inside their surrounding process group",
@@ -336,8 +426,7 @@ def test_process_groups_are_atomic_and_page_steps_in_fifties():
     ).read_text(encoding="utf-8")
 
     assert "const PROCESS_GROUP_STEP_PAGE_SIZE = 50" in messages
-    assert 'classifyMessageRenderUnits(messages)' in messages
-    assert '"code_exe",' in MESSAGE_WINDOW_JS.read_text(encoding="utf-8")
+    assert 'classifyMessageRenderUnits(messages, _processStepTypes)' in messages
     assert "getUnitKeys: getMessageRenderUnitKeys" in messages
     assert "getProcessGroupRenderMessages(windowMessages)" in messages
     assert "const addedMessageKeys = _messageWindow.merge" in messages

@@ -20,6 +20,7 @@ import {
 import { Scroller, cancelPendingScroll } from "./scroller.js";
 import {
   MessageWindow,
+  PROCESS_STEP_TYPES,
   classifyMessageRenderUnits,
   getMessageCacheKey,
 } from "./message-window.js";
@@ -41,13 +42,14 @@ const PROCESS_GROUP_RENDER_INFO = Symbol("processGroupRenderInfo");
 
 let _messageProcessGroups = new WeakMap();
 let _messageIsProcessStep = new WeakSet();
+let _processStepTypes = PROCESS_STEP_TYPES;
 const _processGroupStepLimits = new Map();
 let _renderedProcessGroupPages = new Map();
 
 function getMessageRenderUnitKeys(messages) {
   _messageProcessGroups = new WeakMap();
   _messageIsProcessStep = new WeakSet();
-  const units = classifyMessageRenderUnits(messages);
+  const units = classifyMessageRenderUnits(messages, _processStepTypes);
   units.forEach((unit, index) => {
     if (!unit.group) return;
     _messageProcessGroups.set(messages[index], unit.group);
@@ -153,8 +155,6 @@ export async function getMessageHandler(type) {
       return drawMessageResponse;
     case "tool":
       return drawMessageTool;
-    case "progress":
-      return drawMessageProgress;
     case "mcp":
       return drawMessageMcp;
     case "subagent":
@@ -203,6 +203,17 @@ export function setMessages(messages) {
 async function setMessagesNow(messages, generation) {
   if (generation !== _messageRenderGeneration) return null;
   messages = normalizeMessages(messages);
+  const context = { processStepTypes: new Set(PROCESS_STEP_TYPES) };
+  await callJsExtensions("get_process_step_types", context);
+  const types = _messageWindow.messageTypes;
+  for (const message of messages) types.add(String(message.type || ""));
+  for (const type of types) {
+    if (!context.processStepTypes.has(type) && await getMessageHandler(type) === drawMessageTool) {
+      context.processStepTypes.add(type);
+    }
+  }
+  if (generation !== _messageRenderGeneration) return null;
+  _processStepTypes = context.processStepTypes;
   const history = getChatHistoryEl();
   const followTail = shouldFollowMessageTail();
 
@@ -212,7 +223,8 @@ async function setMessagesNow(messages, generation) {
 
   const initialWindow =
     _messageWindow.size > 0 && !history?.querySelector(".message-group");
-  if (initialWindow && _messageWindowFollowTail) _messageWindow.showTail();
+  const fullSnapshot = messages[0]?.no === 0;
+  if ((initialWindow || fullSnapshot) && _messageWindowFollowTail) _messageWindow.showTail();
   const compactedTail = _messageWindow.compactTailIfNeeded();
   const windowMessages = _messageWindow.visibleMessages();
   const cappedProcessGroupUpdate = hasCappedProcessGroupUpdate(
@@ -220,7 +232,7 @@ async function setMessagesNow(messages, generation) {
     windowMessages,
     addedMessageKeys,
   );
-  if (initialWindow || compactedTail || cappedProcessGroupUpdate) {
+  if (initialWindow || fullSnapshot || compactedTail || cappedProcessGroupUpdate) {
     return await renderMessageWindow({
       preserveScroll: !initialWindow && !followTail,
       generation,
@@ -1196,7 +1208,17 @@ async function restoreMessageExpansionState(history, state) {
 }
 
 function nextAnimationFrame() {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  return new Promise((resolve) => {
+    // Browsers may stop painting hidden or occluded windows. A visual layout
+    // yield must not hold state synchronization until the window is repainted.
+    const finish = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      resolve();
+    };
+    const frame = requestAnimationFrame(finish);
+    const timer = setTimeout(finish, 100);
+  });
 }
 
 function appendToMessageGroup(
@@ -1227,9 +1249,8 @@ function appendToMessageGroup(
 function getLastProcessGroup(allowCompleted = true) {
   const lastContainer = getLastMessageGroup();
   if (!lastContainer) return null;
-  const groups = lastContainer.querySelectorAll(".process-group");
-  if (groups.length === 0) return null;
-  const group = groups[groups.length - 1];
+  const group = lastContainer.lastElementChild?.querySelector(":scope > .process-group");
+  if (!group) return null;
   if (!allowCompleted && isProcessGroupComplete(group)) return null;
 
   return group;
@@ -1247,7 +1268,6 @@ function getOrCreateProcessGroup(id, allowCompleted = true, renderInfo = null) {
 
   // lastly create new
   const messageContainer = document.createElement("div");
-  messageContainer.id = `process-group-${groupIdentity}`;
   messageContainer.classList.add(
     "message-container",
     "ai-container",
@@ -1293,7 +1313,8 @@ export function drawProcessStep({
   ...additional
 }) {
   // group and steps DOM elements
-  const stepId = `process-step-${id}`;
+  // Type-scoped: a subordinate response shares the GEN record's id and must not overwrite the GEN step
+  const stepId = `process-step-${log.type}-${id}`;
   let step = getChatHistoryElementById(stepId);
 
   const renderInfo = log[PROCESS_GROUP_RENDER_INFO];
@@ -1715,7 +1736,10 @@ export function _drawMessage({
 
   // reapply scroll position or autoscroll
   bodyDiv.dataset.scrollStabilization = "1";
-  const scroller = new Scroller(bodyDiv, { smooth: !isMassRender() });
+  // Responses grow in the chat viewport; their body has no independent scroll area.
+  const scroller = mainClass === "message-agent-response"
+    ? null
+    : new Scroller(bodyDiv, { smooth: !isMassRender() });
 
   const contentText = String(content ?? "");
   const lazyContent =
@@ -1757,9 +1781,11 @@ export function _drawMessage({
   }
 
   // reapply scroll position or reset for collapsed
-  messageDiv.classList.contains("expanded")
-    ? scroller.reApplyScroll()
-    : (bodyDiv.scrollTop = 0);
+  if (scroller) {
+    messageDiv.classList.contains("expanded")
+      ? scroller.reApplyScroll()
+      : (bodyDiv.scrollTop = 0);
+  }
 
   return messageDiv;
 }
@@ -1928,7 +1954,6 @@ export function drawMessageAgent({
     actionButtons,
     log: arguments[0],
   });
-  if (result.kvpsTable) renderLatexText(result.kvpsTable);
   return result;
 }
 
@@ -2216,16 +2241,6 @@ export async function drawMessageTool({
 
   if (!tool_name) {
     return drawMessageToolSimple({ ...arguments[0] });
-  } else if (kvps._tool_name === "skills_tool") {
-    const displayKvps = { ...(kvps || {}) };
-    delete displayKvps._tool_name;
-    return drawMessageToolSimple({ ...arguments[0], code: "SKL", displayKvps });
-  } else if (kvps._tool_name === "vision_load") {
-    return drawMessageToolSimple({ ...arguments[0], code: "EYE" });
-  } else if (kvps._tool_name === "search_engine") {
-    return drawMessageToolSimple({ ...arguments[0], code: "WEB" });
-  } else if (kvps._tool_name.startsWith("memory_")) {
-    return drawMessageToolSimple({ ...arguments[0], code: "MEM" });
   }
 
   /** @type {{ tool_name: string, kvps: any, handler: Function | undefined }} */
@@ -2498,36 +2513,6 @@ export function drawMessageHint({
  * @param {MessageHandlerArgs & Record<string, any>} param0
  * @returns {MessageHandlerResult}
  */
-export function drawMessageProgress({
-  id,
-  type,
-  heading,
-  content,
-  kvps,
-  timestamp,
-  agentno = 0,
-  ...additional
-}) {
-  const title = cleanStepTitle(heading || content);
-  let displayKvps = { ...kvps };
-
-  return drawProcessStep({
-    id,
-    title,
-    code: "HDL",
-    classes: undefined,
-    kvps: displayKvps,
-    content,
-    // contentClasses: [],
-    actionButtons: [],
-    log: arguments[0],
-  });
-}
-
-/**
- * @param {MessageHandlerArgs & Record<string, any>} param0
- * @returns {MessageHandlerResult}
- */
 export function drawMessageWarning({
   id,
   type,
@@ -2790,13 +2775,6 @@ function renderLatexElements(container) {
   });
 }
 
-function renderLatexText(container) {
-  globalThis.renderMathInElement(container, {
-    throwOnError: false,
-    errorCallback: () => {},
-  });
-}
-
 function convertImgFilePaths(str) {
   return str.replace(/img:\/\//g, "/api/image_get?path=");
 }
@@ -2817,8 +2795,8 @@ function escapeHTML(str) {
 }
 
 function convertPathsToLinks(str) {
-  function generateLinks(match) {
-    const parts = match.split("/");
+  function generateLinks(match, path) {
+    const parts = path.split("/");
     if (!parts[0]) parts.shift(); // drop empty element left of first "
     let conc = "";
     let html = "";
@@ -2837,12 +2815,12 @@ function convertPathsToLinks(str) {
   const simplePath = `\\/${folder}*${file}(?<!\\.)`;
   const suffix = `(?=$|[\\s.,;:!?\\)\\]\\}]|&#39;|&quot;)`;
   const pathRegex = new RegExp(
-    `(?<=${prefix})(?:${spacedFilePath}|${simplePath})${suffix}`,
+    `(?<=${prefix})(?:file:\\/\\/|\\/api\\/download_work_dir_file\\?path=)?(${spacedFilePath}|${simplePath})${suffix}`,
     "g",
   );
 
-  // skip paths inside html tags, like <img src="/path/to/image">
-  const tagRegex = /(<(?:[^<>"']+|"[^"]*"|'[^']*')*>)/g;
+  // Preserve existing links and code blocks as well as HTML attributes.
+  const tagRegex = /(<a\b[^>]*>[\s\S]*?<\/a>|<pre\b[^>]*>[\s\S]*?<\/pre>|<(?:[^<>"']+|"[^"]*"|'[^']*')*>)/gi;
 
   return str
     .split(tagRegex) // keep tags & text separate

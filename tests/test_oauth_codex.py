@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -18,6 +19,9 @@ from plugins._oauth.helpers import routes
 from plugins._oauth.helpers.providers import codex as codex_provider
 from plugins._oauth.extensions.python._functions.models.get_api_key.end import (
     _20_oauth_account_dummy_key as oauth_dummy_key,
+)
+from plugins._oauth.extensions.python.chat_model_call_before._20_codex_session import (
+    CodexSession,
 )
 
 
@@ -72,6 +76,7 @@ def test_build_authorize_url_uses_existing_a0_origin_callback(monkeypatch):
 
 
 def test_chat_messages_to_response_body_extracts_instructions():
+    metadata = {"session_id": "chat-session", "thread_id": "chat-thread"}
     body = codex.chat_messages_to_response_body(
         {
             "model": "gpt-5.2",
@@ -81,6 +86,8 @@ def test_chat_messages_to_response_body_extracts_instructions():
             ],
             "temperature": 0.2,
             "reasoning_effort": "high",
+            "client_metadata": metadata,
+            "prompt_cache_key": "caller-cache",
         }
     )
 
@@ -89,6 +96,8 @@ def test_chat_messages_to_response_body_extracts_instructions():
     assert body["input"] == [{"role": "user", "content": "Hello"}]
     assert body["temperature"] == 0.2
     assert body["reasoning"] == {"effort": "high"}
+    assert body["client_metadata"] == metadata
+    assert body["prompt_cache_key"] == "caller-cache"
 
 
 def test_chat_messages_to_response_body_uses_current_codex_default_model():
@@ -103,7 +112,7 @@ def test_chat_messages_to_response_body_uses_current_codex_default_model():
     assert body["model"] == "gpt-5.5"
 
 
-def test_codex_provider_metadata_uses_upstream_models_only_by_default(monkeypatch):
+def test_codex_provider_metadata_recommends_main_and_utility_without_restricting_catalog(monkeypatch):
     monkeypatch.setattr(
         codex_provider,
         "_codex_config",
@@ -116,8 +125,28 @@ def test_codex_provider_metadata_uses_upstream_models_only_by_default(monkeypatc
 
     metadata = codex_provider.CodexOAuthProvider().metadata()
 
-    assert metadata.default_model == "gpt-5.5"
-    assert metadata.default_models == []
+    assert metadata.default_model == "gpt-6.1-terra"
+    assert metadata.default_models == ["gpt-6.1-terra", "gpt-6-luna"]
+
+    monkeypatch.setattr(codex, "fetch_models", lambda: ["another-account-model"])
+    assert codex_provider.CodexOAuthProvider().models() == ["another-account-model"]
+
+
+def test_codex_provider_metadata_preserves_configured_model_order(monkeypatch):
+    monkeypatch.setattr(
+        codex_provider,
+        "_codex_config",
+        lambda: {
+            "models": ["custom-main", "custom-utility"],
+            "proxy_base_path": "/oauth/codex",
+            "callback_path": "/auth/callback",
+        },
+    )
+
+    metadata = codex_provider.CodexOAuthProvider().metadata()
+
+    assert metadata.default_model == "custom-main"
+    assert metadata.default_models == ["custom-main", "custom-utility"]
 
 
 def test_codex_fetch_models_omits_fake_client_version(monkeypatch):
@@ -207,6 +236,65 @@ def test_prepare_responses_body_adds_codex_client_metadata(monkeypatch):
     assert body["stream"] is True
     assert body["reasoning"] == {"effort": "medium", "summary": "auto"}
     assert body["include"] == ["output_text", "reasoning.encrypted_content"]
+
+
+def test_codex_session_metadata_is_stable_and_scoped(monkeypatch):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
+    monkeypatch.setattr(codex, "resolve_installation_id", lambda: "install-1")
+
+    def prepare(context_id="chat-1", number=0, provider="codex_oauth", metadata=None):
+        extra_body = {"client_metadata": dict(metadata or {}), "other": "keep"}
+        model = SimpleNamespace(
+            a0_model_conf=SimpleNamespace(provider=provider),
+            kwargs={"extra_body": extra_body},
+        )
+        agent = SimpleNamespace(context=SimpleNamespace(id=context_id), number=number)
+        CodexSession(agent=agent).execute(call_data={"model": model})
+        assert extra_body == {"client_metadata": dict(metadata or {}), "other": "keep"}
+        assert model.kwargs["extra_body"]["other"] == "keep"
+        if provider != "codex_oauth":
+            assert model.kwargs["extra_body"] is extra_body
+            return None
+        return codex.prepare_responses_body(
+            {"input": [], **model.kwargs["extra_body"]}, force_stream=True
+        )["client_metadata"]
+
+    first = prepare()
+    assert first == prepare()
+    assert first["session_id"] == first["thread_id"] == "agent-zero-chat-1-0"
+    assert first["session_id"] != prepare(context_id="chat-2")["session_id"]
+    assert first["session_id"] != prepare(number=1)["session_id"]
+    explicit = prepare(metadata={
+        "session_id": "caller-session", "thread_id": "caller-thread",
+        "caller": "keep", "x-codex-installation-id": "stale",
+    })
+    assert explicit["session_id"] == "caller-session"
+    assert explicit["thread_id"] == "caller-thread"
+    assert explicit["caller"] == "keep"
+    assert explicit["x-codex-installation-id"] == "install-1"
+    assert prepare(provider="openai") is None
+
+
+@pytest.mark.parametrize("session_id", ["chat-session", "x" * 100])
+def test_codex_cache_key_uses_caller_session_without_mutating_input(monkeypatch, session_id):
+    monkeypatch.setattr(codex, "codex_config", lambda: {})
+    monkeypatch.setattr(codex, "build_client_metadata", lambda: {"session_id": "random-fallback"})
+    source = {"input": [], "client_metadata": {"session_id": session_id}}
+    first = codex.prepare_responses_body(source, force_stream=True)
+    second = codex.prepare_responses_body(source, force_stream=True)
+
+    assert first["prompt_cache_key"] == second["prompt_cache_key"]
+    assert first["prompt_cache_key"] == (
+        session_id if len(session_id) <= 64 else codex.hashlib.sha256(session_id.encode()).hexdigest()
+    )
+    assert len(first["prompt_cache_key"]) <= 64
+    assert "prompt_cache_key" not in source
+    assert codex.prepare_responses_body(
+        {**source, "prompt_cache_key": "caller-cache"}, force_stream=True
+    )["prompt_cache_key"] == "caller-cache"
+    assert "prompt_cache_key" not in codex.prepare_responses_body(
+        {"input": []}, force_stream=True
+    )
 
 
 def test_prepare_responses_body_tightens_existing_response_tool_only(monkeypatch):
@@ -394,7 +482,7 @@ def test_request_codex_sends_current_codex_headers_from_body(
         )
         return FakeResponse()
 
-    monkeypatch.setattr(codex.requests, "request", fake_request)
+    monkeypatch.setattr(codex._UPSTREAM_SESSION, "request", fake_request)
 
     response = codex.request_codex(
         "/responses",
@@ -633,6 +721,93 @@ def test_token_error_message_prefers_description():
             }
 
     assert codex._token_error_message(FakeResponse()) == "refresh token was already used"
+
+
+@pytest.mark.parametrize("error", [
+    {"error": {"code": "upstream_error", "message": "Invalid refresh token."}},
+    {"error": "invalid_grant", "error_description": "private upstream detail"},
+    {"error": {"code": "refresh_token_reused", "message": "private upstream detail"}},
+    {"error": {"code": "refresh_token_expired", "message": "private upstream detail"}},
+    {"error": {"code": "refresh_token_invalidated", "message": "private upstream detail"}},
+])
+def test_rejected_refresh_notifies_once_and_recovers_after_sign_in(tmp_path, monkeypatch, error):
+    from helpers.notification import NotificationManager
+
+    path = tmp_path / "auth.json"
+    auth = {
+        "tokens": {"access_token": "old-access", "refresh_token": "old-refresh", "account_id": "account"},
+        "last_refresh": "2000-01-01T00:00:00Z",
+    }
+    path.write_text(json.dumps(auth))
+    monkeypatch.setattr(codex, "resolve_auth_write_path", lambda: path)
+    monkeypatch.setattr(codex, "codex_config", lambda: {
+        "token_url": "https://auth.example/token", "client_id": "client", "forced_workspace_id": "",
+    })
+    monkeypatch.setattr(codex, "resolve_agent_zero_user_agent", lambda: "test")
+    refresh_calls, notifications = [], []
+    monkeypatch.setattr(codex.requests, "post", lambda *a, **kw: refresh_calls.append(kw) or SimpleNamespace(
+        ok=False, status_code=400, text=json.dumps(error), json=lambda: error,
+    ))
+    monkeypatch.setattr(NotificationManager, "send_notification", lambda **kw: notifications.append(kw))
+
+    for _ in range(2):
+        with pytest.raises(codex.ProviderError, match="Reconnect your account") as failure:
+            codex.load_auth()
+        assert failure.value.status == 401
+        assert failure.value.code == "reconnect_required"
+    assert len(refresh_calls) == len(notifications) == 1
+    saved = json.loads(path.read_text())
+    assert saved["tokens"] == auth["tokens"]
+    assert saved["reconnect_required"] is True
+    status = codex.status()
+    assert status["connected"] is True
+    assert status["reconnect_required"] is True
+    assert len(refresh_calls) == len(notifications) == 1
+    message = notifications[0]["message"]
+    assert "Open OAuth settings" in message and "openConfig('_oauth')" in message
+    assert "private upstream detail" not in message and "old-refresh" not in message
+
+    monkeypatch.setattr(codex, "derive_account_id", lambda _: "account")
+    monkeypatch.setattr(codex, "obtain_api_key", lambda _: "")
+    monkeypatch.setattr(codex, "fetch_usage", lambda: {"available": False})
+    codex.persist_exchanged_tokens({"id_token": "new-id", "access_token": "new-access", "refresh_token": "new-refresh"})
+    assert codex.load_auth().access_token == "new-access"
+    assert codex.status()["reconnect_required"] is False
+    assert "reconnect_required" not in json.loads(path.read_text())
+
+
+def test_transient_refresh_failure_does_not_require_reconnect(tmp_path, monkeypatch):
+    path = tmp_path / "auth.json"
+    _write_refreshable_auth(path)
+    original = path.read_text()
+    monkeypatch.setattr(codex, "resolve_auth_write_path", lambda: path)
+    monkeypatch.setattr(codex, "codex_config", lambda: {"token_url": "https://auth.example/token", "client_id": "client"})
+    monkeypatch.setattr(codex, "resolve_agent_zero_user_agent", lambda: "test")
+    monkeypatch.setattr(codex.requests, "post", lambda *a, **kw: SimpleNamespace(
+        ok=False, status_code=503, text="unavailable", json=lambda: {"error": "temporarily_unavailable"},
+    ))
+    with pytest.raises(RuntimeError, match="temporarily_unavailable"):
+        codex.load_auth()
+    assert path.read_text() == original
+
+
+@pytest.mark.parametrize("route", [routes.codex_models, routes.codex_responses, routes.codex_chat_completions])
+@pytest.mark.parametrize("stream", [False, True])
+def test_codex_routes_preserve_reconnect_error(monkeypatch, route, stream):
+    from flask import Flask
+
+    def rejected(*args, **kwargs):
+        raise codex.ProviderError(codex.RECONNECT_MESSAGE, status=401, code="reconnect_required")
+
+    monkeypatch.setattr(routes, "_proxy_denied_response", lambda: None)
+    monkeypatch.setattr(codex, "prepare_responses_body", lambda body, **kw: body)
+    monkeypatch.setattr(codex, "fetch_models", rejected)
+    monkeypatch.setattr(codex, "request_codex", rejected)
+    with Flask(__name__).test_request_context("/", method="POST", json={"model": "test", "messages": [], "stream": stream}):
+        response, status = route()
+    assert status == 401
+    assert response.json["error"]["code"] == "reconnect_required"
+    assert response.json["error"]["message"] == codex.RECONNECT_MESSAGE
 
 
 def test_refresh_tokens_sends_agent_zero_user_agent(monkeypatch):
@@ -977,6 +1152,7 @@ def test_disconnect_auth_only_mutates_agent_zero_private_auth_file(tmp_path, mon
             {
                 "auth_mode": "chatgpt",
                 "OPENAI_API_KEY": "sk-keep",
+                "reconnect_required": True,
                 "tokens": {
                     "access_token": "access",
                     "refresh_token": "refresh",
@@ -1060,6 +1236,7 @@ def test_provider_config_uses_container_local_agent_zero_origin():
     assert codex_provider["name"] == "Codex/ChatGPT Account"
     assert codex_provider["models_list"]["endpoint_url"] == "/models"
     assert codex_provider["kwargs"]["api_base"] == "http://127.0.0.1/oauth/codex/v1"
+    assert codex_provider["kwargs"]["responses_state"] == "local"
     assert "50001" not in json.dumps(codex_provider)
 
 
@@ -1087,3 +1264,137 @@ def test_codex_provider_preserves_configured_api_key():
     oauth_dummy_key.OAuthAccountDummyKey(agent=None).execute(data=data)
 
     assert data["result"] == "configured"
+
+
+@pytest.mark.parametrize('mode,options,expected', [
+    ('chat', None, {'include_usage': True}),
+    ('chat_completions', {'include_usage': False}, {'include_usage': False}),
+    ('responses', None, None),
+])
+def test_codex_chat_requests_usage_without_changing_responses_or_explicit_options(mode, options, expected):
+    kwargs = {'a0_api_mode': mode}
+    if options is not None:
+        kwargs['stream_options'] = options
+    model = SimpleNamespace(a0_model_conf=SimpleNamespace(provider='codex_oauth'), kwargs=kwargs)
+    agent = SimpleNamespace(context=SimpleNamespace(id='test'), number=0)
+    CodexSession(agent=agent).execute(call_data={'model':model})
+    assert model.kwargs.get('stream_options') == expected
+
+
+@pytest.mark.parametrize('include_usage', [True, False])
+@pytest.mark.parametrize('ending', ['completed', 'incomplete', 'failed', 'missing', 'no_usage'])
+def test_codex_chat_stream_usage_terminal_state_and_cleanup(monkeypatch, include_usage, ending):
+    from flask import Flask
+    from unittest.mock import Mock
+    usage = {'input_tokens': 2000, 'output_tokens': 20, 'total_tokens': 2020,
+             'input_tokens_details': {'cached_tokens': 1024},
+             'output_tokens_details': {'reasoning_tokens': 8}}
+    expected = {'prompt_tokens': 2000, 'completion_tokens': 20, 'total_tokens': 2020,
+                'prompt_tokens_details': {'cached_tokens': 1024},
+                'completion_tokens_details': {'reasoning_tokens': 8}}
+    events = [{'type':'response.output_text.delta', 'delta':'Hello'}]
+    if ending != 'missing':
+        event_type = ending if ending in {'incomplete','failed'} else 'completed'
+        response = {'usage': usage} if ending != 'no_usage' else {}
+        if ending == 'incomplete':
+            response['incomplete_details'] = {'reason':'max_output_tokens'}
+        if ending == 'failed':
+            response['error'] = {'message':'upstream failed', 'type':'server_error'}
+        events.append({'type':'response.'+event_type, 'response':response})
+    upstream = SimpleNamespace(close=Mock())
+    monkeypatch.setattr(codex, 'iter_sse_events', lambda response: ({'data':json.dumps(event)} for event in events))
+    app = Flask(__name__)
+    with app.test_request_context('/'):
+        result = routes._stream_chat_completion(upstream, 'test-model', include_usage=include_usage)
+        blocks = result.get_data(as_text=True).split('\n\n')
+        chunks = [json.loads(block[6:]) for block in blocks if block.startswith('data: ') and block != 'data: [DONE]']
+    upstream.close.assert_called_once()
+    assert chunks[1]['choices'][0]['delta']['content'] == 'Hello'
+    if ending in {'failed', 'missing'}:
+        assert 'error' in chunks[-1]
+        assert not any(c.get('choices') and c['choices'][0]['finish_reason'] for c in chunks)
+    else:
+        final_choices = [c for c in chunks if c.get('choices')][-1]['choices']
+        assert final_choices[0]['finish_reason'] == ('length' if ending == 'incomplete' else 'stop')
+        if include_usage and ending != 'no_usage':
+            assert chunks[-1]['choices'] == []
+            assert chunks[-1]['usage'] == expected
+        else:
+            assert not any(c.get('usage') for c in chunks)
+    assert routes._chat_usage(usage) == expected
+    assert routes._chat_usage(None) == {}
+
+
+@pytest.mark.parametrize('status,expected_reason', [('completed','stop'), ('incomplete','length'), ('failed',None)])
+def test_codex_chat_nonstream_maps_usage_and_terminal_state(monkeypatch, status, expected_reason):
+    from flask import Flask
+    monkeypatch.setattr(routes, '_proxy_denied_response', lambda: None)
+    monkeypatch.setattr(codex, 'chat_messages_to_response_body', lambda body: {'model':'test'})
+    monkeypatch.setattr(codex, 'prepare_responses_body', lambda body, **kwargs: body)
+    monkeypatch.setattr(codex, 'request_codex', lambda *args, **kwargs: SimpleNamespace(ok=True))
+    monkeypatch.setattr(codex, 'collect_completed_response', lambda upstream: {
+        'status':status, 'output_text':'partial answer',
+        'incomplete_details':{'reason':'max_output_tokens'},
+        'usage':{'input_tokens':2048,'output_tokens':10,'input_tokens_details':{'cached_tokens':1024}},
+    })
+    app = Flask(__name__)
+    with app.test_request_context('/chat', method='POST', json={'model':'test','messages':[]}):
+        response = app.make_response(routes.codex_chat_completions())
+        if expected_reason is None:
+            assert response.status_code == 502
+            assert 'error' in response.get_json()
+        else:
+            data = response.get_json()
+            assert data['choices'][0]['finish_reason'] == expected_reason
+            assert data['usage'] == {'prompt_tokens':2048,'completion_tokens':10,'prompt_tokens_details':{'cached_tokens':1024}}
+            assert 'total_tokens' not in data['usage']
+
+
+@pytest.mark.parametrize("ending", ["unread", "cancelled", "completed", "error"])
+def test_oauth_native_stream_closes_upstream_with_response(ending):
+    from flask import Flask
+    from unittest.mock import Mock
+
+    chunks = [b"data: first\n\n", b"data: second\n\n"]
+
+    def iter_content(chunk_size):
+        yield chunks[0]
+        if ending == "error":
+            raise RuntimeError("upstream disconnected")
+        yield chunks[1]
+
+    upstream = SimpleNamespace(
+        status_code=200,
+        headers={"Content-Type": "text/event-stream", "x-request-id": "test-request"},
+        iter_content=iter_content,
+        close=Mock(),
+    )
+    with Flask(__name__).test_request_context("/"):
+        response = routes._stream_upstream_sse(upstream)
+        try:
+            assert response.status_code == 200
+            assert response.headers["x-request-id"] == "test-request"
+            assert response.headers["Cache-Control"] == "no-cache"
+            iterator = iter(response.response)
+            if ending == "cancelled":
+                assert next(iterator) == chunks[0]
+            elif ending == "completed":
+                assert list(iterator) == chunks
+            elif ending == "error":
+                with pytest.raises(RuntimeError, match="upstream disconnected"):
+                    list(iterator)
+        finally:
+            response.close()
+    upstream.close.assert_called_once()
+
+
+def test_codex_chat_stream_closes_upstream_when_consumer_stops():
+    from flask import Flask
+    from unittest.mock import Mock
+    upstream = SimpleNamespace(close=Mock())
+    with Flask(__name__).test_request_context('/'):
+        response = routes._stream_chat_completion(upstream, 'test')
+        iterator = iter(response.response)
+        next(iterator)
+        iterator.close()
+    upstream.close.assert_called_once()

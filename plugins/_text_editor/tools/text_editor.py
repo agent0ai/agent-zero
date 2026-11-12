@@ -1,4 +1,3 @@
-import uuid
 from pathlib import Path
 
 from helpers.tool import Tool, Response
@@ -14,6 +13,7 @@ from plugins._text_editor.helpers.file_ops import (
     apply_exact_replace_file,
     file_info,
 )
+from plugins._text_editor.helpers.log import create_editor_log
 from plugins._text_editor.helpers.patch_request import parse_patch_request
 from plugins._text_editor.helpers.patch_state import (
     LOCAL_FRESHNESS_KEY,
@@ -32,22 +32,7 @@ _MTIME_KEY = LOCAL_FRESHNESS_KEY
 class TextEditor(Tool):
 
     def get_log_object(self):
-        action = str(self.args.get("action") or "")
-        path = str(self.args.get("path") or "")
-        verb = {"read": "Reading", "write": "Writing", "patch": "Patching"}.get(action)
-        heading = (
-            f"icon://construction {verb} {path}".strip()
-            if verb and path
-            else f"icon://construction {self.agent.agent_name}: Using tool '{self.name}'"
-        )
-        return self.agent.context.log.log(
-            type="text_editor",
-            heading=heading,
-            content="",
-            kvps=self.args,
-            _tool_name=self.name,
-            id=str(uuid.uuid4()),
-        )
+        return create_editor_log(self)
 
     async def execute(self, **kwargs):
         action = _current_action(self, kwargs)

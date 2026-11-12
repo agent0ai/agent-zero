@@ -17,15 +17,18 @@
 - `helpers/routes.py` owns local OAuth callback and OpenAI-compatible proxy routes mounted by the route bootstrap extension.
 - `webui/config.html` and `webui/oauth-config-store.js` own the OAuth Connections settings UI.
 - `extensions/python/_functions/models/get_api_key/end/` owns the dummy API-key extension used by OAuth model providers.
-- `tests/test_oauth_*.py` own provider contract, security, static UI, and compatibility regressions.
+- `tests/test_oauth_*.py` and `tests/test_oauth_reconnect.mjs` own provider contract, security, UI, and compatibility regressions.
 
 ## Local Contracts
 
 - Core model code such as `models.py` must stay provider-agnostic. Do not add Codex, GitHub Copilot, Gemini, xAI, or other OAuth provider knowledge outside plugin-owned config or plugin hooks.
+- Keep the Codex client version explicitly pinned in `default_config.yaml` and update the pin with each adopted version (currently `0.166.0`) for upstream version headers and catalog discovery without an installed CLI. Existing saved plugin settings take precedence; this default does not migrate blank or explicit overrides. A blank override probes `codex --version` and omits the version if no CLI is available; it does not discover new releases.
 - Add OAuth model providers in `_oauth/conf/model_providers.yaml`, not `_model_config/provider_metadata.yaml`.
 - Provider cards and model slot actions must be driven by backend provider status. Do not reintroduce hardcoded frontend provider lists or fallback provider catalogs.
 - OAuth account surfaces in settings, discovery, and onboarding must use the provider registry/status summary rather than Codex-only frontend state.
 - OAuth settings pending-auth controls such as device codes, manual callback input, and provider setup fields must render inline under the relevant provider row, not as a detached section below all providers.
+- Codex response defaults stay visible and editable in its provider row below usage quotas, regardless of connection status or selected provider; setup and pending-auth controls retain their own visibility rules. Provider details use theme text and muted-text colors instead of inheriting the global connected-state green.
+- Device challenge codes use a selectable standalone box and an accessible copy button, reusing the shared clipboard and button-feedback helpers: successful copies briefly show a green checkmark and retain OAuth notifications.
 - OAuth device-code polling must honor provider `interval`, `expires_at`, and `slow_down` updates; do not poll immediately or keep a stale fixed interval after a provider asks the client to slow down.
 - OAuth settings model slots must keep provider choice editable per slot, list only connected OAuth account providers, and persist the selected provider IDs into `chat_model.provider` and `utility_model.provider`.
 - When exactly one OAuth provider is connected, use it as an unsaved default only for empty slots or slots already using that provider. A different saved provider must keep the explicit `Choose connected provider` prompt until the user opts into the switch.
@@ -34,6 +37,7 @@
 - OAuth settings must dispatch `model-setup-changed` when a provider connection completes; provider defaults may be inferred from one connected account, but model-name selection remains explicit.
 - `helpers/providers/registry.py` is the source of truth for connectable OAuth providers.
 - The models API must preserve the legacy plain `models` slug list and may add `model_metadata` entries for richer provider catalogs.
+- Codex metadata recommends `gpt-6.1-terra` for Main and `gpt-6-luna` for Utility during onboarding. An explicit configured model list keeps its own ordering; these recommendations do not replace or restrict the live account catalog.
 - OAuth provider config must not expose the dummy `oauth` API key in `conf/model_providers.yaml`; the dummy key is a runtime-only shim supplied by the `get_api_key` extension after the account provider reports connected.
 - Usage-plan metadata belongs only to connectable providers. Do not add metadata-only subscription families for providers this plugin cannot connect.
 - API handlers should remain provider-aware. Missing or blank `provider_id` defaults to Codex only for existing backward compatibility; falsey non-string IDs must not silently default.
@@ -44,10 +48,16 @@
 - Browser callback providers must support manual callback paste when the browser cannot reach the local callback route.
 - Local proxy routes must remain loopback or token protected and must not add broad CORS access.
 - Codex Responses proxy requests must include Codex client metadata and compatibility headers such as `client_metadata`, `x-codex-installation-id`, `originator`, `session-id`, and `thread-id`, and must forward `input` as a list for upstream Codex compatibility.
+- `chat_model_call_before/_20_codex_session.py` gives Codex main-model turns stable per-chat, per-agent session/thread IDs for cache routing. Preserve explicit caller session/thread IDs through both proxy routes, including Chat Completions conversion, while keeping installation/window metadata plugin-owned.
+- Default `prompt_cache_key` to a caller-supplied session ID (hash IDs longer than 64 characters); preserve explicit keys and do not derive keys from randomly generated fallback metadata. Codex provider defaults use local Responses state because its backend requires `store: false`.
 - Codex Responses proxy requests must translate the legacy top-level `reasoning_effort` field to `reasoning.effort`; an explicit native `reasoning` field takes precedence.
 - Codex Responses proxy defaults for reasoning effort, reasoning summary, and text verbosity come from the `codex` plugin config; explicit native request values take precedence.
 - Codex request shaping tightens an already-advertised native `response` tool to a strict required `text` schema; it must not add tools omitted by the framework tool policy.
 - Non-streaming Codex proxy responses must retain completed SSE output items when the final `response.completed` envelope omits them.
+- The Codex Chat compatibility route maps real Responses usage to Chat token/detail fields. Honor `stream_options.include_usage` with a terminal empty-choices usage chunk; never fabricate missing totals. The Codex main-model hook requests usage in Chat mode unless the caller supplies stream options. Responses mode keeps its existing request shape.
+- Chat compatibility replies preserve incomplete finish reasons and do not turn failed responses into successful stops. Streaming forwards upstream errors, rejects premature EOF as an error, and closes the upstream stream on completion or cancellation.
+- Native OAuth streaming responses attach upstream cleanup to the Flask response lifecycle, including closure before the first chunk, cancellation, completion, and read errors.
+- `codex.request_codex` sends through the module-level keep-alive `_UPSTREAM_SESSION` with cookie persistence disabled, so each request carries only its explicit headers; tests stub `_UPSTREAM_SESSION.request`.
 - OAuth providers intentionally using Responses must set `a0_api_mode: responses`; all others inherit the Chat Completions default, since a local proxy route alone does not prove upstream support.
 
 ## Work Guidance
@@ -62,10 +72,13 @@
 - Treat Gemini API OAuth as a Google Cloud OAuth-client flow. Do not conflate it with Antigravity, Gemini Code Assist, Gemini CLI, Google AI Pro, or Google AI Ultra subscription quota.
 - Treat Claude Code subscription auth and Antigravity product auth as non-connectable unless their vendors provide an explicit third-party provider contract.
 - Keep user-facing errors safe: report setup or tier restrictions without exposing tokens, callback secrets, or raw auth payloads.
+- Codex refresh-token rejection raises a safe `reconnect_required` HTTP 401, marks the private auth file, and sends one actionable notification per failed connection. Marked credentials must not refresh again until successful sign-in replaces them or disconnect clears them; transient upstream failures must not mark credentials. Status retains account metadata and exposes `reconnect_required`.
+- Codex Reconnect reuses device sign-in without deleting stored credentials or model choices. Pending device controls remain visible for connected accounts; only successful sign-in replaces tokens and clears the reconnect marker.
 
 ## Verification
 
 - Run `pytest tests/test_oauth_*.py` after backend provider, route, token, or UI contract changes.
+- Run `node tests/test_oauth_reconnect.mjs` after changing reconnect, pending-auth controls, or cancellation.
 - Run `pytest tests/test_plugin_scan_prompt.py` after plugin structure, extension, or docs changes.
 - Run onboarding or model-config tests when provider metadata, `api_key_mode`, or model-provider config changes.
 - Run `git diff --check` before committing.

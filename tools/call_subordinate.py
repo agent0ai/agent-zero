@@ -1,9 +1,12 @@
+import asyncio
+
 from agent import Agent, AgentContext, UserMessage
 from helpers import message_queue, persist_chat, projects, subagents
 from helpers.errors import RepairableException
-from helpers.tool import Tool, Response
+from helpers.tool import Tool, Response, coerce_bool
 from initialize import initialize_agent
 from extensions.python.hist_add_tool_result import _90_save_tool_call_file as save_tool_call_file
+from plugins._model_config.helpers.model_config import DEFAULT_PRESET_NAME, get_configured_preset_name
 
 
 SUBORDINATES_DATA_KEY = "_subordinates"
@@ -128,7 +131,7 @@ def get_or_create_subordinate(
 ) -> Agent:
     requested_profile = _validate_subordinate_profile(parent, profile)
     target_context_id = str(context_id or "").strip()
-    reset_requested = str(reset).lower().strip() == "true"
+    reset_requested = coerce_bool(reset, False)
     if target_context_id and reset_requested:
         raise RepairableException(
             "`context_id` continues an existing subordinate and requires reset=false. "
@@ -150,8 +153,12 @@ def get_or_create_subordinate(
         if subordinate.context is not parent.context and subordinate.context.is_running():
             raise RepairableException(
                 f"Subordinate context '{subordinate.context.id}' is still running. "
-                "Await or cancel its parallel job before continuing it."
+                "Wait for it to finish or stop it before continuing it."
             )
+        label = str(name or "").strip()
+        if label and subordinate.context is not parent.context:
+            subordinate.context.name = label
+            subordinate.context.set_output_data(CHILD_PARENT_CONTEXT_LABEL_KEY, label)
         return subordinate
 
     override_settings = {"agent_profile": requested_profile} if requested_profile else None
@@ -168,7 +175,7 @@ def get_or_create_subordinate(
     if project:
         projects.activate_project(context.id, project, mark_dirty=False)
     model_override = parent.context.get_data("chat_model_override")
-    if model_override:
+    if model_override and get_configured_preset_name(subordinate) == DEFAULT_PRESET_NAME:
         context.set_data("chat_model_override", model_override)
 
     _register_subordinate(parent, subordinate, slot)
@@ -225,7 +232,22 @@ class Delegation(Tool):
             name=kwargs.get("name", ""),
             message=message,
         )
-        result = await run_subordinate(self.agent, subordinate, message, attachments)
+        if subordinate.context is self.agent.context:
+            result = await run_subordinate(self.agent, subordinate, message, attachments)
+        else:
+            task = subordinate.context.run_task(
+                run_subordinate, self.agent, subordinate, message, attachments
+            )
+            try:
+                result = await task.result()
+            except asyncio.CancelledError:
+                caller = asyncio.current_task()
+                if caller and caller.cancelling():
+                    task.kill()
+                    raise
+                raise RepairableException(
+                    f"Subordinate context '{subordinate.context.id}' was stopped."
+                ) from None
 
         # hint to use includes for long responses
         additional = {"context_id": subordinate.context.id}
@@ -240,7 +262,7 @@ class Delegation(Tool):
     def get_log_object(self):
         return self.agent.context.log.log(
             type="subagent",
-            heading=f"icon://communication {self.agent.agent_name}: Calling Subordinate Agent",
+            heading="icon://communication Calling Subordinate Agent",
             content="",
             kvps=self.args,
         )

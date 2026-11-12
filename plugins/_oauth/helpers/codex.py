@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import errno
 import hashlib
+import http.cookiejar
 import json
 import os
 import secrets
@@ -22,6 +23,7 @@ import requests
 
 from helpers import files
 from plugins._oauth.helpers.config import codex_config
+from plugins._oauth.helpers.providers.base import ProviderError
 
 try:
     import fcntl
@@ -58,6 +60,7 @@ CLIENT_METADATA_KEYS = (
     "priority",
 )
 OAUTH_ERROR_KEYS = ("error_description", "error")
+RECONNECT_MESSAGE = "Your Codex session has expired or was revoked. Reconnect your account to continue."
 DEVICE_CODE_TIMEOUT_SECONDS = 15 * 60
 WINDOWS_LOCK_RETRY_SECONDS = 0.05
 USAGE_ENDPOINT_PATHS = (
@@ -66,6 +69,9 @@ USAGE_ENDPOINT_PATHS = (
     "/api/codex/usage",
 )
 _AUTH_THREAD_LOCK = threading.RLock()
+# keep-alive pool for upstream calls; cookies are not persisted, so requests keep their explicit shape
+_UPSTREAM_SESSION = requests.Session()
+_UPSTREAM_SESSION.cookies.set_policy(http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
 
 
 @dataclass(frozen=True)
@@ -82,6 +88,7 @@ class EffectiveAuth:
     refresh_token: str = ""
     source_path: str = ""
     last_refresh: str = ""
+    reconnect_required: bool = False
 
 
 def generate_pkce() -> PkcePair:
@@ -287,9 +294,20 @@ def load_auth(*, ensure_fresh: bool = True) -> EffectiveAuth:
         refresh_token = _string(tokens.get("refresh_token"))
         account_id = _string(tokens.get("account_id")) or derive_account_id(id_token)
         last_refresh = _string(data.get("last_refresh")) if isinstance(data, dict) else ""
+        reconnect_required = bool(data.get("reconnect_required"))
+
+        if ensure_fresh and reconnect_required:
+            raise ProviderError(RECONNECT_MESSAGE, status=401, code="reconnect_required")
 
         if ensure_fresh and refresh_token and should_refresh(access_token, last_refresh):
-            refreshed = refresh_tokens(refresh_token)
+            try:
+                refreshed = refresh_tokens(refresh_token)
+            except ProviderError as exc:
+                if exc.code == "reconnect_required":
+                    data["reconnect_required"] = True
+                    _write_auth_file_unlocked(path, data)
+                    _notify_reconnect_required()
+                raise
             access_token = refreshed.get("access_token") or access_token
             id_token = refreshed.get("id_token") or id_token
             refresh_token = refreshed.get("refresh_token") or refresh_token
@@ -316,6 +334,7 @@ def load_auth(*, ensure_fresh: bool = True) -> EffectiveAuth:
             refresh_token=refresh_token,
             source_path=str(path),
             last_refresh=last_refresh,
+            reconnect_required=reconnect_required,
         )
 
 
@@ -347,6 +366,7 @@ def status() -> dict[str, Any]:
     result.update(
         {
             "connected": True,
+            "reconnect_required": auth.reconnect_required,
             "auth_file_path": auth.source_path,
             "account_id": auth.account_id,
             "email": id_claims.get("email")
@@ -359,6 +379,9 @@ def status() -> dict[str, Any]:
     )
     try:
         result["usage"] = fetch_usage()
+    except ProviderError as exc:
+        result["reconnect_required"] = exc.code == "reconnect_required"
+        result["usage"] = {"available": False, "error": str(exc)}
     except Exception as exc:
         result["usage"] = {"available": False, "error": str(exc)}
     return result
@@ -390,6 +413,7 @@ def disconnect_auth() -> dict[str, Any]:
         cleaned = dict(data)
         cleaned.pop("tokens", None)
         cleaned.pop("last_refresh", None)
+        cleaned.pop("reconnect_required", None)
         if _string(cleaned.get("auth_mode")).lower() == "chatgpt":
             cleaned.pop("auth_mode", None)
 
@@ -533,7 +557,18 @@ def refresh_tokens(refresh_token: str) -> dict[str, str]:
         timeout=30,
     )
     if not response.ok:
-        raise RuntimeError(_token_error_message(response))
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+        error = payload.get("error") if isinstance(payload, dict) else None
+        code = (error.get("code") or error.get("type")) if isinstance(error, dict) else error
+        message = _token_error_message(response)
+        if code in (
+            "invalid_grant", "refresh_token_expired", "refresh_token_reused", "refresh_token_invalidated",
+        ) or "invalid refresh token" in message.lower():
+            raise ProviderError(RECONNECT_MESSAGE, status=401, code="reconnect_required")
+        raise RuntimeError(message)
 
     payload = response.json()
     if not isinstance(payload, dict):
@@ -544,6 +579,22 @@ def refresh_tokens(refresh_token: str) -> dict[str, str]:
         "access_token": _string(payload.get("access_token")),
         "refresh_token": _string(payload.get("refresh_token")) or refresh_token,
     }
+
+
+def _notify_reconnect_required() -> None:
+    from helpers.notification import NotificationManager, NotificationPriority, NotificationType
+
+    NotificationManager.send_notification(
+        type=NotificationType.WARNING,
+        priority=NotificationPriority.HIGH,
+        title="Reconnect Codex",
+        message=RECONNECT_MESSAGE + """
+<div class="toast-action-row"><button type="button" class="button confirm"
+@click.stop="(await import('/components/plugins/plugin-settings-store.js')).store.openConfig('_oauth'); $store.notificationStore.dismissToast('toast-oauth-codex-reconnect')">Open OAuth settings</button></div>""",
+        display_time=0,
+        id="oauth-codex-reconnect",
+        group="oauth-codex-reconnect",
+    )
 
 
 def resolve_agent_zero_user_agent() -> str:
@@ -603,7 +654,7 @@ def request_codex(
     if client_version:
         request_headers["version"] = client_version
 
-    return requests.request(
+    return _UPSTREAM_SESSION.request(
         method,
         target,
         headers=request_headers,
@@ -729,7 +780,11 @@ def prepare_responses_body(body: dict[str, Any], *, force_stream: bool) -> dict[
         normalized["input"] = []
     normalized.setdefault("instructions", "")
     normalized.setdefault("store", False)
-    normalized["client_metadata"] = merge_client_metadata(normalized.get("client_metadata"))
+    metadata = normalized.get("client_metadata")
+    if isinstance(metadata, dict) and (session_id := _string(metadata.get("session_id"))):
+        cache_key = session_id if len(session_id) <= 64 else hashlib.sha256(session_id.encode()).hexdigest()
+        normalized.setdefault("prompt_cache_key", cache_key)
+    normalized["client_metadata"] = merge_client_metadata(metadata)
     if force_stream:
         normalized["stream"] = True
     if isinstance(normalized.get("reasoning"), dict):
@@ -758,7 +813,11 @@ def merge_client_metadata(value: Any) -> dict[str, str]:
         for key, item in (value.items() if isinstance(value, dict) else [])
         if item is not None and str(item)
     }
-    metadata.update(build_client_metadata())
+    defaults = build_client_metadata()
+    for key in ("session_id", "thread_id"):
+        if key in metadata:
+            defaults[key] = metadata[key]
+    metadata.update(defaults)
     return metadata
 
 
@@ -956,6 +1015,9 @@ def chat_messages_to_response_body(body: dict[str, Any]) -> dict[str, Any]:
         "instructions": "\n\n".join(instructions),
         "store": False,
     }
+    for key in ("client_metadata", "prompt_cache_key"):
+        if key in body:
+            response_body[key] = body[key]
     if body.get("temperature") is not None:
         response_body["temperature"] = body["temperature"]
     if body.get("top_p") is not None:

@@ -15,9 +15,10 @@
 - Do not flatten nested qualname paths into retired legacy folder names.
 - Extension functions must match the implicit hook's supplied arguments.
 - Preserve ordering prefixes where exception handling, watchdog registration, or cleanup depends on them.
-- Hooks that mirror persisted AI responses into UI logs must reuse existing stream log items and avoid duplicating live response-tool logs.
+- Hooks that mirror persisted AI responses into UI logs must reuse existing stream log items and avoid duplicating live response-tool logs. Free text, native-call commentary, recovered reasoning and thoughts/headline-only JSON remain generation steps. `LogPlainResponses` displays unstructured Responses text as thoughts without creating a response bubble or closing a process group.
 - The `AgentContext.run_task/end` hook attaches integration callbacks to the returned `DeferredTask`; keep terminal side effects out of `agent.py`.
-- Recovery-loop circuit breakers must stop at the General Settings limit and render their user-visible cost warning from a core framework prompt.
+- The `Agent.monologue/end` hook reconciles successful main-agent continuations with errored scheduler tasks using the persisted task UUID (or the context ID for legacy dedicated chats). Use a checked scheduler update so disabled, removed, reassigned, and scheduler-managed running tasks are preserved; do not advance planned launch times again.
+- Recovery-loop circuit breakers must stop at the General Settings limit and render their user-visible cost warning from a core framework prompt. Core retries must work without optional plugin prompts; a missing Context Doctor fallback prompt does not affect the core warning budget.
 - Prompt settings snapshots must be task-local, accessed through `get_settings_for_prompt()`, and end with the matching `Agent.prepare_prompt` call, including exceptional exits.
 - The `UiServerRuntime.create/end` legacy browser guard is a Core hook so
   disabling the connector cannot revive retired HTTP routes. It delegates

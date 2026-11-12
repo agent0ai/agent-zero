@@ -8,13 +8,13 @@ from typing import Any
 
 from helpers import chat_media, history, media_artifacts
 from helpers.print_style import PrintStyle
-from helpers.tool import Response, Tool
-from helpers.ws import NAMESPACE
+from helpers.tool import Response, Tool, coerce_bool
 from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_computer_use_op,
     computer_use_metadata_for_sid,
+    emit_connector_event,
     select_computer_use_target_sid,
     store_pending_computer_use_op,
 )
@@ -76,6 +76,40 @@ _SUPPORTED_ACTIONS = {
 
 
 class ComputerUseRemote(Tool):
+    def get_log_object(self):
+        return self.agent.context.log.log(
+            type="computer_use_remote",
+            heading=self.get_heading(),
+            content="",
+            kvps=self.args,
+            id=str(uuid.uuid4()),
+        )
+
+    _HEADING_VERBS = {
+        "start_session": "Starting session",
+        "status": "Checking status",
+        "capture": "Capturing screen",
+        "list_windows": "Listing windows",
+        "get_window_state": "Reading window state",
+        "element_action": "Acting on element",
+        "ax_snapshot": "Taking accessibility snapshot",
+        "ax_action": "Acting via accessibility",
+        "uia_snapshot": "Taking UIA snapshot",
+        "uia_action": "Acting via UIA",
+        "move": "Moving pointer",
+        "click": "Clicking",
+        "scroll": "Scrolling",
+        "key": "Pressing keys",
+        "type": "Typing",
+        "stop_session": "Ending session",
+    }
+
+    def get_heading(self):
+        action = str(self.args.get("action") or "").strip().lower()
+        verb = self._HEADING_VERBS.get(action, "Working on desktop")
+        text = f"Computer use: {verb}" if action else "Computer use"
+        return f"icon://desktop_windows {text}"
+
     async def execute(self, **kwargs: Any) -> Response:
         self._latest_capture_content: list[dict[str, Any]] | None = None
         self._latest_capture_preview = ""
@@ -119,6 +153,34 @@ class ComputerUseRemote(Tool):
         try:
             payload = self._build_payload(op_id=str(uuid.uuid4()), context_id=context_id, action=action)
             result = await self._dispatch_payload(sid=sid, payload=payload)
+            session_note = ""
+            if (
+                not result.get("ok")
+                and result.get("code") == "COMPUTER_USE_SESSION_REQUIRED"
+                and action not in {"start_session", "status", "stop_session"}
+                and not payload.get("session_id")
+            ):
+                # This rejection happens before input dispatch. Start once on the
+                # same host/context; never retry a permission or ambiguous failure.
+                started = await self._dispatch_payload(
+                    sid=sid,
+                    payload={
+                        "op_id": str(uuid.uuid4()),
+                        "context_id": context_id,
+                        "action": "start_session",
+                    },
+                )
+                if not started.get("ok"):
+                    return self._response(self._format_error(started))
+                data = started.get("result")
+                session_id = str(data.get("session_id") or "").strip() if isinstance(data, dict) else ""
+                if not session_id:
+                    raise ValueError("Host started computer use without returning a session_id")
+                session_note = self._extract_result("start_session", started)
+                result = await self._dispatch_payload(
+                    sid=sid,
+                    payload={**payload, "op_id": str(uuid.uuid4()), "session_id": session_id},
+                )
             capture_note = await self._maybe_attach_latest_capture(
                 action=action,
                 sid=sid,
@@ -126,6 +188,8 @@ class ComputerUseRemote(Tool):
                 result=result,
             )
             message = self._extract_result(action, result)
+            if session_note:
+                message = f"{session_note}\n{message}"
         except ValueError as exc:
             return Response(
                 message=f"computer_use_remote: {exc}",
@@ -203,12 +267,12 @@ class ComputerUseRemote(Tool):
         )
 
         try:
-            await get_shared_ws_manager().emit_to(
-                NAMESPACE,
+            await emit_connector_event(
                 sid,
                 COMPUTER_USE_OP_EVENT,
                 payload,
                 handler_id=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                manager=get_shared_ws_manager(),
             )
             result = await asyncio.wait_for(future, timeout=COMPUTER_USE_OP_TIMEOUT)
         finally:
@@ -279,7 +343,7 @@ class ComputerUseRemote(Tool):
             return _SETTLE_DELAY_AX_ACTION
         if action == "uia_action":
             return _SETTLE_DELAY_UIA_ACTION
-        if action == "type" and self._coerce_bool(self.args.get("submit")):
+        if action == "type" and coerce_bool(self.args.get("submit"), False):
             return _SETTLE_DELAY_SUBMIT
         if action == "type":
             return _SETTLE_DELAY_TYPE
@@ -334,7 +398,7 @@ class ComputerUseRemote(Tool):
             payload["text"] = self.args.get("text", "")
             if "window_id" in self.args:
                 payload["window_id"] = self.args.get("window_id")
-            if self._coerce_bool(self.args.get("submit")):
+            if coerce_bool(self.args.get("submit"), False):
                 payload["submit"] = True
         elif action == "list_windows":
             for key in ("include_hidden", "include_offscreen", "max_windows"):
@@ -408,7 +472,7 @@ class ComputerUseRemote(Tool):
                 payload["value"] = self.args.get("value")
             if "text" in self.args:
                 payload["text"] = self.args.get("text", "")
-            if self._coerce_bool(self.args.get("submit")):
+            if coerce_bool(self.args.get("submit"), False):
                 payload["submit"] = True
 
         return payload
@@ -1021,13 +1085,6 @@ class ComputerUseRemote(Tool):
             return int(value or 0)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{name} must be an integer") from exc
-
-    def _coerce_bool(self, value: object) -> bool:
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return bool(value)
-        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _sanitize_tool_text(value: str) -> str:

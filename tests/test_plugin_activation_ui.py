@@ -77,6 +77,23 @@ def test_always_enabled_plugin_ignores_disable_files_at_runtime(monkeypatch):
     assert plugins.get_enabled_plugins(None) == ["_required"]
 
 
+def test_enabled_plugin_paths_cache_empty_results(monkeypatch):
+    lookups = []
+    monkeypatch.setattr(plugins, "get_enabled_plugins", lambda _agent: ["example"])
+    monkeypatch.setattr(
+        plugins,
+        "find_plugin_dir",
+        lambda name: lookups.append(name) or "/nonexistent/example",
+    )
+    plugins.cache.clear(plugins.ENABLED_PLUGINS_PATHS_CACHE_AREA)
+
+    assert plugins.get_enabled_plugin_paths(None, "tools", "missing_probe.py") == []
+    assert plugins.get_enabled_plugin_paths(None, "tools", "missing_probe.py") == []
+    assert lookups == ["example"]
+
+    plugins.cache.clear(plugins.ENABLED_PLUGINS_PATHS_CACHE_AREA)
+
+
 def test_always_enabled_plugin_rejects_disable_attempt(monkeypatch):
     monkeypatch.setattr(
         plugins,

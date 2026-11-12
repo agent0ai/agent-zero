@@ -15,9 +15,11 @@
 - Keep message DOM helpers compatible with extension points that modify rendered messages.
 - Sanitize or safely render model/user-provided content through shared rendering paths.
 - Avoid layout shifts that break long-running message streaming.
+- Terminal output keeps text-size adjustment at 100% so mobile browsers do not inflate its wide, unwrapped content when streamed or expanded; preserve horizontal scrolling and normal browser zoom.
 - Keep message action chrome out of text selection so copy/paste captures message content without button labels or icons.
-- Reconcile standard action buttons in place during streamed updates so hover, focus, tooltips, and click feedback survive while handlers receive the latest message data; preserve extension-owned buttons in the same action bar.
-- Order standard message actions as Detail, Copy, then Speak; omit unavailable actions without changing the relative order of the remaining controls. Plugin-rendered message actions must follow the same order.
+- Reconcile standard action buttons in place during streamed updates so hover, focus, tooltips, and click feedback survive while handlers receive the latest message data; position buttons by index and never re-insert an already-mounted button, since re-inserting detaches and remounts it mid-stream. Preserve extension-owned buttons in the same action bar.
+- Order standard message actions as Detail, Copy, then Speak; omit unavailable actions without changing the relative order of the remaining controls. Insert new or replaced actions before the next retained action or the stable extension anchor, never using a newly inserted action as that anchor. Plugin-rendered message actions must follow the same order.
+- Collapsible action rows keep the hover-revealed `Show less` control laid out with reserved space on pointer devices; hover reveals it through opacity only so the row height never shifts, and its opacity fade matches the row fade so it never disappears ahead of sibling buttons.
 - Keep collapsed process-step detail text out of the DOM; opening a step may materialize its current cached log data and collapsing it must discard that heavy detail again without removing extension action hooks.
 - Preference-driven process detail modes must await the same materialization path as manual expansion and accept an explicit chat-history target for off-screen window staging. `STEP` opens only the current non-utility step at the live tail; historical windows must not invent a current step at their boundary.
 - Keep oversized standalone replay bodies and key/value tables in a bounded preview state until the user expands them; collapsing must remove the full body again.

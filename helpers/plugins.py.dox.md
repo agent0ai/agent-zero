@@ -22,6 +22,7 @@
 - `clear_plugin_cache(plugin_names: list[str] | None=...)`
 - `get_plugin_roots(plugin_name: str=...) -> List[str]`: Plugin root directories, ordered by priority (user first).
 - `get_plugin_name_from_path(path: str | Path) -> str`: Return the plugin directory name only for paths below a canonical user or bundled plugin root.
+- `get_plugin_root_priority(path: str | Path | None) -> int`: Return the containing root's index; unrecognized paths rank after declared roots.
 - `get_plugins_list()`
 - `get_enhanced_plugins_list(custom: bool=..., builtin: bool=..., plugin_names: list[str] | None=...) -> List[PluginListItem]`: Discover plugins by directory convention. First root wins on ID conflict.
 - `get_custom_plugins_updates(plugin_names: list[str] | None=...) -> List[PluginUpdateInfo]`
@@ -48,11 +49,22 @@
 
 ## Runtime Contracts
 
+- Enabled asset paths follow `get_plugin_roots()` priority: user plugins before
+  bundled plugins, preserving discovery order within each root. First-match
+  tools, prompts and same-filename extensions therefore honor user plugin
+  overrides. This does not reorder the plugin list or change activation rules,
+  project/profile precedence, or extension execution order after deduplication.
+- Last-value-wins provider and profile consumers stably sort a copy by
+  `get_plugin_root_priority` in descending order. Bundled roots apply before
+  user roots without reversing same-root discovery order or mutating cached
+  asset paths; path discovery exposes only its normal user-first order.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Plugins marked `always_enabled` remain in runtime discovery regardless of
   stale global or scoped disable files, and disable attempts are rejected.
 - Config hooks receive `hook_context={"caller": caller}` with one of `ui`,
   `agent`, or `api`; this is behavioral context, not an authorization boundary.
+- Plugin list, enabled-plugin, and enabled-path lookups cache empty results like any other value; `clear_plugin_cache` and plugin watchdog events invalidate them.
+- Configuration saves and activation changes reject project/profile scopes unsupported by the plugin manifest before writing files or clearing overrides. Existing scoped assets remain readable/listable for migration.
 - Project- and agent-scoped plugin changes invalidate runtime caches without a
   frontend reload prompt because the loaded WebUI extension bundle is global.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
@@ -74,6 +86,10 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_plugin_asset_precedence.py` covers root priority, stable ordering,
+    tool/prompt/extension selection, higher-priority scoped overrides, disabled
+    plugin fallback, provider/profile/editor merges, missing paths and cached
+    empty results.
   - `tests/test_a0_connector_computer_use_metadata.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`

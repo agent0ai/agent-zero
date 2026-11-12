@@ -2,7 +2,7 @@ import os
 from copy import deepcopy
 
 import models
-from helpers import defer, plugins, files
+from helpers import cache, defer, plugins, files
 from helpers.extension import call_extensions_async
 from helpers import yaml as yaml_helper
 from helpers.providers import get_provider_config, get_providers
@@ -10,6 +10,7 @@ from helpers.providers import get_provider_config, get_providers
 PRESETS_FILE = "presets.yaml"
 FALLBACK_PRESETS_FILE = "mode_presets_fallback.yaml"
 PROVIDER_METADATA_FILE = "provider_metadata.yaml"
+PRESETS_CACHE_AREA = "model_presets(plugins)"
 DEFAULT_PRESET_NAME = "Default"
 DEFAULT_VISION_TIMEOUT_SECONDS = 300
 DEFAULT_VISION_MAX_TOKENS = 2000
@@ -228,11 +229,13 @@ def save_project_llm_settings(project_name: str, llm_data: object) -> None:
             )
 
 
-def _load_presets_from_path(path: str) -> list | None:
+def _load_presets_from_path(path: str, *, raise_on_error: bool = False) -> list | None:
     if files.exists(path):
         try:
             data = yaml_helper.loads(files.read_file(path))
         except Exception:
+            if raise_on_error:
+                raise
             return None
         if isinstance(data, list):
             return data
@@ -365,7 +368,7 @@ def normalize_config_for_save(config: dict) -> dict:
     return cleaned
 
 
-def _legacy_default_preset() -> dict | None:
+def _legacy_default_preset(*, raise_on_error: bool = False) -> dict | None:
     """Build Default from a pre-v2 global config when startup migration has not run."""
     path = plugins.determine_plugin_asset_path(
         "_model_config", "", "", plugins.CONFIG_FILE_NAME
@@ -375,6 +378,8 @@ def _legacy_default_preset() -> dict | None:
     try:
         raw = files.read_file_json(path)
     except Exception:
+        if raise_on_error:
+            raise
         return None
     if not isinstance(raw, dict) or not any(
         section in raw for section in PRESET_SLOT_CONFIG_SECTIONS.values()
@@ -388,23 +393,25 @@ def parse_preset_collection(text: str) -> list:
     return validate_presets(yaml_helper.loads(text))
 
 
-def _fallback_presets() -> list:
+def _fallback_presets(*, raise_on_error: bool = False) -> list:
     path = _get_fallback_presets_path()
     if not files.exists(path):
         return []
     try:
         return parse_preset_collection(files.read_file(path))
     except Exception:
+        if raise_on_error:
+            raise
         return []
 
 
-def _ensure_default_preset(presets: list) -> list:
+def _ensure_default_preset(presets: list, *, raise_on_error: bool = False) -> list:
     result = [deepcopy(preset) for preset in presets if isinstance(preset, dict)]
-    legacy_default = _legacy_default_preset()
+    legacy_default = _legacy_default_preset(raise_on_error=raise_on_error)
     bundled_default = next(
         (
             deepcopy(preset)
-            for preset in _fallback_presets()
+            for preset in _fallback_presets(raise_on_error=raise_on_error)
             if isinstance(preset, dict)
             and str(preset.get("name") or "").strip().casefold()
             == DEFAULT_PRESET_NAME.casefold()
@@ -446,13 +453,46 @@ def get_presets(project_name: str | None = None) -> list:
     if project_name:
         return get_project_presets(project_name)
 
-    path = _get_presets_path()
-    presets = _load_presets_from_path(path)
+    # config resolution reads presets many times per model call, parse once per file version
+    signature = _presets_signature()
+    presets = cache.get(PRESETS_CACHE_AREA, signature)
+    if presets is None:
+        try:
+            presets = _load_global_presets(raise_on_error=True)
+        except Exception:
+            # Preserve fallback behavior without caching a failed read.
+            return _load_global_presets()
+        cache.add(PRESETS_CACHE_AREA, signature, presets)
+    return deepcopy(presets)
+
+
+def _load_global_presets(*, raise_on_error: bool = False) -> list:
+    presets = _load_presets_from_path(_get_presets_path(), raise_on_error=raise_on_error)
     if presets is not None:
-        return _ensure_default_preset(presets)
+        return _ensure_default_preset(presets, raise_on_error=raise_on_error)
 
     # Fall back to the repository-shipped offline collection.
-    return _ensure_default_preset(_fallback_presets())
+    return _ensure_default_preset(
+        _fallback_presets(raise_on_error=raise_on_error), raise_on_error=raise_on_error
+    )
+
+
+def _presets_signature() -> tuple:
+    paths = (
+        _get_presets_path(),
+        _get_fallback_presets_path(),
+        plugins.determine_plugin_asset_path(
+            "_model_config", "", "", plugins.CONFIG_FILE_NAME
+        ),
+    )
+    signature = []
+    for path in paths:
+        try:
+            stat = os.stat(path)
+            signature.append((path, stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            signature.append((path, None, None))
+    return tuple(signature)
 
 
 def get_project_presets(project_name: str) -> list:
@@ -484,6 +524,7 @@ def save_presets(presets: list, project_name: str | None = None) -> None:
     cleaned = validate_presets(presets)
     path = _get_presets_path(project_name)
     files.write_file(path, yaml_helper.dumps(cleaned))
+    cache.clear(PRESETS_CACHE_AREA)
 
 
 def update_preset_from_config(name: str, config: dict) -> dict:
@@ -519,6 +560,7 @@ def reset_presets(project_name: str | None = None) -> list:
     path = _get_presets_path(project_name)
     if os.path.exists(path):
         os.remove(path)
+    cache.clear(PRESETS_CACHE_AREA)
     return get_presets()
 
 

@@ -17,12 +17,12 @@ usage:
 ~~~json
 {
     "thoughts": [
-        "...",
+        "..."
     ],
     "headline": "Explaining why...",
     "tool_name": "response",
     "tool_args": {
-        "text": "Answer to the user",
+        "text": "Answer to the user"
     }
 }
 ~~~

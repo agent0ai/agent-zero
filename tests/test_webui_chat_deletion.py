@@ -95,6 +95,8 @@ assert(
 const tree = [
   {{ id: "parent", created_at: 20 }},
   {{ id: "child", parent_context_id: "parent", created_at: 10 }},
+  {{ id: "grandchild", parent_context_id: "child", created_at: 5 }},
+  {{ id: "greatgrandchild", parent_context_id: "grandchild", created_at: 1 }},
 ];
 reset(tree, "");
 model.applyContexts(tree);
@@ -107,6 +109,40 @@ assert(
   model.expandedParents.parent === true,
   "selection synchronization must still run for unchanged contexts",
 );
+for (const selected of ["parent", "child", "grandchild"]) {{
+  model.expandedParents = {{}};
+  reset(tree.slice(0, tree.findIndex(context => context.id === selected) + 1), selected);
+  assert(!model.isExpanded(selected), "a chat without children remains collapsed");
+  model.applyContexts(tree);
+  assert(
+    model.isExpanded(selected),
+    "a selected agent must reveal its children at every depth",
+  );
+  const expanded = model.expandedParents;
+  model.applyContexts(tree);
+  assert(model.expandedParents === expanded, "unchanged expansion preserves identity");
+  model.toggleChildren(selected);
+  model.applyContexts(tree);
+  assert(
+    !model.isExpanded(selected),
+    "snapshot refresh must preserve manually collapsed children",
+  );
+}}
+model.expandedParents = {{}};
+model.setSelected("greatgrandchild");
+assert(
+  ["parent", "child", "grandchild"].every(id => model.isExpanded(id)),
+  "selecting a deep worker opens every ancestor",
+);
+model.expandedParents = {{}};
+model.applyContexts(tree);
+assert(
+  ["parent", "child", "grandchild"].every(id => model.isExpanded(id)),
+  "restoring a deep selection opens every ancestor",
+);
+const expanded = model.expandedParents;
+model.applyContexts(tree);
+assert(model.expandedParents === expanded, "unchanged expansion does not republish state");
 
 reset(chats, "b");
 globalThis.__context = "a";
@@ -213,3 +249,38 @@ assert(model.selected === "b", "rollback must not override the fallback or a lat
         check=True,
         text=True,
     )
+
+
+def test_snapshot_cannot_reconcile_another_chat_after_an_async_context_switch():
+    if not shutil.which("node"):
+        pytest.skip("Node.js is required for the snapshot race regression.")
+    source = (PROJECT_ROOT / "webui/index.js").read_text(encoding="utf-8")
+    source = source[source.index("export async function applySnapshot("):source.index("export async function poll(")]
+    source = source.replace("export async", "async", 1)
+    import json
+
+    script = f"""
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+for (const phase of ['extension', 'messages']) {{
+  const sandbox = {{
+    context: 'old', lastLogGuid: '', lastLogVersion: 0,
+    chatsStore: {{ applyContexts() {{ assert.fail('stale sidebar reconciliation'); }} }},
+    tasksStore: {{}},
+    msgs: {{ resetMessageRenderState() {{}} }},
+    modelGateStore: {{ mergeSyntheticMessages: logs => logs }},
+    afterMessagesUpdate() {{ assert.fail('stale message completion'); }},
+  }};
+  sandbox.callJsExtensions = async () => {{ if (phase === 'extension') sandbox.context = 'new'; }};
+  sandbox.setMessages = async () => {{
+    assert.notEqual(phase, 'extension', 'stale snapshot reached message rendering');
+    sandbox.context = 'new';
+  }};
+  vm.createContext(sandbox);
+  vm.runInContext({json.dumps(source)}, sandbox);
+  const result = await sandbox.applySnapshot({{context:'old', contexts:[], tasks:[], logs:[], log_version:1, log_guid:'guid'}});
+  assert.equal(result.updated, false);
+  assert.equal(sandbox.context, 'new');
+}}
+"""
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True, capture_output=True, text=True)

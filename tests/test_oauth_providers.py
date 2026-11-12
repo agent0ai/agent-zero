@@ -84,7 +84,10 @@ class FakeRequest:
     url_root = "http://localhost:50001/"
 
 
-def test_registry_exposes_initial_oauth_providers():
+def test_registry_exposes_initial_oauth_providers(monkeypatch):
+    from plugins._oauth.helpers import config
+
+    monkeypatch.setattr(config, "oauth_config", lambda: {})
     registry = provider_registry()
 
     assert list(registry) == [
@@ -1064,12 +1067,17 @@ def test_register_oauth_routes_adds_codex_routes_and_provider_routes(monkeypatch
 
 
 def test_github_copilot_streaming_proxy_streams_successful_upstream(monkeypatch):
+    from unittest.mock import Mock
+
     fake_flask = types.ModuleType("flask")
 
     class Response:
         def __init__(self, *args, **kwargs):
             self.args = args
             self.kwargs = kwargs
+
+        def call_on_close(self, callback):
+            self.close = callback
 
     fake_request = types.SimpleNamespace(
         method="POST",
@@ -1099,6 +1107,7 @@ def test_github_copilot_streaming_proxy_streams_successful_upstream(monkeypatch)
         status_code = 200
         headers = {}
         content = b"not-streamed"
+        close = Mock()
 
         def iter_content(self, chunk_size):
             yield b"data: {}\n\n"
@@ -1134,6 +1143,8 @@ def test_github_copilot_streaming_proxy_streams_successful_upstream(monkeypatch)
         assert response.kwargs["headers"]["Content-Type"] == "text/event-stream"
         assert response.kwargs["status"] == 200
         assert response.args[0] != b"not-streamed"
+        response.close()
+        FakeUpstream.close.assert_called_once()
     finally:
         sys.modules.pop(module_name, None)
         if previous_routes_module is not None:

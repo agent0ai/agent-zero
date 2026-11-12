@@ -181,7 +181,7 @@ def test_normalize_parallel_tool_calls_rejects_nested_parallel() -> None:
         )
 
 
-@pytest.mark.parametrize("tool_name", ["document_query", "response"])
+@pytest.mark.parametrize("tool_name", ["document_query", "response", "goal"])
 def test_normalize_parallel_tool_calls_rejects_disallowed_tools(tool_name: str) -> None:
     with pytest.raises(ValueError, match=rf"{tool_name}.*parallel"):
         parallel_tools.normalize_parallel_tool_calls(
@@ -678,9 +678,12 @@ async def test_failed_parallel_subordinate_continues_directly_or_in_parallel(
             message="continue after the API failure",
             context_id=child_id,
             reset=False,
+            name="Direct continuation",
         )
         assert direct_result.message == "A1 continuation 2"
         assert direct_result.additional == {"context_id": child_id}
+        child = AgentContext.get(child_id)
+        assert child.name == child.get_output_data("parent_context_label") == "Direct continuation"
 
         continued = parallel_tools.ParallelJob(
             id="callsubordin-continued",
@@ -691,6 +694,7 @@ async def test_failed_parallel_subordinate_continues_directly_or_in_parallel(
                 "message": "continue once more",
                 "context_id": child_id,
                 "reset": False,
+                "name": "Parallel continuation",
             },
             kind="subordinate",
             parent_agent=parent.agent0,
@@ -702,6 +706,7 @@ async def test_failed_parallel_subordinate_continues_directly_or_in_parallel(
         assert continued.worker_context_id == child_id
         assert continued.result == "A1 continuation 3"
         assert calls == {child_id: 3}
+        assert child.name == child.get_output_data("parent_context_label") == "Parallel continuation"
     finally:
         if child_id:
             AgentContext.remove(child_id)
@@ -1177,6 +1182,8 @@ def test_chats_sidebar_projects_parallel_children_as_indented_accordion() -> Non
         encoding="utf-8"
     )
 
+    html += (PROJECT_ROOT / "webui/components/sidebar/chats/chat-tree.html").read_text(encoding="utf-8")
+
     assert "parent_context_id" in store
     assert "this.expandedParents[selectedId] === undefined" in store
     assert "...this.expandedParents," in store
@@ -1184,15 +1191,15 @@ def test_chats_sidebar_projects_parallel_children_as_indented_accordion() -> Non
     assert "topLevelContexts()" in html
     assert "childContexts(context.id)" in html
     assert "chat-child-container" in html
-    assert "keyboard_arrow_up" in html
+    assert "keyboard_arrow_right" in html
     assert "keyboard_arrow_down" in html
     assert ".chats-config-list .chat-tree-item" in html
     assert ".chats-config-list .chat-child-list > li" in html
     assert 'x-show="$store.chats.hasChildren(context.id)"' in html
     assert "'chat-has-children': $store.chats.hasChildren(context.id)" in html
     assert ".chat-container.chat-has-children .chat-list-button" in html
-    assert "left: 2px" in html
-    assert "padding-left: 24px" in html
+    assert "left: var(--spacing-xxs)" in html
+    assert "padding-left: calc(var(--spacing-md) + var(--spacing-xs))" in html
     assert "color: var(--color-text-muted)" in html
 
 
@@ -1202,3 +1209,18 @@ def test_parallel_result_json_is_compact() -> None:
     )
 
     assert result == '{"status":"success","jobs":[{"job_id":"wait-1","tool_name":"wait","state":"success"}]}'
+
+
+@pytest.mark.asyncio
+async def test_parallel_rejects_context_owned_tools_before_starting_any_job():
+    agent = _FakeAgent()
+    calls = [
+        parallel_tools.NormalizedToolCall(0, "search_engine", {"query": "a0"}),
+        parallel_tools.NormalizedToolCall(1, "goal", {"action": "create", "objective": "wrong owner"}),
+    ]
+    with pytest.raises(ValueError, match="goal.*sequentially"):
+        await parallel_tools.start_parallel_jobs(agent, calls)
+    assert agent.context.log.items == []
+    assert not agent.context.get_data(parallel_tools.PARALLEL_JOBS_KEY)
+    with pytest.raises(ValueError, match="goal.*sequentially"):
+        await parallel_tools.execute_tool_call(agent, "goal", {"action": "get"})

@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any, override
 
+from helpers import extract_tools
 from helpers.extension import Extension
 from helpers.plugins import get_plugin_config
-from helpers.print_style import PrintStyle
 from plugins._context_doctor.helpers.context_doctor import (
-    looks_like_tool_call,
     transform_response,
     update_log_item,
 )
@@ -20,9 +19,14 @@ class ContextDoctor(Extension):
     def execute(self, result_data: dict[str, Any] | None = None, **kwargs: Any) -> None:
         if not self.agent or not isinstance(result_data, dict):
             return
+        if result_data.get("skip_default_processing"):
+            return
 
         # Extract LLM response
         llm_result = result_data.get("llm_result")
+        # Canonical calls already belong to the agent's policy-gated dispatcher.
+        if getattr(llm_result, "function_calls", None) or getattr(llm_result, "builtin_items", None):
+            return
         response = getattr(llm_result, "response", None)
         if not isinstance(response, str) or not response.strip():
             return
@@ -34,11 +38,11 @@ class ContextDoctor(Extension):
             suppress_xml=config.get("suppress_xml", True),
             split_thoughts=config.get("split_thoughts", True),
         )
+        raw_response = result_data.setdefault("raw_response", response)
         llm_result.response = transformed
 
-        # Treat as raw-text fallback when no usable tool call was extracted
-        if not looks_like_tool_call(response, transformed):
-            # Manually add ai response and warnings
+        # Preserve output without an action and ask the model to continue silently.
+        if extract_tools.extract_tool_request(transformed) is None:
             log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
             self.agent.hist_add_ai_response(
                 transformed,
@@ -51,17 +55,11 @@ class ContextDoctor(Extension):
                     log_item,
                     transformed,
                     update_log=config.get("update_log", False),
-                    raw_response=response,
+                    raw_response=raw_response,
                 )
 
             warning = self.agent.read_prompt("fw.msg_thoughts_fallback.md")
-            warning_message = self.agent.hist_add_warning(message=warning)
-            PrintStyle(font_color="orange", padding=True).print(warning)
-            self.agent.context.log.log(
-                type="warning",
-                content=f"{self.agent.agent_name}: {self.agent.read_prompt('fw.msg_thoughts_fallback_response.md')}",
-                id=warning_message.id,
-            )
+            self.agent.hist_add_warning(message=warning)
             result_data["skip_default_processing"] = True
             return
 
@@ -80,7 +78,7 @@ class ContextDoctor(Extension):
                 log_item,
                 transformed,
                 update_log=config.get("update_log", False),
-                raw_response=response,
+                raw_response=raw_response,
             )
 
         # Extract final text from a response tool call

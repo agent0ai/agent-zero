@@ -15,10 +15,10 @@
 4. [Apache Reverse Proxy Configuration](#apache-reverse-proxy-configuration)
 5. [SSL/TLS Configuration](#ssltls-configuration)
 6. [Authentication Setup](#authentication-setup)
-7. [Domain & DNS Setup](#domain-dns-setup)
-8. [Verification & Testing](#verification-testing)
+7. [Domain & DNS Setup](#domain--dns-setup)
+8. [Verification & Testing](#verification--testing)
 9. [Troubleshooting](#troubleshooting)
-10. [Maintenance & Updates](#maintenance-updates)
+10. [Maintenance & Updates](#maintenance--updates)
 11. [Quick Reference](#quick-reference)
 
 ---

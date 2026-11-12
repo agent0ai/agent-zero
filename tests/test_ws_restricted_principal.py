@@ -11,7 +11,7 @@ from werkzeug.test import EnvironBuilder
 
 from helpers import ws
 from helpers.ws import WsHandler
-from helpers.ws_manager import BufferedEvent, WsManager, WsResult
+from helpers.ws_manager import BufferedEvent, WsManager, WsPayloadTooLargeError, WsResult
 from helpers.ws_principal import WsPrincipal, WsScopeDeniedError
 
 
@@ -255,6 +255,28 @@ def test_new_proof_replaces_old_sid_and_old_handler_cannot_dispatch(setup):
             await old.broadcast("connector_bridge_credential_status", {})
         with pytest.raises(WsScopeDeniedError):
             await old.dispatch_to_all_sids("connector_hello", {})
+    asyncio.run(scenario())
+
+
+def test_payload_limits_preserve_restricted_principal_and_broadcast_isolation(setup):
+    async def scenario():
+        server, manager, _ = setup
+        instance = await connect(setup)
+        await manager.handle_connect(NS, "small")
+        await manager.handle_connect(NS, "large")
+        await asyncio.gather(*manager._lifecycle_tasks)
+        manager.set_peer_max_payload_bytes(NS, "bridge", 512)
+        manager.set_peer_max_payload_bytes(NS, "small", 512)
+        manager.set_peer_max_payload_bytes(NS, "large", 8192)
+        payload = {"blob": "x" * 2048}
+        with pytest.raises(WsPayloadTooLargeError):
+            await instance.emit_to("bridge", "connector_bridge_credential_status", payload)
+        server.emit.reset_mock()
+        with pytest.raises(WsPayloadTooLargeError):
+            await manager.broadcast(NS, "connector_bridge_credential_status", payload,
+                                    handler_id=instance.identifier, diagnostic=True)
+        server.emit.assert_awaited_once()
+        assert server.emit.await_args.kwargs["to"] == "large"
     asyncio.run(scenario())
 
 

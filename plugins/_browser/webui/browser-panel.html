@@ -10,10 +10,10 @@
 <body class="browser-modal-body">
   <div x-data>
     <template x-if="$store.browserPage">
-      <div class="browser-panel" x-create="$store.browserPage.onOpen($el, xAttrs($el) || {})" x-destroy="$store.browserPage.cleanup()"
+      <div class="browser-panel surface-workspace" x-create="$store.browserPage.onOpen($el, xAttrs($el) || {})" x-destroy="$store.browserPage.cleanup()"
         x-effect="$store.browserPage.handleSelectedContextChange($store.chats?.selected)"
         @keydown.window="$store.browserPage.handleKeydown($event)">
-        <div class="browser-meta">
+        <div class="browser-meta surface-tab-bar">
           <div class="browser-meta-top">
             <div class="browser-session-tabs" role="tablist" aria-label="Browser sessions">
               <template x-for="browser in $store.browserPage.visibleBrowsers()" :key="$store.browserPage.browserTabKey(browser)">
@@ -39,7 +39,7 @@
                   </button>
                 </div>
               </template>
-	              <button type="button" class="browser-new-tab" title="New Browser" aria-label="New Browser"
+	              <button type="button" class="browser-new-tab surface-control" title="New Browser" aria-label="New Browser"
 	                :disabled="$store.browserPage.isBusy()"
 	                @click="$store.browserPage.openNewBrowser()">
                 <x-icon name="add"></x-icon>
@@ -49,24 +49,24 @@
           </div>
         </div>
 
-        <div class="browser-toolbar">
+        <div class="browser-toolbar surface-toolbar">
           <div class="browser-navigation">
-	            <button class="btn btn-icon-action" title="Back" @click="$store.browserPage.command('back')"
+	            <button class="btn btn-icon-action surface-control" title="Back" aria-label="Back" @click="$store.browserPage.command('back')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="arrow_back"></x-icon>
             </button>
-	            <button class="btn btn-icon-action" title="Forward" @click="$store.browserPage.command('forward')"
+	            <button class="btn btn-icon-action surface-control" title="Forward" aria-label="Forward" @click="$store.browserPage.command('forward')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="arrow_forward"></x-icon>
             </button>
-	            <button class="btn btn-icon-action" title="Reload" @click="$store.browserPage.command('reload')"
+	            <button class="btn btn-icon-action surface-control" title="Reload" aria-label="Reload" @click="$store.browserPage.command('reload')"
 	              :disabled="!$store.browserPage.activeBrowserId || $store.browserPage.isBusy()">
               <x-icon name="refresh"></x-icon>
             </button>
           </div>
 
-          <div class="browser-session-controls">
-            <button type="button" class="btn browser-annotate-toggle" title="Annotate" aria-label="Annotate"
+          <div class="browser-session-controls surface-toolbar-group">
+            <button type="button" class="btn browser-annotate-toggle surface-control surface-control-label" title="Annotate" aria-label="Annotate"
               :aria-pressed="$store.browserPage.annotating.toString()"
               :class="{ 'is-active': $store.browserPage.annotating }"
               :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
@@ -77,7 +77,7 @@
             </button>
             <div class="browser-extension-menu" @click.outside="$store.browserPage.closeExtensionsMenu()"
               @keydown.escape.window="$store.browserPage.closeExtensionsMenu()">
-              <button type="button" class="btn btn-icon-action browser-extensions" title="Browser settings"
+              <button type="button" class="btn btn-icon-action browser-extensions surface-control" title="Browser settings"
                 aria-label="Browser settings" @click.stop="$store.browserPage.toggleExtensionsMenu()"
                 :aria-expanded="$store.browserPage.extensionMenuOpen.toString()"
                 :class="{ 'is-active': $store.browserPage.status?.extensions?.active }">
@@ -98,50 +98,49 @@
                   <div class="browser-extension-preset-summary" x-text="$store.browserPage.modelPresetSummary()">
                   </div>
                 </div>
-                <div class="browser-extension-section-title">Chrome Extensions</div>
-                <button type="button" class="dropdown-item" @click="$store.browserPage.createExtensionWithAgent()">
-                  <x-icon name="add_circle"></x-icon>
-                  <span>Create New Extension with A0</span>
-                </button>
-                <div class="browser-extension-url">
-                  <label for="browser-extension-url">Input a Chrome Web Store URL</label>
-                  <input id="browser-extension-url" type="url" x-model="$store.browserPage.extensionInstallUrl"
-                    @keydown.enter.prevent="$store.browserPage.installExtensionFromUrl()"
-                    placeholder="https://chromewebstore.google.com/detail/..." />
-                  <div class="browser-extension-url-actions">
-                    <button type="button" class="btn btn-ok" @click="$store.browserPage.installExtensionFromUrl()"
-                      :disabled="$store.browserPage.extensionActionLoading"
-                      :aria-busy="$store.browserPage.extensionActionLoading.toString()">
-                      <x-icon
-                        :class="{ spinning: $store.browserPage.extensionActionLoading }"
-                        :name="$store.browserPage.extensionActionLoading ? 'progress_activity' : 'download'"></x-icon>
-                      <span x-text="$store.browserPage.extensionActionLoading ? 'Installing…' : 'Install URL'">Install URL</span>
-                    </button>
-                    <button type="button" class="btn btn-field"
-                      @click="$store.browserPage.askAgentInstallExtension()">
-                      <x-icon name="psychology_alt"></x-icon>
-                      <span x-text="$store.browserPage.extensionAssistantActionLabel()">Scan with A0</span>
-                    </button>
+                <div class="browser-quick-location">
+                  <div class="browser-quick-row">
+                    <span>Browser</span>
+                    <div class="browser-location-toggle" role="group" aria-label="Browser used by the agent">
+                      <button type="button" :aria-pressed="($store.browserPage.runtimeBackend === 'host_required').toString()"
+                        :disabled="$store.browserPage.runtimeBackendSaving"
+                        @click="$store.browserPage.setRuntimeBackend('host_required')">Host</button>
+                      <button type="button" :aria-pressed="($store.browserPage.runtimeBackend === 'container').toString()"
+                        :disabled="$store.browserPage.runtimeBackendSaving"
+                        @click="$store.browserPage.setRuntimeBackend('container')">Container</button>
+                    </div>
                   </div>
-                  <div class="browser-extension-warning" x-show="$store.browserPage.hasExtensionInstallUrl()"
-                    x-transition style="display: none;">
-                    <x-icon name="warning"></x-icon>
-                    <span>
-                      Extensions run inside the Docker browser sandbox, but malicious or buggy extensions can still
-                      damage that environment. Review what you install.
-                    </span>
+                  <button type="button" class="browser-configure-host"
+                    x-show="$store.browserPage.runtimeBackend === 'host_required'"
+                    @click="$store.browserPage.openExtensionsSettings()">Configure host browser</button>
+                </div>
+                <div class="browser-quick-row browser-zoom-row">
+                  <span>Zoom</span>
+                  <div class="browser-zoom-actions">
+                    <div class="browser-zoom-stepper" role="group" aria-label="Page zoom">
+                      <button type="button" aria-label="Zoom out"
+                        :disabled="!$store.browserPage.canZoom() || $store.browserPage.zoomPercent() <= 25"
+                        @click="$store.browserPage.command('zoom', { direction: 'out' })"><x-icon name="remove"></x-icon></button>
+                      <span class="browser-zoom-value" aria-live="polite" x-text="$store.browserPage.zoomPercent() + '%'">100%</span>
+                      <button type="button" aria-label="Zoom in"
+                        :disabled="!$store.browserPage.canZoom() || $store.browserPage.zoomPercent() >= 500"
+                        @click="$store.browserPage.command('zoom', { direction: 'in' })"><x-icon name="add"></x-icon></button>
+                    </div>
+                    <button type="button" class="browser-zoom-reset" aria-label="Reset zoom"
+                      :disabled="!$store.browserPage.canZoom() || $store.browserPage.zoomPercent() === 100"
+                      @click="$store.browserPage.command('zoom', { direction: 'reset' })"><x-icon name="restart_alt"></x-icon></button>
                   </div>
                 </div>
                 <div class="browser-extension-list"
                   x-show="$store.browserPage.extensionsListLoading || $store.browserPage.extensionsList.length"
                   style="display: none;">
                   <div class="browser-extension-list-header">
-                    <span>Installed extensions</span>
+                    <span>Chrome Extensions</span>
                     <x-icon class="spinning"
                       x-show="$store.browserPage.extensionsListLoading" name="progress_activity"></x-icon>
                   </div>
                   <template x-for="extension in $store.browserPage.extensionsList" :key="extension.path">
-                    <div class="browser-extension-row" :title="extension.path">
+                    <div class="browser-extension-row">
                       <span class="browser-extension-row-text">
                         <span class="browser-extension-name" x-text="extension.name || 'Unnamed extension'"></span>
                         <span class="browser-extension-meta"
@@ -150,7 +149,6 @@
                       <span class="browser-extension-row-actions">
                         <button type="button" class="browser-extension-open"
                           x-show="$store.browserPage.extensionHasOpenUi(extension)"
-                          :title="$store.browserPage.extensionOpenTitle(extension)"
                           :aria-label="$store.browserPage.extensionOpenTitle(extension)"
                           :disabled="!extension.enabled || $store.browserPage.isBusy()"
                           @click.stop="$store.browserPage.openExtensionUi(extension)">
@@ -158,7 +156,7 @@
                           <span>Open</span>
                         </button>
                         <label class="browser-extension-toggle">
-                          <input type="checkbox" :checked="extension.enabled"
+                          <input type="checkbox" :checked="extension.enabled" :aria-label="'Enable ' + (extension.name || 'extension')"
                             :disabled="$store.browserPage.extensionToggleLoadingPath === extension.path"
                             @change="$store.browserPage.setExtensionEnabled(extension, $event.target.checked, $event.target)" />
                           <span class="browser-extension-switch"></span>
@@ -169,12 +167,8 @@
                 </div>
                 <button type="button" class="dropdown-item" @click="$store.browserPage.openExtensionsSettings()">
                   <x-icon name="tune"></x-icon>
-                  <span>Settings</span>
+                  <span>More settings</span>
                 </button>
-                <div class="browser-extension-message" x-show="$store.browserPage.extensionActionMessage"
-                  x-text="$store.browserPage.extensionActionMessage"></div>
-                <div class="browser-extension-error" x-show="$store.browserPage.extensionActionError"
-                  x-text="$store.browserPage.extensionActionError"></div>
               </div>
             </div>
           </div>
@@ -380,8 +374,6 @@
     }
 
     .modal-inner.browser-modal .modal-header {
-      min-height: 34px;
-      padding: 0.35rem 0.75rem 0.35rem 1rem;
       cursor: move;
       user-select: none;
       background: color-mix(in srgb, var(--color-background) 92%, #000 8%);
@@ -427,10 +419,10 @@
 	    }
 
     .browser-panel {
-      --browser-chrome-surface: color-mix(in srgb, var(--color-background) 92%, #000 8%);
+      --browser-chrome-surface: var(--surface-chrome);
       --browser-chrome-border: color-mix(in srgb, var(--color-border) 58%, transparent);
       --browser-tab-hover-border: color-mix(in srgb, var(--color-border) 78%, transparent);
-      --browser-control-size: 34px;
+      --browser-control-size: 32px;
       --browser-address-height: 34px;
       --browser-tab-height: 36px;
       --browser-tab-close-size: 32px;
@@ -530,16 +522,16 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 10px;
-      align-items: end;
+      align-items: center;
     }
 
     .browser-session-tabs {
       display: flex;
-      align-items: end;
+      align-items: center;
       gap: 4px;
       min-width: 0;
       overflow-x: auto;
-      padding: 1px 0 0;
+      padding: 0;
       scrollbar-width: thin;
       overflow-y: hidden;
     }
@@ -798,69 +790,73 @@
       background: color-mix(in srgb, var(--color-panel) 82%, transparent);
     }
 
-    .browser-extension-warning,
-    .browser-extension-message,
-    .browser-extension-error {
+    .browser-quick-location {
+      padding: 9px 2px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .browser-quick-row,
+    .browser-zoom-actions {
       display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 9px 10px;
-      border-radius: 7px;
-      font-size: 0.8rem;
-      line-height: 1.35;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
 
-    .browser-extension-warning {
-      border: 1px solid color-mix(in srgb, #d97706 42%, var(--color-border));
-      background: color-mix(in srgb, #d97706 14%, var(--color-background));
-      color: color-mix(in srgb, var(--color-text) 86%, #92400e);
-    }
-
-    .browser-extension-warning .material-symbols-outlined {
-      color: #b45309;
-      font-size: 19px;
-    }
-
-    .browser-extension-url {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      padding: 8px;
-      border: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
-      border-radius: 7px;
+    .browser-location-toggle,
+    .browser-zoom-stepper {
+      display: inline-flex;
+      align-items: center;
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
       background: var(--color-panel);
     }
 
-    .browser-extension-url label {
-      font-size: 0.76rem;
-      color: var(--color-text-secondary);
-    }
-
-    .browser-extension-url input {
-      min-width: 0;
-      min-height: 32px;
-      padding: 6px 8px;
-      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-      border-radius: 6px;
-      background: var(--color-input);
-      color: var(--color-text);
-    }
-
-    .browser-extension-url-actions {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 7px;
-    }
-
-    .browser-extension-url-actions .btn {
+    .browser-location-toggle button,
+    .browser-zoom-actions button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      width: 100%;
-      min-width: 0;
       min-height: 30px;
+      border: 0;
+      padding: 4px 10px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
     }
+
+    .browser-location-toggle button[aria-pressed="true"] {
+      background: var(--color-background);
+      color: var(--color-text);
+      box-shadow: inset 0 0 0 1px var(--color-border);
+      border-radius: 6px;
+    }
+
+    .browser-configure-host {
+      display: block;
+      margin-top: 6px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: color-mix(in srgb, var(--color-text) 76%, transparent);
+      font: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    .browser-configure-host:hover { color: var(--color-text); text-decoration: underline; }
+    .browser-zoom-row { padding: 9px 2px; border-block: 1px solid var(--color-border); }
+    .browser-zoom-value { min-width: 44px; text-align: center; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    .browser-zoom-actions { gap: 4px; }
+    .browser-zoom-actions button { padding: 4px; }
+    .browser-zoom-actions x-icon { font-size: 18px; }
+    .browser-zoom-actions button:disabled,
+    .browser-location-toggle button:disabled { opacity: 0.4; cursor: default; }
+    .browser-quick-location button:focus-visible,
+    .browser-zoom-actions button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 
     .browser-extension-preset,
     .browser-extension-list {
@@ -869,14 +865,8 @@
       gap: 7px;
     }
 
-    .browser-extension-section-title {
-      padding: 6px 2px 0;
-      color: var(--color-text-secondary);
-      font-size: 0.76rem;
-      font-weight: 700;
-    }
-
     .browser-extension-preset label,
+    .browser-quick-row > span,
     .browser-extension-list-header {
       font-size: 0.76rem;
       font-weight: 650;
@@ -1031,16 +1021,6 @@
 
     .browser-extension-toggle input:disabled+.browser-extension-switch {
       opacity: 0.58;
-    }
-
-    .browser-extension-message {
-      background: color-mix(in srgb, #15803d 12%, var(--color-background));
-      color: color-mix(in srgb, var(--color-text) 88%, #166534);
-    }
-
-    .browser-extension-error {
-      background: color-mix(in srgb, #be123c 12%, var(--color-background));
-      color: #9f1239;
     }
 
       .browser-stage {
@@ -1376,13 +1356,13 @@
 
     .browser-annotation-send {
       border-radius: 12px;
-      background: #4248f1;
+      background: var(--color-highlight);
     }
 
-    .browser-annotation-send:hover { background: #353bc5; }
-    .browser-annotation-send:active { background: #2b309c; transform: translateY(1px) scale(0.98); }
+    .browser-annotation-send:hover { background: color-mix(in srgb, var(--color-highlight) 80%, black); }
+    .browser-annotation-send:active { background: color-mix(in srgb, var(--color-highlight) 65%, black); transform: translateY(1px) scale(0.98); }
     .browser-annotation-send:disabled {
-      background: #4248f1;
+      background: var(--color-highlight);
       cursor: not-allowed;
       opacity: 0.5;
     }
@@ -1514,7 +1494,7 @@
         height: var(--browser-control-size);
       }
 
-      .browser-annotate-toggle {
+      .browser-panel button.browser-annotate-toggle {
         width: var(--browser-control-size);
         min-width: var(--browser-control-size);
         padding: 0;

@@ -33,6 +33,8 @@ class Start(ApiHandler):
         try:
             ok = await ensure_bridge_http_up(
                 port, session_dir, cache_dir, mode=mode,
+                allowed_numbers=config.get("allowed_numbers") or [],
+                allow_group=bool(config.get("allow_group", False)),
             )
             if ok:
                 return {"success": True, "message": "Bridge started"}

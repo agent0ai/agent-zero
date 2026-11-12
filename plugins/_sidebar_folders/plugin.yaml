@@ -1,0 +1,8 @@
+name: _sidebar_folders
+title: Sidebar Folders
+description: Organize chats and tasks by project, with folder actions, sorting, and drag and drop.
+version: 1.0.0
+settings_sections: []
+per_project_config: false
+per_agent_config: false
+always_enabled: false

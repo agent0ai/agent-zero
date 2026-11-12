@@ -16,6 +16,7 @@ This plugin exposes a native text editing tool that agents can use to inspect fi
 - **Patch**
   - Validates edit structures before applying them.
   - Rejects edits if the file changed since it was last observed.
+  - Preserves file permissions and, when running as root, the existing owner and group.
   - Reads back the affected patch region after applying changes.
 - **Extension hooks**
   - Exposes before and after extension points for read, write, and patch operations.

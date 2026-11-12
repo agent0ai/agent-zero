@@ -1,5 +1,6 @@
 from typing import Any
 
+from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from helpers.mcp_handler import MCPConfig
 from agent import Agent, LoopData
@@ -18,6 +19,7 @@ class MCPToolsPrompt(Extension):
         prompt = await build_prompt(self.agent)
         if prompt:
             system_prompt.append(prompt)
+            responses_tools.register_prompt(self.agent, loop_data, "mcp", prompt)
 
 
 @extensible

@@ -17,7 +17,7 @@
 - Top-level functions:
 - `async load_file(file_path: str) -> dict`
 - `save_file(file_path: str, content: str) -> bool`
-- Notable constants/configuration names: `MAX_EDIT_FILE_SIZE`, `BINARY_SAMPLE_SIZE`.
+- Text limits, binary detection and UTF-8 validation belong to `FileBrowser`; this compatibility endpoint must use its shared validators.
 
 ## Runtime Contracts
 
@@ -31,7 +31,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `FileBrowser`, `browser.get_full_path`, `os.path.isdir`, `os.path.getsize`, `files.is_probably_binary_file`, `mimetypes.guess_type`, `browser.save_text_file`, `error_str.strip`, `Exception`, `os.path.basename`, `error_str.split`, `file.read`, `line.split.strip`, `file_path.startswith`, `content.encode`, `runtime.call_development_function`, `extension.call_extensions_async`, `self._extract_error_message`, `line.split`.
+- Important helpers: `FileBrowser.text_bytes`, `FileBrowser.decode_text`, `browser.get_full_path`, `browser.save_text_file`, `runtime.call_development_function`, and `extension.call_extensions_async`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

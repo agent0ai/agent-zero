@@ -370,6 +370,7 @@ def _handle_project(context: "AgentContext", args: str) -> str:
     if _normalize_lookup(desired) in _CLEAR_VALUES:
         if not current_name:
             return "No project is active."
+        _authorize_scope(context, "", context.config.profile)
         projects.deactivate_project(context.id)
         return "Cleared the active project."
 
@@ -384,6 +385,7 @@ def _handle_project(context: "AgentContext", args: str) -> str:
     if match.get("name") == current_name:
         return f"Already using project {match.get('title') or match.get('name')}."
 
+    _authorize_scope(context, match["name"], context.config.profile)
     projects.activate_project(context.id, match["name"])
     return f"Switched project to {match.get('title') or match['name']}."
 
@@ -466,12 +468,19 @@ def _handle_agent(context: "AgentContext", args: str) -> str:
     if profile == current:
         return f"Already using agent {match.get('label') or profile}."
 
+    _authorize_scope(context, projects.get_context_project_name(context) or "", profile)
     config = initialize_agent(override_settings={"agent_profile": profile})
     context.config = config
     context.agent0.config = config
     save_tmp_chat(context)
     mark_dirty_for_context(context.id, reason="integration_commands.agent_set")
     return f"Switched agent to {match.get('label') or profile}."
+
+
+def _authorize_scope(context, project: str, profile: str) -> None:
+    if getattr(context, "data", {}).get("telegram_bot"):
+        from plugins._telegram_integration.helpers.scopes import require_scope
+        require_scope(context, project, profile)
 
 
 def _format_project_entry(item: dict) -> str:

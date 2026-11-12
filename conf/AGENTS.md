@@ -17,6 +17,10 @@
 - Keep provider IDs and settings keys stable unless all loaders, UI references, migrations, and tests are updated.
 - Defaults must work in a clean checkout and in Docker.
 - Chat Completions is the transport default; providers intentionally using Responses must set `a0_api_mode: responses` explicitly.
+- Local provider defaults omit `api_key`: LiteLLM handles unauthenticated endpoints, while saved or explicit keys remain available for authenticated servers. Static dummy keys would override saved keys. OAuth compatibility keys belong to the OAuth plugin's connected-account hook.
+- Prefer native LiteLLM routes for shipped providers; keep endpoint overrides for Nebius Token Factory and Z.AI Coding. Model-list `default_base` is independent of LiteLLM's inference defaults.
+- Venice chat uses `veniceai` with `venice_parameters` in `extra_body`; Venice embeddings and the Agent Zero proxy retain their OpenAI-compatible routes. OpenRouter embeddings use the native route and retain Agent Zero attribution headers.
+- Venice and Agent Zero API chat defaults select `a0_prompt_cache_mode: prompt_cache_key` for cache routing. Explicit model kwargs may override the mode; embeddings must not inherit it.
 - Templates must avoid accidentally unignoring private runtime content.
 
 ## Work Guidance

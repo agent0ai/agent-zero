@@ -30,7 +30,7 @@
             <span class="field-title">Preset</span>
             <select x-model.number="selectedKey" x-init="$nextTick(() => $el.focus())">
               <template x-for="preset in presets" :key="preset._key">
-                <option :value="preset._key" x-text="preset.name"></option>
+                <option :value="preset._key" :selected="preset._key === selectedKey" x-text="preset.name"></option>
               </template>
             </select>
           </label>

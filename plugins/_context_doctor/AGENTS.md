@@ -10,30 +10,33 @@
 - `hooks.py` installs the exact root-pinned repair dependency in the framework runtime.
 - `extensions/python/startup_migration/` prepares that dependency after startup and self-update.
 - `extensions/python/message_loop_result/` normalizes completed model output before default processing.
-- `prompts/` owns fallback warning texts (`fw.msg_thoughts_fallback.md`, `fw.msg_thoughts_fallback_response.md`).
+- `prompts/` owns the internal no-action reminder (`fw.msg_thoughts_fallback.md`); the older UI notice is retained for compatibility.
 - `webui/config.html` exposes debug and repair-strategy settings.
 
 ## Local Contracts
 
+- Core may convert complete alternate-format calls first. Context Doctor owns repair of the resulting text, including missing delimiters, unfinished arguments, fenced calls and selection among multiple JSON candidates. A failed conversion must not bypass repair or force a retry.
+- Leave canonical `LLMResult.function_calls`, provider built-in actions and their accompanying text untouched in either transport. The agent dispatches those calls through the normal tool-policy gate; text repair must not suppress them or reinterpret a textual follow-up as another call.
 - Repaired and fallback JSON is always minified.
-- Nonempty non-tool output becomes `{"thoughts":[raw]}`; XML-like output becomes `{}` only when suppression is enabled.
+- Leave results already handled by an earlier `message_loop_result` extension (`skip_default_processing`) untouched, such as output-limit truncation retries.
+- Non-tool output in either transport becomes `{"thoughts":[raw]}` and XML-like output becomes `{}` when suppression is enabled. Free text never becomes a final response; only an explicit response-tool call can finish the loop. Recognizable tool intent still enters repair.
 - Blank-line-separated thoughts expand into separate entries after repair when the split strategy is enabled (default on). This rewrites model-authored thoughts for every repaired turn by design, not only the raw-text fallback branch.
-- `_select_value` returns only repaired tool calls or model-authored partial responses; `transform_response` wraps otherwise-raw output as thoughts afterward. `looks_like_tool_call` rejects that synthesized wrapper, so it reaches the fallback branch. Repaired output is usable only with a non-empty thoughts list, headline/tool name string, or tool-args dict.
-- A raw-text fallback conversion must emit a `fw.msg_thoughts_fallback.md` history warning and a separate `fw.msg_thoughts_fallback_response.md` user notice, refresh the generating log and response item with the transformed thoughts JSON, and set `skip_default_processing` so the retry advances the unusable-response counter.
+- `_select_value` returns only repaired tool calls or model-authored partial responses; `transform_response` wraps otherwise-raw output as thoughts or suppresses XML according to configuration. `extract_tools.extract_tool_request` decides whether repaired output contains an action; thoughts/headline-only objects enter fallback.
+- Output without a valid tool request, including model-authored thoughts/headlines, must append its repaired assistant history and a `fw.msg_thoughts_fallback.md` internal reminder, refresh the generating log, and set `skip_default_processing`. Retry silently without a warning log or final-response bubble; the configured terminal stop remains visible.
 - The fallback passes the repaired `llm_result` to `hist_add_ai_response`, which owns Responses-API state advancement (`_remember_llm_result_state`); do not call the state method directly. The fallback turn's `response_id` is recorded so the next turn's `previous_response_id` chain stays intact.
 - The fallback warning is counted by the core stop-unusable-response loop alongside `fw.msg_misformat.md`, `fw.msg_repeat.md`, `fw.msg_empty_response.md`, and `fw.msg_reasoning_only.md`.
-- Log kvps retain streamed `reasoning` only; `update_log_item` does not restore `thoughts` from current kvps. `update_log` controls only View Details content.
+- Log kvps retain streamed `reasoning` only; `update_log_item` does not restore `thoughts` from current kvps. `update_log` controls only View Details content: off preserves the original model text (including XML/DSML before core conversion), on shows repaired JSON. Keep the first text in turn-local `result_data.raw_response`; never replace provider metadata or model history with this diagnostic copy.
 - A repaired `response` tool call refreshes the response log item when streaming did not create it.
 - Runtime setup reads the `json_repair` pin from root `requirements.txt`; do not duplicate its version in plugin code.
 
 ## Work Guidance
 
-- Keep repair scoped to complete tool-call JSON.
+- Repair completed model output, including syntactically incomplete JSON; do not apply repair to streaming prefixes.
 - Use framework-installed `json_repair`; apply plugin-local parser patch before repair. Do not vendor dependencies.
 
 ## Verification
 
-- Run `pytest plugins/_context_doctor/tests`.
+- Run `pytest plugins/_context_doctor/tests tests/test_leaked_tool_call_integration.py`.
 
 ## Child DOX Index
 

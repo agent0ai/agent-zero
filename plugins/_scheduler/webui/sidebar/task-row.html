@@ -1,0 +1,44 @@
+<html>
+<head></head>
+<body>
+  <div x-data class="sidebar-row-content">
+    <div class="task-container" :class="{'task-selected': task.id === $store.tasks.selected}">
+      <div class="chat-list-button" @click="$store.tasks.selectTask(task.id)">
+        <div class="task-container-vertical">
+          <div class="task-title-line">
+            <span :class="{'project-color-ball': true, 'heartbeat': task.running}" :style="task.project?.color ? { backgroundColor: task.project.color } : { border: '1px solid var(--color-border)' }"></span>
+            <span class="task-name"
+              x-text="(task.task_name || `Task #${task.no}`)"
+              :data-task-id="task.id"></span>
+          </div>
+        <div class="task-info-line">
+          <span class="scheduler-status-badge scheduler-status-badge-small"
+                :class="task.state ? `scheduler-status-${task.state}` : 'scheduler-status-idle'"
+                x-text="task.state || 'idle'"></span>
+          <div class="task-actions">
+            <button class="btn-icon-action"
+                    @click.stop="$store.tasks.openDetail(task.id)"
+                    title="View task details">
+              <x-icon name="info"></x-icon>
+            </button>
+            <button class="btn-icon-action" title="Clear task chat"
+                    @click.stop="$confirmClick($event, () => $store.tasks.reset(task.id))">
+              <x-icon name="delete_sweep"></x-icon>
+            </button>
+            <button class="btn-icon-action" title="Delete task" @click.stop="$confirmClick($event, () => $store.tasks.deleteTask(task.id))">
+              <x-icon name="close"></x-icon>
+            </button>
+            <button type="button" class="btn-icon-action"
+              aria-label="More task actions" aria-haspopup="menu"
+              :aria-expanded="($store.sidebar.rowMenuOpenId === `task:${task.id}`).toString()"
+              @click.stop="$store.sidebar.rowMenuToggle(`task:${task.id}`, 'task', $event.currentTarget)">
+              <x-icon name="more_vert"></x-icon>
+            </button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -12,6 +12,9 @@
 
 - Keep tooltip positioning compatible with desktop and mobile layouts.
 - Do not make tooltips required for completing a workflow.
+- Cancel Bootstrap tooltip opening when the device reports no hover support; touch-generated hover events must not open a tooltip or interfere with the control's click action. Keep title normalization active to avoid native tooltip fallbacks.
+- Finish pending tooltip fade callbacks before disposing detached controls, including rows moved between sidebar sections.
+- Tooltip content wraps, including long unbroken strings such as file paths (`overflow-wrap: anywhere` on `.tooltip` in `webui/index.css`, inherited by `.tooltip-inner`); keep that rule when restyling.
 
 ## Work Guidance
 

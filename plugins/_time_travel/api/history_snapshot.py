@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from helpers.api import ApiHandler, Request, Response
 from plugins._time_travel.helpers.time_travel import (
     TimeTravelError,
@@ -20,7 +22,8 @@ class HistorySnapshot(ApiHandler):
                 workspace_id=workspace_id,
                 context_loader=self.use_context,
             )
-            snapshot = TimeTravelService(workspace).snapshot(
+            snapshot = await asyncio.to_thread(
+                TimeTravelService(workspace).snapshot,
                 trigger=str(input.get("trigger") or "manual"),
                 message=str(input.get("message") or ""),
                 metadata=input.get("metadata") if isinstance(input.get("metadata"), dict) else {},

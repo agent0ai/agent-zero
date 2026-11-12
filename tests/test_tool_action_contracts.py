@@ -7,6 +7,22 @@ import types
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _restore_reimported_modules():
+    before = dict(sys.modules)
+    yield
+    for name, module in list(sys.modules.items()):
+        if not name.startswith(("plugins.", "tools.", "extensions.")) or before.get(name) is module:
+            continue
+        original = before.get(name)
+        if original is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = original
+
 
 @dataclass
 class _FakeResponse:
@@ -52,7 +68,13 @@ class _FakeAgent:
         self.context = _FakeContext()
         self.history = types.SimpleNamespace(output=lambda: [])
 
-    def read_prompt(self, _name: str, **kwargs) -> str:
+    def read_prompt(self, name: str, **kwargs) -> str:
+        if name.startswith("fw.scheduler."):
+            prompt = Path("plugins/_scheduler/prompts") / name
+            text = prompt.read_text(encoding="utf-8")
+            for key, value in kwargs.items():
+                text = text.replace("{{" + key + "}}", str(value))
+            return text
         return f"deleted {kwargs.get('memory_count', 0)}"
 
 
@@ -109,10 +131,27 @@ def _skill_instruction_name(message) -> str:
     return ""
 
 
+def _fake_coerce_bool(value, default):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return default
+
+
 def _install_tool_stub(monkeypatch) -> None:
     tool_stub = types.ModuleType("helpers.tool")
     tool_stub.Tool = _FakeTool
     tool_stub.Response = _FakeResponse
+    tool_stub.coerce_bool = _fake_coerce_bool
     monkeypatch.setitem(sys.modules, "helpers.tool", tool_stub)
 
 
@@ -283,6 +322,10 @@ def _load_computer_use_remote_tool(monkeypatch):
     ws_runtime_stub = types.ModuleType("plugins._a0_connector.helpers.ws_runtime")
     ws_runtime_stub.clear_pending_computer_use_op = lambda *args, **kwargs: None
     ws_runtime_stub.computer_use_metadata_for_sid = lambda *args, **kwargs: {}
+    async def _emit_connector_event(*args, **kwargs):
+        return None
+
+    ws_runtime_stub.emit_connector_event = _emit_connector_event
     ws_runtime_stub.select_computer_use_target_sid = lambda *args, **kwargs: "sid"
     ws_runtime_stub.store_pending_computer_use_op = lambda *args, **kwargs: None
     monkeypatch.setitem(
@@ -579,7 +622,7 @@ def test_skills_tool_read_file_action_reads_inside_skill_dir(
     assert "Use labels before typing." in response.message
 
 
-def test_memory_forget_tool_imports_plugin_memory_load(monkeypatch):
+def test_memory_forget_action_deletes_matching_memories(monkeypatch):
     _install_tool_stub(monkeypatch)
     monkeypatch.syspath_prepend(str(Path.cwd()))
 
@@ -600,14 +643,14 @@ def test_memory_forget_tool_imports_plugin_memory_load(monkeypatch):
     memory_stub.Memory = types.SimpleNamespace(get=get_memory)
     monkeypatch.setitem(sys.modules, "plugins._memory.helpers.memory", memory_stub)
 
-    sys.modules.pop("plugins._memory.tools.memory_load", None)
-    sys.modules.pop("plugins._memory.tools.memory_forget", None)
-    module = importlib.import_module("plugins._memory.tools.memory_forget")
-    tool = module.MemoryForget(
+    sys.modules.pop("plugins._memory.tools.memory", None)
+    module = importlib.import_module("plugins._memory.tools.memory")
+    tool = module.MemoryTool(
         _FakeAgent(),
-        "memory_forget",
+        "memory",
         None,
         {
+            "action": "forget",
             "query": "codex memory forget token",
             "threshold": 0.99,
             "filter": "area=='codex_sweep'",
@@ -630,7 +673,7 @@ def test_memory_forget_tool_imports_plugin_memory_load(monkeypatch):
     ]
 
 
-def test_memory_load_coerces_numeric_string_args(monkeypatch):
+def test_memory_load_action_coerces_numeric_string_args(monkeypatch):
     _install_tool_stub(monkeypatch)
     monkeypatch.syspath_prepend(str(Path.cwd()))
 
@@ -651,13 +694,14 @@ def test_memory_load_coerces_numeric_string_args(monkeypatch):
     memory_stub.Memory = types.SimpleNamespace(get=get_memory)
     monkeypatch.setitem(sys.modules, "plugins._memory.helpers.memory", memory_stub)
 
-    sys.modules.pop("plugins._memory.tools.memory_load", None)
-    module = importlib.import_module("plugins._memory.tools.memory_load")
-    tool = module.MemoryLoad(
+    sys.modules.pop("plugins._memory.tools.memory", None)
+    module = importlib.import_module("plugins._memory.tools.memory")
+    tool = module.MemoryTool(
         _FakeAgent(),
-        "memory_load",
+        "memory",
         None,
         {
+            "action": "load",
             "query": "smoke test project context",
             "threshold": "0.7",
             "limit": "3",
@@ -678,7 +722,25 @@ def test_memory_load_coerces_numeric_string_args(monkeypatch):
     ]
 
 
-def test_behaviour_adjustment_normalizes_duplicate_rules(monkeypatch):
+def test_memory_tool_rejects_unknown_action(monkeypatch):
+    _install_tool_stub(monkeypatch)
+    monkeypatch.syspath_prepend(str(Path.cwd()))
+
+    memory_stub = types.ModuleType("plugins._memory.helpers.memory")
+    memory_stub.Memory = types.SimpleNamespace(get=lambda _agent: None)
+    monkeypatch.setitem(sys.modules, "plugins._memory.helpers.memory", memory_stub)
+
+    sys.modules.pop("plugins._memory.tools.memory", None)
+    module = importlib.import_module("plugins._memory.tools.memory")
+    tool = module.MemoryTool(_FakeAgent(), "memory", None, {"action": "bogus"}, "", None)
+    tool.agent.read_prompt = lambda name, **kwargs: name
+
+    response = asyncio.run(tool.execute(**tool.args))
+
+    assert response.message == "fw.memory.invalid_action.md"
+
+
+def test_behavior_adjustment_normalizes_duplicate_rules(monkeypatch):
     _install_tool_stub(monkeypatch)
     monkeypatch.syspath_prepend(str(Path.cwd()))
 
@@ -694,8 +756,8 @@ def test_behaviour_adjustment_normalizes_duplicate_rules(monkeypatch):
     memory_stub.get_memory_subdir_abs = lambda agent: "/tmp"
     monkeypatch.setitem(sys.modules, "plugins._memory.helpers.memory", memory_stub)
 
-    sys.modules.pop("plugins._memory.tools.behaviour_adjustment", None)
-    module = importlib.import_module("plugins._memory.tools.behaviour_adjustment")
+    sys.modules.pop("plugins._behavior_adjustment.tools.behavior_adjustment", None)
+    module = importlib.import_module("plugins._behavior_adjustment.tools.behavior_adjustment")
 
     rules = module.normalize_ruleset(
         "## Behavioral rules\n"
@@ -708,30 +770,29 @@ def test_behaviour_adjustment_normalizes_duplicate_rules(monkeypatch):
     assert rules == "## Behavioral rules\n* Favor Linux commands.\n* Token rule.\n"
 
 
-def test_behaviour_prompts_preserve_exact_rules_and_avoid_promptinclude():
-    behaviour_prompt_path = Path(
-        "plugins/_memory/prompts/agent.system.tool.behaviour.md"
+def test_behavior_prompts_preserve_exact_rules_and_avoid_promptinclude():
+    behavior_prompt_path = Path(
+        "plugins/_behavior_adjustment/prompts/agent.system.tool.behavior.md"
     )
-    behaviour_prompt = behaviour_prompt_path.read_text(encoding="utf-8")
-    merge_prompt = Path("prompts/behaviour.merge.sys.md").read_text(
+    behavior_prompt = behavior_prompt_path.read_text(encoding="utf-8")
+    merge_prompt = Path("plugins/_behavior_adjustment/prompts/behavior.merge.sys.md").read_text(
         encoding="utf-8"
     )
     promptinclude_prompt = Path(
         "plugins/_promptinclude/prompts/agent.system.promptinclude.md"
     ).read_text(encoding="utf-8")
 
-    assert "exact-response rules" in behaviour_prompt
-    assert "preserve it verbatim" in behaviour_prompt
-    assert "do not edit promptinclude files" in behaviour_prompt
-    assert not Path("prompts/agent.system.tool.behaviour.md").exists()
+    assert "exact-response rules" in behavior_prompt
+    assert "preserve it verbatim" in behavior_prompt
+    assert not Path("prompts/agent.system.tool.behavior.md").exists()
     assert "respond exactly with a phrase" in merge_prompt
-    assert "behaviour_adjustment" not in promptinclude_prompt
+    assert "behavior_adjustment" not in promptinclude_prompt
 
 
 def _load_a2a_chat_tool(monkeypatch):
     _install_tool_stub(monkeypatch)
-    sys.modules.pop("tools.a2a_chat", None)
-    return importlib.import_module("tools.a2a_chat")
+    sys.modules.pop("plugins._a2a_chat.tools.a2a_chat", None)
+    return importlib.import_module("plugins._a2a_chat.tools.a2a_chat")
 
 
 def test_a2a_extracts_latest_assistant_text_from_history(monkeypatch):
@@ -790,16 +851,29 @@ def test_a2a_empty_response_message_is_explicit_failure(monkeypatch):
     module = _load_a2a_chat_tool(monkeypatch)
 
     assert module._extract_latest_assistant_text({"result": {"history": []}}) == ""
-    assert "failed" in module.A2A_EMPTY_RESPONSE_ERROR
-    assert "not success" in module.A2A_EMPTY_RESPONSE_ERROR
-
-
-def test_notify_user_prompt_documents_numeric_priority_values():
-    prompt = Path("prompts/agent.system.tool.notify_user.md").read_text(
+    prompt = Path("plugins/_a2a_chat/prompts/fw.a2a_chat.empty_response.md").read_text(
         encoding="utf-8"
     )
+    assert "failed" in prompt
+    assert "not success" in prompt
 
-    assert "priority values: `20` high urgency, `10` normal urgency" in prompt
+
+def test_notify_user_prompt_documents_priority_names():
+    prompt = Path(
+        "plugins/_notify_user/prompts/agent.system.tool.notify_user.md"
+    ).read_text(encoding="utf-8")
+
+    assert "`priority`: `normal` or `high`; omit for `high`" in prompt
+
+
+def test_notify_user_prompt_gates_sends_to_a_stale_user_picture():
+    prompt = Path(
+        "plugins/_notify_user/prompts/agent.system.tool.notify_user.md"
+    ).read_text(encoding="utf-8")
+
+    assert "send only when the user's picture of the work became false or stale" in prompt
+    assert "never send about starting, resuming, continuing, or attempting work" in prompt
+    assert "task end and goal completion go to the final response, never here" in prompt
 
 
 def test_tool_prompts_prevent_top_level_multi_tool():
@@ -873,8 +947,8 @@ def _load_scheduler_tool(monkeypatch):
     projects_stub.load_basic_project_data = lambda project: {}
     monkeypatch.setitem(sys.modules, "helpers.projects", projects_stub)
 
-    sys.modules.pop("tools.scheduler", None)
-    return importlib.import_module("tools.scheduler")
+    sys.modules.pop("plugins._scheduler.tools.scheduler", None)
+    return importlib.import_module("plugins._scheduler.tools.scheduler")
 
 
 def test_scheduler_accepts_action_alias(monkeypatch):
@@ -1012,10 +1086,54 @@ def test_scheduler_invalid_timezone_returns_repairable_message(monkeypatch):
     assert "Invalid timezone: Mars/Base" in response.message
 
 
+def test_scheduler_invalid_state_returns_repairable_message(monkeypatch):
+    module = _load_scheduler_tool(monkeypatch)
+
+    class FakeTaskState:
+        IDLE = "idle"
+        VALUES = {"idle", "running", "disabled", "error"}
+
+        def __init__(self, value):
+            if str(value).strip().lower() not in self.VALUES:
+                raise ValueError(f"unknown state: {value}")
+            self.value = str(value).strip().lower()
+
+    module.TaskState = FakeTaskState
+
+    class FakeTask:
+        uuid = "task-1"
+        state = "idle"
+        context_id = ""
+
+    async def reload():
+        return None
+
+    module.TaskScheduler = types.SimpleNamespace(
+        get=lambda: types.SimpleNamespace(
+            reload=reload,
+            get_task_by_uuid=lambda uuid: FakeTask(),
+        )
+    )
+
+    tool = module.SchedulerTool(
+        _FakeAgent(),
+        "scheduler",
+        None,
+        {"action": "update_task", "uuid": "task-1", "state": "paused"},
+        "",
+        None,
+    )
+
+    response = asyncio.run(tool.execute(**tool.args))
+
+    assert "Invalid task state: paused" in response.message
+    assert "Use one of: idle, running, disabled, error." in response.message
+
+
 def test_scheduler_prompt_includes_update_timezone_and_dedicated_context():
     project_root = Path(__file__).resolve().parents[1]
     text = (
-        project_root / "prompts/agent.system.tool.scheduler.md"
+        project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md"
     ).read_text(encoding="utf-8")
 
     assert "update_task" in text
@@ -1038,7 +1156,7 @@ def test_corrected_tool_prompts_only_teach_action_contract():
     prompt_paths = [
         project_root / "plugins/_text_editor/prompts/agent.system.tool.text_editor.md",
         project_root / "prompts/agent.system.tool.skills.md",
-        project_root / "prompts/agent.system.tool.scheduler.md",
+        project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md",
         project_root / "plugins/_a0_connector/prompts/agent.system.tool.text_editor_remote.md",
         project_root / "plugins/_office/prompts/agent.system.tool.office_artifact.md",
         project_root / "plugins/_office/skills/office-artifacts/SKILL.md",
@@ -1180,6 +1298,25 @@ def test_computer_use_remote_start_session_reports_backend_features_and_windows_
     assert "host-computer-use-windows" in message
 
 
+def test_computer_use_remote_forwards_documented_macos_app_scope(monkeypatch):
+    import json
+    import re
+
+    module = _load_computer_use_remote_tool(monkeypatch)
+    tool = object.__new__(module.ComputerUseRemote)
+    skill = (Path(__file__).resolve().parents[1] / "plugins/_a0_connector/skills/host-computer-use-macos/SKILL.md").read_text()
+    example = json.loads(re.search(r"```json\n(.*?)\n```", skill, re.S).group(1))
+    tool.args = example["tool_args"]
+    payload = tool._build_payload(op_id="scoped", context_id="ctx", action="element_action")
+    assert payload["target"] == {"bundle_id": "com.example.editor", "role": "AXButton", "title": "Save"}
+    assert payload["dispatch"] == "background"
+    assert payload["operation"] == "press"
+    tool.args = {**tool.args, "pid": 123, "window_id": "ax-pid:123:path:0", "element_index": 2}
+    payload = tool._build_payload(op_id="indexed", context_id="ctx", action="element_action")
+    assert (payload["pid"], payload["window_id"], payload["element_index"]) == (123, "ax-pid:123:path:0", 2)
+    assert "element_index" not in payload["target"]
+
+
 def test_computer_use_remote_forwards_linux_window_scope_and_type_guard(monkeypatch):
     module = _load_computer_use_remote_tool(monkeypatch)
     tool = object.__new__(module.ComputerUseRemote)
@@ -1288,3 +1425,14 @@ def test_computer_use_remote_capture_artifact_is_chat_scoped(monkeypatch, tmp_pa
     stored_path = tmp_path / display_ref.removeprefix("/a0/")
     assert stored_path.read_bytes() == b"fake"
     assert capture_id == stored_path.stem
+
+
+def test_extension_modules_do_not_keep_stubbed_helpers():
+    stubbed = []
+    for name, module in sys.modules.items():
+        if not name.startswith("extensions.python.message_loop_prompts_after"):
+            continue
+        helper = getattr(module, "skills_helper", None)
+        if helper is not None and getattr(helper, "__file__", None) is None:
+            stubbed.append(name)
+    assert stubbed == []

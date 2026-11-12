@@ -51,6 +51,8 @@ function convertIconMarkersToHtml(value) {
 
 const model = {
   paused: false,
+  _pendingPause: 0,
+  _sending: false,
   _message: "",
   _editorEl: null,
   _history: [],
@@ -150,25 +152,32 @@ const model = {
   },
 
   async sendMessage() {
-    this._syncMessageFromEditor();
-    const pendingMessage = this.message;
+    if (this._sending) return;
+    this._sending = true;
+    try {
+      this._syncMessageFromEditor();
+      const pendingMessage = this.message;
 
-    if (!chatsStore.selected && (this.message.trim() || attachmentsStore?.attachments?.length > 0)) {
-      const ctxid = await chatsStore.newChat();
-      if (!ctxid && !chatsStore.selected) return;
-      this.message = pendingMessage;
-    }
+      if (!chatsStore.selected && (this.message.trim() || attachmentsStore?.attachments?.length > 0)) {
+        const ctxid = await chatsStore.newChat();
+        if (!ctxid && !chatsStore.selected) return;
+        this.message = pendingMessage;
+      }
 
-    // Capture sent prompt to per-chat history (bash-style)
-    try { this._pushHistory(this.message); } catch (_e) { /* ignore */ }
+      // Capture sent prompt to per-chat history (bash-style)
+      try { this._pushHistory(this.message); } catch (_e) { /* ignore */ }
 
-    // Delegate to the global function
-    if (globalThis.sendMessage) {
-      await globalThis.sendMessage();
+      // Delegate to the global function
+      if (globalThis.sendMessage) {
+        await globalThis.sendMessage();
+      }
+    } finally {
+      this._sending = false;
     }
   },
 
   async activateSendButton() {
+    if (this._sending) return;
     this._syncMessageFromEditor();
     if (this._getSendState() === "stop") {
       await this.stopAgent();
@@ -417,26 +426,33 @@ const model = {
   adjustTextareaHeight($event = null) {
     const target = $event?.target || null;
     for (const chatInput of this._composerTextareas(target)) {
+      // Contenteditable grows naturally; freezing scrollHeight can retain a transient layout.
       chatInput.style.height = "auto";
-      chatInput.style.height = chatInput.scrollHeight + "px";
-      // pick up any layout shift triggered by the height assignment
-      chatInput.style.height = Math.max(chatInput.scrollHeight, parseInt(chatInput.style.height)) + "px";
     }
+  },
+
+  applyPausedSnapshot(paused) {
+    // A click in flight owns the pause state until its request settles
+    if ((this._pendingPause || 0) > 0) return;
+    this.paused = paused;
   },
 
   async pauseAgent(paused) {
     const prev = this.paused;
     this.paused = paused;
+    this._pendingPause = (this._pendingPause || 0) + 1;
     try {
       const context = globalThis.getContext?.();
       if (!globalThis.sendJsonData)
         throw new Error("sendJsonData not available");
       await globalThis.sendJsonData("/pause", { paused, context });
     } catch (e) {
-      this.paused = prev;
+      if ((this._pendingPause || 0) <= 1) this.paused = prev;
       if (globalThis.toastFetchError) {
         globalThis.toastFetchError("Error pausing agent", e);
       }
+    } finally {
+      this._pendingPause = Math.max(0, (this._pendingPause || 0) - 1);
     }
   },
 

@@ -347,6 +347,16 @@ def list_effective_commands(
     return effective, strip_private_scope(resolved_scope)
 
 
+def list_context_commands(context: AgentContext | None = None) -> list[dict[str, Any]]:
+    """List effective commands whose owning plugins are enabled for this chat."""
+    enabled = plugins.get_enabled_plugins(context.agent0 if context else None)
+    if PLUGIN_NAME not in enabled:
+        return []
+    project = projects.get_context_project_name(context) if context else ""
+    return [item for item in list_effective_commands(project or "")[0]
+            if not item.get("source_plugin") or item["source_plugin"] in enabled]
+
+
 def list_builtin_commands() -> list[dict[str, Any]]:
     """Return bundled commands for display in the command manager."""
     return sorted(_discover_builtin_commands(), key=lambda item: item["name"])

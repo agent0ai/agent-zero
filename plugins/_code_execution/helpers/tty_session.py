@@ -37,15 +37,11 @@ class TTYSession:
         self._pty_master_ref = None
 
     def __del__(self):
-        # Simple cleanup on object destruction
-        import nest_asyncio
-
-        nest_asyncio.apply()
-        if hasattr(self, "close"):
-            try:
-                asyncio.run(self.close())
-            except Exception:
-                pass
+        # Explicit close owns async cleanup; destruction must not reenter the loop.
+        try:
+            self.kill()
+        except Exception:
+            pass
 
     # ── user-facing coroutines ────────────────────────────────────────
     async def start(self):
@@ -80,11 +76,11 @@ class TTYSession:
         # Terminate the process if it exists
         if self._proc:
             if getattr(self._proc, "returncode", None) is None:
-                self._signal_process(signal.SIGTERM)
+                self._signal_process()
             try:
                 await asyncio.wait_for(self._proc.wait(), _CLOSE_TIMEOUT_SECONDS)
             except asyncio.TimeoutError:
-                self._signal_process(signal.SIGKILL)
+                self._signal_process(force=True)
                 try:
                     await asyncio.wait_for(self._proc.wait(), _CLOSE_TIMEOUT_SECONDS)
                 except Exception:
@@ -96,22 +92,22 @@ class TTYSession:
         self._proc = None
         self._pump_task = None
 
-    def _signal_process(self, sig):
+    def _signal_process(self, force=False):
         if self._proc is None:
             return
         try:
             if _IS_WIN:
-                if sig == signal.SIGKILL:
+                if force:
                     self._proc.kill()
                 else:
                     self._proc.terminate()
                 return
-            os.killpg(self._proc.pid, sig)
+            os.killpg(self._proc.pid, signal.SIGKILL if force else signal.SIGTERM)
         except ProcessLookupError:
             pass
         except Exception:
             try:
-                if sig == signal.SIGKILL:
+                if force:
                     self._proc.kill()
                 else:
                     self._proc.terminate()
@@ -162,6 +158,12 @@ class TTYSession:
         try:
             self._proc.stdin.write(data)  # type: ignore
             await self._proc.stdin.drain()  # type: ignore
+        except asyncio.CancelledError:
+            # Discard only an incomplete POSIX command, not a fully drained send.
+            if not _IS_WIN and self._proc and self._proc.stdin._buffer:
+                self.kill()
+                self._proc.stdin._buffer.clear()
+            raise
         except OSError as e:
             if e.errno in (errno.EBADF, errno.EIO, errno.EINVAL):
                 self._release_pty_master()
@@ -201,7 +203,7 @@ class TTYSession:
 
         # Only attempt to kill if the process is still running
         if getattr(self._proc, "returncode", None) is None:
-            self._signal_process(signal.SIGKILL)
+            self._signal_process(force=True)
         self._release_pty_master()
 
     async def read(self, timeout=None):
@@ -257,6 +259,7 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
     import pty, asyncio, os, termios
 
     master, slave = pty.openpty()
+    os.set_blocking(master, False)
 
     # ── Disable ECHO on the slave side if requested ──
     if not echo:
@@ -306,6 +309,8 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
             return
         try:
             data = os.read(cur, 1 << 16)
+        except BlockingIOError:
+            return
         except OSError as e:
             if e.errno != errno.EIO:  # EIO == EOF on some systems
                 raise
@@ -319,14 +324,30 @@ async def _spawn_posix_pty(cmd, cwd, env, echo):
     loop.add_reader(master, _on_data)
 
     class _Stdin:
+        def __init__(self):
+            self._buffer = bytearray()
+
         def write(self, d):
-            cur = master_ref.get("fd")
-            if cur is None:
+            if master_ref.get("fd") is None:
                 raise OSError(errno.EBADF, "PTY master closed")
-            os.write(cur, d)
+            self._buffer.extend(d)
 
         async def drain(self):
-            await asyncio.sleep(0)
+            try:
+                while self._buffer:
+                    cur = master_ref.get("fd")
+                    if cur is None:
+                        raise OSError(errno.EBADF, "PTY master closed")
+                    try:
+                        written = os.write(cur, self._buffer[:65536])
+                    except BlockingIOError:
+                        await asyncio.sleep(0.01)
+                    else:
+                        del self._buffer[:written]
+                        await asyncio.sleep(0)
+            except Exception:
+                self._buffer.clear()
+                raise
 
     proc.stdin = _Stdin()  # type: ignore
     proc.stdout = reader
@@ -398,7 +419,7 @@ async def _spawn_winpty(cmd, cwd, env, echo):
 
         def kill(self):
             if child.isalive():
-                child.kill()
+                child.kill(signal.SIGTERM)
 
     return _Proc()
 

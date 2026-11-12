@@ -131,6 +131,7 @@ class OfficeSession(ApiHandler):
                 path,
                 content=input.get("text") if "text" in input else None,
                 context_id=context_id,
+                rename_open_document=desktop_session.get_manager().rename_open_document,
             )
         except Exception as exc:
             return {"ok": False, "error": str(exc)}

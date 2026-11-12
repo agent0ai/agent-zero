@@ -81,11 +81,22 @@ def test_context_switch_uses_three_bubble_chat_loading_splash():
     assert "const CHAT_LOADING_SPLASH_DELAY_MS = 300" in index_js
     assert "chatLoadingSplashVisible = true" in index_js
     assert "@keyframes chat-loading-splash-fade-in" in messages_css
+    splash_css = re.search(
+        r"\.chat-loading-splash \{(?P<body>.*?)\}",
+        messages_css,
+        flags=re.DOTALL,
+    )
+    assert splash_css and "background" not in splash_css.group("body")
     index_css = read("webui", "index.css")
     assert "'chat-active': $store.welcomeStore" in index_html
     assert "#right-panel.chat-active" in index_css
     assert "background-color 0.2s ease-out" in index_css
-    assert "background: var(--color-background)" not in welcome_html
+    welcome_container_css = re.search(
+        r"\.welcome-container \{(?P<body>.*?)\}",
+        welcome_html,
+        flags=re.DOTALL,
+    )
+    assert welcome_container_css and "background" not in welcome_container_css.group("body")
     assert "--three-bubble-loader-delay: 0.16s" in loading_css
     assert "--three-bubble-loader-delay: 0.32s" in loading_css
     assert "animation-delay: var(--three-bubble-loader-delay)" in loading_css

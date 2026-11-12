@@ -15,6 +15,13 @@ from api.extract_work_dir_archive import extract_archive
 from helpers import files
 
 
+@pytest.fixture(autouse=True)
+def archive_limits(monkeypatch):
+    from helpers.file_browser import FileBrowser
+    monkeypatch.setattr(FileBrowser, "max_extract_bytes", classmethod(lambda cls: 100 * 1024 * 1024))
+    monkeypatch.setattr(FileBrowser, "max_archive_entries", classmethod(lambda cls: 1000))
+
+
 def test_extract_archive_creates_unique_zip_destination(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(files, "_base_dir", str(tmp_path))
     archive = tmp_path / "notes.zip"

@@ -6,9 +6,8 @@ import time
 from agent import AgentContext
 from helpers.print_style import PrintStyle
 from plugins._telegram_integration.helpers import telegram_client as tc
-from plugins._telegram_integration.helpers.bot_manager import get_bot
+from plugins._telegram_integration.helpers import scopes
 from plugins._telegram_integration.helpers.constants import (
-    CTX_TG_BOT,
     CTX_TG_CHAT_ID,
     CTX_TG_PROGRESS_LINES,
     CTX_TG_PROGRESS_MESSAGE_ID,
@@ -278,8 +277,7 @@ def _mark_tool_failed(context: AgentContext, tool_name: str) -> None:
 
 
 def _bot_instance(context: AgentContext):
-    bot_name = context.data.get(CTX_TG_BOT)
-    return get_bot(bot_name) if bot_name else None
+    return scopes.authorized_bot(context)
 
 
 def _reply_to(context: AgentContext) -> int | None:

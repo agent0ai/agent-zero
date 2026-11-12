@@ -19,6 +19,7 @@
 - `save_tmp_chats()`: Save all contexts to the chats folder
 - `load_tmp_chats()`: Load all contexts from the chats folder
 - `_get_chat_file_path(ctxid: str)`
+- `chat_file_exists(ctxid: str) -> bool`
 - `_convert_v080_chats()`
 - `load_json_chats(jsons: list[str])`: Load contexts from JSON strings
 - `export_json_chat(context: AgentContext)`: Export context as JSON string
@@ -45,8 +46,10 @@
 - Serialized chats store `agent_profile` both at the context level for the main chat and on each serialized agent so subordinate profiles survive server restart.
 - Deserialization must rebuild each agent with its serialized profile when present, falling back to the context profile for older chat files.
 - Chat loading skips directories that do not contain `chat.json`; malformed existing chat files still report load errors.
+- `load_tmp_chats()` reuses one Git version through `settings.version_cache_scope()` for its per-file restoration loop. Each agent still receives normal settings/credential reads and initialization hooks; the scope expires after the load, including failures.
 - Chat saves write and fsync a same-directory temporary file, atomically replace `chat.json`, and fsync the directory so an interrupted save cannot truncate the previous chat.
 - Contexts are marked with private `SAVED_CHAT_CONTEXT_DATA_KEY` only after a successful save or load from disk so snapshot code can detect deleted chat files without hiding fresh unsaved chats.
+- `chat_file_exists(ctxid)` reads the current `chat.json` path so snapshot pruning can confirm a missing file after taking an earlier directory listing.
 - `_serialize_context` and `_deserialize_context` use generic synchronous
   `extension.extensible` hooks. Plugin-owned migration may quarantine exact
   owned fields before save/export or load/import; Core persistence contains no
@@ -72,6 +75,7 @@
   - `tests/test_api_chat_lifetime.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_persist_chat_log_ids.py`
+  - `tests/test_snapshot_parity.py`
   - `tests/test_subagent_profiles.py`
   - `tests/test_tool_action_contracts.py`
 

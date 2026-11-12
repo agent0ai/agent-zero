@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal, TYPE_CHECKING
 
 from helpers import extract_tools
+from helpers.tool import coerce_bool
 from helpers.defer import DeferredTask, THREAD_BACKGROUND
 from helpers.extension import call_extensions_async
 from helpers.print_style import PrintStyle
@@ -32,7 +33,7 @@ CHILD_PARALLEL_TOOL_NAME_KEY = "parallel_tool_name"
 DEFAULT_MAX_CALLS = 8
 DEFAULT_TIMEOUT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 0.5
-DISALLOWED_PARALLEL_TOOLS = {"document_query", "response"}
+DISALLOWED_PARALLEL_TOOLS = {"document_query", "response", "goal", "input", "input_remote"}
 
 TERMINAL_STATES = {"success", "error", "cancelled", "timeout"}
 JobState = Literal["pending", "running", "success", "error", "cancelled", "timeout"]
@@ -102,12 +103,7 @@ def normalize_parallel_tool_calls(raw_calls: Any) -> list[NormalizedToolCall]:
         except ValueError as exc:
             raise ValueError(f"tool_calls[{index}] is not a valid tool call: {exc}") from exc
 
-        if tool_name == "parallel":
-            raise ValueError("`parallel` cannot be nested inside another `parallel` call.")
-        if tool_name in DISALLOWED_PARALLEL_TOOLS:
-            raise ValueError(
-                f"`{tool_name}` cannot be used inside `parallel`; call it sequentially."
-            )
+        _ensure_parallel_tool_allowed(tool_name, tool_args)
 
         calls.append(
             NormalizedToolCall(
@@ -119,6 +115,23 @@ def normalize_parallel_tool_calls(raw_calls: Any) -> list[NormalizedToolCall]:
     return calls
 
 
+def _ensure_parallel_tool_allowed(tool_name: str, tool_args: dict[str, Any]) -> None:
+    if tool_name == "parallel":
+        raise ValueError("`parallel` cannot be nested inside another `parallel` call.")
+    if (
+        tool_name in {"code_execution_tool", "code_execution_remote"}
+        and str(tool_args.get("runtime", "")).strip().lower() in {"output", "reset"}
+    ):
+        raise ValueError(
+            "Use `parallel` with job_ids to await/cancel a running code job; "
+            "call session tools sequentially."
+        )
+    if tool_name in DISALLOWED_PARALLEL_TOOLS:
+        raise ValueError(
+            f"`{tool_name}` cannot be used inside `parallel`; call it sequentially."
+        )
+
+
 def normalize_job_ids(raw_job_ids: Any) -> list[str]:
     if raw_job_ids is None:
         return []
@@ -127,20 +140,6 @@ def normalize_job_ids(raw_job_ids: Any) -> list[str]:
     if isinstance(raw_job_ids, list):
         return [str(item) for item in raw_job_ids if str(item).strip()]
     raise ValueError("`job_ids` must be a string or an array of strings.")
-
-
-def coerce_bool(value: Any, default: bool) -> bool:
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"1", "true", "yes", "on"}:
-            return True
-        if normalized in {"0", "false", "no", "off"}:
-            return False
-    return bool(value)
 
 
 def coerce_timeout(value: Any) -> int:
@@ -171,21 +170,24 @@ def is_parallel_worker(agent: "Agent | None") -> bool:
     return _parallel_worker_kind(agent) == "tool"
 
 
+def get_parallel_worker_job(agent: "Agent") -> ParallelJob | None:
+    if not is_parallel_worker(agent):
+        return None
+    context = agent.context
+    parent_context_id = str(context.get_data(PARALLEL_WORKER_PARENT_CONTEXT_KEY) or "")
+    job_id = str(context.get_data(PARALLEL_WORKER_JOB_KEY) or "")
+    job = _get_job(parent_context_id, job_id)
+    return job if job and job.kind == "tool" else None
+
+
 def queue_parallel_parent_history(
     agent: "Agent",
     *,
     content: Any,
     tokens: int = 0,
 ) -> bool:
-    if not is_parallel_worker(agent):
-        return False
-    context = agent.context
-    parent_context_id = str(
-        context.get_data(PARALLEL_WORKER_PARENT_CONTEXT_KEY) or ""
-    )
-    job_id = str(context.get_data(PARALLEL_WORKER_JOB_KEY) or "")
-    job = _get_job(parent_context_id, job_id)
-    if not job or job.kind != "tool":
+    job = get_parallel_worker_job(agent)
+    if not job:
         return False
     job.parent_history.append((content, tokens))
     return True
@@ -218,6 +220,8 @@ async def start_parallel_jobs(
     agent: "Agent",
     calls: list[NormalizedToolCall],
 ) -> list[ParallelJob]:
+    for call in calls:
+        _ensure_parallel_tool_allowed(call.tool_name, call.tool_args)
     jobs: list[ParallelJob] = []
     context = agent.context
     job_store = _jobs_for_context(context)
@@ -338,8 +342,7 @@ async def refresh_parallel_jobs(agent: "Agent") -> list[ParallelJob]:
 async def cleanup_parallel_job(agent: "Agent", job: ParallelJob) -> None:
     if job.deferred_task and job.deferred_task.is_alive():
         job.deferred_task.kill()
-    if job.kind == "tool":
-        await _remove_context(job.worker_context_id)
+    # Direct workers remove their context in finally on their own event loop.
 
 
 async def collect_parallel_jobs(
@@ -540,8 +543,7 @@ async def execute_tool_call(
     *,
     log_item: "LogItem | None" = None,
 ) -> str:
-    if tool_name == "parallel":
-        raise ValueError("`parallel` cannot be nested inside a parallel worker.")
+    _ensure_parallel_tool_allowed(tool_name, tool_args)
 
     tool = _resolve_parallel_tool(agent, tool_name, tool_args, strict=True)
     if not tool:
@@ -625,7 +627,7 @@ def _resolve_parallel_tool(
         return None
 
     try:
-        tool.args = dict(tool_args)
+        tool.args = tool_args
     except Exception:
         pass
 
@@ -681,7 +683,7 @@ def _log_parallel_child_started(agent: "Agent", job: ParallelJob) -> None:
     if job.kind == "subordinate":
         job.log_item = agent.context.log.log(
             type="subagent",
-            heading=f"icon://communication {agent.agent_name}: Calling Subordinate Agent",
+            heading="icon://communication Calling Subordinate Agent",
             content="",
             kvps=job.tool_args,
             id=job.log_id,
@@ -699,7 +701,7 @@ def _log_parallel_child_started(agent: "Agent", job: ParallelJob) -> None:
                 f"Failed to derive parallel child log for {job.tool_name}: {exc}"
             )
 
-    heading = f"icon://construction {agent.agent_name}: Using tool '{job.tool_name}'"
+    heading = f"icon://construction Using tool '{job.tool_name}'"
     job.log_item = agent.context.log.log(
         type="tool",
         heading=heading,

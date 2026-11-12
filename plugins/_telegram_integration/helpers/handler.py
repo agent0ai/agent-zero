@@ -11,9 +11,8 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message as TgMessage, CallbackQuery
 
 from agent import AgentContext, UserMessage
-from helpers import plugins, files, projects
+from helpers import files, projects, subagents
 from helpers import message_queue as mq
-from helpers import integration_commands
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
@@ -22,13 +21,13 @@ from initialize import initialize_agent
 
 from plugins._telegram_integration.helpers import telegram_client as tc
 from plugins._telegram_integration.helpers import command_ui
+from plugins._telegram_integration.helpers import slash_commands
+from plugins._telegram_integration.helpers import scopes
 from plugins._telegram_integration.helpers.bot_manager import get_bot
 from plugins._telegram_integration.helpers.constants import (
-    PLUGIN_NAME,
     DOWNLOAD_FOLDER,
     STATE_FILE,
     CTX_TG_BOT,
-    CTX_TG_BOT_CFG,
     CTX_TG_CHAT_ID,
     CTX_TG_CHAT_TYPE,
     CTX_TG_USER_ID,
@@ -64,16 +63,13 @@ def _map_key(bot_name: str, user_id: int, chat_id: int) -> str:
     return f"{bot_name}:{user_id}:{chat_id}"
 
 
-def cleanup_old_attachments():
+def cleanup_old_attachments(bots_cfg: dict):
     """Remove downloaded attachment files older than per-bot max age. 0 = keep forever."""
-    config = plugins.get_plugin_config(PLUGIN_NAME) or {}
-    bots_cfg = config.get("bots") or []
     total_removed = 0
     upload_dir = files.get_abs_path(DOWNLOAD_FOLDER)
     if not os.path.isdir(upload_dir):
         return
-    for bot_cfg in bots_cfg:
-        bot_name = bot_cfg.get("name", "")
+    for bot_name, bot_cfg in bots_cfg.items():
         if not bot_name:
             continue
         max_age_hours = bot_cfg.get("attachment_max_age_hours", 0)
@@ -96,11 +92,8 @@ def cleanup_old_attachments():
 
 # Access control
 
-def _is_allowed(bot_cfg: dict, user_id: int, username: str | None) -> bool:
-    allowed = bot_cfg.get("allowed_users") or []
-    if not allowed:
-        return True  # empty = allow all
-    for entry in allowed:
+def _matches_users(entries, user_id: int, username: str | None) -> bool:
+    for entry in entries or []:
         entry_str = str(entry).strip()
         if entry_str.startswith("@"):
             if username and f"@{username}" == entry_str:
@@ -113,6 +106,16 @@ def _is_allowed(bot_cfg: dict, user_id: int, username: str | None) -> bool:
                 if username and entry_str.lower() == username.lower():
                     return True
     return False
+
+
+def _is_allowed(bot_cfg: dict, user_id: int, username: str | None) -> bool:
+    allowed = bot_cfg.get("allowed_users") or []
+    return not allowed or _matches_users(allowed, user_id, username)
+
+
+def _is_admin(bot_cfg: dict, user_id: int, username: str | None) -> bool:
+    """Administrative access is explicit; an empty list grants nobody access."""
+    return _matches_users(bot_cfg.get("admin_users"), user_id, username)
 
 
 def _get_project(bot_cfg: dict, user_id: int) -> str:
@@ -177,34 +180,16 @@ async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
     context.data[CTX_TG_CHAT_TYPE] = str(message.chat.type or "")
     context.data[CTX_TG_REPLY_TO] = message.message_id
 
-    if await command_ui.handle_command(
-        context,
-        instance.bot.token,
-        message.chat.id,
-        message.message_id,
-        text,
-    ):
+    text = _normalize_bot_command(text, instance)
+    if text is None:
         return
-
-    command_reply = integration_commands.try_handle_command(context, text, integration="telegram")
-    if command_reply is not None:
-        await _send_with_temp_bot(
-            instance.bot.token,
-            message.chat.id,
-            command_reply,
-            parse_mode=None,
-            reply_to_message_id=message.message_id,
-        )
+    text = await slash_commands.handle(
+        context, instance.bot.token, message.chat.id, message.message_id, text,
+        is_admin=_is_admin(bot_cfg, user.id, user.username),
+    )
+    if text is None:
         return
-    if integration_commands.extract_command_line(text).startswith("/"):
-        command = integration_commands.extract_command_line(text).split(" ", 1)[0]
-        await _send_with_temp_bot(
-            instance.bot.token,
-            message.chat.id,
-            integration_commands.unknown_command_text(command, integration="telegram"),
-            parse_mode=None,
-            reply_to_message_id=message.message_id,
-        )
+    if not scopes.context_config(context):
         return
 
     # Use temp bot for downloads (cross-event-loop safe)
@@ -286,8 +271,18 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
     context.data[CTX_TG_REPLY_TO] = query.message.message_id
 
     instance = get_bot(bot_name)
+    handled = False
     if instance:
         try:
+            handled, command_text = await slash_commands.handle_callback(
+                context, instance.bot.token, query.message.chat.id,
+                query.message.message_id, text,
+                is_admin=_is_admin(bot_cfg, user.id, user.username),
+            )
+            if handled:
+                if command_text is None:
+                    return
+                text = command_text
             if await command_ui.handle_callback(
                 context,
                 instance.bot.token,
@@ -298,21 +293,25 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
                 return
         except Exception as e:
             PrintStyle.error(f"Telegram callback failed: {format_error(e)}")
-            if text.startswith("tg:"):
+            if text.startswith(("tg:", "a0:")):
+                await slash_commands.reply(instance.bot.token, query.message.chat.id,
+                    query.message.message_id, f"Command failed: {e}")
                 return
-    if text.startswith("tg:"):
+    if text.startswith(("tg:", "a0:")):
         return
 
-    command_reply = integration_commands.try_handle_command(context, text, integration="telegram")
-    if command_reply is not None:
-        if instance:
-            await _send_with_temp_bot(
-                instance.bot.token,
-                query.message.chat.id,
-                command_reply,
-                parse_mode=None,
-                reply_to_message_id=query.message.message_id,
-            )
+    if instance and not handled:
+        text = _normalize_bot_command(text, instance)
+        if text is None:
+            return
+
+        text = await slash_commands.handle(context, instance.bot.token,
+            query.message.chat.id, query.message.message_id, text,
+            is_admin=_is_admin(bot_cfg, user.id, user.username))
+        if text is None:
+            return
+
+    if not scopes.context_config(context):
         return
 
     agent = context.agent0
@@ -323,6 +322,13 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
     )
 
     msg_id = str(uuid.uuid4())
+    if context.is_running():
+        mq.add(context, user_msg, [])
+        save_tmp_chat(context)
+        if instance:
+            await slash_commands.reply(instance.bot.token, query.message.chat.id,
+                query.message.message_id, "Message queued. Use /send to flush it or /steer to intervene.")
+        return
     mq.log_user_message(context, user_msg, [], message_id=msg_id, source=" (telegram)")
     context.communicate(UserMessage(message=user_msg, id=msg_id))
     save_tmp_chat(context)
@@ -354,6 +360,15 @@ async def handle_new_members(message: TgMessage, bot_name: str, bot_cfg: dict):
 
 # Context management
 
+def get_bound_context(bot_name: str, user_id: int, chat_id: int):
+    ctx_id = _load_state().get("chats", {}).get(_map_key(bot_name, user_id, chat_id))
+    context = AgentContext.get(ctx_id) if ctx_id else None
+    if context and all(context.data.get(key) == value for key, value in (
+        (CTX_TG_BOT, bot_name), (CTX_TG_USER_ID, user_id), (CTX_TG_CHAT_ID, chat_id),
+    )):
+        return context
+    return None
+
 async def _get_or_create_context(
     bot_name: str,
     bot_cfg: dict,
@@ -380,33 +395,36 @@ async def _get_or_create_context_from_user(
     with _chat_map_lock:
         state = _load_state()
         chats = state.setdefault("chats", {})
-        ctx_id = chats.get(key)
-
         # Check if existing context is still alive
-        if ctx_id:
-            ctx = AgentContext.get(ctx_id)
-            if ctx:
-                ctx.data[CTX_TG_CHAT_TYPE] = chat_type or ctx.data.get(CTX_TG_CHAT_TYPE, "")
-                return ctx
-            # Context was garbage collected, remove stale mapping
-            chats.pop(key, None)
+        ctx = get_bound_context(bot_name, user_id, chat_id)
+        if ctx:
+            ctx.data[CTX_TG_CHAT_TYPE] = chat_type or ctx.data.get(CTX_TG_CHAT_TYPE, "")
+            ctx.data[CTX_TG_USERNAME] = username or ""
+            scopes.remember_config(ctx, bot_cfg)
+            return ctx
+        chats.pop(key, None)
 
         # Create new context
         try:
-            config = initialize_agent()
+            project, profile = bot_cfg.get("_initial_scope", (_get_project(bot_cfg, user_id), ""))
+            if profile and profile not in subagents.get_available_agents_dict(project or None):
+                raise ValueError("The configured Telegram agent profile is unavailable in its project.")
+            config = initialize_agent(override_settings={"agent_profile": profile}) if profile else initialize_agent()
             display_name = f"@{username}" if username else str(user_id)
             ctx = AgentContext(config, name=f"Telegram: {display_name}")
 
             ctx.data[CTX_TG_BOT] = bot_name
-            ctx.data[CTX_TG_BOT_CFG] = bot_cfg
+            scopes.remember_config(ctx, bot_cfg)
             ctx.data[CTX_TG_CHAT_ID] = chat_id
             ctx.data[CTX_TG_CHAT_TYPE] = chat_type
             ctx.data[CTX_TG_USER_ID] = user_id
             ctx.data[CTX_TG_USERNAME] = username or ""
 
-            project = _get_project(bot_cfg, user_id)
             if project:
                 projects.activate_project(ctx.id, project)
+
+            if not scopes.context_config(ctx):
+                return None
 
             # Inherit model override from an existing context in the same project
             _inherit_model_override(ctx)
@@ -424,6 +442,18 @@ async def _get_or_create_context_from_user(
             return None
 
 # Message content extraction
+
+def _normalize_bot_command(text: str, instance) -> str | None:
+    """Remove this bot's command suffix; ignore commands addressed to other bots."""
+    import re
+
+    match = re.match(r"^(\s*/[^\s@]+)@([^\s]+)([\s\S]*)$", text)
+    if not match:
+        return text
+    username = getattr(instance.bot_info, "username", "") or ""
+    if match.group(2).casefold() != username.casefold():
+        return None
+    return match.group(1) + match.group(3)
 
 def _extract_message_content(message: TgMessage) -> str:
     parts = []
@@ -463,6 +493,7 @@ async def _download_attachments(bot, message: TgMessage, bot_name: str = "") -> 
     download_dir_ref = files.get_abs_path_dockerized(DOWNLOAD_FOLDER)
 
     async def _dl(file_id: str, filename: str) -> str | None:
+        filename = os.path.basename(filename.replace("\\", "/").replace("\0", "")) or "file"
         safe_name = f"{tg_prefix}{uuid.uuid4().hex[:8]}_{filename}"
         dest = os.path.join(download_dir, safe_name)
         result = await tc.download_file(bot, file_id, dest)
@@ -509,9 +540,9 @@ async def send_telegram_reply(
     if not bot_name:
         return "No Telegram bot configured on context"
 
-    instance = get_bot(bot_name)
+    instance = scopes.authorized_bot(context)
     if not instance:
-        return f"Bot '{bot_name}' not running"
+        return "Telegram delivery is disabled or no longer authorized for this chat"
 
     chat_id = context.data.get(CTX_TG_CHAT_ID)
     if not chat_id:

@@ -7,6 +7,7 @@ chat:
       endpoint_url: "/models"
     kwargs:
       a0_api_mode: responses
+      responses_state: local
       api_base: "http://127.0.0.1/oauth/codex/v1"
   github_copilot_oauth:
     name: GitHub Copilot Account

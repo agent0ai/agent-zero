@@ -5,7 +5,8 @@ import re
 import shlex
 import time
 
-from helpers.tool import Tool, Response
+from helpers.tool import Tool, Response, coerce_bool
+from helpers.errors import RepairableException
 from helpers import files, rfc_exchange, projects, runtime, secrets, settings
 from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text as truncate_text_string
@@ -53,13 +54,29 @@ class State:
 class CodeExecution(Tool):
 
     async def execute(self, **kwargs) -> Response:
+        from helpers.parallel_tools import get_parallel_worker_job
 
+        job = get_parallel_worker_job(self.agent)
+        try:
+            return await self._execute(job)
+        finally:
+            state = getattr(self, "state", None)
+            if job and state:
+                for shell in state.shells.values():
+                    await shell.session.close()
+
+    async def _execute(self, job) -> Response:
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
         runtime_arg = self.args.get("runtime", "").lower().strip()
+        if runtime_arg in {"terminal", "python", "nodejs"} and not isinstance(self.args.get("code"), str):
+            received = type(self.args["code"]).__name__ if "code" in self.args else "missing"
+            raise RepairableException(
+                f"code_execution_tool requires code to be a string for runtime {runtime_arg}; received {received}"
+            )
         session = int(self.args.get("session", 0))
-        self.allow_running = bool(self.args.get("allow_running", False))
-        reset = bool(self.args.get("reset", False) or runtime_arg == "reset")
+        self.allow_running = coerce_bool(self.args.get("allow_running", False), False)
+        reset = coerce_bool(self.args.get("reset", False), False) or runtime_arg == "reset"
 
         cfg = _get_config(self.agent)
 
@@ -85,6 +102,14 @@ class CodeExecution(Tool):
             response = self.agent.read_prompt(
                 "fw.code.runtime_wrong.md", runtime=runtime_arg
             )
+
+        if job and runtime_arg in {"terminal", "python", "nodejs"}:
+            while self.state.shells[session].running:
+                job.result = response
+                response = await self.get_terminal_output(
+                    cfg, session=session, reset_full_output=False,
+                    timeouts=cfg["output_timeouts"],
+                )
 
         if not response:
             response = self.agent.read_prompt(
@@ -149,7 +174,11 @@ class CodeExecution(Tool):
                 shell = LocalInteractiveSession(cwd=cwd)
 
             shells[session] = ShellWrap(id=session, session=shell, running=False)
-            await shell.connect()
+            try:
+                await shell.connect()
+            except BaseException:
+                await shell.close()
+                raise
 
         self.state = State(shells=shells, ssh_enabled=ssh_enabled)
         self.agent.set_data("_cet_state", self.state)

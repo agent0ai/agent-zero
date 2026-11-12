@@ -14,7 +14,7 @@ class LogPlainResponses(Extension):
             call_kwargs = {}
 
         llm_result = call_kwargs.get("llm_result")
-        if getattr(llm_result, "mode", "") != "responses":
+        if getattr(llm_result, "mode", "") != "responses" or getattr(llm_result, "function_calls", None):
             return
 
         message = call_kwargs.get("message")
@@ -23,10 +23,15 @@ class LogPlainResponses(Extension):
             message = call_args[1]
         if not isinstance(message, str) or not message:
             return
+        if not getattr(llm_result, "response", message).strip():
+            return
         if (
             extract_tools.extract_tool_request(message) is not None
             or extract_tools.is_misformatted_tool_request(message)
         ):
+            return
+        parsed = extract_tools.json_parse_dirty(message)
+        if isinstance(parsed, dict) and ("thoughts" in parsed or "headline" in parsed):
             return
 
         params = getattr(getattr(self.agent, "loop_data", None), "params_temporary", None)
@@ -37,11 +42,4 @@ class LogPlainResponses(Extension):
         if log_item is None:
             return
 
-        params["log_item_response"] = log_item
-        log_item.update(
-            type="response",
-            heading="",
-            content=message,
-            finished=True,
-            update_progress="none",
-        )
+        log_item.update(content=message, thoughts=[message])

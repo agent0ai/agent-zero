@@ -19,12 +19,15 @@
 - `BRANCH` is required for branch-based Docker builds.
 - Preserve exposed ports for SSH, HTTP, and tunneled services unless docs and workflows are updated together.
 - Keep the two-runtime Python model aligned with the root contract.
-- Keep runtime desktop packages on `kali-last-snapshot`; carry the rolling base's matching ATK introspection package into that transaction, then pin the verified Python 3.13-compatible LibreOffice and complete Xpra runtime versions in `fs/ins/install_additional.sh` for both published architectures.
+- Retain the Python 3.13-compatible ATK, LibreOffice/UNO, and Xpra pins in `fs/ins/install_additional.sh`. Resolve them from the signed Debian `forky` archive dated `20260624T000000Z` and Xpra `trixie`, using build-scoped APT options that preserve normal Kali sources. Refresh Xpra through `plugins/_desktop/helpers/refresh_xpra_index.sh` from the cloned repository; its signed compressed index avoids upstream's empty ARM64 `Packages` metadata without clearing the Debian indexes.
 - Do not bake secrets, local `.env` values, or user data into the image.
 - Runtime startup must ensure `/a0/usr/uploads` exists before supervised services start.
+- Runtime startup seeds APT package lists in the background only when no package index is cached (fresh images clear these at build time). Normal restarts skip the refresh; installation scripts and plugin hooks refresh metadata when installing packages.
 - Runtime startup raises the soft open-file limit toward `A0_NOFILE_LIMIT` (default `65535`) before supervisord starts, bounded by the container hard limit.
 - Self-update user-data backups skip Time Travel shadow history under `usr/.time_travel/` and transient Desktop agent state.
-- Self-update waits up to 180 seconds for the updated or restored WebUI health check by default; `A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS` may override it.
+- Self-update backups use ZIP deflate level 1 and clamp archive timestamps to ZIP's supported range without changing source file dates.
+- Self-update rollback stashes use immutable Git object IDs for creation checks and restoration; resolve the matching reflog selector only when dropping that stash, preserving unrelated entries. Failed restoration retains the stash.
+- Self-update waits up to 600 seconds for each updated or restored WebUI health check by default; `A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS` may override it. Backup and checkout time precede this health window.
 - Successful or already-current self-updates refresh an installed Codex CLI with npm on a best-effort basis; missing CLIs and registry failures must not block Agent Zero startup.
 
 ## Work Guidance

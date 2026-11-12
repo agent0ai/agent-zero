@@ -9,7 +9,7 @@ import { store as notificationStore } from "/components/notifications/notificati
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { store as inputStore } from "/components/chat/input/input-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
-import { store as tasksStore } from "/components/sidebar/tasks/tasks-store.js";
+import { store as tasksStore } from "/plugins/_scheduler/webui/sidebar/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
 import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
@@ -85,6 +85,9 @@ function finishChatLoading(id) {
 // Sidebar toggle logic is now handled by sidebar-store.js
 
 export async function sendMessage(options = {}) {
+  // Rapid clicks or Enter presses must not issue duplicate sends while the first is still in flight
+  if (sendMessage.inFlight) return false;
+  sendMessage.inFlight = true;
   try {
     const hasProvidedMessage = Object.prototype.hasOwnProperty.call(options, "message");
     let message = String(hasProvidedMessage ? options.message : inputStore.message).trim();
@@ -108,33 +111,12 @@ export async function sendMessage(options = {}) {
     }
 
     if (message || hasAttachments) {
-      if (!options.bypassModelGate && !(await modelGateStore.canSendToModel())) {
-        modelGateStore.start({
-          message,
-          attachments: attachmentsWithUrls,
-          messageId,
-          context: sendContext,
-        });
-
-        if (shouldResetInput) {
-          inputStore.reset();
-          adjustTextareaHeight();
-        }
-
-        await setMessages(modelGateStore.syntheticMessages(sendContext));
-        forceScrollChatToBottom();
-        return;
-      }
-
       // Check if agent is busy - queue instead of sending
-      if (chatsStore.selectedContext?.running || messageQueueStore.hasQueue) {
+      if (sendContext === context && (chatsStore.selectedContext?.running || messageQueueStore.hasQueue)) {
         const success = messageQueueStore.addToQueue(message, attachmentsWithUrls);
-        // no await for the queue
-        // if (success) {
-          if (shouldResetInput) inputStore.reset();
-          adjustTextareaHeight();
-        // }
-        return;
+        if (shouldResetInput) inputStore.reset();
+        adjustTextareaHeight();
+        return success;
       }
 
       // Sending a message is an explicit user intent to go to the bottom
@@ -191,13 +173,31 @@ export async function sendMessage(options = {}) {
       const jsonResponse = await response.json();
       if (!jsonResponse) {
         toast("No response returned.", "error");
+      } else if (jsonResponse.model_not_configured) {
+        // Backend rejected dispatch; open the setup gate (synthetic row merges by message id)
+        modelGateStore.start({
+          message,
+          attachments: attachmentsWithUrls,
+          messageId,
+          context: sendContext,
+        });
+
+        await setMessages(modelGateStore.syntheticMessages(sendContext));
+        forceScrollChatToBottom();
       } else {
         setContext(jsonResponse.context);
+        return true;
       }
     }
   } catch (e) {
     toastFetchError("Error sending message", e); // Will use new notification system
+  } finally {
+    sendMessage.inFlight = false;
+    if (modelGateStore.pending && !modelGateStore.dispatching) {
+      void modelGateStore.dispatchPendingIfConfigured();
+    }
   }
+  return false;
 }
 globalThis.sendMessage = sendMessage;
 
@@ -391,12 +391,14 @@ export async function applySnapshot(snapshot, options = {}) {
     willUpdateMessages: lastLogVersion != snapshot.log_version,
     skip: false,
   };
+  const applyingContext = context;
   await callJsExtensions("apply_snapshot_before", snapCtx);
-  if (snapCtx.skip) return { updated: false };
+  if (snapCtx.skip || context !== applyingContext) return { updated: false };
 
   // If the chat has been reset, reset cursors and request a resync from the caller.
   // Note: on first snapshot after a context switch, lastLogGuid is intentionally empty,
   // so the mismatch is expected and should not trigger a second state_request/poll.
+  const firstSnapshot = !lastLogGuid;
   if (lastLogGuid != snapshot.log_guid) {
     if (lastLogGuid) {
       msgs.resetMessageRenderState();
@@ -414,10 +416,12 @@ export async function applySnapshot(snapshot, options = {}) {
 
   if (lastLogVersion != snapshot.log_version) {
     updated = true;
-    if (snapshot.logs?.[0]?.no === 0) {
+    // Context selection already cleared history; keep any first send rendered since then.
+    if (!firstSnapshot && snapshot.logs?.[0]?.no === 0) {
       msgs.resetMessageRenderState();
     }
     await setMessages(modelGateStore.mergeSyntheticMessages(snapshot.logs, context));
+    if (context !== applyingContext) return { updated: false };
     afterMessagesUpdate(snapshot.logs);
   }
 
@@ -430,7 +434,7 @@ export async function applySnapshot(snapshot, options = {}) {
   notificationStore.updateFromPoll(snapshot);
 
   // set ui model vars from backend
-  inputStore.paused = snapshot.paused;
+  inputStore.applyPausedSnapshot(snapshot.paused);
 
   // Optional: treat snapshot application as proof of connectivity (poll path)
   if (touchConnectionStatus) {

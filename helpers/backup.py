@@ -64,6 +64,7 @@ class BackupService:
 # All persistent user data is now centralized in /usr for easier backup and restore
 {agent_root}/usr/**
 !{agent_root}/usr/.time_travel/**
+!{agent_root}/usr/plugins/_orchestrator/data/**
 """
 
     def _get_agent_zero_version(self) -> str:

@@ -1,0 +1,53 @@
+<html>
+<head><title>Context Window</title></head>
+<body>
+  <div x-data>
+    <template x-if="config">
+      <div>
+        <div class="section-title">Context Window</div>
+        <div class="section-description">
+          Choose what appears in the context window popover. Provider rows appear only when their data is available.
+        </div>
+
+        <template x-for="field in [
+          { key: 'show_breakdown', label: 'Breakdown', description: 'Messages, System tools, Skills, MCP tools, System prompt, Extras, and Free space.' },
+          { key: 'show_price', label: 'Price', description: 'The reported cost of the latest model call.' },
+          { key: 'show_cache_hit', label: 'Cache hit', description: 'The percentage of input tokens served from cache.' },
+          { key: 'show_tokens', label: 'Tokens In/Out', description: 'The input and output token counts of the latest model call.' }
+        ]" :key="field.key">
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title" x-text="field.label"></div>
+              <div class="field-description" x-text="field.description"></div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input type="checkbox" x-model="config[field.key]" :aria-label="field.label"
+                  x-init="if (config[field.key] == null) config[field.key] = true">
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+        </template>
+
+        <div class="field">
+          <div class="field-label">
+            <div class="field-title">Price currency</div>
+            <div class="field-description">
+              USD uses the reported amount directly. Other currencies use daily exchange rates; if unavailable, the price stays in USD.
+            </div>
+          </div>
+          <div class="field-control">
+            <select x-model="config.price_currency" aria-label="Price currency"
+              x-init="if (!config.price_currency) config.price_currency = 'USD'">
+              <template x-for="currency in ['USD', ...Intl.supportedValuesOf('currency').filter(code => code !== 'USD')]" :key="currency">
+                <option :value="currency" :selected="currency === config.price_currency" x-text="currency"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

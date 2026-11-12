@@ -1,4 +1,5 @@
 import base64
+from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from copy import deepcopy
 import hashlib
@@ -15,6 +16,7 @@ from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
 from helpers.secrets import get_default_secrets_manager
+from helpers.errors import RepairableException
 from helpers import dirty_json
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
@@ -71,6 +73,10 @@ class Settings(TypedDict):
     workdir_max_lines: int
     workdir_gitignore: str
     file_browser_remember_last_directory: bool
+    file_browser_max_text_size_mb: int
+    file_browser_max_transfer_size_mb: int
+    file_browser_max_extract_size_mb: int
+    file_browser_max_archive_entries: int
 
     api_keys: dict[str, str]
 
@@ -95,7 +101,7 @@ class Settings(TypedDict):
     a2a_server_enabled: bool
 
     variables: str
-    secrets: str
+    secrets: str | None
 
     # LiteLLM global kwargs applied to all model calls
     litellm_global_kwargs: dict[str, Any]
@@ -177,6 +183,9 @@ UI_CONTROL_VISIBILITY_DEFAULTS = {
 
 SETTINGS_FILE = files.get_abs_path("usr/settings.json")
 _settings: Settings | None = None
+_settings_version_cache: ContextVar[dict[str, str] | None] = ContextVar(
+    "settings_version_cache", default=None
+)
 _runtime_settings_snapshot: Settings | None = None
 _prompt_settings_snapshot: ContextVar[Settings | None] = ContextVar(
     "prompt_settings_snapshot", default=None
@@ -226,7 +235,12 @@ def _normalize_time_format(value: Any, default: str = TIME_FORMAT_12H) -> str:
 def _normalize_ui_control_visibility(value: Any) -> dict[str, dict[str, bool]]:
     submitted = value if isinstance(value, dict) else {}
     normalized = {}
-    for control, devices in UI_CONTROL_VISIBILITY_DEFAULTS.items():
+    defaults = {
+        **{control: {"mobile": True, "desktop": True} for control in submitted
+           if isinstance(control, str) and control.startswith("canvas:") and len(control) > 7},
+        **UI_CONTROL_VISIBILITY_DEFAULTS,
+    }
+    for control, devices in defaults.items():
         submitted_devices = submitted.get(control, {})
         if not isinstance(submitted_devices, dict):
             submitted_devices = {}
@@ -311,7 +325,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     providers = get_providers("chat") + get_providers("embedding")
     for provider in providers:
         provider_name = provider["value"]
-        api_key = settings["api_keys"].get(provider_name, models.get_api_key(provider_name))
+        api_key = settings["api_keys"].get(provider_name, models.get_api_key_raw(provider_name))
         settings["api_keys"][provider_name] = API_KEY_PLACEHOLDER if api_key and api_key != "None" else ""
 
     # load auth from dotenv
@@ -328,10 +342,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
 
     #secrets
     secrets_manager = get_default_secrets_manager()
-    try:
-        out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
-    except Exception:
-        out["settings"]["secrets"] = ""
+    out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
 
     # mask API keys before sending to frontend
     if isinstance(out["settings"].get("api_keys"), dict):
@@ -347,7 +358,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
     return out
 
 def _get_api_key_field(settings: Settings, provider: str, title: str) -> SettingsField:
-    key = settings["api_keys"].get(provider, models.get_api_key(provider))
+    key = settings["api_keys"].get(provider, models.get_api_key_raw(provider))
     # For API keys, use simple asterisk placeholder for existing keys
     return {
         "id": f"api_key_{provider}",
@@ -409,13 +420,26 @@ def set_runtime_settings_snapshot(settings: Settings) -> None:
     _runtime_settings_snapshot = settings.copy()
 
 
+@contextmanager
+def version_cache_scope(version: str | None = None):
+    cached = {"version": version or _get_version()}
+    token = _settings_version_cache.set(cached)
+    try:
+        yield
+    finally:
+        # Expire the cache in inherited task contexts too.
+        cached.clear()
+        _settings_version_cache.reset(token)
+
+
 def set_settings(settings: Settings, apply: bool = True, browser_timezone: str | None = None):
     global _settings
     previous = _settings
     _settings = normalize_settings(settings)
     _write_settings_file(_settings)
     if apply:
-        _apply_settings(previous, browser_timezone)
+        with version_cache_scope(_settings["version"]):
+            _apply_settings(previous, browser_timezone)
     return reload_settings()
 
 
@@ -449,6 +473,8 @@ def normalize_settings(settings: Settings) -> Settings:
     for key, value in default.items():
         if key not in copy:
             copy[key] = value
+        elif key == "secrets" and copy[key] is None:
+            continue  # Unavailable secrets must not become an empty or literal "None" submission.
         else:
             try:
                 copy[key] = type(value)(copy[key])  # type: ignore
@@ -457,6 +483,10 @@ def normalize_settings(settings: Settings) -> Settings:
             except (ValueError, TypeError):
                 copy[key] = value  # make default instead
 
+    copy["file_browser_max_text_size_mb"] = max(1, min(100, copy["file_browser_max_text_size_mb"]))
+    copy["file_browser_max_transfer_size_mb"] = max(1, copy["file_browser_max_transfer_size_mb"])
+    copy["file_browser_max_extract_size_mb"] = max(1, copy["file_browser_max_extract_size_mb"])
+    copy["file_browser_max_archive_entries"] = max(1, copy["file_browser_max_archive_entries"])
     if copy["agent_profile"] == "default":
         copy["agent_profile"] = "agent0"
 
@@ -486,7 +516,7 @@ def _load_sensitive_settings(settings: Settings):
     providers = get_providers("chat") + get_providers("embedding")
     for provider in providers:
         provider_name = provider["value"]
-        api_key = settings["api_keys"].get(provider_name) or models.get_api_key(provider_name)
+        api_key = settings["api_keys"].get(provider_name) or models.get_api_key_raw(provider_name)
         if api_key and api_key != "None":
             settings["api_keys"][provider_name] = api_key
 
@@ -500,8 +530,8 @@ def _load_sensitive_settings(settings: Settings):
     secrets_manager = get_default_secrets_manager()
     try:
         settings["secrets"] = secrets_manager.read_secrets_raw()
-    except Exception:
-        settings["secrets"] = ""
+    except RepairableException:
+        settings["secrets"] = None
 
 
 def _read_settings_file() -> Settings | None:
@@ -547,9 +577,9 @@ def _write_sensitive_settings(settings: Settings):
             set_root_password(settings["root_password"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
-    secrets_manager = get_default_secrets_manager()
     submitted_content = settings["secrets"]
-    secrets_manager.save_secrets_with_merge(submitted_content)
+    if submitted_content is not None:
+        get_default_secrets_manager().save_secrets_with_merge(submitted_content)
 
 
 
@@ -582,6 +612,10 @@ def get_default_settings() -> Settings:
             "file_browser_remember_last_directory",
             True,
         ),
+        file_browser_max_text_size_mb=get_default_value("file_browser_max_text_size_mb", 10),
+        file_browser_max_transfer_size_mb=get_default_value("file_browser_max_transfer_size_mb", 100),
+        file_browser_max_extract_size_mb=get_default_value("file_browser_max_extract_size_mb", 100),
+        file_browser_max_archive_entries=get_default_value("file_browser_max_archive_entries", 1000),
         rfc_auto_docker=get_default_value("rfc_auto_docker", True),
         rfc_url=get_default_value("rfc_url", "localhost"),
         rfc_password="",
@@ -826,4 +860,4 @@ def create_auth_token() -> str:
 
 
 def _get_version():
-    return git.get_version()
+    return (_settings_version_cache.get() or {}).get("version") or git.get_version()

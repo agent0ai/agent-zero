@@ -1,6 +1,6 @@
 ---
 name: browser-automation
-description: Use for complex Agent Zero browser automation, including multi-tab browsing, screenshots, forms, uploads, raw pointer/keyboard actions, host-vs-container browser mode, and visual verification workflows.
+description: "Control web pages: tabs, clicks, forms, downloads, screenshots; host or Docker browser."
 triggers:
   - "browser automation"
   - "web automation"
@@ -37,6 +37,8 @@ For fragile forms, load `browser-form-workflows` with `skills_tool:load` before 
 
 ## Modes
 
+When the user asks for "my browser", "host browser", "local browser", a local Chromium browser, or opening a URL in their host browser, use this `browser` tool. Do not substitute `computer_use_remote`, `code_execution_remote`, `xdg-open`, `sensible-browser`, or Python `webbrowser.open`. If setup fails and mentions remote debugging, tell the user to open the browser inspect page, such as `chrome://inspect/#remote-debugging` or `opera://inspect/#remote-debugging`, enable "Allow remote debugging for this browser instance", run `/browser host on`, and retry.
+
 The same tool may run in Docker container mode or A0 CLI host-browser mode, depending on project/plugin settings.
 
 - Container mode: browser and upload paths resolve inside the Agent Zero container.
@@ -56,19 +58,27 @@ Screenshot args include `quality`, `full_page`, and optional `path`. Without `pa
 
 ## Forms And Files
 
-- `select_option` works for native selects and detectable ARIA listbox/combobox controls.
-- `set_checked` works for checkbox, radio, switch, and toggle-like refs.
-- `upload_file` works for file input refs or associated labels; verify the file exists in the active browser environment.
+- `select_option` works for native selects and detectable ARIA listbox/combobox controls; pass one choice via `value` or several via `values`.
+- `set_checked` works for checkbox, radio, switch, and toggle-like refs; pass the desired state via `checked`.
+- `upload_file` works for file input `path` or multiple `paths`, file input refs or associated labels; verify files exist in the active browser environment.
 - For fragile forms, call `skills_tool` with `action: "load"` and `skill_name: "browser-form-workflows"`, then follow that form-specific workflow before filling or submitting.
 
 ## Pointer And Keyboard
 
 - Prefer refs/selectors and DOM/CDP actions over viewport coordinates.
-- `hover`, `double_click`, `right_click`, and `drag` accept refs or viewport coordinates when no reliable ref exists.
+- Interaction targets use `ref` from the latest `content` output; `hover`, `double_click`, `right_click`, and `drag` also accept viewport coordinates when no reliable ref exists.
 - Coordinates are Chromium viewport CSS pixels and match screenshots; treat them as visual fallback, not the default interaction path.
-- `key_chord` presses keys in order and releases in reverse.
-- `clipboard` actions are copy, cut, or paste.
-- `set_viewport` resizes the page viewport.
+- Coordinate args: `x`/`y` position the pointer; `drag` adds destination `to_x`/`to_y` or destination `target_ref`; element-relative offsets use `offset_x`/`offset_y` and drag `target_offset_x`/`target_offset_y`.
+- `mouse` sends raw pointer input with `event_type` (default `click`) plus `x`/`y` and `button`.
+- `click` with `modifiers` (e.g. `"Control"`) alters the click; `focus_popup: true` targets an auto-registered popup window.
+- `key_chord` presses `keys` in order and releases in reverse; `keyboard` types `text` or presses a single `key`.
+- `content` narrows extraction via `selector` or a list of `selectors`.
+- `evaluate` runs JavaScript in the page via `script` and returns the evaluated result.
+- Browser settings set the evaluate deadline (default 30 seconds, range 0.1–60 seconds); there is no tool-call timeout override. A timeout interrupts JavaScript in place and preserves the page when execution stops. If async execution remains pending, recovery may reload the affected tab, losing unsaved DOM edits; cookies and tab storage normally survive. The error explicitly reports a reload or fallback closure; use `list` before retrying a closed tab. Host evaluation requires an updated connector; Safari rejects it because its backend cannot forcibly interrupt JavaScript.
+- `wheel` scrolls by pixel deltas `delta_x`/`delta_y` at `x`/`y`.
+- `clipboard` actions are copy, cut, or paste, chosen via `clipboard_action`; paste inserts `text`.
+- `set_viewport` resizes the page viewport via `width` and `height`.
+- `navigate` takes the destination `url` on an existing `browser_id`.
 
 ## Tabs And Popups
 

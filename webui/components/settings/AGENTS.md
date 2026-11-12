@@ -13,10 +13,16 @@
 
 ## Local Contracts
 
+- Agent Config shows the unusable response limit below the default agent profile; Advanced Settings contains the knowledge subdirectory and project inheritance controls.
+- `file-browser/` owns the Files settings page, with appearance, remote folders/plugin controls, file limits and archives in that order. Use standard stacked Settings field rows rather than a bespoke two-column grid. The Files gear and provider plugin shortcuts open this category. Appearance includes the browser-local tree starting folder shared by Files and Editor, defaulting to `/a0`. Remember-location is a normal Settings draft; existing immediate Files limit writes also update the open Settings draft to avoid stale overwrite. Appearance also owns the Files path bar style (`buttons` breadcrumbs default or `raw` plain text path with the Up button), shown in Settings as Breadcrumbs and Text.
+- File Browser appearance includes browser-local **Separate browsing per chat**, enabled by default. It switches the primary browser between retained per-chat views and a shared session; Welcome Files always keeps its own view. Sorting/view/path-bar/tree defaults remain shared.
 - Keep settings payloads synchronized with backend APIs and plugin settings contracts.
+- Self-update reconnect polling uses the backend health timeout, falling back to 600 seconds, plus the existing 30-second restart buffer. Successful health recovery reloads immediately.
 - Settings tabs that expose plugin `settings_sections` must mount `settings/plugins/plugins-subsection.html` with matching `data-tab` and sidebar/nav section IDs.
 - Do not store secrets in localStorage, URLs, or console output.
 - Preserve Store Gating and modal footer conventions in settings components.
+- Mobile navigation uses a native section picker grouped by category; desktop keeps the searchable tree. Both use the same section list and scroll state.
+- Save's disabled binding must return a boolean even before the optional File Browser store loads; an undefined Alpine binding disables the button.
 - Interface control visibility is edited as a Save/Cancel draft, persisted with instance settings, and applied through the shared frontend preference store after Settings saves successfully.
 - Bundled controls contributed by plugins add their Interface row through
   `interface-controls-end` and register visibility defaults with the shared
@@ -24,6 +30,8 @@
 - MCP manager tool toggles write `disabled_tools` into the draft JSON and require Apply before changing the running MCP tool set.
 - Confirmed MCP server removals apply immediately and refresh server status; other MCP manager draft edits still require Apply.
 - MCP manager local command forms accept shell-style command and argument lines; quote argument values that intentionally contain spaces.
+
+- Interface nests registered canvas surfaces under the right canvas rail control, using their plain titles, with independent mobile/desktop visibility in the same Save/Cancel draft. `open(tab, section)` supports direct section entry; initial scrolling waits for component markup and uses instant positioning so scroll anchoring follows later content growth.
 
 ## Work Guidance
 

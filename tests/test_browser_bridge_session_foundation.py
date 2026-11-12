@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import helpers
 from helpers.ws_principal import WsPrincipal
+from helpers.ws_manager import WsPayloadTooLargeError
 from plugins._a0_connector.helpers import browser_bridge_session as session
 from plugins._a0_connector.helpers import ws_runtime
 from plugins._a0_connector.helpers.browser_bridge_auth import (
@@ -472,6 +473,7 @@ def _load_ws_connector(
     ws_stub.WsHandler = _WsHandler
     ws_manager_stub = ModuleType("helpers.ws_manager")
     ws_manager_stub.WsResult = _WsResult
+    ws_manager_stub.WsPayloadTooLargeError = WsPayloadTooLargeError
     try:
         with monkeypatch.context() as context:
             context.setitem(sys.modules, "helpers.print_style", print_style_stub)

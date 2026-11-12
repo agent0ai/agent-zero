@@ -14,6 +14,7 @@ from typing import (
     AsyncIterator,
     Tuple,
     TypedDict,
+    TYPE_CHECKING,
 )
 
 from litellm import embedding
@@ -43,8 +44,10 @@ from langchain_core.messages import (
     SystemMessage,
 )
 from langchain.embeddings.base import Embeddings
-from sentence_transformers import SentenceTransformer
 from pydantic import ConfigDict
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 
 DEFAULT_LITELLM_GLOBAL_KWARGS: dict[str, Any] = {
@@ -272,15 +275,19 @@ rate_limiters: dict[str, RateLimiter] = {}
 api_keys_round_robin: dict[str, int] = {}
 
 
-@extensible
-def get_api_key(service: str) -> str:
-    # get api key for the service
-    key = (
+def get_api_key_raw(service: str) -> str:
+    """Read the stored value, including any comma-separated keys."""
+    return (
         dotenv.get_dotenv_value(f"API_KEY_{service.upper()}")
         or dotenv.get_dotenv_value(f"{service.upper()}_API_KEY")
         or dotenv.get_dotenv_value(f"{service.upper()}_API_TOKEN")
         or "None"
     )
+
+
+@extensible
+def get_api_key(service: str) -> str:
+    key = get_api_key_raw(service)
     # if the key contains a comma, use round-robin
     if "," in key:
         api_keys = [k.strip() for k in key.split(",") if k.strip()]
@@ -332,7 +339,10 @@ async def apply_rate_limiter(
         Callable[[str, str, int, int], Awaitable[bool]] | None
     ) = None,
 ):
-    if not model_config:
+    # skip token counting of the whole prompt when no limit is set
+    if not model_config or not (
+        model_config.limit_requests or model_config.limit_input or model_config.limit_output
+    ):
         return
     limiter = get_rate_limiter(
         model_config.provider,
@@ -727,7 +737,8 @@ class LiteLLMChatWrapper(SimpleChatModel):
                         if output["response_delta"]:
                             if response_callback:
                                 stop_response = await response_callback(
-                                    output["response_delta"], result.response
+                                    output["response_delta"],
+                                    parsed.get("response_preview", result.response),
                                 )
                             if tokens_callback:
                                 await tokens_callback(
@@ -765,6 +776,7 @@ class LiteLLMChatWrapper(SimpleChatModel):
                     input_items=ResponsesTransport.input_from_messages(msgs_conv),
                     provider_model_key=self.model_name,
                     capability=transport._capability_metadata(),
+                    finish_reason=transport.last_finish_reason,
                 )
                 if result.output()["response_delta"] and not llm_result.function_calls:
                     llm_result.response = result.output()["response_delta"]
@@ -805,10 +817,12 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         configure_litellm()
         apply_rate_limiter_sync(self.a0_model_conf, " ".join(inputs))
 
+        call_kwargs = _merge_litellm_call_kwargs(self.kwargs)
+        call_kwargs.pop("a0_api_mode", None)
         resp = embedding(
             model=self.model_name,
             input=inputs,
-            **_merge_litellm_call_kwargs(self.kwargs),
+            **call_kwargs,
         )
         return [
             item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
@@ -822,17 +836,19 @@ class LiteLLMEmbeddingWrapper(Embeddings):
         return self.embed([text])[0]
 
 
-_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], SentenceTransformer] = {}
+_LOCAL_EMBEDDING_MODELS: dict[tuple[str, str], "SentenceTransformer"] = {}
 _LOCAL_EMBEDDING_MODELS_LOCK = threading.Lock()
 
 
 def _get_local_embedding_model(
     model: str, kwargs: dict[str, Any]
-) -> SentenceTransformer:
+) -> "SentenceTransformer":
     key = (model, json.dumps(kwargs, sort_keys=True, default=repr))
     with _LOCAL_EMBEDDING_MODELS_LOCK:
         cached = _LOCAL_EMBEDDING_MODELS.get(key)
         if cached is None:
+            from sentence_transformers import SentenceTransformer
+
             cached = SentenceTransformer(model, **kwargs)
             _LOCAL_EMBEDDING_MODELS.clear()
             _LOCAL_EMBEDDING_MODELS[key] = cached
@@ -965,7 +981,15 @@ def _merge_provider_defaults(
         extra_kwargs = cfg.get("kwargs") if isinstance(cfg, dict) else None  # type: ignore[arg-type]
         if isinstance(extra_kwargs, dict):
             for k, v in extra_kwargs.items():
-                kwargs.setdefault(k, v)
+                if k == "extra_body" and isinstance(v, dict):
+                    body = dict(v)
+                    for key in v:
+                        if key in kwargs:
+                            body[key] = kwargs.pop(key)
+                    body.update(kwargs.get(k) or {})
+                    kwargs[k] = body
+                else:
+                    kwargs.setdefault(k, v)
 
     # Inject API key based on the *original* provider id if still missing
     if "api_key" not in kwargs:

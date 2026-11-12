@@ -20,7 +20,8 @@ from plugins._oauth.helpers.state import (
 )
 
 
-CODEX_DEFAULT_MODEL = "gpt-5.5"
+CODEX_DEFAULT_MODEL = "gpt-6.1-terra"
+CODEX_DEFAULT_UTILITY_MODEL = "gpt-6-luna"
 CODEX_FALLBACK_CONFIG = {
     "enabled": True,
     "models": [],
@@ -44,7 +45,7 @@ class CodexOAuthProvider:
             icon="openai",
             auth_flow="device_code",
             default_model=models[0] if models else CODEX_DEFAULT_MODEL,
-            default_models=models,
+            default_models=models or [CODEX_DEFAULT_MODEL, CODEX_DEFAULT_UTILITY_MODEL],
             proxy_base_path=cfg["proxy_base_path"],
             callback_path=cfg["callback_path"],
         )

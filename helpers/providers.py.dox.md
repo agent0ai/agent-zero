@@ -27,6 +27,10 @@
 
 ## Runtime Contracts
 
+- Provider definitions merge base configuration, bundled plugin roots, then
+  user plugin roots. Later definitions replace matching provider IDs; discovery
+  order within each root is preserved by a stable root-priority sort on a copy
+  of the enabled asset paths.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem deletion, plugin state, settings/state persistence.
@@ -47,6 +51,8 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_plugin_asset_precedence.py` covers cross-root provider overrides
+    and same-root merge order.
   - `tests/test_fastmcp_openapi_security.py`
   - `tests/test_model_config_api_keys.py`
   - `tests/test_oauth_codex.py`

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from contextlib import contextmanager
 from contextvars import ContextVar
 import re
@@ -16,8 +17,13 @@ MODEL_PRESET_KEY = "model_preset"
 BROWSER_MODEL_ACTIVE_KEY = "_browser_model_active"
 DEFAULT_HOMEPAGE_KEY = "default_homepage"
 AUTOFOCUS_ACTIVE_PAGE_KEY = "autofocus_active_page"
+ANNOTATION_SCREENSHOTS_KEY = "annotation_screenshots"
 TAB_SCOPE_KEY = "browser_tab_scope"
 MAX_OPEN_TABS_KEY = "max_open_tabs"
+EVALUATE_TIMEOUT_KEY = "evaluate_timeout_seconds"
+DEFAULT_EVALUATE_TIMEOUT_SECONDS = 30.0
+MIN_EVALUATE_TIMEOUT_SECONDS = 0.1
+MAX_EVALUATE_TIMEOUT_SECONDS = 60.0
 RUNTIME_BACKEND_KEY = "runtime_backend"
 HOST_BROWSER_PRIVACY_POLICY_KEY = "host_browser_privacy_policy"
 HOST_BROWSER_PROFILE_MODE_KEY = "host_browser_profile_mode"
@@ -256,6 +262,21 @@ def _normalize_int(value: Any, *, default: int, minimum: int, maximum: int) -> i
     return max(minimum, min(maximum, number))
 
 
+def normalize_evaluate_timeout(value: Any) -> float:
+    try:
+        timeout = float(value) if not isinstance(value, bool) else 0.0
+    except (TypeError, ValueError, OverflowError):
+        timeout = 0.0
+    if not math.isfinite(timeout) or not (
+        MIN_EVALUATE_TIMEOUT_SECONDS <= timeout <= MAX_EVALUATE_TIMEOUT_SECONDS
+    ):
+        raise ValueError(
+            f"{EVALUATE_TIMEOUT_KEY} must be between "
+            f"{MIN_EVALUATE_TIMEOUT_SECONDS:g} and {MAX_EVALUATE_TIMEOUT_SECONDS:g} seconds"
+        )
+    return timeout
+
+
 def _normalize_xkb_token(value: Any) -> str:
     return "".join(
         ch for ch in str(value or "").strip().lower() if ch.isalnum() or ch in {"_", "-"}
@@ -300,6 +321,9 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
             raw.get(AUTOFOCUS_ACTIVE_PAGE_KEY, True),
             default=True,
         ),
+        ANNOTATION_SCREENSHOTS_KEY: _normalize_bool(
+            raw.get(ANNOTATION_SCREENSHOTS_KEY), default=False,
+        ),
         TAB_SCOPE_KEY: _normalize_choice(
             raw.get(TAB_SCOPE_KEY, DEFAULT_BROWSER_TAB_SCOPE),
             allowed=BROWSER_TAB_SCOPES,
@@ -310,6 +334,9 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
             default=DEFAULT_MAX_OPEN_TABS,
             minimum=MIN_MAX_OPEN_TABS,
             maximum=HARD_MAX_OPEN_TABS,
+        ),
+        EVALUATE_TIMEOUT_KEY: normalize_evaluate_timeout(
+            raw.get(EVALUATE_TIMEOUT_KEY, DEFAULT_EVALUATE_TIMEOUT_SECONDS)
         ),
         RUNTIME_BACKEND_KEY: _normalize_runtime_backend(
             raw.get(RUNTIME_BACKEND_KEY, "container")

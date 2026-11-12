@@ -377,6 +377,34 @@ class DesktopSessionManager:
             "save": save_result,
         }
 
+    def rename_open_document(self, source: Path, target: Path) -> bool:
+        with self._lock:
+            session = self.get(SYSTEM_SESSION_ID)
+            if not session:
+                session = self._load_system_desktop_from_manifest_locked()
+                if session:
+                    self._sessions[session.session_id] = session
+                    self._register_virtual_desktop(session)
+            if not session or not self._office_window_id_locked(session, title=source.name, fallback=False):
+                return False
+            result = subprocess.run(
+                [
+                    "/usr/bin/python3",
+                    str(Path(__file__).with_name("rename_office_document.py")),
+                    libreoffice.find_soffice(),
+                    str(session.profile_dir),
+                    str(source),
+                    str(target),
+                ],
+                env=self._display_env(session),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or "LibreOffice could not rename the open document.")
+            return json.loads(result.stdout)["renamed"]
+
     def retarget_document(self, file_id: str, doc: dict[str, Any]) -> dict[str, Any]:
         session = self._find_by_file_id(file_id)
         if not session:
@@ -430,8 +458,6 @@ class DesktopSessionManager:
         if not session:
             return {"ok": False, "error": "LibreOffice desktop session not found."}
         is_system_desktop = session.session_id == SYSTEM_SESSION_ID and session.extension == "desktop"
-        if is_system_desktop:
-            width, height = virtual_desktop.normalize_desktop_display_size(width, height)
         result = virtual_desktop.resize_display(
             display=session.display,
             width=width,
@@ -699,7 +725,7 @@ class DesktopSessionManager:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=self._display_env(session),
+            env={**virtual_desktop.XPRA_START_ENV, **self._display_env(session)},
         )
         _wait_for_port(
             "127.0.0.1",
@@ -719,7 +745,7 @@ class DesktopSessionManager:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=self._display_env(session),
+            env={**virtual_desktop.XPRA_START_ENV, **self._display_env(session)},
         )
         _wait_for_port(
             "127.0.0.1",
@@ -1829,6 +1855,7 @@ def _xpra_shadow_command(xpra: str, session: DesktopSession) -> list[str]:
         f":{session.display}",
         "--daemon=no",
         "--mdns=no",
+        "--mmap=no",
         "--html=on",
         "--tray=no",
         "--system-tray=no",

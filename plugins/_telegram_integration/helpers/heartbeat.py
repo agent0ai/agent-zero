@@ -8,9 +8,8 @@ from contextlib import suppress
 from agent import AgentContext
 from helpers.print_style import PrintStyle
 from plugins._telegram_integration.helpers import telegram_client as tc
-from plugins._telegram_integration.helpers.bot_manager import get_bot
+from plugins._telegram_integration.helpers import scopes
 from plugins._telegram_integration.helpers.constants import (
-    CTX_TG_BOT,
     CTX_TG_CHAT_ID,
     CTX_TG_HEARTBEAT_STOP,
     CTX_TG_HEARTBEAT_TASK,
@@ -63,9 +62,8 @@ async def _heartbeat_loop(
 
 
 async def _send_heartbeat(context: AgentContext, elapsed_seconds: float) -> bool:
-    bot_name = context.data.get(CTX_TG_BOT)
     chat_id = context.data.get(CTX_TG_CHAT_ID)
-    bot = get_bot(bot_name) if bot_name else None
+    bot = scopes.authorized_bot(context)
     if not bot or not chat_id:
         return False
 

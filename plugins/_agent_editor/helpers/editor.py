@@ -230,11 +230,16 @@ def list_profiles(context: Any | None = None) -> list[dict[str, Any]]:
 def build_editor_state(
     profile_id: str,
     context: Any | None = None,
+    *,
+    mode: str = "advanced",
 ) -> dict[str, Any]:
+    if mode not in {"easy", "advanced"}:
+        raise ValueError("Unknown editor mode.")
     profile_id = validate_profile_id(profile_id)
     agent = EditorAgent(profile_id, context)
-    prompt_files = prompt_catalog(agent)
-    tool_catalog = tool_policy.get_tool_catalog(agent)
+    prompt_files = prompt_catalog(
+        agent, names={SPECIFICS_FILE} if mode == "easy" else None,
+    )
     from plugins._model_config.helpers import model_config
 
     presets: list[dict[str, Any]] = []
@@ -310,12 +315,8 @@ def build_editor_state(
     return {
         "profile": build_profile_state(profile_id, context),
         "prompts": prompt_files,
-        "tools": {
-            "policy": tool_policy.normalize_policy(tool_scope),
-            "effective_policy": tool_policy.get_policy(agent),
-            "has_override": any(key in tool_scope for key in _TOOL_POLICY_KEYS),
-            "catalog": tool_catalog,
-        },
+        "prompts_complete": mode == "advanced",
+        "tools": _editor_tool_state(agent, tool_scope),
         "skills": {
             "policy": skill_policy,
             "effective_policy": effective_skill_policy,
@@ -328,6 +329,59 @@ def build_editor_state(
             "override": model_scope.get(model_config.MODEL_PRESET_CONFIG_KEY),
             "has_override": model_config.MODEL_PRESET_CONFIG_KEY in model_scope,
         },
+    }
+
+
+def _editor_tool_state(agent: EditorAgent, scope: dict[str, Any]) -> dict[str, Any]:
+    catalog = tool_policy.get_tool_catalog(agent)
+    aliases = {
+        alias: item["id"]
+        for item in catalog if item["available"]
+        for alias in tool_policy.LEGACY_TOOL_IDS.get(item["id"], ())
+    }
+    action_tools = {item["id"]: item for item in catalog if item.get("actions") and item["id"] not in aliases}
+    action_ids = {
+        tool_id: [tool_policy.action_policy_id(tool_id, action) for action in item["actions"]]
+        for tool_id, item in action_tools.items()
+    }
+    rows = {item["id"]: dict(item) for item in catalog if item["id"] not in aliases}
+    for item in rows.values():
+        item["tool_names"] = list(dict.fromkeys(
+            entry["name"] for entry in catalog
+            if aliases.get(entry["id"], entry["id"]) == item["id"]
+        ))
+    for parent_id, parent in action_tools.items():
+        # Project whole-tool rules onto actions so each control matches execution.
+        parent_names = rows.pop(parent_id)["tool_names"]
+        for action, tool_id in zip(parent["actions"], action_ids[parent_id]):
+            item = rows.setdefault(tool_id, {
+                **parent, "id": tool_id, "name": f'{parent["name"]}:{action}', "tool_names": [],
+            })
+            item.pop("actions", None)
+            item["parent_tool"] = {key: parent[key] for key in ("id", "name", "label")}
+            item["action_label"] = action.replace("_", " ").title()
+            item["label"] = f'{parent["name"].replace("_", " ").title()}: {action.replace("_", " ").title()}'
+            if parent["available"]:
+                item["available"] = True
+                item["tool_names"] = list(dict.fromkeys([*item["tool_names"], *parent_names]))
+
+    def project_policy(raw: dict[str, Any]) -> dict[str, Any]:
+        policy = tool_policy.normalize_policy(raw)
+        for key in ("allowed", "blocked"):
+            policy[key] = list(dict.fromkeys(
+                projected_id
+                for tool_id in policy[key]
+                for canonical_id in [aliases.get(tool_id, tool_id)]
+                for projected_id in action_ids.get(canonical_id, [canonical_id])
+            ))
+        policy["allowed"] = [tool_id for tool_id in policy["allowed"] if tool_id not in policy["blocked"]]
+        return policy
+
+    return {
+        "policy": project_policy(scope),
+        "effective_policy": project_policy(tool_policy.get_policy(agent)),
+        "has_override": any(key in scope for key in _TOOL_POLICY_KEYS),
+        "catalog": sorted(rows.values(), key=lambda item: (item["label"].casefold(), item["id"])),
     }
 
 
@@ -433,28 +487,40 @@ def _scope_has_overrides(profile_id: str, context: Any | None = None) -> bool:
     return any(any(key in _read_mapping(path) for key in keys) for path, keys in checks)
 
 
-def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
+def prompt_catalog(agent: EditorAgent, *, names: set[str] | None = None) -> list[dict[str, Any]]:
     roots = [Path(path) for path in subagents.get_paths(agent, "prompts")]
-    names = {
-        path.name
+    root_files = {
+        root: {
+            path.name: path
+            for path in root.glob("*")
+            if path.suffix in {".md", ".py"} and path.is_file()
+        }
         for root in roots
-        if root.is_dir()
-        for path in root.glob("*.md")
-        if path.is_file() and path.name not in NON_PROMPT_MARKDOWN
     }
+    names = set(names) if names is not None else {
+        name
+        for paths in root_files.values()
+        for name in paths
+        if name.endswith(".md") and name not in NON_PROMPT_MARKDOWN
+    }
+    processors = {name for paths in root_files.values() for name in paths if name.endswith(".py")}
     names.add(SPECIFICS_FILE)
     project_name = _context_project_name(agent.context)
     scope_prompt_dir = _profile_root(agent.config.profile, project_name) / "prompts"
     project_root = (
         Path(projects.get_project_meta(project_name)) if project_name else None
     )
+    sources = {
+        root: _prompt_source(root, scope_prompt_dir, project_root)
+        for root in roots if root_files[root]
+    }
     result: list[dict[str, Any]] = []
     for name in sorted(names, key=lambda value: (_prompt_group(value)[0], value)):
         occurrences: list[tuple[Path, str, str]] = []
         for root in roots:
-            path = root / name
-            if path.is_file():
-                kind, label = _prompt_source(root, scope_prompt_dir, project_root)
+            path = root_files[root].get(name)
+            if path is not None:
+                kind, label = sources[root]
                 occurrences.append((path, kind, label))
 
         effective = occurrences[0] if occurrences else None
@@ -510,9 +576,7 @@ def prompt_catalog(agent: EditorAgent) -> list[dict[str, Any]]:
                 ],
                 "preview": preview,
                 "error": effective_error or override_error or inherited_error,
-                "dynamic_processor": any(
-                    (root / f"{Path(name).stem}.py").is_file() for root in roots
-                ),
+                "dynamic_processor": f"{Path(name).stem}.py" in processors,
             }
         )
     return result
@@ -554,7 +618,11 @@ def _profile_directories(
             Path(files.get_abs_path("agents", profile_id)),
         )
     ]
-    for directory in plugins.get_enabled_plugin_paths(agent, "agents", profile_id):
+    for directory in sorted(
+        plugins.get_enabled_plugin_paths(agent, "agents", profile_id),
+        key=plugins.get_plugin_root_priority,
+        reverse=True,
+    ):
         directories.append(("plugin", Path(directory)))
     directories.append(("user", USER_AGENTS_ROOT / profile_id))
 
@@ -1189,7 +1257,7 @@ def _string_list(value: Any, label: str) -> list[str]:
 def _valid_tool_id(value: str) -> bool:
     return bool(
         re.fullmatch(
-            r"(?:local:[^\s/:]+|(?:mcp|plugin):[^\s/:]+:[^\s/:]+)",
+            r"(?:(?:local:[^\s/:]+|plugin:[^\s/:]+:[^\s/:]+)(?::[a-z0-9_]+)?|mcp:[^\s/:]+:[^\s/:]+)",
             value,
         )
     )
