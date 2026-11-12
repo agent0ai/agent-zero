@@ -238,6 +238,20 @@ const model = {
     return this.payload?.present || {};
   },
 
+  storageLabel() {
+    const storage = this.payload?.storage;
+    if (!storage) return "";
+    const bytes = Number(storage.object_bytes || 0);
+    const unit = bytes < 1048576 ? "KiB" : "MiB";
+    const size = (bytes / (unit === "KiB" ? 1024 : 1048576)).toLocaleString(undefined, { maximumFractionDigits: 1 });
+    const limits = [];
+    if (storage.max_snapshots) limits.push(`${storage.max_snapshots} recent snapshots`);
+    if (storage.max_age_days) limits.push(`${storage.max_age_days} days`);
+    const policy = storage.retention_enabled && limits.length ? `Keep ${limits.join(' / ')} + current state and checkpoints` : 'Snapshot expiry off';
+    const coverage = storage.max_file_mb ? ` · Files above ${storage.max_file_mb} MiB excluded` : '';
+    return `${size} ${unit} of Git objects · ${storage.commits} snapshots · ${policy}${coverage}`;
+  },
+
   isLocked() {
     return Boolean(this.payload?.workspace?.locked || this.payload?.workspace?.available === false);
   },
@@ -395,7 +409,8 @@ const model = {
         trigger: "manual",
       });
       if (!response?.ok) throw new Error(response?.error || "Snapshot failed.");
-      globalThis.justToast?.(response.snapshot?.created ? "Snapshot captured" : "No changes to snapshot", "success", 1400, "time-travel-snapshot");
+      const skipped = response.snapshot?.skipped_files || [];
+      globalThis.justToast?.(skipped.length ? `${skipped.length} oversized file(s) skipped. Check current changes for details.` : (response.snapshot?.created ? "Snapshot captured" : "No changes to snapshot"), skipped.length ? "warning" : "success", skipped.length ? 5000 : 1400, "time-travel-snapshot");
       await this.refresh({ keepSelection: true });
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
@@ -408,6 +423,7 @@ const model = {
     const target = commit || this.selectedCommit();
     if (!target || this.busy || this.isLocked()) return;
     if (operation === "travel" && target.is_current) return;
+    if (operation === "revert" && target.metadata?.retention_checkpoint) return;
     this.previewOpen = true;
     this.previewLoading = true;
     this.previewError = "";

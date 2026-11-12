@@ -39,6 +39,8 @@ def run_git(repo_dir: Path, *args: str, check: bool = True) -> str:
 @pytest.fixture(autouse=True)
 def isolated_shadow_root(tmp_path, monkeypatch):
     monkeypatch.setattr(tt, "SHADOW_DISPLAY_ROOT", str(tmp_path / "history"))
+    monkeypatch.setattr(tt, "plugin_config", lambda: {})
+    monkeypatch.setattr(tt, "snapshots_enabled", lambda: True)
 
 
 @pytest.fixture
@@ -185,6 +187,83 @@ def test_snapshot_removes_deleted_and_newly_excluded_index_entries(workspace, mo
     monkeypatch.setattr(tt, "EXCLUDED_FILE_PATTERNS", tt.EXCLUDED_FILE_PATTERNS | {"exclude"})
     service.snapshot()
     assert tracked_paths(service) == {"keep"}
+
+
+def test_configured_capture_patterns_and_size_limits_preserve_restore_safety(workspace):
+    root, service = workspace
+    (root / "downloads").mkdir()
+    (root / "downloads" / "archive.zip").write_bytes(b"fixture")
+    (root / "document.pdf").write_bytes(b"small artifact")
+    (root / "large.bin").write_bytes(b"x" * (1024 * 1024 + 1))
+    (root / ".env").write_text("SYNTHETIC_SECRET=fixture")
+    captured = service.snapshot()
+    service.policy = tt.SnapshotPolicy({"capture_exclude_patterns": "downloads/\n!.env\n", "capture_max_file_mb": 1})
+    snapshot = service.snapshot()
+    assert tracked_paths(service) == {"document.pdf"}
+    assert snapshot.skipped_files == ["large.bin"]
+    assert service.present_summary()["skipped_files"] == ["large.bin"]
+    with pytest.raises(TimeTravelConflictError, match="excluded path|size limit"):
+        service.travel(commit_hash=captured.hash)
+    assert (root / "large.bin").stat().st_size == 1024 * 1024 + 1
+    (root / "large.bin").write_bytes(b"small again")
+    service.snapshot()
+    assert "large.bin" in tracked_paths(service)
+
+
+def test_failed_workspace_scan_does_not_commit_deletions(workspace, monkeypatch):
+    root, service = workspace
+    folder = root / "folder"
+    folder.mkdir()
+    (folder / "file.txt").write_text("protected")
+    first = service.snapshot()
+    original = os.scandir
+
+    def unreadable(path):
+        if not isinstance(path, int) and Path(path) == folder:
+            raise PermissionError("fixture")
+        return original(path)
+
+    monkeypatch.setattr(os, "scandir", unreadable)
+    with pytest.raises(TimeTravelError, match="scan snapshot directory"):
+        service.snapshot()
+    assert service.current_hash() == first.hash
+
+
+def test_disabling_plugin_cancels_pending_capture(workspace, monkeypatch):
+    root, service = workspace
+    (root / "file.txt").write_text("fixture")
+    tt.schedule_debounced_snapshot(service.workspace, trigger="test", delay=60)
+    monkeypatch.setattr(tt, "snapshots_enabled", lambda: False)
+    tt.flush_debounced_snapshots()
+    assert not service.workspace.repo_git_path.exists()
+    tt.schedule_debounced_snapshot(service.workspace, trigger="test", delay=60)
+    assert service.workspace.id not in tt._AUTO_SNAPSHOT_PAYLOADS
+
+
+def test_travel_keeps_unrelated_empty_directories(workspace):
+    root, service = workspace
+    (root / "file.txt").write_text("one")
+    first = service.snapshot()
+    (root / "new-folder").mkdir()
+    (root / "new-folder" / "added.txt").write_text("two")
+    service.snapshot()
+    (root / "untracked-empty").mkdir()
+    service.travel(commit_hash=first.hash)
+    assert (root / "untracked-empty").is_dir()
+    assert not (root / "new-folder").exists()
+
+
+def test_binary_preview_does_not_generate_an_unused_binary_patch(workspace, monkeypatch):
+    root, service = workspace
+    (root / "video.bin").write_bytes(b"\0synthetic binary")
+    snapshot = service.snapshot()
+
+    def no_patch(*args, **kwargs):
+        raise AssertionError("binary previews must not generate a patch")
+
+    monkeypatch.setattr(service, "_git_bytes", no_patch)
+    result = service.history_diff(commit_hash=snapshot.hash, path="video.bin")
+    assert result["binary"] and result["patch"] == ""
 
 
 def test_shadow_history_snapshot_diff_travel_preserve_refs_and_root_revert(workspace):

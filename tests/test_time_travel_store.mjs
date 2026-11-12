@@ -54,3 +54,24 @@ test('clearing a selection invalidates an in-flight diff', async () => {
   assert.equal(store.selectedDiff, null);
   assert.equal(store.diffLoading, false);
 });
+
+test('storage shows small histories accurately and describes active expiry limits', () => {
+  const store = load(() => {});
+  store.payload = { storage: { object_bytes: 4096, commits: 4, retention_enabled: true,
+    max_snapshots: 500, max_age_days: 30, max_file_mb: 8 } };
+  assert.match(store.storageLabel(), /4 KiB/);
+  assert.match(store.storageLabel(), /500 recent snapshots/);
+  assert.match(store.storageLabel(), /30 days/);
+  assert.match(store.storageLabel(), /Files above 8 MiB excluded/);
+  store.payload.storage.retention_enabled = false;
+  assert.match(store.storageLabel(), /Snapshot expiry off/);
+});
+
+test('checkpoint revert is refused before sending a request', async () => {
+  const store = load(() => { throw new Error('must not request checkpoint revert'); });
+  store.payload = structuredClone(page);
+  store.payload.commits[0].metadata = { retention_checkpoint: true };
+  store.selectedHash = 'saved';
+  await store.openPreview('revert');
+  assert.equal(store.previewOpen, false);
+});

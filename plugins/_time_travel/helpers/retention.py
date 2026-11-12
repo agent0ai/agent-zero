@@ -15,15 +15,15 @@ The sweep (driven from ``job_loop``, throttled by config) removes:
   never be shown in the UI again. Deleted once last activity is past a grace window.
 - AGED repositories — no snapshot in ``retention_max_age_days`` (0 = keep forever, the
   default).
-- STALE LOCKS — ``repo.git/index.lock`` older than ``retention_stale_lock_minutes``; Time
-  Travel kills its git subprocesses at ``GIT_TIMEOUT_SECONDS``, so no legitimate lock lives
-  that long. Removing it un-wedges future snapshots.
+- STALE LOCKS — ``repo.git/index.lock`` older than ``retention_stale_lock_minutes``;
+  removal holds the workspace lock so it cannot race a capture, restore or compaction.
 - INVALID BACKUPS — ``repo.git.invalid*`` set-asides made for corrupt repositories, past the
   same grace window.
 
-Deleting a live workspace's shadow repository is always safe for the feature itself: the next
-snapshot lazily re-initializes an empty history. Deletion is refused for any path outside the
-shadow root.
+Active snapshot expiry is separately opt-in. ``compaction.py`` preserves the current state,
+recent snapshots and checkpoint boundaries, then reclaims unreachable objects. All mutations
+share workspace locks with captures and restores; unknown ownership aborts cleanup. Deleting
+an inactive history intentionally loses its recovery points, but never edits workspace files.
 
 Durable state next to the workspaces dir: ``retention.json`` (running totals + last sweep
 stamp) and ``retention.log`` (one JSON line per sweep with the names of everything removed,
@@ -56,6 +56,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "retention_max_age_days": 0,
     "retention_orphan_grace_hours": 24,
     "retention_stale_lock_minutes": 30,
+    "history_retention_enabled": False,
+    "history_max_snapshots": 500,
+    "history_max_age_days": 30,
 }
 
 
@@ -69,15 +72,15 @@ def _int_at_least(value: Any, minimum: int, fallback: int) -> int:
 def effective_config(cfg: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Plugin config with defaults filled in and values clamped to sane minimums."""
     if cfg is None:
-        try:
-            from helpers import plugins
+        from helpers import plugins
 
-            cfg = plugins.get_plugin_config(PLUGIN_NAME) or {}
-        except Exception:
-            cfg = {}
+        cfg = plugins.get_plugin_config(PLUGIN_NAME) or {}
     merged = dict(DEFAULT_CONFIG)
     merged.update({k: v for k, v in cfg.items() if k in DEFAULT_CONFIG and v is not None})
     merged["retention_enabled"] = bool(merged["retention_enabled"])
+    merged["history_retention_enabled"] = merged["history_retention_enabled"] is True
+    merged["history_max_snapshots"] = _int_at_least(merged["history_max_snapshots"], 0, 500)
+    merged["history_max_age_days"] = _int_at_least(merged["history_max_age_days"], 0, 30)
     merged["retention_sweep_interval_hours"] = _int_at_least(
         merged["retention_sweep_interval_hours"], 1, 6
     )
@@ -189,6 +192,10 @@ def read_history(limit: int = 50, state_dir: Optional[str] = None) -> list[dict[
 
 
 def _last_activity(entry_path: str) -> float:
+    try:
+        return os.stat(os.path.join(entry_path, "last_activity"), follow_symlinks=False).st_mtime
+    except FileNotFoundError:
+        pass
     candidates = [
         os.path.join(entry_path, "repo.git", "refs", "heads", "current"),
         os.path.join(entry_path, "repo.git", "packed-refs"),
@@ -248,6 +255,9 @@ def sweep(
         "stale_locks_removed": 0,
         "invalid_backups_removed": 0,
         "bytes_reclaimed": 0,
+        "repositories_compacted": 0,
+        "commits_expired": 0,
+        "gc_runs": 0,
     }
     config = effective_config(cfg)
     if not config["retention_enabled"]:
@@ -305,6 +315,23 @@ def sweep(
                         detail["locks"].append(name)
                 except Exception:
                     pass
+                if config["history_retention_enabled"]:
+                    from helpers.print_style import PrintStyle
+                    from plugins._time_travel.helpers.compaction import compact_repository
+
+                    try:
+                        activity = Path(entry) / "last_activity"
+                        if not activity.exists():
+                            with open(activity, "xb") as marker:
+                                os.utime(marker.fileno(), (last, last))
+                        compacted = compact_repository(
+                            Path(entry) / "repo.git", max_snapshots=config["history_max_snapshots"],
+                            max_age_days=config["history_max_age_days"], now=now,
+                        )
+                        for key, value in compacted.items():
+                            stats[key] += value
+                    except Exception as exc:
+                        PrintStyle.error(f"Time Travel compaction failed for {name}: {exc}")
 
                 try:
                     for sub in os.listdir(entry):

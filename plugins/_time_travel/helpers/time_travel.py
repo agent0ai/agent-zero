@@ -12,12 +12,13 @@ import tempfile
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
 from typing import Any, Iterable
 
 from filelock import Timeout
+from pathspec import PathSpec
 
 from helpers import files
 from helpers.localization import Localization
@@ -78,6 +79,12 @@ EXCLUDED_DIR_NAMES = {
     "coverage",
     "htmlcov",
     ".parcel-cache",
+    ".ipynb_checkpoints",
+    ".hypothesis",
+    ".npm",
+    ".pnpm-store",
+    ".gradle",
+    ".conda",
 }
 
 EXCLUDED_DIR_PATTERNS = {
@@ -181,6 +188,43 @@ class SnapshotResult:
     message: str
     files: list[dict[str, Any]]
     metadata: dict[str, Any]
+    skipped_files: list[str] = field(default_factory=list)
+
+
+def plugin_config() -> dict[str, Any]:
+    from helpers import plugins
+
+    return plugins.get_plugin_config(PLUGIN_NAME) or {}
+
+
+def snapshots_enabled() -> bool:
+    from helpers import plugins
+
+    return plugins.get_toggle_state(PLUGIN_NAME) == "enabled"
+
+
+class SnapshotPolicy:
+    def __init__(self, config: dict[str, Any]):
+        patterns = config.get("capture_exclude_patterns") or ""
+        if isinstance(patterns, str):
+            patterns = patterns.splitlines()
+        if not isinstance(patterns, list) or any(not isinstance(pattern, str) for pattern in patterns):
+            raise TimeTravelError("Capture exclusions must be one pattern per line.")
+        try:
+            self.exclusions = PathSpec.from_lines("gitignore", patterns)
+            self.max_file_bytes = int(config.get("capture_max_file_mb") or 0) * 1024 * 1024
+            if self.max_file_bytes < 0:
+                raise ValueError()
+        except (TypeError, ValueError) as exc:
+            raise TimeTravelError("Invalid Time Travel capture settings.") from exc
+
+    def allows(self, rel: str, *, is_dir: bool = False) -> bool:
+        if not is_snapshot_candidate(rel, is_dir=is_dir):
+            return False
+        parts = rel.split("/")
+        candidates = [rel + ("/" if is_dir else "")]
+        candidates.extend("/".join(parts[:index]) + "/" for index in range(1, len(parts)))
+        return not any(self.exclusions.match_file(path) for path in candidates)
 
 
 def now_iso() -> str:
@@ -586,6 +630,8 @@ def schedule_debounced_snapshot(
     changed_path_hints: list[str] | None = None,
     delay: float | None = None,
 ) -> None:
+    if not snapshots_enabled():
+        return
     clean_metadata = dict(metadata or {})
     metadata_hints = _extract_changed_path_hints(clean_metadata)
     clean_metadata.pop("changed_path_hints", None)
@@ -638,7 +684,7 @@ def _flush_debounced_snapshot(workspace_id: str) -> None:
     with _AUTO_SNAPSHOT_LOCK:
         _AUTO_SNAPSHOT_TIMERS.pop(workspace_id, None)
         payload = _AUTO_SNAPSHOT_PAYLOADS.pop(workspace_id, None)
-    if not payload:
+    if not payload or not snapshots_enabled():
         return
 
     try:
@@ -657,6 +703,10 @@ def _flush_debounced_snapshot(workspace_id: str) -> None:
 
 
 def _handle_usr_watchdog_events(items: list[Any]) -> None:
+    if not snapshots_enabled():
+        clear_debounced_snapshots()
+        return
+    policy = SnapshotPolicy(plugin_config())
     by_workspace: dict[str, tuple[WorkspaceInfo, list[str]]] = {}
     for path, _event in items:
         display_path = normalize_display_path(str(path or ""))
@@ -664,6 +714,9 @@ def _handle_usr_watchdog_events(items: list[Any]) -> None:
             continue
         workspace = resolve_workspace_for_path_hint(display_path)
         if workspace is None:
+            continue
+        rel = posixpath.relpath(display_path, workspace.display_path)
+        if not policy.allows(rel) or not policy.allows(rel, is_dir=True):
             continue
         hints = by_workspace.setdefault(workspace.id, (workspace, []))[1]
         hints.append(display_path)
@@ -736,6 +789,9 @@ def _is_watchdog_snapshot_candidate(display_path: str) -> bool:
 class TimeTravelService:
     def __init__(self, workspace: WorkspaceInfo):
         self.workspace = workspace
+        self.config = plugin_config()
+        self.policy = SnapshotPolicy(self.config)
+        self.skipped_files: list[str] = []
 
     @workspace_operation
     def ensure_repo(self) -> None:
@@ -782,6 +838,7 @@ class TimeTravelService:
                 message=message or self._default_snapshot_message(trigger),
                 files=[],
                 metadata=self._metadata(trigger, metadata, changed_path_hints),
+                skipped_files=self.skipped_files,
             )
 
         if not previous_hash and not included_paths:
@@ -793,6 +850,7 @@ class TimeTravelService:
                 message=message or self._default_snapshot_message(trigger),
                 files=[],
                 metadata=self._metadata(trigger, metadata, changed_path_hints),
+                skipped_files=self.skipped_files,
             )
 
         full_metadata = self._metadata(trigger, metadata, changed_path_hints)
@@ -807,6 +865,7 @@ class TimeTravelService:
             env["GIT_COMMITTER_DATE"] = timestamp
         commit = self._git(*args, input=commit_message, env=env).stdout.strip()
         self._git("update-ref", "HEAD", commit)
+        self._record_activity()
         diff_base = previous_hash or EMPTY_TREE
         return SnapshotResult(
             created=True,
@@ -816,6 +875,7 @@ class TimeTravelService:
             message=message or self._default_snapshot_message(trigger),
             files=self.diff_files(diff_base, commit),
             metadata=full_metadata,
+            skipped_files=self.skipped_files,
         )
 
     @workspace_operation
@@ -835,6 +895,22 @@ class TimeTravelService:
             "present": None,
             "commits": self._commit_objects(visible, current_hash=current),
             "has_more": len(window) > limit,
+            "storage": self.storage_info(),
+        }
+
+    def storage_info(self) -> dict[str, Any]:
+        from plugins._time_travel.helpers.compaction import object_stats
+        from plugins._time_travel.helpers.retention import effective_config
+
+        config = effective_config(self.config)
+        exists = self.workspace.repo_git_path.is_dir()
+        return {
+            "object_bytes": object_stats(self.workspace.repo_git_path)["bytes"] if exists else 0,
+            "commits": int(self._git("rev-list", "--count", "--all").stdout) if exists else 0,
+            "retention_enabled": config["retention_enabled"] and config["history_retention_enabled"],
+            "max_snapshots": config["history_max_snapshots"],
+            "max_age_days": config["history_max_age_days"],
+            "max_file_mb": self.policy.max_file_bytes // (1024 * 1024),
         }
 
     @workspace_operation
@@ -863,13 +939,14 @@ class TimeTravelService:
             base = current
             target = commit_hash
         elif operation == "revert":
+            self._check_revert_checkpoint(commit_hash)
             base = commit_hash
             target = self._first_parent(commit_hash) or EMPTY_TREE
         else:
             raise TimeTravelError("Unsupported preview operation.")
 
         files_changed = self.diff_files(base, target)
-        self._check_restore_paths(files_changed)
+        self._check_restore_paths(files_changed, target)
         previews = []
         for item in files_changed[:12]:
             rel_path = str(item.get("path") or item.get("old_path") or "")
@@ -896,9 +973,10 @@ class TimeTravelService:
         if previous:
             self._preserve_ref(previous, reason="travel")
         affected = self.diff_files(previous or EMPTY_TREE, target)
-        self._check_restore_paths(affected)
+        self._check_restore_paths(affected, target)
         self._apply_commit_tree(previous or EMPTY_TREE, target, affected)
         self._git("update-ref", "HEAD", target)
+        self._record_activity()
         return {
             "ok": True,
             "operation": "travel",
@@ -914,9 +992,10 @@ class TimeTravelService:
         self._ensure_workspace_dir()
         self.ensure_repo()
         target = self._validate_commit(commit_hash)
+        self._check_revert_checkpoint(target)
         before = self.snapshot(trigger="before_revert", metadata=metadata or {})
         parent = self._first_parent(target) or EMPTY_TREE
-        self._check_restore_paths(self.diff_files(parent, target))
+        self._check_restore_paths(self.diff_files(parent, target), parent)
         patch = self._git_bytes("diff", "--binary", parent, target).stdout
         if patch:
             checked = self._git_bytes("apply", "--reverse", "--check", "--binary", "--whitespace=nowarn", input=patch, check=False)
@@ -949,12 +1028,14 @@ class TimeTravelService:
         base = current or EMPTY_TREE
         with self._present_view() as (view, current_tree):
             changed = view.diff_files(base, current_tree)
+            skipped_files = view.skipped_files
         return {
             "dirty": bool(changed),
             "files_count": len(changed),
             "additions": sum(int(item.get("additions") or 0) for item in changed),
             "deletions": sum(int(item.get("deletions") or 0) for item in changed),
             "files": changed,
+            "skipped_files": skipped_files,
         }
 
     def commit_object(self, commit_hash: str, *, current_hash: str = "") -> dict[str, Any]:
@@ -1022,6 +1103,7 @@ class TimeTravelService:
         with tempfile.TemporaryDirectory(prefix="a0-time-travel-") as folder:
             shadow = Path(folder) / "workspace"
             view = TimeTravelService(replace(self.workspace, shadow_path=shadow, repo_git_path=shadow / "repo.git"))
+            view.policy = self.policy
             view.ensure_repo()
             objects = self.workspace.repo_git_path / "objects"
             if objects.is_dir():
@@ -1030,7 +1112,9 @@ class TimeTravelService:
             yield view, tree
 
     def _stage_current_tree(self) -> tuple[str, list[str]]:
-        paths = list(iter_snapshot_paths(self.workspace.real_path, display_path=self.workspace.display_path))
+        self.skipped_files = []
+        paths = list(iter_snapshot_paths(self.workspace.real_path, display_path=self.workspace.display_path,
+                                         policy=self.policy, skipped_files=self.skipped_files))
         indexed = set(self._git("ls-files", "-z").stdout.split("\0")) - {""}
         removed = indexed - set(paths)
         if removed:
@@ -1066,16 +1150,32 @@ class TimeTravelService:
             self._delete_workspace_entry(rel_path)
         for rel_path in sorted(set(write_paths)):
             self._materialize_tree_path(target, rel_path)
-        self._prune_empty_dirs()
+        self._prune_empty_dirs(delete_paths)
 
-    def _check_restore_paths(self, affected: list[dict[str, Any]]) -> None:
+    def _check_revert_checkpoint(self, commit: str) -> None:
+        body = self._git("show", "-s", "--format=%B", commit).stdout
+        if self._parse_metadata(body).get("retention_checkpoint"):
+            raise TimeTravelConflictError("This checkpoint is the start of retained history and cannot be reverted.")
+
+    def _check_restore_paths(self, affected: list[dict[str, Any]], target: str = "") -> None:
+        sizes = {}
+        if self.policy.max_file_bytes and target:
+            for entry in self._git("ls-tree", "-r", "-l", "-z", target).stdout.split("\0"):
+                if entry:
+                    info, rel = entry.split("\t", 1)
+                    size = info.split()[-1]
+                    if size.isdigit():
+                        sizes[rel] = int(size)
         for item in affected:
             for rel in (item.get("path"), item.get("old_path")):
                 if not rel:
                     continue
                 path = self._workspace_child(rel)
-                if not is_snapshot_candidate(rel, is_dir=False):
+                if not self.policy.allows(rel):
                     raise TimeTravelConflictError(f"Restore would change an excluded path: {rel}")
+                size = max(sizes.get(rel, 0), path.lstat().st_size if path.exists() and not path.is_symlink() else 0)
+                if self.policy.max_file_bytes and size > self.policy.max_file_bytes:
+                    raise TimeTravelConflictError(f"Restore would change a file above the capture size limit: {rel}")
                 for parent in path.parents:
                     if parent == self.workspace.real_path:
                         break
@@ -1136,17 +1236,15 @@ class TimeTravelService:
                 )
             target_path.rmdir()
 
-    def _prune_empty_dirs(self) -> None:
-        for root, dirs, _filenames in os.walk(self.workspace.real_path, topdown=False, followlinks=False):
-            root_path = Path(root)
-            if root_path == self.workspace.real_path:
-                continue
-            if not is_snapshot_candidate(root_path.relative_to(self.workspace.real_path).as_posix(), is_dir=True):
-                continue
-            try:
-                root_path.rmdir()
-            except OSError:
-                pass
+    def _prune_empty_dirs(self, deleted_paths: list[str]) -> None:
+        for rel in deleted_paths:
+            parent = posixpath.dirname(rel)
+            while parent and self.policy.allows(parent, is_dir=True):
+                try:
+                    self._workspace_child(parent).rmdir()
+                except OSError:
+                    break
+                parent = posixpath.dirname(parent)
 
     def _tree_entry(self, commit_hash: str, rel_path: str) -> tuple[str, str, str] | None:
         completed = self._git("ls-tree", "-z", commit_hash, "--", rel_path, check=False)
@@ -1162,6 +1260,9 @@ class TimeTravelService:
     def _patch_payload(self, base: str, target: str, path: str) -> dict[str, Any]:
         path = self._safe_rel_path(path)
         additions, deletions, binary = self._numstat(base, target, [path])
+        if binary:
+            return {"ok": True, "path": path, "patch": "", "binary": True, "too_large": False,
+                    "additions": additions, "deletions": deletions, "error": ""}
         completed = self._git_bytes("diff", "--binary", "--patch", base, target, "--", path, check=False)
         data = completed.stdout or b""
         too_large = len(data) > MAX_RENDERED_PATCH_BYTES
@@ -1294,6 +1395,11 @@ class TimeTravelService:
     def _default_snapshot_message(self, trigger: str) -> str:
         label = str(trigger or "snapshot").replace("_", " ").strip().title()
         return f"Snapshot: {label}"
+
+    def _record_activity(self) -> None:
+        with tempfile.NamedTemporaryFile(dir=self.workspace.shadow_path, delete=False) as marker:
+            path = marker.name
+        os.replace(path, self.workspace.shadow_path / "last_activity")
 
     def _ensure_workspace_dir(self) -> None:
         if not self.workspace.real_path.exists():
@@ -1487,8 +1593,10 @@ class TimeTravelService:
         return completed
 
 
-def iter_snapshot_paths(workspace: Path, *, display_path: str = "") -> Iterable[str]:
+def iter_snapshot_paths(workspace: Path, *, display_path: str = "", policy: SnapshotPolicy | None = None,
+                        skipped_files: list[str] | None = None) -> Iterable[str]:
     workspace = workspace.resolve(strict=False)
+    policy = policy or SnapshotPolicy({})
     if display_path:
         root_is_usr = normalize_display_path(display_path) == USR_DISPLAY_ROOT
     else:
@@ -1498,8 +1606,8 @@ def iter_snapshot_paths(workspace: Path, *, display_path: str = "") -> Iterable[
         try:
             with os.scandir(folder) as iterator:
                 entries = sorted(iterator, key=lambda entry: entry.name)
-        except OSError:
-            return
+        except OSError as exc:
+            raise TimeTravelError(f"Could not scan snapshot directory: {rel_prefix or '.'}") from exc
         for entry in entries:
             rel = f"{rel_prefix}/{entry.name}" if rel_prefix else entry.name
             rel = rel.replace("\\", "/")
@@ -1507,17 +1615,21 @@ def iter_snapshot_paths(workspace: Path, *, display_path: str = "") -> Iterable[
                 is_dir = entry.is_dir(follow_symlinks=False)
                 is_file = entry.is_file(follow_symlinks=False)
                 is_link = entry.is_symlink()
-            except OSError:
-                continue
+            except OSError as exc:
+                raise TimeTravelError(f"Could not inspect snapshot path: {rel}") from exc
             if is_dir:
                 if root_is_usr and not rel_prefix and entry.name in USR_ROOT_EXCLUDED_DIR_NAMES:
                     continue
                 if _is_nested_git_worktree_dir(Path(entry.path), workspace):
                     continue
-                if not is_snapshot_candidate(rel, is_dir=True):
+                if not policy.allows(rel, is_dir=True):
                     continue
                 yield from walk(Path(entry.path), rel)
-            elif (is_file or is_link) and is_snapshot_candidate(rel, is_dir=False):
+            elif (is_file or is_link) and policy.allows(rel):
+                if is_file and policy.max_file_bytes and entry.stat(follow_symlinks=False).st_size > policy.max_file_bytes:
+                    if skipped_files is not None:
+                        skipped_files.append(rel)
+                    continue
                 yield rel
 
     yield from walk(workspace)
@@ -1652,6 +1764,7 @@ def _snapshot_public(snapshot: SnapshotResult) -> dict[str, Any]:
         "message": snapshot.message,
         "files": snapshot.files,
         "metadata": snapshot.metadata,
+        "skipped_files": snapshot.skipped_files,
     }
 
 
