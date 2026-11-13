@@ -29,6 +29,7 @@
 - Plugin model provider overrides belong in plugin `conf/model_providers.yaml` and merge after base `conf/model_providers.yaml`.
 - Global and scoped activation are independent and use `.toggle-1` and `.toggle-0`; `always_enabled: true` forces ON and disables UI toggles.
 - `hooks.py` runs in the framework runtime. Explicitly target another runtime if a plugin must prepare the agent execution environment.
+- Plugin maintenance can register native scheduler tasks with `plugin_name` and a `run_scheduled_task(task, cancel_event)` hook. The shared scheduler owns timing, state and results; hooks return a string and cooperate with cancellation. Preserve edited/disabled schedules and task deletion.
 - `execute.py` is manual user-triggered setup, maintenance, repair, migration, or refresh work; automatic framework behavior belongs in hooks or lifecycle extensions.
 - Plugin routes are `GET /plugins/<name>/<path>`, `POST /api/plugins/<name>/<handler>`, and `POST /api/plugins` for management actions.
 - `_a0_connector` WebSocket history replay must stay bounded: emit large chat history as paged `connector_context_snapshot` payloads, keep `last_sequence` as the Agent Zero log-output cursor, and avoid sending an entire long transcript in one frame.
@@ -69,6 +70,7 @@ Direct child DOX files:
 
 | Child | Scope |
 | --- | --- |
+| [_a0_cleaner/AGENTS.md](_a0_cleaner/AGENTS.md) | Container storage scans, automatic housekeeping, reviewed cleanup and scheduler integration. |
 | [_a0_connector/AGENTS.md](_a0_connector/AGENTS.md) | HTTP and WebSocket connector integration with remote tools and runtime bridges. |
 | [_a2a_chat/AGENTS.md](_a2a_chat/AGENTS.md) | FastA2A agent-to-agent chat tool. |
 | [_agent_editor/AGENTS.md](_agent_editor/AGENTS.md) | Deterministic sparse agent-profile editor API, helpers, and WebUI. |

@@ -70,6 +70,10 @@ Plugins can also include an optional `hooks.py` at the plugin root. The framewor
 
 In Docker, `hooks.py` normally affects `/opt/venv-a0`; the agent execution runtime is `/opt/venv`.
 
+For scheduled maintenance, register a `ScheduledTask` with `plugin_name` set to the plugin's name and provide `run_scheduled_task(task, cancel_event)` in `hooks.py`. The scheduler calls the hook in a framework worker thread, without creating an agent chat or calling a model. Return a string for the task's result and check `cancel_event` during long operations. The plugin must be enabled; missing handlers fail rather than falling back to an agent.
+
+Register tasks idempotently and preserve user edits, disabled schedules and deletion. [A0Cleaner](_a0_cleaner/README.md) is a working example with an editable weekly task, persistent results and an actionable notification.
+
 ### Configuration Hook Context
 
 Configuration hooks can distinguish why settings are being read or saved. Pass

@@ -1,0 +1,7 @@
+Built-in image_gen, with the user-supplied Agent Zero logo as the authoritative reference.
+
+Use case: stylized-concept
+Asset type: premium square 256 x 256 plugin thumbnail for A0Cleaner, a storage cleanup utility for Agent Zero.
+Input image 1 is the authoritative Agent Zero logo reference. Preserve this recognizable logo geometry: an open triangular capital-A shape consisting of two straight legs meeting at an apex and a separate short trapezoidal horizontal bar at the bottom inside the triangle. Do not turn it into an ordinary A, do not add a crossbar, do not use a zero ring.
+Primary request: reinterpret the supplied exact symbol as a precise polished silver and frosted white three-dimensional emblem, centered on a midnight navy-black background. A single graceful luminous cyan-blue cleaning sweep glides diagonally across its lower right edge, leaving the emblem immaculate, with just two tiny glints. Sophisticated quiet product render, strong simple silhouette, blue light reflected in chrome bevels. The emblem dominates and remains readable at thumbnail size. Keep comfortable margins and a square composition.
+Constraints: no text, no letters other than the actual supplied symbolic logo, no watermark, no busy particles, no additional frame, no rounded app tile.
