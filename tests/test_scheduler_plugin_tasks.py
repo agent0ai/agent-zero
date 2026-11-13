@@ -59,7 +59,8 @@ def test_plugin_execution_fails_closed_without_agent_fallback(runtime, monkeypat
     assert AgentContext.get(task.context_id) is None
 
 
-def test_plugin_task_cancellation_waits_for_worker_to_stop(monkeypatch):
+@pytest.mark.parametrize('raises_on_cancel', [False, True])
+def test_plugin_task_cancellation_waits_for_worker_to_stop(monkeypatch, raises_on_cancel):
     started, finished = threading.Event(), threading.Event()
     monkeypatch.setattr(plugins, "get_toggle_state", lambda name: "enabled")
 
@@ -67,6 +68,8 @@ def test_plugin_task_cancellation_waits_for_worker_to_stop(monkeypatch):
         started.set()
         assert cancel_event.wait(timeout=3)
         finished.set()
+        if raises_on_cancel:
+            raise RuntimeError('Stopped')
         return "Stopped"
 
     monkeypatch.setattr(plugins, "call_plugin_hook", run)

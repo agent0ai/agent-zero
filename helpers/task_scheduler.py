@@ -175,8 +175,9 @@ async def _execute_plugin_task(task) -> str:
         cancel_event.set()
         try:
             await asyncio.shield(worker)
-        finally:
-            raise
+        except Exception:
+            pass  # Cooperative hooks may signal their stop by raising.
+        raise
     if not isinstance(result, str):
         raise RuntimeError(f"Task plugin '{task.plugin_name}' did not return a result")
     return result
