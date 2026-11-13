@@ -19,6 +19,7 @@
 
 ## Runtime Contracts
 
+- The loop ticks immediately after initialization and then every 60 seconds. The shared scheduler owns overdue-run detection and duplicate prevention; the polling interval does not define a missed-run window.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: scheduler state.

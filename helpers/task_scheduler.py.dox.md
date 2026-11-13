@@ -83,6 +83,10 @@
 
 ## Runtime Contracts
 
+- Recurring tasks persist `schedule_anchor`, the timestamp after which to find the next cron occurrence. Idle overdue tasks run once on the next tick, coalescing all missed occurrences. No startup-specific runner or one-minute lookback is used. The displayed `next_run` retains the overdue occurrence until it is claimed.
+- Legacy tasks without an anchor use the latest of creation, update and last-run timestamps. JSON/YAML persistence and public serializers preserve the anchor. Cron arithmetic uses the task timezone and a UTC duration so crossing a daylight-saving offset does not shift the scheduled local hour.
+- A changed cron/timezone or task-state transition resets the anchor; unchanged editor fields and name/prompt edits preserve it. Claim, completion and cancellation consume intervening occurrences. Re-enabling a disabled task starts from re-enablement, and long-running tasks do not replay slots missed during execution. Errors and tasks left running after interruption require explicit recovery, not automatic replay of potentially completed effects.
+- Automatic dispatch rechecks idle/due status against saved state when claiming a task, so deletion, disablement, rescheduling or a completed manual run invalidate a stale selection. A task UUID has at most one registered worker in the scheduler process. Existing single-runtime ownership applies; this is not a distributed scheduler lock.
 - `BaseTask.plugin_name` optionally routes a task to that enabled plugin's `run_scheduled_task(task, cancel_event)` hook, in a worker thread, instead of creating a chat or calling a model. The hook returns its result as a string and cooperatively checks `cancel_event`; cancellation waits for the worker before releasing task ownership and remains cancellation if the hook raises while stopping. Missing/disabled plugins and missing handlers fail closed, without agent fallback. Standard scheduling, state, results and persistence remain owned by this engine; serializers preserve the plugin owner and legacy tasks default to agent execution.
 - Plugin tasks reject changes to model prompts and attachments; unchanged form values remain compatible with the standard editor. Plugin task creation skips chat initialization, while schedule/name/state editing and result inspection use the normal scheduler UI.
 - `SchedulerTaskList` keeps `usr/scheduler/tasks.json` as its default and prefers it when both formats exist. An existing `tasks.yaml` is supported when no JSON file exists; saves use the same selection and format. Loading never migrates, renames, or creates a second file.
@@ -109,6 +113,7 @@
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_task_scheduler_timezone.py`
+  - `tests/test_task_scheduler_catchup.py`
   - `tests/test_task_scheduler_recovery.py`
   - `tests/test_scheduler_editor.py`
   - `tests/test_timezone_regressions.py`

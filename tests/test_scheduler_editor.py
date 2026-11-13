@@ -88,7 +88,8 @@ def test_scheduler_json_default_and_optional_yaml():
 
 def test_scheduler_due_tasks_and_execution_guards_in_both_formats():
     now = datetime(2026, 9, 24, 8, 30, 30, tzinfo=timezone.utc)
-    common = dict(name="Execution check", system_prompt="", prompt="Check scheduler state")
+    common = dict(name="Execution check", system_prompt="", prompt="Check scheduler state",
+                  created_at=now-timedelta(days=1), updated_at=now-timedelta(days=1))
     templates = [
         scheduler.AdHocTask(**common),
         scheduler.ScheduledTask(**common, schedule=scheduler.TaskSchedule(
