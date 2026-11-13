@@ -159,7 +159,7 @@
                         </div>
                     </div>
 
-                    <div class="scheduler-form-field full-width scheduler-prompt-field">
+                    <div class="scheduler-form-field full-width scheduler-prompt-field" x-show="!$store.schedulerStore.editingTask.plugin_name">
                         <div class="scheduler-prompt-heading">
                             <div class="label-help-wrapper">
                                 <label class="scheduler-form-label">System Prompt</label>
@@ -175,7 +175,7 @@
                                   aria-label="System Prompt" placeholder="System instructions for the AI"></textarea>
                     </div>
 
-                    <div class="scheduler-form-field full-width scheduler-prompt-field">
+                    <div class="scheduler-form-field full-width scheduler-prompt-field" x-show="!$store.schedulerStore.editingTask.plugin_name">
                         <div class="scheduler-prompt-heading">
                             <div class="label-help-wrapper">
                                 <label class="scheduler-form-label">User Prompt</label>
@@ -191,7 +191,7 @@
                                   aria-label="User Prompt" placeholder="User message for the AI"></textarea>
                     </div>
 
-                    <div class="scheduler-form-field full-width">
+                    <div class="scheduler-form-field full-width" x-show="!$store.schedulerStore.editingTask.plugin_name">
                         <div class="label-help-wrapper">
                             <label class="scheduler-form-label">Attachments</label>
                             <div class="scheduler-form-help">Container file paths or URLs, one per line</div>
@@ -366,7 +366,7 @@
                         </div>
                     </div>
 
-                    <div class="scheduler-form-field full-width scheduler-prompt-field">
+                    <div class="scheduler-form-field full-width scheduler-prompt-field" x-show="!$store.schedulerStore.editingTask.plugin_name">
                         <div class="scheduler-prompt-heading">
                             <div class="label-help-wrapper">
                                 <label class="scheduler-form-label">System Prompt</label>
@@ -382,7 +382,7 @@
                                   aria-label="System Prompt" placeholder="System instructions for the AI"></textarea>
                     </div>
 
-                    <div class="scheduler-form-field full-width scheduler-prompt-field">
+                    <div class="scheduler-form-field full-width scheduler-prompt-field" x-show="!$store.schedulerStore.editingTask.plugin_name">
                         <div class="scheduler-prompt-heading">
                             <div class="label-help-wrapper">
                                 <label class="scheduler-form-label">User Prompt</label>
@@ -398,7 +398,7 @@
                                   aria-label="User Prompt" placeholder="User message for the AI"></textarea>
                     </div>
 
-                    <div class="scheduler-form-field full-width">
+                    <div class="scheduler-form-field full-width" x-show="!$store.schedulerStore.editingTask.plugin_name">
                         <div class="label-help-wrapper">
                             <label class="scheduler-form-label">Attachments</label>
                             <div class="scheduler-form-help">Container file paths or URLs, one per line</div>

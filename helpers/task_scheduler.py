@@ -159,6 +159,29 @@ class TaskPlan(BaseModel):
         return None
 
 
+async def _execute_plugin_task(task) -> str:
+    from helpers import plugins
+
+    if plugins.get_toggle_state(task.plugin_name) != "enabled":
+        raise RuntimeError(f"Task plugin '{task.plugin_name}' is disabled or unavailable")
+    cancel_event = threading.Event()
+    worker = asyncio.create_task(asyncio.to_thread(
+        plugins.call_plugin_hook, task.plugin_name, "run_scheduled_task",
+        task=task, cancel_event=cancel_event,
+    ))
+    try:
+        result = await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        cancel_event.set()
+        try:
+            await asyncio.shield(worker)
+        finally:
+            raise
+    if not isinstance(result, str):
+        raise RuntimeError(f"Task plugin '{task.plugin_name}' did not return a result")
+    return result
+
+
 class BaseTask(BaseModel):
     uuid: str = Field(default_factory=lambda: guids.generate_id())
     context_id: Optional[str] = Field(default=None)
@@ -166,6 +189,7 @@ class BaseTask(BaseModel):
     name: str = Field()
     system_prompt: str
     prompt: str
+    plugin_name: str | None = None
     attachments: list[str] = Field(default_factory=list)
     project_name: str | None = Field(default=None)
     project_color: str | None = Field(default=None)
@@ -191,6 +215,9 @@ class BaseTask(BaseModel):
                context_id: str | None = None,
                **kwargs):
         with self._lock:
+            if self.plugin_name and any(value is not None and value != getattr(self, key)
+                                        for key, value in (("prompt", prompt), ("system_prompt", system_prompt), ("attachments", attachments))):
+                raise ValueError("Plugin tasks are configured by their owning plugin.")
             if name is not None:
                 self.name = name
                 self.updated_at = _now()
@@ -739,7 +766,8 @@ class TaskScheduler:
 
     async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> "TaskScheduler":
         await self._tasks.add_task(task)
-        ctx = await self._get_chat_context(task)  # invoke context creation
+        if not task.plugin_name:
+            await self._get_chat_context(task)
         from helpers.state_monitor_integration import mark_dirty_all
         mark_dirty_all(reason="task_scheduler.TaskScheduler.add_task")
         return self
@@ -909,6 +937,11 @@ class TaskScheduler:
 
             try:
                 PrintStyle.info(f"Scheduler Task '{current_task.name}' started")
+
+                if current_task.plugin_name:
+                    result = await _execute_plugin_task(current_task)
+                    await current_task.on_success(result)
+                    return
 
                 context = await self._get_chat_context(current_task)
                 context.set_data("scheduler_task_uuid", current_task.uuid)
@@ -1196,6 +1229,7 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
         "state": task.state,
         "system_prompt": task.system_prompt,
         "prompt": task.prompt,
+        "plugin_name": task.plugin_name,
         "attachments": task.attachments,
         "project_name": task.project_name,
         "project_color": task.project_color,
@@ -1268,6 +1302,7 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
         "state": TaskState(task_data.get("state", TaskState.IDLE)),
         "system_prompt": task_data.get("system_prompt", ""),
         "prompt": task_data.get("prompt", ""),
+        "plugin_name": task_data.get("plugin_name"),
         "attachments": task_data.get("attachments", []),
         "project_name": task_data.get("project_name"),
         "project_color": task_data.get("project_color"),

@@ -27,6 +27,7 @@
 - Core snapshot and chat-selection consumers import the always-enabled plugin's tasks store directly, ensuring it exists before the first snapshot even when the sidebar has not mounted.
 - Timezone aliases (local/user/default/current/current_timezone) resolve via `helpers.localization`; cron validation rejects malformed expressions before task creation.
 - `wait_for_task` polls task state until completion, failure, or idempotent runs.
+- Plugin-owned tasks carry `plugin_name` and run through the engine's deterministic hook. Their schedule, name and state remain editable; the editor hides model prompts/attachments and detail shows the operation. The engine rejects changing those inapplicable inputs and creates no chat for these tasks.
 
 ## Work Guidance
 

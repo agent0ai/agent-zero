@@ -113,11 +113,12 @@
                     <div class="scheduler-details-value"
                          x-text="$store.schedulerStore.selectedTaskForDetail && $store.schedulerStore.selectedTaskForDetail.last_result ? $store.schedulerStore.selectedTaskForDetail.last_result : 'No results yet'"></div>
 
-                    <div class="scheduler-details-label">System Prompt:</div>
+                    <div class="scheduler-details-label" x-show="!$store.schedulerStore.selectedTaskForDetail?.plugin_name">System Prompt:</div>
                     <div class="scheduler-details-value"
+                         x-show="!$store.schedulerStore.selectedTaskForDetail?.plugin_name"
                          x-text="$store.schedulerStore.selectedTaskForDetail ? $store.schedulerStore.selectedTaskForDetail.system_prompt : ''"></div>
 
-                    <div class="scheduler-details-label">User Prompt:</div>
+                    <div class="scheduler-details-label" x-text="$store.schedulerStore.selectedTaskForDetail?.plugin_name ? 'Operation:' : 'User Prompt:'"></div>
                     <div class="scheduler-details-value"
                          x-text="$store.schedulerStore.selectedTaskForDetail ? $store.schedulerStore.selectedTaskForDetail.prompt : ''"></div>
 
