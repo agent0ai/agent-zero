@@ -15,6 +15,7 @@
 
 ## Runtime Contracts
 
+- `safe_call` filters keyword arguments by parameter kind, not just name. Without `**kwargs`, only positional-or-keyword and keyword-only parameters accept keywords; positional-only and variadic-positional parameter names are ignored. Callables with `**kwargs` retain arbitrary keywords, including names matching positional-only parameters.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Imported dependency areas include: `inspect`.
@@ -34,6 +35,7 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_safe_call.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_error_retry_plugin.py`
