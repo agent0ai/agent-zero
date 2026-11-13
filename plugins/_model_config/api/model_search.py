@@ -200,6 +200,8 @@ class ModelSearch(ApiHandler):
     def _litellm_fallback(self, provider: str, cfg: dict | None) -> list[str]:
         if (cfg or {}).get("api_key_mode") == "oauth":
             return []
+        if self._get_models_list(cfg or {}).get("litellm_fallback") is False:
+            return []
         try:
             import litellm
 

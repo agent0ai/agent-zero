@@ -633,6 +633,7 @@ examples, not model recommendations:
 | Provider | Model Name Format | Example |
 | --- | --- | --- |
 | Anthropic | Model name only | `claude-sonnet-4-5` |
+| Fortytwo | API-visible model ID from `/v1/models` | `qwen/qwen3.8-27b` |
 | OpenRouter | Provider prefix mostly required | `anthropic/claude-sonnet-4-5` |
 | Ollama | Model name only | `gpt-oss:20b` |
 | oMLX | API-visible model name from `/v1/models` | `Qwen3-0.6B-4bit` |
@@ -641,6 +642,10 @@ examples, not model recommendations:
 
 > [!TIP]
 > If you see "Invalid model ID," verify the provider and naming format on the provider website, or search the web for "<name-of-ai-model> model naming".
+
+For Fortytwo, set `FORTYTWO_API_KEY` or save the key in the provider's API key
+settings, then select **Fortytwo** as the chat model provider. Model search uses
+Fortytwo's `/v1/models` endpoint; no custom API base is required.
 
 #### Local Model Server Addresses From Docker
 
