@@ -183,7 +183,7 @@ const getUserTimezone = () => 'Europe/Rome';
 let response, sent, destroyed = 0;
 const errors = [], opened = [], closed = [];
 const openModal = async path => opened.push(path);
-const closeModal = async path => closed.push(path);
+let closeModal = async path => closed.push(path);
 const notificationsStore = { frontendError: message => errors.push(message), frontendSuccess() {} };
 const fetchApi = async (_endpoint, options) => {
   sent = JSON.parse(options.body);
@@ -237,5 +237,22 @@ store.deriveActiveProject = () => null;
 await store.startCreateTask();
 assert.equal(store.selectedProjectSlug, '');
 assert.equal(store.editingTask.project, null, 'no active project must not select an unrelated project');
+let finishClose;
+closeModal = path => {
+  closed.push(path);
+  return new Promise(resolve => finishClose = resolve);
+};
+window.openModal = openModal;
+const edited = [];
+store.selectedTaskForDetail = { uuid: 'task-to-edit' };
+store.startEditTask = async id => edited.push(id);
+const opening = store.editFromDetail();
+await Promise.resolve();
+assert.equal(closed.at(-1), '/plugins/_scheduler/webui/scheduler/scheduler-task-detail.html');
+assert.deepEqual(edited, [], 'editing must wait for the detail modal to finish closing');
+finishClose();
+await opening;
+assert.deepEqual(edited, ['task-to-edit']);
+assert.equal(opened.at(-1), '/plugins/_scheduler/webui/scheduler/scheduler-modal.html');
 '''
     subprocess.run(["node", "--input-type=module"], input=script, text=True, check=True)

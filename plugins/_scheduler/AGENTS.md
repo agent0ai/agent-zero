@@ -28,6 +28,7 @@
 - Timezone aliases (local/user/default/current/current_timezone) resolve via `helpers.localization`; cron validation rejects malformed expressions before task creation.
 - `wait_for_task` polls task state until completion, failure, or idempotent runs.
 - Plugin-owned tasks carry `plugin_name` and run through the engine's deterministic hook. Their schedule, name and state remain editable; the editor hides model prompts/attachments and detail shows the operation. The engine rejects changing those inapplicable inputs and creates no chat for these tasks.
+- Close task detail by its modal path and await closure before opening its editor, so asynchronous close hooks cannot remove the new modal from the stack.
 
 ## Work Guidance
 
