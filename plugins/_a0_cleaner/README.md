@@ -1,6 +1,6 @@
 # A0Cleaner
 
-Open **A0Cleaner** from the sidebar menu. Opening it scans automatically when the previous scan is older than an hour. Choose areas, review the file list, and select **Clean up**.
+Open the plugin's settings and select **Open A0Cleaner**, or use the **Clean up** notification button. Opening it scans automatically when the previous scan is older than an hour. Choose areas, review the file list, and select **Clean up**.
 
 A real **A0Cleaner** task appears in Agent Zero's Scheduled Tasks. It runs weekly, Monday at 09:00 in the configured timezone, with no model call. Change its cadence in the cleaner or edit its cron schedule through **Schedule details**. Deleting or disabling the task is respected. Each run saves its results in the cleaner and sends an A0 notification with a **Clean up** button for remaining files.
 

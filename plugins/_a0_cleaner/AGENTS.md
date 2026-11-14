@@ -24,6 +24,7 @@
 - Custom rules accept only proper subfolders of A0 workdir/projects/downloads/uploads/tmp, with no symlink ancestors, overlapping rules, protected metadata or overlapping managed roots.
 - Report allocated file-byte estimates, not guaranteed host block recovery from immutable container image layers. No chat contents or process command lines belong in reports or notifications.
 - Use native A0 notifications and an action opening the cleaner; toast clicks must never authorize deletion directly.
+- Open the cleaner through plugin settings or its notification action; do not add a sidebar dropdown entry.
 
 ## Work Guidance
 
