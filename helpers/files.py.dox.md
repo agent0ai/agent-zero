@@ -53,6 +53,7 @@
 - `fix_dev_path` remaps `/a0/...` display paths onto the local base dir, but a path already inside the checkout (a dev instance nested under `/a0`) is used as-is.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `abc`, `base64`, `fnmatch`, `glob`, `helpers`, `helpers.strings`, `json`, `mimetypes`, `os`, `re`, `shutil`, `simpleeval`, `tempfile`, `typing`, `zipfile`.
+- `zip_dir` writes archives with `strict_timestamps=False`: files whose mtime predates the ZIP floor of 1980-01-01 (package registries extract epoch-zero entries) are stored with a clamped `1980-01-01` date instead of aborting the download; source file timestamps are never modified.
 
 ## Key Concepts
 

@@ -48,6 +48,7 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.
 - Imported dependency areas include: `base64`, `fnmatch`, `helpers`, `os`, `shutil`, `tempfile`, `zipfile`.
+- `_zip_dir_impl` and `_read_directory_impl` write archives with `strict_timestamps=False`: files whose mtime predates the ZIP floor of 1980-01-01 (package registries extract epoch-zero entries) are stored with a clamped `1980-01-01` date instead of failing the transfer; source file timestamps are never modified.
 
 ## Key Concepts
 
