@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from html.parser import HTMLParser
 import json
+import os
 from pathlib import Path
 import re
 from typing import TYPE_CHECKING, Iterable
@@ -226,15 +227,34 @@ def _iter_root_files(
 ) -> Iterable[Path]:
     if not root.is_dir():
         return
-    candidates = root.rglob("*") if recursive else root.glob("*")
-    for path in sorted(candidates, key=lambda item: item.as_posix()):
-        if not path.is_file() or (suffixes and path.suffix.lower() not in suffixes):
-            continue
-        resolved = path.resolve()
+    root = root.resolve()
+    pending = [root]
+    candidates: list[tuple[Path, Path]] = []
+    while pending:
+        directory = pending.pop()
         try:
-            resolved.relative_to(root)
-        except ValueError:
+            with os.scandir(directory) as iterator:
+                entries = list(iterator)
+        except OSError:
             continue
+        for entry in entries:
+            if entry.is_dir(follow_symlinks=False):
+                if recursive:
+                    pending.append(Path(entry.path))
+                continue
+            path = Path(entry.path)
+            if suffixes and path.suffix.lower() not in suffixes:
+                continue
+            try:
+                if not entry.is_file():
+                    continue
+                # Parents were traversed without following links; only file links need resolution.
+                resolved = path.resolve() if entry.is_symlink() else path
+            except (OSError, RuntimeError):
+                continue
+            if resolved.is_relative_to(root):
+                candidates.append((path, resolved))
+    for _, resolved in sorted(candidates, key=lambda item: item[0].as_posix()):
         yield resolved
 
 
@@ -264,10 +284,10 @@ def _bundle_signature(roots: list[_AssetRoot], entry_urls: Iterable[str]) -> str
 
 
 def _url_for_path(path: Path, roots: list[_AssetRoot]) -> str | None:
-    resolved = path.resolve()
+    # The caller supplies a contained, resolved path from _iter_root_files.
     for root in roots:
         try:
-            relative = resolved.relative_to(root.path).as_posix()
+            relative = path.relative_to(root.path).as_posix()
         except ValueError:
             continue
         prefix = "" if root.url_prefix == "/" else root.url_prefix

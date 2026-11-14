@@ -182,6 +182,54 @@ def test_bundle_excludes_symlink_escapes_and_serializes_json(
     assert "</script>&" in payload
 
 
+def test_asset_inventory_preserves_order_and_containment_without_resolving_regular_files(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = (tmp_path / "webui").resolve()
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    regular = root / "a.js"
+    regular.write_text("export default true;", encoding="utf-8")
+    child = nested / "child.html"
+    child.write_text("<main></main>", encoding="utf-8")
+    (root / "image.png").write_bytes(b"image")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.js").write_text("private", encoding="utf-8")
+    (root / "escape.js").symlink_to(outside / "secret.js")
+    (root / "escape-dir").symlink_to(outside, target_is_directory=True)
+    (root / "inside.js").symlink_to(regular)
+    (root / "broken.js").symlink_to(root / "missing.js")
+    (root / "loop.js").symlink_to(root / "loop.js")
+    (root / "loop").symlink_to(root, target_is_directory=True)
+    resolved_paths = []
+    resolve = Path.resolve
+
+    def track_resolution(path, *args, **kwargs):
+        resolved_paths.append(path)
+        return resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", track_resolution)
+    assert list(ui_bundler._iter_root_files(root, {".js", ".html"})) == [
+        regular, regular, child,
+    ]
+    assert regular not in resolved_paths
+    assert child not in resolved_paths
+    assert list(ui_bundler._iter_root_files(root, {".js", ".html"}, recursive=False)) == [
+        regular, regular,
+    ]
+
+    scandir = ui_bundler.os.scandir
+
+    def deny_nested(directory):
+        if Path(directory) == nested:
+            raise PermissionError("unreadable directory")
+        return scandir(directory)
+
+    monkeypatch.setattr(ui_bundler.os, "scandir", deny_nested)
+    assert list(ui_bundler._iter_root_files(root, {".js", ".html"})) == [regular, regular]
+
+
 def test_bundle_recursively_scans_a_caller_supplied_entry(
     tmp_path: Path, monkeypatch
 ) -> None:
