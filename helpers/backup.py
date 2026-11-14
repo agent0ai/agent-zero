@@ -364,7 +364,10 @@ class BackupService:
         zip_path = os.path.join(temp_dir, f"{backup_name}.zip")
 
         try:
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # strict_timestamps=False clamps pre-1980 mtimes to 1980-01-01 instead of
+            # failing: package registries extract epoch-zero files and ZIP cannot
+            # represent earlier dates. Matches the self-update usr backup.
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False) as zipf:
                 # Add comprehensive metadata
                 metadata = {
                     # Basic backup information
