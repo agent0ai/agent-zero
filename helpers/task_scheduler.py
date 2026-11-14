@@ -647,10 +647,21 @@ class SchedulerTaskList(BaseModel):
     async def get_due_tasks(self) -> list[Union[ScheduledTask, AdHocTask, PlannedTask]]:
         with self._lock:
             await self.reload()
-            return [
-                task for task in self.tasks
-                if task.check_schedule() and task.state == TaskState.IDLE
-            ]
+            due: list[Union[ScheduledTask, AdHocTask, PlannedTask]] = []
+            for task in self.tasks:
+                if task.state != TaskState.IDLE:
+                    continue
+                # A persisted task can carry a cron field that the current parser
+                # rejects. Evaluate each task on its own so one broken schedule
+                # cannot suppress every other task that is due this minute.
+                try:
+                    if task.check_schedule():
+                        due.append(task)
+                except Exception as e:
+                    PrintStyle.error(
+                        f"Task '{task.name}' ({task.uuid}) has an invalid schedule: {e}"
+                    )
+            return due
 
     def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
         with self._lock:
@@ -1189,6 +1200,13 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
     """
     Standardized serialization for task objects with proper handling of all complex types.
     """
+    # A persisted task can carry a cron field that the current parser rejects; a
+    # missing next run must not break the whole serialization/snapshot payload.
+    try:
+        next_run = task.get_next_run()
+    except Exception:
+        next_run = None
+
     # Start with a basic dictionary
     task_dict = {
         "uuid": task.uuid,
@@ -1202,7 +1220,7 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
         "created_at": serialize_datetime(task.created_at),
         "updated_at": serialize_datetime(task.updated_at),
         "last_run": serialize_datetime(task.last_run),
-        "next_run": serialize_datetime(task.get_next_run()),
+        "next_run": serialize_datetime(next_run),
         "last_result": task.last_result,
         "context_id": task.context_id,
         "dedicated_context": task.is_dedicated(),
