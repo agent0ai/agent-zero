@@ -95,7 +95,7 @@ def _args_override(config):
             elif isinstance(getattr(config, key), str):
                 value = str(value)
             else:
-                raise Exception(
+                raise TypeError(
                     f"Unsupported argument type of '{key}': {type(getattr(config, key))}"
                 )
 
