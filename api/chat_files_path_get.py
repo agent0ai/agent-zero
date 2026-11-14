@@ -6,7 +6,7 @@ class GetChatFilesPath(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         ctxid = input.get("ctxid", "")
         if not ctxid:
-            raise Exception("No context id provided")
+            raise ValueError("No context id provided")
         context = self.use_context(ctxid)
 
         project_name = projects.get_context_project_name(context)
