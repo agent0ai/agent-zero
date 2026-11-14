@@ -23,7 +23,7 @@ class Subagents(ApiHandler):
             elif action == "delete":
                 data = self.delete_agent(input.get("name", None))
             else:
-                raise Exception("Invalid action")
+                raise ValueError("Invalid action")
 
             return {
                 "ok": True,
@@ -40,19 +40,19 @@ class Subagents(ApiHandler):
 
     def load_agent(self, name: str|None):
         if name is None:
-            raise Exception("Subagent name is required")
+            raise ValueError("Subagent name is required")
         return subagents.load_agent_data(name)
 
     def save_agent(self, name:str|None, data: dict|None):
         if name is None:
-            raise Exception("Subagent name is required")
+            raise ValueError("Subagent name is required")
         if data is None:
-            raise Exception("Subagent data is required")
+            raise ValueError("Subagent data is required")
         subagent = subagents.SubAgent(**data)
         subagents.save_agent_data(name, subagent)
         return subagents.load_agent_data(name)
 
     def delete_agent(self, name: str|None):
         if name is None:
-            raise Exception("Subagent name is required")
+            raise ValueError("Subagent name is required")
         subagents.delete_agent_data(name)
