@@ -43,6 +43,8 @@
 
 ## Runtime Contracts
 
+- Track observer subscription handles by covering root. Reconcile only added and removed roots, preserving unchanged recursive watches and their event delivery. Remove superseded coverage before scheduling replacements; a failed schedule leaves successful subscriptions tracked for retry.
+- Never call observer scheduling, shutdown, or join while holding the registry lock: event dispatch acquires those locks in the opposite order. Serialize reconciliation with a separate refresh lock and drain registrations arriving during a refresh.
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.

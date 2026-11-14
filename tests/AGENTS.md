@@ -13,6 +13,7 @@
 
 ## Local Contracts
 
+- Watchdog regressions cover incremental subscriptions, overlapping roots, callback replacement, scheduling retries, registration during refresh, and live event delivery with isolated temporary directories.
 - UI bundle inventory regressions cover deterministic order, recursive and shallow traversal, contained and escaping symlinks, and avoidance of repeated resolution for ordinary files.
 - Tests must not require real API keys, network-only services, private user data, or local `usr/` runtime state. Manual provider demos must guard model creation and requests behind their executable entry point so collection never runs them.
 - Root `pytest.ini` selects `tests` and `plugins` with importlib import mode; root `conftest.py` keeps `tests/` importable and ignores plugin API handler modules whose names match `test_*.py`.
