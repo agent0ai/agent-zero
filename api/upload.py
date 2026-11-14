@@ -12,7 +12,7 @@ def save_upload_atomic(file_storage, target_path, *, max_bytes=None):
 class UploadFile(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         if "file" not in request.files:
-            raise Exception("No file part")
+            raise ValueError("No file part")
 
         file_list = request.files.getlist("file")  # Handle multiple files
         saved_filenames = []
