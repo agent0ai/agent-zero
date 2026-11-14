@@ -37,6 +37,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[Agent Profiles](guides/agent-profiles.md):** Create and manage profiles in Easy or Advanced mode, set project availability, and control Tool, MCP, and Skill access.
 - **[Model Presets](guides/model-presets.md):** Create simple named shortcuts for model setups.
 - **[Memory Guide](guides/memory.md):** Search, edit, delete, and curate memories so useful context does not become stale noise.
+- **[A0Cleaner](guides/cleaner.md):** Free up space with automatic cleanup, understand its notifications, and review files or custom folders yourself.
 - **[Projects Tutorial](guides/projects.md):** Learn to create isolated workspaces with dedicated context and memory.
 - **[API Integration](guides/api-integration.md):** Add external APIs without writing code.
 - **[Telegram](guides/telegram.md):** Connect a private bot, choose projects and profiles, use groups or webhooks, and preserve existing settings when upgrading.
@@ -138,6 +139,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [Agent Profiles](guides/agent-profiles.md)
   - [Model Presets](guides/model-presets.md)
   - [Memory Guide](guides/memory.md)
+  - [A0Cleaner](guides/cleaner.md)
   - [Projects Tutorial](guides/projects.md)
   - [API Integration](guides/api-integration.md)
   - [Telegram](guides/telegram.md)

@@ -109,6 +109,10 @@ when the work should run later or on a schedule.
 
 Plugins add integrations, tools, panels, and automation helpers.
 
+For storage housekeeping, use the built-in [A0Cleaner](cleaner.md). Its guide
+covers automatic cleanup, weekly notifications, and manual cleanup of selected
+areas or custom folders.
+
 Open **Plugins** from the dashboard or sidebar to see what is installed.
 
 ![Plugins](../res/usage/plugins/plugins-list-01.png)
