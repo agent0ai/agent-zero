@@ -115,7 +115,7 @@ class SSHInteractiveSession:
 
     async def send_command(self, command: str):
         if not self.shell:
-            raise Exception("Shell not connected")
+            raise RuntimeError("Shell not connected")
         self.full_output = b""
         # if len(command) > 10: # if command is long, add end_comment to split output
         #     command = (command + " \\\n" +SSHInteractiveSession.end_comment + "\n")
@@ -155,7 +155,7 @@ class SSHInteractiveSession:
         self, timeout: float = 0, reset_full_output: bool = False
     ) -> Tuple[str, str]:
         if not self.shell:
-            raise Exception("Shell not connected")
+            raise RuntimeError("Shell not connected")
 
         if reset_full_output:
             self.full_output = b""
@@ -212,7 +212,7 @@ class SSHInteractiveSession:
 
     def receive_bytes(self, num_bytes=1024):
         if not self.shell:
-            raise Exception("Shell not connected")
+            raise RuntimeError("Shell not connected")
         # Receive initial chunk of data
         shell = self.shell
         data = self.shell.recv(num_bytes)
