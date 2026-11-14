@@ -26,6 +26,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[OpenCode Go and Provider Plugins](guides/opencode.md):** Find a missing provider in the Plugin Hub, install OpenCode Go, and choose Main and Utility models.
 - **[Migrate Agents](guides/migrate-agents.md):** Move real Pi, Hermes Agent, and Claude Code chats, copy their working files, and continue the project in Agent Zero.
 - **[Usage Guide](guides/usage.md):** Practical tour of Agent Zero's main workflows.
+- **[Scheduled Tasks](guides/task-scheduler.md):** Create a recurring task with the form or a normal chat request, find its conversation, and manage later runs.
 - **[Agent Zero Launcher](guides/launcher.md):** Fresh-machine setup, Installs, Instances, and workspace folder or Docker volume choices.
 - **[Use Local Folders With Agent Zero](guides/local-folders.md):** Bind mounts, persistent user data, separate work folders, Docker CLI/Desktop/Compose examples, and Launcher storage links.
 - **[First-Run Onboarding](guides/onboarding.md):** Set up OpenRouter, our proxy API or another provider with the guided wizard.
@@ -128,6 +129,7 @@ docs focus on practical setup, screenshots, and user workflows.
     - [File Browser](guides/usage.md#file-browser)
     - [Memory Management](guides/usage.md#memory-management)
     - [Backup And Restore](guides/usage.md#backup-and-restore)
+  - [Scheduled Tasks](guides/task-scheduler.md)
   - [Agent Zero Launcher](guides/launcher.md)
     - [Workspace Storage](guides/launcher.md#workspace-storage)
   - [Use Local Folders With Agent Zero](guides/local-folders.md)

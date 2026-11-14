@@ -90,8 +90,9 @@ Under **Automatic care**, choose **Daily**, **Weekly**, **Monthly**, or **Off**.
 The presets run at 09:00: weekly on Monday, monthly on the first day of the month.
 
 Select the sliders button, **Schedule details**, to open the **A0Cleaner** task.
-Use **Edit** to change its time, timezone, or cron schedule. You can also find
-it in Agent Zero's [Tasks](usage.md#tasks-and-scheduling).
+Use **Edit** to change its time or cron schedule. For a different timezone,
+ask the agent to update the A0Cleaner task. You can also find it in
+[Scheduled Tasks](task-scheduler.md).
 
 - To keep scheduled scans and notifications but decide on every deletion,
   turn **Automatic cleanup** off and leave the schedule on.
