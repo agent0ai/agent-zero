@@ -28,6 +28,7 @@
 - `test_patterns(..., max_files=None)` is the unlimited scan mode. UI preview and dry-run callers may pass bounded limits, but real backup creation and restore clean-before-restore must use unlimited matching so archives and cleanup are not silently truncated.
 - Default backup metadata includes persistent `/usr` data but excludes Time Travel shadow history under `usr/.time_travel/**` and Orchestrator state and credentials under `usr/plugins/_orchestrator/data/**`.
 - Restoring `usr/.env` preserves the destination instance's allowed origins while restoring authentication and other portable configuration from the archive.
+- Backup archives are written with `strict_timestamps=False`: files whose mtime predates the ZIP floor of 1980-01-01 (package registries extract epoch-zero entries) are stored with a clamped `1980-01-01` date instead of aborting the backup. Source file timestamps are never modified.
 
 ## Key Concepts
 
