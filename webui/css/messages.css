@@ -277,9 +277,16 @@
 }
 
 .message-body .message-markdown-table-wrap table {
-  width: auto;
+  width: 100%;
   table-layout: auto;
-  white-space: nowrap;
+}
+
+.message-body .message-markdown-table-wrap th,
+.message-body .message-markdown-table-wrap td {
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  min-width: min-content;
 }
 
 .message-body .code-block-wrapper{
