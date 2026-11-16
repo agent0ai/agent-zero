@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from plugins._oauth.helpers import codex
 from plugins._oauth.helpers import routes
 from plugins._oauth.helpers.providers import codex as codex_provider
+from plugins._oauth.helpers.providers.base import DUMMY_API_KEY
 from plugins._oauth.extensions.python._functions.models.get_api_key.end import (
     _20_oauth_account_dummy_key as oauth_dummy_key,
 )
@@ -1255,15 +1256,16 @@ def test_codex_provider_reports_dummy_api_key_when_connected(monkeypatch):
 
     oauth_dummy_key.OAuthAccountDummyKey(agent=None).execute(data=data)
 
-    assert data["result"] == "oauth"
+    assert data["result"] == DUMMY_API_KEY
 
 
-def test_codex_provider_preserves_configured_api_key():
-    data = {"args": ("codex_oauth",), "kwargs": {}, "result": "configured"}
+def test_codex_provider_replaces_legacy_stored_key_when_connected(monkeypatch):
+    monkeypatch.setattr(oauth_dummy_key, "oauth_provider_is_connected", lambda _provider_id: True)
+    data = {"args": ("codex_oauth",), "kwargs": {}, "result": "legacy-stored-key"}
 
     oauth_dummy_key.OAuthAccountDummyKey(agent=None).execute(data=data)
 
-    assert data["result"] == "configured"
+    assert data["result"] == DUMMY_API_KEY
 
 
 @pytest.mark.parametrize('mode,options,expected', [

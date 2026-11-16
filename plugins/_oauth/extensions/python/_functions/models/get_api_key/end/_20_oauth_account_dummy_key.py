@@ -21,8 +21,9 @@ class OAuthAccountDummyKey(Extension):
         if service.lower() not in oauth_provider_ids():
             return
 
-        result = str(data.get("result") or "").strip()
-        if (not result or result == "None") and oauth_provider_is_connected(service):
+        if oauth_provider_is_connected(service):
+            # Account-backed models authenticate to the local proxy with its
+            # process credential, regardless of legacy stored API-key values.
             data["result"] = DUMMY_API_KEY
 
 

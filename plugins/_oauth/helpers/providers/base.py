@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import tempfile
 import importlib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from helpers import runtime
+
 
 CODEX_PROVIDER_ID = "codex_oauth"
 GITHUB_COPILOT_PROVIDER_ID = "github_copilot_oauth"
 GEMINI_API_PROVIDER_ID = "gemini_api_oauth"
 XAI_GROK_PROVIDER_ID = "xai_grok_oauth"
-DUMMY_API_KEY = "oauth"
+# Keep existing clients authorized when plugin modules are purged during a reload.
+DUMMY_API_KEY = vars(runtime).setdefault("_oauth_proxy_key", secrets.token_urlsafe(32))
 
 
 class ProviderError(Exception):

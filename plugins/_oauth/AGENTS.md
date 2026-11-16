@@ -17,6 +17,7 @@
 - `helpers/routes.py` owns local OAuth callback and OpenAI-compatible proxy routes mounted by the route bootstrap extension.
 - `webui/config.html` and `webui/oauth-config-store.js` own the OAuth Connections settings UI.
 - `extensions/python/_functions/models/get_api_key/end/` owns the dummy API-key extension used by OAuth model providers.
+- `extensions/python/_functions/models/_merge_provider_defaults/end/` supplies internal proxy credentials after model-slot and provider defaults are merged, including legacy inline keys.
 - `tests/test_oauth_*.py` and `tests/test_oauth_reconnect.mjs` own provider contract, security, UI, and compatibility regressions.
 
 ## Local Contracts
@@ -38,7 +39,7 @@
 - `helpers/providers/registry.py` is the source of truth for connectable OAuth providers.
 - The models API must preserve the legacy plain `models` slug list and may add `model_metadata` entries for richer provider catalogs.
 - Codex metadata recommends `gpt-6.1-terra` for Main and `gpt-6-luna` for Utility during onboarding. An explicit configured model list keeps its own ordering; these recommendations do not replace or restrict the live account catalog.
-- OAuth provider config must not expose the dummy `oauth` API key in `conf/model_providers.yaml`; the dummy key is a runtime-only shim supplied by the `get_api_key` extension after the account provider reports connected.
+- OAuth provider config must not expose the dummy `oauth` API key in `conf/model_providers.yaml`; `get_api_key` supplies a runtime credential after the account provider reports connected. OAuth model calls to this process's loopback WebUI port and provider proxy path receive the internal credential after defaults are merged, replacing legacy keys and auth headers only in runtime kwargs. Saved settings and explicit credentials for other endpoints stay intact.
 - Usage-plan metadata belongs only to connectable providers. Do not add metadata-only subscription families for providers this plugin cannot connect.
 - API handlers should remain provider-aware. Missing or blank `provider_id` defaults to Codex only for existing backward compatibility; falsey non-string IDs must not silently default.
 - Codex success contracts must preserve legacy fields such as `account_id` while allowing newer fields such as `account_label`.
@@ -46,7 +47,8 @@
 - Token files are password-equivalent credentials. Store them under plugin-owned `usr/plugins/_oauth/<provider>/auth.json` paths with private permissions, and do not share rotating refresh-token files with external CLIs.
 - Stored upstream base URLs and OAuth token endpoints must be validated against provider-owned allowlists before sending bearer or refresh tokens.
 - Browser callback providers must support manual callback paste when the browser cannot reach the local callback route.
-- Local proxy routes must remain loopback or token protected and must not add broad CORS access.
+- Local proxy routes require the process-generated internal credential supplied automatically to Agent Zero model calls or an explicitly configured proxy token, regardless of source address. Loopback alone is never sufficient authorization, and routes must not add broad CORS access.
+- Keep the internal proxy credential in the stable framework runtime module so bundled-plugin reloads preserve existing model clients; restarting the process generates a new credential automatically.
 - Codex Responses proxy requests must include Codex client metadata and compatibility headers such as `client_metadata`, `x-codex-installation-id`, `originator`, `session-id`, and `thread-id`, and must forward `input` as a list for upstream Codex compatibility.
 - `chat_model_call_before/_20_codex_session.py` gives Codex main-model turns stable per-chat, per-agent session/thread IDs for cache routing. Preserve explicit caller session/thread IDs through both proxy routes, including Chat Completions conversion, while keeping installation/window metadata plugin-owned.
 - Default `prompt_cache_key` to a caller-supplied session ID (hash IDs longer than 64 characters); preserve explicit keys and do not derive keys from randomly generated fallback metadata. Codex provider defaults use local Responses state because its backend requires `store: false`.
@@ -78,6 +80,8 @@
 ## Verification
 
 - Run `pytest tests/test_oauth_*.py` after backend provider, route, token, or UI contract changes.
+- Proxy security tests must isolate extension discovery and provider state; passing must not depend on a saved account connection or plugin toggles in `usr/`.
+- `tests/test_oauth_vps_compatibility.py` covers forwarded/public-host requests, installed-SDK HTTP streaming for all account providers, and existing clients across bundled-plugin reloads.
 - Run `node tests/test_oauth_reconnect.mjs` after changing reconnect, pending-auth controls, or cancellation.
 - Run `pytest tests/test_plugin_scan_prompt.py` after plugin structure, extension, or docs changes.
 - Run onboarding or model-config tests when provider metadata, `api_key_mode`, or model-provider config changes.
