@@ -634,6 +634,12 @@ class BackupService:
                 # Use user-edited metadata if provided, otherwise fall back to original
                 backup_metadata = user_edited_metadata if user_edited_metadata else original_backup_metadata
 
+                archive_files = [name for name in zipf.namelist()
+                                 if name not in ["metadata.json", "checksums.json"]]
+                # Reject unsafe members before cleanup or extraction changes existing files.
+                for archive_path in archive_files:
+                    self._translate_restore_path(archive_path, original_backup_metadata)
+
                 # Perform clean before restore if requested
                 if clean_before_restore:
                     # Use user-edited metadata for clean operations so patterns from ACE editor are used
@@ -655,10 +661,6 @@ class BackupService:
                                 "real_path": delete_info.get("real_path", "unknown"),
                                 "error": f"Failed to delete: {str(e)}"
                             })
-
-                # Get files from archive (excluding metadata files)
-                archive_files = [name for name in zipf.namelist()
-                                 if name not in ["metadata.json", "checksums.json"]]
 
                 # Create pathspec for restore patterns if provided
                 restore_spec = None
@@ -792,30 +794,36 @@ class BackupService:
 
         # If we don't have the backed up root path, use original path with leading slash
         if not backed_up_agent_root:
-            return "/" + archive_path.lstrip('/')
-
-        # Ensure paths have consistent trailing slash handling
-        backed_up_agent_root = backed_up_agent_root.rstrip('/')
-        current_agent_root = current_agent_root.rstrip('/')
-
-        # Convert archive path to absolute path (add leading slash if missing)
-        if not archive_path.startswith('/'):
-            absolute_archive_path = "/" + archive_path
+            translated_path = "/" + archive_path.lstrip('/')
         else:
-            absolute_archive_path = archive_path
+            # Ensure paths have consistent trailing slash handling
+            backed_up_agent_root = backed_up_agent_root.rstrip('/')
+            current_agent_root = current_agent_root.rstrip('/')
 
-        # Check if the archive path starts with the backed up agent zero root
-        if absolute_archive_path.startswith(backed_up_agent_root + '/') or absolute_archive_path == backed_up_agent_root:
-            # Replace the backed up root with the current root
-            relative_path = absolute_archive_path[len(backed_up_agent_root):].lstrip('/')
-            if relative_path:
-                translated_path = current_agent_root + '/' + relative_path
+            # Convert archive path to absolute path (add leading slash if missing)
+            if not archive_path.startswith('/'):
+                absolute_archive_path = "/" + archive_path
             else:
-                translated_path = current_agent_root
-            return translated_path
-        else:
-            # Path doesn't start with backed up agent root, return as-is
-            return absolute_archive_path
+                absolute_archive_path = archive_path
+
+            # Check if the archive path starts with the backed up agent zero root
+            if absolute_archive_path.startswith(backed_up_agent_root + '/') or absolute_archive_path == backed_up_agent_root:
+                # Replace the backed up root with the current root
+                relative_path = absolute_archive_path[len(backed_up_agent_root):].lstrip('/')
+                if relative_path:
+                    translated_path = current_agent_root + '/' + relative_path
+                else:
+                    translated_path = current_agent_root
+            else:
+                # Path doesn't start with backed up agent root, return as-is
+                translated_path = absolute_archive_path
+
+        translated_path = os.path.abspath(translated_path)
+        restore_root = os.path.realpath(self.agent_zero_root)
+        target_path = os.path.realpath(translated_path)
+        if os.path.commonpath([restore_root, target_path]) != restore_root:
+            raise ValueError(f"Backup entry escapes the restore root: {archive_path}")
+        return translated_path
 
     async def _find_files_to_clean_with_user_metadata(self, user_metadata: Dict[str, Any], original_metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Find existing files that match patterns from user-edited metadata for clean operations"""
