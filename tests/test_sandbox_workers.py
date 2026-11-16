@@ -198,7 +198,7 @@ def test_setup_failure_keeps_progress_error_during_cleanup(monkeypatch):
 async def test_browser_status_event_does_not_wait_for_browser_startup(monkeypatch):
     from plugins._browser.api import ws_browser
     monkeypatch.setattr(ws_browser, 'get_runtime', lambda *a, **kw: pytest.fail('Status must not start Chromium'))
-    monkeypatch.setattr(ws_browser.worker, 'status', lambda: {'stage': 'chromium', 'state': 'starting'})
+    monkeypatch.setattr(ws_browser, 'browser_startup_status', lambda context_id: {'stage': 'chromium', 'state': 'starting'})
     handler = object.__new__(ws_browser.WsBrowser)
     result = await handler.process('browser_startup_status', {}, 'fixture')
     assert result == {'startup': {'stage': 'chromium', 'state': 'starting'}}

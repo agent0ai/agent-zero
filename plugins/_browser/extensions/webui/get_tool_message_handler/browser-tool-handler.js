@@ -489,7 +489,11 @@ function drawBrowserTool({
 }) {
   const args = arguments[0];
   const title = cleanStepTitle(heading);
-  const displayKvps = { ...kvps };
+  const displayKvps = {
+    ...(kvps?.browser_startup_hint && { "icon://info[Browser setup]": kvps.browser_startup_hint }),
+    ...kvps,
+  };
+  delete displayKvps.browser_startup_hint;
   const headerLabels = [
     kvps?._tool_name && { label: kvps._tool_name, class: "tool-name-badge" },
   ].filter(Boolean);

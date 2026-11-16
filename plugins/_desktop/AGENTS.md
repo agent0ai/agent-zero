@@ -10,6 +10,7 @@
 - `helpers/runtime.py` owns lazy loopback server lifecycle and private state under `usr/plugins/_desktop/tuxee`; `helpers/install.py` builds missing/stale runtime assets in a disposable child sandbox for source-only upgrades.
 - `helpers/gateway.py` streams HTTP and binary/text WebSockets at `/desktop/tuxee/` through the existing A0 listener and holds the automatic PAM session in memory. `api/desktop_session.py`, hooks and startup migration register/control that runtime.
 - `webui/` keeps one Tuxee iframe across modal/canvas handoffs; no Office tabs or Office tools remain.
+- `webui/tuxee-emblem.png` is the monochrome Tuxee emblem used by the `tuxee` surface icon. Shared surface CSS uses its luminance as a mask: the hexagon, belly and eye follow the theme's text color; the outer penguin and background remain transparent.
 
 - `build/gui.sh` pins the minimal TigerVNC/Xorg build; `build/bundle-gui.sh` packages its tools, ELF loader/library closure and XKB data at `/usr/local/lib/tuxee-gui` for read-only guest mounts. Build tools remain in the builder.
 

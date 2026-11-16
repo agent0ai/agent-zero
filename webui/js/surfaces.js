@@ -45,7 +45,7 @@ export const CORE_SURFACES = [
   {
     id: "desktop",
     title: "Desktop",
-    icon: "desktop_windows",
+    icon: "tuxee",
     order: 20,
     modalPath: "/plugins/_desktop/webui/main.html",
   },

@@ -563,13 +563,14 @@ class _BrowserRuntimeCore:
     }
     _POPUP_WAIT_SECONDS = 2.0
 
-    def __init__(self, context_id: str, *, config=None, launch_config=None, profile='', downloads='', tabs=None, on_tabs=None):
+    def __init__(self, context_id: str, *, config=None, launch_config=None, profile='', downloads='', tabs=None, on_tabs=None, on_startup=None):
         self.config = config or {}
         self.launch_config = launch_config or {}
         self.profile = Path(profile or '/tmp/browser-profile')
         self.downloads = Path(downloads or '/tmp/browser-downloads')
         self.saved_tabs = tabs
         self.on_tabs = on_tabs or (lambda tabs: None)
+        self.on_startup = on_startup or (lambda stage, message: None)
         self.request_options = contextvars.ContextVar('browser_options', default={})
         self.request_uploads = contextvars.ContextVar('browser_uploads', default={})
         self.context_id = context_id
@@ -855,13 +856,15 @@ class _BrowserRuntimeCore:
                 await self._stop_playwright("Browser context closed; restarting Playwright.")
             try:
                 await self._start()
+                await self._restore_tabs_for_scope()
+                self.on_startup('ready', 'Browser is running')
             except (Exception, asyncio.CancelledError):
                 await self._stop_playwright("Playwright cleanup after startup failure failed")
                 self._discard_context_state()
                 with contextlib.suppress(Exception):
                     await asyncio.to_thread(self.interactive_view.close)
+                self.on_startup('error', 'Browser startup failed; retry to resume')
                 raise
-            await self._restore_tabs_for_scope()
 
     def _context_is_alive(self) -> bool:
         if not self.context:
@@ -932,6 +935,7 @@ class _BrowserRuntimeCore:
         self._release_orphaned_profile_singleton()
         browser_config = self.config
         launch_config = self.launch_config
+        self.on_startup('display', 'Starting browser display')
         browser_display = await asyncio.to_thread(self.interactive_view.ensure_display)
         launch_args = list(launch_config["args"])
         if not self._restore_state_exists:
@@ -944,6 +948,7 @@ class _BrowserRuntimeCore:
                 ]
             )
 
+        self.on_startup('browser', 'Starting browser driver')
         self.playwright = await async_playwright().start()
         browser_binary = Path(self.playwright.chromium.executable_path)
         launch_kwargs: dict[str, Any] = {
@@ -968,9 +973,11 @@ class _BrowserRuntimeCore:
             launch_kwargs["executable_path"] = str(browser_binary)
         if launch_config["proxy"]:
             launch_kwargs["proxy"] = launch_config["proxy"]
+        self.on_startup('browser', 'Launching Chromium')
         self.context = await self.playwright.chromium.launch_persistent_context(
             **launch_kwargs
         )
+        self.on_startup('tabs', 'Preparing and restoring browser tabs')
         self.context.set_default_timeout(30000)
         self.context.set_default_navigation_timeout(30000)
         self.context.on("close", self._on_context_closed)
@@ -2473,6 +2480,7 @@ class _BrowserRuntimeCore:
         if self._closing or self.context is None:
             return
         PrintStyle.warning("Browser context closed unexpectedly; will restart on next use.")
+        self.on_startup('idle', 'Browser is stopped')
         self._discard_context_state()
 
     async def _reference_action(

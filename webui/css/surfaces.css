@@ -1,3 +1,9 @@
+x-icon[name="tuxee"] {
+  background-color: currentColor;
+  mask: url("/plugins/_desktop/webui/tuxee-emblem.png") center / contain no-repeat;
+  mask-mode: luminance;
+}
+
 .modal.surface-modal-parked,
 .modal.modal-surface-parked {
   display: block;

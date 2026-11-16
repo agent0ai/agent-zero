@@ -9,18 +9,25 @@ download directory and selected extensions. Uploads transfer selected bytes.
 See the [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md) for
 lifecycle, sharing, upgrade behavior and runtime requirements.
 
-First launch reports sandbox initialization, Python/display/viewer setup, browser
-driver installation and Chromium download in the Browser panel. It also shows
-elapsed time for the current launch, starting at zero and continuing through
-Chromium startup even if a status poll is delayed. Periods without installer output
-are shown only during installation; silence alone does not prove it is stuck. Installed files remain on disk for subsequent launches.
+Launch reports six numbered stages: preparing the sandbox, installing dependencies,
+installing Chromium, starting the display, launching Chromium, and preparing tabs /
+connecting the viewer. The label describes the current operation within each stage.
+Installed files remain on disk, so later launches skip cached installation stages.
+Checking an existing session is shown separately from launching a browser.
+During launch, a subtitle explains that first use takes a little while to install
+dependencies. The same explanation appears in the browser tool's Browser setup
+hint while the internal runtime starts; there is no elapsed timer.
+The Start button stays hidden while launch is pending. If a reply is lost, the panel
+checks the original operation and attaches when it finishes without opening another
+tab. Confirmed failures allow retry; a disconnected status channel shows reconnecting.
 
-Authenticated clients can poll the `/ws` event `browser_startup_status` with `{}`
+Authenticated clients can poll the `/ws` event `browser_startup_status` with `{"context_id":"…"}`
 or POST `/api/plugins/_browser/status` with the usual session and CSRF token. Both
-return `startup` with `state`, `stage`, `message`, `elapsed_seconds`, `stage_seconds`
-and `quiet_seconds`. These reads do not start a sandbox or wait for installation.
-`ready` describes the dependency worker; the panel then shows Chromium startup
-until its viewer connects. Raw install logs remain private inside the sandbox.
+return `startup` with `state`, `stage`, `message`, `step`, `steps`, and `pending`.
+These reads do not start a sandbox or wait for installation. `ready` describes the
+running Chromium runtime; `pending` stays true until that context's open/subscription
+requests finish, including viewer preparation. The viewer then shows its connection
+stage until VNC connects. Raw install logs remain private inside the sandbox.
 
 The noVNC viewer uses Agent Zero's authenticated WebSocket bridge. Docker builds
 provide `/usr/local/lib/tuxee-gui`; guests mount this public display bundle read-only,

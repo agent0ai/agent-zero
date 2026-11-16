@@ -23,6 +23,14 @@ worker.support_files = {
     'bundle-gui.sh': root / 'plugins/_desktop/build/bundle-gui.sh',
 }
 MAX_MESSAGE = 128 * 1024 * 1024
+STARTUP_STEPS = {
+    'sandbox': 1,
+    'installing': 2, 'python': 2, 'viewer': 2, 'driver': 2, 'chromium_dependencies': 2,
+    'chromium': 3,
+    'starting_worker': 4, 'display': 4,
+    'browser': 5,
+    'tabs': 6, 'ready': 6,
+}
 
 
 def upload_request(path='', paths=None):
@@ -61,6 +69,22 @@ class BrowserConnection:
         self.token = 'browser-' + uuid.uuid4().hex
         self.profile = Path(files.get_abs_path('tmp/browser/sessions/shared'))
         self.downloads = Path(files.get_abs_path('usr/downloads/browser'))
+        self._startup = {'state': 'idle', 'stage': 'idle', 'message': 'Browser is stopped'}
+        self._closing = False
+
+    def startup_status(self):
+        progress = dict(self._startup)
+        if progress['state'] == 'starting' and progress['stage'] == 'sandbox':
+            setup = worker.status()
+            if setup['state'] == 'starting':
+                progress = setup
+        return {**progress, 'step': STARTUP_STEPS.get(progress['stage']), 'steps': 6}
+
+    def startup_progress(self, stage, message):
+        if stage not in {*STARTUP_STEPS, 'idle', 'error'}:
+            return
+        state = stage if stage in {'idle', 'ready', 'error'} else 'starting'
+        self._startup = {'state': state, 'stage': stage, 'message': str(message)[:240]}
 
     async def start(self, context_id):
         async with self.start_lock:
@@ -68,6 +92,7 @@ class BrowserConnection:
                 return
             if self.process:
                 await self.close()
+            self._closing = False
             from plugins._browser.helpers.config import get_browser_config, build_browser_launch_config
             config = get_browser_config()
             launch = build_browser_launch_config(config)
@@ -82,7 +107,9 @@ class BrowserConnection:
             if (display_bundle / 'bin/tuxee-Xvnc').is_file():
                 worker.mounts.append(SandboxMount(display_bundle, '/opt/tuxee-gui'))
             try:
+                self.startup_progress('sandbox', 'Preparing browser sandbox')
                 await worker.aprepare()
+                self.startup_progress('display', 'Starting browser runtime')
                 manager, _ = worker._paths()
                 command = manager.process_command(worker.name, ['/opt/runtime/bin/python', '/plugin/sandbox/rpc.py'])
                 self.process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.PIPE,
@@ -95,6 +122,7 @@ class BrowserConnection:
                     'keyboard': {'layout': config.get('keyboard_layout', ''), 'variant': config.get('keyboard_variant', '')}})
             except BaseException:
                 await self.close()
+                self.startup_progress('error', 'Browser startup failed; retry to resume')
                 raise
 
     def adopt_legacy_profile(self, context_id):
@@ -114,7 +142,9 @@ class BrowserConnection:
         try:
             while line := await self.process.stdout.readline():
                 message = json.loads(line)
-                if 'tabs' in message:
+                if 'startup' in message:
+                    self.startup_progress(message['startup']['stage'], message['startup']['message'])
+                elif 'tabs' in message:
                     kvp.set_persistent('browser_open_tabs', {'version': 1, 'tabs': message['tabs']})
                 elif 'stream' in message:
                     task = asyncio.create_task(self.deliver_frame(message))
@@ -125,6 +155,8 @@ class BrowserConnection:
                     if future and not future.done():
                         future.set_result(message)
         finally:
+            if not self._closing:
+                self.startup_progress('error', 'Browser process disconnected')
             for future in self.pending.values():
                 if not future.done():
                     future.set_exception(ConnectionError('Browser worker pipe closed; operation outcome is unconfirmed'))
@@ -238,6 +270,7 @@ class BrowserConnection:
         return result
 
     async def close(self, delete_profile=False):
+        self._closing = True
         if self.process:
             if self.process.returncode is None:
                 if self.reader_task and not self.reader_task.done():
@@ -258,5 +291,6 @@ class BrowserConnection:
         virtual_desktop.unregister_session(self.token)
         self.consumers.clear()
         await asyncio.to_thread(worker.stop)
+        self.startup_progress('idle', 'Browser is stopped')
         if delete_profile:
             shutil.rmtree(self.profile, ignore_errors=True)

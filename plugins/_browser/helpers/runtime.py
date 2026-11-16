@@ -178,6 +178,32 @@ class BrowserRuntimeSession:
 _runtimes: dict[str, BrowserRuntimeSession] = {}
 _shared_runtime: BrowserRuntime | None = None
 _runtime_lock = threading.RLock()
+_startup_requests: dict[str, int] = {}
+
+
+@contextlib.contextmanager
+def browser_startup_request(context_id: str):
+    with _runtime_lock:
+        _startup_requests[context_id] = _startup_requests.get(context_id, 0) + 1
+    try:
+        yield
+    finally:
+        with _runtime_lock:
+            remaining = _startup_requests[context_id] - 1
+            if remaining:
+                _startup_requests[context_id] = remaining
+            else:
+                _startup_requests.pop(context_id)
+
+
+def browser_startup_status(context_id: str = '') -> dict:
+    with _runtime_lock:
+        runtime = _shared_runtime
+        pending = bool(_startup_requests.get(context_id)) if context_id else bool(_startup_requests)
+    progress = runtime._core.startup_status() if runtime else {
+        'state': 'idle', 'stage': 'idle', 'message': 'Browser is stopped', 'step': None, 'steps': 6,
+    }
+    return {**progress, 'pending': pending}
 
 
 async def get_runtime(

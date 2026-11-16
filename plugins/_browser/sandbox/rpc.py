@@ -45,6 +45,7 @@ async def main():
                 options = message['kwargs']
                 display._keyboard = options.pop('keyboard')
                 core = _BrowserRuntimeCore('shared', **options,
+                    on_startup=lambda stage, message: loop.create_task(send({'startup': {'stage': stage, 'message': message}})),
                     on_tabs=lambda tabs: loop.create_task(send({'tabs': tabs})))
                 result = True
             else:

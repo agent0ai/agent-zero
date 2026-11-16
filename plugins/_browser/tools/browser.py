@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -12,10 +13,12 @@ from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text
 from helpers.tool import Response, Tool
 from plugins._browser.helpers.config import activate_browser_model
+from plugins._browser.helpers.runtime import BrowserRuntimeSession, browser_startup_status
 from plugins._browser.helpers.selector import get_tool_runtime
 
 
 HISTORY_SCREENSHOT_QUALITY = 62
+BROWSER_STARTUP_HINT = "Running the web browser for the first time will take a little while to install dependencies."
 HISTORY_SCREENSHOT_ACTION_DENYLIST = {
     "close", "close_all", "list", "state", "content", "detail", "evaluate",
 }
@@ -98,6 +101,9 @@ class Browser(Tool):
             modifiers = None
         keys = self._normalize_keys(keys)
 
+        startup_hint = asyncio.create_task(self._show_startup_hint()) if (
+            isinstance(runtime, BrowserRuntimeSession) and getattr(self, "log", None)
+        ) else None
         try:
             if action == "open":
                 result = await runtime.call("open", url or "")
@@ -321,8 +327,19 @@ class Browser(Tool):
             await self._record_history_screenshot(runtime, action, result, browser_id, calls=calls)
         except Exception as exc:
             return Response(message=f"Browser {action} failed: {exc}", break_loop=False)
+        finally:
+            if startup_hint is not None:
+                startup_hint.cancel()
+                await asyncio.gather(startup_hint, return_exceptions=True)
 
         return Response(message=self._format_result(action, result), break_loop=False)
+
+    async def _show_startup_hint(self):
+        while True:
+            if browser_startup_status(self.agent.context.id)["state"] == "starting":
+                self.log.update(browser_startup_hint=BROWSER_STARTUP_HINT)
+                return
+            await asyncio.sleep(0.25)
 
     def get_log_object(self):
         return self.agent.context.log.log(

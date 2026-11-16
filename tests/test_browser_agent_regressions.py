@@ -866,11 +866,11 @@ def test_browser_viewer_allows_slow_extension_startup():
     )
 
     assert "const BROWSER_SUBSCRIBE_TIMEOUT_MS = 60000;" in js
-    assert "const BROWSER_FIRST_INSTALL_TIMEOUT_MS = 1800000;" in js
+    assert "const BROWSER_STARTUP_TIMEOUT_MS = 2100000;" in js
     assert "const BROWSER_COMMAND_TIMEOUT_MS = 45000;" in js
-    assert "? BROWSER_FIRST_INSTALL_TIMEOUT_MS" in js
+    assert "? BROWSER_STARTUP_TIMEOUT_MS" in js
     assert ": BROWSER_SUBSCRIBE_TIMEOUT_MS" in js
-    assert "browserInstallExpected" in js
+    assert "browserInstallExpected" not in js
     assert "Installing Chromium for the first Browser run" not in js
 
 
@@ -1528,11 +1528,10 @@ assert.equal(model.address, '');
 assert.equal(model.frameState, null);
 assert.equal(model.isBusy(), false);
 
-// A structured server failure must release the same spinner as a transport failure.
-for (const transportFailure of [false, true]) {
+// A confirmed failure releases the spinner; unknown transport outcomes recover separately.
+{
   Object.assign(model, { switchingBrowserId: 1, _surfaceSwitching: true });
   request = async () => {
-    if (transportFailure) throw new Error('offline');
     return { results: [{ ok: false, error: { error: 'offline' } }] };
   };
   await assert.rejects(model.connectViewer({ contextId: 'empty' }), /offline/);
@@ -1627,7 +1626,7 @@ def test_browser_viewer_uses_tabs_for_session_switching():
     assert "loadingMessage()" not in browser_store
     assert 'class="browser-empty browser-starting" role="status" aria-live="polite"' in main_html
     assert "browserLoadingLabel()" in browser_store
-    assert "Starting Browser…" in browser_store
+    assert "1/6 Preparing browser sandbox…" in browser_store
     assert "browser-tab-context" not in main_html
     assert 'handleSelectedContextChange($store.chats?.selected)' in main_html
     assert "activeBrowserContextId" in browser_store

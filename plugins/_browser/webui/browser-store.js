@@ -19,7 +19,7 @@ const websocket = getNamespacedClient("/ws");
 websocket.addHandlers(["ws_webui"]);
 
 const BROWSER_SUBSCRIBE_TIMEOUT_MS = 60000;
-const BROWSER_FIRST_INSTALL_TIMEOUT_MS = 1800000;
+const BROWSER_STARTUP_TIMEOUT_MS = 2100000;
 const BROWSER_COMMAND_TIMEOUT_MS = 45000;
 const BROWSER_CONFIG_REFRESH_MS = 15000;
 const BROWSER_VIEWER_TRANSPORT_INTERACTIVE = "interactive";
@@ -257,10 +257,10 @@ const model = {
   runtimeBackendSaving: false,
   settingsProjectName: "",
   annotationScreenshots: false,
-  browserInstallExpected: false,
   startupProgress: null,
-  startupElapsedSeconds: 0,
-  _startupClockTimer: null,
+  startupNotice: "",
+  _startupLaunchRequested: false,
+  _startupRecovering: false,
   _startupPollTimer: null,
   _startupPollGeneration: 0,
   _startupPollUsers: 0,
@@ -274,7 +274,6 @@ const model = {
 
   async refreshStatus() {
     this.status = await callJsonApi("/plugins/_browser/status", {});
-    this.browserInstallExpected = Boolean(this.status?.playwright?.install_required);
   },
 
   startStartupPolling() {
@@ -283,19 +282,10 @@ const model = {
     const generation = this._startupPollGeneration;
     if (this._startupPollUsers === 1) {
       this.startupProgress = null;
-      const startedAt = Date.now();
-      const tick = () => {
-        if (generation !== this._startupPollGeneration) return;
-        this.startupElapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-        this._startupClockTimer = globalThis.setTimeout(tick, 1000);
-      };
-      tick();
       const poll = async () => {
         if (generation !== this._startupPollGeneration) return;
         try {
-          const response = await websocket.request("browser_startup_status", {}, { timeoutMs: 5000 });
-          if (generation !== this._startupPollGeneration) return;
-          this.startupProgress = firstOk(response).startup || null;
+          if (!this._startupRecovering) await this.refreshStartupProgress(generation);
         } catch {
           // The startup request owns errors; a missed progress poll must not cancel it.
         }
@@ -316,18 +306,68 @@ const model = {
     this._startupPollGeneration += 1;
     this._startupPollUsers = 0;
     globalThis.clearTimeout(this._startupPollTimer);
-    globalThis.clearTimeout(this._startupClockTimer);
     this._startupPollTimer = null;
-    this._startupClockTimer = null;
-    this.startupElapsedSeconds = 0;
     this.startupProgress = null;
+    this.startupNotice = "";
+    this._startupLaunchRequested = false;
+    this._startupRecovering = false;
   },
 
   browserStartupDetail() {
-    const progress = this.startupProgress;
-    if (!this._startupPollUsers) return "";
-    const quiet = progress?.state === "starting" ? Number(progress.quiet_seconds) || 0 : 0;
-    return `${this.startupElapsedSeconds}s elapsed${quiet >= 30 ? ` · No new installer output for ${quiet}s` : ""}`;
+    if (this.startupNotice) return this.startupNotice;
+    return !this.activeBrowserId && (this._startupLaunchRequested || this.startupProgress?.state === "starting")
+      ? "Running the web browser for the first time will take a little while to install dependencies."
+      : "";
+  },
+
+  async refreshStartupProgress(generation = this._startupPollGeneration) {
+    const response = await websocket.request("browser_startup_status", {
+      context_id: this.contextId || this.resolveContextId(),
+    }, { timeoutMs: 5000 });
+    if (generation !== this._startupPollGeneration) return null;
+    this.startupProgress = firstOk(response).startup || null;
+    return this.startupProgress;
+  },
+
+  async recoverStartup(error, contextSequence) {
+    this._startupRecovering = true;
+    this.startupNotice = "Waiting for Agent Zero to confirm startup…";
+    try {
+      while (contextSequence === this._contextSequence) {
+        if (this.activeBrowserId && this.hasFrame()) return;
+        let progress;
+        try {
+          progress = await this.refreshStartupProgress();
+        } catch {
+          this.startupNotice = "Connection interrupted. Reconnecting to Agent Zero…";
+        }
+        if (contextSequence !== this._contextSequence) return;
+        if (progress && !progress.pending && progress.state !== "starting") {
+          if (progress.state === "error") {
+            this.error = progress.message;
+            return;
+          }
+          try {
+            await this.connectViewer({ contextId: this.contextId, recover: false });
+            if (contextSequence !== this._contextSequence) return;
+            if (!this.activeBrowserId) this.error = error.message;
+            return;
+          } catch (retryError) {
+            if (contextSequence !== this._contextSequence) return;
+            if (!retryError.browserOutcomeUnknown) {
+              this.error = retryError.message;
+              return;
+            }
+          }
+        }
+        await new Promise(resolve => globalThis.setTimeout(resolve, 1000));
+      }
+    } finally {
+      if (contextSequence === this._contextSequence) {
+        this._startupRecovering = false;
+        this.startupNotice = "";
+      }
+    }
   },
 
   async refreshExtensionsList() {
@@ -1120,6 +1160,7 @@ const model = {
   },
 
   async connectViewer(options = {}) {
+    const contextSequence = this._contextSequence;
     const sequence = ++this._connectSequence;
     const viewerToken = makeViewerToken();
     this._viewerToken = viewerToken;
@@ -1162,6 +1203,7 @@ const model = {
     this.error = "";
     const initialViewport = options.initialViewport || this.currentViewportSize();
     let data;
+    let responseReceived = false;
     const stopProgress = this.startStartupPolling();
     try {
       await this._bindSocketEvents();
@@ -1181,14 +1223,20 @@ const model = {
           viewport_height: initialViewport?.height,
         },
         {
-          timeoutMs: this.browserInstallExpected
-            ? BROWSER_FIRST_INSTALL_TIMEOUT_MS
+          timeoutMs: !requestedBrowserId && options.recover !== false
+            ? BROWSER_STARTUP_TIMEOUT_MS
             : BROWSER_SUBSCRIBE_TIMEOUT_MS,
         },
       );
+      responseReceived = true;
       data = firstOk(response);
     } catch (error) {
       if (sequence === this._connectSequence && viewerToken === this._viewerToken) {
+        if (!responseReceived && !requestedBrowserId && options.recover !== false) {
+          await this.recoverStartup(error, contextSequence);
+          return;
+        }
+        error.browserOutcomeUnknown = !responseReceived;
         this.connected = false;
         this.switchingBrowserId = null;
         this._surfaceSwitching = false;
@@ -1220,7 +1268,6 @@ const model = {
     this.applyActiveFrameState(this.browserById(this.activeBrowserId, this.activeBrowserContextId));
     this.applySnapshot(data.snapshot);
     this.connected = true;
-    if (this.activeBrowserId) this.browserInstallExpected = false;
   },
 
   async _bindSocketEvents() {
@@ -1557,14 +1604,18 @@ const model = {
   },
 
   async command(command, extra = {}) {
+    const commandName = String(command || "").toLowerCase();
+    const startup = commandName === "open" && !this.activeBrowserId;
+    if (startup && (this.commandInFlight || this._startupRecovering)) return;
+    if (startup) this._startupLaunchRequested = true;
     this.error = "";
     this.annotationError = "";
     this.beginCommand();
     const stopProgress = this.startStartupPolling();
     const previousActiveBrowserId = this.activeBrowserId;
     const previousActiveContextId = this.activeBrowserContextId;
-    const commandName = String(command || "").toLowerCase();
     const contextSequence = this._contextSequence;
+    let responseReceived = false;
     try {
       const targetContextId = commandName === "open"
         ? await this.contextIdForNewBrowser()
@@ -1582,9 +1633,10 @@ const model = {
           viewer_transport: this.requestedViewerTransport(),
           command,
         },
-        { timeoutMs: this.browserInstallExpected ? BROWSER_FIRST_INSTALL_TIMEOUT_MS : BROWSER_COMMAND_TIMEOUT_MS },
+        { timeoutMs: startup ? BROWSER_STARTUP_TIMEOUT_MS : BROWSER_COMMAND_TIMEOUT_MS },
       );
       if (contextSequence !== this._contextSequence) return;
+      responseReceived = true;
       const data = firstOk(response);
       this.applyTabScope(data);
       this.applyBrowserListing(data.browsers || [], targetContextId, {
@@ -1649,7 +1701,8 @@ const model = {
       }
     } catch (error) {
       if (contextSequence === this._contextSequence) {
-        this.error = error instanceof Error ? error.message : String(error);
+        if (startup && !responseReceived) await this.recoverStartup(error, contextSequence);
+        else this.error = error instanceof Error ? error.message : String(error);
       }
     } finally {
       stopProgress();
@@ -1997,18 +2050,23 @@ const model = {
   },
 
   isBusy() {
-    return Boolean(this.loading || this.commandInFlight || this._surfaceSwitching || this.isSwitchingBrowser());
+    return Boolean(this.loading || this.commandInFlight || this._startupPollUsers
+      || this._startupRecovering || this._surfaceSwitching || this.isSwitchingBrowser());
   },
 
   browserLoadingLabel() {
     if (!this.activeBrowserId && this.startupProgress?.state === "starting") {
-      return this.startupProgress.message;
+      const { step, steps, message } = this.startupProgress;
+      return step ? `${step}/${steps} ${message}…` : (message || "Checking browser startup…");
     }
-    if (!this.activeBrowserId && this.startupProgress?.state === "ready") return "Starting Chromium…";
     if (!this.activeBrowserId && this.startupProgress?.state === "error") return this.startupProgress.message;
-    if (this.commandInFlight && !this.activeBrowserId) return "Starting Browser…";
+    if (!this.activeBrowserId && this._startupLaunchRequested) {
+      return this.startupProgress?.state === "ready"
+        ? "6/6 Opening browser tab…" : "1/6 Preparing browser sandbox…";
+    }
+    if (!this.activeBrowserId) return "Checking existing browser session…";
     if (this.isSwitchingBrowser()) return "Switching Browser tab…";
-    return "Connecting to Browser…";
+    return "6/6 Connecting browser view…";
   },
 
   setActiveBrowserId(id, contextId = "") {

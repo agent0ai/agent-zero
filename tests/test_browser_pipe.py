@@ -2,6 +2,7 @@
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 from unittest.mock import AsyncMock
 import pytest
@@ -22,6 +23,11 @@ class Core:
         self.request_uploads = contextvars.ContextVar('uploads')
         self.interactive_view = types.SimpleNamespace(close=lambda: None)
         self.cleaned = False
+        self.on_startup = kwargs['on_startup']
+    async def progress(self):
+        self.on_startup('browser', 'Launching Chromium')
+        await asyncio.sleep(.01)
+        return True
     async def echo(self):
         return [self.request_context_id.get(), self.cleaned]
     async def slow(self):
@@ -50,6 +56,9 @@ runpy.run_path(sys.argv[1], run_name='__main__')
         await send({'id': id, 'method': method, 'context_id': id, 'args': [], 'kwargs': kwargs})
     try:
         await request('init', 'init', keyboard={})
+        assert (await receive())['result'] is True
+        await request('progress', 'progress')
+        assert await receive() == {'startup': {'stage': 'browser', 'message': 'Launching Chromium'}}
         assert (await receive())['result'] is True
         await request('slow', 'slow')
         await request('other', 'echo')
@@ -85,3 +94,54 @@ async def test_setup_failure_cleans_owned_worker_before_retry(monkeypatch, tmp_p
     with pytest.raises(type(failure)):
         await connection.start('fixture')
     cleanup.assert_awaited_once()
+    assert connection.startup_status()['state'] == 'error'
+
+
+def test_browser_progress_distinguishes_dependency_readiness_from_chromium(monkeypatch):
+    connection = sandbox.BrowserConnection('fixture')
+    monkeypatch.setattr(sandbox.worker, 'status', lambda: {'state': 'ready', 'stage': 'ready'})
+    assert connection.startup_status()['state'] == 'idle'
+    connection.startup_progress('sandbox', 'Preparing browser sandbox')
+    assert connection.startup_status()['state'] == 'starting'
+    for stage, step in [('sandbox', 1), ('driver', 2), ('chromium_dependencies', 2), ('chromium', 3)]:
+        monkeypatch.setattr(sandbox.worker, 'status', lambda stage=stage: {'state': 'starting', 'stage': stage})
+        status = connection.startup_status()
+        assert (status['step'], status['steps']) == (step, 6)
+    for stage, step in [('display', 4), ('browser', 5), ('tabs', 6), ('ready', 6)]:
+        connection.startup_progress(stage, 'fixture stage')
+        status = connection.startup_status()
+        assert (status['step'], status['steps']) == (step, 6)
+        assert status['state'] == ('ready' if stage == 'ready' else 'starting')
+
+
+@pytest.mark.asyncio
+async def test_browser_status_tracks_pending_requests_per_context_without_waiting(monkeypatch):
+    from plugins._browser.helpers import runtime
+    from plugins._browser.api import ws_browser
+    connection = sandbox.BrowserConnection('fixture')
+    connection.startup_progress('ready', 'Browser is running')
+    monkeypatch.setattr(runtime, '_shared_runtime', SimpleNamespace(_core=connection))
+    monkeypatch.setattr(runtime, '_startup_requests', {})
+    entered, release = asyncio.Event(), asyncio.Event()
+    handler = object.__new__(ws_browser.WsBrowser)
+    async def opening(data, sid):
+        entered.set()
+        await release.wait()
+        raise RuntimeError('fixture failure')
+    monkeypatch.setattr(handler, '_command', opening)
+    task = asyncio.create_task(handler.process('browser_viewer_command', {'context_id':'fixture', 'command':'open'}, 'sid'))
+    try:
+        await entered.wait()
+        status = (await handler.process('browser_startup_status', {'context_id':'fixture'}, 'sid'))['startup']
+        assert status['state'] == 'ready' and status['pending'] is True
+        assert runtime.browser_startup_status('other')['pending'] is False
+        with runtime.browser_startup_request('fixture'):
+            release.set()
+            with pytest.raises(RuntimeError, match='fixture failure'):
+                await task
+            assert runtime.browser_startup_status('fixture')['pending'] is True
+        assert runtime.browser_startup_status('fixture')['pending'] is False
+        assert runtime._startup_requests == {}
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)

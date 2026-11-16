@@ -23,7 +23,7 @@ export default async function registerDesktopSurface(surfaces) {
   surfaces.registerSurface({
     id: "desktop",
     title: "Desktop",
-    icon: "desktop_windows",
+    icon: "tuxee",
     order: 20,
     modalPath: "/plugins/_desktop/webui/main.html",
     async beginDockHandoff() {

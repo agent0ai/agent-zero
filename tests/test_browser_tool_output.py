@@ -111,6 +111,53 @@ def test_format_result_minifies_tool_json() -> None:
     assert json.loads(formatted) == result
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("internal,state", [(True, "starting"), (True, "ready"), (True, "idle"), (False, "starting")])
+@pytest.mark.parametrize("outcome", ["success", "failure", "cancel"])
+async def test_startup_hint_only_reports_internal_initialization_and_stops_with_tool(monkeypatch, internal, state, outcome):
+    from plugins._browser.tools import browser as tool_module
+
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def call(*args, **kwargs):
+        started.set()
+        await finish.wait()
+        if outcome == "failure":
+            raise RuntimeError("Browser launch failed")
+        return {"browsers": []}
+
+    runtime = object.__new__(tool_module.BrowserRuntimeSession) if internal else SimpleNamespace()
+    runtime.call = call
+    monkeypatch.setattr(tool_module, "get_runtime", AsyncMock(return_value=runtime))
+    monkeypatch.setattr(tool_module, "activate_browser_model", lambda agent: None)
+    monkeypatch.setattr(tool_module, "browser_startup_status", lambda context_id: {"state": state})
+    tool = object.__new__(Browser)
+    tool.agent = SimpleNamespace(context=SimpleNamespace(id="test"))
+    tool.method = ""
+    tool.log = SimpleNamespace(update=Mock())
+    tasks_before = asyncio.all_tasks()
+    task = asyncio.create_task(tool.execute(action="list"))
+    await asyncio.wait_for(started.wait(), 1)
+    if internal and state == "starting":
+        tool.log.update.assert_called_once_with(browser_startup_hint=tool_module.BROWSER_STARTUP_HINT)
+    else:
+        tool.log.update.assert_not_called()
+
+    if outcome == "cancel":
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    else:
+        finish.set()
+        response = await task
+        assert tool_module.BROWSER_STARTUP_HINT not in response.message
+        if outcome == "success":
+            assert json.loads(response.message) == {"browsers": []}
+        else:
+            assert "Browser launch failed" in response.message
+    assert not (asyncio.all_tasks() - tasks_before)
+
+
 def test_format_result_keeps_content_document_plain() -> None:
     formatted = Browser._format_result("content", {"document": "<html></html>"})
 

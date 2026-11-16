@@ -5,7 +5,7 @@ from plugins._browser.helpers.config import build_browser_launch_config, get_bro
 from plugins._browser.helpers.interactive_view import collect_status as collect_interactive_status
 from plugins._browser.helpers.sandbox import worker
 
-from plugins._browser.helpers.runtime import known_context_ids
+from plugins._browser.helpers.runtime import known_context_ids, browser_startup_status
 
 
 class Status(ApiHandler):
@@ -22,7 +22,7 @@ class Status(ApiHandler):
             host_browser = {"connectors": all_host_browser_metadata()}
         return {
             "plugin": "_browser",
-            "startup": await asyncio.to_thread(worker.status),
+            "startup": await asyncio.to_thread(browser_startup_status, str(input.get('context_id') or '')),
             "playwright": {
                 "cache_dir": "sandbox:/opt/browsers",
                 "cache_dirs": ["sandbox:/opt/browsers"],

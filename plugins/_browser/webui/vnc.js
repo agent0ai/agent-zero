@@ -14,7 +14,7 @@ async function connect() {
   clearTimeout(reconnect);
   if (stopped) return;
   status.hidden = false;
-  status.textContent = 'Connecting to browser…';
+  status.textContent = '6/6 Connecting browser view…';
   try {
     const response = await fetch('./credentials', { credentials: 'same-origin', cache: 'no-store' });
     if (!response.ok) throw new Error('Browser session is unavailable');

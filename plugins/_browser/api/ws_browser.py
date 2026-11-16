@@ -19,8 +19,9 @@ from plugins._browser.helpers.runtime import (
     get_runtime,
     has_restorable_browser_tabs,
     list_runtime_sessions,
+    browser_startup_request,
+    browser_startup_status,
 )
-from plugins._browser.helpers.sandbox import worker
 
 
 FRAME_READ_TIMEOUT_SECONDS = 0.5
@@ -57,9 +58,10 @@ class WsBrowser(WsHandler):
             return None
 
         if event == "browser_startup_status":
-            return {"startup": await asyncio.to_thread(worker.status)}
+            return {"startup": await asyncio.to_thread(browser_startup_status, self._context_id(data))}
         if event == "browser_viewer_subscribe":
-            return await self._subscribe(data, sid)
+            with browser_startup_request(self._context_id(data)):
+                return await self._subscribe(data, sid)
         if event == "browser_viewer_unsubscribe":
             return self._unsubscribe(data, sid)
         if event == "browser_viewer_snapshot":
@@ -67,6 +69,9 @@ class WsBrowser(WsHandler):
         if event == "browser_viewer_sessions":
             return await self._sessions(data)
         if event == "browser_viewer_command":
+            if str(data.get('command') or '').strip().lower() == 'open':
+                with browser_startup_request(self._context_id(data)):
+                    return await self._command(data, sid)
             return await self._command(data, sid)
         if event == "browser_viewer_input":
             return await self._input(data, sid)
