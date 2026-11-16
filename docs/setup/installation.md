@@ -243,6 +243,11 @@ If you are upgrading from Agent Zero v0.9.8 or earlier to v1.1 or newer, use the
 
 > Use this only if Self Update is unavailable or you must manage containers yourself (for example, some custom Docker setups).
 
+Application code is installed directly in `/a0`; persist only `/a0/usr` for
+ordinary Docker installs. In-app code updates survive restarts, but container
+replacement uses the replacement image's code. If you previously mounted all
+of `/a0`, follow [the mount migration guide](../guides/local-folders.md#moving-from-a-whole-a0-mount).
+
 1. Keep the current container running
 2. `docker pull agent0ai/agent-zero:latest`
 3. Start a **new** container on a different host port, for example: `docker run -d -p 50081:80 --name agent-zero-new agent0ai/agent-zero:latest`

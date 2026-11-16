@@ -9,6 +9,12 @@ if [ -z "$1" ]; then
 fi
 BRANCH="$1"
 
+if [ ! -f /a0/run_ui.py ]; then
+    echo "ERROR: /a0/run_ui.py is missing. Mount persistent data at /a0/usr; an empty /a0 mount hides the application shipped in this image." >&2
+    echo "For an old ./agent-zero:/a0 mount, use ./agent-zero/usr:/a0/usr. Keep a backup of the old folder." >&2
+    exit 1
+fi
+
 raise_open_file_limit() {
     local requested="${A0_NOFILE_LIMIT:-65535}"
     local soft
@@ -45,7 +51,9 @@ raise_open_file_limit() {
 }
 
 initialize_package_lists() {
-    if ! compgen -G "/var/lib/apt/lists/*_Packages*" > /dev/null; then
+    local marker=/var/lib/apt/a0-initial-update-started
+    if [ ! -e "$marker" ]; then
+        touch "$marker"
         apt-get update > /dev/null 2>&1 &
     fi
 }

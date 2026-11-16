@@ -1001,7 +1001,7 @@ def test_browser_canvas_restarts_stream_after_page_navigation():
     assert reconnect_index < restart_index
 
 
-def test_browser_entry_points_prefer_canvas_and_modal_dock_handoff():
+def test_browser_entry_points_use_shared_canvas_surface():
     browser_button_path = (
         PROJECT_ROOT
         / "plugins"
@@ -1054,12 +1054,10 @@ def test_browser_entry_points_prefer_canvas_and_modal_dock_handoff():
     assert "finishDockHandoff()" in register_js
     assert "cancelDockHandoff()" in register_js
     assert "defaultOpenMode" not in canvas_store
-    assert "await surface.beginDockHandoff?.(payload)" in canvas_store
-    assert "await this.closeDockSourceModal(payload, modalPath)" in canvas_store
-    assert "delete openPayload.closeSourceModal" in canvas_store
-    assert "await surface.finishDockHandoff?.({ ...openPayload, opened })" in canvas_store
-    assert "await surface.cancelDockHandoff?.(payload)" in canvas_store
-    assert "async closeDockSourceModal" in canvas_store
+    assert "moveShell(parent)" in canvas_store
+    assert "Alpine.mutateDom" in canvas_store
+    assert "parent.moveBefore(shell, null)" in canvas_store
+    assert "await payload.closeSourceModal() === false" in canvas_store
 
     assert "dock(metadata.surfaceId" in surfaces_js
     assert "button.disabled = true" in surfaces_js
@@ -1106,7 +1104,7 @@ def test_browser_entry_points_prefer_canvas_and_modal_dock_handoff():
         assert "Alpine.store" not in js
 
 
-def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
+def test_shared_canvas_keeps_modal_and_sidebar_controls():
     canvas_store = (PROJECT_ROOT / "webui" / "components" / "canvas" / "right-canvas-store.js").read_text(
         encoding="utf-8"
     )
@@ -1136,10 +1134,9 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
         canvas_store.index("\n  shouldRender()"):
         canvas_store.index("};\n\nexport const store")
     ]
-    surface_button_block = surfaces_js[
-        surfaces_js.index("function createModalSurfaceButton"):
-        surfaces_js.index("function configureModalSurfaceSwitcher")
-    ]
+    canvas_modal = (PROJECT_ROOT / "webui/components/canvas/canvas-modal.html").read_text()
+    assert '$store.rightCanvas.mountModal($el)' in canvas_modal
+
 
     assert "surfaceModes: {}" in canvas_store
     assert "mountedSurfaces: {}" in canvas_store
@@ -1151,13 +1148,10 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert 'import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";' in canvas_store
     assert "async openLatest(surfaceId" in canvas_store
     assert "async openModalSurface(surfaceId" in canvas_store
-    assert "this.recordSurfaceMode(targetId, SURFACE_MODE_DOCKED" in canvas_store
-    assert "this.recordSurfaceMode(targetId, SURFACE_MODE_FLOATING)" in canvas_store
     assert "surfaceModes: this.surfaceModes" in canvas_store
     assert "normalizeSurfaceMode(mode)" in canvas_store
     assert "migratePersistedSurfaceState" in canvas_store
     assert "if (this.isMobileMode && !surface.actionOnly)" not in canvas_store
-    assert "return await this.openModalSurface(targetId, payload);" in canvas_store
     assert "return await this.open(targetId, payload);" in canvas_store
     assert 'return await this.open(this.activeSurfaceId || this.panelSurfaces[0]?.id || "", { source: "mobile-toggle" });' in canvas_store
     assert "isWelcomeVisible()" in canvas_store
@@ -1175,16 +1169,11 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert canvas_html.count('@click="$store.rightCanvas.open(surface.id)"') == 2
     assert "body.right-canvas-mobile-mode .right-canvas-rail" in canvas_css
     assert "display: flex !important;" in canvas_css
-    assert "body.right-canvas-mobile-mode .right-canvas-shell" in canvas_css
+    assert "body.right-canvas-mobile-mode .right-canvas > .right-canvas-shell" in canvas_css
     assert "body.right-canvas-mobile-mode .right-canvas,\nbody.right-canvas-mobile-mode .right-canvas-rail" not in canvas_css
 
     assert "recordMode(metadata.surfaceId, SURFACE_MODE_FLOATING)" in surfaces_js
-    assert "configureModalSurfaceSwitcher" in surfaces_js
-    assert "surface-switcher" in surfaces_js
-    assert "surface-button" in surfaces_js
     assert "SINGLE_VISIBLE_MODAL_SURFACE_PATHS" not in modals_js
-    assert "modal-surface-parked" in surfaces_js
-    assert "parkSiblingSurfaceModals(activeModal)" in surfaces_js
     assert "activateModal(modal)" in modals_js
     assert "closeSurfaceGroupModals" not in modals_js
     assert "closeSurfaceGroupModals" in surfaces_js
@@ -1193,9 +1182,6 @@ def test_surface_buttons_keep_modal_and_canvas_entry_points_separate():
     assert "button.title = title" not in modals_js
     assert "button.title = metadata.title" not in modals_js
     assert "rightCanvasStore.panelSurfaces" not in modals_js
-    assert 'await recordMode(normalizedId, SURFACE_MODE_FLOATING)' in surfaces_js
-    assert "const openPromise = ensureModalOpen(targetModalPath)" in surface_button_block
-    assert "await closeModal(modal.path)" not in surface_button_block
     assert "modalRequiresExplicitClose" in modals_js
     assert "modalSurfaceMetadata" not in modals_js
     assert "modal-content-loaded" in modals_js
@@ -3772,21 +3758,55 @@ def test_unexpected_browser_exit_keeps_last_saved_tabs(monkeypatch):
     assert core.pages == {}
 
 
-def test_shared_browser_runtime_adopts_first_requesting_legacy_profile(monkeypatch, tmp_path):
+@pytest.mark.parametrize("legacy_name", ["shared", "ctx-a"])
+def test_shared_browser_runtime_adopts_first_requesting_legacy_profile(monkeypatch, tmp_path, legacy_name):
     monkeypatch.setattr(
         browser_runtime_module.files,
         "get_abs_path",
         lambda *parts: str(tmp_path.joinpath(*parts)),
     )
-    legacy_profile = tmp_path / "tmp" / "browser" / "sessions" / "ctx-a"
+    legacy_profile = tmp_path / "tmp" / "browser" / "sessions" / legacy_name
     (legacy_profile / "Default").mkdir(parents=True)
     (legacy_profile / "Default" / "Cookies").write_bytes(b"legacy-session")
+    (legacy_profile / "SingletonLock").symlink_to("missing-host-123")
 
     core = BrowserConnection(browser_runtime_module.SHARED_RUNTIME_ID)
     core.adopt_legacy_profile("ctx-a")
 
     assert not legacy_profile.exists()
     assert (core.profile / "Default" / "Cookies").read_bytes() == b"legacy-session"
+    assert core.profile == tmp_path / "usr/plugins/_browser/profile"
+    assert (core.profile / "SingletonLock").is_symlink()
+
+
+def test_browser_profile_migration_preserves_existing_profile(monkeypatch, tmp_path):
+    monkeypatch.setattr(browser_runtime_module.files, "get_abs_path", lambda *parts: str(tmp_path.joinpath(*parts)))
+    core = BrowserConnection("ctx-a")
+    core.profile.mkdir(parents=True)
+    (core.profile / "Cookies").write_bytes(b"current")
+    legacy = tmp_path / "tmp/browser/sessions/shared"
+    legacy.mkdir(parents=True)
+    (legacy / "Cookies").write_bytes(b"legacy")
+    core.adopt_legacy_profile("ctx-a")
+    assert (core.profile / "Cookies").read_bytes() == b"current"
+    assert (legacy / "Cookies").read_bytes() == b"legacy"
+
+
+def test_browser_profile_migration_does_not_publish_an_incomplete_copy(monkeypatch, tmp_path):
+    monkeypatch.setattr(browser_runtime_module.files, "get_abs_path", lambda *parts: str(tmp_path.joinpath(*parts)))
+    core = BrowserConnection("ctx-a")
+    legacy = tmp_path / "tmp/browser/sessions/shared"
+    legacy.mkdir(parents=True)
+    (legacy / "Cookies").write_bytes(b"legacy")
+    def fail_copy(source, target, **kwargs):
+        target.mkdir()
+        raise OSError("copy interrupted")
+    monkeypatch.setattr("plugins._browser.helpers.sandbox.shutil.copytree", fail_copy)
+    with pytest.raises(OSError, match="copy interrupted"):
+        core.adopt_legacy_profile("ctx-a")
+    assert not core.profile.exists()
+    assert (legacy / "Cookies").read_bytes() == b"legacy"
+    assert list(core.profile.parent.iterdir()) == []
 
 
 @pytest.mark.anyio

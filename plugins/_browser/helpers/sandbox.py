@@ -7,6 +7,7 @@ import mimetypes
 from pathlib import Path
 import re
 import shutil
+import tempfile
 import uuid
 
 from helpers.sandbox_worker import SandboxWorker
@@ -68,7 +69,7 @@ class BrowserConnection:
         self.start_lock = asyncio.Lock()
         self.write_lock = asyncio.Lock()
         self.token = 'browser-' + uuid.uuid4().hex
-        self.profile = Path(files.get_abs_path('tmp/browser/sessions/shared'))
+        self.profile = Path(files.get_abs_path('usr/plugins/_browser/profile'))
         self.downloads = Path(files.get_abs_path('usr/downloads/browser'))
         self._startup = {'state': 'idle', 'stage': 'idle', 'message': 'Browser is stopped'}
         self._closing = False
@@ -100,6 +101,8 @@ class BrowserConnection:
             self.profile.parent.mkdir(parents=True, exist_ok=True)
             self.adopt_legacy_profile(context_id)
             self.profile.mkdir(exist_ok=True)
+            # Existing workers validate the old mount before replacing their mount list.
+            Path(files.get_abs_path('tmp/browser/sessions/shared')).mkdir(parents=True, exist_ok=True)
             self.downloads.mkdir(parents=True, exist_ok=True)
             worker.mounts = [SandboxMount(self.profile.resolve(), str(self.profile), False),
                              SandboxMount(self.downloads.resolve(), str(self.downloads), False)]
@@ -130,9 +133,20 @@ class BrowserConnection:
                 raise
 
     def adopt_legacy_profile(self, context_id):
-        legacy = self.profile.parent / (re.sub(r'[^a-zA-Z0-9_.-]+', '_', context_id).strip('._') or 'default')
-        if not self.profile.exists() and legacy.is_dir() and legacy != self.profile:
-            legacy.rename(self.profile)
+        if self.profile.exists():
+            return
+        sessions = Path(files.get_abs_path('tmp/browser/sessions'))
+        context = re.sub(r'[^a-zA-Z0-9_.-]+', '_', context_id).strip('._') or 'default'
+        for legacy in (sessions / 'shared', sessions / context):
+            if legacy.is_dir():
+                self.profile.parent.mkdir(parents=True, exist_ok=True)
+                # tmp and usr may be different mounts; publish only a complete copy.
+                with tempfile.TemporaryDirectory(dir=self.profile.parent) as staging:
+                    target = Path(staging) / 'profile'
+                    shutil.copytree(legacy, target, symlinks=True)
+                    target.rename(self.profile)
+                shutil.rmtree(legacy)
+                return
 
     async def send(self, payload):
         data = json.dumps(payload, separators=(',', ':')).encode() + b'\n'

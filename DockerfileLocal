@@ -1,34 +1,16 @@
-# Use the pre-built base image for A0
+# Share the OS/tooling cache with local and published images.
 ARG BASE_IMAGE=agent-zero-base:local
 FROM ${BASE_IMAGE} AS application
-# FROM agent0ai/agent-zero-base:testing
-# FROM agent0ai/agent-zero-base:latest
-
-# Set BRANCH to "local" if not provided
 ARG BRANCH=local
 ENV BRANCH=$BRANCH
-
-# Copy filesystem files to root
 COPY ./docker/run/fs/ /
-# Copy current development files to git, they will only be used in "local" branch
-COPY ./ /git/agent-zero
+COPY requirements.txt /a0/requirements.txt
+COPY plugins/_desktop/build/runtime-packages.txt /a0/plugins/_desktop/build/runtime-packages.txt
+# Code-only changes reuse this dependency layer.
+RUN bash /ins/install_A0.sh && bash /ins/install_additional.sh
 
-# pre installation steps
-RUN bash /ins/pre_install.sh $BRANCH
-
-# Install Python dependencies from the copied local source snapshot.
-RUN bash /ins/install_A0.sh $BRANCH
-
-# install additional software
-RUN bash /ins/install_additional.sh $BRANCH
-
-# Reuse installed Python packages and install runtime assets once from the final
-# local source snapshot.
-ARG CACHE_DATE=none
-RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
-
-# post installation steps
-RUN bash /ins/post_install.sh $BRANCH
+COPY ./ /a0/
+RUN bash /ins/prepare_assets.sh
 
 # Expose ports
 EXPOSE 22 80 9000-9009
@@ -43,12 +25,12 @@ CMD ["/exe/initialize.sh", "$BRANCH"]
 
 FROM node:22-bookworm-slim AS sandbox-node
 FROM python:3.13-slim-bookworm AS sandbox-rootfs
-COPY --from=application /git/agent-zero/docker/sandbox/install.sh /tmp/install-sandbox.sh
+COPY --from=application /a0/docker/sandbox/install.sh /tmp/install-sandbox.sh
 RUN --mount=type=bind,from=sandbox-node,source=/usr/local,target=/node \
     sh /tmp/install-sandbox.sh && rm /tmp/install-sandbox.sh
 
 FROM debian:bookworm-slim AS tuxee-build
-COPY --from=application /git/agent-zero/plugins/_desktop/build /recipe
+COPY --from=application /a0/plugins/_desktop/build /recipe
 RUN sh /recipe/build.sh /output
 
 FROM application
@@ -57,6 +39,6 @@ RUN ln -s /usr/local/lib/tuxee/tuxee /usr/local/bin/tuxee
 ARG TARGETARCH
 # Store the OCI bundle outside /a0 and usr so source/user mounts cannot hide it.
 RUN --mount=type=bind,from=sandbox-rootfs,target=/sandbox \
-    cd /git/agent-zero && /usr/local/bin/python -m plugins._sandboxing.helpers.builtin_image \
+    cd /a0 && /usr/local/bin/python -m plugins._sandboxing.helpers.builtin_image \
     --rootfs /sandbox --output /opt/agent-zero/sandbox-image --architecture "$TARGETARCH" && \
     chmod -R a+rX /opt/agent-zero/sandbox-image

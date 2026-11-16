@@ -85,6 +85,7 @@ runpy.run_path(sys.argv[1], run_name='__main__')
 @pytest.mark.asyncio
 @pytest.mark.parametrize('failure', [RuntimeError('fixture setup failure'), asyncio.CancelledError()])
 async def test_setup_failure_cleans_owned_worker_before_retry(monkeypatch, tmp_path, failure):
+    monkeypatch.setattr(sandbox.files, 'get_abs_path', lambda *parts: str(tmp_path.joinpath(*parts)))
     connection = sandbox.BrowserConnection('fixture')
     connection.profile = tmp_path / 'profile'
     connection.downloads = tmp_path / 'downloads'
@@ -94,6 +95,7 @@ async def test_setup_failure_cleans_owned_worker_before_retry(monkeypatch, tmp_p
     with pytest.raises(type(failure)):
         await connection.start('fixture')
     cleanup.assert_awaited_once()
+    assert (tmp_path / 'tmp/browser/sessions/shared').is_dir()
     assert connection.startup_status()['state'] == 'error'
 
 

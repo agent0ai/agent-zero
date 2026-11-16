@@ -9,6 +9,12 @@ download directory and selected extensions. Uploads transfer selected bytes.
 See the [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md) for
 lifecycle, sharing, upgrade behavior and runtime requirements.
 
+Browser logins and settings live in `usr/plugins/_browser/profile`, alongside the
+persistent user data. First use migrates an existing `tmp/browser/sessions` profile.
+When switching an old full `/a0` mount to `/a0/usr`, run the updated Browser once
+before recreating the container, or copy the old `tmp/browser/sessions/shared`
+folder to `usr/plugins/_browser/profile` while Browser is stopped.
+
 Launch reports six numbered stages: preparing the sandbox, installing dependencies,
 installing Chromium, starting the display, launching Chromium, and preparing tabs /
 connecting the viewer. The label describes the current operation within each stage.

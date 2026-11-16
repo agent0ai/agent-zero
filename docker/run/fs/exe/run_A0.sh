@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. "/ins/copy_A0.sh" "$@"
+set -e
 
 echo "Starting A0 bootstrap manager..."
 cd /a0

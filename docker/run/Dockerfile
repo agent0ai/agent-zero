@@ -1,32 +1,25 @@
-# Use the pre-built base image for A0
+# Share the OS/tooling cache with local and published images.
 ARG BASE_IMAGE=agent-zero-base:local
-FROM ${BASE_IMAGE} AS application
-# FROM agent0ai/agent-zero-base:testing
-# FROM agent0ai/agent-zero-base:latest
-
-# Check if the argument is provided, else throw an error
+FROM ${BASE_IMAGE} AS source
 ARG BRANCH
-RUN if [ -z "$BRANCH" ]; then echo "ERROR: BRANCH is not set!" >&2; exit 1; fi
-ENV BRANCH=$BRANCH
-
-# Copy filesystem files to root
-COPY ./fs/ /
-
-# pre installation steps
-RUN bash /ins/pre_install.sh $BRANCH
-
-# Cache dependencies without retaining an obsolete source tree in this layer.
-RUN bash /ins/install_A0.sh "$BRANCH" \
-    && bash /ins/install_additional.sh "$BRANCH" \
-    && rm -rf /git/agent-zero
-
-# Refresh the branch through the cache buster, reuse installed Python packages, and
-# install runtime assets once from the final source snapshot.
 ARG CACHE_DATE=none
-RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
+RUN test -n "$BRANCH" || { echo "ERROR: BRANCH is not set!" >&2; exit 1; }
+# Keep complete commit ancestry for self-update, without old file contents.
+RUN echo "cache buster $CACHE_DATE" && \
+    git clone --filter=blob:none --single-branch -b "$BRANCH" \
+    https://github.com/agent0ai/agent-zero /a0
 
-# post installation steps
-RUN bash /ins/post_install.sh $BRANCH
+FROM ${BASE_IMAGE} AS application
+ARG BRANCH
+ENV BRANCH=$BRANCH
+COPY ./fs/ /
+COPY --from=source /a0/requirements.txt /a0/requirements.txt
+COPY --from=source /a0/plugins/_desktop/build/runtime-packages.txt /a0/plugins/_desktop/build/runtime-packages.txt
+# Code-only changes reuse this dependency layer.
+RUN bash /ins/install_A0.sh && bash /ins/install_additional.sh
+
+COPY --from=source /a0/ /a0/
+RUN bash /ins/prepare_assets.sh
 
 # Expose ports
 EXPOSE 22 80 9000-9009
@@ -41,12 +34,12 @@ CMD ["/exe/initialize.sh", "$BRANCH"]
 
 FROM node:22-bookworm-slim AS sandbox-node
 FROM python:3.13-slim-bookworm AS sandbox-rootfs
-COPY --from=application /git/agent-zero/docker/sandbox/install.sh /tmp/install-sandbox.sh
+COPY --from=application /a0/docker/sandbox/install.sh /tmp/install-sandbox.sh
 RUN --mount=type=bind,from=sandbox-node,source=/usr/local,target=/node \
     sh /tmp/install-sandbox.sh && rm /tmp/install-sandbox.sh
 
 FROM debian:bookworm-slim AS tuxee-build
-COPY --from=application /git/agent-zero/plugins/_desktop/build /recipe
+COPY --from=application /a0/plugins/_desktop/build /recipe
 RUN sh /recipe/build.sh /output
 
 FROM application
@@ -55,6 +48,6 @@ RUN ln -s /usr/local/lib/tuxee/tuxee /usr/local/bin/tuxee
 ARG TARGETARCH
 # Store the OCI bundle outside /a0 and usr so source/user mounts cannot hide it.
 RUN --mount=type=bind,from=sandbox-rootfs,target=/sandbox \
-    cd /git/agent-zero && /usr/local/bin/python -m plugins._sandboxing.helpers.builtin_image \
+    cd /a0 && /usr/local/bin/python -m plugins._sandboxing.helpers.builtin_image \
     --rootfs /sandbox --output /opt/agent-zero/sandbox-image --architecture "$TARGETARCH" && \
     chmod -R a+rX /opt/agent-zero/sandbox-image

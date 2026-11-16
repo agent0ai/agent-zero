@@ -10,8 +10,8 @@ BASE_DOCKERFILE = PROJECT_ROOT / "docker" / "base" / "Dockerfile"
 INSTALL_PYTHON = (
     PROJECT_ROOT / "docker" / "base" / "fs" / "ins" / "install_python.sh"
 )
-INSTALL_PACKAGES3 = (
-    PROJECT_ROOT / "docker" / "base" / "fs" / "ins" / "install_base_packages3.sh"
+INSTALL_PACKAGES = (
+    PROJECT_ROOT / "docker" / "base" / "fs" / "ins" / "install_base_packages.sh"
 )
 SETUP_VENV = PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "setup_venv.sh"
 SUPERVISOR_CONFIG = (
@@ -46,14 +46,13 @@ def test_base_image_uses_official_python_trixie_image() -> None:
 
 def test_node_and_bundled_npm_come_from_official_node_stage() -> None:
     dockerfile = _read(BASE_DOCKERFILE)
-    install_script = _read(INSTALL_PACKAGES3)
+    install_script = _read(INSTALL_PACKAGES)
 
     assert "FROM node:22-trixie-slim AS node-runtime" in dockerfile
     assert "COPY --from=node-runtime /usr/local/bin/node" in dockerfile
     assert "COPY --from=node-runtime /usr/local/lib/node_modules" in dockerfile
     assert "node --version" in install_script
     assert "npm --version" in install_script
-    assert "apt-get install" not in install_script
     assert "nodejs npm" not in install_script
 
 
@@ -76,7 +75,7 @@ def test_outer_runtime_uses_onnx_without_training_dependencies() -> None:
     for package in ("sentence-transformers", "torch", "torchvision", "scipy", "scikit-learn", "transformers"):
         assert not any(line.startswith(package + "=") for line in requirements.splitlines())
     assert "onnxruntime==1.23.2" in requirements
-    final_pass = _read(PROJECT_ROOT / "docker/run/fs/ins/install_A02.sh")
+    final_pass = _read(PROJECT_ROOT / "docker/run/fs/ins/prepare_assets.sh")
     assert final_pass.index("-m helpers.local_embeddings") < final_pass.index("preload.py")
 
 
@@ -131,21 +130,21 @@ def test_runtime_dependencies_and_playwright_use_global_python() -> None:
     install_python = _read(INSTALL_PYTHON)
     requirements = _read(REQUIREMENTS)
     install_a0 = _read(PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_A0.sh")
-    install_a02 = _read(PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_A02.sh")
+    prepare_assets = _read(PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "prepare_assets.sh")
     install_playwright = _read(
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_playwright.sh"
     )
 
-    assert "depfix" not in install_python + requirements + install_a0 + install_a02 + install_playwright
-    assert "uv pip install --no-cache --python /usr/local/bin/python -r /git/agent-zero/requirements.txt" in install_a0
+    assert "depfix" not in install_python + requirements + install_a0 + prepare_assets + install_playwright
+    assert "uv pip install --no-cache --python /usr/local/bin/python -r /a0/requirements.txt" in install_a0
     assert "python -m pip install --no-cache-dir --no-compile" in install_python
     assert "uv pip install" not in install_playwright
     assert "patchright install" not in install_playwright
-    assert 'bash /ins/install_A0.sh "$@"' in install_a02
-    assert 'bash /ins/install_playwright.sh "$@"' not in install_a02
-    assert "/usr/local/bin/python /git/agent-zero/preload.py --dockerized=true" in install_a02
-    assert "pip cache purge" not in install_a02
-    assert "uv cache" not in install_a02
+    assert "uv pip install" not in prepare_assets
+    assert 'bash /ins/install_playwright.sh "$@"' not in prepare_assets
+    assert "/usr/local/bin/python preload.py --dockerized=true" in prepare_assets
+    assert "pip cache purge" not in prepare_assets
+    assert "uv cache" not in prepare_assets
 
 
 def test_runtime_python_launchers_use_global_python() -> None:

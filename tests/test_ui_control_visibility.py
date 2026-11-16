@@ -199,14 +199,17 @@ assert.equal(canvas.railPosition, 692 / 800);
 listeners.get('lostpointercapture')();
 assert.equal(listeners.size, 0);
 (async () => {
-  let modalId;
-  canvas.openModalSurface = async id => { modalId = id; return true; };
+  let modalOpens = 0;
+  canvas.showModal = async () => { modalOpens++; canvas.isDetached = true; return true; };
   await canvas.open('files');
-  assert.equal(modalId, 'files');
+  assert.equal(modalOpens, 1);
+  assert.equal(canvas.activeSurfaceId, 'files');
   assert.equal(canvas.isOpen, false);
   await canvas.open('browser');
-  assert.equal(canvas.isOpen, true);
-  canvas.isOpen = false;
+  assert.equal(canvas.activeSurfaceId, 'browser');
+  assert.equal(canvas.isDetached, true);
+  assert.equal(canvas.isOpen, false);
+  canvas.isDetached = false;
   preferences.setUiVisibility(Object.fromEntries(canvas.surfaces.map(s =>
     [`canvas:${s.id}`, {mobile: false, desktop: false}])));
   assert.equal(await canvas.toggleCanvas(), false);
