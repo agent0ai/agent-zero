@@ -16,3 +16,4 @@ libjpeg62-turbo
 libpixman-1-0
 libxfont2
 libstdc++6
+libcap2

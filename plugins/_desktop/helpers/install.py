@@ -34,11 +34,12 @@ def install():
         for path in staged.rglob('*'):
             relative = path.relative_to(staged)
             target = Path('/usr/local') / relative
-            if path.is_dir() or path.is_symlink() or target in {BINARY, BINARY.parent / 'a0-build-id'}:
+            if path.is_dir() or target in {BINARY, BINARY.parent / 'a0-build-id'}:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             temporary = target.with_name(target.name + '.a0-new')
-            shutil.copy2(path, temporary)
+            temporary.unlink(missing_ok=True)
+            shutil.copy2(path, temporary, follow_symlinks=False)
             os.replace(temporary, target)
         BINARY.parent.mkdir(parents=True, exist_ok=True)
         temporary = BINARY.with_name('tuxee.a0-new')

@@ -14,6 +14,7 @@ from helpers.notification import NotificationManager, NotificationType, Notifica
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
+from helpers.security import safe_filename
 from initialize import initialize_agent
 
 from plugins._telegram_integration.helpers import telegram_client as tc
@@ -76,7 +77,9 @@ def cleanup_old_attachments():
         max_age_hours = bot_cfg.get("attachment_max_age_hours", 0)
         if not max_age_hours or max_age_hours <= 0:
             continue
-        prefix = f"tg_{bot_name}_"
+        prefix = safe_filename(f"tg_{bot_name}_")
+        if not prefix:
+            continue
         cutoff = time.time() - max_age_hours * 3600
         for name in os.listdir(upload_dir):
             if not name.startswith(prefix):
@@ -477,7 +480,9 @@ async def _download_attachments(bot, message: TgMessage, bot_name: str = "") -> 
     download_dir_ref = files.get_abs_path_dockerized(DOWNLOAD_FOLDER)
 
     async def _dl(file_id: str, filename: str) -> str | None:
-        safe_name = f"{tg_prefix}{uuid.uuid4().hex[:8]}_{filename}"
+        safe_name = safe_filename(f"{tg_prefix}{uuid.uuid4().hex[:8]}_{filename}")
+        if not safe_name:
+            return None
         dest = os.path.join(download_dir, safe_name)
         result = await tc.download_file(bot, file_id, dest)
         if result:

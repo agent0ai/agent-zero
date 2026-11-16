@@ -21,9 +21,10 @@
 - Multipart requests with `skills_file` accept only `.zip` uploads, extract them into `tmp/skill_scans`, discover contained `SKILL.md` folders, and return `paths` plus `cleanup_paths` for the scanner prompt.
 - Uploaded archives are not imported, installed, or executed by this endpoint.
 - Temporary uploaded zip files under `tmp/uploads` are deleted after extraction or failure.
+- Uploaded archive filenames use `helpers.security.safe_filename`; names empty after cleaning fail the existing ZIP check.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.
-- Imported dependency areas include: `__future__`, `helpers`, `helpers.api`, `helpers.skills_import`, `pathlib`, `shutil`, `time`, `typing`, `uuid`, `werkzeug.datastructures`, `werkzeug.utils`.
+- Imported dependency areas include: `__future__`, `helpers`, `helpers.api`, `helpers.security`, `helpers.skills_import`, `pathlib`, `shutil`, `time`, `typing`, `uuid`, `werkzeug.datastructures`.
 
 ## Key Concepts
 

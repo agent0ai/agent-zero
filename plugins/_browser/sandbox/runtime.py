@@ -959,7 +959,8 @@ class _BrowserRuntimeCore:
             "args": launch_args,
         }
         if browser_display:
-            launch_kwargs["env"] = {"DISPLAY": browser_display, "XAUTHORITY": getattr(self.interactive_view, "xauthority", ""), "GSETTINGS_BACKEND": "keyfile", "XDG_CONFIG_HOME": getattr(self.interactive_view, "gtk_config", ""), "HOME": "/root", "PATH": "/opt/runtime/bin:/usr/local/bin:/usr/bin:/bin", "PLAYWRIGHT_BROWSERS_PATH": "/opt/browsers"}
+            from plugins._browser.sandbox.audio import environment
+            launch_kwargs["env"] = {"DISPLAY": browser_display, "XAUTHORITY": getattr(self.interactive_view, "xauthority", ""), "GSETTINGS_BACKEND": "keyfile", "XDG_CONFIG_HOME": getattr(self.interactive_view, "gtk_config", ""), "HOME": "/root", "PATH": "/opt/runtime/bin:/usr/local/bin:/usr/bin:/bin", "PLAYWRIGHT_BROWSERS_PATH": "/opt/browsers", **environment()}
             launch_kwargs["no_viewport"] = True
         else:
             launch_kwargs.update(

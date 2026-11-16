@@ -20,7 +20,7 @@
 - Preserve exposed ports for SSH, HTTP, and tunneled services unless docs and workflows are updated together.
 - Run framework services and local agent/user Python execution in the official image's global Python environment; do not create or activate a virtual environment.
 - Run Supervisor's event listener with Debian's `/usr/bin/python3`, matching the apt-owned Supervisor package; application services still use the official global Python.
-- Build embedded Tuxee with `plugins/_desktop/build/` in a disposable stage, copying only its runtime and minimal VNC/window manager. Install that recipe's native runtime libraries in the outer image; no LibreOffice/UNO, Xfce, Xpra or Collabora belongs there. Browser mounts the shared `/usr/local/lib/tuxee-gui` bundle read-only in its sandbox and uses noVNC.
+- Build embedded Tuxee with `plugins/_desktop/build/` in a disposable stage, copying only its runtime, minimal VNC/window manager and stripped audio bundle. Install that recipe's native runtime libraries in the outer image; no LibreOffice/UNO, Xfce, Xpra or Collabora belongs there. Browser mounts the shared `/usr/local/lib/tuxee-gui` and `/usr/local/lib/tuxee-audio` runtimes read-only in its sandbox and uses noVNC plus an authenticated PCM audio stream.
 - Do not bake secrets, local `.env` values, or user data into the image.
 - The consolidated root requirements include SoundFile for WAV test fixtures; supported wheels bundle its audio library. Speech runtimes remain in their guests; do not add outer APT audio packages for test tooling.
 - Runtime startup must ensure `/a0/usr/uploads` exists before supervised services start.

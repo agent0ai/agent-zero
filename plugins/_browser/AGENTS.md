@@ -27,7 +27,7 @@
 - Keep headful Chromium in a normal window with its own toolbar clipped above the private display; do not use browser fullscreen, which shows Chromium's exit warning.
 - Persist open-tab ownership and URLs through the shared KVP store; automatically restore the current chat when its Browser surface opens in per-chat mode and every saved chat in shared mode, then hide Chromium's redundant crash-restore advisory.
 - When no Browser tab manifest exists yet, use Chromium's last session once to migrate open tabs into the owned manifest.
-- Throttle interactive resize updates throughout a drag and let the native-sized Chromium viewport follow the private display; do not defer all layout updates until resizing stops.
+- Let the native Chromium viewport follow actual surface dimensions with throttled resize updates. Canvas divider drags preview without changing those dimensions until release; floating-window resizes continue updating live.
 - Reuse the private display's native dimensions when interactive-viewer requests omit a size. Page CSS viewport dimensions change with zoom and must not resize the display during navigation or tab switching.
 - Keep exactly one interactive viewer iframe connected during canvas/modal handoff so hidden surfaces cannot compete to resize the same display.
 - Complete tab switching when the viewer subscription succeeds and reuses the interactive viewer URL; the shared iframe does not reload for each tab. New viewer URLs and fallback frames retain their load/render completion path.
@@ -38,6 +38,7 @@
 - Repeated private-display sizes are no-ops: A0 owns display geometry. Update cached dimensions and GTK chooser settings only after a successful resize; failed resizes must remain retryable.
 - Synchronous context cleanup shares the named BrowserCleanup event loop. Cancel only the cleanup task on completion/timeout; an individual context must not terminate the shared thread used by concurrent resets.
 - Bind VNC to IPv4 loopback with fresh VncAuth credentials and a private Xauthority cookie. `helpers/viewer_gateway.py` serves only owned sessions at `/browser/vnc/`, with A0 authentication, same-origin checks, bounded binary input and private no-store credentials. No extra HTTP daemon or published port.
+- Browser audio uses Tuxee's stripped PulseAudio bundle read-only in the guest, with a private cookie/socket and a null sink for the shared Chromium runtime. `sandbox/audio.py` owns sink lifetime and capture; closing a capture's control pipe stops its process even during silence. The existing viewer gateway authenticates `/audio` before executing capture. PCM is 48 kHz stereo s16le in 960-frame packets with a little-endian 64-bit sample position; silent packets are omitted. `webui/audio.js` owns bounded Web Audio playback, gesture unlocking and mute; disconnect/mute stops capture. Audio mixes all tabs in the shared browser, independently of the visible tab. Keep build dependencies in disposable builders or the source-install guest, with no hardware sound device or public audio port.
 - Paint live screencast frames through the Browser panel canvas/ImageBitmap path when available; keep the `<img>`/data URL path for snapshots and fallback rendering.
 - Push internal screencast frames from the runtime to the WebSocket consumer after subscription; keep `read/pop_screencast_frame` as fallback/tooling APIs, not the WebUI hot path.
 - Keep Browser viewer frame transport capability-negotiated: updated clients may request binary/slim screencast frames, while older clients must keep the base64/full-metadata fallback. Do not let the WebUI advertise binary frames unless its Socket.IO client reconstructs attachments as real `Blob`, `ArrayBuffer`, or typed-array values.
@@ -95,6 +96,7 @@
 ## Verification
 
 - Smoke-test browser launch, navigation, DOM capture, and WebUI viewer after runtime changes.
+- Run `python -m unittest discover -s tests -p test_browser_audio.py`, `node --test tests/test_browser_audio.mjs`, and the audio gateway cases in `tests/test_browser_vnc.py`; native audio changes also require a real Chromium-to-PCM capture check.
 - Run `pytest tests/test_browser_dom_security.py` for real-Chromium origin isolation, parent/frame/opener attacks, response binding, same-origin frame actions, and legacy-helper upgrades. Run `pytest tests/test_browser_agent_regressions.py tests/test_host_browser_connector.py` for internal runtime and distributed helper compatibility.
 - For viewer render-path changes, verify direct iframe interaction reaches the same page controlled by Patchright, chat tab ownership remains enforced, and an unavailable interactive viewer falls back to CDP screencast/snapshot rendering.
 - Run browser prompt/skill regression tests after changing browser prompt or Browser plugin skills.

@@ -13,6 +13,7 @@
 - `webui/tuxee-emblem.png` is the monochrome Tuxee emblem used by the `tuxee` surface icon. Shared surface CSS uses its luminance as a mask: the hexagon, belly and eye follow the theme's text color; the outer penguin and background remain transparent.
 
 - `build/gui.sh` pins the minimal TigerVNC/Xorg build; `build/bundle-gui.sh` packages its tools, ELF loader/library closure and XKB data at `/usr/local/lib/tuxee-gui` for read-only guest mounts. Build tools remain in the builder.
+- `build/audio.sh` reuses pinned Tuxee's stripped PulseAudio/libsndfile recipe at `/usr/local/lib/tuxee-audio`, with `tuxee-pulseaudio`/`tuxee-pacat` wrappers. Both image and source-upgrade builds include it; installation preserves library symlinks. Desktop uses upstream audio unchanged; Browser mounts the same runtime in its private guest. No codecs, sound devices or additional listener ports are required.
 
 ## Local Contracts
 

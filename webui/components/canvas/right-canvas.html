@@ -20,6 +20,7 @@
         :style="$store.rightCanvas.widthStyle()"
         x-show="$store.rightCanvas.shouldRender()"
         x-init="$store.rightCanvas.init($el)"
+        x-destroy="$store.rightCanvas._resizeCleanup?.()"
         x-effect="$store.rightCanvas.applyLayoutState()"
         aria-label="Universal Canvas"
       >

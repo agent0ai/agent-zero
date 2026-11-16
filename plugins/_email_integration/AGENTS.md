@@ -16,6 +16,7 @@
 - Outgoing attachment reads resolve development `/a0` aliases and use local helpers. The legacy `_read_attachments_via_rfc` name remains compatible but performs no development RFC dispatch; selected attachment bytes still cross the mail guest boundary.
 
 - Treat mailbox credentials and downloaded attachments as sensitive.
+- Persist guest attachments using `helpers.security.safe_filename` after validating the returned leaf name; retain strict base64 decoding, unique private files, and sandbox attachment path protections.
 - IMAP accepts exactly one valid From mailbox, rejecting duplicate fields, groups, and parser defects before body processing. Match the whitelist and address replies using that mailbox's normalized address; From filtering does not authenticate sender identity.
 - Preserve UID/state tracking so restarts do not duplicate old mail.
 - First configured poll or explicit connection/send starts the persistent guest; idle cleanup/disable stops it without deleting settings or checkpoints. Disabled handlers do not provision. Validate returned attachment names/base64 before creating private files; sanitize transport errors.

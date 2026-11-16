@@ -1,7 +1,9 @@
 import RFB from './vendor/novnc/core/rfb.js';
+import { BrowserAudio } from './audio.js';
 
 const screen = document.getElementById('screen');
 const status = document.getElementById('status');
+const audio = new BrowserAudio(document.getElementById('audio'));
 let rfb;
 let reconnect;
 let stopped = false;
@@ -30,6 +32,8 @@ async function connect() {
     client.addEventListener('connect', () => {
       if (rfb !== client) return;
       viewer.connected = true;
+      audio.connected = true;
+      void audio.start();
       status.hidden = true;
       screen.querySelector('canvas')?.setAttribute('aria-label', 'Interactive browser');
       client.focus();
@@ -42,6 +46,8 @@ async function connect() {
     client.addEventListener('disconnect', () => {
       if (rfb !== client || stopped) return;
       viewer.connected = false;
+      audio.connected = false;
+      audio.close();
       status.hidden = false;
       status.textContent = 'Browser disconnected. Reconnecting…';
       reconnect = setTimeout(connect, 1500);
@@ -77,5 +83,7 @@ window.addEventListener('pagehide', () => {
   stopped = true;
   clearTimeout(reconnect);
   rfb?.disconnect();
+  audio.connected = false;
+  audio.close();
 });
 void connect();

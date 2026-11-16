@@ -15,6 +15,7 @@
 
 - Keep validation criteria aligned with `plugins/AGENTS.md`, WebUI contracts, and Plugin Index requirements.
 - Temporary validation source directories and contexts must be cleaned up as intended.
+- Clean uploaded archive filenames with `helpers.security.safe_filename` before joining the temporary upload directory; retain archive-member containment checks.
 - Do not confuse runtime `plugin.yaml` with Plugin Index `index.yaml`.
 
 ## Work Guidance

@@ -16,6 +16,7 @@
 ## Local Contracts
 
 - Incoming/outgoing attachment staging calls local readers/writers in every mode; outgoing reads resolve development `/a0` aliases. Preserve the bridge media directory and selected-byte transport into its sandbox; development RFC is not involved.
+- Local attachment staging uses `helpers.security.safe_filename` before joining the media directory; retain the bridge's own filename containment and exclusive-write checks.
 
 - Treat WhatsApp sessions, QR data, phone numbers, attachments, and bridge state as sensitive.
 - Keep allowed-number and group-response controls enforced.

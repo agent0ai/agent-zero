@@ -10,7 +10,7 @@ from helpers import files, skills
 from helpers.api import ApiHandler, Request, Response
 from helpers.skills_import import extract_skills_zip
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
+from helpers.security import safe_filename
 
 
 class SkillsScan(ApiHandler):
@@ -71,7 +71,7 @@ class SkillsScan(ApiHandler):
         if not skills_file.filename:
             return {"success": False, "error": "No file selected"}
 
-        base = secure_filename(skills_file.filename)  # type: ignore[arg-type]
+        base = safe_filename(skills_file.filename) or ""
         if not base.lower().endswith(".zip"):
             return {"success": False, "error": "Skill scan uploads must be .zip files"}
 

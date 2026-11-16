@@ -18,6 +18,7 @@
 ## Local Contracts
 
 - Treat bot tokens, chat IDs, attachments, and user data as sensitive.
+- Clean the complete generated attachment filename with `helpers.security.safe_filename` before joining `usr/uploads`; use the same cleaner for bot cleanup prefixes. No sender filename may select a subdirectory.
 - Keep allowed-user, group-mode, project, model, and `/send` controls enforced.
 - Resolve raw commands before adding the Telegram message envelope; its closing marker prevents queued/rendered text from being interpreted as a second postfix command. Custom/project definitions override bundled commands; keep Telegram's existing integration aliases and pickers for unoverridden commands.
 - `/commands` discovers the current chat's effective commands on each use. The native Telegram menu registers global commands at startup, maps hyphens to underscores, and obeys Telegram's name/description/count limits.

@@ -1,4 +1,9 @@
 import asyncio
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
 
 from plugins._telegram_integration.helpers import handler
 from plugins._telegram_integration.helpers import telegram_client as tc
@@ -7,6 +12,29 @@ from plugins._telegram_integration.helpers.constants import (
     CTX_TG_CHAT_ID,
     CTX_TG_REPLY_TO,
 )
+
+
+@pytest.mark.parametrize("filename", [
+    "../../../../api/payload.py", r"..\..\..\..\api\payload.py",
+    "/absolute/payload.py", "report.pdf", "bad\x00name.txt",
+])
+def test_incoming_attachment_names_cannot_escape_uploads(monkeypatch, tmp_path, filename):
+    upload_dir = tmp_path / "usr/uploads"
+    monkeypatch.setattr(handler.files, "get_abs_path", lambda *_: str(upload_dir))
+    monkeypatch.setattr(handler.files, "get_abs_path_dockerized", lambda *_: "/a0/usr/uploads")
+    download = AsyncMock(return_value=True)
+    monkeypatch.setattr(handler.tc, "download_file", download)
+    message = SimpleNamespace(
+        document=SimpleNamespace(file_id="fixture", file_name=filename),
+        photo=None, audio=None, voice=None, video=None, video_note=None,
+    )
+
+    paths = asyncio.run(handler._download_attachments(None, message, "test"))
+
+    destination = Path(download.await_args.args[2])
+    assert destination.resolve().parent == upload_dir.resolve()
+    assert "\\" not in destination.name and "\x00" not in destination.name
+    assert paths == [f"/a0/usr/uploads/{destination.name}"]
 
 
 class FakeBotInstance:

@@ -2,6 +2,7 @@
 import asyncio
 import contextlib
 from pathlib import Path
+import struct
 from urllib.parse import urlsplit
 
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
@@ -57,8 +58,8 @@ class BrowserVncGateway(VirtualDesktopGateway):
         else:
             if path == '/index.html':
                 asset = ASSETS / 'vnc.html'
-            elif path == '/vnc.js':
-                asset = ASSETS / 'vnc.js'
+            elif path in {'/vnc.js', '/audio.js'}:
+                asset = ASSETS / path.lstrip('/')
             elif path.startswith('/vendor/novnc/'):
                 asset = (ASSETS / path.lstrip('/')).resolve()
                 if not asset.is_relative_to((ASSETS / 'vendor/novnc').resolve()):
@@ -71,8 +72,11 @@ class BrowserVncGateway(VirtualDesktopGateway):
     async def websocket(self, scope, receive, send):
         socket = WebSocket(scope, receive=receive, send=send)
         endpoint, path = self.endpoint(scope)
-        if not self.allowed(scope) or not endpoint or path != '/ws':
+        if not self.allowed(scope) or not endpoint or path not in {'/ws', '/audio'}:
             await socket.close(code=1008)
+            return
+        if path == '/audio':
+            await self.audio(socket)
             return
         writer = None
         tasks = []
@@ -110,5 +114,49 @@ class BrowserVncGateway(VirtualDesktopGateway):
                 writer.close()
                 with contextlib.suppress(OSError):
                     await writer.wait_closed()
+            with contextlib.suppress(RuntimeError, OSError, WebSocketDisconnect):
+                await socket.close()
+
+    async def audio(self, socket):
+        from plugins._browser.helpers.sandbox import worker
+        process = None
+        tasks = []
+        try:
+            manager, _ = worker._paths()
+            command = await asyncio.to_thread(manager.process_command, worker.name,
+                ['/opt/runtime/bin/python', '/plugin/sandbox/audio.py'])
+            process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE, stderr=None)
+            await socket.accept()
+
+            async def stream():
+                position = 0
+                while True:
+                    pcm = await process.stdout.readexactly(3840)
+                    if any(pcm):
+                        await asyncio.wait_for(socket.send_bytes(struct.pack('<Q', position) + pcm), 2)
+                    position += 960
+
+            async def disconnected():
+                # Audio is output-only; incoming application data closes the stream.
+                await socket.receive()
+
+            tasks = [asyncio.create_task(stream()), asyncio.create_task(disconnected())]
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+        except (OSError, TimeoutError, RuntimeError, asyncio.IncompleteReadError, WebSocketDisconnect):
+            pass
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if process:
+                process.stdin.close()
+                try:
+                    await asyncio.wait_for(process.wait(), 3)
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
             with contextlib.suppress(RuntimeError, OSError, WebSocketDisconnect):
                 await socket.close()

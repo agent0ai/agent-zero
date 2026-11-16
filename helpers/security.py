@@ -19,6 +19,7 @@ WINDOWS_RESERVED: Final = frozenset({
 FILENAME_MAX_LENGTH: Final = 255
 
 def safe_filename(filename: str) -> Optional[str]:
+    """Clean an untrusted upload name into one path component; return None if empty."""
     # Normalize Unicode (NFC)
     filename = unicodedata.normalize("NFC", str(filename))
     # Replace forbidden chars

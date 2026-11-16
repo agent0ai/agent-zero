@@ -21,6 +21,7 @@ worker.support_files = {
     'errors.py': root / 'helpers/errors.py',
     'build-gui.sh': root / 'plugins/_desktop/build/gui.sh',
     'bundle-gui.sh': root / 'plugins/_desktop/build/bundle-gui.sh',
+    'build-audio.sh': root / 'plugins/_desktop/build/audio.sh',
 }
 MAX_MESSAGE = 128 * 1024 * 1024
 STARTUP_STEPS = {
@@ -106,6 +107,9 @@ class BrowserConnection:
             display_bundle = Path('/usr/local/lib/tuxee-gui')
             if (display_bundle / 'bin/tuxee-Xvnc').is_file():
                 worker.mounts.append(SandboxMount(display_bundle, '/opt/tuxee-gui'))
+            audio_bundle = Path('/usr/local/lib/tuxee-audio')
+            if (audio_bundle / 'tuxee-pulseaudio').is_file():
+                worker.mounts.append(SandboxMount(audio_bundle, str(audio_bundle)))
             try:
                 self.startup_progress('sandbox', 'Preparing browser sandbox')
                 await worker.aprepare()

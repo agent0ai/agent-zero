@@ -29,6 +29,20 @@ if [ ! -x /opt/tuxee-gui/bin/tuxee-Xvnc ]; then
     apt-get autoremove --purge -y
 fi
 for tool in /opt/tuxee-gui/bin/*; do ln -sfn "$tool" "/usr/local/bin/$(basename "$tool")"; done
+if [ ! -x /usr/local/lib/tuxee-audio/tuxee-pulseaudio ]; then
+    python /worker/progress.py viewer 'Building minimal Tuxee audio runtime (first use)'
+    previous_manual=$(apt-mark showmanual)
+    build_packages='ca-certificates curl build-essential cmake ninja-build meson pkg-config libltdl-dev libcap-dev'
+    apt-get update
+    apt-get install -y --no-install-recommends $build_packages libcap2
+    sh /support/build-audio.sh /tmp/a0-audio
+    cp -a /tmp/a0-audio/usr/local/. /usr/local/
+    rm -rf /tmp/a0-audio
+    apt-mark auto $build_packages > /dev/null
+    apt-mark manual $previous_manual libcap2 > /dev/null
+    apt-get autoremove --purge -y
+fi
+for tool in pulseaudio pacat; do ln -sfn "/usr/local/lib/tuxee-audio/tuxee-$tool" "/usr/local/bin/tuxee-$tool"; done
 python /worker/progress.py driver 'Installing browser driver'
 "$base_python" -m pip --python /opt/runtime install --no-cache-dir --disable-pip-version-check -c /worker/constraints.txt -r /plugin/sandbox/requirements.txt
 # Patchright supports the image's Node; keep its bundled binary for older/custom images.

@@ -2,6 +2,8 @@
 import asyncio
 import os
 from pathlib import Path
+import struct
+import sys
 from types import SimpleNamespace
 
 from flask import Flask
@@ -64,7 +66,7 @@ async def test_viewer_credentials_assets_auth_and_paths(viewer):
         response=await client.get(path+'credentials',headers=headers)
         assert response.json()=={'password':'private'}
         assert response.headers['cache-control']=='no-store'
-        for name in ('index.html','vnc.js','vendor/novnc/core/rfb.js'):
+        for name in ('index.html','vnc.js','audio.js','vendor/novnc/core/rfb.js'):
             response=await client.get(path+name,headers=headers)
             assert response.status_code==200
             assert response.headers['x-frame-options']=='SAMEORIGIN'
@@ -92,8 +94,41 @@ async def test_vnc_bridge_auth_origin_binary_and_disconnect(viewer):
     assert len(viewer.connections)==1
 
 
+@pytest.mark.anyio
+async def test_audio_auth_silent_gaps_and_capture_cleanup(viewer, monkeypatch, tmp_path):
+    marker = tmp_path / 'stopped'
+    script = tmp_path / 'capture.py'
+    script.write_text('import sys\nfrom pathlib import Path\n'
+                      'sys.stdout.buffer.write(bytes(3840) + b"\\x01\\x00\\xff\\xff" * 960)\n'
+                      'sys.stdout.buffer.flush()\nsys.stdin.buffer.read()\n'
+                      f'Path({str(marker)!r}).touch()\n')
+    calls = []
+    def command(name, argv):
+        calls.append((name, argv))
+        return [sys.executable, str(script)]
+    worker = SimpleNamespace(name='fixture', _paths=lambda: (SimpleNamespace(process_command=command), None))
+    monkeypatch.setitem(sys.modules, 'plugins._browser.helpers.sandbox', SimpleNamespace(worker=worker))
+
+    def exercise():
+        with TestClient(viewer.app, base_url='http://a0.test') as client:
+            url = 'ws://a0.test/browser/vnc/session/fixture/audio'
+            for headers in ({}, {'cookie': viewer.cookie}, {'cookie': viewer.cookie, 'origin': 'http://evil.test'}):
+                with pytest.raises(WebSocketDisconnect):
+                    with client.websocket_connect(url, headers=headers):
+                        pass
+            assert not calls
+            with client.websocket_connect(url, headers={'cookie': viewer.cookie, 'origin': 'http://a0.test'}) as socket:
+                packet = socket.receive_bytes()
+                assert struct.unpack('<Q', packet[:8]) == (960,)
+                assert packet[8:] == b'\x01\x00\xff\xff' * 960
+    await asyncio.to_thread(exercise)
+    assert len(calls) == 1 and marker.exists()
+    assert not viewer.connections
+
+
 def test_xvnc_private_credentials_and_loopback(monkeypatch, tmp_path):
     view=display.BrowserInteractiveView('fixture')
+    view.audio = SimpleNamespace(start=lambda: None, close=lambda: None)
     view.state_dir=tmp_path
     commands=[]
     process=SimpleNamespace(poll=lambda:None, terminate=lambda:None, wait=lambda **_:None)

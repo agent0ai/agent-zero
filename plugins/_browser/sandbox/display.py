@@ -15,6 +15,7 @@ import time
 import uuid
 
 from helpers import native_display
+from plugins._browser.sandbox import audio
 
 DEFAULT_WIDTH, DEFAULT_HEIGHT = 1024, 768
 _keyboard = {}
@@ -40,6 +41,7 @@ class BrowserInteractiveView:
         self.password = ''
         self.width, self.height = DEFAULT_WIDTH, DEFAULT_HEIGHT
         self._server = None
+        self.audio = audio.BrowserAudio()
         self._lock = threading.RLock()
 
     @property
@@ -131,6 +133,7 @@ class BrowserInteractiveView:
                 else:
                     raise RuntimeError('Browser X display did not accept its private credentials')
                 self._apply_keyboard_layout()
+                self.audio.start()
                 return self.display_name
             except BaseException:
                 self._stop_locked()
@@ -177,6 +180,7 @@ class BrowserInteractiveView:
             shutil.rmtree(self.state_dir, ignore_errors=True)
 
     def _stop_locked(self):
+        self.audio.close()
         if self._running(self._server):
             self._server.terminate()
             try:

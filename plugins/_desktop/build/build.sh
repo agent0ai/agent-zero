@@ -5,7 +5,7 @@ recipe=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 output=$(realpath -m "$1")
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl build-essential cmake ninja-build pkg-config autoconf automake libtool patch xutils-dev xfonts-utils xz-utils musl-tools \
+apt-get install -y --no-install-recommends ca-certificates curl build-essential cmake ninja-build meson libltdl-dev libcap-dev pkg-config autoconf automake libtool patch xutils-dev xfonts-utils xz-utils musl-tools \
     x11-xserver-utils xdotool x11-xkb-utils xkb-data libjpeg62-turbo-dev zlib1g-dev libx11-dev libxext-dev libxdamage-dev libxfixes-dev libxrandr-dev libxtst-dev \
     libxfont-dev xtrans-dev x11proto-dev libpixman-1-dev libxshmfence-dev libxkbfile-dev libfontenc-dev libpam0g-dev libunwind-dev nettle-dev
 if ! command -v node >/dev/null; then apt-get install -y --no-install-recommends nodejs npm; fi
@@ -41,6 +41,7 @@ CGO_ENABLED=1 GOMAXPROCS=2 go build -trimpath -ldflags='-s -w -X main.version=0.
 ln -s ../lib/tuxee/tuxee "$output/usr/local/bin/tuxee"
 sh "$recipe/gui.sh" "$output"
 sh "$recipe/bundle-gui.sh" "$output"
+sh "$recipe/audio.sh" "$output"
 install -D THIRD_PARTY_NOTICES.md "$output/usr/local/share/licenses/tuxee/THIRD_PARTY_NOTICES.md"
 install -D LICENSE "$output/usr/local/share/licenses/tuxee/LICENSE"
 find "$recipe" -type f -exec sha256sum {} \; | sed "s|$recipe/||" | sort | sha256sum | cut -d ' ' -f 1 > "$output/usr/local/lib/tuxee/a0-build-id"

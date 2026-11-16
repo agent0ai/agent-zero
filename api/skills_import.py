@@ -9,7 +9,7 @@ from helpers.api import ApiHandler, Request, Response
 from helpers import files
 from helpers.skills_import import import_skills
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
+from helpers.security import safe_filename
 
 
 class SkillsImport(ApiHandler):
@@ -42,7 +42,7 @@ class SkillsImport(ApiHandler):
         # Save upload to a temp file so we can pass a filesystem path to the importer
         tmp_dir = Path(files.get_abs_path("tmp", "uploads"))
         tmp_dir.mkdir(parents=True, exist_ok=True)
-        base = secure_filename(skills_file.filename)  # type: ignore[arg-type]
+        base = safe_filename(skills_file.filename) or "skills.zip"
         if not base.lower().endswith(".zip"):
             base = f"{base}.zip"
         unique = uuid.uuid4().hex[:8]

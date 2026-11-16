@@ -248,6 +248,7 @@ const model = {
   },
 
   async close() {
+    this._resizeCleanup?.();
     this._restoreOpenRequested = false;
     this.cancelRestoreOpenSurface();
     this.isOpen = false;
@@ -480,27 +481,59 @@ const model = {
 
   startResize(event) {
     if (this.isOverlayMode || this.isMobileMode || !this.isOpen) return;
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.isPrimary === false) return;
+    this._resizeCleanup?.();
     event.preventDefault();
-    this.dispatchResizeEvent("right-canvas-resize-start");
-
-    const onPointerMove = (moveEvent) => {
-      const nextWidth = viewportWidth() - moveEvent.clientX;
-      this.setWidth(nextWidth);
+    const handle = event.currentTarget;
+    const bounds = this._rootElement.getBoundingClientRect();
+    const startWidth = this.width;
+    const maxWidth = this.maxWidth();
+    let nextWidth = startWidth;
+    // Cover embedded documents even when pointer capture is unavailable.
+    const preview = document.createElement("div");
+    preview.className = "right-canvas-resize-preview";
+    preview.setAttribute("aria-hidden", "true");
+    preview.style.setProperty("--resize-top", `${bounds.top}px`);
+    preview.style.setProperty("--resize-height", `${bounds.height}px`);
+    const update = (x) => {
+      nextWidth = clamp(normalizeWidth(startWidth + event.clientX - x), MIN_WIDTH, maxWidth);
+      preview.style.setProperty("--resize-left", `${bounds.right - nextWidth}px`);
     };
-    const onPointerUp = () => {
-      globalThis.removeEventListener("pointermove", onPointerMove);
-      globalThis.removeEventListener("pointerup", onPointerUp);
-      globalThis.removeEventListener("pointercancel", onPointerUp);
+    update(event.clientX);
+    document.body.appendChild(preview);
+    const listeners = new AbortController();
+    const options = { signal: listeners.signal, capture: true };
+    const end = (e) => {
+      if (e?.pointerId !== undefined && e.pointerId !== event.pointerId) return;
+      if (e?.type === "pointerup") update(e.clientX);
+      listeners.abort();
+      this._resizeCleanup = null;
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      preview.remove();
       document.body.classList.remove("right-canvas-resizing");
-      this.persist();
+      if ((e?.type === "pointerup" || e?.type === "pointermove") && nextWidth !== this.width) {
+        this.setWidth(nextWidth);
+      }
       this.dispatchResizeEvent("right-canvas-resize-end");
     };
-
+    const move = (e) => {
+      if (e.pointerId !== event.pointerId) return;
+      if (e.buttons === 0) { end(e); return; }
+      update(e.clientX);
+    };
+    this._resizeCleanup = end;
     document.body.classList.add("right-canvas-resizing");
-    globalThis.addEventListener("pointermove", onPointerMove);
-    globalThis.addEventListener("pointerup", onPointerUp);
-    globalThis.addEventListener("pointercancel", onPointerUp);
+    globalThis.addEventListener("pointermove", move, options);
+    globalThis.addEventListener("pointerup", end, options);
+    globalThis.addEventListener("pointercancel", end, options);
+    globalThis.addEventListener("blur", end, options);
+    globalThis.addEventListener("resize", end, options);
+    globalThis.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); end(); }
+    }, options);
+    handle.addEventListener("lostpointercapture", end, options);
+    try { handle.setPointerCapture(event.pointerId); } catch { /* The preview also shields iframe input. */ }
+    this.dispatchResizeEvent("right-canvas-resize-start");
   },
 
   dispatchResizeEvent(name) {

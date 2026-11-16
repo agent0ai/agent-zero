@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import base64
 import os
-import re
 import uuid
 from helpers import files
+from helpers.security import safe_filename
 from plugins._email_integration.helpers.sandbox import call
 
 
@@ -29,7 +29,7 @@ def _messages(values):
             if not isinstance(name, str) or not name or Path(name).name != name or name in ('.', '..'):
                 raise ValueError('Invalid mail attachment path')
             data = base64.b64decode(attachment['data'], validate=True)
-            safe_name = re.sub(r'[^a-zA-Z0-9-._]', '_', name)
+            safe_name = safe_filename(name) or 'attachment'
             path = Path(files.get_abs_path('usr/email/attachments', uuid.uuid4().hex + '-' + safe_name))
             path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:

@@ -16,6 +16,7 @@ from helpers import message_queue as mq
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
+from helpers.security import safe_filename
 from initialize import initialize_agent
 
 from plugins._whatsapp_integration.helpers import wa_client
@@ -432,7 +433,7 @@ async def _read_attachments_to_host(
             continue
         # Write decoded bytes to host-side media cache
         host_path = os.path.join(
-            files.get_abs_path(MEDIA_FOLDER), data["name"],
+            files.get_abs_path(MEDIA_FOLDER), safe_filename(data["name"]) or "attachment",
         )
         os.makedirs(os.path.dirname(host_path), exist_ok=True)
         with open(host_path, "wb") as f:
@@ -451,7 +452,7 @@ async def _save_incoming_media(
     for host_path in media_urls:
         if not os.path.isfile(host_path):
             continue
-        name = os.path.basename(host_path)
+        name = safe_filename(os.path.basename(host_path)) or "attachment"
         with open(host_path, "rb") as f:
             content_b64 = base64.b64encode(f.read()).decode()
         rel_path = os.path.join(MEDIA_FOLDER, name)

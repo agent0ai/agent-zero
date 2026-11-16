@@ -39,6 +39,7 @@ This plugin connects one or more Telegram bots to Agent Zero. Each bot runs inde
 - **Message handling**
   - Extracts text, captions, locations, contacts, stickers, and attachment indicators.
   - Downloads photos, documents, audio, voice, and video into `usr/uploads/` with configurable auto-cleanup.
+  - Cleans attachment filenames with the shared upload-name sanitizer so sender-supplied paths cannot escape the upload directory.
 - **Reply delivery**
   - Streams tool progress and response text through real Telegram messages updated with `editMessageText`.
   - Tool progress and the AI response are separate messages; only the AI response replies to the user message.

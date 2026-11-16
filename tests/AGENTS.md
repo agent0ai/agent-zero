@@ -37,7 +37,9 @@
 - Install root `requirements.txt` for application dependencies, suite tooling and the SoundFile WAV fixtures; plugin sandboxes still install their own runtime requirements. Real DOM/upload checks run in a provisioned browser guest with `PYTHONPATH=/app` and `PLAYWRIGHT_BROWSERS_PATH=/opt/browsers`.
 - Run `pytest` for broad changes.
 - Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views and shared browser configuration.
+- Run `node --test tests/test_canvas_resize.mjs tests/test_canvas_rail_drag.mjs` for deferred canvas resizing, drag pointer ownership and cancellation cleanup; iframe interception also needs a real-browser drag check.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
+- Run `python -m unittest discover -s tests -p test_upload_filenames.py` for the dependency-free shared upload-name checks; `pytest tests/test_telegram_media_delivery.py` also covers attachment destination confinement.
 - Run `node --test tests/test_onboarding.mjs` for onboarding defaults and completion staying in the original chat.
 - Run `pytest tests/test_litellm_sdk.py -q` for LiteLLM/OpenAI upgrades. Its loopback provider exercises the installed SDK's sync/async calls, streaming, tool/state preservation, fallback, embeddings, and Anthropic cache markers without real keys or external requests.
 - Run `pytest tests/test_framework_dependencies.py -q` for dependency migration changes; verify stale self-update environments, process restart, and already-current image installs.
@@ -55,6 +57,7 @@
 - `integration_guest_smoke.py` runs inside provisioned Telegram/mail guests with their real SDK/parser and mocked network transports. WhatsApp callback, authentication and media bounds are covered by the Node bridge suite; live pairing/account behavior requires separate authorization.
 
 - `test_browser_vnc.py` checks signed-session/origin admission, private credentials, asset traversal, binary proxy teardown and authenticated Xvnc launch. Native changes also require real noVNC input/clipboard/resize/dialog and fresh/warm sandbox measurements.
+- Browser audio: `test_browser_audio.py` checks private sink/capture subprocess lifetime with stdlib unittest; `node --test tests/test_browser_audio.mjs` checks stereo samples, buffering, mute and autoplay cleanup. `test_browser_vnc.py` covers authenticated audio admission, silent gaps and capture teardown. Real Chromium audio requires the built native runtime.
 - Browser performance changes also verify reuse/migration of the image Python, duplicate Node removal, no-op display sizing, retained GTK/font behavior, and fresh plus existing guest installers. Directfs changes need real non-root lifecycle/read-only/masked-mount checks in addition to the manager tests.
 
 ## Child DOX Index
