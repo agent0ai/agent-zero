@@ -30,7 +30,7 @@ def run(payload: dict[str, Any]) -> dict[str, Any]:
     if command == "chats":
         return _show_markdown("Chats", _chat_list(context, arguments))
     if command == "clear":
-        return _effects(_toast("Visible transcript cleared."), {"type": "clear_transcript"})
+        return _effects({"type": "reset_chat", "context_id": context_id})
     if command == "project":
         return _handle_project(context, raw_args)
     if command == "profile":

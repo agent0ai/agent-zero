@@ -77,6 +77,7 @@
 - Warnings classified into a full-log process render unit must remain process steps during replay even when the current DOM tail is already complete; use the live DOM tail only when render metadata is unavailable.
 - `set_messages_after_loop` receives offscreen live updates as results with `result.virtualized === true` and `result.element === null`; extensions that only need `args` may still react, while DOM-mutating extensions must guard the element.
 - Context switches, log GUID resets, and full log snapshots must reset both message DOM and message-window cache state.
+- Root responses use their full-log process-group identity when available, so an intervening setup card or another DOM tail cannot strand the completed GEN group with an active animation.
 - Awaited message-window layout frames must have a timer fallback so hidden or occluded browser windows cannot block state synchronization on painting.
 - Context switches clear stale history immediately but defer the chat loading splash for 300 ms so fast loads do not flash; slower loads fade it in and dismiss it only after the matching context snapshot finishes rendering. Stale snapshots and timers must not affect a newer switch's splash.
 - Long primary-agent responses start collapsed only during chat replay; long user-message text starts collapsed during both live sends and replay. Both use the shared collapsible-message behavior, but user attachments remain outside its clipped content target.

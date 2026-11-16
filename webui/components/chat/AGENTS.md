@@ -13,6 +13,7 @@
 - `top-section/` owns chat header/top area.
 - `model-gate-store.js` and `model-setup-gate.html` own the deferred in-thread model setup gate.
 - Gate dispatch (`dispatchPendingIfConfigured`) captures `pending` before awaiting and uses that object for the payload; re-check its identity and the send latch after readiness resolves. Keep pending state and session recovery until the send is accepted. Busy sends defer retry until `sendMessage` settles; readiness and preset-editor reads use the pending chat's context. A retry for another context must never enter the selected chat's queue.
+- Chat reset clears only that context's pending/connected setup gate and session recovery. In-flight readiness checks must observe the discarded pending identity and never resend its old prompt.
 
 ## Local Contracts
 

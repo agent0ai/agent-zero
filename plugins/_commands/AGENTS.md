@@ -37,6 +37,7 @@
 - WebUI sends resolve through the picker effect path, while backend-originated messages resolve before reaching the agent.
 - Telegram and WhatsApp resolve raw messages through this catalog before adding message envelopes. `list_context_commands` filters the effective catalog by enabled plugins for the current chat; transport plugins adapt effects and retain their existing integration controls. Script/template execution remains owned here.
 - `/stop` uses the same shared cancellation operation as the composer Stop button, including progress cleanup and terminal logging.
+- `/clear` emits `reset_chat` for the invoking context, using the backend reset to discard agent history and queued messages; it must not merely remove transcript HTML. `/new` retains its separate context-creation behavior.
 - `/profile` opens Manage agents without arguments, keeps existing profile
   selection, and creates through Agent Editor when given a name and instructions.
 - `/permissions` opens Edit agent for the current WebUI profile; the A0 Connector

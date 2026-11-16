@@ -34,6 +34,7 @@
 - `sidebar-chats-list-view` and `sidebar-tasks-list-view` host plugin list presentations. A row-list extension may expose `hasView()` to hide the default list; both presentations reuse the core row components and their inherited `context`/`task` scopes.
 - List-view callbacks belong to their mounted extensions, not store initialization. Use `unregisterRowListExtension(kind, name)` on unmount to restore the default list and remove only the departing extension's sorting and dividers.
 - `chats.newChat(projectName)` passes an explicit project choice to `chat_create`; omitted project names retain inheritance behavior, and an empty name explicitly creates a chat without a project.
+- `chats.resetChat(ctxid)` resets backend history and clears that context's model setup gate after success; log-GUID synchronization replaces the transcript and message cache in all observing tabs.
 - Bottom version information shows its commit timestamp in UTC without a timezone suffix and remains on one line.
 - Avoid text or controls overflowing fixed sidebar widths.
 - Instance-level interface visibility preferences own independent mobile and desktop states for the chat-top controls and right canvas rail; mobile uses the shared 768px breakpoint.

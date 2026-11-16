@@ -1,4 +1,4 @@
 name: clear
-description: Clear the visible chat log.
+description: Clear the chat history and start fresh.
 type: script
 script_path: connector_commands.py

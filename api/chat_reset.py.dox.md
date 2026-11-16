@@ -20,12 +20,13 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Reset` is an `ApiHandler`.
 - `Reset` defines `process(...)`.
+- Reset cancels context-bound scheduler work, recreates the agent with empty conversation history, clears the pending message queue, persists the cleared chat, and removes its saved message files. The changed log GUID causes WebUI clients to discard their render caches and request a fresh snapshot.
 - Observed side-effect areas: filesystem writes, filesystem deletion, settings/state persistence, scheduler state.
 - Imported dependency areas include: `helpers`, `helpers.api`, `helpers.task_scheduler`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `TaskScheduler.get.cancel_tasks_by_context`, `self.use_context`, `context.reset`, `persist_chat.save_tmp_chat`, `persist_chat.remove_msg_files`, `mark_dirty_all`.
+- Important called helpers/classes observed in the source: `TaskScheduler.get.cancel_tasks_by_context`, `self.use_context`, `context.reset`, `message_queue.remove`, `persist_chat.save_tmp_chat`, `persist_chat.remove_msg_files`, `mark_dirty_all`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
@@ -37,7 +38,7 @@
 ## Verification
 
 - Run endpoint-specific or API/WebSocket tests for changed behavior; smoke-test browser callers when no focused test exists.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- Run `python -m unittest discover -s tests -p test_chat_reset.py` and `node --test tests/test_chat_reset.mjs` for backend reset and frontend cache/completion regressions.
 
 ## Child DOX Index
 

@@ -400,8 +400,10 @@ export async function applySnapshot(snapshot, options = {}) {
   // so the mismatch is expected and should not trigger a second state_request/poll.
   if (lastLogGuid != snapshot.log_guid) {
     if (lastLogGuid) {
+      modelGateStore.resetContext(snapshot.context);
       msgs.resetMessageRenderState();
       lastLogVersion = 0;
+      lastSpokenNo = 0;
       lastLogGuid = snapshot.log_guid;
       if (typeof onLogGuidReset === "function") {
         await onLogGuidReset();

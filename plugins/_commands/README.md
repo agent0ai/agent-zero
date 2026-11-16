@@ -112,6 +112,8 @@ Supported frontend effects:
 - `{"type": "toast", "level": "info|error|success", "message": "..."}`
 - Built-in UI effects for existing WebUI actions such as chat switching, modals, attachments, compaction, queue actions, transcript copy, and toast output
 
+`/clear` resets the current chat's conversation history and pending messages on the server and clears its rendered transcript. It retains the chat's configuration. `/new` creates a separate empty chat.
+
 ## Scope Resolution
 
 Commands are discovered from these scope folders:
