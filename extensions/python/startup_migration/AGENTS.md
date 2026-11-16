@@ -20,6 +20,7 @@
 - Required updater capabilities include immutable rollback-stash identity (`get_top_stash_oid`), so runtimes using moving stash selectors are upgraded on startup.
 - Runtime markers also require fast, timestamp-tolerant ZIP backups so existing `/exe` managers receive the backup fixes.
 - Runtime synchronization also upgrades updaters with the older health timeout to the 600-second default, retaining the environment override.
+- Required capabilities also include release before/after hooks and explicit critical-updater handoff. Validate replacement source syntax before backing up or writing the runtime; capability-complete runtimes are not replaced merely for differing source bytes.
 - After synchronizing a stale self-update manager, `_10_self_update_manager.py` starts that manager's best-effort Codex CLI refresh with `sys.executable` in the background.
 
 - `_25_retire_tunnel_service.py` removes only the legacy run_tunnel_api Supervisor section, retains a backup, and rereads/updates Supervisor without restarting WebUI. Restore the config on failure so startup can retry.

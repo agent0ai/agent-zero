@@ -12,6 +12,7 @@
 - `build.txt` owns maintainer build and push command notes.
 - `fs/exe/` owns runtime entrypoint, supervisor, self-update, Node eval, and service scripts.
 - `fs/ins/` owns preinstall, installation, Playwright, SSH, and postinstall scripts.
+- `update/` owns release-supplied before/after self-update scripts and their authoring contract.
 - Files under `fs/` are copied to container root during the runtime build.
 
 ## Local Contracts
@@ -35,6 +36,8 @@
 - Self-update rollback stashes use immutable Git object IDs for creation checks and restoration; resolve the matching reflog selector only when dropping that stash, preserving unrelated entries. Failed restoration retains the stash.
 - Self-update waits up to 600 seconds for each updated or restored WebUI health check by default; `A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS` may override it. Backup and checkout time precede this health window.
 - Successful or already-current self-updates refresh an installed Codex CLI with npm on a best-effort basis; missing CLIs and registry failures must not block Agent Zero startup.
+- Self-update hooks come from the resolved target commit. Run `update/before/` after backup and target validation, before checkout; run `update/after/` after checkout validation, before UI startup and its health timer. Failures abort/restore the checkout; arbitrary system changes are not automatically reversible.
+- Critical updater replacement is explicitly staged by a before hook, validated before atomic replacement, and backed up next to the runtime updater. Hand off the prepared attempt to the replacement without repeating backup/before hooks; restore the previous updater on handled update failures. Ordinary updates do not replace the updater just because source bytes differ.
 - Install application requirements with `uv pip install --no-cache --python /usr/local/bin/python` in both installation passes; launch services directly with `/usr/local/bin/python`. Later overlay cache deletion cannot reclaim base layers.
 - Keep `PYTHONDONTWRITEBYTECODE=1` for services and their subprocesses: import-time bytecode events can expose a lock inversion between watchdog registration and event dispatch during startup.
 - The cache-busted final install reuses installed packages, prepares checksum-pinned default ONNX/tokenizer assets with a failing-on-error inference check, then runs embedding preload. Do not ship unused Torch weights or an outer training stack. Chromium, document parsing and speech assets install only in their plugin sandboxes on first use.
@@ -55,4 +58,6 @@
 
 ## Child DOX Index
 
-No child DOX files.
+| Child | Scope |
+| --- | --- |
+| [update/AGENTS.md](update/AGENTS.md) | Release update hooks, execution context and critical updater handoff. |
