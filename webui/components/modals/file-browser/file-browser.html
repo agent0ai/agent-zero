@@ -544,6 +544,7 @@
       <!-- Modal Footer (outside template x-if so it exists immediately) -->
       <template x-if="fb">
         <div class="modal-footer file-browser-footer" data-modal-footer
+          :data-modal-footer="xAttrs($el)?.mode === 'canvas' || fb.embedded ? null : ''"
           x-data="{ footerOwner: xAttrs($el)?.owner || 'fileBrowser', get fb() { return this.footerOwner === 'fileBrowser' ? $store.fileBrowser.current : $store[this.footerOwner]; } }"
           :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': fb.embedded }">
           <div class="file-browser-picker-actions" x-show="fb.isPickerMode() || fb.renameInline" style="display: none">

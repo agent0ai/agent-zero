@@ -1,0 +1,11 @@
+<html class="canvas-modal">
+<head>
+  <title>Canvas</title>
+  <script type="module">
+    import { store } from "/components/canvas/right-canvas-store.js";
+  </script>
+</head>
+<body>
+  <div class="canvas-modal-host" x-data x-create="$store.rightCanvas.mountModal($el)"></div>
+</body>
+</html>

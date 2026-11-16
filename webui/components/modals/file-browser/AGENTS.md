@@ -78,6 +78,7 @@
 
 - Share markup and store behavior between modal and canvas modes; branch only on explicit component `mode`.
 - Keep modal footer relocation compatible with `data-modal-footer` while allowing canvas mode to render inline controls.
+- Only standalone modal footers carry `data-modal-footer`; canvas and embedded footers stay inside their panels when the shared canvas shell detaches.
 
 ## Verification
 

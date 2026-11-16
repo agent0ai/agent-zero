@@ -175,6 +175,27 @@ the old and the new system. */
   background: color-mix(in srgb, var(--color-background) 95%, #000 5%);
 }
 
+/* The retained canvas supplies its own shared tabs and close controls. */
+.modal-inner.canvas-modal {
+  width: min(96vw, 1440px);
+  height: 88dvh;
+}
+
+.canvas-modal > .modal-header {
+  display: none;
+}
+
+.canvas-modal > .modal-scroll,
+.canvas-modal .modal-bd,
+.canvas-modal-host {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 .modal-x {
   position: absolute;
   top: 1rem;

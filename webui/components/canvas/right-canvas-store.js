@@ -5,7 +5,6 @@ import { callJsExtensions } from "/js/extensions.js";
 import {
   SURFACE_MODE_DOCKED,
   SURFACE_MODE_FLOATING,
-  closeSurfaceGroupModals,
   getRegisteredSurfaces,
   migratePersistedSurfaceState,
   normalizeSurfaceId,
@@ -13,6 +12,7 @@ import {
   registerSurface as registerSurfaceDefinition,
 } from "/js/surfaces.js";
 
+const MODAL_PATH = "canvas/canvas-modal.html";
 const STORAGE_KEY = "a0.rightCanvas";
 const SESSION_STORAGE_KEY = "a0.rightCanvas.session";
 const DEFAULT_WIDTH = 720;
@@ -47,6 +47,12 @@ const model = {
   surfaceModes: {},
   mountedSurfaces: {},
   isOpen: false,
+  isDetached: false,
+  _shellElement: null,
+  _shellParent: null,
+  _modalOpening: null,
+  _resolveModalMount: null,
+  _reattaching: false,
   width: DEFAULT_WIDTH,
   railPosition: null,
   railHeight: 0,
@@ -62,6 +68,7 @@ const model = {
   _restoreOpenRequested: false,
   _restoreOpenTimer: null,
   _restoringSurface: false,
+  _restoreMode: null,
 
   async init(element = null) {
     if (element) this._rootElement = element;
@@ -136,7 +143,7 @@ const model = {
     }
   },
 
-  async open(surfaceId = "", payload = {}) {
+  async open(surfaceId = "", payload = {}, mode = null) {
     const targetId = normalizeSurfaceId(surfaceId || this.activeSurfaceId || this.panelSurfaces[0]?.id || "");
     const surface = this.getSurface(targetId);
     if (!surface) {
@@ -158,28 +165,39 @@ const model = {
       return true;
     }
 
-    if (!this.shouldRender() || !this.isSurfaceEnabled(targetId)) {
-      return await this.openModalSurface(targetId, payload);
+    const wasOpen = this.isOpen || this.isDetached || Boolean(this._modalOpening);
+    let detached = this.isDetached || Boolean(this._modalOpening);
+    if (!this.isOpen && !detached) detached = targetId === "desktop";
+    if (mode) detached = mode === SURFACE_MODE_FLOATING;
+    if (this.isMobileMode || !this.shouldRender() || !this.isSurfaceEnabled(targetId)) detached = true;
+    if (detached) {
+      if (!await this.showModal()) return false;
+    } else if (this.isDetached) {
+      this._reattaching = true;
+      try {
+        if (await globalThis.closeModal(MODAL_PATH) === false) return false;
+      } finally {
+        this._reattaching = false;
+      }
     }
 
-    if (this.isMobileMode) {
-      this.activeSurfaceId = targetId;
-      this.isOpen = false;
-      return await this.openModalSurface(targetId, payload);
-    }
-
+    const mounted = this.isSurfaceMounted(targetId);
     this.activeSurfaceId = targetId;
     this.markSurfaceMounted(targetId);
-    this.isOpen = true;
-    this.recordSurfaceMode(targetId, SURFACE_MODE_DOCKED, { persist: false });
+    this.isOpen = !detached;
+    this.recordSurfaceMode(targetId, detached ? SURFACE_MODE_FLOATING : SURFACE_MODE_DOCKED, { persist: false });
     this._lastPayloadBySurface[targetId] = payload || {};
     this.persist();
     this.applyLayoutState();
 
+    // Plain tab switches reuse the live panel; explicit payloads still navigate it.
+    if (mounted && wasOpen && Object.keys(payload).length === 0) return true;
     try {
       await surface.open?.(payload || {});
     } catch (error) {
+      this.markSurfaceUnmounted(targetId);
       console.error(`Canvas surface ${targetId} failed to open`, error);
+      return false;
     }
     return true;
   },
@@ -212,12 +230,12 @@ const model = {
   },
 
   isSurfaceRendered(id) {
-    return Boolean(this.isOpen && this.isSurfaceMounted(id));
+    return Boolean((this.isOpen || this.isDetached) && this.isSurfaceMounted(id));
   },
 
   isSurfaceVisible(id) {
     const targetId = normalizeSurfaceId(id);
-    return Boolean(this.isOpen && this.activeSurfaceId === targetId && this.isSurfaceMounted(targetId));
+    return Boolean((this.isOpen || this.isDetached) && this.activeSurfaceId === targetId && this.isSurfaceMounted(targetId));
   },
 
   recordSurfaceMode(surfaceId, mode = SURFACE_MODE_DOCKED, options = {}) {
@@ -236,125 +254,92 @@ const model = {
   },
 
   async openLatest(surfaceId = "", payload = {}) {
-    const targetId = normalizeSurfaceId(surfaceId || this.activeSurfaceId || this.panelSurfaces[0]?.id || "");
-    if (!targetId) return false;
-    if (this.isMobileMode) {
-      return await this.open(targetId, payload);
+    return await this.open(surfaceId, payload);
+  },
+
+  mountShell(element) {
+    this._shellElement = element;
+    this._shellParent = element.parentElement;
+  },
+
+  moveShell(parent) {
+    const shell = this._shellElement;
+    if (!parent || !shell || shell.parentElement === parent) return;
+    // Suppress Alpine teardown; moveBefore also preserves iframe browsing contexts.
+    Alpine.mutateDom(() => {
+      if (parent.moveBefore) parent.moveBefore(shell, null);
+      // shortcut: legacy browsers may reload iframes; retire this fallback when moveBefore is universal.
+      else parent.appendChild(shell);
+    });
+  },
+
+  mountModal(host) {
+    this.moveShell(host);
+    this.isDetached = true;
+    this.isOpen = false;
+    this._resizeCleanup?.();
+    this.applyLayoutState();
+    this._resolveModalMount?.(true);
+    this._resolveModalMount = null;
+  },
+
+  async showModal() {
+    if (this.isDetached) {
+      void globalThis.ensureModalOpen?.(MODAL_PATH);
+      return true;
     }
-    if (this.latestSurfaceMode(targetId) === SURFACE_MODE_FLOATING) {
-      return await this.openModalSurface(targetId, payload);
+    if (this._modalOpening) return await this._modalOpening;
+    if (!this._shellElement) return false;
+    let resolveMounted;
+    this._modalOpening = new Promise(resolve => { resolveMounted = resolve; });
+    this._resolveModalMount = resolveMounted;
+    void globalThis.openModal(MODAL_PATH, () => {
+      this.moveShell(this._shellParent);
+      this.isDetached = false;
+      this.isOpen = this._reattaching;
+      this.persist();
+      this.applyLayoutState();
+      return true;
+    }).finally(() => {
+      resolveMounted(false);
+      if (this._resolveModalMount === resolveMounted) this._resolveModalMount = null;
+    });
+    try {
+      return await this._modalOpening;
+    } finally {
+      this._modalOpening = null;
     }
-    return await this.open(targetId, payload);
   },
 
   async close() {
     this._resizeCleanup?.();
     this._restoreOpenRequested = false;
     this.cancelRestoreOpenSurface();
+    if (this.isDetached || this._modalOpening) {
+      return await globalThis.closeModal(MODAL_PATH);
+    }
     this.isOpen = false;
     this.persist();
     this.applyLayoutState();
     return true;
   },
 
-  async dockSurface(surfaceId, payload = {}) {
-    surfaceId = normalizeSurfaceId(surfaceId);
-    if (this.isMobileMode) {
-      return false;
-    }
-    const surface = this.getSurface(surfaceId);
-    if (!surface) {
-      return false;
-    }
-    const modalPath = payload.modalPath || surface.modalPath || "";
-    let handoffStarted = false;
-    try {
-      await surface.beginDockHandoff?.(payload);
-      handoffStarted = true;
-
-      const closed = await this.closeDockSourceModal(payload, modalPath);
-      if (closed === false) {
-        await surface.cancelDockHandoff?.(payload);
-        return false;
-      }
-
-      const openPayload = { ...payload, source: "modal" };
-      delete openPayload.closeSourceModal;
-      const opened = await this.open(surfaceId, openPayload);
-      await surface.finishDockHandoff?.({ ...openPayload, opened });
-      return opened;
-    } catch (error) {
-      if (handoffStarted) {
-        await surface.cancelDockHandoff?.(payload);
-      }
-      console.error(`Canvas surface ${surfaceId} failed to dock`, error);
-      return false;
-    }
-  },
-
-  async closeDockSourceModal(payload = {}, modalPath = "") {
-    if (typeof payload.closeSourceModal === "function") {
-      return (await payload.closeSourceModal()) !== false;
-    }
-
-    const sourceModalPath = payload.sourceModalPath || modalPath;
-    if (sourceModalPath || modalPath) {
-      const closed = await closeSurfaceGroupModals();
-      if (closed === false) return false;
-      if (!sourceModalPath || !globalThis.isModalOpen?.(sourceModalPath)) return true;
-    }
-    if (sourceModalPath && globalThis.isModalOpen?.(sourceModalPath)) {
-      return (await globalThis.closeModal?.(sourceModalPath)) !== false;
-    }
-    if (modalPath && modalPath !== sourceModalPath && globalThis.isModalOpen?.(modalPath)) {
-      return (await globalThis.closeModal?.(modalPath)) !== false;
-    }
-    return true;
+  async dockSurface(surfaceId = "", payload = {}) {
+    if (this.isMobileMode || !this.shouldRender()) return false;
+    if (payload.closeSourceModal && await payload.closeSourceModal() === false) return false;
+    return await this.open(surfaceId || this.activeSurfaceId, payload, SURFACE_MODE_DOCKED);
   },
 
   async undockSurface(surfaceId = "", payload = {}) {
-    const targetId = normalizeSurfaceId(surfaceId || this.activeSurfaceId);
-    const surface = this.getSurface(targetId);
-    const modalPath = payload.modalPath || surface?.modalPath || "";
-    if (!surface || !modalPath) return false;
-    const openModal = globalThis.ensureModalOpen || globalThis.openModal;
-    if (!openModal) return false;
-    if (this.activeSurfaceId === targetId) {
-      this.isOpen = false;
-      this.persist();
-      this.applyLayoutState();
-    }
-    this.recordSurfaceMode(targetId, SURFACE_MODE_FLOATING);
-    const modalPromise = openModal(modalPath);
-    if (modalPromise?.catch) {
-      modalPromise.catch((error) => console.error(`Canvas surface ${targetId} failed to undock`, error));
-    }
-    return true;
+    return await this.open(surfaceId || this.activeSurfaceId, payload, SURFACE_MODE_FLOATING);
   },
 
   async openModalSurface(surfaceId = "", payload = {}) {
-    const targetId = normalizeSurfaceId(surfaceId || this.activeSurfaceId);
-    const surface = this.getSurface(targetId);
-    const modalPath = payload.modalPath || surface?.modalPath || "";
-    if (!surface || !modalPath) return false;
-    const openModal = globalThis.ensureModalOpen || globalThis.openModal;
-    if (!openModal) return false;
+    return await this.undockSurface(surfaceId, payload);
+  },
 
-    this._restoreOpenRequested = false;
-    this.cancelRestoreOpenSurface();
-
-    if (this.isOpen && this.activeSurfaceId === targetId) {
-      this.isOpen = false;
-      this.persist();
-      this.applyLayoutState();
-    }
-
-    this.recordSurfaceMode(targetId, SURFACE_MODE_FLOATING);
-    const modalPromise = openModal(modalPath);
-    if (modalPromise?.catch) {
-      modalPromise.catch((error) => console.error(`Canvas surface ${targetId} failed to open as modal`, error));
-    }
-    return true;
+  async toggleMode() {
+    return this.isDetached ? await this.dockSurface() : await this.undockActiveSurface();
   },
 
   async undockActiveSurface() {
@@ -367,7 +352,7 @@ const model = {
 
   async toggle(surfaceId = "", payload = {}) {
     const targetId = normalizeSurfaceId(surfaceId || this.activeSurfaceId || this.panelSurfaces[0]?.id || "");
-    if (this.isOpen && targetId === this.activeSurfaceId) {
+    if ((this.isOpen || this.isDetached) && targetId === this.activeSurfaceId) {
       await this.close();
       return false;
     }
@@ -380,7 +365,7 @@ const model = {
     if (this.isMobileMode) {
       return await this.open(this.activeSurfaceId || this.panelSurfaces[0]?.id || "", { source: "mobile-toggle" });
     }
-    if (this.isOpen) {
+    if (this.isOpen || this.isDetached) {
       await this.close();
       return false;
     }
@@ -557,7 +542,7 @@ const model = {
 
   scheduleRestoreOpenSurface() {
     if (!this._restoreOpenRequested || this._restoreOpenTimer) return;
-    if (!this.shouldRender() || this.isMobileMode) return;
+    if (!this.shouldRender() && this._restoreMode !== SURFACE_MODE_FLOATING) return;
     this._restoreOpenTimer = globalThis.setTimeout?.(() => {
       this._restoreOpenTimer = null;
       this.restoreOpenSurface();
@@ -566,9 +551,7 @@ const model = {
 
   async restoreOpenSurface() {
     if (!this._restoreOpenRequested || this._restoringSurface) return false;
-    if (!this.shouldRender() || this.isMobileMode) {
-      return false;
-    }
+    if (!this.shouldRender() && this._restoreMode !== SURFACE_MODE_FLOATING) return false;
 
     const targetId = normalizeSurfaceId(this.activeSurfaceId || this.panelSurfaces[0]?.id || "");
     if (!targetId || !this.getSurface(targetId)) {
@@ -578,7 +561,7 @@ const model = {
     this._restoreOpenRequested = false;
     this._restoringSurface = true;
     try {
-      return await this.open(targetId, { source: "reload-restore" });
+      return await this.open(targetId, { source: "reload-restore" }, this._restoreMode);
     } finally {
       this._restoringSurface = false;
     }
@@ -586,7 +569,8 @@ const model = {
 
   persist() {
     const state = {
-      isOpen: this.isOpen,
+      isOpen: this.isOpen || this.isDetached,
+      mode: this.isDetached ? SURFACE_MODE_FLOATING : SURFACE_MODE_DOCKED,
       activeSurfaceId: this.activeSurfaceId,
       surfaceModes: this.surfaceModes,
       width: this.width,
@@ -639,6 +623,7 @@ const model = {
           );
         }
         if (Number.isFinite(Number(savedSession?.width))) this.width = Number(savedSession.width);
+        this._restoreMode = normalizeSurfaceMode(savedSession?.mode);
         this._restoreOpenRequested = Boolean(savedSession?.isOpen && savedSession?.activeSurfaceId);
       } catch (error) {
         console.warn("Could not restore right canvas session state", error);
@@ -656,22 +641,8 @@ const model = {
     const wasMobileMode = this.isMobileMode;
     this.isOverlayMode = width < DESKTOP_BREAKPOINT;
     this.isMobileMode = width <= MOBILE_BREAKPOINT;
-    if (this.isMobileMode) {
-      const wasOpen = this.isOpen;
-      const mountedIds = this.mountedSurfaceIds();
-      this.isOpen = false;
-      this.mountedSurfaces = {};
-      if ((wasOpen || mountedIds.length > 0) && mountedIds.length > 0) {
-        globalThis.setTimeout?.(() => {
-          for (const surfaceId of mountedIds) {
-            const surface = this.getSurface(surfaceId);
-            const payload = this._lastPayloadBySurface[surfaceId] || {};
-            surface?.close?.({ ...payload, reason: "mobile" });
-          }
-        }, 0);
-      }
-    } else if (wasMobileMode && this.width < MIN_WIDTH) {
-      this.width = this.defaultWidth();
+    if (this.isMobileMode && !wasMobileMode && this.isOpen) {
+      void this.undockActiveSurface();
     }
   },
 

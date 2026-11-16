@@ -13,7 +13,7 @@
 - `extensions.js` owns frontend extension loading.
 - `components.js` owns `<x-component>` loading, component caching, module injection, nested component processing, and `globalThis.xAttrs`.
 - `modals.js` owns the stacked modal shell, `openModal`, `closeModal`, `scrollModal`, footer relocation, backdrop, and modal z-index behavior.
-- `surfaces.js` owns shared surface registration, right-canvas/modal mode routing, surface modal action rails, and reusable draggable/focus modal chrome.
+- `surfaces.js` owns shared surface registration, routing to the unified canvas workspace, and reusable action rails/draggable/focus chrome for standalone workflow dialogs. Workspace tabs live only in the canvas shell; do not create or park one modal per tab.
 - Desktop's core and plugin registrations use the `tuxee` icon name; `surfaces.css` owns its theme-aware emblem mask.
 - `initFw.js` owns Alpine bootstrap and custom lifecycle directives such as `x-create`, `x-destroy`, and periodic `x-every-*` hooks.
 - `overflow.js` owns the reusable `x-overflow` directive for constrained flex rows. It observes layout and late plugin content, collapses trailing controls behind `more_horiz`, and opens their original panels without moving or reinitializing Alpine nodes.

@@ -41,10 +41,14 @@ body.right-canvas-resizing {
   box-shadow: 0 0 0 2px var(--color-background);
 }
 
-.right-canvas {
+.right-canvas,
+.right-canvas-shell {
   --right-canvas-chrome: color-mix(in srgb, var(--color-background) 94%, #000 6%);
   --right-canvas-surface: color-mix(in srgb, var(--color-panel) 88%, var(--color-background) 12%);
   --right-canvas-border: color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.right-canvas {
   position: relative;
   z-index: 1200;
   display: flex;
@@ -368,7 +372,7 @@ body.right-canvas-mobile-mode .right-canvas-rail {
   pointer-events: auto;
 }
 
-body.right-canvas-mobile-mode .right-canvas-shell,
+body.right-canvas-mobile-mode .right-canvas > .right-canvas-shell,
 body.right-canvas-mobile-mode .right-canvas-resize-handle {
   display: none !important;
 }
