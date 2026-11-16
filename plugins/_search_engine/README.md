@@ -1,3 +1,3 @@
 # Search Engine
 
-Preserves the search tool and WebUI presentation while the sandboxed SearXNG integration is unfinished. Calls return `the searxng plugin is not yet fully implemented` without network activity. See [SearXNG](../_searxng/README.md) for the preserved implementation notes.
+The `search_engine` tool searches through [sandboxed SearXNG](../_searxng/README.md) and returns up to ten titles, URLs and snippets. First use installs dependencies automatically, with a notice in the search log. Search errors and empty results are reported to the agent; upstream engines may block requests from VPS addresses.

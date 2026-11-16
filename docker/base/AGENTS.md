@@ -26,7 +26,7 @@
 - Do not preinstall unused wget/unzip or ALSA libraries. Keep curl and 7-Zip, which serve runtime downloads and archive extraction.
 - Disable implicit Python bytecode generation before installation/preload, and pass `--no-compile` to pip; runtime services already run without writing bytecode.
 - The runnable image bundles the default sandbox OCI layout; writable sandbox roots and image-cache lifecycle remain owned by `plugins/_sandboxing/`.
-- Do not install SearXNG, create its service user or virtualenv, or copy its configuration into the base image; the placeholder integration is owned by `plugins/_searxng/`.
+- Do not install SearXNG, create its service user or virtualenv, or copy its configuration into the base image; the on-demand sandbox installation is owned by `plugins/_searxng/`.
 - Do not install Tesseract, OCR language packs, or Poppler in the base image; `plugins/_document_query/` installs those system packages inside its sandbox when a legacy OCR fallback reaches its first use.
 - Use Debian's built-in `C.UTF-8` locale without installing or generating locale data, and keep the timezone set to UTC.
 - Do not add secrets, user data, or local environment files to the image context.

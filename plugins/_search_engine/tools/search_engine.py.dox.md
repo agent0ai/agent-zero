@@ -3,7 +3,7 @@
 ## Purpose
 
 - Own the `search_engine.py` agent tool.
-- This module delegates to the SearXNG placeholder and preserves search-log presentation; it does not contact a live search service. String placeholder results pass through unchanged.
+- This module delegates to sandboxed SearXNG, displays first-use progress in the search log and formats up to ten results. Empty results include upstream engine failures; exceptions become failed-search responses. Progress is cleared even on failure or cancellation.
 - Keep this file-level DOX profile synchronized with `search_engine.py` because this directory is intentionally flat.
 
 ## Ownership

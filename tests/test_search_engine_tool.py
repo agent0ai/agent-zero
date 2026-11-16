@@ -80,7 +80,7 @@ def test_get_heading_falls_back_without_query():
 
 @pytest.mark.anyio
 async def test_execute_returns_formatted_results(monkeypatch):
-    async def fake_search(query: str):
+    async def fake_search(query: str, progress=None):
         return {"results": [{"title": "T", "url": "U", "content": "C"}]}
 
     monkeypatch.setattr(search_engine_module, "searxng", fake_search)
@@ -95,7 +95,7 @@ async def test_execute_returns_formatted_results(monkeypatch):
 
 @pytest.mark.anyio
 async def test_execute_survives_search_failure(monkeypatch):
-    async def failing_search(query: str):
+    async def failing_search(query: str, progress=None):
         raise RuntimeError("searxng down")
 
     monkeypatch.setattr(search_engine_module, "searxng", failing_search)
@@ -107,7 +107,51 @@ async def test_execute_survives_search_failure(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_search_reports_unfinished_sandbox_integration_without_network():
-    response = await _make_tool().execute(query="test")
-    assert response.message == "the searxng plugin is not yet fully implemented"
+@pytest.mark.parametrize('fails', [False, True])
+async def test_setup_notice_is_logged_and_cleared(monkeypatch, fails):
+    from plugins._searxng.helpers.searxng import STARTUP_NOTICE
+    async def fake_search(query, progress):
+        progress(STARTUP_NOTICE)
+        if fails:
+            raise RuntimeError('setup failed')
+        progress('Searching the web')
+        return {'results': []}
+    updates = []
+    tool = _make_tool({'query': 'test'})
+    tool.log = SimpleNamespace(update=lambda **kwargs: updates.append(kwargs))
+    monkeypatch.setattr(search_engine_module, 'searxng', fake_search)
+    response = await tool.execute(query='test')
+    assert updates[0] == {'kvps': {'query': 'test', 'Search status': STARTUP_NOTICE}}
+    assert updates[-1] == {'kvps': {'query': 'test'}}
     assert response.break_loop is False
+    assert STARTUP_NOTICE not in response.message
+
+
+def test_empty_results_explain_blocked_engines():
+    result = {'results': [], 'unresponsive_engines': [['google', 'CAPTCHA'], ['bing', 'HTTP 403']]}
+    assert _make_tool().format_result_searxng(result, 'Search Engine') == (
+        'No search results found. Unavailable engines: google: CAPTCHA; bing: HTTP 403')
+    assert _make_tool().format_result_searxng({'results': []}, 'Search Engine') == 'No search results found.'
+
+
+def test_legacy_tool_retains_canonical_behavior():
+    from plugins._searxng.tools.search_engine import SearchEngine as LegacySearchEngine
+    from helpers.modules import load_classes_from_file
+    from helpers.tool import Tool
+    assert LegacySearchEngine is SearchEngine
+    assert load_classes_from_file('plugins/_searxng/tools/search_engine.py', Tool) == [SearchEngine]
+
+
+@pytest.mark.asyncio
+async def test_cancellation_clears_setup_notice(monkeypatch):
+    import asyncio
+    async def cancelled_search(query, progress):
+        progress('Preparing search engine')
+        raise asyncio.CancelledError()
+    updates = []
+    tool = _make_tool({'query': 'test'})
+    tool.log = SimpleNamespace(update=lambda **kwargs: updates.append(kwargs))
+    monkeypatch.setattr(search_engine_module, 'searxng', cancelled_search)
+    with pytest.raises(asyncio.CancelledError):
+        await tool.execute(query='test')
+    assert updates[-1] == {'kvps': {'query': 'test'}}

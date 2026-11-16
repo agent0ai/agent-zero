@@ -1,0 +1,26 @@
+use_default_settings:
+  engines:
+    remove:
+      - radio browser
+      - wikidata
+general:
+  debug: false
+  instance_name: Agent Zero Search
+search:
+  safe_search: 0
+  formats:
+    - json
+server:
+  limiter: false
+  public_instance: false
+  image_proxy: false
+outgoing:
+  request_timeout: 8.0
+  max_request_timeout: 15.0
+engines:
+  - name: ahmia
+    disabled: true
+    inactive: true
+  - name: torch
+    disabled: true
+    inactive: true

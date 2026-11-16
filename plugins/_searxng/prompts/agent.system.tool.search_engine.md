@@ -1,6 +1,6 @@
 ### search_engine
-SearXNG web-search placeholder.
+Search the web using SearXNG. Returns up to ten results with titles, URLs and snippets.
 
-The integration is currently unavailable. Every call returns `the searxng plugin is not yet fully implemented`.
+arg: `query` — the search query.
 
-arg: `query` (currently ignored)
+First use prepares the search sandbox and can take a little while. If search engines are unavailable or rate-limited, the tool reports that instead of results.

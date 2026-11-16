@@ -1,6 +1,6 @@
 name: _search_engine
 title: Search Engine
-description: Search tool presentation backed by the unfinished sandboxed SearXNG placeholder.
+description: Web search powered by on-demand sandboxed SearXNG.
 version: 1.0.0
 settings_sections: []
 per_project_config: false

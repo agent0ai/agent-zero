@@ -112,7 +112,7 @@ Direct child DOX files:
 | [_sidebar_folders/AGENTS.md](_sidebar_folders/AGENTS.md) | Project folder presentation, filters, sorting, drag ordering, and chat project moves. |
 | [_tunnel/AGENTS.md](_tunnel/AGENTS.md) | On-demand remote-control providers, sandbox installers, and settings. |
 | [_sandboxing/AGENTS.md](_sandboxing/AGENTS.md) | Direct PRoot sandbox lifecycle, runtime OCI image cache, execution destinations, and management UI. |
-| [_searxng/AGENTS.md](_searxng/AGENTS.md) | Disabled SearXNG search placeholder and historical sandbox-reimplementation notes. |
+| [_searxng/AGENTS.md](_searxng/AGENTS.md) | On-demand sandboxed SearXNG installation and search worker. |
 | [_skills/AGENTS.md](_skills/AGENTS.md) | Active and hidden skill configuration and prompt injection. |
 | [_telegram_integration/AGENTS.md](_telegram_integration/AGENTS.md) | Telegram bot integration and per-user chat sessions. |
 | [_text_editor/AGENTS.md](_text_editor/AGENTS.md) | Native text read, write, and patch tool. |

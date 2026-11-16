@@ -10,8 +10,6 @@ SEARCH_ENGINE_RESULTS = 10
 
 class SearchEngine(Tool):
     async def execute(self, query="", **kwargs):
-
-
         searxng_result = await self.searxng_search(query)
 
         await self.agent.handle_intervention(
@@ -22,10 +20,19 @@ class SearchEngine(Tool):
 
 
     async def searxng_search(self, question):
+        log = getattr(self, "log", None)
+
+        def progress(message):
+            if log:
+                log.update(kvps={**self.args, "Search status": message})
+
         try:
-            results = await searxng(question)
+            results = await searxng(question, progress=progress)
         except Exception as e:
             results = e
+        finally:
+            if log:
+                log.update(kvps=self.args)
         return self.format_result_searxng(results, "Search Engine")
 
     def format_result_searxng(self, result, source):
@@ -44,6 +51,10 @@ class SearchEngine(Tool):
             content = item.get("content", "")
             outputs.append(f"{title}\n{url}\n{content}")
 
+        if not outputs and isinstance(result, dict) and "results" in result:
+            unavailable = result.get("unresponsive_engines") or []
+            details = "; ".join(": ".join(map(str, item)) for item in unavailable if isinstance(item, (list, tuple)))
+            return "No search results found." + (f" Unavailable engines: {truncate_text(details, 1000)}" if details else "")
         return "\n\n".join(outputs[:SEARCH_ENGINE_RESULTS]).strip()
 
     def get_log_object(self):

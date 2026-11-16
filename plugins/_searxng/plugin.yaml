@@ -1,6 +1,6 @@
 name: _searxng
 title: SearXNG
-description: Placeholder for a future sandboxed SearXNG search integration.
+description: On-demand SearXNG search in its own sandbox using the image Python.
 version: 0.1.0
 settings_sections: []
 per_project_config: false

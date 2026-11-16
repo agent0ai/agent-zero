@@ -2,32 +2,35 @@
 
 ## Purpose
 
-- Own the unavailable SearXNG search placeholder and the migration record needed for a future sandboxed implementation.
+- Own on-demand sandboxed SearXNG web search.
 
 ## Ownership
 
-- `tools/search_engine.py` owns the agent-facing placeholder tool.
-- `helpers/searxng.py` owns the shared not-implemented response used by the placeholder.
-- `prompts/agent.system.tool.search_engine.md` owns the agent-facing tool contract.
-- `README.md` owns the historical installation, runtime, dependency, and configuration record.
-- `plugin.yaml` owns bundled-plugin metadata and activation.
+- `helpers/searxng.py` owns lazy worker startup, query validation and search handoff.
+- `sandbox/` owns the pinned source installer, bootstrap requirements, settings and guest WSGI adapter.
+- `hooks.py` owns lazy installation metadata, worker shutdown and sandbox removal.
+- `tools/search_engine.py` retains the legacy tool entry point using `_search_engine` presentation.
+- `README.md`, `plugin.yaml` and `prompts/` own documentation, metadata and the agent-facing contract.
 
 ## Local Contracts
 
-- Every tool call returns exactly `the searxng plugin is not yet fully implemented` with `break_loop=False`.
-- The plugin must not make network requests, install packages, start processes, create a virtualenv, or write SearXNG configuration.
-- SearXNG must not be installed or launched in the outer Agent Zero image.
-- Any future implementation must isolate SearXNG through the sandboxing plugin and update this contract and the README.
+- Install dependencies only on first search inside `service-searxng`, using the sandbox image's existing global Python. Never install SearXNG in the outer environment or download another Python.
+- Reuse `SandboxWorker` for persistent installation, private request transport, cancellation, retries and idle shutdown. Installer fingerprints trigger updates on existing instances.
+- Pin the SearXNG source revision in `sandbox/install.sh`; retain shared worker dependency constraints.
+- Call SearXNG's WSGI `/search` endpoint in-process; expose no listening port. Return its JSON dictionary unchanged to the presentation layer.
+- Validate nonempty queries up to 8192 characters before startup and in the guest. Show first-use setup progress in the tool log, then restore its original arguments.
+- Disable stops the worker; uninstall removes only its sandbox. Installation is retained across idle stops/restarts.
 
 ## Work Guidance
 
-- Treat the README commands and configuration as a historical reconstruction record, not an instruction to restore host-level installation.
-- Keep the public tool name `search_engine` stable while the placeholder remains bundled.
+- Keep engine selection/settings in the plugin. No extra service framework or outer dependencies are needed.
+- Coordinate response formatting with `_search_engine`; upstream blocks and empty results must remain visible.
 
 ## Verification
 
-- Run `pytest tests/test_searxng_plugin.py`.
-- Confirm Docker contexts contain no SearXNG installer, launcher, supervisor entry, configuration, virtualenv path, service user, or dependency-only install step.
+- Run `pytest tests/test_searxng_plugin.py tests/test_search_engine_tool.py tests/test_sandbox_workers.py`.
+- In a disposable Docker container, verify first-use installation, a live search response, warm searches and restart reuse. Verify the guest uses image Python and the outer environment cannot import SearXNG.
+- Keep Docker contexts free of SearXNG installers, launchers, configuration and service dependencies.
 
 ## Child DOX Index
 
