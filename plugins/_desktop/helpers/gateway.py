@@ -86,6 +86,7 @@ class TuxeeGateway(VirtualDesktopGateway):
                                     if name.startswith(('tuxee_session_', 'tuxee_language_')))
         # Forward only transport context derived from this accepted request.
         result['x-forwarded-proto'] = 'https' if scope.get('scheme') in {'https', 'wss'} or result.get('origin', '').startswith('https://') else 'http'
+        result['x-forwarded-prefix'] = PREFIX
         return result
 
     async def __call__(self, scope, receive, send):
@@ -97,9 +98,6 @@ class TuxeeGateway(VirtualDesktopGateway):
                 await PlainTextResponse('Desktop authentication or origin check failed', status_code=403)(scope, receive, send)
             return
         path = self.relative_path(scope)
-        if path == '/api/update/apply':
-            await PlainTextResponse('This Tuxee runtime is updated with Agent Zero', status_code=409)(scope, receive, send)
-            return
         try:
             port = await asyncio.to_thread(runtime.start)
             query = scope.get('query_string', b'').decode('latin-1')

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Adapted from Tuxee a7e2061abce616b62951cb132e39d34d25bed3a3, MIT (LICENSE.tuxee).
+# Adapted from Tuxee 6e25f6b608aa45293e5150f5998ae43461a73eb2, MIT (LICENSE.tuxee).
 set -eu
 output=$(realpath -m "$1")
 build=$(mktemp -d)
@@ -33,7 +33,7 @@ cp -a "$build/stage$prefix"/lib/libpulse.so* "$runtime/lib/"
 for name in libpulsecommon-17.0.so libpulsecore-17.0.so; do
     install -s "$build/stage$prefix/lib/pulseaudio/$name" "$runtime/lib/pulseaudio/$name"
 done
-for name in libprotocol-native.so module-native-protocol-unix.so module-null-sink.so; do
+for name in libprotocol-native.so module-native-protocol-unix.so module-null-sink.so module-remap-source.so; do
     install -s "$build/stage$prefix/lib/pulseaudio/modules/$name" "$runtime/lib/pulseaudio/modules/$name"
 done
 cp -a "$build/deps"/lib/libsndfile.so* "$runtime/lib/"

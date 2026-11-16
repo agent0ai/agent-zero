@@ -46,6 +46,34 @@ Git rollback**. Follow the Tuxee pattern: check first, stage/build separately,
 preserve working assets, publish atomically where possible, and write the
 installed marker last. Provide recovery for any non-atomic changes in the script.
 
+## Updating Tuxee
+
+When a release should also update an already-installed Tuxee to the latest
+official stable release, add an after hook such as:
+
+```sh
+set -eu
+if command -v tuxee >/dev/null 2>&1; then
+    tuxee update
+fi
+```
+
+This uses Tuxee's normal checksum verification, installation lock and atomic
+binary replacement. It does not install Desktop for users who have not opened
+it. A0's UI is stopped during after hooks; its next Desktop launch starts the
+updated executable, so the hook does not need to restart Tuxee. Download or
+installation failure aborts the A0 update. Git rollback does not downgrade an
+already-updated Tuxee binary.
+
+For a required minimum release or native dependency change, update
+`plugins/_desktop/build/version.txt` and the owning native recipe instead;
+Desktop refreshes them at its next start, selecting the latest official stable
+release meeting that minimum and preserving a newer installed binary.
+A0 owns these native dependencies; Tuxee's official Docker-only setup
+scripts are not enabled in this integration. Keep required migrations
+idempotent and available to skipped-version upgrades. Do not add a permanent
+latest-release hook unless that is the intended policy for that A0 release.
+
 ## Exceptional updater replacement
 
 Normally the installed updater remains in place. Existing startup capability

@@ -81,7 +81,7 @@ async def test_proxy_preserves_tuxee_auth_csrf_streams_and_restricts_cookie_path
         result = await client.post('/desktop/tuxee/api/upload?path=test', content=b'FILE', headers={
             'cookie': proxy.cookie + '; tuxee_session_fixture=opaque; unrelated=private',
             'origin': 'https://a0.test', 'x-tuxee-csrf': 'csrf-fixture', 'x-tuxee-client': 'web', 'x-tuxee-size': '4', 'x-internal-auth': 'forged',
-            'x-forwarded-host': 'evil.test', 'x-forwarded-proto': 'http',
+            'x-forwarded-host': 'evil.test', 'x-forwarded-proto': 'http', 'x-forwarded-prefix': '/forged',
         })
     assert result.status_code == 200
     assert result.content == b'upstream:FILE'
@@ -94,7 +94,27 @@ async def test_proxy_preserves_tuxee_auth_csrf_streams_and_restricts_cookie_path
     assert sent['host'] == 'a0.test' and sent['origin'] == 'https://a0.test'
     assert sent['cookie'] == 'tuxee_session_fixture=opaque'
     assert sent['x-tuxee-csrf'] == 'csrf-fixture' and sent['x-forwarded-proto'] == 'https'
+    assert sent['x-forwarded-prefix'] == '/desktop/tuxee'
     assert 'x-internal-auth' not in sent and 'x-forwarded-host' not in sent
+
+
+@pytest.mark.anyio
+async def test_update_uses_upstream_auth_csrf_and_json_response(proxy):
+    async def update(request):
+        assert request.path == '/api/update/apply'
+        if request.headers.get('X-Tuxee-CSRF') != 'update-csrf':
+            return aiohttp.web.json_response({'error': 'CSRF validation failed'}, status=403)
+        return aiohttp.web.json_response({'ok': True}, status=202)
+    proxy.handler = update
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=proxy.app), base_url='https://a0.test') as client:
+        headers = {'cookie': proxy.cookie, 'origin': 'https://a0.test'}
+        denied = await client.post('/desktop/tuxee/api/update/apply', headers=headers)
+        assert denied.status_code == 403 and denied.json()['error'] == 'CSRF validation failed'
+        accepted = await client.post('/desktop/tuxee/api/update/apply', headers={**headers, 'x-tuxee-csrf': 'update-csrf'})
+        assert accepted.status_code == 202 and accepted.json() == {'ok': True}
+        for unsafe in ({'origin': 'https://a0.test'}, {'cookie': proxy.cookie, 'origin': 'https://evil.test'}):
+            assert (await client.post('/desktop/tuxee/api/update/apply', headers=unsafe)).status_code == 403
+    assert len(proxy.captured) == 2
 
 
 @pytest.mark.anyio
