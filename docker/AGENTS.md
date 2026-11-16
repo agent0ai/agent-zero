@@ -9,7 +9,7 @@
 
 - `base/` owns the base image context.
 - `run/` owns the runnable image context and compose file.
-- `sandbox/` owns the Python and Node image used inside gVisor sandboxes.
+- `sandbox/` owns the Python and Node image used inside PRoot sandboxes.
 - Root `DockerfileLocal` is owned by the root contract but must stay compatible with this directory.
 
 ## Local Contracts

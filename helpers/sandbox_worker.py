@@ -151,6 +151,8 @@ class SandboxWorker:
     def _write_request(directory: Path, payload: dict):
         fd, path = tempfile.mkstemp(dir=directory)
         try:
+            # Keep the inherited guest-read ACL effective on atomic replacements.
+            os.fchmod(fd, 0o640)
             with os.fdopen(fd, 'w') as stream:
                 json.dump(payload, stream)
             os.replace(path, directory / 'request.json')

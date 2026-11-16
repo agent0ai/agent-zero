@@ -1,6 +1,6 @@
 name: _tunnel
 title: Remote Control
-description: On-demand remote access through a persistent gVisor sandbox.
+description: On-demand remote access through a persistent PRoot sandbox.
 version: 0.1.0
 settings_sections:
   - external

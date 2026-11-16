@@ -44,7 +44,7 @@ class IncludeSandboxDestinations(Extension):
                     target=sandbox.name,
                     label=f"Sandbox {sandbox.name}",
                     description=(
-                        f"{sandbox.sandbox_type} gVisor sandbox; network={sandbox.network}."
+                        f"{sandbox.sandbox_type} PRoot sandbox; network={sandbox.network}."
                     ),
                     status=sandbox.status,
                 )

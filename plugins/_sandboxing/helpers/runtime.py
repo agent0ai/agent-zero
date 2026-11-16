@@ -37,7 +37,7 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
     except SandboxError:
         default_sandbox = "default"
     return {
-        "runsc_path": str(raw.get("runsc_path") or "/usr/bin/runsc").strip(),
+        "proot_path": str(raw.get("proot_path") or "/usr/local/bin/a0-proot").strip(),
         "skopeo_path": str(raw.get("skopeo_path") or "/usr/bin/skopeo").strip(),
         "umoci_path": str(raw.get("umoci_path") or "/usr/bin/umoci").strip(),
         "default_image": str(
@@ -50,8 +50,8 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         "state_dir": str(
             raw.get("state_dir") or "usr/plugins/_sandboxing/runtime"
         ).strip(),
-        "runsc_root": str(
-            raw.get("runsc_root") or "/dev/shm/agent-zero-runsc"
+        "uid_registry": str(
+            raw.get("uid_registry") or "usr/plugins/_sandboxing/runtime/uids"
         ).strip(),
         "shared_dir": str(raw.get("shared_dir") or "usr/sandbox-shared").strip(),
         "default_sandbox": default_sandbox,
@@ -74,7 +74,6 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         ),
         "start_timeout": _positive_float(raw.get("start_timeout"), 8.0),
         "stop_timeout": _positive_float(raw.get("stop_timeout"), 3.0),
-        "snapshot_timeout": _positive_float(raw.get("snapshot_timeout"), 300.0),
         "exec_timeout": _positive_float(raw.get("exec_timeout"), 600.0),
         "max_output_bytes": max(4096, _integer(raw.get("max_output_bytes"), 1_048_576)),
     }
@@ -87,9 +86,9 @@ def manager_config(
     state_dir = _absolute_path(raw["state_dir"])
     instance_id = runtime.get_persistent_id()
     sandbox = SandboxConfig(
-        runsc=_absolute_path(raw["runsc_path"]),
+        proot=_absolute_path(raw["proot_path"]),
         instances_dir=state_dir / "instances" / instance_id,
-        runsc_root=_absolute_path(raw["runsc_root"]),
+        uid_registry=_absolute_path(raw["uid_registry"]),
         shared_dir=_absolute_path(raw["shared_dir"]),
         default_image=str(raw["default_image"]),
         instance_id=instance_id,
@@ -97,13 +96,13 @@ def manager_config(
         temporary_lifetime_days=float(raw["temporary_lifetime_days"]),
         start_timeout=float(raw["start_timeout"]),
         stop_timeout=float(raw["stop_timeout"]),
-        snapshot_timeout=float(raw["snapshot_timeout"]),
         exec_timeout=float(raw["exec_timeout"]),
         max_output_bytes=int(raw["max_output_bytes"]),
     )
     auth_file = str(raw["registry_auth_file"] or "")
     images = SandboxImageConfig(
-        runsc=_absolute_path(raw["runsc_path"]),
+        proot=_absolute_path(raw["proot_path"]),
+        uid_registry=_absolute_path(raw["uid_registry"]),
         skopeo=_absolute_path(raw["skopeo_path"]),
         umoci=_absolute_path(raw["umoci_path"]),
         cache_dir=_absolute_path(raw["image_cache_dir"]),

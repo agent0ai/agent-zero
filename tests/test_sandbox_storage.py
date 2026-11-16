@@ -11,7 +11,7 @@ from tests.test_sandbox_services import create_disk
 
 
 def test_lifecycle_and_broken_status_never_measure_storage(manager, monkeypatch):
-    monkeypatch.setattr('plugins._sandboxing.helpers.manager.allocated_bytes',
+    monkeypatch.setattr('plugins._sandboxing.helpers.storage.private_bytes',
                         lambda *args: pytest.fail('Implicit storage scan'))
     create_disk(manager, monkeypatch)
     assert manager.start('service').size_bytes is None
@@ -71,12 +71,12 @@ async def test_slow_usage_does_not_block_api_status_or_lifecycle(manager, monkey
     monkeypatch.setattr(sandboxes, 'defaults', lambda: ('default', 'temporary', 'host'))
     entered, release = threading.Event(), threading.Event()
 
-    def slow_scan(path):
+    def slow_scan(path, uid):
         entered.set()
         assert release.wait(5), 'Test did not release storage calculation'
         return 1234
 
-    monkeypatch.setattr('plugins._sandboxing.helpers.manager.allocated_bytes', slow_scan)
+    monkeypatch.setattr('plugins._sandboxing.helpers.storage.private_bytes', slow_scan)
     handler = object.__new__(sandboxes.Sandboxes)
     calculation = asyncio.create_task(handler.process({'action': 'disk_usage', 'name': 'service'}, None))
     try:

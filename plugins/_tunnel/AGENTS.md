@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Own remote-control settings, provider installation and execution in a gVisor service sandbox.
+Own remote-control settings, provider installation and execution in a PRoot service sandbox.
 
 ## Ownership
 

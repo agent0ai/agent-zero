@@ -1,7 +1,7 @@
 # Sandboxing
 
-The bundled `_sandboxing` plugin runs named OCI containers directly with
-gVisor's `runsc`. It does not use Docker child containers, a Docker socket,
+The bundled `_sandboxing` plugin runs named OCI filesystems through patched
+PRoot, separate Linux users, and file-level copy-on-write. It does not use Docker child containers, a Docker socket,
 SSH, a nested daemon, or KVM.
 
 ## Agent behavior
@@ -25,9 +25,13 @@ They also pull, list, inspect, clean, and delete cached sandbox images.
 
 ## Storage policy
 
-New sandboxes use a private writable disk filesystem, copied with reflinks
-when supported. Restart reuses those files without taking or extracting tar
-snapshots. Temporary sandboxes expire after the configured inactivity period
+New sandboxes have private directories and symlinks; unchanged regular files
+share immutable image inodes through hardlinks. The first modification copies
+only that file into the private tree. Restart reuses the tree without snapshots.
+Image cache and sandbox state must share a filesystem with hardlink and POSIX ACL
+support. Private-size reporting excludes shared image data. Existing full disk
+roots migrate in place without shrinking; recreate them to gain sharing. Legacy
+tar-overlay snapshots are preserved but require export on the previous version. Temporary sandboxes expire after the configured inactivity period
 (seven days by default); permanent sandboxes never expire.
 
 Storage reporting never scans files during start, stop, list, inspect or status
@@ -42,8 +46,8 @@ unknown without scanning. Image-import size-limit checks still apply.
 
 Every sandbox receives `/shared` and, by default, Agent Zero's `usr/` at
 `/a0/usr`. Private manager state and image caches are masked inside user-folder
-mounts. Services can disable usr sharing. Host root access at `/host` requires
-an explicit `host_root=True` / `--host-root` launch option.
+mounts. Services can disable usr sharing. Host-root bindings are
+unsupported; bind only the directories the sandbox needs.
 
 Creation APIs also accept optional folder binds:
 
@@ -76,7 +80,7 @@ sandbox offline. The first use unpacks it into the disk cache; subsequent
 starts reuse the cache and each sandbox's private disk filesystem.
 
 Native installations, older images, or a missing/damaged bundle build the same
-recipe on first use through gVisor. This requires working `runsc`, `skopeo`,
+recipe on first use through PRoot. This requires working `a0-proot`, `skopeo`,
 `umoci` and internet access for the official Python/Node images, apt and pip.
 The build is serialized and cached; it does not run during ordinary WebUI
 startup or install packages into the host Python environment. Failed builds
@@ -103,28 +107,33 @@ The hourly cleanup removes only unreferenced images unused for 30 days by
 default. An optional containers-auth JSON path supports private registries
 without putting credentials in command arguments or plugin metadata.
 
-## gVisor runtime
+## Runtime requirements and isolation
 
-The runtime uses rootless systrap with directfs to reduce filesystem-helper
-round trips. Directfs lets the Sentry access the configured filesystem directly
-with additional internal filesystem privileges; guest mount restrictions and
-instance masks still apply. It does not require adding outer Docker capabilities.
-Validate the supported runsc release under the deployment's existing kernel and
-seccomp policy; this does not make gVisor compatible with every Docker policy.
+Docker supplies the root manager; guest processes run as distinct leased UIDs.
+PRoot presents UID 0 inside the guest so apt/pip installers keep working. The
+manager requires Linux, the patched `a0-proot`, libtalloc, libseccomp and POSIX ACLs.
+Fresh images include these and Compose uses default Docker seccomp with
+`no-new-privileges` and an init reaper. No AppArmor profile, user namespaces,
+FUSE device or mount capability is required by this implementation.
 
-The base build installs the signed gVisor apt package in a throwaway stage and
-copies `runsc` plus its required Sentry, Sentry prewarmer, proc umounter,
-and file-descriptor parking sidecars into the final image. The containerd shim, remote-checkpoint gofer, and optional metric server
-are omitted. `skopeo` and `umoci` remain available, and the runnable Docker image
-bundles the default OCI image. The local Compose example keeps the outer container
-unprivileged with `no-new-privileges`, uses an init reaper for detached
-runtimes, and relaxes its seccomp profile for nested systrap. Native
-deployments must provide a kernel policy compatible with rootless runsc;
-the Doctor action reports missing prerequisites and never falls back to an
-unsandboxed runtime.
+Source updates stop old sandboxes before switching and build the runtime once
+through the release hook; startup also checks it. Debian-based native root
+installations use `docker/base/fs/ins/proot/install.sh`. Rebuild the Docker image
+to reclaim old gVisor image layers. Custom host security policies may still block
+ptrace; test on the actual host.
 
-Persistent state and `/shared` must live on durable storage. Private state is
-never mounted into `/shared`; legacy snapshot records remain readable.
+This isolates dependencies and ordinary file changes, not hostile native code.
+PRoot shares the host kernel and PID/network environment and is not equivalent
+to gVisor's security boundary. Use one A0 instance per outer container and keep
+its persistent UID registry with its sandbox state. Never reassign leased UIDs.
+`network=none` blocks creation of non-Unix sockets with seccomp; it is not a
+network namespace and Unix sockets in explicit bindings remain accessible.
+
+Copy-on-write preserves user xattrs and hardlink aliases within a guest. As with
+OverlayFS copy-up, previously opened read descriptors keep the old inode;
+metadata changes through a replaced/deleted lower descriptor fail with ESTALE.
+Image ownership/modes are normalized for shared immutable files; host ACLs and
+file capabilities are not copied into guest-private files.
 
 ## Linux smoke test
 
@@ -140,9 +149,10 @@ After building the base and runnable images, use the UI or Python manager to:
 8. Delete `alpha` and verify `beta` and the shared probe remain.
 9. Verify image deletion refuses `beta`'s digest, then delete `beta` and exercise unused-image cleanup with a controlled clock.
 
-The unit suite mocks the `runsc` boundary; this Linux smoke test is required to
-validate the actual kernel, gVisor release, architecture, and outer-container
-security policy.
+Run `A0_PROOT_INTEGRATION=1 pytest tests/test_proot_runtime.py` inside a
+disposable built image for real CoW, read-only bindings, lifecycle, timeout and
+offline-network checks. Also verify browser rendering with its real installer.
+Unit mocks alone do not establish compatibility with a host security policy.
 
 ## Process lifetime and CLI
 
@@ -159,3 +169,7 @@ host restarts. Stopping clears the desired running state.
 
 See [the tunnel PoC](../../docs/developer/tunnel-sandbox-poc.md) for the installer
 script pattern and verification scope.
+
+Transient `/tmp`, `/run` and PRoot scratch data live below short, private
+`/run/a0-proot/<uid>` directories to keep Unix socket paths within Linux limits.
+They are cleared on stop; persistent guest files remain in the CoW root.

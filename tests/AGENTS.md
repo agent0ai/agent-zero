@@ -48,11 +48,11 @@
 - Tuxee release integration: `test_tuxee_install.py` covers download/checksum/version failures, standard layout/locking and preservation of newer binaries; `test_tuxee_gateway.py` covers update JSON, authentication/CSRF and reconnect session renewal. Pair with upstream's real update/restart browser fixture through the A0 gateway before shipping a release pin.
 - ONNX changes require `test_local_embeddings.py`, `test_onnx_migration.py`, preload/factory tests and `integration_onnx_compatibility.py`: create synthetic fixtures with the old runtime, test new queries/inserts against identical persisted indexes, then restart in a separate process. Never use private live databases.
 - Image slimming requires a fresh base/application build, dependency checks, offline embeddings, archive extraction, Tuxee binary loading and a real OCI pull/unpack/guest execution check. Inspect the image before installing test dependencies so fixtures cannot hide missing runtime libraries.
-- `test_worker_python_bootstrap.py` covers default/pinned interpreter selection and preserving existing worker environments. Verify image-Python workers with real SDK imports and `integration_guest_smoke.py` in fresh Docker/gVisor guests.
+- `test_worker_python_bootstrap.py` covers default/pinned interpreter selection and preserving existing worker environments. Verify image-Python workers with real SDK imports and `integration_guest_smoke.py` in fresh Docker/PRoot guests.
 - Run `pytest tests/test_sandboxing.py tests/test_sandbox_builtin_image.py -q` for image pulls/imports, bundled defaults, lazy builds, cache validation, digest pinning, and sandbox lifecycle contracts.
 - Storage reporting: `pytest tests/test_sandbox_storage.py` and `node --test tests/test_sandbox_storage.mjs` verify scan-free lifecycle/status, explicit asynchronous measurement, ownership validation and independent UI controls.
 
-- Run `pytest tests/test_sandbox_services.py tests/test_tunnel_plugin.py tests/test_tunnel_remote_link.py tests/test_csrf_tunnel_origins.py tests/test_sandboxing.py tests/test_code_execution_destinations.py tests/test_ws_csrf.py` for service sandbox/tunnel changes. Real gVisor/Cloudflare checks are separate from deterministic tests.
+- Run `pytest tests/test_sandbox_services.py tests/test_tunnel_plugin.py tests/test_tunnel_remote_link.py tests/test_csrf_tunnel_origins.py tests/test_sandboxing.py tests/test_code_execution_destinations.py tests/test_ws_csrf.py` for service sandbox/tunnel changes. Real PRoot/Cloudflare checks are separate from deterministic tests.
 
 - Plugin worker coverage: `test_sandbox_workers.py`, Document Query, Whisper PCM, Kokoro/Paradee, browser regression and native desktop tests. Live guest installers/model inference/browser rendering are checked separately in disposable containers.
 - Browser startup progress requires worker boot/lock-isolation tests, `test_browser_pipe.py` for real guest stage messages and context-scoped pending requests, and `node --test tests/test_browser_cold_start.mjs` for numbered stages, first-run subtitles, idle checks, duplicate clicks, lost-acknowledgement recovery, confirmed failure/retry, cleanup and late replies. `test_browser_tool_output.py` covers internal startup hints and watcher cleanup on success, failure and cancellation, without adding hints to agent-facing results. Live UI checks must observe the Start button throughout a launch and viewer handoff. Installer dependency changes also need a fresh guest and real Chromium/HTML5 viewer check.
@@ -66,3 +66,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+Real PRoot checks: `A0_PROOT_INTEGRATION=1 pytest tests/test_proot_runtime.py` in a disposable built image. Run them with default seccomp and no added capabilities.

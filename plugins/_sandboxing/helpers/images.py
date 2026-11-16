@@ -37,7 +37,8 @@ class SandboxImageConfig:
     umoci: Path
     cache_dir: Path
     default_image: str
-    runsc: Path = Path("/usr/bin/runsc")
+    proot: Path = Path("/usr/local/bin/a0-proot")
+    uid_registry: Path = Path("/var/lib/agent-zero/proot-uids")
     auth_file: Path | None = None
     cleanup_days: float = 30.0
     pull_timeout: float = 900.0
@@ -115,7 +116,7 @@ class SandboxImageManager:
             ("skopeo", config.skopeo),
             ("umoci", config.umoci),
             ("image cache", config.cache_dir),
-            ("runsc", config.runsc),
+            ("proot", config.proot),
         ):
             if not path.is_absolute():
                 raise SandboxImageError(f"{label} path must be absolute: {path}")
@@ -830,7 +831,8 @@ class SandboxImageManager:
                 f"sandbox image cache is not a safe directory: {self.config.cache_dir}"
             )
         with contextlib.suppress(PermissionError):
-            self.config.cache_dir.chmod(0o700)
+            # Preserve the ACL mask for explicit read-only build inputs in this cache.
+            self.config.cache_dir.chmod((self.config.cache_dir.stat().st_mode & 0o770) | 0o700)
 
     @contextlib.contextmanager
     def _cache_lock(self) -> Iterator[None]:

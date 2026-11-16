@@ -1,6 +1,6 @@
 # Remote Control
 
-Open Remote Control from the menu or the plugin settings and click Start. The first start pulls the system sandbox image (default `docker.io/library/python:3.13-slim-bookworm`) and runs `sandbox/install.sh` inside a persistent gVisor sandbox. Later starts reuse the installed files. No provider process or sandbox runs before first use.
+Open Remote Control from the menu or the plugin settings and click Start. The first start pulls the system sandbox image (default `docker.io/library/python:3.13-slim-bookworm`) and runs `sandbox/install.sh` inside a persistent PRoot sandbox. Later starts reuse the installed files. No provider process or sandbox runs before first use.
 
 Cloudflare runs its native executable, verified against the official release digest. Microsoft, Serveo and Tailscale use the existing provider adapters in a small guest worker; their Python dependencies are installed only inside the sandbox.
 

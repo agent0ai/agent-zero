@@ -1,11 +1,11 @@
-runsc_path: /usr/bin/runsc
+proot_path: /usr/local/bin/a0-proot
 skopeo_path: /usr/bin/skopeo
 umoci_path: /usr/bin/umoci
 default_image: agent-zero-sandbox:1
 registry_auth_file: ""
 image_cache_dir: usr/plugins/_sandboxing/images
 state_dir: usr/plugins/_sandboxing/runtime
-runsc_root: /dev/shm/agent-zero-runsc
+uid_registry: usr/plugins/_sandboxing/runtime/uids
 shared_dir: usr/sandbox-shared
 default_sandbox: default
 default_type: temporary
@@ -17,6 +17,5 @@ image_unpack_timeout: 900
 max_image_bytes: 17179869184
 start_timeout: 8
 stop_timeout: 3
-snapshot_timeout: 300
 exec_timeout: 600
 max_output_bytes: 1048576

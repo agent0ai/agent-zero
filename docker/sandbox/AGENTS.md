@@ -2,11 +2,11 @@
 
 ## Purpose
 
-- Own the small OCI image used for agent code execution inside gVisor.
+- Own the small OCI image used for agent code execution inside PRoot.
 
 ## Ownership
 
-- `install.sh` owns Python/IPython and Node/npm setup and runtime checks, shared by Docker builds and the lazy gVisor builder.
+- `install.sh` owns Python/IPython and Node/npm setup and runtime checks, shared by Docker builds and the lazy PRoot builder.
 - `Dockerfile` builds the standalone image from matching official Python and Node images.
 - `README.md` owns default-image delivery, recovery and optional standalone builds.
 
@@ -28,7 +28,7 @@
 ## Verification
 
 - Build `docker/sandbox`; its build checks verify global Python and each command.
-- Exercise Python/IPython, global pip installation, Node and npm inside a real gVisor sandbox.
+- Exercise Python/IPython, global pip installation, Node and npm inside a real PRoot sandbox.
 
 ## Child DOX Index
 

@@ -1,5 +1,8 @@
 # Tunnel sandbox PoC
 
+> Historical gVisor measurements below describe the earlier runtime. Current
+> installations use [PRoot with CoW](../../plugins/_sandboxing/README.md).
+
 Remote Control now owns its UI, providers and installer in `plugins/_tunnel`.
 No outer tunnel API server is started. Its authenticated API forwards control
 to the shared sandbox manager; normal Agent Zero HTTP/WebSocket handling stays

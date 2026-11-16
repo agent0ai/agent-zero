@@ -20,6 +20,8 @@
 - Preserve working assets until checks/builds succeed and publish completion markers last, as in the Tuxee installer. Git rollback cannot undo package, sandbox or user-data changes; script authors own those recovery paths.
 - Updater replacement is exceptional. Only a before hook may stage `A0_UPDATE_UPDATER_CANDIDATE`. Preserve `execute_pending_update(request_data, *, logger, prepared=None)` and its prepared-state contract when changing the updater; the new implementation resumes the same attempt after before hooks.
 
+- The PRoot migration stops legacy running sandboxes before checkout while preserving desired-running metadata. The after hook provisions the patched runtime before UI startup; existing disk data migrates lazily on start.
+
 ## Work Guidance
 
 - Add scripts only when a release needs system changes; reuse owning installers and state checks. Keep lazy plugin installation in its owning plugin.

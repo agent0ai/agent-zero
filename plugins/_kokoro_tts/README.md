@@ -25,7 +25,7 @@ Built-in local speech synthesis, retaining the `_kokoro_tts` plugin identity.
 
 ## Sandbox runtime
 
-Heavy execution and dependency installation run inside a child gVisor sandbox on
+Heavy execution and dependency installation run inside a child PRoot sandbox on
 first use. Root files and model downloads persist; no extra host service starts
 at Agent Zero startup. Manage it with `python -m helpers.sandbox list` and the
 existing start/stop/delete commands. See [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md)

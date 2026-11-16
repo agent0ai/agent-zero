@@ -99,9 +99,9 @@ def test_batch_worker_stops_after_success(worker):
 
 def test_service_has_no_common_exchange_or_usr_mount(manager, monkeypatch):
     metadata = create_disk(manager, monkeypatch, service=True, share_usr=False)
-    spec = manager._oci_config('service', metadata, manager.config.instances_dir / 'service/bundle')
-    mounts = {mount['destination']: mount for mount in spec['mounts']}
-    assert mounts['/shared']['type'] == 'tmpfs'
+    spec = json.loads((manager.config.instances_dir / 'service/bundle/config.json').read_text())
+    mounts = {target: source for source, target in spec['bindings']}
+    assert mounts['/shared'] == str(manager.config.instances_dir / 'service/shared')
     assert '/a0/usr' not in mounts
 
 
@@ -120,7 +120,7 @@ def test_browser_pipe_command_is_instance_scoped(manager, monkeypatch):
     create_disk(manager, monkeypatch, service=True, share_usr=False)
     argv = manager.process_command('service', ['/opt/runtime/bin/python', '-V'])
     assert argv[-2:] == ['/opt/runtime/bin/python', '-V']
-    assert '--user=0:0' in argv and 'exec' in argv
+    assert 'execute' in argv and str(manager.config.instances_dir / 'service/bundle/config.json') in argv
 
 
 def test_private_worker_inputs_are_scoped_to_instance(tmp_path, monkeypatch):

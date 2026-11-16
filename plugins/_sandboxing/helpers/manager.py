@@ -6,10 +6,13 @@ import datetime as dt
 import fcntl
 import json
 import os
+from os import chown as set_owner
 import platform
 import re
 import shutil
 import stat
+import signal
+import sys
 import subprocess
 import tempfile
 import threading
@@ -27,6 +30,8 @@ from plugins._sandboxing.helpers.images import (
 )
 
 
+from plugins._sandboxing.helpers import storage, bootstrap, process as processes
+
 NetworkMode = Literal["host", "none"]
 SandboxType = Literal["temporary", "permanent"]
 SandboxStatus = Literal[
@@ -40,22 +45,8 @@ SandboxStatus = Literal[
 
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 ROOTFS_SNAPSHOT = "rootfs-upper.tar"
-SCHEMA_VERSION = 2
-CAPABILITIES = (
-    "CAP_CHOWN",
-    "CAP_DAC_OVERRIDE",
-    "CAP_FOWNER",
-    "CAP_FSETID",
-    "CAP_KILL",
-    "CAP_SETGID",
-    "CAP_SETUID",
-    "CAP_SETPCAP",
-    "CAP_NET_BIND_SERVICE",
-    "CAP_SYS_CHROOT",
-    "CAP_MKNOD",
-    "CAP_AUDIT_WRITE",
-    "CAP_SETFCAP",
-)
+SCHEMA_VERSION = 3
+RUNTIME_DIR = Path('/run/a0-proot')
 _ABSENT_MARKERS = (
     "file does not exist",
     "no such file",
@@ -79,18 +70,15 @@ class SandboxMount:
 
 @dataclass(frozen=True, slots=True)
 class SandboxConfig:
-    runsc: Path
+    proot: Path
     instances_dir: Path
-    runsc_root: Path
+    uid_registry: Path
     shared_dir: Path
     default_image: str
     temporary_lifetime_days: float = 7.0
     start_timeout: float = 8.0
     stop_timeout: float = 3.0
-    snapshot_timeout: float = 300.0
     exec_timeout: float = 600.0
-    state_timeout: float = 3.0
-    delete_timeout: float = 5.0
     max_output_bytes: int = 1_048_576
     instance_id: str = ""
     user_dir: Path | None = None
@@ -165,7 +153,7 @@ def allocated_bytes(path: Path) -> int:
 
 
 class SandboxManager:
-    """Manage Agent Zero-owned OCI sandboxes directly through gVisor runsc."""
+    """Manage copy-on-write PRoot sandboxes under separate Linux users."""
 
     def __init__(self, config: SandboxConfig, images: SandboxImageManager) -> None:
         self.config = self._validated_config(config)
@@ -188,6 +176,7 @@ class SandboxManager:
         self._locks_guard = threading.Lock()
         self._locks: dict[str, threading.RLock] = {}
         self._child_pipes: dict[str, int] = {}
+        self._launchers = {}
 
     @staticmethod
     def _validated_config(config: SandboxConfig) -> SandboxConfig:
@@ -196,9 +185,9 @@ class SandboxManager:
         if config.user_dir is not None and not config.user_dir.is_absolute():
             raise SandboxError("user directory must be absolute")
         paths = {
-            "runsc": config.runsc,
+            "proot": config.proot,
             "instances_dir": config.instances_dir,
-            "runsc_root": config.runsc_root,
+            "uid_registry": config.uid_registry,
             "shared_dir": config.shared_dir,
         }
         for label, value in paths.items():
@@ -215,69 +204,15 @@ class SandboxManager:
         return config
 
     def doctor(self) -> list[str]:
-        diagnostics: list[str] = []
-        if platform.system() != "Linux":
-            diagnostics.append("ERROR: gVisor sandboxes require Linux")
-        else:
-            diagnostics.append(f"OK: Linux {platform.machine()}")
-
-        if not self.config.runsc.is_file() or not os.access(self.config.runsc, os.X_OK):
-            diagnostics.append(f"ERROR: runsc is not executable at {self.config.runsc}")
-        else:
-            try:
-                result = subprocess.run(
-                    [str(self.config.runsc), "--version"],
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    check=False,
-                    shell=False,
-                    timeout=5,
-                )
-                version = " ".join(result.stdout.split())
-                if result.returncode:
-                    diagnostics.append(
-                        f"ERROR: runsc --version exited {result.returncode}: {version}"
-                    )
-                else:
-                    diagnostics.append(f"OK: {version or 'runsc available'}")
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                diagnostics.append(f"ERROR: runsc version check failed: {exc}")
-
+        diagnostics = []
+        if platform.system() != 'Linux' or os.geteuid() != 0:
+            diagnostics.append('ERROR: PRoot sandboxes need Linux and a root manager for separate guest UIDs; Docker supplies this')
+        try:
+            self._require_runtime_artifacts()
+            diagnostics.append('OK: PRoot copy-on-write runtime; no FUSE, mount capability or user namespaces required')
+        except SandboxError as exc:
+            diagnostics.append('ERROR: ' + str(exc))
         diagnostics.extend(self.images.doctor())
-
-        try:
-            self._ensure_layout()
-            self._atomic_probe(self.config.instances_dir.parent)
-            diagnostics.append(f"OK: sandbox state at {self.config.instances_dir}")
-        except OSError as exc:
-            diagnostics.append(f"ERROR: sandbox state is not writable: {exc}")
-        try:
-            self._ensure_shared_directory()
-            self._atomic_probe(self.config.shared_dir)
-            diagnostics.append(f"OK: shared exchange at {self.config.shared_dir}")
-        except OSError as exc:
-            diagnostics.append(f"ERROR: shared exchange is not writable: {exc}")
-
-        instances = self.config.instances_dir.resolve(strict=False)
-        shared = self.config.shared_dir.resolve(strict=False)
-        if instances == shared or instances in shared.parents or shared in instances.parents:
-            diagnostics.append("ERROR: private sandbox state and shared exchange must be separate")
-
-        status = self._proc_status()
-        try:
-            caps = int(status.get("CapEff", "0"), 16)
-        except ValueError:
-            caps = 0
-        if platform.system() == "Linux" and not caps & (1 << 18):
-            diagnostics.append(
-                "ERROR: CAP_SYS_CHROOT is unavailable; use the documented native or Docker launch policy"
-            )
-        if status.get("Seccomp") == "2":
-            diagnostics.append(
-                "WARNING: an outer seccomp filter is active; nested systrap requires the documented profile"
-            )
         return diagnostics
 
     def list(self) -> list[SandboxInfo]:
@@ -306,7 +241,7 @@ class SandboxManager:
         if path.is_symlink() or not path.is_dir():
             raise SandboxError(f"sandbox {name!r} does not exist")
         self._read_metadata(name)
-        return allocated_bytes(path)
+        return storage.private_bytes(path, self._read_metadata(name).get('uid'))
 
     def inspect(self, name: str) -> SandboxInfo:
         name = validate_name(name)
@@ -329,7 +264,7 @@ class SandboxManager:
                 status = "creating"
             else:
                 status = "broken"
-                error = f"unexpected runsc status {observed!r}"
+                error = f"unexpected runtime status {observed!r}"
         elif runtime_is_absent(error):
             if snapshot is None and not self._disk_root(name, metadata):
                 status = "stale"
@@ -377,7 +312,7 @@ class SandboxManager:
             self.config.user_dir.mkdir(parents=True, exist_ok=True)
             requested_mounts.append(SandboxMount(self.config.user_dir, "/a0/usr", False))
         if host_root:
-            requested_mounts.append(SandboxMount(Path("/"), "/host", False))
+            raise SandboxError("Host-root bindings are unavailable with PRoot; use explicit directories")
         normalized_mounts = self._normalize_mounts(requested_mounts)
         if not host_root and any(m.source == Path("/") for m in normalized_mounts):
             raise SandboxError("mounting the host root requires host_root=True")
@@ -388,6 +323,7 @@ class SandboxManager:
             path = self._instance_path(name)
             if path.exists() or path.is_symlink():
                 raise SandboxError(f"sandbox {name!r} already exists")
+        bootstrap.ensure(self.config.proot)
         self._require_runtime_artifacts()
         try:
             image_info = self.images.ensure(image or self.config.default_image)
@@ -406,16 +342,16 @@ class SandboxManager:
             if path.exists() or path.is_symlink():
                 raise SandboxError(f"sandbox {name!r} already exists")
             bundle = path / "bundle"
-            overlay = path / "overlay"
             logs = path / "logs"
-            for directory in (path, bundle, overlay, logs):
+            for directory in (path, bundle, logs):
                 directory.mkdir(mode=0o700)
             (path / ".lock").touch(mode=0o600, exist_ok=True)
             now = self._now()
             metadata: dict[str, Any] = {
                 "schema_version": SCHEMA_VERSION,
                 "instance_id": self.config.instance_id,
-                "filesystem": "disk",
+                "filesystem": "cow",
+                "uid": storage.lease_uid(self.config.uid_registry, path),
                 "standalone": bool(standalone),
                 "service": bool(service),
                 "desired_running": True,
@@ -437,13 +373,8 @@ class SandboxManager:
                 "ownership": normalized_owner,
             }
             try:
-                copied = self._run_captured(
-                    ["cp", "-a", "--reflink=auto", "--", str(image_info.rootfs), str(path / "rootfs")],
-                    timeout=self.config.snapshot_timeout,
-                    operation="prepare writable sandbox filesystem",
-                )
-                if copied[0]:
-                    raise SandboxError(f"filesystem copy failed: {copied[2][-2000:]}")
+                storage.ensure_base(image_info.rootfs)
+                storage.prepare(image_info.rootfs, path / 'rootfs', path / 'cow', metadata['uid'])
                 if not self._disk_root(name, metadata):
                     raise SandboxError("failed to prepare writable sandbox filesystem")
                 self._refresh_bundle(name, metadata)
@@ -505,15 +436,7 @@ class SandboxManager:
         with self._operation_lock(name):
             metadata = self._read_metadata(name)
             self._require_running(name, metadata)
-            command = self._runsc_command(
-                name,
-                metadata,
-                "exec",
-                f"--cwd={cwd}",
-                "--user=0:0",
-                name,
-                *args,
-            )
+            command = self._process_command(name, metadata, args, cwd)
             result = self._run_captured(
                 command,
                 timeout=self.config.exec_timeout if timeout is None else timeout,
@@ -566,25 +489,10 @@ class SandboxManager:
             metadata = self._read_metadata(name)
             self._require_running(name, metadata)
             self._touch_locked(name, metadata)
-            return self._runsc_command(name, metadata, "exec", f"--cwd={cwd}", "--user=0:0", name, *args)
+            return self._process_command(name, metadata, args, cwd)
 
-    def interactive_command(self, name: str, *, cwd: str = "/workspace") -> list[str]:
-        name = validate_name(name)
-        cwd = self._validate_guest_path(cwd, label="cwd")
-        with self._operation_lock(name):
-            metadata = self._read_metadata(name)
-            self._require_running(name, metadata)
-            self._touch_locked(name, metadata)
-            return self._runsc_command(
-                name,
-                metadata,
-                "exec",
-                f"--cwd={cwd}",
-                "--user=0:0",
-                name,
-                "/bin/bash",
-                "--login",
-            )
+    def interactive_command(self, name, *, cwd='/workspace'):
+        return self.process_command(name, ['/bin/bash', '--login'], cwd=cwd)
 
     def save(self, name: str) -> SandboxInfo:
         name = validate_name(name)
@@ -634,6 +542,7 @@ class SandboxManager:
 
     def start(self, name: str) -> SandboxInfo:
         name = validate_name(name)
+        bootstrap.ensure(self.config.proot)
         self._require_runtime_artifacts()
         self._ensure_shared_directory()
         with self._operation_lock(name):
@@ -881,46 +790,16 @@ class SandboxManager:
                 f"cannot safely determine runtime state for {name!r}: {error}"
             )
         if not self._force_runtime_delete(name, metadata):
-            raise SandboxError(f"runsc could not delete sandbox {name!r}")
+            raise SandboxError(f"runtime could not delete sandbox {name!r}")
         shutil.rmtree(path)
         self._fsync_directory(self.config.instances_dir)
 
-    def runsc_command_for_test(
-        self,
-        name: str,
-        network: NetworkMode,
-        sandbox_type: SandboxType,
-        *arguments: str,
-    ) -> list[str]:
-        metadata = {"network": network, "sandbox_type": sandbox_type}
-        return self._runsc_command(validate_name(name), metadata, *arguments)
 
-    def oci_config_for_test(
-        self,
-        name: str,
-        network: NetworkMode,
-        sandbox_type: SandboxType,
-        mounts: Sequence[SandboxMount | Mapping[str, Any]] = (),
-        snapshot: Path | None = None,
-    ) -> dict[str, Any]:
-        try:
-            image = self.images.ensure(self.config.default_image)
-        except SandboxImageError as exc:
-            raise SandboxError(str(exc)) from exc
-        metadata = {
-            "network": self._validate_network(network),
-            "sandbox_type": self._validate_type(sandbox_type),
-            "image_ref": image.reference,
-            "image_digest": image.digest,
-            "mounts": [self._mount_json(m) for m in self._normalize_mounts(mounts)],
-        }
-        bundle = self._instance_path(validate_name(name)) / "bundle"
-        return self._oci_config(name, metadata, bundle, snapshot=snapshot)
 
     def _validated_metadata(self, name: str, value: Any) -> dict[str, Any]:
         if not isinstance(value, dict):
             raise SandboxError(f"sandbox {name!r} metadata is not an object")
-        if value.get("schema_version") != SCHEMA_VERSION or value.get("name") != name:
+        if value.get("schema_version") not in {2, SCHEMA_VERSION} or value.get("name") != name:
             raise SandboxError(f"sandbox {name!r} has incompatible metadata")
         owner = value.get("instance_id", "")
         if owner and owner != self.config.instance_id:
@@ -939,6 +818,13 @@ class SandboxManager:
             )
         except SandboxImageError as exc:
             raise SandboxError(f"sandbox {name!r} has invalid image metadata: {exc}") from exc
+        if value.get('schema_version') == SCHEMA_VERSION:
+            uid = value.get('uid')
+            if not isinstance(uid, int) or not 20000 <= uid < 60000:
+                raise SandboxError('Invalid sandbox UID')
+            lease = self.config.uid_registry / str(uid)
+            if not lease.is_file() or lease.read_text() != str(self._instance_path(name)):
+                raise SandboxError('Sandbox UID reservation is missing or belongs to another sandbox')
         mounts = value.get("mounts", [])
         if not isinstance(mounts, list):
             raise SandboxError(f"sandbox {name!r} has invalid mount metadata")
@@ -1009,223 +895,108 @@ class SandboxManager:
             runtime_error=error,
         )
 
-    def _runtime_state(
-        self, name: str, metadata: Mapping[str, Any]
-    ) -> tuple[dict[str, Any] | None, str | None]:
+    def _runtime_state(self, name, metadata):
+        if metadata.get('schema_version') == 2:
+            return None, 'legacy runtime not found; filesystem will migrate on start'
+        state_path = self._instance_path(name) / 'bundle/state.json'
         try:
-            result = subprocess.run(
-                self._runsc_command(name, metadata, "state", name),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-                shell=False,
-                timeout=self.config.state_timeout,
-            )
-        except subprocess.TimeoutExpired:
-            return None, "runsc state timed out"
-        except OSError as exc:
+            state = json.loads(state_path.read_text())
+            if processes.alive(state):
+                return {**state, 'status': 'running'}, None
+            if state.get('status') == 'stopped':
+                return state, None
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError) as exc:
             return None, str(exc)
-        if result.returncode:
-            detail = (result.stderr or result.stdout).strip()
-            return None, detail or f"runsc state exited {result.returncode}"
-        try:
-            state = json.loads(result.stdout)
-        except json.JSONDecodeError as exc:
-            return None, f"invalid JSON from runsc state: {exc}"
-        if not isinstance(state, dict) or not isinstance(state.get("status"), str):
-            return None, "runsc state returned an invalid object"
-        return state, None
+        return None, 'runtime not found'
 
-    def _runsc_command(
-        self, name: str, metadata: Mapping[str, Any], *arguments: str
-    ) -> list[str]:
-        network = self._validate_network(metadata.get("network"))
-        sandbox_type = self._validate_type(metadata.get("sandbox_type"))
+
+
+    def _refresh_bundle(self, name, metadata, *, snapshot=None):
         path = self._instance_path(name)
-        command_name = arguments[0] if arguments else "unknown"
-        overlay = (
-            "--overlay2=root:memory"
-            if sandbox_type == "temporary"
-            else f"--overlay2=root:dir={path / 'overlay'}"
-        )
-        if metadata.get("filesystem") == "disk":
-            overlay = "--overlay2=none"
-        runtime_root = self.config.runsc_root
-        args = list(arguments)
-        if metadata.get("instance_id"):
-            runtime_root = runtime_root / str(metadata["instance_id"])
-            runtime_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-            offset = 2 if args and args[0] == "tar" else 1
-            if name in args[offset:]:
-                args[args.index(name, offset)] = f"a0-{metadata['instance_id']}-{name}"
-        return [
-            str(self.config.runsc),
-            "--allow-rootfs-tar-annotation",
-            f"--root={runtime_root}",
-            "--rootless=true",
-            "--platform=systrap",
-            "--directfs=true",
-            "--file-access=exclusive",
-            "--file-access-mounts=shared",
-            f"--network={network}",
-            overlay,
-            f"--log={path / 'logs' / f'runsc-{command_name}.log'}",
-            *args,
-        ]
-
-    def _oci_config(
-        self,
-        name: str,
-        metadata: Mapping[str, Any],
-        bundle: Path,
-        *,
-        snapshot: Path | None = None,
-    ) -> dict[str, Any]:
-        network = self._validate_network(metadata.get("network"))
-        try:
-            image = self.images.inspect(str(metadata.get("image_digest") or ""))
-        except SandboxImageError as exc:
-            raise SandboxError(f"base image is unavailable: {exc}") from exc
-        if image.rootfs is None:
-            raise SandboxError(f"base image {image.digest} has no usable root filesystem")
-        environment: dict[str, str] = {}
-        for item in image.environment:
-            key, separator, value = item.partition("=")
-            if separator:
-                environment[key] = value
-        environment.setdefault(
-            "PATH",
-            "/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-        )
-        environment.update(
-            {
-                "HOME": "/root",
-                "A0_INSTANCE_ID": str(metadata.get("instance_id") or ""),
-                "LANG": environment.get("LANG", "C.UTF-8"),
-                "TERM": "xterm-256color",
-                "PAGER": "cat",
-                "GIT_PAGER": "cat",
-                "PIP_DISABLE_PIP_VERSION_CHECK": "1",
-                "PIP_NO_CACHE_DIR": "1",
-                "PIP_ROOT_USER_ACTION": "ignore",
-                "PIPX_HOME": "/root/.local/share/pipx",
-                "PIPX_BIN_DIR": "/root/.local/bin",
-                "UV_TOOL_BIN_DIR": "/root/.local/bin",
-            }
-        )
-        namespaces = [
-            {"type": "pid"},
-            {"type": "ipc"},
-            {"type": "uts"},
-            {"type": "mount"},
-        ]
-        if network == "none":
-            namespaces.append({"type": "network"})
-        mounts: list[dict[str, Any]] = [
-            {"destination": "/proc", "type": "proc", "source": "proc", "options": ["nosuid", "noexec", "nodev"]},
-            {"destination": "/dev", "type": "tmpfs", "source": "tmpfs", "options": ["nosuid", "strictatime", "mode=755", "size=65536k"]},
-            {"destination": "/dev/pts", "type": "devpts", "source": "devpts", "options": ["nosuid", "noexec", "newinstance", "ptmxmode=0666", "mode=0620", "gid=5"]},
-            {"destination": "/dev/shm", "type": "tmpfs", "source": "shm", "options": ["nosuid", "noexec", "nodev", "mode=1777", "size=65536k"]},
-            {"destination": "/dev/mqueue", "type": "mqueue", "source": "mqueue", "options": ["nosuid", "noexec", "nodev"]},
-            {"destination": "/sys", "type": "sysfs", "source": "sysfs", "options": ["nosuid", "noexec", "nodev", "ro"]},
-            {"destination": "/tmp", "type": "tmpfs", "source": "tmpfs", "options": ["nosuid", "nodev", "mode=1777"]},
-            {"destination": "/run", "type": "tmpfs", "source": "tmpfs", "options": ["nosuid", "nodev", "mode=755"]},
-            {"destination": "/etc/resolv.conf", "type": "bind", "source": str(bundle / "resolv.conf"), "options": ["bind", "ro", "nosuid", "nodev", "noexec"]},
-            {"destination": "/etc/hosts", "type": "bind", "source": str(bundle / "hosts"), "options": ["bind", "ro", "nosuid", "nodev", "noexec"]},
-            ({"destination": "/shared", "type": "tmpfs", "source": "tmpfs", "options": ["nosuid", "nodev", "mode=700"]}
-             if metadata.get('service') else
-             {"destination": "/shared", "type": "bind", "source": str(self.config.shared_dir), "options": ["rbind", "rw", "nosuid", "nodev"]}),
-        ]
-        for item in self._normalize_mounts(metadata.get("mounts", [])):
-            options = ["rbind", "ro" if item.read_only else "rw", "nosuid", "nodev"]
-            mounts.append(
-                {
-                    "destination": item.destination,
-                    "type": "bind",
-                    "source": str(item.source),
-                    "options": options,
-                }
-            )
-        # Sharing usr must not let a guest rewrite its own control metadata or image cache.
-        for item in self._normalize_mounts(metadata.get("mounts", [])):
-            if item.source == Path("/") and metadata.get("host_root"):
-                continue
-            for private in (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.runsc_root):
+        root = self._disk_root(name, metadata)
+        if root is None:
+            raise SandboxError('Legacy overlay snapshots must be exported with the previous version; original data is preserved')
+        if metadata.get('schema_version') == 2:
+            for proc in Path('/proc').iterdir():
+                if not proc.name.isdigit():
+                    continue
                 try:
-                    relative = private.relative_to(item.source)
+                    command = (proc / 'cmdline').read_bytes()
+                except OSError:
+                    continue
+                if b'runsc' in command and str(path).encode() in command:
+                    raise SandboxError('Stop the previous sandbox runtime or restart the container before migration')
+            metadata['uid'] = storage.lease_uid(self.config.uid_registry, path)
+            storage.adopt(root, path / 'cow', metadata['uid'])
+            metadata.update(schema_version=SCHEMA_VERSION, filesystem='cow')
+            self._atomic_write_json(path / 'metadata.json', metadata)
+        uid = metadata['uid']
+        bundle = path / 'bundle'
+        bundle.mkdir(mode=0o700, exist_ok=True)
+        bindings = [('/proc', '/proc'), ('/dev', '/dev')]
+        readonly = []
+        # Unix socket paths must fit 108 bytes even under deeply nested user storage.
+        runtime_dir = RUNTIME_DIR / str(uid)
+        runtime_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+        set_owner(runtime_dir, uid, uid)
+        storage.traverse(runtime_dir, uid)
+        for target in ('tmp', 'run', 'trace'):
+            scratch = runtime_dir / target
+            scratch.mkdir(mode=0o700, exist_ok=True)
+            set_owner(scratch, uid, uid)
+            if target != 'trace':
+                bindings.append((str(scratch), '/' + target))
+        for source, target in ((Path('/etc/resolv.conf'), 'resolv.conf'), (Path('/etc/hosts'), 'hosts')):
+            self._atomic_write_text(bundle / target, source.read_text(), mode=0o644)
+            bindings.append((str(bundle / target), '/etc/' + target))
+            readonly.append(str(bundle / target))
+        private = (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.uid_registry)
+        mounts = list(self._normalize_mounts(metadata.get('mounts', [])))
+        if metadata.get('service'):
+            shared = path / 'shared'
+            shared.mkdir(mode=0o700, exist_ok=True)
+            set_owner(shared, uid, uid)
+        else:
+            shared = self.config.shared_dir
+            storage.grant(shared, uid, writable=True, exclude=private)
+        bindings.append((str(shared), '/shared'))
+        for item in mounts:
+            if item.source == Path('/'):
+                raise SandboxError('Host-root bindings are unavailable with PRoot; use explicit directories')
+            storage.grant(item.source, uid, writable=not item.read_only,
+                          exclude=[p for p in private if p == item.source or item.source in p.parents])
+            bindings.append((str(item.source), item.destination))
+            if item.read_only:
+                readonly.append(str(item.source))
+            # Hide manager state even inside a broad user-directory binding.
+            for hidden in private:
+                try:
+                    relative = hidden.relative_to(item.source)
                 except ValueError:
                     continue
-                mounts.append({
-                    "destination": str(PurePosixPath(item.destination) / relative.as_posix()),
-                    "type": "tmpfs", "source": "tmpfs",
-                    "options": ["ro", "nosuid", "nodev", "noexec", "mode=000", "size=4096"],
-                })
-        command = self._validate_command(metadata.get("command", [])) or [
-            "/bin/sh", "-c", "trap 'exit 0' TERM INT; while :; do sleep 3600; done"
-        ]
-        if not metadata.get("standalone", True):
-            command = ["/bin/sh", "-c", "trap 'exit 0' TERM INT; (read -r line <&3; kill -TERM $$) & exec_child=; \"$@\" & exec_child=$!; wait \"$exec_child\"", "a0-child", *command]
-        config: dict[str, Any] = {
-            "ociVersion": "1.0.2",
-            "process": {
-                "terminal": False,
-                "user": {"uid": 0, "gid": 0},
-                "args": command,
-                "env": [f"{key}={value}" for key, value in environment.items()],
-                "cwd": "/workspace",
-                "capabilities": {
-                    "bounding": list(CAPABILITIES),
-                    "effective": list(CAPABILITIES),
-                    "inheritable": [],
-                    "permitted": list(CAPABILITIES),
-                    "ambient": [],
-                },
-                "noNewPrivileges": False,
-                "rlimits": [{"type": "RLIMIT_NOFILE", "hard": 65535, "soft": 65535}],
-            },
-            "root": {"path": str(self._disk_root(name, metadata) or image.rootfs), "readonly": False},
-            "hostname": name,
-            "mounts": mounts,
-            "linux": {
-                "namespaces": namespaces,
-                "maskedPaths": [
-                    "/proc/acpi", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
-                    "/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/sys/firmware",
-                ],
-                "readonlyPaths": [
-                    "/proc/asound", "/proc/bus", "/proc/fs", "/proc/irq",
-                    "/proc/sys", "/proc/sysrq-trigger",
-                ],
-            },
-        }
-        config["annotations"] = {"dev.agent-zero.instance": str(metadata.get("instance_id", ""))}
-        if snapshot is not None:
-            config["annotations"] = {"dev.gvisor.tar.rootfs.upper": str(snapshot)}
-        return config
-
-    def _refresh_bundle(
-        self,
-        name: str,
-        metadata: Mapping[str, Any],
-        *,
-        snapshot: Path | None = None,
-    ) -> None:
-        bundle = self._instance_path(name) / "bundle"
-        for source, target_name in (
-            (Path("/etc/resolv.conf"), "resolv.conf"),
-            (Path("/etc/hosts"), "hosts"),
-        ):
-            try:
-                content = source.read_text(encoding="utf-8")
-            except OSError as exc:
-                raise SandboxError(f"cannot read outer {source}: {exc}") from exc
-            self._atomic_write_text(bundle / target_name, content, mode=0o644)
-        self._atomic_write_json(
-            bundle / "config.json",
-            self._oci_config(name, metadata, bundle, snapshot=snapshot),
-        )
+                empty = path / 'masked' / str(len(bindings))
+                empty.mkdir(parents=True, mode=0o700, exist_ok=True)
+                set_owner(empty, uid, uid)
+                bindings.append((str(empty), str(PurePosixPath(item.destination) / relative)))
+                readonly.append(str(empty))
+        storage.traverse(root, uid)
+        storage.traverse(path / 'cow', uid)
+        storage.traverse(bundle, uid)
+        temp = runtime_dir / 'trace'
+        image = self.images.inspect(metadata['image_digest'])
+        environment = dict(value.split('=', 1) for value in image.environment if '=' in value)
+        environment.update(HOME='/root', LANG=environment.get('LANG', 'C.UTF-8'), TERM='xterm-256color',
+                           PAGER='cat', GIT_PAGER='cat', PIP_DISABLE_PIP_VERSION_CHECK='1',
+                           PIP_NO_CACHE_DIR='1', PIP_ROOT_USER_ACTION='ignore', PYTHONDONTWRITEBYTECODE='1',
+                           A0_INSTANCE_ID=str(metadata.get('instance_id') or ''))
+        environment.setdefault('PATH', '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
+        command = self._validate_command(metadata.get('command', [])) or ['/bin/sh', '-c', 'while :; do sleep 3600; done']
+        config = dict(uid=uid, proot=str(self.config.proot), root=str(root), control=str(path / 'cow'),
+                      temp=str(temp), bindings=bindings, readonly=readonly, network=metadata['network'],
+                      cwd='/workspace', command=command, environment=environment)
+        self._atomic_write_json(bundle / 'config.json', config)
 
     def _launch(self, name: str, metadata: dict[str, Any]) -> None:
         read_fd = write_fd = None
@@ -1245,211 +1016,64 @@ class SandboxManager:
             if write_fd is not None:
                 os.close(write_fd)
 
-    def _launch_runtime(self, name: str, metadata: dict[str, Any], read_fd: int | None) -> None:
+    def _launch_runtime(self, name, metadata, read_fd):
         path = self._instance_path(name)
-        bundle = path / "bundle"
-        logs = path / "logs"
-        launcher_log = logs / "launcher.log"
-        detached = self._runsc_command(
-            name,
-            metadata,
-            "run",
-            "--detach",
-            *([f"--pass-fd={read_fd}:3"] if read_fd is not None else []),
-            f"--bundle={bundle}",
-            f"--user-log={logs / 'user.log'}",
-            name,
-        )
-        detached_result: subprocess.CompletedProcess[bytes] | None = None
-        with launcher_log.open("ab", buffering=0) as output:
-            output.write(b"== detached launch ==\n")
-            try:
-                detached_result = subprocess.run(
-                    detached,
-                    pass_fds=(read_fd,) if read_fd is not None else (),
-                    stdin=subprocess.DEVNULL,
-                    stdout=output,
-                    stderr=subprocess.STDOUT,
-                    check=False,
-                    shell=False,
-                    timeout=self.config.start_timeout,
-                )
-            except subprocess.TimeoutExpired:
-                output.write(b"detached run command timed out\n")
-        state = None
-        error = "detached run command timed out"
-        if detached_result is not None and detached_result.returncode == 0:
-            state, error = self._wait_for_status(name, metadata, {"running", "stopped"}, self.config.start_timeout)
-        elif detached_result is not None:
-            error = f"detached run exited {detached_result.returncode}"
-        if state is None or state.get("status") not in {"running", "stopped"}:
-            self._append_log(
-                launcher_log,
-                f"detached launch unavailable ({error}); trying attached fallback",
-            )
-            if not self._force_runtime_delete(name, metadata):
-                raise SandboxError(
-                    f"could not clean failed launch for {name!r}; state retained at {path}"
-                )
-            with launcher_log.open("ab", buffering=0) as output:
-                output.write(b"== attached fallback launch ==\n")
-                launcher = subprocess.Popen(
-                    self._runsc_command(
-                        name,
-                        metadata,
-                        "run",
-                        *([f"--pass-fd={read_fd}:3"] if read_fd is not None else []),
-                        f"--bundle={bundle}",
-                        f"--user-log={logs / 'user.log'}",
-                        name,
-                    ),
-                    stdin=subprocess.DEVNULL,
-                    stdout=output,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                    pass_fds=(read_fd,) if read_fd is not None else (),
-                    shell=False,
-                )
-            metadata["launch_mode"] = "attached-fallback"
-            metadata["launcher_pid"] = launcher.pid
-            self._atomic_write_json(path / "metadata.json", metadata)
-            state, error = self._wait_for_status(
-                name,
-                metadata,
-                {"running"},
-                self.config.start_timeout,
-                launcher=launcher,
-            )
-            if state is None or state.get("status") != "running":
-                with contextlib.suppress(ProcessLookupError):
-                    launcher.terminate()
-                with contextlib.suppress(subprocess.TimeoutExpired):
-                    launcher.wait(timeout=1)
-                if launcher.poll() is None:
-                    with contextlib.suppress(ProcessLookupError):
-                        launcher.kill()
-                raise SandboxError(
-                    f"sandbox {name!r} did not reach running state: {error}; "
-                    f"launcher log: {self._log_tail(launcher_log)}"
-                )
-        else:
-            metadata["launch_mode"] = "detached"
-            metadata["launcher_pid"] = None
-        metadata["last_known_status"] = str(state.get("status"))
-        self._atomic_write_json(path / "metadata.json", metadata)
+        (path / 'bundle/state.json').unlink(missing_ok=True)
+        command = [sys.executable, str(Path(processes.__file__))]
+        if read_fd is not None:
+            command += ['--owner-fd', str(read_fd)]
+        command += ['supervise', str(path / 'bundle/config.json')]
+        with (path / 'logs/launcher.log').open('ab', buffering=0) as output:
+            launcher = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output,
+                                        stderr=subprocess.STDOUT, start_new_session=True,
+                                        pass_fds=(read_fd,) if read_fd is not None else ())
+        metadata.update(launcher_pid=launcher.pid, launch_mode='proot', last_known_status='running')
+        self._atomic_write_json(path / 'metadata.json', metadata)
+        state, error = self._wait_for_status(name, metadata, {'running', 'stopped'}, self.config.start_timeout, launcher=launcher)
+        if not state:
+            launcher.terminate()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                launcher.wait(timeout=3)
+            raise SandboxError(f"sandbox {name!r} failed to start: {error}; {self._log_tail(path / 'logs/launcher.log')}")
+        metadata['last_known_status'] = state['status']
+        self._atomic_write_json(path / 'metadata.json', metadata)
+        self._launchers[name] = launcher
 
-    def _save_locked(self, name: str, metadata: dict[str, Any]) -> None:
-        if self._disk_root(name, metadata):
-            return
-        path = self._instance_path(name)
-        snapshot = path / ROOTFS_SNAPSHOT
-        descriptor, temp_name = tempfile.mkstemp(prefix=f".{ROOTFS_SNAPSHOT}.", dir=path)
-        os.close(descriptor)
-        temporary = Path(temp_name)
-        temporary.unlink()
+    def _save_locked(self, name, metadata):
+        if not self._disk_root(name, metadata):
+            raise SandboxError('This sandbox needs filesystem migration before use')
+
+    def _stop_runtime(self, name, metadata):
+        state, _ = self._runtime_state(name, metadata)
+        if state and processes.alive(state):
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(state['pid'], signal.SIGTERM)
+        if metadata.get('uid'):
+            processes.terminate_uid(metadata['uid'], self.config.stop_timeout)
+        if state:
+            deadline = time.monotonic() + self.config.stop_timeout + 2
+            while processes.alive(state) and time.monotonic() < deadline:
+                time.sleep(.05)
+            if processes.alive(state):
+                os.kill(state['pid'], signal.SIGKILL)
+        launcher = self._launchers.pop(name, None)
+        if launcher:
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                launcher.wait(timeout=2)
+        (self._instance_path(name) / 'bundle/state.json').unlink(missing_ok=True)
+        if metadata.get('uid'):
+            shutil.rmtree(RUNTIME_DIR / str(metadata['uid']), ignore_errors=True)
+
+    def _force_runtime_delete(self, name, metadata):
         try:
-            result = subprocess.run(
-                self._runsc_command(
-                    name,
-                    metadata,
-                    "tar",
-                    "rootfs-upper",
-                    f"--file={temporary}",
-                    name,
-                ),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                check=False,
-                shell=False,
-                timeout=self.config.snapshot_timeout,
-            )
-        except subprocess.TimeoutExpired as exc:
-            temporary.unlink(missing_ok=True)
-            raise SandboxError(
-                f"filesystem snapshot timed out for {name!r}; sandbox remains running"
-            ) from exc
-        except OSError as exc:
-            temporary.unlink(missing_ok=True)
-            raise SandboxError(f"could not snapshot filesystem for {name!r}: {exc}") from exc
-        if result.stdout:
-            self._append_log(path / "logs" / "snapshot.log", result.stdout)
-        if result.returncode or not temporary.is_file() or temporary.is_symlink():
-            temporary.unlink(missing_ok=True)
-            detail = result.stdout.strip() or f"runsc tar exited {result.returncode}"
-            raise SandboxError(
-                f"could not snapshot filesystem for {name!r}: {detail}; sandbox remains running"
-            )
-        temporary.chmod(0o600)
-        with temporary.open("rb") as handle:
-            os.fsync(handle.fileno())
-        os.replace(temporary, snapshot)
-        self._fsync_directory(path)
-        metadata["rootfs_snapshot"] = ROOTFS_SNAPSHOT
-        metadata["snapshot_at"] = self._now()
-        self._atomic_write_json(path / "metadata.json", metadata)
-
-    def _stop_runtime(self, name: str, metadata: Mapping[str, Any]) -> None:
-        state, error = self._runtime_state(name, metadata)
-        if state is None and runtime_is_absent(error):
-            return
-        if state is not None and state.get("status") == "stopped":
-            return
-        self._run_quiet(
-            self._runsc_command(name, metadata, "kill", "--all", name, "TERM"),
-            timeout=3,
-        )
-        state, error = self._wait_for_status(
-            name, metadata, {"stopped"}, self.config.stop_timeout
-        )
-        if state is not None and state.get("status") == "stopped":
-            return
-        if state is None and runtime_is_absent(error):
-            return
-        self._run_quiet(
-            self._runsc_command(name, metadata, "kill", "--all", name, "KILL"),
-            timeout=3,
-        )
-        state, error = self._wait_for_status(
-            name, metadata, {"stopped"}, self.config.stop_timeout
-        )
-        if state is None and runtime_is_absent(error):
-            return
-        if state is not None and state.get("status") == "stopped":
-            return
-        # Some runsc versions keep reporting "running" after both kill calls
-        # while the init process is being reaped. Forced runtime deletion is
-        # the final bounded stop operation and is confirmed by missing state.
-        if self._force_runtime_delete(name, metadata):
-            return
-        raise SandboxError(f"could not confirm sandbox {name!r} stopped: {error}")
-
-    def _force_runtime_delete(self, name: str, metadata: Mapping[str, Any]) -> bool:
-        path = self._instance_path(name)
-        try:
-            result = subprocess.run(
-                self._runsc_command(name, metadata, "delete", "--force", name),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                check=False,
-                shell=False,
-                timeout=self.config.delete_timeout,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            self._append_log(path / "logs" / "launcher.log", f"runsc delete failed: {exc}")
+            self._stop_runtime(name, metadata)
+        except (OSError, RuntimeError) as exc:
+            self._append_log(self._instance_path(name) / 'logs/launcher.log', str(exc))
             return False
-        if result.stdout:
-            self._append_log(path / "logs" / "launcher.log", result.stdout)
-        state, error = self._runtime_state(name, metadata)
-        removed = state is None and (result.returncode == 0 or runtime_is_absent(error))
-        if removed:
-            fd = self._child_pipes.pop(name, None)
-            if fd is not None:
-                os.close(fd)
-        return removed
+        fd = self._child_pipes.pop(name, None)
+        if fd is not None:
+            os.close(fd)
+        return True
 
     def _wait_for_status(
         self,
@@ -1468,7 +1092,7 @@ class SandboxManager:
             if last_state is not None and last_state.get("status") in wanted:
                 return last_state, None
             if launcher is not None and launcher.poll() is not None:
-                return last_state, f"runsc launcher exited {launcher.returncode}"
+                return last_state, f"PRoot launcher exited {launcher.returncode}"
             time.sleep(0.1)
         if last_state is not None:
             return last_state, f"last status was {last_state.get('status')!r}"
@@ -1522,8 +1146,11 @@ class SandboxManager:
         try:
             exit_code = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired as exc:
-            process.kill()
-            with contextlib.suppress(subprocess.TimeoutExpired):
+            process.terminate()
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
                 process.wait(timeout=2)
             for thread in threads:
                 thread.join(timeout=1)
@@ -1537,19 +1164,6 @@ class SandboxManager:
         if truncated[1]:
             stderr += "\n[output truncated by sandbox policy]\n"
         return exit_code, stdout, stderr, any(truncated)
-
-    @staticmethod
-    def _run_quiet(argv: Sequence[str], *, timeout: float) -> None:
-        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
-            subprocess.run(
-                list(argv),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-                shell=False,
-                timeout=timeout,
-            )
 
     def _valid_snapshot(self, name: str, metadata: Mapping[str, Any]) -> Path | None:
         if metadata.get("rootfs_snapshot") != ROOTFS_SNAPSHOT:
@@ -1579,6 +1193,8 @@ class SandboxManager:
                 read_only = self._as_bool(raw.get("read_only", True))
             else:
                 raise SandboxError("each mount must be a SandboxMount or object")
+            if any(c in str(source) + destination for c in ("\n", "\r", ":", "!")):
+                raise SandboxError("unsupported character in binding path")
             if not source.is_absolute():
                 raise SandboxError(f"mount source must be absolute: {source}")
             if source.is_symlink():
@@ -1654,9 +1270,13 @@ class SandboxManager:
             return bool(value)
         return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
-    def _require_runtime_artifacts(self) -> None:
-        if not self.config.runsc.is_file() or not os.access(self.config.runsc, os.X_OK):
-            raise SandboxError(f"runsc not found at {self.config.runsc}; run sandbox doctor")
+    def _require_runtime_artifacts(self):
+        if os.geteuid() != 0:
+            raise SandboxError('The PRoot manager needs root to allocate separate Linux UIDs; use Docker')
+        if not bootstrap.ready(self.config.proot):
+            raise SandboxError(f'PRoot copy-on-write runtime not found at {self.config.proot}; rebuild the image or run docker/base/fs/ins/proot/install.sh')
+        if not shutil.which('setfacl'):
+            raise SandboxError('Sandbox bindings need the acl package; rebuild the image or run the runtime installer')
 
     def _touch_locked(self, name: str, metadata: dict[str, Any]) -> None:
         metadata["last_used_at"] = self._now()
@@ -1700,7 +1320,7 @@ class SandboxManager:
         return list(command)
 
     def _disk_root(self, name: str, metadata: Mapping[str, Any]) -> Path | None:
-        if metadata.get("filesystem") != "disk":
+        if metadata.get("filesystem") not in {"disk", "cow"}:
             return None
         path = self._instance_path(name) / "rootfs"
         if path.is_symlink() or not path.is_dir():
@@ -1714,15 +1334,9 @@ class SandboxManager:
             raise SandboxError("sandbox path escaped the instances directory")
         return path
 
-    def _ensure_layout(self) -> None:
-        for path in (
-            self.config.instances_dir.parent,
-            self.config.instances_dir,
-            self.config.runsc_root,
-        ):
+    def _ensure_layout(self):
+        for path in (self.config.instances_dir.parent, self.config.instances_dir):
             path.mkdir(mode=0o700, parents=True, exist_ok=True)
-            with contextlib.suppress(PermissionError):
-                path.chmod(0o700)
 
     def _ensure_shared_directory(self) -> None:
         self.config.shared_dir.mkdir(mode=0o770, parents=True, exist_ok=True)
@@ -1851,16 +1465,9 @@ class SandboxManager:
             return "(no log)"
         return "\n".join(content[-12000:].splitlines()[-40:])
 
-    @staticmethod
-    def _proc_status() -> dict[str, str]:
-        result: dict[str, str] = {}
-        with contextlib.suppress(OSError):
-            for line in Path("/proc/self/status").read_text(encoding="utf-8").splitlines():
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    result[key] = value.strip()
-        return result
-
+    def _process_command(self, name, metadata, args, cwd='/workspace'):
+        return [sys.executable, str(Path(processes.__file__)), '--cwd', cwd, 'execute',
+                str(self._instance_path(name) / 'bundle/config.json'), '--', *args]
 
 def sandbox_info_dict(info: SandboxInfo) -> dict[str, Any]:
     """Serialize public sandbox information for tools and HTTP APIs."""

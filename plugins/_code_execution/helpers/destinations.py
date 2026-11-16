@@ -66,6 +66,6 @@ async def resolve_code_execution_destination(
         kind="sandbox",
         target=sandbox_name,
         label=f"Sandbox {sandbox_name}",
-        description="A gVisor sandbox that will be created or woken on first use.",
+        description="A PRoot sandbox that will be created or woken on first use.",
         status="missing",
     )

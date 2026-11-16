@@ -11,10 +11,10 @@ The first sandbox creation unpacks that bundle into the normal disk cache,
 without network access. Later starts reuse the cached image and private files.
 
 If the bundle is absent or damaged (including native installs and older Docker
-images), the sandbox manager builds it on first use in a temporary gVisor
+images), the sandbox manager builds it on first use in a temporary PRoot
 sandbox. It pulls the official Python and Node images and runs `install.sh`,
 the same recipe used by Docker builds. This needs internet access and working
-`runsc`, `skopeo` and `umoci`; host Python packages remain untouched. Builds are
+`a0-proot`, `skopeo` and `umoci`; host Python packages remain untouched. Builds are
 serialized and cached, and never run as part of ordinary WebUI startup.
 Existing sandboxes retain their pinned digest and explicit image settings are
 preserved. Rebuilding cannot substitute a different digest for a lost pinned

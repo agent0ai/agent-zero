@@ -10,7 +10,7 @@ their worker on disable; uninstall may delete the owned sandbox through manager.
 
 `call` is blocking; `acall` offloads it and propagates cancellation to sandbox stop.
 First-use setup has a separate 30-minute deadline; request timeout begins after
-setup. Responses are capped at 128 MiB. `process_command` in the manager supports
+setup. Atomic requests retain mode 0640 so the guest-read ACL inherited from the private input directory remains effective. Responses are capped at 128 MiB. `process_command` in the manager supports
 browser driver pipes whose lifetime is owned by the browser adapter.
 
 `status()` returns setup state/stage/message, timestamps, elapsed time and output

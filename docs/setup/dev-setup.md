@@ -150,7 +150,7 @@ Code execution destinations remain explicit:
 - For the framework's own operating system, select `destination: local` and set
   **Code Execution** plugin `ssh_enabled` to `false`.
 - For isolation, use the configured sandbox destination. See the
-  [sandbox guide](../../plugins/_sandboxing/README.md#gvisor-runtime) for runtime requirements.
+  [sandbox guide](../../plugins/_sandboxing/README.md#runtime-requirements-and-isolation) for runtime requirements.
 - For a connected host, use the authenticated Connector destination.
 - For SSH, use the configuration below. The plugin's `auto` setting still selects
   SSH when the framework is not Dockerized, so set it to `false` for local TTY use.

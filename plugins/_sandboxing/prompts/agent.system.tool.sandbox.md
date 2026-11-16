@@ -1,5 +1,5 @@
 ### sandbox
-Manage direct gVisor sandboxes.
+Manage direct PRoot sandboxes.
 
 Arguments:
 - `action`: sandbox actions `list`, `inspect`, `doctor`, `create`, `start`, `stop`, `save`, `cleanup`, or `delete`; image actions `images`, `pull_image`, `inspect_image`, `cleanup_images`, or `delete_image`

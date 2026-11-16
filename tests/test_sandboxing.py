@@ -5,6 +5,7 @@ import dataclasses
 import json
 import os
 import subprocess
+import shutil
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -67,14 +68,14 @@ def _cache_image(
 
 
 @pytest.fixture
-def manager(tmp_path: Path) -> SandboxManager:
-    runsc = tmp_path / "runsc"
-    runsc.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    runsc.chmod(0o755)
+def manager(tmp_path: Path, monkeypatch) -> SandboxManager:
+    proot = tmp_path / "proot"
+    proot.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    proot.chmod(0o755)
     images = SandboxImageManager(
         SandboxImageConfig(
-            skopeo=runsc,
-            umoci=runsc,
+            skopeo=proot,
+            umoci=proot,
             cache_dir=tmp_path / "images",
             default_image=IMAGE_REFERENCE,
             cleanup_days=30,
@@ -82,11 +83,31 @@ def manager(tmp_path: Path) -> SandboxManager:
         )
     )
     _cache_image(images)
+    from plugins._sandboxing.helpers import storage, bootstrap, manager as module
+    monkeypatch.setattr(module, 'RUNTIME_DIR', tmp_path / 'scratch')
+    monkeypatch.setattr(bootstrap, 'ensure', lambda *a: None)
+    monkeypatch.setattr(SandboxManager, '_require_runtime_artifacts', lambda *a: None)
+    monkeypatch.setattr(storage, 'ensure_base', lambda *a: None)
+    monkeypatch.setattr(storage, 'grant', lambda *a, **kw: None)
+    monkeypatch.setattr(storage, 'traverse', lambda *a: None)
+    monkeypatch.setattr(module, 'set_owner', lambda *a: None)
+    def lease(registry, owner):
+        registry.mkdir(exist_ok=True)
+        for p in registry.iterdir():
+            if p.read_text() == str(owner): return int(p.name)
+        uid = 20000 + len(list(registry.iterdir()))
+        (registry / str(uid)).write_text(str(owner))
+        return uid
+    monkeypatch.setattr(storage, 'lease_uid', lease)
+    def prepare(base, root, control, uid):
+        shutil.copytree(base, root, symlinks=True)
+        control.mkdir()
+    monkeypatch.setattr(storage, 'prepare', prepare)
     return SandboxManager(
         SandboxConfig(
-            runsc=runsc,
+            proot=proot,
             instances_dir=tmp_path / "state" / "instances",
-            runsc_root=tmp_path / "runsc-root",
+            uid_registry=tmp_path / "uids",
             shared_dir=tmp_path / "shared",
             default_image=IMAGE_REFERENCE,
             temporary_lifetime_days=7,
@@ -340,97 +361,32 @@ def test_image_deletion_honors_digest_even_when_other_sandbox_metadata_is_broken
         manager.delete_image(IMAGE_DIGEST)
 
 
-def test_runsc_commands_select_fast_or_disk_overlay(manager: SandboxManager) -> None:
-    temporary = manager.runsc_command_for_test(
-        "alpha", "host", "temporary", "state", "alpha"
-    )
-    permanent = manager.runsc_command_for_test(
-        "alpha", "none", "permanent", "state", "alpha"
-    )
-    assert "--overlay2=root:memory" in temporary
-    assert not any(value.startswith("--overlay2=root:dir=") for value in temporary)
-    assert f"--overlay2=root:dir={manager.config.instances_dir / 'alpha' / 'overlay'}" in permanent
-    assert "--network=none" in permanent
-    for required in (
-        "--allow-rootfs-tar-annotation",
-        "--rootless=true",
-        "--platform=systrap",
-        "--directfs=true",
-        "--file-access=exclusive",
-        "--file-access-mounts=shared",
-    ):
-        assert required in temporary
+def test_runtime_command_has_no_engine_flags_and_preserves_arguments(manager):
+    command = manager._process_command('alpha', {}, ['echo', 'a b;$(id)'], '/workspace')
+    assert command[-4:] == [str(manager.config.instances_dir / 'alpha/bundle/config.json'), '--', 'echo', 'a b;$(id)']
+    assert 'execute' in command and '--cwd' in command
 
 
-def test_oci_network_shared_and_optional_mount_contract(
-    manager: SandboxManager, tmp_path: Path
-) -> None:
-    source_ro = tmp_path / "read-only"
-    source_rw = tmp_path / "read-write"
-    source_ro.mkdir()
-    source_rw.mkdir()
-    host = manager.oci_config_for_test(
-        "alpha",
-        "host",
-        "temporary",
-        mounts=[
-            {"source": str(source_ro), "destination": "/mnt/input", "read_only": True},
-            {"source": str(source_rw), "destination": "/mnt/output", "read_only": False},
-        ],
-    )
-    isolated = manager.oci_config_for_test("alpha", "none", "temporary")
-    assert {item["type"] for item in host["linux"]["namespaces"]} == {
-        "pid",
-        "ipc",
-        "uts",
-        "mount",
-    }
-    assert {item["type"] for item in isolated["linux"]["namespaces"]} == {
-        "pid",
-        "ipc",
-        "uts",
-        "mount",
-        "network",
-    }
-    mounts = {item["destination"]: item for item in host["mounts"]}
-    assert mounts["/shared"]["source"] == str(manager.config.shared_dir)
-    assert "rw" in mounts["/shared"]["options"]
-    assert "ro" in mounts["/mnt/input"]["options"]
-    assert "rw" in mounts["/mnt/output"]["options"]
-    assert "CAP_SYS_ADMIN" not in host["process"]["capabilities"]["bounding"]
-    assert host["root"]["path"] == str(manager.images.inspect(IMAGE_DIGEST).rootfs)
-    assert "PATH=/image/bin:/usr/bin:/bin" in host["process"]["env"]
+def test_network_shared_and_readonly_bindings_are_explicit(manager, monkeypatch, tmp_path):
+    from tests.test_sandbox_services import create_disk
+    ro, rw = tmp_path / 'input', tmp_path / 'output'
+    ro.mkdir(); rw.mkdir()
+    create_disk(manager, monkeypatch, network='none', mounts=[SandboxMount(ro, '/input'), SandboxMount(rw, '/output', False)])
+    config = json.loads((manager.config.instances_dir / 'service/bundle/config.json').read_text())
+    assert config['network'] == 'none'
+    assert dict((b,a) for a,b in config['bindings'])['/shared'] == str(manager.config.shared_dir)
+    assert str(ro) in config['readonly'] and str(rw) not in config['readonly']
+    assert config['environment']['PATH'] == '/image/bin:/usr/bin:/bin'
+    assert config['root'].endswith('/service/rootfs')
 
 
-def test_mounts_reject_symlinks_reserved_paths_and_duplicates(
-    manager: SandboxManager, tmp_path: Path
-) -> None:
-    source = tmp_path / "source"
-    source.mkdir()
-    link = tmp_path / "link"
-    link.symlink_to(source, target_is_directory=True)
-    with pytest.raises(SandboxError):
-        manager.oci_config_for_test(
-            "alpha", "host", "temporary", [{"source": str(link), "destination": "/mnt/a"}]
-        )
-    with pytest.raises(SandboxError):
-        manager.oci_config_for_test(
-            "alpha", "host", "temporary", [{"source": str(source), "destination": "/etc/a"}]
-        )
-    with pytest.raises(SandboxError):
-        manager.oci_config_for_test(
-            "alpha", "host", "temporary", [{"source": str(source), "destination": "//etc/a"}]
-        )
-    with pytest.raises(SandboxError):
-        manager.oci_config_for_test(
-            "alpha",
-            "host",
-            "temporary",
-            [
-                {"source": str(source), "destination": "/mnt/a"},
-                {"source": str(source), "destination": "/mnt/a"},
-            ],
-        )
+def test_mounts_reject_symlinks_reserved_paths_and_duplicates(manager, tmp_path):
+    source=tmp_path/'source'; source.mkdir()
+    link=tmp_path/'link';link.symlink_to(source)
+    for mounts in ([SandboxMount(link, '/input')], [SandboxMount(source, '/etc/a')],
+                   [SandboxMount(source, '//etc/a')], [SandboxMount(source, '/a'), SandboxMount(source, '/a')],
+                   [SandboxMount(source, '/a:b')]):
+        with pytest.raises(SandboxError): manager._normalize_mounts(mounts)
 
 
 def test_inspect_classifies_running_stopped_recoverable_stale_and_broken(
@@ -505,27 +461,13 @@ def test_stop_saves_before_termination_and_cleanup(
     assert calls == ["save", "stop", "delete"]
 
 
-def test_stop_runtime_force_deletes_when_kill_state_remains_running(
-    manager: SandboxManager, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    metadata = _metadata(manager, "alpha")
-    monkeypatch.setattr(
-        manager,
-        "_runtime_state",
-        lambda *args: ({"status": "running"}, None),
-    )
-    monkeypatch.setattr(
-        manager,
-        "_wait_for_status",
-        lambda *args, **kwargs: ({"status": "running"}, "last status was 'running'"),
-    )
-    monkeypatch.setattr(manager, "_run_quiet", lambda *args, **kwargs: None)
-    force_delete = Mock(return_value=True)
-    monkeypatch.setattr(manager, "_force_runtime_delete", force_delete)
-
-    manager._stop_runtime("alpha", metadata)
-
-    force_delete.assert_called_once_with("alpha", metadata)
+def test_stop_cleans_uid_descendants_even_without_supervisor(manager, monkeypatch):
+    from plugins._sandboxing.helpers import process
+    metadata=_metadata(manager,'alpha');metadata['uid']=20001
+    monkeypatch.setattr(manager,'_runtime_state',lambda *a:(None,'runtime not found'))
+    killed=[];monkeypatch.setattr(process,'terminate_uid',lambda uid, timeout:killed.append(uid))
+    manager._stop_runtime('alpha',metadata)
+    assert killed == [20001]
 
 
 def test_start_refuses_missing_snapshot(manager: SandboxManager, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -535,24 +477,14 @@ def test_start_refuses_missing_snapshot(manager: SandboxManager, monkeypatch: py
         manager.start("alpha")
 
 
-def test_failed_save_preserves_previous_snapshot(
-    manager: SandboxManager, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    metadata = _metadata(manager, "alpha")
-    path = manager.config.instances_dir / "alpha"
-    snapshot = path / ROOTFS_SNAPSHOT
-    snapshot.write_bytes(b"last-good")
-    metadata["rootfs_snapshot"] = ROOTFS_SNAPSHOT
-    manager._atomic_write_json(path / "metadata.json", metadata)
-    monkeypatch.setattr(manager, "_runtime_state", lambda *args: ({"status": "running"}, None))
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, "snapshot failed", ""),
-    )
-    with pytest.raises(SandboxError, match="snapshot failed"):
-        manager.save("alpha")
-    assert snapshot.read_bytes() == b"last-good"
+def test_unsupported_legacy_snapshot_is_preserved(manager, monkeypatch):
+    metadata=_metadata(manager,'alpha')
+    snapshot=manager.config.instances_dir/'alpha'/ROOTFS_SNAPSHOT
+    snapshot.write_bytes(b'last-good');metadata['rootfs_snapshot']=ROOTFS_SNAPSHOT
+    manager._atomic_write_json(snapshot.parent/'metadata.json',metadata)
+    monkeypatch.setattr(manager,'_runtime_state',lambda *a:({'status':'running'},None))
+    with pytest.raises(SandboxError,match='migration'):manager.save('alpha')
+    assert snapshot.read_bytes()==b'last-good'
 
 
 def test_delete_removes_exact_instance_only(
@@ -582,15 +514,8 @@ def test_exec_uses_exact_argv_and_touches_last_use(
     result = manager.exec("alpha", ["sh", "-c", "exit 37"], timeout=12)
     assert result.exit_code == 37
     assert result.stdout == "out"
-    assert captured["argv"][-7:] == [
-        "exec",
-        "--cwd=/workspace",
-        "--user=0:0",
-        "alpha",
-        "sh",
-        "-c",
-        "exit 37",
-    ]
+    assert captured['argv'][-4:] == ['--', 'sh', '-c', 'exit 37']
+    assert '--cwd' in captured['argv']
     updated = json.loads((manager.config.instances_dir / "alpha" / "metadata.json").read_text())
     assert updated["last_used_at"] >= metadata["last_used_at"]
 
@@ -608,14 +533,8 @@ def test_interactive_command_uses_stdio_pty_without_unsupported_terminal_flag(
     command = manager.interactive_command("alpha")
 
     assert "--terminal" not in command
-    assert command[command.index("exec") :] == [
-        "exec",
-        "--cwd=/workspace",
-        "--user=0:0",
-        "alpha",
-        "/bin/bash",
-        "--login",
-    ]
+    assert command[-3:] == ['--', '/bin/bash', '--login']
+    assert 'execute' in command
 
 
 def test_cleanup_expired_only_deletes_old_temporary_sandboxes(
@@ -663,39 +582,19 @@ def test_doctor_never_requests_a_host_shell(
 
     def fake_run(*args, **kwargs):
         calls.append(kwargs)
-        return subprocess.CompletedProcess(args[0], 0, "runsc version test", "")
+        return subprocess.CompletedProcess(args[0], 0, "A0-COW-1", "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(manager, "_require_runtime_artifacts", lambda: __import__("plugins._sandboxing.helpers.bootstrap", fromlist=["ready"]).ready(manager.config.proot))
     manager.doctor()
-    assert calls and all(call.get("shell") is False for call in calls)
+    assert calls and all(call.get("shell", False) is False for call in calls)
 
 
-def test_docker_image_contains_sandbox_runtime_contract() -> None:
-    root = Path(__file__).resolve().parents[1]
-    dockerfile = (root / "docker" / "base" / "Dockerfile").read_text(encoding="utf-8")
-    packages = (
-        root / "docker" / "base" / "fs" / "ins" / "install_base_packages4.sh"
-    ).read_text(encoding="utf-8")
-    compose = (root / "docker" / "run" / "docker-compose.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "AS sandbox-rootfs" not in dockerfile
-    assert "/opt/agent-zero/sandbox-rootfs" not in dockerfile
-    assert "FROM debian:trixie-slim AS gvisor-package" in dockerfile
-    assert "apt-get install -y --no-install-recommends runsc" in dockerfile
-    assert "https://storage.googleapis.com/gvisor/releases release main" in dockerfile
-    assert "COPY --from=gvisor-package /usr/bin/runsc /usr/bin/runsc" in dockerfile
-    assert (
-        "COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor_sentry "
-        "/usr/bin/gvisor-bin/gvisor_sentry"
-    ) in dockerfile
-    assert "containerd-shim-runsc-v1" not in dockerfile
-    assert "checkpointgofer" not in dockerfile
-    assert "runsc-metric-server" not in dockerfile
-    assert "ca-certificates util-linux procps iproute2 gpg libgpgme11t64 libsqlite3-0" in packages
-    assert "COPY --from=gvisor-package /usr/bin/skopeo /usr/bin/umoci /usr/bin/" in dockerfile
-    assert "COPY --from=gvisor-package /etc/containers/ /etc/containers/" in dockerfile
-    assert "COPY --from=gvisor-package /usr/share/containers/ /usr/share/containers/" in dockerfile
-    assert "gnupg" not in packages
-    assert "privileged: false" in compose
-    assert "seccomp:unconfined" in compose
+def test_docker_image_contains_small_runtime_and_default_seccomp():
+    root=Path(__file__).resolve().parents[1]
+    dockerfile=(root/'docker/base/Dockerfile').read_text()
+    compose=(root/'docker/run/docker-compose.yml').read_text()
+    assert 'COPY --from=sandbox-tools /usr/local/bin/a0-proot' in dockerfile
+    assert 'gvisor' not in dockerfile and 'runsc' not in dockerfile
+    assert 'privileged: false' in compose and 'init: true' in compose
+    assert 'unconfined' not in compose and 'cap_add' not in compose

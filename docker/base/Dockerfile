@@ -2,23 +2,14 @@
 # unbundled npm dependency tree.
 FROM node:22-trixie-slim AS node-runtime
 
-# Install the signed gVisor package and OCI tools outside the final image. Current gVisor
-# releases split the Sentry from runsc, while the other packaged executables
-# support containerd, remote checkpoints, or optional metrics.
-FROM debian:trixie-slim AS gvisor-package
-
+# Build the small PRoot CoW runtime separately; retain only its binary/library.
+FROM debian:trixie-slim AS sandbox-tools
 ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
-    && curl -fsSL https://gvisor.dev/archive.key \
-        | gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
-        > /etc/apt/sources.list.d/gvisor.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends runsc skopeo umoci \
-    && test -x /usr/bin/runsc \
-    && test -x /usr/bin/gvisor-bin/gvisor_sentry \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl python3 build-essential pkg-config libtalloc-dev skopeo umoci \
     && rm -rf /var/lib/apt/lists/*
+COPY fs/ins/proot /recipe
+RUN sh /recipe/build.sh /usr/local/bin/a0-proot
 
 # Use the official Python image and install packages into its global runtime.
 FROM python:3.12-slim-trixie AS runtime
@@ -30,12 +21,11 @@ ENV UV_SYSTEM_PYTHON=1 \
 
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
-COPY --from=gvisor-package /usr/bin/runsc /usr/bin/runsc
-COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor_sentry /usr/bin/gvisor-bin/gvisor_sentry
+COPY --from=sandbox-tools /usr/local/bin/a0-proot /usr/local/bin/a0-proot
 # Skopeo uses registry configuration and shared libraries, not Debian's CNI stack.
-COPY --from=gvisor-package /usr/bin/skopeo /usr/bin/umoci /usr/bin/
-COPY --from=gvisor-package /etc/containers/ /etc/containers/
-COPY --from=gvisor-package /usr/share/containers/ /usr/share/containers/
+COPY --from=sandbox-tools /usr/bin/skopeo /usr/bin/umoci /usr/bin/
+COPY --from=sandbox-tools /etc/containers/ /etc/containers/
+COPY --from=sandbox-tools /usr/share/containers/ /usr/share/containers/
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
@@ -68,11 +58,6 @@ RUN bash /ins/configure_ssh.sh
 
 # after install
 RUN bash /ins/after_install.sh
-
-# Current runsc also needs these sandbox-process helpers.
-COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor-sentry-prewarmer /usr/bin/gvisor-bin/gvisor-sentry-prewarmer
-COPY --from=gvisor-package /usr/bin/gvisor-bin/gvisor-proc-umounter /usr/bin/gvisor-bin/gvisor-proc-umounter
-COPY --from=gvisor-package /usr/bin/gvisor-bin/runsc-fd-parking /usr/bin/gvisor-bin/runsc-fd-parking
 
 # Keep container running infinitely
 CMD ["tail", "-f", "/dev/null"]

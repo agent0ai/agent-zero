@@ -37,7 +37,7 @@ def test_base_image_uses_official_python_trixie_image() -> None:
     dockerfile = _read(BASE_DOCKERFILE)
 
     assert dockerfile.count("FROM ") == 3
-    assert "FROM debian:trixie-slim AS gvisor-package" in dockerfile
+    assert "FROM debian:trixie-slim AS sandbox-tools" in dockerfile
     assert "FROM python:3.12-slim-trixie AS runtime" in dockerfile
     assert "ENV UV_SYSTEM_PYTHON=1" in dockerfile
     assert "PIP_ROOT_USER_ACTION=ignore" in dockerfile
@@ -164,10 +164,10 @@ def test_runtime_python_launchers_use_global_python() -> None:
         assert "ENV PYTHONDONTWRITEBYTECODE=1" in _read(dockerfile)
 
 
-def test_runsc_process_sidecars_are_shipped():
+def test_proot_replaces_large_engine_sidecars():
     dockerfile = _read(BASE_DOCKERFILE)
-    for sidecar in ("gvisor_sentry", "gvisor-sentry-prewarmer", "gvisor-proc-umounter", "runsc-fd-parking"):
-        assert f"/usr/bin/gvisor-bin/{sidecar} /usr/bin/gvisor-bin/{sidecar}" in dockerfile
+    assert 'COPY --from=sandbox-tools /usr/local/bin/a0-proot' in dockerfile
+    assert 'runsc' not in dockerfile and 'gvisor' not in dockerfile
 
 
 def test_shared_numpy_and_filelock_bounds_remain_declared():

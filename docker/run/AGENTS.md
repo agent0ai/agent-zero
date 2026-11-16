@@ -30,7 +30,7 @@
 - Runtime startup raises the soft open-file limit toward `A0_NOFILE_LIMIT` (default `65535`) before supervisord starts, bounded by the container hard limit.
 - Do not launch a separate tunnel API service. The Remote Control plugin starts its provider inside a standalone sandbox on demand; startup migration removes legacy Supervisor entries on source updates.
 - Do not launch or configure SearXNG in the outer runtime container; the placeholder integration is owned by `plugins/_searxng/` and any future service must run through sandboxing.
-- The compose example keeps the outer container unprivileged with `no-new-privileges`, uses an init reaper for detached sandboxes, and allows the nested gVisor systrap syscall surface through `seccomp:unconfined`.
+- The compose example uses Docker default seccomp, no-new-privileges and an init reaper. PRoot needs no added capabilities, mount devices or nested user namespaces; the A0 manager runs as container root and drops each guest to its leased UID.
 - Self-update user-data backups skip Time Travel shadow history under `usr/.time_travel/` and transient Desktop agent state.
 - Self-update backups use ZIP deflate level 1 and clamp archive timestamps to ZIP's supported range without changing source file dates.
 - Self-update rollback stashes use immutable Git object IDs for creation checks and restoration; resolve the matching reflog selector only when dropping that stash, preserving unrelated entries. Failed restoration retains the stash.

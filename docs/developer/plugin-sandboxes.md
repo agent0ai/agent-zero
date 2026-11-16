@@ -1,7 +1,7 @@
 # Sandboxed plugin runtimes
 
 Document Query, Whisper STT, Local TTS, Telegram, WhatsApp, mail and the internal Browser use the shared
-gVisor lifecycle manager. Their tools, settings and authenticated APIs stay in
+PRoot lifecycle manager. Their tools, settings and authenticated APIs stay in
 Agent Zero. Heavy execution and dependency installation happen in the guest.
 
 ## Choosing dependency location
@@ -129,8 +129,8 @@ carry credential input only in private transient IPC. Guest networking still use
 host mode, so it is not a network isolation boundary. No live account or external
 message is needed for the fixture checks in `tests/integration_guest_smoke.py`.
 
-These changes inherit the gVisor launch requirements in the
-[sandbox runtime guide](../../plugins/_sandboxing/README.md#gvisor-runtime). They do not establish compatibility with
+These changes inherit the PRoot launch requirements in the
+[sandbox runtime guide](../../plugins/_sandboxing/README.md#runtime-requirements-and-isolation). They do not establish compatibility with
 every Docker default seccomp profile.
 
 ## Python runtimes and image cleanup

@@ -1,4 +1,4 @@
-"""Package the bundled sandbox image, or build it lazily through gVisor."""
+"""Package the bundled sandbox image, or build it lazily through PRoot."""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +24,7 @@ def package_rootfs(images, rootfs: Path, layout: Path, architecture: str) -> Non
     with tempfile.TemporaryDirectory(prefix="sandbox-layer-", dir=layout.parent) as temporary:
         layer = Path(temporary) / "rootfs.tar"
         commands = [
-            ["tar", "--sort=name", "--numeric-owner", "-C", str(rootfs), "-cf", str(layer), "."],
+            ["tar", "--sort=name", "--numeric-owner", "--owner=0", "--group=0", "-C", str(rootfs), "-cf", str(layer), "."],
             [str(images.config.umoci), "init", "--layout", str(layout)],
             [str(images.config.umoci), "new", "--image", f"{layout}:image"],
             [str(images.config.umoci), "raw", "add-layer", "--image", f"{layout}:image", str(layer)],
@@ -52,9 +52,9 @@ def build_image(images, directory: Path) -> Path:
     node = sources.ensure(NODE_IMAGE)
     with tempfile.TemporaryDirectory(prefix="a0-image-") as runtime:
         manager = SandboxManager(SandboxConfig(
-            runsc=images.config.runsc,
+            proot=images.config.proot,
             instances_dir=directory / "instances",
-            runsc_root=Path(runtime),
+            uid_registry=images.config.uid_registry,
             shared_dir=directory / "shared",
             default_image=PYTHON_IMAGE,
             instance_id=uuid.uuid4().hex[:12],

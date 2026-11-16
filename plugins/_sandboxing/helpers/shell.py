@@ -14,7 +14,7 @@ from plugins._sandboxing.helpers.runtime import defaults, get_manager
 
 
 class SandboxInteractiveSession:
-    """Persistent Bash session transported by a direct `runsc exec` PTY."""
+    """Persistent Bash session transported by a PRoot PTY."""
 
     def __init__(self, name: str, *, agent: object | None = None) -> None:
         self.name = name

@@ -17,7 +17,7 @@ rm -f /etc/apt/sources.list.d/xpra.list /var/lib/apt/lists/xpra.org_*
 if [ ! -x /opt/tuxee-gui/bin/tuxee-Xvnc ]; then
     python /worker/progress.py viewer 'Building minimal Tuxee display server (first use)'
     previous_manual=$(apt-mark showmanual)
-    build_packages='ca-certificates curl build-essential cmake ninja-build pkg-config autoconf automake libtool patch xutils-dev xfonts-utils xz-utils x11-xserver-utils xdotool x11-xkb-utils xkb-data libjpeg62-turbo-dev zlib1g-dev libx11-dev libxext-dev libxdamage-dev libxfixes-dev libxrandr-dev libxtst-dev libxfont-dev xtrans-dev x11proto-dev libpixman-1-dev libxshmfence-dev libxkbfile-dev libfontenc-dev libunwind-dev nettle-dev'
+    build_packages='ca-certificates curl build-essential cmake ninja-build pkg-config autoconf automake libtool patch xutils-dev xfonts-utils xz-utils x11-xserver-utils xdotool x11-xkb-utils xkb-data libjpeg62-turbo-dev zlib1g-dev libx11-dev libxext-dev libxdamage-dev libxfixes-dev libxrandr-dev libxtst-dev libxfont-dev xtrans-dev x11proto-dev libpixman-1-dev libxshmfence-dev libxkbfile-dev libfontenc-dev libpam0g-dev libunwind-dev nettle-dev'
     apt-get update
     apt-get install -y --no-install-recommends $build_packages
     sh /support/build-gui.sh /tmp/a0-gui

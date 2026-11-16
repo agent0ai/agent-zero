@@ -1,0 +1,180 @@
+"""Opt-in real runtime checks: A0_PROOT_INTEGRATION=1 pytest tests/test_proot_runtime.py."""
+import dataclasses
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+import pytest
+
+from plugins._sandboxing.helpers.images import SandboxImageConfig, SandboxImageManager
+from plugins._sandboxing.helpers.manager import SandboxConfig, SandboxManager, SandboxMount, SandboxError
+from plugins._sandboxing.helpers import storage
+
+pytestmark = pytest.mark.skipif(os.environ.get('A0_PROOT_INTEGRATION') != '1', reason='requires disposable Linux root container and built PRoot')
+
+
+@pytest.fixture(scope='module')
+def manager(tmp_path_factory):
+    root = tmp_path_factory.mktemp('proot')
+    images = SandboxImageManager(SandboxImageConfig(
+        skopeo=Path('/usr/bin/skopeo'), umoci=Path('/usr/bin/umoci'),
+        cache_dir=root/'images', default_image=os.environ.get('A0_PROOT_TEST_IMAGE', 'agent-zero-sandbox:1')))
+    image = images.ensure(images.config.default_image)
+    fixtures = image.rootfs/'cow-tests'
+    fixtures.mkdir()
+    for name in ('write', 'chmod', 'fdchmod', 'time', 'fdtime', 'xattr', 'link', 'rename'):
+        (fixtures/name).write_text('original')
+    os.link(fixtures/'link', fixtures/'alias')
+    os.setxattr(fixtures/'write', 'user.test', b'preserved')
+    runtime = SandboxManager(SandboxConfig(
+        proot=Path('/usr/local/bin/a0-proot'), instances_dir=root/'instances',
+        uid_registry=root/'uids', shared_dir=root/'shared', default_image=images.config.default_image), images)
+    yield runtime
+    for info in runtime.list():
+        runtime.delete(info.name)
+
+
+def run(manager, name, script):
+    result = manager.exec(name, ['python', '-c', script])
+    assert result.exit_code == 0, result.stderr + result.stdout
+    return result.stdout
+
+
+def test_copy_on_write_and_peer_persistence(manager):
+    manager.create('alpha')
+    manager.create('beta')
+    root = manager.config.instances_dir/'alpha/rootfs'
+    other = manager.config.instances_dir/'beta/rootfs'
+    assert (root/'cow-tests/write').stat().st_ino == (other/'cow-tests/write').stat().st_ino
+    run(manager, 'alpha', '''
+import os
+from pathlib import Path
+p=Path('/cow-tests')
+(p/'write').write_text('private')
+assert os.getxattr(p/'write','user.test') == b'preserved'
+os.chmod(p/'chmod',0o600)
+f=os.open(p/'fdchmod',os.O_RDONLY); os.fchmod(f,0o600); os.close(f)
+os.utime(p/'time',(1234567890,1234567890))
+f=os.open(p/'fdtime',os.O_RDONLY); os.utime(f,(1234567890,1234567890)); os.close(f)
+os.setxattr(p/'xattr','user.test',b'value')
+(p/'link').write_text('linked'); assert (p/'alias').read_text()=='linked'
+(p/'rename').rename(p/'renamed'); (p/'renamed').write_text('renamed')
+''')
+    assert (other/'cow-tests/write').read_text() == 'original'
+    assert (other/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o644
+    assert (root/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o600
+    assert (root/'cow-tests/fdtime').stat().st_mtime == 1234567890
+    assert manager.disk_usage('alpha') < 30 * 1024 * 1024
+    manager.stop('alpha'); manager.start('alpha')
+    assert run(manager, 'alpha', "print(open('/cow-tests/write').read())").strip() == 'private'
+
+
+def test_readonly_bindings_and_atomic_request_acl(manager):
+    directory = manager.config.instances_dir.parent/'input'
+    directory.mkdir(mode=0o700)
+    (directory/'request').write_text('initial')
+    manager.create('bindings', service=True, share_usr=False, mounts=[SandboxMount(directory,'/input')])
+    temporary=directory/'temporary'
+    temporary.write_text('replacement')
+    temporary.chmod(0o640)
+    temporary.replace(directory/'request')
+    run(manager,'bindings','''
+import os
+assert open('/input/request').read()=='replacement'
+for mutate in [lambda: open('/input/request','w'),lambda: os.unlink('/input/request'),lambda: os.chmod('/input/request',0o777),lambda: os.mkdir('/input/new')]:
+    try: mutate()
+    except OSError: pass
+    else: raise AssertionError('read-only mutation succeeded')
+''')
+    assert (directory/'request').read_text() == 'replacement'
+    uid=manager._read_metadata('bindings')['uid']
+    storage.grant(directory,uid,writable=True)
+    storage.traverse(directory/'request',uid)
+    subprocess.run(['setpriv',f'--reuid={uid}',f'--regid={uid}','--clear-groups','sh','-c',f'touch {directory}/allowed'],check=True)
+
+
+def test_network_none_and_timeout_cleanup(manager):
+    manager.create('offline',network='none')
+    run(manager,'offline','''
+import socket, os, struct
+socket.socket(socket.AF_UNIX)
+a,b=socket.socketpair()
+a.sendmsg([b'x'],[(socket.SOL_SOCKET,socket.SCM_CREDENTIALS,struct.pack('3i',os.getpid(),os.getuid(),os.getgid()))])
+assert b.recv(1)==b'x'
+a.close();b.close()
+try: socket.socket(socket.AF_INET)
+except PermissionError: pass
+else: raise AssertionError('IP socket allowed')
+''')
+    with pytest.raises(SandboxError,match='timed out'):
+        manager.exec('offline',['python','-c',"import os,time,ctypes; os.fork(); os.setsid(); open('/workspace/timeout-pid','w').write(str(os.getpid())); ctypes.CDLL(None).prctl(4,0); time.sleep(60)"],timeout=.5)
+    pid=int((manager.config.instances_dir/'offline/rootfs/workspace/timeout-pid').read_text())
+    assert not Path(f'/proc/{pid}').exists()
+    assert manager.is_running('offline')
+    assert run(manager,'offline',"print('alive')").strip()=='alive'
+
+
+def test_quick_commands_and_restart(manager):
+    manager.create('quick',command=['/bin/sh','-c','echo done > /workspace/done'])
+    deadline=time.monotonic()+5
+    while manager.is_running('quick') and time.monotonic()<deadline: time.sleep(.05)
+    assert not manager.is_running('quick')
+    assert (manager.config.instances_dir/'quick/rootfs/workspace/done').read_text()=='done\n'
+    manager.start('quick')
+    time.sleep(.3)
+    assert not manager.is_running('quick')
+
+
+def test_parent_exit_and_standalone_restore(manager, tmp_path):
+    script=tmp_path/'parent.py'
+    script.write_text('''
+import json
+from pathlib import Path
+from plugins._sandboxing.helpers.images import SandboxImageConfig,SandboxImageManager
+from plugins._sandboxing.helpers.manager import SandboxConfig,SandboxManager
+values=json.loads(__import__('sys').argv[1])
+for key in ['proot','instances_dir','uid_registry','shared_dir']:values[key]=Path(values[key])
+images=SandboxImageManager(SandboxImageConfig(skopeo=Path('/usr/bin/skopeo'),umoci=Path('/usr/bin/umoci'),cache_dir=values['instances_dir'].parent/'images',default_image=values['default_image']))
+m=SandboxManager(SandboxConfig(**values),images)
+m.create('child-exit')
+m.create('standalone',standalone=True)
+''')
+    config=dataclasses.asdict(manager.config)
+    subprocess.run([__import__('sys').executable,str(script),json.dumps(config,default=str)],check=True,env={**os.environ,'PYTHONPATH':str(Path(__file__).resolve().parents[1])})
+    deadline=time.monotonic()+8
+    while manager.is_running('child-exit') and time.monotonic()<deadline:time.sleep(.05)
+    assert not manager.is_running('child-exit')
+    assert manager.is_running('standalone')
+    restored=SandboxManager(manager.config,manager.images)
+    assert run(restored,'standalone',"print('restored')").strip()=='restored'
+    restored.stop('standalone')
+    assert restored.inspect('standalone').desired_running is False
+
+
+def test_socket_across_exec_and_legacy_disk_migration(manager):
+    import shutil
+    manager.create('legacy')
+    path=manager.config.instances_dir/'legacy'
+    manager.stop('legacy')
+    # Model the old full-copy root, without introducing shared base inodes.
+    shutil.copytree(path/'rootfs',path/'private',symlinks=True)
+    shutil.rmtree(path/'rootfs');(path/'private').rename(path/'rootfs')
+    value=manager._read_metadata('legacy')
+    value.update(schema_version=2,filesystem='disk');value.pop('uid')
+    manager._atomic_write_json(path/'metadata.json',value)
+    manager.start('legacy')
+    assert manager._read_metadata('legacy')['schema_version']==3
+    command=manager.process_command('legacy',['python','-c',"import socket; s=socket.socket(socket.AF_UNIX); s.bind('/tmp/test.sock'); s.listen(); c,_=s.accept(); c.send(b'ok')"])
+    server=subprocess.Popen(command)
+    try:
+        deadline=time.monotonic()+5
+        while time.monotonic()<deadline:
+            result=manager.exec('legacy',['python','-c',"import socket; s=socket.socket(socket.AF_UNIX); s.connect('/tmp/test.sock'); assert s.recv(2)==b'ok'"])
+            if result.exit_code==0:break
+            time.sleep(.05)
+        assert result.exit_code==0,result.stderr
+        assert server.wait(timeout=5)==0
+    finally:
+        if server.poll() is None:server.terminate();server.wait(timeout=8)

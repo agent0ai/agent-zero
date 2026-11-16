@@ -20,16 +20,14 @@
 
         <div class="section-title">Runtime paths</div>
         <div class="section-description">Absolute paths are recommended in deployed images. Relative state paths resolve from the Agent Zero root.</div>
-        <div class="field"><div class="field-label"><div class="field-title">runsc executable</div></div><div class="field-control"><input type="text" x-model="config.runsc_path"></div></div>
+        <div class="field"><div class="field-label"><div class="field-title">PRoot executable</div></div><div class="field-control"><input type="text" x-model="config.proot_path"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">skopeo executable</div></div><div class="field-control"><input type="text" x-model="config.skopeo_path"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">umoci executable</div></div><div class="field-control"><input type="text" x-model="config.umoci_path"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">Private state directory</div></div><div class="field-control"><input type="text" x-model="config.state_dir"></div></div>
-        <div class="field"><div class="field-label"><div class="field-title">runsc runtime root</div></div><div class="field-control"><input type="text" x-model="config.runsc_root"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">Shared exchange directory</div></div><div class="field-control"><input type="text" x-model="config.shared_dir"></div></div>
 
         <div class="section-title">Limits</div>
         <div class="field"><div class="field-label"><div class="field-title">Command timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.exec_timeout"></div></div>
-        <div class="field"><div class="field-label"><div class="field-title">Snapshot timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.snapshot_timeout"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">Maximum captured bytes</div><div class="field-description">Applied separately to stdout and stderr for one-shot manager execution.</div></div><div class="field-control"><input type="number" min="4096" step="4096" x-model.number="config.max_output_bytes"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">Image pull timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.image_pull_timeout"></div></div>
         <div class="field"><div class="field-label"><div class="field-title">Image unpack timeout</div></div><div class="field-control"><input type="number" min="1" x-model.number="config.image_unpack_timeout"></div></div>

@@ -6,6 +6,7 @@ from helpers.extension import Extension
 from helpers import plugins
 from helpers.print_style import PrintStyle
 from plugins._sandboxing.helpers.runtime import get_manager
+from plugins._sandboxing.helpers.bootstrap import ensure
 
 
 _thread: threading.Thread | None = None
@@ -27,6 +28,7 @@ class PrepareSandboxRuntime(Extension):
 def _prepare() -> None:
     try:
         manager = get_manager()
+        ensure(manager.config.proot)
         diagnostics = manager.doctor()
         errors = [line for line in diagnostics if line.startswith("ERROR:")]
         warnings = [line for line in diagnostics if line.startswith("WARNING:")]
