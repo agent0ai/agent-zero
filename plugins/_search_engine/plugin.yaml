@@ -1,6 +1,6 @@
 name: _search_engine
 title: Search Engine
-description: Web search powered by on-demand sandboxed SearXNG.
+description: Web-search skill and CLI powered by on-demand sandboxed SearXNG.
 version: 1.0.0
 settings_sections: []
 per_project_config: false

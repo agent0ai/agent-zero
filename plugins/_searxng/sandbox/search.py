@@ -1,5 +1,7 @@
 """Run SearXNG's WSGI search endpoint inside the guest without a listening port."""
 import os
+import json
+import sys
 import secrets
 
 os.environ['SEARXNG_SETTINGS_PATH'] = '/plugin/sandbox/settings.yml'
@@ -19,4 +21,13 @@ def handle(payload):
         result = response.get_json()
         if not isinstance(result, dict) or not isinstance(result.get('results'), list):
             raise RuntimeError('SearXNG returned an invalid search response')
-        return result
+        return {
+            'query': query,
+            'results': [{key: item.get(key, '') for key in ('title', 'url', 'content')}
+                        for item in result['results'][:10]],
+            'unresponsive_engines': result.get('unresponsive_engines', []),
+        }
+
+
+if __name__ == '__main__':
+    print(json.dumps(handle({'query': sys.argv[1]}), ensure_ascii=False), flush=True)

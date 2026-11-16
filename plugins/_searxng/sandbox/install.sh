@@ -1,11 +1,9 @@
 #!/bin/sh
 set -eu
 export DEBIAN_FRONTEND=noninteractive
-python /worker/progress.py python 'Preparing SearXNG in image Python'
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates git
 python -m pip install --no-cache-dir --disable-pip-version-check -c /worker/constraints.txt -r /plugin/sandbox/requirements.txt
-python /worker/progress.py searxng 'Installing SearXNG (first use may take a little while)'
 source_dir=$(mktemp -d)
 trap 'rm -rf "$source_dir"' EXIT
 cd "$source_dir"

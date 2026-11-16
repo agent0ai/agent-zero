@@ -57,3 +57,12 @@ def test_index_discovery_example_handles_nulls_and_bounds_output(capsys):
     assert matches[1]["title"] == "web_notes"
     assert "calendar" not in {entry["id"] for entry in matches}
     assert "search_24" not in capsys.readouterr().out
+
+
+def test_web_search_skill_is_discoverable_and_links_to_cli(monkeypatch):
+    path = ROOT / 'plugins/_search_engine/skills/web-search/SKILL.md'
+    skill = skills.skill_from_markdown(path)
+    assert skill and skill.name == 'web-search'
+    monkeypatch.setattr(skills, 'list_skills', lambda *args, **kwargs: [skill])
+    assert skills.search_skills('search the web', limit=1)[0].name == 'web-search'
+    assert (path.parent / '../../../_searxng/search.py').resolve().is_file()

@@ -7,36 +7,8 @@ from types import ModuleType, SimpleNamespace
 import pytest
 from pathlib import Path
 
-from plugins._searxng.helpers import searxng
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize('state', ['idle', 'ready'])
-async def test_search_prepares_worker_and_reports_cold_start(monkeypatch, state):
-    events = []
-    result = {'results': [], 'unresponsive_engines': [['google', 'CAPTCHA']]}
-    async def prepare():
-        events.append('prepare')
-    async def call(payload, timeout):
-        events.append((payload, timeout))
-        return result
-    monkeypatch.setattr(searxng, 'worker', SimpleNamespace(
-        status=lambda: {'state': state}, aprepare=prepare, acall=call))
-    progress = []
-    assert await searxng.search('test query', progress=progress.append) is result
-    assert events == ['prepare', ({'query': 'test query'}, 60)]
-    assert progress == ([searxng.STARTUP_NOTICE] if state == 'idle' else []) + ['Searching the web']
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize('query', ['', '  ', None, 42, 'x' * 8193])
-async def test_invalid_query_does_not_start_worker(monkeypatch, query):
-    monkeypatch.setattr(searxng, 'worker', None)
-    with pytest.raises(ValueError, match='Search query'):
-        await searxng.search(query)
 
 
 @pytest.fixture
@@ -55,14 +27,27 @@ def guest_handler(monkeypatch):
     monkeypatch.setitem(sys.modules, 'searx.webapp', SimpleNamespace(app=SimpleNamespace(test_client=Client)))
     monkeypatch.setenv('SEARXNG_SETTINGS_PATH', '')
     monkeypatch.setenv('SEARXNG_SECRET', '')
-    module = runpy.run_path(str(PROJECT_ROOT / 'plugins/_searxng/sandbox/worker.py'))
+    module = runpy.run_path(str(PROJECT_ROOT / 'plugins/_searxng/sandbox/search.py'))
     return module['handle'], response, calls
 
 
 def test_guest_calls_real_search_endpoint(guest_handler):
     handle, response, calls = guest_handler
-    assert handle({'query': 'a query'}) == {'results': []}
+    assert handle({'query': 'a query'}) == {'query': 'a query', 'results': [], 'unresponsive_engines': []}
     assert calls == [('/search', {'q': 'a query', 'format': 'json'})]
+
+
+def test_guest_caps_and_projects_search_results(guest_handler):
+    handle, response, _ = guest_handler
+    response.get_json = lambda: {
+        'results': [{'title': str(i), 'url': 'https://example.com', 'content': 'snippet', 'unused': True}
+                    for i in range(15)],
+        'unresponsive_engines': [['duckduckgo', 'CAPTCHA']],
+    }
+    result = handle({'query': 'test'})
+    assert len(result['results']) == 10
+    assert result['results'][0] == {'title': '0', 'url': 'https://example.com', 'content': 'snippet'}
+    assert result['unresponsive_engines'] == [['duckduckgo', 'CAPTCHA']]
 
 
 def test_guest_rejects_http_and_malformed_responses(guest_handler):
@@ -84,20 +69,6 @@ def test_guest_rejects_invalid_queries(guest_handler, query):
     assert calls == []
 
 
-def test_hooks_install_lazily_and_remove_only_owned_sandbox(monkeypatch):
-    from plugins._searxng import hooks
-    import helpers.sandbox
-    events = []
-    monkeypatch.setattr(searxng, 'worker', SimpleNamespace(name='service-searxng', stop=lambda: events.append('stop')))
-    monkeypatch.setattr(helpers.sandbox, 'get_manager', lambda: SimpleNamespace(
-        delete=lambda name, **kwargs: events.append((name, kwargs))))
-    assert hooks.install()['installed_on_demand'] is True
-    assert events == []
-    hooks.disable()
-    hooks.uninstall()
-    assert events == ['stop', 'stop', ('service-searxng', {'missing_ok': True})]
-
-
 def test_searxng_assets_are_plugin_owned() -> None:
     expected = [
         "plugins/_searxng/plugin.yaml",
@@ -105,13 +76,16 @@ def test_searxng_assets_are_plugin_owned() -> None:
         "plugins/_searxng/sandbox/install.sh",
         "plugins/_searxng/sandbox/requirements.txt",
         "plugins/_searxng/sandbox/settings.yml",
-        "plugins/_searxng/sandbox/worker.py",
+        "plugins/_searxng/sandbox/search.py",
         "plugins/_searxng/README.md",
-        "plugins/_searxng/helpers/searxng.py",
-        "plugins/_searxng/tools/search_engine.py",
-        "plugins/_searxng/prompts/agent.system.tool.search_engine.md",
+        "plugins/_searxng/search.py",
+        "plugins/_search_engine/skills/web-search/SKILL.md",
     ]
     removed_core = [
+        "plugins/_search_engine/tools/search_engine.py",
+        "plugins/_searxng/tools/search_engine.py",
+        "plugins/_search_engine/prompts/agent.system.tool.search_engine.md",
+        "plugins/_searxng/prompts/agent.system.tool.search_engine.md",
         "helpers/searxng.py",
         "helpers/searxng.py.dox.md",
         "tools/search_engine.py",

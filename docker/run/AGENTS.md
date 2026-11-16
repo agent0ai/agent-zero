@@ -31,7 +31,7 @@
 - On the first container start, launch a silent background APT index update without waiting. `/var/lib/apt/a0-initial-update-started` prevents repeats on restart, including after a failed update; a replacement container starts fresh. Installation scripts and plugin hooks still refresh metadata when installing packages.
 - Runtime startup raises the soft open-file limit toward `A0_NOFILE_LIMIT` (default `65535`) before supervisord starts, bounded by the container hard limit.
 - Do not launch a separate tunnel API service. The Remote Control plugin starts its provider inside a standalone sandbox on demand; startup migration removes legacy Supervisor entries on source updates.
-- Do not launch or configure SearXNG in the outer runtime container; the on-demand sandbox worker is owned by `plugins/_searxng/`.
+- Do not launch or configure SearXNG in the outer runtime container; the on-demand sandbox CLI is owned by `plugins/_searxng/`.
 - The compose example uses Docker default seccomp, no-new-privileges and an init reaper. PRoot needs no added capabilities, mount devices or nested user namespaces; the A0 manager runs as container root and drops each guest to its leased UID.
 - Self-update user-data backups skip Time Travel shadow history under `usr/.time_travel/` and transient Desktop agent state.
 - Self-update backups use ZIP deflate level 1 and clamp archive timestamps to ZIP's supported range without changing source file dates.

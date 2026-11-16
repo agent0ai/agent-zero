@@ -1,7 +1,7 @@
 ### browser
 Rendered browser automation for pages that need interaction, JavaScript, forms, downloads, screenshots, or visual inspection.
 
-Prefer `search_engine` or `document_query` for plain text research. The tool must not open a Browser surface automatically. Use the tool headlessly unless the user opens the Browser surface or asks for the optional visible WebUI viewer.
+Prefer the `web-search` skill or `document_query` for plain text research. The tool must not open a Browser surface automatically. Use the tool headlessly unless the user opens the Browser surface or asks for the optional visible WebUI viewer.
 
 For rendered browsing workflows, multi-step interaction, screenshots, downloads, uploads, forms, or host/container mode decisions, first load `browser-automation` with `skills_tool:load`, then call this tool using the loaded instructions. For fragile forms, `browser-automation` links to `browser-form-workflows`; load it when selects, checkboxes, radios, uploads, contenteditable fields, validation, or submission state are central.
 

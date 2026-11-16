@@ -22,7 +22,7 @@ triggers:
 
 # Browser Tool
 
-Use this skill after the compact `browser` tool prompt points you here. It is the progressive-disclosure workflow guide for rendered pages, multi-step browser work, logins, downloads, JavaScript-heavy sites, screenshots, host/container browser mode, and visual inspection. Prefer `search_engine` or `document_query` for plain text research.
+Use this skill after the compact `browser` tool prompt points you here. It is the progressive-disclosure workflow guide for rendered pages, multi-step browser work, logins, downloads, JavaScript-heavy sites, screenshots, host/container browser mode, and visual inspection. Prefer the `web-search` skill or `document_query` for plain text research.
 
 For fragile forms, load `browser-form-workflows` with `skills_tool:load` before acting when selects, checkboxes, radios, file uploads, contenteditable fields, validation, or final submission state are central to the task.
 

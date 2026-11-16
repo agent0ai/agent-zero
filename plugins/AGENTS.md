@@ -108,11 +108,11 @@ Direct child DOX files:
 | [_plugin_validator/AGENTS.md](_plugin_validator/AGENTS.md) | Plugin manifest, structure, convention, and security validator. |
 | [_promptinclude/AGENTS.md](_promptinclude/AGENTS.md) | Promptinclude scanning and prompt injection. |
 | [_scheduler/AGENTS.md](_scheduler/AGENTS.md) | Scheduler agent tool, Scheduled Tasks WebUI, CRUD API endpoints, and sidebar task list. |
-| [_search_engine/AGENTS.md](_search_engine/AGENTS.md) | Live web search tool via local SearXNG. |
+| [_search_engine/AGENTS.md](_search_engine/AGENTS.md) | Web-search skill and historical search-log presentation. |
 | [_sidebar_folders/AGENTS.md](_sidebar_folders/AGENTS.md) | Project folder presentation, filters, sorting, drag ordering, and chat project moves. |
 | [_tunnel/AGENTS.md](_tunnel/AGENTS.md) | On-demand remote-control providers, sandbox installers, and settings. |
 | [_sandboxing/AGENTS.md](_sandboxing/AGENTS.md) | Direct PRoot sandbox lifecycle, runtime OCI image cache, execution destinations, and management UI. |
-| [_searxng/AGENTS.md](_searxng/AGENTS.md) | On-demand sandboxed SearXNG installation and search worker. |
+| [_searxng/AGENTS.md](_searxng/AGENTS.md) | On-demand SearXNG CLI, sandbox installation and process-safe status. |
 | [_skills/AGENTS.md](_skills/AGENTS.md) | Active and hidden skill configuration and prompt injection. |
 | [_telegram_integration/AGENTS.md](_telegram_integration/AGENTS.md) | Telegram bot integration and per-user chat sessions. |
 | [_text_editor/AGENTS.md](_text_editor/AGENTS.md) | Native text read, write, and patch tool. |

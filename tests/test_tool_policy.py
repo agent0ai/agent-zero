@@ -1132,14 +1132,14 @@ def test_memory_profile_override_does_not_inherit_bundled_action_policy(monkeypa
     assert tool_policy.resolve_tool(agent, "memory", action="delete").allowed
 
 
-def test_moved_tool_legacy_policy_stays_editable(monkeypatch, tmp_path):
+def test_retired_search_tool_legacy_policy_stays_editable(monkeypatch, tmp_path):
     root = Path(__file__).resolve().parents[1] / "plugins/_search_engine"
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **kwargs: [str(root.joinpath(*parts))])
     monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: _custom_policy(default="allow", blocked=["local:search_engine"]))
     monkeypatch.setattr(mcp_handler.MCPConfig, "get_for_agent", lambda _agent: _NoMCPTools())
     catalog = tool_policy.get_tool_catalog(_Agent(root / "prompts"))
     legacy = next(item for item in catalog if item["id"] == "local:search_engine")
-    assert legacy["available"] is True
+    assert legacy["available"] is False
     assert legacy["name"] == "search_engine"
 
 
