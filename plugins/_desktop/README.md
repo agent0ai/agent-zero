@@ -13,10 +13,16 @@ prints restart guidance. For the A0-managed instance, restart with:
 tuxee restart --state /a0/usr/plugins/_desktop/tuxee
 ```
 
-Adjust `/a0` to the checkout path for other installations. Reconnection may
-require Linux login again; managed Docker instances with `ROOT_PASSWORD` renew
-their automatic login on reload. Tuxee preserves its retained terminals and
-staged editor drafts across its normal restart.
+Adjust `/a0` to the checkout path for other installations.
+
+Managed Docker instances sign in automatically using the root password generated
+at startup, or an explicitly configured `ROOT_PASSWORD`; no environment variables
+are required. Closing and reopening a Desktop tab, canvas or window reloads it
+and renews login, including after an explicit logout. While the view stays open,
+logging out leaves the Linux login form available for switching users. A valid
+manual Linux session is preserved on reopening. Other installations use normal
+Linux login. Tuxee preserves its retained terminals and staged editor drafts
+across its normal restart.
 
 `build/version.txt` sets the minimum supported official release. Image builds
 and source-only setup select the latest official stable release at or above

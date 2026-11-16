@@ -98,6 +98,8 @@ class TuxeeGateway(VirtualDesktopGateway):
                 await PlainTextResponse('Desktop authentication or origin check failed', status_code=403)(scope, receive, send)
             return
         path = self.relative_path(scope)
+        page = not websocket and scope['method'] == 'GET' and path in {'/', '/index.html'}
+        opening = page and self.query(scope).get('a0_open') == ['1']
         try:
             port = await asyncio.to_thread(runtime.start)
             query = scope.get('query_string', b'').decode('latin-1')
@@ -107,16 +109,29 @@ class TuxeeGateway(VirtualDesktopGateway):
                                              cookie_jar=aiohttp.DummyCookieJar()) as session:
                 upstream_headers = self.upstream_headers(scope)
                 cookies = HTTPConnection(scope).cookies
-                manual = MANUAL_COOKIE in cookies or any(name.startswith('tuxee_session_') for name in cookies)
+                manual = MANUAL_COOKIE in cookies and not opening
                 auto_cookie = ''
                 if not manual and framework_runtime.is_dockerized():
                     password = dotenv.get_dotenv_value(dotenv.KEY_ROOT_PASSWORD)
-                    if password:
-                        if not websocket and scope['method'] == 'GET' and path in {'/', '/index.html'}:
+                    if page and any(name.startswith('tuxee_session_') for name in cookies):
+                        # An expired browser cookie must not disable background login.
+                        async with session.get(f'http://127.0.0.1:{port}/api/connection',
+                                               headers=upstream_headers, allow_redirects=False,
+                                               timeout=aiohttp.ClientTimeout(total=20)) as response:
+                            state = await response.json() if response.status == 200 else None
+                            manual = isinstance(state, dict) and state.get('authenticated') is True
+                    if not manual:
+                        if page and password:
                             await self.auto_login(session, port, password)
                         if self._login_port == port:
                             auto_cookie = self._login_cookie
-                            upstream_headers['cookie'] = '; '.join(filter(None, [upstream_headers['cookie'], auto_cookie]))
+                        if page and not auto_cookie:
+                            await PlainTextResponse('Desktop automatic login is unavailable. Close and reopen Desktop to retry.',
+                                                    status_code=503, headers={'Retry-After': '60', 'Cache-Control': 'no-store'})(scope, receive, send)
+                            return
+                        upstream_headers['cookie'] = '; '.join(filter(None, [
+                            '; '.join(f'{name}={cookie.coded_value}' for name, cookie in SimpleCookie(cookies).items()
+                                      if name.startswith('tuxee_language_')), auto_cookie]))
                 if websocket:
                     await self.proxy_socket(session, url, scope, receive, send, upstream_headers)
                 else:
@@ -140,17 +155,19 @@ class TuxeeGateway(VirtualDesktopGateway):
                             elif name == 'location' and value.startswith('/'):
                                 value = PREFIX + value
                             headers.append((name.encode('latin-1'), value.encode('latin-1')))
-                        if scope['method'] == 'POST' and response.status == 200 and path in {'/api/login', '/api/logout'}:
-                            if auto_cookie and self._login_cookie == auto_cookie:
-                                self._login_cookie = ''
-                            if path == '/api/logout':
-                                # Explicit logout keeps this browser on the normal login page.
-                                cookie = SimpleCookie({MANUAL_COOKIE: '1'})
-                                cookie[MANUAL_COOKIE]['path'] = PREFIX + '/'
-                                cookie[MANUAL_COOKIE]['httponly'] = True
-                                cookie[MANUAL_COOKIE]['samesite'] = 'Strict'
-                                cookie[MANUAL_COOKIE]['secure'] = upstream_headers['x-forwarded-proto'] == 'https'
-                                headers.append((b'set-cookie', cookie.output(header='').strip().encode('latin-1')))
+                        auth_change = scope['method'] == 'POST' and response.status == 200 and path in {'/api/login', '/api/logout'}
+                        if auth_change and auto_cookie and self._login_cookie == auto_cookie:
+                            self._login_cookie = ''
+                        if opening or (page and manual) or auth_change:
+                            # Logout survives Tuxee's own reload, but not a new Desktop opening.
+                            cookie = SimpleCookie({MANUAL_COOKIE: '1' if manual or auth_change else ''})
+                            cookie[MANUAL_COOKIE]['path'] = PREFIX + '/'
+                            cookie[MANUAL_COOKIE]['httponly'] = True
+                            cookie[MANUAL_COOKIE]['samesite'] = 'Strict'
+                            cookie[MANUAL_COOKIE]['secure'] = upstream_headers['x-forwarded-proto'] == 'https'
+                            if not manual and not auth_change:
+                                cookie[MANUAL_COOKIE]['max-age'] = 0
+                            headers.append((b'set-cookie', cookie.output(header='').strip().encode('latin-1')))
                         await send({'type': 'http.response.start', 'status': response.status, 'headers': headers})
                         async for chunk in response.content.iter_chunked(64 * 1024):
                             await send({'type': 'http.response.body', 'body': chunk, 'more_body': True})

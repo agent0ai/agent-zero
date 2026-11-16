@@ -198,10 +198,8 @@ async def test_auto_login_keeps_credentials_server_side_and_preserves_csrf(auto_
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize('dockerized,password', [(False, 'fixture-root-password'), (True, '')])
-async def test_auto_login_requires_container_and_root_password(auto_proxy, monkeypatch, dockerized, password):
-    monkeypatch.setattr(gateway.framework_runtime, 'is_dockerized', lambda: dockerized)
-    monkeypatch.setenv('ROOT_PASSWORD', password)
+async def test_auto_login_requires_container(auto_proxy, monkeypatch):
+    monkeypatch.setattr(gateway.framework_runtime, 'is_dockerized', lambda: False)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test') as client:
         result = await client.get('/desktop/tuxee/', headers={'cookie': auto_proxy.cookie})
     assert result.text == 'login' and not auto_proxy.logins
@@ -209,12 +207,13 @@ async def test_auto_login_requires_container_and_root_password(auto_proxy, monke
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('status,issue_cookie', [(401, True), (500, True), (307, True), (200, False)])
-async def test_failed_auto_login_falls_back_and_bounds_retries(auto_proxy, status, issue_cookie):
+async def test_failed_auto_login_reports_unavailable_and_bounds_retries(auto_proxy, status, issue_cookie):
     auto_proxy.login_status, auto_proxy.issue_cookie = status, issue_cookie
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test') as client:
         for _ in range(2):
             result = await client.get('/desktop/tuxee/', headers={'cookie': auto_proxy.cookie})
-            assert result.status_code == 200 and result.text == 'login'
+            assert result.status_code == 503 and 'automatic login is unavailable' in result.text
+            assert result.headers['retry-after'] == '60'
         assert len(auto_proxy.logins) == 1
         auto_proxy.login_status, auto_proxy.issue_cookie, auto_proxy.now = 200, True, 161
         assert (await client.get('/desktop/tuxee/', headers={'cookie': auto_proxy.cookie})).text == 'desktop'
@@ -223,13 +222,13 @@ async def test_failed_auto_login_falls_back_and_bounds_retries(auto_proxy, statu
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('error', [TimeoutError, aiohttp.ClientConnectionError])
-async def test_auto_login_transport_failure_shows_normal_login(auto_proxy, monkeypatch, error):
+async def test_auto_login_transport_failure_does_not_show_linux_login(auto_proxy, monkeypatch, error):
     def failed_login(*args, **kwargs):
         raise error('fixture login failure')
     monkeypatch.setattr(aiohttp.ClientSession, 'post', failed_login)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test') as client:
         result = await client.get('/desktop/tuxee/', headers={'cookie': auto_proxy.cookie})
-    assert result.status_code == 200 and result.text == 'login'
+    assert result.status_code == 503 and 'automatic login is unavailable' in result.text
 
 
 @pytest.mark.anyio
@@ -249,6 +248,7 @@ async def test_auto_login_respects_existing_a0_access_policy(auto_proxy, monkeyp
         for headers in ({}, {'cookie': auto_proxy.cookie, 'origin': 'https://evil.test'},
                         {'cookie': auto_proxy.cookie, 'sec-fetch-site': 'cross-site'}):
             assert (await client.get('/desktop/tuxee/', headers=headers)).status_code == 403
+            assert (await client.get('/desktop/tuxee/?a0_open=1', headers=headers)).status_code == 403
         assert not auto_proxy.captured
         monkeypatch.setattr(login, 'get_credentials_hash', lambda: None)
         assert (await client.get('/desktop/tuxee/')).text == 'desktop'
@@ -281,9 +281,10 @@ async def test_manual_cookie_takes_precedence_over_shared_auto_session(auto_prox
     auto_proxy.sessions['manual'] = {'uid': 1000, 'csrf': 'manual-csrf'}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test') as client:
         assert (await client.get('/desktop/tuxee/', headers={'cookie': auto_proxy.cookie})).text == 'desktop'
-        headers = {'cookie': auto_proxy.cookie + '; tuxee_session_fixture=manual'}
-        assert (await client.get('/desktop/tuxee/', headers=headers)).text == 'desktop'
-        assert (await client.get('/desktop/tuxee/api/me', headers=headers)).json()['uid'] == 1000
+        client.cookies.set('session', auto_proxy.cookie.partition('=')[2])
+        client.cookies.set('tuxee_session_fixture', 'manual')
+        assert (await client.get('/desktop/tuxee/')).text == 'desktop'
+        assert (await client.get('/desktop/tuxee/api/me')).json()['uid'] == 1000
         assert len(auto_proxy.logins) == 1
 
 
@@ -299,3 +300,56 @@ async def test_auto_login_cookie_authenticates_websockets(auto_proxy):
                 assert ws.receive_text() == 'TERMINAL INPUT'
     await asyncio.to_thread(exercise)
     assert auto_proxy.captured[-1]['Cookie'] == 'tuxee_session_fixture=login-1'
+
+
+@pytest.mark.anyio
+async def test_missing_managed_password_reports_unavailable(auto_proxy, monkeypatch):
+    monkeypatch.delenv('ROOT_PASSWORD')
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test') as client:
+        response = await client.get('/desktop/tuxee/?a0_open=1', headers={'cookie': auto_proxy.cookie})
+        assert response.status_code == 503
+        assert not auto_proxy.logins
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('stale_cookie', ['tuxee_session_fixture=expired', 'tuxee_session_old_instance=expired'])
+async def test_stale_browser_sessions_cannot_block_auto_login(auto_proxy, stale_cookie):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test') as client:
+        headers = {'cookie': auto_proxy.cookie + '; ' + stale_cookie + '; tuxee_language_fixture=en'}
+        assert (await client.get('/desktop/tuxee/', headers=headers)).text == 'desktop'
+        assert (await client.get('/desktop/tuxee/api/me', headers=headers)).json()['uid'] == 0
+        assert auto_proxy.captured[-1]['Cookie'] == 'tuxee_language_fixture=en; tuxee_session_fixture=login-1'
+        assert len(auto_proxy.logins) == 1
+
+
+@pytest.mark.anyio
+async def test_reopening_clears_logout_marker_and_reauthenticates(auto_proxy):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test',
+                                cookies={'session': auto_proxy.cookie.partition('=')[2]},
+                                headers={'origin': 'https://a0.test'}) as client:
+        for index in range(1, 4):
+            assert (await client.get('/desktop/tuxee/?a0_open=1')).text == 'desktop'
+            assert gateway.MANUAL_COOKIE not in client.cookies
+            state = (await client.get('/desktop/tuxee/api/me')).json()
+            assert state['uid'] == 0
+            assert (await client.post('/desktop/tuxee/api/logout', headers={'x-tuxee-csrf': state['csrf']})).status_code == 200
+            for _ in range(2):
+                assert (await client.get('/desktop/tuxee/')).text == 'login'
+                assert (await client.get('/desktop/tuxee/api/connection')).json()['authenticated'] is False
+            assert len(auto_proxy.logins) == index
+
+
+@pytest.mark.anyio
+async def test_reopen_preserves_valid_manual_login_and_recovers_after_expiry(auto_proxy):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=auto_proxy.app), base_url='https://a0.test',
+                                cookies={'session': auto_proxy.cookie.partition('=')[2]},
+                                headers={'origin': 'https://a0.test'}) as client:
+        await client.post('/desktop/tuxee/api/login', headers={'x-tuxee-client': 'web'},
+                          json={'username': 'manual', 'password': 'manual-password'})
+        assert (await client.get('/desktop/tuxee/?a0_open=1')).text == 'desktop'
+        assert (await client.get('/desktop/tuxee/api/me')).json()['uid'] == 1000
+        assert len(auto_proxy.logins) == 1
+        auto_proxy.sessions.clear()
+        assert (await client.get('/desktop/tuxee/?a0_open=1')).text == 'desktop'
+        assert (await client.get('/desktop/tuxee/api/me')).json()['uid'] == 0
+        assert len(auto_proxy.logins) == 2

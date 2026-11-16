@@ -7,7 +7,7 @@
   }"
   :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('desktop')).toString()"
   x-effect="(() => {
-    const visible = Boolean($store.rightCanvas?.isSurfaceRendered('desktop'));
+    const visible = Boolean($store.rightCanvas?.isSurfaceVisible('desktop'));
     (globalThis.queueMicrotask || ((callback) => globalThis.setTimeout(callback, 0)))(() => $store.desktop?.setDesktopHostVisible?.(visible));
   })()"
 >

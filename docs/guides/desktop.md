@@ -11,8 +11,11 @@ with terminals, files, text editors and graphical applications.
 3. Use **Open as window** for more room. Docking keeps the same live workspace.
 
 In managed Docker installations, Agent Zero signs in automatically using the
-configured root password. Other installations show Tuxee's normal Linux login.
-Logging out lets you sign in as another Linux user.
+root password generated at startup; no username, password or environment variables
+need to be supplied. Logging out leaves the login screen available for switching
+Linux users while that view stays open. Closing and reopening the Desktop tab,
+canvas or window reloads it and signs in again. An existing valid manual login
+is preserved. Other installations show Tuxee's normal Linux login.
 
 Use Desktop to work in terminals, browse or edit files, and open installed
 Linux GUI applications. Agent Zero can use its Linux Desktop skill to interact

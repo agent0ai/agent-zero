@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 
 let frame, activeHost, canvasHost, modalHost, pending;
+let needsReload = false, handingOff = false;
 function park() {
   let node = document.getElementById("tuxee-keepalive");
   if (!node) {
@@ -32,8 +33,18 @@ export const store = createStore("desktop", {
     }
   },
   async onOpen() {
-    if (frame) { move(activeHost); return; }
+    if (frame) {
+      if (needsReload) {
+        this.loading = true;
+        frame.style.visibility = "hidden";
+        frame.src = frame.src;
+      }
+      needsReload = false;
+      move(activeHost);
+      return;
+    }
     if (pending) return pending;
+    needsReload = false;
     this.loading = true;
     pending = (async () => {
       try {
@@ -41,15 +52,17 @@ export const store = createStore("desktop", {
         if (!result.ok) throw new Error(result.error || "Desktop could not start");
         frame = document.createElement("iframe");
         frame.setAttribute("aria-label", "Tuxee Desktop");
-        frame.src = result.url;
+        frame.src = result.url + "?a0_open=1";
         frame.allow = "clipboard-read; clipboard-write; fullscreen";
         frame.style.cssText = "width:100%;height:100%;border:0;display:block";
+        frame.style.visibility = "hidden";
+        frame.onload = () => { this.loading = false; frame.style.visibility = ""; };
         move(activeHost?.isConnected ? activeHost : park());
         this.ready = true;
       } catch (error) {
         globalThis.toastFrontendError?.(error.message || "Desktop could not start", "Desktop");
       } finally {
-        this.loading = false;
+        if (!frame) this.loading = false;
         pending = null;
       }
     })();
@@ -59,16 +72,21 @@ export const store = createStore("desktop", {
     const host = panel.querySelector("[data-tuxee-host]");
     if (host === modalHost) modalHost = null;
     if (host === canvasHost) canvasHost = null;
-    if (host === activeHost) { activeHost = null; move(park()); }
+    if (host === activeHost) { this.beforeHostHidden(); activeHost = null; }
   },
   setDesktopHostVisible(visible) {
     if (visible && !modalHost?.isConnected && canvasHost?.isConnected) {
       activeHost = canvasHost;
       move(activeHost);
+    } else if (!visible && activeHost === canvasHost && !modalHost?.isConnected) {
+      this.beforeHostHidden();
     }
   },
-  beforeDesktopHostHandoff() { move(park()); },
-  afterDesktopHostShown() { move(activeHost); },
-  cancelDesktopHostHandoff() { move(activeHost); },
-  beforeHostHidden() { move(park()); },
+  beforeDesktopHostHandoff() { handingOff = true; move(park()); },
+  afterDesktopHostShown() { handingOff = false; move(activeHost); },
+  cancelDesktopHostHandoff() { handingOff = false; move(activeHost); },
+  beforeHostHidden() {
+    if (!handingOff) needsReload = true;
+    move(park());
+  },
 });
