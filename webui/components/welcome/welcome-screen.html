@@ -101,6 +101,11 @@
                                 </div>
                             </header>
                             <div class="welcome-actions">
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('desktop')">
+                                    <x-icon class="welcome-action-icon" name="tuxee"></x-icon>
+                                    <span class="welcome-action-title">Desktop</span>
+                                    <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
+                                </button>
                                 <x-extension id="welcome-actions-start"></x-extension>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
                                     <x-icon class="welcome-action-icon" name="folder"></x-icon>

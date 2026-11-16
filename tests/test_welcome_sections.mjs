@@ -15,6 +15,17 @@ function loadStore(path, context) {
   return vm.runInNewContext(`${source}\nstore`, context);
 }
 
+test('Desktop quick action opens the shared desktop surface', async () => {
+  const opened = [];
+  const store = loadStore('../webui/components/welcome/welcome-store.js', {
+    mountLayout() {},
+    createStore: (_name, value) => value,
+    openSurface: async id => { opened.push(id); return true; },
+  });
+  assert.equal(await store.executeAction('desktop'), true);
+  assert.deepEqual(opened, ['desktop']);
+});
+
 for (const [panel, property, toggle] of [
   ['Quick Actions', 'quickActionsWide', 'toggleQuickActionsWidth'],
   ['System Resources', 'systemWide', 'toggleSystemWidth'],
