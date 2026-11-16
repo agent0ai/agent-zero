@@ -27,6 +27,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem writes, network calls, WebSocket state, settings/state persistence, secret handling, scheduler state.
+- Connections send authentication headers only when a caller explicitly supplies `token`; the ambient `A2A_TOKEN` environment variable is never attached automatically to a model-selected URL. Agent Zero peers can instead use the token-bearing `/a2a/t-<token>` connection URL already provided in Settings.
 - Imported dependency areas include: `helpers.print_style`, `typing`, `uuid`.
 
 ## Key Concepts
