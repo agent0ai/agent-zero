@@ -153,7 +153,8 @@ def notify(summary):
     if not found and not freed:
         return
     action = (f'<div class="toast-action-row"><button type="button" class="button confirm" '
-              f'@click.stop="ensureModalOpen(\'/plugins/{NAME}/webui/main.html\')">Clean up</button></div>') if found else ''
+              f'@click.stop="ensureModalOpen(\'/plugins/{NAME}/webui/main.html\'); '
+              '$store.notificationStore.dismissToast(toast.toastId)">Clean up</button></div>') if found else ''
     NotificationManager.send_notification(
         type=NotificationType.INFO if found else NotificationType.SUCCESS,
         priority=NotificationPriority.NORMAL, title=f'A0 found {format_bytes(found)} of unused files' if found else f'A0 cleaned {format_bytes(freed)}',

@@ -35,6 +35,7 @@ def test_notification_opens_review_instead_of_deleting(monkeypatch):
     assert 'A0 found 1.0 GB' in calls[0]['title']
     assert 'Clean up' in calls[0]['message']
     assert '/plugins/_a0_cleaner/webui/main.html' in calls[0]['message']
+    assert '$store.notificationStore.dismissToast(toast.toastId)' in calls[0]['message']
     assert 'confirmed' not in calls[0]['message']
 
 

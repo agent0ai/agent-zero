@@ -23,7 +23,7 @@
 - The normal scheduler owns cadence/state/results through the `plugin_name` hook contract. Default Monday 09:00 in the configured timezone. Register once, preserve edited/disabled schedules and respect task deletion. Never create a model chat for housekeeping.
 - Custom rules accept only proper subfolders of A0 workdir/projects/downloads/uploads/tmp, with no symlink ancestors, overlapping rules, protected metadata or overlapping managed roots.
 - Report allocated file-byte estimates, not guaranteed host block recovery from immutable container image layers. No chat contents or process command lines belong in reports or notifications.
-- Use native A0 notifications and an action opening the cleaner; toast clicks must never authorize deletion directly.
+- Use native A0 notifications. The Clean up action opens the cleaner and dismisses its notification as read; toast clicks must never authorize deletion directly.
 - Open the cleaner through plugin settings or its notification action; do not add a sidebar dropdown entry.
 
 ## Work Guidance
