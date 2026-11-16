@@ -27,6 +27,7 @@ def run_store_check(checks: str) -> None:
     source = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
     source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
     source = source.replace('export const store = createStore', 'const store = createStore').replace('export function createFileBrowserView', 'function createFileBrowserView')
+    source = source.replace('await import("/components/canvas/right-canvas-store.js")', '({store: globalThis.canvas})')
     preamble = '''
 import assert from 'node:assert/strict';
 const window = globalThis;
@@ -39,7 +40,8 @@ const document = Object.assign(new EventTarget(), { querySelector: () => surface
 const requestAnimationFrame = callback => callback();
 const callJsonApi = async () => ({settings: {}});
 const formatDateTime = () => '';
-const openLatestSurface = async () => {};
+const openSurface = async () => {};
+const selectSurface = openSurface;
 const setupFloatingSurfaceModalChrome = () => () => {};
 const settle = () => new Promise(setImmediate);
 const listing = (path, entries = []) => ({ok:true, json:async () => ({data:{current_path:path, entries}})});
@@ -54,63 +56,129 @@ window.openModal = (path, guard) => { modalCalls++; activeModal = path; modalGua
 window.ensureModalOpen = async path => { if (!modals.has(path)) return window.openModal(path); activeModal = path; return null; };
 window.closeModal = path => { modals.get(path)?.(); modals.delete(path); document.dispatchEvent(new CustomEvent('modal-closed', {detail:{modalPath:path}})); };
 window.toastFrontendError = () => {};
+let workspaceClosed;
+globalThis.canvas = {
+  isOpen:false, isDetached:false, activeSurfaceId:'',
+  async openModalSurface(id, payload) {
+    this.isOpen = false; this.isDetached = true;
+    return this.open(id, payload);
+  },
+  async open(id, payload) {
+    if (!this.isOpen && !this.isDetached) this.isDetached = true;
+    this.activeSurfaceId = id;
+    if (!workspaceClosed) workspaceClosed = window.openModal('canvas/canvas-modal.html');
+    activeModal = 'canvas/canvas-modal.html';
+    if (id === 'files' && payload) await store.openSurface(payload.path, payload.options);
+    return true;
+  },
+  whenClosed: () => workspaceClosed,
+  close() {
+    if (store.isBulkBusy || store.isRenaming) return false;
+    this.isOpen = this.isDetached = false;
+    window.closeModal('canvas/canvas-modal.html');
+    workspaceClosed = null;
+    return true;
+  },
+};
 '''
     subprocess.run(['node', '--input-type=module'], input=preamble + source + checks,
                    text=True, check=True, timeout=15)
 
 
-def test_picker_modal_visibility_and_inline_new_file():
+def test_shared_picker_returns_to_editor_and_preserves_workspace_close_waiters():
     run_store_check('''
-const modal = 'modals/file-browser/file-browser.html';
-for (const host of [null, {hidden:true, closest:() => null}, {hidden:false, closest:() => null}]) {
-  surface = host;
-  store.browser.currentPath = '/original';
-  let closed = false;
-  const request = store.openSaveAsPicker('/target', {filename:'draft.txt'}).then(() => closed = true);
-  await settle();
-  assert.equal(modals.has(modal), true, 'external picker is visible regardless of canvas state');
-  assert.equal(closed, false, 'open waits for close');
-  assert.equal(store.pickerFilename, 'draft.txt');
-  await store.cancelPicker();
-  await request;
-  assert.equal(store.pickerMode, '');
-  assert.equal(store.browser.currentPath, host ? '/original' : '');
-}
-surface = null;
-const request = store.open('/a');
+const modal = 'canvas/canvas-modal.html';
+store.browser.currentPath = '/original';
+let closed = false;
+const request = store.open('/original').then(() => closed = true);
 await settle();
 const count = modalCalls;
-activeModal = 'editor';
-let reusedClosed = false;
-const reused = store.openTextPicker('/b').then(() => reusedClosed = true);
+await canvas.open('editor');
+const picker = store.openTextPicker('/target');
 await settle();
-assert.equal(modalCalls, count, 'reuse existing modal');
-assert.equal(activeModal, modal, 'activate Files parked behind Editor');
-assert.equal(reusedClosed, false, 'reuse preserves await-close contract');
-store.beginSurfaceHandoff();
-await store.openSurface('/b');
-assert.equal(store.pickerMode, 'text-open', 'docking preserves picker state');
-store.cancelSurfaceHandoff();
+assert.equal(modals.has(modal), true);
+assert.equal(modalCalls, count, 'picker reuses workspace');
+assert.equal(canvas.activeSurfaceId, 'files');
+assert.equal(store.pickerMode, 'text-open');
 await store.cancelPicker();
-await Promise.all([request, reused]);
-void window.openModal(modal);
-activeModal = 'editor';
-let genericClosed = false;
-const generic = store.openSaveAsPicker('/generic', {filename:'draft.txt'}).then(() => genericClosed = true);
+await picker;
+assert.equal(canvas.activeSurfaceId, 'editor');
+assert.equal(store.browser.currentPath, '/original');
+assert.equal(store.pickerMode, '');
+assert.equal(closed, false, 'picker cancellation does not finish workspace waiters');
+canvas.isOpen = true; canvas.isDetached = false;
+const dockedPicker = store.openTextPicker('/target');
 await settle();
-assert.equal(activeModal, modal, 'activate a parked Files modal opened by surface controls');
-assert.equal(genericClosed, false, 'surface-opened modal still awaits close');
+assert.equal(canvas.isOpen, true, 'internal picker preserves sidebar mode');
+store.isBulkBusy = true;
+assert.equal(canvas.close(), false);
 await store.cancelPicker();
-await generic;
-store.browser.currentPath = '/a';
+assert.equal(store.pickerMode, 'text-open', 'pending writes block cancellation');
+store.isBulkBusy = false;
+await store.cancelPicker();
+await dockedPicker;
+assert.equal(closed, false, 'attaching does not finish workspace waiters');
+await canvas.close();
+await request;
+assert.equal(closed, true);
+assert.equal(store.browser.currentPath, '/original', 'closing retains files');
+
 store.history = ['/'];
 await store.openNewFile();
-assert.equal(modalCalls, count + 1, 'New file configures current footer');
+assert.equal(modalCalls, count, 'inline creation uses existing footer');
 assert.equal(store.pickerMode, 'save-as');
-assert.deepEqual(store.history, ['/'], 'inline New file preserves navigation');
+assert.deepEqual(store.history, ['/']);
 await store.cancelPicker();
 assert.equal(store.pickerMode, '');
-assert.equal(store.browser.currentPath, '/a');
+assert.equal(store.browser.currentPath, '/original');
+''')
+
+
+def test_explicit_navigation_replaces_picker_without_restoring_old_path():
+    run_store_check('''
+store.browser.currentPath = '/original';
+const first = store.openTextPicker('/pick');
+await settle();
+const second = store.openTextPicker('/new');
+await settle();
+await first;
+assert.equal(store.browser.currentPath, '/new');
+assert.equal(store.pickerMode, 'text-open');
+assert.equal(store.isPickerModal, true);
+await store.openSurface('/external');
+await second;
+assert.equal(store.browser.currentPath, '/external');
+assert.equal(store.pickerMode, '');
+assert.equal(store.isPickerModal, false);
+await canvas.close();
+''')
+
+
+def test_save_as_uses_its_own_guarded_modal_without_changing_workspace():
+    run_store_check('''
+await canvas.open('editor');
+store.browser.currentPath = '/original';
+const request = store.openSaveAsPicker('/target', {filename:'draft.txt'});
+await settle();
+const picker = createFileBrowserView('fileBrowserSaveAs');
+const path = 'modals/file-browser/save-as-modal.html';
+assert.equal(modals.has(path), true);
+assert.equal(canvas.activeSurfaceId, 'editor');
+assert.equal(store.browser.currentPath, '/original');
+assert.equal(store.pickerMode, '');
+assert.equal(picker.pickerFilename, 'draft.txt');
+assert.equal(picker.browser.currentPath, '/target');
+picker.isBulkBusy = true;
+assert.equal(modalGuards.get(path)(), false);
+await picker.cancelPicker();
+assert.equal(modals.has(path), true);
+picker.isBulkBusy = false;
+await picker.cancelPicker();
+await request;
+assert.equal(modals.has(path), false);
+assert.equal(canvas.activeSurfaceId, 'editor');
+assert.equal(store.browser.currentPath, '/original');
+await canvas.close();
 ''')
 
 
@@ -470,7 +538,6 @@ def test_file_browser_dropdown_escapes_scroll_container_and_header_is_opaque() -
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
 
     assert '@scroll="fb.closeDropdown(); closeMenu()"' in html
-    assert 'const surfaceActive = Boolean(document.querySelector(".file-browser-root.is-surface"));' in store
     assert 'await this.openSurface(retainedPath);' in store
     assert 'overflow: auto;' in html
     assert 'x-teleport="body"' in html
@@ -509,7 +576,7 @@ def test_file_browser_is_registered_as_right_canvas_surface() -> None:
     assert 'id: "files"' in surfaces
     assert 'title: "Files"' in surfaces
     assert 'modalPath: "modals/file-browser/file-browser.html"' in surfaces
-    assert 'await store.openSurface(payload.path || payload.filePath || payload.directory || "")' in surfaces
+    assert 'await store.openSurface(payload.path || payload.filePath || payload.directory || "", payload.options)' in surfaces
     assert 'data-surface-id="files"' in html
     assert 'data-surface-modal-path="modals/file-browser/file-browser.html"' in html
     assert 'class="surface-modal file-browser-modal modal-no-backdrop"' in html

@@ -22,7 +22,8 @@ function setup() {
   const source = readFileSync(new URL('../webui/components/modals/file-browser/file-browser-store.js', import.meta.url), 'utf8')
     .replace(/^import\b[\s\S]*?;\n/gm, '')
     .replace(/export (const|function) /g, '$1 ')
-    .replace('await import("/plugins/_editor/webui/editor-store.js")', '({ store: editor })');
+    .replace('await import("/plugins/_editor/webui/editor-store.js")', '({ store: editor })')
+    .replaceAll('await import("/components/canvas/right-canvas-store.js")', '({ store: globalThis.canvas })');
   const context = vm.createContext({
     console, URL, setTimeout, clearTimeout, CustomEvent, FormData, File,
     requestAnimationFrame: callback => callback(), document, editor,
@@ -38,13 +39,31 @@ function setup() {
     callJsonApi: async () => ({ settings: { file_browser_remember_last_directory: true } }),
     formatDateTime: value => value,
     setupFloatingSurfaceModalChrome: () => { calls.push('floating'); return () => calls.push('cleanup'); },
-    openLatestSurface: async (target, payload) => calls.push([target, payload?.path]),
+    openSurface: async (target, payload) => calls.push([target, payload?.path]),
+    selectSurface: async (target, payload) => calls.push([target, payload?.path]),
     isModalOpen: () => modal,
     openModal: () => { modal = true; return new Promise(resolve => { closeModal = resolve; }); },
     ensureModalOpen: async () => {},
     closeModal: () => { calls.push('close'); modal = false; closeModal?.(); },
     toastFrontendError: message => calls.push(['error', message]),
   });
+  let closedPromise;
+  context.canvas = {
+    isOpen: false, isDetached: false, activeSurfaceId: '',
+    async openModalSurface(id, payload) {
+      this.isDetached = true; this.activeSurfaceId = id;
+      if (!modal) closedPromise = context.openModal();
+      await context.api.store.openSurface(payload.path, payload.options);
+      return true;
+    },
+    whenClosed: () => closedPromise,
+    async open(id, payload) {
+      this.activeSurfaceId = id;
+      if (payload) return await this.openModalSurface(id, payload);
+      return true;
+    },
+    close() { this.isDetached = false; context.closeModal(); },
+  };
   vm.runInContext('const window = globalThis;\n' + source + '\nglobalThis.api = { store, createFileBrowserView };', context);
   return { ...context.api, chats, storage, calls, context, listing,
     fetch: fn => { fetcher = fn; }, setModal: value => { modal = value; } };

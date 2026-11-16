@@ -53,6 +53,8 @@ const model = {
   _modalOpening: null,
   _resolveModalMount: null,
   _reattaching: false,
+  _closedPromise: null,
+  _resolveClosed: null,
   width: DEFAULT_WIDTH,
   railPosition: null,
   railHeight: 0,
@@ -167,7 +169,7 @@ const model = {
 
     const wasOpen = this.isOpen || this.isDetached || Boolean(this._modalOpening);
     let detached = this.isDetached || Boolean(this._modalOpening);
-    if (!this.isOpen && !detached) detached = targetId === "desktop";
+    if (!this.isOpen && !detached) detached = true;
     if (mode) detached = mode === SURFACE_MODE_FLOATING;
     if (this.isMobileMode || !this.shouldRender() || !this.isSurfaceEnabled(targetId)) detached = true;
     if (detached) {
@@ -254,7 +256,30 @@ const model = {
   },
 
   async openLatest(surfaceId = "", payload = {}) {
-    return await this.open(surfaceId, payload);
+    return await this.openModalSurface(surfaceId, payload);
+  },
+
+  async openFromRail(surfaceId) {
+    const mode = surfaceId === "desktop" && !this.isOpen ? SURFACE_MODE_FLOATING : SURFACE_MODE_DOCKED;
+    return await this.open(surfaceId, {}, mode);
+  },
+
+  whenClosed() {
+    if (!this.isOpen && !this.isDetached && !this._modalOpening) return Promise.resolve();
+    if (!this._closedPromise) {
+      this._closedPromise = new Promise(resolve => { this._resolveClosed = resolve; });
+    }
+    return this._closedPromise;
+  },
+
+  finishClose() {
+    this._resolveClosed?.();
+    this._resolveClosed = null;
+    this._closedPromise = null;
+  },
+
+  canClose() {
+    return this.mountedSurfaceIds().every(id => this.getSurface(id)?.canClose?.() !== false);
   },
 
   mountShell(element) {
@@ -294,11 +319,13 @@ const model = {
     this._modalOpening = new Promise(resolve => { resolveMounted = resolve; });
     this._resolveModalMount = resolveMounted;
     void globalThis.openModal(MODAL_PATH, () => {
+      if (!this._reattaching && !this.canClose()) return false;
       this.moveShell(this._shellParent);
       this.isDetached = false;
       this.isOpen = this._reattaching;
       this.persist();
       this.applyLayoutState();
+      if (!this._reattaching) this.finishClose();
       return true;
     }).finally(() => {
       resolveMounted(false);
@@ -312,6 +339,7 @@ const model = {
   },
 
   async close() {
+    if (!this.canClose()) return false;
     this._resizeCleanup?.();
     this._restoreOpenRequested = false;
     this.cancelRestoreOpenSurface();
@@ -321,6 +349,7 @@ const model = {
     this.isOpen = false;
     this.persist();
     this.applyLayoutState();
+    this.finishClose();
     return true;
   },
 

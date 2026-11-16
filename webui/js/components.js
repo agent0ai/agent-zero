@@ -7,6 +7,7 @@ const componentCache = {};
 
 // Lock map to prevent multiple simultaneous imports of the same component
 const importLocks = new Map();
+const loadedComponents = new WeakMap();
 
 export async function importComponent(path, targetElement) {
   // Create a unique key for this import based on the target element
@@ -179,6 +180,9 @@ export async function importComponent(path, targetElement) {
     // // Load any nested components
     // await loadComponents([targetElement]);
 
+    // Automatic discovery must not reload retained components when their parent moves.
+    loadedComponents.set(targetElement, path);
+
     // Return parsed document
     return doc;
   } catch (error) {
@@ -210,7 +214,7 @@ export async function loadComponents(roots = [document.documentElement]) {
           console.error("x-component missing path attribute:", component);
           return;
         }
-        await importComponent(path, component);
+        if (loadedComponents.get(component) !== path) await importComponent(path, component);
       })
     );
   } catch (error) {
@@ -258,7 +262,8 @@ const observer = new MutationObserver((mutations) => {
         // ELEMENT_NODE
         // Check if this node or its descendants contain x-component(s)
         if (node.matches?.("x-component")) {
-          importComponent(node.getAttribute("path"), node);
+          const path = node.getAttribute("path");
+          if (loadedComponents.get(node) !== path) importComponent(path, node);
         } else if (node.querySelectorAll) {
           loadComponents([node]);
         }

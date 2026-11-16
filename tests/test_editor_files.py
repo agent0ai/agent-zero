@@ -21,7 +21,8 @@ const createFileTree = () => ({});
 const getNamespacedClient = () => ({ addHandlers() {} });
 const registerUrlHandler = () => {};
 const opened = [];
-const openLatestSurface = async (...args) => opened.push(args);
+const openSurface = async (...args) => opened.push(args);
+const selectSurface = openSurface;
 const fileBrowserStore = (() => {
 ''' + browser + r'''
 return store;

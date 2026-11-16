@@ -3,11 +3,12 @@ import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
-  openLatest as openLatestSurface,
+  open as openSurface,
+  select as selectSurface,
   setupFloatingSurfaceModalChrome,
 } from "/js/surfaces.js";
 
-const FILE_BROWSER_MODAL_PATH = "modals/file-browser/file-browser.html";
+const SAVE_AS_MODAL_PATH = "modals/file-browser/save-as-modal.html";
 const FILE_BROWSER_LAST_DIRECTORY_STORAGE_KEY = "fileBrowser.lastDirectory";
 const DEFAULT_REMEMBER_LAST_DIRECTORY = true;
 const PICKER_MODE_NONE = "";
@@ -60,7 +61,7 @@ function delay(ms) {
 
 const views = new Map();
 const configuration = createStore("fileBrowserConfiguration", {
-  modalOwner: null, renameOwner: null, settingsOwner: null,
+  modalOwner: null, renameOwner: null,
 });
 const sharedFields = [
   "limits", "textLimitMib", "transferLimitMib", "extractLimitMib", "archiveEntries",
@@ -143,7 +144,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   history: [], // back navigation stack
   forwardHistory: [], // forward navigation stack
   initialPath: "", // Store path for open() call
-  closePromise: null,
+  _finishPicker: null,
   isSurfaceHandoff: false,
   surfaceHandoffPath: "",
   error: null,
@@ -275,12 +276,9 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     } catch (error) { globalThis.toastFrontendError?.(error.message, "File connections"); }
   },
   async openConnection(connection) {
-    const target = views.get(configuration.settingsOwner) || view;
     await window.closeModal("settings/settings.html");
     const path = "/@connections/" + connection.provider + "/" + connection.id;
-    return target._mountedElement?.getClientRects().length
-      ? target.navigateToFolder(path)
-      : openLatestSurface("files", { path, source: "file-browser-settings" });
+    return openSurface("files", { path, source: "file-browser-settings" });
   },
   async startDownload(files) {
     const result = await callJsonApi("/download_work_dir_files", {
@@ -358,13 +356,11 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async openSettings(providerId = "") {
-    configuration.settingsOwner = name;
     await this.loadSettings();
     this.connectionDraft = null;
     if (providerId) this.editConnection(null, providerId);
     const { store: settingsStore } = await import("/components/settings/settings-store.js");
-    try { return await settingsStore.open("file-browser"); }
-    finally { if (configuration.settingsOwner === name) configuration.settingsOwner = null; }
+    return await settingsStore.open("file-browser");
   },
 
   // --- Lifecycle -----------------------------------------------------------
@@ -378,10 +374,6 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   get isPickerModal() { return configuration.modalOwner === name; },
   get isRenameModal() { return configuration.renameOwner === name; },
-
-  ownsModal() {
-    return !this.embedded && Boolean(this._mountedElement?.closest?.(".file-browser-modal"));
-  },
 
   onMount(element = null, options = {}) {
     const mode = this.embedded ? "embedded" : options?.mode === "canvas" ? "canvas" : "modal";
@@ -420,56 +412,50 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   async open(path = "", options = {}) {
     if (this.embedded) return store.open(path || this.browser.currentPath, options);
     if (this.isLoading || this.isRenaming || this.isBulkBusy) return;
+    const { store: canvas } = await import("/components/canvas/right-canvas-store.js");
+    const retainedPath = this.browser.currentPath;
+    const returnSurface = options.pickerMode && (canvas.isOpen || canvas.isDetached) ? canvas.activeSurfaceId : "";
     if (options.pickerMode) configuration.modalOwner = name;
-    // Mounted canvas state survives an external picker, even when the panel is hidden.
-    const surfaceActive = Boolean(document.querySelector(".file-browser-root.is-surface"));
-    const retainedPath = surfaceActive ? this.browser.currentPath : "";
-    this.resetOpenState(options);
-
+    let finishPicker;
     try {
-      if (!window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
-        this.closePromise = window.openModal(FILE_BROWSER_MODAL_PATH, () => !this.isBulkBusy && !this.isRenaming && !store.current.isBulkBusy && !store.current.isRenaming);
-      } else {
-        if (!this.closePromise) {
-          // Surface controls can open the modal without going through this store.
-          this.closePromise = new Promise((resolve) => {
-            const closed = (event) => {
-              if (event.detail?.modalPath?.replace(/^\//, "") !== FILE_BROWSER_MODAL_PATH) return;
-              document.removeEventListener("modal-closed", closed);
-              resolve();
-            };
-            document.addEventListener("modal-closed", closed);
-          });
-        }
-        await window.ensureModalOpen(FILE_BROWSER_MODAL_PATH);
+      const opened = options.pickerMode
+        ? await canvas.open("files", { path, options })
+        : await canvas.openModalSurface("files", { path, options });
+      if (!opened) {
+        if (configuration.modalOwner === name) configuration.modalOwner = null;
+        return;
       }
-      const closePromise = this.closePromise;
-      await this.loadOpeningPath(path);
-
-      await closePromise;
-      if (this.closePromise !== closePromise) return;
-      this.closePromise = null;
-      if (!this.isSurfaceHandoff) {
-        if (surfaceActive) {
-          await this.openSurface(retainedPath);
-        } else {
-          this.destroy();
-        }
+      if (!options.pickerMode) return await canvas.whenClosed();
+      const picked = new Promise(resolve => { finishPicker = this._finishPicker = resolve; });
+      await Promise.race([canvas.whenClosed(), picked]);
+      // A new explicit navigation replaces the picker without restoring its old location.
+      if (this._finishPicker !== finishPicker) return;
+      this._finishPicker = null;
+      this.resetPickerState();
+      if (retainedPath) await this.openSurface(retainedPath);
+      if (configuration.modalOwner === name) configuration.modalOwner = null;
+      if (returnSurface && (canvas.isOpen || canvas.isDetached) && canvas.activeSurfaceId === "files") {
+        await canvas.open(returnSurface);
       }
-
     } catch (error) {
+      if (this._finishPicker === finishPicker) this._finishPicker = null;
+      if (configuration.modalOwner === name) configuration.modalOwner = null;
       console.error("File browser error:", error);
       this.error = error?.message || "Failed to load files";
       this.isLoading = false;
-    } finally {
-      if (configuration.modalOwner === name) configuration.modalOwner = null;
     }
   },
 
-  async openSurface(path = "") {
+  async openSurface(path = "", options = {}) {
     if (this.isLoading || this.isRenaming || this.isBulkBusy) return false;
     if (this.isSurfaceHandoff) return true;
-    this.resetOpenState();
+    if (this._finishPicker) {
+      this._finishPicker();
+      this._finishPicker = null;
+      if (configuration.modalOwner === name) configuration.modalOwner = null;
+    }
+    if (options.pickerMode) configuration.modalOwner = name;
+    this.resetOpenState(options);
 
     try {
       const retainedPath = this.normalizeOpeningPath(
@@ -487,10 +473,10 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     }
   },
 
-  handleClose() {
-    // Close the modal manually
+  async handleClose() {
     this.disposeScopedTooltips();
-    window.closeModal(FILE_BROWSER_MODAL_PATH);
+    const { store: canvas } = await import("/components/canvas/right-canvas-store.js");
+    return await canvas.close();
   },
 
   async openTextPicker(path = "", onConfirm = null) {
@@ -502,13 +488,27 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async openSaveAsPicker(path = "", options = {}) {
-    return await this.open(path, {
+    const picker = createFileBrowserView("fileBrowserSaveAs");
+    if (picker._finishPicker) {
+      void window.ensureModalOpen?.(SAVE_AS_MODAL_PATH);
+      return;
+    }
+    picker.resetOpenState({
       pickerMode: PICKER_MODE_SAVE_AS,
       confirmLabel: "Save Here",
       filename: options.filename || "Untitled.md",
       defaultExtension: options.defaultExtension || "",
       onConfirm: options.onConfirm,
     });
+    picker._finishPicker = () => window.closeModal(SAVE_AS_MODAL_PATH);
+    const closed = window.openModal(SAVE_AS_MODAL_PATH, () => !picker.isBulkBusy && !picker.isRenaming);
+    try {
+      await picker.loadOpeningPath(path);
+      await closed;
+    } finally {
+      picker._finishPicker = null;
+      picker.destroy();
+    }
   },
 
   destroy() {
@@ -523,7 +523,6 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     this.history = [];
     this.forwardHistory = [];
     this.initialPath = "";
-    this.closePromise = null;
     this.isSurfaceHandoff = false;
     this.surfaceHandoffPath = "";
     this.browser.currentPath = "";
@@ -1211,13 +1210,9 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async closeOrRestorePicker() {
-    if (!this.embedded && (this.ownsModal() || configuration.modalOwner === name)
-        && window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)) {
-      window.closeModal(FILE_BROWSER_MODAL_PATH);
-    } else {
-      // In-place picker over a live surface: restore the browser listing.
-      await this.restoreBrowserAfterInPlacePicker();
-    }
+    if (this.isBulkBusy || this.isRenaming) return;
+    if (this._finishPicker) await this._finishPicker();
+    else await this.restoreBrowserAfterInPlacePicker();
   },
 
   async restoreBrowserAfterInPlacePicker() {
@@ -1846,7 +1841,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
         const { store: editorStore } = await import("/plugins/_editor/webui/editor-store.js");
         const session = await editorStore.openSession({ action: "create", path, source: "file-browser" });
         if (!session) throw new Error(editorStore.error || "Could not create file.");
-        await openLatestSurface("editor", {});
+        await (this.embedded ? openSurface : selectSurface)("editor", {});
         return true;
       },
     });
@@ -2031,7 +2026,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       if (target === "browser") {
         const url = this.fileUrl(file);
         const { store: browserStore } = await import("/plugins/_browser/webui/browser-store.js");
-        await openLatestSurface("browser", { url, source: "file-browser" });
+        await (this.embedded ? openSurface : selectSurface)("browser", { url, source: "file-browser" });
 
         let opened = false;
         for (let attempt = 0; attempt < 40 && !opened; attempt += 1) {
@@ -2042,7 +2037,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
           throw new Error("Browser surface is unavailable.");
         }
       } else {
-        await openLatestSurface(target, { path, source: "file-browser" });
+        await (this.embedded ? openSurface : selectSurface)(target, { path, source: "file-browser" });
         if (target === "editor") {
           const { store: editorStore } = await import("/plugins/_editor/webui/editor-store.js");
           if (!this.storeHasPath(editorStore, path)) {
@@ -2056,7 +2051,6 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       }
 
       this.disposeScopedTooltips();
-      if (this.ownsModal()) await window.closeModal?.(FILE_BROWSER_MODAL_PATH);
     } catch (error) {
       window.toastFrontendError?.(
         error?.message || "Could not open file",
@@ -2201,15 +2195,7 @@ window.openFileLink = async function (path) {
       return;
     }
     if (resp.is_dir) {
-      // A live browser navigates in place instead of stacking a second window.
-      const { store: canvasStore } = await import("/components/canvas/right-canvas-store.js");
-      const hasLiveBrowser = window.isModalOpen?.(FILE_BROWSER_MODAL_PATH)
-        || (canvasStore.shouldRender?.() && canvasStore.isSurfaceVisible?.("files"));
-      if (hasLiveBrowser) {
-        await store.navigateToFolder(resp.abs_path);
-      } else {
-        await store.open(resp.abs_path);
-      }
+      await store.open(resp.abs_path);
     } else {
       store.downloadFile({ path: resp.abs_path, name: resp.file_name });
     }

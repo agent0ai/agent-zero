@@ -13,7 +13,7 @@
 - `extensions.js` owns frontend extension loading.
 - `components.js` owns `<x-component>` loading, component caching, module injection, nested component processing, and `globalThis.xAttrs`.
 - `modals.js` owns the stacked modal shell, `openModal`, `closeModal`, `scrollModal`, footer relocation, backdrop, and modal z-index behavior.
-- `surfaces.js` owns shared surface registration, routing to the unified canvas workspace, and reusable action rails/draggable/focus chrome for standalone workflow dialogs. Workspace tabs live only in the canvas shell; do not create or park one modal per tab.
+- `surfaces.js` owns shared surface registration, routing to the unified canvas workspace, and reusable action rails/draggable/focus chrome for standalone workflow dialogs. `open` and compatibility `openLatest` route external actions to the shared modal; `select` preserves the current host for navigation inside the workspace. Workspace tabs live only in the canvas shell; do not create or park one modal per tab.
 - Desktop's core and plugin registrations use the `tuxee` icon name; `surfaces.css` owns its theme-aware emblem mask.
 - `initFw.js` owns Alpine bootstrap and custom lifecycle directives such as `x-create`, `x-destroy`, and periodic `x-every-*` hooks.
 - `overflow.js` owns the reusable `x-overflow` directive for constrained flex rows. It observes layout and late plugin content, collapses trailing controls behind `more_horiz`, and opens their original panels without moving or reinitializing Alpine nodes.
@@ -58,6 +58,7 @@
 - HTML extension loading turns discovered HTML files into `<x-component>` tags; JavaScript extensions must export a default function.
 - `extensions.js` exposes `initialHtmlExtensionsLoaded` and emits `webui-extensions-loaded` once after Alpine and the initial recursive component/extension loading placeholders have cleared.
 - Transport-level preloading must remain outside `components.js`, `extensions.js`, and `initFw.js`; cache hits flow through their ordinary asynchronous requests.
+- Automatic component discovery must skip already-loaded nodes at the same path when retained parents move; explicit `importComponent` calls and new paths still reload.
 - `<x-component>` loading must process component `style`, `script`, and stylesheet-link assets only once, even when a component keeps its scoped `<style>` inside `<body>`.
 - Every `<x-component>` instance must await cached module-load promises before markup is appended so Alpine bindings only run after imported stores exist.
 - Frontend extension hooks such as `confirm_dialog_after_render` and `get_tool_message_handler` must preserve their mutable context contracts.

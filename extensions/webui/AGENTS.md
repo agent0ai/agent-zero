@@ -17,6 +17,7 @@
 - JavaScript extension modules must export a default function.
 - `get_tool_message_handler` reuses the skills and vision renderers for saved `type="tool"` logs with `_tool_name`; dedicated new log types use `get_message_handler`.
 - Extension code must not assume a plugin is installed unless it guards that dependency.
+- `open_modal_before/surface.js` redirects registered legacy surface paths to the shared canvas modal and waits for workspace dismissal; ordinary workflow paths, including Save As, remain separate.
 - Keep extension point names synchronized with `x-extension` IDs and `callJsExtensions()` callers.
 
 ## Work Guidance

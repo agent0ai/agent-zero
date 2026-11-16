@@ -32,7 +32,7 @@ export const CORE_SURFACES = [
     },
     async open(payload = {}) {
       const { store } = await import("/components/modals/file-browser/file-browser-store.js");
-      await store.openSurface(payload.path || payload.filePath || payload.directory || "");
+      await store.openSurface(payload.path || payload.filePath || payload.directory || "", payload.options);
     },
   },
   {
@@ -603,12 +603,17 @@ async function configureSurfaceModal(event) {
 
 export async function open(surfaceId = "", payload = {}) {
   const { store } = await import("/components/canvas/right-canvas-store.js");
-  return await store.open(normalizeSurfaceId(surfaceId), payload);
+  return await store.openModalSurface(normalizeSurfaceId(surfaceId), payload);
 }
 
 export async function openLatest(surfaceId = "", payload = {}) {
+  return await open(surfaceId, payload);
+}
+
+// Navigation originating inside the canvas keeps its current host.
+export async function select(surfaceId = "", payload = {}) {
   const { store } = await import("/components/canvas/right-canvas-store.js");
-  return await store.openLatest(normalizeSurfaceId(surfaceId), payload);
+  return await store.open(normalizeSurfaceId(surfaceId), payload);
 }
 
 export async function dock(surfaceId = "", payload = {}) {

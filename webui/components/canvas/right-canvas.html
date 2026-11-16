@@ -43,7 +43,7 @@
               :class="{ 'is-active': $store.rightCanvas.isSurfaceActive(surface.id) && $store.rightCanvas.isOpen }"
               :title="surface.title"
               :aria-label="surface.title"
-              @click="$store.rightCanvas.open(surface.id)"
+              @click="$store.rightCanvas.openFromRail(surface.id)"
             >
               <template x-if="surface.image">
                 <img class="right-canvas-surface-image" :src="surface.image" alt="" aria-hidden="true">

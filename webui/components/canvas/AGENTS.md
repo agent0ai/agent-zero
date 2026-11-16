@@ -14,9 +14,9 @@
 
 - Keep registered surfaces compatible with WebUI extension hooks.
 - Preserve responsive layout and avoid overlapping the chat/sidebar shells.
-- When closed, Files, Browser and Editor default to the sidebar; Desktop defaults to detached. While open, rail/tab/external surface navigation preserves the workspace mode, regardless of per-surface mode history.
+- External surface actions always open the shared modal. Only right-rail icons explicitly open the sidebar; Desktop on the rail opens detached unless the sidebar is already open. Tabs and navigation within a surface preserve the workspace mode, regardless of per-surface mode history.
 - Detach moves the existing shell into one `canvas/canvas-modal.html` entry; attach and close return it before modal removal. Suppress Alpine teardown during moves and use native `moveBefore` to retain iframe contexts. Tab switches reuse mounted panels; explicit navigation payloads still reach their owning surface.
-- Detached canvas uses the standard blocking modal backdrop, blur, Escape and outside-click close behavior. One close dismisses the workspace; surface tabs never create or park sibling modals. Nested workflow dialogs retain the ordinary modal stack.
+- Detached canvas uses the standard blocking modal backdrop, blur, Escape and outside-click close behavior. One close dismisses the workspace; surface tabs never create or park sibling modals. Nested workflow dialogs retain the ordinary modal stack. Mounted surfaces may veto closure through `canClose`; `whenClosed()` resolves only on workspace dismissal and survives attach/detach. Save As is a separate standard modal without workspace tabs.
 - At mobile widths and during Welcome, route non-action opens into that same modal. Keep the rail/sidebar hidden during Welcome; hide Attach when docking is unavailable. Crossing into mobile retains panels and detaches an open sidebar.
 - Preserve the active tab, open state and workspace mode across same-tab reloads with session-scoped state, but do not treat open state as durable across sessions.
 - In mobile mode, keep the rail below blocking modal layers and compact it on very narrow screens instead of letting it cover modal content.
