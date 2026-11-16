@@ -16,7 +16,8 @@
 
 ## Local Contracts
 
-- `BRANCH` is required for branch-based Docker builds.
+- `BRANCH` is required for branch-based Docker builds. `BASE_IMAGE` defaults to `agent-zero-base:local`, matching `DockerfileLocal`.
+- The cached branch dependency pass deletes its checkout in the installing layer; only the final cache-busted checkout belongs in the image. Run source-dependent native package installation before that deletion.
 - Preserve exposed ports for SSH, HTTP, and tunneled services unless docs and workflows are updated together.
 - Run framework services and local agent/user Python execution in the official image's global Python environment; do not create or activate a virtual environment.
 - Run Supervisor's event listener with Debian's `/usr/bin/python3`, matching the apt-owned Supervisor package; application services still use the official global Python.

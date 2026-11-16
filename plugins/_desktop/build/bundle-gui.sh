@@ -31,6 +31,10 @@ exec "\$base/lib/$(basename "$loader")" --library-path "\$base/lib" "\$base/libe
 SCRIPT
     chmod 755 "$bundle/bin/$tool"
 done
+# Host entry points share the guest bundle instead of shipping another Xvnc copy.
+for tool in tuxee-Xvnc tuxee-vncpasswd; do
+    printf '#!/bin/sh\nexec /usr/local/lib/tuxee-gui/bin/%s "$@"\n' "$tool" > "$output/usr/local/bin/$tool"
+done
 cp -a /usr/share/X11/xkb "$bundle/xkb"
 copy_license /usr/share/X11/xkb/rules/evdev
 if [ -d "$output/usr/local/share/licenses/tuxee-gui" ]; then

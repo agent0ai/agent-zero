@@ -13,6 +13,8 @@
 
 ## Local Contracts
 
+- New worker environments reuse the sandbox image Python; existing worker environments remain intact.
+
 - Outgoing attachment reads resolve development `/a0` aliases and use local helpers. The legacy `_read_attachments_via_rfc` name remains compatible but performs no development RFC dispatch; selected attachment bytes still cross the mail guest boundary.
 
 - Treat mailbox credentials and downloaded attachments as sensitive.

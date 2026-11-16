@@ -28,6 +28,7 @@
 - `loading-indicators.js` owns reusable DOM factories for shared loading visuals.
 - `scroller.js` owns bottom-following snapshots and cancellation of pending scroll effects.
 - Root response bodies grow with the chat viewport and must not create an inner `Scroller`; the message batch owns chat-level following. Other standalone message bodies retain their existing scrolling behavior.
+- Local speech runs in plugin sandboxes; do not bundle an unused browser Transformers runtime.
 - Other modules own focused UI utilities such as modals, messages, safe markdown, shortcuts, TTS/STT, surfaces, and initialization.
 
 ## Local Contracts

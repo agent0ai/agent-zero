@@ -14,7 +14,7 @@
 
 ## Local Contracts
 
-- Preserve cache-friendly package and runtime installation stages.
+- Preserve cache-friendly package and runtime installation stages. The first package stage owns the OS upgrade; Python tooling setup must not repeat it.
 - Keep the outer image based on `python:3.12-slim-trixie` and install Python packages into its global environment.
 - Do not install another Python through apt or pyenv, and do not create a virtual environment.
 - Copy Node and bundled npm from the matching official `node:22-trixie-slim` build stage; do not install Debian's unbundled `nodejs` or `npm` packages.

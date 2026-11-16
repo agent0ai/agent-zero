@@ -6,7 +6,6 @@ flask[async]==3.0.3
 GitPython==3.1.43
 giturlparse==0.14.0
 httpx[socks]==0.28.1
-inputimeout==1.0.4
 json_repair==0.63.4
 simpleeval==1.0.3
 langchain-core==0.3.49

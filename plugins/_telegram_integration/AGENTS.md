@@ -17,6 +17,8 @@
 
 ## Local Contracts
 
+- New worker environments reuse the sandbox image Python; existing worker environments remain intact.
+
 - Treat bot tokens, chat IDs, attachments, and user data as sensitive.
 - Clean the complete generated attachment filename with `helpers.security.safe_filename` before joining `usr/uploads`; use the same cleaner for bot cleanup prefixes. No sender filename may select a subdirectory.
 - Keep allowed-user, group-mode, project, model, and `/send` controls enforced.

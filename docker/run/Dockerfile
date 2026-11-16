@@ -1,5 +1,6 @@
 # Use the pre-built base image for A0
-FROM agent-zero-base:local AS application
+ARG BASE_IMAGE=agent-zero-base:local
+FROM ${BASE_IMAGE} AS application
 # FROM agent0ai/agent-zero-base:testing
 # FROM agent0ai/agent-zero-base:latest
 
@@ -14,11 +15,10 @@ COPY ./fs/ /
 # pre installation steps
 RUN bash /ins/pre_install.sh $BRANCH
 
-# Install Python dependencies from the currently cached branch snapshot.
-RUN bash /ins/install_A0.sh $BRANCH
-
-# install additional software
-RUN bash /ins/install_additional.sh $BRANCH
+# Cache dependencies without retaining an obsolete source tree in this layer.
+RUN bash /ins/install_A0.sh "$BRANCH" \
+    && bash /ins/install_additional.sh "$BRANCH" \
+    && rm -rf /git/agent-zero
 
 # Refresh the branch through the cache buster, reuse installed Python packages, and
 # install runtime assets once from the final source snapshot.

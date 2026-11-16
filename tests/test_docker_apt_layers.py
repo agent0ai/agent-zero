@@ -26,7 +26,6 @@ def test_every_build_time_apt_layer_removes_its_own_lists() -> None:
         BASE / "fs" / "ins" / "install_base_packages1.sh",
         BASE / "fs" / "ins" / "install_base_packages2.sh",
         BASE / "fs" / "ins" / "install_base_packages4.sh",
-        BASE / "fs" / "ins" / "install_python.sh",
         BASE / "fs" / "ins" / "after_install.sh",
         RUN / "fs" / "ins" / "install_additional.sh",
         RUN / "fs" / "ins" / "post_install.sh",

@@ -4,8 +4,8 @@ set -eu
 mkdir -p /usr/local/share/fonts
 if [ ! -x /opt/runtime/bin/python ]; then
     python -m pip install --no-cache-dir uv
-    # Existing parser/model pins support Python 3.12, independently of the OCI base.
-    uv venv --python 3.12 /opt/runtime
+    # Parser/model pins retain 3.12; compatible workers opt into their image Python.
+    uv venv --python "${WORKER_PYTHON:-3.12}" /opt/runtime
 fi
 export PATH=/opt/runtime/bin:$PATH
 export UV_PYTHON=/opt/runtime/bin/python

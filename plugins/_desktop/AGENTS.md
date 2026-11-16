@@ -12,10 +12,12 @@
 - `webui/` keeps one Tuxee iframe across modal/canvas handoffs; no Office tabs or Office tools remain.
 - `webui/tuxee-emblem.png` is the monochrome Tuxee emblem used by the `tuxee` surface icon. Shared surface CSS uses its luminance as a mask: the hexagon, belly and eye follow the theme's text color; the outer penguin and background remain transparent.
 
-- `build/gui.sh` pins the minimal TigerVNC/Xorg build; `build/bundle-gui.sh` packages its tools, ELF loader/library closure and XKB data at `/usr/local/lib/tuxee-gui` for read-only guest mounts. Build tools remain in the builder.
+- `build/gui.sh` pins the minimal TigerVNC/Xorg build; `build/bundle-gui.sh` packages its tools, ELF loader/library closure and XKB data at `/usr/local/lib/tuxee-gui` for read-only guest mounts. Host Xvnc/password entry points are small wrappers around that same bundle, preserving its private loader and avoiding duplicate binaries. Build tools remain in the builder.
 - `build/audio.sh` reuses pinned Tuxee's stripped PulseAudio/libsndfile recipe at `/usr/local/lib/tuxee-audio`, with `tuxee-pulseaudio`/`tuxee-pacat` wrappers. Both image and source-upgrade builds include it; installation preserves library symlinks. Desktop uses upstream audio unchanged; Browser mounts the same runtime in its private guest. No codecs, sound devices or additional listener ports are required.
 
 ## Local Contracts
+
+- New worker environments reuse the sandbox image Python; existing worker environments remain intact.
 
 - Enforce the configured A0 login policy and same-origin checks before starting or contacting Tuxee. Keep real Linux PAM authentication, CSRF headers and WebSocket checks. Forward only Tuxee cookies and allowlisted request headers (including the required upload byte-size header), scope response cookies to the proxy prefix, and allow framing only by the same origin.
 - Bind Tuxee's managed listener to `127.0.0.1` on an allocated port with a private empty config and cleared inherited Tuxee environment overrides. No new published port is required. Browser shares the minimal native display bundle and noVNC sources, with its own sandbox and authenticated gateway.

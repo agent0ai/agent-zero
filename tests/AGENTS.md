@@ -46,6 +46,7 @@
 - Run `pytest tests/test_docker_python_runtime.py -q` for global Python installation, direct service launchers, and entrypoints without import-time dependency activation.
 - ONNX changes require `test_local_embeddings.py`, `test_onnx_migration.py`, preload/factory tests and `integration_onnx_compatibility.py`: create synthetic fixtures with the old runtime, test new queries/inserts against identical persisted indexes, then restart in a separate process. Never use private live databases.
 - Image slimming requires a fresh base/application build, dependency checks, offline embeddings, archive extraction, Tuxee binary loading and a real OCI pull/unpack/guest execution check. Inspect the image before installing test dependencies so fixtures cannot hide missing runtime libraries.
+- `test_worker_python_bootstrap.py` covers default/pinned interpreter selection and preserving existing worker environments. Verify image-Python workers with real SDK imports and `integration_guest_smoke.py` in fresh Docker/gVisor guests.
 - Run `pytest tests/test_sandboxing.py tests/test_sandbox_builtin_image.py -q` for image pulls/imports, bundled defaults, lazy builds, cache validation, digest pinning, and sandbox lifecycle contracts.
 - Storage reporting: `pytest tests/test_sandbox_storage.py` and `node --test tests/test_sandbox_storage.mjs` verify scan-free lifecycle/status, explicit asynchronous measurement, ownership validation and independent UI controls.
 

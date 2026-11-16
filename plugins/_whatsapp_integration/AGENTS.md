@@ -15,6 +15,8 @@
 
 ## Local Contracts
 
+- New worker environments reuse the sandbox image Python; existing worker environments remain intact.
+
 - Incoming/outgoing attachment staging calls local readers/writers in every mode; outgoing reads resolve development `/a0` aliases. Preserve the bridge media directory and selected-byte transport into its sandbox; development RFC is not involved.
 - Local attachment staging uses `helpers.security.safe_filename` before joining the media directory; retain the bridge's own filename containment and exclusive-write checks.
 

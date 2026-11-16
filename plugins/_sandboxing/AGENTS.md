@@ -38,6 +38,7 @@
 - Disk accounting uses lstat metadata without following guest symlinks, whose absolute targets belong to the guest filesystem.
 
 - `helpers/sandbox_worker.py` is the shared lazy worker adapter; `sandbox/` owns the guest file protocol and Python bootstrap. Service sandboxes receive a private tmpfs at `/shared`; they never inherit the common agent exchange. Worker input mounts are read-only and under masked instance state. `set_mounts` requires a stopped guest; `process_command` exposes validated admin pipe execution.
+- `sandbox/python.sh` defaults new environments to Python 3.12 for parser/model compatibility. Validated workers may set `WORKER_PYTHON` to their image interpreter; existing environments retain their interpreter and packages. Installer fingerprints automatically apply source updates without deleting worker state.
 - `sandbox/progress.py` atomically publishes installer stages tagged with the current request boot ID. Worker installation fingerprints include read-only support files so native build recipe updates invalidate cached setup. Old boot progress is ignored; readiness still requires the matching `ready.json` handshake.
 
 ## Work Guidance

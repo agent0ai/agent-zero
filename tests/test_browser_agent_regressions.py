@@ -1837,7 +1837,7 @@ def test_browser_viewer_defaults_to_interactive_with_screencast_and_snapshot_fal
     assert 'x-if="$store.browserPage.isInteractiveSurface($el.parentElement)"' in main_html
     assert 'aria-label="Browser viewport"' in main_html
     assert 'title="Interactive Browser viewport"' not in main_html
-    assert 'allow="clipboard-read; clipboard-write"' in main_html
+    assert 'allow="clipboard-read; clipboard-write; autoplay"' in main_html
     assert 'x-init="$store.browserPage.attachFrameCanvas($el)"' in main_html
     assert '<img class="browser-frame browser-frame-image"' in main_html
     assert "$store.browserPage.hasFrame()" in main_html
