@@ -22,4 +22,23 @@ export const slides = [
       },
     ],
   },
+  {
+    id: "scheduler-catchup",
+    eyebrow: "Improved scheduled tasks",
+    title: "Your scheduled tasks catch up after downtime",
+    summary: "If Agent Zero is offline when a recurring task is due, it runs automatically when your instance is back online.",
+    mediaType: "image",
+    media: "/plugins/_whats_new/webui/assets/scheduler-catchup.png",
+    mediaLabel: "Scheduled Tasks showing task schedules, status, and actions.",
+    bullets: [
+      {
+        title: "Back on schedule",
+        text: "Several missed runs become one catch-up run, then the usual schedule continues.",
+      },
+      {
+        title: "You're in control",
+        text: "Disabled tasks stay off. Tasks interrupted while running need your attention in Scheduled Tasks.",
+      },
+    ],
+  },
 ];

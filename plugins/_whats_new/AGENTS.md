@@ -30,6 +30,7 @@
 
 - Add showcase cards in `webui/whats-new-slides.js`; add assets under `webui/assets/` and reference them through `/plugins/_whats_new/webui/assets/...`.
 - The first card introduces A0Cleaner with its supplied screenshot, default Monday 9 AM cleanup, manual review, custom folders, and plugin entry point.
+- The second card introduces scheduled-task catch-up after downtime with its supplied screenshot. Describe missed recurring runs catching up once; tasks interrupted while running still need attention.
 - Keep the startup extension idempotent and tolerant of missing or non-comparable version labels.
 - Prefer release-line comparisons over development commit-distance comparisons so local development builds do not reopen the modal on every commit.
 - Preserve `webui/main.html` so the plugin list exposes the standard `Open` action.

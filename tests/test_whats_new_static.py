@@ -55,6 +55,13 @@ def test_whats_new_introduces_a0_cleaner_first():
     assert '<strong x-text="item.title"></strong>' in html
     assert '<span x-text="item.text"></span>' in html
 
+    assert slide_data.split("id:", 2)[2].lstrip().startswith('"scheduler-catchup"')
+    assert 'title: "Your scheduled tasks catch up after downtime"' in slide_data
+    assert "/plugins/_whats_new/webui/assets/scheduler-catchup.png" in slide_data
+    assert (WHATS_NEW_PLUGIN / "webui/assets/scheduler-catchup.png").is_file()
+    assert "Several missed runs become one catch-up run" in slide_data
+    assert "Tasks interrupted while running need your attention" in slide_data
+
 
 def test_whats_new_legacy_modal_path_redirects_to_main_screen():
     html = (WHATS_NEW_PLUGIN / "webui/whats-new.html").read_text(encoding="utf-8")
