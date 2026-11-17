@@ -6,6 +6,8 @@
 
 ## Ownership
 
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
+
 - `search.py` owns the CLI, status, process lock and sandbox lifecycle through the shared `helpers.sandbox` Python/CLI API.
 - `sandbox/` owns pinned source installation, bootstrap requirements, settings and the guest query script.
 - `hooks.py` owns lazy installation metadata and locked shutdown/removal.

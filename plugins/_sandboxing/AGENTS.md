@@ -6,6 +6,8 @@
 
 ## Ownership
 
+- `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
+
 - `helpers/images.py` owns daemonless Docker/OCI pull, local Docker archive import, unpacking, digest-pinned image cache metadata, image last-use tracking, and safe cache deletion.
 - `helpers/builtin_image.py` owns OCI packaging and the lazy PRoot build of `agent-zero-sandbox:1` using `docker/sandbox/install.sh`.
 - `helpers/manager.py` owns validation, launcher configuration, runtime state, bindings, sandbox/image references, expiry, and safe deletion.
