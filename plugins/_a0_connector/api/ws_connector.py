@@ -11,6 +11,7 @@ from helpers.ws_limits import A0_WS_MAX_PAYLOAD_BYTES
 from helpers.ws_manager import WsPayloadTooLargeError, WsResult
 
 from plugins._a0_connector.helpers.exec_config import build_exec_config
+from plugins._a0_connector.helpers.remote_tree import build_remote_tree_config
 from plugins._a0_connector.helpers.event_bridge import (
     get_context_log_entries,
     get_context_log_entry_count,
@@ -228,6 +229,7 @@ class WsConnector(WsHandler):
                     "transfer_protocol": TRANSFER_PROTOCOL_VERSION,
                 },
                 "exec_config": build_exec_config(),
+                "remote_tree_config": build_remote_tree_config(),
                 "remote_tools": self._remote_tool_state(sid),
             }
 
@@ -952,6 +954,7 @@ class WsConnector(WsHandler):
             "sid": sid,
             "tree_hash": tree_hash,
             "updated_at": snapshot.updated_at,
+            "remote_tree_config": build_remote_tree_config(),
         }
 
     def _handle_exec_op_result(

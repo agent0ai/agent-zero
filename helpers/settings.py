@@ -72,6 +72,11 @@ class Settings(TypedDict):
     workdir_max_folders: int
     workdir_max_lines: int
     workdir_gitignore: str
+    remote_tree_inherit: bool
+    remote_tree_max_depth: int
+    remote_tree_max_files: int
+    remote_tree_max_folders: int
+    remote_tree_max_lines: int
     file_browser_remember_last_directory: bool
     file_browser_max_text_size_mb: int
     file_browser_max_transfer_size_mb: int
@@ -475,6 +480,8 @@ def normalize_settings(settings: Settings) -> Settings:
             copy[key] = value
         elif key == "secrets" and copy[key] is None:
             continue  # Unavailable secrets must not become an empty or literal "None" submission.
+        elif key.startswith("remote_tree_max_"):
+            continue
         else:
             try:
                 copy[key] = type(value)(copy[key])  # type: ignore
@@ -487,6 +494,15 @@ def normalize_settings(settings: Settings) -> Settings:
     copy["file_browser_max_transfer_size_mb"] = max(1, copy["file_browser_max_transfer_size_mb"])
     copy["file_browser_max_extract_size_mb"] = max(1, copy["file_browser_max_extract_size_mb"])
     copy["file_browser_max_archive_entries"] = max(1, copy["file_browser_max_archive_entries"])
+    copy["remote_tree_inherit"] = settings.get("remote_tree_inherit", default["remote_tree_inherit"]) is not False
+    for suffix in ("max_depth", "max_files", "max_folders", "max_lines"):
+        key = f"remote_tree_{suffix}"
+        raw = settings.get(key, default[key])
+        try:
+            value = int(raw) if type(raw) in (int, str) else -1
+        except ValueError:
+            value = -1
+        copy[key] = value if value >= 0 else default[key]
     if copy["agent_profile"] == "default":
         copy["agent_profile"] = "agent0"
 
@@ -608,6 +624,11 @@ def get_default_settings() -> Settings:
         workdir_max_folders=get_default_value("workdir_max_folders", 20),
         workdir_max_lines=get_default_value("workdir_max_lines", 250),
         workdir_gitignore=get_default_value("workdir_gitignore", gitignore),
+        remote_tree_inherit=get_default_value("remote_tree_inherit", True),
+        remote_tree_max_depth=get_default_value("remote_tree_max_depth", get_default_value("workdir_max_depth", 5)),
+        remote_tree_max_files=get_default_value("remote_tree_max_files", get_default_value("workdir_max_files", 20)),
+        remote_tree_max_folders=get_default_value("remote_tree_max_folders", get_default_value("workdir_max_folders", 20)),
+        remote_tree_max_lines=get_default_value("remote_tree_max_lines", get_default_value("workdir_max_lines", 250)),
         file_browser_remember_last_directory=get_default_value(
             "file_browser_remember_last_directory",
             True,
