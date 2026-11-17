@@ -353,6 +353,63 @@ def test_native_provider_defaults_over_http(provider, monkeypatch, provider_id, 
         assert body["venice_parameters"] == {"include_venice_system_prompt": False}
 
 
+@pytest.mark.asyncio
+async def test_fortytwo_chat_key_headers_and_reasoning_over_http(provider, monkeypatch):
+    from helpers.providers import get_provider_config, get_providers
+    from plugins._model_config.api.model_search import ModelSearch
+
+    monkeypatch.delenv("API_KEY_FORTYTWO", raising=False)
+    monkeypatch.setenv("FORTYTWO_API_KEY", "fortytwo-test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "unrelated-openai-key")
+    monkeypatch.setattr(models, "api_keys_round_robin", {})
+    assert {"value": "fortytwo", "label": "Fortytwo"} in get_providers("chat")
+    assert get_provider_config("embedding", "fortytwo") is None
+    cfg = get_provider_config("chat", "fortytwo")
+    wrapper = models.get_chat_model("fortytwo", "qwen/qwen3.8-27b")
+    assert wrapper.model_name == "openai/qwen/qwen3.8-27b"
+    assert ModelSearch._resolve_url(cfg["models_list"], wrapper.kwargs["api_base"]) == (
+        "https://api.fortytwo.network/v1/models", "openai",
+    )
+    assert wrapper.kwargs["api_key"] == "fortytwo-test-key"
+    from flask import Flask
+    from threading import Lock
+
+    headers = ModelSearch(Flask(__name__), Lock())._build_headers(
+        "fortytwo", wrapper.kwargs["api_key"], cfg,
+    )
+    assert headers["Authorization"] == "Bearer fortytwo-test-key"
+
+    base = {"id": "chatcmpl-fortytwo", "created": 1,
+            "model": "qwen/qwen3.8-27b", "object": "chat.completion.chunk"}
+    provider.replies.append((200, sse([
+        {**base, "choices": [{"index": 0, "finish_reason": None,
+                              "delta": {"reasoning": "Check the result."}}]},
+        {**base, "choices": [{"index": 0, "finish_reason": None,
+                              "delta": {"content": "Fortytwo works."}}]},
+        {**base, "choices": [{"index": 0, "finish_reason": "stop", "delta": {}}]},
+    ], done=True)))
+    wrapper.kwargs.update({key: value for key, value in provider.kwargs.items() if key != "api_key"})
+    emitted = []
+
+    async def reasoning_callback(chunk, _full):
+        emitted.append(chunk)
+
+    result = await wrapper.unified_turn.__wrapped__(
+        wrapper, user_message="Hello",
+        reasoning_callback=reasoning_callback,
+    )
+    assert result.response == "Fortytwo works."
+    assert result.reasoning == "Check the result." == "".join(emitted)
+    _, path, body = provider.requests[0]
+    assert path == "/v1/chat/completions"
+    assert body["model"] == "qwen/qwen3.8-27b"
+    assert not any(key.startswith("a0_") for key in body)
+    request_headers = {key.lower(): value for key, value in provider.headers[0].items()}
+    assert request_headers["authorization"] == "Bearer fortytwo-test-key"
+    assert request_headers["http-referer"] == "https://agent-zero.ai/"
+    assert request_headers["x-title"] == "Agent Zero"
+
+
 @pytest.mark.parametrize("kwargs,expected", [
     ({"extra_body": {"custom": 1}}, False),
     ({"venice_parameters": {"include_venice_system_prompt": True}, "extra_body": {"custom": 1}}, True),

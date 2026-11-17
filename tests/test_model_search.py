@@ -100,6 +100,30 @@ def test_model_search_falls_back_to_litellm_registry(monkeypatch):
     assert set(handler._litellm_fallback("openai", {"litellm_provider": "openai"})) == {"gpt-4.1"}
 
 
+@pytest.mark.parametrize("discovered,error", [([], "HTTP 401"), ([], "HTTP 503"), ([], ""), (["qwen/qwen3.8-27b"], "")])
+def test_fortytwo_discovery_never_substitutes_openai_models(monkeypatch, discovered, error):
+    from helpers.providers import get_provider_config
+
+    handler = _handler()
+    config = get_provider_config("chat", "fortytwo")
+    monkeypatch.setattr(handler, "_get_provider_cfg", lambda *_: config)
+    monkeypatch.setitem(sys.modules, "litellm", types.SimpleNamespace(
+        models_by_provider={"openai": {"openai/gpt-4.1"}},
+    ))
+
+    async def fetch(*args):
+        return discovered, "provider_endpoint", error
+
+    monkeypatch.setattr(handler, "_fetch_models", fetch)
+    result = asyncio.run(handler.process({"provider": "fortytwo"}, None))
+    assert result == {
+        "models": discovered, "provider": "fortytwo",
+        "source": "provider_endpoint", "error": error,
+    }
+    assert handler._litellm_fallback("fortytwo", config) == []
+    assert handler._litellm_fallback("custom", {"litellm_provider": "openai"}) == ["gpt-4.1"]
+
+
 @pytest.mark.parametrize("discovered,error", [([], "HTTP 503"), ([], ""), (["account-model"], "")])
 def test_oauth_discovery_never_substitutes_generic_registry(monkeypatch, discovered, error):
     handler = _handler()
