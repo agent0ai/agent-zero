@@ -1,4 +1,5 @@
 import { getModalStack, isModalOpen, openModal } from "/js/modals.js";
+import { callJsonApi } from "/js/api.js";
 import { slides } from "/plugins/_whats_new/webui/whats-new-slides.js";
 
 const MODAL_PATH = "/plugins/_whats_new/webui/main.html";
@@ -171,9 +172,22 @@ export default function initWhatsNew() {
   if (initialized) return;
   initialized = true;
 
-  document.addEventListener("modal-closed", handleModalClosed);
+  window.setTimeout(async () => {
+    const version = currentVersion();
+    if (!shouldShowWhatsNew(version)) return;
 
-  window.setTimeout(() => {
+    try {
+      const data = await callJsonApi("/plugins/_model_config/model_config_get", {});
+      if (!data?.model_configured) {
+        markVersionSeen(version);
+        return;
+      }
+    } catch (error) {
+      console.error("Could not check model setup before showing What's New:", error);
+      return;
+    }
+
+    document.addEventListener("modal-closed", handleModalClosed);
     maybeOpenWhatsNew();
   }, STARTUP_DELAY_MS);
 }
