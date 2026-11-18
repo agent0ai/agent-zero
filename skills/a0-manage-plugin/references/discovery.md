@@ -53,7 +53,7 @@ For plausible matches, inspect the linked repository README, root manifest and r
 - Is it already installed? Installed does not mean enabled in this project/profile. Inspect `plugins` action `get_toggle_status` with the plugin and intended scope.
 - Does a built-in feature or another installed plugin already cover it?
 - What credentials, external accounts, paid APIs, models, system packages or host access are needed?
-- Is the advertised workflow compatible with this Agent Zero version and runtime? Check actual docs/requirements, not only a matching version string.
+- Is the advertised workflow compatible with this Agent Zero version and runtime? Inspect optional `plugin.yaml:a0_version` using the compatibility check in `lifecycle.md`, and check actual docs/requirements, not only a matching version string.
 - Are maintenance activity, dependencies and repository availability sufficient for the intended use? Stars and update dates are clues, not safety or quality guarantees.
 - Are there material data-access, code-execution or external-communication implications?
 

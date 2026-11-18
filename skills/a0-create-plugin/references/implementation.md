@@ -19,6 +19,8 @@ per_agent_config: false
 
 `name`: lowercase, numbers, underscores only (`^[a-z0-9_]+$`). Required by CI when submitting to the Plugin Index - must exactly match the index folder name.
 
+`a0_version` optionally declares supported **Agent Zero** versions, separately from the plugin's own `version`. Use quoted values: `"3.0"` (exact), `">=3.0,<4.0"` (AND comparisons), `"3.0 - 3.5"` (inclusive range), `"3.*"` (wildcard), or `["2.15", ">=3.0,<4.0"]` (OR alternatives). Omission or `"*"` leaves versions unrestricted. Declare tested versions, not a guessed compatibility promise. See the [full specification](../../../docs/developer/plugins.md#agent-zero-version-requirements) for comparison semantics and fork handling. The Hub reads the repository's default-branch `plugin.yaml` directly, displays the requirement and current A0 version, and warns before incompatible installs while allowing the user to continue. Do not duplicate it in `index.yaml`.
+
 `settings_sections` controls which Settings tabs show a subsection for this plugin. Valid values: `agent`, `external`, `mcp`, `developer`, `backup`. Use `[]` for no subsection.
 
 Activation defaults to ON when no toggle rule exists. Set `per_project_config` and/or `per_agent_config` to enable advanced per-scope switching. Core system plugins may also use `always_enabled: true` to lock the plugin permanently ON (reserved for framework use).

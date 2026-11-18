@@ -7,6 +7,7 @@ Scale review to the change and requested risk. For a full audit, cover each grou
 ## Manifest And Structure
 
 - Parse `plugin.yaml`; verify title, description, version, settings sections and scope flags. New community names must match the eventual Index folder and use lowercase letters, digits and underscores without a leading underscore.
+- If `a0_version` is present, validate its quoted requirement/list against the [version specification](../../../docs/developer/plugins.md#agent-zero-version-requirements) and the releases actually tested. A mismatch or unknown fork version is advisory, not grounds to bypass a user's explicit override or reject an otherwise valid manifest. Missing requirements remain supported.
 - Check custom runtime placement under `usr/plugins/`, or the standalone repository root for packaging. Bundled plugins are a separate, explicitly requested scope.
 - Check actual extension discovery: `extensions/python/<point>/`, `extensions/python/_functions/<module>/<qualname>/<start|end>/`, and `extensions/webui/<point>/`. Preserve every module and nested class/function segment in implicit hooks.
 - Inspect the API/tool/helper/prompt/skill/assets/config files the plugin uses. Do not reject legitimate extra files, supported manifest fields, or a plugin without a UI just because a checklist omits them.

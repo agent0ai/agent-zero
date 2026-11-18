@@ -78,7 +78,7 @@ After loading this skill, use `skills_tool` with `action: "read_file"`, `skill_n
 
 1. Inspect the existing plugin and relevant source. Read `/a0/AGENTS.md`, `/a0/plugins/AGENTS.md`, and the closest applicable contracts.
 2. Load the implementation reference, plus the UI reference if needed. Build only the requested capability; reuse existing helpers and patterns.
-3. Keep `plugin.yaml` at the plugin root. Use stable underscore names for new custom plugins. Keep credentials and runtime state out of published source.
+3. Keep `plugin.yaml` at the plugin root. Use stable underscore names for new custom plugins. Declare tested A0 versions with optional `a0_version` using the implementation reference; it is separate from the plugin's own `version`. Keep credentials and runtime state out of published source.
 4. Verify the real target runtime, not just the checkout. Use the framework Python for backend/plugin checks. Read `references/review.md` before declaring the work complete; report actual checks and remaining limitations.
 5. For local work, deliver the working plugin and usage instructions. For community work, continue through the contribution reference within the user's publication authorization. Preparing a plugin is not the same as publishing it or merging its Index PR.
 

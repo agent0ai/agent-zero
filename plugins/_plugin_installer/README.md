@@ -25,6 +25,7 @@ This plugin provides the built-in installation workflow for third-party plugins.
 - **Plugin Hub UI**
   - The web UI store handles browsing Plugin Index entries, showing README content, prompting about third-party plugin risk, and launching install/update actions.
   - The **Official** filter appears immediately after **All**, even when empty, and automatically includes indexed plugins whose GitHub repositories belong to the `agent0ai` organization.
+  - The detail page shows the plugin's optional `a0_version` requirement and the installed A0 version. Hub installs recheck the repository manifest and warn on mismatches or unverifiable compatibility, with **Install Anyway** available for custom forks. See the [requirement syntax](../../docs/developer/plugins.md#agent-zero-version-requirements). Existing security warnings still apply.
 
 ## Key Files
 
