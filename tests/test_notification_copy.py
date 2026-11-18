@@ -31,7 +31,7 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
         });
         await import('/vendor/alpine/alpine.min.js');
       </script>
-      </head><body><button id="outside">Outside</button>""" + body + "</body></html>"
+      </head><body><button id="outside">Outside</button>""" + '<div style="position:relative;margin-top:1200px">' + body + "</div></body></html>"
 
     def serve(route):
         path = urlparse(route.request.url).path
@@ -90,7 +90,10 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
             content.evaluate("el => { el.scrollTop = el.scrollHeight; }")
             assert content.evaluate("el => el.scrollTop > 0")
             assert copy.bounding_box() == before
-            assert toast.bounding_box()["x"] >= 0
+            box = toast.bounding_box()
+            assert box["y"] >= 0
+            assert box["y"] + box["height"] <= 720
+            assert box["x"] >= 0
             assert dismiss.bounding_box()["x"] + dismiss.bounding_box()["width"] <= width
 
             copy.click()
