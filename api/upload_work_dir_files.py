@@ -13,7 +13,7 @@ import posixpath
 class UploadWorkDirFiles(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         if "files[]" not in request.files:
-            raise Exception("No files uploaded")
+            raise ValueError("No files uploaded")
 
         current_path = request.form.get("path", "")
         uploaded_files = request.files.getlist("files[]")
