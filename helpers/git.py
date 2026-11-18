@@ -211,65 +211,65 @@ def get_remote_releases(author: str, repo: str) -> GitRemoteReleasesResult:
 
 def get_remote_commits_since_local(repo_path: str) -> GitRemoteCommitsInfo:
     try:
-        repo = Repo(repo_path)
-        if repo.bare:
-            return GitRemoteCommitsInfo(
-                is_git_repo=False,
-                is_remote=False,
-                path=repo_path,
-                branch="",
-                remote_branch="",
-                commits_since_local=0,
-                last_remote_commit_at="",
-                error=f"Repository at {repo_path} is bare and cannot be used.",
-            )
+        with Repo(repo_path) as repo:
+            if repo.bare:
+                return GitRemoteCommitsInfo(
+                    is_git_repo=False,
+                    is_remote=False,
+                    path=repo_path,
+                    branch="",
+                    remote_branch="",
+                    commits_since_local=0,
+                    last_remote_commit_at="",
+                    error=f"Repository at {repo_path} is bare and cannot be used.",
+                )
 
-        if repo.head.is_detached:
+            if repo.head.is_detached:
+                return GitRemoteCommitsInfo(
+                    is_git_repo=True,
+                    is_remote=False,
+                    path=repo_path,
+                    branch="",
+                    remote_branch="",
+                    commits_since_local=0,
+                    last_remote_commit_at="",
+                    error="Repository HEAD is detached.",
+                )
+
+            branch = repo.active_branch.name
+
+            tracking_branch = repo.active_branch.tracking_branch()
+            if tracking_branch is None:
+                return GitRemoteCommitsInfo(
+                    is_git_repo=True,
+                    is_remote=False,
+                    path=repo_path,
+                    branch=branch,
+                    remote_branch="",
+                    commits_since_local=0,
+                    last_remote_commit_at="",
+                    error="Current branch has no tracking remote branch.",
+                )
+
+            remote_name = tracking_branch.remote_name
+            remote = repo.remotes[remote_name]
+            env = os.environ.copy()
+            env['GIT_TERMINAL_PROMPT'] = '0'
+            with repo.git.custom_environment(**env):
+                remote.fetch(repo.active_branch.name)
+
+            remote_commit = tracking_branch.commit
+            commits = list(repo.iter_commits(f"{repo.head.commit.hexsha}..{tracking_branch.path}"))
+
             return GitRemoteCommitsInfo(
                 is_git_repo=True,
-                is_remote=False,
-                path=repo_path,
-                branch="",
-                remote_branch="",
-                commits_since_local=0,
-                last_remote_commit_at="",
-                error="Repository HEAD is detached.",
-            )
-
-        branch = repo.active_branch.name
-
-        tracking_branch = repo.active_branch.tracking_branch()
-        if tracking_branch is None:
-            return GitRemoteCommitsInfo(
-                is_git_repo=True,
-                is_remote=False,
+                is_remote=True,
                 path=repo_path,
                 branch=branch,
-                remote_branch="",
-                commits_since_local=0,
-                last_remote_commit_at="",
-                error="Current branch has no tracking remote branch.",
+                remote_branch=tracking_branch.path,
+                commits_since_local=len(commits),
+                last_remote_commit_at=_format_git_timestamp(remote_commit.committed_date) if commits else "",
             )
-
-        remote_name = tracking_branch.remote_name
-        remote = repo.remotes[remote_name]
-        env = os.environ.copy()
-        env['GIT_TERMINAL_PROMPT'] = '0'
-        with repo.git.custom_environment(**env):
-            remote.fetch(repo.active_branch.name)
-
-        remote_commit = tracking_branch.commit
-        commits = list(repo.iter_commits(f"{repo.head.commit.hexsha}..{tracking_branch.path}"))
-
-        return GitRemoteCommitsInfo(
-            is_git_repo=True,
-            is_remote=True,
-            path=repo_path,
-            branch=branch,
-            remote_branch=tracking_branch.path,
-            commits_since_local=len(commits),
-            last_remote_commit_at=_format_git_timestamp(remote_commit.committed_date) if commits else "",
-        )
     except Exception as e:
         return GitRemoteCommitsInfo(
             is_git_repo=False,
@@ -285,87 +285,87 @@ def get_remote_commits_since_local(repo_path: str) -> GitRemoteCommitsInfo:
 
 def get_repo_release_info(repo_path: str) -> GitRepoReleaseInfo:
     try:
-        repo = Repo(repo_path)
-        if repo.bare:
-            return GitRepoReleaseInfo(
-                is_git_repo=False,
-                is_remote=False,
-                path=repo_path,
-                author="",
-                repo="",
-                branch="",
-                head=None,
-                release=None,
-                error=f"Repository at {repo_path} is bare and cannot be used.",
-            )
+        with Repo(repo_path) as repo:
+            if repo.bare:
+                return GitRepoReleaseInfo(
+                    is_git_repo=False,
+                    is_remote=False,
+                    path=repo_path,
+                    author="",
+                    repo="",
+                    branch="",
+                    head=None,
+                    release=None,
+                    error=f"Repository at {repo_path} is bare and cannot be used.",
+                )
 
-        commit = repo.head.commit
-        author = ""
-        repo_name = ""
-        is_remote = False
-
-        try:
-            if repo.remotes:
-                author, repo_name = extract_author_repo(repo.remotes.origin.url)
-                is_remote = bool(author and repo_name)
-        except Exception:
+            commit = repo.head.commit
             author = ""
             repo_name = ""
             is_remote = False
 
-        branch = ""
-        try:
-            branch = repo.active_branch.name if repo.head.is_detached is False else ""
-        except Exception:
+            try:
+                if repo.remotes:
+                    author, repo_name = extract_author_repo(repo.remotes.origin.url)
+                    is_remote = bool(author and repo_name)
+            except Exception:
+                author = ""
+                repo_name = ""
+                is_remote = False
+
             branch = ""
+            try:
+                branch = repo.active_branch.name if repo.head.is_detached is False else ""
+            except Exception:
+                branch = ""
 
-        tag = ""
-        short_tag = ""
-        release_time = ""
-        commits_since_tag = 0
-        try:
-            tag = repo.git.describe(tags=True, always=True)
-            short_tag, commits_since_tag = _split_describe_version(tag)
-
-            tag_ref = next((t for t in repo.tags if t.name == short_tag), None)
-            if tag_ref:
-                release_commit = tag_ref.commit
-                release_time = _format_git_timestamp(release_commit.committed_date)
-        except Exception:
             tag = ""
             short_tag = ""
             release_time = ""
             commits_since_tag = 0
+            try:
+                tag = repo.git.describe(tags=True, always=True)
+                short_tag, commits_since_tag = _split_describe_version(tag)
 
-        version = _format_release_version(
-            branch,
-            short_tag,
-            commits_since_tag,
-            commit.hexsha,
-        )
+                tag_ref = next((t for t in repo.tags if t.name == short_tag), None)
+                if tag_ref:
+                    release_commit = tag_ref.commit
+                    release_time = _format_git_timestamp(release_commit.committed_date)
+            except Exception:
+                tag = ""
+                short_tag = ""
+                release_time = ""
+                commits_since_tag = 0
 
-        return GitRepoReleaseInfo(
-            is_git_repo=True,
-            is_remote=is_remote,
-            path=repo_path,
-            author=author,
-            repo=repo_name,
-            branch=branch,
-            head=GitHeadInfo(
-                hash=commit.hexsha,
-                short_hash=commit.hexsha[:7],
-                message=str(commit.message).split("\n")[0][:200],
-                author=str(commit.author),
-                committed_at=_format_git_timestamp(commit.committed_date),
-                authored_at=_format_git_timestamp(commit.authored_date),
-            ),
-            release=GitReleaseInfo(
-                tag=tag,
-                short_tag=short_tag,
-                version=version,
-                released_at=release_time,
-            ),
-        )
+            version = _format_release_version(
+                branch,
+                short_tag,
+                commits_since_tag,
+                commit.hexsha,
+            )
+
+            return GitRepoReleaseInfo(
+                is_git_repo=True,
+                is_remote=is_remote,
+                path=repo_path,
+                author=author,
+                repo=repo_name,
+                branch=branch,
+                head=GitHeadInfo(
+                    hash=commit.hexsha,
+                    short_hash=commit.hexsha[:7],
+                    message=str(commit.message).split("\n")[0][:200],
+                    author=str(commit.author),
+                    committed_at=_format_git_timestamp(commit.committed_date),
+                    authored_at=_format_git_timestamp(commit.authored_date),
+                ),
+                release=GitReleaseInfo(
+                    tag=tag,
+                    short_tag=short_tag,
+                    version=version,
+                    released_at=release_time,
+                ),
+            )
     except Exception as e:
         return GitRepoReleaseInfo(
             is_git_repo=False,
@@ -408,24 +408,24 @@ def get_version():
 def is_official_agent_zero_repo() -> bool:
     """Return True when origin points to agent0ai/agent-zero."""
     try:
-        repo = Repo(files.get_base_dir())
-        if not repo.remotes:
-            return False
+        with Repo(files.get_base_dir()) as repo:
+            if not repo.remotes:
+                return False
 
-        remote_url = strip_auth_from_url(repo.remotes.origin.url).lower().rstrip("/")
+            remote_url = strip_auth_from_url(repo.remotes.origin.url).lower().rstrip("/")
 
-        if remote_url.endswith(".git"):
-            remote_url = remote_url[:-4]
+            if remote_url.endswith(".git"):
+                remote_url = remote_url[:-4]
 
-        allowed_repos = [
-            "agent0ai/agent-zero",
-            "frdel/agent-zero",
-        ]
-        return any(
-            remote_url.endswith(f"github.com/{repo_name}")
-            or remote_url.endswith(f"github.com:{repo_name}")
-            for repo_name in allowed_repos
-        )
+            allowed_repos = [
+                "agent0ai/agent-zero",
+                "frdel/agent-zero",
+            ]
+            return any(
+                remote_url.endswith(f"github.com/{repo_name}")
+                or remote_url.endswith(f"github.com:{repo_name}")
+                for repo_name in allowed_repos
+            )
     except Exception:
         return False
 
@@ -545,60 +545,60 @@ A0_IGNORE_PATTERNS = {".a0proj", ".a0proj/"}
 def get_repo_status(repo_path: str) -> dict:
     """Get Git repository status, ignoring A0 project metadata files."""
     try:
-        repo = Repo(repo_path)
-        if repo.bare:
-            return {"is_git_repo": False, "error": "Repository is bare"}
-        
-        # Remote URL (always strip auth info for security)
-        remote_url = ""
-        try:
-            if repo.remotes:
-                remote_url = strip_auth_from_url(repo.remotes.origin.url)
-        except Exception:
-            pass
-        
-        # Current branch
-        try:
-            current_branch = repo.active_branch.name if not repo.head.is_detached else f"HEAD@{repo.head.commit.hexsha[:7]}"
-        except Exception:
-            current_branch = "unknown"
-        
-        # Check dirty status, excluding A0 metadata
-        def is_a0_file(path: str) -> bool:
-            return path.startswith(".a0proj") or path == ".a0proj"
-        
-        # Filter out A0 files from diff and untracked
-        changed_files = [d.a_path for d in repo.index.diff(None)] + [d.a_path for d in repo.index.diff("HEAD")]
-        untracked = repo.untracked_files
-        
-        real_changes = [f for f in changed_files if not is_a0_file(f)]
-        real_untracked = [f for f in untracked if not is_a0_file(f)]
-        
-        is_dirty = len(real_changes) > 0 or len(real_untracked) > 0
-        untracked_count = len(real_untracked)
-        
-        last_commit = None
-        try:
-            commit = repo.head.commit
-            last_commit = {
-                "hash": commit.hexsha[:7],
-                "message": str(commit.message).split("\n")[0][:80],
-                "author": str(commit.author),
-                "date": datetime.fromtimestamp(
-                    commit.committed_date,
-                    tz=Localization.get().get_tzinfo(),
-                ).strftime('%Y-%m-%d %H:%M %Z')
+        with Repo(repo_path) as repo:
+            if repo.bare:
+                return {"is_git_repo": False, "error": "Repository is bare"}
+
+            # Remote URL (always strip auth info for security)
+            remote_url = ""
+            try:
+                if repo.remotes:
+                    remote_url = strip_auth_from_url(repo.remotes.origin.url)
+            except Exception:
+                pass
+
+            # Current branch
+            try:
+                current_branch = repo.active_branch.name if not repo.head.is_detached else f"HEAD@{repo.head.commit.hexsha[:7]}"
+            except Exception:
+                current_branch = "unknown"
+
+            # Check dirty status, excluding A0 metadata
+            def is_a0_file(path: str) -> bool:
+                return path.startswith(".a0proj") or path == ".a0proj"
+
+            # Filter out A0 files from diff and untracked
+            changed_files = [d.a_path for d in repo.index.diff(None)] + [d.a_path for d in repo.index.diff("HEAD")]
+            untracked = repo.untracked_files
+
+            real_changes = [f for f in changed_files if not is_a0_file(f)]
+            real_untracked = [f for f in untracked if not is_a0_file(f)]
+
+            is_dirty = len(real_changes) > 0 or len(real_untracked) > 0
+            untracked_count = len(real_untracked)
+
+            last_commit = None
+            try:
+                commit = repo.head.commit
+                last_commit = {
+                    "hash": commit.hexsha[:7],
+                    "message": str(commit.message).split("\n")[0][:80],
+                    "author": str(commit.author),
+                    "date": datetime.fromtimestamp(
+                        commit.committed_date,
+                        tz=Localization.get().get_tzinfo(),
+                    ).strftime('%Y-%m-%d %H:%M %Z')
+                }
+            except Exception:
+                pass
+
+            return {
+                "is_git_repo": True,
+                "remote_url": remote_url,
+                "current_branch": current_branch,
+                "is_dirty": is_dirty,
+                "untracked_count": untracked_count,
+                "last_commit": last_commit
             }
-        except Exception:
-            pass
-        
-        return {
-            "is_git_repo": True,
-            "remote_url": remote_url,
-            "current_branch": current_branch,
-            "is_dirty": is_dirty,
-            "untracked_count": untracked_count,
-            "last_commit": last_commit
-        }
     except Exception as e:
         return {"is_git_repo": False, "error": str(e)}
