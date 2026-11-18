@@ -129,7 +129,7 @@ async def handle_rfc(rfc_call: rfc.RFCCall):
 def _get_rfc_password() -> str:
     password = dotenv.get_dotenv_value(dotenv.KEY_RFC_PASSWORD)
     if not password:
-        raise Exception("No RFC password, cannot handle RFC calls.")
+        raise RuntimeError("No RFC password, cannot handle RFC calls.")
     return password
 
 
@@ -138,7 +138,7 @@ def _get_rfc_url() -> str:
     from helpers import settings
     set = settings.get_settings()
     url = set["rfc_url"]
-    if not "://" in url:
+    if "://" not in url:
         url = "http://" + url
     if url.endswith("/"):
         url = url[:-1]
