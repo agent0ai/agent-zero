@@ -67,7 +67,7 @@ async def load_file(file_path: str) -> dict:
     full_path = browser.get_full_path(file_path)
 
     if os.path.isdir(full_path):
-        raise Exception("Path points to a directory")
+        raise IsADirectoryError("Path points to a directory")
 
     mime_type, _ = mimetypes.guess_type(full_path)
     content = FileBrowser.read_text(full_path)
