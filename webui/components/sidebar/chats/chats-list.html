@@ -173,27 +173,15 @@
     }
 
     .chats-list-container .project-color-ball.heartbeat {
-      animation: chat-working-bubble 1500ms ease-in-out infinite;
-      transform-origin: center;
-      will-change: border-radius, transform;
+      animation: chat-working-blink 2s ease-in-out infinite;
     }
 
-    @keyframes chat-working-bubble {
-      0% {
-        border-radius: 50%;
-        transform: rotate(0deg) scale(1);
+    @keyframes chat-working-blink {
+      0%, 100% {
+        opacity: 1;
       }
-      25% {
-        border-radius: 0;
-        transform: rotate(45deg) scale(0.9);
-      }
-      75% {
-        border-radius: 0;
-        transform: rotate(405deg) scale(0.9);
-      }
-      100% {
-        border-radius: 50%;
-        transform: rotate(405deg) scale(1);
+      50% {
+        opacity: 0.3;
       }
     }
 
