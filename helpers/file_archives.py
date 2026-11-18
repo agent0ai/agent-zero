@@ -61,7 +61,8 @@ def create_selected_zip(paths: list[str], current_path: str = "", max_bytes=None
 
     remaining = [max_bytes, max_entries]
     try:
-        with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zipped:
+        with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True,
+                             strict_timestamps=False) as zipped:
             for source_path in selected_paths:
                 arc_root = unique_archive_name(archive_root_name(source_path, current_dir, base_dir), used_names)
                 write_zip_entry(zipped, source_path, arc_root, remaining)
@@ -145,7 +146,10 @@ def write_zip_entry(zipped, source_path, arc_root, remaining=None):
         import stat
         if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
             raise ValueError("Archive entries must be regular files.")
-        entry = zipfile.ZipInfo.from_file(source_path, arc_root)
+        # Clamp out-of-range mtimes (e.g. epoch-zero files extracted by package
+        # registries) instead of aborting the whole archive; matches backup and
+        # self-update writers.
+        entry = zipfile.ZipInfo.from_file(source_path, arc_root, strict_timestamps=False)
         entry.compress_type = zipfile.ZIP_DEFLATED
         with zipped.open(entry, "w", force_zip64=True) as target:
             receipt = copy_stream(source, target, remaining[0])

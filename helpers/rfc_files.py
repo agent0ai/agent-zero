@@ -515,7 +515,8 @@ def _zip_dir_impl(folder_path: str) -> str:
     zip_file_path = tempfile.NamedTemporaryFile(suffix=".zip", delete=False).name
     base_name = os.path.basename(folder_path)
 
-    with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+    with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED,
+                         strict_timestamps=False) as zip_file:
         for root, _, files in os.walk(folder_path):
             for file in files:
                 file_path = os.path.join(root, file)
@@ -554,7 +555,8 @@ def _read_directory_impl(dir_path: str) -> str:
             temp_zip_path = temp_zip.name
 
         # Create zip archive
-        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED,
+                             strict_timestamps=False) as zipf:
             for root, dirs, files in os.walk(dir_path):
                 for file in files:
                     file_path = os.path.join(root, file)
