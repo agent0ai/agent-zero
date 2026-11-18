@@ -50,7 +50,7 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
-- `fix_dev_path` remaps `/a0/...` display paths onto the local base dir, but a path already inside the checkout (a dev instance nested under `/a0`) is used as-is.
+- `fix_dev_path` remaps `/a0/...` display paths onto the local base dir, preserving subsequent directory components named `a0`; a path already inside the checkout (a dev instance nested under `/a0`) is used as-is.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `abc`, `base64`, `fnmatch`, `glob`, `helpers`, `helpers.strings`, `json`, `mimetypes`, `os`, `re`, `shutil`, `simpleeval`, `tempfile`, `typing`, `zipfile`.
 
@@ -69,6 +69,7 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_files_development_paths.py`
   - `tests/test_a0_connector_prompt_gating.py`
   - `tests/test_browser_agent_regressions.py`
   - `tests/test_default_prompt_budget.py`
