@@ -185,3 +185,29 @@ def test_tool_envelope_with_escaped_emoji_parses_like_json_loads(parse) -> None:
 
     assert parsed == json.loads(envelope)
     parsed["tool_args"]["code"].encode("utf-8")  # must not raise
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ('{"date": 2026-12-01}', {"date": "2026-12-01"}),
+        ('{"version": 1.2.3, "next": true}', {"version": "1.2.3", "next": True}),
+        ('{"delta": -}', {"delta": "-"}),
+        ('{"count": 3, "ratio": -1.5e2}', {"count": 3, "ratio": -150.0}),
+    ],
+)
+def test_bare_number_like_values_parse_instead_of_raising(payload, expected) -> None:
+    assert DirtyJson.parse_string(payload) == expected
+
+
+def test_tool_request_with_bare_date_argument_is_extracted() -> None:
+    content = (
+        '{"thoughts": ["Schedule it."], "tool_name": "scheduler:create_planned_task",'
+        ' "tool_args": {"date": 2026-12-01, "name": "report"}}'
+    )
+
+    assert extract_tool_request(content) == {
+        "thoughts": ["Schedule it."],
+        "tool_name": "scheduler:create_planned_task",
+        "tool_args": {"date": "2026-12-01", "name": "report"},
+    }
