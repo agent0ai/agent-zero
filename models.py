@@ -797,6 +797,34 @@ class LiteLLMChatWrapper(SimpleChatModel):
                 await asyncio.sleep(retry_delay_s)
 
 
+def _embedding_vectors(data: Any) -> List[List[float]]:
+    """Read vectors from an embedding response's ``data`` field.
+
+    Some OpenAI-compatible gateways wrap the whole response in another
+    ``{"data": {...}}`` object, so ``data`` arrives as a dict instead of a list.
+    """
+    if isinstance(data, dict) and isinstance(data.get("data"), list):
+        data = data["data"]
+    if not isinstance(data, list):
+        raise ValueError(
+            "Embedding provider returned an unexpected response: expected 'data' "
+            f"to be a list of embeddings, got {type(data).__name__}"
+        )
+    vectors = []
+    for item in data:
+        if isinstance(item, dict):
+            vector = item.get("embedding")
+        else:
+            vector = getattr(item, "embedding", None)
+        if vector is None:
+            raise ValueError(
+                "Embedding provider returned an unexpected response: an item in "
+                "'data' has no 'embedding' field"
+            )
+        vectors.append(vector)
+    return vectors
+
+
 class LiteLLMEmbeddingWrapper(Embeddings):
     model_name: str
     kwargs: dict = {}
@@ -824,10 +852,7 @@ class LiteLLMEmbeddingWrapper(Embeddings):
             input=inputs,
             **call_kwargs,
         )
-        return [
-            item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
-            for item in resp.data  # type: ignore
-        ]
+        return _embedding_vectors(resp.data)  # type: ignore[attr-defined]
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return self.embed(texts)
