@@ -18,7 +18,7 @@
 - Keep the outer image based on `python:3.12-slim-trixie` and install Python packages into its global environment.
 - Do not install another Python through apt or pyenv, and do not create a virtual environment.
 - Copy Node and bundled npm from the matching official `node:22-trixie-slim` build stage; do not install Debian's unbundled `nodejs` or `npm` packages.
-- Build checksum-pinned PRoot 5.5.0 with the tracked CoW extension in a throwaway stage. Copy only a0-proot into the runtime; retain libtalloc2, libseccomp2 and POSIX ACL support. No compiler or gVisor sidecars belong in the final image.
+- Build checksum-pinned PRoot 5.5.0 with the tracked CoW extension (`A0-COW-2`, including non-mutating write-access probes) in a throwaway stage. Copy only a0-proot into the runtime; retain libtalloc2, libseccomp2 and POSIX ACL support. No compiler or gVisor sidecars belong in the final image.
 - Copy daemonless `skopeo` and `umoci` plus `/etc/containers` and `/usr/share/containers` defaults from the tool stage. Install their shared libraries and GPG explicitly; do not inherit Debian's unused CNI/network-stack dependency. Verify registry copy, OCI unpack and rootless use after changing this boundary.
 - Keep pip, uv and IPython for dependency installation and explicit local execution, and pipx for launching configured MCP servers. Pin pipx to 1.16.7 until newer releases support the framework's filelock/packaging bounds.
 - Use `uv pip install --no-cache` so temporary wheels/build artifacts are removed in the installing layer; installed packages and embedding model assets remain intact.

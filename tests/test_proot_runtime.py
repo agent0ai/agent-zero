@@ -24,8 +24,11 @@ def manager(tmp_path_factory):
     image = images.ensure(images.config.default_image)
     fixtures = image.rootfs/'cow-tests'
     fixtures.mkdir()
-    for name in ('write', 'chmod', 'fdchmod', 'time', 'fdtime', 'xattr', 'link', 'rename'):
+    for name in ('write', 'chmod', 'fdchmod', 'time', 'fdtime', 'xattr', 'link', 'rename', 'access', 'access-readonly'):
         (fixtures/name).write_text('original')
+    (fixtures/'access-readonly').chmod(0o444)
+    (fixtures/'denied-parent').mkdir()
+    (fixtures/'denied-parent/file').write_text('original')
     os.link(fixtures/'link', fixtures/'alias')
     os.setxattr(fixtures/'write', 'user.test', b'preserved')
     runtime = SandboxManager(SandboxConfig(
@@ -71,6 +74,46 @@ os.setxattr(p/'xattr','user.test',b'value')
     assert run(manager, 'alpha', "print(open('/cow-tests/write').read())").strip() == 'private'
 
 
+
+def test_access_probes_match_copy_up_without_copying(manager):
+    manager.create('permissions')
+    root = manager.config.instances_dir/'permissions/rootfs'
+    target = root/'cow-tests/access'
+    before = target.stat()
+    os.chown(root/'cow-tests/denied-parent',0,0)
+    (root/'cow-tests/denied-parent').chmod(0o555)
+    run(manager, 'permissions', r"""
+import ctypes, os, platform
+from pathlib import Path
+p = Path('/cow-tests/access')
+assert os.access(p, os.W_OK)
+assert os.access(p, os.R_OK | os.W_OK)
+assert not os.access(p, os.W_OK | os.X_OK)
+assert not os.access('/cow-tests/missing', os.W_OK)
+assert not os.access('/cow-tests/access-readonly', os.W_OK)
+assert not os.access('/cow-tests/denied-parent/file', os.W_OK)
+fd = os.open('/cow-tests', os.O_RDONLY | os.O_DIRECTORY)
+assert os.access('access', os.W_OK, dir_fd=fd, effective_ids=True)
+os.symlink('access', '/cow-tests/probe-link')
+assert os.access('/cow-tests/probe-link', os.W_OK)
+libc = ctypes.CDLL(None, use_errno=True)
+assert libc.access(b'/cow-tests/access', os.W_OK) == 0
+# Exercise the legacy syscall separately from glibc's faccessat2 wrapper.
+legacy = {'x86_64':269, 'aarch64':48}[platform.machine()]
+assert libc.syscall(legacy, fd, b'access', os.W_OK) == 0
+assert libc.syscall(439, fd, b'access', os.W_OK, 0x200) == 0
+assert libc.syscall(439, fd, b'access', 8, 0) == -1
+assert libc.syscall(439, fd, b'access', os.W_OK, 0x4000) == -1
+os.close(fd)
+""")
+    after = target.stat()
+    assert (before.st_dev, before.st_ino, before.st_uid) == (after.st_dev, after.st_ino, after.st_uid)
+    run(manager, 'permissions', "open('/cow-tests/access','a').write(' changed')")
+    assert target.read_text() == 'original changed'
+    assert target.stat().st_ino != before.st_ino
+    # PRoot's existing fake-root handling of UID-owned private files is retained.
+    run(manager, 'permissions', "import os; os.chmod('/cow-tests/access',0o400); assert os.access('/cow-tests/access',os.W_OK); open('/cow-tests/access','a').write(' private')")
+
 def test_readonly_bindings_and_atomic_request_acl(manager):
     directory = manager.config.instances_dir.parent/'input'
     directory.mkdir(mode=0o700)
@@ -89,9 +132,11 @@ for mutate in [lambda: open('/input/request','w'),lambda: os.unlink('/input/requ
     else: raise AssertionError('read-only mutation succeeded')
 ''')
     assert (directory/'request').read_text() == 'replacement'
+    run(manager,'bindings',"import os; assert not os.access('/input/request',os.W_OK)")
     uid=manager._read_metadata('bindings')['uid']
     storage.grant(directory,uid,writable=True)
     storage.traverse(directory/'request',uid)
+    run(manager,'bindings',"import os; assert not os.access('/input/request',os.W_OK)")
     subprocess.run(['setpriv',f'--reuid={uid}',f'--regid={uid}','--clear-groups','sh','-c',f'touch {directory}/allowed'],check=True)
 
 

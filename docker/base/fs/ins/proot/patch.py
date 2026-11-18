@@ -17,5 +17,5 @@ if 'cow_callback' not in text:
 
 file = src / 'cli/proot.c'
 text = file.read_text()
-if 'A0-COW-1' not in text:
-    file.write_text(text.replace('    print_version(cli);', '    print_version(cli);\n    puts("A0-COW-1");'))
+if 'A0-COW-2' not in text:
+    file.write_text(text.replace('    print_version(cli);', '    print_version(cli);\n    puts("A0-COW-2");'))

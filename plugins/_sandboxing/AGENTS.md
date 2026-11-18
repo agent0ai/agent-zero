@@ -26,7 +26,7 @@
 - Pin every sandbox to an immutable image digest. Tag refreshes affect new sandboxes only; image deletion and cleanup must refuse every digest referenced by sandbox metadata.
 - Treat image cache entries as private runtime state. Automatic cleanup removes only unreferenced images whose last-use time exceeds the configured lifetime (30 days by default).
 - Keep the shared mount explicit at `/shared`; optional binds must have validated absolute sources and sandbox destinations.
-- New sandboxes hardlink root-owned immutable image files into private UID-owned directory trees. The tracked PRoot extension copies files before mutation. Cache/state must share a filesystem. Existing disk roots migrate in place; legacy overlay snapshots are preserved and refused with an export instruction. Temporary controls idle expiry only.
+- New sandboxes hardlink root-owned immutable image files into private UID-owned directory trees. The tracked PRoot extension copies files before mutation. Access checks report writable shared files when copy-up can succeed, without copying on a probe; preserve read-only bindings, existing fake-root handling of private files, enforced parent permissions and read/execute checks. Cache/state must share a filesystem. Existing disk roots migrate in place; legacy overlay snapshots are preserved and refused with an export instruction. Temporary controls idle expiry only.
 - Scope instance directories and process metadata by the persistent Agent Zero instance ID. Never operate on another instance’s metadata.
 - Child is the default lifetime: a passed pipe closes on parent exit and terminates all guest UID processes. Standalone processes survive parent exit and restore on startup only when desired_running is true; manual stop clears that flag. Docker/host restarts require relaunch, not live process survival.
 - Internet and host loopback are available with network=host (default); network=none is offline. No claim of separate outbound-only isolation.
@@ -44,7 +44,7 @@
 
 - `helpers/storage.py` owns immutable image preparation, private hardlink trees, symlink-safe binding ACLs and permanent UID leases. Preserve effective existing ACL permissions; atomic worker requests use mode 0640 so inherited read ACLs remain effective.
 - `helpers/process.py` drops supplementary groups and real UID/GID, applies no-new-privileges and seccomp, then runs PRoot fake-root. Supervisors use PID start-time tokens, child pipes and UID cleanup; exec wrappers reap their own detached descendants on cancellation.
-- `helpers/bootstrap.py` and `docker/base/fs/ins/proot/` own the pinned build and source-update installer. Never install build dependencies during normal ready-image startup.
+- `helpers/bootstrap.py` and `docker/base/fs/ins/proot/` own the pinned build and source-update installer. Runtime capability marker `A0-COW-2` includes overlay-aware access checks; older binaries rebuild through this installer on source update. Never install build dependencies during normal ready-image startup.
 - PRoot is dependency/filesystem separation, not a hostile-code security boundary. Do not claim PID/kernel isolation. Offline mode denies new non-Unix sockets; bindings can still expose Unix services.
 
 - Transient `/tmp`, `/run` and PRoot scratch data live below short, private `/run/a0-proot/<uid>` directories to keep Unix socket paths within Linux limits. They are cleared on stop; persistent guest files remain in the CoW root.

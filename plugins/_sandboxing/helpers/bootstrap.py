@@ -9,7 +9,7 @@ def ready(executable: Path) -> bool:
     if not executable.is_file():
         return False
     result = subprocess.run([str(executable), '--version'], capture_output=True, timeout=5, text=True)
-    return result.returncode == 0 and 'A0-COW-1' in result.stdout
+    return result.returncode == 0 and 'A0-COW-2' in result.stdout
 
 
 def ensure(executable: Path) -> None:

@@ -209,6 +209,29 @@ static int path_argument(Tracee *tracee, Reg argument, int copy) {
     return copy ? materialize(path) : 0;
 }
 
+/* Permission probes must describe copy-up without allocating a private copy. */
+static int access_mode(Tracee *tracee, word_t number) {
+    Reg path_arg = number == PR_access ? SYSARG_1 : SYSARG_2;
+    Reg mode_arg = number == PR_access ? SYSARG_2 : SYSARG_3;
+    word_t mode = peek_reg(tracee, CURRENT, mode_arg);
+    if (!(mode & W_OK) || (mode & ~(R_OK | W_OK | X_OK))) return 0;
+    if (number == PR_faccessat2 && (peek_reg(tracee, CURRENT, SYSARG_4) & ~AT_EACCESS)) return 0;
+    char path[PATH_MAX], name[NAME_MAX + 1];
+    int status = get_sysarg_path(tracee, path, path_arg);
+    if (status < 0) return status;
+    if (readonly(path)) return -EROFS;
+    struct stat info;
+    if (!inside(path) || lstat(path, &info) || !S_ISREG(info.st_mode)
+        || info.st_uid == getuid() || !(info.st_mode & S_IWUSR) || access(path, R_OK)) return 0;
+    int parent = parent_fd(path, name);
+    if (parent < 0) return 0;
+    int writable = faccessat(parent, ".", W_OK | X_OK, 0) == 0;
+    close(parent);
+    /* The kernel still checks existence, traversal, read/execute bits and flags. */
+    if (writable) poke_reg(tracee, mode_arg, mode & ~W_OK);
+    return 0;
+}
+
 static int descriptor(Tracee *tracee, word_t number) {
     char link[80], path[PATH_MAX];
     struct stat opened, current;
@@ -254,6 +277,7 @@ int cow_callback(Extension *extension, ExtensionEvent event, intptr_t data1, int
         if (!root || !control || getuid() == 0) return -EINVAL;
         static const FilteredSysnum calls[] = {
             {PR_sendmsg, FILTER_SYSEXIT},
+            {PR_access, FILTER_SYSEXIT}, {PR_faccessat, FILTER_SYSEXIT}, {PR_faccessat2, FILTER_SYSEXIT},
             {PR_fchmod, FILTER_SYSEXIT}, {PR_fchown, FILTER_SYSEXIT}, {PR_fchown32, FILTER_SYSEXIT},
             {PR_ftruncate, FILTER_SYSEXIT}, {PR_ftruncate64, FILTER_SYSEXIT},
             {PR_fsetxattr, FILTER_SYSEXIT}, {PR_fremovexattr, FILTER_SYSEXIT}, FILTERED_SYSNUM_END
@@ -268,6 +292,7 @@ int cow_callback(Extension *extension, ExtensionEvent event, intptr_t data1, int
     int copy = 1, status;
     switch (number) {
     case PR_sendmsg: return send_credentials(tracee);
+    case PR_access: case PR_faccessat: case PR_faccessat2: return access_mode(tracee, number);
     case PR_open:
         if (!(peek_reg(tracee, ORIGINAL, SYSARG_2) & (O_WRONLY | O_RDWR | O_TRUNC | O_CREAT))) return 0;
         break;

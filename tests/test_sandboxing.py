@@ -582,7 +582,7 @@ def test_doctor_never_requests_a_host_shell(
 
     def fake_run(*args, **kwargs):
         calls.append(kwargs)
-        return subprocess.CompletedProcess(args[0], 0, "A0-COW-1", "")
+        return subprocess.CompletedProcess(args[0], 0, "A0-COW-2", "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(manager, "_require_runtime_artifacts", lambda: __import__("plugins._sandboxing.helpers.bootstrap", fromlist=["ready"]).ready(manager.config.proot))
@@ -598,3 +598,13 @@ def test_docker_image_contains_small_runtime_and_default_seccomp():
     assert 'gvisor' not in dockerfile and 'runsc' not in dockerfile
     assert 'privileged: false' in compose and 'init: true' in compose
     assert 'unconfined' not in compose and 'cap_add' not in compose
+
+
+def test_runtime_bootstrap_requires_access_probe_fix(tmp_path, monkeypatch):
+    from plugins._sandboxing.helpers import bootstrap
+    executable = tmp_path/'a0-proot'
+    executable.touch()
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(a[0],0,'A0-COW-1',''))
+    assert not bootstrap.ready(executable)
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(a[0],0,'A0-COW-2',''))
+    assert bootstrap.ready(executable)
