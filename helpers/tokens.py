@@ -1,5 +1,6 @@
 import re
 from typing import Literal
+
 import tiktoken
 
 APPROX_BUFFER = 1.1
@@ -50,6 +51,9 @@ def trim_to_tokens(
     direction: Literal["start", "end"],
     ellipsis: str = "...",
 ) -> str:
+    if max_tokens <= 0:
+        return ""
+
     chars = len(text)
     tokens = count_tokens(text)
 
@@ -58,6 +62,20 @@ def trim_to_tokens(
 
     approx_chars = int(chars * (max_tokens / tokens) * TRIM_BUFFER)
 
-    if direction == "start":
-        return text[:approx_chars] + ellipsis
-    return ellipsis + text[chars - approx_chars : chars]
+    while True:
+        if direction == "start":
+            trimmed = text[:approx_chars] + ellipsis
+        else:
+            trimmed = ellipsis + text[chars - approx_chars : chars]
+        trimmed_tokens = count_tokens(trimmed)
+        if trimmed_tokens <= max_tokens:
+            return trimmed
+        if approx_chars == 0:
+            return ""  # Even the truncation marker does not fit.
+
+        # The retained region can be much denser than the whole-text estimate.
+        # Recount the marker too, and always remove at least one code point.
+        approx_chars = min(
+            approx_chars - 1,
+            int(approx_chars * (max_tokens / trimmed_tokens) * TRIM_BUFFER),
+        )
