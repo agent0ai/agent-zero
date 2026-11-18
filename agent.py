@@ -1216,6 +1216,10 @@ class Agent:
                 tool_args=tool_args or {},
                 tool_name=tool_name,
             )
+            # Re-sync so hook mutations (in-place tool_args edits) reach tools
+            # that read self.args, and so MCP tools (constructed with args={})
+            # cannot fork from the caller's dict after the hook.
+            tool.args = tool_args
 
             response = await tool.execute(**tool_args)
             await self.handle_intervention()
@@ -1496,6 +1500,8 @@ class Agent:
                         tool_args=tool_args or {},
                         tool_name=tool_name,
                     )
+                    # Re-sync so hook mutations reach tools that read self.args.
+                    tool.args = tool_args
 
                     response = await tool.execute(**tool_args)
                     await self.handle_intervention()
