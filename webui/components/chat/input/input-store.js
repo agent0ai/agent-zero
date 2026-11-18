@@ -411,6 +411,13 @@ const model = {
 
     if ($event.key === "Enter") {
       if (this._isInCodeBlock($event.target)) return;
+
+      // On touch devices (mobile), Enter inserts a newline instead of sending
+      const isTouchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches;
+      if (isTouchDevice) {
+        return; // Allow browser default behavior (insert newline)
+      }
+
       if (!$event.shiftKey) {
         if (this._tryCreateCodeBlock($event)) return;
         $event.preventDefault();
