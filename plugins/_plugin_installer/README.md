@@ -24,6 +24,7 @@ This plugin provides the built-in installation workflow for third-party plugins.
   - Runs the plugin install hook when present and calls `after_plugin_change(...)` so the app refreshes plugin state.
 - **Plugin Hub UI**
   - The web UI store handles browsing Plugin Index entries, showing README content, prompting about third-party plugin risk, and launching install/update actions.
+  - The **Official** filter appears immediately after **All**, even when empty, and automatically includes indexed plugins whose GitHub repositories belong to the `agent0ai` organization.
 
 ## Key Files
 

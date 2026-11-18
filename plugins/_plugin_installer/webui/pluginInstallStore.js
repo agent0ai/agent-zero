@@ -110,6 +110,17 @@ const model = {
     return (plugin?.stars || 0) >= POPULAR_PLUGIN_MIN_STARS;
   },
 
+  _isOfficialPlugin(plugin) {
+    try {
+      const url = new URL(plugin?.github);
+      return ["https:", "http:"].includes(url.protocol)
+        && url.hostname === "github.com"
+        && /^\/agent0ai\/[^/]+\/?$/i.test(url.pathname);
+    } catch {
+      return false;
+    }
+  },
+
   _isNewPlugin(plugin) {
     const updatedAt = (plugin?.updated || "").trim();
     if (!updatedAt) return false;
@@ -135,6 +146,7 @@ const model = {
 
   _matchesBrowseFilter(plugin, filterKey) {
     if (!filterKey || filterKey === "all") return true;
+    if (filterKey === "official") return this._isOfficialPlugin(plugin);
     if (filterKey === "installed") return !!plugin?.installed;
     if (filterKey === "update") return !!plugin?.has_update;
     if (filterKey === "popular") return this._isPopularPlugin(plugin);
@@ -425,6 +437,9 @@ const model = {
     const plugins = this.pluginsList;
     const filters = [{ key: "all", label: "All", count: plugins.length }];
 
+    const officialCount = plugins.filter((plugin) => this._isOfficialPlugin(plugin)).length;
+    filters.push({ key: "official", label: "Official", count: officialCount });
+
     const installedCount = plugins.filter((plugin) => plugin.installed).length;
     if (installedCount) {
       filters.push({ key: "installed", label: "Installed", count: installedCount });
@@ -454,7 +469,7 @@ const model = {
     filters.push({ key: "tag:provider", label: "Provider", count: tagCounts.get("provider") || 0 });
     filters.push({ key: "tag:channels", label: "Channels", count: tagCounts.get("channels") || 0 });
     for (const [tag, count] of Array.from(tagCounts.entries())
-      .filter(([tag]) => tag !== "welcome" && tag !== "provider" && tag !== "channels")
+      .filter(([tag]) => tag !== "welcome" && tag !== "provider" && tag !== "channels" && tag.toLowerCase() !== "official")
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 4)) {
       filters.push({
