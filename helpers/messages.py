@@ -14,6 +14,9 @@ def truncate_text(agent, output, threshold=1000):
     )
     # placeholder = files.read_file("./prompts/default/fw.msg_truncated.md", length=(len(output) - threshold))
 
+    if 0 < threshold <= len(placeholder):
+        return placeholder[:threshold]
+
     start_len = (threshold - len(placeholder)) // 2
     end_len = threshold - len(placeholder) - start_len
 
