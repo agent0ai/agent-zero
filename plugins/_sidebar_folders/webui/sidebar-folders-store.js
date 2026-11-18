@@ -550,12 +550,6 @@ export const store = createStore("sidebarFolders", {
     ids.splice(index < 0 ? ids.length : index + Number(after), 0, id);
     const result = await callJsonApi(`/plugins/${PLUGIN}/layout`, { action: "save", kind, ids });
     this.order = result.order;
-    if (this.config.sort_by !== "manual") {
-      const config = { ...this.config, sort_by: "manual" };
-      const saved = await callJsonApi("plugins", { action: "save_config", plugin_name: PLUGIN, settings: config });
-      if (!saved.ok) throw new Error(saved.error || "Could not save manual sorting");
-      this.config = config;
-    }
   },
 
   async moveChat(id, project) {
