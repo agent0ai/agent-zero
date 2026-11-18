@@ -47,6 +47,9 @@ const model = {
   browseFilter: "all",
   initialBrowseFilter: "all",
   selectedPlugin: null,
+  pluginCompatibility: null,
+  compatibilityLoading: false,
+  compatibilityLoadSeq: 0,
 
   // Shared state
   loading: false,
@@ -562,11 +565,48 @@ const model = {
     this.readmeContent = null;
     this.detailError = null;
     this.detailThumbnailUrl = this.getThumbnailUrl(this.selectedPlugin);
+    this.pluginCompatibility = null;
+    this.fetchPluginCompatibility(this.selectedPlugin);
     if (this.selectedPlugin.installed) {
       this.fetchInstalledPluginInfo(this.selectedPlugin.name);
     }
     this.fetchReadme(this.selectedPlugin);
     openModal("/plugins/_plugin_installer/webui/install-detail.html");
+  },
+
+  async fetchPluginCompatibility(plugin) {
+    const requestSeq = ++this.compatibilityLoadSeq;
+    this.compatibilityLoading = true;
+    let compatibility;
+    try {
+      const data = await api.callJsonApi(PLUGIN_API, {
+        action: "check_compatibility",
+        git_url: plugin.github,
+      });
+      if (!data.success) throw new Error(data.error || "Compatibility check failed");
+      compatibility = data;
+    } catch (error) {
+      compatibility = {
+        a0_version: null,
+        current_version: this.pluginCompatibility?.current_version || "unknown",
+        compatible: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+    if (requestSeq === this.compatibilityLoadSeq && this.selectedPlugin?.key === plugin.key) {
+      this.pluginCompatibility = compatibility;
+      this.compatibilityLoading = false;
+    }
+    return compatibility;
+  },
+
+  formatA0Requirement(compatibility) {
+    const requirement = compatibility?.a0_version;
+    if (!compatibility || (compatibility.error && requirement == null)) return "Unknown";
+    if (requirement == null || requirement === "" || (Array.isArray(requirement) && !requirement.length)) {
+      return "Not specified";
+    }
+    return Array.isArray(requirement) ? requirement.join(" OR ") : String(requirement);
   },
 
   async fetchReadme(plugin) {
@@ -603,25 +643,46 @@ const model = {
   },
 
   async installFromIndex(plugin) {
+    if (this.loading) return;
     if (!plugin?.github) {
       void toastFrontendError("No GitHub URL available for this plugin", "Plugin Installer");
       return;
     }
 
-    const confirmed = await showConfirmDialog({
-      ...SECURITY_WARNING,
-      extensionContext: {
-        kind: "plugin_hub_plugin_install_warning",
-        source: "plugin_installer",
-        pluginKey: plugin.key || "",
-        pluginTitle: plugin.title || plugin.key || "",
-        gitUrl: plugin.github,
-      },
-    });
-    if (!confirmed) return;
-
     try {
       this.loading = true;
+      this.loadingMessage = "Checking Agent Zero compatibility";
+      const compatibility = await this.fetchPluginCompatibility(plugin);
+      if (compatibility.compatible !== true) {
+        const message = document.createElement("div");
+        const status = compatibility.compatible === false
+          ? "This plugin's Agent Zero version requirement is not compatible with your installed version."
+          : "This plugin's Agent Zero version compatibility could not be verified.";
+        message.textContent = `${status} Installed Agent Zero: ${compatibility.current_version}. `
+          + `Allowed versions: ${this.formatA0Requirement(compatibility)}. `
+          + (compatibility.error ? `${compatibility.error}. ` : "")
+          + "Custom forks may still work. You can choose to install anyway.";
+        const proceed = await showConfirmDialog({
+          title: "Agent Zero Version Compatibility",
+          message: message.innerHTML,
+          type: "warning",
+          confirmText: "Install Anyway",
+          cancelText: "Cancel",
+        });
+        if (!proceed) return;
+      }
+
+      const confirmed = await showConfirmDialog({
+        ...SECURITY_WARNING,
+        extensionContext: {
+          kind: "plugin_hub_plugin_install_warning",
+          source: "plugin_installer",
+          pluginKey: plugin.key || "",
+          pluginTitle: plugin.title || plugin.key || "",
+          gitUrl: plugin.github,
+        },
+      });
+      if (!confirmed) return;
       this.loadingMessage = "Installing";
 
       const data = await api.callJsonApi(PLUGIN_API, {

@@ -40,6 +40,7 @@
 - Run `pytest` for broad changes.
 - Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views and shared browser configuration.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
+- Plugin Hub compatibility: `python -m unittest discover -s tests -p test_plugin_compatibility.py` and `node --test tests/test_plugin_compatibility.mjs tests/test_plugin_hub_welcome.mjs` cover manifest/version parsing and advisory install filtering/confirmation without installing plugins.
 - Run `node --test tests/test_onboarding.mjs` for onboarding defaults and completion staying in the original chat.
 - Run `pytest tests/test_litellm_sdk.py -q` for LiteLLM/OpenAI upgrades. Its loopback provider exercises the installed SDK's sync/async calls, streaming, tool/state preservation, fallback, embeddings, and Anthropic cache markers without real keys or external requests.
 - Run `pytest tests/test_framework_dependencies.py -q` for dependency migration changes; verify stale self-update environments, process restart, and already-current image installs.

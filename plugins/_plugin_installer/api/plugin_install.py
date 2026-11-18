@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from helpers.api import ApiHandler, Input, Output, Request
+from helpers import git
 from werkzeug.datastructures import FileStorage
 
+from plugins._plugin_installer.helpers.compatibility import get_plugin_compatibility
 from plugins._plugin_installer.helpers.install import (
     get_plugin_hub_index,
     install_from_git,
@@ -25,6 +27,8 @@ class PluginInstall(ApiHandler):
                 return self._update_git(input)
             elif action == "fetch_index":
                 return self._fetch_index(input)
+            elif action == "check_compatibility":
+                return {"success": True, **get_plugin_compatibility(input.get("git_url", ""), git.get_version())}
             else:
                 return {"success": False, "error": f"Unknown action: {action}"}
         except ValueError as e:

@@ -49,6 +49,7 @@
 
 ## Runtime Contracts
 
+- `PluginMetadata.a0_version` preserves an optional string/list of strings from the manifest. It declares A0 compatibility separately from the plugin's own `version`; interpretation and advisory Hub warnings belong to `_plugin_installer`, without gating discovery or activation.
 - Enabled asset paths follow `get_plugin_roots()` priority: user plugins before
   bundled plugins, preserving discovery order within each root. First-match
   tools, prompts and same-filename extensions therefore honor user plugin

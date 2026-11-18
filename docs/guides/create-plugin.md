@@ -84,6 +84,13 @@ per_project_config: false
 per_agent_config: false
 ```
 
+If the plugin depends on particular Agent Zero releases, declare them with a
+quoted `a0_version`, for example `a0_version: ">=3.0,<4.0"`. It accepts exact
+versions, ranges, wildcards and lists of alternatives; see the
+[version requirement specification](../developer/plugins.md#agent-zero-version-requirements).
+Plugin Hub shows the requirement and warns before installing on an incompatible
+A0 version, with an option to continue for custom forks.
+
 The two Web UI extension files are the little doorways into the running
 interface:
 

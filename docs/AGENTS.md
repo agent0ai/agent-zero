@@ -12,6 +12,7 @@
 - `guides/opencode.md` owns the fresh-instance OpenCode Go provider-plugin journey, with real captures under `res/usage/opencode/`. Onboarding shares its model-gate image. Keep model IDs tied to the provider's current catalog and distinguish verified setup from untested model responses.
 - `guides/codex.md` owns ChatGPT device-code permission, Codex account sign-in, Main/Utility selection and continuation in the original chat. Its real captures under `res/usage/codex/` must hide account identities and device codes; reuse the current onboarding-ready capture. Link it from the README, docs index and Onboarding.
 - `developer/` covers compact developer references and source handoffs.
+- `developer/plugins.md` owns the optional `plugin.yaml:a0_version` syntax and advisory Plugin Hub compatibility behavior; authoring guides and skills link to that specification.
 - `plans/` covers implementation plans, migration notes, and staged technical roadmaps.
 - `res/` contains documentation images and other documentation assets.
 - `guides/migrate-agents.md` owns the real Pi, Hermes and Claude Code CLI export, preview, import, file-copy and continuation journeys, with neutral captures under `res/usage/migration/`; source-format and parser contracts stay in the bundled Migrate Agents plugin. The migration and usage guides share the sidebar message-search capture and describe its loaded-conversation/filter limits.

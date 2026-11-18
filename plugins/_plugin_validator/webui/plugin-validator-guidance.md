@@ -8,4 +8,5 @@
 - Hooks runtime targeting: use `sys.executable` only for framework runtime work and `/opt/venv/bin/python` for agent-runtime installs.
 - execute.py pattern: expose `main()` and end with `if __name__ == "__main__": sys.exit(main())`.
 - Community contribution: plugin name must match `^[a-z0-9_]+$`, match the directory name, and stay unique in the published index.
+- `plugin.yaml:a0_version` is optional and supported. Validate quoted exact versions, comparison ranges, inclusive hyphen ranges, wildcards or lists of alternatives against `/a0/docs/developer/plugins.md`. Keep it separate from the plugin's own `version`; omission is valid, and current-version mismatches are advisory warnings with a user override in the Hub.
 - LICENSE: a file named `LICENSE` at the plugin root is optional for local-only plugins but required at the repository root before Plugin Index submission; if missing, rate Structure Validation as warning (not pass) and state that clearly in findings.
