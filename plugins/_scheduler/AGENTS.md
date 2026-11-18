@@ -19,6 +19,8 @@
 - `plugin.yaml` and `README.md` own metadata and docs.
 - `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
+- `socket/` exposes the five CRUD/run/list operations by the same filenames and payloads, through the shared JSON administration adapter; HTTP and tool contracts remain unchanged.
+
 ## Local Contracts
 
 - The tool and API endpoints delegate to the shared `helpers.task_scheduler` engine, which stays in core and is also used by `api/scheduler_tick.py`, `helpers/job_loop.py`, chat lifecycle endpoints, and `_chat_naming`.

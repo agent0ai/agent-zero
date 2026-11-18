@@ -13,6 +13,7 @@
 - `guides/codex.md` owns ChatGPT device-code permission, Codex account sign-in, Main/Utility selection and continuation in the original chat. Its real captures under `res/usage/codex/` must hide account identities and device codes; reuse the current onboarding-ready capture. Link it from the README, docs index and Onboarding.
 - `developer/` covers compact developer references. `developer/plugin-sandboxes.md` owns plugin worker integration; runtime prerequisites and Linux smoke checks live in `plugins/_sandboxing/README.md`.
 - `developer/plugins.md` owns the optional `plugin.yaml:a0_version` syntax and advisory Plugin Hub compatibility behavior; authoring guides and skills link to that specification.
+- `developer/local-socket.md` owns local Unix-socket startup, handler authoring, CLI usage and protocol/access limits.
 - `plans/` covers implementation plans, migration notes, and staged technical roadmaps.
 - `res/` contains documentation images and other documentation assets.
 - `guides/migrate-agents.md` owns the real Pi, Hermes and Claude Code CLI export, preview, import, file-copy and continuation journeys, with neutral captures under `res/usage/migration/`; source-format and parser contracts stay in the bundled Migrate Agents plugin. The migration and usage guides share the sidebar message-search capture and describe its loaded-conversation/filter limits.

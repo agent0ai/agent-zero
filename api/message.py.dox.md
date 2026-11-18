@@ -21,7 +21,7 @@
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Message` is an `ApiHandler`.
-- `Message` defines `process(...)`.
+- `Message` defines `process(...)`. Internal socket adapters may pass `request=None` to use the supplied JSON `input`; HTTP still parses JSON or multipart from its real request. Both paths retain extension, logging, dispatch and response behavior. Socket adapters require an existing explicit context before invoking this operation.
 - The `user_message_ui` extension point runs before logging and dispatch; when extension data carries `model_not_configured`, `communicate` returns no task and the response payload reports `"model_not_configured": true` with the context id instead of logging or dispatching the message.
 - Observed side-effect areas: filesystem reads, filesystem writes, settings/state persistence, scheduler state.
 - Imported dependency areas include: `agent`, `helpers`, `helpers.api`, `helpers.defer`, `helpers.security`, `os`.

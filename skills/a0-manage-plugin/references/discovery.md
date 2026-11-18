@@ -4,10 +4,10 @@ Sources: `/a0/plugins/_plugin_installer/api/plugin_install.py`, `/a0/plugins/_pl
 
 ## Fetch The Current Catalog
 
-Use the authenticated `api()` client from `/a0/skills/a0-development/references/operate-agent-zero.md` with the verified instance origin:
+Use the socket `local()` client from `/a0/skills/a0-development/references/operate-agent-zero.md` from the intended instance framework root:
 
 ```python
-result = api("plugins/_plugin_installer/plugin_install", {"action": "fetch_index"})
+result = local("plugins/_plugin_installer/plugin_install", {"action": "fetch_index"})
 index = result["index"]
 entries = index["plugins"]
 installed = set(result.get("installed_plugins") or [])

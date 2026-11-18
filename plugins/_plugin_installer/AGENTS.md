@@ -12,6 +12,8 @@
 - `webui/` owns Plugin Hub, ZIP, Git, detail, and shared install UI.
 - `plugin.yaml` and `README.md` own metadata and behavior notes.
 
+- `socket/plugin_install.py` reuses Git/index/compatibility/update API operations and accepts `install_zip` with an absolute server-local `zip_path`, copying through the existing upload helper before extraction. HTTP multipart uploads remain unchanged.
+
 ## Local Contracts
 
 - Install third-party plugins into `usr/plugins/`, not bundled `plugins/`.

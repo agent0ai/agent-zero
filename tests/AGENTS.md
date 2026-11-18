@@ -15,6 +15,7 @@
 
 - Tests must not require real API keys, network-only services, private user data, or local `usr/` runtime state. Manual provider demos must guard model creation and requests behind their executable entry point so collection never runs them.
 - Root `pytest.ini` selects `tests` and `plugins` with importlib import mode; root `conftest.py` keeps `tests/` importable and ignores plugin API handler modules whose names match `test_*.py`.
+- Socket handler modules named `test_*.py` are also excluded from collection. `test_socket_api.py` covers real Unix-socket requests, temporary core/plugin/user handler discovery, permissions, lifecycle and CLI subprocess behavior; it also runs with stdlib unittest. `test_socket_handlers.py` exercises shared message/installer operations, explicit contexts, error normalization, worker concurrency and cancellation with isolated dependencies.
 - Tests that reimport project modules under stubs, swap `files._base_dir`, or populate extension/plugin caches must restore them so later test files see pristine modules and caches.
 - Keep tests deterministic and isolated from existing chats, uploads, downloads, plugin state, and settings.
 - Prefer exercising public helper/API contracts over fragile implementation details when practical.

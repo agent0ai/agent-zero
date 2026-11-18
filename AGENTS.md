@@ -30,6 +30,7 @@
 - LiteLLM and OpenAI pins must remain compatible. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.
 - Native agent-turn response callbacks may receive a display-only commentary preview as their full text; legacy callbacks, accumulated model output, usage and native dispatch retain the original text and result metadata.
 - `run_ui.py` is the WebUI entry point.
+- `helpers/socket_api.py` owns the local Unix socket transport; `helpers/ui_server.py` binds its lifetime to ASGI startup/shutdown. Core handlers live in `socket/`, plugin handlers in `<plugin>/socket/`; keep root `socket/` without `__init__.py` so Python's standard library remains importable.
 - `run_tunnel.py` is only a native sleep compatibility shim for old images until startup migration removes their Supervisor entry; Remote Control implementation and dependencies belong to `plugins/_tunnel/`.
 - `pytest.ini` and root `conftest.py` own test discovery: `tests` and `plugins` testpaths with importlib import mode, `tests/` importable for sibling test imports, and handler modules named like tests kept out of collection.
 - `prepare.py` migrates and loads legacy `.env` configuration before writing the root password; `helpers/migration.py` owns preservation of existing files and symlink handling.
@@ -98,6 +99,7 @@ Ask before:
 | [plugins/AGENTS.md](plugins/AGENTS.md) | Bundled system plugins and custom-plugin architecture. |
 | [prompts/AGENTS.md](prompts/AGENTS.md) | Core prompt templates. |
 | [scripts/AGENTS.md](scripts/AGENTS.md) | Repository maintenance scripts and automation inputs. |
+| [socket/AGENTS.md](socket/AGENTS.md) | Local Unix socket JSON handlers and invocation contracts. |
 | [skills/AGENTS.md](skills/AGENTS.md) | Bundled Agent Zero skills. |
 | [tests/AGENTS.md](tests/AGENTS.md) | Pytest regression and contract tests. |
 | [tools/AGENTS.md](tools/AGENTS.md) | Core agent tool implementations. |

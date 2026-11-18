@@ -14,6 +14,8 @@
 - `extensions/webui/` owns lifecycle registration on the shared modal stack and
   the global entry points used by existing WebUI surfaces.
 
+- `socket/agent_editor.py` exposes the existing JSON editor operation with the same scope validation, planning and explicit apply requirements.
+
 ## Local Contracts
 
 - Plugin profile metadata layers merge bundled roots before user roots using

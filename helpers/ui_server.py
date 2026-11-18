@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from contextlib import asynccontextmanager
 from datetime import timedelta
 import asyncio
 import gzip
@@ -34,6 +35,7 @@ from helpers.extension import extensible, get_webui_extension_manifest
 from helpers.files import get_abs_path
 from helpers.print_style import PrintStyle
 from helpers.server_startup import StartupMonitor
+from helpers.socket_api import socket_lifespan
 from helpers.ui_bundler import (
     get_ui_asset_bundle,
     serialize_ui_asset_bundle,
@@ -227,6 +229,12 @@ class UiServerRuntime:
         self._transport_registered = True
 
     def build_asgi_app(self, startup_monitor: StartupMonitor):
+        @asynccontextmanager
+        async def lifespan(app):
+            async with startup_monitor.lifespan()(app):
+                async with socket_lifespan(self.webapp, self.lock):
+                    yield
+
         with startup_monitor.stage("wsgi.middleware.create"):
             wsgi_app = WSGIMiddleware(self.webapp)
 
@@ -243,7 +251,7 @@ class UiServerRuntime:
                     Mount("/a2a", app=a2a_app),
                     Mount("/", app=wsgi_app),
                 ],
-                lifespan=startup_monitor.lifespan(),
+                lifespan=lifespan,
             )
             compressed_http_app = GZipMiddleware(
                 starlette_app,

@@ -12,7 +12,7 @@
 - `tools.md` owns core and plugin tool development contracts.
 - `extensions.md` owns backend and frontend extension contracts.
 - `api-webui.md` owns HTTP API handler, WebSocket, and WebUI extension development guidance.
-- `operate-agent-zero.md` owns authenticated API usage and project, chat, task, and application-operation workflows.
+- `operate-agent-zero.md` owns local socket usage, remote HTTP authentication and project, chat, task, and application-operation workflows.
 - `agents-prompts-skills-projects.md` owns profiles, prompt fragments, skills, and project metadata guidance.
 - `plugins-workflow.md` owns plugin-first placement and handoff guidance.
 
@@ -21,8 +21,8 @@
 - Every reference file must list source anchors or DOX anchors that can be checked in the repository.
 - Prefer pointing to narrower `AGENTS.md` files instead of copying long subtree contracts.
 - Keep examples minimal and compatible with the current helper classes.
-- Operation examples must distinguish HTTP payloads from agent-tool arguments, identify scope and side effects, and verify returned IDs/state.
-- Scheduler operations use the `_scheduler` plugin API routes under `/api/plugins/_scheduler/`; the scheduling engine remains in `helpers/task_scheduler.py`.
+- Operation examples must distinguish socket/API payloads from agent-tool arguments, identify scope and side effects, and verify returned IDs/state.
+- Local scheduler operations use `plugins/_scheduler/<handler>` socket commands; HTTP routes remain under `/api/plugins/_scheduler/`; the scheduling engine remains in `helpers/task_scheduler.py`.
 - Do not include hardcoded default WebUI ports or environment-specific credentials.
 
 ## Work Guidance

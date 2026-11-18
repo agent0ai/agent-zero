@@ -11,6 +11,8 @@
 - `webui/` owns scan checks, prompt template, store, UI, and thumbnail.
 - `plugin.yaml` and `README.md` own metadata and behavior notes.
 
+- `socket/plugin_scan_run.py` reuses the synchronous scan operation, including temporary-context cleanup, with no default socket execution deadline.
+
 ## Local Contracts
 
 - Keep scan prompts explicit about source handling, security categories, and report expectations.

@@ -34,7 +34,7 @@ trigger_patterns:
 
 # Agent Zero Development
 
-Use this skill to develop Agent Zero or operate an existing instance on the user's behalf. For projects, chats, tasks, and other application features, read `references/operate-agent-zero.md` and use existing APIs. Load only the references needed for the task; verify current source before changing code.
+Use this skill to develop Agent Zero or operate an existing instance on the user's behalf. For projects, chats, tasks, and other application features, read `references/operate-agent-zero.md` and use the local socket client for supported administration operations. Load only the references needed for the task; verify current source before changing code.
 
 ## Reality Rules
 

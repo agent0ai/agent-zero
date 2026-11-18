@@ -40,6 +40,7 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Socket.IO heartbeat defaults are intentionally longer than Engine.IO's short defaults so CLI sessions survive long prompt/context work; environment overrides must remain positive integers and fall back to source defaults when invalid.
 - Engine.IO's inbound buffer ceiling uses the shared WebSocket payload limit from `helpers.ws_limits`.
+- `build_asgi_app` composes the startup monitor lifespan with `socket_api.socket_lifespan`, starting the local Unix listener inside the framework process and closing it on shutdown or startup failure. POSIX bind/permission failures remain visible startup failures; HTTP authentication and Socket.IO behavior are unchanged.
 - Observed side-effect areas: filesystem reads, network calls, subprocess/runtime control, WebSocket state, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `asyncio`, `dataclasses`, `datetime`, `flask`, `helpers`, `helpers.api`, `helpers.extension`, `helpers.files`, `helpers.print_style`, `helpers.server_startup`, `helpers.ws`, `helpers.ws_manager`, `logging`, `os`, `secrets`, `socketio`, `starlette.middleware.gzip`.
 
@@ -61,7 +62,7 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- Run `tests/test_run_ui_config.py` for existing transport settings and `tests/test_socket_api.py` for the local socket lifecycle and protocol.
 
 ## Child DOX Index
 
