@@ -32,6 +32,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Notification payloads, GUIDs, and update cursors are captured under one lock so WebUI snapshots cannot skip notifications created during snapshot assembly.
+- Update cursors are monotonic within a GUID generation. Retention removes obsolete entries and reindexes notification numbers without renumbering update versions; polling and WebSocket clients can continue from their previous cursor after eviction. Clearing all notifications resets the version and rotates the GUID.
 - Observed side-effect areas: filesystem deletion, settings/state persistence.
 - Imported dependency areas include: `dataclasses`, `datetime`, `enum`, `helpers.localization`, `threading`, `uuid`.
 

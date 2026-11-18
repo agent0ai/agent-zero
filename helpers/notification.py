@@ -66,7 +66,8 @@ class NotificationManager:
     def __init__(self, max_notifications: int = 100):
         self._lock = threading.RLock()
         self.guid: str = str(uuid.uuid4())
-        self.updates: list[int] = []
+        self.updates: list[tuple[int, int]] = []
+        self._version = 0
         self.notifications: list[NotificationItem] = []
         self.max_notifications = max_notifications
 
@@ -112,7 +113,7 @@ class NotificationManager:
                 existing.display_time = display_time
                 existing.group = group
                 existing.read = False
-                self.updates.append(existing.no)
+                self._record_update(existing.no)
                 item = existing
             else:
             # Create notification item
@@ -131,12 +132,17 @@ class NotificationManager:
                 )
 
                 self.notifications.append(item)
-                self.updates.append(item.no)
+                self._record_update(item.no)
                 self._enforce_limit()
 
         from helpers.state_monitor_integration import mark_dirty_all
         mark_dirty_all(reason="notification.NotificationManager.add_notification")
         return item
+
+    def _record_update(self, no: int) -> None:
+        # Retention may compact history, but clients keep their previous cursor.
+        self.updates.append((self._version, no))
+        self._version += 1
 
     def _enforce_limit(self):
         with self._lock:
@@ -148,7 +154,10 @@ class NotificationManager:
                 for i, notification in enumerate(self.notifications):
                     notification.no = i
                 # Adjust updates list
-                self.updates = [no - to_remove for no in self.updates if no >= to_remove]
+                self.updates = [
+                    (version, no - to_remove)
+                    for version, no in self.updates if no >= to_remove
+                ]
 
     def get_recent_notifications(self, seconds: int = 30) -> list[NotificationItem]:
         cutoff = Localization.get().now() - timedelta(seconds=seconds)
@@ -165,15 +174,15 @@ class NotificationManager:
             if start is None:
                 start = 0
             if end is None:
-                end = len(self.updates)
-            updates = self.updates[start:end]
+                end = self._version
+            updates = (no for version, no in self.updates if start <= version < end)
             out = []
             seen = set()
             for update in updates:
                 if update not in seen and update < len(self.notifications):
                     out.append(self.notifications[update].output())
                     seen.add(update)
-            return out, self.guid, len(self.updates)
+            return out, self.guid, self._version
 
     def output_all(self) -> list[dict]:
         with self._lock:
@@ -192,7 +201,8 @@ class NotificationManager:
                     notification.read = True
                     changed_nos.append(notification.no)
             if changed_nos:
-                self.updates.extend(changed_nos)
+                for no in changed_nos:
+                    self._record_update(no)
 
         if not changed_nos:
             return 0
@@ -212,7 +222,7 @@ class NotificationManager:
                 for key, value in kwargs.items():
                     if hasattr(item, key):
                         setattr(item, key, value)
-                self.updates.append(no)
+                self._record_update(no)
                 changed = True
 
         if not changed:
@@ -229,7 +239,8 @@ class NotificationManager:
                     notification.read = True
                     changed_nos.append(notification.no)
             if changed_nos:
-                self.updates.extend(changed_nos)
+                for no in changed_nos:
+                    self._record_update(no)
 
         if not changed_nos:
             return
@@ -241,6 +252,7 @@ class NotificationManager:
         with self._lock:
             self.notifications = []
             self.updates = []
+            self._version = 0
             self.guid = str(uuid.uuid4())
         from helpers.state_monitor_integration import mark_dirty_all
         mark_dirty_all(reason="notification.NotificationManager.clear_all")
