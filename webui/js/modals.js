@@ -195,8 +195,11 @@ function createModalElement(path) {
   newModal.path = path; // save name to the object
   newModal.dataset.modalPath = path;
 
-  // Add click handlers to only close modal if both mousedown and mouseup are on the modal container
+  // Add click handlers to only close modal if both mousedown and mouseup are on the modal container.
+  // A short grace period after creation prevents a race on mobile where the touch event that
+  // opened the modal is misinterpreted as an outside-click close before surface classes land.
   let mouseDownTarget = null;
+  const createdAt = performance.now();
   newModal.addEventListener("mousedown", (event) => {
     mouseDownTarget = event.target;
   });
@@ -205,6 +208,7 @@ function createModalElement(path) {
       event.target === newModal
       && mouseDownTarget === newModal
       && !modalRequiresExplicitClose(newModal)
+      && performance.now() - createdAt > 150
     ) {
       closeModal();
     }
