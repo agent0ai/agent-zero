@@ -4,7 +4,7 @@ class Nudge(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         ctxid = input.get("ctxid", "")
         if not ctxid:
-            raise Exception("No context id provided")
+            raise ValueError("No context id provided")
 
         context = self.use_context(ctxid)
         context.nudge()
