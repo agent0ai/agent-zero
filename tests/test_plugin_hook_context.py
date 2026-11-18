@@ -1,12 +1,33 @@
 import sys
 from pathlib import Path
 
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from helpers import plugins
+
+
+@pytest.mark.parametrize("prefix", ["", "async "])
+def test_call_plugin_hook_ignores_context_for_positional_only_parameter(
+    monkeypatch, tmp_path, prefix
+):
+    (tmp_path / "hooks.py").write_text(
+        f'{prefix}def probe(default="hook fallback", /):\n    return default\n',
+        encoding="utf-8",
+    )
+    cache_area = f"safe_call_test:{tmp_path}"
+    monkeypatch.setattr(plugins, "HOOKS_CACHE_AREA", cache_area)
+    monkeypatch.setattr(plugins, "find_plugin_dir", lambda _name: str(tmp_path))
+    try:
+        assert (
+            plugins.call_plugin_hook("example", "probe", default="context")
+            == "hook fallback"
+        )
+    finally:
+        plugins.cache.clear(cache_area)
 
 
 def _capture_hook_context(monkeypatch):

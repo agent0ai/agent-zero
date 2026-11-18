@@ -27,6 +27,12 @@ def safe_call(func, *args, **kwargs):
     if accepts_var_kwargs:
         bound_kwargs = kwargs
     else:
-        bound_kwargs = {k: v for k, v in kwargs.items() if k in params}
+        bound_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in params
+            and params[k].kind
+            in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        }
 
     return func(*bound_args, **bound_kwargs)
