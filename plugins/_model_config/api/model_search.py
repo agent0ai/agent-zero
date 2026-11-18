@@ -47,7 +47,7 @@ class ModelSearch(ApiHandler):
         cfg = self._get_provider_cfg(model_type, provider)
         ml = self._get_models_list(cfg)
 
-        models_list, source, error = await self._fetch_models(provider, cfg, ml, user_api_base)
+        models_list, source, error = await self._fetch_models(provider, cfg, ml, user_api_base, model_type)
 
         if not models_list:
             fallback = self._litellm_fallback(provider, cfg)
@@ -91,6 +91,7 @@ class ModelSearch(ApiHandler):
         cfg: dict,
         ml: dict,
         user_api_base: str = "",
+        model_type: str = "chat",
     ) -> tuple[list[str], str, str]:
         api_key = models.get_api_key(provider)
         kwargs = (cfg or {}).get("kwargs", {}) or {}
@@ -114,6 +115,7 @@ class ModelSearch(ApiHandler):
         if provider == "google" and api_key and api_key != "None":
             params.setdefault("key", api_key)
 
+        capabilities_field = str(effective_ml.get("capabilities_field", "") or "")
         urls: list[tuple[str, str]] = [(url, fmt)]
         if provider == "ollama" and fmt == "ollama":
             ps_url = self._ollama_ps_url(url)
@@ -128,7 +130,8 @@ class ModelSearch(ApiHandler):
                 for candidate_url, candidate_fmt in urls:
                     resp = await client.get(candidate_url, headers=headers, params=params)
                     if resp.status_code == 200:
-                        combined.extend(self._parse(resp.json(), candidate_fmt))
+                        data = self._drop_unsupported(resp.json(), capabilities_field, model_type)
+                        combined.extend(self._parse(data, candidate_fmt))
                     else:
                         errors.append(f"{candidate_url}: HTTP {resp.status_code}")
         except Exception as exc:
@@ -222,6 +225,21 @@ class ModelSearch(ApiHandler):
             return result
         except Exception:
             return []
+
+    @staticmethod
+    def _drop_unsupported(data: Any, capabilities_field: str, model_type: str) -> Any:
+        """Drop listed models whose capability list omits the requested model type."""
+        if not capabilities_field or not isinstance(data, dict) or not isinstance(data.get("data"), list):
+            return data
+        kept = [
+            item for item in data["data"]
+            if not (
+                isinstance(item, dict)
+                and isinstance(item.get(capabilities_field), list)
+                and model_type not in item[capabilities_field]
+            )
+        ]
+        return {**data, "data": kept}
 
     def _parse(self, data: dict | list, fmt: str) -> list[str]:
         if isinstance(data, list):

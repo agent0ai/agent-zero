@@ -19,6 +19,7 @@
 - Keep browser actions safe around external pages, credentials, and user data.
 - DOM-helper messaging accepts only non-opaque same-origin documents, uses exact target origins, and binds responses to the requested child window and operation. Use the effective Window origin so inherited-origin `about:blank` and `srcdoc` frames work; cross-origin frame RPC fails closed while direct automation entry points remain available.
 - DOM helper v2 and internal runtime readiness checks reject in-place upgrades: reload existing pages to remove legacy anonymous message listeners. Host connectors receive the helper source through its existing SHA-256 update path; restart existing host browsers and reconnect before reloading restored tabs to discard old initialization scripts.
+- Host-browser privacy checks treat gateway providers that listen locally but forward prompts to remote models (`openllm`) as non-local, even when their API base is a local host.
 - Preserve Patchright lifecycle cleanup and WebSocket viewer compatibility across regular host browsers and Electron WebContentsView embedding.
 - Keep the WebUI Browser inside its own modal/canvas affordance; do not replace it with page-level navigation.
 - Default the visible WebUI Browser to the authenticated Xpra HTML5 viewer for its existing Patchright page. Keep live CDP screencast and lightweight snapshots as automatic fallbacks.
