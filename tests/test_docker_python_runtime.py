@@ -173,3 +173,9 @@ def test_shared_numpy_and_filelock_bounds_remain_declared():
     requirements = _read(REQUIREMENTS)
     assert "numpy>=1.26.4,<2" in requirements
     assert "filelock>=3.20.3" in requirements
+
+
+def test_build_precompiles_with_source_validated_hashes():
+    for script in ("install_A0.sh", "prepare_assets.sh"):
+        content = _read(PROJECT_ROOT / "docker/run/fs/ins" / script)
+        assert "/usr/local/bin/python -m compileall -q --invalidation-mode checked-hash" in content

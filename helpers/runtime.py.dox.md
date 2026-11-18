@@ -15,6 +15,7 @@
 - `get_arg(name: str)`
 - `has_arg(name: str)`
 - `is_dockerized() -> bool`
+- `set_root_password(password: str)`
 - `is_development() -> bool`
 - `get_local_url()`
 - `get_runtime_id() -> str`
@@ -35,12 +36,14 @@
 
 ## Runtime Contracts
 
+- `set_root_password(password)` requires Docker mode, runs checked `chpasswd`, then persists `ROOT_PASSWORD`; a failed command must not save credentials. Preparation calls it without loading settings/model providers.
+
 - `call_development_function` and its sync counterpart remain legacy compatibility entry points. First-party callers invoke their target functions locally; explicit RFC handling and transports are unchanged. The sync compatibility wrapper retains its historical thread/queue behavior and is not used for normal filesystem operations.
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, subprocess/runtime control, settings/state persistence, secret handling, tunnel state.
-- Imported dependency areas include: `argparse`, `asyncio`, `helpers`, `inspect`, `nest_asyncio`, `pathlib`, `queue`, `secrets`, `sys`, `threading`, `typing`.
+- Imported dependency areas include: `argparse`, `asyncio`, `helpers`, `inspect`, `nest_asyncio`, `pathlib`, `queue`, `secrets`, `subprocess`, `sys`, `threading`, `typing`.
 
 ## Key Concepts
 

@@ -33,7 +33,7 @@
 - `helpers/socket_api.py` owns the local Unix socket transport; `helpers/ui_server.py` binds its lifetime to ASGI startup/shutdown. Core handlers live in `socket/`, plugin handlers in `<plugin>/socket/`; keep root `socket/` without `__init__.py` so Python's standard library remains importable.
 - `run_tunnel.py` is only a native sleep compatibility shim for old images until startup migration removes their Supervisor entry; Remote Control implementation and dependencies belong to `plugins/_tunnel/`.
 - `pytest.ini` and root `conftest.py` own test discovery: `tests` and `plugins` testpaths with importlib import mode, `tests/` importable for sibling test imports, and handler modules named like tests kept out of collection.
-- `prepare.py` migrates and loads legacy `.env` configuration before writing the root password; `helpers/migration.py` owns preservation of existing files and symlink handling.
+- `prepare.py` migrates and loads legacy `.env` configuration before writing the root password through lightweight `helpers.runtime`, without importing settings or the model stack; `helpers/migration.py` owns preservation of existing files and symlink handling.
 - `DockerfileLocal` must remain compatible with the contracts under `docker/`.
 - Runtime or user state under `usr/` and `tmp/` is intentionally outside tracked DOX unless the user explicitly asks otherwise.
 

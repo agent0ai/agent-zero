@@ -6,12 +6,12 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
 import pytz  # type: ignore
 from helpers import runtime, defer, git, subagents
+from helpers.runtime import set_root_password
 from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -812,18 +812,6 @@ def _dict_to_env(data_dict):
             lines.append(f'{key}={value}')
     
     return "\n".join(lines)
-
-
-def set_root_password(password: str):
-    if not runtime.is_dockerized():
-        raise Exception("root password can only be set in dockerized environments")
-    _result = subprocess.run(
-        ["chpasswd"],
-        input=f"root:{password}".encode(),
-        capture_output=True,
-        check=True,
-    )
-    dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, password)
 
 
 def get_runtime_config(set: Settings):

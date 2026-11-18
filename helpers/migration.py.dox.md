@@ -23,6 +23,8 @@
 
 ## Runtime Contracts
 
+- Dotenv-only preparation must not load agent profiles or extensions; full startup migration imports those dependencies when it runs.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Startup cleanup removes obsolete `memory` and `knowledge/default` directories. Legacy top-level `logs` (including symlinks) and new `usr/logs` are preserved in place on every run; no log migration, overwriting, conversion or retention cleanup occurs. Back up historical top-level logs separately from `usr` before replacing an old container.

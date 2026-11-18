@@ -16,7 +16,7 @@
   - `refresh_runtime_settings(self) -> None`
   - `register_http_routes(self) -> None`
   - `register_transport_handlers(self) -> None`
-  - `build_asgi_app(self, startup_monitor: StartupMonitor)`
+  - `build_asgi_app(self, startup_monitor: StartupMonitor, extra_routes=())`
   - `access_log_enabled(self) -> bool`
 - `UiRouteHandlers` (no explicit base class)
   - `async login_handler(self)`
@@ -35,6 +35,10 @@
 - Notable constants/configuration names: `UPLOAD_LIMIT_BYTES`, `SOCKETIO_PING_INTERVAL_SECONDS`, `SOCKETIO_PING_TIMEOUT_SECONDS`, `GZIP_MINIMUM_RESPONSE_BYTES`, `GZIP_COMPRESSION_LEVEL`, `UI_INDEX_ASSET_URL`, `A0_SOCKETIO_PING_INTERVAL_SECONDS`, `A0_SOCKETIO_PING_TIMEOUT_SECONDS`, and the shared `A0_WS_MAX_PAYLOAD_BYTES` import.
 
 ## Runtime Contracts
+
+- `build_asgi_app(..., extra_routes=())` accepts gateway mounts before the core routes, allowing desktop/browser hooks to preserve the same core lifecycle and middleware.
+
+- MCP and A2A mounts import their implementations on first protocol request in a worker thread, then delegate to the existing singleton on the ASGI loop. WebUI startup does not initialize either proxy; their enabled checks, token checks and reconfiguration remain authoritative. First protocol use pays its import cost.
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.

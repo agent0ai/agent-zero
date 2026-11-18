@@ -56,6 +56,8 @@
 
 ## Runtime Contracts
 
+- `set_root_password` remains a compatibility export of `helpers.runtime.set_root_password`; sensitive-settings writes retain the same Docker guard, checked command and dotenv persistence.
+
 - Settings reads use `models.get_api_key_raw()` to preserve complete key lists without advancing runtime rotation or persisting keys synthesized by runtime hooks. Masking, authentication reloads, and intentional clearing retain their existing behavior.
 - `ui_control_visibility` accepts dynamic `canvas:<surface-id>` entries as well as built-in controls, normalizes device values to booleans (default shown), and preserves choices for temporarily unavailable plugins.
 
@@ -65,7 +67,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, network calls, subprocess/runtime control, model calls, WebSocket state, plugin state, settings/state persistence, secret handling, scheduler state.
-- Imported dependency areas include: `base64`, `hashlib`, `helpers`, `helpers.notification`, `helpers.print_style`, `helpers.providers`, `helpers.secrets`, `json`, `models`, `os`, `pytz`, `re`, `subprocess`, `typing`.
+- Imported dependency areas include: `base64`, `hashlib`, `helpers`, `helpers.notification`, `helpers.print_style`, `helpers.providers`, `helpers.secrets`, `json`, `models`, `os`, `pytz`, `re`, `typing`.
 
 ## Key Concepts
 

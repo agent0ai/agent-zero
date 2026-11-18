@@ -27,6 +27,8 @@
 
 ## Runtime Contracts
 
+- Route installation delegates to the original `UiServerRuntime.build_asgi_app` with the three gateway mounts prepended. Preserve the core socket lifespan, compression, Socket.IO composition and lazy MCP/A2A imports; do not rebuild a second copy of the core ASGI tree.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem deletion, network calls, subprocess/runtime control, WebSocket state, settings/state persistence, secret handling.

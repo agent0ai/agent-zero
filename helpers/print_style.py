@@ -96,6 +96,19 @@ class PrintStyle:
             self._log_text("\n")
             self.padding_added = True
 
+    def _get_secrets_manager(self):
+        if hasattr(self, "secrets_mgr"):
+            return self.secrets_mgr
+        from helpers import dotenv, secrets
+
+        if "agent" not in sys.modules:
+            # Bootstrap has no agent context; keep global credential masking without loading models.
+            return secrets.SecretsManager(
+                secrets.DEFAULT_SECRETS_FILE, dotenv.get_dotenv_file_path()
+            )
+        self.secrets_mgr = secrets.get_secrets_manager()
+        return self.secrets_mgr
+
     def _log_text(self, text, *, stream=False, end=""):
         text = (PrintStyle._log_escape_tail if stream else "") + sanitize_string(text)
         text = _ANSI_ESCAPE.sub("", text)
@@ -109,10 +122,7 @@ class PrintStyle:
         text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", text)
         if text.strip():
             try:
-                if not hasattr(self, "secrets_mgr"):
-                    from helpers.secrets import get_secrets_manager
-                    self.secrets_mgr = get_secrets_manager()
-                text = sanitize_string(self.secrets_mgr.mask_values(text))
+                text = sanitize_string(self._get_secrets_manager().mask_values(text))
             except Exception:
                 text = "[Application log message omitted: secret masking unavailable]\n"
         try:
@@ -168,10 +178,7 @@ class PrintStyle:
 
         # Automatically mask secrets in all print output
         try:
-            if not hasattr(self, "secrets_mgr"):
-                from helpers.secrets import get_secrets_manager
-                self.secrets_mgr = get_secrets_manager()
-            text = self.secrets_mgr.mask_values(text)
+            text = self._get_secrets_manager().mask_values(text)
         except Exception:
             # If masking fails, proceed without masking to avoid breaking functionality
             pass

@@ -25,6 +25,8 @@
 
 ## Runtime Contracts
 
+- Before `agent` is loaded, logging masks global secrets and runtime credentials directly, without importing the agent/model stack or running context hooks. Bootstrap managers are uncached so dotenv migration/password writes are visible immediately; later logging uses the normal context-aware manager. Masking failures retain the existing file omission behavior.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - `print()` and `stream()` append UTF-8 plain text to one uniquely created `log_<UTC timestamp>_<random>.log` per process under `files.get_abs_path(files.USER_DIR, "logs")`. Creation is lazy, uses owner-only file permissions, and never truncates a prior run. The directory follows the native project root or mounted Docker `/a0/usr`.

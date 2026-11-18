@@ -1,7 +1,6 @@
-from helpers import dotenv, migration, runtime, settings
+from helpers import dotenv, migration, runtime
 import string
 import random
-import sys
 from helpers.print_style import PrintStyle
 
 
@@ -20,7 +19,7 @@ try:
     if not root_pass:
         root_pass = "".join(random.choices(string.ascii_letters + string.digits, k=32))
         PrintStyle.standard("Changing root password...")
-    settings.set_root_password(root_pass)
+    runtime.set_root_password(root_pass)
 
 except Exception as e:
-    PrintStyle.error(f"Error in preload: {e}")
+    PrintStyle.error(f"Error preparing environment: {e}")
