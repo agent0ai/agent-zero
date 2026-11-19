@@ -68,6 +68,23 @@ def page():
         browser.close()
 
 
+def test_speak_button_acknowledges_click_before_playback_finishes(page):
+    page.evaluate("""async () => {
+      const {createActionButton} = await import('/components/messages/action-buttons/simple-action-buttons.js');
+      let finish;
+      const pending = new Promise(resolve => { finish = resolve; });
+      const speak = createActionButton('speak', '', () => pending);
+      const copy = createActionButton('copy', '', () => pending);
+      speak.click();
+      copy.click();
+      if (speak.querySelector('x-icon').name !== 'check') throw Error('Speak click was silent');
+      if (copy.querySelector('x-icon').name !== 'content_copy') throw Error('Premature copy confirmation');
+      finish();
+      await pending;
+      if (copy.querySelector('x-icon').name !== 'check') throw Error('Missing copy confirmation');
+    }""")
+
+
 def test_action_buttons_keep_order_and_mounted_nodes_during_updates(page):
     page.evaluate("""async () => {
       const {createActionButton, syncActionButtons} = await import(

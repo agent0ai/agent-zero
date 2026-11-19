@@ -45,13 +45,22 @@ function setup() {
   return { service, state, notices, spoken, played };
 }
 
-test('cold speech waits with a persistent notice and plays the original text when ready', async () => {
+test('only a provider initialization signal displays a notice while waiting for audio', async () => {
   const { service, state, notices, spoken, played } = setup();
   const ready = Promise.withResolvers();
-  state.provider = { id: 'local', synthesize: text => { assert.equal(text, 'Hello.'); return ready.promise; } };
+  let initializing;
+  state.provider = { id: 'local', synthesize(text, { onInitializing }) {
+    assert.equal(text, 'Hello.');
+    initializing = onInitializing;
+    return ready.promise;
+  } };
   const playing = service.speak('Hello.');
   assert.equal(service.getState().isPreparing, true);
-  assert.equal(notices[0].duration, 0);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(notices, []);
+  initializing();
+  initializing();
+  assert.deepEqual(notices, [{ type: 'progress', title: 'Initializing speech', duration: 0 }]);
   assert.deepEqual(spoken, []);
   ready.resolve({ audioBase64: 'voice' });
   await playing;
@@ -60,21 +69,32 @@ test('cold speech waits with a persistent notice and plays the original text whe
   assert.ok(notices[0].removed);
   assert.equal(service.getState().activeProviderId, 'local');
   assert.equal(service.getState().isPreparing, false);
+  await service.speak('Hello.');
+  assert.equal(notices.length, 1);
 });
 
 test('a stopped cold request cannot play or clear a newer stream’s notice', async () => {
   const { service, state, notices, played } = setup();
   const first = Promise.withResolvers(), second = Promise.withResolvers();
-  state.provider = { synthesize: text => text === 'One' ? first.promise : second.promise };
+  let firstSignal;
+  state.provider = { synthesize(text, { onInitializing }) {
+    if (text === 'One') firstSignal = onInitializing;
+    onInitializing();
+    return text === 'One' ? first.promise : second.promise;
+  } };
   const old = service.speak('One');
   await new Promise(resolve => setImmediate(resolve));
   service.stop();
   assert.ok(notices[0].removed);
   const current = service.speak('Two');
+  firstSignal();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(notices.length, 2);
   first.resolve({ audioBase64: 'old' });
   await old;
   assert.equal(service.getState().isPreparing, true);
   assert.deepEqual(played, []);
+  assert.ok(!notices[1].removed);
   second.resolve({ audioBase64: 'new' });
   await current;
   assert.deepEqual(played, ['data:audio/wav;base64,new']);

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 from pathlib import Path
 
+from plugins._kokoro_tts.api.synthesize import Synthesize
 from plugins._kokoro_tts.helpers import runtime
 
 
@@ -130,3 +132,46 @@ def test_custom_voice_passes_selected_bytes_and_restart_invalidates_status(monke
     assert asyncio.run(runtime.is_downloaded({'voice': str(voice)}))
     monkeypatch.setattr(runtime.worker, 'generation', 11)
     assert not asyncio.run(runtime.is_downloaded({'voice': str(voice)}))
+
+
+def test_synthesis_signals_cold_engine_before_audio_and_skips_warm_notifications(monkeypatch):
+    config = {"voice": "paradee"}
+    calls = []
+
+    async def call(payload, **kwargs):
+        calls.append(payload["config"]["voice"])
+        return {"audio": "wav", "version": "1"}
+
+    monkeypatch.setattr(runtime, "is_globally_enabled", lambda: True)
+    monkeypatch.setattr(runtime, "get_config", lambda: config.copy())
+    monkeypatch.setattr(runtime, "_model_generation", -1)
+    monkeypatch.setattr(runtime, "_loaded_engines", set())
+    monkeypatch.setattr(runtime, "package_versions", {})
+    monkeypatch.setattr(runtime.worker, "ready", True)
+    monkeypatch.setattr(runtime.worker, "generation", 1)
+    monkeypatch.setattr(runtime.worker, "acall", call)
+    handler = Synthesize(None, None)
+
+    def request(**options):
+        return asyncio.run(handler.process({"text": "Hello", **options}, None))
+
+    def cold():
+        before = len(calls)
+        response = request(report_initialization=True)
+        assert response.headers["X-A0-Speech-Initializing"] == "1"
+        chunks = iter(response.response)
+        prefix = next(chunks)
+        assert len(calls) == before
+        assert json.loads(prefix + b"".join(chunks))["audio"] == "wav"
+        assert len(calls) == before + 1
+
+    cold()
+    assert request(report_initialization=True)["audio"] == "wav"
+    config["voice"] = "am_puck"
+    cold()
+    config["speed"] = 0.8
+    assert request(report_initialization=True)["audio"] == "wav"
+    monkeypatch.setattr(runtime.worker, "generation", 2)
+    cold()
+    config["voice"] = "paradee"
+    assert request()["audio"] == "wav"  # Existing clients receive the ordinary JSON result.

@@ -42,10 +42,14 @@ const model = {
     }
   },
 
-  async synthesize(text) {
+  async synthesize(text, { onInitializing } = {}) {
     this.modelLoading = true;
     try {
-      const result = await callJsonApi(`/plugins/${PLUGIN_NAME}/synthesize`, { text });
+      const result = await callJsonApi(`/plugins/${PLUGIN_NAME}/synthesize`,
+        { text, report_initialization: !!onInitializing },
+        response => {
+          if (response.headers.get("X-A0-Speech-Initializing") === "1") onInitializing?.();
+        });
       if (!result?.success || !result.audio) {
         throw new Error(result?.error || "Local TTS returned no audio.");
       }

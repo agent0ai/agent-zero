@@ -29,7 +29,7 @@
 - `scroller.js` owns bottom-following snapshots and cancellation of pending scroll effects.
 - Root response bodies grow with the chat viewport and must not create an inner `Scroller`; the message batch owns chat-level following. Other standalone message bodies retain their existing scrolling behavior.
 - Local speech runs in plugin sandboxes; do not bundle an unused browser Transformers runtime.
-- On the first playable chunk of each new speech stream, `tts-service.js` resolves explicitly registered providers first, then discovers the first currently enabled `tts_provider` extension. Its default export returns a provider with `id` and `synthesize(text)`. Keep the preparation toast until audio starts or the stream stops. Report synthesis failures once per stream before browser fallback.
+- On the first playable chunk of each new speech stream, `tts-service.js` resolves explicitly registered providers first, then discovers the first currently enabled `tts_provider` extension. Its default export returns a provider with `id` and `synthesize(text)`. Providers can call the supplied `onInitializing` callback on a backend cold-start signal. Only that signal shows the initialization toast, which clears on playback, cancellation or failure. Report synthesis failures once per stream before browser fallback.
 - Other modules own focused UI utilities such as modals, messages, safe markdown, shortcuts, TTS/STT, surfaces, and initialization.
 
 ## Local Contracts

@@ -11,6 +11,7 @@ class TtsService extends EventTarget {
     this.browserUtterance = null;
     this.audioEl = null;
     this.finishPlayback = null;
+    this.isPreparing = false;
     this.loadingToast = null;
     this.audioContext = null;
     this.userHasInteracted = false;
@@ -75,7 +76,7 @@ class TtsService extends EventTarget {
     return {
       activeProviderId: this.getActiveProviderId(),
       isSpeaking: this.isSpeaking(),
-      isPreparing: !!this.loadingToast,
+      isPreparing: this.isPreparing,
       userHasInteracted: this.userHasInteracted,
     };
   }
@@ -144,16 +145,17 @@ class TtsService extends EventTarget {
     });
   }
 
-  showPreparation() {
+  showInitialization(stream) {
+    if (!this.isPreparing || this.ttsStream !== stream || this.loadingToast) return;
     this.loadingToast = notifications.addFrontendToastOnly("progress",
       "The first use may download voice files. Playback will start automatically.",
-      "Preparing speech", 0, "speech-loading");
-    this.emitStateChange();
+      "Initializing speech", 0, "speech-loading");
   }
 
   finishPreparation() {
-    if (!this.loadingToast) return;
-    notifications.removeFromToastStack(`toast-${this.loadingToast}`);
+    if (!this.isPreparing) return;
+    this.isPreparing = false;
+    if (this.loadingToast) notifications.removeFromToastStack(`toast-${this.loadingToast}`);
     this.loadingToast = null;
     this.emitStateChange();
   }
@@ -218,13 +220,17 @@ class TtsService extends EventTarget {
     const text = stream.chunks[index];
     let payload;
     try {
+      this.isPreparing = true;
+      this.emitStateChange();
       if (index === 0) {
-        this.showPreparation();
         stream.provider = await this.resolveProvider(stream);
         if (stream.stopped) return;
       }
       if (stream.provider) {
-        payload = await stream.provider.synthesize(text, { providerId: this.getActiveProviderId() });
+        payload = await stream.provider.synthesize(text, {
+          providerId: this.getActiveProviderId(),
+          onInitializing: () => this.showInitialization(stream),
+        });
         if (!payload?.audioParts?.length && !payload?.audioBase64 && !payload?.audio) {
           throw new Error("The speech provider returned no audio.");
         }
