@@ -1166,7 +1166,8 @@ def test_shared_canvas_keeps_modal_and_sidebar_controls():
     assert "failed to close before modal open" not in open_modal_block
 
     assert '@click="$store.rightCanvas.openLatest(surface.id)"' not in canvas_html
-    assert canvas_html.count('@click="$store.rightCanvas.open(surface.id)"') == 2
+    assert '@click="$store.rightCanvas.open(surface.id)"' in canvas_html
+    assert '@click="$store.rightCanvas.openFromRail(surface.id)"' in canvas_html
     assert "body.right-canvas-mobile-mode .right-canvas-rail" in canvas_css
     assert "display: flex !important;" in canvas_css
     assert "body.right-canvas-mobile-mode .right-canvas > .right-canvas-shell" in canvas_css
