@@ -22,8 +22,9 @@ async def test_code_job_keeps_polling_after_output_timeout_without_reexecuting(m
     tool.destination = resolved
     tool.state = SimpleNamespace(shells={tool._session_key(0): shell})
     monkeypatch.setattr(code, "resolve_code_execution_destination", AsyncMock(return_value=resolved))
-    cfg = {"output_timeouts": {"first_output_timeout": 1}}
-    monkeypatch.setattr(code, "_get_config", lambda _: cfg)
+    raw_config = {"output_first_output_timeout": 1}
+    cfg = code._parse_config(raw_config)
+    monkeypatch.setattr(code.plugins, "get_plugin_config", lambda *a, **kw: raw_config)
     monkeypatch.setattr(parallel_tools, "get_parallel_worker_job", lambda _: job)
     tool.execute_terminal_command = AsyncMock(return_value="START; output timeout")
 
@@ -73,5 +74,5 @@ async def test_cancelled_shell_connection_closes_partial_resources(monkeypatch):
     tool.agent = SimpleNamespace(get_data=lambda _: None)
     tool.ensure_cwd = AsyncMock(return_value=None)
     with pytest.raises(asyncio.CancelledError):
-        await tool.prepare_state({"ssh_enabled": False}, session=0)
+        await tool.prepare_state(session=0)
     shell.close.assert_awaited_once()

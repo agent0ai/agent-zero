@@ -31,6 +31,7 @@
 ## Verification
 
 - Run `pytest tests/test_kokoro_tts.py tests/test_paradee_tts.py tests/test_speech_plugin_split.py tests/test_framework_dependencies.py`.
+- In a provisioned Local TTS test guest, run `PYTHONPATH=/app /opt/runtime/bin/python -` with `tests/integration_guest_smoke.py` on stdin to verify WAV output, chunking and speed with the guest SoundFile.
 - Smoke-test both engines, voice-picker transitions, speed, status, and disabled browser fallback after changes.
 
 ## Child DOX Index

@@ -38,8 +38,8 @@ See default_config.yaml for all options. Key settings:
 
 LiteParse and all parsing/OCR dependencies install only inside the plugin sandbox.
 Tesseract and Poppler remain lazy legacy fallbacks there. The host fetches each
-input once and passes its bytes privately; indexing and model queries stay in
-Agent Zero. Memory PDF/HTML import reuses the same sandbox.
+input once. The guest parses, splits and indexes chunks with native FAISS using a
+private per-chat directory. Agent Zero supplies embeddings and handles model queries. Memory PDF/HTML import reuses the same sandbox.
 
 ## Parsers
 
@@ -47,7 +47,7 @@ Agent Zero. Memory PDF/HTML import reuses the same sandbox.
 |--------|-----------|---------|
 | LiteParseParser | PDF, Office/OpenDocument, images | LiteParse |
 | PdfParser | application/pdf | PyMuPDF + on-demand Tesseract/Poppler OCR fallback |
-| HtmlParser | text/html | Markdownify transformer |
+| HtmlParser | text/html | markdownify |
 | TextParser | text/*, application/json, YAML, XML, TOML, JS, TS, shell | Direct read |
 | ImageParser | image/* | Unstructured local partitioner + on-demand Tesseract |
 | UnstructuredParser | * (catch-all) | Unstructured local partitioner, hi-res strategy; OCR system packages on demand |

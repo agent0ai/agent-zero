@@ -114,13 +114,12 @@ async def test_destination_documents_index_the_selected_bytes(monkeypatch):
     async def exists(uri):
         return False
 
-    async def parse(*, document, **kwargs):
+    async def parse(document, timeout):
         assert document.local_path is None
         assert document.content == b"remote content"
         return document.text()
 
     monkeypatch.setattr(destination_files, "read", read)
-    monkeypatch.setattr(document_query, "get_parsers_for_mimetype", lambda *args: [object()])
     helper = object.__new__(document_query.DocumentQueryHelper)
     helper.agent = SimpleNamespace(context=SimpleNamespace(id="chat"), handle_intervention=intervene)
     helper.config = {"max_remote_bytes": 128}

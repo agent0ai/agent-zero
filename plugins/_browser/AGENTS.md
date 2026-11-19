@@ -16,6 +16,10 @@
 
 ## Local Contracts
 
+- Both canvas registration hooks share the implementation in `right_canvas_register_surfaces/`.
+
+- With the Tuxee base, mount only the upstream display binaries and private audio runtime read-only. Trixie guests use these with their own Debian runtime packages and XKB data. Bookworm guests use the portable build fallback and keep their pinned image and profile.
+
 - Route plain web research to the `web-search` skill; search has no dedicated agent tool.
 - Keep browser actions safe around external pages, credentials, and user data. The internal browser stages uploads from the named file destination. The connected browser accepts uploads from its own machine. Explicit screenshot paths are written via the same destination file API.
 - DOM-helper messaging accepts only non-opaque same-origin documents, uses exact target origins, and binds responses to the requested child window and operation. Use the effective Window origin so inherited-origin `about:blank` and `srcdoc` frames work; cross-origin frame RPC fails closed while direct automation entry points remain available.

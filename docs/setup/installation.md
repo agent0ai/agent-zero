@@ -566,7 +566,7 @@ Use `claude-sonnet-4-5` for Anthropic, but use `anthropic/claude-sonnet-4-5` for
 ### Built-in Voice Plugins
 
 - Agent Zero ships Whisper STT as the built-in `_whisper_stt` plugin and Kokoro TTS as the built-in `_kokoro_tts` plugin.
-- Whisper and Kokoro runtime dependencies install inside their plugin sandboxes on first use. Root `requirements.txt` also includes SoundFile for WAV test fixtures. Whisper microphone audio is browser-normalized PCM, so the outer container does not require FFmpeg or additional system audio packages.
+- Whisper and Kokoro runtime dependencies install inside their plugin sandboxes on first use. Whisper microphone audio is browser-normalized PCM, so the outer container does not require FFmpeg or additional system audio packages.
 - Both plugins can be enabled or disabled independently from the Agent Plugins section in the Web UI.
 - Whisper model size, language, message handling, and silence behavior are configured from the plugin settings screen.
 - If `_kokoro_tts` is disabled, spoken output falls back to the browser's native speech synthesis instead of the container runtime.
@@ -597,7 +597,7 @@ Configure API keys for various service providers directly within the Web UI. Cli
 - **RFC Parameters (local instances only):** Configure URLs and ports for remote function calls between instances
 - **RFC Password:** Configure password for remote function calls
 
-Learn more about Remote Function Calls in the [Development Setup guide](dev-setup.md#step-6-configure-ssh-and-rfc-connection).
+For development, see [Choose the execution runtime](dev-setup.md#step-5-choose-the-execution-runtime).
 
 > [!IMPORTANT]
 > Always keep your API keys and passwords secure.

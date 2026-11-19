@@ -9,6 +9,7 @@ or inherited host environment are sent to workers. Plugin lifecycle hooks stop
 their worker on disable; uninstall may delete the owned sandbox through manager.
 
 `call` is blocking; `acall` offloads it and propagates cancellation to sandbox stop.
+`aprepare(mounts=...)` uses the same mount-switching lock as `call` so a prepared service receives only the requesting context’s binds. Reuse, replacement and shutdown verify the service owner.
 First-use setup has a separate 30-minute deadline; request timeout begins after
 setup. Atomic requests retain mode 0640 so the guest-read ACL inherited from the private input directory remains effective. Responses are capped at 128 MiB. `process_command` in the manager supports
 browser driver pipes whose lifetime is owned by the browser adapter.

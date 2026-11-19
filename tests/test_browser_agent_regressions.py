@@ -1035,7 +1035,7 @@ def test_browser_entry_points_use_shared_canvas_surface():
         / "_browser"
         / "extensions"
         / "webui"
-        / "surfaces_register"
+        / "right_canvas_register_surfaces"
         / "register-browser.js"
     ).read_text(encoding="utf-8")
     browser_store = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-store.js").read_text(
@@ -2480,7 +2480,7 @@ def test_browser_installs_full_chromium_only_in_guest():
     script = (PROJECT_ROOT / 'plugins/_browser/sandbox/install.sh').read_text()
     assert 'python /plugin/sandbox/install_deps.py' in script
     assert 'python -m patchright install chromium --no-shell' in script
-    assert 'patchright install' not in (PROJECT_ROOT / 'docker/run/fs/ins/install_playwright.sh').read_text()
+    assert 'patchright install' not in (PROJECT_ROOT / 'Dockerfile').read_text()
     runtime = (PROJECT_ROOT / 'plugins/_browser/sandbox/runtime.py').read_text()
     assert 'async_playwright().start()' in runtime
     assert 'launch_persistent_context' in runtime

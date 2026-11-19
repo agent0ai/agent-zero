@@ -849,7 +849,7 @@ class SandboxManager:
         mounts = value.get("mounts", [])
         if not isinstance(mounts, list):
             raise SandboxError(f"sandbox {name!r} has invalid mount metadata")
-        self._normalize_mounts(mounts)
+        self._normalize_mounts(mounts, allow_missing=value.get("service") is True)
         value["ownership"] = self._normalize_ownership(value.get("ownership"))
         return value
 
@@ -876,7 +876,7 @@ class SandboxManager:
         status: SandboxStatus,
         runtime_error: str | None,
     ) -> SandboxInfo:
-        mounts = tuple(self._normalize_mounts(metadata.get("mounts", [])))
+        mounts = self._normalize_mounts(metadata.get("mounts", []), allow_missing=metadata.get("service") is True)
         last_used = str(metadata.get("last_used_at") or metadata.get("created_at") or "")
         sandbox_type = self._validate_type(metadata.get("sandbox_type"))
         expires = self._expiry(last_used) if sandbox_type == "temporary" else None
@@ -1198,7 +1198,7 @@ class SandboxManager:
         return snapshot
 
     def _normalize_mounts(
-        self, mounts: Sequence[SandboxMount | Mapping[str, Any]]
+        self, mounts: Sequence[SandboxMount | Mapping[str, Any]], *, allow_missing: bool = False
     ) -> tuple[SandboxMount, ...]:
         if isinstance(mounts, (str, bytes)) or not isinstance(mounts, Sequence):
             raise SandboxError("mounts must be a list")
@@ -1222,7 +1222,7 @@ class SandboxManager:
             if source.is_symlink():
                 raise SandboxError(f"mount source must not be a symlink: {source}")
             source = source.resolve(strict=False)
-            if not source.is_dir():
+            if not source.is_dir() and (not allow_missing or source.exists()):
                 raise SandboxError(f"mount source must be an existing non-symlink directory: {source}")
             destination = self._validate_guest_path(destination, label="mount destination")
             if any(
@@ -1296,7 +1296,7 @@ class SandboxManager:
         if os.geteuid() != 0:
             raise SandboxError('The PRoot manager needs root to allocate separate Linux UIDs; use Docker')
         if not bootstrap.ready(self.config.proot):
-            raise SandboxError(f'PRoot copy-on-write runtime not found at {self.config.proot}; rebuild the image or run docker/base/fs/ins/proot/install.sh')
+            raise SandboxError(f'PRoot copy-on-write runtime not found at {self.config.proot}; rebuild the image or run docker/sandbox/proot/install.sh')
         if not shutil.which('setfacl'):
             raise SandboxError('Sandbox bindings need the acl package; rebuild the image or run the runtime installer')
 
@@ -1488,6 +1488,8 @@ class SandboxManager:
         return "\n".join(content[-12000:].splitlines()[-40:])
 
     def _process_command(self, name, metadata, args, cwd='/workspace'):
+        if metadata.get('service'):
+            self._normalize_mounts(metadata.get('mounts', []))
         return [sys.executable, str(Path(processes.__file__)), '--cwd', cwd, 'execute',
                 str(self._instance_path(name) / 'bundle/config.json'), '--', *args]
 

@@ -1,6 +1,7 @@
 """Patchright 1.61.2 Chromium dependencies, without Xvfb's dependency tree."""
 import re
 import subprocess
+import sys
 
 # Keep aligned with the pinned SDK; headful X11 additionally needs libx11-xcb1.
 PACKAGES = (
@@ -14,6 +15,10 @@ PACKAGES = (
 )
 T64_PACKAGES = {'libasound2', 'libatk-bridge2.0-0', 'libatk1.0-0', 'libatspi2.0-0',
                 'libcups2', 'libglib2.0-0', 'libgtk-3-0'}
+TUXEE_PACKAGES = (
+    'libnettle8t64', 'libunwind8', 'libjpeg62-turbo', 'libpam0g', 'libpixman-1-0',
+    'libxfont2', 'x11-xserver-utils', 'xdotool', 'x11-xkb-utils', 'xkb-data',
+)
 # The old dry-run installer marked Xvfb's entire resolved closure as manual.
 LEGACY_DISPLAY = {
     'xvfb', 'xserver-common', 'xauth', 'x11-common', 'x11-xkb-utils', 'xfonts-scalable',
@@ -47,15 +52,17 @@ def legacy_packages(inventory):
     return result
 
 
-def install():
+def install(native_tuxee=False):
     subprocess.run(['apt-get', 'update'], check=True)
     cache = subprocess.run(['apt-cache', 'show', *(name + 't64' for name in sorted(T64_PACKAGES))],
                            capture_output=True, text=True, timeout=30)
     # Request only direct runtime dependencies; apt decides their required closure.
-    subprocess.run(['apt-get', 'install', '-y', '--no-install-recommends', *native_packages(cache.stdout)], check=True)
+    display_packages = TUXEE_PACKAGES if native_tuxee else ()
+    subprocess.run(['apt-get', 'install', '-y', '--no-install-recommends',
+                    *native_packages(cache.stdout), *display_packages], check=True)
     inventory = subprocess.run(['dpkg-query', '-W', '-f=${binary:Package} ${db:Status-Status}\n'],
                                capture_output=True, text=True, check=True, timeout=30)
-    legacy = legacy_packages(inventory.stdout)
+    legacy = [name for name in legacy_packages(inventory.stdout) if name.split(':', 1)[0] not in display_packages]
     if legacy:
         # Required runtime packages above are manual; apt retains anything they need.
         subprocess.run(['apt-mark', 'auto', *legacy], check=True)
@@ -63,4 +70,4 @@ def install():
 
 
 if __name__ == '__main__':
-    install()
+    install(native_tuxee='--native-tuxee' in sys.argv)

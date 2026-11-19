@@ -1,56 +1,56 @@
-a2wsgi==1.10.8
-faiss-cpu==1.11.0
-fastmcp==3.2.4
+a2wsgi>=1.10.8,<2
+# Keep the previous native wheels outside Linux, including Intel macOS.
+faiss-cpu==1.16.0; sys_platform == "linux"
+faiss-cpu==1.11.0; sys_platform != "linux"
+fastmcp==3.4.11
 fasta2a==0.5.0
-flask[async]==3.0.3
-GitPython==3.1.43
-giturlparse==0.14.0
-httpx[socks]==0.28.1
-json_repair==0.63.4
-simpleeval==1.0.3
-langchain-core==0.3.49
-langchain-community==0.3.19
-litellm==1.104.0
+flask[async]>=3.1.3,<4
+GitPython>=3.2.1,<4
+giturlparse>=0.14,<0.17
+httpx[socks]>=0.28.1,<0.29
+# Context Doctor patches private parser functions and verifies this exact version.
+json_repair==0.64.9
+simpleeval>=1.0.8,<2
+langchain-core==1.8.3
+litellm==1.108.12
 openai==2.54.0
-mcp==1.27.0
-paramiko==3.5.0
-python-dotenv==1.2.2
-pytz==2024.2
-onnxruntime==1.23.2
-# Shared FAISS ABI bound previously supplied by the CPU Torch bootstrap.
-numpy>=1.26.4,<2
-tokenizers==0.22.2
-huggingface-hub==0.36.2
-tiktoken==0.8.0
-webcolors==24.6.0
-nest-asyncio==1.6.0
-crontab==1.0.1
-pydantic==2.11.7
+mcp==1.30.0
+python-dotenv>=1.2.2,<2
+pytz>=2026.6
+onnxruntime==1.25.1; sys_platform == "linux"
+onnxruntime==1.23.2; sys_platform != "linux"
+# Retain the validated native stack on platforms outside the amd64 runtime trial.
+numpy==2.5.5; sys_platform == "linux" and platform_machine == "x86_64"
+numpy>=1.26.4,<2; sys_platform != "linux" or platform_machine != "x86_64"
+tokenizers==0.23.3; sys_platform == "linux" and platform_machine == "x86_64"
+tokenizers==0.22.2; sys_platform != "linux" or platform_machine != "x86_64"
+huggingface-hub==1.33.0; sys_platform == "linux" and platform_machine == "x86_64"
+huggingface-hub==0.36.2; sys_platform != "linux" or platform_machine != "x86_64"
+tiktoken>=0.8,<0.15
+nest-asyncio>=1.6,<2
+crontab>=1.0.1,<2
+pydantic>=2.11.7,<3
 pathspec>=0.12.1
 psutil>=7.0.0
-boto3>=1.35.0
 pywinpty==3.0.2; sys_platform == "win32"
-python-socketio>=5.14.2
+python-socketio>=5.18.1
 uvicorn>=0.38.0
-watchdog==6.0.0
+watchdog>=6,<7
 wsproto>=1.2.0
 # Security floor pins for transitive dependencies
 # These packages are pulled transitively — floor pins prevent resolver regressions
-Pillow>=10.2.0  # security floor: heap buffer overflow CWE-122, eval injection CWE-95, DoS CWE-400
+Pillow>=13.0.0  # security floor: heap buffer overflow CWE-122, eval injection CWE-95, DoS CWE-400
 h11>=0.16.0  # security floor: HTTP request smuggling CWE-444
 urllib3>=2.8.0  # security floor: proxy TLS verification and streaming resource exhaustion
-cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
-werkzeug>=3.0.3  # security floor: RCE CWE-94
-starlette==1.0.1  # security fix: Host header validation bypass GHSA-86qp-5c8j-p5mr
-aiohttp>=3.14.3  # security floor: malformed-response parser and WebSocket handling
+cryptography>=50.0.2  # security floor: insufficient data authenticity CWE-345
+werkzeug>=3.1.9  # security floor: RCE CWE-94
+starlette==1.10.0  # security fix: Host header validation bypass GHSA-86qp-5c8j-p5mr
+aiohttp>=3.14.5  # security floor: malformed-response parser and WebSocket handling
 anyio>=4.14.2  # security floor: TLS hostname validation and subprocess handling
-filelock>=3.20.3  # security floor: symlink attacks during lock creation
+filelock>=4.2.1  # security floor: symlink attacks during lock creation
 fsspec>=2026.6.0  # security floor: template injection in reference filesystems
 multidict>=6.9.1  # security floor: items-view reference leaks
 
 # Development and test tooling (single root installation manifest).
-pytest>=8.4.2
+pytest>=9.2.0
 pytest-asyncio>=1.2.0
-pytest-mock>=3.15.1
-pyinstrument==5.1.2
-soundfile==0.13.1

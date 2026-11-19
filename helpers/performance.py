@@ -1,6 +1,5 @@
 import functools
 import inspect
-from pyinstrument import Profiler
 
 def trace_performance(*, show_all=False, color=True, unicode=True):
     """
@@ -8,6 +7,8 @@ def trace_performance(*, show_all=False, color=True, unicode=True):
 
     Works with both synchronous and asynchronous functions.
     """
+
+    from pyinstrument import Profiler
 
     def decorator(func):
         is_coro = inspect.iscoroutinefunction(func)

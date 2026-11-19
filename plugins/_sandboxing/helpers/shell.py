@@ -9,7 +9,7 @@ import signal
 import termios
 from typing import Any
 
-from plugins._code_execution.helpers.shell_ssh import clean_string
+from helpers.strings import clean_string
 from plugins._sandboxing.helpers.runtime import defaults, get_manager
 
 

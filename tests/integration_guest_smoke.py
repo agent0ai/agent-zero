@@ -2,6 +2,7 @@
 import asyncio
 import base64
 from email.message import EmailMessage
+import io
 import sys
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -85,6 +86,36 @@ def mail():
     print('Mail real MIME/parser attachment, UID reuse, SMTP threading and cleanup passed; network mocked')
 
 
+def speech():
+    import numpy as np
+    import soundfile as sf
+
+    feeds = []
+
+    class Session:
+        def run(self, _, feed):
+            feeds.append(feed)
+            return [np.full((1, 2400), 0.1, dtype=np.float32)]
+
+    engine = worker.paradee
+    with patch.object(engine, '_load_model', return_value=(Session(), lambda s: (s, None), {'a': 1})):
+        audio = engine.synthesize('a' * 1200, 1.4)
+        frames, rate = sf.read(io.BytesIO(base64.b64decode(audio)))
+        assert rate == 24000 and len(frames) == 7200
+        for feed in feeds:
+            ids = feed['input_ids']
+            assert ids.shape[1] <= 512 and ids.dtype == np.int64
+            assert ids[0, 0] == ids[0, -1] == 0
+            np.testing.assert_allclose(feed['speed'], [1.4])
+        with np.testing.assert_raises_regex(ValueError, 'no speakable'):
+            engine.synthesize("🙂", 1.0)
+    print('Paradee WAV encoding, chunking and speed passed')
+
+
 if __name__ == '__main__':
-    if hasattr(worker,'bot_manager'): telegram()
-    else: mail()
+    if hasattr(worker, 'bot_manager'):
+        telegram()
+    elif hasattr(worker, 'paradee'):
+        speech()
+    else:
+        mail()

@@ -1,25 +1,28 @@
-"""Document fetching, sandbox parsing and host indexing with bounded timeouts."""
+"""Document fetching, sandbox parsing and indexing with bounded timeouts."""
 
 import asyncio
+import base64
 import hashlib
+from pathlib import Path
+import tempfile
 import json
 import mimetypes
 import threading
 from datetime import datetime
-from typing import Any, Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Sequence, Tuple
 from urllib.parse import quote, unquote, urlparse
 
-from langchain.schema import SystemMessage, HumanMessage
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.messages import SystemMessage, HumanMessage
+import numpy as np
 from langchain_core.documents import Document
 
 from helpers import files, errors
 from helpers.print_style import PrintStyle
-from helpers.vector_db import VectorDB
+from helpers.sandbox import SandboxMount
 from agent import Agent
 
 from plugins._document_query.helpers.fetch import FetchedDocument, fetch_public_resource
-from plugins._document_query.helpers.parsers import BaseParser, get_parsers_for_mimetype
+from plugins._document_query.helpers.sandbox import worker, parser_config, payload
 
 
 DEFAULT_SEARCH_THRESHOLD = 0.5
@@ -35,14 +38,6 @@ def _positive_int(value: Any, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return parsed if parsed > 0 else default
-
-
-def _nonnegative_int(value: Any, default: int) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return default
-    return parsed if parsed >= 0 else default
 
 
 def _parser_semaphore(config: dict) -> asyncio.Semaphore:
@@ -70,9 +65,6 @@ class DocumentQueryStore:
     """FAISS Store for document query results."""
 
     CONTEXT_DATA_KEY = "_document_query_store"
-    DEFAULT_CHUNK_SIZE = 1000
-    DEFAULT_CHUNK_OVERLAP = 100
-    DEFAULT_MAX_INDEX_CHUNKS = 1200
     _GET_LOCK = threading.RLock()
 
     @classmethod
@@ -96,8 +88,24 @@ class DocumentQueryStore:
 
     def __init__(self, agent: Agent):
         self.agent = agent
-        self.vector_db: VectorDB | None = None
         self.config = _load_config(agent)
+        self._directory = tempfile.TemporaryDirectory(prefix="a0-doc-query-")
+        self.index_mount = SandboxMount(Path(self._directory.name), "/index", read_only=False)
+        self._model = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            self._model = self.agent.get_embedding_model()
+        return self._model
+
+    def settings(self):
+        config, mounts = parser_config(self.config)
+        return config, [self.index_mount, *mounts]
+
+    async def _call(self, operation, **fields):
+        _, mounts = self.settings()
+        return await worker.acall({"operation": operation, **fields}, mounts=mounts)
 
     @staticmethod
     def normalize_uri(uri: str) -> str:
@@ -113,164 +121,59 @@ class DocumentQueryStore:
             normalized = normalized.replace("http://", "https://")
         return normalized
 
-    def init_vector_db(self):
-        return VectorDB(self.agent, cache=True)
-
-    async def add_document(
-        self, text: str, document_uri: str, metadata: dict | None = None
-    ) -> tuple[bool, list[str]]:
-        document_uri = self.normalize_uri(document_uri)
-        await self.delete_document(document_uri)
-        doc_metadata = metadata or {}
-        doc_metadata["document_uri"] = document_uri
-        doc_metadata["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        chunks = self._split_text_for_index(text)
-        docs = []
-        for i, chunk in enumerate(chunks):
-            chunk_metadata = doc_metadata.copy()
-            chunk_metadata["chunk_index"] = i
-            chunk_metadata["total_chunks"] = len(chunks)
-            docs.append(Document(page_content=chunk, metadata=chunk_metadata))
-        if not docs:
-            PrintStyle.error(f"No chunks created for document: {document_uri}")
-            return False, []
+    async def add_document(self, text: str, document_uri: str, metadata: dict | None = None):
+        uri = self.normalize_uri(document_uri)
         try:
-            if not self.vector_db:
-                self.vector_db = self.init_vector_db()
-            ids = await self.vector_db.insert_documents(docs)
-            PrintStyle.standard(f"Added document '{document_uri}' with {len(docs)} chunks")
+            config, _ = self.settings()
+            chunks = await self._call("split", text=text, config=config)
+            if not chunks:
+                return False, []
+            vectors = np.asarray(await self.model.aembed_documents(chunks), dtype="<f4")
+            if vectors.ndim != 2 or len(vectors) != len(chunks) or not np.isfinite(vectors).all():
+                raise ValueError("Invalid document embeddings")
+            ids = await self._call(
+                "put", uri=uri, chunks=chunks, dimension=vectors.shape[1],
+                vectors=base64.b64encode(vectors.tobytes()).decode("ascii"),
+                metadata={**(metadata or {}), "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
+            )
             return True, ids
-        except Exception as e:
-            err_text = errors.format_error(e)
-            PrintStyle.error(f"Error adding document '{document_uri}': {err_text}")
+        except Exception as exc:
+            PrintStyle.error(f"Error indexing {uri}: {errors.format_error(exc)}")
             return False, []
 
-    def _split_text_for_index(self, text: str) -> list[str]:
-        chunk_size = _positive_int(
-            self.config.get("chunk_size"),
-            self.DEFAULT_CHUNK_SIZE,
-        )
-        chunk_overlap = min(
-            _nonnegative_int(
-                self.config.get("chunk_overlap"),
-                self.DEFAULT_CHUNK_OVERLAP,
-            ),
-            max(0, chunk_size - 1),
-        )
-        chunks = self._split_text(text, chunk_size, chunk_overlap)
-
-        max_chunks = _nonnegative_int(
-            self.config.get("max_index_chunks"),
-            self.DEFAULT_MAX_INDEX_CHUNKS,
-        )
-        if not max_chunks or len(chunks) <= max_chunks:
-            return chunks
-
-        overlap_ratio = chunk_overlap / chunk_size if chunk_size else 0
-        overlap_ratio = max(0, min(overlap_ratio, 0.5))
-        target_size = max(
-            chunk_size + 1,
-            int(len(text) / max(1, max_chunks * (1 - overlap_ratio))) + 1,
-        )
-
-        for _ in range(8):
-            target_overlap = min(int(target_size * overlap_ratio), target_size - 1)
-            chunks = self._split_text(text, target_size, target_overlap)
-            if len(chunks) <= max_chunks or target_size >= len(text):
-                return chunks
-            target_size = min(len(text), int(target_size * 1.25) + 1)
-
-        return chunks
-
-    @staticmethod
-    def _split_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-        )
-        return text_splitter.split_text(text)
-
-    async def get_document(self, document_uri: str) -> Optional[Document]:
-        if not self.vector_db:
+    async def get_document(self, document_uri: str) -> Document | None:
+        chunks = await self._get_document_chunks(document_uri)
+        if not chunks:
             return None
-        document_uri = self.normalize_uri(document_uri)
-        docs = await self._get_document_chunks(document_uri)
-        if not docs:
-            return None
-        chunks = sorted(docs, key=lambda x: x.metadata.get("chunk_index", 0))
-        full_content = "\n".join(chunk.page_content for chunk in chunks)
-        metadata = chunks[0].metadata.copy()
-        metadata.pop("chunk_index", None)
-        metadata.pop("total_chunks", None)
-        return Document(page_content=full_content, metadata=metadata)
+        metadata = {k: v for k, v in chunks[0].metadata.items() if k not in {"chunk_index", "total_chunks"}}
+        return Document(page_content="\n".join(doc.page_content for doc in chunks), metadata=metadata)
 
-    async def _get_document_chunks(self, document_uri: str) -> List[Document]:
-        if not self.vector_db:
-            return []
-        document_uri = self.normalize_uri(document_uri)
-        chunks = await self.vector_db.search_by_metadata(
-            filter=f"document_uri == '{document_uri}'",
-        )
-        PrintStyle.standard(f"Found {len(chunks)} chunks for document: {document_uri}")
-        return chunks
+    async def _get_document_chunks(self, document_uri: str) -> list[Document]:
+        rows = await self._call("chunks", uri=self.normalize_uri(document_uri))
+        return [Document(**row) for row in rows]
 
     async def document_exists(self, document_uri: str) -> bool:
-        if not self.vector_db:
-            return False
-        document_uri = self.normalize_uri(document_uri)
-        chunks = await self._get_document_chunks(document_uri)
-        return len(chunks) > 0
+        return await self._call("exists", uri=self.normalize_uri(document_uri))
 
     async def delete_document(self, document_uri: str) -> bool:
-        if not self.vector_db:
-            return False
-        document_uri = self.normalize_uri(document_uri)
-        chunks = await self.vector_db.search_by_metadata(
-            filter=f"document_uri == '{document_uri}'",
-        )
-        if not chunks:
-            return False
-        ids_to_delete = [chunk.metadata["id"] for chunk in chunks]
-        if ids_to_delete:
-            dels = await self.vector_db.delete_documents_by_ids(ids_to_delete)
-            PrintStyle.standard(f"Deleted document '{document_uri}' with {len(dels)} chunks")
-            return True
-        return False
+        return await self._call("delete", uri=self.normalize_uri(document_uri))
 
-    async def search_documents(
-        self, query: str, limit: int = 10, threshold: float = 0.5, filter: str = ""
-    ) -> List[Document]:
-        if not self.vector_db:
-            return []
-        if not query:
+    async def search_documents(self, query: str, limit=10, threshold=0.5, filter="", *, uris=None):
+        if not query or limit <= 0:
             return []
         try:
-            results = await self.vector_db.search_by_similarity_threshold(
-                query=query, limit=limit, threshold=threshold, filter=filter
-            )
-            PrintStyle.standard(f"Search '{query}' returned {len(results)} results")
-            return results
-        except Exception as e:
-            PrintStyle.error(f"Error searching documents: {str(e)}")
+            vector = await self.model.aembed_query(query)
+            rows = await self._call("search", vector=vector, limit=limit, threshold=threshold, filter=filter, uris=uris)
+            return [Document(**row) for row in rows]
+        except Exception as exc:
+            PrintStyle.error(f"Error searching documents: {exc}")
             return []
 
-    async def search_document(
-        self, document_uri: str, query: str, limit: int = 10, threshold: float = 0.5
-    ) -> List[Document]:
-        return await self.search_documents(
-            query, limit, threshold, f"document_uri == '{document_uri}'"
-        )
+    async def search_document(self, document_uri: str, query: str, limit=10, threshold=0.5):
+        return await self.search_documents(query, limit, threshold, uris=[self.normalize_uri(document_uri)])
 
-    async def list_documents(self) -> List[str]:
-        if not self.vector_db:
-            return []
-        uris = set()
-        for doc in self.vector_db.db.get_all_docs().values():
-            if isinstance(doc.metadata, dict):
-                uri = doc.metadata.get("document_uri")
-                if uri:
-                    uris.add(uri)
-        return sorted(list(uris))
+    async def list_documents(self) -> list[str]:
+        return await self._call("list")
 
 
 class DocumentQueryHelper:
@@ -288,7 +191,7 @@ class DocumentQueryHelper:
         self.destination = "local"
         self._destination_uris: dict[str, str] = {}
         self.store_lock = asyncio.Lock()
-        self.config = _load_config(agent)
+        self.config = self.store.config
 
     async def document_qa(
         self, document_uris: List[str] | str, questions: Sequence[str] | str
@@ -339,12 +242,9 @@ class DocumentQueryHelper:
 
             await self.agent.handle_intervention()
             self.progress_callback(f"Searching documents with query: {optimized_query}")
-            doc_filter = " or ".join(
-                [f"document_uri == '{uri}'" for uri in normalized_uris]
-            )
             chunks = await self.store.search_documents(
                 query=optimized_query, limit=search_limit,
-                threshold=search_threshold, filter=doc_filter,
+                threshold=search_threshold, uris=normalized_uris,
             )
             self.progress_callback(f"Found {len(chunks)} chunks")
             for chunk in chunks:
@@ -478,18 +378,8 @@ class DocumentQueryHelper:
 
         if not exists:
             await self.agent.handle_intervention()
-            parsers = get_parsers_for_mimetype(document.mimetype, self.config)
-            if not parsers:
-                raise ValueError(
-                    f"No parser found for mimetype '{document.mimetype}' ({document.uri})"
-                )
-            per_doc_timeout = self.config.get("per_document_timeout", 60)
-            thread_offload = self.config.get("thread_offload", True)
             document_content = await self._parse_document(
-                document=document,
-                parsers=parsers,
-                timeout=per_doc_timeout,
-                thread_offload=thread_offload,
+                document, self.config.get("per_document_timeout", 60)
             )
             if add_to_db:
                 self.progress_callback(f"Indexing document")
@@ -511,15 +401,8 @@ class DocumentQueryHelper:
                 raise ValueError(f"Document not found: {document_uri_norm}")
         return document_content
 
-    async def _parse_document(
-        self,
-        document: FetchedDocument,
-        parsers: list[BaseParser],
-        timeout: float,
-        thread_offload: bool,
-    ) -> str:
-        from plugins._document_query.helpers.sandbox import worker, parser_request
+    async def _parse_document(self, document: FetchedDocument, timeout: float) -> str:
         async with _parser_semaphore(self.config):
             self.progress_callback("Parsing document content in sandbox")
-            request, mounts = parser_request(document, self.config)
-            return await worker.acall(request, timeout=timeout, mounts=mounts)
+            config, mounts = self.store.settings()
+            return await worker.acall(payload(document, config), timeout=timeout, mounts=mounts)

@@ -60,7 +60,8 @@ def test_prepared_worker_stops_when_no_parse_runs(monkeypatch, fail):
 
     events = []
 
-    async def prepare():
+    async def prepare(*, mounts):
+        assert mounts == []
         events.append('prepare')
 
     async def content(uri):
@@ -71,7 +72,7 @@ def test_prepared_worker_stops_when_no_parse_runs(monkeypatch, fail):
     monkeypatch.setattr(worker, 'aprepare', prepare)
     monkeypatch.setattr(worker, 'stop', lambda: events.append('stop'))
     monkeypatch.setattr(document_query, 'DocumentQueryHelper', lambda *a, **kw: SimpleNamespace(
-        config={}, document_get_content=content))
+        config={}, document_get_content=content, store=SimpleNamespace(settings=lambda: ({}, []))))
     tool = _make_tool({'document': 'example.txt'})
     tool.log = SimpleNamespace(update=lambda **kw: None)
     response = asyncio.run(tool.execute(document='example.txt'))

@@ -5,6 +5,8 @@ import ipaddress
 import subprocess
 import sys
 import threading
+from types import SimpleNamespace
+from plugins._document_query.helpers.chunks import index_chunks
 from pathlib import Path
 
 import pytest
@@ -37,13 +39,6 @@ from plugins._document_query.helpers.parsers.unstructured import UnstructuredPar
 def run_async(coro):
     with asyncio.Runner() as runner:
         return runner.run(coro)
-
-
-class ParserNameShouldNotLeak(BaseParser):
-    mimetypes = ["text/plain"]
-
-    def _parse_sync(self, document: FetchedDocument, config: dict) -> str:
-        return "parsed"
 
 
 class CountingAsyncParser(BaseParser):
@@ -80,34 +75,6 @@ class _StoreAgent:
     def __init__(self, context_id: str):
         self.config = object()
         self.context = _StoreContext(context_id)
-
-
-class _FakeVectorDB:
-    def __init__(self):
-        self.docs = []
-
-    async def insert_documents(self, docs):
-        ids = []
-        for doc in docs:
-            doc_id = f"doc-{len(self.docs)}"
-            doc.metadata["id"] = doc_id
-            ids.append(doc_id)
-            self.docs.append(doc)
-        return ids
-
-    async def search_by_metadata(self, filter: str, limit: int = 0):
-        document_uri = filter.split("'", 2)[1]
-        docs = [
-            doc
-            for doc in self.docs
-            if doc.metadata.get("document_uri") == document_uri
-        ]
-        return docs[:limit] if limit > 0 else docs
-
-    async def delete_documents_by_ids(self, ids: list[str]):
-        removed = [doc for doc in self.docs if doc.metadata.get("id") in ids]
-        self.docs = [doc for doc in self.docs if doc.metadata.get("id") not in ids]
-        return removed
 
 
 def test_fetch_file_detects_mimetype_and_reads_once(tmp_path):
@@ -300,19 +267,11 @@ def test_requirements_omit_legacy_langchain_unstructured_wrapper():
     assert "langchain-unstructured" not in root_requirements
 
 
-def test_outer_base_image_omits_legacy_ocr_system_packages():
-    dockerfile = (ROOT / "docker" / "base" / "Dockerfile").read_text(
-        encoding="utf-8"
-    )
-    install_scripts = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (ROOT / "docker" / "base" / "fs" / "ins").glob("*.sh")
-    )
+def test_outer_image_omits_legacy_ocr_system_packages():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "tesseract-ocr" not in dockerfile
     assert "poppler-utils" not in dockerfile
-    assert "tesseract-ocr" not in install_scripts
-    assert "poppler-utils" not in install_scripts
 
 
 def test_ocr_dependencies_skip_apt_when_already_available(monkeypatch):
@@ -442,10 +401,12 @@ def test_embedded_image_tesseract_install_is_lazy(monkeypatch):
         lambda _image, lang: events.append(f"ocr:{lang}") or "embedded text",
     )
 
-    parser = pdf_module._on_demand_tesseract_blob_parser()
+    import io
+    pixels = io.BytesIO()
+    Image.new("RGB", (2, 2)).save(pixels, format="PNG")
 
     assert events == []
-    assert parser._analyze_image(object()) == "embedded text"
+    assert pdf_module._image_text(pixels.getvalue()) == "embedded text"
     assert events == ["install", "ocr:eng"]
 
 
@@ -483,7 +444,7 @@ def test_compatibility_imports_point_to_plugin_classes():
 
 def test_liteparse_is_installed_only_in_the_guest():
     assert 'liteparse==' not in (ROOT / 'requirements.txt').read_text()
-    assert 'liteparse==2.0.3' in (ROOT / 'plugins/_document_query/sandbox/requirements.txt').read_text()
+    assert 'liteparse==2.19.0' in (ROOT / 'plugins/_document_query/sandbox/requirements.txt').read_text()
     assert document_query_hooks.install() is True
 
 
@@ -539,27 +500,25 @@ def test_config_panel_exposes_document_query_settings():
 
 
 def test_document_query_adapts_chunk_size_for_large_documents():
-    store = object.__new__(DocumentQueryStore)
-    store.config = {
+    config = {
         "chunk_size": 100,
         "chunk_overlap": 10,
         "max_index_chunks": 10,
     }
 
-    chunks = store._split_text_for_index(("alpha beta gamma delta " * 400).strip())
+    chunks = index_chunks(("alpha beta gamma delta " * 400).strip(), config)
 
     assert 1 < len(chunks) <= 10
 
 
 def test_document_query_allows_uncapped_index_chunks():
-    store = object.__new__(DocumentQueryStore)
-    store.config = {
+    config = {
         "chunk_size": 100,
         "chunk_overlap": 10,
         "max_index_chunks": 0,
     }
 
-    chunks = store._split_text_for_index(("alpha beta gamma delta " * 400).strip())
+    chunks = index_chunks(("alpha beta gamma delta " * 400).strip(), config)
 
     assert len(chunks) > 10
 
@@ -574,11 +533,16 @@ def test_document_query_store_reuses_vector_db_per_context(monkeypatch):
             "max_index_chunks": 20,
         },
     )
-    monkeypatch.setattr(
-        DocumentQueryStore,
-        "init_vector_db",
-        lambda _self: _FakeVectorDB(),
-    )
+    from plugins._document_query.sandbox.index import handle
+    async def call(request, *, mounts):
+        return handle(request, mounts[0].source)
+    async def vectors(chunks):
+        return [[1., 0.] for _ in chunks]
+    async def query(text):
+        return [1., 0.]
+    monkeypatch.setattr(document_query_module.worker, "acall", call)
+    monkeypatch.setattr(_StoreAgent, "get_embedding_model", lambda self: SimpleNamespace(
+        aembed_documents=vectors, aembed_query=query), raising=False)
 
     agent = _StoreAgent("ctx-one")
     store = DocumentQueryStore.get(agent)
@@ -591,7 +555,11 @@ def test_document_query_store_reuses_vector_db_per_context(monkeypatch):
     assert success is True
     assert ids
     assert second_store is store
-    assert second_store.vector_db is store.vector_db
+    hits = run_async(store.search_document("/tmp/book.txt", "alpha"))
+    assert {doc.metadata["id"] for doc in hits} == set(ids)
+    assert run_async(store.search_document("/tmp/other.txt", "alpha")) == []
+    assert run_async(store.add_document("", "/tmp/book.txt")) == (False, [])
+    assert run_async(store.search_document("/tmp/book.txt", "alpha")) == hits
     assert run_async(second_store.document_exists("/tmp/book.txt")) is True
 
     isolated_store = DocumentQueryStore.get(_StoreAgent("ctx-two"))
@@ -831,14 +799,13 @@ def test_parser_progress_is_user_facing_and_generic(monkeypatch):
     progress = []
     helper = object.__new__(DocumentQueryHelper)
     helper.config = {}
+    helper.store = SimpleNamespace(settings=lambda: ({}, []))
     helper.progress_callback = progress.append
 
     content = run_async(
         helper._parse_document(
             document=fetched,
-            parsers=[ParserNameShouldNotLeak()],
             timeout=1,
-            thread_offload=False,
         )
     )
 
@@ -875,21 +842,18 @@ def test_parse_document_limits_parser_concurrency_across_helpers(monkeypatch):
     helper_a.progress_callback = lambda _msg: None
     helper_b = object.__new__(DocumentQueryHelper)
     helper_b.config = {"parser_concurrency": 1}
+    helper_a.store = helper_b.store = SimpleNamespace(settings=lambda: ({}, []))
     helper_b.progress_callback = lambda _msg: None
 
     async def parse_both():
         return await asyncio.gather(
             helper_a._parse_document(
                 document=fetched_a,
-                parsers=[CountingAsyncParser()],
                 timeout=1,
-                thread_offload=False,
             ),
             helper_b._parse_document(
                 document=fetched_b,
-                parsers=[CountingAsyncParser()],
                 timeout=1,
-                thread_offload=False,
             ),
         )
 

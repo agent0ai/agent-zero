@@ -77,7 +77,7 @@ Yes. Start with [API Integration](api-integration.md) for one-off services or
 
 **Usage**
 
-- **Terminal commands not executing:** Ensure the Docker container is running and properly configured.  Check SSH settings if applicable. Check if the Docker image is updated by removing it from Docker Desktop app, and subsequently pulling it again.
+- **Terminal commands not executing:** Ensure the Docker container is running and properly configured.  Check which execution destination the tool selected. Check if the Docker image is updated by removing it from Docker Desktop app, and subsequently pulling it again.
 - **Agent Zero stuck on the update screen or not starting after an update:** If the browser stays on the updating screen for multiple minutes, reload the current browser window first. If the UI still does not come back, restart the Docker container. If it still does not recover, queue another self-update for the next startup and inspect the updater log.
 
 From the host, find the container name:

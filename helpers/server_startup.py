@@ -225,7 +225,7 @@ class StartupMonitor:
 
         if not self._stop.wait(timeout=3):
             PrintStyle.error(
-                f"{self._prefix()} forcing process exit so the supervisor can restart it"
+                f"{self._prefix()} forcing process exit after startup timeout"
             )
             os._exit(1)
 
@@ -339,7 +339,8 @@ def _run_server_attempt(
             server = uvicorn.Server(config)
 
         startup_monitor.attach_server(server)
-        process.set_server(_UvicornServerWrapper(server, flush_callback))
+        server_wrapper = _UvicornServerWrapper(server, flush_callback)
+        process.set_server(server_wrapper)
 
         startup_monitor.mark("health.thread.start")
         threading.Thread(
@@ -353,7 +354,7 @@ def _run_server_attempt(
         startup_monitor.mark("uvicorn.run.enter")
         _serve_uvicorn(server)
 
-        if startup_monitor.is_ready():
+        if server_wrapper.shutdown_requested or startup_monitor.is_ready():
             return True
 
         PrintStyle.warning(
@@ -387,8 +388,10 @@ class _UvicornServerWrapper:
     ) -> None:
         self._server = server
         self._flush_callback = flush_callback
+        self.shutdown_requested = False
 
     def shutdown(self) -> None:
+        self.shutdown_requested = True
         self._flush_callback("shutdown")
         self._server.should_exit = True
 

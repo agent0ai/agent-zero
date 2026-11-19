@@ -221,6 +221,8 @@ class SandboxImageManager:
                     return self._touch_reference_locked(cached, requested)
             if requested == builtin_image.BUILTIN_IMAGE:
                 return self._builtin_locked(expected)
+            if requested in builtin_image.LEGACY_BUILTIN_IMAGES:
+                raise SandboxImageError("The pinned legacy sandbox image is missing. Restore its image cache from backup.")
             pull_reference = (
                 self._pinned_reference(requested, expected) if expected else requested
             )
@@ -420,6 +422,7 @@ class SandboxImageManager:
             self._run(
                 [
                     *self._skopeo_command("copy"),
+                    "--dest-compress-format", "gzip", "--dest-compress-level", "1",  # Trixie umoci reads gzip
                     source,
                     f"oci:{layout}:image",
                 ],

@@ -37,7 +37,7 @@
 - `log_only=True` suppresses console output but persists the file output. Filesystem errors report a fixed warning to stderr and leave the application/console running; subsequent writes retry.
 - Structured chat logs, chat persistence, Supervisor stdout/stderr, self-update and sandbox diagnostic logs retain their existing contracts. User-data mounts/backups include the new application files; historical top-level logs remain untouched.
 - `get()` preserves its plain-text, ANSI-styled, and HTML-styled return values for existing callers and does not write files.
-- Imported dependency areas include: `collections.abc`, `datetime`, `files`, `html`, `os`, `re`, `strings`, `sys`, `tempfile`, `threading`, `webcolors`.
+- Imported dependency areas include: `collections.abc`, `datetime`, `files`, `html`, `os`, `re`, `strings`, `sys`, `tempfile`, `threading`, `PIL.ImageColor`.
 
 ## Key Concepts
 

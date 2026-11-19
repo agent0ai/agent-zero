@@ -9,6 +9,7 @@ from extensions.python.startup_migration import _05_framework_dependencies as mi
 
 @pytest.fixture
 def installed(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
     requirements = migration._requirements()
     versions = {req.name: next(spec.version for spec in req.specifier
                                if spec.operator in ("==", ">=")) for req in requirements}
@@ -27,7 +28,8 @@ def installed(monkeypatch):
 
 @pytest.mark.parametrize("package,old_version", [
     ("litellm", "1.88.1"), ("openai", "2.41.1"),
-    ("aiohttp", "3.14.0"), ("filelock", None), ("onnxruntime", None), ("numpy", "2.0.0"),
+    ("aiohttp", "3.14.0"), ("filelock", None), ("onnxruntime", "1.23.2"),
+    ("faiss-cpu", "1.11.0"), ("numpy", "2.0.0"),
 ])
 def test_self_update_installs_requirements_and_restarts_once(monkeypatch, installed, package, old_version):
     target = installed.copy()
@@ -50,18 +52,13 @@ def test_self_update_installs_requirements_and_restarts_once(monkeypatch, instal
     assert len(calls) == 1
     command, kwargs = calls[0]
     assert command[:6] == ["/usr/bin/uv", "pip", "install", "--no-cache", "--python", sys.executable]
-    assert set(command[6:]) == {
-        "litellm==1.104.0", "openai==2.54.0", "python-dotenv==1.2.2",
-        "aiohttp>=3.14.3", "anyio>=4.14.2", "urllib3>=2.8.0",
-        "filelock>=3.20.3", "fsspec>=2026.6.0", "multidict>=6.9.1",
-        "onnxruntime==1.23.2", "tokenizers==0.22.2", "numpy<2,>=1.26.4",
-        "huggingface-hub==0.36.2",
-    }
-    assert kwargs == {"timeout": 60}
+    assert command[6:8] == ["-c", str(migration._REQUIREMENTS_FILE.parent / "docker/litellm-constraints.txt")]
+    assert set(command[8:]) == {str(req) for req in migration._requirements()}
+    assert kwargs == {"timeout": 600}
 
 
 def test_current_image_skips_installer_and_restart(monkeypatch, installed):
-    installed["filelock"] = "3.32.7"
+    installed["filelock"] = "4.2.12"
     monkeypatch.setattr(migration.shutil, "which", lambda _name: pytest.fail("Installer lookup"))
     migration.FrameworkDependencies(None).execute()
 

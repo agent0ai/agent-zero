@@ -78,9 +78,9 @@ New sandboxes resolve tags and pin both the reference and immutable digest in
 their metadata. Existing sandboxes always restart from that digest, even when
 the tag later moves.
 
-The default reference is `agent-zero-sandbox:1`, providing global Python 3.13,
+The default reference is `agent-zero-sandbox:3`, providing Git, global Python 3.13,
 pip, IPython, Node.js 22, npm and npx. Docker builds bundle it at
-`/opt/agent-zero/sandbox-image`, so a fresh installation can create its first
+`/opt/agent-zero/sandbox-image-v3`, so a fresh installation can create its first
 sandbox offline. The first use unpacks it into the disk cache; subsequent
 starts reuse the cache and each sandbox's private disk filesystem.
 
@@ -123,7 +123,7 @@ FUSE device or mount capability is required by this implementation.
 
 Source updates stop old sandboxes before switching and build the runtime once
 through the release hook; startup also checks it. Debian-based native root
-installations use `docker/base/fs/ins/proot/install.sh`. Rebuild the Docker image
+installations use `docker/sandbox/proot/install.sh`. Rebuild the Docker image
 to reclaim old gVisor image layers. Custom host security policies may still block
 ptrace; test on the actual host.
 

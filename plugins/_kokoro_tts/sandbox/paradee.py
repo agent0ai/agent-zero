@@ -8,7 +8,6 @@ import threading
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
 
 
 MODEL_REPO = "sahilmahendrakar/Paradee-8M-v1.0"
@@ -91,6 +90,8 @@ def _phoneme_chunks(text, g2p):
 
 
 def synthesize(text: str, speed: float) -> str:
+    import soundfile as sf
+
     with _lock:
         session, g2p, vocab = _load_model()
         parts = []

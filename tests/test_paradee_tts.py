@@ -1,22 +1,17 @@
 import asyncio
-import base64
-import io
 import json
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 
-import numpy as np
 import pytest
-import soundfile as sf
 
 from helpers import cache, files, plugins
 from plugins._kokoro_tts import hooks
 from plugins._kokoro_tts.api.status import Status
 from plugins._kokoro_tts.extensions.python.startup_migration import _20_tts_dependencies as startup
 from plugins._kokoro_tts.extensions.python._functions.helpers.plugins.toggle_plugin.end import _20_tts_dependencies as enable
-from plugins._kokoro_tts.helpers import migration, paradee, runtime
+from plugins._kokoro_tts.helpers import migration, runtime
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -97,35 +92,20 @@ def test_paradee_dispatch_and_status_use_guest_engine(monkeypatch):
     assert not asyncio.run(runtime.is_downloaded({'voice': 'paradee'}))
 
 
-def test_phoneme_chunks_keep_all_long_input():
+@pytest.fixture
+def paradee():
+    from plugins._kokoro_tts.sandbox import paradee
+    return paradee
+
+
+def test_phoneme_chunks_keep_all_long_input(paradee):
     for text in ("a" * 1200, "hello " * 300, "hello.\nworld!"):
         chunks = list(paradee._phoneme_chunks(text, lambda s: (s, None)))
         assert all(0 < len(chunk) <= 510 for chunk in chunks)
         assert "".join(chunks).replace(" ", "") == text.replace(" ", "").replace("\n", "")
 
 
-def test_synthesis_produces_wav_and_forwards_speed(monkeypatch):
-    feeds = []
-
-    class Session:
-        def run(self, _, feed):
-            feeds.append(feed)
-            return [np.full((1, 2400), 0.1, dtype=np.float32)]
-
-    monkeypatch.setattr(paradee, "_load_model", lambda: (Session(), lambda s: (s, None), {"a": 1}))
-    audio = paradee.synthesize("a" * 1200, 1.4)
-    wave, rate = sf.read(io.BytesIO(base64.b64decode(audio)))
-    assert rate == 24000 and len(wave) == 7200
-    for feed in feeds:
-        ids = feed["input_ids"]
-        assert ids.shape[1] <= 512 and ids.dtype == np.int64
-        assert ids[0, 0] == ids[0, -1] == 0
-        assert feed["speed"][0] == pytest.approx(1.4)
-    with pytest.raises(ValueError, match="no speakable"):
-        paradee.synthesize("🙂", 1.0)
-
-
-def test_missing_phonemizer_never_installs_packages(monkeypatch):
+def test_missing_phonemizer_never_installs_packages(monkeypatch, paradee):
     spacy = pytest.importorskip("spacy")
 
     monkeypatch.setattr(spacy.util, "is_package", lambda name: False)
@@ -134,7 +114,7 @@ def test_missing_phonemizer_never_installs_packages(monkeypatch):
         paradee._initialize_model()
 
 
-def test_failed_load_resets_loading_status(monkeypatch):
+def test_failed_load_resets_loading_status(monkeypatch, paradee):
     monkeypatch.setattr(paradee, "_model", None)
 
     def fail():

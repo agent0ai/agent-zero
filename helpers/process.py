@@ -21,9 +21,7 @@ def stop_server():
 
 def reload():
     stop_server()
-    if runtime.is_dockerized():
-        exit_process()
-    else:
+    if not runtime.is_dockerized():
         restart_process()
 
 def restart_process():

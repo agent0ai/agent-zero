@@ -74,9 +74,12 @@ class SandboxWorker:
         request_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         return manager, request_dir
 
-    def start(self, cancel: threading.Event | None = None):
+    def start(self, cancel: threading.Event | None = None, *, mounts: list[SandboxMount] | None = None):
         with self.lock:
             try:
+                if mounts is not None and self.mounts != mounts:
+                    self.ready = False
+                    self.mounts = mounts
                 return self._start(cancel)
             except BaseException:
                 self._set_progress('error', 'error', 'Sandbox setup failed or was cancelled; retry to resume installation')
@@ -86,8 +89,14 @@ class SandboxWorker:
         manager, request_dir = self._paths()
         if self.timer:
             self.timer.cancel()
-        if self.ready and manager.is_running(self.name):
-            return manager
+        existing = (manager.config.instances_dir / self.name / 'metadata.json').exists()
+        if existing:
+            info = manager.inspect(self.name)
+            if not info.service or info.ownership.get('plugin_id') != self.plugin:
+                self.ready = False
+                raise SandboxError('Sandbox name is already owned by another caller')
+            if self.ready and info.status == 'running':
+                return manager
         self.ready = False
         self._set_progress('starting', 'sandbox', 'Initializing sandbox')
         root = Path(__file__).resolve().parents[1]
@@ -109,10 +118,7 @@ class SandboxWorker:
             self._progress_manager = manager
             self._last_log = None
         self._write_request(request_dir, {'boot': boot_id})
-        if (manager.config.instances_dir / self.name / 'metadata.json').exists():
-            info = manager.inspect(self.name)
-            if not info.service or info.ownership.get('plugin_id') != self.plugin:
-                raise SandboxError('Sandbox name is already owned by another caller')
+        if existing:
             manager.stop(self.name)
             manager.set_mounts(self.name, mounts)
             manager.set_command(self.name, command)
@@ -166,10 +172,7 @@ class SandboxWorker:
             failed = False
             request_id = None
             try:
-                if mounts is not None and self.mounts != mounts:
-                    self.stop()
-                    self.mounts = mounts
-                manager = self.start(cancel)
+                manager = self.start(cancel, mounts=mounts)
                 _, directory = self._paths()
                 request_id = uuid.uuid4().hex
                 self._write_request(directory, {'id': request_id, 'payload': payload})
@@ -229,10 +232,10 @@ class SandboxWorker:
             await asyncio.gather(task, return_exceptions=True)
             raise
 
-    async def aprepare(self):
+    async def aprepare(self, *, mounts: list[SandboxMount] | None = None):
         """Keep first-use installation outside a caller's processing deadline."""
         cancel = threading.Event()
-        task = asyncio.create_task(asyncio.to_thread(self.start, cancel))
+        task = asyncio.create_task(asyncio.to_thread(self.start, cancel, mounts=mounts))
         try:
             await asyncio.shield(task)
         except asyncio.CancelledError:
@@ -247,7 +250,9 @@ class SandboxWorker:
                 self.timer = None
             manager, _ = self._paths()
             if (manager.config.instances_dir / self.name / 'metadata.json').exists():
-                manager.stop(self.name)
+                info = manager.inspect(self.name)
+                if info.service and info.ownership.get('plugin_id') == self.plugin:
+                    manager.stop(self.name)
             self.ready = False
             if self._progress['state'] != 'error':
                 self._set_progress('idle', 'idle', 'Sandbox stopped')

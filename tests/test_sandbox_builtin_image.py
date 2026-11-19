@@ -8,6 +8,7 @@ import pytest
 
 from plugins._sandboxing.helpers import builtin_image
 from plugins._sandboxing.helpers.images import SandboxImageError
+from plugins._sandboxing.helpers.runtime import normalize_config
 from tests.test_sandboxing import IMAGE_DIGEST, manager
 
 
@@ -85,11 +86,25 @@ def test_rebuilt_default_never_replaces_a_missing_pinned_digest(manager, monkeyp
 
 def test_docker_builds_bundle_the_same_recipe_as_lazy_builds():
     root = Path(__file__).resolve().parents[1]
-    for name in ("DockerfileLocal", "docker/run/Dockerfile"):
-        dockerfile = (root / name).read_text()
-        assert f"FROM {builtin_image.PYTHON_IMAGE.removeprefix('docker.io/library/')} AS sandbox-rootfs" in dockerfile
-        assert f"FROM {builtin_image.NODE_IMAGE.removeprefix('docker.io/library/')} AS sandbox-node" in dockerfile
-        assert "/docker/sandbox/install.sh" in dockerfile
-        assert f"--output {builtin_image.BUNDLE_PATH}" in dockerfile
-        assert f"chmod -R a+rX {builtin_image.BUNDLE_PATH}" in dockerfile
+    dockerfile = (root / "Dockerfile").read_text()
+    assert f"FROM {builtin_image.PYTHON_IMAGE.removeprefix('docker.io/library/')} AS sandbox-rootfs" in dockerfile
+    assert f"FROM {builtin_image.NODE_IMAGE.removeprefix('docker.io/library/')} AS node-runtime" in dockerfile
+    assert "source=docker/sandbox/install.sh" in dockerfile
+    assert "git --version" in (root / "docker/sandbox/install.sh").read_text()
+    assert f"--output {builtin_image.BUNDLE_PATH}" in dockerfile
+    assert f"chmod -R a+rX {builtin_image.BUNDLE_PATH}" in dockerfile
     assert f"default_image: {builtin_image.BUILTIN_IMAGE}" in (root / "plugins/_sandboxing/default_config.yaml").read_text()
+
+
+@pytest.mark.parametrize("legacy", builtin_image.LEGACY_BUILTIN_IMAGES)
+def test_legacy_default_preserves_pinned_images(manager, monkeypatch, legacy):
+    assert normalize_config({"default_image": legacy})["default_image"] == builtin_image.BUILTIN_IMAGE
+    assert normalize_config({"default_image": "my-image:1"})["default_image"] == "my-image:1"
+
+    def no_pull(*args, **kwargs):
+        pytest.fail("Bookworm was a local built-in image")
+
+    monkeypatch.setattr(manager.images, "_pull_locked", no_pull)
+    assert manager.images.ensure(legacy, digest=IMAGE_DIGEST).digest == IMAGE_DIGEST
+    with pytest.raises(SandboxImageError, match="pinned legacy"):
+        manager.images.ensure(legacy, digest="sha256:" + "b" * 64)

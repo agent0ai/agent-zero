@@ -1,0 +1,3 @@
+# Reviewed glibc wheels for the Docker framework runtime.
+litellm @ https://files.pythonhosted.org/packages/de/ce/8241dcb66e8600c7100e0df91890dd2d08ee7c3288039cec41217db179a9/litellm-1.108.12-cp310-abi3-manylinux_2_28_x86_64.whl#sha256=6ce8f3ec3224752323afd2bf844c900105974fe3adec7e4d111a10a829da82d4 ; sys_platform == "linux" and platform_machine == "x86_64"
+litellm @ https://files.pythonhosted.org/packages/a4/c2/5d52c051c0e1362a733426849020d7063b33d0aadecccf2c8473907acab7/litellm-1.108.12-cp310-abi3-manylinux_2_28_aarch64.whl#sha256=4123ce7c27b15cd1921a3e0de9125c38dec42f894a4bf7a8ab6a153b999b23aa ; sys_platform == "linux" and platform_machine == "aarch64"

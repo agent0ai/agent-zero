@@ -694,7 +694,7 @@ def test_self_update_recovery_script_and_docs_are_present():
     script_content = script_path.read_text(encoding="utf-8")
     docs_path = PROJECT_ROOT / "docs" / "guides" / "troubleshooting.md"
     docs_content = docs_path.read_text(encoding="utf-8")
-    dockerfile_path = PROJECT_ROOT / "docker" / "run" / "Dockerfile"
+    dockerfile_path = PROJECT_ROOT / "Dockerfile"
     dockerfile_content = dockerfile_path.read_text(encoding="utf-8")
 
     assert 'trigger-update "$@"' in script_content
@@ -703,7 +703,9 @@ def test_self_update_recovery_script_and_docs_are_present():
     assert "/exe/a0-self-update.log" in docs_content
     assert "reload the current browser window" in docs_content
     assert "main` and `latest`" in docs_content
-    assert "/exe/trigger_self_update.sh" in dockerfile_content
+    assert "source=docker/run/fs,target=/runtime" in dockerfile_content
+    assert "cp -a /runtime/. /" in dockerfile_content
+    assert os.access(script_path, os.X_OK)
 
 
 def test_self_update_schedule_rejects_missing_tag_on_branch(monkeypatch, tmp_path):

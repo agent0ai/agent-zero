@@ -6,7 +6,7 @@ from typing import Any
 
 from helpers import files, plugins, runtime
 
-from plugins._sandboxing.helpers.builtin_image import BUILTIN_IMAGE
+from plugins._sandboxing.helpers.builtin_image import BUILTIN_IMAGE, LEGACY_BUILTIN_IMAGES
 
 from plugins._sandboxing.helpers.images import (
     SandboxImageConfig,
@@ -29,6 +29,9 @@ _manager_config: tuple[SandboxConfig, SandboxImageConfig] | None = None
 
 def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
     raw = value if isinstance(value, dict) else {}
+    default_image = str(raw.get("default_image") or BUILTIN_IMAGE).strip()
+    if default_image in LEGACY_BUILTIN_IMAGES:
+        default_image = BUILTIN_IMAGE
     default_type = str(raw.get("default_type", "temporary")).strip().lower()
     default_network = str(raw.get("default_network", "host")).strip().lower()
     default_sandbox = str(raw.get("default_sandbox") or "default").strip()
@@ -40,9 +43,7 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         "proot_path": str(raw.get("proot_path") or "/usr/local/bin/a0-proot").strip(),
         "skopeo_path": str(raw.get("skopeo_path") or "/usr/bin/skopeo").strip(),
         "umoci_path": str(raw.get("umoci_path") or "/usr/bin/umoci").strip(),
-        "default_image": str(
-            raw.get("default_image") or BUILTIN_IMAGE
-        ).strip(),
+        "default_image": default_image,
         "registry_auth_file": str(raw.get("registry_auth_file") or "").strip(),
         "image_cache_dir": str(
             raw.get("image_cache_dir") or "usr/plugins/_sandboxing/images"

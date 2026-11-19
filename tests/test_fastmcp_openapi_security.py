@@ -53,10 +53,12 @@ async def test_openapi_provider_percent_encodes_path_parameters():
 
         assert tool is not None
 
-        result = await tool.run({"id": "../../../admin/delete-all?"})
+        with pytest.raises(ValueError, match="dot segments"):
+            await tool.run({"id": "./profile"})
+        assert captured == {}
+        result = await tool.run({"id": "two users"})
 
     assert result.structured_content == {"ok": True}
     assert captured["authorization"] == "Bearer admin_secret"
     assert captured["path"].startswith("/api/v1/users/")
-    assert captured["raw_path"].startswith("/api/v1/users/%2E%2E%2F")
-    assert captured["raw_path"].endswith("/profile")
+    assert captured["raw_path"] == "/api/v1/users/two%20users/profile"

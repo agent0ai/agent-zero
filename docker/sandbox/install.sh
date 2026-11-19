@@ -3,7 +3,7 @@ set -eu
 
 # /node is the official Node image's read-only /usr/local directory.
 apt-get update
-apt-get install -y --no-install-recommends libstdc++6 libatomic1
+apt-get install -y --no-install-recommends libstdc++6 libatomic1 git
 rm -rf /var/lib/apt/lists/*
 cp /node/bin/node /usr/local/bin/node
 cp -a /node/lib/node_modules /usr/local/lib/
@@ -14,6 +14,7 @@ mkdir -p /workspace
 
 python -c 'import sys; assert sys.prefix == sys.base_prefix'
 python -m pip check
+git --version
 ipython --version
 node --version
 npm --version

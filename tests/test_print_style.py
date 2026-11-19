@@ -28,6 +28,13 @@ def _reset_print_style_state(tmp_path, monkeypatch):
     monkeypatch.setattr(PrintStyle, "_log_escape_tail", "")
 
 
+def test_color_names_and_hex_preserve_css3_behavior():
+    color = PrintStyle()._get_rgb_color_code
+    assert color("DarkGrey") == color("#a9a9a9") == ("\033[38;2;169;169;169m", "color: rgb(169, 169, 169);")
+    for unsupported in ("rebeccapurple", "rgb(1,2,3)", "#abc", "#abcd", "default"):
+        assert color(unsupported) == ("", "")
+
+
 def test_get_sanitizes_lone_surrogates():
     style = PrintStyle(log_only=True)
     style.secrets_mgr = _PassthroughSecretsManager()

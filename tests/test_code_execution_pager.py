@@ -5,10 +5,10 @@ code execution tool: without user input they block forever and spin at 100% CPU.
 """
 
 import asyncio
-import importlib
 from types import SimpleNamespace
 
-from plugins._code_execution.helpers import shell_local, shell_ssh
+from helpers.strings import clean_string
+from plugins._code_execution.helpers import shell_local
 from plugins._code_execution.helpers.tty_session import TTYSession
 from plugins._code_execution.tools.code_execution_tool import (
     CodeExecution,
@@ -39,22 +39,9 @@ def test_local_env_does_not_mutate_input():
     assert src == {"PATH": "/usr/bin"}
 
 
-def test_ssh_command_disables_pagers():
-    assert "GIT_PAGER=cat" in shell_ssh.PAGER_DISABLE_COMMAND
-    assert "PAGER=cat" in shell_ssh.PAGER_DISABLE_COMMAND
-
-
-def test_paramiko_import_error_does_not_retain_tool_loading_stack(monkeypatch):
-    try:
-        raise ImportError("invoke")
-    except ImportError as error:
-        saved_error = error
-        monkeypatch.setattr(shell_ssh.paramiko.config, "invoke_import_error", error)
-
-    importlib.reload(shell_ssh)
-
-    assert shell_ssh.paramiko.config.invoke_import_error is saved_error
-    assert saved_error.__traceback__ is None
+def test_shell_output_preserves_unicode_and_last_progress_update():
+    raw = "\r\r\n> > \x1b[32mfirst\x1b[0m\x00\r\n10%\r100% ✓\r\n"
+    assert clean_string(raw) == "first\n100% ✓\n"
 
 
 def test_multiline_terminal_commands_are_one_current_shell_compound():
@@ -96,29 +83,6 @@ def test_tty_reports_strict_mode_shell_exit():
     asyncio.run(run())
 
 
-def test_ssh_session_reports_channel_exit_status():
-    class FakeChannel:
-        closed = False
-
-        @staticmethod
-        def exit_status_ready():
-            return True
-
-        @staticmethod
-        def recv_exit_status():
-            return 7
-
-    session = object.__new__(shell_ssh.SSHInteractiveSession)
-    session.shell = FakeChannel()
-    session.client = SimpleNamespace(
-        get_transport=lambda: SimpleNamespace(is_active=lambda: True)
-    )
-    session._exit_code = None
-
-    assert session.is_terminated()
-    assert session.get_exit_code() == 7
-
-
 def test_code_execution_returns_immediately_when_shell_exits():
     class FinishedSession:
         async def read_output(self, timeout=0, reset_full_output=False):
@@ -149,7 +113,6 @@ def test_code_execution_returns_immediately_when_shell_exits():
     async def run():
         session = FinishedSession()
         state = State(
-            ssh_enabled=False,
             shells={0: ShellWrap(id=0, session=session, running=True)},
         )
         tool = CodeExecution(

@@ -1,20 +1,17 @@
-import re
 import resource
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-INITIALIZE_SCRIPT = REPO_ROOT / "docker" / "run" / "fs" / "exe" / "initialize.sh"
-
-
-def _script_function(name: str) -> str:
-    text = INITIALIZE_SCRIPT.read_text(encoding="utf-8")
-    match = re.search(rf"^{name}\(\) \{{\n.*?^\}}\n", text, re.M | re.S)
-    assert match, f"initialize.sh must define {name}"
-    return match.group(0)
+RUNTIME = REPO_ROOT / "docker/run/fs"
+ENTRYPOINT = RUNTIME / "exe/tuxee-entrypoint.sh"
+INIT_SCRIPT = (RUNTIME / "opt/agent-zero/init/agent-zero.sh").read_text()
+OPEN_FILE_SETUP = INIT_SCRIPT[INIT_SCRIPT.index("requested="):INIT_SCRIPT.index("\n\ncp -r")]
+APT_SETUP = INIT_SCRIPT[INIT_SCRIPT.index("marker="):INIT_SCRIPT.index("\n\n# Give each attempt")]
 
 
 def _run_bash(script: str) -> subprocess.CompletedProcess[str]:
@@ -28,20 +25,15 @@ def _run_bash(script: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_initialize_raises_soft_open_file_limit_to_requested_target():
-    function = _script_function("raise_open_file_limit")
-
-    result = _run_bash(
+    _run_bash(
         f"""
         set -euo pipefail
-        {function}
         ulimit -S -n 1024
         A0_NOFILE_LIMIT=4096
-        raise_open_file_limit
+        {OPEN_FILE_SETUP}
         test "$(ulimit -S -n)" = "4096"
         """
     )
-
-    assert "Raised open file soft limit from 1024 to 4096" in result.stdout
 
 
 def test_initialize_caps_open_file_limit_at_hard_limit():
@@ -49,36 +41,30 @@ def test_initialize_caps_open_file_limit_at_hard_limit():
     if hard != resource.RLIM_INFINITY and hard < 2048:
         pytest.skip("host hard open-file limit is too low for this regression test")
 
-    function = _script_function("raise_open_file_limit")
-
-    result = _run_bash(
+    _run_bash(
         f"""
         set -euo pipefail
-        {function}
         ulimit -S -n 1024
         ulimit -H -n 2048
         A0_NOFILE_LIMIT=65535
-        raise_open_file_limit
+        {OPEN_FILE_SETUP}
         test "$(ulimit -S -n)" = "2048"
         """
     )
-
-    assert "Raised open file soft limit from 1024 to 2048" in result.stdout
 
 
 def test_initialize_refreshes_package_indexes_silently_once_per_container(tmp_path):
     marker = tmp_path / "started"
     calls = tmp_path / "calls"
-    function = _script_function("initialize_package_lists").replace(
+    setup = APT_SETUP.replace(
         "/var/lib/apt/a0-initial-update-started", str(marker)
     )
     result = _run_bash(f'''
         set -euo pipefail
         apt-get() {{ echo "$*" >> "{calls}"; echo noisy; echo noisy >&2; return 1; }}
-        {function}
-        initialize_package_lists
+        {setup}
         wait
-        initialize_package_lists
+        {setup}
         wait
     ''')
     assert marker.exists()
@@ -88,15 +74,14 @@ def test_initialize_refreshes_package_indexes_silently_once_per_container(tmp_pa
 
 def test_initialize_does_not_wait_for_package_update(tmp_path):
     marker = tmp_path / "started"
-    function = _script_function("initialize_package_lists").replace(
+    setup = APT_SETUP.replace(
         "/var/lib/apt/a0-initial-update-started", str(marker)
     )
     result = _run_bash(f'''
         set -euo pipefail
         mkfifo "{tmp_path / 'gate'}"
         apt-get() {{ read -r _ < "{tmp_path / 'gate'}"; }}
-        {function}
-        initialize_package_lists
+        {setup}
         pid=$!
         kill -0 "$pid"
         echo continued
@@ -107,8 +92,8 @@ def test_initialize_does_not_wait_for_package_update(tmp_path):
 
 
 def test_initialize_explains_hidden_application_before_mutating_data(tmp_path):
-    script = INITIALIZE_SCRIPT.read_text().replace("/a0/run_ui.py", str(tmp_path / "run_ui.py"))
-    result = subprocess.run(["bash", "-c", script, "initialize.sh", "local"],
+    script = ENTRYPOINT.read_text().replace("/a0/run_ui.py", str(tmp_path / "run_ui.py"))
+    result = subprocess.run(["bash", "-c", script],
                             text=True, capture_output=True)
     assert result.returncode == 1
     assert "./agent-zero/usr:/a0/usr" in result.stderr
@@ -117,7 +102,42 @@ def test_initialize_explains_hidden_application_before_mutating_data(tmp_path):
 
 def test_application_presence_check_accepts_populated_development_mount(tmp_path):
     (tmp_path / "run_ui.py").touch()
-    script = INITIALIZE_SCRIPT.read_text().split("raise_open_file_limit()", 1)[0]
+    script = ENTRYPOINT.read_text().split("password_file=", 1)[0]
     script = script.replace("/a0/run_ui.py", str(tmp_path / "run_ui.py"))
-    result = _run_bash('set -- local\n' + script + "\necho accepted")
+    result = _run_bash(script + "\necho accepted")
     assert "accepted" in result.stdout
+
+
+def test_agent_zero_relaunches_after_exit_zero_and_stops_the_active_attempt(tmp_path):
+    first = tmp_path / "first"
+    started = tmp_path / "started"
+    stopped = tmp_path / "stopped"
+    loop = INIT_SCRIPT[INIT_SCRIPT.index("set -m"):]
+    loop = loop.replace("/exe/run_A0.sh", "run_a0")
+    script = f"""
+    set -eu
+    run_a0() {{
+        if [[ ! -e "{first}" ]]; then
+            touch "{first}"
+            return
+        fi
+        trap 'touch "{stopped}"; exit 0' TERM
+        touch "{started}"
+        sleep 30
+    }}
+    {loop}
+    """
+    process = subprocess.Popen(["bash", "-c", script], stderr=subprocess.PIPE, text=True)
+    try:
+        deadline = time.monotonic() + 5
+        while not started.exists():
+            assert process.poll() is None and time.monotonic() < deadline
+            time.sleep(0.02)
+        process.terminate()
+        _, stderr = process.communicate(timeout=5)
+        assert process.returncode == 0 and stopped.exists()
+        assert stderr.count("Agent Zero exited (status 0)") == 1
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()

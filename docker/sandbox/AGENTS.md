@@ -9,6 +9,7 @@
 - `install.sh` owns Python/IPython and Node/npm setup and runtime checks, shared by Docker builds and the lazy PRoot builder.
 - `Dockerfile` builds the standalone image from matching official Python and Node images.
 - `README.md` owns default-image delivery, recovery and optional standalone builds.
+- `proot/` owns the pinned PRoot build and its source-update installer.
 
 ## Local Contracts
 
@@ -22,8 +23,9 @@
 ## Work Guidance
 
 - Keep project-specific libraries out of the base; install them in the sandbox as needed.
-- The built-in reference is `agent-zero-sandbox:1`; bump its recipe version deliberately when changing the runtime contract. It is resolved locally, not pulled from Docker Hub.
-- Keep the Python and Node base references in both outer Dockerfiles and `plugins/_sandboxing/helpers/builtin_image.py` synchronized.
+- Docker distributes the OCI bundle with zstd compression. The cache import requests gzip from Skopeo for the Trixie umoci unpacker. Lazy local builds skip recompression for distribution.
+- The built-in reference is `agent-zero-sandbox:3`; bump its recipe version deliberately when changing the runtime contract. It is resolved locally, not pulled from Docker Hub.
+- Keep the Python and Node base references in the root Dockerfile and `plugins/_sandboxing/helpers/builtin_image.py` synchronized.
 
 ## Verification
 

@@ -32,7 +32,7 @@ guest. The [Document Query adapter](../../plugins/_document_query/helpers/sandbo
 and [installer](../../plugins/_document_query/sandbox/install.sh) show the bundled
 pattern. The shared [worker boot script](../../plugins/_sandboxing/sandbox/boot.sh)
 uses `sandbox/install.sh` and `sandbox/requirements.txt`, fingerprints setup inputs
-and records success only after installation. Preserve idempotent setup, failure
+and records success only after installation. Document Query mounts a temporary per-chat chunk database at `/index` and searches it with guest FAISS. Configured embeddings and credentials stay in the framework. Preserve idempotent setup, failure
 reporting and retry; stopping a guest retains its packages and model caches.
 
 Install/update/uninstall remain owned by `hooks.py` and framework management APIs.
@@ -137,10 +137,9 @@ every Docker default seccomp profile.
 
 The outer image has one global Python 3.12 environment for the framework, plugin
 hooks and explicit `local` code execution. There is no separate host code-execution
-venv or pyenv. Debian's Python 3.13 belongs to Supervisor and its event listener;
-it is not an alternative framework environment. Outer IPython and Node remain
-available for explicit local execution. SSH and connected-host destinations keep
-their existing routing; the default destination is the isolated sandbox.
+venv or pyenv. Local execution uses the outer IPython and Node installations.
+The default destination is the isolated sandbox. The connected-host destination
+uses the authenticated Connector.
 
 The bundled sandbox base has global Python 3.13, IPython and Node. Feature guests
 also prepare Python 3.12 in `/opt/runtime` for their existing package pins; this

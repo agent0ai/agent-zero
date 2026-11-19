@@ -64,7 +64,7 @@ def test_right_canvas_registers_desktop_and_keeps_editor_controls():
         "_desktop",
         "extensions",
         "webui",
-        "surfaces_register",
+        "right_canvas_register_surfaces",
         "register-desktop.js",
     )
     desktop_panel = read(
@@ -105,6 +105,9 @@ def test_right_canvas_registers_desktop_and_keeps_editor_controls():
     assert "migratePersistedSurfaceState" in canvas_store
     assert "normalizeSurfaceId" in canvas_store
     assert "const saved = migratePersistedSurfaceState(JSON.parse" in canvas_store
+    for name in ("browser", "desktop"):
+        alias = read("plugins", f"_{name}", "extensions", "webui", "surfaces_register", f"register-{name}.js")
+        assert f'export {{ default }} from "../right_canvas_register_surfaces/register-{name}.js"' in alias
     assert 'id: "desktop"' in desktop_register
     assert 'modalPath: "/plugins/_desktop/webui/main.html"' in desktop_register
     assert 'id: "editor"' in editor_register

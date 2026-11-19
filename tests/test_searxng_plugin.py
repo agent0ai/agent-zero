@@ -115,14 +115,10 @@ def test_outer_docker_images_have_no_searxng_runtime() -> None:
 
     docker_files = [
         path
-        for root in (
-            PROJECT_ROOT / "docker" / "base",
-            PROJECT_ROOT / "docker" / "run",
-        )
-        for path in root.rglob("*")
+        for path in (PROJECT_ROOT / "docker/run").rglob("*")
         if path.is_file() and "__pycache__" not in path.parts
     ]
-    docker_files.append(PROJECT_ROOT / "DockerfileLocal")
+    docker_files.append(PROJECT_ROOT / "Dockerfile")
     combined = "\n".join(
         path.read_text(encoding="utf-8", errors="ignore") for path in docker_files
     )

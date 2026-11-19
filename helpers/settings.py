@@ -836,7 +836,6 @@ def _dict_to_env(data_dict):
 
 
 def get_runtime_config(set: Settings):
-    # SSH config is now managed by the code_execution plugin.
     # This function is kept for backward compatibility but returns an empty dict.
     return {}
 

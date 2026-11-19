@@ -235,7 +235,7 @@ def test_browser_bootstrap_reuses_image_python_and_preserves_matching_environmen
 def test_guest_display_build_cleanup_preserves_previous_packages(tmp_path, build_fails):
     import subprocess
     script = Path('plugins/_browser/sandbox/install.sh').read_text()
-    script = script[script.index('    previous_manual='):script.index('\nfi\nfor tool')]
+    script = script[script.index('    previous_manual='):script.index('\nfi\nif [ -z "$native_tuxee" ]; then')]
     script = script.replace('/support', str(tmp_path / 'support')).replace('/tmp/a0-gui', str(tmp_path / 'build'))
     script = script.replace('/opt/tuxee-gui', str(tmp_path / 'bundle'))
     binary = tmp_path / 'bin'
@@ -247,7 +247,12 @@ def test_guest_display_build_cleanup_preserves_previous_packages(tmp_path, build
         tool.chmod(0o755)
     support = tmp_path / 'support'
     support.mkdir()
-    (support / 'build-gui.sh').write_text('exit 1\n' if build_fails else 'mkdir -p "$1/usr/local/lib/tuxee-gui"\n')
+    mounts = tmp_path / 'bundle'
+    mounts.mkdir()
+    (support / 'build-gui.sh').write_text(
+        'exit 1\n' if build_fails else
+        'mkdir -p "$1/usr/local/lib/tuxee-gui/bin"\ntouch "$1/usr/local/lib/tuxee-gui/bin/tuxee-Xvnc"\n'
+    )
     (support / 'bundle-gui.sh').write_text('true\n')
     result = subprocess.run(['sh', '-ec', script], env={**os.environ, 'PATH': str(binary) + os.pathsep + os.environ['PATH']})
     calls = log.read_text().splitlines()
@@ -256,7 +261,7 @@ def test_guest_display_build_cleanup_preserves_previous_packages(tmp_path, build
         assert not any('autoremove' in call for call in calls)
     else:
         assert result.returncode == 0
-        assert (tmp_path / 'bundle').is_dir()
+        assert (mounts / 'bin/tuxee-Xvnc').is_file()
         assert calls[-2:] == ['apt-mark manual python3 ca-certificates', 'apt-get autoremove --purge -y']
 
 

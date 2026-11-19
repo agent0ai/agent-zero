@@ -7,10 +7,11 @@ from pathlib import Path
 import tempfile
 import uuid
 
-BUILTIN_IMAGE = "agent-zero-sandbox:1"
-BUNDLE_PATH = Path("/opt/agent-zero/sandbox-image")
-PYTHON_IMAGE = "docker.io/library/python:3.13-slim-bookworm"
-NODE_IMAGE = "docker.io/library/node:22-bookworm-slim"
+BUILTIN_IMAGE = "agent-zero-sandbox:3"
+LEGACY_BUILTIN_IMAGES = ("agent-zero-sandbox:1", "agent-zero-sandbox:2")
+BUNDLE_PATH = Path("/opt/agent-zero/sandbox-image-v3")
+PYTHON_IMAGE = "docker.io/library/python:3.13-slim-trixie"
+NODE_IMAGE = "docker.io/library/node:22-trixie-slim"
 ENVIRONMENT = (
     "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "LANG=C.UTF-8",
@@ -89,7 +90,13 @@ def main() -> None:
         skopeo=Path("/usr/bin/skopeo"), umoci=Path("/usr/bin/umoci"),
         cache_dir=args.output.parent, default_image=BUILTIN_IMAGE,
     ))
-    package_rootfs(images, args.rootfs, args.output, args.architecture)
+    # Compress the distributed bundle once at image build time.
+    with tempfile.TemporaryDirectory() as temporary:
+        layout = Path(temporary) / "layout"
+        package_rootfs(images, args.rootfs, layout, args.architecture)
+        images._run([str(images.config.skopeo), "copy", "--dest-compress-format", "zstd",
+                     "--dest-compress-level", "15", f"oci:{layout}:image", f"oci:{args.output}:image"],
+                    timeout=images.config.unpack_timeout, operation="compress bundled sandbox image")
 
 
 if __name__ == "__main__":

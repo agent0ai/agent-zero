@@ -11,7 +11,7 @@ This guide will show you how to setup a local development environment for Agent 
 
 > [!NOTE]
 > - Agent Zero runs in a Docker container, this simplifies installation and ensures unified environment and behavior across systems.
-> - The Python framework can also run on your machine in an IDE. File operations and scheduler jobs run in that local process. Code execution uses the selected local, SSH, connected-host or sandbox destination; it does not require a sibling Agent Zero instance for development RFC calls.
+> - The Python framework can also run on your machine in an IDE. File operations and scheduler jobs run in that local process. Code execution uses the selected local, connected-host or sandbox destination; it does not require a sibling Agent Zero instance for development RFC calls.
 
 
 ## To follow this guide you will need:
@@ -147,26 +147,15 @@ an RFC password are not required.
 
 Code execution destinations remain explicit:
 
-- For the framework's own operating system, select `destination: local` and set
-  **Code Execution** plugin `ssh_enabled` to `false`.
+- For the framework's own operating system, select `destination: local`.
 - For isolation, use the configured sandbox destination. See the
   [sandbox guide](../../plugins/_sandboxing/README.md#runtime-requirements-and-isolation) for runtime requirements.
 - For a connected host, use the authenticated Connector destination.
-- For SSH, use the configuration below. The plugin's `auto` setting still selects
-  SSH when the framework is not Dockerized, so set it to `false` for local TTY use.
 
-## Step 6: Configure optional SSH execution
-
-An SSH target can be a host or a container with an SSH server. Configure the
-**Code Execution** plugin's `ssh_enabled`, `ssh_addr`, `ssh_port`, `ssh_user` and
-`ssh_pass` fields for that target. Set the address and credentials explicitly for
-a separate host; an empty `ssh_addr` retains the legacy `rfc_url` hostname fallback,
-and an empty `ssh_pass` reads the local instance's root password without RFC.
-
-Configure a workdir that exists on the SSH target. Explicit SSH keeps that remote
-path; it does not use or create the developer's local checkout directory. Project
-workdirs retain their `/a0/...` paths on SSH, so they must also exist on the target.
-Local and remote filesystems are not automatically synchronized.
+If an older configuration routed `local` over SSH, use a connected host or sandbox for
+remote commands. To run on the framework machine, remove the old `ssh_enabled` entry
+from the active Code Execution configuration, or use **Reset to default** and save.
+If the setting came from `A0_SET__CODE_EXECUTION__SSH_ENABLED`, clear that override.
 
 Test the selected destination with a terminal command such as `pwd` and `uname -a`.
 The legacy RFC settings and endpoints remain available for compatibility, but do
@@ -192,9 +181,18 @@ A0_SET_memory_recall_interval=5
 
 These environment variables automatically override the hardcoded defaults in `get_default_settings()` without modifying code. Useful for testing different configurations or multi-environment setups.
 
-## Want to build your docker image?
-- You can use the `DockerfileLocal` to build your docker image.
-- Navigate to your project root in the terminal and run `docker build -f DockerfileLocal -t agent-zero-local --build-arg CACHE_DATE=$(date +%Y-%m-%d:%H:%M:%S) .`
-- The `CACHE_DATE` argument is optional, it is used to cache most of the build process and only rebuild the last steps when the files or dependencies change.
-- See `docker/run/build.txt` for more build command examples.
-- Automated Docker Hub publishing for release tags is handled by `.github/workflows/docker-publish.yml`. The latest eligible `main` tag generates its GitHub release body on the fly from commit subjects and descriptions via OpenRouter.
+## Build the Docker image
+
+From the repository root, run:
+
+```bash
+docker build -t agent-zero-local .
+```
+
+To build from an upstream branch tip with Git history for self-update, use:
+
+```bash
+docker buildx build --load --no-cache-filter source --build-arg BRANCH=testing -t agent-zero-testing .
+```
+
+The same Dockerfile builds the published image and bundles the default sandbox for each architecture. Automated Docker Hub publishing uses `.github/workflows/docker-publish.yml`.

@@ -22,7 +22,7 @@ def ensure(executable: Path) -> None:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if ready(executable):
             return
-        recipe = Path(__file__).resolve().parents[3] / 'docker/base/fs/ins/proot/install.sh'
+        recipe = Path(__file__).resolve().parents[3] / 'docker/sandbox/proot/install.sh'
         subprocess.run(['sh', str(recipe)], check=True, timeout=600)
         if not ready(executable):
             raise RuntimeError('PRoot installation did not produce the required CoW runtime')

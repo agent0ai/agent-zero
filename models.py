@@ -43,7 +43,7 @@ from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
 )
-from langchain.embeddings.base import Embeddings
+from langchain_core.embeddings import Embeddings
 from pydantic import ConfigDict
 
 if TYPE_CHECKING:

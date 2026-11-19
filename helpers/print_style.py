@@ -7,7 +7,7 @@ import threading
 from collections.abc import Mapping
 from datetime import datetime, timezone
 
-import webcolors
+from PIL import ImageColor
 
 from . import files  # Load before strings; helpers.files imports sanitize_string.
 from .strings import sanitize_string
@@ -47,9 +47,11 @@ class PrintStyle:
                 r = int(color[1:3], 16)
                 g = int(color[3:5], 16)
                 b = int(color[5:7], 16)
+            elif color.lower() in ImageColor.colormap and color.lower() != "rebeccapurple":
+                # Keep the original CSS3 name set (Pillow also supports CSS4).
+                r, g, b = ImageColor.getrgb(color)
             else:
-                rgb_color = webcolors.name_to_rgb(color)
-                r, g, b = rgb_color.red, rgb_color.green, rgb_color.blue
+                return "", ""
 
             if is_background:
                 return f"\033[48;2;{r};{g};{b}m", f"background-color: rgb({r}, {g}, {b});"

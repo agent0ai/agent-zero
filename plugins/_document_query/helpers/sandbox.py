@@ -5,7 +5,7 @@ from pathlib import Path
 from helpers.sandbox_worker import SandboxWorker
 from helpers.sandbox import SandboxMount
 
-worker = SandboxWorker('_document_query', idle_seconds=0)
+worker = SandboxWorker('_document_query')
 
 
 def payload(document, config=None):
@@ -17,7 +17,7 @@ def payload(document, config=None):
     }
 
 
-def parser_request(document, config):
+def parser_config(config):
     config = dict(config)
     mounts = []
     if config.get('liteparse_tessdata_path'):
@@ -27,7 +27,7 @@ def parser_request(document, config):
             raise ValueError('Tesseract data path must name a language-data directory')
         mounts.append(SandboxMount(source, '/tessdata'))
         config['liteparse_tessdata_path'] = '/tessdata'
-    return payload(document, config), mounts
+    return config, mounts
 
 
 class KnowledgeLoader:
@@ -39,5 +39,5 @@ class KnowledgeLoader:
         from langchain_core.documents import Document
         from plugins._document_query.helpers.document import FetchedDocument
         document = FetchedDocument(str(self.path), 'file', self.mimetype, Path(self.path).read_bytes())
-        result = worker.call({**payload(document), 'knowledge': True}, timeout=120)
+        result = worker.call({**payload(document), 'knowledge': True}, timeout=120, mounts=[])
         return [Document(page_content=item['text'], metadata=item['metadata']) for item in result]

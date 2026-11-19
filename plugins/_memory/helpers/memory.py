@@ -1,54 +1,22 @@
-from typing import Any, List, Sequence
-from langchain.storage import InMemoryByteStore, LocalFileStore
-from langchain.embeddings import CacheBackedEmbeddings
+import asyncio
+import json
+import os
+from pathlib import Path
+import re
+from typing import Any
+
 from helpers import guids
-
-# from langchain_chroma import Chroma
-from langchain_community.vectorstores import FAISS
-
-# faiss needs to be patched for python 3.12 on arm #TODO remove once not needed
-from helpers import faiss_monkey_patch
-import faiss
-
-
-from langchain_community.docstore.in_memory import InMemoryDocstore
-from langchain_community.vectorstores.utils import (
-    DistanceStrategy,
-)
-from langchain_core.embeddings import Embeddings
-
-import os, json, hashlib, re
-
-import numpy as np
-
 from helpers.print_style import PrintStyle
 from helpers import files, plugins, projects
 from helpers.localization import Localization
 from langchain_core.documents import Document
 from . import knowledge_import
-from helpers.log import Log, LogItem
+from helpers.log import LogItem
+from .native_store import NativeStore
 from enum import Enum
 from agent import Agent, AgentContext
 import models
-import logging
 from simpleeval import simple_eval
-
-
-# Raise the log level so WARNING messages aren't shown
-logging.getLogger("langchain_core.vectorstores.base").setLevel(logging.ERROR)
-
-
-class MyFaiss(FAISS):
-    # override aget_by_ids
-    def get_by_ids(self, ids: Sequence[str], /) -> List[Document]:
-        # return all self.docstore._dict[id] in ids
-        return [self.docstore._dict[id] for id in (ids if isinstance(ids, list) else [ids]) if id in self.docstore._dict]  # type: ignore
-
-    async def aget_by_ids(self, ids: Sequence[str], /) -> List[Document]:
-        return self.get_by_ids(ids)
-
-    def get_all_docs(self):
-        return self.docstore._dict  # type: ignore
 
 
 class Memory:
@@ -58,7 +26,7 @@ class Memory:
         FRAGMENTS = "fragments"
         SOLUTIONS = "solutions"
 
-    index: dict[str, "MyFaiss"] = {}
+    index: dict[str, "NativeStore"] = {}
 
     @staticmethod
     def _get_embedding_config(agent=None):
@@ -135,122 +103,22 @@ class Memory:
         model_config: models.ModelConfig,
         memory_subdir: str,
         in_memory=False,
-    ) -> tuple[MyFaiss, bool]:
+    ) -> tuple[NativeStore, bool]:
 
         PrintStyle.standard("Initializing VectorDB...")
 
         if log_item:
             log_item.stream(progress="\nInitializing VectorDB")
 
-        em_dir = files.get_abs_path(
-            "tmp/memory/embeddings"
-        )  # just caching, no need to parameterize
-        db_dir = abs_db_dir(memory_subdir)
-
-        # make sure embeddings and database directories exist
-        os.makedirs(db_dir, exist_ok=True)
-
-        if in_memory:
-            store = InMemoryByteStore()
-        else:
-            os.makedirs(em_dir, exist_ok=True)
-            store = LocalFileStore(em_dir)
-
-        embeddings_model = models.get_embedding_model(
-            model_config.provider,
-            model_config.name,
-            **model_config.build_kwargs(),
-        )
-        embeddings_model_id = files.safe_file_name(
-            model_config.provider + "_" + model_config.name
-        )
-
-        # here we setup the embeddings model with the chosen cache storage
-        embedder = CacheBackedEmbeddings.from_bytes_store(
-            embeddings_model, store, namespace=embeddings_model_id
-        )
-
-        # initial DB and docs variables
-        db: MyFaiss | None = None
-        docs: dict[str, Document] | None = None
-
-        created = False
-
-        # if db folder exists and is not empty:
-        if os.path.exists(db_dir) and files.exists(db_dir, "index.faiss"):
-            if not Memory._verify_index_hash(db_dir):
-                PrintStyle(font_color="yellow").print(
-                    f"FAISS index hash mismatch in '{db_dir}' — index will be rebuilt."
-                )
-            else:
-                db = MyFaiss.load_local(
-                    folder_path=db_dir,
-                    embeddings=embedder,
-                    allow_dangerous_deserialization=True,
-                    distance_strategy=DistanceStrategy.COSINE,
-                    # normalize_L2=True,
-                    relevance_score_fn=Memory._cosine_normalizer,
-                )  # type: ignore
-
-            # if there is a mismatch in embeddings used, re-index the whole DB
-            emb_ok = False
-            emb_set_file = files.get_abs_path(db_dir, "embedding.json")
-            if files.exists(emb_set_file):
-                embedding_set = json.loads(files.read_file(emb_set_file))
-                if (
-                    embedding_set["model_provider"] == model_config.provider
-                    and embedding_set["model_name"] == model_config.name
-                ):
-                    # model matches
-                    emb_ok = True
-
-            # re-index -  create new DB and insert existing docs
-            if db and not emb_ok:
-                docs = db.get_all_docs()
-                db = None
-
-        # DB not loaded, create one
-        if not db:
-            index = faiss.IndexFlatIP(len(embedder.embed_query("example")))
-
-            db = MyFaiss(
-                embedding_function=embedder,
-                index=index,
-                docstore=InMemoryDocstore(),
-                index_to_docstore_id={},
-                distance_strategy=DistanceStrategy.COSINE,
-                # normalize_L2=True,
-                relevance_score_fn=Memory._cosine_normalizer,
-            )
-
-            # insert docs if reindexing
-            if docs:
-                PrintStyle.standard("Indexing memories...")
-                if log_item:
-                    log_item.stream(progress="\nIndexing memories")
-                db.add_documents(documents=list(docs.values()), ids=list(docs.keys()))
-
-            # save DB
-            Memory._save_db_file(db, memory_subdir)
-            # save meta file
-            meta_file_path = files.get_abs_path(db_dir, "embedding.json")
-            files.write_file(
-                meta_file_path,
-                json.dumps(
-                    {
-                        "model_provider": model_config.provider,
-                        "model_name": model_config.name,
-                    }
-                ),
-            )
-
-            created = True
-
-        return db, created
+        model = models.get_embedding_model(model_config.provider, model_config.name, **model_config.build_kwargs())
+        identity = [model_config.provider, model_config.name]
+        cache = None if in_memory else files.get_abs_path("tmp/memory/embeddings")
+        db = NativeStore(abs_db_dir(memory_subdir), model, identity, files.safe_file_name("_".join(identity)), cache)
+        return db, db.initialize()
 
     def __init__(
         self,
-        db: MyFaiss,
+        db: NativeStore,
         memory_subdir: str,
     ):
         self.db = db
@@ -278,19 +146,13 @@ class Memory:
                 index = json.load(f)
 
         # preload knowledge folders
-        index = self._preload_knowledge_folders(log_item, kn_dirs, index)
+        index = await asyncio.to_thread(self._preload_knowledge_folders, log_item, kn_dirs, index)
 
-        for file in index:
-            if index[file]["state"] in ["changed", "removed"] and index[file].get(
-                "ids", []
-            ):  # for knowledge files that have been changed or removed and have IDs
-                await self.delete_documents_by_ids(
-                    index[file]["ids"]
-                )  # remove original version
-            if index[file]["state"] == "changed":
-                index[file]["ids"] = await self.insert_documents(
-                    index[file]["documents"]
-                )  # insert new version
+        for record in index.values():
+            if record["state"] == "changed":
+                record["ids"] = await self.insert_documents(record["documents"], delete_ids=record.get("ids", []))
+            elif record["state"] == "removed" and record.get("ids"):
+                await self.delete_documents_by_ids(record["ids"])
 
         # remove index where state="removed"
         index = {k: v for k, v in index.items() if v["state"] != "removed"}
@@ -335,7 +197,7 @@ class Memory:
         return index
 
     def get_document_by_id(self, id: str) -> Document | None:
-        return self.db.get_by_ids(id)[0]
+        return next(iter(self.db.get_by_ids(id)), None)
 
     async def embed_query(self, query: str) -> list[float]:
         return await self.db.embedding_function.aembed_query(query)
@@ -348,39 +210,18 @@ class Memory:
         filter: str = "",
         embedding: list[float] | None = None,
     ):
-        comparator = Memory._get_comparator(filter) if filter else None
-
-        if embedding is not None:
-            docs_and_scores = await self.db.asimilarity_search_with_score_by_vector(
-                embedding,
-                k=limit,
-                filter=comparator,
-            )
-            return [
-                doc
-                for doc, score in docs_and_scores
-                if Memory._cosine_normalizer(score) >= threshold
-            ]
-
-        return await self.db.asearch(
-            query,
-            search_type="similarity_score_threshold",
-            k=limit,
-            score_threshold=threshold,
-            filter=comparator,
-        )
+        scored = await self.search_similarity_threshold_with_scores(query, limit, threshold, filter, embedding)
+        return [doc for doc, _ in scored]
 
     async def search_similarity_threshold_with_scores(
-        self, query: str, limit: int, threshold: float, filter: str = ""
+        self, query: str, limit: int, threshold: float, filter: str = "",
+        embedding: list[float] | None = None,
     ) -> list[tuple[Document, float]]:
-        comparator = Memory._get_comparator(filter) if filter else None
-
-        return await self.db.asimilarity_search_with_relevance_scores(
-            query,
-            k=limit,
-            score_threshold=threshold,
-            filter=comparator,
-        )
+        if embedding is None:
+            embedding = await self.embed_query(query)
+        predicate = Memory._get_comparator(filter) if filter else None
+        hits = await asyncio.to_thread(self.db.search, embedding, limit, predicate)
+        return [(doc, score) for doc, raw in hits if (score := Memory._cosine_normalizer(raw)) >= threshold]
 
     async def delete_documents_by_query(
         self,
@@ -392,7 +233,6 @@ class Memory:
         cascade: bool = False,
     ):
         k = 100
-        tot = 0
         removed = []
         removed_ids: set[str] = set()
 
@@ -404,17 +244,12 @@ class Memory:
             removed += docs
 
             # Extract document IDs and filter based on score
-            # document_ids = [result[0].metadata["id"] for result in docs if result[1] < score_limit]
             document_ids = [result.metadata["id"] for result in docs]
             removed_ids.update(str(doc_id) for doc_id in document_ids)
 
             # Delete documents with IDs over the threshold score
             if document_ids:
-                # fnd = self.db.get(where={"id": {"$in": document_ids}})
-                # if fnd["ids"]: self.db.delete(ids=fnd["ids"])
-                # tot += len(fnd["ids"])
                 await self.db.adelete(ids=document_ids)
-                tot += len(document_ids)
 
             # If fewer than K document IDs, break the loop
             if len(document_ids) < k:
@@ -427,7 +262,6 @@ class Memory:
                 await self.db.adelete(ids=exact_ids)
                 removed += exact_docs
                 removed_ids.update(str(doc_id) for doc_id in exact_ids)
-                tot += len(exact_ids)
 
         if cascade and removed_ids:
             related_docs = self._find_related_docs_by_ids(removed_ids)
@@ -436,17 +270,13 @@ class Memory:
                 await self.db.adelete(ids=related_ids)
                 removed += related_docs
                 removed_ids.update(str(doc_id) for doc_id in related_ids)
-                tot += len(related_ids)
 
-        if tot:
-            self._save_db()  # persist
         return removed
 
     async def delete_documents_by_ids(
         self, ids: list[str], *, cascade: bool = False, filter: str = ""
     ):
-        # aget_by_ids is not yet implemented in faiss, need to do a workaround
-        rem_docs = await self.db.aget_by_ids(
+        rem_docs = self.db.get_by_ids(
             ids
         )  # existing docs to remove (prevents error)
         rem_ids = [doc.metadata["id"] for doc in rem_docs]
@@ -463,8 +293,6 @@ class Memory:
             rem_ids = [doc.metadata["id"] for doc in rem_docs]  # ids to remove
             await self.db.adelete(ids=rem_ids)
 
-        if rem_docs:
-            self._save_db()  # persist
         return rem_docs
 
     async def insert_text(self, text, metadata: dict = {}):
@@ -472,7 +300,7 @@ class Memory:
         ids = await self.insert_documents([doc])
         return ids[0]
 
-    async def insert_documents(self, docs: list[Document]):
+    async def insert_documents(self, docs: list[Document], *, delete_ids=()):
         ids = [self._generate_doc_id() for _ in range(len(docs))]
         timestamp = self.get_timestamp()
 
@@ -483,19 +311,14 @@ class Memory:
                 if not doc.metadata.get("area", ""):
                     doc.metadata["area"] = Memory.Area.MAIN.value
 
-            await self.db.aadd_documents(documents=docs, ids=ids)
-            self._save_db()  # persist
+        if ids or delete_ids:
+            await asyncio.to_thread(self.db.put, docs, delete_ids=delete_ids)
         return ids
 
     async def update_documents(self, docs: list[Document]):
         ids = [doc.metadata["id"] for doc in docs]
-        await self.db.adelete(ids=ids)  # delete originals
-        ins = await self.db.aadd_documents(documents=docs, ids=ids)  # add updated
-        self._save_db()  # persist
-        return ins
-
-    def _save_db(self):
-        Memory._save_db_file(self.db, self.memory_subdir)
+        await asyncio.to_thread(self.db.put, docs, replace=True)
+        return ids
 
     def _generate_doc_id(self):
         while True:
@@ -545,44 +368,6 @@ class Memory:
         return docs
 
     @staticmethod
-    def _save_db_file(db: MyFaiss, memory_subdir: str):
-        abs_dir = abs_db_dir(memory_subdir)
-        db.save_local(folder_path=abs_dir)
-        Memory._write_index_hash(abs_dir)
-
-    @staticmethod
-    def _write_index_hash(abs_dir: str) -> None:
-        faiss_path = os.path.join(abs_dir, "index.faiss")
-        hash_path = os.path.join(abs_dir, "index.faiss.sha256")
-        try:
-            h = hashlib.sha256()
-            with open(faiss_path, "rb") as f:
-                for chunk in iter(lambda: f.read(65536), b""):
-                    h.update(chunk)
-            with open(hash_path, "w") as f:
-                f.write(h.hexdigest())
-        except Exception as e:
-            PrintStyle(font_color="yellow").print(f"Warning: could not write FAISS hash: {e}")
-
-    @staticmethod
-    def _verify_index_hash(abs_dir: str) -> bool:
-        faiss_path = os.path.join(abs_dir, "index.faiss")
-        hash_path = os.path.join(abs_dir, "index.faiss.sha256")
-        if not os.path.exists(hash_path):
-            return True
-        try:
-            with open(hash_path, "r") as f:
-                stored = f.read().strip()
-            h = hashlib.sha256()
-            with open(faiss_path, "rb") as f:
-                for chunk in iter(lambda: f.read(65536), b""):
-                    h.update(chunk)
-            return h.hexdigest() == stored
-        except Exception as e:
-            PrintStyle(font_color="yellow").print(f"Warning: FAISS hash check failed: {e}")
-            return True
-
-    @staticmethod
     def _get_comparator(condition: str):
         _FILTER_SAFE = re.compile(
             r"^[a-zA-Z0-9_\-\.\ \t'\"=<>!()\[\],:\+]+$"
@@ -602,11 +387,6 @@ class Memory:
                 return False
 
         return comparator
-
-    @staticmethod
-    def _score_normalizer(val: float) -> float:
-        res = 1 - 1 / (1 + np.exp(val))
-        return res
 
     @staticmethod
     def _cosine_normalizer(val: float) -> float:
@@ -727,9 +507,8 @@ def get_existing_memory_subdirs() -> list[str]:
 
         project_subdirs = files.get_subdirectories(get_projects_parent_folder())
         for project_subdir in project_subdirs:
-            if files.exists(
-                get_project_meta(project_subdir), "memory", "index.faiss"
-            ):
+            folder = Path(get_project_meta(project_subdir), "memory")
+            if (folder / NativeStore.filename).exists() or (folder / "index.pkl").exists():
                 subdirs.append(f"projects/{project_subdir}")
 
         # Ensure 'default' is always available

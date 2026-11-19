@@ -9,7 +9,7 @@
 - `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 - `helpers/images.py` owns daemonless Docker/OCI pull, local Docker archive import, unpacking, digest-pinned image cache metadata, image last-use tracking, and safe cache deletion.
-- `helpers/builtin_image.py` owns OCI packaging and the lazy PRoot build of `agent-zero-sandbox:1` using `docker/sandbox/install.sh`.
+- `helpers/builtin_image.py` owns OCI packaging and the lazy PRoot build of `agent-zero-sandbox:3` using `docker/sandbox/install.sh`.
 - `helpers/manager.py` owns validation, launcher configuration, runtime state, bindings, sandbox/image references, expiry, and safe deletion.
 - `helpers/runtime.py` owns resolved plugin configuration and the process-local manager.
 - `helpers/shell.py` owns interactive PRoot terminal sessions.
@@ -25,11 +25,12 @@
 - Never use a Docker socket, nested daemon, SSH server, KVM, or an unvalidated sandbox path.
 - Pull images through `skopeo` and unpack them through `umoci` with argument arrays, bounded output, timeouts, and no shell. Registry credentials may only be referenced through a configured auth file.
 - Local `docker save` archives enter the same cache through `helpers.sandbox import-image`; inspect and unpack a private archive copy, preserve validation/size limits, and never access a Docker socket. A cache-only reference must be reimported if evicted.
-- Resolve the built-in default from the image cache, then `/opt/agent-zero/sandbox-image`. If missing or invalid, build it on first use in a private temporary PRoot sandbox from official Python/Node images. Serialize this through the image-cache lock, use a separate temporary source cache, run no host package installers, and publish only validated results. Do not eagerly build on startup or config reads; restoring an existing standalone sandbox may recover its base in the background.
+- Resolve the built-in default from the image cache, then `/opt/agent-zero/sandbox-image-v3`. If missing or invalid, build it on first use in a private temporary PRoot sandbox from official Python/Node images. Serialize this through the image-cache lock, use a separate temporary source cache, run no host package installers, and publish only validated results. Do not eagerly build on startup or config reads; restoring an existing standalone sandbox may recover its base in the background.
 - A rebuilt image must match an explicitly requested digest; never silently replace an existing sandbox's pinned base. Preserve custom default-image settings.
+- New sandboxes include Git and use Debian 13 from `agent-zero-sandbox:3`. Resolve the previous built-in default setting to v3 for new sandboxes. Existing v1 and v2 guests resolve their pinned digest from the image cache.
 - Pin every sandbox to an immutable image digest. Tag refreshes affect new sandboxes only; image deletion and cleanup must refuse every digest referenced by sandbox metadata.
 - Treat image cache entries as private runtime state. Automatic cleanup removes only unreferenced images whose last-use time exceeds the configured lifetime (30 days by default).
-- Keep the shared mount explicit at `/shared`; optional binds must have validated absolute sources and sandbox destinations.
+- Service ownership remains inspectable after a temporary bind source expires so stopped workers can replace it. Binding sources must exist when configuring, launching or executing a guest. Keep the shared mount explicit at `/shared`; optional binds must have validated absolute sources and sandbox destinations.
 - New sandboxes hardlink root-owned immutable image files into private UID-owned directory trees. The tracked PRoot extension copies files before mutation. Access checks report writable shared files when copy-up can succeed, without copying on a probe; preserve read-only bindings, existing fake-root handling of private files, enforced parent permissions and read/execute checks. Cache/state must share a filesystem. Existing disk roots migrate in place; legacy overlay snapshots are preserved and refused with an export instruction. Temporary controls idle expiry only.
 - Scope instance directories and process metadata by the persistent Agent Zero instance ID. Never operate on another instance’s metadata.
 - Child is the default lifetime: a passed pipe closes on parent exit and terminates all guest UID processes. Standalone processes survive parent exit and restore on startup only when desired_running is true; manual stop clears that flag. Docker/host restarts require relaunch, not live process survival.
@@ -48,7 +49,7 @@
 
 - `helpers/storage.py` owns immutable image preparation, private hardlink trees, symlink-safe binding ACLs and permanent UID leases. Preserve effective existing ACL permissions; atomic worker requests use mode 0640 so inherited read ACLs remain effective.
 - `helpers/process.py` drops supplementary groups and real UID/GID, applies no-new-privileges and seccomp, then runs PRoot fake-root. Supervisors use PID start-time tokens, child pipes and UID cleanup; exec wrappers reap their own detached descendants on cancellation.
-- `helpers/bootstrap.py` and `docker/base/fs/ins/proot/` own the pinned build and source-update installer. Runtime capability marker `A0-COW-2` includes overlay-aware access checks; older binaries rebuild through this installer on source update. Never install build dependencies during normal ready-image startup.
+- `helpers/bootstrap.py` and `docker/sandbox/proot/` own the pinned build and source-update installer. Runtime capability marker `A0-COW-2` includes overlay-aware access checks; older binaries rebuild through this installer on source update. Never install build dependencies during normal ready-image startup.
 - PRoot is dependency/filesystem separation, not a hostile-code security boundary. Do not claim PID/kernel isolation. Offline mode denies new non-Unix sockets; bindings can still expose Unix services.
 
 - Transient `/tmp`, `/run` and PRoot scratch data live below short, private `/run/a0-proot/<uid>` directories to keep Unix socket paths within Linux limits. They are cleared on stop; persistent guest files remain in the CoW root.

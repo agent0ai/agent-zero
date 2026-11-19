@@ -14,7 +14,12 @@ export DEBIAN_FRONTEND=noninteractive
 python /worker/progress.py viewer 'Preparing shared Tuxee browser viewer'
 # Retire the previous viewer repository before refreshing package lists.
 rm -f /etc/apt/sources.list.d/xpra.list /var/lib/apt/lists/xpra.org_*
-if [ ! -x /opt/tuxee-gui/bin/tuxee-Xvnc ]; then
+. /etc/os-release
+native_tuxee=
+if [ "${VERSION_CODENAME:-}" = trixie ] && [ -x /opt/tuxee-guest-bin/tuxee-Xvnc ]; then
+    native_tuxee=--native-tuxee
+fi
+if [ -z "$native_tuxee" ] && [ ! -x /opt/tuxee-gui/bin/tuxee-Xvnc ]; then
     python /worker/progress.py viewer 'Building minimal Tuxee display server (first use)'
     previous_manual=$(apt-mark showmanual)
     build_packages='ca-certificates curl build-essential cmake ninja-build pkg-config autoconf automake libtool patch xutils-dev xfonts-utils xz-utils x11-xserver-utils xdotool x11-xkb-utils xkb-data libjpeg62-turbo-dev zlib1g-dev libx11-dev libxext-dev libxdamage-dev libxfixes-dev libxrandr-dev libxtst-dev libxfont-dev xtrans-dev x11proto-dev libpixman-1-dev libxshmfence-dev libxkbfile-dev libfontenc-dev libpam0g-dev libunwind-dev nettle-dev'
@@ -22,14 +27,17 @@ if [ ! -x /opt/tuxee-gui/bin/tuxee-Xvnc ]; then
     apt-get install -y --no-install-recommends $build_packages
     sh /support/build-gui.sh /tmp/a0-gui
     sh /support/bundle-gui.sh /tmp/a0-gui
-    mv /tmp/a0-gui/usr/local/lib/tuxee-gui /opt/tuxee-gui
+    mkdir -p /opt/tuxee-gui
+    cp -a /tmp/a0-gui/usr/local/lib/tuxee-gui/. /opt/tuxee-gui/
     rm -rf /tmp/a0-gui
     apt-mark auto $build_packages > /dev/null
     apt-mark manual $previous_manual > /dev/null
     apt-get autoremove --purge -y
 fi
-for tool in /opt/tuxee-gui/bin/*; do ln -sfn "$tool" "/usr/local/bin/$(basename "$tool")"; done
-if [ ! -x /usr/local/lib/tuxee-audio/tuxee-pulseaudio ]; then
+if [ -z "$native_tuxee" ]; then
+    for tool in /opt/tuxee-gui/bin/*; do ln -sfn "$tool" "/usr/local/bin/$(basename "$tool")"; done
+fi
+if [ -z "$native_tuxee" ] && [ ! -x /usr/local/lib/tuxee-audio/tuxee-pulseaudio ]; then
     python /worker/progress.py viewer 'Building minimal Tuxee audio runtime (first use)'
     previous_manual=$(apt-mark showmanual)
     build_packages='ca-certificates curl build-essential cmake ninja-build meson pkg-config libltdl-dev libcap-dev'
@@ -42,7 +50,9 @@ if [ ! -x /usr/local/lib/tuxee-audio/tuxee-pulseaudio ]; then
     apt-mark manual $previous_manual libcap2 > /dev/null
     apt-get autoremove --purge -y
 fi
-for tool in pulseaudio pacat; do ln -sfn "/usr/local/lib/tuxee-audio/tuxee-$tool" "/usr/local/bin/tuxee-$tool"; done
+if [ -z "$native_tuxee" ]; then
+    for tool in pulseaudio pacat; do ln -sfn "/usr/local/lib/tuxee-audio/tuxee-$tool" "/usr/local/bin/tuxee-$tool"; done
+fi
 python /worker/progress.py driver 'Installing browser driver'
 "$base_python" -m pip --python /opt/runtime install --no-cache-dir --disable-pip-version-check -c /worker/constraints.txt -r /plugin/sandbox/requirements.txt
 # Patchright supports the image's Node; keep its bundled binary for older/custom images.
@@ -52,7 +62,16 @@ if command -v node >/dev/null && node -e 'process.exit(Number(process.versions.n
 fi
 export PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
 python /worker/progress.py chromium_dependencies 'Installing Chromium dependencies'
-python /plugin/sandbox/install_deps.py
+python /plugin/sandbox/install_deps.py ${native_tuxee:+"$native_tuxee"}
+if [ -n "$native_tuxee" ]; then
+    mkdir -p /opt/tuxee-gui/bin
+    [ -e /opt/tuxee-gui/xkb ] || ln -s /usr/share/X11/xkb /opt/tuxee-gui/xkb
+    [ -e /opt/tuxee-gui/bin/xkbcomp ] || ln -s /usr/bin/xkbcomp /opt/tuxee-gui/bin/xkbcomp
+    [ -e /usr/local/lib/tuxee-audio ] || ln -s /opt/tuxee-guest-audio /usr/local/lib/tuxee-audio
+    for tool in tuxee-Xvnc tuxee-vncpasswd tuxee-pulseaudio tuxee-pacat; do
+        ln -sfn "/opt/tuxee-guest-bin/$tool" "/usr/local/bin/$tool"
+    done
+fi
 python /worker/progress.py chromium 'Downloading Chromium'
 python -m patchright install chromium --no-shell
 if "$base_python" -c 'import importlib.util; exit(importlib.util.find_spec("uv") is None)'; then

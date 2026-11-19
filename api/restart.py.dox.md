@@ -19,7 +19,7 @@
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Restart` is an `ApiHandler`.
-- `Restart` defines `process(...)`.
+- The authenticated, CSRF-protected POST requests graceful shutdown in Docker and returns HTTP 200. The container launcher then starts the self-update bootstrap. Native installs reexec the current Python entrypoint.
 - Imported dependency areas include: `helpers`, `helpers.api`.
 
 ## Key Concepts

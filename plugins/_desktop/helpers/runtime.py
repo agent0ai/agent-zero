@@ -15,6 +15,19 @@ _process = None
 _port = 0
 BUILD = Path(__file__).resolve().parents[1] / 'build'
 BINARY = Path('/usr/local/lib/tuxee/tuxee')
+IMAGE_PORT = 17883
+
+
+def image_managed():
+    return os.environ.get('A0_TUXEE_IMAGE') == '1'
+
+
+def image_ready():
+    try:
+        with urllib.request.urlopen(f'http://127.0.0.1:{IMAGE_PORT}/health', timeout=.5) as response:
+            return response.status == 200
+    except OSError:
+        return False
 
 
 def build_id():
@@ -32,12 +45,17 @@ def ensure_installed():
 
 
 def status():
-    return {'ok': True, 'running': bool(_process and _process.poll() is None),
+    running = image_ready() if image_managed() else bool(_process and _process.poll() is None)
+    return {'ok': True, 'running': running,
             'installed': BINARY.is_file(), 'url': '/desktop/tuxee/'}
 
 
 def start():
     global _process, _port
+    if image_managed():
+        if not image_ready():
+            raise RuntimeError('Tuxee container service is unavailable')
+        return IMAGE_PORT
     with _lock:
         if _process and _process.poll() is None:
             return _port

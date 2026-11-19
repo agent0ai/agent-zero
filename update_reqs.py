@@ -14,13 +14,13 @@ def update_requirements():
     updated_requirements = []
     for req in requirements:
         req = req.strip()
-        if not req or req.startswith('#'):
+        if not req or req.startswith('#') or ';' in req:
             updated_requirements.append(req)
             continue
             
         # Extract package name
         match = re.match(r'^([^=<>]+)==', req)
-        if match:
+        if match and match.group(1).lower() not in {"litellm", "openai"}:
             package_name = match.group(1)
             current_version = get_installed_version(package_name)
             if current_version:

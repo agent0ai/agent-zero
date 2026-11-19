@@ -7,7 +7,7 @@
 
 ## Ownership
 
-- Each direct child directory owns one vendored library or library bundle.
+- Each direct child directory owns one vendored library or library bundle. `socket.io.esm.min.js` supplies the Socket.IO client imported by `webui/js/websocket.js`.
 - Vendored files should be treated as upstream artifacts, with local edits avoided unless clearly documented.
 
 ## Local Contracts

@@ -46,7 +46,8 @@ class DocumentQueryTool(Tool):
             )
             helper.destination = str(kwargs.get("destination") or "local")
             progress_callback("Preparing document parser")
-            await worker.aprepare()
+            _, mounts = helper.store.settings()
+            await worker.aprepare(mounts=mounts)
             if not queries:
                 gather_timeout = helper.config.get("gather_timeout", 120)
                 try:

@@ -9,7 +9,8 @@ This plugin stores memories and knowledge embeddings in a FAISS-backed vector da
 ## Main Behavior
 
 - **Persistent vector store**
-  - Creates and loads FAISS indexes per memory subdirectory.
+  - Stores records and vectors in `memory.sqlite3` per memory subdirectory and builds a native FAISS search index on demand.
+  - On first open, migrates legacy document records and reuses cached model embeddings. A cache miss calls the configured model. Keep the original files for rollback.
   - Stores embedding metadata so the index can be rebuilt if the embedding model changes.
 - **Knowledge preloading**
   - Loads configured knowledge directories into memory when a database is initialized.

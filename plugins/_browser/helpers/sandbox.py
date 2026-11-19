@@ -113,6 +113,12 @@ class BrowserConnection:
             audio_bundle = Path('/usr/local/lib/tuxee-audio')
             if (audio_bundle / 'tuxee-pulseaudio').is_file():
                 worker.mounts.append(SandboxMount(audio_bundle, str(audio_bundle)))
+            native_tools = Path('/opt/tuxee-guest-bin')
+            if native_tools.is_dir():
+                worker.mounts.extend([
+                    SandboxMount(native_tools, '/opt/tuxee-guest-bin'),
+                    SandboxMount(audio_bundle, '/opt/tuxee-guest-audio'),
+                ])
             try:
                 self.startup_progress('sandbox', 'Preparing browser sandbox')
                 await worker.aprepare()

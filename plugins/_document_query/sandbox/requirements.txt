@@ -1,10 +1,11 @@
-liteparse==2.0.3
-langchain-community==0.3.19
-unstructured[all-docs]==0.16.23
-unstructured-client==0.31.0
-pymupdf==1.25.3
-pypdf==6.0.0
+liteparse==2.19.0
+faiss-cpu==1.16.0
+simpleeval>=1.0.8,<2
+unstructured[all-docs]==0.27.37
+pymupdf==2.1
+pypdf>=6.21.4,<7
 pytesseract==0.3.13
 pdf2image==1.17.0
-markdownify==1.1.0
-chardet<6
+markdownify>=1.2.4,<2
+# The CPU Torch index can leave an older setuptools installed.
+setuptools>=84.1.0

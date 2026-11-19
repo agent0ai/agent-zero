@@ -93,18 +93,17 @@ def test_code_execution_session_keys_include_destination() -> None:
     tool.destination = ExecutionDestination(
         "default", "sandbox", "Default", "Default sandbox", target="default"
     )
-    tool.state = State(ssh_enabled=False, shells={})
+    tool.state = State(shells={})
     assert tool._session_key(0) == "default:0"
     tool.destination = ExecutionDestination("local", "local", "Local", "Local")
     assert tool._session_key(0) == 0
 
 
-@pytest.mark.parametrize("destination,ssh_enabled,windows", [
-    ("local", False, False), ("local", True, False),
-    ("sandbox", False, False), ("local", False, True),
+@pytest.mark.parametrize("destination,windows", [
+    ("local", False), ("sandbox", False), ("local", True),
 ])
 def test_python_execution_uses_destination_interpreter(
-    monkeypatch: pytest.MonkeyPatch, destination: str, ssh_enabled: bool, windows: bool,
+    monkeypatch: pytest.MonkeyPatch, destination: str, windows: bool,
 ) -> None:
     tool = object.__new__(CodeExecution)
     tool.destination = ExecutionDestination(destination, destination, destination, destination)
@@ -116,11 +115,11 @@ def test_python_execution_uses_destination_interpreter(
 
     monkeypatch.setattr(tool, "terminal_session", capture)
     monkeypatch.setattr(tool, "format_command_for_output", lambda command: command)
-    command = asyncio.run(tool.execute_python_code({"ssh_enabled": ssh_enabled}, 0, "import flask"))
+    command = asyncio.run(tool.execute_python_code({}, 0, "import flask"))
 
     assert shlex.split(command) == (
         [sys.executable, "-m", "IPython"]
-        if destination == "local" and not ssh_enabled and not windows else ["ipython"]
+        if destination == "local" and not windows else ["ipython"]
     ) + ["-c", "import flask"]
 
 

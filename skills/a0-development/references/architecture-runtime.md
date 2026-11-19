@@ -5,7 +5,7 @@
 - Root contract: `/a0/AGENTS.md`
 - WebUI entry point: `/a0/run_ui.py`
 - Runtime arguments and WebUI port resolution: `/a0/helpers/runtime.py`
-- Docker Python runtimes: `/a0/docker/base/fs/ins/install_python.sh`
+- Docker Python runtimes: `/a0/Dockerfile` and `/a0/docker/sandbox/install.sh`
 - Docker UI launch manager: `/a0/docker/run/fs/exe/self_update_manager.py`
 - Search/discovery roots: `/a0/helpers/subagents.py`, `/a0/helpers/skills.py`, `/a0/helpers/projects.py`
 

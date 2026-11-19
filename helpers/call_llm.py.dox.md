@@ -20,7 +20,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: model calls.
-- Imported dependency areas include: `langchain.prompts`, `langchain.schema`, `langchain_core.language_models.chat_models`, `langchain_core.language_models.llms`, `langchain_core.messages`, `typing`.
+- Imported dependency areas include: `langchain_core.prompts`, `langchain_core.language_models.chat_models`, `langchain_core.language_models.llms`, `langchain_core.messages`, `typing`.
 
 ## Key Concepts
 

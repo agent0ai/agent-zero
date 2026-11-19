@@ -25,9 +25,10 @@ def worker(tmp_path, monkeypatch):
     exchange.mkdir()
     stopped = []
     fake = SimpleNamespace(config=SimpleNamespace(instances_dir=instance.parent),
+                           inspect=lambda name: SimpleNamespace(service=True, ownership={"plugin_id": "_test"}),
                            stop=lambda name: stopped.append(name))
     result = SandboxWorker('_test', idle_seconds=None)
-    def start(cancel=None):
+    def start(cancel=None, *, mounts=None):
         result.ready = True
         return fake
     monkeypatch.setattr(result, '_paths', lambda: (fake, exchange))
@@ -97,6 +98,15 @@ def test_batch_worker_stops_after_success(worker):
     assert stopped == [service.name]
 
 
+def test_worker_does_not_stop_another_owners_sandbox(worker):
+    service, manager, _, stopped = worker
+    manager.inspect = lambda name: SimpleNamespace(service=False, ownership={})
+    with pytest.raises(SandboxError, match="another caller"):
+        SandboxWorker.start(service, mounts=[SandboxMount(Path("/tmp"), "/index")])
+    service.stop()
+    assert not stopped
+
+
 def test_service_has_no_common_exchange_or_usr_mount(manager, monkeypatch):
     metadata = create_disk(manager, monkeypatch, service=True, share_usr=False)
     spec = json.loads((manager.config.instances_dir / 'service/bundle/config.json').read_text())
@@ -114,6 +124,16 @@ def test_mount_changes_require_stopped_guest_and_reject_host_root(manager, monke
         manager.set_mounts('service', [SandboxMount(Path('/'), '/host')])
     manager.set_mounts('service', [SandboxMount(tmp_path, '/input')])
     assert manager._read_metadata('service')['mounts'][0]['read_only']
+
+    transient = tmp_path / 'chat'
+    transient.mkdir()
+    manager.set_mounts('service', [SandboxMount(transient, '/index', read_only=False)])
+    transient.rmdir()
+    assert manager.inspect('service').service
+    with pytest.raises(SandboxError, match="existing"):
+        manager._process_command('service', manager._read_metadata('service'), ['true'])
+    manager.set_mounts('service', [])
+    assert manager.inspect('service').mounts == ()
 
 
 def test_browser_pipe_command_is_instance_scoped(manager, monkeypatch):
@@ -205,16 +225,14 @@ async def test_browser_status_event_does_not_wait_for_browser_startup(monkeypatc
 
 
 def test_custom_ocr_data_is_the_only_explicit_read_only_mount(tmp_path):
-    from plugins._document_query.helpers.document import FetchedDocument
-    from plugins._document_query.helpers.sandbox import parser_request
-    document = FetchedDocument('scan.png', 'file', 'image/png', b'input')
+    from plugins._document_query.helpers.sandbox import parser_config
     config = {'liteparse_tessdata_path': str(tmp_path)}
-    payload, mounts = parser_request(document, config)
-    assert payload['config']['liteparse_tessdata_path'] == '/tessdata'
+    guest_config, mounts = parser_config(config)
+    assert guest_config['liteparse_tessdata_path'] == '/tessdata'
     assert mounts == [SandboxMount(tmp_path, '/tessdata', True)]
     assert config['liteparse_tessdata_path'] == str(tmp_path)
     with pytest.raises(ValueError, match='language-data directory'):
-        parser_request(document, {'liteparse_tessdata_path': '/'})
+        parser_config({'liteparse_tessdata_path': '/'})
 
 
 @pytest.mark.parametrize('image_cache', [False, True])

@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = PROJECT_ROOT / ".github" / "scripts" / "docker_release_plan.py"
@@ -44,7 +46,8 @@ def test_docker_publish_workflow_tracks_branch_promotions():
     workflow_path = PROJECT_ROOT / ".github" / "workflows" / "docker-publish.yml"
     content = workflow_path.read_text(encoding="utf-8")
 
-    assert 'branches:\n      - "testing"\n      - "ready"\n      - "main"' in content
+    assert 'branches:\n      - "testing"\n      - "ready"\n      - "main"\n    tags:' in content
+    assert 'ALLOWED_BRANCHES: "testing ready main"' in content
     assert 'tags:\n      - "v*"' in content
     assert "workflow_dispatch:" in content
     assert "inputs:" in content
@@ -120,3 +123,39 @@ def test_plan_branch_push_builds_when_tag_reaches_allowed_branch(monkeypatch, tm
     assert main_candidates[0].mode == "push_promoted_tag"
     assert main_candidates[0].publish_version is True
     assert main_candidates[0].publish_branch_tag is True
+
+
+def test_preview_only_publishes_the_newest_tag_reachable_from_v3(monkeypatch, tmp_path):
+    workflow = yaml.load(
+        (PROJECT_ROOT / ".github/workflows/docker-v3.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    assert workflow["on"] == {"push": {"tags": ["pre-v3.[0-9]+"]}}
+    jobs = workflow["jobs"]
+    command = next(step["run"] for step in jobs["check"]["steps"] if step.get("id") == "check")
+    assert jobs["build"]["if"] == "needs.check.outputs.eligible == 'true'"
+    assert jobs["publish"]["needs"] == "build"
+    assert '--tag "$IMAGE:v3"' in jobs["publish"]["steps"][-1]["run"]
+    git(tmp_path, "init", "-b", "main")
+    git(tmp_path, "config", "user.name", "Test User")
+    git(tmp_path, "config", "user.email", "test@example.com")
+    commit_file(tmp_path, "base", "base", "stable")
+    git(tmp_path, "tag", "v2.16")
+    git(tmp_path, "checkout", "-b", "v3")
+    commit_file(tmp_path, "feature", "one", "first preview")
+    git(tmp_path, "tag", "pre-v3.2")
+    commit_file(tmp_path, "feature", "two", "next preview")
+    git(tmp_path, "tag", "-a", "pre-v3.10", "-m", "preview")
+    git(tmp_path, "branch", "-f", "main", "v3")
+    seed_remote_refs(tmp_path, "main", "v3")
+    git(tmp_path, "checkout", "main")
+    commit_file(tmp_path, "only-main", "three", "unrelated")
+    git(tmp_path, "tag", "pre-v3.11")
+
+    output = tmp_path / "output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    for tag, expected in [("pre-v3.10", True), ("pre-v3.2", False), ("pre-v3.11", False), ("v2.16", False)]:
+        git(tmp_path, "checkout", "--detach", tag)
+        output.write_text("")
+        monkeypatch.setenv("GITHUB_REF_NAME", tag)
+        subprocess.run(["bash", "-eo", "pipefail", "-c", command], cwd=tmp_path, check=True)
+        assert (output.read_text().strip() == "eligible=true") is expected

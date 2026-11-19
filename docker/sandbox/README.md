@@ -1,11 +1,11 @@
 # Python and Node sandbox image
 
 This image provides Python 3.13, pip and IPython in the global Python environment,
-plus Node.js 22, npm and npx. Both official runtime images use Debian Bookworm.
+plus Git, Node.js 22, npm and npx. Both official runtime images use Debian 13 (Trixie).
 It contains no Agent Zero framework dependencies or user data.
 
-`agent-zero-sandbox:1` is the default for new sandboxes. Both Agent Zero Docker
-builds include an OCI bundle at `/opt/agent-zero/sandbox-image`, outside the
+`agent-zero-sandbox:3` is the default for new sandboxes. Both Agent Zero Docker
+builds include an OCI bundle at `/opt/agent-zero/sandbox-image-v3`, outside the
 source and user-data mounts. No registry publication or manual import is needed.
 The first sandbox creation unpacks that bundle into the normal disk cache,
 without network access. Later starts reuse the cached image and private files.
@@ -17,7 +17,8 @@ the same recipe used by Docker builds. This needs internet access and working
 `a0-proot`, `skopeo` and `umoci`; host Python packages remain untouched. Builds are
 serialized and cached, and never run as part of ordinary WebUI startup.
 Existing sandboxes retain their pinned digest and explicit image settings are
-preserved. Rebuilding cannot substitute a different digest for a lost pinned
+preserved. Both earlier built-in defaults resolve to v3 for new sandboxes. Existing guests still need their
+original cached image. Rebuilding cannot substitute a different digest for a lost pinned
 base; preserve the image cache with your sandbox backups.
 
 An optional standalone image can be built from the repository root:

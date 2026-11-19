@@ -10,14 +10,13 @@ from typing import Any
 from helpers.tool import Tool, Response, coerce_bool
 from helpers.errors import RepairableException
 from helpers.tool_policy import ensure_retired_host_tool_allowed
-from helpers import files, rfc_exchange, projects, runtime, secrets, settings
+from helpers import files, projects, runtime, secrets, settings
 from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text as truncate_text_string
 from helpers.messages import truncate_text as truncate_text_agent
 from helpers import plugins
 
 from plugins._code_execution.helpers.shell_local import LocalInteractiveSession
-from plugins._code_execution.helpers.shell_ssh import SSHInteractiveSession
 from plugins._code_execution.helpers.destinations import (
     ExecutionDestination,
     resolve_code_execution_destination,
@@ -54,7 +53,6 @@ class ShellWrap:
 
 @dataclass
 class State:
-    ssh_enabled: bool
     shells: dict[int | str, ShellWrap]
 
 
@@ -100,7 +98,23 @@ class CodeExecution(Tool):
             ensure_retired_host_tool_allowed(self.agent, "code_execution_remote", tool_args=self.args)
             return await HostExecution(self.agent, self.args, allow_running=self.allow_running).execute()
 
-        cfg = _get_config(self.agent)
+        config = plugins.get_plugin_config("_code_execution", agent=self.agent) or {}
+        if self.destination.kind == "local":
+            # Older configurations could route "local" to a different machine.
+            legacy_mode = config.get("ssh_enabled")
+            if legacy_mode is None:
+                legacy_mode = settings.get_default_value("_code_execution__ssh_enabled", "")
+            if coerce_bool(legacy_mode, False) or (
+                str(legacy_mode).strip().lower() == "auto" and runtime.is_development()
+            ):
+                return Response(
+                    message="This configuration used SSH for local execution. Use a sandbox or the "
+                    "connected host. To run on the Agent Zero machine, remove the old SSH setting "
+                    "from the Code Execution configuration or environment.",
+                    break_loop=False,
+                )
+
+        cfg = _parse_config(config)
 
         if runtime_arg == "python":
             response = await self.execute_python_code(
@@ -119,7 +133,7 @@ class CodeExecution(Tool):
                 cfg, session=session, timeouts=cfg["output_timeouts"]
             )
         elif runtime_arg == "reset":
-            response = await self.reset_terminal(cfg, session=session)
+            response = await self.reset_terminal(session=session)
         else:
             response = self.agent.read_prompt(
                 "fw.code.runtime_wrong.md", runtime=runtime_arg
@@ -160,19 +174,10 @@ class CodeExecution(Tool):
     async def after_execution(self, response, **kwargs):
         self.agent.hist_add_tool_result(self.name, response.message, id=self.log.id if self.log else "", **(response.additional or {}))
 
-    async def prepare_state(self, cfg: dict, reset=False, session: int | None = None):
+    async def prepare_state(self, *, reset=False, session: int | None = None):
         self.state: State | None = self.agent.get_data("_cet_state")
-        ssh_enabled = cfg["ssh_enabled"]
         destination = self._destination()
-
-        # always reset state when ssh_enabled changes
-        if not self.state or self.state.ssh_enabled != ssh_enabled:
-            if self.state:
-                for wrapper in self.state.shells.values():
-                    await wrapper.session.close()
-            shells: dict[int | str, ShellWrap] = {}
-        else:
-            shells = self.state.shells.copy()
+        shells = self.state.shells.copy() if self.state else {}
 
         key = self._session_key(session) if session is not None else None
 
@@ -186,7 +191,6 @@ class CodeExecution(Tool):
                 await shells[s].session.close()
             shells = {}
 
-        # initialize local or remote interactive shell interface for session if needed
         if session is not None and key not in shells:
             if destination.kind == "sandbox":
                 from plugins._sandboxing.helpers.shell import SandboxInteractiveSession
@@ -194,17 +198,6 @@ class CodeExecution(Tool):
                 shell = SandboxInteractiveSession(
                     destination.target,
                     agent=self.agent,
-                )
-            elif destination.kind == "local" and ssh_enabled:
-                cwd = self._get_cwd(ssh=True)
-                ssh_pass = await _resolve_ssh_pass(cfg["ssh_pass"])
-                shell = SSHInteractiveSession(
-                    self.agent.context.log,
-                    cfg["ssh_addr"],
-                    cfg["ssh_port"],
-                    cfg["ssh_user"],
-                    ssh_pass,
-                    cwd=cwd,
                 )
             else:
                 cwd = await self.ensure_cwd()
@@ -217,7 +210,7 @@ class CodeExecution(Tool):
                 await shell.close()
                 raise
 
-        self.state = State(shells=shells, ssh_enabled=ssh_enabled)
+        self.state = State(shells=shells)
         self.agent.set_data("_cet_state", self.state)
         return self.state
 
@@ -225,7 +218,7 @@ class CodeExecution(Tool):
         escaped_code = shlex.quote(code)
         runner = (
             f"{shlex.quote(sys.executable)} -m IPython"
-            if self._destination().kind == "local" and not cfg["ssh_enabled"] and not runtime.is_windows()
+            if self._destination().kind == "local" and not runtime.is_windows()
             else "ipython"
         )
         command = f"{runner} -c {escaped_code}"
@@ -245,31 +238,15 @@ class CodeExecution(Tool):
     async def execute_terminal_command(
         self, cfg: dict, session: int, command: str, reset: bool = False
     ):
-        prefix = (
-            (
-                "bash>"
-                if self._destination().kind == "sandbox"
-                or not runtime.is_windows()
-                or cfg["ssh_enabled"]
-                else "PS>"
-            )
-            + self.format_command_for_output(command)
-            + "\n\n"
-        )
-        command = _group_multiline_command(
-            command,
-            powershell=(
-                self._destination().kind == "local"
-                and runtime.is_windows()
-                and not cfg["ssh_enabled"]
-            ),
-        )
+        powershell = self._destination().kind == "local" and runtime.is_windows()
+        prefix = ("PS>" if powershell else "bash>") + self.format_command_for_output(command) + "\n\n"
+        command = _group_multiline_command(command, powershell=powershell)
         return await self.terminal_session(cfg, session, command, reset, prefix)
 
     async def terminal_session(
         self, cfg: dict, session: int, command: str, reset: bool = False, prefix: str = "", timeouts: dict | None = None
     ):
-        self.state = await self.prepare_state(cfg, reset=reset, session=session)
+        self.state = await self.prepare_state(reset=reset, session=session)
 
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
@@ -281,7 +258,7 @@ class CodeExecution(Tool):
         # A strict-mode command can terminate the persistent shell itself.
         # Recreate such a session lazily before accepting the next command.
         if self._shell_wrap(session).session.is_terminated():
-            await self.prepare_state(cfg, reset=True, session=session)
+            await self.prepare_state(reset=True, session=session)
 
         # try again on lost connection
         for i in range(2):
@@ -305,7 +282,7 @@ class CodeExecution(Tool):
             except Exception as e:
                 if _is_closed_pty_error(e) and i == 0:
                     PrintStyle.warning(f"Terminal session {session} was closed; resetting and retrying once.")
-                    await self.prepare_state(cfg, reset=True, session=session)
+                    await self.prepare_state(reset=True, session=session)
                     continue
                 PrintStyle.error(str(e))
                 raise
@@ -330,7 +307,7 @@ class CodeExecution(Tool):
         prefix="",
         timeouts: dict | None = None,
     ):
-        self.state = await self.prepare_state(cfg, session=session)
+        self.state = await self.prepare_state(session=session)
 
         # Override timeouts if a dict is provided
         if timeouts:
@@ -360,7 +337,7 @@ class CodeExecution(Tool):
                 )
             except Exception as e:
                 if _is_closed_pty_error(e):
-                    await self.prepare_state(cfg, reset=True, session=session)
+                    await self.prepare_state(reset=True, session=session)
                     self.mark_session_idle(session)
                     sysinfo = "Terminal session was closed and has been reset. Please run the command again."
                     response = self.agent.read_prompt("fw.code.info.md", info=sysinfo)
@@ -381,9 +358,7 @@ class CodeExecution(Tool):
                 last_output_time = now
                 got_output = True
 
-            # ``set -e``, ``exit``, or a lost SSH channel can end the managed
-            # shell without ever producing another prompt. Treat that process
-            # or channel termination as a definitive command end.
+            # A shell can exit without emitting a final prompt.
             shell = self._shell_wrap(session).session
             if shell.is_terminated():
                 exit_code = shell.get_exit_code()
@@ -510,7 +485,7 @@ class CodeExecution(Tool):
             )
         except Exception as e:
             if _is_closed_pty_error(e):
-                await self.prepare_state(cfg, reset=True, session=session)
+                await self.prepare_state(reset=True, session=session)
                 self.mark_session_idle(session)
                 return None
             raise
@@ -561,7 +536,7 @@ class CodeExecution(Tool):
         if self.state and key in self.state.shells:
             self.state.shells[key].running = False
 
-    async def reset_terminal(self, cfg: dict, session=0, reason: str | None = None):
+    async def reset_terminal(self, session=0, reason: str | None = None):
         if reason:
             PrintStyle(font_color="#FFA500", bold=True).print(
                 f"Resetting terminal session {session}... Reason: {reason}"
@@ -571,7 +546,7 @@ class CodeExecution(Tool):
                 f"Resetting terminal session {session}..."
             )
 
-        await self.prepare_state(cfg, reset=True, session=session)
+        await self.prepare_state(reset=True, session=session)
         response = self.agent.read_prompt(
             "fw.code.info.md", info=self.agent.read_prompt("fw.code.reset.md")
         )
@@ -620,15 +595,12 @@ class CodeExecution(Tool):
             raise RuntimeError("Code execution state is not prepared")
         return self.state.shells[self._session_key(session)]
 
-    def _get_cwd(self, *, ssh: bool = False) -> str | None:
+    async def ensure_cwd(self) -> str | None:
         project_name = projects.get_context_project_name(self.agent.context)
         if project_name:
             path = projects.get_project_folder(project_name)
-            return files.normalize_a0_path(path) if ssh else path
-        return settings.get_settings().get("workdir_path")
-
-    async def ensure_cwd(self) -> str | None:
-        path = self._get_cwd()
+        else:
+            path = settings.get_settings().get("workdir_path")
         if not path:
             return None
 
@@ -640,33 +612,6 @@ class CodeExecution(Tool):
 # ------------------------------------------------------------------
 # Internal
 # ------------------------------------------------------------------
-
-def _resolve_ssh_enabled(raw_value) -> bool:
-    val = str(raw_value).strip().lower()
-    if val == "auto":
-        return not runtime.is_dockerized()
-    return val in ("true", "1", "yes", "on")
-
-
-def _resolve_ssh_addr(cfg_addr: str) -> str:
-    if cfg_addr:
-        return cfg_addr
-    set = settings.get_settings()
-    host = set.get("rfc_url", "localhost")
-    if "//" in host:
-        host = host.split("//")[1]
-    if ":" in host:
-        host = host.split(":")[0]
-    if host.endswith("/"):
-        host = host.rstrip("/")
-    return host or "localhost"
-
-
-async def _resolve_ssh_pass(cfg_pass: str) -> str:
-    if cfg_pass:
-        return cfg_pass
-    return await rfc_exchange.get_root_password()
-
 
 def _parse_patterns(raw, flags=0) -> list[re.Pattern]:
     lines = [str(p) for p in raw] if isinstance(raw, list) else str(raw).splitlines()
@@ -683,15 +628,8 @@ def _parse_timeouts(cfg: dict, prefix: str, defaults: tuple[int, ...]) -> dict:
     }
 
 
-def _get_config(agent) -> dict:
-    cfg = plugins.get_plugin_config("_code_execution", agent=agent) or {}
-
+def _parse_config(cfg: dict) -> dict:
     return {
-        "ssh_enabled": _resolve_ssh_enabled(cfg.get("ssh_enabled", "auto")),
-        "ssh_addr": _resolve_ssh_addr(str(cfg.get("ssh_addr", ""))),
-        "ssh_port": int(cfg.get("ssh_port", 55022)),
-        "ssh_user": str(cfg.get("ssh_user", "root")),
-        "ssh_pass": str(cfg.get("ssh_pass", "")),
         "code_exec_timeouts": _parse_timeouts(cfg, "code_exec", (30, 15, 240, 5)),
         "output_timeouts": _parse_timeouts(cfg, "output", (120, 60, 600, 5)),
         "prompt_patterns": _parse_patterns(cfg.get("prompt_patterns", "")),

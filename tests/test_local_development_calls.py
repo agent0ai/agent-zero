@@ -284,32 +284,31 @@ def test_remote_browser_path_keeps_provider_routing(monkeypatch):
     assert calls == [path]
 
 
-@pytest.mark.parametrize("project", [False, True])
-def test_ssh_prepare_state_preserves_remote_cwd_without_local_creation(monkeypatch, tmp_path, project):
+@pytest.mark.parametrize("stored,env,development,blocked", [
+    (True, "", False, True), ("auto", "", True, True), ("auto", "", False, False),
+    (None, "true", True, True), (False, "true", True, False), (None, "", True, False),
+])
+def test_local_execution_with_old_ssh_settings(monkeypatch, stored, env, development, blocked):
     from plugins._code_execution.tools import code_execution_tool as code
-    data = {}
-    tool = code.CodeExecution.__new__(code.CodeExecution)
-    tool.agent = SimpleNamespace(context=SimpleNamespace(log=None), get_data=data.get, set_data=data.__setitem__)
-    monkeypatch.setattr(code.projects, "get_context_project_name", lambda _: "project" if project else None)
-    monkeypatch.setattr(code.projects, "get_project_folder", lambda _: str(tmp_path / "usr/projects/project"))
-    monkeypatch.setattr(code.settings, "get_settings", lambda: {"workdir_path": "/a0/usr/workdir"})
-    sessions = []
-    class Session:
-        connect = AsyncMock()
-        close = AsyncMock()
-        def __init__(self, logger, addr, port, user, password, *, cwd):
-            self.cwd = cwd
-            assert password == "fixture-ssh-password"
-            sessions.append(self)
-    monkeypatch.setattr(code, "SSHInteractiveSession", Session)
-    def no_mkdir(*args):
-        raise AssertionError("SSH setup must not create a local working directory")
-    monkeypatch.setattr(code, "make_dir", no_mkdir)
-    cfg = dict(ssh_enabled=True, ssh_addr="fixture", ssh_port=22, ssh_user="fixture", ssh_pass="fixture-ssh-password")
-    state = asyncio.run(tool.prepare_state(cfg, session=0))
-    assert state.shells[0].session is sessions[0]
-    assert sessions[0].cwd == ("/a0/usr/projects/project" if project else "/a0/usr/workdir")
-    Session.connect.assert_awaited_once()
+
+    tool = object.__new__(code.CodeExecution)
+    tool.agent = SimpleNamespace(handle_intervention=AsyncMock())
+    tool.args = {"destination": "local", "runtime": "terminal", "code": "pwd"}
+    local = code.ExecutionDestination("local", "local", "Local", "Local")
+    monkeypatch.setattr(code, "resolve_code_execution_destination", AsyncMock(return_value=local))
+    config = {"ssh_enabled": stored} if stored is not None else {}
+    monkeypatch.setattr(code.plugins, "get_plugin_config", lambda *a, **kw: config)
+    monkeypatch.setattr(code.settings, "get_default_value", lambda *a: env)
+    monkeypatch.setattr(code.runtime, "is_development", lambda: development)
+    tool.execute_terminal_command = AsyncMock(return_value="local output")
+
+    response = asyncio.run(tool._execute(None))
+    if blocked:
+        tool.execute_terminal_command.assert_not_awaited()
+        assert "used SSH" in response.message
+    else:
+        tool.execute_terminal_command.assert_awaited_once()
+        assert response.message == "local output"
 
 
 def test_local_editor_aliases_share_read_write_patch_freshness(monkeypatch, tmp_path):

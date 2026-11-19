@@ -649,11 +649,11 @@ def test_doctor_never_requests_a_host_shell(
 
 def test_docker_image_contains_small_runtime_and_default_seccomp():
     root=Path(__file__).resolve().parents[1]
-    dockerfile=(root/'docker/base/Dockerfile').read_text()
+    dockerfile=(root/'Dockerfile').read_text()
     compose=(root/'docker/run/docker-compose.yml').read_text()
-    assert 'COPY --from=sandbox-tools /usr/local/bin/a0-proot' in dockerfile
+    assert '/tools/usr/local/bin/a0-proot /usr/local/bin/' in dockerfile
     assert 'gvisor' not in dockerfile and 'runsc' not in dockerfile
-    assert 'privileged: false' in compose and 'init: true' in compose
+    assert 'privileged: false' in compose and 'init: true' not in compose
     assert 'unconfined' not in compose and 'cap_add' not in compose
 
 

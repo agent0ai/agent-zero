@@ -11,6 +11,7 @@ import pytest
 from plugins._sandboxing.helpers.images import SandboxImageConfig, SandboxImageManager
 from plugins._sandboxing.helpers.manager import SandboxConfig, SandboxManager, SandboxMount, SandboxError
 from plugins._sandboxing.helpers import storage
+from plugins._sandboxing.helpers.builtin_image import BUILTIN_IMAGE
 
 pytestmark = pytest.mark.skipif(os.environ.get('A0_PROOT_INTEGRATION') != '1', reason='requires disposable Linux root container and built PRoot')
 
@@ -20,7 +21,7 @@ def manager(tmp_path_factory):
     root = tmp_path_factory.mktemp('proot')
     images = SandboxImageManager(SandboxImageConfig(
         skopeo=Path('/usr/bin/skopeo'), umoci=Path('/usr/bin/umoci'),
-        cache_dir=root/'images', default_image=os.environ.get('A0_PROOT_TEST_IMAGE', 'agent-zero-sandbox:1')))
+        cache_dir=root/'images', default_image=os.environ.get('A0_PROOT_TEST_IMAGE', BUILTIN_IMAGE)))
     image = images.ensure(images.config.default_image)
     fixtures = image.rootfs/'cow-tests'
     fixtures.mkdir()

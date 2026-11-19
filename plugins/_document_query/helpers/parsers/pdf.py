@@ -1,5 +1,6 @@
 """PDF parser with PyMuPDF primary and Tesseract OCR fallback."""
 
+import io
 import os
 
 import logging
@@ -29,19 +30,19 @@ class PdfParser(BaseParser):
             return contents
 
     def _parse_with_pymupdf(self, file_path: str) -> str:
-        from langchain_community.document_loaders.pdf import PyMuPDFLoader
+        import pymupdf
 
         try:
-            loader = PyMuPDFLoader(
-                file_path,
-                mode="single",
-                extract_tables="markdown",
-                extract_images=True,
-                images_inner_format="text",
-                images_parser=_on_demand_tesseract_blob_parser(),
-                pages_delimiter="\n",
-            )
-            return "\n".join(e.page_content for e in loader.load())
+            parts = []
+            with pymupdf.open(file_path) as pdf:
+                for page in pdf:
+                    parts.append(page.get_text())
+                    parts.extend(table.to_markdown() for table in page.find_tables().tables)
+                    for image in page.get_images():
+                        data = pdf.extract_image(image[0])
+                        if data and data.get("image"):
+                            parts.append(_image_text(data["image"]))
+            return "\n".join(parts).strip()
         except Exception as e:
             logging.error(f"PyMuPDF parsing failed: {e}")
             return ""
@@ -55,12 +56,10 @@ class PdfParser(BaseParser):
         return "\n\n".join(pytesseract.image_to_string(p) for p in pages)
 
 
-def _on_demand_tesseract_blob_parser():
-    from langchain_community.document_loaders.parsers.images import TesseractBlobParser
+def _image_text(data):
+    from PIL import Image
+    import pytesseract
 
-    class OnDemandTesseractBlobParser(TesseractBlobParser):
-        def _analyze_image(self, img) -> str:
-            ensure_tesseract_dependencies()
-            return super()._analyze_image(img)
-
-    return OnDemandTesseractBlobParser()
+    ensure_tesseract_dependencies()
+    with Image.open(io.BytesIO(data)) as image:
+        return pytesseract.image_to_string(image, lang="eng")

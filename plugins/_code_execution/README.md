@@ -9,9 +9,9 @@ This plugin provides the code execution tool used by agents for development task
 - **Terminal commands** in interactive shell sessions
 - **Python execution** through `ipython -c`
 - **Node.js execution** through `node /exe/node_eval.js`
-- **Persistent sessions** keyed by session number
+- **Persistent sessions** keyed by destination and session number
 - **Session reset and output retrieval**
-- **Local or SSH-backed execution** depending on plugin configuration
+- **Execution destinations** for the default sandbox, a named sandbox, the Agent Zero machine (`local`), or an authenticated Connector (`host`)
 
 ## Main Behavior
 
@@ -20,11 +20,9 @@ This plugin provides the code execution tool used by agents for development task
   - Groups multi-line terminal input in the current shell so only the final prompt marks the command complete.
 - **Multiple runtimes**
   - Dispatches requests based on `runtime`: `terminal`, `python`, `nodejs`, `output`, or `reset`.
-- **Remote execution support**
-  - Can open SSH interactive sessions instead of local shells when configured.
 - **Streaming output**
   - Continuously reads shell output, updates the current log item, and detects progress while commands are running.
-  - Detects local shell exit and SSH channel termination when strict mode, `exit`, or a lost connection prevents a final prompt from appearing.
+  - Detects shell exit even when a command ends the shell before it prints a final prompt.
 - **Long-running work**
   - Keeps normal command execution responsive while giving the `output` runtime longer polling windows for builds, installs, servers, tests, and training jobs.
 - **Safety around running sessions**
@@ -36,7 +34,6 @@ This plugin provides the code execution tool used by agents for development task
   - `tools/code_execution_tool.py` contains runtime dispatch, session lifecycle, and streaming output logic.
 - **Helpers**
   - `helpers/shell_local.py` provides the local interactive shell implementation.
-  - `helpers/shell_ssh.py` provides the SSH-backed interactive shell implementation.
 - **Configuration**
   - `default_config.yaml` defines execution, prompt, and timeout settings.
 - **Prompts**
@@ -53,4 +50,4 @@ This plugin provides the code execution tool used by agents for development task
 
 - **Name**: `_code_execution`
 - **Title**: `Code Execution`
-- **Description**: Code execution tool supporting terminal, Python, and Node.js runtimes via local TTY or SSH.
+- **Description**: Run terminal, Python, and Node.js commands in a sandbox, on the Agent Zero machine, or on a connected host.

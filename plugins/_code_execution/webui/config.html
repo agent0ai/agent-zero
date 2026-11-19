@@ -9,71 +9,8 @@
             <div>
                 <div class="section-title">Code Execution</div>
                 <div class="section-description">
-                    Configuration for the code execution tool. Controls the shell interface, SSH credentials, execution timeouts, and prompt/dialog detection patterns.
+                    Configure execution timeouts and shell prompt and dialog detection.
                 </div>
-
-                <!-- Shell Interface -->
-                <div class="field">
-                    <div class="field-label">
-                        <div class="field-title">Shell Interface</div>
-                        <div class="field-description">
-                            <b>Auto</b>: SSH when running outside Docker, local TTY when dockerized.
-                            <b>SSH</b>: always connect via SSH. <b>Local</b>: always use local PTY.
-                        </div>
-                    </div>
-                    <div class="field-control">
-                        <select x-model="config.ssh_enabled">
-                            <option value="auto">Auto</option>
-                            <option value="true">SSH</option>
-                            <option value="false">Local TTY</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- SSH credentials (shown when SSH or Auto) -->
-                <template x-if="config.ssh_enabled !== 'false'">
-                    <div>
-                        <div class="field">
-                            <div class="field-label">
-                                <div class="field-title">SSH Address</div>
-                                <div class="field-description">Hostname or IP of the SSH target. Leave empty to use the RFC URL from settings.</div>
-                            </div>
-                            <div class="field-control">
-                                <input type="text" x-model="config.ssh_addr" placeholder="(from RFC URL)" />
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <div class="field-label">
-                                <div class="field-title">SSH Port</div>
-                                <div class="field-description">SSH port on the target host (default: 55022 for Docker RFC).</div>
-                            </div>
-                            <div class="field-control">
-                                <input type="number" min="1" max="65535" x-model.number="config.ssh_port" />
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <div class="field-label">
-                                <div class="field-title">SSH User</div>
-                                <div class="field-description">Username for SSH login.</div>
-                            </div>
-                            <div class="field-control">
-                                <input type="text" x-model="config.ssh_user" placeholder="root" />
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <div class="field-label">
-                                <div class="field-title">SSH Password</div>
-                                <div class="field-description">Password for SSH login. Leave empty to use the dev root password (via RFC).</div>
-                            </div>
-                            <div class="field-control">
-                                <input type="password" autocomplete="off" x-model="config.ssh_pass" placeholder="(from RFC)" />
-                            </div>
-                        </div>
-                    </div>
-                </template>
 
                 <!-- Execution timeouts -->
                 <div class="section-title">Execution Timeouts</div>

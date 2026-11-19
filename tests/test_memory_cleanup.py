@@ -17,8 +17,9 @@ class FakeFaiss:
     def __init__(self, docs: list[Document]):
         self.docs = {doc.metadata["id"]: doc for doc in docs}
         self.deleted: list[str] = []
+        self.embedding_function = FakeEmbeddings()
 
-    async def asearch(self, *_args, **_kwargs):
+    def search(self, *_args, **_kwargs):
         return []
 
     async def adelete(self, ids):
@@ -55,9 +56,7 @@ class FakeVectorSearch:
         ]
         self.embeddings: list[list[float]] = []
 
-    async def asimilarity_search_with_score_by_vector(
-        self, embedding, *, k, filter
-    ):
+    def search(self, embedding, k, filter):
         self.embeddings.append(embedding)
         return [(doc, score) for doc, score in self.docs if filter(doc.metadata)][:k]
 
@@ -81,7 +80,6 @@ def test_memory_forget_removes_exact_matches_and_derived_fragments():
     )
     fake_db = FakeFaiss([main, fragment, unrelated])
     memory = Memory(fake_db, memory_subdir="test")
-    memory._save_db = lambda: None
 
     removed = asyncio.run(
         memory.delete_documents_by_query(
@@ -108,7 +106,6 @@ def test_memory_delete_cascades_even_when_original_id_is_already_missing():
     )
     fake_db = FakeFaiss([replacement])
     memory = Memory(fake_db, memory_subdir="test")
-    memory._save_db = lambda: None
 
     removed = asyncio.run(
         memory.delete_documents_by_ids(["old-pref-1"], cascade=True)

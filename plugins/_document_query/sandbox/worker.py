@@ -6,6 +6,9 @@ from plugins._document_query.helpers.parsers import get_parsers_for_mimetype
 
 
 def handle(payload):
+    if "operation" in payload:
+        from plugins._document_query.sandbox.index import handle as index_request
+        return index_request(payload)
     document = FetchedDocument(
         uri=payload['uri'], scheme='file', mimetype=payload['mimetype'],
         content=base64.b64decode(payload['content'], validate=True),
@@ -14,10 +17,17 @@ def handle(payload):
     with document.local_file() as path:
         document = replace(document, local_path=path)
         if payload.get('knowledge'):
-            from langchain_community.document_loaders import PyPDFLoader, UnstructuredHTMLLoader
-            loader = PyPDFLoader if document.mimetype == 'application/pdf' else UnstructuredHTMLLoader
-            return [{'text': item.page_content, 'metadata': {**item.metadata, 'source': document.uri}}
-                    for item in loader(path).load()]
+            if document.mimetype == 'application/pdf':
+                from pypdf import PdfReader
+                reader = PdfReader(path)
+                metadata = {str(key).lstrip("/").lower(): str(value).strip()
+                            for key, value in (reader.metadata or {}).items()}
+                return [{'text': (page.extract_text() or '').strip(),
+                         'metadata': {**metadata, 'source': document.uri, 'page': number,
+                                      'page_label': label, 'total_pages': len(reader.pages)}}
+                        for number, (page, label) in enumerate(zip(reader.pages, reader.page_labels))]
+            from plugins._document_query.helpers.parsers.html import HtmlParser
+            return [{'text': HtmlParser()._parse_sync(document, {}), 'metadata': {'source': document.uri}}]
         errors = []
         config = payload.get('config') or {}
         for parser in get_parsers_for_mimetype(document.mimetype, config):
