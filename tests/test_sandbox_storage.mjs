@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-function model(callJsonApi, errors = []) {
+function model(callJsonApi, errors = [], actions = {}) {
   const source = readFileSync(new URL('../plugins/_sandboxing/webui/sandboxing-store.js', import.meta.url), 'utf8')
     .replace(/^import [\s\S]*?;\n/gm, '').replace('export const store', 'const store');
   return vm.runInNewContext(source + '\nmodel;', {
     createStore: (_, value) => value, callJsonApi,
-    toastFrontendError: message => errors.push(message), toastFrontendSuccess() {},
+    toastFrontendError: message => errors.push(message), toastFrontendSuccess() {}, ...actions,
   });
 }
 
@@ -63,4 +63,15 @@ test('failed measurement releases its button and reports through notifications',
   await store.measureStorage(sandbox);
   assert.equal(store.storageFor(sandbox).loading, false);
   assert.deepEqual(errors, ['Missing sandbox']);
+});
+
+test('browse files closes Sandboxes before opening the Files surface at its connection', async () => {
+  const calls = [];
+  const store = model(null, [], {
+    closeModal: async path => { calls.push(path); },
+    openSurface: async (surface, { path }) => { calls.push(surface, path); },
+  });
+  const path = '/@connections/sandbox/0123456789abcdef0123456789abcdef';
+  await store.browseFiles({ browse_path: path });
+  assert.deepEqual(calls, ['/plugins/_sandboxing/webui/main.html', 'files', path]);
 });

@@ -17,6 +17,8 @@
 
 ## Local Contracts
 
+- The Sandboxes panel opens persistent non-service roots in Files via the managed read-only Sandbox provider. Browse and download without starting a guest or following guest symlinks, including when names are concurrently replaced. Bind mounts and transient runtime trees are outside this view. Pin connection IDs to the instance and sandbox creation time. Keep host-side edits away from hardlinked image files.
+
 - Agent file transfers run the bounded standard Python file helper inside the selected guest. Exclude plugin service sandboxes and preserve guest mount permissions. Custom images need `python3` for this feature.
 
 - Invoke PRoot via the stdlib process supervisor with argument arrays and shell=False. Guest shell text is never evaluated by the host.

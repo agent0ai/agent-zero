@@ -104,6 +104,7 @@ class SandboxInfo:
     standalone: bool = False
     service: bool = False
     desired_running: bool = False
+    disk_backed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -603,6 +604,22 @@ class SandboxManager:
                 restored.append(info.name)
         return restored
 
+    @contextlib.contextmanager
+    def open_browse_root(self, name: str, created_at: str) -> Iterator[int]:
+        """Pin the validated sandbox root before releasing the lifecycle index lock."""
+        with self._index_lock(exclusive=False):
+            metadata = self._read_metadata(validate_name(name))
+            if metadata.get("service") or metadata["created_at"] != created_at:
+                raise SandboxError("Sandbox files are no longer available.")
+            root = self._disk_root(name, metadata)
+            if root is None:
+                raise SandboxError("Sandbox files need a persistent disk filesystem.")
+            fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            yield fd
+        finally:
+            os.close(fd)
+
     def read_file(self, name: str, relative: str, *, limit: int = 65536) -> str:
         """Read bounded service output without spawning an exec process."""
         metadata = self._read_metadata(validate_name(name))
@@ -881,6 +898,7 @@ class SandboxManager:
             standalone=bool(metadata.get("standalone", True)),
             service=bool(metadata.get("service", False)),
             desired_running=bool(metadata.get("desired_running", False)),
+            disk_backed=metadata.get("filesystem") in {"disk", "cow"},
         )
 
     def _broken_info(self, name: str, error: str) -> SandboxInfo:

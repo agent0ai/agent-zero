@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import dataclasses
 import json
+import io
 import os
 import subprocess
 import shutil
@@ -163,6 +164,62 @@ def _info(name: str, status: str = "running") -> SandboxInfo:
         snapshot_at=None,
         expires_at=None,
     )
+
+
+def test_files_connection_browses_stopped_sandbox_without_following_links(
+    manager, monkeypatch, tmp_path,
+):
+    from helpers import file_connections
+    from plugins._sandboxing.helpers import file_browser
+
+    metadata = _metadata(manager, "research", status="stopped") | {"filesystem": "cow"}
+    instance = manager.config.instances_dir / "research"
+    manager._atomic_write_json(instance / "metadata.json", metadata)
+    root = instance / "rootfs"
+    (root / "workspace").mkdir(parents=True)
+    (root / "workspace" / "report.txt").write_text("sandbox report")
+    (tmp_path / "secret").write_text("outside")
+    (root / "outside").symlink_to(tmp_path, target_is_directory=True)
+    (root / "link").symlink_to(tmp_path / "secret")
+    os.mkfifo(root / "pipe")
+
+    provider = file_browser.SandboxFilesProvider()
+    monkeypatch.setattr(file_browser, "get_manager", lambda: manager)
+    monkeypatch.setattr(file_connections, "providers", lambda: {provider.id: provider})
+    monkeypatch.setattr(file_connections, "data_dir", lambda _: tmp_path)
+
+    info = manager.inspect("research")
+    assert info.status == "stopped"
+    path = provider.browse_path(manager, info)
+    assert path
+    assert file_connections.listing_config()["connections"][0]["name"] == "Sandbox — research"
+    entries = file_connections.listing(path)["entries"]
+    assert [entry["name"] for entry in entries] == ["workspace"]
+    report = file_connections.listing(entries[0]["path"])["entries"][0]
+    assert report["name"] == "report.txt"
+    assert file_connections.read(report["path"], limit=20)[0] == b"sandbox report"
+    with pytest.raises(ValueError, match="size limit"):
+        file_connections.read(report["path"], limit=3)
+    with pytest.raises(PermissionError):
+        file_connections.write_from(report["path"], io.BytesIO(b"changed"))
+    with pytest.raises(PermissionError):
+        file_connections.mutate("delete", report["path"])
+    for relative in ("outside/secret", "link", "pipe", "../metadata.json"):
+        with pytest.raises(ValueError):
+            file_connections.read(f"{path}/{relative}", limit=20)
+
+    old_item, = provider.connections().values()
+    later = dt.datetime.fromisoformat(metadata["created_at"]) + dt.timedelta(seconds=1)
+    metadata["created_at"] = later.isoformat()
+    manager._atomic_write_json(instance / "metadata.json", metadata)
+    with pytest.raises(ValueError, match="no longer exists"):
+        file_connections.listing(path)
+    with pytest.raises(SandboxError, match="no longer available"):
+        with provider.open(old_item, tmp_path):
+            pytest.fail("Stale connection opened a replacement sandbox.")
+
+    manager._atomic_write_json(instance / "metadata.json", metadata | {"service": True})
+    assert not provider.connections()
 
 
 def test_name_validation_and_path_traversal_are_conservative() -> None:

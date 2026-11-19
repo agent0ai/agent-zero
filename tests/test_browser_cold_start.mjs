@@ -12,14 +12,14 @@ const visible = {...empty, browsers:[{id:1, context_id:'fixture'}], active_brows
 const deferred = () => { let resolve, reject; const promise = new Promise((yes,no) => {resolve=yes; reject=no;}); return {promise,resolve,reject}; };
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
-function setup(request) {
+function setup(request, rightCanvasStore = {}) {
   const timers = new Map(); let nextTimer = 0;
   const websocket = {addHandlers() {}, request};
   const source = readFileSync(new URL('../plugins/_browser/webui/browser-store.js', import.meta.url), 'utf8')
     .replace(/^import [\s\S]*?;\n/gm, '').replace('export const store', 'const store');
   const model = vm.runInNewContext(source+'\nmodel;', {
     getNamespacedClient:()=>websocket, createStore:(_, model)=>model,
-    registerUrlHandler() {}, console, Error,
+    registerUrlHandler() {}, console, Error, rightCanvasStore,
     setTimeout(fn) {const id=++nextTimer;timers.set(id,fn);return id;},
     clearTimeout(id) {timers.delete(id);},
   });
@@ -163,4 +163,22 @@ test('nested polling and late responses cannot clear another launch state', asyn
   reply(ok({startup:{state:'starting',step:2,steps:6,message:'Installing Chromium dependencies'}}));await flush();
   assert.equal(model.browserLoadingLabel(),'2/6 Installing Chromium dependencies…');
   assert.equal(timers.size,1);stopNew();assert.equal(timers.size,0);
+});
+
+test('an inactive Browser panel with layout cannot open and create a chat', async () => {
+  let active = false;
+  const canvas = {isSurfaceVisible: id => active && id === 'browser'};
+  const {model} = setup(async () => assert.fail('Unexpected startup request'), canvas);
+  const panel = {
+    isConnected: true,
+    closest: () => ({}),
+    getBoundingClientRect: () => ({width: 800, height: 600}),
+  };
+  let opens = 0;
+  model.openSurface = async () => { opens++; };
+  await model.onOpen(panel, {mode: 'canvas'});
+  assert.equal(opens, 0);
+  active = true;
+  await model.onOpen(panel, {mode: 'canvas'});
+  assert.equal(opens, 1);
 });

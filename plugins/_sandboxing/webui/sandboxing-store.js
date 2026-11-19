@@ -1,5 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
+import { closeModal } from "/js/modals.js";
+import { open as openSurface } from "/js/surfaces.js";
 import {
   toastFrontendError,
   toastFrontendSuccess,
@@ -57,6 +59,17 @@ const model = {
       if (!silent) toastFrontendError(error?.message || "Could not list sandboxes.");
     } finally {
       if (!silent) this.loading = false;
+    }
+  },
+
+  async browseFiles(sandbox) {
+    try {
+      const closed = await closeModal("/plugins/_sandboxing/webui/main.html");
+      if (closed !== false) {
+        await openSurface("files", { path: sandbox.browse_path, source: "sandboxing" });
+      }
+    } catch (error) {
+      toastFrontendError(error?.message || "Could not open sandbox files.");
     }
   },
 

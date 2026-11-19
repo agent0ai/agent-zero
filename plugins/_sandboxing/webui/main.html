@@ -96,6 +96,10 @@
                   </div>
                 </div>
                 <div class="sandbox-card-actions">
+                  <button class="button icon" type="button" title="Browse files" aria-label="Browse files"
+                          x-show="sandbox.browse_path" @click="$store.sandboxingStore.browseFiles(sandbox)">
+                    <x-icon name="folder_open"></x-icon>
+                  </button>
                   <button class="button icon" type="button" title="Start sandbox"
                           x-show="['stopped', 'recoverable'].includes(sandbox.status)"
                           :disabled="$store.sandboxingStore.isBusy(sandbox.name)"

@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 
 from helpers.api import ApiHandler, Request
+from plugins._sandboxing.helpers.file_browser import SandboxFilesProvider
 from plugins._sandboxing.helpers.images import image_info_dict
 from plugins._sandboxing.helpers.manager import SandboxError, sandbox_info_dict
 from plugins._sandboxing.helpers.runtime import defaults, get_manager
@@ -18,9 +19,13 @@ class Sandboxes(ApiHandler):
                 sandboxes = await asyncio.to_thread(manager.list)
                 images = await asyncio.to_thread(manager.list_images)
                 default_name, default_type, default_network = defaults()
+                files_provider = SandboxFilesProvider()
                 return {
                     "ok": True,
-                    "sandboxes": [sandbox_info_dict(item) for item in sandboxes],
+                    "sandboxes": [
+                        sandbox_info_dict(item) | {"browse_path": files_provider.browse_path(manager, item)}
+                        for item in sandboxes
+                    ],
                     "images": [image_info_dict(item) for item in images],
                     "defaults": {
                         "name": default_name,

@@ -22,7 +22,7 @@
 - DOM helper v2 and internal runtime readiness checks reject in-place upgrades: reload existing pages to remove legacy anonymous message listeners. Host connectors receive the helper source through its existing SHA-256 update path; restart existing host browsers and reconnect before reloading restored tabs to discard old initialization scripts.
 - Preserve Patchright lifecycle cleanup and WebSocket viewer compatibility across regular host browsers and Electron WebContentsView embedding.
 - Failed or cancelled internal startup closes both the driver and its sandbox display before retry.
-- Keep the WebUI Browser inside its own modal/canvas affordance; do not replace it with page-level navigation.
+- Keep the WebUI Browser inside its own modal/canvas affordance; do not replace it with page-level navigation. Initialize a canvas Browser panel only when the canvas marks Browser active and visible, even if an inactive panel briefly has layout during mount.
 - Default the visible WebUI Browser to the authenticated noVNC viewer for its existing Patchright page. Keep live CDP screencast and lightweight snapshots as automatic fallbacks.
 - Do not block an available interactive viewer on a redundant Chromium screenshot; capture initial snapshots only for fallback transports.
 - Keep headful Chromium in a normal window with its own toolbar clipped above the private display; do not use browser fullscreen, which shows Chromium's exit warning.

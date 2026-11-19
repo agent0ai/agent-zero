@@ -23,6 +23,11 @@ The `sandbox` tool and the plugin's main screen support list, doctor, create,
 inspect, save, stop, start, expiry cleanup, and exact-name delete operations.
 They also pull, list, inspect, clean, and delete cached sandbox images.
 
+Use **Browse files** on a sandbox row to open its persistent filesystem in Files,
+including while the sandbox is stopped. You can browse folders and download files.
+This view excludes guest symlinks, live mounts, transient paths such as `/tmp` and
+`/run`, and plugin service sandboxes.
+
 ## Storage policy
 
 New sandboxes have private directories and symlinks; unchanged regular files

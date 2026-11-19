@@ -907,6 +907,7 @@ const model = {
       || globalThis.document?.querySelector?.(".browser-panel");
     if (!root?.isConnected) return false;
     const surface = root.closest?.(".browser-canvas-surface");
+    if (surface && !rightCanvasStore.isSurfaceVisible("browser")) return false;
     const stage = root.querySelector?.(".browser-stage") || root;
     const surfaceStyle = surface ? globalThis.getComputedStyle?.(surface) : null;
     const rootStyle = globalThis.getComputedStyle?.(root);
