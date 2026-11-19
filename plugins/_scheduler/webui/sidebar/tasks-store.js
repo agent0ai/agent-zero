@@ -16,8 +16,29 @@ const model = {
   applyTasks(tasksList) {
     try {
       const tasks = Array.isArray(tasksList) ? tasksList : [];
-      const sorted = [...tasks].sort((a, b) => (b?.created_at || 0) - (a?.created_at || 0));
-      this.tasks = sorted;
+      const keyOf = (task) => task?.id ?? task?.uuid ?? "";
+
+      // Smart merge: keep existing object references so Alpine does not
+      // re-render (and reset the scroll position of) the whole list on
+      // every poll snapshot.
+      const existing = new Map((this.tasks || []).map((task) => [keyOf(task), task]));
+      const sorted = tasks.map((incoming) => {
+        const previous = existing.get(keyOf(incoming));
+        if (!previous) return incoming;
+        if (JSON.stringify(previous) !== JSON.stringify(incoming)) {
+          Object.assign(previous, incoming);
+        }
+        return previous;
+      });
+      sorted.sort((a, b) => (b?.created_at || 0) - (a?.created_at || 0));
+
+      // Publish a new array only when membership or order actually changed;
+      // an identical list must not wake reactive effects.
+      const current = this.tasks || [];
+      const unchanged =
+        current.length === sorted.length &&
+        sorted.every((task, index) => current[index] === task);
+      if (!unchanged) this.tasks = sorted;
 
       // After updating tasks, ensure selection is still valid
       if (this.selected && !this.contains(this.selected)) {

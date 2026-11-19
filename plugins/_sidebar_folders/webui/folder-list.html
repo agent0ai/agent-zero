@@ -103,7 +103,9 @@
     @media (pointer: coarse) {
       .sidebar-search-match { min-height: 2.75rem; padding-top: var(--spacing-xxs); }
     }
-    .sidebar-folder-list { overflow-x: hidden; overflow-y: auto; }
+    .sidebar-folder-list { overflow-x: hidden; overflow-y: auto; flex: 1 1 auto; min-height: 0; scrollbar-width: thin; }
+    #left-panel .sidebar-folder-list::-webkit-scrollbar { display: block; width: 6px; height: 6px; }
+    #left-panel .sidebar-folder-list::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
     .sidebar-folder-list > li.sidebar-folder { display: block; position: relative; padding: 0 0 var(--spacing-xxs); }
     .sidebar-folder-list > li.sidebar-pinned-group { margin-bottom: var(--spacing-xs); padding-bottom: var(--spacing-xs); border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent); }
     .sidebar-folder-row { display: flex; align-items: center; min-height: calc(var(--spacing-lg) + var(--spacing-xxs)); border-radius: 4px; position: relative; }
