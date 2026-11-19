@@ -21,6 +21,7 @@
 - `SkillsImportPreview` is an `ApiHandler`.
 - `SkillsImportPreview` defines `process(...)`.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.
+- `namespace`, `project_name`, and `agent_profile` form fields must each name a single directory. `helpers.skills_import` rejects separators, `.`, and `..` server-side before any filesystem change, and the rejection surfaces through the handler's error response.
 - Imported dependency areas include: `__future__`, `helpers`, `helpers.api`, `helpers.skills_import`, `os`, `pathlib`, `time`, `uuid`, `werkzeug.datastructures`, `werkzeug.utils`.
 
 ## Key Concepts

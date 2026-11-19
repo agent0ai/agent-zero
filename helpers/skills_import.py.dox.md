@@ -15,6 +15,7 @@
 - `ImportResult` (no explicit base class)
 - Top-level functions:
 - `_is_within(child: Path, parent: Path) -> bool`
+- `_require_path_segment(value: str, label: str) -> str`: Return the stripped value when it names exactly one directory; raise `ValueError` otherwise.
 - `_derive_namespace(source: Path) -> str`
 - `_candidate_skill_roots(source_dir: Path) -> List[Path]`: Heuristics to find likely skill roots inside a repo/pack:
 - `_safe_extract_zip(zip_path: Path, target: Path) -> None`
@@ -39,6 +40,7 @@
 ## Key Concepts
 
 - Zip extraction rejects absolute paths, backslash paths, path traversal, and symlink entries before extraction.
+- `namespace`, `project_name`, and `agent_profile` are joined onto destination roots, so each must be a single directory name: `import_skills`, `build_import_plan`, and `resolve_skills_destination_root` reject empty names, `.`, `..`, `/`, `\`, and NUL with `ValueError`. `import_skills` validates them before creating, extracting, deleting, or copying anything, including in dry runs. WebUI sanitization is not a security boundary; this module is.
 - Important called helpers/classes observed in the source: `dataclass`, `strip`, `plugins.is_dir`, `Path`, `base_tmp.mkdir`, `time.strftime`, `target.mkdir`, `_candidate_skill_roots`, `Path.expanduser`, `resolve_skills_destination_root`, `dest_root.mkdir`, `build_import_plan`, `ImportResult`, `child.resolve.relative_to`, `direct.is_dir`, `discover_skill_md_files`, `plugins.iterdir`, `files.get_abs_path`, `zipfile.ZipFile`, `archive.extractall`, `shutil.rmtree`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
@@ -51,7 +53,7 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- No direct test reference was found by name search; choose the nearest behavioral test or perform a focused smoke check.
+- Run `pytest tests/test_skills_import_paths.py tests/test_skills_scan.py` for import destination and zip extraction safety.
 
 ## Child DOX Index
 

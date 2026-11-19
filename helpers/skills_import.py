@@ -44,6 +44,28 @@ def _is_within(child: Path, parent: Path) -> bool:
         return False
 
 
+def _require_path_segment(value: str, label: str) -> str:
+    """
+    Return ``value`` stripped if it names exactly one directory, else raise.
+
+    Namespaces, project names and agent profile names are joined onto a
+    destination root, so they must not contain separators or be ``.``/``..``.
+    Both separators are rejected on every platform because request values may
+    come from clients on any OS.
+    """
+    candidate = str(value or "").strip()
+    if (
+        not candidate
+        or candidate in {".", ".."}
+        or "/" in candidate
+        or "\\" in candidate
+        or "\x00" in candidate
+        or os.path.basename(candidate) != candidate
+    ):
+        raise ValueError(f"Invalid {label}: {value!r}")
+    return candidate
+
+
 def _derive_namespace(source: Path) -> str:
     # Use stem for zip, name for directory
     return (source.stem or source.name or "import").strip()
@@ -153,7 +175,7 @@ def build_import_plan(
     source_dir = source
     roots = _candidate_skill_roots(source_dir)
     plan: List[ImportPlanItem] = []
-    ns = (namespace or _derive_namespace(source)).strip()
+    ns = _require_path_segment(namespace or _derive_namespace(source), "namespace")
     dest_ns_root = dest_root / ns
 
     for root in roots:
@@ -225,6 +247,10 @@ def resolve_skills_destination_root(
     project_name: Optional[str],
     agent_profile: Optional[str],
 ) -> Path:
+    if project_name:
+        project_name = _require_path_segment(project_name, "project name")
+    if agent_profile:
+        agent_profile = _require_path_segment(agent_profile, "agent profile")
     if project_name and agent_profile:
         return get_project_agent_profile_skills_folder(project_name, agent_profile)
     if project_name:
@@ -257,6 +283,10 @@ def import_skills(
     if not src.exists():
         raise FileNotFoundError(f"Source not found: {src}")
 
+    # Validate every caller-supplied path component before anything is created,
+    # extracted, deleted or copied.
+    ns = (namespace or _derive_namespace(src)).strip() or "import"
+    ns = _require_path_segment(ns, "namespace")
     dest_root = resolve_skills_destination_root(project_name, agent_profile)
     dest_root.mkdir(parents=True, exist_ok=True)
 
@@ -269,10 +299,6 @@ def import_skills(
         source_dir = src
     else:
         raise ValueError("Source must be a directory or a .zip file")
-
-    ns = (namespace or _derive_namespace(src)).strip()
-    if not ns:
-        ns = "import"
 
     plan, root_used = build_import_plan(source_dir, dest_root, namespace=ns)
     imported: List[Path] = []
