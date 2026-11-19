@@ -1,0 +1,9 @@
+name: _a0_cleaner
+title: A0Cleaner
+description: Automatic storage housekeeping, clear cleanup choices and weekly scans for your Agent Zero instance.
+version: 0.1.0
+always_enabled: false
+settings_sections:
+  - agent
+per_project_config: false
+per_agent_config: false

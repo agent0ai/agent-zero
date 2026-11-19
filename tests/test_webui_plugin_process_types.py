@@ -157,6 +157,26 @@ def test_code_execution_copy_restores_command_without_expanding_preview(page, pr
         }""")
 
 
+@pytest.mark.parametrize("code", [["echo first", "echo second"], {"command": "echo first"}, 42, None])
+@pytest.mark.parametrize("replay", [False, True])
+def test_code_execution_malformed_code_does_not_block_following_response(page, code, replay):
+    page.evaluate("""async ({code, replay}) => {
+      msgs.resetMessageRenderState();
+      prefs.detailMode = 'expanded';
+      const logs = [row(0, 'user'), row(1, 'code_exe', {
+        heading: 'icon://terminal code_execution_tool - terminal',
+        content: '', kvps: {runtime: 'terminal', session: 0, code},
+      }), row(2, 'warning', {content: 'code must be a string'}),
+      row(3, 'response', {content: 'Recovered successfully', kvps: {finished: true}})];
+      if (replay) await msgs.setMessages(logs);
+      else for (const log of logs) await msgs.setMessages([log]);
+      check(historyEl.querySelector('#process-step-code_exe-row-1'), 'execution log missing');
+      check(historyEl.querySelector('.process-group-response')?.textContent.includes('Recovered successfully'),
+        'malformed code prevented the following response from rendering');
+      check(JSON.stringify(logs[1].kvps.code) === JSON.stringify(code), 'rendering changed the stored arguments');
+    }""", {"code": code, "replay": replay})
+
+
 def test_code_execution_copy_preserves_output_without_a_matching_preview(page):
     page.evaluate("""async () => {
       const original = document.execCommand;

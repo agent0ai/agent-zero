@@ -19,7 +19,8 @@
 
 ## Runtime Contracts
 
-- Development uses the local scheduler and job-loop extensions without pausing itself or contacting a sibling. Explicit `pause_loop`/`resume_loop`, stale-pause recovery, tick error handling and the sleep interval remain intact.
+- Development uses the local scheduler and job-loop extensions without pausing itself or contacting a sibling. Explicit `pause_loop`/`resume_loop`, stale-pause recovery and tick error handling remain intact.
+- When active, the loop ticks immediately and then sleeps for 60 seconds between ticks. The scheduler owns overdue-run detection and duplicate prevention.
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.

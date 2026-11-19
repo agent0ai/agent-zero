@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from helpers.tool import Tool, Response, coerce_bool
+from helpers.errors import RepairableException
 from helpers import files, rfc_exchange, projects, runtime, secrets, settings
 from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text as truncate_text_string
@@ -74,6 +75,11 @@ class CodeExecution(Tool):
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
         runtime_arg = str(self.args.get("runtime", "")).lower().strip()
+        if runtime_arg in {"terminal", "python", "nodejs"} and not isinstance(self.args.get("code"), str):
+            received = type(self.args["code"]).__name__ if "code" in self.args else "missing"
+            raise RepairableException(
+                f"code_execution_tool requires code to be a string for runtime {runtime_arg}; received {received}"
+            )
         session = int(self.args.get("session", 0))
         self.allow_running = coerce_bool(self.args.get("allow_running", False), False)
         reset = coerce_bool(self.args.get("reset", False), False) or runtime_arg == "reset"

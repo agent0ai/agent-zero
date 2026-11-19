@@ -16,6 +16,7 @@ from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
 from helpers.secrets import get_default_secrets_manager
+from helpers.errors import RepairableException
 from helpers import dirty_json
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
 
@@ -71,6 +72,11 @@ class Settings(TypedDict):
     workdir_max_folders: int
     workdir_max_lines: int
     workdir_gitignore: str
+    remote_tree_inherit: bool
+    remote_tree_max_depth: int
+    remote_tree_max_files: int
+    remote_tree_max_folders: int
+    remote_tree_max_lines: int
     file_browser_remember_last_directory: bool
     file_browser_max_text_size_mb: int
     file_browser_max_transfer_size_mb: int
@@ -100,7 +106,7 @@ class Settings(TypedDict):
     a2a_server_enabled: bool
 
     variables: str
-    secrets: str
+    secrets: str | None
 
     # LiteLLM global kwargs applied to all model calls
     litellm_global_kwargs: dict[str, Any]
@@ -341,10 +347,7 @@ def convert_out(settings: Settings) -> SettingsOutput:
 
     #secrets
     secrets_manager = get_default_secrets_manager()
-    try:
-        out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
-    except Exception:
-        out["settings"]["secrets"] = ""
+    out["settings"]["secrets"] = secrets_manager.get_masked_secrets()
 
     # mask API keys before sending to frontend
     if isinstance(out["settings"].get("api_keys"), dict):
@@ -475,6 +478,10 @@ def normalize_settings(settings: Settings) -> Settings:
     for key, value in default.items():
         if key not in copy:
             copy[key] = value
+        elif key == "secrets" and copy[key] is None:
+            continue  # Unavailable secrets must not become an empty or literal "None" submission.
+        elif key.startswith("remote_tree_max_"):
+            continue
         else:
             try:
                 copy[key] = type(value)(copy[key])  # type: ignore
@@ -487,6 +494,15 @@ def normalize_settings(settings: Settings) -> Settings:
     copy["file_browser_max_transfer_size_mb"] = max(1, copy["file_browser_max_transfer_size_mb"])
     copy["file_browser_max_extract_size_mb"] = max(1, copy["file_browser_max_extract_size_mb"])
     copy["file_browser_max_archive_entries"] = max(1, copy["file_browser_max_archive_entries"])
+    copy["remote_tree_inherit"] = settings.get("remote_tree_inherit", default["remote_tree_inherit"]) is not False
+    for suffix in ("max_depth", "max_files", "max_folders", "max_lines"):
+        key = f"remote_tree_{suffix}"
+        raw = settings.get(key, default[key])
+        try:
+            value = int(raw) if type(raw) in (int, str) else -1
+        except ValueError:
+            value = -1
+        copy[key] = value if value >= 0 else default[key]
     if copy["agent_profile"] == "default":
         copy["agent_profile"] = "agent0"
 
@@ -530,8 +546,8 @@ def _load_sensitive_settings(settings: Settings):
     secrets_manager = get_default_secrets_manager()
     try:
         settings["secrets"] = secrets_manager.read_secrets_raw()
-    except Exception:
-        settings["secrets"] = ""
+    except RepairableException:
+        settings["secrets"] = None
 
 
 def _read_settings_file() -> Settings | None:
@@ -577,9 +593,9 @@ def _write_sensitive_settings(settings: Settings):
             set_root_password(settings["root_password"])
 
     # Handle secrets separately - merge with existing preserving comments/order and support deletions
-    secrets_manager = get_default_secrets_manager()
     submitted_content = settings["secrets"]
-    secrets_manager.save_secrets_with_merge(submitted_content)
+    if submitted_content is not None:
+        get_default_secrets_manager().save_secrets_with_merge(submitted_content)
 
 
 
@@ -608,6 +624,11 @@ def get_default_settings() -> Settings:
         workdir_max_folders=get_default_value("workdir_max_folders", 20),
         workdir_max_lines=get_default_value("workdir_max_lines", 250),
         workdir_gitignore=get_default_value("workdir_gitignore", gitignore),
+        remote_tree_inherit=get_default_value("remote_tree_inherit", True),
+        remote_tree_max_depth=get_default_value("remote_tree_max_depth", get_default_value("workdir_max_depth", 5)),
+        remote_tree_max_files=get_default_value("remote_tree_max_files", get_default_value("workdir_max_files", 20)),
+        remote_tree_max_folders=get_default_value("remote_tree_max_folders", get_default_value("workdir_max_folders", 20)),
+        remote_tree_max_lines=get_default_value("remote_tree_max_lines", get_default_value("workdir_max_lines", 250)),
         file_browser_remember_last_directory=get_default_value(
             "file_browser_remember_last_directory",
             True,

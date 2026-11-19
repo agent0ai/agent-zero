@@ -742,7 +742,7 @@ const schedulerStoreModel = {
       this.tasks = this.tasks.filter((task) => task.uuid !== taskId);
       this.hasNoTasks = this.tasks.length === 0;
       if (this.selectedTaskForDetail?.uuid === taskId) {
-        this.closeTaskDetail();
+        await this.closeTaskDetail();
       }
     } catch (error) {
       this.notifyError(`Failed to delete task: ${error.message}`);
@@ -1008,13 +1008,13 @@ const schedulerStoreModel = {
 
   closeTaskDetail() {
     this.selectedTaskForDetail = null;
-    window.closeModal();
+    return closeModal("/plugins/_scheduler/webui/scheduler/scheduler-task-detail.html");
   },
 
   async editFromDetail() {
     const taskId = this.selectedTaskForDetail?.uuid;
     if (!taskId) return;
-    this.closeTaskDetail();
+    await this.closeTaskDetail();
     await this.startEditTask(taskId);
     // Open main scheduler modal to show the editor
     window.openModal("/plugins/_scheduler/webui/scheduler/scheduler-modal.html");

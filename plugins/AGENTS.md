@@ -32,6 +32,7 @@
 - Prefer the existing [sandbox/worker facilities](../docs/developer/plugin-sandboxes.md#choosing-dependency-location) for plugin-owned Python, Node and native packages, heavy inference, browser/document/media workers and external integration dependencies. Keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework; call the guest without importing guest-only libraries or adding them to root requirements or global pip/npm/apt installs.
 - Main-environment dependencies are legitimate only for functionality that must execute there. Document the concrete need in the plugin README and keep that dependency set minimal. `hooks.py` still runs in the framework's global Docker Python environment; sandboxing workers does not isolate plugin hooks.
 - Hooks own install/update/uninstall through framework APIs and may delegate guest provisioning to automatic worker setup. Reuse guest-owned manifests/installers and persistent environments with idempotent setup/retry; provision at first actual use, or at enablement/startup for early-needed features and configured listeners. Disable stops owned workers; uninstall cleans up owned resources while preserving shared dependencies and unrelated user data.
+- For scheduled maintenance, register a task with `plugin_name` and implement `run_scheduled_task(task, cancel_event)` in `hooks.py`. Return a result string and cooperate with cancellation. Preserve user changes, disabled schedules, and task deletion.
 - `execute.py` is only for separate, explicitly requested manual actions unrelated to lifecycle setup, dependency installation, required initialization, updates or removal. Never require it or a user-run post-install command to make a plugin usable.
 - Plugin routes are `GET /plugins/<name>/<path>`, `POST /api/plugins/<name>/<handler>`, and `POST /api/plugins` for management actions.
 - Local socket handlers live in `socket/` beside `api/`, derive from `helpers.socket_api.SocketHandler`, and resolve as `plugins/<name>/<handler>`. Follow [the socket contract](../socket/AGENTS.md); validate operation arguments and any scoped permissions in the handler.
@@ -76,6 +77,7 @@ Direct child DOX files:
 
 | Child | Scope |
 | --- | --- |
+| [_a0_cleaner/AGENTS.md](_a0_cleaner/AGENTS.md) | Container storage scans, automatic housekeeping, reviewed cleanup and scheduler integration. |
 | [_a0_connector/AGENTS.md](_a0_connector/AGENTS.md) | HTTP and WebSocket connector integration with remote tools and runtime bridges. |
 | [_a2a_chat/AGENTS.md](_a2a_chat/AGENTS.md) | FastA2A agent-to-agent chat tool. |
 | [_agent_editor/AGENTS.md](_agent_editor/AGENTS.md) | Deterministic sparse agent-profile editor API, helpers, and WebUI. |

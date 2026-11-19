@@ -33,6 +33,7 @@ def test_session_picker_shows_four_recent_sessions(monkeypatch):
         FakeContext("ctx-4", "Four", "2026-05-04T10:00:00"),
         FakeContext("ctx-5", "Five", "2026-05-05T10:00:00"),
     ]
+    monkeypatch.setattr(command_ui.scopes, "can_select_session", lambda source, target: True)
     current = contexts[4]
     monkeypatch.setattr(command_ui, "AgentContext", SimpleNamespace(all=lambda: contexts))
 
@@ -56,6 +57,7 @@ def test_select_session_remaps_telegram_chat(monkeypatch):
             CTX_TG_USERNAME: "anmol",
         }
     )
+    monkeypatch.setattr(command_ui.scopes, "can_select_session", lambda source, target: True)
     saved = []
     dirty = []
     state_out = {}

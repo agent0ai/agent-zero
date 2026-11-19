@@ -52,7 +52,7 @@ def test_heartbeat_sends_periodic_status_and_stops(monkeypatch):
 
     context = FakeContext()
     monkeypatch.setattr(heartbeat, "HEARTBEAT_INTERVAL_SECONDS", 0.01)
-    monkeypatch.setattr(heartbeat, "get_bot", lambda name: FakeBot())
+    monkeypatch.setattr(heartbeat.scopes, "authorized_bot", lambda context: FakeBot())
     monkeypatch.setattr(heartbeat.tc, "raw_send_text", fake_send)
 
     async def run():

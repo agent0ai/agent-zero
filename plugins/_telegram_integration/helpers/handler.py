@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager, suppress
 from plugins._telegram_integration.helpers.sandbox import Bot, TelegramEvent as TgMessage, TelegramEvent as CallbackQuery
 
 from agent import AgentContext, UserMessage
-from helpers import plugins, files, projects
+from helpers import files, projects, subagents
 from helpers import message_queue as mq
 from helpers.notification import NotificationManager, NotificationType, NotificationPriority
 from helpers.persist_chat import save_tmp_chat
@@ -20,13 +20,12 @@ from initialize import initialize_agent
 from plugins._telegram_integration.helpers import telegram_client as tc
 from plugins._telegram_integration.helpers import command_ui
 from plugins._telegram_integration.helpers import slash_commands
+from plugins._telegram_integration.helpers import scopes
 from plugins._telegram_integration.helpers.bot_manager import get_bot
 from plugins._telegram_integration.helpers.constants import (
-    PLUGIN_NAME,
     DOWNLOAD_FOLDER,
     STATE_FILE,
     CTX_TG_BOT,
-    CTX_TG_BOT_CFG,
     CTX_TG_CHAT_ID,
     CTX_TG_CHAT_TYPE,
     CTX_TG_USER_ID,
@@ -62,16 +61,13 @@ def _map_key(bot_name: str, user_id: int, chat_id: int) -> str:
     return f"{bot_name}:{user_id}:{chat_id}"
 
 
-def cleanup_old_attachments():
+def cleanup_old_attachments(bots_cfg: dict):
     """Remove downloaded attachment files older than per-bot max age. 0 = keep forever."""
-    config = plugins.get_plugin_config(PLUGIN_NAME) or {}
-    bots_cfg = config.get("bots") or []
     total_removed = 0
     upload_dir = files.get_abs_path(DOWNLOAD_FOLDER)
     if not os.path.isdir(upload_dir):
         return
-    for bot_cfg in bots_cfg:
-        bot_name = bot_cfg.get("name", "")
+    for bot_name, bot_cfg in bots_cfg.items():
         if not bot_name:
             continue
         max_age_hours = bot_cfg.get("attachment_max_age_hours", 0)
@@ -129,7 +125,7 @@ def _get_project(bot_cfg: dict, user_id: int) -> str:
         project = bot_cfg.get("default_project", "")
     return project
 
-# Message handlers (registered with aiogram by bot_manager)
+# Message handlers for events forwarded by the Telegram worker
 
 async def handle_start(message: TgMessage, bot_name: str, bot_cfg: dict):
     """Handle /start command."""
@@ -192,6 +188,8 @@ async def handle_message(message: TgMessage, bot_name: str, bot_cfg: dict):
         is_admin=_is_admin(bot_cfg, user.id, user.username),
     )
     if text is None:
+        return
+    if not scopes.context_config(context):
         return
 
     # Use temp bot for downloads (cross-event-loop safe)
@@ -306,11 +304,15 @@ async def handle_callback_query(query: CallbackQuery, bot_name: str, bot_cfg: di
         text = _normalize_bot_command(text, instance)
         if text is None:
             return
+
         text = await slash_commands.handle(context, instance.bot.token,
             query.message.chat.id, query.message.message_id, text,
             is_admin=_is_admin(bot_cfg, user.id, user.username))
         if text is None:
             return
+
+    if not scopes.context_config(context):
+        return
 
     agent = context.agent0
     user_msg = agent.read_prompt(
@@ -358,6 +360,15 @@ async def handle_new_members(message: TgMessage, bot_name: str, bot_cfg: dict):
 
 # Context management
 
+def get_bound_context(bot_name: str, user_id: int, chat_id: int):
+    ctx_id = _load_state().get("chats", {}).get(_map_key(bot_name, user_id, chat_id))
+    context = AgentContext.get(ctx_id) if ctx_id else None
+    if context and all(context.data.get(key) == value for key, value in (
+        (CTX_TG_BOT, bot_name), (CTX_TG_USER_ID, user_id), (CTX_TG_CHAT_ID, chat_id),
+    )):
+        return context
+    return None
+
 async def _get_or_create_context(
     bot_name: str,
     bot_cfg: dict,
@@ -384,34 +395,36 @@ async def _get_or_create_context_from_user(
     with _chat_map_lock:
         state = _load_state()
         chats = state.setdefault("chats", {})
-        ctx_id = chats.get(key)
-
         # Check if existing context is still alive
-        if ctx_id:
-            ctx = AgentContext.get(ctx_id)
-            if ctx:
-                ctx.data[CTX_TG_CHAT_TYPE] = chat_type or ctx.data.get(CTX_TG_CHAT_TYPE, "")
-                ctx.data[CTX_TG_BOT_CFG] = bot_cfg
-                return ctx
-            # Context was garbage collected, remove stale mapping
-            chats.pop(key, None)
+        ctx = get_bound_context(bot_name, user_id, chat_id)
+        if ctx:
+            ctx.data[CTX_TG_CHAT_TYPE] = chat_type or ctx.data.get(CTX_TG_CHAT_TYPE, "")
+            ctx.data[CTX_TG_USERNAME] = username or ""
+            scopes.remember_config(ctx, bot_cfg)
+            return ctx
+        chats.pop(key, None)
 
         # Create new context
         try:
-            config = initialize_agent()
+            project, profile = bot_cfg.get("_initial_scope", (_get_project(bot_cfg, user_id), ""))
+            if profile and profile not in subagents.get_available_agents_dict(project or None):
+                raise ValueError("The configured Telegram agent profile is unavailable in its project.")
+            config = initialize_agent(override_settings={"agent_profile": profile}) if profile else initialize_agent()
             display_name = f"@{username}" if username else str(user_id)
             ctx = AgentContext(config, name=f"Telegram: {display_name}")
 
             ctx.data[CTX_TG_BOT] = bot_name
-            ctx.data[CTX_TG_BOT_CFG] = bot_cfg
+            scopes.remember_config(ctx, bot_cfg)
             ctx.data[CTX_TG_CHAT_ID] = chat_id
             ctx.data[CTX_TG_CHAT_TYPE] = chat_type
             ctx.data[CTX_TG_USER_ID] = user_id
             ctx.data[CTX_TG_USERNAME] = username or ""
 
-            project = _get_project(bot_cfg, user_id)
             if project:
                 projects.activate_project(ctx.id, project)
+
+            if not scopes.context_config(ctx):
+                return None
 
             # Inherit model override from an existing context in the same project
             _inherit_model_override(ctx)
@@ -528,9 +541,9 @@ async def send_telegram_reply(
     if not bot_name:
         return "No Telegram bot configured on context"
 
-    instance = get_bot(bot_name)
+    instance = scopes.authorized_bot(context)
     if not instance:
-        return f"Bot '{bot_name}' not running"
+        return "Telegram delivery is disabled or no longer authorized for this chat"
 
     chat_id = context.data.get(CTX_TG_CHAT_ID)
     if not chat_id:

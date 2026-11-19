@@ -109,6 +109,10 @@ when the work should run later or on a schedule.
 
 Plugins add integrations, tools, panels, and automation helpers.
 
+For storage housekeeping, use the built-in [A0Cleaner](cleaner.md). Its guide
+covers automatic cleanup, weekly notifications, and manual cleanup of selected
+areas or custom folders.
+
 Open **Plugins** from the dashboard or sidebar to see what is installed.
 
 ![Plugins](../res/usage/plugins/plugins-list-01.png)
@@ -323,39 +327,18 @@ See the [Projects guide](projects.md) for the full screenshot walkthrough.
 
 Tasks let Agent Zero run work later, repeatedly, or on demand.
 
-Use tasks for:
+Open the sidebar's **More options → Scheduled Tasks**, select **New Task**, fill
+in the form, and **Save**. You can also ask in a normal chat, for example:
 
-- morning or weekly reports;
-- monitoring a source and summarizing changes;
-- recurring cleanup or export jobs;
-- project-specific checks;
-- manual batch jobs you want to run again.
+> Every weekday at 8:30 in the morning, give me a quick writing warm-up: a fun
+> prompt I can finish in ten minutes and one tip to help me start. Keep these
+> in their own chat so I can find them easily.
 
-Open **Tasks** from the dashboard or sidebar.
+Both methods save the task in **Scheduled Tasks**. A task with its own chat
+also appears under **Tasks** in the sidebar, where you can read its results.
 
-![Task scheduler](../res/usage/tasks/scheduler-1.png)
-
-When creating a task, focus on four things:
-
-- **Name:** what you will recognize later.
-- **Type:** scheduled, planned, or ad-hoc.
-- **Project:** optional, but recommended when the task needs specific context or secrets.
-- **Prompt:** the actual work Agent Zero should perform.
-
-![Edit task](../res/usage/tasks/edit-task.png)
-
-Example:
-
-```text
-Name: Weekly docs review
-Type: Scheduled
-Project: Documentation
-Prompt: Check the docs project for stale screenshots, broken links, and confusing sections. Summarize what needs attention.
-```
-
-Project-scoped tasks inherit project instructions, variables, secrets, files, and
-memory. That means you can improve task behavior later by improving the project
-instead of repeating every rule in every task.
+Follow [Create a scheduled task](task-scheduler.md) for both complete
+walkthroughs, schedule examples, task controls, and what happens after downtime.
 
 ## Secrets And Variables
 

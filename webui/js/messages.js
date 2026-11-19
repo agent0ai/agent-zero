@@ -223,7 +223,8 @@ async function setMessagesNow(messages, generation) {
 
   const initialWindow =
     _messageWindow.size > 0 && !history?.querySelector(".message-group");
-  if (initialWindow && _messageWindowFollowTail) _messageWindow.showTail();
+  const fullSnapshot = messages[0]?.no === 0;
+  if ((initialWindow || fullSnapshot) && _messageWindowFollowTail) _messageWindow.showTail();
   const compactedTail = _messageWindow.compactTailIfNeeded();
   const windowMessages = _messageWindow.visibleMessages();
   const cappedProcessGroupUpdate = hasCappedProcessGroupUpdate(
@@ -231,7 +232,7 @@ async function setMessagesNow(messages, generation) {
     windowMessages,
     addedMessageKeys,
   );
-  if (initialWindow || compactedTail || cappedProcessGroupUpdate) {
+  if (initialWindow || fullSnapshot || compactedTail || cappedProcessGroupUpdate) {
     return await renderMessageWindow({
       preserveScroll: !initialWindow && !followTail,
       generation,

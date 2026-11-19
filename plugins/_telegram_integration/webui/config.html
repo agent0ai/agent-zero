@@ -13,10 +13,13 @@
       <div class="tg-page">
         <div class="section-title">Telegram</div>
         <div class="field-description">
-          Bot settings and access rules apply globally. Use Default project and User project mapping to route conversations.
+          Configure bots globally, per project, per agent profile, or for a project and profile together.
+          Each saved scope needs its own bot from <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>.
+          When copying settings to another scope, replace the token with that bot's token before saving.
+          Inherited settings use the existing bot without starting another connection.
         </div>
         <div class="field-description" x-show="context.projectName || context.agentProfileKey">
-          These legacy scoped settings are available for review. Reopen Telegram settings to edit the global configuration.
+          Bots configured here stay within this project/profile. Their allowlists and activation rules are checked on every message and button press.
         </div>
         <button type="button" class="btn btn-field" @click="context.openConfigListModal()">
           Show existing configurations

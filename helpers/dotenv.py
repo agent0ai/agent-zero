@@ -40,5 +40,8 @@ def save_dotenv_value(key: str, value: str, reload_env: bool = True):
         f.seek(0)
         f.writelines(lines)
         f.truncate()
+    # Import here because the secrets manager also reads dotenv configuration.
+    from helpers.secrets import SecretsManager
+    SecretsManager._invalidate_all_caches()
     if reload_env:
         load_dotenv()

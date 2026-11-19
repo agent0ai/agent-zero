@@ -36,6 +36,15 @@
           </button>
         </div>
 
+        <div class="time-travel-status" x-show="$store.timeTravel.payload?.storage" style="display: none;">
+          <x-icon name="database" aria-hidden="true"></x-icon>
+          <span x-text="$store.timeTravel.storageLabel()"></span>
+        </div>
+        <details class="time-travel-status" x-show="$store.timeTravel.present()?.skipped_files?.length" style="display: none;">
+          <summary x-text="`${$store.timeTravel.present()?.skipped_files?.length || 0} oversized files excluded from snapshots`"></summary>
+          <ul><template x-for="path in ($store.timeTravel.present()?.skipped_files || [])" :key="path"><li x-text="path"></li></template></ul>
+        </details>
+
         <div class="time-travel-status" x-show="$store.timeTravel.loading || $store.timeTravel.error || $store.timeTravel.busy" style="display: none;">
           <x-icon :class="{ spinning: $store.timeTravel.loading || $store.timeTravel.busy }" :name="$store.timeTravel.error ? 'error' : 'progress_activity'"></x-icon>
           <span x-text="$store.timeTravel.error || ($store.timeTravel.busy ? 'Working...' : 'Loading history...')"></span>
@@ -72,7 +81,7 @@
                     :title="row.message"
                   >
                     <span class="time-travel-row-mark">
-                      <x-icon :name="row.kind === 'present' ? (row.dirty ? 'edit_note' : 'check_circle') : (row.is_current ? 'radio_button_checked' : 'commit')"></x-icon>
+                      <x-icon :name="row.kind === 'present' ? (!$store.timeTravel.payload?.present ? 'manage_search' : (row.dirty ? 'edit_note' : 'check_circle')) : (row.is_current ? 'radio_button_checked' : 'commit')"></x-icon>
                     </span>
                     <span class="time-travel-row-main">
                       <span class="time-travel-row-title" x-text="row.message"></span>
@@ -100,7 +109,7 @@
                     <x-icon name="move_down"></x-icon>
                     <span>Travel</span>
                   </button>
-                  <button type="button" class="time-travel-tool-button" title="Revert" @click="$store.timeTravel.openPreview('revert')" :disabled="$store.timeTravel.busy">
+                  <button type="button" class="time-travel-tool-button" :title="$store.timeTravel.selectedCommit()?.metadata?.retention_checkpoint ? 'Checkpoint: earlier changes have expired' : 'Revert'" @click="$store.timeTravel.openPreview('revert')" :disabled="Boolean($store.timeTravel.busy || $store.timeTravel.selectedCommit()?.metadata?.retention_checkpoint)">
                     <x-icon name="undo"></x-icon>
                     <span>Revert</span>
                   </button>

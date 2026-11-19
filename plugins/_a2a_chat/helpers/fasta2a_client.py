@@ -32,10 +32,7 @@ class AgentConnection:
 
         self.agent_url = agent_url.rstrip('/')
         self.timeout = timeout
-        # Auth headers
-        if token is None:
-            import os
-            token = os.getenv("A2A_TOKEN")
+        # Only send credentials explicitly supplied for this connection.
         headers = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"

@@ -13,17 +13,18 @@ The sweep (driven from ``job_loop``, throttled by config) removes:
   forward-enumerated (project folders, the configured workdir, per-chat workdirs) and hashed
   with the same ``workspace_id_for`` derivation; anything outside that set has no owner and can
   never be shown in the UI again. Deleted once last activity is past a grace window.
-- AGED repositories — no snapshot in ``retention_max_age_days`` (0 = keep forever, the
-  default).
-- STALE LOCKS — ``repo.git/index.lock`` older than ``retention_stale_lock_minutes``; Time
-  Travel kills its git subprocesses at ``GIT_TIMEOUT_SECONDS``, so no legitimate lock lives
-  that long. Removing it un-wedges future snapshots.
+- AGED repositories — no snapshot or travel in ``retention_max_age_days`` (0 disables
+  whole-history deletion for inactive workspaces, the default).
+- STALE LOCKS — ``repo.git/index.lock`` older than ``retention_stale_lock_minutes``;
+  removal holds the workspace lock so it cannot race a capture, restore or compaction.
 - INVALID BACKUPS — ``repo.git.invalid*`` set-asides made for corrupt repositories, past the
   same grace window.
 
-Deleting a live workspace's shadow repository is always safe for the feature itself: the next
-snapshot lazily re-initializes an empty history. Deletion is refused for any path outside the
-shadow root.
+Active snapshot expiry is enabled by default and can be disabled separately. ``compaction.py``
+preserves the current state, recent snapshots and checkpoint boundaries, then reclaims
+unreachable objects. All mutations share workspace locks with captures and restores;
+unknown ownership aborts cleanup. Deleting
+an inactive history intentionally loses its recovery points, but never edits workspace files.
 
 Durable state next to the workspaces dir: ``retention.json`` (running totals + last sweep
 stamp) and ``retention.log`` (one JSON line per sweep with the names of everything removed,
@@ -37,7 +38,12 @@ import json
 import os
 import shutil
 import time
+from pathlib import Path
 from typing import Any, Optional
+
+from filelock import Timeout
+
+from plugins._time_travel.helpers.locking import workspace_lock
 
 PLUGIN_NAME = "_time_travel"
 
@@ -51,6 +57,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "retention_max_age_days": 0,
     "retention_orphan_grace_hours": 24,
     "retention_stale_lock_minutes": 30,
+    "history_retention_enabled": True,
+    "history_max_snapshots": 500,
+    "history_max_age_days": 30,
 }
 
 
@@ -64,15 +73,15 @@ def _int_at_least(value: Any, minimum: int, fallback: int) -> int:
 def effective_config(cfg: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Plugin config with defaults filled in and values clamped to sane minimums."""
     if cfg is None:
-        try:
-            from helpers import plugins
+        from helpers import plugins
 
-            cfg = plugins.get_plugin_config(PLUGIN_NAME) or {}
-        except Exception:
-            cfg = {}
+        cfg = plugins.get_plugin_config(PLUGIN_NAME) or {}
     merged = dict(DEFAULT_CONFIG)
     merged.update({k: v for k, v in cfg.items() if k in DEFAULT_CONFIG and v is not None})
     merged["retention_enabled"] = bool(merged["retention_enabled"])
+    merged["history_retention_enabled"] = merged["history_retention_enabled"] is True
+    merged["history_max_snapshots"] = _int_at_least(merged["history_max_snapshots"], 0, 500)
+    merged["history_max_age_days"] = _int_at_least(merged["history_max_age_days"], 0, 30)
     merged["retention_sweep_interval_hours"] = _int_at_least(
         merged["retention_sweep_interval_hours"], 1, 6
     )
@@ -109,22 +118,19 @@ def live_workspace_ids() -> set[str]:
     projects_root = time_travel.real_path_for_display("/a0/usr/projects")
     try:
         for name in os.listdir(projects_root):
-            if os.path.isdir(os.path.join(projects_root, name)):
+            if (projects_root / name).is_dir():
                 ids.add(time_travel.workspace_id_for(f"/a0/usr/projects/{name}"))
-    except Exception:
+    except FileNotFoundError:
         pass
 
-    try:
-        ids.add(time_travel.workspace_id_for(time_travel.configured_workdir_display_path()))
-    except Exception:
-        ids.add(time_travel.workspace_id_for("/a0/usr/workdir"))
+    ids.add(time_travel.workspace_id_for(time_travel.configured_workdir_display_path()))
 
     chats_root = time_travel.real_path_for_display("/a0/usr/chats")
     try:
         for name in os.listdir(chats_root):
-            if os.path.isdir(os.path.join(chats_root, name, "workdir")):
+            if (chats_root / name / "workdir").is_dir():
                 ids.add(time_travel.workspace_id_for(f"/a0/usr/chats/{name}/workdir"))
-    except Exception:
+    except FileNotFoundError:
         pass
 
     return ids
@@ -187,6 +193,10 @@ def read_history(limit: int = 50, state_dir: Optional[str] = None) -> list[dict[
 
 
 def _last_activity(entry_path: str) -> float:
+    try:
+        return os.stat(os.path.join(entry_path, "last_activity"), follow_symlinks=False).st_mtime
+    except FileNotFoundError:
+        pass
     candidates = [
         os.path.join(entry_path, "repo.git", "refs", "heads", "current"),
         os.path.join(entry_path, "repo.git", "packed-refs"),
@@ -221,7 +231,7 @@ def _remove_tree(path: str, shadow_root: str) -> int:
     """rmtree guarded to the shadow root; returns bytes reclaimed (0 on refusal/failure)."""
     real = os.path.realpath(path)
     root = os.path.realpath(shadow_root)
-    if not real.startswith(root + os.sep):
+    if os.path.islink(path) or not real.startswith(root + os.sep):
         return 0
     size = _tree_bytes(real)
     try:
@@ -246,6 +256,9 @@ def sweep(
         "stale_locks_removed": 0,
         "invalid_backups_removed": 0,
         "bytes_reclaimed": 0,
+        "repositories_compacted": 0,
+        "commits_expired": 0,
+        "gc_runs": 0,
     }
     config = effective_config(cfg)
     if not config["retention_enabled"]:
@@ -270,42 +283,70 @@ def sweep(
 
     for name in entries:
         entry = os.path.join(root, name)
-        if not os.path.isdir(entry):
+        if len(name) != 32 or any(char not in "0123456789abcdef" for char in name):
             continue
-        last = _last_activity(entry)
-
-        if name not in ids:
-            if now - last > grace_s:
-                stats["bytes_reclaimed"] += _remove_tree(entry, root)
-                stats["orphans_removed"] += 1
-                detail["orphans"].append(name)
+        if os.path.islink(entry) or not os.path.isdir(entry):
             continue
-
-        if max_age_s and now - last > max_age_s:
-            stats["bytes_reclaimed"] += _remove_tree(entry, root)
-            stats["aged_removed"] += 1
-            detail["aged"].append(name)
-            continue
-
-        lock = os.path.join(entry, "repo.git", "index.lock")
         try:
-            if os.path.isfile(lock) and now - os.stat(lock).st_mtime > lock_s:
-                os.remove(lock)
-                stats["stale_locks_removed"] += 1
-                detail["locks"].append(name)
-        except Exception:
-            pass
+            with workspace_lock(Path(entry)).acquire(timeout=0):
+                if os.path.islink(os.path.join(entry, "repo.git")):
+                    continue
+                last = _last_activity(entry)
 
-        try:
-            for sub in os.listdir(entry):
-                if sub.startswith("repo.git.invalid"):
-                    backup = os.path.join(entry, sub)
-                    if now - os.stat(backup).st_mtime > grace_s:
-                        stats["bytes_reclaimed"] += _remove_tree(backup, root)
-                        stats["invalid_backups_removed"] += 1
-                        detail["invalid"].append(f"{name}/{sub}")
-        except Exception:
-            pass
+                if name not in ids:
+                    if now - last > grace_s:
+                        stats["bytes_reclaimed"] += _remove_tree(entry, root)
+                        if not os.path.lexists(entry):
+                            stats["orphans_removed"] += 1
+                            detail["orphans"].append(name)
+                    continue
+
+                if max_age_s and now - last > max_age_s:
+                    stats["bytes_reclaimed"] += _remove_tree(entry, root)
+                    if not os.path.lexists(entry):
+                        stats["aged_removed"] += 1
+                        detail["aged"].append(name)
+                    continue
+
+                lock = os.path.join(entry, "repo.git", "index.lock")
+                try:
+                    if os.path.isfile(lock) and now - os.stat(lock).st_mtime > lock_s:
+                        os.remove(lock)
+                        stats["stale_locks_removed"] += 1
+                        detail["locks"].append(name)
+                except Exception:
+                    pass
+                if config["history_retention_enabled"]:
+                    from helpers.print_style import PrintStyle
+                    from plugins._time_travel.helpers.compaction import compact_repository
+
+                    try:
+                        activity = Path(entry) / "last_activity"
+                        if not activity.exists():
+                            with open(activity, "xb") as marker:
+                                os.utime(marker.fileno(), (last, last))
+                        compacted = compact_repository(
+                            Path(entry) / "repo.git", max_snapshots=config["history_max_snapshots"],
+                            max_age_days=config["history_max_age_days"], now=now,
+                        )
+                        for key, value in compacted.items():
+                            stats[key] += value
+                    except Exception as exc:
+                        PrintStyle.error(f"Time Travel compaction failed for {name}: {exc}")
+
+                try:
+                    for sub in os.listdir(entry):
+                        if sub.startswith("repo.git.invalid"):
+                            backup = os.path.join(entry, sub)
+                            if now - os.stat(backup).st_mtime > grace_s:
+                                stats["bytes_reclaimed"] += _remove_tree(backup, root)
+                                if not os.path.lexists(backup):
+                                    stats["invalid_backups_removed"] += 1
+                                    detail["invalid"].append(f"{name}/{sub}")
+                except Exception:
+                    pass
+        except Timeout:
+            continue
 
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     _write_marker(base, stats, stamp)

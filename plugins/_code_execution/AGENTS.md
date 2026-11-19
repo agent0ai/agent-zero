@@ -17,8 +17,10 @@
 
 - `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.
 - Keep command previews compact in rendered execution output. `code-exe-handler.js` restores a matching command prefix from the already-masked `kvps.code` for Copy Output and step details, preserving command whitespace and the output body. Existing log size limits remain; copying cannot recover text already discarded by those limits.
+- Normalize logged `code` to display text before title and copy operations. Rejected malformed arguments can remain in stored logs; streaming and replay must render them without changing the original arguments.
 
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
+- Execution runtimes (`terminal`, `python`, `nodejs`) require a string `code` argument. Reject missing or non-string code with `RepairableException` before configuring or resetting shells; output polling and reset do not require code. Verify with `tests/test_code_execution_arguments.py`.
 - A direct parallel code job retains its worker and loop-bound shell until the command ends or is cancelled. Output timeouts publish model-facing progress to the registered job and continue polling; callers use parallel job IDs. Close parallel shells explicitly on that worker loop on completion or cancellation, including partially connected shells. Top-level sessions retain their ordinary timeout/output/reset behavior.
 - Execute multi-line terminal input as one current-shell compound so intermediate prompts cannot mark queued work complete; preserve `cd`, exports, and other shell state.
 - Treat local process exit and SSH channel termination as definitive command completion even when no final prompt is emitted; recreate terminated sessions before their next command.

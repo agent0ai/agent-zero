@@ -33,6 +33,8 @@ Schedules use cron-like fields. Do not put ISO datetimes into `schedule`.
 
 Use IANA timezones such as `Europe/Rome`. Omit timezone to use the current user timezone. Planned task datetimes go in `plan`, not `schedule`, and should be ISO strings such as `2026-05-09T18:25:00`.
 
+Recurring tasks missed while Agent Zero is offline run once on the next scheduler tick after startup; multiple missed occurrences collapse into one run. Disabled and errored tasks do not catch up. Changing cron/timezone or re-enabling a task starts from that moment, while name/prompt edits preserve an overdue run. A task interrupted while running requires explicit recovery.
+
 For one future reminder, prefer `create_planned_task` with:
 
 ```json

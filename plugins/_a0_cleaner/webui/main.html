@@ -1,0 +1,71 @@
+<html class="a0-cleaner-modal">
+<head>
+  <title>A0Cleaner</title>
+  <link rel="stylesheet" href="/plugins/_a0_cleaner/webui/cleaner.css">
+  <script type="module">import { store } from '/plugins/_a0_cleaner/webui/cleaner-store.js';</script>
+</head>
+<body>
+<div class="a0c" x-data="{ destroy() { $store.a0Cleaner.unmount(); } }" x-init="$store.a0Cleaner.mount()">
+  <header class="a0c-header">
+    <div class="a0c-brand"><img src="/plugins/_a0_cleaner/webui/thumbnail.jpg" alt="" width="52" height="52"><div><h1>A0Cleaner</h1></div></div>
+    <button type="button" class="button a0c-scan" :disabled="$store.a0Cleaner.disabled()" @click="$store.a0Cleaner.scan()"><x-icon name="radar" :class="{spinning: $store.a0Cleaner.busy}"></x-icon><span x-text="$store.a0Cleaner.disabled() ? $store.a0Cleaner.operation : 'Scan now'"></span></button>
+  </header>
+
+  <section class="a0c-hero" aria-label="Storage overview">
+    <div class="a0c-total"><span class="a0c-label">READY TO CLEAN</span><div class="a0c-size" x-text="$store.a0Cleaner.report ? $store.a0Cleaner.bytes($store.a0Cleaner.report.bytes) : '—'"></div><span class="a0c-scan-date" x-text="$store.a0Cleaner.report ? `Scanned ${$store.a0Cleaner.date($store.a0Cleaner.report.at)}` : 'Scanning your instance'"></span></div>
+    <div class="a0c-disk"><div><span>Disk space</span><strong x-text="`${$store.a0Cleaner.diskPercent()}% used`"></strong></div><div class="a0c-meter"><span :style="{width: `${$store.a0Cleaner.diskPercent()}%`}"></span></div><span x-text="$store.a0Cleaner.report ? `${$store.a0Cleaner.bytes($store.a0Cleaner.report.disk.free)} available` : '—'"></span></div>
+  </section>
+
+  <section class="a0c-automation" aria-label="Automatic maintenance">
+    <div class="a0c-auto-title"><x-icon name="auto_awesome"></x-icon><div><strong>Automatic care</strong><span x-text="$store.a0Cleaner.schedule?.task?.next_run ? `Next scan ${$store.a0Cleaner.date($store.a0Cleaner.schedule.task.next_run)}` : 'Schedule paused'"></span></div></div>
+    <div class="a0c-auto-controls"><select aria-label="Scan schedule" :value="$store.a0Cleaner.schedule?.cadence || 'weekly'" :disabled="$store.a0Cleaner.disabled()" @change="$store.a0Cleaner.changeSchedule($event.target.value)"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="off">Off</option><option value="custom" disabled>Custom</option></select><button type="button" class="a0c-icon-button" title="Schedule details" aria-label="Schedule details" @click="$store.a0Cleaner.openSchedule()"><x-icon name="tune"></x-icon></button></div>
+    <label class="a0c-switch-row"><span>Automatic cleanup</span><span class="toggle"><input type="checkbox" aria-label="Automatic cleanup" :checked="$store.a0Cleaner.config?.automatic" :disabled="$store.a0Cleaner.disabled()" @change="$store.a0Cleaner.automaticChanged($event.target.checked)"><span class="toggler"></span></span></label>
+    <div class="a0c-last-run" x-show="$store.a0Cleaner.scheduled"><x-icon name="check_circle"></x-icon><span x-text="$store.a0Cleaner.scheduled ? `Last run · ${$store.a0Cleaner.bytes($store.a0Cleaner.scheduled.freed_bytes)} cleaned · ${$store.a0Cleaner.bytes($store.a0Cleaner.scheduled.found_bytes)} for review · ${$store.a0Cleaner.date($store.a0Cleaner.scheduled.at)}` : ''"></span></div>
+  </section>
+
+  <nav class="a0c-tabs" aria-label="Cleaner views">
+    <button type="button" :class="{active: $store.a0Cleaner.tab === 'overview'}" @click="$store.a0Cleaner.tab = 'overview'">Cleanup</button>
+    <button type="button" :class="{active: $store.a0Cleaner.tab === 'folders'}" @click="$store.a0Cleaner.tab = 'folders'">Custom folders</button>
+    <button type="button" :class="{active: $store.a0Cleaner.tab === 'activity'}" @click="$store.a0Cleaner.tab = 'activity'">Activity</button>
+  </nav>
+
+  <div x-show="$store.a0Cleaner.tab === 'overview'">
+    <template x-for="section in [{title:'Automatic cleanup', auto:true}, {title:'Opt-in cleanup', auto:false}]" :key="section.title">
+      <section class="a0c-section"><div class="a0c-section-heading"><h2 x-text="section.title"></h2><span x-text="section.auto ? 'Scheduled' : 'Manual confirmation'"></span></div>
+        <div class="a0c-area-list"><template x-for="area in $store.a0Cleaner.groups(section.auto)" :key="area.id">
+          <div class="a0c-area" :class="{selected: $store.a0Cleaner.selected.includes(area.id), unavailable: area.blocked || area.busy}">
+            <input type="checkbox" :aria-label="`Select ${area.title}`" :value="area.id" x-model="$store.a0Cleaner.selected" :disabled="$store.a0Cleaner.disabled() || !area.files || Boolean(area.blocked)">
+            <span class="a0c-area-icon"><x-icon :name="area.icon"></x-icon></span><span class="a0c-area-name"><strong x-text="area.title"></strong><span x-text="area.blocked || (area.busy ? 'In use' : `${$store.a0Cleaner.fileCount(area.files)} · ${area.days}+ days`)"></span></span><strong class="a0c-area-size" x-text="$store.a0Cleaner.bytes(area.bytes)"></strong>
+            <label class="a0c-auto-switch" x-show="area.auto_supported"><span>Auto</span><input type="checkbox" :aria-label="`Automatically clean ${area.title}`" :checked="area.automatic" :disabled="$store.a0Cleaner.disabled()" @change="$store.a0Cleaner.automaticAreaChanged(area.id, $event.target.checked)"></label>
+          </div>
+        </template></div>
+      </section>
+    </template>
+    <details class="a0c-rules"><summary>Cleanup ages</summary><div class="a0c-rule-fields"><template x-for="rule in [{key:'cache_days',name:'Download caches'}, {key:'staging_days',name:'Installer leftovers'}, {key:'review_days',name:'Browser & chat files'}]" :key="rule.key"><label><span x-text="rule.name"></span><div><input type="number" min="1" max="3650" :aria-label="`${rule.name} age in days`" :value="$store.a0Cleaner.config?.[rule.key]" :disabled="$store.a0Cleaner.disabled()" @change="$store.a0Cleaner.setAge(rule.key, $event.target.value)"><span>days</span></div></label></template></div></details>
+  </div>
+
+  <section class="a0c-section" x-show="$store.a0Cleaner.tab === 'folders'">
+    <div class="a0c-section-heading"><h2>Custom folders</h2><span>Manual cleanup only</span></div>
+    <form class="a0c-folder-form" @submit.prevent="$store.a0Cleaner.addFolder()"><label class="a0c-folder-path">Folder path<input type="text" aria-label="Custom folder path" x-model="$store.a0Cleaner.folderPath" placeholder="/a0/usr/workdir/temp" required :disabled="$store.a0Cleaner.disabled()"></label><label>Older than<div class="a0c-days"><input type="number" aria-label="Custom folder age in days" min="0" max="3650" x-model.number="$store.a0Cleaner.folderDays" required :disabled="$store.a0Cleaner.disabled()"><span>days</span></div></label><button type="submit" class="button" :disabled="$store.a0Cleaner.disabled() || !$store.a0Cleaner.folderPath.trim()"><x-icon name="add"></x-icon>Add folder</button></form>
+    <div class="a0c-empty" x-show="!$store.a0Cleaner.config?.custom_folders?.length"><x-icon name="folder_open"></x-icon><span>No custom folders</span></div>
+    <template x-for="(area, index) in $store.a0Cleaner.customGroups()" :key="area.id"><div class="a0c-custom-row"><label class="a0c-area" :class="{selected: $store.a0Cleaner.selected.includes(area.id)}"><input type="checkbox" :aria-label="`Select ${area.title}`" :value="area.id" x-model="$store.a0Cleaner.selected" :disabled="$store.a0Cleaner.disabled() || !area.files"><span class="a0c-area-icon"><x-icon name="folder"></x-icon></span><span class="a0c-area-name"><strong x-text="area.paths[0]"></strong><span x-text="`${$store.a0Cleaner.fileCount(area.files)} · ${area.days ? `${area.days}+ days` : 'All ages'}`"></span></span><strong x-text="$store.a0Cleaner.bytes(area.bytes)"></strong></label><button type="button" class="a0c-icon-button" title="Remove folder rule" aria-label="Remove folder rule" :disabled="$store.a0Cleaner.disabled()" @click="$store.a0Cleaner.removeFolder(index)"><x-icon name="close"></x-icon></button></div></template>
+  </section>
+
+  <section class="a0c-section" x-show="$store.a0Cleaner.tab === 'activity'">
+    <div class="a0c-section-heading"><h2>Cleanup history</h2></div><div class="a0c-empty" x-show="!$store.a0Cleaner.activity.length"><x-icon name="history"></x-icon><span>No cleanups yet</span></div>
+    <template x-for="(entry,index) in $store.a0Cleaner.activity" :key="`${entry.at}-${index}`"><div class="a0c-activity"><span class="a0c-area-icon"><x-icon :name="entry.stopped ? 'pause_circle' : 'check_circle'"></x-icon></span><div><strong x-text="`${$store.a0Cleaner.bytes(entry.bytes)} cleaned`"></strong><span x-text="`${entry.automatic ? 'Automatic' : 'Manual'} · ${$store.a0Cleaner.date(entry.at)} · ${$store.a0Cleaner.fileCount(entry.files)}${entry.skipped ? ` · ${entry.skipped} skipped` : ''}`"></span><span x-text="entry.areas.join(' · ')"></span></div></div></template>
+  </section>
+
+  <footer class="a0c-footer" x-show="$store.a0Cleaner.tab !== 'activity'"><div><strong x-text="$store.a0Cleaner.bytes($store.a0Cleaner.selectedBytes())"></strong><span x-text="`${$store.a0Cleaner.fileCount($store.a0Cleaner.selectedFiles())} selected`"></span></div><button type="button" class="button confirm a0c-clean" :disabled="$store.a0Cleaner.disabled() || !$store.a0Cleaner.selectedFiles()" @click="$store.a0Cleaner.review()"><x-icon name="cleaning_services"></x-icon>Review cleanup</button></footer>
+
+  <div class="a0c-confirm-backdrop" x-show="$store.a0Cleaner.preview" x-cloak>
+    <section class="a0c-confirm" role="dialog" aria-modal="true" @keydown.escape.stop.prevent="$store.a0Cleaner.closePreview()" aria-labelledby="a0c-confirm-title" @keydown.tab.prevent="$store.a0Cleaner.trapFocus($event)" x-effect="if ($store.a0Cleaner.preview) $nextTick(() => $el.querySelector('button').focus())">
+      <h2 id="a0c-confirm-title">Clean selected files?</h2><div class="a0c-confirm-size" x-text="$store.a0Cleaner.bytes($store.a0Cleaner.preview?.bytes || 0)"></div><p>These files will be permanently removed.</p>
+      <template x-for="area in ($store.a0Cleaner.preview?.groups || [])" :key="area.id"><div class="a0c-impact"><strong x-text="area.title"></strong><span x-text="area.impact"></span></div></template>
+      <details><summary x-text="$store.a0Cleaner.fileCount($store.a0Cleaner.preview?.files)"></summary><ul><template x-for="path in ($store.a0Cleaner.preview?.paths || [])" :key="path"><li x-text="path"></li></template></ul><span x-show="$store.a0Cleaner.preview?.more_paths" x-text="`And ${$store.a0Cleaner.preview?.more_paths} more`"></span></details>
+      <div class="a0c-confirm-actions"><button type="button" class="button cancel" :disabled="$store.a0Cleaner.busy" @click="$store.a0Cleaner.closePreview()">Cancel</button><button type="button" class="button confirm" :disabled="$store.a0Cleaner.disabled()" @click="$store.a0Cleaner.clean()" x-text="$store.a0Cleaner.busy ? 'Cleaning…' : 'Clean up'"></button></div>
+    </section>
+  </div>
+</div>
+</body>
+</html>

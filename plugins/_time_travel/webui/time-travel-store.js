@@ -43,6 +43,7 @@ const model = {
   selectedDiff: null,
   diffLoading: false,
   diffError: "",
+  presentLoading: false,
   previewOpen: false,
   previewLoading: false,
   previewError: "",
@@ -55,6 +56,8 @@ const model = {
   _filterTimer: null,
   _requestSeq: 0,
   _diffSeq: 0,
+  _presentSeq: 0,
+  _workspaceSeq: 0,
 
   async init(element = null) {
     await this.onMount(element, { mode: "canvas" });
@@ -75,14 +78,11 @@ const model = {
     }
   },
 
-  async onOpen(payload = {}) {
-    const nextContextId = String(payload.contextId || payload.context_id || this.resolveContextId() || "");
-    this.contextId = nextContextId;
-    await this.loadWorkspaces({ contextId: nextContextId, reset: true });
-    await this.refresh({ contextId: nextContextId, skipWorkspaceLoad: true });
-  },
-
   cleanup() {
+    ++this._requestSeq;
+    ++this._workspaceSeq;
+    ++this._presentSeq;
+    ++this._diffSeq;
     if (this._refreshTimer) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
@@ -119,12 +119,14 @@ const model = {
   },
 
   async loadWorkspaces(options = {}) {
+    const seq = ++this._workspaceSeq;
     const contextId = String(options.contextId || options.context_id || this.resolveContextId() || "");
     this.workspaceLoading = true;
     try {
       const response = await callJsonApi(apiPath("history_workspaces"), {
         context_id: contextId,
       });
+      if (seq !== this._workspaceSeq) return;
       if (!response?.ok) throw new Error(response?.error || "Could not load workspaces.");
       this.workspaces = Array.isArray(response.workspaces) ? response.workspaces : [];
       const defaultWorkspaceId = String(response.default_workspace_id || "");
@@ -133,20 +135,24 @@ const model = {
         this.selectedWorkspaceId = defaultWorkspaceId || String(this.workspaces[0]?.id || "");
       }
     } catch (error) {
+      if (seq !== this._workspaceSeq) return;
       this.workspaces = [];
       this.selectedWorkspaceId = "";
       this.error = error instanceof Error ? error.message : String(error);
     } finally {
-      this.workspaceLoading = false;
+      if (seq === this._workspaceSeq) this.workspaceLoading = false;
     }
   },
 
   async refresh(options = {}) {
+    const seq = ++this._requestSeq;
+    ++this._presentSeq;
+    this.presentLoading = false;
     const contextId = String(options.contextId || options.context_id || this.resolveContextId() || "");
     if (!options.skipWorkspaceLoad && (options.reloadWorkspaces || this.workspaces.length === 0)) {
       await this.loadWorkspaces({ contextId, reset: Boolean(options.resetWorkspace) });
     }
-    const seq = ++this._requestSeq;
+    if (seq !== this._requestSeq) return;
     this.loading = true;
     this.error = "";
     try {
@@ -214,7 +220,7 @@ const model = {
 
     const rows = this.timelineRows();
     let selected = keepSelection ? rows.find((row) => row.key === this.selectedHash) : null;
-    if (!selected) selected = rows[0] || null;
+    if (!selected) selected = rows.find((row) => row.is_current) || rows.find((row) => row.kind === "commit") || rows[0] || null;
     this.selectedHash = selected?.key || "";
 
     const files = this.selectedFiles();
@@ -230,6 +236,20 @@ const model = {
 
   present() {
     return this.payload?.present || {};
+  },
+
+  storageLabel() {
+    const storage = this.payload?.storage;
+    if (!storage) return "";
+    const bytes = Number(storage.object_bytes || 0);
+    const unit = bytes < 1048576 ? "KiB" : "MiB";
+    const size = (bytes / (unit === "KiB" ? 1024 : 1048576)).toLocaleString(undefined, { maximumFractionDigits: 1 });
+    const limits = [];
+    if (storage.max_snapshots) limits.push(`${storage.max_snapshots} recent snapshots`);
+    if (storage.max_age_days) limits.push(`${storage.max_age_days} days`);
+    const policy = storage.retention_enabled && limits.length ? `Keep ${limits.join(' / ')} + current state and checkpoints` : 'Snapshot expiry off';
+    const coverage = storage.max_file_mb ? ` · Files above ${storage.max_file_mb} MiB excluded` : '';
+    return `${size} ${unit} of Git objects · ${storage.commits} snapshots · ${policy}${coverage}`;
   },
 
   isLocked() {
@@ -282,6 +302,7 @@ const model = {
       is_current: false,
       dirty: this.hasPresentChanges(),
     });
+    if (!this.payload?.present) rows[0].message = this.presentLoading ? "Checking current changes..." : "Check current changes";
     for (const commit of this.commits()) {
       rows.push({ key: commit.hash, kind: "commit", ...commit });
     }
@@ -308,9 +329,36 @@ const model = {
 
   selectRow(row) {
     this.selectedHash = row?.key || "";
+    if (row?.kind === "present" && !this.payload?.present) {
+      void this.loadPresent();
+      return;
+    }
     const files = this.selectedFiles();
     this.selectedPath = files[0] ? this.fileKey(files[0]) : "";
     void this.loadSelectedDiff();
+  },
+
+  async loadPresent() {
+    if (this.presentLoading || this.isLocked()) return;
+    const seq = ++this._presentSeq;
+    this.presentLoading = true;
+    this.selectedPath = "";
+    this.selectedDiff = null;
+    ++this._diffSeq;
+    try {
+      const response = await callJsonApi(apiPath("history_present"), {
+        context_id: this.contextId,
+        workspace_id: this.selectedWorkspaceId,
+      });
+      if (seq !== this._presentSeq) return;
+      if (!response?.ok) throw new Error(response?.error || "Could not check current changes.");
+      this.payload.present = response.present;
+      if (this.selectedHash === "present") this.selectRow(this.timelineRows()[0]);
+    } catch (error) {
+      if (seq === this._presentSeq) globalThis.justToast?.(error.message || String(error), "error");
+    } finally {
+      if (seq === this._presentSeq) this.presentLoading = false;
+    }
   },
 
   selectFile(file) {
@@ -323,12 +371,13 @@ const model = {
   },
 
   async loadSelectedDiff() {
+    const seq = ++this._diffSeq;
     const file = this.selectedFile();
     const row = this.selectedRow();
     this.selectedDiff = null;
     this.diffError = "";
+    this.diffLoading = false;
     if (!file || !row || this.isLocked()) return;
-    const seq = ++this._diffSeq;
     this.diffLoading = true;
     try {
       const response = await callJsonApi(apiPath("history_diff"), {
@@ -360,7 +409,8 @@ const model = {
         trigger: "manual",
       });
       if (!response?.ok) throw new Error(response?.error || "Snapshot failed.");
-      globalThis.justToast?.(response.snapshot?.created ? "Snapshot captured" : "No changes to snapshot", "success", 1400, "time-travel-snapshot");
+      const skipped = response.snapshot?.skipped_files || [];
+      globalThis.justToast?.(skipped.length ? `${skipped.length} oversized file(s) skipped. Check current changes for details.` : (response.snapshot?.created ? "Snapshot captured" : "No changes to snapshot"), skipped.length ? "warning" : "success", skipped.length ? 5000 : 1400, "time-travel-snapshot");
       await this.refresh({ keepSelection: true });
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
@@ -373,6 +423,7 @@ const model = {
     const target = commit || this.selectedCommit();
     if (!target || this.busy || this.isLocked()) return;
     if (operation === "travel" && target.is_current) return;
+    if (operation === "revert" && target.metadata?.retention_checkpoint) return;
     this.previewOpen = true;
     this.previewLoading = true;
     this.previewError = "";
@@ -460,7 +511,7 @@ const model = {
   rowMeta(row) {
     if (!row) return "";
     const files = Array.isArray(row.files) ? row.files.length : 0;
-    if (row.kind === "present") return files ? `${files} file${files === 1 ? "" : "s"}` : "clean";
+    if (row.kind === "present") return !this.payload?.present ? "Select to inspect workspace files" : (files ? `${files} file${files === 1 ? "" : "s"}` : "clean");
     return `${row.short_hash || ""} · ${this.formatTime(row.timestamp)}`;
   },
 

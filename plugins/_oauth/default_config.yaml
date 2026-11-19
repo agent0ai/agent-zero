@@ -31,7 +31,8 @@ codex:
   text_verbosity: "medium"
 
   # The OpenAI-compatible wrapper is mounted at /oauth/codex/v1.
-  # It is loopback-only by default and does not emit CORS headers.
+  # Agent Zero authenticates its internal calls automatically; external clients must supply a token.
+  # The legacy require_proxy_token setting is retained for saved-config compatibility; loopback is never sufficient authorization.
   proxy_base_path: "/oauth/codex"
   callback_path: "/auth/callback"
   require_proxy_token: false

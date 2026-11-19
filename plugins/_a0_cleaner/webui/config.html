@@ -1,0 +1,4 @@
+<html><head><title>A0Cleaner</title></head><body><div x-data>
+  <button type="button" class="button confirm" @click="ensureModalOpen('/plugins/_a0_cleaner/webui/main.html')"><x-icon name="cleaning_services"></x-icon>Open A0Cleaner</button>
+  <template x-if="config"><div class="field"><div class="field-label"><div class="field-title">Automatic cleanup</div></div><div class="field-control"><label class="toggle"><input type="checkbox" x-model="config.automatic" x-init="config.automatic ??= true"><span class="toggler"></span></label></div></div></template>
+</div></body></html>

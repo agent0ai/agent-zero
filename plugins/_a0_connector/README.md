@@ -1,4 +1,12 @@
-# Connector composer controls
+# A0 Connector
+
+## Host workspace maps
+
+In **Settings → Agent → Working directory → Host workspace**, **Use container settings** makes connected host maps follow the default workdir's depth, file, folder, and line limits. It is enabled by default. Disable it for separate host limits; zero means unlimited. Paths, ignore rules, project settings, and access permissions are unchanged.
+
+Updated TUI, headless, ACP, and Launcher gateway connectors receive `remote_tree_config` in the existing hello and tree acknowledgements. Saved changes normally apply within a minute without restarting Launcher. Explicit `AGENT_ZERO_REMOTE_TREE_*` settings on the host take precedence. Older connectors need an update to use these controls; older Core remains compatible with updated connectors.
+
+## Connector composer controls
 
 Agent Zero advertises `composer_controls` when the generic composer-control API is available. Compatible connectors render controls supplied by enabled plugins beside the provider/model bar. No optional plugin names or domain rules belong in the connector.
 

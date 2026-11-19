@@ -33,7 +33,10 @@ class TimeTravelRetention(Extension):
                     f"orphans={stats['orphans_removed']} aged={stats['aged_removed']} "
                     f"locks={stats['stale_locks_removed']} "
                     f"invalid={stats['invalid_backups_removed']} "
+                    f"compacted={stats['repositories_compacted']} expired={stats['commits_expired']} "
+                    f"gc={stats['gc_runs']} "
                     f"reclaimed={stats['bytes_reclaimed']}b"
                 )
-        except Exception:
+        except Exception as exc:
+            PrintStyle.error(f"Time Travel retention failed: {exc}")
             return

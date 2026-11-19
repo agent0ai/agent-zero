@@ -114,6 +114,47 @@
               </div>
             </div>
           </template>
+          <div class="section-title">Host workspace</div>
+          <div class="section-description">
+            Control the workspace map supplied by a connected CLI or Launcher host.
+            Saved limits reach updated connectors on their next tree refresh, normally within a minute.
+            Explicit host environment settings take precedence.
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <label class="field-title" for="remote-tree-inherit">Use container settings</label>
+              <div class="field-description">Keep the host map's four limits aligned with the default working directory above.</div>
+            </div>
+            <div class="field-control">
+              <label class="toggle">
+                <input id="remote-tree-inherit" type="checkbox" x-model="$store.settings.settings.remote_tree_inherit" />
+                <span class="toggler"></span>
+              </label>
+            </div>
+          </div>
+
+          <div x-data="{ fields: [
+            { key: 'max_depth', title: 'Depth limit', description: 'Folder levels included in the host map.' },
+            { key: 'max_lines', title: 'Line budget', description: 'Maximum entry lines shown to the agent.' },
+            { key: 'max_folders', title: 'Folder limit', description: 'Maximum subfolders listed per folder.' },
+            { key: 'max_files', title: 'File limit', description: 'Maximum files listed per folder.' }
+          ] }">
+            <template x-for="field in fields" :key="field.key">
+              <div class="field">
+                <div class="field-label">
+                  <label class="field-title" :for="'remote-tree-' + field.key" x-text="field.title"></label>
+                  <div class="field-description"><span x-text="field.description"></span> Use 0 for no limit.</div>
+                </div>
+                <div class="field-control">
+                  <input type="number" :id="'remote-tree-' + field.key" min="0" step="1"
+                    :disabled="$store.settings.settings.remote_tree_inherit"
+                    x-model.number="$store.settings.settings[($store.settings.settings.remote_tree_inherit ? 'workdir_' : 'remote_tree_') + field.key]" />
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="section-description">Larger or unlimited maps increase scanning work and prompt size. These settings do not change host access permissions.</div>
         </div>
       </template>
     </div>

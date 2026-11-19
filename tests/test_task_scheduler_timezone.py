@@ -38,6 +38,7 @@ def test_scheduled_task_next_run_uses_schedule_timezone(monkeypatch):
         timezone="Europe/Rome",
     )
 
+    task.schedule_anchor = FixedDateTime.now(timezone.utc)
     assert task.get_next_run() == datetime(2026, 5, 10, 7, 30, tzinfo=timezone.utc)
 
 

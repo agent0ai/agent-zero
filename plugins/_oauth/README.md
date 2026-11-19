@@ -10,6 +10,10 @@ Each model slot has its own provider selector. The selector lists connected OAut
 
 OAuth-backed model providers do not require users to enter API keys. Agent Zero supplies a local dummy key only at runtime after the selected account provider is connected, so unconnected providers stay blank in API-key surfaces.
 
+Existing account connections and model settings continue to work without signing in again or entering a new key. Local model calls authenticate automatically, including when older settings contain a placeholder API key. External clients must use the proxy token configured in OAuth Connections.
+
+On a VPS, browser access through a reverse proxy or tunnel keeps the same OAuth connection and model setup. Agent Zero authenticates its server-side model calls automatically. The proxy routes do not trust loopback addresses because public requests forwarded by a local reverse proxy can also arrive from loopback. External clients that previously relied on tokenless loopback access must supply the configured proxy token.
+
 ## Providers
 
 ### Codex/ChatGPT (`codex_oauth`)

@@ -597,14 +597,14 @@ def _proxy_denied_response() -> Response | None:
 
 
 def _proxy_authorized() -> bool:
-    cfg = codex_config()
-    token = cfg["proxy_token"]
+    from plugins._oauth.helpers.providers import DUMMY_API_KEY
+
     supplied = _supplied_proxy_token()
-    if token and supplied == token:
-        return True
-    if cfg["require_proxy_token"]:
-        return False
-    return _remote_is_loopback(request.remote_addr)
+    configured_token = codex_config()["proxy_token"]
+    return bool(
+        supplied
+        and supplied in {DUMMY_API_KEY, configured_token}
+    )
 
 
 def _supplied_proxy_token() -> str:
@@ -630,13 +630,6 @@ def _host_is_local(host: str) -> bool:
         return True
     try:
         return ipaddress.ip_address(hostname).is_loopback
-    except ValueError:
-        return False
-
-
-def _remote_is_loopback(addr: str | None) -> bool:
-    try:
-        return ipaddress.ip_address(addr or "").is_loopback
     except ValueError:
         return False
 

@@ -24,11 +24,14 @@
 ## Local Contracts
 
 - The tool and API endpoints delegate to the shared `helpers.task_scheduler` engine, which stays in core and is also used by `api/scheduler_tick.py`, `helpers/job_loop.py`, chat lifecycle endpoints, and `_chat_naming`.
+- Recurring tasks catch up once after missed schedules on the next engine tick. Changes to cron/timezone or re-enabling a disabled task start a new schedule from that moment; ordinary edits preserve an overdue run. Keep timing in the engine and preserve its serialized `schedule_anchor` during full-task round trips.
 - The plugin declares `always_enabled: true`: the core scheduling engine keeps running tasks it created even when plugin code is absent, so the plugin must not be disableable into a state where tasks run without any way to manage them.
 - Plugin API routes resolve as `/api/plugins/_scheduler/<handler>` via the standard plugin API resolution in `helpers/api.py`.
 - Core snapshot and chat-selection consumers import the always-enabled plugin's tasks store directly, ensuring it exists before the first snapshot even when the sidebar has not mounted.
 - Timezone aliases (local/user/default/current/current_timezone) resolve via `helpers.localization`; cron validation rejects malformed expressions before task creation.
 - `wait_for_task` polls task state until completion, failure, or idempotent runs.
+- Plugin-owned tasks carry `plugin_name` and run through the engine's deterministic hook. Their schedule, name and state remain editable; the editor hides model prompts/attachments and detail shows the operation. The engine rejects changing those inapplicable inputs and creates no chat for these tasks.
+- Close task detail by its modal path and await closure before opening its editor, so asynchronous close hooks cannot remove the new modal from the stack.
 
 ## Work Guidance
 

@@ -2,6 +2,7 @@ import asyncio
 import re
 from dataclasses import dataclass, field
 from typing import Callable, Awaitable
+from urllib.parse import urlencode
 
 from plugins._telegram_integration.helpers.sandbox import Bot, TelegramEvent, worker, decode, rpc
 from helpers import integration_commands
@@ -136,7 +137,7 @@ async def setup_webhook(instance: BotInstance, webhook_url: str, secret: str = "
     if not isinstance(secret, str) or not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", secret):
         raise ValueError("webhook_secret must contain 32–256 letters, digits, underscores or hyphens")
 
-    full_url = f"{webhook_url.rstrip('/')}/api/plugins/_telegram_integration/webhook?bot={instance.name}"
+    full_url = f"{webhook_url.rstrip('/')}/api/plugins/_telegram_integration/webhook?{urlencode({'bot': instance.name})}"
 
     await instance.bot.set_webhook(
         url=full_url,

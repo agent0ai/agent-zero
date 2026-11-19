@@ -18,6 +18,7 @@
 - `tools/text_editor_remote.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension; keep remote edits visually consistent with local edits.
 - Remote text editing reuses the shipped `_text_editor` patch and log helpers. Disabling local editor discovery does not remove these Python modules; removing the bundled dependency is unsupported.
 - Preserve session-auth and `auth.handlers` activation assumptions.
+- `helpers/remote_tree.py` resolves instance-wide host map limits from current default-workdir settings unless `remote_tree_inherit` is false. Hello and tree acknowledgements include additive `remote_tree_config` (four non-negative integers; zero unlimited). Updated connectors honor explicit host overrides first and refresh on the existing tree keepalive. Older clients ignore the field. Agent Zero's Working directory settings owns this prompt-map configuration; it is separate from Launcher host access controls.
 - `v1/chats_list` keeps the normal list response unchanged. An optional string `query` (at most 200 characters) returns read-only `matches` over those loaded contexts, using the bundled `_sidebar_folders.helpers.search` pure helper independently of its UI activation/config. Return only IDs, title flags and bounded literal text parts; blank queries do not scan. Preserve the existing protected route's authentication. CLI search scope/order stays with its original candidate list.
 - Keep remote tool prompts synchronized with remote tool behavior and disclose
   them only from connected CLI metadata: no connected CLI hides all remote tool
@@ -30,7 +31,9 @@
   access, timeout, transfer, and disconnect handling; ordinary model args cannot
   enable `allow_running`. There is no `runtime=input` or `code` input alias.
 - `input_remote` requires both its own policy permission and the bundled
-  `plugin:_a0_connector:code_execution_remote` terminal action. Shared policy resolution
+  `plugin:_a0_connector:code_execution_remote` terminal action. Both are enabled
+  by the default policy without an Agent Editor grant. Custom restrictions remain
+  authoritative. Shared policy resolution
   applies the dependency to prompts, native schemas, and execution; the input
   wrapper rechecks that exact capability before rewriting args or dispatching,
   including when a profile shadows the execution tool name.
@@ -115,7 +118,7 @@
 ## Verification
 
 - Run connector-specific tests or smoke-test HTTP and `/ws` integration when changing runtime behavior.
-- Run `tests/test_remote_input_policy.py` for remote-input authorization, zero dispatch on denial, prompt/schema gating, and preserved host access controls.
+- Run `tests/test_remote_input_policy.py` for default access without editor grants, remote-input authorization, zero dispatch on denial, prompt/schema gating, and preserved host access controls.
 - Run `python -m pytest tests/test_a0_connector_chat_search.py plugins/_sidebar_folders/tests/test_search.py -q` for the query branch, unchanged list shape, input validation and shared excerpt behavior.
 - Cross-platform first-call session startup and no-retry boundaries are covered in the sibling connector's `tests/test_plugin_backend.py`; Core prompt gating remains covered by `tests/test_a0_connector_prompt_gating.py`.
 - Launcher gateway regression coverage lives in
