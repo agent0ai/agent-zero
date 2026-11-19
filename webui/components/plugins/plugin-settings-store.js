@@ -399,6 +399,7 @@ const model = {
             if (!result.ok) this.error = result.error || "Save failed";
             else {
                 this.settingsSnapshotJson = this._toComparableJson(this.settings);
+                window.dispatchEvent(new CustomEvent("plugin-config-saved", { detail: { pluginName: this.pluginName } }));
                 window.closeModal?.();
             }
         } catch (e) {

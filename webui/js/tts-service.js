@@ -1,14 +1,17 @@
 import { sleep } from "/js/sleep.js";
-import * as shortcuts from "/js/shortcuts.js";
+import { loadJsExtensions } from "/js/extensions.js";
+import { store as notifications } from "/components/notifications/notification-store.js";
 
 class TtsService extends EventTarget {
   constructor() {
     super();
     this.providers = new Map();
+    this.extensionProvider = null;
     this.synth = window.speechSynthesis;
     this.browserUtterance = null;
     this.audioEl = null;
-    this.currentAudio = null;
+    this.finishPlayback = null;
+    this.loadingToast = null;
     this.audioContext = null;
     this.userHasInteracted = false;
     this.ttsStream = null;
@@ -31,24 +34,33 @@ class TtsService extends EventTarget {
   unregisterProvider(id) {
     if (!this.providers.has(id)) return;
 
-    const activeProviderId = this.getActiveProviderId();
+    if (this.getActiveProviderId() === id) this.stop();
     this.providers.delete(id);
-
-    if (activeProviderId === id) {
-      this.stop();
-    }
 
     this.emitProvidersChange();
   }
 
   getActiveProviderId() {
-    const next = this.providers.keys().next();
-    return next.done ? "" : String(next.value || "");
+    return this.providers.keys().next().value || this.extensionProvider?.id || "";
   }
 
   getActiveProvider() {
-    const providerId = this.getActiveProviderId();
-    return providerId ? this.providers.get(providerId) || null : null;
+    return this.providers.values().next().value || this.extensionProvider;
+  }
+
+  setExtensionProvider(provider) {
+    if (this.extensionProvider === provider) return;
+    this.extensionProvider = provider;
+    this.emitProvidersChange();
+  }
+
+  async resolveProvider(stream) {
+    if (!this.providers.size) {
+      const [extension] = await loadJsExtensions("tts_provider", { fresh: true });
+      if (stream.stopped) return null;
+      this.setExtensionProvider(extension?.module.default() || null);
+    }
+    return this.getActiveProvider();
   }
 
   hasProvider() {
@@ -63,16 +75,19 @@ class TtsService extends EventTarget {
     return {
       activeProviderId: this.getActiveProviderId(),
       isSpeaking: this.isSpeaking(),
+      isPreparing: !!this.loadingToast,
       userHasInteracted: this.userHasInteracted,
     };
   }
 
   emitProvidersChange() {
+    const providerIds = new Set(this.providers.keys());
+    if (this.extensionProvider) providerIds.add(this.extensionProvider.id);
     this.dispatchEvent(
       new CustomEvent("providerschange", {
         detail: {
           activeProviderId: this.getActiveProviderId(),
-          providerIds: Array.from(this.providers.keys()),
+          providerIds: [...providerIds],
         },
       }),
     );
@@ -100,7 +115,7 @@ class TtsService extends EventTarget {
 
       this.userHasInteracted = true;
       try {
-        this.audioContext = new (window.AudioContext ||
+        this.audioContext ??= new (window.AudioContext ||
           window.webkitAudioContext)();
         this.audioContext.resume();
       } catch (_error) {
@@ -113,242 +128,194 @@ class TtsService extends EventTarget {
     const events = ["click", "touchstart", "keydown", "mousedown"];
     events.forEach((eventName) => {
       document.addEventListener(eventName, enableAudio, {
-        once: true,
+        capture: true,
         passive: true,
       });
     });
   }
 
   showAudioPermissionPrompt() {
-    shortcuts.frontendNotification({
+    notifications.frontendNotification({
       type: "info",
       message: "Click anywhere to enable audio playback",
-      displayTime: 5000,
+      displayTime: 5,
+      group: "speech-permission",
       frontendOnly: true,
     });
   }
 
+  showPreparation() {
+    this.loadingToast = notifications.addFrontendToastOnly("progress",
+      "The first use may download voice files. Playback will start automatically.",
+      "Preparing speech", 0, "speech-loading");
+    this.emitStateChange();
+  }
+
+  finishPreparation() {
+    if (!this.loadingToast) return;
+    notifications.removeFromToastStack(`toast-${this.loadingToast}`);
+    this.loadingToast = null;
+    this.emitStateChange();
+  }
+
   async speak(text) {
-    const id = Math.random();
-    return await this.speakStream(id, text, true);
+    const error = await this.speakStream(Symbol(), text, true);
+    if (error) throw error;
   }
 
   async speakStream(id, text, finished = false) {
-    if (
-      this.ttsStream &&
-      this.ttsStream.id === id &&
-      this.ttsStream.text === text &&
-      this.ttsStream.finished === finished
-    ) {
-      return;
-    }
-
     if (!this.userHasInteracted) {
       this.showAudioPermissionPrompt();
       return;
     }
 
-    if (!this.ttsStream || this.ttsStream.id !== id) {
-      this.ttsStream = {
-        id,
-        text,
-        finished,
-        running: false,
-        lastChunkIndex: -1,
-        stopped: false,
-        chunks: [],
-      };
+    let stream = this.ttsStream;
+    if (stream?.id === id) {
+      if (stream.stopped || (stream.text === text && stream.finished === finished)) return;
     } else {
-      this.ttsStream.finished = finished;
-      this.ttsStream.text = text;
+      if (stream?.running) this.stop();
+      stream = this.ttsStream = { id, lastChunkIndex: -1 };
     }
+    stream.text = text;
+    stream.finished = finished;
+    stream.chunks = this.chunkText(this.cleanText(text));
+    if (stream.running || !stream.chunks.length) return;
 
-    const cleanText = this.cleanText(text);
-    if (!cleanText.trim()) return;
-
-    this.ttsStream.chunks = this.chunkText(cleanText);
-    if (this.ttsStream.chunks.length === 0) return;
-
-    if (this.ttsStream.running) return;
-    this.ttsStream.running = true;
-
-    const terminator = () =>
-      this.ttsStream?.id !== id || this.ttsStream?.stopped;
-
-    while (true) {
-      if (terminator()) break;
-
-      const nextIndex = this.ttsStream.lastChunkIndex + 1;
-      if (nextIndex >= this.ttsStream.chunks.length) {
-        if (this.ttsStream.finished) break;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        continue;
+    stream.running = true;
+    try {
+      while (!stream.stopped) {
+        const index = stream.lastChunkIndex + 1;
+        const available = stream.finished ? stream.chunks.length : stream.chunks.length - 1;
+        if (index >= available) {
+          if (stream.finished) break;
+          await sleep(50);
+          continue;
+        }
+        stream.lastChunkIndex = index;
+        await this.speakChunk(stream, index);
       }
-
-      if (
-        nextIndex === this.ttsStream.chunks.length - 1 &&
-        !this.ttsStream.finished
-      ) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        continue;
+    } catch (error) {
+      if (!stream.stopped) {
+        stream.stopped = true;
+        if (error?.name === "NotAllowedError") {
+          this.userHasInteracted = false;
+          this.showAudioPermissionPrompt();
+        } else {
+          console.error("Speech playback failed", error);
+          notifications.addFrontendToastOnly("error",
+            "Audio playback failed. Check that a voice and an audio output are available, then press Speak to retry.",
+            "Unable to play speech", 8, "speech-playback-error");
+        }
+        return error;
       }
-
-      this.ttsStream.lastChunkIndex = nextIndex;
-      const chunk = this.ttsStream.chunks[nextIndex];
-      await this.speakChunk(chunk, nextIndex > 0, terminator);
-    }
-
-    this.ttsStream.running = false;
-  }
-
-  async speakChunk(text, waitForPrevious = false, terminator = null) {
-    const provider = this.getActiveProvider();
-
-    if (provider) {
-      try {
-        return await this.speakWithProvider(
-          provider,
-          text,
-          waitForPrevious,
-          terminator,
-        );
-      } catch (error) {
-        console.error("TTS provider failed, falling back to browser TTS", error);
-      }
-    }
-
-    return await this.speakWithBrowser(text, waitForPrevious, terminator);
-  }
-
-  async speakWithProvider(provider, text, waitForPrevious = false, terminator = null) {
-    const payload = await provider.synthesize(text, {
-      providerId: this.getActiveProviderId(),
-    });
-
-    while (waitForPrevious && this.isSpeaking()) {
-      await sleep(25);
-    }
-    if (terminator && terminator()) return;
-
-    if (!waitForPrevious) {
-      this.stopAudio();
-    }
-
-    if (!payload) return;
-
-    if (Array.isArray(payload.audioParts)) {
-      for (const part of payload.audioParts) {
-        if (terminator && terminator()) return;
-        await this.playAudioBase64(part, payload.mimeType);
-        await sleep(100);
-      }
-      return;
-    }
-
-    const audioBase64 = payload.audioBase64 || payload.audio;
-    if (audioBase64) {
-      await this.playAudioBase64(audioBase64, payload.mimeType);
+    } finally {
+      stream.running = false;
+      if (this.ttsStream === stream) this.finishPreparation();
     }
   }
 
-  async speakWithBrowser(text, waitForPrevious = false, terminator = null) {
-    while (waitForPrevious && this.isSpeaking()) {
-      await sleep(25);
+  async speakChunk(stream, index) {
+    const text = stream.chunks[index];
+    let payload;
+    try {
+      if (index === 0) {
+        this.showPreparation();
+        stream.provider = await this.resolveProvider(stream);
+        if (stream.stopped) return;
+      }
+      if (stream.provider) {
+        payload = await stream.provider.synthesize(text, { providerId: this.getActiveProviderId() });
+        if (!payload?.audioParts?.length && !payload?.audioBase64 && !payload?.audio) {
+          throw new Error("The speech provider returned no audio.");
+        }
+      }
+    } catch (error) {
+      if (stream.stopped) return;
+      console.warn("Speech synthesis failed", error);
+      stream.provider = null;
+      this.finishPreparation();
+      notifications.addFrontendToastOnly("warning",
+        "Trying the browser voice for this response. Press Speak to retry the selected voice.",
+        `Speech synthesis failed: ${error?.message || "Voice unavailable"}`, 8, "speech-error");
     }
-    if (terminator && terminator()) return;
 
-    if (!waitForPrevious) {
-      this.stopAudio();
+    if (stream.stopped) return;
+    if (!stream.provider) return await this.speakWithBrowser(text);
+    for (const part of payload.audioParts || [payload.audioBase64 || payload.audio]) {
+      if (stream.stopped) return;
+      await this.playAudioBase64(part, payload.mimeType);
     }
+  }
 
+  async speakWithBrowser(text) {
+    if (!this.synth || typeof SpeechSynthesisUtterance === "undefined") {
+      throw new Error("Browser speech synthesis is unavailable.");
+    }
     return await new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(text);
       this.browserUtterance = utterance;
-
       utterance.onstart = () => {
+        this.finishPreparation();
         this.setSpeaking(true);
       };
-      utterance.onend = () => {
-        if (this.browserUtterance === utterance) {
-          this.browserUtterance = null;
-        }
+      this.finishPlayback = () => {
+        utterance.onstart = utterance.onend = utterance.onerror = null;
+        this.browserUtterance = null;
+        this.finishPlayback = null;
         this.setSpeaking(false);
         resolve();
       };
+      utterance.onend = this.finishPlayback;
       utterance.onerror = (error) => {
-        if (this.browserUtterance === utterance) {
-          this.browserUtterance = null;
-        }
-        this.setSpeaking(false);
         reject(error);
+        this.finishPlayback();
       };
-
       this.synth.speak(utterance);
     });
   }
 
   async playAudioBase64(base64Audio, mimeType = "audio/wav") {
     return await new Promise((resolve, reject) => {
-      const audio = this.audioEl ? this.audioEl : (this.audioEl = new Audio());
-
-      audio.pause();
-      audio.currentTime = 0;
-
-      audio.onplay = () => {
+      const audio = this.audioEl || (this.audioEl = new Audio());
+      audio.onplaying = () => {
+        this.finishPreparation();
         this.setSpeaking(true);
       };
-      audio.onended = () => {
+      const finish = this.finishPlayback = () => {
+        audio.onplaying = audio.onended = audio.onerror = null;
+        this.finishPlayback = null;
         this.setSpeaking(false);
-        this.currentAudio = null;
         resolve();
       };
-      audio.onerror = (error) => {
-        this.setSpeaking(false);
-        this.currentAudio = null;
+      const fail = (error) => {
+        if (this.finishPlayback !== finish) return;
         reject(error);
+        finish();
       };
-
+      audio.onended = finish;
+      audio.onerror = fail;
       audio.src = `data:${mimeType};base64,${base64Audio}`;
-      this.currentAudio = audio;
-
-      audio.play().catch((error) => {
-        this.setSpeaking(false);
-        this.currentAudio = null;
-        if (error?.name === "NotAllowedError") {
-          this.showAudioPermissionPrompt();
-          this.userHasInteracted = false;
-          this.emitStateChange();
-        }
-        reject(error);
-      });
+      audio.play().catch(fail);
     });
   }
 
   stop() {
+    if (this.ttsStream) this.ttsStream.stopped = true;
+    this.finishPreparation();
     this.stopAudio();
-    if (this.ttsStream) {
-      this.ttsStream.stopped = true;
-    }
 
-    const provider = this.getActiveProvider();
     try {
-      provider?.stop?.();
+      this.getActiveProvider()?.stop?.();
     } catch (error) {
       console.error("Failed to stop TTS provider cleanly", error);
     }
   }
 
   stopAudio() {
-    if (this.synth?.speaking) {
-      this.synth.cancel();
-    }
-
-    if (this.audioEl) {
-      this.audioEl.pause();
-      this.audioEl.currentTime = 0;
-    }
-
-    this.currentAudio = null;
+    const cancelBrowser = !!this.browserUtterance;
+    this.finishPlayback?.();
+    if (cancelBrowser || this.synth?.speaking) this.synth?.cancel();
+    this.audioEl?.pause();
     this.setSpeaking(false);
   }
 

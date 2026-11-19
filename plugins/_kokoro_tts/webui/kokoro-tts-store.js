@@ -6,9 +6,7 @@ import { ttsService } from "/js/tts-service.js";
 const PLUGIN_NAME = "_kokoro_tts";
 
 const model = {
-  runtimeInitialized: false,
-  statusLoaded: false,
-  loading: false,
+  id: PLUGIN_NAME,
   error: "",
   enabled: false,
   config: {
@@ -19,26 +17,12 @@ const model = {
   modelReady: false,
   modelLoading: false,
   packageVersion: "",
-  providerCleanup: null,
-
-  async initRuntime() {
-    if (this.runtimeInitialized) return;
-    this.runtimeInitialized = true;
-    await this.refreshStatus({ suppressError: true });
-  },
-
-  async ensureStatusLoaded() {
-    if (this.statusLoaded || this.loading) return;
-    await this.refreshStatus({ suppressError: true });
-  },
 
   async refreshStatus({ suppressError = false } = {}) {
-    this.loading = true;
     this.error = "";
 
     try {
       const status = await callJsonApi(`/plugins/${PLUGIN_NAME}/status`, {});
-      this.statusLoaded = true;
       this.enabled = !!status?.enabled;
       this.config = {
         voice: status?.config?.voice || "",
@@ -48,48 +32,28 @@ const model = {
       this.modelReady = !!status?.model?.ready;
       this.modelLoading = !!status?.model?.loading;
       this.packageVersion = status?.package?.version || "";
-
-      if (this.enabled) {
-        this.registerProvider();
-      } else {
-        this.unregisterProvider();
-      }
+      if (this.enabled && !ttsService.extensionProvider) ttsService.setExtensionProvider(store);
+      if (!this.enabled && ttsService.extensionProvider === store) ttsService.setExtensionProvider(null);
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
-      this.unregisterProvider();
       if (!suppressError) {
-        void toastFrontendError(this.error, "Local TTS");
+        void toastFrontendError("Could not read the speech settings.", this.error);
       }
-    } finally {
-      this.loading = false;
     }
   },
 
-  registerProvider() {
-    if (this.providerCleanup || !this.enabled) return;
-
-    this.providerCleanup = ttsService.registerProvider(PLUGIN_NAME, {
-      synthesize: async (text) => {
-        const result = await callJsonApi(`/plugins/${PLUGIN_NAME}/synthesize`, {
-          text,
-        });
-        if (!result?.success) {
-          throw new Error(result?.error || "Local TTS synthesis failed.");
-        }
-        this.modelReady = true;
-
-        return {
-          audioBase64: result.audio || "",
-          mimeType: result.mime_type || "audio/wav",
-        };
-      },
-    });
-  },
-
-  unregisterProvider() {
-    if (!this.providerCleanup) return;
-    this.providerCleanup();
-    this.providerCleanup = null;
+  async synthesize(text) {
+    this.modelLoading = true;
+    try {
+      const result = await callJsonApi(`/plugins/${PLUGIN_NAME}/synthesize`, { text });
+      if (!result?.success || !result.audio) {
+        throw new Error(result?.error || "Local TTS returned no audio.");
+      }
+      this.modelReady = true;
+      return { audioBase64: result.audio, mimeType: result.mime_type || "audio/wav" };
+    } finally {
+      this.modelLoading = false;
+    }
   },
 
   get statusText() {
@@ -133,3 +97,7 @@ const model = {
 };
 
 export const store = createStore("kokoroTts", model);
+
+window.addEventListener("plugin-config-saved", (event) => {
+  if (event.detail?.pluginName === PLUGIN_NAME) void store.refreshStatus();
+});

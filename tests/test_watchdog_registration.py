@@ -1,5 +1,8 @@
+import sys
 import threading
 from types import SimpleNamespace
+
+import pytest
 
 from helpers.watchdog import _WatchRegistry
 
@@ -64,3 +67,39 @@ def test_guest_package_files_do_not_reload_live_plugins(monkeypatch):
     changed.assert_not_called()
     on_change([['/a0/plugins/_desktop/extensions/python/startup_migration/routes.py', 'modify']])
     changed.assert_called_once_with(['_desktop'], python_change=True, frontend_reload=True)
+
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason='inotify close-after-write')
+def test_granting_sandbox_mount_permissions_does_not_reload_plugins(tmp_path, monkeypatch):
+    from helpers import plugins
+
+    root = tmp_path / 'plugins'
+    for name in ('_mounted', '_edited'):
+        directory = root / name
+        directory.mkdir(parents=True)
+        (directory / 'hooks.py').write_text('')
+
+    # Use the actual root subscription with an isolated Linux observer.
+    registry = _WatchRegistry()
+    changed = []
+    edited = threading.Event()
+
+    def on_change(names, **kwargs):
+        changed.extend(names)
+        if '_edited' in names:
+            edited.set()
+
+    def subscribe(id, patterns, handler, events='all', **kwargs):
+        if id == 'plugins_roots':
+            registry.add(id, [str(root)], patterns, None, events, 0, handler)
+
+    monkeypatch.setattr(plugins.watchdog, 'add_watchdog', subscribe)
+    monkeypatch.setattr(plugins, 'after_plugin_change', on_change)
+    try:
+        plugins.register_watchdogs()
+        (root / '_mounted/hooks.py').chmod(0o640)
+        (root / '_edited/hooks.py').write_text('# changed')
+        assert edited.wait(3)
+        assert '_mounted' not in changed
+    finally:
+        registry.clear()

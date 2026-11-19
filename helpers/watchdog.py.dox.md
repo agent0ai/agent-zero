@@ -39,9 +39,11 @@
 - `clear_watchdogs() -> None`
 - `start_watchdog_daemon() -> None`
 - `stop_watchdog_daemon() -> None`
-- Notable constants/configuration names: `_DEFAULT_PATTERNS`, `_DEFAULT_IGNORE_PATTERNS`, `_VALID_EVENTS`, `_EVENT_ALIASES`.
+- Notable constants/configuration names: `_DEFAULT_PATTERNS`, `_DEFAULT_IGNORE_PATTERNS`, `_DEFAULT_EVENTS`, `_EVENT_ALIASES`.
 
 ## Runtime Contracts
+
+- Subscribers may request `close_write` for Linux inotify close-after-write events. Default subscriptions retain create, modify, delete and move notifications.
 
 - Observer scheduling/unscheduling must run outside the registry lock: watchdog dispatch holds its own observer lock while calling us. Serialize refreshes without blocking callbacks, and replay a pending refresh after concurrent registrations. Verify the lock ordering with `tests/test_watchdog_registration.py`.
 

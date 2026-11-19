@@ -17,6 +17,7 @@
 
 - Dependencies belong to `sandbox/install.sh` and install on first use inside the guest. Startup, install hooks and config reads never install host packages or load models. Failures retain browser fallback. Stop the child worker after 120 seconds of inactivity and on disable; keep dependency/model files on disk.
 - Preserve browser-native fallback when the plugin is disabled or unavailable.
+- The `tts_provider` WebUI extension supplies the local provider at playback time. Synthesis reads the saved global configuration on each request. Open settings panels refresh after a successful save.
 - Do not expose generated speech artifacts outside intended response paths.
 - Preserve `voice` and `speed` configuration compatibility; weighted blends stay in memory and use positive finite weights.
 - `voice: paradee` selects the single American English Heart voice and is the default for unconfigured settings. Saved Kokoro voices, blends, speed, and enable/disable choices remain unchanged; no provider-choice migration or dialog is needed.

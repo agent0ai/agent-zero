@@ -18,6 +18,7 @@
 ## Local Contracts
 
 - Preserve Store Gating for all store-backed chat components.
+- The Stop Speech control listens to TTS state and stays available during first-use preparation and playback.
 - Use shared API, WebSocket, notification, and attachment helpers where available.
 - Do not bypass CSRF or WebSocket state-sync expectations.
 - The shared composer can be mounted on the Welcome screen with no selected chat; sending from that state must create and select a chat context before dispatch.

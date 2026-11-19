@@ -15,12 +15,14 @@
           <h4
             id="progress-bar-stop-speech"
             x-data="{
-              speaking: window.ttsService?.isSpeaking?.() || false,
+              active: false,
               _listener: null,
-              init() {
+              watchSpeech() {
                 this._listener = (event) => {
-                  this.speaking = !!event?.detail?.isSpeaking;
+                  this.active = event.detail.isSpeaking || event.detail.isPreparing;
                 };
+                const state = window.ttsService?.getState();
+                this.active = state?.isSpeaking || state?.isPreparing;
                 window.ttsService?.addEventListener?.('statechange', this._listener);
               },
               cleanup() {
@@ -29,14 +31,14 @@
                 }
               },
             }"
-            x-init="init()"
+            x-create="watchSpeech()"
             x-destroy="cleanup()"
             x-cloak
-            x-show="speaking"
+            x-show="active"
           >
-              <span id="stop-speech" @click="window.ttsService?.stop?.()" style="cursor: pointer" title="Stop Speech" aria-label="Stop Speech">
+              <button type="button" id="stop-speech" @click="window.ttsService?.stop?.()" title="Stop Speech" aria-label="Stop Speech">
                   <x-icon class="icon" name="volume_off"></x-icon>
-              </span>
+              </button>
           </h4>
           <x-extension id="chat-nav-after"></x-extension>
         </div>
@@ -47,6 +49,7 @@
     <style>
     #progress-bar-box { background-color: var(--color-panel); padding: var(--spacing-xs) var(--spacing-md) 0 var(--spacing-md); display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; z-index: 1001; gap: var(--spacing-sm); min-height: 0; }
     #progress-bar-box > x-extension { display: contents; }
+    #stop-speech { display: flex; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
     #progress-bar-box h4 { margin: 0; }
     #progress-bar-right { display: flex; align-items: center; gap: var(--spacing-sm); flex-shrink: 0; margin-left: auto;}
     #progress-bar-right > x-extension { display: contents; }

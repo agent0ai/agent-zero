@@ -1,4 +1,4 @@
-<div x-data x-init="$store.kokoroTts?.ensureStatusLoaded?.()" x-show="$store.kokoroTts?.enabled">
+<div x-data x-create="$store.kokoroTts?.refreshStatus({ suppressError: true })" x-show="$store.kokoroTts?.enabled">
   <div class="voice-plugin-card">
     <div class="voice-plugin-card-header">
       <div>

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from helpers.sandbox_types import SandboxError, SandboxMount
 from plugins._sandboxing.helpers.images import (
     SandboxImageError,
     SandboxImageInfo,
@@ -55,17 +56,6 @@ _ABSENT_MARKERS = (
 )
 _PROTECTED_MOUNT_ROOTS = ("/proc", "/dev", "/sys", "/etc", "/shared")
 _OWNERSHIP_KEYS = ("chat_id", "project_id", "agent_id", "plugin_id")
-
-
-class SandboxError(RuntimeError):
-    """A safe, user-facing sandbox management error."""
-
-
-@dataclass(frozen=True, slots=True)
-class SandboxMount:
-    source: Path
-    destination: str
-    read_only: bool = True
 
 
 @dataclass(frozen=True, slots=True)

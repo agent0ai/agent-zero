@@ -17,7 +17,7 @@ class _DispatchHandler:
         self.registry.dispatch(self.scheduled_root, event)
 
 
-WatchEvent = Literal["create", "modify", "delete", "move"]
+WatchEvent = Literal["create", "modify", "delete", "move", "close_write"]
 WatchEvents = Literal["all"] | list[WatchEvent | str] | set[WatchEvent | str]
 WatchItem = list[str]
 WatchHandler = Callable[[list[WatchItem]], None]
@@ -30,10 +30,12 @@ _DEFAULT_IGNORE_PATTERNS = [
     "**/*.pyc",
     "**/*.pyo",
 ]
-_VALID_EVENTS: frozenset[WatchEvent] = frozenset(["create", "modify", "delete", "move"])
+_DEFAULT_EVENTS: frozenset[WatchEvent] = frozenset(["create", "modify", "delete", "move"])
 _EVENT_ALIASES: dict[str, WatchEvent] = {
     "create": "create",
     "created": "create",
+    "closed": "close_write",
+    "close_write": "close_write",
     "modify": "modify",
     "modified": "modify",
     "delete": "delete",
@@ -306,14 +308,14 @@ def _normalize_patterns(
 
 def _normalize_events(events: WatchEvents) -> frozenset[WatchEvent]:
     if events == "all":
-        return _VALID_EVENTS
+        return _DEFAULT_EVENTS
     normalized: set[WatchEvent] = set()
     for event in events:
         mapped = _map_event_type(str(event))
         if mapped is None:
             raise ValueError(f"Unsupported watch event: {event}")
         normalized.add(mapped)
-    return frozenset(normalized) if normalized else _VALID_EVENTS
+    return frozenset(normalized) if normalized else _DEFAULT_EVENTS
 
 
 def _map_event_type(event_type: str) -> WatchEvent | None:

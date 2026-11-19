@@ -15,7 +15,7 @@ import * as cache from "./cache.js";
 /**
  * @typedef {Object} JsExtensionImport
  * @property {string} path
- * @property {{ default: (...data: any[]) => (void|Promise<void>) }} module
+ * @property {{ default: (...data: any[]) => unknown }} module
  */
 
 const JS_CACHE_AREA = "frontend_extensions_js(extensions)(plugins)";
@@ -74,14 +74,15 @@ export async function callJsExtensions(extensionPoint, ...data){
  * Load JS extension modules for an extension point.
  *
  * @param {string} extensionPoint
+ * @param {{ fresh?: boolean }} [options] Query current activation even if a page manifest exists.
  * @returns {Promise<JsExtensionImport[]>}
  */
-export async function loadJsExtensions(extensionPoint) {
+export async function loadJsExtensions(extensionPoint, { fresh = false } = {}) {
   try {
     const cached = cache.get(JS_CACHE_AREA, extensionPoint, null);
-    if (cached != null) return cached;
+    if (!fresh && cached != null) return cached;
 
-    const manifestExtensions = manifestExtensionPaths("js", extensionPoint);
+    const manifestExtensions = fresh ? null : manifestExtensionPaths("js", extensionPoint);
     /** @type {WebuiExtension[]} */
     let extensionPaths = manifestExtensions;
     if (extensionPaths == null) {
@@ -102,6 +103,7 @@ export async function loadJsExtensions(extensionPoint) {
     cache.add(JS_CACHE_AREA, extensionPoint, imports);
     return imports;
   } catch (error) {
+    if (fresh) throw error;
     console.error("Error loading JS extensions:", error);
     return [];
   }

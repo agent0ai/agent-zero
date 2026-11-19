@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re, json, glob
+import sys
 import time
 from pathlib import Path
 from typing import (
@@ -147,6 +148,8 @@ def register_watchdogs():
         )
 
     relevant_patterns = ["**/extensions/**/*", TOGGLE_FILE_PATTERN, HOOKS_SCRIPT]
+    # Inotify reports a sandbox mount ACL change as "modified", even for untouched Python files.
+    content_events = ["create", "move", "delete", "close_write" if sys.platform.startswith("linux") else "modify"]
 
     # combine relevant patterns with base path
     def expand_patterns(base_path: str):
@@ -158,6 +161,7 @@ def register_watchdogs():
     # add watchdogs for plugin roots
     watchdog.add_watchdog(
         id="plugins_roots",
+        events=content_events,
         roots=get_plugin_roots(),
         patterns=[*expand_patterns("*/")],
         handler=on_plugin_change,
@@ -169,6 +173,7 @@ def register_watchdogs():
     # add watchdogs for plugin overrides in projects/plugins and projects/agents/plugins
     watchdog.add_watchdog(
         id="plugins_projects",
+        events=content_events,
         roots=[files.get_abs_path(projects.PROJECTS_PARENT_DIR)],
         patterns=[
             *expand_patterns(f"*/{projects.PROJECT_META_DIR}/plugins/"),
@@ -180,6 +185,7 @@ def register_watchdogs():
     # add watchdogs for plugin overrides in /agents/plugins and /usr/agents/plugins
     watchdog.add_watchdog(
         id="plugins_agents",
+        events=content_events,
         roots=[
             files.get_abs_path(subagents.DEFAULT_AGENTS_DIR),
             files.get_abs_path(subagents.USER_AGENTS_DIR),

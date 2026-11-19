@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 from pathlib import Path
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +16,20 @@ import helpers.sandbox_worker as worker_module
 from plugins._sandboxing.helpers.manager import SandboxError, SandboxMount
 from tests.test_sandboxing import manager
 from tests.test_sandbox_services import create_disk
+
+
+def test_worker_mount_survives_plugin_reload():
+    # Namespace purging in-process would replace other tests' active plugins.
+    subprocess.run([sys.executable, "-c", """
+from pathlib import Path
+from helpers import plugins, sandbox_worker
+mount = sandbox_worker.SandboxMount(Path('/tmp'), '/request')
+plugins.refresh_plugin_modules(['_kokoro_tts'])
+from plugins._sandboxing.helpers.manager import SandboxManager, SandboxError
+manager = SandboxManager.__new__(SandboxManager)
+assert manager._normalize_mounts([mount]) == (mount,)
+assert SandboxError is sandbox_worker.SandboxError
+"""], check=True, cwd=Path(__file__).resolve().parents[1])
 
 
 @pytest.fixture
