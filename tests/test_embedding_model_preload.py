@@ -12,6 +12,13 @@ import pytest
 import models
 
 
+@pytest.fixture(autouse=True)
+def tokenizer_without_network(monkeypatch):
+    from helpers import tokens
+
+    monkeypatch.setattr(tokens, "count_tokens", lambda _text: 1)
+
+
 def test_framework_imports_do_not_load_embedding_or_speech_runtimes():
     result = subprocess.run(
         [sys.executable, "-c", """
@@ -470,13 +477,23 @@ async def test_preload_uses_the_runtime_embedding_configuration(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["openai", "huggingface"])
-async def test_preload_skips_remote_models_and_contains_local_failures(monkeypatch, provider):
+@pytest.mark.parametrize("tokenizer_failure", [False, True])
+async def test_preload_warms_tokenizer_and_contains_independent_failures(monkeypatch, provider, tokenizer_failure):
     import preload
     from plugins._model_config.helpers import model_config
 
     config = SimpleNamespace(provider=provider, name="example", build_kwargs=lambda: {})
     calls = []
     errors = []
+    tokenizer_threads = []
+    loop_thread = threading.get_ident()
+
+    def warm_tokenizer(text):
+        assert text
+        tokenizer_threads.append(threading.get_ident())
+        if tokenizer_failure:
+            raise RuntimeError("tokenizer unavailable")
+        return 1
 
     def fail_embedding(*args, **kwargs):
         calls.append(args)
@@ -484,6 +501,7 @@ async def test_preload_skips_remote_models_and_contains_local_failures(monkeypat
 
     monkeypatch.setattr(model_config, "get_embedding_model_config_object", lambda: config)
     monkeypatch.setattr(models, "get_embedding_model", fail_embedding)
+    monkeypatch.setattr(preload.tokens, "count_tokens", warm_tokenizer)
     monkeypatch.setattr(
         preload, "PrintStyle",
         lambda: SimpleNamespace(print=lambda _: None, error=errors.append),
@@ -491,12 +509,17 @@ async def test_preload_skips_remote_models_and_contains_local_failures(monkeypat
 
     await preload.preload()
 
+    assert len(tokenizer_threads) == 1
+    assert tokenizer_threads[0] != loop_thread
+    expected_errors = []
     if provider == "huggingface":
         assert calls == [("huggingface", "example")]
-        assert errors == ["Error in preload: model unavailable"]
+        expected_errors.append("Error in preload: model unavailable")
     else:
         assert calls == []
-        assert errors == []
+    if tokenizer_failure:
+        expected_errors.append("Error preloading tokenizer: tokenizer unavailable")
+    assert errors == expected_errors
 
 
 def test_watchdog_setup_overlaps_real_warmup_before_mcp_and_http(monkeypatch, startup_runtime):
