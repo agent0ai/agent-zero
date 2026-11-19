@@ -9,6 +9,7 @@ from typing import Any
 
 from helpers.tool import Tool, Response, coerce_bool
 from helpers.errors import RepairableException
+from helpers.tool_policy import ensure_retired_host_tool_allowed
 from helpers import files, rfc_exchange, projects, runtime, secrets, settings
 from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text as truncate_text_string
@@ -59,6 +60,8 @@ class State:
 
 class CodeExecution(Tool):
 
+    allow_running = False
+
     async def execute(self, **kwargs) -> Response:
         from helpers.parallel_tools import get_parallel_worker_job
 
@@ -81,7 +84,6 @@ class CodeExecution(Tool):
                 f"code_execution_tool requires code to be a string for runtime {runtime_arg}; received {received}"
             )
         session = int(self.args.get("session", 0))
-        self.allow_running = coerce_bool(self.args.get("allow_running", False), False)
         reset = coerce_bool(self.args.get("reset", False), False) or runtime_arg == "reset"
 
         requested_destination = str(self.args.get("destination", "default") or "default")
@@ -93,22 +95,10 @@ class CodeExecution(Tool):
             return Response(message=str(exc), break_loop=False)
 
         if self.destination.kind == "host":
-            from plugins._a0_connector.tools.code_execution_remote import (
-                CodeExecutionRemote,
-            )
+            from plugins._a0_connector.helpers.host_execution import HostExecution
 
-            remote_args = dict(self.args)
-            remote_args.pop("destination", None)
-            remote = CodeExecutionRemote(
-                self.agent,
-                "code_execution_remote",
-                "",
-                remote_args,
-                self.message,
-                self.loop_data,
-            )
-            remote.log = self.log
-            return await remote.execute(**remote_args)
+            ensure_retired_host_tool_allowed(self.agent, "code_execution_remote", tool_args=self.args)
+            return await HostExecution(self.agent, self.args, allow_running=self.allow_running).execute()
 
         cfg = _get_config(self.agent)
 

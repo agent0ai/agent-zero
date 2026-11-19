@@ -37,6 +37,8 @@
 
 ## Verification
 
+- File destination changes need the tool, connector permission, and text freshness checks in `test_destination_files.py` and the real guest path and read-only mount check in `test_proot_runtime.py`.
+
 - Install root `requirements.txt` for application dependencies, suite tooling and the SoundFile WAV fixtures; plugin sandboxes still install their own runtime requirements. Real DOM/upload checks run in a provisioned browser guest with `PYTHONPATH=/app` and `PLAYWRIGHT_BROWSERS_PATH=/opt/browsers`.
 - Run `pytest` for broad changes.
 - Run `node --test tests/test_canvas_modes.mjs tests/test_component_moves.mjs` for workspace routing, close guards and retained component moves; verify shared modal and isolated Save As rendering in a real browser.

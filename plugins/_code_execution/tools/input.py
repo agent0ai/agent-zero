@@ -13,25 +13,18 @@ class Input(Tool):
         session = int(self.args.get("session", 0))
         destination = str(self.args.get("destination", "default") or "default")
 
-        # forward keyboard input to code execution tool
-        args = (
-            {
-                "runtime": "input",
-                "keyboard": keyboard,
-                "session": session,
-                "destination": destination,
-            }
-            if destination == "host"
-            else {
-                "runtime": "terminal",
-                "code": keyboard,
-                "session": session,
-                "allow_running": True,
-                "destination": destination,
-            }
-        )
+        from helpers.tool_policy import ensure_retired_host_tool_allowed, ensure_tool_allowed
+
+        ensure_tool_allowed(self.agent, "code_execution_tool", canonical_id="plugin:_code_execution:code_execution_tool", action="terminal")
+        if destination.strip() == "host":
+            ensure_retired_host_tool_allowed(self.agent, "input_remote")
+        args = {
+            "runtime": "terminal", "code": keyboard, "session": session,
+            "destination": destination,
+        }
         cet = CodeExecution(self.agent, "code_execution_tool", "", args, self.message, self.loop_data)
-        cet.log = self.log
+        cet.allow_running = True
+        cet.log = getattr(self, "log", None)
         return await cet.execute(**args)
 
     def get_log_object(self):

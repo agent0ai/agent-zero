@@ -54,7 +54,7 @@ work to one of these CLIs. The skill keeps the global setup loop in
 
 If the user does not specify host versus container, Agent Zero asks and saves a
 per-agent preference with `memory` action=save. Local/host mode uses the connector's
-`code_execution_remote` tool and may load `host-code-execution`; container mode
+`code_execution_tool` with `destination: host` tool and may load `host-code-execution`; container mode
 uses `code_execution_tool`.
 
 For local/host coding agents, the user should run A0 CLI on their own machine:

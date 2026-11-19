@@ -13,6 +13,8 @@
 
 ## Local Contracts
 
+- Connected-host commands and input use the shared tools with `destination=host`, the connector permissions, and the bundled terminal policy. Only the input wrapper can set `allow_running`. Existing SSH execution settings remain a code execution transport.
+
 - Local workdir creation resolves development paths with `files.fix_dev_path`. Explicit SSH receives the configured remote workdir (project paths use `/a0` aliases) without creating a host-local directory. Empty SSH passwords fall back to the local root password; other hosts need explicit credentials. Connected-host and sandbox transports remain separate.
 
 - `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.

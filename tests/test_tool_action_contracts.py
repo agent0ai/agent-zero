@@ -1157,7 +1157,6 @@ def test_corrected_tool_prompts_only_teach_action_contract():
         project_root / "plugins/_text_editor/prompts/agent.system.tool.text_editor.md",
         project_root / "prompts/agent.system.tool.skills.md",
         project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md",
-        project_root / "plugins/_a0_connector/prompts/agent.system.tool.text_editor_remote.md",
     ]
     forbidden = (
         "text_editor:",

@@ -1,4 +1,9 @@
+import hashlib
 from pathlib import Path
+import tempfile
+
+from helpers import destination_files
+from helpers.tool_policy import ensure_retired_host_tool_allowed
 
 from helpers.tool import Tool, Response
 from helpers.extension import call_extensions_async
@@ -32,10 +37,20 @@ _MTIME_KEY = LOCAL_FRESHNESS_KEY
 class TextEditor(Tool):
 
     def get_log_object(self):
-        return create_editor_log(self)
+        return create_editor_log(self, remote=self.args.get("destination") == "host")
 
     async def execute(self, **kwargs):
         action = _current_action(self, kwargs)
+        destination = str(kwargs.pop("destination", self.args.get("destination", "local")) or "local").strip()
+        if destination == "host":
+            from plugins._a0_connector.helpers.host_text_editor import HostTextEditor
+
+            ensure_retired_host_tool_allowed(self.agent, "text_editor_remote", action=action)
+            remote = HostTextEditor(self.agent, {**self.args, **kwargs, "action": action})
+            return await remote.execute()
+        if destination and destination != "local":
+            kwargs.pop("action", None)
+            return await self._sandbox_edit(destination, action, **kwargs)
         if action == "read":
             return await self._read(**kwargs)
         elif action == "write":
@@ -49,6 +64,81 @@ class TextEditor(Tool):
             ),
             break_loop=False,
         )
+
+    async def _sandbox_edit(self, destination, action, path="", **kwargs):
+        limit = 10 * 1024 * 1024
+        try:
+            if not isinstance(path, str) or not path or action not in {"read", "write", "patch"}:
+                raise ValueError("Provide a path and a read, write, or patch action")
+            target = await destination_files.resolve(self.agent, destination)
+            key = f"{target.target}:{path}"
+            revisions = self.agent.data.setdefault("_text_editor_sandbox_revisions", {})
+            if action == "write":
+                content = kwargs.get("content")
+                if content is None:
+                    content = ""
+                if not isinstance(content, str):
+                    raise ValueError("content must be a string")
+                revision = await destination_files.write(
+                    self.agent, destination, path, content.encode("utf-8"), limit=limit,
+                )
+                revisions[key] = revision
+                return Response(message=f"{path} written in {destination}", break_loop=False)
+
+            content = await destination_files.read(self.agent, destination, path, limit=limit)
+            if b"\x00" in content[:8192]:
+                raise ValueError("File appears binary")
+            revision = hashlib.sha256(content).hexdigest()
+            with tempfile.TemporaryDirectory(prefix="a0-text-editor-") as directory:
+                staged = Path(directory, "content")
+                staged.write_bytes(content)
+                if action == "read":
+                    cfg = _get_config(self.agent)
+                    result = read_file(
+                        str(staged), line_from=int(kwargs.get("line_from", 1)),
+                        line_to=int(kwargs["line_to"]) if kwargs.get("line_to") is not None else None,
+                        max_line_tokens=cfg["max_line_tokens"],
+                        default_line_count=cfg["default_line_count"],
+                        max_total_read_tokens=cfg["max_total_read_tokens"],
+                    )
+                    if result["error"]:
+                        raise ValueError(result["error"])
+                    revisions[key] = revision
+                    visible = {name: result[name] for name in ("content", "warnings")}
+                    await call_extensions_async("text_editor_read_after", agent=self.agent, data=visible)
+                    message = self.agent.read_prompt(
+                        "fw.text_editor.read_ok.md", path=path, total_lines=str(result["total_lines"]), **visible,
+                    )
+                    return Response(message=message, break_loop=False)
+
+                patch, error = parse_patch_request(
+                    kwargs.get("edits"), kwargs.get("patch_text"), kwargs.get("old_text"), kwargs.get("new_text"),
+                )
+                if error:
+                    raise ValueError(error)
+                if patch.mode == "replace":
+                    apply_exact_replace_file(str(staged), patch.old_text, patch.new_text)
+                elif patch.mode == "patch_text":
+                    apply_context_patch_file(str(staged), patch.patch_text)
+                else:
+                    if key not in revisions:
+                        return Response(self.agent.read_prompt("fw.text_editor.patch_need_read.md", path=path), False)
+                    if revisions[key] != revision:
+                        return Response(self.agent.read_prompt("fw.text_editor.patch_stale_read.md", path=path), False)
+                    edits, error = validate_edits(patch.edits)
+                    if error:
+                        raise ValueError(error)
+                    apply_patch(str(staged), edits)
+                new_revision = await destination_files.write(
+                    self.agent, destination, path, staged.read_bytes(), limit=limit, expected=revision,
+                )
+                if patch.mode == "edits":
+                    revisions[key] = new_revision
+                else:
+                    revisions.pop(key, None)
+                return Response(message=f"{path} patched in {destination}", break_loop=False)
+        except (OSError, ValueError, RuntimeError, TypeError) as exc:
+            return self._error(action, path, str(exc))
 
     # ------------------------------------------------------------------
     # READ

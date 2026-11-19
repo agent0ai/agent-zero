@@ -52,11 +52,7 @@
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that
   share one Markdown prompt.
-- Bundled `input_remote` additionally requires the bundled `code_execution_remote`
-  terminal action, since its transport can execute commands. Resolve the
-  dependency by canonical ID with the same policy snapshot so profile shadows,
-  explicit grants, and default-deny policies cannot bypass it. Keep its own
-  independent permission check; granting execution alone does not grant input.
+- Bundled `input` requires the bundled `code_execution_tool:terminal` permission. Resolve the dependency by canonical ID for discovery and execution. Connected-host dispatch also honors explicit denials saved for retired remote tool IDs, and the connector independently enforces its active permissions.
 - Catalog descriptions call the supplied agent's prompt loader instead of
   opening prompt files through a parallel path; the editor agent intentionally
   keeps its existing raw, no-processor implementation.

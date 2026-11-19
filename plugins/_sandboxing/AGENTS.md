@@ -17,6 +17,8 @@
 
 ## Local Contracts
 
+- Agent file transfers run the bounded standard Python file helper inside the selected guest. Exclude plugin service sandboxes and preserve guest mount permissions. Custom images need `python3` for this feature.
+
 - Invoke PRoot via the stdlib process supervisor with argument arrays and shell=False. Guest shell text is never evaluated by the host.
 - Never use a Docker socket, nested daemon, SSH server, KVM, or an unvalidated sandbox path.
 - Pull images through `skopeo` and unpack them through `umoci` with argument arrays, bounded output, timeouts, and no shell. Registry credentials may only be referenced through a configured auth file.

@@ -13,7 +13,7 @@
 
 ## Local Contracts
 
-- Text read/write/patch operations invoke the shipped file helpers locally in every runtime mode, preserving freshness, metadata and extension hooks. The local tool resolves development `/a0` aliases before reads, writes, patches and freshness tracking; shared file helpers used by the remote editor retain remote path semantics.
+- Text read/write/patch operations support local, sandbox, and connected-host paths. Local operations preserve extension hooks and canvas metadata. Sandbox line edits track destination-specific content revisions and reject writes over a changed file. Host editing uses the connector transport and its file permissions. The local tool resolves development `/a0` aliases before reads, writes, patches and freshness tracking; shared file helpers used by the remote editor retain remote path semantics.
 
 - `extensions/webui/get_process_step_types/text-editor-types.js` registers `text_editor` as a process-step type so raw-log grouping matches the plugin's message renderer.
 
@@ -21,7 +21,7 @@
 - Text Editor `write`/`patch` read the canonical UI-intent arg `open_in_canvas`; legacy aliases `open_canvas` and `open_document` still work. Document only the canonical arg in model-facing prompts.
 - Fallback editor log rows without an action or path render `icon://construction Using tool 'text_editor'` without an agent-name prefix.
 - `tools/text_editor.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI `get_message_handler` hook routes messages to `_text_editor/extensions/webui/get_message_handler/_10_text_editor_handler.js` instead of the default `drawMessageTool` handler.
-- The remote editor reuses shipped patch and log helpers even when this plugin is disabled; activation still controls local tool discovery and custom WebUI rendering. Removing bundled helper files is not a supported independent-plugin configuration.
+- Plugin activation controls editor discovery for every destination.
 - Preserve stale-read protection before patch operations.
 - Validate patch structures before applying edits.
 - Line-edit inserts past the last line start on a new line, even when the file has no trailing newline.

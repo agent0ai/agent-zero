@@ -205,14 +205,17 @@ def test_complex_prompt_args_are_not_guessed_as_string_schemas():
         }
 
 
-def test_remote_execution_schemas_match_local_runtime_and_input_contracts():
+def test_shared_execution_and_input_schemas_expose_destination():
     params = responses_tools.BUNDLED_TOOL_PARAMETERS
-    local = params["plugins/_code_execution/tools/code_execution_tool.py"]
-    remote = params["plugins/_a0_connector/tools/code_execution_remote.py"]
-    assert remote["runtime"] == local["runtime"]
-    assert "input" not in remote["runtime"]["enum"]
-    assert "allow_running" not in remote
-    assert params["plugins/_a0_connector/tools/input_remote.py"] == params["plugins/_code_execution/tools/input.py"]
+    execution = params["plugins/_code_execution/tools/code_execution_tool.py"]
+    keyboard = params["plugins/_code_execution/tools/input.py"]
+    assert execution["destination"] == keyboard["destination"] == {"type": "string"}
+    assert "input" not in execution["runtime"]["enum"]
+    assert "allow_running" not in execution
+    assert not set(params).intersection({
+        "plugins/_a0_connector/tools/code_execution_remote.py",
+        "plugins/_a0_connector/tools/input_remote.py",
+    })
 
 
 def test_bundled_schema_follows_implementation_and_explicit_overrides(monkeypatch, tmp_path):

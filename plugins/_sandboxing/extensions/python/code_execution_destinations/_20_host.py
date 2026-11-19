@@ -19,13 +19,13 @@ class IncludeConnectedHostDestination(Extension):
             available = remote_tool_prompt_availability(context_id)
         except ImportError:
             return
-        if available.get("code_execution_remote"):
+        if available.get("code_execution_remote") or available.get("text_editor_remote"):
             destinations.append(
                 ExecutionDestination(
                     id="host",
                     kind="host",
                     label="Connected host",
-                    description="The A0 CLI or Launcher host computer connected to this chat.",
+                    description="The A0 CLI or Launcher computer connected to this chat. File access and execution require their respective host permissions.",
                     status="connected",
                 )
             )

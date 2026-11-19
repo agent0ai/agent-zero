@@ -228,15 +228,18 @@ def resolve_tool(
     if policy["mode"] != "custom":
         return ToolPolicyDecision(True, tool_id, "inherited", "inherit")
 
-    if tool_id == "plugin:_a0_connector:input_remote":
+    if tool_id in {"plugin:_a0_connector:input_remote", "plugin:_code_execution:input"}:
+        local_input = tool_id == "plugin:_code_execution:input"
+        execution_name = "code_execution_tool" if local_input else "code_execution_remote"
+        execution_id = "plugin:_code_execution:code_execution_tool" if local_input else "plugin:_a0_connector:code_execution_remote"
         execution = resolve_tool(
-            agent, "code_execution_remote",
-            canonical_id="plugin:_a0_connector:code_execution_remote",
+            agent, execution_name,
+            canonical_id=execution_id,
             action="terminal", _policy=policy,
         )
         if not execution.allowed:
             return ToolPolicyDecision(
-                False, tool_id, execution.source, execution.mode, "requires code_execution_remote:terminal"
+                False, tool_id, execution.source, execution.mode, f"requires {execution_name}:terminal"
             )
 
     policy_ids = {tool_id, *LEGACY_TOOL_IDS.get(tool_id, ())}
@@ -296,6 +299,17 @@ def ensure_tool_allowed(
     raise RepairableException(
         f'Tool "{tool_name}" is blocked for agent profile "{profile}".'
     )
+
+
+def ensure_retired_host_tool_allowed(agent: Any, name: str, *, action=None, tool_args=None) -> None:
+    """Preserve explicit denials from profiles created before destinations were unified."""
+    policy = get_policy(agent)
+    decision = resolve_tool(
+        agent, name, canonical_id=f"plugin:_a0_connector:{name}",
+        action=action, tool_args=tool_args, _policy={**policy, "default": "allow"},
+    )
+    if not decision.allowed:
+        raise RepairableException(f'The profile blocks {name} on the connected host.')
 
 
 def allowed_memory_actions(

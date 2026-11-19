@@ -227,7 +227,7 @@ class BrowserConnection:
         await self.start(context_id)
         context = AgentContext.get(context_id)
         options = get_browser_config(agent=context.agent0 if context else None)
-        uploads = {}
+        uploads = kwargs.pop("prepared_uploads", {})
         calls = args[0] if method == 'multi' else []
         selected = calls if method == 'multi' else ([{'action': method, 'path': args[2] if len(args) > 2 else kwargs.get('path', ''),
                      'paths': args[3] if len(args) > 3 else kwargs.get('paths')}] if method == 'upload_file' else [])
@@ -235,7 +235,9 @@ class BrowserConnection:
             if str(call.get('action') or '').strip().lower().replace('-', '_') == 'upload_file':
                 path, paths = call.get('path') or '', call.get('paths')
                 try:
-                    uploads[json.dumps([path, paths])] = upload_request(path, paths)
+                    key = json.dumps([path, paths])
+                    if key not in uploads:
+                        uploads[key] = upload_request(path, paths)
                 except Exception as exc:
                     uploads[json.dumps([path, paths])] = {'error': str(exc)}
         if method == 'attach_screencast_consumer':

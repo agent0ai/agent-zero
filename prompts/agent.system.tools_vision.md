@@ -23,3 +23,5 @@ example:
   }
 }
 ```
+
+For file paths, use `destination` to choose `default`, a named sandbox, `host`, or `local` (the default). Image references and inline images keep their usual handling.

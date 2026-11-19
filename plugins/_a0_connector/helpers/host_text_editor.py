@@ -1,11 +1,11 @@
-"""text_editor_remote tool - edit files on the CLI machine via `/ws`."""
+"""Transport for the text editor on the connected host."""
 from __future__ import annotations
 
 import asyncio
 import uuid
 from typing import Any
 
-from helpers.tool import Response, Tool
+from helpers.tool import Response
 from helpers.ws_manager import (
     ConnectionNotFoundError,
     WsPayloadTooLargeError,
@@ -28,7 +28,6 @@ from plugins._a0_connector.helpers.ws_runtime import (
     select_remote_file_target_sid,
     store_pending_file_op,
 )
-from plugins._text_editor.helpers.log import create_editor_log
 from plugins._text_editor.helpers.patch_request import (
     exact_replace_to_patch_text,
     parse_patch_request,
@@ -39,7 +38,7 @@ FILE_OP_TIMEOUT = 30.0
 FILE_OP_EVENT = "connector_file_op"
 REMOTE_FILE_TEXT_MAX_BYTES = 256 * 1024
 UNSUPPORTED_FRESHNESS_ERROR = (
-    "text_editor_remote: the connected CLI is too old for freshness-aware patching. "
+    "host text editor: the connected CLI is too old for freshness-aware patching. "
     "Upgrade the CLI and try again."
 )
 
@@ -61,11 +60,12 @@ def _modification_payload_bytes(op: str, payload: dict[str, Any]) -> int:
     )
 
 
-class TextEditorRemote(Tool):
+class HostTextEditor:
     """Send file-editing operations to the connected CLI machine."""
 
-    def get_log_object(self):
-        return create_editor_log(self, remote=True)
+    def __init__(self, agent, args):
+        self.agent = agent
+        self.args = args
 
     async def execute(self, **kwargs: Any) -> Response:
         op = (
@@ -205,7 +205,7 @@ class TextEditorRemote(Tool):
                 "ok": False,
                 "code": "PAYLOAD_TOO_LARGE",
                 "error": (
-                    f"text_editor_remote limits write and patch content to "
+                    f"host text editor limits write and patch content to "
                     f"{REMOTE_FILE_TEXT_MAX_BYTES} bytes; received {actual_bytes}. "
                     "Use the authenticated HTTP bulk transfer path instead."
                 ),
@@ -224,7 +224,7 @@ class TextEditorRemote(Tool):
         if not sid:
             if not candidates:
                 error = (
-                    "text_editor_remote: no CLI client connected to Agent Zero. "
+                    "host text editor: no CLI client connected to Agent Zero. "
                     "Make sure the CLI is connected to this instance."
                 )
             elif require_writes:
@@ -235,14 +235,14 @@ class TextEditorRemote(Tool):
                     for candidate_sid in candidates
                 )
                 error = (
-                    "text_editor_remote: no connected CLI currently allows remote file writes. "
+                    "host text editor: no connected CLI currently allows remote file writes. "
                     "Press F3 to switch the CLI to Read&Write."
                     if write_blocked
-                    else "text_editor_remote: no connected CLI currently advertises remote file access."
+                    else "host text editor: no connected CLI currently advertises remote file access."
                 )
             else:
                 error = (
-                    "text_editor_remote: no connected CLI currently advertises remote file access."
+                    "host text editor: no connected CLI currently advertises remote file access."
                 )
             return {
                 "ok": False,
@@ -286,7 +286,7 @@ class TextEditorRemote(Tool):
                 "op_id": op_id,
                 "ok": False,
                 "error": (
-                    "text_editor_remote: the selected CLI client disconnected before "
+                    "host text editor: the selected CLI client disconnected before "
                     "the file operation could be delivered"
                 ),
             }
@@ -296,7 +296,7 @@ class TextEditorRemote(Tool):
                 "op_id": op_id,
                 "ok": False,
                 "error": (
-                    f"text_editor_remote: timed out waiting for CLI to respond "
+                    f"host text editor: timed out waiting for CLI to respond "
                     f"to {op} on {path!r}"
                 ),
             }
@@ -305,7 +305,7 @@ class TextEditorRemote(Tool):
             return {
                 "op_id": op_id,
                 "ok": False,
-                "error": f"text_editor_remote: error sending file_op: {exc}",
+                "error": f"host text editor: error sending file_op: {exc}",
             }
         finally:
             clear_pending_file_op(op_id)

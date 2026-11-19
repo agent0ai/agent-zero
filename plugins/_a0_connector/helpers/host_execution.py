@@ -1,11 +1,11 @@
-"""code_execution_remote tool — run shell-backed frontend operations on the CLI machine via `/ws`."""
+"""Shell transport for commands on the connected host."""
 from __future__ import annotations
 
 import asyncio
 import uuid
 from typing import Any
 
-from helpers.tool import Response, Tool, coerce_bool
+from helpers.tool import Response, coerce_bool
 from helpers.ws_manager import (
     ConnectionNotFoundError,
     WsPayloadTooLargeError,
@@ -35,10 +35,13 @@ _TIMEOUT_KEYS = (
 )
 
 
-class CodeExecutionRemote(Tool):
+class HostExecution:
     """Send shell-backed frontend execution operations to the connected CLI machine."""
 
-    _allow_running = False
+    def __init__(self, agent, args, *, allow_running=False):
+        self.agent = agent
+        self.args = args
+        self._allow_running = allow_running
 
     @staticmethod
     def _runtime_requires_write_access(runtime: str) -> bool:
@@ -69,35 +72,10 @@ class CodeExecutionRemote(Tool):
 
     @staticmethod
     def _wait_timeout_for_runtime(runtime: str, exec_config: dict[str, Any]) -> float:
-        timeouts = CodeExecutionRemote._timeout_group_for_runtime(runtime, exec_config)
+        timeouts = HostExecution._timeout_group_for_runtime(runtime, exec_config)
         if not timeouts:
             return EXEC_OP_DEFAULT_TIMEOUT
         return max(float(value) for value in timeouts.values()) + EXEC_OP_TRANSPORT_GRACE
-
-    def get_log_object(self):
-        import uuid
-
-        return self.agent.context.log.log(
-            type="code_exe",
-            heading=self.get_heading(),
-            content="",
-            kvps=self.args,
-            id=str(uuid.uuid4()),
-        )
-
-    def get_heading(self, text: str = "") -> str:
-        if not text:
-            name = str(getattr(self, "name", "code_execution_remote"))
-            runtime = str(self.args.get("runtime", "unknown") or "unknown")
-            text = f"{name} - {runtime}"
-
-        normalized = " ".join(str(text).split())
-        if len(normalized) > 200:
-            normalized = normalized[:197].rstrip() + "..."
-
-        session = self.args.get("session", None)
-        session_text = f"[{session}] " if session or session == 0 else ""
-        return f"icon://terminal {session_text}{normalized}"
 
     async def execute(self, **kwargs: Any) -> Response:
         runtime = str(self.args.get("runtime", "")).strip().lower()
@@ -130,15 +108,15 @@ class CodeExecutionRemote(Tool):
 
             return Response(
                 message=(
-                    "code_execution_remote: no connected CLI currently allows "
+                    "host execution: no connected CLI currently allows "
                     "shell-backed execution that may modify local files. Press F3 to switch "
                     "the CLI to Read&Write. `runtime=output` and `runtime=reset` remain "
                     "available for existing sessions."
                     if candidates and require_writes and exec_enabled and write_blocked
-                    else "code_execution_remote: no connected CLI currently has "
+                    else "host execution: no connected CLI currently has "
                     "remote execution enabled. Connect the CLI and press F4 to switch exec on."
                     if candidates
-                    else "code_execution_remote: no CLI client connected to Agent Zero. "
+                    else "host execution: no CLI client connected to Agent Zero. "
                     "Make sure the CLI is connected to this instance."
                 ),
                 break_loop=False,
@@ -209,7 +187,7 @@ class CodeExecutionRemote(Tool):
             clear_pending_exec_op(op_id)
             return Response(
                 message=(
-                    "code_execution_remote: the selected CLI client disconnected before "
+                    "host execution: the selected CLI client disconnected before "
                     "the execution request could be delivered"
                 ),
                 break_loop=False,
@@ -218,7 +196,7 @@ class CodeExecutionRemote(Tool):
             clear_pending_exec_op(op_id)
             return Response(
                 message=(
-                    "code_execution_remote: timed out waiting for CLI to respond "
+                    "host execution: timed out waiting for CLI to respond "
                     f"to runtime={runtime!r} in session {session} after "
                     f"{wait_timeout:g} seconds"
                 ),
@@ -227,7 +205,7 @@ class CodeExecutionRemote(Tool):
         except Exception as exc:
             clear_pending_exec_op(op_id)
             return Response(
-                message=f"code_execution_remote: error sending exec_op: {exc}",
+                message=f"host execution: error sending exec_op: {exc}",
                 break_loop=False,
             )
         finally:

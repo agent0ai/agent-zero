@@ -11,6 +11,7 @@ rules:
 - use a sandbox destination for development, builds, tests, experiments, and one-off commands. Pick `default` when it routes to a sandbox.
 - use `destination=local` only for work that requires direct access to the running Agent Zero framework or its operating system. If no sandbox is available for a task that belongs in one, report the blocker.
 - keep the same `destination` for a session's commands, output polls, interactive input, and reset
+- for connected-host workflows, load the `host-code-execution` skill. Use `destination=host` only when the task requires the connected computer and that computer has enabled code execution. Use `input` with the same destination and session for terminal input.
 - use `runtime=output` to poll running work
 - use `input` for interactive terminal prompts
 - if a session is stuck, call again with the same `session` and `reset=true`

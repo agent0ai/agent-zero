@@ -17,7 +17,7 @@
 ## Local Contracts
 
 - Route plain web research to the `web-search` skill; search has no dedicated agent tool.
-- Keep browser actions safe around external pages, credentials, and user data.
+- Keep browser actions safe around external pages, credentials, and user data. The internal browser stages uploads from the named file destination. The connected browser accepts uploads from its own machine. Explicit screenshot paths are written via the same destination file API.
 - DOM-helper messaging accepts only non-opaque same-origin documents, uses exact target origins, and binds responses to the requested child window and operation. Use the effective Window origin so inherited-origin `about:blank` and `srcdoc` frames work; cross-origin frame RPC fails closed while direct automation entry points remain available.
 - DOM helper v2 and internal runtime readiness checks reject in-place upgrades: reload existing pages to remove legacy anonymous message listeners. Host connectors receive the helper source through its existing SHA-256 update path; restart existing host browsers and reconnect before reloading restored tabs to discard old initialization scripts.
 - Preserve Patchright lifecycle cleanup and WebSocket viewer compatibility across regular host browsers and Electron WebContentsView embedding.

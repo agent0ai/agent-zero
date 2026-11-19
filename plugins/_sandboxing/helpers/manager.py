@@ -479,7 +479,9 @@ class SandboxManager:
             metadata['mounts'] = [self._mount_json(mount) for mount in normalized]
             self._atomic_write_json(self._instance_path(name) / 'metadata.json', metadata)
 
-    def process_command(self, name: str, argv: Sequence[str], *, cwd: str = "/workspace") -> list[str]:
+    def process_command(
+        self, name: str, argv: Sequence[str], *, cwd: str = "/workspace", agent_only: bool = False,
+    ) -> list[str]:
         """Validated argv for an administrative caller that owns subprocess pipes/lifetime."""
         args = self._validate_command(argv)
         if not args:
@@ -487,6 +489,8 @@ class SandboxManager:
         cwd = self._validate_guest_path(cwd, label="cwd")
         with self._operation_lock(name):
             metadata = self._read_metadata(name)
+            if agent_only and metadata.get("service"):
+                raise SandboxError("Plugin service sandboxes are not agent destinations")
             self._require_running(name, metadata)
             self._touch_locked(name, metadata)
             return self._process_command(name, metadata, args, cwd)

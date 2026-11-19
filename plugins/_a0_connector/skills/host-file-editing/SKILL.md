@@ -1,13 +1,13 @@
 ---
 name: host-file-editing
-description: Guide safe use of text_editor_remote for reading, writing, and patching files on the connected A0 CLI host. Use when the user asks to inspect or edit files on their computer, local files, CLI host files, or files that are explicitly not Docker/server files.
+description: Guide safe use of the text_editor tool for reading, writing, and patching files on the connected A0 CLI host. Use when the user asks to inspect or edit files on their computer, local files, CLI host files, or files that are explicitly not Docker/server files.
 ---
 
 # Host File Editing
 
 ## Boundary
 
-Use `text_editor_remote` only for file work on the machine where A0 CLI is running. These paths and files belong to the CLI host, not the Agent Zero server or Docker container.
+Use `destination: host` with `text_editor` for file work on the machine where A0 CLI is running. These paths and files belong to the CLI host, not the Agent Zero server or Docker container.
 
 If the task belongs inside Agent Zero's own runtime, use the normal server-side file tools instead.
 

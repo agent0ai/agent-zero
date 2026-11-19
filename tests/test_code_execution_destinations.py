@@ -124,7 +124,7 @@ def test_python_execution_uses_destination_interpreter(
     ) + ["-c", "import flask"]
 
 
-def test_input_uses_connector_input_operation_for_host(
+def test_host_input_reuses_terminal_transport_without_model_supplied_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
@@ -136,11 +136,15 @@ def test_input_uses_connector_input_operation_for_host(
 
         async def execute(self, **kwargs):
             captured["kwargs"] = kwargs
+            captured["allow_running"] = self.allow_running
             return SimpleNamespace(message="ok")
 
     monkeypatch.setattr(input_tool_module, "CodeExecution", FakeCodeExecution)
     tool = object.__new__(input_tool_module.Input)
     tool.args = {"destination": "host", "session": 4}
+    from helpers import tool_policy
+    monkeypatch.setattr(tool_policy, "ensure_tool_allowed", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tool_policy, "ensure_retired_host_tool_allowed", lambda *args, **kwargs: None)
     tool.agent = SimpleNamespace()
     tool.message = None
     tool.loop_data = None
@@ -149,8 +153,9 @@ def test_input_uses_connector_input_operation_for_host(
     asyncio.run(tool.execute(keyboard="Y"))
 
     assert captured["args"] == {
-        "runtime": "input",
-        "keyboard": "Y",
+        "runtime": "terminal",
+        "code": "Y",
         "session": 4,
         "destination": "host",
     }
+    assert captured["allow_running"] is True

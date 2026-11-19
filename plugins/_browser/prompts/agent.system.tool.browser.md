@@ -1,4 +1,6 @@
 ### browser
+
+For uploads in the internal browser and named screenshot output paths, `destination` selects the file location (`default`, a named sandbox, `host`, or `local`). The connected browser accepts uploads from its own host. Omit destination to keep the browser's usual path handling.
 Rendered browser automation for pages that need interaction, JavaScript, forms, downloads, screenshots, or visual inspection.
 
 Prefer the `web-search` skill or `document_query` for plain text research. The tool must not open a Browser surface automatically. Use the tool headlessly unless the user opens the Browser surface or asks for the optional visible WebUI viewer.

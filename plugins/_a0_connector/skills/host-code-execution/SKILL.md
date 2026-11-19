@@ -1,13 +1,13 @@
 ---
 name: host-code-execution
-description: Guide safe use of code_execution_remote for shell-backed execution on the connected A0 CLI host. Use when the user asks for their computer, local terminal, CLI host, remote shell, not Docker, or host-side Python/Node/terminal commands.
+description: Guide safe use of the code_execution_tool for shell-backed execution on the connected A0 CLI host. Use when the user asks for their computer, local terminal, CLI host, remote shell, not Docker, or host-side Python/Node/terminal commands.
 ---
 
 # Host Code Execution
 
 ## Boundary
 
-Use `code_execution_remote` only for shell-backed execution on the machine where A0 CLI is running. Shells, runtimes, and paths belong to the CLI host, not the Agent Zero server or Docker container.
+Use `destination: host` with `code_execution_tool` for shell-backed execution on the machine where A0 CLI is running. Shells, runtimes, and paths belong to the CLI host, not the Agent Zero server or Docker container.
 
 If the task belongs inside Agent Zero's own runtime, use the normal server-side execution tool instead.
 
@@ -16,7 +16,7 @@ Browser boundary: do not use shell launchers such as `xdg-open`, `sensible-brows
 ## Access Modes
 
 - Remote execution can be disabled locally in the CLI. If the tool returns a disabled/no-client error, explain the required CLI toggle instead of falling back to the server runtime.
-- `input_remote` and remote terminal execution are enabled by default in Agent Editor; no editor change is needed with the default policy. Custom policies must permit both `input_remote` and the `terminal` action of `code_execution_remote`. Keyboard input can execute shell commands, so a terminal block also blocks input.
+- `input` with `destination: host` and remote terminal execution are enabled by default in Agent Editor; no editor change is needed with the default policy. Custom policies must permit both `input` with `destination: host` and the `terminal` action of `code_execution_tool` with `destination: host`. Keyboard input can execute shell commands, so a terminal block also blocks input.
 - Read&Write local file access allows mutating runtimes such as `terminal`, `python`, and `nodejs`.
 - Read only local file access blocks mutating runtimes. `runtime=output` and `runtime=reset` remain available for existing sessions.
 
@@ -25,7 +25,7 @@ Browser boundary: do not use shell launchers such as `xdg-open`, `sensible-brows
 - Use `runtime=terminal` for shell commands, `runtime=python` for Python snippets, and `runtime=nodejs` for Node.js snippets.
 - Reuse the same integer `session` while continuing a workflow; session state is local to the CLI frontend.
 - Use `runtime=output` when a previous command is still running or returned before the shell reached a prompt.
-- Use `input_remote` with `keyboard` and the same `session` to answer an interactive program.
+- Use `input` with `destination: host` with `keyboard` and the same `session` to answer an interactive program.
 - Use `runtime=reset` when a session is stuck and no replacement command needs to run yet.
 - Use `reset: true` with `runtime=terminal`, `python`, or `nodejs` when a session is stuck and the next command should run immediately in a clean shell.
 - Match the remote host shell syntax. A Windows CLI may need PowerShell syntax even when Agent Zero runs on Linux.

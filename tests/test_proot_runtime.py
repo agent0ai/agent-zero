@@ -223,3 +223,62 @@ def test_socket_across_exec_and_legacy_disk_migration(manager):
         assert server.wait(timeout=5)==0
     finally:
         if server.poll() is None:server.terminate();server.wait(timeout=8)
+
+
+def test_destination_files_use_guest_paths_mounts_and_binary_limits(manager, monkeypatch, tmp_path):
+    import asyncio
+    from types import SimpleNamespace
+
+    from helpers import destination_files
+    from plugins._code_execution.helpers.destinations import ExecutionDestination
+    from plugins._sandboxing.helpers import runtime
+    from plugins._text_editor.tools import text_editor
+
+    mounted = tmp_path / "read-only"
+    mounted.mkdir()
+    (mounted / "data").write_bytes(b"mounted")
+    manager.create("file-edit", mounts=[SandboxMount(mounted, "/input")])
+    manager.create("file-service", service=True)
+    agent = SimpleNamespace(data={}, read_prompt=lambda name, **values: f"{name} {values}")
+
+    async def no_extensions(*args, **kwargs):
+        pass
+
+    monkeypatch.setattr(text_editor, "call_extensions_async", no_extensions)
+    monkeypatch.setattr(text_editor, "_get_config", lambda _: {
+        "max_line_tokens": 500, "default_line_count": 100, "max_total_read_tokens": 4000,
+    })
+    monkeypatch.setattr(runtime, "get_manager", lambda **kwargs: manager)
+    monkeypatch.setattr(runtime, "defaults", lambda **kwargs: ("file-edit", "temporary", "host"))
+
+    async def resolve(_agent, name):
+        return ExecutionDestination(name, "sandbox", name, "", target=name)
+
+    monkeypatch.setattr(destination_files, "resolve", resolve)
+
+    async def check():
+        name, path = "file-edit", "/workspace/private/data"
+        revision = await destination_files.write(agent, name, path, b"\x00old\xff", limit=64)
+        assert await destination_files.read(agent, name, path, limit=64) == b"\x00old\xff"
+        await destination_files.write(agent, name, path, b"new", limit=64, expected=revision)
+        with pytest.raises(OSError, match="changed since"):
+            await destination_files.write(agent, name, path, b"lose", limit=64, expected=revision)
+        with pytest.raises(OSError, match="exceeds 2 bytes"):
+            await destination_files.read(agent, name, path, limit=2)
+        assert await destination_files.read(agent, name, "/input/data", limit=64) == b"mounted"
+        with pytest.raises(OSError):
+            await destination_files.write(agent, name, "/input/data", b"changed", limit=64)
+        with pytest.raises(PermissionError, match="service sandboxes"):
+            await destination_files.read(agent, "file-service", path, limit=64)
+        assert await destination_files.read(agent, name, path, limit=64) == b"new"
+
+        async def edit(action, **kwargs):
+            args = {"action": action, "destination": name, "path": path, **kwargs}
+            return await text_editor.TextEditor(agent, "text_editor", None, args, "", None).execute(**args)
+
+        assert "new" in (await edit("read")).message
+        assert "patched" in (await edit("patch", old_text="new", new_text="live edit")).message
+        assert await destination_files.read(agent, name, path, limit=64) == b"live edit"
+
+    asyncio.run(check())
+    assert (mounted / "data").read_bytes() == b"mounted"

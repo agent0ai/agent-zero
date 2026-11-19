@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import mimetypes
+import ntpath
 import json
 import re
 import time
@@ -8,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from helpers import files
+from helpers import destination_files, files
 from helpers.print_style import PrintStyle
 from helpers.strings import truncate_text
 from helpers.tool import Response, Tool
@@ -65,6 +68,7 @@ class Browser(Tool):
         full_page: bool = False,
         path: str = "",
         paths: list[str] | None = None,
+        destination: str = "",
         value: str = "",
         values: list[str] | None = None,
         checked: bool | None = None,
@@ -113,8 +117,10 @@ class Browser(Tool):
                     browser_id,
                     quality=quality,
                     full_page=full_page,
-                    path=path,
+                    path="" if destination and path else path,
                 )
+                if path and destination:
+                    await self._save_to_destination(result, destination, path)
             elif action == "list":
                 result = await runtime.call("list", include_content=bool(include_content))
             elif action == "state":
@@ -299,12 +305,14 @@ class Browser(Tool):
                     checked=True if checked is None else bool(checked),
                 )
             elif action == "upload_file":
+                upload = await self._prepare_upload(runtime, destination, path, paths)
                 result = await runtime.call(
                     "upload_file",
                     browser_id,
                     await self._resolve_ref(runtime, browser_id, ref, selector, action),
                     path=path,
                     paths=paths,
+                    **({"prepared_uploads": {json.dumps([path, paths]): upload}} if upload else {}),
                 )
             elif action == "mouse":
                 result = await runtime.call(
@@ -314,7 +322,33 @@ class Browser(Tool):
             elif action == "multi":
                 if not calls:
                     raise ValueError("multi requires non-empty 'calls' list")
-                result = await runtime.call("multi", list(calls))
+                prepared = {}
+                upload_targets = {}
+                batch = []
+                screenshots = {}
+                for index, original in enumerate(calls):
+                    item = dict(original)
+                    target = item.pop("destination", destination)
+                    operation = str(item.get("action") or "").strip().lower().replace("-", "_")
+                    source = item.get("path") or ""
+                    if operation == "upload_file":
+                        key = json.dumps([source, item.get("paths")])
+                        if key in upload_targets and upload_targets[key] != target:
+                            raise ValueError("Different upload destinations share the same paths. Use separate calls.")
+                        upload_targets[key] = target
+                        upload = await self._prepare_upload(runtime, target, source, item.get("paths"))
+                        if upload:
+                            prepared[key] = upload
+                    elif operation == "screenshot" and target and source:
+                        screenshots[index] = (target, source)
+                        item["path"] = ""
+                    batch.append(item)
+                result = await runtime.call("multi", batch, **({"prepared_uploads": prepared} if prepared else {}))
+                if screenshots:
+                    items = result.get("result") if isinstance(result, dict) else result
+                    for index, (target, output) in screenshots.items():
+                        if items[index].get("ok"):
+                            await self._save_to_destination(items[index]["result"], target, output)
             elif action == "close":
                 result = await runtime.call("close_browser", browser_id)
             elif action == "close_all":
@@ -333,6 +367,49 @@ class Browser(Tool):
                 await asyncio.gather(startup_hint, return_exceptions=True)
 
         return Response(message=self._format_result(action, result), break_loop=False)
+
+    async def _prepare_upload(self, runtime, destination, path, paths):
+        if not destination:
+            return None
+        from plugins._browser.helpers.connector_runtime import ConnectorBrowserRuntime
+        from plugins._browser.helpers.sandbox import MAX_MESSAGE
+
+        if isinstance(runtime, ConnectorBrowserRuntime):
+            if destination != "host":
+                raise ValueError("The connected browser only accepts uploads from its own host. Use the internal browser for other destinations.")
+            return None
+        if paths is not None and not isinstance(paths, list):
+            raise ValueError("paths must be a list of file paths")
+        selected = [*(paths or []), *([path] if path else [])]
+        upload = {"paths": [], "files": []}
+        remaining = MAX_MESSAGE // 2
+        for source in selected:
+            name = ntpath.basename(source)
+            if not name or name in {".", ".."}:
+                raise ValueError("Upload requires a file path")
+            data = await destination_files.read(self.agent, destination, source, limit=remaining)
+            remaining -= len(data)
+            upload["paths"].append(source)
+            upload["files"].append({
+                "name": name, "mimeType": mimetypes.guess_type(name)[0] or "application/octet-stream",
+                "buffer": base64.b64encode(data).decode(),
+            })
+        if not upload["files"]:
+            raise ValueError("upload_file requires path or non-empty paths")
+        return upload
+
+    async def _save_to_destination(self, result, destination, path):
+        from helpers.chat_media import DEFAULT_MAX_IMAGE_BYTES
+
+        source = result.get("a0_path") or result.get("path")
+        if not source:
+            raise ValueError("Browser did not return a readable screenshot")
+        if not path.lower().endswith((".jpg", ".jpeg", ".png")):
+            path += ".jpg"
+        data = await destination_files.read(self.agent, "local", source, limit=DEFAULT_MAX_IMAGE_BYTES)
+        await destination_files.write(self.agent, destination, path, data, limit=DEFAULT_MAX_IMAGE_BYTES)
+        result["destination_path"] = path
+        result["destination"] = destination
 
     async def _show_startup_hint(self):
         while True:

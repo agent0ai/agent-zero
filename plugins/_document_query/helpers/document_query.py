@@ -1,11 +1,13 @@
 """Document fetching, sandbox parsing and host indexing with bounded timeouts."""
 
 import asyncio
+import hashlib
 import json
+import mimetypes
 import threading
 from datetime import datetime
 from typing import Any, Callable, List, Optional, Sequence, Tuple
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 
 from langchain.schema import SystemMessage, HumanMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -283,6 +285,8 @@ class DocumentQueryHelper:
         self.store = DocumentQueryStore.get(agent)
         self.progress_callback = progress_callback or (lambda x: None)
         self.stream_callback = stream_callback
+        self.destination = "local"
+        self._destination_uris: dict[str, str] = {}
         self.store_lock = asyncio.Lock()
         self.config = _load_config(agent)
 
@@ -311,7 +315,10 @@ class DocumentQueryHelper:
         search_threshold = self.config.get("search_threshold", DEFAULT_SEARCH_THRESHOLD)
         search_limit = self.config.get("search_limit", 100)
         selected_chunks = {}
-        normalized_uris = [self.store.normalize_uri(uri) for uri in document_uris]
+        normalized_uris = [
+            self._destination_uris.get(uri) or self.store.normalize_uri(uri)
+            for uri in document_uris
+        ]
         intro_chunk_count = _positive_int(
             self.config.get("context_intro_chunks"),
             2,
@@ -443,11 +450,27 @@ class DocumentQueryHelper:
     ) -> str:
         self.progress_callback(f"Fetching document content")
         await self.agent.handle_intervention()
-        document = await fetch_public_resource(
-            document_uri,
-            self.config,
-            self.agent.handle_intervention,
-        )
+        parsed = urlparse(document_uri)
+        if self.destination == "local" or (parsed.scheme and parsed.scheme != "file" and len(parsed.scheme) != 1):
+            document = await fetch_public_resource(
+                document_uri, self.config, self.agent.handle_intervention,
+            )
+        else:
+            from helpers import destination_files
+
+            path = unquote(parsed.path) if parsed.scheme == "file" else document_uri
+            mime, encoding = mimetypes.guess_type(path)
+            if not mime or encoding:
+                raise ValueError(f"Unsupported document type: {path}")
+            data = await destination_files.read(
+                self.agent, self.destination, path,
+                limit=int(self.config.get("max_remote_bytes", 50 * 1024 * 1024)),
+            )
+            revision = hashlib.sha256(data).hexdigest()
+            uri = f"destination-file://{quote(str(self.agent.context.id), safe='')}/{quote(self.destination, safe='')}/{revision}/{quote(path.lstrip('/'), safe='/')}"
+            document = FetchedDocument(uri=uri, source_uri=document_uri, scheme="file", mimetype=mime, content=data)
+            self._destination_uris[document_uri] = self.store.normalize_uri(uri)
+
         document_uri_norm = self.store.normalize_uri(document.uri)
         await self.agent.handle_intervention()
         exists = await self.store.document_exists(document_uri_norm)

@@ -44,6 +44,7 @@ class DocumentQueryTool(Tool):
             helper = DocumentQueryHelper(
                 self.agent, progress_callback, stream_callback=self._stream_answer
             )
+            helper.destination = str(kwargs.get("destination") or "local")
             progress_callback("Preparing document parser")
             await worker.aprepare()
             if not queries:

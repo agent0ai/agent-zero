@@ -15,28 +15,12 @@
 ## Local Contracts
 
 - `tools/computer_use_remote.py` logs its message as the dedicated `computer_use_remote` type with an `icon://desktop_windows` gerund headline naming the action, such as `Computer use: Capturing screen`; `extensions/webui/get_message_handler/` owns the `DSK` badge presentation in its own lilac accent shared with the agent-to-agent badge, distinct from the execution badge's purple accent and `extensions/webui/get_process_step_types/` registers the type.
-- `tools/text_editor_remote.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension; keep remote edits visually consistent with local edits.
+- The shared editor logs host edits as `type="text_editor"` so the WebUI routes its messages through the `_text_editor` plugin's `get_message_handler` JS extension; keep remote edits visually consistent with local edits.
 - Remote text editing reuses the shipped `_text_editor` patch and log helpers. Disabling local editor discovery does not remove these Python modules; removing the bundled dependency is unsupported.
 - Preserve session-auth and `auth.handlers` activation assumptions.
 - `helpers/remote_tree.py` resolves instance-wide host map limits from current default-workdir settings unless `remote_tree_inherit` is false. Hello and tree acknowledgements include additive `remote_tree_config` (four non-negative integers; zero unlimited). Updated connectors honor explicit host overrides first and refresh on the existing tree keepalive. Older clients ignore the field. Agent Zero's Working directory settings owns this prompt-map configuration; it is separate from Launcher host access controls.
 - `v1/chats_list` keeps the normal list response unchanged. An optional string `query` (at most 200 characters) returns read-only `matches` over those loaded contexts, using the bundled `_sidebar_folders.helpers.search` pure helper independently of its UI activation/config. Return only IDs, title flags and bounded literal text parts; blank queries do not scan. Preserve the existing protected route's authentication. CLI search scope/order stays with its original candidate list.
-- Keep remote tool prompts synchronized with remote tool behavior and disclose
-  them only from connected CLI metadata: no connected CLI hides all remote tool
-  prompts, remote file metadata enables `text_editor_remote`, F4-enabled remote
-  execution metadata enables `code_execution_remote` and `input_remote`, and supported enabled
-  Computer Use that does not need re-arming enables `computer_use_remote`.
-- Remote execution uses the same runtime set as local code execution. `input_remote`
-  mirrors local `input`, forwarding trimmed `keyboard` through gated terminal
-  execution with framework-owned `allow_running`. It shares connection, write
-  access, timeout, transfer, and disconnect handling; ordinary model args cannot
-  enable `allow_running`. There is no `runtime=input` or `code` input alias.
-- `input_remote` requires both its own policy permission and the bundled
-  `plugin:_a0_connector:code_execution_remote` terminal action. Both are enabled
-  by the default policy without an Agent Editor grant. Custom restrictions remain
-  authoritative. Shared policy resolution
-  applies the dependency to prompts, native schemas, and execution; the input
-  wrapper rechecks that exact capability before rewriting args or dispatching,
-  including when a profile shadows the execution tool name.
+- Advertise connected-host file and shell routes from their independent connector capabilities. The shared `text_editor`, `code_execution_tool` and `input` tools use `destination=host`. Preserve explicit legacy policy restrictions and connector permissions. `computer_use_remote` is separately advertised when supported and enabled.
 - Computer Use prompts keep `element_index` top-level and semantic `target` syntax in backend skills. macOS `app-scoped-semantic-targeting` enables explicit app/window scope; older clients use the indexed window workflow. Native `get_window_state.mode` only labels output and stays out of model-facing guidance.
 - `computer_use_remote` starts a missing chat session inside the first requested action only after the host returns `COMPUTER_USE_SESSION_REQUIRED` before dispatch. Start once on the same socket/context and resume with the returned session ID and a fresh operation ID. Never auto-replace an explicit session binding, retry permission/ambiguous failures, or start from `status`/`stop_session`; keep existing host enablement, trust, and platform approval checks. Attach the requested action's capture, not an extra startup capture.
 - Host Computer Use skills begin with `list_windows` or `capture`. Linux X11/XWayland viewer guidance lives in `skills/host-computer-use-linux/references/x11-viewers.md` and requires independently enabled host code execution for shell techniques. Permission denials remain stop conditions; the internal Docker/Xpra desktop and standalone X11 backend selection are unchanged.
@@ -94,7 +78,7 @@
   and delete abort matching transfers; disconnect aborts all SID-owned state.
   Mark outbound loops before emitting abort so raw payloads and pending futures
   are released promptly even when the peer disappears mid-frame.
-- `text_editor_remote` is a bounded text control plane. Core must reject write
+- The connected-host text editor adapter is a bounded text control plane. Core must reject write
   and patch content over 256 KiB before creating a pending WebSocket operation;
   the CLI independently enforces the same ceiling. Reads return at most 2,000
   lines or 256 KiB with continuation metadata and reject binary-looking files.

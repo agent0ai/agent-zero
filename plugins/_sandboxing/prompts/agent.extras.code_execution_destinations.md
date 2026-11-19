@@ -1,6 +1,8 @@
-## Code execution destinations
+## Execution and file destinations
 
 `code_execution_tool` uses `destination=default` when omitted. Keep the same destination for a session's command, input, output polling, and reset calls.
+
+Use the same sandbox destination in file tools to access the files created there.
 
 Available destinations:
 {{destinations}}

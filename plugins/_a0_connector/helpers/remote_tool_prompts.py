@@ -6,10 +6,7 @@ from plugins._a0_connector.helpers import ws_runtime
 
 
 REMOTE_TOOL_PROMPTS: dict[str, str] = {
-    "code_execution_remote": "agent.system.tool.code_execution_remote.md",
-    "input_remote": "agent.system.tool.input_remote.md",
     "computer_use_remote": "agent.system.tool.computer_use_remote.md",
-    "text_editor_remote": "agent.system.tool.text_editor_remote.md",
 }
 
 

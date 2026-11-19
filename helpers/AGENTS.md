@@ -7,6 +7,8 @@
 
 ## Ownership
 
+- `destination_files.py` owns bounded binary file access for agent tools across local, sandbox and connected-host filesystems. Resolve guest paths inside PRoot and honor the connected host folder and transfer grants.
+
 - Helper modules provide reusable services; feature-specific route handlers belong in `api/`, tool behavior in `tools/`, and plugin-local logic inside plugin directories.
 - Security, auth, settings, file access, plugin discovery, extension dispatch, notifications, state snapshots, scheduler, sandbox access, tunnel-origin discovery, and WebSocket primitives live here.
 

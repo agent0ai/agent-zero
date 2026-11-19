@@ -16,7 +16,7 @@
 
 ## Local Contracts
 
-- Respect configured size, timeout, retry, parser concurrency, and OCR limits.
+- Respect configured size, timeout, retry, parser concurrency, and OCR limits. The tool accepts destination paths and keys indexed content by its destination and revision. HTTP URLs still use the existing fetch policy.
 - Fetch local and remote resources safely and avoid leaking document contents beyond intended prompt/tool use.
 - Parser packages and OCR system dependencies belong only to `sandbox/install.sh` and the guest runtime; host hooks never install them. `helpers/sandbox.py` stages requested document bytes and serves both Document Query and Memory knowledge loaders.
 - Keep Tesseract, its Latin language data, and Poppler out of the base image. Install Tesseract immediately before a system-backed image OCR call and add Poppler only for a PDF OCR fallback.
