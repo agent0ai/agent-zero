@@ -31,7 +31,7 @@
 - Explicitly target local versus SSH execution runtimes.
 - The `input` tool logs a prefix-free `icon://keyboard Using tool 'input'` heading and forwards keyboard input through the code execution tool and its log.
 - The tool's `allow_running` flag is framework-set (for example by the `input` tool's terminal dispatch); it is not a model-facing arg and stays undocumented in prompts.
-- Keep `destination=default` isolated through registered destination extensions; `local` means the Agent Zero operating system, and connected-host routing reuses the authenticated connector transport.
+- Keep `destination=default` isolated through registered destination extensions. Guide ordinary work to a sandbox and reserve `local` for tasks requiring direct access to the running framework or its operating system. Connected-host routing reuses the authenticated connector transport.
 - Key persistent sessions by destination and session id so output, input, and reset cannot cross execution boundaries.
 - Do not hardcode secrets, SSH credentials, or local user paths.
 - Direct local POSIX Python snippets run IPython with the framework's `sys.executable`; Windows, SSH and sandbox sessions use the target's `ipython` command.

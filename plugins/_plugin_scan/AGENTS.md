@@ -15,7 +15,7 @@
 
 ## Local Contracts
 
-- Keep scan prompts explicit about source handling, security categories, and report expectations.
+- Keep scan prompts explicit about source handling, security categories, and report expectations. Dependency isolation is a selectable check and rates clearly unnecessary shared environment installs as Fail. Allow minimal shared dependencies with a documented need.
 - Temporary scan contexts must be isolated and cleaned up as intended.
 - Do not install or execute scanned plugin code as part of scanning unless explicitly designed and documented.
 
