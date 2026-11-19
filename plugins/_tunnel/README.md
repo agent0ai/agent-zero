@@ -1,13 +1,13 @@
 # Remote Control
 
-Open Remote Control from the menu or the plugin settings and click Start. The first start pulls the system sandbox image (default `docker.io/library/python:3.13-slim-bookworm`) and runs `sandbox/install.sh` inside a persistent PRoot sandbox. Later starts reuse the installed files. No provider process or sandbox runs before first use.
+Access Agent Zero from another computer or your phone with a shareable link.
 
-Cloudflare runs its native executable, verified against the official release digest. Microsoft, Serveo and Tailscale use the existing provider adapters in a small guest worker; their Python dependencies are installed only inside the sandbox.
+Open **Remote Control** from the menu or plugin settings, choose a provider, and click **Start**. Open the resulting link on another device or scan its QR code with your phone. First-time setup can take a little longer; later starts reuse the installation.
 
-The default target is Agent Zero's current HTTP port on loopback. A plugin port override is available. HTTP, login, CSRF and WebSocket handling remain in Agent Zero. The sandbox uses host networking and does not mount Agent Zero's usr directory or the host root.
+Cloudflare Tunnel is the quickest way to get a link. Microsoft Dev Tunnels and Tailscale may ask you to sign in or approve access. Serveo is also available.
 
-An active tunnel survives an Agent Zero process restart. Docker/container or host restart kills the processes; Agent Zero restores the desired-running standalone sandbox from disk. A Cloudflare quick-tunnel URL may change after reconnecting. Stop preserves installed files and login state; disabling stops it; uninstall removes its sandbox and credentials.
+A login and password in **Settings → Authentication** are required before starting Remote Control. Anyone with the link can reach the sign-in page while remote access is active. Click **Stop** when finished.
 
-The image setting applies on creation. To replace an existing base image, stop the tunnel, delete `service-tunnel` with the sandbox CLI, save the new image setting, and Start again. This deletes provider login state.
+The provider selector is the main setting. **Advanced** contains the optional target port; leave it at 0 to connect to Agent Zero automatically.
 
-Other plugins can reuse `helpers.sandbox.get_manager()` and supply their own read-only installer directory and boot command. No Dockerfile builder or Docker socket is required.
+Active remote access resumes after Agent Zero restarts, although the link may change. Stopping or disabling keeps your provider setup; uninstalling removes it and any saved provider credentials.

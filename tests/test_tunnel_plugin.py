@@ -25,6 +25,8 @@ def test_unused_tunnel_does_not_create_a_sandbox(monkeypatch, tmp_path):
 
 
 def test_first_start_uses_runtime_port_default_image_and_native_service(monkeypatch, tmp_path):
+    monkeypatch.setenv("AUTH_LOGIN", "test-user")
+    monkeypatch.setenv("AUTH_PASSWORD", "test-password")
     monkeypatch.setattr(runtime, 'enabled', lambda: True)
     monkeypatch.setattr(runtime, 'config', lambda: {})
     monkeypatch.setattr(runtime.runtime, 'get_web_ui_port', lambda: 8765)
@@ -71,3 +73,34 @@ def test_native_startup_does_not_touch_system_supervisor(monkeypatch):
     monkeypatch.setattr(migration.runtime, 'is_dockerized', lambda: False)
     monkeypatch.setattr(migration, 'retire', lambda: pytest.fail('must not modify native host Supervisor'))
     migration.RetireTunnelController(None).execute()
+
+
+@pytest.mark.parametrize(("username", "password"), [("", ""), ("user", ""), ("", "password")])
+def test_start_without_auth_fails_before_sandbox_access(monkeypatch, username, password):
+    import asyncio
+    from plugins._tunnel.api.tunnel import process
+    monkeypatch.setenv("AUTH_LOGIN", username)
+    monkeypatch.setenv("AUTH_PASSWORD", password)
+    monkeypatch.setattr(runtime, "enabled", lambda: True)
+    monkeypatch.setattr(runtime, "get_manager", lambda: pytest.fail("must not provision or start a tunnel"))
+    result = asyncio.run(process({"action": "create", "provider": "cloudflared"}))
+    assert result == {"success": False, "message": runtime.AUTH_REQUIRED}
+
+
+def test_cached_status_rechecks_auth_without_exposing_credentials(monkeypatch):
+    monkeypatch.setattr(runtime, "_cached_status", (runtime.time.monotonic(), {"auth_configured": False}))
+    monkeypatch.setenv("AUTH_LOGIN", "test-user")
+    monkeypatch.setenv("AUTH_PASSWORD", "test-password")
+    assert runtime.status() == {"auth_configured": True}
+    monkeypatch.delenv("AUTH_PASSWORD")
+    assert runtime.status() == {"auth_configured": False}
+
+
+@pytest.mark.parametrize("authenticated", [True, False])
+def test_startup_stops_unauthenticated_tunnel_before_restore(monkeypatch, authenticated):
+    migration = importlib.import_module("plugins._tunnel.extensions.python.startup_migration._20_require_tunnel_auth")
+    monkeypatch.setattr(runtime, "auth_configured", lambda: authenticated)
+    stops = []
+    monkeypatch.setattr(runtime, "stop", lambda: stops.append(True))
+    migration.RequireTunnelAuth(None).execute()
+    assert stops == ([] if authenticated else [True])

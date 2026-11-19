@@ -1,6 +1,6 @@
 name: _tunnel
 title: Remote Control
-description: On-demand remote access through a persistent PRoot sandbox.
+description: Access Agent Zero from another computer or your phone with a shareable link.
 version: 0.1.0
 settings_sections:
   - external

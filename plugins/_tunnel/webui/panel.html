@@ -27,16 +27,16 @@
             </div>
           </header>
 
-          <div class="remote-link-safety-note">
+          <div class="remote-link-auth-error" role="alert" x-show="$store.tunnelStore.authConfigured === false" style="display: none;">
             <x-icon aria-hidden="true" name="lock"></x-icon>
-            <span>Use sign-in before sharing remote control access. The URL can reach your instance while access is active.</span>
+            <span>Remote Control requires sign-in. Set a login and password in Settings → Authentication before starting.</span>
           </div>
 
           <div class="field remote-link-provider-field">
             <div class="field-label">
               <div class="field-title">Link provider</div>
               <div class="field-description">
-                Cloudflare Tunnel is the quickest shareable URL. Tailscale Funnel creates a public HTTPS URL after this container joins your tailnet and may ask you to approve sign-in or Funnel access. Microsoft Dev Tunnels may ask you to approve a GitHub device login.
+                Choose how to connect from another device.
               </div>
             </div>
             <div class="field-control">
@@ -110,7 +110,7 @@
                   type="button"
                   class="remote-link-action refresh-link-button"
                   @click="$store.tunnelStore.refreshLink()"
-                  :disabled="$store.tunnelStore.isLoading"
+                  :disabled="$store.tunnelStore.isLoading || $store.tunnelStore.authConfigured !== true"
                 >
                   <x-icon aria-hidden="true" name="refresh"></x-icon>
                   <span>New URL</span>
@@ -157,7 +157,7 @@
                 type="button"
                 class="btn btn-ok remote-link-primary"
                 @click="$store.tunnelStore.generateLink()"
-                :disabled="$store.tunnelStore.isLoading"
+                :disabled="$store.tunnelStore.isLoading || $store.tunnelStore.authConfigured !== true"
               >
                 <x-icon aria-hidden="true" name="share"></x-icon>
                 <span>Start Remote Control</span>
@@ -209,7 +209,7 @@
         font-size: 24px;
       }
 
-      .remote-link-safety-note,
+      .remote-link-auth-error,
       .remote-link-loading,
       .remote-link-status-panel,
       .remote-link-qr-panel {
@@ -221,7 +221,9 @@
         background: color-mix(in srgb, var(--color-panel) 58%, transparent);
       }
 
-      .remote-link-safety-note {
+      .remote-link-auth-error {
+        border-color: var(--color-error-text);
+        background: color-mix(in srgb, var(--color-error-text) 8%, var(--color-background));
         margin: 10px 0 14px;
         padding: 10px 12px;
         color: var(--color-text);
@@ -229,8 +231,8 @@
         line-height: 1.35;
       }
 
-      .remote-link-safety-note .material-symbols-outlined {
-        color: #f2bf4b;
+      .remote-link-auth-error x-icon {
+        color: var(--color-error-text);
         font-size: 20px;
       }
 
@@ -290,6 +292,7 @@
         background: color-mix(in srgb, var(--color-background-hover) 74%, transparent);
       }
 
+      .remote-link-primary:disabled,
       .remote-link-action:disabled {
         cursor: not-allowed;
         opacity: 0.52;

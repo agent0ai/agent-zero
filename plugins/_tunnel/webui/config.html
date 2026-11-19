@@ -3,22 +3,24 @@
 <body>
   <div x-data>
     <template x-if="config">
-      <div>
-        <div class="field">
-          <div class="field-label"><div class="field-title">Default provider</div></div>
-          <div class="field-control"><select x-model="config.provider"><option value="cloudflared">Cloudflare Tunnel</option><option value="tailscale">Tailscale</option><option value="microsoft">Microsoft Dev Tunnels</option><option value="serveo">Serveo</option></select></div>
-        </div>
-        <div class="field">
-          <div class="field-label"><div class="field-title">Sandbox image</div><div class="field-description">Leave empty to use the system default. Applies when the tunnel sandbox is first created.</div></div>
-          <div class="field-control"><input type="text" x-model="config.image" aria-label="Sandbox image"></div>
-        </div>
-        <div class="field">
-          <div class="field-label"><div class="field-title">Target port</div><div class="field-description">Zero follows Agent Zero’s runtime port. Save changes before starting the tunnel.</div></div>
-          <div class="field-control"><input type="number" min="0" max="65535" x-model.number="config.port" aria-label="Target port"></div>
-        </div>
+      <div @change="if ($event.target.id === 'tunnel-provider') config.provider = $event.target.value">
         <x-component path="/plugins/_tunnel/webui/panel.html"></x-component>
+        <details class="remote-link-advanced">
+          <summary>Advanced</summary>
+          <div class="field">
+            <div class="field-label"><div class="field-title">Target port</div><div class="field-description">Leave at 0 to connect to Agent Zero automatically. Save changes before starting.</div></div>
+            <div class="field-control"><input type="number" min="0" max="65535" x-model.number="config.port" aria-label="Target port"></div>
+          </div>
+          <p>Cloudflare Tunnel creates a shareable link with no provider sign-in. Microsoft Dev Tunnels and Tailscale may ask you to sign in or approve access.</p>
+        </details>
       </div>
     </template>
   </div>
+  <style>
+    .remote-link-advanced { margin-top: 20px; border-top: 1px solid var(--color-border); padding-top: 12px; }
+    .remote-link-advanced summary { cursor: pointer; font-weight: 600; }
+    .remote-link-advanced .field { margin-top: 16px; }
+    .remote-link-advanced p { color: var(--color-text-secondary); font-size: .875rem; }
+  </style>
 </body>
 </html>

@@ -4,6 +4,7 @@ import * as Sleep from "/js/sleep.js";
 // define the model object holding data and functions
 const model = {
   isLoading: false,
+  authConfigured: null,
   tunnelLink: "",
   linkGenerated: false,
   loadingText: "",
@@ -199,6 +200,7 @@ const model = {
       });
 
       const data = await response.json();
+      this.authConfigured = data.auth_configured === true;
       if (data.provider) this.provider = data.provider;
 
       if (data.success && data.tunnel_url) {
@@ -243,14 +245,28 @@ const model = {
           this.linkGenerated = false;
         }
       }
+      return this.authConfigured;
     } catch (error) {
+      this.authConfigured = null;
       console.error("Error checking tunnel status:", error);
       this.tunnelLink = "";
       this.linkGenerated = false;
     }
   },
 
+  async requireAuth() {
+    const provider = this.provider;
+    const allowed = await this.checkTunnelStatus();
+    this.provider = provider;
+    if (allowed) return true;
+    window.toastFrontendError(this.authConfigured === false
+      ? "Set an Agent Zero login and password in Settings → Authentication before starting Remote Control."
+      : "Unable to check sign-in settings. Try again.", "Remote Control");
+    return false;
+  },
+
   async refreshLink() {
+    if (!await this.requireAuth()) return;
     // Call generate but with a confirmation first
     if (
       confirm(
@@ -285,6 +301,7 @@ const model = {
       } catch (error) {
         console.error("Error refreshing tunnel:", error);
         window.toastFrontendError("Error refreshing Remote Control", "Remote Control");
+      } finally {
         this.isLoading = false;
         this.loadingText = "";
       }
@@ -292,35 +309,7 @@ const model = {
   },
 
   async generateLink() {
-    // First check if authentication is enabled
-    try {
-      const authCheckResponse = await fetchApi("/settings_get");
-      const authData = await authCheckResponse.json();
-
-      // Find the auth_login and auth_password in the settings
-      let hasAuth = false;
-
-      if (authData && authData.settings) {
-        const { auth_login, auth_password } = authData.settings;
-        hasAuth = Boolean(auth_login && auth_password);
-      }
-
-      // If no authentication is set, warn the user
-      if (!hasAuth) {
-        const proceed = confirm(
-          "Remote Control works best with sign-in enabled.\n\n" +
-            "Without a login, anyone with the URL can reach this Agent Zero instance.\n\n" +
-            "Turn on authentication in Settings before sharing this link. Continue anyway?"
-        );
-
-        if (!proceed) {
-          return; // User cancelled
-        }
-      }
-    } catch (error) {
-      console.error("Error checking authentication status:", error);
-      // Continue anyway if we can't check auth status
-    }
+    if (!await this.requireAuth()) return;
 
     this.isLoading = true;
     this.hasError = false;

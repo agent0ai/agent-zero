@@ -145,9 +145,12 @@ def test_remote_link_provider_options_match_supported_remote_link_providers():
     assert '<option value="microsoft">Microsoft Dev Tunnels</option>' in html
     assert '<option value="serveo">Serveo</option>' in html
     assert '<option value="cloudflared">Cloudflare</option>' not in html
-    assert "Cloudflare Tunnel is the quickest shareable URL" in html
-    assert "Tailscale Funnel creates a public HTTPS URL" in html
-    assert "approve sign-in or Funnel access" in html
+    assert 'role="alert"' in html and 'Remote Control requires sign-in' in html
+    config = (PROJECT_ROOT / 'plugins/_tunnel/webui/config.html').read_text()
+    assert 'Default provider' not in config and 'Sandbox image' not in config
+    assert '<details class="remote-link-advanced">' in config
+    assert config.index('<summary>Advanced</summary>') < config.index('Target port')
+    assert 'Cloudflare Tunnel creates a shareable link' in config
 
 
 def test_tunnel_provider_normalization_preserves_aliases(tunnel_manager_module):

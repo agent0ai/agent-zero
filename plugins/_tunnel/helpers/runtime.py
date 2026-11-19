@@ -7,7 +7,7 @@ import re
 import threading
 import time
 
-from helpers import plugins, runtime
+from helpers import dotenv, plugins, runtime
 from helpers.sandbox import get_manager, SandboxMount, SandboxError
 
 PLUGIN = '_tunnel'
@@ -15,6 +15,11 @@ SANDBOX = 'service-tunnel'
 PROVIDERS = {'cloudflared', 'microsoft', 'serveo', 'tailscale'}
 _lock = threading.Lock()
 _cached_status: tuple[float, dict] = (0, {})
+AUTH_REQUIRED = 'Set an Agent Zero login and password in Settings → Authentication before starting Remote Control.'
+
+
+def auth_configured() -> bool:
+    return bool(dotenv.get_dotenv_value(dotenv.KEY_AUTH_LOGIN) and dotenv.get_dotenv_value(dotenv.KEY_AUTH_PASSWORD))
 
 
 def enabled() -> bool:
@@ -33,8 +38,8 @@ def invalidate() -> None:
 def status(*, fresh: bool = False) -> dict:
     global _cached_status
     if not fresh and time.monotonic() - _cached_status[0] < 1:
-        return dict(_cached_status[1])
-    result = {'success': False, 'is_running': False, 'tunnel_url': None, 'notifications': []}
+        return {**_cached_status[1], 'auth_configured': auth_configured()}
+    result = {'success': False, 'is_running': False, 'tunnel_url': None, 'notifications': [], 'auth_configured': auth_configured()}
     if not enabled():
         return result
     result['provider'] = str(config().get('provider') or 'cloudflared')
@@ -68,6 +73,8 @@ def status(*, fresh: bool = False) -> dict:
 def start(provider: str = '') -> dict:
     if not enabled():
         raise SandboxError('Enable the Remote Control plugin first')
+    if not auth_configured():
+        raise SandboxError(AUTH_REQUIRED)
     settings = config()
     provider = provider or str(settings.get('provider') or 'cloudflared')
     if provider not in PROVIDERS:
