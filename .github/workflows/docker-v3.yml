@@ -52,6 +52,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_ORG }}
           password: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+          scope: agent0ai/agent-zero@push
       - uses: docker/build-push-action@v6
         id: build
         with:
