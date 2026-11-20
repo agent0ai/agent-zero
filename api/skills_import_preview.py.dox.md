@@ -27,6 +27,7 @@
 
 - Important called helpers/classes observed in the source: `self.use_context`, `strip.lower`, `Path`, `tmp_dir.mkdir`, `secure_filename`, `time.strftime`, `skills_file.save`, `strip`, `files.get_abs_path`, `base.lower.endswith`, `import_skills`, `files.deabsolute_path`, `uuid.uuid4`, `tmp_path.unlink`, `base.lower`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
+- The preview calls `import_skills(..., dry_run=True)` with the submitted conflict policy. It never deletes or changes installed skills, including under `overwrite`; its writes and deletions are limited to the temporary upload and extraction.
 
 ## Work Guidance
 

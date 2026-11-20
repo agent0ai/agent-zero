@@ -185,7 +185,11 @@ def build_import_plan(
 
 def _resolve_conflict(dest: Path, policy: ConflictPolicy) -> Tuple[Path, bool]:
     """
-    Returns (final_dest_path, should_copy).
+    Decide where a skill goes without touching the filesystem.
+
+    Returns (final_dest_path, should_copy). Under the ``overwrite`` policy the
+    returned path may already exist; the caller removes it just before copying,
+    so a dry run never deletes anything.
     """
     if not dest.exists():
         return dest, True
@@ -194,7 +198,6 @@ def _resolve_conflict(dest: Path, policy: ConflictPolicy) -> Tuple[Path, bool]:
         return dest, False
 
     if policy == "overwrite":
-        shutil.rmtree(dest)
         return dest, True
 
     # rename
@@ -286,6 +289,9 @@ def import_skills(
         if dry_run:
             imported.append(final_dest)
             continue
+        if final_dest.exists():
+            # Only the overwrite policy hands back an existing destination.
+            shutil.rmtree(final_dest)
         final_dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(item.src_skill_dir, final_dest)
         imported.append(final_dest)
