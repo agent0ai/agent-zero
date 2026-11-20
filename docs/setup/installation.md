@@ -16,14 +16,14 @@ laptop computers use x64.
 
 #### Downloads
 
-| Your computer | Download Launcher v1.9 |
+| Your computer | Download Launcher v1.11 |
 | --- | --- |
-| Windows | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-x64.exe) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-arm64.exe) |
-| macOS | [Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-arm64.dmg) · [Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-x64.dmg) |
-| Linux | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-x64.AppImage) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-arm64.AppImage) |
+| Windows | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-windows-x64.exe) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-windows-arm64.exe) |
+| macOS | [Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-macos-arm64.dmg) · [Intel](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-macos-x64.dmg) |
+| Linux | [x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-linux-x64.AppImage) · [ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-linux-arm64.AppImage) |
 
 On Linux, you may need to allow the AppImage to run as a program in its file
-properties first. See the [v1.9 release notes](https://github.com/agent0ai/a0-launcher/releases/tag/v1.9).
+properties first. See the [v1.11 release notes](https://github.com/agent0ai/a0-launcher/releases/tag/v1.11).
 
 **2. Create and open Agent Zero.** An **Instance** is a separate Agent Zero
 setup with its own chats, settings, and workspace. Follow any Docker setup

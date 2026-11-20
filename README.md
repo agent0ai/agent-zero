@@ -43,13 +43,13 @@ You will need a supported AI account, a provider API key, or a local model serve
 
 **A0 Launcher is recommended for desktop computers.** It guides you through Docker setup, creates your Agent Zero instance, and opens the Web UI.
 
-**Download A0 Launcher v1.9** for your operating system and processor:
+**Download [A0 Launcher v1.11](https://github.com/agent0ai/a0-launcher/releases/tag/v1.11)** for your operating system and processor:
 
 | Platform | Recommended download | Other processors |
 | --- | --- | --- |
-| Windows | **[Windows x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-x64.exe)** · Intel / AMD | [Windows ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-windows-arm64.exe) |
-| macOS | **[Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-arm64.dmg)** · M-series Macs | [Intel Macs only](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-macos-x64.dmg) |
-| Linux | **[Linux x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-x64.AppImage)** · Intel / AMD | [Linux ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.9/a0-launcher-1.9-linux-arm64.AppImage) |
+| Windows | **[Windows x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-windows-x64.exe)** · Intel / AMD | [Windows ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-windows-arm64.exe) |
+| macOS | **[Apple Silicon](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-macos-arm64.dmg)** · M-series Macs | [Intel Macs only](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-macos-x64.dmg) |
+| Linux | **[Linux x64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-linux-x64.AppImage)** · Intel / AMD | [Linux ARM64](https://github.com/agent0ai/a0-launcher/releases/download/v1.11/a0-launcher-1.11-linux-arm64.AppImage) |
 
 1. **Open Launcher** and follow any Docker setup prompt.
 2. **Create an Instance**, a separate Agent Zero setup. Choose **Download Agent Zero** or **Run Agent Zero**, keep the default version and persistent workspace, then click **Create**. Wait for **Running** and click **Open UI**.
