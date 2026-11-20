@@ -18,7 +18,7 @@
 - `index.css` defines global theme variables such as `--color-*`, `--spacing-*`, `--font-size-*`, and `--transition-speed`; `--color-surface-translucent` is the shared glass fill for floating header and canvas surfaces and stays theme-derived through the chat background.
 
 - `tables.css` owns the shared selection summary and borderless close control used by Files and Memory.
-- `surfaces.css` renders `x-icon[name="tuxee"]` with the Desktop plugin's monochrome emblem as a luminance mask over `currentColor`, preserving transparent cutouts in both themes.
+- `surfaces.css` renders `x-icon[name="tuxee"]` on a pseudo-element with the Desktop plugin's luminance mask and `currentColor`. The host hides the icon-name text and can carry a badge background behind the emblem.
 
 ## Local Contracts
 

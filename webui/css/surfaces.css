@@ -1,4 +1,12 @@
 x-icon[name="tuxee"] {
+  position: relative;
+  -webkit-text-fill-color: transparent;
+}
+
+x-icon[name="tuxee"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
   background-color: currentColor;
   mask: url("/plugins/_desktop/webui/tuxee-emblem.png") center / contain no-repeat;
   mask-mode: luminance;
