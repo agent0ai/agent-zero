@@ -56,7 +56,7 @@
 - `scrollModal(id)` scrolls inside the top modal's `.modal-scroll`.
 - Keep extension loader cache keys and extension point names stable for plugins.
 - The rendered index supplies a complete `runtimeInfo.webuiExtensions` manifest; `extensions.js` must resolve HTML and JavaScript extension paths from it without per-extension-point startup API calls, while retaining `/api/load_webui_extensions` as a compatibility fallback when the manifest is unavailable.
-- HTML extension loading turns discovered HTML files into `<x-component>` tags; JavaScript extensions must export a default function.
+- HTML extensions render as `<x-component>` tags. Automatic discovery reuses the pending or completed load when an element moves with the same extension ID. Explicit reloads rebuild its children. JavaScript extensions must export a default function.
 - `extensions.js` exposes `initialHtmlExtensionsLoaded` and emits `webui-extensions-loaded` once after Alpine and the initial recursive component/extension loading placeholders have cleared.
 - Transport-level preloading must remain outside `components.js`, `extensions.js`, and `initFw.js`; cache hits flow through their ordinary asynchronous requests.
 - Automatic component discovery must skip already-loaded nodes at the same path when retained parents move; explicit `importComponent` calls and new paths still reload.

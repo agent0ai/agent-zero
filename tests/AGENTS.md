@@ -41,7 +41,7 @@
 
 - Install root `requirements.txt` for application dependencies and suite tooling; plugin sandboxes still install their own runtime requirements. Real DOM/upload checks run in a provisioned browser guest with `PYTHONPATH=/app` and `PLAYWRIGHT_BROWSERS_PATH=/opt/browsers`.
 - Run `pytest` for broad changes.
-- Run `node --test tests/test_canvas_modes.mjs tests/test_component_moves.mjs` for workspace routing, close guards and retained component moves; verify shared modal and isolated Save As rendering in a real browser.
+- Run `node --test tests/test_canvas_modes.mjs tests/test_component_moves.mjs` for workspace routing, close guards and retained component and extension moves; verify shared modal and isolated Save As rendering in a real browser.
 - Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views and shared browser configuration.
 - Run `node --test tests/test_canvas_resize.mjs tests/test_canvas_rail_drag.mjs` for deferred canvas resizing, drag pointer ownership and cancellation cleanup; iframe interception also needs a real-browser drag check.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
