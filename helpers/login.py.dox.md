@@ -13,6 +13,7 @@
 - Top-level functions:
 - `get_credentials_hash()`
 - `is_login_required()`
+- Auth is required when either `AUTH_LOGIN` or `AUTH_PASSWORD` is present. A lost `AUTH_LOGIN` line with a remaining password still requires a matching session hash; it does not disable HTTP/WebSocket authentication.
 
 ## Runtime Contracts
 

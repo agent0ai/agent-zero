@@ -24,11 +24,12 @@
 - Observed side-effect areas: filesystem reads, filesystem writes, secret handling.
 - Imported dependency areas include: `dotenv`, `files`, `os`, `re`, `typing`.
 - `save_dotenv_value(..., reload_env=False)` updates the persisted file without changing the running process environment.
+- `save_dotenv_value` writes a sibling temp file and `os.replace`s it onto `usr/.env`, so a crash mid-write cannot truncate the live file and drop `AUTH_LOGIN` / `AUTH_PASSWORD`.
 - Every successful file write invalidates registered `SecretsManager` caches before optional environment reloading, so all credential writers keep alias substitution and masking current. The secrets import is deferred to avoid the dotenv/secrets import cycle.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `_load_dotenv`, `get_abs_path`, `os.getenv`, `get_dotenv_file_path`, `load_dotenv`, `os.path.isfile`, `f.readlines`, `f.seek`, `f.writelines`, `f.truncate`, `f.write`, `re.match`.
+- Important called helpers/classes observed in the source: `_load_dotenv`, `get_abs_path`, `os.getenv`, `get_dotenv_file_path`, `load_dotenv`, `os.path.isfile`, `tempfile.mkstemp`, `os.replace`, `os.fsync`, `f.writelines`, `re.match`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance
