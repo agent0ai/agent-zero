@@ -21,7 +21,7 @@
 - `extract_skills_zip(zip_path: Path, tmp_subdir: str=..., prefix: str=...) -> tuple[Path, Path]`: Extract a zip into a temp folder inside Agent Zero's tmp directory and return the scan/import root plus cleanup root.
 - `_unzip_to_temp_dir(zip_path: Path) -> Path`: Extract a zip into a temp folder under tmp/skill_imports (inside Agent Zero base dir).
 - `build_import_plan(source: Path, dest_root: Path, namespace: Optional[str]=...) -> Tuple[List[ImportPlanItem], Path]`: Build a copy plan for importing skills from a source folder.
-- `_resolve_conflict(dest: Path, policy: ConflictPolicy) -> Tuple[Path, bool]`: Returns (final_dest_path, should_copy).
+- `_resolve_conflict(dest: Path, policy: ConflictPolicy) -> Tuple[Path, bool]`: Decide (final_dest_path, should_copy) without touching the filesystem.
 - `get_project_skills_folder(project_name: str) -> Path`: Get the skills folder path for a project.
 - `get_agent_profile_skills_folder(profile_name: str) -> Path`
 - `get_project_agent_profile_skills_folder(project_name: str, profile_name: str) -> Path`
@@ -41,6 +41,7 @@
 - Zip extraction rejects absolute paths, backslash paths, path traversal, and symlink entries before extraction.
 - Important called helpers/classes observed in the source: `dataclass`, `strip`, `plugins.is_dir`, `Path`, `base_tmp.mkdir`, `time.strftime`, `target.mkdir`, `_candidate_skill_roots`, `Path.expanduser`, `resolve_skills_destination_root`, `dest_root.mkdir`, `build_import_plan`, `ImportResult`, `child.resolve.relative_to`, `direct.is_dir`, `discover_skill_md_files`, `plugins.iterdir`, `files.get_abs_path`, `zipfile.ZipFile`, `archive.extractall`, `shutil.rmtree`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
+- Dry runs (`dry_run=True`, used by the import preview) never delete or copy skills: under the `overwrite` policy, `import_skills` removes an existing destination only during a real import, immediately before copying the new skill into it. `tests/test_skills_import_conflicts.py` covers each conflict policy with and without `dry_run`.
 
 ## Work Guidance
 
