@@ -10,11 +10,12 @@ This plugin collects streamed reasoning and response text, analyzes that content
 
 1. **Collection** — During streaming, the plugin collects the agent's reasoning and response text via `reasoning_stream_chunk` and `response_stream_chunk` extensions.
 2. **Analysis** — A security audit model analyzes the collected text against the configurable prompt.
-3. **Gate** — Before any tool executes, `gate()` blocks until the check completes. If the background task already finished (thoughts mode), the result is reused instantly. Otherwise the task is rebuilt with full tool context (name + arguments) for maximum accuracy.
+3. **Gate** — Before any tool executes, `gate()` blocks until the check completes. If the background task already finished (thoughts mode), the result is reused instantly. Otherwise the task is rebuilt with full tool context (name + arguments) for maximum accuracy. A failed check-model call, an empty verdict, or an empty plugin prompt **denies** the tool (fail-closed). The gate does not treat those as a pass.
 4. **Action** — Based on the verdict:
    - `<ok/>` — Tool execution proceeds silently.
    - `<terminate/>` — Agent is stopped immediately with a warning log and desktop notification.
    - `<clarify>` — The agent is asked to explain; a back-and-forth loop runs until resolved.
+   - empty / missing verdict, or a check error — same as `<terminate/>`.
 
 ## Modes
 

@@ -53,7 +53,13 @@ def get_checker(agent: "Agent") -> "InfectionChecker":
 
 
 def parse_result(text: str) -> tuple[str, str]:
-    """Find the *last* occurrence of any verdict tag in *text*."""
+    """Find the *last* occurrence of any verdict tag in *text*.
+
+    An empty or whitespace-only reply is not a pass. The gate treats
+    ``undetermined`` as fail-closed (same as terminate).
+    """
+    if not (text or "").strip():
+        return "undetermined", "empty check result"
     pos = -1
     action, detail = "ok", ""
     for m in _RE_OK.finditer(text):
@@ -110,7 +116,11 @@ class InfectionChecker:
     # -- gate (called before every tool execution) ---------------------------
 
     async def gate(self, agent: "Agent", tool_name: str = "", tool_args: dict | None = None):
-        """Block until the safety check passes or terminate the agent."""
+        """Block until the safety check passes or terminate the agent.
+
+        A missing verdict, empty configuration, or a failed check model
+        call denies the tool. The gate does not fail open.
+        """
         try:
             await self._gate_inner(agent, tool_name, tool_args)
         except HandledException:
@@ -118,12 +128,17 @@ class InfectionChecker:
         except Exception as e:
             from helpers.print_style import PrintStyle
             PrintStyle(font_color="red", padding=True).print(
-                f"Infection check error (non-fatal): {e}"
+                f"Infection check error: {e}"
             )
             try:
-                agent.context.log.set_progress("Infection check: error (non-fatal)")
+                agent.context.log.set_progress("Infection check: error")
             except Exception:
                 pass
+            self._do_terminate(
+                agent,
+                "Infection check failed",
+                f"Safety check did not complete: {e}",
+            )
 
     async def _gate_inner(self, agent: "Agent", tool_name: str, tool_args: dict | None):
         if agent.get_data(DATA_KEY_PASSED):
@@ -174,9 +189,13 @@ class InfectionChecker:
             try:
                 action, detail, cot = await self._task
             except asyncio.CancelledError:
-                return
-            except Exception:
-                return
+                raise
+            except Exception as e:
+                self._do_terminate(
+                    agent,
+                    "Infection check failed",
+                    f"Safety check did not complete: {e}",
+                )
 
         if action == "ok":
             _log.set_progress("Infection check: passed")
@@ -220,6 +239,9 @@ class InfectionChecker:
         return agent.get_utility_model()
 
     async def _run_check(self, agent: "Agent", log_text: str) -> tuple[str, str, str]:
+        if not (self.prompt or "").strip():
+            return "undetermined", "empty infection-check prompt", ""
+
         # Build context from recent history
         hist = agent.history.output()
         if self.history_size > 0:

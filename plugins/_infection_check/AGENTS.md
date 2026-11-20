@@ -14,6 +14,7 @@
 
 - Preserve configured `thoughts` and `complete` analysis modes.
 - Tool execution must wait for required safety verdicts.
+- A missing verdict, empty plugin prompt, or a failed check-model call terminates the agent. The gate does not fail open.
 - Do not log or expose chain-of-thought or sensitive prompt content beyond intended warning flows.
 
 ## Work Guidance
