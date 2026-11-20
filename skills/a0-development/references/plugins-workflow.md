@@ -43,6 +43,7 @@ Every plugin needs `plugin.yaml`. Runtime fields include:
 - `title`
 - `description`
 - `version`
+- `a0_version` (optional supported A0 version requirement or list of alternatives; see the [specification](../../../docs/developer/plugins.md#agent-zero-version-requirements))
 - `settings_sections`
 - `per_project_config`
 - `per_agent_config`

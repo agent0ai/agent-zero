@@ -21,6 +21,24 @@ Use a sufficiently long client timeout for this synchronous scan. The current ha
 
 ## Install
 
+Before a Hub Git install, use the read-only compatibility check:
+
+```python
+compatibility = api("plugins/_plugin_installer/plugin_install", {
+    "action": "check_compatibility",
+    "git_url": "https://github.com/OWNER/REPOSITORY",
+})
+```
+
+It reads default-branch `plugin.yaml` and returns `a0_version`, `current_version`,
+`compatible` (`true`, `false`, or `null` when unverifiable), and `error`.
+For a mismatch or unknown result, report the requirement and installed version
+and let the user choose whether to continue, honoring an explicit prior override.
+Custom forks may work despite the warning. Do not treat a failed read as a match.
+The [requirement specification](../../../docs/developer/plugins.md#agent-zero-version-requirements)
+covers exact versions, ranges, wildcards and alternatives. This is advisory;
+direct install APIs do not enforce the requirement or replace the security scan.
+
 For Git installation:
 
 ```python

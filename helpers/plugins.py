@@ -76,6 +76,7 @@ class PluginMetadata(BaseModel):
     title: str = ""
     description: str = ""
     version: str = ""
+    a0_version: str | list[str] | None = None
     settings_sections: List[str] = Field(default_factory=list)
     per_project_config: bool = False
     per_agent_config: bool = False

@@ -16,6 +16,7 @@
 - Keep validation criteria aligned with `plugins/AGENTS.md`, WebUI contracts, and Plugin Index requirements.
 - Temporary validation source directories and contexts must be cleaned up as intended.
 - Do not confuse runtime `plugin.yaml` with Plugin Index `index.yaml`.
+- Recognize optional `a0_version` as supported manifest metadata, following `docs/developer/plugins.md`; distinguish invalid syntax from an advisory current-version mismatch.
 
 ## Work Guidance
 

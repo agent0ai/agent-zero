@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - Cite current source owners; keep API payloads and examples aligned with their handlers.
+- Keep `a0_version` authoring/review guidance aligned with `docs/developer/plugins.md`; it is optional manifest compatibility metadata with advisory Hub warnings.
 - Keep local-only work separate from community publication and catalog discovery separate from security scanning.
 - Preserve authentication, scope, user authorization, and unrelated runtime state.
 

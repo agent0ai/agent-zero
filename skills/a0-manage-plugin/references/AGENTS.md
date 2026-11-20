@@ -12,6 +12,7 @@
 ## Local Contracts
 
 - Cite current source owners; keep API payloads and examples aligned with their handlers.
+- Hub install guidance includes the read-only `check_compatibility` action and advisory `a0_version` mismatch/unknown handling; preserve explicit user overrides and security confirmation.
 - Keep local-only work separate from community publication and catalog discovery separate from security scanning.
 - Preserve authentication, scope, user authorization, and unrelated runtime state.
 

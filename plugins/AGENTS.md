@@ -18,7 +18,8 @@
 
 - Every plugin directory must include a valid `plugin.yaml`.
 - Bundled plugin directory names and manifest `name` values must start with `_` to avoid collisions with community plugins.
-- Runtime manifest fields include `name`, `title`, `description`, `version`, `settings_sections`, `per_project_config`, `per_agent_config`, and `always_enabled`.
+- Runtime manifest fields include `name`, `title`, `description`, `version`, `a0_version`, `settings_sections`, `per_project_config`, `per_agent_config`, and `always_enabled`.
+- Optional `a0_version` declares supported A0 versions as a quoted requirement or list of alternatives; see the [syntax and Hub warning contract](../docs/developer/plugins.md#agent-zero-version-requirements). It does not restrict plugin discovery or activation.
 - Core plugins may use `plugins.<plugin_name>...` imports when they are shipped from this tree.
 - User plugins under `usr/plugins/` must use `usr.plugins.<plugin_name>...` imports and avoid `sys.path` hacks or persistent symlink-based imports.
 - Plugin extension layouts must use `extensions/python/<point>/`, `extensions/python/_functions/<module>/<qualname>/<start|end>/`, and `extensions/webui/<point>/`.
