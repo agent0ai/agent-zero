@@ -32,8 +32,8 @@ For fragile forms, load `browser-form-workflows` with `skills_tool:load` before 
 2. `content` returns readable markdown plus typed refs like `[link 3]`, `[button 6]`, `[input text 8]`.
 3. Interact with refs using `click`, `type`, `submit`, `scroll`, etc.; iframe/shadow targets may return frame-chain metadata in action results.
 4. Use `navigate` on an existing `browser_id` for serial browsing.
-5. Keep only a small working tab set; close pages when finished.
-6. If the user asks for an existing tab, page title, or already-open URL, call `list` first, match by `title` or `currentUrl`, then use `set_active` or `navigate` on that `browser_id` instead of opening a new tab.
+5. Close only tabs you created for the task. In the container, `close_all` closes tabs across all chats.
+6. If the user asks for an existing tab, page title, or already-open URL, call `list` first, match by title or URL, then use `set_active` or `navigate` on that `browser_id` instead of opening a new tab.
 
 ## Modes
 
@@ -83,7 +83,8 @@ Screenshot args include `quality`, `full_page`, and optional `path`. Without `pa
 ## Tabs And Popups
 
 - Popups and target-blank tabs are auto-registered.
-- `list` shows open tabs; pass `include_content: true` sparingly.
+- In the container, `list` returns `active_tab` and `windows`, each with `window_id`, `selected_tab`, and `tabs` (browser_id, title, url). Tabs created by people and other chats are included. Pass `include_content: true` sparingly.
+- Call `set_active` with a window ID or a browser ID. Call `open` with a URL and optional `window_id`, or `new_window: true`. Resolve IDs from a fresh list after Chromium restarts.
 - `set_active` deliberately changes focus.
 - Operations on a non-active tab do not steal focus unless browser rules require it.
 

@@ -1,8 +1,8 @@
 # Browser
 
-The internal browser installs and runs Chromium, its Patchright driver and Tuxee’s minimal Xvnc in an on-demand child sandbox. The existing tool, settings, tab ownership,
-sign-in profile and authenticated viewer stay integrated with Agent Zero.
-Bring Your Own Browser continues through the host connector.
+The internal browser runs Chromium, its Patchright driver and Tuxee’s minimal Xvnc in an on-demand child sandbox. Every chat sees the same Chromium windows and tabs. Use the Browser header to switch windows or open another one. Within each window, use Chromium’s own tabs, address bar and settings. DuckDuckGo is the initial homepage and can be changed in Chromium.
+
+The agent can call `list` to find a tab you opened, then select its `browser_id`. It can also open a tab in a specific `window_id` or request a new window. Resetting a chat preserves the shared browser. Bring Your Own Browser uses the host connector.
 
 The sandbox persists installed packages and exposes only the browser profile,
 download directory and selected extensions. Uploads transfer selected bytes.

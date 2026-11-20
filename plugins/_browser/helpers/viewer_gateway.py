@@ -58,7 +58,7 @@ class BrowserVncGateway(VirtualDesktopGateway):
         else:
             if path == '/index.html':
                 asset = ASSETS / 'vnc.html'
-            elif path in {'/vnc.js', '/audio.js'}:
+            elif path in {'/vnc.js', '/audio.js', '/clipboard.js'}:
                 asset = ASSETS / path.lstrip('/')
             elif path.startswith('/vendor/novnc/'):
                 asset = (ASSETS / path.lstrip('/')).resolve()

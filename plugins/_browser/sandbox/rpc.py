@@ -46,7 +46,7 @@ async def main():
                 display._keyboard = options.pop('keyboard')
                 core = _BrowserRuntimeCore('shared', **options,
                     on_startup=lambda stage, message: loop.create_task(send({'startup': {'stage': stage, 'message': message}})),
-                    on_tabs=lambda tabs: loop.create_task(send({'tabs': tabs})))
+                    on_tabs=lambda _: loop.create_task(send({'legacy_tabs_imported': True})))
                 result = True
             else:
                 if method not in methods or core is None:

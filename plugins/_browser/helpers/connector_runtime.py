@@ -31,7 +31,7 @@ from plugins._a0_connector.helpers.ws_runtime import (
 )
 from plugins._browser.helpers import config as browser_config
 from plugins._browser.helpers.url import normalize_url
-from plugins._browser.helpers.runtime import run_browser_calls
+from plugins._browser.helpers.calls import run_browser_calls
 
 
 BROWSER_OP_EVENT = "connector_browser_op"
@@ -225,6 +225,8 @@ class ConnectorBrowserRuntime:
         else:
             payload.update(kwargs)
 
+        if kwargs.get("window_id") is not None or kwargs.get("new_window"):
+            raise ValueError("Window selection is available in the container browser.")
         return payload
 
     @staticmethod
@@ -289,6 +291,8 @@ class ConnectorBrowserRuntime:
     async def _dispatch(self, payload: dict[str, Any]) -> Any:
         if payload.get("action") == "multi":
             return await run_browser_calls(payload.get("calls"), self._dispatch_call)
+        if payload.get("window_id") is not None or payload.get("new_window"):
+            raise ValueError("Window selection is available in the container browser.")
         if payload.get("action") == "evaluate":
             script = payload.get("script")
             if not isinstance(script, str) or not script.strip():

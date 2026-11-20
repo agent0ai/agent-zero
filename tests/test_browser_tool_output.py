@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("method", ["list", "list_all"])
+@pytest.mark.parametrize("method", ["list", "list_windows"])
 @pytest.mark.parametrize("restorable", [False, True])
 async def test_listing_only_starts_cold_browser_when_tabs_need_restoring(monkeypatch, method, restorable):
     core = _BrowserRuntimeCore("listing-test")
@@ -27,7 +27,7 @@ async def test_listing_only_starts_cold_browser_when_tabs_need_restoring(monkeyp
     monkeypatch.setattr(core, "ensure_started", started)
     monkeypatch.setattr(core, "_has_restorable_tabs", lambda: restorable)
 
-    assert (await getattr(core, method)())["browsers"] == []
+    assert (await getattr(core, method)())["windows" if method == "list_windows" else "browsers"] == []
     assert started.await_count == int(restorable)
 
 
@@ -38,12 +38,11 @@ async def test_navigation_uses_requested_readiness_without_extra_settling(monkey
     page = SimpleNamespace(
         goto=AsyncMock(), go_back=AsyncMock(), go_forward=AsyncMock(), reload=AsyncMock(),
     )
-    core.pages[1] = BrowserPage(1, page, "navigation-test")
+    core.pages[1] = BrowserPage(1, page)
     core.context = SimpleNamespace(new_page=AsyncMock(return_value=page))
     monkeypatch.setattr(core, "ensure_started", AsyncMock())
     monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 1}))
     monkeypatch.setattr(core, "_register_page", AsyncMock(return_value=core.pages[1]))
-    monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
     monkeypatch.setattr(core, "_settle", AsyncMock(side_effect=AssertionError("Redundant wait")))
     monkeypatch.setitem(sys.modules, "patchright.async_api", SimpleNamespace(Error=RuntimeError, TimeoutError=TimeoutError))
 
@@ -63,12 +62,13 @@ async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch
     page = SimpleNamespace(url="https://example.com", evaluate=AsyncMock(return_value={
         "title": "Example", "canGoBack": True, "loading": True, "zoom": 125,
     }))
-    core.pages[1] = BrowserPage(1, page, "state-test")
+    core.pages[1] = BrowserPage(1, page)
     state = await core._state(1)
     assert state == {
         "id": 1, "context_id": "state-test", "currentUrl": page.url,
         "title": "Example", "canGoBack": True, "canGoForward": False, "loading": True,
-        "zoom": 125, "zoom_available": False,
+        "zoom": 125, "zoom_available": False, "window_id": None,
+        "visible": False, "focused": False, "viewport": None,
     }
     assert page.evaluate.await_count == 1
     page.evaluate.side_effect = RuntimeError("Execution context destroyed during navigation")
@@ -215,10 +215,9 @@ def _evaluate_runtime(monkeypatch, timeout=0.1):
         context=SimpleNamespace(new_cdp_session=AsyncMock(return_value=session)),
         reload=AsyncMock(), close=AsyncMock(), is_closed=lambda: False,
     )
-    core.pages[3] = BrowserPage(3, page, "evaluate-test")
+    core.pages[3] = BrowserPage(3, page)
     monkeypatch.setattr(core, "ensure_started", AsyncMock())
     monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 3}))
-    monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
     core.request_options.set({"evaluate_timeout_seconds": timeout})
     return core, page, session
 
@@ -375,7 +374,7 @@ async def test_evaluate_javascript_or_closed_page_error_is_preserved(monkeypatch
 async def test_evaluate_recovery_failure_closes_only_affected_page(monkeypatch, close_fails):
     core, page, session = _evaluate_runtime(monkeypatch)
     _, _, operations = _hang_until_recovery(page)
-    unrelated = BrowserPage(4, SimpleNamespace(), "other-chat")
+    unrelated = BrowserPage(4, SimpleNamespace())
     core.pages[4] = unrelated
     page.reload.side_effect = RuntimeError("reload failed")
     if close_fails:

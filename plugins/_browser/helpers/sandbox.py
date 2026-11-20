@@ -168,8 +168,8 @@ class BrowserConnection:
                 message = json.loads(line)
                 if 'startup' in message:
                     self.startup_progress(message['startup']['stage'], message['startup']['message'])
-                elif 'tabs' in message:
-                    kvp.set_persistent('browser_open_tabs', {'version': 1, 'tabs': message['tabs']})
+                elif message.get('legacy_tabs_imported'):
+                    kvp.remove_persistent('browser_open_tabs')
                 elif 'stream' in message:
                     task = asyncio.create_task(self.deliver_frame(message))
                     self.frame_tasks.add(task)
@@ -228,8 +228,8 @@ class BrowserConnection:
         from plugins._browser.helpers.config import get_browser_config
         from agent import AgentContext
         from plugins._browser.helpers.runtime import has_restorable_browser_tabs
-        if not self.process and method in {'list', 'list_all', 'close_context'} and not has_restorable_browser_tabs(context_id):
-            return {'browsers': [], 'last_interacted_browser_id': None, 'last_interacted_browser_ids': {}} if method != 'close_context' else None
+        if not self.process and method in {'list', 'list_windows'} and not has_restorable_browser_tabs(context_id):
+            return {'active_tab': None, 'windows': []} if method == 'list_windows' else {'browsers': [], 'last_interacted_browser_id': None}
         await self.start(context_id)
         context = AgentContext.get(context_id)
         options = get_browser_config(agent=context.agent0 if context else None)

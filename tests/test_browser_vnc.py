@@ -66,7 +66,7 @@ async def test_viewer_credentials_assets_auth_and_paths(viewer):
         response=await client.get(path+'credentials',headers=headers)
         assert response.json()=={'password':'private'}
         assert response.headers['cache-control']=='no-store'
-        for name in ('index.html','vnc.js','audio.js','vendor/novnc/core/rfb.js'):
+        for name in ('index.html','vnc.js','clipboard.js','audio.js','vendor/novnc/core/rfb.js'):
             response=await client.get(path+name,headers=headers)
             assert response.status_code==200
             assert response.headers['x-frame-options']=='SAMEORIGIN'

@@ -258,7 +258,7 @@ async def test_file_upload_resolves_captured_helper_reference(browser_context, n
     target = await add_frame(page, 'victim') if nested else page
     await target.evaluate("() => { const input=document.createElement('input'); input.type='file'; input.id='fixture-file'; document.body.append(input); }", isolated_context=False)
     core = _BrowserRuntimeCore('fixture')
-    core.pages[1] = BrowserPage(1, page, 'fixture')
+    core.pages[1] = BrowserPage(1, page)
     async def ready(): pass
     core.ensure_started = ready
     core._state = lambda _: asyncio.sleep(0, result={'id':1})

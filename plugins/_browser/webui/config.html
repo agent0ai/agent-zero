@@ -264,40 +264,7 @@
           </div>
 
           <label class="browser-config-field">
-            <span class="browser-config-field-label">Starting page</span>
-            <input
-              type="text"
-              x-model="$store.browserConfig.config.default_homepage"
-              placeholder="about:blank or https://example.com"
-              autocomplete="off"
-            />
-          </label>
-
-          <label class="browser-config-field">
-            <span class="browser-config-field-label">Browser tabs</span>
-            <select
-              x-model="$store.browserConfig.config.browser_tab_scope"
-              @change="$store.browserConfig.setBrowserTabScope($event.target.value)"
-            >
-              <option value="per_context">Separate per chat</option>
-              <option value="shared">Shared across chats</option>
-            </select>
-            <span
-              class="browser-config-field-help"
-              x-show="$store.browserConfig.config.browser_tab_scope !== 'shared'"
-            >
-              Each chat shows only its own tabs. Browser sign-ins are shared across chats.
-            </span>
-            <span
-              class="browser-config-field-help"
-              x-show="$store.browserConfig.config.browser_tab_scope === 'shared'"
-            >
-              The tab strip shows tabs from every active chat. Browser sign-ins are shared across chats.
-            </span>
-          </label>
-
-          <label class="browser-config-field">
-            <span class="browser-config-field-label">Maximum tabs per chat</span>
+            <span class="browser-config-field-label">Agent tab limit</span>
             <input
               type="number"
               min="1"
@@ -307,7 +274,7 @@
               @change="$store.browserConfig.normalizeMaxOpenTabs()"
             />
             <span class="browser-config-field-help">
-              New Browser tabs stop opening in a chat after this limit.
+              Maximum number of open tabs before the agent must reuse an existing tab.
             </span>
           </label>
 
@@ -376,24 +343,7 @@
         </div>
 
         <div class="browser-config-card browser-config-management">
-          <div class="section-title">Browsing data</div>
-          <div class="section-description">Manage the container browser's shared profile. These pages open in Browser and their changes take effect immediately.</div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Clear browsing data</span>
-              <span class="browser-config-field-help">Choose a time range and remove history, cookies, cached files, or other site data.</span>
-            </div>
-            <button type="button" class="button" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('clearData')">Clear browsing data</button>
-          </div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Browsing history</span>
-              <span class="browser-config-field-help">Search and manage pages visited in the container browser.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage browsing history" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('history')">Manage</button>
-          </div>
+          <div class="section-title">Annotations</div>
           <label class="browser-config-management-row">
             <span class="browser-config-switch-copy">
               <span class="browser-config-field-label">Annotation screenshots</span>
@@ -407,59 +357,11 @@
         </div>
 
         <div class="browser-config-card browser-config-management">
-          <div class="section-title">Autofill and passwords</div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Password manager</span>
-              <span class="browser-config-field-help">Manage saved passwords, imports, and sign-in preferences in the container browser.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage passwords" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('passwords')">Manage</button>
-          </div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Contact info</span>
-              <span class="browser-config-field-help">Add, edit, and delete saved addresses, phone numbers, and email addresses.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage contact info" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('addresses')">Manage</button>
-          </div>
-        </div>
-
-        <div class="browser-config-card browser-config-management">
-          <div class="section-title">Downloads</div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Location and download prompts</span>
-              <span class="browser-config-field-help">Choose a folder inside the container and whether to ask where to save each file.</span>
-            </div>
-            <button type="button" class="button" aria-label="Change download settings" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('downloadSettings')">Change</button>
-          </div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Download history</span>
-              <span class="browser-config-field-help">View and manage downloads from the container browser.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage download history" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('downloads')">Manage</button>
-          </div>
-        </div>
-
-        <div class="browser-config-card">
           <div class="section-title">Extensions</div>
           <div class="section-description">
             Choose which installed Chrome extensions Browser loads.
           </div>
 
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Extension manager</span>
-              <span class="browser-config-field-help">Open Chromium's extension details, permissions, and developer tools.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage Chrome extensions" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('extensions')">Manage</button>
-          </div>
           <div class="browser-config-extension-install">
             <label class="browser-config-field">
               <span class="browser-config-field-label">Chrome Web Store URL</span>

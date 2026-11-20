@@ -3,21 +3,11 @@ import { callJsonApi } from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 import { store as notificationStore } from "/components/notifications/notification-store.js";
 
-const BROWSER_PAGES = {
-  history: "chrome://history/",
-  clearData: "chrome://settings/clearBrowserData",
-  passwords: "chrome://password-manager/passwords",
-  addresses: "chrome://settings/addresses",
-  extensions: "chrome://extensions/",
-  downloadSettings: "chrome://settings/downloads",
-  downloads: "chrome://downloads/",
-};
 const EXTENSIONS_ROOT = "/a0/usr/_browser/extensions";
 const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
 const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup";
 const BROWSER_STATUS_API = "/plugins/_browser/status";
 const RUNTIME_BACKENDS = new Set(["container", "host_required"]);
-const BROWSER_TAB_SCOPES = new Set(["per_context", "shared"]);
 const HOST_PRIVACY_POLICIES = new Set(["enforce_local", "warn", "allow"]);
 const HOST_PROFILE_MODES = new Set(["existing", "agent"]);
 const DEFAULT_MAX_OPEN_TABS = 32;
@@ -44,10 +34,8 @@ function normalizePathList(value) {
 function ensureConfig(config) {
   if (!config || typeof config !== "object") return null;
   config.extension_paths = normalizePathList(config.extension_paths);
-  config.default_homepage = String(config.default_homepage || "about:blank").trim() || "about:blank";
   config.autofocus_active_page = normalizeBoolean(config.autofocus_active_page, true);
   config.annotation_screenshots = normalizeBoolean(config.annotation_screenshots, false);
-  config.browser_tab_scope = normalizeChoice(config.browser_tab_scope, BROWSER_TAB_SCOPES, "per_context");
   config.max_open_tabs = normalizeInt(config.max_open_tabs, DEFAULT_MAX_OPEN_TABS, MIN_MAX_OPEN_TABS, HARD_MAX_OPEN_TABS);
   config.evaluate_timeout_seconds ??= 30;
   config.runtime_backend = normalizeRuntimeBackend(config.runtime_backend);
@@ -194,7 +182,6 @@ export const store = createStore("browserConfig", {
   extensionInstallUrl: "",
   extensionActionLoading: false,
   extensionsRoot: "",
-  openingBrowserPage: "",
   extensionDeleteLoadingPath: "",
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
@@ -214,7 +201,6 @@ export const store = createStore("browserConfig", {
     this.config = null;
     this.extensionsList = [];
     this.extensionInstallUrl = "";
-    this.openingBrowserPage = "";
     this.extensionDeleteLoadingPath = "";
     this.hostBrowserStatus = null;
     this.hostBrowserStatusLoading = false;
@@ -247,23 +233,6 @@ export const store = createStore("browserConfig", {
     }
   },
 
-  async openBrowserPage(section) {
-    const url = BROWSER_PAGES[section];
-    if (!url || this.openingBrowserPage) return;
-    this.openingBrowserPage = section;
-    try {
-      const { store: browser } = await import("/plugins/_browser/webui/browser-store.js");
-      const { store: canvas } = await import("/components/canvas/right-canvas-store.js");
-      await browser.command("open", { url });
-      if (browser.error) throw new Error(browser.error);
-      await canvas.openModalSurface("browser");
-    } catch (error) {
-      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
-    } finally {
-      this.openingBrowserPage = "";
-    }
-  },
-
   setAutofocusActivePage(enabled) {
     const safeConfig = ensureConfig(this.config);
     if (!safeConfig) return;
@@ -274,15 +243,6 @@ export const store = createStore("browserConfig", {
     return this.config?.autofocus_active_page === false ? "Off" : "On";
   },
 
-  setBrowserTabScope(value) {
-    const safeConfig = ensureConfig(this.config);
-    if (!safeConfig) return;
-    safeConfig.browser_tab_scope = normalizeChoice(value, BROWSER_TAB_SCOPES, "per_context");
-  },
-
-  browserTabScopeLabel() {
-    return this.config?.browser_tab_scope === "shared" ? "Shared" : "Per chat";
-  },
 
   normalizeMaxOpenTabs() {
     const safeConfig = ensureConfig(this.config);

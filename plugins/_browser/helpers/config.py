@@ -14,7 +14,6 @@ BROWSER_MODEL_ACTIVE_KEY = "_browser_model_active"
 DEFAULT_HOMEPAGE_KEY = "default_homepage"
 AUTOFOCUS_ACTIVE_PAGE_KEY = "autofocus_active_page"
 ANNOTATION_SCREENSHOTS_KEY = "annotation_screenshots"
-TAB_SCOPE_KEY = "browser_tab_scope"
 MAX_OPEN_TABS_KEY = "max_open_tabs"
 EVALUATE_TIMEOUT_KEY = "evaluate_timeout_seconds"
 DEFAULT_EVALUATE_TIMEOUT_SECONDS = 30.0
@@ -31,10 +30,8 @@ PROXY_PASSWORD_KEY = "proxy_password"
 KEYBOARD_LAYOUT_KEY = "keyboard_layout"
 KEYBOARD_VARIANT_KEY = "keyboard_variant"
 RUNTIME_BACKENDS = {"container", "host_required"}
-BROWSER_TAB_SCOPES = {"per_context", "shared"}
 HOST_BROWSER_PRIVACY_POLICIES = {"enforce_local", "warn", "allow"}
 HOST_BROWSER_PROFILE_MODES = {"existing", "agent"}
-DEFAULT_BROWSER_TAB_SCOPE = "per_context"
 DEFAULT_MAX_OPEN_TABS = 32
 MIN_MAX_OPEN_TABS = 1
 HARD_MAX_OPEN_TABS = 50
@@ -169,11 +166,6 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         ),
         ANNOTATION_SCREENSHOTS_KEY: _normalize_bool(
             raw.get(ANNOTATION_SCREENSHOTS_KEY), default=False,
-        ),
-        TAB_SCOPE_KEY: _normalize_choice(
-            raw.get(TAB_SCOPE_KEY, DEFAULT_BROWSER_TAB_SCOPE),
-            allowed=BROWSER_TAB_SCOPES,
-            default=DEFAULT_BROWSER_TAB_SCOPE,
         ),
         MAX_OPEN_TABS_KEY: _normalize_int(
             raw.get(MAX_OPEN_TABS_KEY, DEFAULT_MAX_OPEN_TABS),

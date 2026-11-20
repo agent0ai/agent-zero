@@ -182,3 +182,29 @@ test('an inactive Browser panel with layout cannot open and create a chat', asyn
   await model.onOpen(panel, {mode: 'canvas'});
   assert.equal(opens, 1);
 });
+
+test('closing a tab in Chromium retains the connected viewer until the final tab closes', async () => {
+  const {model} = setup(async () => ok(visible));
+  await model.connectViewer({contextId:'fixture'});
+  model.applyBrowserListing([{id:2, visible:true}], 'fixture', {replaceAll:true});
+  assert.equal(model.activeBrowserId, 2);
+  assert.equal(model.interactiveViewUrl, '/fixture-viewer');
+  model.applyBrowserListing([], 'fixture', {replaceAll:true});
+  assert.equal(model.activeBrowserId, null);
+  assert.equal(model.interactiveViewUrl, '');
+});
+
+test('window buttons follow each window’s selected tab and count its open tabs', () => {
+  const {model} = setup();
+  const brief = {id:1, window_id:10, title:'Project brief', visible:true};
+  const notes = {id:2, window_id:10, title:'Notes', visible:false};
+  const reference = {id:3, window_id:20, title:'Reference', visible:true};
+  const labels = () => Array.from(model.browserWindows(), ({tab, count}) => [tab.title, count]);
+  model.browsers = [brief, reference, notes];
+  assert.deepEqual(labels(), [['Project brief', 2], ['Reference', 1]]);
+  brief.visible = false;
+  notes.visible = true;
+  assert.deepEqual(labels(), [['Notes', 2], ['Reference', 1]]);
+  model.browsers = [reference, notes];
+  assert.deepEqual(labels(), [['Reference', 1], ['Notes', 1]]);
+});

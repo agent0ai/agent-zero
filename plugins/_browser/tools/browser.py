@@ -75,6 +75,9 @@ class Browser(Tool):
         width: int = 0,
         height: int = 0,
         calls: list[dict[str, Any]] | None = None,
+        *,
+        window_id: int | None = None,
+        new_window: bool = False,
         **kwargs: Any,
     ) -> Response:
         method_action = str(self.method or "").strip().lower().replace("-", "_")
@@ -110,7 +113,12 @@ class Browser(Tool):
         ) else None
         try:
             if action == "open":
-                result = await runtime.call("open", url or "")
+                options = {}
+                if new_window:
+                    options["new_window"] = True
+                if window_id is not None:
+                    options["window_id"] = window_id
+                result = await runtime.call("open", url or "", **options)
             elif action == "screenshot":
                 result = await runtime.call(
                     "screenshot_file",
@@ -122,11 +130,13 @@ class Browser(Tool):
                 if path and destination:
                     await self._save_to_destination(result, destination, path)
             elif action == "list":
-                result = await runtime.call("list", include_content=bool(include_content))
+                method = "list_windows" if isinstance(runtime, BrowserRuntimeSession) else "list"
+                result = await runtime.call(method, include_content=bool(include_content))
             elif action == "state":
                 result = await runtime.call("state", browser_id)
             elif action in {"set_active", "setactive", "activate", "focus"}:
-                result = await runtime.call("set_active", browser_id)
+                options = {"window_id": window_id} if window_id is not None else {}
+                result = await runtime.call("set_active", browser_id, **options)
             elif action == "navigate":
                 result = await runtime.call("navigate", browser_id, url)
             elif action == "back":

@@ -1,4 +1,5 @@
 import RFB from './vendor/novnc/core/rfb.js';
+import { connectClipboard } from './clipboard.js';
 import { BrowserAudio } from './audio.js';
 
 const screen = document.getElementById('screen');
@@ -10,7 +11,7 @@ const audio = new BrowserAudio(volume(), message => {
 });
 const volumeObserver = new MutationObserver(() => audio.setVolume(volume()));
 if (frame) volumeObserver.observe(frame, { attributeFilter: ['data-volume'] });
-let rfb;
+let rfb, disconnectClipboard;
 let reconnect;
 let stopped = false;
 const viewer = window.a0BrowserViewer = {
@@ -37,6 +38,7 @@ async function connect() {
     client.background = '#fff';
     client.addEventListener('connect', () => {
       if (rfb !== client) return;
+      disconnectClipboard = connectClipboard(screen, client);
       viewer.connected = true;
       audio.connected = true;
       void audio.start();
@@ -44,13 +46,10 @@ async function connect() {
       screen.querySelector('canvas')?.setAttribute('aria-label', 'Interactive browser');
       client.focus();
     });
-    client.addEventListener('clipboard', ({ detail }) => {
-      if (document.hasFocus() && navigator.clipboard?.writeText) {
-        void navigator.clipboard.writeText(detail.text).catch(() => {});
-      }
-    });
     client.addEventListener('disconnect', () => {
       if (rfb !== client || stopped) return;
+      disconnectClipboard?.();
+      disconnectClipboard = undefined;
       viewer.connected = false;
       audio.connected = false;
       audio.close();
@@ -67,26 +66,9 @@ async function connect() {
   }
 }
 
-// Clipboard data must reach the native selection before the paste keystroke.
-document.addEventListener('keydown', async event => {
-  const paste = ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v')
-    || (event.shiftKey && event.key === 'Insert');
-  if (!paste || !viewer.connected) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  try {
-    const text = await navigator.clipboard.readText();
-    rfb.clipboardPasteFrom(text);
-    rfb.sendKey(0xffe3, 'ControlLeft', true);
-    rfb.sendKey(0x76, 'KeyV');
-    rfb.sendKey(0xffe3, 'ControlLeft', false);
-  } catch {
-    status.hidden = false;
-    status.textContent = 'Allow clipboard access to paste into the browser';
-  }
-}, true);
 window.addEventListener('pagehide', () => {
   stopped = true;
+  disconnectClipboard?.();
   volumeObserver.disconnect();
   clearTimeout(reconnect);
   rfb?.disconnect();
