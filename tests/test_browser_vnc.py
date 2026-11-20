@@ -121,6 +121,9 @@ async def test_audio_auth_silent_gaps_and_capture_cleanup(viewer, monkeypatch, t
                 packet = socket.receive_bytes()
                 assert struct.unpack('<Q', packet[:8]) == (960,)
                 assert packet[8:] == b'\x01\x00\xff\xff' * 960
+                # Let the gateway finish capture teardown before TestClient cancels the session.
+                socket.close()
+                assert socket.receive()['type'] == 'websocket.close'
     await asyncio.to_thread(exercise)
     assert len(calls) == 1 and marker.exists()
     assert not viewer.connections

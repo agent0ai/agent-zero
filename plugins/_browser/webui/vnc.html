@@ -8,12 +8,10 @@
     html, body, #screen { width:100%; height:100%; margin:0; overflow:hidden; background:#fff; }
     #status { position:absolute; inset:0; display:grid; place-content:center; font:14px system-ui; background:#fff; }
     #status[hidden] { display:none; }
-    #audio { position:absolute; bottom:8px; right:8px; padding:4px 8px; font:12px system-ui; }
   </style>
 </head>
 <body>
   <div id="screen" aria-label="Interactive browser"></div>
-  <button id="audio" type="button" aria-label="Mute browser audio" aria-pressed="false">Mute</button>
   <div id="status" role="status">6/6 Connecting browser view…</div>
   <script type="module" src="./vnc.js"></script>
 </body>

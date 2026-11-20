@@ -1,22 +1,24 @@
 // PCM scheduling adapted from Tuxee a7e2061 (MIT; ../../_desktop/build/LICENSE.tuxee).
 export class BrowserAudio {
-  constructor(button) {
-    this.button = button;
-    this.muted = false;
+  constructor(volume, setError) {
+    this.volume = volume;
+    this.setError = setError;
     this.connected = false;
     this.sources = new Set();
-    button.onclick = () => {
-      this.muted = !this.muted;
-      button.textContent = this.muted ? 'Unmute' : 'Mute';
-      button.title = this.muted ? 'Unmute browser audio' : 'Mute browser audio';
-      button.setAttribute('aria-pressed', String(this.muted));
-      if (this.muted) this.close();
-      else this.start();
-    };
+  }
+
+  setVolume(volume) {
+    this.volume = volume;
+    if (volume === 0) {
+      this.close();
+    } else {
+      this.gain?.gain.setTargetAtTime(volume / 100, this.context.currentTime, 0.01);
+      void this.start();
+    }
   }
 
   async start() {
-    if (!this.connected || this.muted || this.context) return;
+    if (!this.connected || this.volume === 0 || this.context) return;
     const unlock = this.unlock = new AbortController();
     try {
       const context = this.context = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
@@ -25,14 +27,22 @@ export class BrowserAudio {
           if (this.context === context) this.close();
         });
       };
-      for (const type of ['click', 'keydown']) document.addEventListener(type, resume, { capture: true, signal: unlock.signal });
+      for (const type of ['click', 'keydown']) {
+        const options = { capture: true, signal: unlock.signal };
+        document.addEventListener(type, resume, options);
+        window.frameElement?.ownerDocument.addEventListener(type, resume, options);
+      }
       await context.resume();
       if (this.context !== context) return;
       unlock.abort();
+      const gain = this.gain = context.createGain();
+      gain.gain.value = this.volume / 100;
+      gain.connect(context.destination);
       const url = new URL('./audio', location.href);
       url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const socket = this.socket = new WebSocket(url);
       socket.binaryType = 'arraybuffer';
+      socket.onopen = () => { if (this.socket === socket) this.setError(''); };
       socket.onmessage = event => {
         if (this.socket !== socket || context.state !== 'running') return;
         try { this.play(event.data); }
@@ -41,14 +51,13 @@ export class BrowserAudio {
       socket.onclose = () => {
         if (this.socket === socket) {
           this.close();
-          this.button.title = 'Audio disconnected. Toggle sound to retry.';
+          this.setError('Audio disconnected. Adjust volume to retry.');
         }
       };
-      this.button.title = 'Mute browser audio';
     } catch {
       if (this.unlock === unlock) {
         this.close();
-        this.button.title = 'Audio unavailable. Toggle sound to retry.';
+        this.setError('Audio unavailable. Adjust volume to retry.');
       }
     }
   }
@@ -75,7 +84,7 @@ export class BrowserAudio {
     }
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(context.destination);
+    source.connect(this.gain);
     this.sources.add(source);
     source.onended = () => { this.sources.delete(source); source.disconnect(); };
     source.start(this.next);
@@ -87,6 +96,7 @@ export class BrowserAudio {
     const socket = this.socket; this.socket = undefined; socket?.close();
     for (const source of this.sources) { source.onended = null; source.stop(); source.disconnect(); }
     this.sources.clear(); this.next = 0; this.position = undefined;
+    this.gain?.disconnect(); this.gain = undefined;
     const context = this.context; this.context = undefined; void context?.close();
   }
 }

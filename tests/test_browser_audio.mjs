@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { BrowserAudio } from '../plugins/_browser/webui/audio.js';
 
 function fixture() {
-  const button = { setAttribute() {} };
-  const audio = new BrowserAudio(button);
+  const audio = new BrowserAudio(100, assert.fail);
+  audio.gain = { gain: { setTargetAtTime(...args) { this.target = args; } }, disconnect() {} };
   const sources = [];
   audio.context = {
     currentTime: 0, destination: {}, close() {},
@@ -13,12 +13,12 @@ function fixture() {
       return { duration: frames / rate, getChannelData: channel => samples[channel] };
     },
     createBufferSource: () => {
-      const source = { connect() {}, disconnect() {}, stop() { this.stopped = true; }, start(time) { this.time = time; } };
+      const source = { connect(node) { this.output = node; }, disconnect() {}, stop() { this.stopped = true; }, start(time) { this.time = time; } };
       sources.push(source);
       return source;
     },
   };
-  return { audio, sources, button };
+  return { audio, sources };
 }
 
 function packet(position, left = 1, right = -32768) {
@@ -55,28 +55,34 @@ test('queue stays bounded and invalid packets fail closed', () => {
 });
 
 test('mute stops queued sound and closes capture; unmute can restart', () => {
-  const { audio, sources, button } = fixture();
+  const { audio, sources } = fixture();
   let closed = false, started = false;
   audio.socket = { close() { closed = true; } };
   audio.play(packet(0));
-  button.onclick();
+  audio.setVolume(35);
+  assert.equal(sources[0].output, audio.gain);
+  assert.deepEqual(audio.gain.gain.target, [0.35, 0, 0.01]);
+  assert.equal(closed, false);
+  audio.setVolume(0);
   assert.equal(closed, true);
   assert.equal(sources[0].stopped, true);
   assert.equal(audio.context, undefined);
   assert.equal(audio.position, undefined);
   audio.start = () => { started = true; };
-  button.onclick();
+  audio.setVolume(35);
   assert.equal(started, true);
 });
 
 test('closing during autoplay permission prevents a late audio connection', async () => {
   const oldContext = globalThis.AudioContext;
   const oldDocument = globalThis.document;
+  const oldWindow = globalThis.window;
   let resume;
   globalThis.AudioContext = class { resume() { return new Promise(resolve => { resume = resolve; }); } close() {} };
   globalThis.document = { addEventListener() {} };
+  globalThis.window = { frameElement: null };
   try {
-    const audio = new BrowserAudio({ setAttribute() {} });
+    const audio = new BrowserAudio(100, assert.fail);
     audio.connected = true;
     const started = audio.start();
     audio.close();
@@ -86,5 +92,6 @@ test('closing during autoplay permission prevents a late audio connection', asyn
   } finally {
     globalThis.AudioContext = oldContext;
     globalThis.document = oldDocument;
+    globalThis.window = oldWindow;
   }
 });

@@ -245,6 +245,9 @@ const model = {
   _lastSelectedContextId: "",
   _sessionRefreshPromise: null,
   _sessionRefreshContextId: "",
+  volume: 100,
+  lastVolume: 100,
+  volumeError: "",
   extensionMenuOpen: false,
   extensionsList: [],
   extensionsListLoading: false,
@@ -525,6 +528,12 @@ const model = {
         this._surfaceSwitching = false;
       }
     }
+  },
+
+  setVolume(volume) {
+    this.volumeError = "";
+    this.volume = volume;
+    if (volume > 0) this.lastVolume = volume;
   },
 
   toggleExtensionsMenu() {

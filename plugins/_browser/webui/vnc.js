@@ -3,7 +3,13 @@ import { BrowserAudio } from './audio.js';
 
 const screen = document.getElementById('screen');
 const status = document.getElementById('status');
-const audio = new BrowserAudio(document.getElementById('audio'));
+const frame = window.frameElement;
+const volume = () => Number(frame?.dataset.volume ?? 100);
+const audio = new BrowserAudio(volume(), message => {
+  frame?.dispatchEvent(new CustomEvent('browser-audio-error', { detail: message }));
+});
+const volumeObserver = new MutationObserver(() => audio.setVolume(volume()));
+if (frame) volumeObserver.observe(frame, { attributeFilter: ['data-volume'] });
 let rfb;
 let reconnect;
 let stopped = false;
@@ -81,6 +87,7 @@ document.addEventListener('keydown', async event => {
 }, true);
 window.addEventListener('pagehide', () => {
   stopped = true;
+  volumeObserver.disconnect();
   clearTimeout(reconnect);
   rfb?.disconnect();
   audio.connected = false;
