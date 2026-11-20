@@ -298,7 +298,8 @@ const model = {
   executeAction(actionId) {
     switch (actionId) {
       case "desktop":
-        return openSurface("desktop");
+      case "browser":
+        return openSurface(actionId);
       case "new-chat":
         chatsStore.newChat();
         break;

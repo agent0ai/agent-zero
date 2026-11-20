@@ -106,15 +106,19 @@
                                     <span class="welcome-action-title">Desktop</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
-                                <x-extension id="welcome-actions-start"></x-extension>
-                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
-                                    <x-icon class="welcome-action-icon" name="folder"></x-icon>
-                                    <span class="welcome-action-title">Projects</span>
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('browser')">
+                                    <x-icon class="welcome-action-icon" name="language"></x-icon>
+                                    <span class="welcome-action-title">Browser</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('files')">
                                     <x-icon class="welcome-action-icon" name="folder_open"></x-icon>
                                     <span class="welcome-action-title">Files</span>
+                                    <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
+                                </button>
+                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
+                                    <x-icon class="welcome-action-icon" name="folder"></x-icon>
+                                    <span class="welcome-action-title">Projects</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
                                 <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('settings')">
@@ -127,6 +131,7 @@
                                     <span class="welcome-action-title">Plugins</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
+                                <x-extension id="welcome-actions-start"></x-extension>
                                 <button type="button" class="welcome-action-card is-wide" @click="$store.welcomeStore.executeAction('website')">
                                     <x-icon class="welcome-action-icon" name="language"></x-icon>
                                     <span class="welcome-action-title">Visit Agent Zero Website</span>

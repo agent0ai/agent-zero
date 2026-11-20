@@ -15,7 +15,7 @@ function loadStore(path, context) {
   return vm.runInNewContext(`${source}\nstore`, context);
 }
 
-test('Desktop quick action opens the shared desktop surface', async () => {
+test('Desktop and Browser quick actions open their respective canvas surfaces', async () => {
   const opened = [];
   const store = loadStore('../webui/components/welcome/welcome-store.js', {
     mountLayout() {},
@@ -23,7 +23,8 @@ test('Desktop quick action opens the shared desktop surface', async () => {
     openSurface: async id => { opened.push(id); return true; },
   });
   assert.equal(await store.executeAction('desktop'), true);
-  assert.deepEqual(opened, ['desktop']);
+  assert.equal(await store.executeAction('browser'), true);
+  assert.deepEqual(opened, ['desktop', 'browser']);
 });
 
 for (const [panel, property, toggle] of [
