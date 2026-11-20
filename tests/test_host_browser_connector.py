@@ -692,3 +692,12 @@ def test_connector_runtime_ensures_preparable_host_browser_before_action(monkeyp
             ws_runtime.unregister_sid(sid)
 
     asyncio.run(run())
+
+
+def test_host_browser_privacy_detects_rapid_mlx_provider(monkeypatch):
+    from plugins._model_config.helpers import model_config
+
+    monkeypatch.setattr(model_config, "get_chat_model_config", lambda agent=None: {
+        "provider": "rapid_mlx", "name": "local-model", "api_base": "",
+    })
+    assert _agent_uses_local_chat_model(_agent()) is True

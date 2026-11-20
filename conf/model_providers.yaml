@@ -162,6 +162,15 @@ chat:
     kwargs:
       a0_api_mode: chat
       api_base: "http://host.docker.internal:8000/v1"
+  rapid_mlx:
+    name: Rapid-MLX
+    litellm_provider: hosted_vllm
+    models_list:
+      endpoint_url: "/v1/models"
+      default_base: "http://localhost:8000"
+    kwargs:
+      a0_api_mode: chat
+      api_base: "http://localhost:8000/v1"
   ollama_cloud:
     name: Ollama Cloud
     litellm_provider: openai
@@ -293,6 +302,11 @@ embedding:
     litellm_provider: hosted_vllm
     kwargs:
       api_base: "http://host.docker.internal:8000/v1"
+  rapid_mlx:
+    name: Rapid-MLX
+    litellm_provider: hosted_vllm
+    kwargs:
+      api_base: "http://localhost:8000/v1"
   openai:
     name: OpenAI
     litellm_provider: openai

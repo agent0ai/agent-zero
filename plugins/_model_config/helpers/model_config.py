@@ -50,7 +50,7 @@ IMPLICIT_PRESET_SLOT_DEFAULTS = {
         "kwargs": {},
     },
 }
-LOCAL_PROVIDERS = {"ollama", "lm_studio", "llama_cpp", "omlx", "vllm"}
+LOCAL_PROVIDERS = {"ollama", "lm_studio", "llama_cpp", "omlx", "rapid_mlx", "vllm"}
 LOCAL_EMBEDDING = {"huggingface"}
 _PROVIDER_METADATA_CACHE: dict | None = None
 

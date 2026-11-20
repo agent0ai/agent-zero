@@ -636,6 +636,7 @@ examples, not model recommendations:
 | OpenRouter | Provider prefix mostly required | `anthropic/claude-sonnet-4-5` |
 | Ollama | Model name only | `gpt-oss:20b` |
 | oMLX | API-visible model name from `/v1/models` | `Qwen3-0.6B-4bit` |
+| Rapid-MLX | Served model ID from `/v1/models` | `mlx-community/Qwen3.5-4B-MLX-4bit` |
 | llama.cpp | API-visible model name from `/v1/models` or `--alias` | `local-gguf` |
 | vLLM | Hugging Face model ID or served model alias | `Qwen/Qwen2.5-1.5B-Instruct` |
 
@@ -771,6 +772,45 @@ By default, Agent Zero expects vLLM at `http://host.docker.internal:8000/v1`, ma
 
 > [!NOTE]
 > vLLM serves one model at a time by default. Use a generation model for Chat and Utility slots, and a separate embedding-capable vLLM server if you want vLLM embeddings.
+
+---
+
+## Installing and Using Rapid-MLX (Apple Silicon Local Models)
+
+[Rapid-MLX](https://github.com/raullenchai/Rapid-MLX) is an open-source local LLM inference server for Apple Silicon, built on MLX. It provides an OpenAI-compatible API for chat, model listing, and embeddings when an embedding model is served.
+
+### macOS Rapid-MLX Installation
+
+**Using Homebrew:**
+
+```bash
+brew install rapid-mlx
+rapid-mlx serve qwen3.5-4b-4bit
+```
+
+Alternatively, install with `pip install rapid-mlx` (Python 3.12+) or use the [native macOS desktop app](https://rapidmlx.com/desktop).
+
+The OpenAI base URL is `http://localhost:8000/v1`. When `--port` is omitted, Rapid-MLX selects the first free port in 8000–8009. Use an explicit port to keep Agent Zero's URL stable:
+
+```bash
+rapid-mlx serve qwen3.5-4b-4bit --port 8000
+```
+
+An explicit port never falls back; if another local server uses port 8000, choose a different port and update Agent Zero's API base URL.
+
+### Configuring Rapid-MLX in Agent Zero
+
+1. Start Rapid-MLX with a model loaded.
+2. In Agent Zero Settings, choose **Rapid-MLX** as the Chat or Utility model provider. Choose it for Embedding only when serving an embedding model.
+3. Use the served model ID returned by `/v1/models`, such as `mlx-community/Qwen3.5-4B-MLX-4bit`.
+4. The default API base is `http://localhost:8000/v1`. If Agent Zero runs in Docker and Rapid-MLX runs on the Mac host, set it to `http://host.docker.internal:8000/v1`. Adjust the port if needed.
+5. No API key is required by default. If optional Rapid-MLX authentication is enabled, enter the configured key in Agent Zero.
+6. Click `Save` to confirm your settings.
+
+> [!NOTE]
+> For Docker, ensure the host server port is reachable from the container. Docker Desktop for macOS provides `host.docker.internal` automatically; the shipped Docker Compose file maps it to the host gateway for Linux Docker.
+
+See the [Rapid-MLX documentation](https://rapidmlx.com/docs/) for more setup options.
 
 ---
 

@@ -245,3 +245,18 @@ def test_onboarding_success_filters_oauth_discovery_cards():
     assert "discovery-codex-oauth" in content
     assert "discovery-oauth-accounts" in content
     assert "includes(card.id)" in content
+
+
+def test_rapid_mlx_onboarding_metadata():
+    provider_ui = (PROJECT_ROOT / "plugins/_onboarding/webui/onboarding-providers.js").read_text()
+    metadata = yaml.safe_load((PROJECT_ROOT / "plugins/_model_config/provider_metadata.yaml").read_text())
+    assert '"rapid_mlx"' in provider_ui.split("export const LOCAL_PROVIDER_IDS =", 1)[1].split(";", 1)[0]
+    block = provider_ui.split("  rapid_mlx: {", 1)[1].split("  },", 1)[0]
+    assert 'default_api_base: "http://localhost:8000/v1"' in block
+    assert 'api_key_mode: "none"' in block
+    assert 'model_list_autoload: true' in block
+    assert 'docs_url: "https://rapidmlx.com/docs/"' in block
+    assert 'logo: "/plugins/_onboarding/webui/assets/provider-logos/rapid-mlx.png"' in block
+    assert (PROJECT_ROOT / "plugins/_onboarding/webui/assets/provider-logos/rapid-mlx.png").is_file()
+    for model_type in ("chat", "embedding"):
+        assert metadata[model_type]["rapid_mlx"]["api_key_mode"] == "none"

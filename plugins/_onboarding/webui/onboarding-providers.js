@@ -27,7 +27,7 @@ export const MORE_CLOUD_PROVIDER_IDS = [
   "other",
 ];
 
-export const LOCAL_PROVIDER_IDS = ["ollama", "lm_studio", "omlx", "llama_cpp", "vllm", "other"];
+export const LOCAL_PROVIDER_IDS = ["ollama", "lm_studio", "omlx", "rapid_mlx", "llama_cpp", "vllm", "other"];
 
 export const ONBOARDING_PROVIDER_OVERRIDES = {
   a0_venice: {
@@ -211,6 +211,16 @@ export const ONBOARDING_PROVIDER_OVERRIDES = {
     api_key_mode: "none",
     model_list_autoload: true,
     short_description: "Apple Silicon local inference with MLX.",
+  },
+  rapid_mlx: {
+    // Source: Rapid-MLX macOS app RapidLogo.png (Apache-2.0).
+    logo: "/plugins/_onboarding/webui/assets/provider-logos/rapid-mlx.png",
+    setup_url: "https://rapidmlx.com/",
+    docs_url: "https://rapidmlx.com/docs/",
+    default_api_base: "http://localhost:8000/v1",
+    api_key_mode: "none",
+    model_list_autoload: true,
+    short_description: "Local LLM inference for Apple Silicon, built on MLX.",
   },
   vllm: {
     logo: "/plugins/_onboarding/webui/assets/provider-logos/vllm.svg",
