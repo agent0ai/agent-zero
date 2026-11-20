@@ -639,9 +639,10 @@ const model = {
   },
 
   async testFallbackRecoveryDegraded() {
-    const label = "Fallback + recovery (DEGRADED polling, ignore pushes)";
+    const label = "Fallback + recovery (DEGRADED polling, process pushes)";
     const originalPoll = globalThis.poll;
     const originalRequest = stateSocket.request;
+    const originalSendStateRequest = syncStore.sendStateRequest;
     try {
       if (typeof syncStore.sendStateRequest !== "function") {
         return { ok: false, label, error: "syncStore.sendStateRequest not available" };
@@ -689,19 +690,24 @@ const model = {
         return { ok: false, label, error: "poll() was not invoked while DEGRADED" };
       }
 
-      // While DEGRADED, pushes should be ignored (single-writer arbitration).
+      // While DEGRADED, pushes still pass the normal sync validation.
+      let validationResyncs = 0;
+      syncStore.sendStateRequest = async (options = {}) => {
+        if (options.forceFull === true) validationResyncs += 1;
+      };
       const lastSeqBefore = typeof syncStore.lastSeq === "number" ? syncStore.lastSeq : 0;
       await syncStore._handlePush({
         data: {
-          runtime_epoch: typeof syncStore.runtimeEpoch === "string" ? syncStore.runtimeEpoch : "test-epoch",
+          runtime_epoch: "validation-mismatch",
           seq: lastSeqBefore + 1,
-          snapshot: { ignored: true },
+          snapshot: { validationOnly: true },
         },
       });
-      if (syncStore.lastSeq !== lastSeqBefore) {
-        return { ok: false, label, error: "state_push advanced seq while DEGRADED (should be ignored)" };
+      syncStore.sendStateRequest = originalSendStateRequest;
+      if (validationResyncs !== 1) {
+        return { ok: false, label, error: "state_push validation did not run while DEGRADED" };
       }
-      this.appendLog("Verified state_push ignored while DEGRADED.");
+      this.appendLog("Verified state_push passed validation while DEGRADED.");
 
       // Recover: restore request path and confirm we return to HEALTHY and polling stops.
       stateSocket.request = originalRequest;
@@ -722,6 +728,7 @@ const model = {
       return { ok: false, label, error: error.message || error };
     } finally {
       stateSocket.request = originalRequest;
+      syncStore.sendStateRequest = originalSendStateRequest;
       globalThis.poll = originalPoll;
       // Clear dangling retry timers left by simulated failures.
       syncStore._clearHandshakeRetry();
