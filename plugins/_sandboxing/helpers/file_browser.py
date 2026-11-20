@@ -2,7 +2,7 @@
 import hashlib
 import os
 import stat
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 
 from helpers.file_connections import PERMISSIONS, path_for
 from helpers.file_transfers import copy_stream
@@ -43,31 +43,39 @@ class SandboxFilesProvider:
 
     @contextmanager
     def open(self, item, data_dir):
-        with get_manager().open_browse_root(item["_name"], item["_created_at"]) as fd:
-            yield SandboxFiles(fd)
+        manager = get_manager()
+        identity = (item["_name"], item["_created_at"])
+        with manager.open_browse_root(*identity) as fd:
+            yield SandboxFiles(fd, lambda: manager.open_browse_root(*identity, workspace=True))
 
 
 class SandboxFiles:
-    def __init__(self, root_fd):
+    def __init__(self, root_fd, open_workspace):
         self.root_fd = root_fd
+        self.open_workspace = open_workspace
 
     @contextmanager
     def _entry(self, relative):
         parts = relative.split("/") if relative else []
         if any(part in {"", ".", ".."} for part in parts):
             raise ValueError("Invalid sandbox file path.")
-        fd = os.dup(self.root_fd)
-        try:
-            for index, part in enumerate(parts):
-                flags = os.O_PATH | os.O_NOFOLLOW
-                if index < len(parts) - 1:
-                    flags |= os.O_DIRECTORY
-                next_fd = os.open(part, flags, dir_fd=fd)
+        directory = nullcontext(self.root_fd)
+        if parts[:1] == ["workspace"]:
+            directory = self.open_workspace()
+            parts = parts[1:]
+        with directory as root:
+            fd = os.dup(root)
+            try:
+                for index, part in enumerate(parts):
+                    flags = os.O_PATH | os.O_NOFOLLOW
+                    if index < len(parts) - 1:
+                        flags |= os.O_DIRECTORY
+                    next_fd = os.open(part, flags, dir_fd=fd)
+                    os.close(fd)
+                    fd = next_fd
+                yield fd
+            finally:
                 os.close(fd)
-                fd = next_fd
-            yield fd
-        finally:
-            os.close(fd)
 
     @staticmethod
     def _info(name, info):

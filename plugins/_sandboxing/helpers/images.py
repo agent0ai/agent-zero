@@ -38,7 +38,7 @@ class SandboxImageConfig:
     cache_dir: Path
     default_image: str
     proot: Path = Path("/usr/local/bin/a0-proot")
-    uid_registry: Path = Path("/var/lib/agent-zero/proot-uids")
+    uid_registry: Path = Path(__file__).resolve().parents[3] / "sandboxes/uids"
     auth_file: Path | None = None
     cleanup_days: float = 30.0
     pull_timeout: float = 900.0
@@ -418,7 +418,10 @@ class SandboxImageManager:
         temporary = Path(tempfile.mkdtemp(prefix=".pull-", dir=self.config.cache_dir))
         try:
             layout = temporary / "layout"
-            bundle = temporary / "bundle"
+            record = temporary / "record"
+            record.mkdir(mode=0o700)
+            rootfs = record / "rootfs"
+            config_path = temporary / "config.json"
             self._run(
                 [
                     *self._skopeo_command("copy"),
@@ -429,29 +432,26 @@ class SandboxImageManager:
                 timeout=self.config.pull_timeout,
                 operation=f"pull sandbox image {reference!r}",
             )
+            # Full unpack inventories every file for repacking. PRoot only uses the rootfs and environment.
+            raw = [str(self.config.umoci), "raw"]
+            image_args = ["--rootless", "--image", f"{layout}:image"]
             self._run(
-                [
-                    str(self.config.umoci),
-                    "unpack",
-                    "--rootless",
-                    "--image",
-                    f"{layout}:image",
-                    str(bundle),
-                ],
+                [*raw, "unpack", *image_args, str(rootfs)],
                 timeout=self.config.unpack_timeout,
                 operation=f"unpack sandbox image {reference!r}",
             )
-            rootfs = bundle / "rootfs"
-            environment = self._validate_unpacked_rootfs(bundle, rootfs)
+            self._run(
+                [*raw, "runtime-config", *image_args, "--rootfs", str(rootfs), str(config_path)],
+                timeout=self.config.unpack_timeout,
+                operation=f"configure sandbox image {reference!r}",
+            )
+            environment = self._validate_unpacked_rootfs(config_path, rootfs)
             size_bytes = self._allocated_bytes(rootfs)
             if size_bytes > self.config.max_image_bytes:
                 raise SandboxImageError(
                     f"unpacked image is {size_bytes} bytes, above the configured "
                     f"{self.config.max_image_bytes}-byte limit"
                 )
-            record = temporary / "record"
-            record.mkdir(mode=0o700)
-            os.replace(rootfs, record / "rootfs")
             now = self._now()
             info = SandboxImageInfo(
                 digest=digest,
@@ -482,7 +482,7 @@ class SandboxImageManager:
                 shutil.rmtree(temporary, ignore_errors=True)
 
     def _validate_unpacked_rootfs(
-        self, bundle: Path, rootfs: Path
+        self, config_path: Path, rootfs: Path
     ) -> tuple[str, ...]:
         if rootfs.is_symlink() or not rootfs.is_dir():
             raise SandboxImageError("unpacked OCI image has no safe root filesystem")
@@ -503,7 +503,6 @@ class SandboxImageManager:
             if path.is_symlink() or (path.exists() and not path.is_file()):
                 raise SandboxImageError(f"sandbox image /etc/{name} must be a regular file")
             path.touch(mode=0o644, exist_ok=True)
-        config_path = bundle / "config.json"
         try:
             config = json.loads(config_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:

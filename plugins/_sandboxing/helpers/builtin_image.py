@@ -70,7 +70,7 @@ def build_image(images, directory: Path) -> Path:
                 raise SandboxImageError(f"default sandbox image build failed: {result.stdout[-2000:]}\n{result.stderr[-2000:]}")
             manager.stop("build")
             layout = directory / "layout"
-            package_rootfs(images, manager.config.instances_dir / "build/rootfs", layout, node.architecture)
+            package_rootfs(images, manager.config.instances_dir / "build/fs", layout, node.architecture)
             return layout
         except SandboxError as exc:
             raise SandboxImageError(f"cannot build default sandbox image: {exc}") from exc

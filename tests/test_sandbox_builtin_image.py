@@ -34,11 +34,12 @@ def test_default_image_uses_bundle_or_builds_once_then_reuses_cache(manager, mon
                 raise SandboxImageError("damaged bundle")
             return 0, json.dumps({"Digest": IMAGE_DIGEST, "Os": "linux", "Architecture": "amd64"}), "", False
         if "unpack" in argv:
-            unpacked = Path(argv[-1])
-            (unpacked / "rootfs/bin").mkdir(parents=True)
+            rootfs = Path(argv[-1])
+            (rootfs / "bin").mkdir(parents=True)
             for shell in ("sh", "bash"):
-                (unpacked / "rootfs/bin" / shell).touch()
-            (unpacked / "config.json").write_text(json.dumps({"process": {"env": list(builtin_image.ENVIRONMENT)}}))
+                (rootfs / "bin" / shell).touch()
+        if "runtime-config" in argv:
+            Path(argv[-1]).write_text(json.dumps({"process": {"env": list(builtin_image.ENVIRONMENT)}}))
         return 0, "", "", False
 
     # Remove the fixture's image so the real unpack/validation/cache path runs.

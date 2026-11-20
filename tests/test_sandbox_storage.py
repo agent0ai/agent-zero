@@ -45,7 +45,7 @@ def test_explicit_usage_checks_ownership_and_does_not_follow_links(manager, monk
     manager.config = dataclasses.replace(manager.config, instance_id='original')
     create_disk(manager, monkeypatch)
     before = manager.disk_usage('service')
-    root = manager.config.instances_dir / 'service/rootfs'
+    root = manager.config.instances_dir / 'service/fs'
     (root / 'data').write_bytes(b'x' * 65536)
     assert manager.disk_usage('service') >= before + 65536
     external = tmp_path / 'external'

@@ -49,3 +49,6 @@ agent_history.gif
 # Ignore runtime scratch data, including nested directory markers.
 /tmp/**
 !/tmp/.gitkeep
+
+# Local sandbox images, guest roots and runtime state.
+/sandboxes/

@@ -342,6 +342,9 @@ class SandboxManager:
                 "schema_version": SCHEMA_VERSION,
                 "instance_id": self.config.instance_id,
                 "filesystem": "cow",
+                "managed_workspace": self.config.user_dir is not None and not any(
+                    mount.destination == "/workspace" for mount in normalized_mounts
+                ),
                 "uid": storage.lease_uid(self.config.uid_registry, path),
                 "standalone": bool(standalone),
                 "service": bool(service),
@@ -365,10 +368,10 @@ class SandboxManager:
             }
             try:
                 storage.ensure_base(image_info.rootfs)
-                storage.prepare(image_info.rootfs, path / 'rootfs', path / 'cow', metadata['uid'])
+                storage.prepare(image_info.rootfs, path / 'fs', path / 'cow', metadata['uid'])
                 if not self._disk_root(name, metadata):
                     raise SandboxError("failed to prepare writable sandbox filesystem")
-                self._refresh_bundle(name, metadata)
+                self._refresh_bundle(name, metadata, workspace_seed=image_info.rootfs / "workspace")
                 self._atomic_write_json(path / "metadata.json", metadata)
                 self._launch(name, metadata)
                 self._save_locked(name, metadata)
@@ -467,7 +470,11 @@ class SandboxManager:
             state, _ = self._runtime_state(name, metadata)
             if state and state.get('status') != 'stopped':
                 raise SandboxError('Stop the sandbox before changing mounts')
-            metadata['mounts'] = [self._mount_json(mount) for mount in normalized]
+            workspace = self._managed_workspace(name, metadata)
+            metadata['mounts'] = [
+                self._mount_json(mount) for mount in normalized
+                if workspace is None or mount != SandboxMount(workspace, "/workspace", False)
+            ]
             self._atomic_write_json(self._instance_path(name) / 'metadata.json', metadata)
 
     def process_command(
@@ -595,7 +602,7 @@ class SandboxManager:
         return restored
 
     @contextlib.contextmanager
-    def open_browse_root(self, name: str, created_at: str) -> Iterator[int]:
+    def open_browse_root(self, name: str, created_at: str, *, workspace: bool = False) -> Iterator[int]:
         """Pin the validated sandbox root before releasing the lifecycle index lock."""
         with self._index_lock(exclusive=False):
             metadata = self._read_metadata(validate_name(name))
@@ -604,7 +611,8 @@ class SandboxManager:
             root = self._disk_root(name, metadata)
             if root is None:
                 raise SandboxError("Sandbox files need a persistent disk filesystem.")
-            fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            data = self._managed_workspace(name, metadata) if workspace else None
+            fd = storage.open_directory(data or (root / "workspace" if workspace else root))
         try:
             yield fd
         finally:
@@ -738,9 +746,18 @@ class SandboxManager:
 
     def _image_usage_locked(self, *, strict: bool = False) -> dict[str, set[str]]:
         usage: dict[str, set[str]] = {}
-        if not self.config.instances_dir.exists():
+        current = self.config.instances_dir
+        if not current.exists():
             return usage
-        for entry in self.config.instances_dir.iterdir():
+        entries = current.iterdir()
+        if strict and current.parent.name == "instances" and current.name == self.config.instance_id:
+            # Image eviction shares the index lock across instances using this store.
+            entries = (
+                guest for instance in current.parent.iterdir()
+                if not instance.is_symlink() and instance.is_dir()
+                for guest in instance.iterdir()
+            )
+        for entry in entries:
             if entry.is_symlink() or not entry.is_dir() or not NAME_RE.fullmatch(entry.name):
                 continue
             metadata_path = entry / "metadata.json"
@@ -761,7 +778,8 @@ class SandboxManager:
                         f"cannot safely determine image use for sandbox {entry.name!r}: {exc}"
                     ) from exc
                 continue
-            usage.setdefault(digest, set()).add(entry.name)
+            owner = entry.name if entry.parent == current else "another Agent Zero instance"
+            usage.setdefault(digest, set()).add(owner)
         return usage
 
     def _delete_if_expired(self, name: str, now: dt.datetime) -> bool:
@@ -867,6 +885,9 @@ class SandboxManager:
         runtime_error: str | None,
     ) -> SandboxInfo:
         mounts = self._normalize_mounts(metadata.get("mounts", []), allow_missing=metadata.get("service") is True)
+        workspace = self._managed_workspace(name, metadata)
+        if workspace is not None:
+            mounts = (SandboxMount(workspace, "/workspace", False), *mounts)
         last_used = str(metadata.get("last_used_at") or metadata.get("created_at") or "")
         sandbox_type = self._validate_type(metadata.get("sandbox_type"))
         expires = self._expiry(last_used) if sandbox_type == "temporary" else None
@@ -925,7 +946,14 @@ class SandboxManager:
 
 
 
-    def _refresh_bundle(self, name, metadata, *, snapshot=None):
+    def _managed_workspace(self, name, metadata) -> Path | None:
+        if not metadata.get("managed_workspace") or self.config.user_dir is None:
+            return None
+        if any(mount["destination"] == "/workspace" for mount in metadata.get("mounts", [])):
+            return None
+        return self.config.user_dir / "sandbox_data" / name / "workspace"
+
+    def _refresh_bundle(self, name, metadata, *, snapshot=None, workspace_seed=None):
         path = self._instance_path(name)
         root = self._disk_root(name, metadata)
         if root is None:
@@ -966,6 +994,17 @@ class SandboxManager:
             readonly.append(str(bundle / target))
         private = (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.uid_registry)
         mounts = list(self._normalize_mounts(metadata.get('mounts', [])))
+        if self.config.user_dir is not None:
+            data_root = self.config.user_dir / "sandbox_data"
+            private += (data_root,)
+            if "managed_workspace" in metadata:
+                workspace = self._managed_workspace(name, metadata)
+                if workspace is None:
+                    storage.prepare_workspace(data_root / name)
+                else:
+                    storage.prepare_workspace(workspace, workspace_seed)
+                    mounts.insert(0, SandboxMount(workspace, "/workspace", False))
+                storage.link_sandbox_data(path / "data", data_root / name)
         if metadata.get('service'):
             shared = path / 'shared'
             shared.mkdir(mode=0o700, exist_ok=True)
@@ -1334,7 +1373,10 @@ class SandboxManager:
     def _disk_root(self, name: str, metadata: Mapping[str, Any]) -> Path | None:
         if metadata.get("filesystem") not in {"disk", "cow"}:
             return None
-        path = self._instance_path(name) / "rootfs"
+        instance = self._instance_path(name)
+        path = instance / "fs"
+        if not os.path.lexists(path):
+            path = instance / "rootfs"  # Previously created disk roots stay in place.
         if path.is_symlink() or not path.is_dir():
             raise SandboxError("sandbox disk filesystem is missing or unsafe")
         return path

@@ -35,7 +35,7 @@
 - `pytest.ini` and root `conftest.py` own test discovery: `tests` and `plugins` testpaths with importlib import mode, `tests/` importable for sibling test imports, and handler modules named like tests kept out of collection.
 - `prepare.py` migrates and loads legacy `.env` configuration before writing the root password through lightweight `helpers.runtime`, without importing settings or the model stack; `helpers/migration.py` owns preservation of existing files and symlink handling.
 - `Dockerfile` builds the local and published Agent Zero image. See `docker/AGENTS.md` for runtime and build contracts.
-- Runtime or user state under `usr/` and `tmp/` is intentionally outside tracked DOX unless the user explicitly asks otherwise.
+- Runtime or user state under `usr/`, `sandboxes/`, and `tmp/` is intentionally outside tracked DOX unless the user explicitly asks otherwise.
 
 ## Project-Wide Contracts
 
@@ -111,6 +111,7 @@ Intentionally unindexed local or generated roots:
 | `.conda/`, `.venv/` | Local Python environments. |
 | `.pytest_cache/`, `__pycache__/` | Generated test and bytecode caches. |
 | `.vscode/`, `.windsurf/` | Editor-local configuration and assistant metadata. |
+| `sandboxes/` | Private sandbox images and guest runtimes, excluded from Git and the Docker build context. |
 | `tmp/` | Ignored runtime caches, uploads, and generated work. |
 | `usr/` | Ignored local user data, settings, plugins, chats, and workdirs. |
 | `python/` | Generated or legacy runtime mirror; current source is in root modules and tracked source directories. |

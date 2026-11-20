@@ -645,7 +645,7 @@ def test_selectable_workspaces_list_workdir_first_and_default_to_context_project
 
     assert workspaces[0]["kind"] == "workdir"
     assert workspaces[0]["display_path"].endswith("/workdir")
-    assert [item["project_name"] for item in workspaces[1:]] == ["demo", "other"]
+    assert [item["project_name"] for item in workspaces if item["kind"] == "project"] == ["demo", "other"]
     assert data["default_workspace_id"] == demo_workspace["id"]
 
     resolved = resolve_workspace(
@@ -663,6 +663,49 @@ def test_selectable_workspaces_list_workdir_first_and_default_to_context_project
             workspace_id="missing",
             context_loader=lambda _ctxid: SimpleNamespace(id="ctx"),
         )
+
+
+def test_sandbox_data_is_a_selectable_watchdog_workspace_without_any_projects(tmp_path, monkeypatch):
+    from helpers import projects
+
+    instance = tmp_path / "instance"
+    (instance / "one/workspace").mkdir(parents=True)
+    (instance / "two/workspace").mkdir(parents=True)
+    (instance / "link").symlink_to(tmp_path)
+    monkeypatch.setattr(tt, "_sandbox_data_root", lambda: instance)
+    monkeypatch.setattr(projects, "get_projects_parent_folder", lambda: str(tmp_path / "missing"))
+    workspaces = tt.list_selectable_workspaces()["workspaces"]
+    entries = [item for item in workspaces if item["kind"] == "sandbox"]
+    assert [item["name"] for item in entries] == ["one", "two"]
+    assert entries[0]["id"] != entries[1]["id"]
+    resolved = tt.resolve_workspace(workspace_id=entries[0]["id"])
+    assert resolved.display_path == "/a0/usr/sandbox_data/one"
+    assert tt.resolve_workspace_for_path_hint(resolved.display_path + "/workspace/file").id == resolved.id
+    assert tt.resolve_workspace_for_path_hint("/a0/usr/sandbox_data/missing/file") is None
+    assert tt.resolve_workspace_for_path_hint("/a0/sandboxes/instances/a/fs") is None
+
+
+def test_sandbox_travel_and_revert_keep_empty_mount_directories(workspace):
+    from dataclasses import replace
+
+    root, ordinary = workspace
+    service = TimeTravelService(replace(ordinary.workspace, display_path="/a0/usr/sandbox_data/test"))
+    (root / "workspace").mkdir()
+    data = root / "selected/data"
+    data.mkdir(parents=True)
+    (root / "baseline").write_text("keep")
+    initial = service.snapshot()
+    (root / "workspace/result").write_text("workspace")
+    (data / "result").write_text("data")
+    added = service.snapshot()
+
+    service.travel(commit_hash=initial.hash)
+    assert list((root / "workspace").iterdir()) == []
+    assert list(data.iterdir()) == []
+    service.travel(commit_hash=added.hash)
+    service.revert(commit_hash=added.hash)
+    assert list((root / "workspace").iterdir()) == []
+    assert list(data.iterdir()) == []
 
 
 def test_external_workdir_workspace_option_is_locked(monkeypatch: pytest.MonkeyPatch):

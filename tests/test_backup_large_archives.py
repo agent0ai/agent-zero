@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import zipfile
 from pathlib import Path
@@ -16,6 +17,37 @@ class UploadedBackup:
 
     def save(self, target: str) -> None:
         shutil.copyfile(self.path, target)
+
+
+@pytest.mark.asyncio
+async def test_default_backup_walks_only_user_data_and_skips_shortcuts(tmp_path, monkeypatch):
+    service = BackupService()
+    service.agent_zero_root = str(tmp_path)
+    service.base_paths = {str(tmp_path): str(tmp_path)}
+    data = tmp_path / "usr/sandbox_data/demo"
+    data.mkdir(parents=True)
+    (data / "result").write_text("user data")
+    runtime = tmp_path / "sandboxes"
+    instance = runtime / "instances/demo"
+    instance.mkdir(parents=True)
+    (instance / "data").symlink_to(data)
+    (runtime / "package").touch()
+
+    walked = set()
+    original_walk = os.walk
+
+    def record_walk(*args, **kwargs):
+        for row in original_walk(*args, **kwargs):
+            walked.add(Path(row[0]))
+            yield row
+
+    monkeypatch.setattr(os, "walk", record_walk)
+    metadata = service.get_default_backup_metadata()
+    matches = await service.test_patterns(metadata)
+    assert [row["path"] for row in matches] == [str(data / "result")]
+    assert runtime not in walked
+    metadata["include_patterns"] = [f"{tmp_path}/sandboxes/**"]
+    assert [row["path"] for row in await service.test_patterns(metadata)] == [str(runtime / "package")]
 
 
 @pytest.mark.asyncio

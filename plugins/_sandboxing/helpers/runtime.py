@@ -22,6 +22,7 @@ from plugins._sandboxing.helpers.manager import (
 
 
 PLUGIN_NAME = "_sandboxing"
+LEGACY_STORE = "usr/plugins/_sandboxing"
 _manager_lock = threading.RLock()
 _manager: SandboxManager | None = None
 _manager_config: tuple[SandboxConfig, SandboxImageConfig] | None = None
@@ -39,21 +40,24 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         validate_name(default_sandbox)
     except SandboxError:
         default_sandbox = "default"
+    # Existing CoW trees share image inodes and their UID leases record absolute paths.
+    # Select the original layout as a unit on upgrade; never move a live guest.
+    store = Path(files.get_abs_path("sandboxes"))
+    state_dir = store
+    legacy = Path(files.get_abs_path(LEGACY_STORE))
+    if not (store / "instances").is_dir() and ((legacy / "runtime").is_dir() or (legacy / "images").is_dir()):
+        store = Path(LEGACY_STORE)
+        state_dir = store / "runtime"
+
     return {
         "proot_path": str(raw.get("proot_path") or "/usr/local/bin/a0-proot").strip(),
         "skopeo_path": str(raw.get("skopeo_path") or "/usr/bin/skopeo").strip(),
         "umoci_path": str(raw.get("umoci_path") or "/usr/bin/umoci").strip(),
         "default_image": default_image,
         "registry_auth_file": str(raw.get("registry_auth_file") or "").strip(),
-        "image_cache_dir": str(
-            raw.get("image_cache_dir") or "usr/plugins/_sandboxing/images"
-        ).strip(),
-        "state_dir": str(
-            raw.get("state_dir") or "usr/plugins/_sandboxing/runtime"
-        ).strip(),
-        "uid_registry": str(
-            raw.get("uid_registry") or "usr/plugins/_sandboxing/runtime/uids"
-        ).strip(),
+        "image_cache_dir": str(raw.get("image_cache_dir") or f"{store}/images").strip(),
+        "state_dir": str(raw.get("state_dir") or state_dir).strip(),
+        "uid_registry": str(raw.get("uid_registry") or state_dir / "uids").strip(),
         "shared_dir": str(raw.get("shared_dir") or "usr/sandbox-shared").strip(),
         "default_sandbox": default_sandbox,
         "default_type": default_type
@@ -86,9 +90,12 @@ def manager_config(
     raw = normalize_config(plugins.get_plugin_config(PLUGIN_NAME, agent=agent) or {})
     state_dir = _absolute_path(raw["state_dir"])
     instance_id = runtime.get_persistent_id()
+    instances_dir = state_dir / "instances"
+    if state_dir != _absolute_path("sandboxes"):
+        instances_dir /= instance_id  # Configured legacy stores retain their instance namespace.
     sandbox = SandboxConfig(
         proot=_absolute_path(raw["proot_path"]),
-        instances_dir=state_dir / "instances" / instance_id,
+        instances_dir=instances_dir,
         uid_registry=_absolute_path(raw["uid_registry"]),
         shared_dir=_absolute_path(raw["shared_dir"]),
         default_image=str(raw["default_image"]),

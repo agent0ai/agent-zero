@@ -222,6 +222,118 @@ def test_files_connection_browses_stopped_sandbox_without_following_links(
     assert not provider.connections()
 
 
+def test_sandbox_workspace_survives_recreation_and_respects_explicit_mount(manager, tmp_path, monkeypatch):
+    from plugins._sandboxing.helpers import file_browser
+
+    usr = tmp_path / "usr"
+    manager.config = dataclasses.replace(manager.config, user_dir=usr, instance_id="instance")
+    seed = manager.images.inspect(IMAGE_DIGEST).rootfs / "workspace"
+    (seed / "example").write_text("from image")
+    monkeypatch.setattr(manager, "_launch", lambda *args: None)
+    monkeypatch.setattr(manager, "_save_locked", lambda *args: None)
+    info = manager.create("research")
+    workspace = usr / "sandbox_data/research/workspace"
+    shortcut = manager.config.instances_dir / "research/data"
+    assert not shortcut.readlink().is_absolute()
+    assert (shortcut / "workspace").samefile(workspace)
+    assert SandboxMount(workspace, "/workspace", False) in info.mounts
+    assert (workspace / "example").read_text() == "from image"
+    (workspace / "example").write_text("user edit")
+    assert (seed / "example").read_text() == "from image"
+    config = json.loads((manager.config.instances_dir / "research/bundle/config.json").read_text())
+    assert [str(workspace), "/workspace"] in config["bindings"]
+    assert any(dest == "/a0/usr/sandbox_data" for _, dest in config["bindings"])
+
+    monkeypatch.setattr(file_browser, "get_manager", lambda: manager)
+    provider = file_browser.SandboxFilesProvider()
+    with provider.open(provider.connection(manager, info), None) as browser:
+        stream = io.BytesIO()
+        browser.read("workspace/example", stream, 100)
+        assert stream.getvalue() == b"user edit"
+
+    manager.delete("research")
+    assert not shortcut.is_symlink()
+    assert (workspace / "example").read_text() == "user edit"
+    manager.create("research")
+    assert (shortcut / "workspace").samefile(workspace)
+    assert (workspace / "example").read_text() == "user edit"
+    supplied = tmp_path / "custom-workspace"
+    supplied.mkdir()
+    explicit = manager.create("custom", mounts=[SandboxMount(supplied, "/workspace")])
+    assert [m for m in explicit.mounts if m.destination == "/workspace"] == [SandboxMount(supplied, "/workspace")]
+    assert not (usr / "sandbox_data/custom/workspace").exists()
+    assert (manager.config.instances_dir / "custom/data").samefile(usr / "sandbox_data/custom")
+    selected = usr / "sandbox_data/another/selected"
+    selected.mkdir(parents=True)
+    manager.create("another", mounts=[SandboxMount(supplied, "/workspace"), SandboxMount(selected, "/data", False)])
+    assert (manager.config.instances_dir / "another/data/selected").samefile(selected)
+
+
+def test_workspace_rejects_symlink_ancestors_and_incomplete_seed(tmp_path):
+    from plugins._sandboxing.helpers import storage
+
+    target = tmp_path / "outside"
+    target.mkdir()
+    (tmp_path / "sandboxes").symlink_to(target)
+    with pytest.raises(OSError):
+        storage.prepare_workspace(tmp_path / "sandboxes/guest/workspace")
+    assert not list(target.iterdir())
+
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    os.mkfifo(seed / "pipe")
+    directory = tmp_path / "guest/workspace"
+    with pytest.raises(shutil.Error):
+        storage.prepare_workspace(directory, seed)
+    assert not list(directory.parent.iterdir())
+    (seed / "pipe").unlink()
+    storage.prepare_workspace(directory, seed)
+    assert directory.is_dir()
+
+    link = tmp_path / "data"
+    link.write_text("existing file")
+    with pytest.raises(SandboxError, match="data shortcut"):
+        storage.link_sandbox_data(link, directory)
+    assert link.read_text() == "existing file"
+
+
+def test_shared_cache_keeps_images_used_by_another_instance(manager):
+    parent = manager.config.instances_dir
+    manager.config = dataclasses.replace(manager.config, instances_dir=parent / "one", instance_id="one")
+    peer = parent / "two" / "guest"
+    peer.mkdir(parents=True)
+    (peer / "metadata.json").write_text(json.dumps({"image_digest": IMAGE_DIGEST}))
+    with pytest.raises(SandboxError, match="another Agent Zero instance"):
+        manager.delete_image(IMAGE_DIGEST)
+    assert manager.list() == []
+    assert manager.images.inspect(IMAGE_DIGEST).digest == IMAGE_DIGEST
+
+
+def test_storage_defaults_preserve_existing_stores_and_custom_paths(tmp_path, monkeypatch):
+    from plugins._sandboxing.helpers import runtime
+
+    monkeypatch.setattr(runtime.files, "get_abs_path", lambda path: str(tmp_path / path))
+    store = tmp_path / "sandboxes"
+    monkeypatch.setattr(runtime.runtime, "get_persistent_id", lambda: "instance")
+    fresh = runtime.normalize_config({})
+    assert fresh["image_cache_dir"] == str(store / "images")
+    assert fresh["state_dir"] == str(store)
+    assert fresh["uid_registry"] == fresh["state_dir"] + "/uids"
+    monkeypatch.setattr(runtime.plugins, "get_plugin_config", lambda *args, **kwargs: {})
+    config, images = runtime.manager_config()
+    assert config.instances_dir == store / "instances"
+    assert images.cache_dir == store / "images"
+    (tmp_path / runtime.LEGACY_STORE / "images").mkdir(parents=True)
+    old = runtime.normalize_config({})
+    assert old["image_cache_dir"] == runtime.LEGACY_STORE + "/images"
+    assert old["state_dir"] == runtime.LEGACY_STORE + "/runtime"
+    assert runtime.manager_config()[0].instances_dir == tmp_path / runtime.LEGACY_STORE / "runtime/instances/instance"
+    (store / "instances").mkdir(parents=True)
+    assert runtime.normalize_config({})["state_dir"] == fresh["state_dir"]
+    paths = dict(image_cache_dir="/custom/images", state_dir="/custom/state", uid_registry="/custom/uids")
+    assert paths.items() <= runtime.normalize_config(paths).items()
+
+
 def test_name_validation_and_path_traversal_are_conservative() -> None:
     for name in ("a", "alpha-1", "A.B_c", "x" * 64):
         assert validate_name(name) == name
@@ -299,12 +411,14 @@ def test_daemonless_image_load_is_digest_pinned_and_atomic(
                 False,
             )
         if "unpack" in command:
-            bundle = Path(command[-1])
-            rootfs = bundle / "rootfs"
+            assert command[1:3] == ["raw", "unpack"]
+            rootfs = Path(command[-1])
             (rootfs / "bin").mkdir(parents=True)
             (rootfs / "bin" / "sh").write_text("sh", encoding="utf-8")
             (rootfs / "bin" / "bash").write_text("bash", encoding="utf-8")
-            (bundle / "config.json").write_text(
+        if "runtime-config" in command:
+            assert command[-3] == "--rootfs" and (Path(command[-2]) / "bin/sh").is_file()
+            Path(command[-1]).write_text(
                 json.dumps({"process": {"env": ["PATH=/custom/bin:/bin"]}}),
                 encoding="utf-8",
             )
@@ -321,6 +435,7 @@ def test_daemonless_image_load_is_digest_pinned_and_atomic(
         info = images.pull(reference)
 
     assert info.digest == IMAGE_DIGEST
+    assert info.environment == ("PATH=/custom/bin:/bin",)
     assert info.rootfs and info.rootfs.is_dir()
     copy = next(command for command in calls if "copy" in command)
     if local_archive:
@@ -434,7 +549,7 @@ def test_network_shared_and_readonly_bindings_are_explicit(manager, monkeypatch,
     assert dict((b,a) for a,b in config['bindings'])['/shared'] == str(manager.config.shared_dir)
     assert str(ro) in config['readonly'] and str(rw) not in config['readonly']
     assert config['environment']['PATH'] == '/image/bin:/usr/bin:/bin'
-    assert config['root'].endswith('/service/rootfs')
+    assert config['root'].endswith('/service/fs')
 
 
 def test_mounts_reject_symlinks_reserved_paths_and_duplicates(manager, tmp_path):

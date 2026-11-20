@@ -25,10 +25,30 @@ They also pull, list, inspect, clean, and delete cached sandbox images.
 
 Use **Browse files** on a sandbox row to open its persistent filesystem in Files,
 including while the sandbox is stopped. You can browse folders and download files.
-This view excludes guest symlinks, live mounts, transient paths such as `/tmp` and
+The managed `/workspace` is visible here. This view excludes guest symlinks, extra mounts, transient paths such as `/tmp` and
 `/run`, and plugin service sandboxes.
 
 ## Storage policy
+
+On a fresh installation each sandbox has the following host paths.
+
+| Path | Contents |
+| --- | --- |
+| `/a0/sandboxes/images/<image-digest>/` | Cached image shared by guests |
+| `/a0/sandboxes/instances/<name>/fs/` | Private guest filesystem and installed packages |
+| `/a0/sandboxes/instances/<name>/data` | Relative symlink to `/a0/usr/sandbox_data/<name>/` |
+| `/a0/usr/sandbox_data/<name>/workspace/` | Writable files mounted at guest `/workspace` |
+
+For additional persistent data, create a sibling of `workspace/` and bind it to the
+desired guest path. An explicit `/workspace` bind uses the selected source.
+Deleting or expiring a guest preserves its data. Recreating the same name
+reattaches it. Select **Sandbox — <name>** in Time Travel to restore that guest’s
+user files. Project and workdir binds use their own workspace history.
+
+The runtime tree is excluded from Git, Docker build contexts, default user
+backups and filesystem observation by Time Travel and the plugin watchdog.
+Existing installations with initialized legacy stores keep their configured
+paths, inode sharing and UID leases. Existing guests keep their original workspace.
 
 New sandboxes have private directories and symlinks; unchanged regular files
 share immutable image inodes through hardlinks. The first modification copies
@@ -50,7 +70,7 @@ Cached image sizes come from import/pull metadata; unavailable sizes remain
 unknown without scanning. Image-import size-limit checks still apply.
 
 Every sandbox receives `/shared` and, by default, Agent Zero's `usr/` at
-`/a0/usr`. Private manager state and image caches are masked inside user-folder
+`/a0/usr`. Private manager state, image caches and the per-sandbox data directory are masked inside broad user-folder
 mounts. Services can disable usr sharing. Host-root bindings are
 unsupported; bind only the directories the sandbox needs.
 

@@ -59,6 +59,7 @@
 - Image slimming requires a fresh base/application build, dependency checks, offline embeddings, archive extraction, Tuxee binary loading and a real OCI pull/unpack/guest execution check. Inspect the image before installing test dependencies so fixtures cannot hide missing runtime libraries.
 - `test_worker_python_bootstrap.py` covers default/pinned interpreter selection and preserving existing worker environments. Verify image-Python workers with real SDK imports and `integration_guest_smoke.py` in fresh Docker/PRoot guests.
 - Run `pytest tests/test_sandboxing.py tests/test_sandbox_builtin_image.py -q` for image pulls/imports, bundled defaults, lazy builds, cache validation, digest pinning, and sandbox lifecycle contracts.
+- Sandbox data coverage in `test_sandboxing.py` and `test_time_travel.py` includes the instance `fs/` and `data` paths, workspace binds, retained files, per-guest history and legacy store selection. `test_backup_large_archives.py` checks default backups omit the runtime tree during traversal.
 - Storage reporting: `pytest tests/test_sandbox_storage.py` and `node --test tests/test_sandbox_storage.mjs` verify scan-free lifecycle/status, explicit asynchronous measurement, ownership validation and independent UI controls.
 
 - Run `pytest tests/test_sandbox_services.py tests/test_tunnel_plugin.py tests/test_tunnel_remote_link.py tests/test_csrf_tunnel_origins.py tests/test_sandboxing.py tests/test_code_execution_destinations.py tests/test_ws_csrf.py` for service sandbox/tunnel changes. Real PRoot/Cloudflare checks are separate from deterministic tests.
@@ -80,4 +81,4 @@
 
 No child DOX files.
 
-Real PRoot checks: `A0_PROOT_INTEGRATION=1 pytest tests/test_proot_runtime.py` in a disposable built image. Run them with default seccomp and no added capabilities.
+Real PRoot checks: `A0_PROOT_INTEGRATION=1 pytest tests/test_proot_runtime.py` in a disposable built image. Run them with default seccomp and no added capabilities. Check writes, renames and unlinks against both the peer guest and the immutable base.

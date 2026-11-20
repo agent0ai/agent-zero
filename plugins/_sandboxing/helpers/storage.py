@@ -7,7 +7,10 @@ import os
 from pathlib import Path
 import pwd
 import stat
+import shutil
+import tempfile
 
+from helpers.sandbox_types import SandboxError
 from plugins._sandboxing.helpers.process import real_uid
 
 
@@ -51,28 +54,31 @@ def prepare(base: Path, root: Path, control: Path, uid: int) -> None:
         raise RuntimeError('Sandbox images and instances must be on the same filesystem for copy-on-write')
     counts = collections.Counter()
     root.mkdir(mode=0o700)
-    for directory, dirs, files in os.walk(base, followlinks=False):
-        target = root / Path(directory).relative_to(base)
-        os.chown(target, uid, uid)
-        if target != root:
-            target.chmod(stat.S_IMODE(Path(directory).stat().st_mode) | 0o700)
-        for name in dirs + files:
-            source, destination = Path(directory) / name, target / name
-            info = source.lstat()
-            if stat.S_ISLNK(info.st_mode):
-                destination.symlink_to(os.readlink(source))
-                os.lchown(destination, uid, uid)
-            elif stat.S_ISDIR(info.st_mode):
-                destination.mkdir()
-            elif stat.S_ISREG(info.st_mode):
-                if info.st_uid != 0 or info.st_mode & 0o022 or not info.st_mode & 0o004:
-                    raise RuntimeError(f'Image is not prepared for immutable sharing: {source}')
-                os.link(source, destination)
-                counts[(info.st_dev, info.st_ino)] += 1
-            elif stat.S_ISFIFO(info.st_mode):
-                os.mkfifo(destination, stat.S_IMODE(info.st_mode))
-                os.chown(destination, uid, uid)
-            # Device nodes are supplied by the explicit /dev binding, never copied.
+    os.chown(root, uid, uid)
+    pending = [(str(base), str(root))]
+    while pending:
+        directory, target = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                destination = os.path.join(target, entry.name)
+                info = entry.stat(follow_symlinks=False)
+                if stat.S_ISREG(info.st_mode):
+                    if info.st_uid != 0 or info.st_mode & 0o022 or not info.st_mode & 0o004:
+                        raise RuntimeError(f'Image is not prepared for immutable sharing: {entry.path}')
+                    os.link(entry.path, destination)
+                    counts[(info.st_dev, info.st_ino)] += 1
+                elif stat.S_ISDIR(info.st_mode):
+                    os.mkdir(destination)
+                    os.chown(destination, uid, uid)
+                    os.chmod(destination, stat.S_IMODE(info.st_mode) | 0o700)
+                    pending.append((entry.path, destination))
+                elif stat.S_ISLNK(info.st_mode):
+                    os.symlink(os.readlink(entry.path), destination)
+                    os.lchown(destination, uid, uid)
+                elif stat.S_ISFIFO(info.st_mode):
+                    os.mkfifo(destination, stat.S_IMODE(info.st_mode))
+                    os.chown(destination, uid, uid)
+                # Device nodes are supplied by the explicit /dev binding, never copied.
     control.mkdir(mode=0o700, exist_ok=True)
     (control / 'aliases').mkdir(exist_ok=True)
     (control / 'lock').touch()
@@ -106,11 +112,51 @@ def adopt(root: Path, control: Path, uid: int) -> None:
         os.chown(path, uid, uid, follow_symlinks=False)
 
 
-def _open(path: Path) -> int:
+def prepare_workspace(path: Path, seed: Path | None = None) -> None:
+    """Publish a new workspace once. A restored or previously used workspace wins."""
+    parent = _open(path.parent, create_dirs=True)
+    try:
+        try:
+            fd = os.open(path.name, os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+        except FileNotFoundError:
+            if seed is None or not any(seed.iterdir()):
+                os.mkdir(path.name, mode=0o700, dir_fd=parent)
+            else:
+                # Stage beside the destination so a failed copy cannot become user data.
+                with tempfile.TemporaryDirectory(dir=f'/proc/self/fd/{parent}') as stage:
+                    tree = Path(stage) / 'workspace'
+                    shutil.copytree(seed, tree, symlinks=True)
+                    os.rename(tree, path.name, dst_dir_fd=parent)
+        else:
+            os.close(fd)
+    finally:
+        os.close(parent)
+
+
+def link_sandbox_data(link: Path, data: Path) -> None:
+    target = Path(os.path.relpath(data, link.parent))
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except FileExistsError:
+        if not link.is_symlink() or link.readlink() != target:
+            raise SandboxError(f"Sandbox data shortcut already exists with different contents: {link}") from None
+
+
+def _open(path: Path, *, create_dirs: bool = False) -> int:
     fd = os.open('/', os.O_PATH | os.O_DIRECTORY)
     try:
         for part in path.parts[1:]:
-            next_fd = os.open(part, os.O_PATH | os.O_NOFOLLOW, dir_fd=fd)
+            flags = os.O_PATH | os.O_NOFOLLOW
+            try:
+                next_fd = os.open(part, flags, dir_fd=fd)
+            except FileNotFoundError:
+                if not create_dirs:
+                    raise
+                try:
+                    os.mkdir(part, mode=0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+                next_fd = os.open(part, flags | os.O_DIRECTORY, dir_fd=fd)
             os.close(fd); fd = next_fd
             if stat.S_ISLNK(os.fstat(fd).st_mode):
                 raise PermissionError('Refusing a symlink in a binding source')
@@ -118,6 +164,14 @@ def _open(path: Path) -> int:
     except BaseException:
         os.close(fd)
         raise
+
+
+def open_directory(path: Path) -> int:
+    fd = _open(path)
+    if not stat.S_ISDIR(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise NotADirectoryError(str(path))
+    return fd
 
 
 def _acl(fd: int, uid: int, permissions: str, *, default=False, augment=False) -> None:

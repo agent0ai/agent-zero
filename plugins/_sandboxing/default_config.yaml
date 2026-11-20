@@ -3,9 +3,10 @@ skopeo_path: /usr/bin/skopeo
 umoci_path: /usr/bin/umoci
 default_image: agent-zero-sandbox:3
 registry_auth_file: ""
-image_cache_dir: usr/plugins/_sandboxing/images
-state_dir: usr/plugins/_sandboxing/runtime
-uid_registry: usr/plugins/_sandboxing/runtime/uids
+# Empty paths select the installation’s runtime store.
+image_cache_dir: ""
+state_dir: ""
+uid_registry: ""
 shared_dir: usr/sandbox-shared
 default_sandbox: default
 default_type: temporary

@@ -28,6 +28,7 @@ from plugins._time_travel.helpers.locking import workspace_lock
 
 PLUGIN_NAME = "_time_travel"
 USR_DISPLAY_ROOT = "/a0/usr"
+SANDBOX_DATA_ROOT = "/a0/usr/sandbox_data"
 SHADOW_DISPLAY_ROOT = "/a0/usr/.time_travel/workspaces"
 CURRENT_REF = "refs/heads/current"
 PRESERVED_REF_PREFIX = "refs/a0-time-travel/preserved"
@@ -346,6 +347,12 @@ def list_selectable_workspaces(
         )
     )
 
+    for display_path in sandbox_workspace_paths():
+        name = posixpath.basename(display_path)
+        add_workspace(_workspace_option(
+            kind="sandbox", display_path=display_path, name=name, label=f"Sandbox — {name}",
+        ))
+
     for project in projects.get_active_projects_list() or []:
         project_name = str(project.get("name") or "").strip()
         if not project_name:
@@ -469,6 +476,22 @@ def resolve_workspace(
     )
 
 
+def _sandbox_data_root() -> Path | None:
+    root = Path(files.get_abs_path("usr", "sandbox_data"))
+    return root if not root.is_symlink() and root.is_dir() else None
+
+
+def sandbox_workspace_paths() -> list[str]:
+    root = _sandbox_data_root()
+    if root is None:
+        return []
+    return [
+        f"{SANDBOX_DATA_ROOT}/{directory.name}"
+        for directory in sorted(root.iterdir())
+        if not directory.name.startswith(".") and not directory.is_symlink() and directory.is_dir()
+    ]
+
+
 def resolve_workspace_for_path_hint(path_hint: str) -> WorkspaceInfo | None:
     normalized = canonical_workspace_display_path(path_hint)
     if not is_inside_usr_display(normalized):
@@ -478,6 +501,15 @@ def resolve_workspace_for_path_hint(path_hint: str) -> WorkspaceInfo | None:
     if len(parts) >= 4 and parts[0] == "a0" and parts[1] == "usr" and parts[2] == "projects":
         project_display = f"/a0/usr/projects/{parts[3]}"
         return _workspace_from_display(project_display, project_name=parts[3])
+
+    if normalized == SANDBOX_DATA_ROOT or normalized.startswith(SANDBOX_DATA_ROOT + "/"):
+        root = _sandbox_data_root()
+        if root is None or len(parts) < 4 or parts[3].startswith("."):
+            return None
+        data = root / parts[3]
+        if data.is_symlink() or not data.is_dir():
+            return None
+        return _workspace_from_display(f"{SANDBOX_DATA_ROOT}/{data.name}")
 
     workdir_display = configured_workdir_display_path()
     if normalized == workdir_display or normalized.startswith(workdir_display.rstrip("/") + "/"):
@@ -789,6 +821,7 @@ def _is_watchdog_snapshot_candidate(display_path: str) -> bool:
 class TimeTravelService:
     def __init__(self, workspace: WorkspaceInfo):
         self.workspace = workspace
+        self.sandbox_data = workspace.display_path.startswith(SANDBOX_DATA_ROOT + "/")
         self.config = plugin_config()
         self.policy = SnapshotPolicy(self.config)
         self.skipped_files: list[str] = []
@@ -1001,9 +1034,14 @@ class TimeTravelService:
             checked = self._git_bytes("apply", "--reverse", "--check", "--binary", "--whitespace=nowarn", input=patch, check=False)
             if checked.returncode != 0:
                 raise TimeTravelConflictError(_compact_git_error(checked.stderr.decode("utf-8", "replace")))
-            applied = self._git_bytes("apply", "--reverse", "--binary", "--whitespace=nowarn", input=patch, check=False)
+            # git apply prunes empty directories, including active guest bind sources.
+            index_only = ["--cached"] if self.sandbox_data else []
+            applied = self._git_bytes("apply", *index_only, "--reverse", "--binary", "--whitespace=nowarn", input=patch, check=False)
             if applied.returncode != 0:
                 raise TimeTravelConflictError(_compact_git_error(applied.stderr.decode("utf-8", "replace")))
+            if self.sandbox_data:
+                tree = self._git("write-tree").stdout.strip()
+                self._apply_commit_tree(before.tree_hash, tree, self.diff_files(before.tree_hash, tree))
 
         after = self.snapshot(
             trigger="revert",
@@ -1150,7 +1188,8 @@ class TimeTravelService:
             self._delete_workspace_entry(rel_path)
         for rel_path in sorted(set(write_paths)):
             self._materialize_tree_path(target, rel_path)
-        self._prune_empty_dirs(delete_paths)
+        if not self.sandbox_data:
+            self._prune_empty_dirs(delete_paths)
 
     def _check_revert_checkpoint(self, commit: str) -> None:
         body = self._git("show", "-s", "--format=%B", commit).stdout
@@ -1201,7 +1240,9 @@ class TimeTravelService:
         else:
             target_path.write_bytes(data)
             if mode == "100755":
-                target_path.chmod(0o755)
+                # Retain the write ACL inherited from the guest's data directory.
+                mode_bits = target_path.stat().st_mode & 0o777 if self.sandbox_data else 0o644
+                target_path.chmod(mode_bits | 0o111)
 
     def _delete_workspace_entry(self, rel_path: str) -> None:
         rel_path = self._safe_rel_path(rel_path)

@@ -30,6 +30,7 @@ def manager(tmp_path_factory):
     (fixtures/'access-readonly').chmod(0o444)
     (fixtures/'denied-parent').mkdir()
     (fixtures/'denied-parent/file').write_text('original')
+    (fixtures/'dir-link').symlink_to('denied-parent')
     os.link(fixtures/'link', fixtures/'alias')
     os.setxattr(fixtures/'write', 'user.test', b'preserved')
     runtime = SandboxManager(SandboxConfig(
@@ -49,8 +50,8 @@ def run(manager, name, script):
 def test_copy_on_write_and_peer_persistence(manager):
     manager.create('alpha')
     manager.create('beta')
-    root = manager.config.instances_dir/'alpha/rootfs'
-    other = manager.config.instances_dir/'beta/rootfs'
+    root = manager.config.instances_dir/'alpha/fs'
+    other = manager.config.instances_dir/'beta/fs'
     assert (root/'cow-tests/write').stat().st_ino == (other/'cow-tests/write').stat().st_ino
     run(manager, 'alpha', '''
 import os
@@ -65,8 +66,18 @@ f=os.open(p/'fdtime',os.O_RDONLY); os.utime(f,(1234567890,1234567890)); os.close
 os.setxattr(p/'xattr','user.test',b'value')
 (p/'link').write_text('linked'); assert (p/'alias').read_text()=='linked'
 (p/'rename').rename(p/'renamed'); (p/'renamed').write_text('renamed')
+(p/'dir-link/file').unlink()
+(p/'dir-link').unlink()
 ''')
-    assert (other/'cow-tests/write').read_text() == 'original'
+    base = manager.images.ensure().rootfs
+    for unchanged in (other, base):
+        assert (unchanged/'cow-tests/write').read_text() == 'original'
+        assert (unchanged/'cow-tests/rename').read_text() == 'original'
+        assert not (unchanged/'cow-tests/renamed').exists()
+        assert (unchanged/'cow-tests/dir-link').is_symlink()
+        assert (unchanged/'cow-tests/dir-link/file').read_text() == 'original'
+    assert not (root/'cow-tests/dir-link').is_symlink()
+    assert not (root/'cow-tests/denied-parent/file').exists()
     assert (other/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o644
     assert (root/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o600
     assert (root/'cow-tests/fdtime').stat().st_mtime == 1234567890
@@ -78,7 +89,7 @@ os.setxattr(p/'xattr','user.test',b'value')
 
 def test_access_probes_match_copy_up_without_copying(manager):
     manager.create('permissions')
-    root = manager.config.instances_dir/'permissions/rootfs'
+    root = manager.config.instances_dir/'permissions/fs'
     target = root/'cow-tests/access'
     before = target.stat()
     os.chown(root/'cow-tests/denied-parent',0,0)
@@ -155,22 +166,24 @@ except PermissionError: pass
 else: raise AssertionError('IP socket allowed')
 ''')
     with pytest.raises(SandboxError,match='timed out'):
-        manager.exec('offline',['python','-c',"import os,time,ctypes; os.fork(); os.setsid(); open('/workspace/timeout-pid','w').write(str(os.getpid())); ctypes.CDLL(None).prctl(4,0); time.sleep(60)"],timeout=.5)
-    pid=int((manager.config.instances_dir/'offline/rootfs/workspace/timeout-pid').read_text())
+        manager.exec('offline',['python','-c',"import os,time,ctypes; os.fork(); os.setsid(); open('/workspace/timeout-pid','w').write(str(os.getpid())); ctypes.CDLL(None).prctl(4,0); time.sleep(60)"], timeout=3)
+    pid=int((manager.config.instances_dir/'offline/fs/workspace/timeout-pid').read_text())
     assert not Path(f'/proc/{pid}').exists()
     assert manager.is_running('offline')
     assert run(manager,'offline',"print('alive')").strip()=='alive'
 
 
 def test_quick_commands_and_restart(manager):
-    manager.create('quick',command=['/bin/sh','-c','echo done > /workspace/done'])
-    deadline=time.monotonic()+5
-    while manager.is_running('quick') and time.monotonic()<deadline: time.sleep(.05)
-    assert not manager.is_running('quick')
-    assert (manager.config.instances_dir/'quick/rootfs/workspace/done').read_text()=='done\n'
-    manager.start('quick')
-    time.sleep(.3)
-    assert not manager.is_running('quick')
+    manager.create('quick', command=['/bin/sh', '-c', 'echo done > /workspace/done'])
+    for attempt in range(2):
+        if attempt:
+            manager.start('quick')
+        deadline = time.monotonic() + 5
+        while manager.is_running('quick') and time.monotonic() < deadline:
+            time.sleep(.05)
+        assert not manager.is_running('quick')
+        assert (manager.config.instances_dir / 'quick/fs/workspace/done').read_text() == 'done\n'
+
 
 
 def test_parent_exit_and_standalone_restore(manager, tmp_path):
@@ -205,8 +218,8 @@ def test_socket_across_exec_and_legacy_disk_migration(manager):
     path=manager.config.instances_dir/'legacy'
     manager.stop('legacy')
     # Model the old full-copy root, without introducing shared base inodes.
-    shutil.copytree(path/'rootfs',path/'private',symlinks=True)
-    shutil.rmtree(path/'rootfs');(path/'private').rename(path/'rootfs')
+    shutil.copytree(path/'fs',path/'private',symlinks=True)
+    shutil.rmtree(path/'fs');(path/'private').rename(path/'rootfs')
     value=manager._read_metadata('legacy')
     value.update(schema_version=2,filesystem='disk');value.pop('uid')
     manager._atomic_write_json(path/'metadata.json',value)
