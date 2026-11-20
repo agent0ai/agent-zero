@@ -1,18 +1,47 @@
+import ctypes
 import os
+import tempfile
 from pathlib import Path
 import shutil
 import base64
 import io
 import stat
 from helpers.file_transfers import write_stream_atomic, FileLimitExceeded
-import subprocess
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple
 from helpers.security import safe_filename
 from datetime import datetime
 
 from helpers import files
 from helpers.localization import Localization
 from helpers.print_style import PrintStyle
+
+
+def rename_no_replace(source: Path, target: Path):
+    """Publish a file or directory without replacing a concurrent writer."""
+    if os.name == "nt":
+        return os.rename(source, target)
+    libc = ctypes.CDLL(None, use_errno=True)
+    paths = os.fsencode(source), os.fsencode(target)
+    if hasattr(libc, "renameat2"):
+        result = libc.renameat2(-100, paths[0], -100, paths[1], 1)  # AT_FDCWD, RENAME_NOREPLACE
+    elif hasattr(libc, "renamex_np"):
+        result = libc.renamex_np(*paths, 4)  # RENAME_EXCL
+    else:
+        raise OSError("This filesystem runtime does not support exclusive rename")
+    if result != 0:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(target))
+
+
+def copy_regular(source, destination):
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    descriptor = os.open(source, flags)
+    with os.fdopen(descriptor, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError("Only regular files, directories and symbolic links can be copied.")
+        with open(destination, "xb") as output:
+            shutil.copyfileobj(stream, output)
+    shutil.copystat(source, destination, follow_symlinks=False)
 
 
 class FileBrowser:
@@ -81,12 +110,7 @@ class FileBrowser:
         return base64.b64encode(output.getvalue()).decode("ascii")
 
     def __init__(self):
-        # if runtime.is_development():
-        #     base_dir = files.get_base_dir()
-        # else:
-        #     base_dir = "/"
-        base_dir = "/"
-        self.base_dir = Path(base_dir)
+        self.base_dir = Path("/")
 
     def save_file_b64(self, current_path: str, filename: str, base64_content: str):
         try:
@@ -136,7 +160,7 @@ class FileBrowser:
 
             for file in files:
                 try:
-                    if file and self._is_allowed_file(file.filename, file):
+                    if file:
                         filename = safe_filename(file.filename)
                         if not filename:
                             raise ValueError("Invalid filename")
@@ -159,6 +183,71 @@ class FileBrowser:
         except Exception as e:
             PrintStyle.error(f"Error in save_files: {e}")
             return successful, failed
+
+    def upload_tree(self, uploads, directory, names, folders):
+        """Stage a device drop privately, then publish complete top-level items."""
+        from helpers.file_transfers import copy_stream
+        from helpers import file_connections
+
+        if file_connections.is_remote(directory):
+            raise ValueError("This connection supports individual file uploads.")
+        if not isinstance(names, list) or not isinstance(folders, list) or len(names) != len(uploads):
+            raise ValueError("Invalid upload manifest")
+        if not names and not folders:
+            raise ValueError("No items to upload")
+        target = (self.base_dir / directory).resolve()
+        if not target.is_dir() or not target.is_relative_to(self.base_dir.resolve()):
+            raise ValueError("Choose a valid destination directory")
+
+        original_prefixes = {}
+
+        def validate(relative):
+            if not isinstance(relative, str):
+                raise ValueError("Invalid upload path")
+            parts = relative.split("/")
+            if any(not part or part in (".", "..") or "\\" in part or "\x00" in part for part in parts):
+                raise ValueError("Invalid upload path")
+            clean = [safe_filename(part) for part in parts]
+            if any(not part for part in clean):
+                raise ValueError("Invalid upload name")
+            for depth in range(1, len(parts) + 1):
+                prefix = tuple(clean[:depth])
+                original = tuple(parts[:depth])
+                if original_prefixes.setdefault(prefix, original) != original:
+                    raise ValueError("Duplicate upload name after cleaning")
+            return Path(*clean)
+
+        file_paths = [validate(name) for name in names]
+        folder_paths = [validate(name) for name in folders]
+        if len(set(file_paths + folder_paths)) != len(file_paths) + len(folder_paths):
+            raise ValueError("Duplicate upload name")
+        published, failed = [], []
+        with tempfile.TemporaryDirectory(prefix=".a0-upload-", dir=target) as tmp:
+            stage = Path(tmp)
+            for path in folder_paths:
+                (stage / path).mkdir(parents=True, exist_ok=True)
+            for upload, path in zip(uploads, file_paths):
+                destination = stage / path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with destination.open("xb") as output:
+                    copy_stream(upload.stream, output, self.max_file_bytes())
+            for item in sorted(stage.iterdir()):
+                suffix = "" if item.is_dir() else item.suffix
+                stem = item.name.removesuffix(suffix)
+                name = item.name
+                counter = 1
+                while True:
+                    try:
+                        rename_no_replace(item, target / name)
+                        published.append(name)
+                        break
+                    except FileExistsError:
+                        name = f"{stem} ({counter}){suffix}"
+                        counter += 1
+                    except OSError as error:
+                        failed.append({"name": item.name, "error": str(error)})
+                        break
+        return published, failed
 
     def _entry_path(self, file_path: str) -> Path:
         if not file_path or not str(file_path).strip():
@@ -208,13 +297,16 @@ class FileBrowser:
             if new_path.exists() or new_path.is_symlink():
                 raise FileExistsError("Target already exists")
 
-            os.rename(full_path, new_path)
+            rename_no_replace(full_path, new_path)
             return True
         except Exception as e:
             PrintStyle.error(f"Error renaming {file_path}: {e}")
             raise
 
     def move_items(self, file_paths: List[str], destination_path: str) -> List[str]:
+        return self.transfer_items(file_paths, destination_path, copy=False)
+
+    def transfer_items(self, file_paths: List[str], destination_path: str, *, copy: bool) -> List[str]:
         if not file_paths:
             raise ValueError("No items selected")
 
@@ -228,10 +320,7 @@ class FileBrowser:
         moves: List[Tuple[Path, Path]] = []
         targets: set[Path] = set()
         for file_path in dict.fromkeys(file_paths):
-            requested = self.base_dir / file_path
-            source = requested.parent.resolve() / requested.name
-            if not source.is_relative_to(base_dir) or source == base_dir:
-                raise ValueError("Invalid source path")
+            source = self._entry_path(file_path)
             if not source.exists() and not source.is_symlink():
                 raise FileNotFoundError(f"Item not found: {source.name}")
             if source == destination:
@@ -244,6 +333,14 @@ class FileBrowser:
                 raise ValueError("A folder cannot be moved into itself")
 
             target = destination / source.name
+            if copy and target == source:
+                suffix = "" if source.is_dir() and not source.is_symlink() else source.suffix
+                stem = source.name.removesuffix(suffix)
+                number = 1
+                while target in targets or os.path.lexists(target):
+                    label = "copy" if number == 1 else f"copy {number}"
+                    target = destination / f"{stem} ({label}){suffix}"
+                    number += 1
             if target == source:
                 raise ValueError(f"{source.name} is already in this folder")
             if target.exists() or target.is_symlink():
@@ -255,15 +352,33 @@ class FileBrowser:
             targets.add(target)
             moves.append((source, target))
 
+        if copy:
+            # Stage the whole selection before publishing any item. Symlinks stay links.
+            with tempfile.TemporaryDirectory(prefix=".a0-copy-", dir=destination) as tmp:
+                staged = Path(tmp)
+                for index, (source, _) in enumerate(moves):
+                    path = staged / str(index)
+                    if source.is_symlink():
+                        path.symlink_to(os.readlink(source))
+                    elif source.is_dir():
+                        shutil.copytree(source, path, symlinks=True, copy_function=copy_regular)
+                    else:
+                        copy_regular(source, path)
+                moves = [(staged / str(index), target) for index, (_, target) in enumerate(moves)]
+                return self._publish_transfers(moves)
+        return self._publish_transfers(moves)
+
+    @staticmethod
+    def _publish_transfers(moves: List[Tuple[Path, Path]]) -> List[str]:
         moved: List[Tuple[Path, Path]] = []
         try:
             for source, target in moves:
-                os.rename(source, target)
+                rename_no_replace(source, target)
                 moved.append((source, target))
         except Exception:
             for source, target in reversed(moved):
                 try:
-                    os.rename(target, source)
+                    rename_no_replace(target, source)
                 except Exception as rollback_error:
                     PrintStyle.error(f"Error restoring {source}: {rollback_error}")
             raise
@@ -312,175 +427,54 @@ class FileBrowser:
             PrintStyle.error(f"Error saving file {file_path}: {e}")
             raise
 
-    def _is_allowed_file(self, filename: str, file) -> bool:
-        # allow any file to be uploaded in file browser
-
-        # if not filename:
-        #     return False
-        # ext = self._get_file_extension(filename)
-        # all_allowed = set().union(*self.ALLOWED_EXTENSIONS.values())
-        # if ext not in all_allowed:
-        #     return False
-
-        return True  # Allow the file if it passes the checks
-
     def _get_file_extension(self, filename: str) -> str:
         return filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
 
-    def _get_files_via_ls(self, full_path: Path) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Get files and folders using ls command for better error handling"""
-        files: List[Dict[str, Any]] = []
-        folders: List[Dict[str, Any]] = []
-
-        try:
-            # Use ls command to get directory listing
-            result = subprocess.run(
-                ['ls', '-la', str(full_path)],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
-            if result.returncode != 0:
-                PrintStyle.error(f"ls command failed: {result.stderr}")
-                return files, folders
-
-            # Parse ls output (skip first line which is "total X")
-            lines = result.stdout.strip().split('\n')
-            if len(lines) <= 1:
-                return files, folders
-
-            for line in lines[1:]:  # Skip the "total" line
-                try:
-                    # Skip current and parent directory entries
-                    if line.endswith(' .') or line.endswith(' ..'):
-                        continue
-
-                    # Parse ls -la output format
-                    parts = line.split()
-                    if len(parts) < 9:
-                        continue
-
-                    # Check if this is a symlink (permissions start with 'l')
-                    permissions = parts[0]
-                    is_symlink = permissions.startswith('l')
-
-                    if is_symlink:
-                        # For symlinks, extract the name before the '->' arrow
-                        full_name_part = ' '.join(parts[8:])
-                        if ' -> ' in full_name_part:
-                            filename = full_name_part.split(' -> ')[0]
-                            symlink_target = full_name_part.split(' -> ')[1]
-                        else:
-                            filename = full_name_part
-                            symlink_target = None
-                    else:
-                        filename = ' '.join(parts[8:])  # Handle filenames with spaces
-                        symlink_target = None
-
-                    if not filename:
-                        continue
-
-                    # Get full path for this entry
-                    entry_path = full_path / filename
-
-                    try:
-                        stat_info = entry_path.stat()
-
-                        entry_data: Dict[str, Any] = {
-                            "name": filename,
-                            "path": str(entry_path.relative_to(self.base_dir)),
-                            "modified": datetime.fromtimestamp(
-                                stat_info.st_mtime,
-                                tz=Localization.get().get_tzinfo(),
-                            ).isoformat()
-                        }
-
-                        # Add symlink information if this is a symlink
-                        if is_symlink and symlink_target:
-                            entry_data["symlink_target"] = symlink_target
-                            entry_data["is_symlink"] = True
-
-                        if entry_path.is_file():
-                            entry_data.update({
-                                "type": self._get_file_type(filename),
-                                "size": stat_info.st_size,
-                                "is_dir": False
-                            })
-                            files.append(entry_data)
-                        elif entry_path.is_dir():
-                            entry_data.update({
-                                "type": "folder",
-                                "size": 0,  # Directories show as 0 bytes
-                                "is_dir": True
-                            })
-                            folders.append(entry_data)
-
-                    except (OSError, PermissionError, FileNotFoundError) as e:
-                        # Log error but continue with other files
-                        PrintStyle.warning(f"No access to {filename}: {e}")
-                        continue
-
-                    if len(files) + len(folders) > 10000:
-                        break
-
-                except Exception as e:
-                    # Log error and continue with next line
-                    PrintStyle.error(f"Error parsing ls line '{line}': {e}")
-                    continue
-
-        except subprocess.TimeoutExpired:
-            PrintStyle.error("ls command timed out")
-        except Exception as e:
-            PrintStyle.error(f"Error running ls command: {e}")
-
-        return files, folders
-
     def get_files(self, current_path: str = "") -> Dict:
         try:
-            # Resolve the full path while preventing directory traversal
-            full_path = (self.base_dir / current_path).resolve()
-            if not str(full_path).startswith(str(self.base_dir)):
+            directory = (self.base_dir / current_path).resolve()
+            if not directory.is_relative_to(self.base_dir.resolve()):
                 raise ValueError("Invalid path")
-            if not full_path.exists():
-                raise FileNotFoundError("Directory not found")
-            if not full_path.is_dir():
-                raise NotADirectoryError("Path is not a directory")
-
-            # Use ls command instead of os.scandir for better error handling
-            files, folders = self._get_files_via_ls(full_path)
-
-            # Combine folders and files, folders first
-            all_entries = folders + files
-
-            # Get parent directory path if not at root
-            parent_path = ""
-            if current_path:
-                try:
-                    # Get the absolute path of current directory
-                    current_abs = (self.base_dir / current_path).resolve()
-
-                    # parent_path is empty only if we're already at root
-                    if str(current_abs) != str(self.base_dir):
-                        parent_path = str(Path(current_path).parent)
-
-                except Exception:
-                    parent_path = ""
-
-            return {
-                "entries": all_entries,
-                "current_path": current_path,
-                "parent_path": parent_path
-            }
-
-        except Exception as e:
-            PrintStyle.error(f"Error reading directory: {e}")
-            return {
-                "entries": [],
-                "current_path": current_path,
-                "parent_path": "",
-                "error": str(e),
-            }
+            entries = []
+            timezone = Localization.get().get_tzinfo()
+            with os.scandir(directory) as listing:
+                for item in listing:
+                    link = item.is_symlink()
+                    try:
+                        info = item.stat()
+                    except OSError:
+                        if not link:
+                            continue
+                        try:
+                            info = item.stat(follow_symlinks=False)
+                        except FileNotFoundError:
+                            continue
+                    is_dir = stat.S_ISDIR(info.st_mode)
+                    if not (is_dir or link or stat.S_ISREG(info.st_mode)):
+                        continue
+                    entry = {
+                        "name": item.name,
+                        "mode": stat.filemode(info.st_mode),
+                        "path": str(Path(item.path).relative_to(self.base_dir)),
+                        "type": "folder" if is_dir else self._get_file_type(item.name),
+                        "size": 0 if is_dir else info.st_size,
+                        "is_dir": is_dir,
+                        "modified": datetime.fromtimestamp(info.st_mtime, tz=timezone).isoformat(),
+                    }
+                    if link:
+                        try:
+                            entry.update(is_symlink=True, symlink_target=os.readlink(item.path))
+                        except FileNotFoundError:
+                            continue
+                    entries.append(entry)
+                    if len(entries) >= 10000:
+                        break
+            entries.sort(key=lambda item: (not item["is_dir"], item["name"]))
+            parent = str(Path(current_path).parent) if directory != self.base_dir else ""
+            return {"entries": entries, "current_path": current_path, "parent_path": parent}
+        except (OSError, ValueError) as error:
+            message = "Directory not found" if isinstance(error, FileNotFoundError) else str(error)
+            return {"entries": [], "current_path": current_path, "parent_path": "", "error": message}
 
     def get_full_path(self, file_path: str, allow_dir: bool = False) -> str:
         """Get full file path if it exists and is within base_dir"""

@@ -396,13 +396,8 @@ def test_file_browser_editable_path_bar_and_remembered_directory_contract() -> N
     workdir_settings = read("webui", "components", "settings", "file-browser", "file-browser-settings.html")
 
     assert 'class="path-navigator surface-toolbar"' in html
-    assert 'class="nav-button back-button surface-control"' in html
-    assert 'class="text-button back-button"' not in html
-    assert ".nav-button:focus-visible" in html
-    assert ".nav-button .material-symbols-outlined" in html
-    assert 'class="nav-button-label">Up</span>' in html
-    assert "flex-direction: column;" in html
-    assert ".nav-button-label" in html
+    assert 'aria-label="Parent folder"' in html
+    assert '@click="fb.navigateUp()"' in html
     assert 'x-model="fb.pathInput"' in html
     assert '@submit.prevent="fb.submitPath()"' in html
     assert 'fb.pathError' in html
@@ -447,29 +442,15 @@ def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
     assert 'title="New file"' in html
     assert 'aria-label="New folder"' in html
     assert 'title="New folder"' in html
-    assert 'aria-label="Create new"' in html
-    assert html.split('<style>', 1)[0].count('btn-new-item') == 1
-    assert ">New File<" not in html
-    assert ">New Folder<" not in html
-    assert 'class="file-search-shell"' not in html
-    assert 'class="file-tree-heading"' not in read("webui", "components", "modals", "file-browser", "file-tree.html")
-    assert "file-status-bar" not in html
-    assert html.index('aria-label="New file"') < html.index('aria-label="New folder"') < html.index('aria-label="Toggle file tree"')
-    assert "btn-new-item" in html
-    assert "width: 32px;" in html
-    assert "height: 32px;" in html
-    assert ".path-navigator { align-items: center; flex-direction: row;" in flat(html)
-    assert ".path-navigator .nav-button-label { display: none;" in flat(html)
+    assert 'role="toolbar" aria-label="File actions" x-overflow' in html
+    for action in ("Parent folder", "Home folder", "Refresh files", "Upload files", "Download selected", "Toggle file tree"):
+        assert f'aria-label="{action}"' in html
+    assert 'aria-label="Filter by name"' in html
+    assert 'container: file-browser / inline-size;' in html
+    assert '@container file-browser (max-width: 620px)' in html
+    assert '.file-cell-date, .file-date { display: none;' in flat(html)
+    assert 'min-height: 44px;' in html
 
-    assert "container: file-browser / inline-size;" in html
-    assert "@container file-browser (max-width: 620px)" in html
-    assert "grid-template-columns: 2.25rem minmax(0, 1fr) minmax(4.25rem, max-content) 8rem;" in flat(html)
-    assert ".file-cell-date, .file-date { display: none;" in flat(html)
-    assert "@container file-browser (max-width: 400px)" in html
-    assert ".file-cell-size, .file-size { display: none;" in flat(html)
-
-    assert "hiding the Modified date column" in dox
-    assert "One Create new (+) control owns both create actions" in dox
 
 
 def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
@@ -497,7 +478,7 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "fb.confirmPicker()" in html
     assert "picker-selection-label" not in html
     assert "fb.isPickerMode()" in html
-    assert "fb.isTextOpenPicker()" in html
+    assert "fb.isSelectableEntry(file)" in html
     assert "picker-confirm-button" in html
 
     assert "picker modes for Editor Open and Save As" in dox
@@ -505,15 +486,16 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "Keep Edit inside the overflow menu" in dox
 
     dropdown_menu_index = html.index('class="dropdown-menu file-actions-menu"')
-    assert html.index('class="dropdown file-actions-dropdown"') < html.index('title="Download file"') < html.index('title="Delete item"')
+    menu = html[dropdown_menu_index:html.index('id="file-browser-actions-menu"')]
+    assert "fb.bulkDownloadFiles()" in menu and "fb.trashSelected()" in menu
     assert '<x-extension id="file-browser-actions-menu"></x-extension>' in html[dropdown_menu_index:]
     assert 'file-browser-actions-menu/*.html' in dox
     edit_button = html[dropdown_menu_index:html.index('<span>Edit</span>')]
     assert 'class="dropdown-item"' in edit_button
-    assert 'x-show="fb.isEditableFile(file)"' in edit_button
+    assert 'x-show="fb.selectedCount === 1 &amp;&amp; fb.isEditableFile(file)"' in edit_button
     assert '@click="fb.openFileEditor(file)"' in edit_button
     assert 'always_enabled: true' in read("plugins", "_editor", "plugin.yaml")
-    assert 'x-show="fb.canOpenInActionMenu(file)"' in html
+    assert 'x-show="fb.selectedCount === 1 &amp;&amp; fb.canOpenInActionMenu(file)"' in html
 
 
 def test_file_browser_extract_and_editor_download_actions() -> None:
@@ -522,7 +504,7 @@ def test_file_browser_extract_and_editor_download_actions() -> None:
     editor_html = read("plugins", "_editor", "webui", "editor-panel.html")
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
 
-    assert 'x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"' in browser_html
+    assert 'x-show="fb.selectedCount === 1 &amp;&amp; !file.is_dir &amp;&amp; !fb.isRemote(file.path) &amp;&amp; fb.isArchive(file.name)"' in browser_html
     assert 'fb.extractArchive(file)' in browser_html
     assert "ARCHIVE_SUFFIXES" in browser_store
     assert 'fetchApi("/extract_work_dir_archive"' in browser_store
@@ -537,7 +519,7 @@ def test_file_browser_dropdown_escapes_scroll_container_and_header_is_opaque() -
     html = read("webui", "components", "modals", "file-browser", "file-browser.html")
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
 
-    assert '@scroll="fb.closeDropdown(); closeMenu()"' in html
+    assert '@scroll="fb.lastTap = null; fb.closeDropdown(); closeMenu()"' in html
     assert 'await this.openSurface(retainedPath);' in store
     assert 'overflow: auto;' in html
     assert 'x-teleport="body"' in html
@@ -646,18 +628,11 @@ def test_file_browser_drag_and_drop_contract() -> None:
     attachments = read("webui", "components", "chat", "attachments", "attachmentsStore.js")
     api = read("api", "rename_work_dir_file.py")
 
-    assert ':draggable="!fb.isPickerMode() && !fb.isBulkBusy"' in html
-    assert "fb.dropItems(file.path, file.name, $event)" in html
-    assert "fb.dropItems(fb.browser.parentPath, 'parent folder', $event)" in html
-    start_drag = store[store.index("  startDrag("):store.index("  isDraggingPath(")]
-    assert "this.clearSelection()" not in start_drag
-    assert "file.selected = true" not in start_drag
-    assert ": [file.path]" in start_drag
-    assert "decorateEntries(data.data?.entries || [], selectedPaths)" in store
-    assert "application/x-agent-zero-files" in store
-    assert 'action: "move"' in store
-    assert 'fetchApi("/rename_work_dir_file"' in store
-    assert 'if action == "move":' in api
+    assert ':data-file-drop="file.is_dir ? file.path : null"' in html
+    assert ':data-file-drop="fb.browser.parentPath"' in html
+    assert 'fb.mountGestures($el' in html
+    assert '"/rename_work_dir_file"' in store
+    assert 'if action in {"move", "copy"}:' in api
     assert 'isExternalFileDrag(event)' in attachments
     assert 'includes("Files")' in attachments
 
@@ -775,3 +750,34 @@ store.forwardHistory = [];
 assert.equal(store.history.length, 0);
 '''
     subprocess.run(['node', '--input-type=module'], input=script, text=True, check=True)
+
+
+def test_copy_and_device_upload_preserve_directories_links_and_collisions(tmp_path: Path):
+    from io import BytesIO
+    from types import SimpleNamespace
+    browser = FileBrowser()
+    browser.base_dir = tmp_path
+    source = tmp_path / "folder"
+    source.mkdir()
+    (source / "note.txt").write_text("original")
+    (source / "link").symlink_to("note.txt")
+    (tmp_path / "dest").mkdir()
+    browser.transfer_items(["folder"], "dest", copy=True)
+    assert (tmp_path / "dest/folder/link").is_symlink()
+    browser.transfer_items(["folder/note.txt"], "folder", copy=True)
+    assert (source / "note (copy).txt").read_text() == "original"
+    with pytest.raises(FileExistsError):
+        browser.transfer_items(["folder"], "dest", copy=True)
+    with pytest.raises(ValueError, match="itself"):
+        browser.transfer_items(["folder"], "folder", copy=True)
+
+    def payload(content):
+        return SimpleNamespace(stream=BytesIO(content))
+    saved = browser.upload_tree([payload(b"new")], "dest", ["folder/note.txt"], ["folder/empty"])
+    assert saved == (["folder (1)"], [])
+    assert (tmp_path / "dest/folder (1)/empty").is_dir()
+    assert (tmp_path / "dest/folder (1)/note.txt").read_bytes() == b"new"
+    assert (tmp_path / "dest/folder/note.txt").read_text() == "original"
+    with pytest.raises(ValueError):
+        browser.upload_tree([payload(b"x")], "dest", ["../outside"], [])
+    assert not (tmp_path / "outside").exists()

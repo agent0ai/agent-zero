@@ -32,7 +32,7 @@
 ## Key Concepts
 
 - Important called helpers/classes observed in the source: `FileBrowser`, `browser.rename_item`, `browser.create_folder`, `browser.move_items`, `strip`, `posixpath.join`, `file_path.startswith`, `extension.call_extensions_async`, `str.rstrip`, `posixpath.dirname`.
-- The `move` action accepts `paths` plus `destinationPath`, emits the standard mutation hook, and returns the refreshed `currentPath` listing used by drag-and-drop clients.
+- The local `copy` and `move` actions return the published paths, accept `paths` plus `destinationPath`, emit the standard mutation hook, and return the refreshed `currentPath` listing used by drag-and-drop clients.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

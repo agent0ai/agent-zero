@@ -53,3 +53,5 @@ No child DOX files.
 
 ## SSH folders
 `/@connections` and legacy `/@ssh` list browse-enabled connections. `/@connections/<provider>/<id>/...` delegates to `helpers.file_connections.listing` in a worker thread. Legacy `/@ssh/<id>/...` resolves through the enabled SSH provider. Stored browse permission and each provider's transport/root rules apply. Local listings remain unchanged.
+
+Local directory scans and remote provider listings both run off the API event loop. Local entries include the Unix mode string used by Properties.

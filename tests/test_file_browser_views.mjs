@@ -116,11 +116,11 @@ test('Welcome shares preferences and limits while its navigation and callbacks r
   assert.equal(main.browser.sortBy, 'size');
   assert.equal(main.preferences.pathBar, 'raw');
   assert.equal(main.limits, welcome.limits);
-  main._handleFileUpload = () => main.browser.currentPath;
+  main.uploadFiles = (_files, path) => path;
   main.browser.currentPath = '/upload-a';
   const upload = t.store.handleFileUpload;
   t.chats.selected = 'b';
-  assert.equal(await upload({}), '/upload-a', 'captured event handler stays on its originating chat');
+  assert.equal(await upload({ target: { files: [] } }), '/upload-a', 'captured event handler stays on its originating chat');
   assert.equal(t.storage['welcomeFiles.path'], '/welcome');
 });
 
@@ -260,4 +260,104 @@ test('an external rename prompt retains its initiating chat and callback', async
   a.releaseRenameModal();
   assert.equal(t.store.renameView, t.store.current);
   assert.equal(t.store.renameTarget, null);
+});
+
+test('selection follows visible natural order and hidden rows cannot be acted on', () => {
+  const { store } = setup();
+  const view = store.current;
+  const [last, first, middle, hidden] = view.browser.entries = ['file10', 'file1', 'file2', '.private']
+    .map(name => ({ name, path: '/' + name, is_dir: false }));
+  const names = entries => Array.from(entries, file => file.name);
+  assert.deepEqual(names(view.visibleEntries), ['file1', 'file2', 'file10']);
+  view.selectEntry(first);
+  view.selectEntry(last, { shiftKey: true });
+  assert.equal(view.selectedCount, 3);
+  view.selectEntry(middle, { metaKey: true });
+  assert.deepEqual(names(view.selectedFiles), ['file10', 'file1']);
+  view.setFilter('10');
+  assert.deepEqual(names(view.selectedFiles), ['file10']);
+  view.setFilter('', true);
+  view.selectEntry(hidden);
+  view.setFilter('', false);
+  assert.equal(view.selectedCount, 0);
+});
+
+test('a destination picker carries the original selection and blocks moves into descendants', async () => {
+  const { store } = setup();
+  const view = store.current;
+  view.browser.currentPath = '/origin';
+  view.browser.entries = [{name: 'folder', path: 'origin/folder', is_dir: true, selected: true}];
+  view.chooseDestination('move');
+  assert.equal(view.isPickerMode(), true);
+  assert.equal(view.canConfirmPicker(), false);
+  view.browser.currentPath = '/origin/folder/inside';
+  assert.equal(view.canConfirmPicker(), false);
+  view.browser.currentPath = '/another';
+  let transferred;
+  view.transferFiles = async (paths, directory, action) => { transferred = [Array.from(paths), directory, action]; return true; };
+  await view.confirmPicker();
+  assert.deepEqual(transferred, [['/origin/folder'], '/another', 'move']);
+  assert.equal(view.isPickerMode(), false);
+});
+
+test('explicit sorting cycles across folders and files before restoring the saved order', () => {
+  const { store } = setup();
+  const view = store.current;
+  view.browser.entries = [{name: 'z', is_dir: true, size: 0}, {name: 'a', is_dir: false, size: 10}];
+  const names = () => Array.from(view.visibleEntries, entry => entry.name);
+  assert.deepEqual(names(), ['z', 'a']);
+  view.toggleSort('name');
+  assert.deepEqual(names(), ['a', 'z']);
+  view.toggleSort('name');
+  assert.deepEqual(names(), ['z', 'a']);
+  view.toggleSort('name');
+  assert.equal(view.browser.explicitSort, false);
+});
+
+test('the Files template keeps drop listeners alive until its host is destroyed', async () => {
+  const dir = new URL('../webui/components/modals/file-browser/', import.meta.url);
+  const html = readFileSync(new URL('file-browser.html', dir), 'utf8');
+  const setup = html.match(/x-create="([^"]*fb\.mountGestures[^"]*)"/)[1];
+  const teardown = html.match(/x-destroy="([^"]*_endGestures[^"]*)"/)[1];
+  const { mountFileGestures } = await import(new URL('file-gestures.js', dir));
+  const host = Object.assign(new EventTarget(), {
+    dataset: {}, closest: selector => selector === '.file-browser-root' ? host : null,
+    querySelector: () => null,
+  });
+  const accepted = [];
+  const view = {
+    mountGestures: mountFileGestures, browser: {currentPath: '/destination'},
+    isPickerMode: () => false, remoteAllowed: () => true,
+    uploadDrop: (data, path) => accepted.push(path),
+  };
+  function evaluate(expression) {
+    const result = Function('$el', 'fb', 'return ' + expression)(host, view);
+    // Alpine also evaluates a function returned from a directive expression.
+    if (typeof result === 'function') result();
+  }
+  function drop() {
+    host.dispatchEvent(Object.assign(new Event('drop', { cancelable: true }), {
+      dataTransfer: { types: ['Files'] },
+    }));
+  }
+  evaluate(setup);
+  drop();
+  view.isPickerMode = () => true;
+  drop();
+  evaluate(teardown);
+  view.isPickerMode = () => false;
+  drop();
+  assert.deepEqual(accepted, ['/destination']);
+});
+
+test('a queued close event cannot abort a newly opened media preview', () => {
+  const html = readFileSync(new URL('../webui/components/modals/file-browser/file-browser.html', import.meta.url), 'utf8');
+  const close = html.match(/<dialog [^>]*files-media-dialog[^>]*@close="([^"]+)"/)[1];
+  const onClose = Function('$el', 'clear', close);
+  const request = new AbortController();
+  const release = () => request.abort();
+  onClose({ open: true }, release);
+  assert.equal(request.signal.aborted, false);
+  onClose({ open: false }, release);
+  assert.equal(request.signal.aborted, true);
 });

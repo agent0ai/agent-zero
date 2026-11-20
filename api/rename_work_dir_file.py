@@ -2,6 +2,7 @@ from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
 from helpers import extension
 from api import get_work_dir_files
+import asyncio
 import posixpath
 
 
@@ -11,7 +12,7 @@ class RenameWorkDirFile(ApiHandler):
             action = input.get("action", "rename")
             current_path = input.get("currentPath", "")
 
-            if action == "move":
+            if action in {"move", "copy"}:
                 file_paths = input.get("paths", [])
                 destination_path = input.get("destinationPath", "")
                 if not isinstance(file_paths, list) or not all(
@@ -26,7 +27,12 @@ class RenameWorkDirFile(ApiHandler):
                 ]
                 if not destination_path.startswith("/"):
                     destination_path = f"/{destination_path}"
-                moved_paths = await move_items(file_paths, destination_path)
+                from helpers import file_connections
+                if any(file_connections.is_remote(path) for path in [destination_path, *file_paths]):
+                    raise ValueError("Use the connection provider to transfer remote files.")
+                moved_paths = await asyncio.to_thread(
+                    FileBrowser().transfer_items, file_paths, destination_path, copy=action == "copy"
+                )
                 res = bool(moved_paths)
                 changed_paths = [*file_paths, *moved_paths]
             elif action in {"rename", "create-folder"}:
@@ -68,7 +74,10 @@ class RenameWorkDirFile(ApiHandler):
                     },
                 )
                 result = await get_work_dir_files.get_files(current_path)
-                return {"data": result}
+                response = {"data": result}
+                if action in {"move", "copy"}:
+                    response["paths"] = moved_paths
+                return response
 
             error_msg = {
                 "create-folder": "Failed to create folder",

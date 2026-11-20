@@ -1,6 +1,8 @@
 import { createStore, getStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
+import { mediaKind, mediaPreview } from "/components/modals/file-browser/file-preview.js";
+import { mountFileGestures } from "/components/modals/file-browser/file-gestures.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
   open as openSurface,
@@ -41,6 +43,7 @@ const BROWSER_EXTENSIONS = new Set([
   "ico",
 ]);
 const ARCHIVE_SUFFIXES = [".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tar", ".tgz", ".tbz", ".tbz2", ".txz", ".zip", ".rar", ".7z", ".gz", ".bz2", ".xz", ".zst"];
+const filenameOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 const SURFACE_ACTIONS = {
   editor: {
@@ -61,7 +64,7 @@ function delay(ms) {
 
 const views = new Map();
 const configuration = createStore("fileBrowserConfiguration", {
-  modalOwner: null, renameOwner: null,
+  modalOwner: null, renameOwner: null, clipboard: null,
 });
 const sharedFields = [
   "limits", "textLimitMib", "transferLimitMib", "extractLimitMib", "archiveEntries",
@@ -138,6 +141,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     currentPath: "",
     entries: [],
     parentPath: "",
+    explicitSort: false,
     sortBy: "name",
     sortDirection: "asc",
   },
@@ -182,9 +186,15 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   dropdownOwner: null,
   dropdownStyle: {},
   searchQuery: "",
+  filterOpen: false,
+  showHidden: false,
+  focusedPath: "",
+  selectionAnchor: "",
+  lastTap: null,
   isBulkBusy: false,
-  draggedPaths: [],
-  dragOverPath: "",
+  operationLabel: "",
+  operationError: "",
+  destinationSelection: null,
   pickerMode: PICKER_MODE_NONE,
   pickerConfirmLabel: "",
   pickerFilename: "",
@@ -324,6 +334,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
         independent: value.independent !== false,
       };
     } catch { /* Storage may be unavailable. Keep the defaults. */ }
+    this.browser.explicitSort = false;
     this.browser.sortBy = this.preferences.sortBy;
     this.browser.sortDirection = this.preferences.sortDirection;
     this.fileTree.shown = this.preferences.treeShown;
@@ -367,6 +378,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   init() { this.applyPreferences(); },
 
   applyPreferences() {
+    this.browser.explicitSort = false;
     this.browser.sortBy = this.preferences.sortBy;
     this.browser.sortDirection = this.preferences.sortDirection;
     this.fileTree.shown = this.preferences.treeShown;
@@ -531,7 +543,6 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     this.closeDropdown();
     this.searchQuery = "";
     this.isBulkBusy = false;
-    this.clearDragState();
     this.pathInput = "";
     this.pathError = "";
     this.isPathSubmitting = false;
@@ -588,13 +599,13 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     this.forwardHistory = [];
     this.searchQuery = "";
     this.isBulkBusy = false;
-    this.clearDragState();
     this.pathError = "";
     this.isPathSubmitting = false;
     this.configurePicker(options);
   },
 
   configurePicker(options = {}) {
+    this.destinationSelection = null;
     const mode = String(options?.pickerMode || PICKER_MODE_NONE).trim();
     this.pickerMode = [PICKER_MODE_TEXT_OPEN, PICKER_MODE_SAVE_AS].includes(mode)
       ? mode
@@ -611,6 +622,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   resetPickerState() {
+    this.destinationSelection = null;
     this.pickerMode = PICKER_MODE_NONE;
     this.pickerConfirmLabel = "";
     this.pickerFilename = "";
@@ -620,14 +632,13 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async loadOpeningPath(path = "") {
+    const request = this._directoryRequest;
     await this.loadDirectoryPreference();
+    if (request !== this._directoryRequest) return false;
     const explicitPath = this.normalizeOpeningPath(path || this.initialPath);
     const rememberedPath = !explicitPath ? this.getRememberedDirectory() : "";
     const targetPath = explicitPath || rememberedPath || "$WORK_DIR";
-    this.browser.currentPath = targetPath;
-    this.syncPathInput();
-
-    const loaded = await this.fetchFiles(this.browser.currentPath, {
+    const loaded = await this.fetchFiles(targetPath, {
       preserveOnError: Boolean(rememberedPath && targetPath === rememberedPath),
       suppressErrorToast: Boolean(rememberedPath && targetPath === rememberedPath),
     });
@@ -657,45 +668,12 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     return ARCHIVE_SUFFIXES.some((suffix) => String(filename || "").toLowerCase().endsWith(suffix));
   },
 
-  saveScrollPosition() {
-    // Find the file browser modal's scrollable container
-    // We look for the modal containing .file-browser-root to target the correct modal
-    const fileBrowserRoot = this._mountedElement?.querySelector('.file-browser-root');
-    if (fileBrowserRoot) {
-      const modalScroll = fileBrowserRoot.closest('.modal-scroll');
-      if (modalScroll) {
-        return {
-          scrollTop: modalScroll.scrollTop,
-          scrollLeft: modalScroll.scrollLeft
-        };
-      }
-    }
-    return null;
-  },
-
-  restoreScrollPosition(scrollPos) {
-    if (!scrollPos) return;
-
-    const restore = () => {
-      const fileBrowserRoot = this._mountedElement?.querySelector('.file-browser-root');
-      if (fileBrowserRoot) {
-        const modalScroll = fileBrowserRoot.closest('.modal-scroll');
-        if (modalScroll) {
-          modalScroll.scrollTop = scrollPos.scrollTop;
-          modalScroll.scrollLeft = scrollPos.scrollLeft;
-        }
-      }
-    };
-
-    this.runNextFrame(restore);
-  },
-
   formatFileSize(size) {
-    if (size === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(size) / Math.log(k));
-    return parseFloat((size / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    if (size === 0) return "0B";
+    const units = ["B", "K", "M", "G", "T", "P"];
+    const index = Math.min(units.length - 1, Math.floor(Math.log(size) / Math.log(1024)));
+    const value = size / 1024 ** index;
+    return Number(value.toFixed(value < 10 ? 1 : 0)) + units[index];
   },
 
   formatDate(dateString) {
@@ -710,22 +688,10 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   get filteredEntries() {
-    const query = this.searchQuery.trim().toLowerCase();
-    return this.browser.entries.filter((file) => {
-      if (!this.pickerAllowsEntry(file)) return false;
-      if (!query) return true;
-      const searchable = [
-        file.name,
-        file.path,
-        file.type,
-        file.symlink_target,
-        file.is_dir ? "folder directory" : "file",
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(query);
-    });
+    const query = this.searchQuery.trim().toLocaleLowerCase();
+    return this.browser.entries.filter(file => this.pickerAllowsEntry(file)
+      && (this.showHidden || !file.name.startsWith("."))
+      && file.name.toLocaleLowerCase().includes(query));
   },
 
   get visibleEntries() {
@@ -734,6 +700,18 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   clearSearch() {
     this.searchQuery = "";
+  },
+
+  setFilter(query, showHidden = this.showHidden) {
+    this.searchQuery = query;
+    this.showHidden = showHidden;
+    const visible = new Set(this.filteredEntries.map(file => file.path));
+    for (const file of this.browser.entries) {
+      if (file.selected && !visible.has(file.path)) file.selected = false;
+    }
+    if (!visible.has(this.selectionAnchor)) this.selectionAnchor = "";
+    if (!visible.has(this.focusedPath)) this.focusedPath = "";
+    this.lastTap = null;
   },
 
   get selectedFiles() {
@@ -771,13 +749,96 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   clearSelection() {
+    this.selectionAnchor = "";
     this.browser.entries.forEach((file) => {
       file.selected = false;
     });
   },
 
+  selectEntry(file, { shiftKey, ctrlKey, metaKey } = {}) {
+    if (!this.isSelectableEntry(file)) return;
+    const entries = this.visibleEntries;
+    const start = entries.findIndex(entry => entry.path === this.selectionAnchor);
+    if (shiftKey && start >= 0) {
+      const end = entries.findIndex(entry => entry.path === file.path);
+      const range = entries.slice(Math.min(start, end), Math.max(start, end) + 1);
+      if (!ctrlKey && !metaKey) this.browser.entries.forEach(entry => { entry.selected = false; });
+      range.forEach(entry => { entry.selected = this.isSelectableEntry(entry); });
+    } else {
+      if (ctrlKey || metaKey) file.selected = !file.selected;
+      else { this.clearSelection(); file.selected = true; }
+      this.selectionAnchor = file.path;
+    }
+  },
+
+  clickEntry(file, event) {
+    event.currentTarget.focus({ preventScroll: true });
+    this.focusedPath = file.path;
+    this.selectEntry(file, event);
+    if (this.isSaveAsPicker() && !file.is_dir) {
+      this.pickerFilename = file.name;
+      this.validatePickerFilename(true);
+    }
+    const touch = event.pointerType === "touch";
+    const open = touch ? this.lastTap?.path === file.path && event.timeStamp - this.lastTap.time < 400 : event.detail === 2;
+    this.lastTap = touch && !open ? { path: file.path, time: event.timeStamp } : null;
+    if (open && !event.shiftKey && !event.ctrlKey && !event.metaKey) return this.activateEntry(file);
+  },
+
+  activateEntry(file) {
+    if (file.is_dir) return this.navigateToFolder(file.path);
+    if (this.isTextOpenPicker() && this.isSelectableEntry(file)) {
+      file.selected = true;
+      return this.confirmPicker();
+    }
+    if (!this.isPickerMode()) {
+      if (this.canPreview(file)) return this.previewFile(file);
+      return this.handleFileNameClick(file);
+    }
+  },
+
+  listKey(event) {
+    if (event.isComposing || event.altKey || event.target.closest("input, button, textarea, [contenteditable=true]")) return;
+    const list = event.currentTarget;
+    const entries = this.visibleEntries;
+    const index = entries.findIndex(file => file.path === this.focusedPath);
+    const file = entries[index];
+    const command = event.metaKey || event.ctrlKey;
+    if (command && event.key.toLowerCase() === "a") {
+      this.selectableEntries.forEach(entry => { entry.selected = true; });
+    } else if (command) return;
+    else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      let next = event.key === "ArrowDown" ? index + 1 : index - 1;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = entries.length - 1;
+      const entry = entries[Math.max(0, Math.min(next, entries.length - 1))];
+      if (entry) {
+        if (event.shiftKey) { this.selectionAnchor ||= file?.path || entry.path; this.selectEntry(entry, event); }
+        else this.selectionAnchor = entry.path;
+        list.querySelector(`[data-file-path="${CSS.escape(entry.path)}"]`)?.focus();
+      }
+    } else if (file && !this.isPickerMode() && (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) {
+      const row = list.querySelector(`[data-file-path="${CSS.escape(file.path)}"]`);
+      this.openEntryMenu(file, row);
+    } else if (file && (event.key === "Enter" || (event.key === "ArrowRight" && file.is_dir))) this.activateEntry(file);
+    else if (file && event.key === " ") this.selectEntry(file, { ctrlKey: true });
+    else if (event.key === "ArrowLeft") this.navigateUp();
+    else if (event.key === "F5") this.fetchFiles(this.browser.currentPath, { preserveOnError: true });
+    else if (file && event.key === "F2" && !this.isPickerMode() && this.remoteAllowed("rename", file)) this.beginRename(file);
+    else if (event.key === "Escape" && this.clipboard?.move) configuration.clipboard = null;
+    else if (event.key === "Escape" && (this.selectedCount || this.filterOpen)) {
+      this.clearSelection(); this.clearSearch(); this.filterOpen = false;
+    } else if (event.key.length === 1 && event.key !== " ") {
+      this.filterOpen = true;
+      this.setFilter(this.searchQuery + event.key);
+      globalThis.Alpine.nextTick(() => list.closest(".file-browser-root")?.querySelector(".file-filter-input")?.focus());
+    } else return;
+    event.preventDefault();
+    event.stopPropagation();
+  },
+
   isPickerMode() {
-    return this.pickerMode !== PICKER_MODE_NONE;
+    return Boolean(this.destinationSelection) || this.pickerMode !== PICKER_MODE_NONE;
   },
 
   isTextOpenPicker() {
@@ -789,13 +850,13 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   isSelectableEntry(file = {}) {
-    if (this.isSaveAsPicker()) return false;
+    if (this.isSaveAsPicker() || this.destinationSelection) return false;
     if (this.isTextOpenPicker()) return !file?.is_dir && this.isEditableFile(file);
     return true;
   },
 
   normalizeOpeningPath(path) {
-    return String(path || "").trim();
+    return String(path || "");
   },
 
   normalizeSubmittedPath(path) {
@@ -1105,6 +1166,15 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     return this.isEditableFile(file) ? "editor" : "";
   },
 
+  mediaPreview() { return mediaPreview(); },
+
+  canPreview(file) { return Boolean(mediaKind(file)) && this.remoteAllowed("download", file); },
+
+  previewFile(file) {
+    if (!this.canPreview(file) || this.isPickerMode()) return;
+    this._mountedElement?.querySelector(".files-media-dialog")?.dispatchEvent(new CustomEvent("file-preview", {detail: file}));
+  },
+
   isEditableFile(file = {}) {
     if (!this.remoteAllowed("edit", file)) return false;
     if (!file || file.is_dir || !this.limits || file.size > this.limits.max_text_bytes || this.isArchive(file.name || file.path)) return false;
@@ -1114,6 +1184,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   pickerAllowsEntry(file = {}) {
+    if (this.destinationSelection) return file.is_dir;
     if (!this.isTextOpenPicker()) return true;
     return Boolean(file?.is_dir || this.isEditableFile(file));
   },
@@ -1158,6 +1229,10 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   canConfirmPicker() {
+    if (this.destinationSelection) {
+      const { paths, operation } = this.destinationSelection;
+      return this.canTransfer(paths, this.browser.currentPath, operation);
+    }
     if (this.isTextOpenPicker()) return this.pickerSelectedFiles().length > 0;
     if (this.isSaveAsPicker()) return this.remoteAllowed("upload") && Boolean(this.pickerFilenameValue()) && !this.pickerFilenameError;
     return false;
@@ -1175,6 +1250,15 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   async confirmPicker() {
     if (!this.isPickerMode() || this.isBulkBusy || this.isLoading || this.renameInline) return;
+    if (this.destinationSelection) {
+      const selection = this.destinationSelection;
+      if (!this.canConfirmPicker()) return;
+      this.destinationSelection = null;
+      if (!await this.transferFiles(selection.paths, this.browser.currentPath, selection.operation)) {
+        this.destinationSelection = selection;
+      }
+      return;
+    }
     if (this.isSaveAsPicker() && !this.validatePickerFilename(true)) return;
     const payload = this.isSaveAsPicker()
       ? {
@@ -1205,6 +1289,11 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async cancelPicker() {
+    if (this.destinationSelection) {
+      const { directory } = this.destinationSelection;
+      this.destinationSelection = null;
+      return this.navigateToFolder(directory);
+    }
     this.disposeScopedTooltips();
     await this.closeOrRestorePicker();
   },
@@ -1315,10 +1404,15 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   // --- Sorting -------------------------------------------------------------
   toggleSort(column) {
-    if (this.browser.sortBy === column) {
-      this.browser.sortDirection =
-        this.browser.sortDirection === "asc" ? "desc" : "asc";
+    if (this.browser.explicitSort && this.browser.sortBy === column) {
+      if (this.browser.sortDirection === "asc") this.browser.sortDirection = "desc";
+      else {
+        this.browser.explicitSort = false;
+        this.browser.sortBy = this.preferences.sortBy;
+        this.browser.sortDirection = this.preferences.sortDirection;
+      }
     } else {
+      this.browser.explicitSort = true;
       this.browser.sortBy = column;
       this.browser.sortDirection = "asc";
     }
@@ -1326,12 +1420,11 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   sortFiles(entries) {
     return [...entries].sort((a, b) => {
-      // Folders first
-      if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+      if (!this.browser.explicitSort && a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
       const dir = this.browser.sortDirection === "asc" ? 1 : -1;
       switch (this.browser.sortBy) {
         case "name":
-          return dir * a.name.localeCompare(b.name);
+          return dir * filenameOrder.compare(a.name, b.name);
         case "size":
           return dir * (a.size - b.size);
         case "date":
@@ -1343,6 +1436,30 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   // --- Dropdown Management -------------------------------------------------
+  focusMenuButton(menu, delta) {
+    const buttons = Array.from(menu.querySelectorAll("button")).filter(button => !button.disabled && button.checkVisibility());
+    const next = (buttons.indexOf(document.activeElement) + delta + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+  },
+
+  contextEntry(file, event) {
+    if (this.isPickerMode()) return;
+    event.preventDefault();
+    this.openEntryMenu(file, event.currentTarget, event);
+  },
+
+  openEntryMenu(file, row, point = null) {
+    const button = row?.querySelector(".dropdown-trigger");
+    if (!button) return;
+    if (!file.selected) this.selectEntry(file);
+    row.focus({ preventScroll: true });
+    this.openDropdownPath = file.path;
+    this.dropdownOwner = button.closest(".file-actions");
+    this.dropdownStyle = this.getDropdownStyle(point ? {
+      getBoundingClientRect: () => ({ left: point.clientX, right: point.clientX, top: point.clientY, bottom: point.clientY }),
+    } : button, 180, !point);
+  },
+
   toggleDropdown(filePath, triggerElement = null) {
     // Toggle: if already open, close it; otherwise open this one (closing any other)
     const owner = triggerElement?.closest(".file-actions") || null;
@@ -1350,6 +1467,8 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       this.closeDropdown();
       return;
     }
+    const entry = this.browser.entries.find(file => file.path === filePath);
+    if (entry && !entry.selected) this.selectEntry(entry);
     this.openDropdownPath = filePath;
     this.dropdownOwner = owner;
     this.dropdownStyle = this.getDropdownStyle(triggerElement);
@@ -1359,7 +1478,8 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     return this.openDropdownPath === filePath && (!owner || owner === this.dropdownOwner);
   },
 
-  closeDropdown() {
+  closeDropdown(restoreFocus = false) {
+    if (restoreFocus) this.dropdownOwner?.closest(".file-item")?.focus({preventScroll: true});
     this.openDropdownPath = null;
     this.dropdownOwner = null;
     this.dropdownStyle = {};
@@ -1404,7 +1524,9 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     const isSamePath =
       this.browser.currentPath === requestedPath ||
       (requestedPath === "$WORK_DIR" && ["/a0", "$WORK_DIR", ""].includes(this.browser.currentPath));
-    const scrollPos = isSamePath ? this.saveScrollPosition() : null;
+    const list = this._mountedElement?.querySelector(".files-list");
+    const focused = list?.contains(document.activeElement) ? document.activeElement : null;
+    const scrollTop = isSamePath ? list?.scrollTop || 0 : 0;
     const selectedPaths = isSamePath
       ? new Set(this.selectedFiles.map((file) => file.path))
       : new Set();
@@ -1435,7 +1557,12 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
       if (response.ok && !resultError) {
         if (!isSamePath && this.renameInline && !this.isRenaming) this.resetRenameState();
-        if (!isSamePath) this.searchQuery = "";
+        if (!isSamePath) {
+          this.clearSearch();
+          this.focusedPath = "";
+          this.selectionAnchor = "";
+        }
+        this.lastTap = null;
         this.remotePermissions = result.permissions || null;
         this.browser.entries = this.decorateEntries(
           entries,
@@ -1443,17 +1570,20 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
         );
         this.browser.currentPath = resolvedCurrentPath;
         this.browser.parentPath = result.parent_path;
+        if (this.isSaveAsPicker() && this.pickerFilenameError) this.validatePickerFilename(true);
         this.syncPathInput();
         this.pathError = "";
         this.rememberCurrentDirectory(this.browser.currentPath);
         
-        // Set isLoading to false BEFORE restoring scroll to avoid reactivity issues
         this.isLoading = false;
-        
-        // Restore scroll position if on same path
-        if (scrollPos) {
-          this.restoreScrollPosition(scrollPos);
-        }
+        if (list) this.runNextFrame(() => {
+          if (this._directoryRequest !== request || !list.isConnected) return;
+          list.scrollTop = scrollTop;
+          if (focused && (document.activeElement === focused || document.activeElement === document.body)) {
+            const row = this.focusedPath && list.querySelector(`[data-file-path="${CSS.escape(this.focusedPath)}"]`);
+            (row || list).focus({preventScroll: true});
+          }
+        });
         return true;
       } else {
         const msg = resultError || "Error fetching files";
@@ -1501,7 +1631,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   async navigateToFolder(path) {
     if (this.isLoading || this.isRenaming || this.isBulkBusy) return false;
-    path = this.normalizeSubmittedPath(path).replace(/\/+$/, "") || "/";
+    path = path === "$WORK_DIR" ? path : this.normalizePath(path).replace(/\/+$/, "") || "/";
     if (this.browser.currentPath === path) {
       return true;
     }
@@ -1545,7 +1675,19 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
         return;
       }
 
-      this.pathError = "Directory not found or not accessible.";
+      if (!this.isPickerMode() && !this.isRemote(path)) {
+        const info = await callJsonApi("/file_info", { path });
+        if (info.is_file) {
+          const file = {name: info.file_name, path, size: info.size, is_dir: false};
+          this.exitPathEdit();
+          if (this.canPreview(file)) this.previewFile(file);
+          else await this.handleFileNameClick(file);
+          return;
+        }
+      }
+      this.pathError = "Path not found or not accessible.";
+    } catch (error) {
+      this.pathError = error.message;
     } finally {
       this.isPathSubmitting = false;
     }
@@ -1555,93 +1697,192 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     if (this.browser.parentPath) return this.navigateToFolder(this.browser.parentPath);
   },
 
-  // --- Drag and drop ------------------------------------------------------
-  startDrag(file = {}, event) {
-    if (this.isPickerMode() || this.isBulkBusy || !file?.path || !event?.dataTransfer) {
-      event?.preventDefault();
-      return;
+  // --- Transfers ----------------------------------------------------------
+  mountGestures(element, getView) { return mountFileGestures(element, getView); },
+
+  get clipboard() { return configuration.clipboard; },
+
+  copySelection(move, event = null) {
+    const files = this.selectedFiles;
+    if (this.isPickerMode() || !files.length || files.some(file => !this.remoteAllowed(move ? "rename" : "download", file))) return;
+    if (!move && files.some(file => this.isRemote(file.path))) return;
+    const record = {
+      id: globalThis.crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+      paths: files.map(file => this.normalizePath(file.path)), move,
+    };
+    const write = clipboardEvent => {
+      const data = clipboardEvent.clipboardData;
+      if (!data) return;
+      data.setData("text/plain", record.paths.join("\n"));
+      // HTML keeps the opaque page-local token through native and toolbar paste.
+      const tag = document.createElement("span");
+      tag.dataset.a0FileSelection = record.id;
+      tag.textContent = record.paths.join("\n");
+      data.setData("text/html", tag.outerHTML);
+      clipboardEvent.preventDefault();
+      clipboardEvent.stopPropagation();
+      configuration.clipboard = record;
+    };
+    if (event) write(event);
+    else {
+      document.addEventListener("copy", write, { capture: true, once: true });
+      try {
+        if (!document.execCommand("copy")) throw new Error("Use the keyboard Copy or Cut shortcut in the file list.");
+      } catch (error) { window.toastFrontendError(error.message, "Clipboard"); }
+      finally { document.removeEventListener("copy", write, true); }
     }
-    this.draggedPaths = file.selected
-      ? this.selectedFiles.map((entry) => entry.path)
-      : [file.path];
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("application/x-agent-zero-files", JSON.stringify(this.draggedPaths));
-    event.dataTransfer.setData("text/plain", this.draggedPaths.join("\n"));
-    this.closeDropdown();
   },
 
-  isDraggingPath(path = "") {
-    return this.draggedPaths.includes(path);
-  },
-
-  canDropAt(destinationPath = "") {
-    const destination = this.normalizePath(destinationPath).replace(/\/+$/, "") || "/";
-    return Boolean(this.draggedPaths.length && this.draggedPaths.every((path) => {
-      const source = this.normalizePath(path).replace(/\/+$/, "") || "/";
-      return destination !== source && !destination.startsWith(`${source}/`);
-    }));
-  },
-
-  setDropTarget(destinationPath, event) {
-    if (!this.canDropAt(destinationPath)) {
-      if (event?.dataTransfer) event.dataTransfer.dropEffect = "none";
-      return;
-    }
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    this.dragOverPath = destinationPath;
-  },
-
-  clearDropTarget(destinationPath, event) {
-    if (event?.currentTarget?.contains(event.relatedTarget)) return;
-    if (this.dragOverPath === destinationPath) this.dragOverPath = "";
-  },
-
-  clearDragState() {
-    this.draggedPaths = [];
-    this.dragOverPath = "";
-  },
-
-  async dropItems(destinationPath, destinationName, event) {
-    if (!this.canDropAt(destinationPath)) return;
-    event.preventDefault();
-    const paths = [...this.draggedPaths];
-    const selectedPaths = new Set(this.selectedFiles.map((file) => file.path));
-    this.clearDragState();
-    this.isBulkBusy = true;
-
+  async pasteSelection(event = null) {
+    if (this.isPickerMode() || this.isBulkBusy || !(this.remoteAllowed("upload") || this.remoteAllowed("rename"))) return;
+    const path = this.browser.currentPath;
     try {
-      if (this.isRemote(destinationPath) || paths.some(path=>this.isRemote(path))) {
-        for (const path of paths) await this.connectionRequest("rename", {path, destination:destinationPath.replace(/\/$/, "") + "/" + path.split("/").pop()});
-        await this.fetchFiles(this.browser.currentPath);
-        return;
+      let html, plain;
+      if (event) {
+        const data = event.clipboardData;
+        if (data?.files?.length) {
+          event.preventDefault(); event.stopPropagation();
+          return this.uploadFiles(Array.from(data.files), path);
+        }
+        html = data?.getData("text/html") || "";
+        plain = data?.getData("text/plain");
+        if (!html.includes("data-a0-file-selection")) return;
+        event.preventDefault(); event.stopPropagation();
+      } else {
+        if (!navigator.clipboard?.read) throw new Error("Focus the file list and use Ctrl+V or Command+V to paste.");
+        const items = await navigator.clipboard.read();
+        if (this.browser.currentPath !== path) return;
+        const images = [];
+        for (const item of items) {
+          if (item.types.includes("image/png")) images.push(new File([await item.getType("image/png")], "clipboard-image.png", { type: "image/png" }));
+          if (item.types.includes("text/plain")) {
+            const blob = await item.getType("text/plain");
+            if (blob.size < 1024 * 1024) plain = await blob.text();
+          }
+          if (item.types.includes("text/html")) {
+            const blob = await item.getType("text/html");
+            if (blob.size < 1024 * 1024) html = await blob.text();
+          }
+        }
+        if (images.length) return this.uploadFiles(images, path);
       }
-      const resp = await fetchApi("/rename_work_dir_file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "move",
-          paths,
-          destinationPath,
-          currentPath: this.browser.currentPath,
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || data.error) throw new Error(data.error || "Move failed");
-
-      this.browser.entries = this.decorateEntries(data.data?.entries || [], selectedPaths);
-      this.browser.currentPath = data.data?.current_path || this.browser.currentPath;
-      this.browser.parentPath = data.data?.parent_path || this.browser.parentPath;
-      const count = paths.length;
-      window.toastFrontendSuccess(
-        `Moved ${count} ${count === 1 ? "item" : "items"} to ${destinationName}`,
-        "Files Moved"
-      );
+      if (this.browser.currentPath !== path || this.isPickerMode()) return;
+      const record = this.clipboard;
+      if (!record || plain !== record.paths.join("\n") || !html?.includes(`data-a0-file-selection="${record.id}"`)) throw new Error("No Files selection on the clipboard.");
+      if (!this.canTransfer(record.paths, path, record.move ? "move" : "copy")) throw new Error("Choose a different destination folder.");
+      if (record.move) configuration.clipboard = null;
+      await this.transferFiles(record.paths, path, record.move ? "move" : "copy");
     } catch (error) {
-      window.toastFrontendError(error?.message || "Move failed", "Move Error");
+      window.toastFrontendError(error.name === "NotAllowedError" ? "Focus the file list and use the keyboard Paste shortcut." : error.message, "Paste");
+    }
+  },
+
+  canTransfer(paths, destinationPath, operation) {
+    if (!paths.length || !destinationPath || this.isBulkBusy || this.pickerMode) return false;
+    const dest = this.normalizePath(destinationPath).replace(/\/+$/, "") || "/";
+    return paths.every(path => {
+      const source = this.normalizePath(path);
+      if (source === dest || dest.startsWith(source + "/")) return false;
+      if (operation === "move" && this.parentPath(source) === dest) return false;
+      if (this.isRemote(source) || this.isRemote(dest)) {
+        const root = value => value.match(/^\/@(?:connections\/[^/]+|ssh)\/[^/]+(?=\/|$)/)?.[0];
+        return operation === "move" && this.remoteAllowed("rename", {path: dest}) && !!root(source) && root(source) === root(dest);
+      }
+      return true;
+    });
+  },
+
+  async transferFiles(paths, destinationPath, operation) {
+    if (this.isPickerMode()) return false;
+    const destination = this.normalizePath(destinationPath);
+    if (!this.canTransfer(paths, destination, operation)) {
+      window.toastFrontendError("Choose a writable folder outside the selection. Remote moves must stay within one connection.", "Files");
+      return false;
+    }
+    const sources = paths.map(path => this.normalizePath(path));
+    const affected = new Set([destination, ...sources.map(path => this.parentPath(path))]);
+    this.isBulkBusy = true;
+    this.operationLabel = operation === "copy" ? "Copying…" : "Moving…";
+    try {
+      if (this.isRemote(destination)) {
+        for (const path of sources) await this.connectionRequest("rename", { path, destination: destination.replace(/\/$/, "") + "/" + path.split("/").pop() });
+      } else {
+        const result = await callJsonApi("/rename_work_dir_file", { action: operation, paths: sources, destinationPath: destination, currentPath: destination });
+        if (result.error) throw new Error(result.error);
+      }
+      const verb = operation === "copy" ? "Copied" : "Moved";
+      window.toastFrontendSuccess?.(`${verb} ${sources.length} ${sources.length === 1 ? "item" : "items"} to ${destination}`, "Files");
+      return true;
+    } catch (error) {
+      window.toastFrontendError(error.message, "File transfer");
+      return false;
     } finally {
       this.isBulkBusy = false;
+      this.operationLabel = "";
+      await this.refreshFolders(affected);
     }
+  },
+
+  async refreshFolders(folders) {
+    await Promise.all([...views.values()]
+      .filter(browser => !browser.isLoading && folders.has(browser.browser.currentPath))
+      .map(browser => browser.fetchFiles(browser.browser.currentPath, { preserveOnError: true })));
+  },
+
+  chooseDestination(operation) {
+    if (!this.selectionAllows(operation === "move" ? "rename" : "download") || (operation === "copy" && this.isRemote())) return;
+    const paths = this.selectedFiles.map(file => this.normalizePath(file.path));
+    this.closeDropdown();
+    this.destinationSelection = { paths, operation, directory: this.browser.currentPath };
+    this.pickerConfirmLabel = operation === "copy" ? "Copy here" : "Move here";
+    this.clearSelection();
+    this.clearSearch();
+  },
+
+  selectionAllows(permission) {
+    return !this.isPickerMode() && !this.isBulkBusy && this.selectedCount > 0
+      && this.selectedFiles.every(file => this.remoteAllowed(permission, file));
+  },
+
+  async localAction(action, paths, name = "") {
+    if (this.isBulkBusy || this.isPickerMode() || this.isRemote()) return false;
+    const currentPath = this.browser.currentPath;
+    this.isBulkBusy = true;
+    this.operationError = "";
+    this.operationLabel = {trash: "Moving to Trash…", restore: "Restoring…", purge: "Deleting…", compress: "Creating ZIP…"}[action];
+    try {
+      const result = await callJsonApi("/file_browser_actions", {action, paths, currentPath, name});
+      if (result.error) throw new Error(result.error);
+      await this.refreshFolders(new Set((result.paths || []).map(path => this.parentPath(path))));
+      if (result.failed?.length) throw new Error(result.failed.join("\n"));
+      return true;
+    } catch (error) {
+      this.operationError = error.message;
+      window.toastFrontendError(error.message, "Files");
+      return false;
+    } finally {
+      this.isBulkBusy = false;
+      this.operationLabel = "";
+    }
+  },
+
+  trashSelected() {
+    if (!this.selectionAllows("delete")) return;
+    return this.localAction("trash", this.selectedFiles.map(file => this.normalizePath(file.path)));
+  },
+
+  async folderProperties() {
+    const path = this.browser.currentPath;
+    if (this.isRemote()) return {path, is_dir: true};
+    const info = await callJsonApi("/file_info", {path});
+    if (!info.exists) throw new Error("Folder no longer exists.");
+    return {path, is_dir: true, modified: new Date(info.modified * 1000).toISOString(), mode: (info.permissions & 0o7777).toString(8)};
+  },
+
+  async readTrash() {
+    const result = await callJsonApi("/file_browser_actions", {action: "list-trash"});
+    if (result.error) throw new Error(result.error);
+    return result.entries;
   },
 
   // --- Rename / Create -----------------------------------------------------
@@ -1871,53 +2112,6 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     }
   },
 
-  async deleteFile(file) {
-    try {
-      if (this.isRemote(file.path)) {
-        await this.connectionRequest("delete", {path:file.path});
-        await this.fetchFiles(this.browser.currentPath);
-        return;
-      }
-      const resp = await fetchApi("/delete_work_dir_file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: file.path,
-          currentPath: this.browser.currentPath,
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (resp.ok && !data.error) {
-        this.browser.entries = this.browser.entries.filter(
-          (e) => e.path !== file.path
-        );
-        window.toastFrontendSuccess("File deleted successfully", "File Deleted");
-      } else {
-        window.toastFrontendError(data.error || "Error deleting file", "Delete Error");
-      }
-    } catch (e) {
-      window.toastFrontendError(
-        "Error deleting file: " + e.message,
-        "File Delete Error"
-      );
-    }
-  },
-
-  getDownloadFilename(response, fallback) {
-    const disposition = response.headers.get("Content-Disposition") || "";
-    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-    if (utf8Match?.[1]) {
-      try {
-        return decodeURIComponent(utf8Match[1].replace(/^"|"$/g, ""));
-      } catch {
-        return utf8Match[1].replace(/^"|"$/g, "");
-      }
-    }
-
-    const asciiMatch = disposition.match(/filename="([^"]+)"/i);
-    return asciiMatch?.[1] || fallback;
-  },
-
   createDownloadToastGroup(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   },
@@ -1936,7 +2130,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
 
   async bulkDownloadFiles() {
     const selectedFiles = this.selectedFiles;
-    if (!selectedFiles.length || this.isBulkBusy) return;
+    if (!this.selectionAllows("download")) return;
 
     this.isBulkBusy = true;
     this.closeDropdown();
@@ -1956,9 +2150,8 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     }
   },
 
-  async bulkDeleteFiles() {
-    const selectedFiles = this.selectedFiles;
-    if (!selectedFiles.length || this.isBulkBusy) return;
+  async bulkDeleteFiles(selectedFiles = this.selectedFiles) {
+    if (this.isPickerMode() || this.isBulkBusy || !selectedFiles.length || selectedFiles.some(file => !this.remoteAllowed("delete", file))) return;
 
     this.isBulkBusy = true;
     this.closeDropdown();
@@ -2012,7 +2205,9 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async handleFileUpload(event) {
-    return this._handleFileUpload(event);
+    const files = Array.from(event.target.files);
+    event.target.value = "";
+    return this.uploadFiles(files, this.browser.currentPath);
   },
 
   async openInSurface(file = {}, target = this.fileSurfaceTarget(file)) {
@@ -2059,18 +2254,47 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     }
   },
 
-  async _handleFileUpload(event) {
+  async uploadDrop(data, path) {
+    const entries = Array.from(data.items || [], item => item.webkitGetAsEntry?.()).filter(Boolean);
+    if (!entries.some(entry => entry.isDirectory)) return this.uploadFiles(Array.from(data.files), path);
+    if (this.isRemote(path)) {
+      window.toastFrontendError("This connection supports dropping individual files.", "Upload");
+      return;
+    }
+    const files = [], names = [], folders = [];
+    async function collect(entry, prefix) {
+      const name = prefix + entry.name;
+      if (entry.isDirectory) {
+        folders.push(name);
+        const reader = entry.createReader();
+        while (true) {
+          const children = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+          if (!children.length) break;
+          for (const child of children) await collect(child, name + "/");
+        }
+      } else {
+        files.push(await new Promise((resolve, reject) => entry.file(resolve, reject)));
+        names.push(name);
+      }
+    }
     try {
-      const files = event.target.files;
-      if (!files.length) return;
-      const path = this.browser.currentPath;
+      for (const entry of entries) await collect(entry, "");
+      return await this.uploadFiles(files, path, names, folders);
+    } catch (error) { window.toastFrontendError(error.message, "Upload"); }
+  },
+
+  async uploadFiles(files, path, names = files.map(file => file.name), folders = []) {
+    if (this.isPickerMode() || this.isBulkBusy || !this.remoteAllowed("upload") || (!files.length && !folders.length)) return;
+    this.isBulkBusy = true;
+    this.operationLabel = "Uploading…";
+    try {
       const limits = await this.ensureLimits(true);
       const formData = new FormData();
       formData.append("path", path);
-      for (let f of files) {
+      if (!this.isRemote(path)) formData.append("manifest", JSON.stringify({ files: names, folders }));
+      for (const f of files) {
         if (f.size > limits.max_file_bytes) {
-          alert(`File ${f.name} exceeds the ${limits.max_file_bytes / (1024 * 1024)} MiB limit.`);
-          continue;
+          throw new Error(`File ${f.name} exceeds the ${limits.max_file_bytes / (1024 * 1024)} MiB limit.`);
         }
         formData.append("files[]", f);
       }
@@ -2080,19 +2304,15 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && !data.error) {
-        if (this.browser.currentPath === path) {
-          this.browser.entries = this.decorateEntries(data.data.entries || []);
-          this.browser.currentPath = data.data.current_path;
-          this.browser.parentPath = data.data.parent_path;
-        }
+        await this.refreshFolders(new Set([this.normalizePath(path)]));
         if (data.failed && data.failed.length) {
           const msg = data.failed
             .map((f) => typeof f === "string" ? f : `${f.name}: ${f.error}`)
             .join("\n");
-          alert(`Some files failed to upload:\n${msg}`);
+          throw new Error(`Some files failed to upload:\n${msg}`);
         }
       } else {
-        alert(data.error || "Error uploading files");
+        throw new Error(data.error || "Error uploading files");
       }
     } catch (e) {
       window.toastFrontendError(
@@ -2100,7 +2320,8 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
         "File Upload Error"
       );
     } finally {
-      event.target.value = ""; // reset input so same file can be reselected
+      this.isBulkBusy = false;
+      this.operationLabel = "";
     }
   },
 

@@ -1,3 +1,5 @@
+import asyncio
+
 from helpers.api import ApiHandler, Request, Response
 from helpers.file_browser import FileBrowser
 from helpers import files
@@ -23,7 +25,6 @@ class GetWorkDirFiles(ApiHandler):
 async def get_files(path):
     from helpers import file_connections
     if file_connections.is_remote(path):
-        import asyncio
         return await asyncio.to_thread(file_connections.listing, path)
     browser = FileBrowser()
-    return browser.get_files(files.fix_dev_path(str(browser.base_dir / path)))
+    return await asyncio.to_thread(browser.get_files, files.fix_dev_path(str(browser.base_dir / path)))

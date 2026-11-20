@@ -156,7 +156,7 @@ function mountOverflow(row) {
   }
 
   function createRecord(item, button) {
-    const panel = [...button.parentElement.children].find(element =>
+    const panel = item === button ? null : [...button.parentElement.children].find(element =>
       element !== button && element.matches("[x-show], [role=menu], [role=dialog], [data-overflow-panel]"));
     const entry = document.createElement("button");
     entry.type = "button";

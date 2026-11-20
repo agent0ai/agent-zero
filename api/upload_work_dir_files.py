@@ -11,15 +11,27 @@ import posixpath
 
 class UploadWorkDirFiles(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
-        if "files[]" not in request.files:
+        manifest = request.form.get("manifest")
+        if not manifest and "files[]" not in request.files:
             raise Exception("No files uploaded")
 
         current_path = request.form.get("path", "")
         uploaded_files = request.files.getlist("files[]")
         try:
-            successful, failed = await upload_files(uploaded_files, current_path)
+            if manifest:
+                manifest = json.loads(manifest)
+                if not isinstance(manifest, dict):
+                    raise ValueError("Invalid upload manifest")
+                successful, failed = await asyncio.to_thread(
+                    FileBrowser().upload_tree, uploaded_files, current_path, manifest.get("files"), manifest.get("folders")
+                )
+            else:
+                successful, failed = await upload_files(uploaded_files, current_path)
         except FileLimitExceeded as error:
             return Response(json.dumps({"error": str(error)}), status=413, mimetype="application/json")
+
+        except (OSError, ValueError) as error:
+            return {"error": str(error)}
 
         if not successful and failed:
             return {"error": "Files could not be uploaded. Check destination permissions and free disk space.",

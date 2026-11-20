@@ -294,6 +294,31 @@ def test_text_session_save_as_creates_new_file_without_mutating_original(office_
     assert target.read_text(encoding="utf-8") == "Saved Copy\n\nExact body\n"
 
 
+def test_save_as_reuses_deleted_destination_history_and_preserves_competing_writer(office_state, monkeypatch):
+    doc = document_store.create_document("document", "Source", "txt", "source")
+    target = office_state.workdir / "result.txt"
+    save = document_store.save_text_document_as
+    first = save(doc["file_id"], target, "first")
+    target.unlink()
+    second = save(doc["file_id"], target, "second")
+    assert second["file_id"] == first["file_id"]
+    assert second["version"] == first["version"] + 1
+    assert target.read_text() == "second"
+
+    target.unlink()
+    publish = document_store.rename_no_replace
+
+    def race(staged, destination):
+        destination.write_text("another writer")
+        publish(staged, destination)
+
+    monkeypatch.setattr(document_store, "rename_no_replace", race)
+    with pytest.raises(FileExistsError):
+        save(doc["file_id"], target, "losing save")
+    assert target.read_text() == "another writer"
+    assert document_store.get_document(first["file_id"])["version"] == second["version"]
+
+
 def test_editor_session_opens_and_saves_txt_documents(office_state):
     manager = editor_markdown_sessions.MarkdownSessionManager()
     doc = document_store.create_document("document", "Plain Note", "txt", "First line")

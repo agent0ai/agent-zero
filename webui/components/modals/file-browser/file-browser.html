@@ -38,6 +38,38 @@
           class="file-browser-root"
           x-data="{
             pathRoot: $el, menu: '', menuStyle: {}, menuTrigger: null, crumbsOverflow: 0,
+            dialogKind: '', dialogEntries: [], trashEntries: [], trashIds: [], archiveName: '', dialogError: '', purgeConfirm: false, trashLoading: false,
+            async refreshTrash() {
+              this.trashLoading = true;
+              try { this.trashEntries = await fb.readTrash(); this.trashIds = []; }
+              catch (error) { this.dialogError = error.message; }
+              finally { this.trashLoading = false; }
+            },
+            async showDialog(kind) {
+              this.closeMenu(); fb.closeDropdown();
+              this.dialogKind = kind; this.dialogError = ''; this.purgeConfirm = false;
+              this.dialogEntries = fb.selectedFiles.length ? [...fb.selectedFiles] : [{path: fb.browser.currentPath, is_dir: true}];
+              this.archiveName = (this.dialogEntries.length === 1 ? this.dialogEntries[0].name : 'Selection') + '.zip';
+              this.$refs.details.showModal();
+              if (kind === 'Trash') await this.refreshTrash();
+              if (kind === 'Properties' &amp;&amp; !fb.selectedCount) {
+                try { const folder = await fb.folderProperties(); if (this.dialogKind === kind) this.dialogEntries = [folder]; }
+                catch (error) { this.dialogError = error.message; }
+              }
+            },
+            async changeTrash(action) {
+              this.dialogError = '';
+              if (!await fb.localAction(action, this.trashIds)) this.dialogError = fb.operationError;
+              this.purgeConfirm = false; await this.refreshTrash();
+            },
+            backgroundMenu(event) {
+              if (fb.isPickerMode() || event.target.closest('.file-item, .file-header, button')) return;
+              event.preventDefault(); fb.clearSelection(); fb.closeDropdown();
+              this.menuTrigger = this.$refs.list;
+              this.menuStyle = fb.getDropdownStyle({getBoundingClientRect: () => ({left:event.clientX, right:event.clientX, top:event.clientY, bottom:event.clientY})}, 190, false);
+              this.menu = 'background';
+              this.$nextTick(() => this.$refs.backgroundMenu.querySelector('button:not([disabled])')?.focus());
+            },
             closeMenu(restoreFocus = false) { this.menu = ''; this.menuStyle = {}; if (restoreFocus) this.menuTrigger?.focus(); },
             toggleMenu(name, trigger, width) {
               const opening = this.menu !== name;
@@ -49,6 +81,8 @@
               }
             }
           }"
+          x-create="void ($el._endGestures = fb.mountGestures($el, () => fb))"
+          x-destroy="$el._endGestures?.()"
           x-effect="fb.fileTree.follow(fb.browser.currentPath); fb.isLoading; closeMenu()"
           @resize.window="closeMenu(); fb.clearPathSuggestions()"
           @scroll.window.capture="if (!$event.target.closest?.('.path-navigator, .path-suggestions, .path-overflow-menu')) { closeMenu(); fb.clearPathSuggestions(); }"
@@ -82,22 +116,6 @@
                 </button>
                 <template x-if="fb.preferences.pathBar === 'raw' || fb.pathEditing">
                   <div class="path-edit-group">
-                    <button
-                      type="button"
-                      class="nav-button back-button surface-control"
-                      x-show="fb.preferences.pathBar === 'raw'"
-                      @click="fb.navigateUp()"
-                      @dragover="fb.setDropTarget(fb.browser.parentPath, $event)"
-                      @dragleave="fb.clearDropTarget(fb.browser.parentPath, $event)"
-                      @drop="fb.dropItems(fb.browser.parentPath, 'parent folder', $event)"
-                      :class="{ 'is-drop-target': fb.dragOverPath === fb.browser.parentPath }"
-                      :disabled="!fb.browser.parentPath || fb.isLoading"
-                      aria-label="Navigate up"
-                      title="Navigate up"
-                    >
-                      <x-icon aria-hidden="true" name="arrow_upward"></x-icon>
-                      <span class="nav-button-label">Up</span>
-                    </button>
                     <div class="path-input-shell" :class="{ 'has-error': fb.pathError }" @mousedown.self.prevent @click.self="fb.focusPathInput($el)">
                       <input
                         class="path-input"
@@ -174,11 +192,9 @@
                         <button
                           type="button"
                           class="path-crumb"
-                          :class="{ 'is-active': index === fb.pathCrumbs().length - 1, 'is-drop-target': fb.dragOverPath === crumb.path }"
+                          :class="{ 'is-active': index === fb.pathCrumbs().length - 1 }"
                           @click="fb.navigateToFolder(crumb.path)"
-                          @dragover="fb.setDropTarget(crumb.path, $event)"
-                          @dragleave="fb.clearDropTarget(crumb.path, $event)"
-                          @drop="fb.dropItems(crumb.path, crumb.name, $event)"
+                          :data-file-drop="crumb.path"
                           :disabled="fb.isLoading"
                         >
                           <span class="path-crumb-name" x-text="crumb.name"></span
@@ -212,129 +228,65 @@
                     </template>
                   </div>
                 </template>
-                <span class="surface-toolbar-separator" aria-hidden="true" x-show="!fb.isTextOpenPicker()"></span>
-                <button
-                  type="button"
-                  class="file-browser-header-button btn-new-item surface-control"
-                  x-show="fb.remoteAllowed('upload') && !fb.isTextOpenPicker()"
-                  @click="toggleMenu('new', $el, 180)"
-                  :aria-expanded="menu === 'new' ? 'true' : 'false'"
-                  aria-label="Create new"
-                  title="Create new"
-                >
-                  <x-icon aria-hidden="true" name="add"></x-icon>
-                </button>
-                <template x-teleport="body">
-                  <div
-                    class="path-overflow-menu new-items-menu"
-                    x-ref="newMenu"
-                    x-show="menu === 'new'"
-                    :style="menuStyle"
-                    @click.outside="closeMenu()"
-                  >
-                    <button
-                      type="button"
-                      class="new-item dropdown-item"
-                      x-show="!fb.isPickerMode() && fb.remoteAllowed('upload') && fb.remoteAllowed('edit')"
-                      @click="closeMenu(); fb.openNewFile()"
-                      aria-label="New file"
-                      title="New file"
-                    >
-                      <x-icon aria-hidden="true" name="note_add"></x-icon><span>New file</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="new-item dropdown-item"
-                      x-show="!fb.isTextOpenPicker() && fb.remoteAllowed('upload')"
-                      @click="closeMenu(); fb.beginNewFolder()"
-                      aria-label="New folder"
-                      title="New folder"
-                    >
-                      <x-icon aria-hidden="true" name="create_new_folder"></x-icon><span>New folder</span>
-                    </button>
-                  </div>
-                </template>
-                <span class="surface-toolbar-separator" aria-hidden="true"></span>
-                <button
-                  type="button"
-                  class="file-browser-header-button surface-control"
-                  title="Toggle file tree"
-                  aria-label="Toggle file tree"
-                  :aria-pressed="String(fb.fileTree.shown)"
-                  @click="fb.fileTree.toggle(fb.browser.currentPath)"
-                >
-                  <x-icon name="account_tree"></x-icon>
-                </button>
-                <button
-                  type="button"
-                  class="file-browser-header-button surface-control"
-                  x-show="!fb.isPickerMode()"
-                  @click="fb.openSettings()"
-                  title="File Browser Settings"
-                  aria-label="File Browser Settings"
-                >
-                  <x-icon aria-hidden="true" name="settings"></x-icon>
-                </button>
               </form>
               <template x-if="fb.pathError">
                 <div class="path-error" x-text="fb.pathError"></div>
               </template>
             </div>
-            <div x-show="fb.selectedCount > 0 && !fb.isPickerMode()" class="mass-action-toolbar file-mass-toolbar">
-              <div class="selection-summary">
-                <button
-                  type="button"
-                  class="selection-close"
-                  @click="fb.clearSelection()"
-                  :disabled="fb.isBulkBusy"
-                  title="Clear Selection"
-                  aria-label="Clear selection"
-                >
-                  <x-icon name="close"></x-icon>
-                </button>
-                <div class="selection-info" x-text="fb.selectedCountLabel"></div>
-              </div>
-
-              <div class="mass-actions">
-                <button
-                  type="button"
-                  class="btn btn-mass export"
-                  @click="fb.bulkDownloadFiles()"
-                  :disabled="fb.isBulkBusy"
-                  title="Download Selected Items"
-                  x-show="fb.remoteAllowed('download')"
-                >
-                  <x-icon name="folder_zip"></x-icon>
-                  Download ZIP
-                </button>
-
-                <button
-                  type="button"
-                  class="btn btn-mass delete"
-                  @click="$confirmClick($event, () => fb.bulkDeleteFiles())"
-                  :disabled="fb.isBulkBusy"
-                  title="Delete Selected Items"
-                  x-show="fb.remoteAllowed('delete')"
-                  aria-label="Delete selected items"
-                >
-                  <x-icon name="delete"></x-icon>
-                </button>
-              </div>
+            <div class="file-commandbar surface-toolbar" role="toolbar" aria-label="File actions" x-overflow>
+              <button type="button" class="surface-control" title="Parent folder" aria-label="Parent folder"
+                @click="fb.navigateUp()" :disabled="!fb.browser.parentPath || fb.isLoading"
+                :data-file-drop="fb.browser.parentPath"><x-icon name="arrow_upward"></x-icon></button>
+              <button type="button" class="surface-control" title="Home folder" aria-label="Home folder"
+                @click="fb.navigateToFolder('$WORK_DIR')" :disabled="fb.isLoading"><x-icon name="home"></x-icon></button>
+              <button type="button" class="surface-control" title="Trash" aria-label="Open Trash" :hidden="fb.isPickerMode() || fb.isRemote()" @click="showDialog('Trash')"><x-icon name="restore_from_trash"></x-icon></button>
+              <button type="button" class="surface-control" title="Refresh files" aria-label="Refresh files"
+                @click="fb.fetchFiles(fb.browser.currentPath, { preserveOnError: true })" :disabled="fb.isLoading || fb.isBulkBusy"><x-icon name="refresh"></x-icon></button>
+              <button type="button" class="surface-control" title="New folder" aria-label="New folder"
+                @click="fb.beginNewFolder()" :hidden="fb.isTextOpenPicker() || !fb.remoteAllowed('upload')"><x-icon name="create_new_folder"></x-icon></button>
+              <button type="button" class="surface-control" title="New file" aria-label="New file"
+                @click="fb.openNewFile()" :hidden="fb.isPickerMode() || !fb.remoteAllowed('upload') || !fb.remoteAllowed('edit')"><x-icon name="note_add"></x-icon></button>
+              <button type="button" class="surface-control" title="Upload files" aria-label="Upload files"
+                @click="$refs.upload.click()" :hidden="fb.isPickerMode() || !fb.remoteAllowed('upload')"><x-icon name="upload"></x-icon></button>
+              <button type="button" class="surface-control" title="Download selected" aria-label="Download selected"
+                @click="fb.bulkDownloadFiles()" :hidden="fb.isPickerMode()" :disabled="!fb.selectionAllows('download')"><x-icon name="download"></x-icon></button>
+              <button type="button" class="surface-control" title="Cut" aria-label="Cut" @click="fb.copySelection(true)"
+                :hidden="fb.isPickerMode()" :disabled="!fb.selectionAllows('rename')"><x-icon name="content_cut"></x-icon></button>
+              <button type="button" class="surface-control" title="Copy" aria-label="Copy" @click="fb.copySelection(false)"
+                :hidden="fb.isPickerMode()" :disabled="!fb.selectionAllows('download') || fb.isRemote()"><x-icon name="content_copy"></x-icon></button>
+              <button type="button" class="surface-control" title="Paste" aria-label="Paste" @click="fb.pasteSelection()"
+                :hidden="fb.isPickerMode()" :disabled="fb.isBulkBusy || !(fb.remoteAllowed('upload') || fb.remoteAllowed('rename'))"><x-icon name="content_paste"></x-icon></button>
+              <button type="button" class="surface-control" :title="fb.isRemote() ? 'Delete permanently' : 'Move to Trash'" :aria-label="fb.isRemote() ? 'Delete permanently' : 'Move to Trash'"
+                @click="fb.isRemote() ? showDialog('Delete permanently') : fb.trashSelected()" :hidden="fb.isPickerMode()" :disabled="!fb.selectionAllows('delete')"><x-icon name="delete"></x-icon></button>
+              <button type="button" class="surface-control" title="Toggle file tree" aria-label="Toggle file tree"
+                @click="fb.fileTree.toggle(fb.browser.currentPath)" :aria-pressed="fb.fileTree.shown"><x-icon name="account_tree"></x-icon></button>
+              <button type="button" class="surface-control" title="Icon view" aria-label="Icon view" :aria-pressed="fb.preferences.view === 'icons'"
+                @click="fb.preferences.view = fb.preferences.view === 'icons' ? 'list' : 'icons'; fb.savePreferences()"><x-icon name="grid_view"></x-icon></button>
+              <button type="button" class="surface-control" title="Properties" aria-label="Properties" :hidden="fb.isPickerMode()" @click="showDialog('Properties')"><x-icon name="info"></x-icon></button>
+              <button type="button" class="surface-control" title="File Browser Settings" aria-label="File Browser Settings"
+                @click="fb.openSettings()" :hidden="fb.isPickerMode()"><x-icon name="settings"></x-icon></button>
             </div>
-
+            <input x-ref="upload" type="file" multiple hidden @change="fb.handleFileUpload($event)">
             <div class="file-browser-workspace">
               <div class="file-browser-list-pane">
                 <!-- Files list -->
                 <div
-                  class="files-list"
+                  class="files-list" x-ref="list" role="grid" aria-label="Files" aria-multiselectable="true" tabindex="0"
+                  @keydown="fb.listKey($event)"
+                  @copy="fb.copySelection(false, $event)" @cut="fb.copySelection(true, $event)"
+                  @paste="fb.pasteSelection($event)"
+                  @click="if ($event.target === $el || $event.target.closest('.no-files')) fb.clearSelection()"
+                  @contextmenu="backgroundMenu($event)"
+                  @pointercancel="fb.lastTap = null"
                   :inert="fb.isLoading || fb.isRenaming || fb.isBulkBusy"
                   :class="{ 'file-icons-view': fb.preferences.view === 'icons', 'is-loading': fb.isLoading }"
-                  @scroll="fb.closeDropdown(); closeMenu()"
+                  @scroll="fb.lastTap = null; fb.closeDropdown(); closeMenu()"
                 >
-                  <div class="file-header">
-                    <div class="file-cell-select">
+                  <div class="file-header" role="row">
+                    <div class="file-cell-select" role="columnheader">
                       <input
                         type="checkbox"
+                        x-show="!fb.isSaveAsPicker()"
                         :checked="fb.allVisibleSelected"
                         :indeterminate="fb.someVisibleSelected && !fb.allVisibleSelected"
                         @change="fb.toggleSelectAllVisible()"
@@ -343,26 +295,32 @@
                         aria-label="Select visible items"
                       />
                     </div>
-                    <div class="file-cell" @click="fb.toggleSort('name')">
+                    <div class="file-cell" role="columnheader" :aria-sort="fb.browser.sortBy === 'name' ? (fb.browser.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                      <button type="button" @click="fb.toggleSort('name')">
                       Name
                       <span
                         x-show="fb.browser.sortBy === 'name'"
                         x-text="fb.browser.sortDirection === 'asc' ? '↑' : '↓'"
                       ></span>
+                      </button>
                     </div>
-                    <div class="file-cell-size" @click="fb.toggleSort('size')">
+                    <div class="file-cell-size" role="columnheader" :aria-sort="fb.browser.sortBy === 'size' ? (fb.browser.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                      <button type="button" @click="fb.toggleSort('size')">
                       Size
                       <span
                         x-show="fb.browser.sortBy === 'size'"
                         x-text="fb.browser.sortDirection === 'asc' ? '↑' : '↓'"
                       ></span>
+                      </button>
                     </div>
-                    <div class="file-cell-date" @click="fb.toggleSort('date')">
+                    <div class="file-cell-date" role="columnheader" :aria-sort="fb.browser.sortBy === 'date' ? (fb.browser.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                      <button type="button" @click="fb.toggleSort('date')">
                       Modified
                       <span
                         x-show="fb.browser.sortBy === 'date'"
                         x-text="fb.browser.sortDirection === 'asc' ? '↑' : '↓'"
                       ></span>
+                      </button>
                     </div>
                     <div class="file-cell-actions"></div>
                   </div>
@@ -371,32 +329,32 @@
                   <template x-if="fb.visibleEntries.length">
                     <template x-for="file in fb.visibleEntries" :key="file.path">
                       <div
-                        class="file-item"
-                        @click="fb.handleFileNameClick(file)"
+                        class="file-item" role="row" tabindex="-1"
+                        :data-file-path="file.path"
+                        :aria-selected="file.selected.toString()"
+                        @focus="fb.focusedPath = file.path"
+                        @click="fb.clickEntry(file, $event)"
+                        @contextmenu="fb.contextEntry(file, $event)"
                         :data-is-dir="file.is_dir"
-                        :draggable="!fb.isPickerMode() && !fb.isBulkBusy"
+                        :data-file-drop="file.is_dir ? file.path : null"
                         :class="{
-                        'selected': file.selected,
-                        'is-dragging': fb.isDraggingPath(file.path),
-                        'is-drop-target': file.is_dir && fb.dragOverPath === file.path
-                      }"
-                        @dragstart="fb.startDrag(file, $event)"
-                        @dragend="fb.clearDragState()"
-                        @dragover="file.is_dir && fb.setDropTarget(file.path, $event)"
-                        @dragleave="file.is_dir && fb.clearDropTarget(file.path, $event)"
-                        @drop="file.is_dir && fb.dropItems(file.path, file.name, $event)"
+                          'selected': file.selected,
+                          'is-cut': fb.clipboard?.move && fb.clipboard.paths.includes(fb.normalizePath(file.path))
+                        }"
                       >
-                        <label class="file-select-cell" @click.stop>
-                          <template x-if="!fb.isTextOpenPicker() || !file.is_dir">
+                        <label class="file-select-cell" role="gridcell" @click.stop @pointerdown="fb.lastTap = null">
+                          <template x-if="fb.isSelectableEntry(file)">
                             <input
                               type="checkbox"
-                              x-model="file.selected"
+                              tabindex="-1"
+                              :checked="file.selected"
+                              @click.stop="fb.selectEntry(file, {ctrlKey: true, shiftKey: $event.shiftKey})"
                               :disabled="!fb.isSelectableEntry(file)"
                               :aria-label="`Select ${file.name}`"
                             />
                           </template>
                         </label>
-                        <div class="file-name">
+                        <div class="file-name" role="gridcell">
                           <template x-if="file.is_dir">
                             <x-icon name="folder" class="file-icon file-folder-icon"></x-icon>
                           </template>
@@ -408,111 +366,73 @@
                               draggable="false"
                             />
                           </template>
-                          <span x-text="file.name"></span>
+                          <span dir="auto" x-text="file.name"></span>
                         </div>
-                        <div class="file-size" x-text="file.is_dir ? '—' : fb.formatFileSize(file.size)"></div>
-                        <div class="file-date" x-text="fb.formatDate(file.modified)"></div>
-                        <div class="file-actions" x-data="{ fileActions: $el }" x-show="!fb.isPickerMode()" @click.stop>
+                        <div class="file-size" role="gridcell" :title="file.is_dir ? null : file.size.toLocaleString() + ' bytes'" x-text="file.is_dir ? '—' : fb.formatFileSize(file.size)"></div>
+                        <div class="file-date" role="gridcell" x-text="fb.formatDate(file.modified)"></div>
+                        <div class="file-actions" role="gridcell" x-data="{ fileActions: $el }" x-show="!fb.isPickerMode()" @click.stop>
                           <!-- Secondary single-item actions (Rename/...) are grouped under a dropdown -->
                           <div
                             class="dropdown file-actions-dropdown"
-                            @click.outside="fb.closeDropdown()"
-                            @keydown.escape.window="fb.closeDropdown()"
                           >
                             <button
                               type="button"
                               class="btn-icon-action dropdown-trigger"
                               @click.stop="fb.toggleDropdown(file.path, $event.currentTarget)"
                               :aria-expanded="fb.isDropdownOpen(file.path, fileActions).toString()"
-                              aria-label="More actions"
+                              :aria-label="`Actions for ${file.name}`"
                               title="More actions"
                             >
                               <x-icon name="more_vert"></x-icon>
                             </button>
 
-                            <template x-teleport="body">
+                            <template x-if="fb.isDropdownOpen(file.path, fileActions)">
+                            <div><template x-teleport="body">
                               <div
                                 class="dropdown-menu file-actions-menu"
-                                x-show="fb.isDropdownOpen(file.path, fileActions)"
-                                x-transition
+                                @click.outside="if (!$event.target.closest('.dropdown-trigger')) fb.closeDropdown()"
+                                x-init="$nextTick(() => Array.from($el.querySelectorAll('button')).find(b => b.checkVisibility())?.focus({preventScroll:true}))"
+                                @keydown.escape.stop.prevent="fb.closeDropdown(true)"
+                                @keydown.arrow-down.stop.prevent="fb.focusMenuButton($el, 1)"
+                                @keydown.arrow-up.stop.prevent="fb.focusMenuButton($el, -1)"
                                 :style="fb.dropdownStyle"
-                                style="display: none"
                                 @click.stop="fb.closeDropdown()"
                               >
-                                <button
-                                  type="button"
-                                  class="dropdown-item"
-                                  x-show="fb.isEditableFile(file)"
-                                  @click="fb.openFileEditor(file)"
-                                >
-                                  <x-icon name="edit"></x-icon>
-                                  <span>Edit</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  class="dropdown-item"
-                                  x-show="fb.canOpenInActionMenu(file)"
-                                  @click="fb.openInSurface(file)"
-                                  :title="fb.surfaceActionTitle(file)"
-                                >
-                                  <x-icon :name="fb.surfaceActionIcon(file)"></x-icon>
-                                  <span x-text="fb.surfaceActionLabel(file)"></span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  class="dropdown-item"
-                                  x-show="file.is_dir && fb.remoteAllowed('download', file)"
-                                  @click="fb.downloadFile(file)"
-                                >
-                                  <x-icon name="folder_zip"></x-icon>
-                                  <span>Download ZIP</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  class="dropdown-item"
-                                  x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"
-                                  @click="fb.extractArchive(file)"
-                                >
-                                  <x-icon name="unarchive"></x-icon>
-                                  <span>Extract</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  class="dropdown-item"
-                                  x-show="fb.remoteAllowed('rename', file)"
-                                  @click="fb.beginRename(file)"
-                                >
-                                  <x-icon name="drive_file_rename_outline"></x-icon>
-                                  <span>Rename</span>
-                                </button>
-                                <template x-if="fb.isDropdownOpen(file.path, fileActions)">
+                                <button type="button" class="dropdown-item" x-show="fb.selectedCount === 1 &amp;&amp; fb.canPreview(file)" @click="fb.previewFile(file)">
+                                  <x-icon name="visibility"></x-icon><span>Preview</span></button>
+                                <button type="button" class="dropdown-item" x-show="fb.selectedCount === 1 &amp;&amp; fb.isEditableFile(file)" @click="fb.openFileEditor(file)">
+                                  <x-icon name="edit"></x-icon><span>Edit</span></button>
+                                <button type="button" class="dropdown-item" x-show="fb.selectedCount === 1 &amp;&amp; fb.canOpenInActionMenu(file)" @click="fb.openInSurface(file)">
+                                  <x-icon :name="fb.surfaceActionIcon(file)"></x-icon><span x-text="fb.surfaceActionLabel(file)"></span></button>
+                                <button type="button" class="dropdown-item" x-show="fb.selectedCount === 1 &amp;&amp; fb.selectionAllows('rename')" @click="fb.beginRename(file)">
+                                  <x-icon name="drive_file_rename_outline"></x-icon><span>Rename</span></button>
+                                <button type="button" class="dropdown-item" :disabled="!fb.selectionAllows('rename')" @click="fb.copySelection(true)">
+                                  <x-icon name="content_cut"></x-icon><span>Cut</span></button>
+                                <button type="button" class="dropdown-item" :disabled="!fb.selectionAllows('download') || fb.isRemote()" @click="fb.copySelection(false)">
+                                  <x-icon name="content_copy"></x-icon><span>Copy</span></button>
+                                <button type="button" class="dropdown-item" :disabled="!fb.selectionAllows('download') || fb.isRemote()" @click="fb.chooseDestination('copy')">
+                                  <x-icon name="file_copy"></x-icon><span>Copy to…</span></button>
+                                <button type="button" class="dropdown-item" :disabled="!fb.selectionAllows('rename')" @click="fb.chooseDestination('move')">
+                                  <x-icon name="drive_file_move"></x-icon><span>Move to…</span></button>
+                                <button type="button" class="dropdown-item" :disabled="!fb.selectionAllows('download')" @click="fb.bulkDownloadFiles()">
+                                  <x-icon name="download"></x-icon><span>Download</span></button>
+                                <button type="button" class="dropdown-item" x-show="!fb.isRemote()" @click="showDialog('Create ZIP')">
+                                  <x-icon name="folder_zip"></x-icon><span>Create ZIP…</span></button>
+                                <button type="button" class="dropdown-item" x-show="fb.selectedCount === 1 &amp;&amp; !file.is_dir &amp;&amp; !fb.isRemote(file.path) &amp;&amp; fb.isArchive(file.name)" @click="fb.extractArchive(file)">
+                                  <x-icon name="unarchive"></x-icon><span>Extract</span></button>
+                                <button type="button" class="dropdown-item" x-show="!fb.isRemote()" :disabled="!fb.selectionAllows('delete')" @click="fb.trashSelected()">
+                                  <x-icon name="delete_outline"></x-icon><span>Move to Trash</span></button>
+                                <button type="button" class="dropdown-item" :disabled="!fb.selectionAllows('delete')" @click="showDialog('Delete permanently')">
+                                  <x-icon name="delete_forever"></x-icon><span>Delete permanently…</span></button>
+                                <button type="button" class="dropdown-item" @click="showDialog('Properties')">
+                                  <x-icon name="info"></x-icon><span>Properties</span></button>
+                                <template x-if="fb.selectedCount === 1">
                                   <template x-if="!fb.embedded"><x-extension id="file-browser-actions-menu"></x-extension></template>
                                 </template>
                               </div>
+                            </template></div>
                             </template>
                           </div>
-                          <button
-                            class="btn-icon-action"
-                            x-show="!file.is_dir && fb.remoteAllowed('download', file)"
-                            @click.stop="fb.downloadFile(file)"
-                            title="Download file"
-                            aria-label="Download file"
-                          >
-                            <x-icon name="download"></x-icon>
-                          </button>
-                          <button
-                            class="btn-icon-action danger"
-                            x-show="fb.remoteAllowed('delete', file)"
-                            @click.stop="$confirmClick($event, () => fb.deleteFile(file))"
-                            title="Delete item"
-                            aria-label="Delete item"
-                          >
-                            <x-icon name="delete"></x-icon>
-                          </button>
                         </div>
                       </div>
                     </template>
@@ -520,12 +440,12 @@
 
                   <!-- Empty state -->
                   <template x-if="!fb.browser.entries.length && !fb.isLoading">
-                    <div class="no-files">No files found</div>
+                    <div class="no-files">This folder is empty</div>
                   </template>
                   <template x-if="fb.browser.entries.length && !fb.visibleEntries.length">
                     <div class="no-files">
-                      <div>No matching files found</div>
-                      <button class="btn btn-cancel btn-clear-search" @click="fb.clearSearch()">
+                      <div>No visible matches</div>
+                      <button x-show="fb.searchQuery" class="btn btn-cancel btn-clear-search" @click="fb.clearSearch()">
                         <x-icon name="close"></x-icon>
                         Clear
                       </button>
@@ -537,17 +457,100 @@
                 <x-component path="modals/file-browser/file-tree.html" :owner="owner"></x-component>
               </div>
             </div>
+            <template x-teleport="body">
+              <div class="path-overflow-menu" x-ref="backgroundMenu" x-show="menu === 'background'" :style="menuStyle" style="display:none"
+                @click.outside="closeMenu()" @click="closeMenu()">
+                <button type="button" class="dropdown-item" :disabled="!fb.remoteAllowed('upload')" @click="fb.beginNewFolder()">New folder</button>
+                <button type="button" class="dropdown-item" :disabled="!fb.remoteAllowed('upload') || !fb.remoteAllowed('edit')" @click="fb.openNewFile()">New file</button>
+                <button type="button" class="dropdown-item" :disabled="!fb.remoteAllowed('upload')" @click="fb.pasteSelection()">Paste</button>
+                <button type="button" class="dropdown-item" @click="showDialog('Properties')">Properties</button>
+              </div>
+            </template>
+            <dialog class="file-details-dialog files-media-dialog" aria-label="Media preview" x-data="fb.mediaPreview()" @file-preview="show($event.detail, fb.visibleEntries)"
+              @close="if (!$el.open) clear()" @keydown.escape.stop @keydown.left.stop.prevent="step(-1)" @keydown.right.stop.prevent="step(1)">
+              <div class="file-dialog-buttons">
+                <button class="surface-control" aria-label="Back to files" @click="$el.closest('dialog').close()"><x-icon name="arrow_back"></x-icon></button>
+                <button class="surface-control" aria-label="Previous media" :disabled="items.length < 2" @click="step(-1)"><x-icon name="chevron_left"></x-icon></button>
+                <span x-text="(index + 1) + ' / ' + items.length"></span>
+                <button class="surface-control" aria-label="Next media" :disabled="items.length < 2" @click="step(1)"><x-icon name="chevron_right"></x-icon></button>
+                <button class="surface-control" x-show="kind === 'image'" @click="originalSize = !originalSize" x-text="originalSize ? 'Fit' : '100%'"></button>
+                <button class="surface-control" aria-label="Download file" @click="fb.downloadFile(file)"><x-icon name="download"></x-icon></button>
+              </div>
+              <strong x-text="file?.name"></strong>
+              <div class="file-media-content" :class="{'original-size': originalSize}">
+                <p role="status" x-show="!url || error" x-text="error || 'Loading…'"></p>
+                <template x-if="url &amp;&amp; kind === 'image'"><img :src="url" :alt="file.name" @dblclick="originalSize = !originalSize" @error="error = 'Image preview unavailable.'"></template>
+                <template x-if="url &amp;&amp; kind === 'video'"><video :src="url" controls @error="error = 'Video preview unavailable.'"></video></template>
+                <template x-if="url &amp;&amp; kind === 'audio'"><audio :src="url" controls @error="error = 'Audio preview unavailable.'"></audio></template>
+              </div>
+            </dialog>
+            <dialog x-ref="details" class="file-details-dialog" aria-label="File actions" :aria-label="dialogKind"
+              @keydown.escape.stop @cancel="if (fb.isBulkBusy) $event.preventDefault()" @close="if (!$el.open) dialogKind = ''">
+              <h3 x-text="dialogKind"></h3>
+              <template x-if="dialogKind === 'Properties'">
+                <div class="file-detail-list"><template x-for="entry in dialogEntries" :key="entry.path"><div>
+                  <strong x-text="entry.name || entry.path"></strong>
+                  <div x-text="fb.normalizePath(entry.path)"></div>
+                  <div x-text="entry.is_symlink ? 'Link to ' + entry.symlink_target : entry.is_dir ? 'Folder' : entry.size.toLocaleString() + ' bytes'"></div>
+                  <div x-show="entry.mode" x-text="entry.mode"></div>
+                  <time x-show="entry.modified" x-text="entry.modified ? fb.formatDate(entry.modified) : ''"></time>
+                </div></template></div>
+              </template>
+              <template x-if="dialogKind === 'Trash'">
+                <div>
+                  <p x-show="trashLoading">Loading…</p>
+                  <p x-show="!trashLoading &amp;&amp; !trashEntries.length &amp;&amp; !dialogError">Trash is empty.</p>
+                  <div class="file-detail-list"><template x-for="entry in trashEntries" :key="entry.id"><label>
+                    <input type="checkbox" :value="entry.id" x-model="trashIds" @change="purgeConfirm = false">
+                    <span x-text="entry.path"></span>
+                  </label></template></div>
+                  <div class="file-dialog-buttons" x-show="trashEntries.length">
+                    <button class="btn" :disabled="!trashIds.length || fb.isBulkBusy" @click="changeTrash('restore')">Restore</button>
+                    <button class="btn" :disabled="!trashIds.length || fb.isBulkBusy" @click="purgeConfirm ? changeTrash('purge') : purgeConfirm = true"
+                      x-text="purgeConfirm ? 'Confirm permanent deletion' : 'Delete permanently…'"></button>
+                  </div>
+                </div>
+              </template>
+              <template x-if="dialogKind === 'Create ZIP'">
+                <form @submit.prevent="if (await fb.localAction('compress', dialogEntries.map(f => fb.normalizePath(f.path)), archiveName)) $refs.details.close(); else dialogError = fb.operationError">
+                  <label>Archive name <input x-model="archiveName" required></label>
+                  <button class="btn btn-ok" :disabled="fb.isBulkBusy || !archiveName.trim()">Create ZIP</button>
+                </form>
+              </template>
+              <template x-if="dialogKind === 'Delete permanently'">
+                <div><p x-text="'Permanently delete ' + (dialogEntries.length === 1 ? dialogEntries[0].name : dialogEntries.length + ' selected items') + '?'"></p>
+                  <button type="button" class="btn" :disabled="fb.isBulkBusy" @click="await fb.bulkDeleteFiles(dialogEntries); $refs.details.close()">Delete permanently</button>
+                </div>
+              </template>
+              <p role="status" x-show="fb.isBulkBusy" x-text="fb.operationLabel"></p>
+              <p role="alert" x-show="dialogError" x-text="dialogError"></p>
+              <button type="button" class="btn btn-cancel" :disabled="fb.isBulkBusy" @click="$refs.details.close()">Close</button>
+            </dialog>
+            <div class="file-operation" role="status" x-show="fb.isBulkBusy" style="display:none"><progress aria-label="File operation"></progress><span x-text="fb.operationLabel || 'Working…'"></span></div>
+            <div class="file-statusbar" role="group" aria-label="File list controls">
+              <button type="button" class="surface-control" aria-label="Filter files" title="Filter files"
+                :aria-expanded="fb.filterOpen" @click="fb.filterOpen = !fb.filterOpen; if (fb.filterOpen) $nextTick(() => $refs.filter.focus()); else fb.clearSearch()">
+                <x-icon name="search"></x-icon>
+              </button>
+              <input x-ref="filter" x-show="fb.filterOpen" class="file-filter-input" type="search" aria-label="Filter by name" placeholder="Filter by name"
+                :value="fb.searchQuery" @input="fb.setFilter($el.value)" @keydown.escape.stop.prevent="fb.filterOpen = false; fb.clearSearch(); $refs.list.focus()"
+                @keydown.enter.prevent="$refs.list.focus()" @keydown.arrow-up.prevent="$refs.list.focus()" @keydown.arrow-down.prevent="$refs.list.focus()">
+              <label><input type="checkbox" :checked="fb.showHidden" @change="fb.setFilter(fb.searchQuery, $el.checked)"> Hidden</label>
+              <button type="button" class="surface-control" x-show="fb.selectedCount" title="Clear selection" aria-label="Clear selection" @click="fb.clearSelection()"><x-icon name="close"></x-icon></button>
+              <span role="status" x-text="fb.selectedCount ? fb.selectedCountLabel : fb.filteredEntries.length + ' of ' + fb.browser.entries.length"></span>
+            </div>
           </div>
         </div>
       </template>
 
       <!-- Modal Footer (outside template x-if so it exists immediately) -->
       <template x-if="fb">
-        <div class="modal-footer file-browser-footer" data-modal-footer
+        <div class="modal-footer file-browser-footer" x-show="fb.isPickerMode() || fb.renameInline" data-modal-footer
           :data-modal-footer="xAttrs($el)?.mode === 'canvas' || fb.embedded ? null : ''"
           x-data="{ footerOwner: xAttrs($el)?.owner || 'fileBrowser', get fb() { return this.footerOwner === 'fileBrowser' ? $store.fileBrowser.current : $store[this.footerOwner]; } }"
           :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': fb.embedded }">
           <div class="file-browser-picker-actions" x-show="fb.isPickerMode() || fb.renameInline" style="display: none">
+            <span x-show="fb.destinationSelection &amp;&amp; !fb.renameInline">Choose a destination folder</span>
             <template x-if="fb.renameInline">
               <span class="picker-inline-label" x-text="fb.renameMode === 'create-folder' ? 'New folder' : 'Rename'"></span>
             </template>
@@ -594,24 +597,6 @@
             ></button>
             <button type="button" class="btn btn-cancel" :disabled="fb.isBulkBusy || fb.isRenaming" @click="fb.renameInline ? fb.closeRenameModal() : fb.cancelPicker()">Cancel</button>
           </div>
-          <label class="btn btn-upload" x-show="!fb.isPickerMode() && !fb.renameInline && fb.remoteAllowed('upload')">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"
-              />
-            </svg>
-            Upload Files
-            <input type="file" multiple accept="*" @change="fb.handleFileUpload($event)" style="display: none" />
-          </label>
-          <button
-            class="btn btn-cancel"
-            x-show="!fb.embedded && xAttrs($el)?.mode !== 'canvas' && !fb.isPickerMode() && !fb.renameInline"
-            @click="fb.handleClose()"
-          >
-            Close Browser
-          </button>
         </div>
       </template>
     </div>
@@ -725,6 +710,8 @@
 
       /* File Browser Styles */
       .files-list {
+        scroll-padding-top: 2.5rem;
+        --file-columns: minmax(0, 1fr) 4rem 9rem 2.5rem;
         width: 100%;
         border-radius: 4px;
       }
@@ -761,8 +748,7 @@
         overflow: hidden;
         display: grid;
         grid-template-columns:
-          2.5rem minmax(0, 1.5fr) minmax(5.5rem, 0.7fr)
-          minmax(9rem, 1fr) 8.75rem;
+          var(--file-columns);
         background: color-mix(in srgb, var(--color-panel) 88%, var(--color-background) 12%);
         padding: 4px 0;
         font-weight: bold;
@@ -787,8 +773,7 @@
         cursor: pointer;
         display: grid;
         grid-template-columns:
-          2.5rem minmax(0, 1.5fr) minmax(5.5rem, 0.7fr)
-          minmax(9rem, 1fr) 8.75rem;
+          var(--file-columns);
         align-items: center;
         padding: 5px 0;
         font-size: 0.875rem;
@@ -805,19 +790,57 @@
       .file-item:hover {
         background-color: var(--color-secondary);
       }
-      .file-item.selected {
-        background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+      .file-browser-root { position: relative; }
+      .file-browser-root[data-file-drop-hint]::after {
+        content: attr(data-file-drop-hint);
+        position: absolute; inset: auto 8px 38px auto; z-index: 4;
+        padding: 4px 10px; border-radius: 4px; pointer-events: none;
+        background: var(--color-highlight); color: white;
       }
-      .file-item.is-dragging {
+      .file-drop-target { outline: 2px dashed var(--color-highlight); outline-offset: -2px; }
+      .file-drag-label, .file-selection-box { position: fixed; pointer-events: none; z-index: 10000; }
+      .file-drag-label { background: var(--color-panel); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 4px; padding: 4px 8px; }
+      .file-selection-box { background: color-mix(in srgb, var(--color-highlight) 12%, transparent); border: 1px solid var(--color-highlight); }
+      .file-select-cell { touch-action: none; }
+      .file-item { user-select: none; touch-action: pan-y; }
+      .file-item.selected {
+        background: color-mix(in srgb, var(--color-highlight) 18%, var(--color-panel));
+        box-shadow: inset 2px 0 var(--color-highlight);
+      }
+      .file-item:focus-visible {
+        outline: 2px solid var(--color-highlight);
+        outline-offset: -2px;
+      }
+      .file-header button {
+        background: transparent;
+        border: 0;
+        color: inherit;
+        font: inherit;
+        padding: 0;
+        cursor: pointer;
+      }
+      .file-statusbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 3px 8px;
+        font-size: var(--font-size-small);
+        border-top: 1px solid var(--color-border);
+      }
+      .file-statusbar label { display: inline-flex; align-items: center; gap: 4px; }
+      .file-statusbar [role="status"] { margin-left: auto; color: var(--color-text-muted); }
+      .file-filter-input { flex: 1 1 6rem; min-width: 0; max-width: 16rem; }
+      .file-item.is-cut {
         opacity: 0.45;
         transform: scale(0.995);
       }
-      .file-item.is-drop-target,
+      .file-item.file-drop-target,
       .nav-button.is-drop-target {
         background: color-mix(in srgb, var(--color-primary) 18%, var(--color-input) 82%);
         box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 72%, transparent);
       }
-      .file-item.is-drop-target .file-icon,
+      .file-item.file-drop-target .file-icon,
       .nav-button.is-drop-target .material-symbols-outlined {
         transform: scale(1.12);
       }
@@ -850,13 +873,15 @@
         transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
       }
       .file-folder-icon {
-        color: #a0a0a0;
+        color: var(--color-highlight);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-size: 22px;
       }
-      .file-name {
+      .file-item .file-name {
+        font-size: inherit;
+        text-align: start;
         display: flex;
         align-items: center;
         font-weight: 500;
@@ -1112,7 +1137,7 @@
         cursor: default;
       }
 
-      .path-crumb.is-drop-target {
+      .path-crumb.file-drop-target {
         outline: 1px solid var(--color-primary);
       }
 
@@ -1186,109 +1211,6 @@
         opacity: 1;
       }
 
-      .file-mass-toolbar {
-        border-radius: 8px;
-        border-left: 1px solid var(--color-border);
-        border-right: 1px solid var(--color-border);
-        border-bottom: 1px solid var(--color-border);
-      }
-
-      .file-mass-toolbar .btn-mass:disabled {
-        opacity: 0.55;
-        cursor: wait;
-      }
-
-      .nav-button {
-        appearance: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.1rem;
-        min-height: 2.35rem;
-        padding: 0.22rem 0.62rem 0.24rem;
-        border: 1px solid var(--color-border);
-        border-radius: 6px;
-        background: color-mix(in srgb, var(--color-input) 86%, var(--color-panel) 14%);
-        color: var(--color-text);
-        font: inherit;
-        line-height: 1;
-        box-shadow: none;
-        cursor: pointer;
-        transition:
-          background-color 0.15s ease,
-          border-color 0.15s ease,
-          color 0.15s ease,
-          opacity 0.15s ease;
-      }
-      .nav-button.back-button {
-        flex: 0 0 auto;
-        flex-direction: column;
-        min-width: 3.1rem;
-      }
-      .nav-button .material-symbols-outlined {
-        font-size: 1.05rem;
-        line-height: 1;
-        transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
-      }
-      .nav-button-label {
-        font-size: 0.66rem;
-        font-weight: 600;
-        letter-spacing: 0;
-        line-height: 1;
-      }
-      .nav-button:hover:not(:disabled) {
-        border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border));
-        background: color-mix(in srgb, var(--color-input-focus) 84%, var(--color-primary) 16%);
-        color: var(--color-text);
-      }
-      .nav-button:focus-visible {
-        outline: none;
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 22%, transparent);
-      }
-      .nav-button:disabled {
-        cursor: not-allowed;
-        opacity: 0.5;
-      }
-      /* Folder Specific Styles */
-      .file-item[data-is-dir="true"] {
-        cursor: pointer;
-      }
-      .file-item[draggable="true"] {
-        cursor: grab;
-      }
-      .file-item[draggable="true"]:active {
-        cursor: grabbing;
-      }
-      .file-item[data-is-dir="true"]:hover {
-        background-color: var(--color-secondary);
-      }
-      .file-item[data-is-dir="true"].is-drop-target:hover {
-        background: color-mix(in srgb, var(--color-primary) 18%, var(--color-input) 82%);
-      }
-
-      /* Upload Button Styles */
-      .btn-upload {
-        display: inline-flex;
-        align-items: center;
-        padding: 8px 16px;
-        background: var(--color-highlight);
-        gap: 0.5rem;
-        color: white;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.3s ease-in-out;
-      }
-      .btn-upload > svg {
-        width: 20px;
-      }
-      .btn-upload:hover {
-        background-color: color-mix(in srgb, var(--color-highlight) 80%, black);
-      }
-      .btn-upload:active {
-        background-color: color-mix(in srgb, var(--color-highlight) 65%, black);
-      }
-
       .file-browser-footer {
         container: file-browser-footer / inline-size;
       }
@@ -1344,8 +1266,7 @@
       .file-actions-menu {
         margin: 0;
       }
-      .file-browser-header-button,
-      .path-navigator .back-button {
+      .file-browser-header-button {
         display: inline-grid;
         place-items: center;
         flex: 0 0 32px;
@@ -1404,27 +1325,17 @@
         cursor: not-allowed;
         opacity: 0.5;
       }
-      .file-mass-toolbar {
-        flex: 0 0 auto;
-        flex-flow: row wrap;
-        gap: 0.75rem 1rem;
-        margin: 0 6px;
+      .file-commandbar {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 6px;
+        border-bottom: 1px solid var(--color-border);
       }
-      .file-mass-toolbar .selection-info {
-        flex-shrink: 0;
-        white-space: nowrap;
-      }
-      .file-mass-toolbar .mass-actions {
-        flex-wrap: wrap;
-        justify-content: flex-start;
-      }
-      .file-mass-toolbar .btn-mass {
-        flex-shrink: 0;
-        white-space: nowrap;
-      }
-      .file-mass-toolbar .btn-mass.delete {
-        padding-inline: 0.5rem;
-      }
+      .file-commandbar [aria-label="Refresh files"], .file-commandbar [aria-label="Toggle file tree"] { margin-inline-start: 5px; border-inline-start: 1px solid var(--color-border); }
+      .file-commandbar [aria-label="Parent folder"], .file-commandbar [aria-label="Home folder"], .file-commandbar [aria-label="Open Trash"] { color: var(--color-primary); }
+      .file-commandbar [hidden] { display: none !important; }
       .file-browser-workspace {
         display: flex;
         flex: 1;
@@ -1442,92 +1353,40 @@
         min-height: 0;
         padding: 0 6px;
       }
-      .btn-secondary {
-        background: var(--color-secondary);
-        color: var(--color-text);
-        border: 1px solid var(--color-border);
+      .file-details-dialog { color: var(--color-text); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; padding: 1rem; width: min(26rem, 90vw); max-height: 80dvh; overflow: auto; }
+      .files-media-dialog { width: min(48rem, 94vw); }
+      .files-media-dialog > strong { display: block; overflow-wrap: anywhere; margin-block: 0.5rem; }
+      .files-media-dialog .file-dialog-buttons { margin: 0; }
+      .file-media-content { overflow: auto; max-height: 60dvh; overscroll-behavior: contain; }
+      .file-media-content img, .file-media-content video { display: block; max-width: 100%; max-height: 60dvh; margin: auto; }
+      .file-media-content.original-size img { max-width: none; max-height: none; }
+      .file-details-dialog::backdrop { background: #0008; }
+      .file-details-dialog h3 { margin-top: 0; }
+      .file-details-dialog .btn-cancel { margin-top: 1rem; }
+      .file-detail-list { display: grid; gap: 0.75rem; overflow-wrap: anywhere; }
+      .file-detail-list label, .file-dialog-buttons, .file-operation { display: flex; align-items: center; gap: 0.5rem; }
+      .file-dialog-buttons { margin-top: 0.75rem; flex-wrap: wrap; }
+      .file-operation { padding: 0.25rem 0.5rem; font-size: var(--font-size-small); }
+      .file-operation progress { height: 4px; accent-color: var(--color-highlight); }
+      @container file-browser (min-width: 621px) {
+        .file-select-cell, .file-cell-select { display: none; }
       }
-      .btn-secondary:hover {
-        filter: brightness(1.05);
-      }
-      .btn-secondary:active {
-        filter: brightness(0.95);
-      }
-      /* Responsive Design */
-      @media (max-width: 768px) {
-        .path-navigator {
-          align-items: center;
-          flex-direction: row;
-          gap: 0.5rem;
-        }
-        .path-navigator .back-button {
-          align-self: stretch;
-        }
-        .file-header {
-          grid-template-columns:
-            2.25rem minmax(0, 1fr) minmax(5rem, 0.52fr)
-            8.75rem;
-        }
-        .file-item {
-          grid-template-columns:
-            2.25rem minmax(0, 1fr) minmax(5rem, 0.5fr)
-            8.75rem;
-        }
-        .file-cell-date,
-        .file-date {
-          display: none;
-        }
-        .file-actions {
-          gap: 0.2rem;
-          padding-right: 0.2rem;
-        }
-      }
-      @media (max-width: 540px) {
-        .path-navigator .back-button {
-          min-width: 32px;
-          padding-inline: 0;
-        }
-        .path-navigator .nav-button-label {
-          display: none;
-        }
-        .file-header,
-        .file-item {
-          grid-template-columns:
-            2.25rem minmax(0, 1fr) minmax(4.25rem, max-content)
-            8rem;
-        }
-        .file-cell-date,
-        .file-date {
-          display: none;
-        }
-      }
+      .files-list:not(.file-icons-view) .file-item.selected { box-shadow: inset 1px 0 var(--color-highlight), inset -1px 0 var(--color-highlight); border-top-color: transparent; }
+      .files-list:not(.file-icons-view) :not(.selected) + .file-item.selected { border-radius: 4px 4px 0 0; border-top-color: var(--color-highlight); }
+      .files-list:not(.file-icons-view) .file-item.selected:not(:has(+ .selected)) { border-radius: 0 0 4px 4px; border-bottom: 1px solid var(--color-highlight); padding-bottom: 4px; }
       @container file-browser (max-width: 620px) {
-        .file-header,
-        .file-item {
-          grid-template-columns:
-            2.25rem minmax(0, 1fr) minmax(4.25rem, max-content)
-            8rem;
-        }
-        .file-cell-date,
-        .file-date {
-          display: none;
-        }
-        .file-actions {
-          gap: 0.2rem;
-          padding-right: 0.2rem;
-        }
+        .files-list { --file-columns: 44px minmax(0, 1fr) 4.5rem 36px; }
+        .file-cell-date, .file-date { display: none; }
+        .file-select-cell { min-height: 44px; }
+        .file-actions { padding-right: 0; }
+        .file-icon { margin: 0 0.5rem 0 0.25rem; }
       }
       @container file-browser (max-width: 400px) {
         .path-navigator { flex-wrap: wrap; }
         .path-edit-group,
         .path-buttons-group { flex-basis: calc(100% - 88px); }
         .path-navigator > .surface-toolbar-separator { display: none; }
-        .path-navigator .btn-new-item { margin-left: auto; }
-        .file-header,
-        .file-item { grid-template-columns: 2.25rem minmax(0, 1fr) 7rem; }
-        .file-cell-size,
-        .file-size { display: none; }
-        .file-icon { margin: 0 0.5rem 0 0.25rem; }
+
       }
       @container file-browser-footer (max-width: 620px) {
         .file-browser-picker-actions {

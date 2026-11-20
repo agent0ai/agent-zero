@@ -399,8 +399,8 @@ def test_browser_zoom_does_not_create_false_overflow():
         document.addEventListener('alpine:init', () => registerOverflow(Alpine));
         await import('/vendor/alpine/alpine.min.js');
       </script>
-    </head><body x-data><div id="host"><div id="row" x-overflow>
-      <button>Model</button><button>Reasoning effort</button><button>Agent</button><button>Context</button>
+    </head><body x-data="{ clicks: 0 }"><div id="host"><div id="row" x-overflow>
+      <button>Model</button><button>Reasoning effort</button><button>Agent</button><button @click="clicks++">Context</button>
     </div></div></body></html>"""
 
     # Browser zoom requires a full Chromium and an isolated persistent profile.
@@ -423,5 +423,11 @@ def test_browser_zoom_does_not_create_false_overflow():
                 playwright.expect(page.locator(".overflow-hidden")).to_have_count(0)
                 page.evaluate("document.getElementById('host').style.width = '220px'")
                 playwright.expect(more).to_be_visible()
+                more.click()
+                action = page.get_by_role("menuitem", name="Context", exact=True)
+                assert action.get_attribute("aria-haspopup") is None
+                action.click()
+                playwright.expect(page.get_by_role("menu", name="More controls")).to_be_hidden()
                 page.evaluate("document.getElementById('host').style.width = '600px'")
                 playwright.expect(more).to_be_hidden()
+            assert page.evaluate("Alpine.$data(document.body).clicks") == 5

@@ -4,4 +4,6 @@ Authenticated, CSRF-protected multipart uploads accept `files[]` and `path`. Del
 
 Blocking file/provider I/O runs in a worker thread in both development and production, with no base64 roundtrip. The async `upload_file` base64 entry point remains available for compatibility. Failed local writes preserve existing files; partial batch failures retain the successful/failed filename response fields.
 
+The Files UI includes a local JSON manifest with relative file and folder names. The worker validates names, streams into a private staging directory, then publishes each top-level item exclusively. Existing names receive a numbered sibling. Partial publication reports successful and failed items. Requests without a manifest retain their original write semantics.
+
 Verify multipart boundaries, atomic preservation, remote provider uploads and mutation notifications.

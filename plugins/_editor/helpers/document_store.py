@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from helpers import files
-from helpers.file_browser import FileBrowser
+from helpers.file_browser import FileBrowser, rename_no_replace
 from helpers.localization import Localization
 
 
@@ -535,66 +535,59 @@ def save_text_document_as(
     context_id: str = "",
     file_browser: bool = False,
 ) -> dict[str, Any]:
-    target = normalize_path(path, context_id=context_id, file_browser=file_browser)
+    candidate = _path_from_a0(path)
+    target = normalize_path(candidate.parent, context_id=context_id, file_browser=file_browser) / candidate.name
     ext = target.suffix.lstrip(".").lower()
     if not is_editor_document({"extension": ext}):
         raise ValueError("Editor Save As requires a text file, not an office document.")
-    if target.exists():
+    if os.path.lexists(target):
         raise FileExistsError(f"Target already exists: {display_path(target)}")
 
     data = editor_text_bytes(str(content or ""))
-
-    with connect() as conn:
-        source = get_document(file_id, conn=conn)
-        source_ext = str(source.get("extension") or "").lower()
-        if not is_editor_document(source):
-            raise ValueError(f"Editor Save As is not available for .{source_ext}.")
-        changed_at = now()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        _write_atomic(target, data, source=Path(source["path"]))
-        digest = sha256_bytes(data)
-        stat = target.stat()
-        new_file_id = uuid.uuid4().hex
-        conn.execute(
-            """
-            INSERT INTO documents
-            (file_id, path, basename, extension, owner_id, size, version, sha256, last_modified, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                new_file_id,
-                str(target),
-                target.name,
-                ext,
-                str(source.get("owner_id") or "a0"),
-                stat.st_size,
-                1,
-                digest,
-                now_iso(),
-                changed_at,
-                changed_at,
-            ),
-        )
-        _record_version(conn, new_file_id, target, "1", data)
-        conn.execute(
-            "INSERT INTO events (file_id, event_type, payload, created_at) VALUES (?, ?, ?, ?)",
-            (
-                file_id,
-                "saved_as",
-                json.dumps({"from": display_path(source["path"]), "to": display_path(target)}),
-                changed_at,
-            ),
-        )
-        conn.execute(
-            "INSERT INTO events (file_id, event_type, payload, created_at) VALUES (?, ?, ?, ?)",
-            (
-                new_file_id,
-                "created_from_save_as",
-                json.dumps({"from": display_path(source["path"])}),
-                changed_at,
-            ),
-        )
-        return get_document(new_file_id, conn=conn)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".editor-save-", dir=target.parent) as tmp:
+        staged = Path(tmp) / "document"
+        backup = None
+        published = None
+        try:
+            with connect() as conn:
+                source = get_document(file_id, conn=conn)
+                if not is_editor_document(source):
+                    raise ValueError(f"Editor Save As is not available for .{source['extension']}.")
+                _write_atomic(staged, data, source=Path(source["path"]))
+                changed_at = now()
+                # A deleted file can still have history and open sessions at this path.
+                row = conn.execute(
+                    """
+                    INSERT INTO documents
+                    (file_id, path, basename, extension, owner_id, size, version, sha256, last_modified, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                    ON CONFLICT(path) DO UPDATE SET size=excluded.size, sha256=excluded.sha256,
+                        version=documents.version+1, last_modified=excluded.last_modified, updated_at=excluded.updated_at
+                    RETURNING *
+                    """,
+                    (uuid.uuid4().hex, str(target), target.name, ext, source["owner_id"],
+                     len(data), sha256_bytes(data), now_iso(), changed_at, changed_at),
+                ).fetchone()
+                saved = dict(row)
+                backup = _record_version(conn, saved["file_id"], target, str(saved["version"]), data)
+                conn.executemany(
+                    "INSERT INTO events (file_id, event_type, payload, created_at) VALUES (?, ?, ?, ?)",
+                    [(file_id, "saved_as", json.dumps({"from": display_path(source["path"]), "to": display_path(target)}), changed_at),
+                     (saved["file_id"], "created_from_save_as", json.dumps({"from": display_path(source["path"])}), changed_at)],
+                )
+                staged_stat = staged.stat()
+                rename_no_replace(staged, target)
+                published = staged_stat
+            return saved
+        except BaseException:
+            if published and os.path.lexists(target):
+                current = target.lstat()
+                if os.path.samestat(published, current) and published.st_mtime_ns == current.st_mtime_ns:
+                    target.unlink()
+            if backup:
+                backup.unlink(missing_ok=True)
+            raise
 
 
 def replace_document_bytes(
@@ -663,7 +656,7 @@ def _clear_expired_sessions(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM sessions WHERE expires_at < ?", (now(),))
 
 
-def _record_version(conn: sqlite3.Connection, file_id: str, path: Path, version: str, data: bytes) -> None:
+def _record_version(conn: sqlite3.Connection, file_id: str, path: Path, version: str, data: bytes) -> Path | None:
     if not data:
         return
     backup_path = BACKUP_DIR / f"{file_id}-{uuid.uuid4().hex}-{version.replace('/', '_')}"
@@ -673,6 +666,8 @@ def _record_version(conn: sqlite3.Connection, file_id: str, path: Path, version:
         "INSERT INTO versions (file_id, version, path, size, sha256, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (file_id, version, str(backup_path), len(data), sha256_bytes(data), now()),
     )
+
+    return backup_path
 
 
 def version_history(file_id: str) -> list[dict[str, Any]]:
