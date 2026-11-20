@@ -1,5 +1,6 @@
 import os
 import re
+import tempfile
 from typing import Any
 
 from .files import get_abs_path
@@ -25,21 +26,35 @@ def save_dotenv_value(key: str, value: str, reload_env: bool = True):
     if value is None:
         value = ""
     dotenv_path = get_dotenv_file_path()
-    if not os.path.isfile(dotenv_path):
-        with open(dotenv_path, "w") as f:
-            f.write("")
-    with open(dotenv_path, "r+") as f:
-        lines = f.readlines()
-        found = False
-        for i, line in enumerate(lines):
-            if re.match(rf"^\s*{key}\s*=", line):
-                lines[i] = f"{key}={value}\n"
-                found = True
-        if not found:
-            lines.append(f"\n{key}={value}\n")
-        f.seek(0)
-        f.writelines(lines)
-        f.truncate()
+    directory = os.path.dirname(dotenv_path) or "."
+    os.makedirs(directory, exist_ok=True)
+    if os.path.isfile(dotenv_path):
+        with open(dotenv_path, "r") as f:
+            lines = f.readlines()
+    else:
+        lines = []
+    found = False
+    for i, line in enumerate(lines):
+        if re.match(rf"^\s*{key}\s*=", line):
+            lines[i] = f"{key}={value}\n"
+            found = True
+    if not found:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f"{key}={value}\n")
+    fd, tmp_path = tempfile.mkstemp(prefix=".env.", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.writelines(lines)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, dotenv_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
     # Import here because the secrets manager also reads dotenv configuration.
     from helpers.secrets import SecretsManager
     SecretsManager._invalidate_all_caches()
