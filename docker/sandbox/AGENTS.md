@@ -18,6 +18,7 @@
 - Include IPython for the existing Python code execution tool, and npm/npx for Node.
 - Keep shared-library dependencies needed by Node on both amd64 and arm64.
 - Do not copy Agent Zero source, credentials, user data, or the framework's dependencies into this image.
+- The bundled OCI layout supplies a shared base. PRoot overlays a per-guest sparse directory in userspace using the existing Docker permissions.
 - Image selection, digest pinning, unpacking and lifecycle belong to `plugins/_sandboxing/`.
 
 ## Work Guidance
@@ -30,6 +31,7 @@
 ## Verification
 
 - Build `docker/sandbox`; its build checks verify global Python and each command.
+- Run `A0_PROOT_INTEGRATION=1 pytest tests/test_proot_runtime.py` with the rebuilt PRoot to check empty uppers, merged enumeration, deletion persistence and peer isolation.
 - Exercise Python/IPython, global pip installation, Node and npm inside a real PRoot sandbox.
 
 ## Child DOX Index

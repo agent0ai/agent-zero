@@ -31,7 +31,7 @@ from plugins._sandboxing.helpers.images import (
 )
 
 
-from plugins._sandboxing.helpers import storage, bootstrap, process as processes
+from plugins._sandboxing.helpers import overlay, storage, bootstrap, process as processes
 
 NetworkMode = Literal["host", "none"]
 SandboxType = Literal["temporary", "permanent"]
@@ -341,7 +341,7 @@ class SandboxManager:
             metadata: dict[str, Any] = {
                 "schema_version": SCHEMA_VERSION,
                 "instance_id": self.config.instance_id,
-                "filesystem": "cow",
+                "filesystem": "overlay",
                 "managed_workspace": self.config.user_dir is not None and not any(
                     mount.destination == "/workspace" for mount in normalized_mounts
                 ),
@@ -367,8 +367,7 @@ class SandboxManager:
                 "ownership": normalized_owner,
             }
             try:
-                storage.ensure_base(image_info.rootfs)
-                storage.prepare(image_info.rootfs, path / 'fs', path / 'cow', metadata['uid'])
+                storage.prepare(path / 'fs', path / 'cow', metadata['uid'])
                 if not self._disk_root(name, metadata):
                     raise SandboxError("failed to prepare writable sandbox filesystem")
                 self._refresh_bundle(name, metadata, workspace_seed=image_info.rootfs / "workspace")
@@ -601,48 +600,43 @@ class SandboxManager:
                 restored.append(info.name)
         return restored
 
+    def _open_root(self, name: str, metadata: Mapping[str, Any]):
+        upper = self._disk_root(name, metadata)
+        if upper is None:
+            raise SandboxError("Sandbox files need a persistent disk filesystem.")
+        if metadata.get("filesystem") == "overlay":
+            base = self.images.inspect(metadata["image_digest"]).rootfs
+            return overlay.open_root(upper, base, upper.parent / "cow/whiteouts")
+        return overlay.open_root(upper)
+
     @contextlib.contextmanager
-    def open_browse_root(self, name: str, created_at: str, *, workspace: bool = False) -> Iterator[int]:
-        """Pin the validated sandbox root before releasing the lifecycle index lock."""
-        with self._index_lock(exclusive=False):
-            metadata = self._read_metadata(validate_name(name))
-            if metadata.get("service") or metadata["created_at"] != created_at:
-                raise SandboxError("Sandbox files are no longer available.")
-            root = self._disk_root(name, metadata)
-            if root is None:
-                raise SandboxError("Sandbox files need a persistent disk filesystem.")
-            data = self._managed_workspace(name, metadata) if workspace else None
-            fd = storage.open_directory(data or (root / "workspace" if workspace else root))
-        try:
-            yield fd
-        finally:
-            os.close(fd)
+    def open_browse_root(self, name: str, created_at: str, *, workspace: bool = False):
+        with contextlib.ExitStack() as stack:
+            with self._index_lock(exclusive=False):
+                metadata = self._read_metadata(validate_name(name))
+                if metadata.get("service") or metadata["created_at"] != created_at:
+                    raise SandboxError("Sandbox files are no longer available.")
+                data = self._managed_workspace(name, metadata) if workspace else None
+                root = stack.enter_context(overlay.open_root(data) if data else self._open_root(name, metadata))
+                if workspace and data is None:
+                    root = stack.enter_context(root.child("workspace"))
+            yield root
 
     def read_file(self, name: str, relative: str, *, limit: int = 65536) -> str:
-        """Read bounded service output without spawning an exec process."""
-        metadata = self._read_metadata(validate_name(name))
-        root = self._disk_root(name, metadata)
-        if root is None:
-            raise SandboxError("direct reads require a disk-backed sandbox")
-        parts = PurePosixPath(relative).parts
-        if not parts or relative.startswith("/") or any(p in {".", ".."} for p in parts):
+        """Read bounded service output without following guest-controlled symlinks."""
+        parts = relative.split("/")
+        if any(part in {"", ".", ".."} for part in parts):
             raise SandboxError("invalid sandbox file path")
-        # Open each component without following guest-controlled symlinks.
-        fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        try:
-            for part in parts[:-1]:
-                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
-                os.close(fd)
-                fd = next_fd
-            target = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
-            with os.fdopen(target, "rb") as handle:
-                import stat
-                if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
-                    raise SandboxError("sandbox output must be a regular file")
-                handle.seek(max(0, os.fstat(handle.fileno()).st_size - limit))
+        metadata = self._read_metadata(validate_name(name))
+        with self._open_root(name, metadata) as root, root.at(parts) as node:
+            info = os.fstat(node.fd)
+            if stat.S_ISLNK(info.st_mode):
+                raise OSError("Refusing symlink sandbox output")
+            if not stat.S_ISREG(info.st_mode):
+                raise SandboxError("sandbox output must be a regular file")
+            with open(f"/proc/self/fd/{node.fd}", "rb") as handle:
+                handle.seek(max(0, info.st_size - limit))
                 return handle.read(limit).decode("utf-8", errors="replace")
-        finally:
-            os.close(fd)
 
     def delete(self, name: str, *, missing_ok: bool = False) -> bool:
         name = validate_name(name)
@@ -909,7 +903,7 @@ class SandboxManager:
             standalone=bool(metadata.get("standalone", True)),
             service=bool(metadata.get("service", False)),
             desired_running=bool(metadata.get("desired_running", False)),
-            disk_backed=metadata.get("filesystem") in {"disk", "cow"},
+            disk_backed=metadata.get("filesystem") in {"disk", "cow", "overlay"},
         )
 
     def _broken_info(self, name: str, error: str) -> SandboxInfo:
@@ -973,6 +967,10 @@ class SandboxManager:
             metadata.update(schema_version=SCHEMA_VERSION, filesystem='cow')
             self._atomic_write_json(path / 'metadata.json', metadata)
         uid = metadata['uid']
+        image = self.images.inspect(metadata['image_digest'])
+        if metadata.get('filesystem') == 'overlay':
+            storage.ensure_base(image.rootfs)
+            storage.traverse(image.rootfs.parent, uid)
         bundle = path / 'bundle'
         bundle.mkdir(mode=0o700, exist_ok=True)
         bindings = [('/proc', '/proc'), ('/dev', '/dev')]
@@ -1036,7 +1034,6 @@ class SandboxManager:
         storage.traverse(path / 'cow', uid)
         storage.traverse(bundle, uid)
         temp = runtime_dir / 'trace'
-        image = self.images.inspect(metadata['image_digest'])
         environment = dict(value.split('=', 1) for value in image.environment if '=' in value)
         environment.update(HOME='/root', LANG=environment.get('LANG', 'C.UTF-8'), TERM='xterm-256color',
                            PAGER='cat', GIT_PAGER='cat', PIP_DISABLE_PIP_VERSION_CHECK='1',
@@ -1047,6 +1044,8 @@ class SandboxManager:
         config = dict(uid=uid, proot=str(self.config.proot), root=str(root), control=str(path / 'cow'),
                       temp=str(temp), bindings=bindings, readonly=readonly, network=metadata['network'],
                       cwd='/workspace', command=command, environment=environment)
+        if metadata.get('filesystem') == 'overlay':
+            config['lower'] = str(image.rootfs)
         self._atomic_write_json(bundle / 'config.json', config)
 
     def _launch(self, name: str, metadata: dict[str, Any]) -> None:
@@ -1371,7 +1370,7 @@ class SandboxManager:
         return list(command)
 
     def _disk_root(self, name: str, metadata: Mapping[str, Any]) -> Path | None:
-        if metadata.get("filesystem") not in {"disk", "cow"}:
+        if metadata.get("filesystem") not in {"disk", "cow", "overlay"}:
             return None
         instance = self._instance_path(name)
         path = instance / "fs"

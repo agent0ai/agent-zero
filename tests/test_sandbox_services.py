@@ -21,6 +21,8 @@ def create_disk(manager, monkeypatch, **kwargs):
 def test_disk_root_survives_missing_runtime_without_snapshot(manager, monkeypatch):
     metadata = create_disk(manager, monkeypatch, standalone=True)
     root = manager.config.instances_dir / 'service' / 'fs'
+    assert list(root.iterdir()) == []
+    (root / 'workspace').mkdir()
     (root / 'workspace' / 'proof').write_text('survives abrupt exit')
     assert metadata['rootfs_snapshot'] is None
     monkeypatch.setattr(manager, '_runtime_state', lambda *args: (None, 'container not found'))
@@ -36,7 +38,8 @@ def test_default_child_has_parent_lifeline_and_private_writable_root(manager, mo
     metadata = create_disk(manager, monkeypatch)
     spec = json.loads((manager.config.instances_dir / 'service/bundle/config.json').read_text())
     assert spec['root'].endswith('/service/fs')
-    assert metadata['filesystem'] == 'cow'
+    assert metadata['filesystem'] == 'overlay'
+    assert spec['lower'] == str(manager.images.inspect(metadata['image_digest']).rootfs)
     assert metadata['standalone'] is False
     assert all(source != '/' for source, target in spec['bindings'])
 
@@ -70,6 +73,7 @@ def test_instance_identity_is_checked_before_runtime_access(manager):
 def test_bounded_output_reads_reject_guest_symlinks_and_devices(manager, monkeypatch):
     create_disk(manager, monkeypatch)
     root = manager.config.instances_dir / 'service' / 'fs'
+    (root / 'workspace').mkdir()
     (root / 'workspace' / 'log').write_text('123456789')
     assert manager.read_file('service', 'workspace/log', limit=4) == '6789'
     (root / 'workspace' / 'escape').symlink_to('/etc/passwd')

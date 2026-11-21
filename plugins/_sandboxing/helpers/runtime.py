@@ -22,7 +22,6 @@ from plugins._sandboxing.helpers.manager import (
 
 
 PLUGIN_NAME = "_sandboxing"
-LEGACY_STORE = "usr/plugins/_sandboxing"
 _manager_lock = threading.RLock()
 _manager: SandboxManager | None = None
 _manager_config: tuple[SandboxConfig, SandboxImageConfig] | None = None
@@ -40,14 +39,7 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         validate_name(default_sandbox)
     except SandboxError:
         default_sandbox = "default"
-    # Existing CoW trees share image inodes and their UID leases record absolute paths.
-    # Select the original layout as a unit on upgrade; never move a live guest.
     store = Path(files.get_abs_path("sandboxes"))
-    state_dir = store
-    legacy = Path(files.get_abs_path(LEGACY_STORE))
-    if not (store / "instances").is_dir() and ((legacy / "runtime").is_dir() or (legacy / "images").is_dir()):
-        store = Path(LEGACY_STORE)
-        state_dir = store / "runtime"
 
     return {
         "proot_path": str(raw.get("proot_path") or "/usr/local/bin/a0-proot").strip(),
@@ -56,8 +48,8 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         "default_image": default_image,
         "registry_auth_file": str(raw.get("registry_auth_file") or "").strip(),
         "image_cache_dir": str(raw.get("image_cache_dir") or f"{store}/images").strip(),
-        "state_dir": str(raw.get("state_dir") or state_dir).strip(),
-        "uid_registry": str(raw.get("uid_registry") or state_dir / "uids").strip(),
+        "state_dir": str(raw.get("state_dir") or store).strip(),
+        "uid_registry": str(raw.get("uid_registry") or store / "uids").strip(),
         "shared_dir": str(raw.get("shared_dir") or "usr/sandbox-shared").strip(),
         "default_sandbox": default_sandbox,
         "default_type": default_type

@@ -45,13 +45,13 @@ class SandboxFilesProvider:
     def open(self, item, data_dir):
         manager = get_manager()
         identity = (item["_name"], item["_created_at"])
-        with manager.open_browse_root(*identity) as fd:
-            yield SandboxFiles(fd, lambda: manager.open_browse_root(*identity, workspace=True))
+        with manager.open_browse_root(*identity) as root:
+            yield SandboxFiles(root, lambda: manager.open_browse_root(*identity, workspace=True))
 
 
 class SandboxFiles:
-    def __init__(self, root_fd, open_workspace):
-        self.root_fd = root_fd
+    def __init__(self, root, open_workspace):
+        self.root = root
         self.open_workspace = open_workspace
 
     @contextmanager
@@ -59,23 +59,12 @@ class SandboxFiles:
         parts = relative.split("/") if relative else []
         if any(part in {"", ".", ".."} for part in parts):
             raise ValueError("Invalid sandbox file path.")
-        directory = nullcontext(self.root_fd)
+        directory = nullcontext(self.root)
         if parts[:1] == ["workspace"]:
             directory = self.open_workspace()
             parts = parts[1:]
-        with directory as root:
-            fd = os.dup(root)
-            try:
-                for index, part in enumerate(parts):
-                    flags = os.O_PATH | os.O_NOFOLLOW
-                    if index < len(parts) - 1:
-                        flags |= os.O_DIRECTORY
-                    next_fd = os.open(part, flags, dir_fd=fd)
-                    os.close(fd)
-                    fd = next_fd
-                yield fd
-            finally:
-                os.close(fd)
+        with directory as root, root.at(parts) as node:
+            yield node
 
     @staticmethod
     def _info(name, info):
@@ -84,32 +73,28 @@ class SandboxFiles:
 
     def list(self, relative):
         entries = []
-        with self._entry(relative) as fd:
-            directory = os.open(".", os.O_RDONLY | os.O_DIRECTORY, dir_fd=fd)
-            try:
-                with os.scandir(directory) as children:
-                    for child in children:
-                        try:
-                            info = child.stat(follow_symlinks=False)
-                        except FileNotFoundError:
-                            continue
-                        if stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode):
-                            entries.append(self._info(child.name, info))
-            finally:
-                os.close(directory)
+        with self._entry(relative) as node:
+            for name in node.names():
+                try:
+                    with node.child(name) as child:
+                        info = os.fstat(child.fd)
+                except FileNotFoundError:
+                    continue
+                if stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode):
+                    entries.append(self._info(name, info))
         return entries
 
     def stat(self, relative):
-        with self._entry(relative) as fd:
-            info = os.fstat(fd)
+        with self._entry(relative) as node:
+            info = os.fstat(node.fd)
             if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
                 raise ValueError("Choose a regular file or directory.")
             return self._info(relative.rsplit("/", 1)[-1], info)
 
     def read(self, relative, destination, limit):
-        with self._entry(relative) as fd:
-            if not stat.S_ISREG(os.fstat(fd).st_mode):
+        with self._entry(relative) as node:
+            if not stat.S_ISREG(os.fstat(node.fd).st_mode):
                 raise ValueError("Choose a regular file.")
             # Reopen the verified inode so a concurrent rename cannot redirect the read.
-            with open(f"/proc/self/fd/{fd}", "rb") as source:
+            with open(f"/proc/self/fd/{node.fd}", "rb") as source:
                 return copy_stream(source, destination, limit)["sha256"]

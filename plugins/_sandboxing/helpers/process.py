@@ -139,7 +139,10 @@ def guest(fd: int) -> None:
     environment = dict(config['environment'])
     environment.update(A0_COW_ROOT=config['root'], A0_COW_CONTROL=config['control'],
                        A0_READONLY_PATHS='\n'.join(config['readonly']), PROOT_TMP_DIR=config['temp'])
-    argv = [config['proot'], '-0', '-r', config['root'], *bindings, '-w', config['cwd'], *config['command']]
+    environment.pop('A0_SPARSE_BASE', None)
+    if 'lower' in config:
+        environment['A0_SPARSE_BASE'] = config['lower']
+    argv = [config['proot'], '-0', '-r', config.get('lower', config['root']), *bindings, '-w', config['cwd'], *config['command']]
     os.execve(config['proot'], argv, environment)
 
 

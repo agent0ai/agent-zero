@@ -109,3 +109,37 @@ def test_legacy_default_preserves_pinned_images(manager, monkeypatch, legacy):
     assert manager.images.ensure(legacy, digest=IMAGE_DIGEST).digest == IMAGE_DIGEST
     with pytest.raises(SandboxImageError, match="pinned legacy"):
         manager.images.ensure(legacy, digest="sha256:" + "b" * 64)
+
+
+def test_package_stopped_overlay(tmp_path):
+    import os
+    import subprocess
+    import tarfile
+
+    lower = tmp_path / 'base'
+    upper = tmp_path / 'fs'
+    markers = tmp_path / 'cow/whiteouts'
+    lower.mkdir()
+    upper.mkdir()
+    markers.mkdir(parents=True)
+    (lower / 'keep').write_text('original')
+    os.link(lower / 'keep', lower / 'alias')
+    (lower / 'symlink').symlink_to('/keep')
+    for path in ('changed', 'deleted'):
+        (lower / path).write_text('original')
+    (upper / 'changed').write_text('private')
+    (upper / '-new\nfile').touch()
+    (markers / 'deleted').mkdir(mode=0o1700)
+    (lower / 'opaque').mkdir()
+    (lower / 'opaque/old').touch()
+    (upper / 'opaque').mkdir()
+    (markers / 'opaque').mkdir(mode=0o1700)
+    archive = tmp_path / 'layer.tar'
+    inputs = builtin_image._layer_inputs(upper, lower, tmp_path)
+    subprocess.run(['tar', '-cf', archive, *inputs], check=True)
+    with tarfile.open(archive) as tar:
+        assert set(tar.getnames()) == {'.', './keep', './alias', './symlink', './changed', './-new\nfile', './opaque'}
+        assert tar.extractfile('./keep').read() == b'original'
+        assert tar.extractfile('./changed').read() == b'private'
+        assert tar.getmember('./symlink').linkname == '/keep'
+        assert tar.getmember('./keep').islnk() or tar.getmember('./alias').islnk()

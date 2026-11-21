@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import os
+import stat
 from pathlib import Path
 import tempfile
 import uuid
@@ -19,13 +21,38 @@ ENVIRONMENT = (
 )
 
 
-def package_rootfs(images, rootfs: Path, layout: Path, architecture: str) -> None:
+def _layer_inputs(upper: Path, lower: Path, temporary: Path) -> list[str]:
+    from plugins._sandboxing.helpers.overlay import open_root
+
+    private = temporary / "upper.list"
+    inherited = temporary / "lower.list"
+    with private.open("wb") as up, inherited.open("wb") as down:
+        def visit(node, path):
+            stream = up if node.upper is not None else down
+            stream.write(os.fsencode(path) + b"\0")
+            if stat.S_ISDIR(os.fstat(node.fd).st_mode):
+                for name in sorted(node.names()):
+                    try:
+                        with node.child(name) as child:
+                            visit(child, f"{path}/{name}")
+                    except FileNotFoundError:
+                        continue
+
+        with open_root(upper, lower, upper.parent / "cow/whiteouts") as root:
+            visit(root, ".")
+
+    return ["--no-recursion", "--null", "-C", str(upper), "-T", str(private),
+            "-C", str(lower), "-T", str(inherited)]
+
+
+def package_rootfs(images, rootfs: Path, layout: Path, architecture: str, *, lower: Path | None = None) -> None:
     """Write a standard OCI layout from a stopped, trusted build filesystem."""
     layout.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="sandbox-layer-", dir=layout.parent) as temporary:
         layer = Path(temporary) / "rootfs.tar"
+        inputs = _layer_inputs(rootfs, lower, Path(temporary)) if lower else ["-C", str(rootfs), "."]
         commands = [
-            ["tar", "--sort=name", "--numeric-owner", "--owner=0", "--group=0", "-C", str(rootfs), "-cf", str(layer), "."],
+            ["tar", "--sort=name", "--numeric-owner", "--owner=0", "--group=0", "-cf", str(layer), *inputs],
             [str(images.config.umoci), "init", "--layout", str(layout)],
             [str(images.config.umoci), "new", "--image", f"{layout}:image"],
             [str(images.config.umoci), "raw", "add-layer", "--image", f"{layout}:image", str(layer)],
@@ -70,7 +97,8 @@ def build_image(images, directory: Path) -> Path:
                 raise SandboxImageError(f"default sandbox image build failed: {result.stdout[-2000:]}\n{result.stderr[-2000:]}")
             manager.stop("build")
             layout = directory / "layout"
-            package_rootfs(images, manager.config.instances_dir / "build/fs", layout, node.architecture)
+            base = sources.inspect(manager.inspect("build").image_digest).rootfs
+            package_rootfs(images, manager.config.instances_dir / "build/fs", layout, node.architecture, lower=base)
             return layout
         except SandboxError as exc:
             raise SandboxImageError(f"cannot build default sandbox image: {exc}") from exc

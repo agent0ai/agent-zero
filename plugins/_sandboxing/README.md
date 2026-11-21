@@ -35,7 +35,8 @@ On a fresh installation each sandbox has the following host paths.
 | Path | Contents |
 | --- | --- |
 | `/a0/sandboxes/images/<image-digest>/` | Cached image shared by guests |
-| `/a0/sandboxes/instances/<name>/fs/` | Private guest filesystem and installed packages |
+| `/a0/sandboxes/instances/<name>/fs/` | Private changes to the guest image |
+| `/a0/sandboxes/instances/<name>/cow/whiteouts/` | Deletions that hide inherited paths |
 | `/a0/sandboxes/instances/<name>/data` | Relative symlink to `/a0/usr/sandbox_data/<name>/` |
 | `/a0/usr/sandbox_data/<name>/workspace/` | Writable files mounted at guest `/workspace` |
 
@@ -47,16 +48,18 @@ user files. Project and workdir binds use their own workspace history.
 
 The runtime tree is excluded from Git, Docker build contexts, default user
 backups and filesystem observation by Time Travel and the plugin watchdog.
-Existing installations with initialized legacy stores keep their configured
-paths, inode sharing and UID leases. Existing guests keep their original workspace.
+Explicit storage settings override the default paths.
 
-New sandboxes have private directories and symlinks; unchanged regular files
-share immutable image inodes through hardlinks. The first modification copies
-only that file into the private tree. Restart reuses the tree without snapshots.
-Image cache and sandbox state must share a filesystem with hardlink and POSIX ACL
-support. Private-size reporting excludes shared image data. Existing full disk
-roots migrate in place without shrinking; recreate them to gain sharing. Legacy
-tar-overlay snapshots are preserved but require export on the previous version. Temporary sandboxes expire after the configured inactivity period
+A new guest starts with an empty `fs/`. PRoot resolves reads and directory
+listings against that directory and the shared, digest-pinned image. Writing an
+inherited file copies it into `fs/` on demand. Deleting an inherited name records
+a whiteout. Renaming an inherited directory materializes its visible subtree.
+Stop and restart reuse the same base, private files, and whiteouts. The image
+cache and guest directories can reside on separate filesystems. The guest
+store needs POSIX ACLs and hardlink support for private file aliases. A custom
+image with files in `/workspace` still seeds the managed workspace once.
+Existing disk roots keep their data. Legacy tar-overlay snapshots require
+export on the previous version. Temporary sandboxes expire after the configured inactivity period
 (seven days by default); permanent sandboxes never expire.
 
 Storage reporting never scans files during start, stop, list, inspect or status
@@ -155,8 +158,10 @@ its persistent UID registry with its sandbox state. Never reassign leased UIDs.
 network namespace and Unix sockets in explicit bindings remain accessible.
 
 Copy-on-write preserves user xattrs and hardlink aliases within a guest. As with
-OverlayFS copy-up, previously opened read descriptors keep the old inode;
-metadata changes through a replaced/deleted lower descriptor fail with ESTALE.
+OverlayFS copy-up, previously opened read descriptors keep the old inode.
+Metadata changes through a replaced or deleted lower file descriptor return
+`ESTALE`. Reopen a lower directory descriptor after renaming or deleting its
+path.
 Image ownership/modes are normalized for shared immutable files; host ACLs and
 file capabilities are not copied into guest-private files.
 

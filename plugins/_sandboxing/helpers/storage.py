@@ -1,4 +1,4 @@
-"""Immutable image data with private directory entries and copy-on-write files."""
+"""Immutable image preparation, sparse guest storage, UID leases and binding ACLs."""
 from __future__ import annotations
 
 import collections
@@ -48,56 +48,38 @@ def lease_uid(registry: Path, owner: Path) -> int:
     raise RuntimeError('No sandbox UIDs available')
 
 
-def prepare(base: Path, root: Path, control: Path, uid: int) -> None:
-    """A private directory/symlink tree; regular files initially share base inodes."""
-    if base.stat().st_dev != root.parent.stat().st_dev:
-        raise RuntimeError('Sandbox images and instances must be on the same filesystem for copy-on-write')
-    counts = collections.Counter()
-    root.mkdir(mode=0o700)
-    os.chown(root, uid, uid)
-    pending = [(str(base), str(root))]
-    while pending:
-        directory, target = pending.pop()
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                destination = os.path.join(target, entry.name)
-                info = entry.stat(follow_symlinks=False)
-                if stat.S_ISREG(info.st_mode):
-                    if info.st_uid != 0 or info.st_mode & 0o022 or not info.st_mode & 0o004:
-                        raise RuntimeError(f'Image is not prepared for immutable sharing: {entry.path}')
-                    os.link(entry.path, destination)
-                    counts[(info.st_dev, info.st_ino)] += 1
-                elif stat.S_ISDIR(info.st_mode):
-                    os.mkdir(destination)
-                    os.chown(destination, uid, uid)
-                    os.chmod(destination, stat.S_IMODE(info.st_mode) | 0o700)
-                    pending.append((entry.path, destination))
-                elif stat.S_ISLNK(info.st_mode):
-                    os.symlink(os.readlink(entry.path), destination)
-                    os.lchown(destination, uid, uid)
-                elif stat.S_ISFIFO(info.st_mode):
-                    os.mkfifo(destination, stat.S_IMODE(info.st_mode))
-                    os.chown(destination, uid, uid)
-                # Device nodes are supplied by the explicit /dev binding, never copied.
-    control.mkdir(mode=0o700, exist_ok=True)
-    (control / 'aliases').mkdir(exist_ok=True)
-    (control / 'lock').touch()
-    for (dev, ino), count in counts.items():
-        if count > 1:
-            (control / 'aliases' / f'{dev}-{ino}').touch()
-    for path in walk(control):
-        os.chown(path, uid, uid, follow_symlinks=False)
+def prepare(root: Path, control: Path, uid: int) -> None:
+    """Only allocate the upper directory and its controls for a new guest."""
+    for path in (root, control, control / 'whiteouts'):
+        path.mkdir(mode=0o700)
+        os.chown(path, uid, uid)
+    lock = control / 'lock'
+    lock.touch(mode=0o600)
+    os.chown(lock, uid, uid)
 
 
 def freeze(root: Path) -> None:
     """Only image-import/build code calls this, before publishing the immutable base."""
+    aliases = collections.defaultdict(list)
     for path in walk(root):
         info = path.lstat()
         os.chown(path, 0, 0, follow_symlinks=False)
         if stat.S_ISREG(info.st_mode):
+            if info.st_nlink > 1:
+                aliases[info.st_ino].append(os.fsencode('/' + str(path.relative_to(root))))
             path.chmod((stat.S_IMODE(info.st_mode) & 0o755) | 0o444 | ((info.st_mode & 0o100) >> 6))
         elif stat.S_ISDIR(info.st_mode):
-            path.chmod(stat.S_IMODE(info.st_mode) | 0o755)
+            path.chmod((stat.S_IMODE(info.st_mode) | 0o755) & ~0o022)
+        elif not stat.S_ISLNK(info.st_mode):
+            path.chmod(stat.S_IMODE(info.st_mode) & ~0o022)
+    index = root.parent / 'overlay-links'
+    index.mkdir(exist_ok=True)
+    index.chmod(0o755)
+    for inode, paths in aliases.items():
+        if len(paths) > 1:
+            entry = index / str(inode)
+            entry.write_bytes(b'\0'.join(paths) + b'\0')
+            entry.chmod(0o444)
 
 
 def adopt(root: Path, control: Path, uid: int) -> None:
@@ -281,7 +263,7 @@ def grant(path: Path, uid: int, *, writable: bool, exclude=()) -> None:
 def ensure_base(root: Path) -> None:
     with (root.parent / '.cow.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        marker = root.parent / '.cow-ready'
+        marker = root.parent / '.overlay-ready'
         if not marker.exists():
             freeze(root)
             marker.touch(mode=0o600)

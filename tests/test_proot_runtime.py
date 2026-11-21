@@ -27,11 +27,16 @@ def manager(tmp_path_factory):
     fixtures.mkdir()
     for name in ('write', 'chmod', 'fdchmod', 'time', 'fdtime', 'xattr', 'link', 'rename', 'access', 'access-readonly'):
         (fixtures/name).write_text('original')
+    (fixtures/'subtree').mkdir()
+    for name in ('keep', 'hide', 'change'):
+        (fixtures/'subtree'/name).write_text(name)
     (fixtures/'access-readonly').chmod(0o444)
     (fixtures/'denied-parent').mkdir()
     (fixtures/'denied-parent/file').write_text('original')
     (fixtures/'dir-link').symlink_to('denied-parent')
     os.link(fixtures/'link', fixtures/'alias')
+    (fixtures/'append').write_bytes(b'')
+    os.link(fixtures/'append', fixtures/'append-alias')
     os.setxattr(fixtures/'write', 'user.test', b'preserved')
     runtime = SandboxManager(SandboxConfig(
         proot=Path('/usr/local/bin/a0-proot'), instances_dir=root/'instances',
@@ -52,7 +57,8 @@ def test_copy_on_write_and_peer_persistence(manager):
     manager.create('beta')
     root = manager.config.instances_dir/'alpha/fs'
     other = manager.config.instances_dir/'beta/fs'
-    assert (root/'cow-tests/write').stat().st_ino == (other/'cow-tests/write').stat().st_ino
+    assert list(root.iterdir()) == list(other.iterdir()) == []
+    assert manager.read_file('alpha', 'cow-tests/write') == 'original'
     run(manager, 'alpha', '''
 import os
 from pathlib import Path
@@ -70,15 +76,16 @@ os.setxattr(p/'xattr','user.test',b'value')
 (p/'dir-link').unlink()
 ''')
     base = manager.images.ensure().rootfs
-    for unchanged in (other, base):
-        assert (unchanged/'cow-tests/write').read_text() == 'original'
-        assert (unchanged/'cow-tests/rename').read_text() == 'original'
-        assert not (unchanged/'cow-tests/renamed').exists()
-        assert (unchanged/'cow-tests/dir-link').is_symlink()
-        assert (unchanged/'cow-tests/dir-link/file').read_text() == 'original'
+    assert run(manager, 'beta', "from pathlib import Path; p=Path('/cow-tests'); assert (p/'write').read_text() == (p/'rename').read_text() == (p/'dir-link/file').read_text() == 'original'; assert not (p/'renamed').exists()") == ''
+    assert list(other.iterdir()) == []
+    assert (base/'cow-tests/write').read_text() == 'original'
+    assert (base/'cow-tests/rename').read_text() == 'original'
+    assert not (base/'cow-tests/renamed').exists()
+    assert (base/'cow-tests/dir-link').is_symlink()
+    assert (base/'cow-tests/dir-link/file').read_text() == 'original'
     assert not (root/'cow-tests/dir-link').is_symlink()
     assert not (root/'cow-tests/denied-parent/file').exists()
-    assert (other/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o644
+    assert (base/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o644
     assert (root/'cow-tests/fdchmod').stat().st_mode & 0o777 == 0o600
     assert (root/'cow-tests/fdtime').stat().st_mtime == 1234567890
     assert manager.disk_usage('alpha') < 30 * 1024 * 1024
@@ -91,7 +98,10 @@ def test_access_probes_match_copy_up_without_copying(manager):
     manager.create('permissions')
     root = manager.config.instances_dir/'permissions/fs'
     target = root/'cow-tests/access'
-    before = target.stat()
+    before = (manager.images.ensure().rootfs / 'cow-tests/access').stat()
+    uid = manager._read_metadata('permissions')['uid']
+    (root/'cow-tests/denied-parent').mkdir(parents=True)
+    os.chown(root/'cow-tests', uid, uid)
     os.chown(root/'cow-tests/denied-parent',0,0)
     (root/'cow-tests/denied-parent').chmod(0o555)
     run(manager, 'permissions', r"""
@@ -118,7 +128,8 @@ assert libc.syscall(439, fd, b'access', 8, 0) == -1
 assert libc.syscall(439, fd, b'access', os.W_OK, 0x4000) == -1
 os.close(fd)
 """)
-    after = target.stat()
+    assert not target.exists()
+    after = (manager.images.ensure().rootfs / 'cow-tests/access').stat()
     assert (before.st_dev, before.st_ino, before.st_uid) == (after.st_dev, after.st_ino, after.st_uid)
     run(manager, 'permissions', "open('/cow-tests/access','a').write(' changed')")
     assert target.read_text() == 'original changed'
@@ -218,7 +229,7 @@ def test_socket_across_exec_and_legacy_disk_migration(manager):
     path=manager.config.instances_dir/'legacy'
     manager.stop('legacy')
     # Model the old full-copy root, without introducing shared base inodes.
-    shutil.copytree(path/'fs',path/'private',symlinks=True)
+    shutil.copytree(manager.images.ensure().rootfs,path/'private',symlinks=True)
     shutil.rmtree(path/'fs');(path/'private').rename(path/'rootfs')
     value=manager._read_metadata('legacy')
     value.update(schema_version=2,filesystem='disk');value.pop('uid')
@@ -296,3 +307,103 @@ def test_destination_files_use_guest_paths_mounts_and_binary_limits(manager, mon
 
     asyncio.run(check())
     assert (mounted / "data").read_bytes() == b"mounted"
+
+
+def test_concurrent_first_writes_share_one_private_inode(manager):
+    manager.create('concurrent')
+    run(manager, 'concurrent', """
+import os
+from pathlib import Path
+os.chdir('/cow-tests')
+read, start = os.pipe()
+children = []
+for i in range(8):
+    pid = os.fork()
+    if not pid:
+        os.close(start)
+        os.read(read, 1)
+        fd = os.open(['append','append-alias'][i % 2], os.O_APPEND | os.O_WRONLY)
+        os.write(fd, bytes([i]))
+        os._exit(0)
+    children.append(pid)
+os.write(start, b'x' * len(children))
+for pid in children:
+    assert os.waitpid(pid, 0)[1] == 0
+assert Path('append').samefile('append-alias')
+assert sorted(Path('append').read_bytes()) == list(range(8))
+""")
+    assert (manager.images.ensure().rootfs / 'cow-tests/append').read_bytes() == b''
+
+
+def test_sparse_namespace_and_stopped_files(manager):
+    from io import BytesIO
+    from plugins._sandboxing.helpers.file_browser import SandboxFiles
+
+    info = manager.create('namespace')
+    run(manager, 'namespace', r"""
+import ctypes, errno, os, platform, socket, struct
+from pathlib import Path
+os.chdir('/cow-tests')
+p = Path('subtree')
+directory = os.open(p, os.O_DIRECTORY)
+original_fd = os.dup(directory)
+(p/'hide').unlink()
+(p/'change').write_text('changed')
+(p/'new').write_text('added')
+os.link(p/'keep', p/'alias')
+with socket.socket(socket.AF_UNIX) as sock:
+    sock.bind('subtree/local.sock')
+    assert (p/'local.sock').is_socket()
+(p/'local.sock').unlink()
+assert set(os.listdir(directory)) == {'keep', 'alias', 'new', 'change'}
+os.close(directory)
+fd = os.open(p, os.O_DIRECTORY)
+other = os.dup(fd)
+buf = ctypes.create_string_buffer(32)
+syscall = ctypes.CDLL(None, use_errno=True).syscall
+nr = {'x86_64':217, 'aarch64':61}[platform.machine()]
+def entry(f):
+    n = syscall(nr, f, buf, len(buf))
+    assert 0 <= n <= len(buf), (n, ctypes.get_errno())
+    return buf.raw[19:n].split(b'\0')[0] if n else None
+first = entry(fd)
+cookie = os.lseek(fd, 0, os.SEEK_CUR)
+second = entry(other)
+os.lseek(fd, cookie, os.SEEK_SET)
+assert entry(other) == second and second != first
+os.lseek(other, 0, os.SEEK_SET)
+names = [entry(fd) for _ in range(7)]
+assert set(names) == {b'.',b'..',b'keep',b'alias',b'new',b'change',None}
+os.close(fd)
+os.close(other)
+try:
+    p.rmdir()
+except OSError as e:
+    assert e.errno == errno.ENOTEMPTY
+else:
+    raise AssertionError('removed nonempty merged directory')
+p.rename('moved')
+os.mkdir('subtree/')
+assert list(p.iterdir()) == []
+for lookup in [lambda: os.listdir(original_fd), lambda: os.open('keep', os.O_RDONLY, dir_fd=original_fd)]:
+    try:
+        lookup()
+    except OSError as exc:
+        assert exc.errno == errno.ESTALE
+    else:
+        raise AssertionError('reused a stale lower directory descriptor')
+os.close(original_fd)
+assert set(os.listdir('moved')) == {'alias','new','change','keep'}
+assert Path('moved/alias').samefile('moved/keep')
+""")
+    manager.stop('namespace')
+    with manager.open_browse_root('namespace', info.created_at) as node:
+        browser = SandboxFiles(node, None)
+        assert {item['name'] for item in browser.list('cow-tests/moved')} == {'alias','new','change','keep'}
+        assert browser.list('cow-tests/subtree') == []
+        for path, contents in [('moved/change', b'changed'), ('moved/keep', b'keep'), ('write', b'original')]:
+            out = BytesIO()
+            browser.read('cow-tests/' + path, out, 100)
+            assert out.getvalue() == contents
+    manager.start('namespace')
+    assert run(manager, 'namespace', "import os; print(sorted(os.listdir('/cow-tests/subtree')))").strip() == '[]'

@@ -100,9 +100,9 @@ def manager(tmp_path: Path, monkeypatch) -> SandboxManager:
         (registry / str(uid)).write_text(str(owner))
         return uid
     monkeypatch.setattr(storage, 'lease_uid', lease)
-    def prepare(base, root, control, uid):
-        shutil.copytree(base, root, symlinks=True)
-        control.mkdir()
+    def prepare(root, control, uid):
+        root.mkdir()
+        (control / "whiteouts").mkdir(parents=True)
     monkeypatch.setattr(storage, 'prepare', prepare)
     return SandboxManager(
         SandboxConfig(
@@ -323,13 +323,9 @@ def test_storage_defaults_preserve_existing_stores_and_custom_paths(tmp_path, mo
     config, images = runtime.manager_config()
     assert config.instances_dir == store / "instances"
     assert images.cache_dir == store / "images"
-    (tmp_path / runtime.LEGACY_STORE / "images").mkdir(parents=True)
-    old = runtime.normalize_config({})
-    assert old["image_cache_dir"] == runtime.LEGACY_STORE + "/images"
-    assert old["state_dir"] == runtime.LEGACY_STORE + "/runtime"
-    assert runtime.manager_config()[0].instances_dir == tmp_path / runtime.LEGACY_STORE / "runtime/instances/instance"
-    (store / "instances").mkdir(parents=True)
-    assert runtime.normalize_config({})["state_dir"] == fresh["state_dir"]
+    (tmp_path / "usr/plugins/_sandboxing/images").mkdir(parents=True)
+    assert runtime.normalize_config({}) == fresh
+    assert runtime.manager_config()[0].instances_dir == store / "instances"
     paths = dict(image_cache_dir="/custom/images", state_dir="/custom/state", uid_registry="/custom/uids")
     assert paths.items() <= runtime.normalize_config(paths).items()
 
@@ -754,7 +750,7 @@ def test_doctor_never_requests_a_host_shell(
 
     def fake_run(*args, **kwargs):
         calls.append(kwargs)
-        return subprocess.CompletedProcess(args[0], 0, "A0-COW-2", "")
+        return subprocess.CompletedProcess(args[0], 0, "A0-COW-3", "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(manager, "_require_runtime_artifacts", lambda: __import__("plugins._sandboxing.helpers.bootstrap", fromlist=["ready"]).ready(manager.config.proot))
@@ -778,5 +774,5 @@ def test_runtime_bootstrap_requires_access_probe_fix(tmp_path, monkeypatch):
     executable.touch()
     monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(a[0],0,'A0-COW-1',''))
     assert not bootstrap.ready(executable)
-    monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(a[0],0,'A0-COW-2',''))
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(a[0],0,'A0-COW-3',''))
     assert bootstrap.ready(executable)

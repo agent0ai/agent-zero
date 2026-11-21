@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * File-data CoW over a private hard-link tree. Linux UIDs enforce ownership. */
+ * PRoot file copy-on-write for sparse roots and existing hardlinked guests. */
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -131,6 +131,44 @@ static int relink_aliases(const char *dir, const char *source, const struct stat
     return status;
 }
 
+static int copy_file(int input, int output, const struct stat *before) {
+    int status = 0;
+    char buffer[65536];
+    ssize_t count;
+    while ((count = read(input, buffer, sizeof(buffer))) != 0) {
+        if (count < 0) { if (errno == EINTR) continue; return -errno; }
+        ssize_t at = 0;
+        while (at < count) {
+            ssize_t wrote = write(output, buffer + at, count - at);
+            if (wrote < 0) { if (errno == EINTR) continue; return -errno; }
+            at += wrote;
+        }
+    }
+    if (fchmod(output, before->st_mode & 0777)) return -errno;
+    /* User attributes belong to file data; host ACLs/capabilities do not. */
+    ssize_t names_size = flistxattr(input, NULL, 0);
+    if (names_size > 0) {
+        char *names = malloc(names_size);
+        if (!names) return -ENOMEM;
+        ssize_t size = flistxattr(input, names, names_size);
+        if (size < 0) status = -errno;
+        for (char *key = names; status == 0 && key < names + size; key += strlen(key) + 1) {
+            if (strncmp(key, "user.", 5)) continue;
+            ssize_t length = fgetxattr(input, key, NULL, 0);
+            if (length < 0) { status = -errno; break; }
+            void *value = malloc(length ? length : 1);
+            if (!value) { status = -ENOMEM; break; }
+            if (fgetxattr(input, key, value, length) != length || fsetxattr(output, key, value, length, 0)) status = -errno;
+            free(value);
+        }
+        free(names);
+        if (status < 0) return status;
+    } else if (names_size < 0 && errno != ENOTSUP) return -errno;
+    struct timespec times[2] = {before->st_atim, before->st_mtim};
+    if (futimens(output, times)) return -errno;
+    return 0;
+}
+
 static int materialize(const char *path) {
     if (!inside(path)) return 0;
     struct stat before;
@@ -152,39 +190,8 @@ static int materialize(const char *path) {
     snprintf(temp, sizeof(temp), ".a0-cow-%ld-%llu", (long)getpid(), (unsigned long long)before.st_ino);
     output = openat(parent, temp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (output < 0) { status = -errno; temp[0] = 0; goto done; }
-    char buffer[65536];
-    ssize_t count;
-    while ((count = read(input, buffer, sizeof(buffer))) != 0) {
-        if (count < 0) { if (errno == EINTR) continue; status = -errno; goto done; }
-        ssize_t at = 0;
-        while (at < count) {
-            ssize_t wrote = write(output, buffer + at, count - at);
-            if (wrote < 0) { if (errno == EINTR) continue; status = -errno; goto done; }
-            at += wrote;
-        }
-    }
-    if (fchmod(output, before.st_mode & 0777)) { status = -errno; goto done; }
-    /* User attributes belong to file data; host ACLs/capabilities do not. */
-    ssize_t names_size = flistxattr(input, NULL, 0);
-    if (names_size > 0) {
-        char *names = malloc(names_size);
-        if (!names) { status = -ENOMEM; goto done; }
-        ssize_t size = flistxattr(input, names, names_size);
-        if (size < 0) status = -errno;
-        for (char *key = names; status == 0 && key < names + size; key += strlen(key) + 1) {
-            if (strncmp(key, "user.", 5)) continue;
-            ssize_t length = fgetxattr(input, key, NULL, 0);
-            if (length < 0) { status = -errno; break; }
-            void *value = malloc(length ? length : 1);
-            if (!value) { status = -ENOMEM; break; }
-            if (fgetxattr(input, key, value, length) != length || fsetxattr(output, key, value, length, 0)) status = -errno;
-            free(value);
-        }
-        free(names);
-        if (status < 0) goto done;
-    } else if (names_size < 0 && errno != ENOTSUP) { status = -errno; goto done; }
-    struct timespec times[2] = {before.st_atim, before.st_mtim};
-    if (futimens(output, times)) { status = -errno; goto done; }
+    status = copy_file(input, output, &before);
+    if (status < 0) goto done;
     struct stat current;
     if (fstatat(parent, name, &current, AT_SYMLINK_NOFOLLOW) || current.st_ino != before.st_ino || current.st_dev != before.st_dev) { status = -EAGAIN; goto done; }
     if (renameat(parent, temp, parent, name)) { status = -errno; goto done; }
@@ -201,11 +208,14 @@ done:
     return status;
 }
 
+#include "overlay.c"
+
 static int path_argument(Tracee *tracee, Reg argument, int copy) {
     char path[PATH_MAX];
     int status = get_sysarg_path(tracee, path, argument);
     if (status < 0) return status;
     if (readonly(path)) return -EROFS;
+    if (lower) return overlay_argument(tracee, path, argument, copy);
     return copy ? materialize(path) : 0;
 }
 
@@ -221,6 +231,7 @@ static int access_mode(Tracee *tracee, word_t number) {
     if (status < 0) return status;
     if (readonly(path)) return -EROFS;
     struct stat info;
+    if (lower && suffix(lower, path)) return overlay_access(tracee, path, mode_arg, mode);
     if (!inside(path) || lstat(path, &info) || !S_ISREG(info.st_mode)
         || info.st_uid == getuid() || !(info.st_mode & S_IWUSR) || access(path, R_OK)) return 0;
     int parent = parent_fd(path, name);
@@ -241,12 +252,23 @@ static int descriptor(Tracee *tracee, word_t number) {
     if (length < 0) return 0; /* Let the kernel report EBADF. */
     path[length] = 0;
     if (readonly(path)) return -EROFS;
-    if (!inside(path) || stat(link, &opened) || !S_ISREG(opened.st_mode) || opened.st_uid == getuid()) return 0;
+    const char *relative = lower ? suffix(lower, path) : NULL;
+    if ((!inside(path) && !relative) || stat(link, &opened) || opened.st_uid == getuid()) return 0;
+    if (!S_ISREG(opened.st_mode) && !(relative && S_ISDIR(opened.st_mode))) return 0;
     /* A lower FD is read-only: ftruncate must retain its normal kernel error. */
     if (number == PR_ftruncate || number == PR_ftruncate64) return 0;
     /* shortcut: deleted/replaced lower descriptors retain their old inode, as after overlay copy-up. */
     if (lstat(path, &current) || current.st_ino != opened.st_ino || current.st_dev != opened.st_dev) return -ESTALE;
-    int status = materialize(path);
+    int status;
+    if (relative) {
+        char selected[PATH_MAX];
+        strcpy(selected, path);
+        status = select_layer(selected);
+        if (status < 0 || strcmp(selected, path)) return -ESTALE;
+        status = copy_up(relative);
+        if (status == 0) status = compose(selected, root, relative);
+        if (status == 0) strcpy(path, selected);
+    } else status = materialize(path);
     if (status < 0) return status;
     word_t a = peek_reg(tracee, CURRENT, SYSARG_2), b = peek_reg(tracee, CURRENT, SYSARG_3);
     if (number == PR_fchmod) {
@@ -274,8 +296,13 @@ int cow_callback(Extension *extension, ExtensionEvent event, intptr_t data1, int
     if (event == INITIALIZATION) {
         root = getenv("A0_COW_ROOT"); control = getenv("A0_COW_CONTROL");
         readonly_paths = getenv("A0_READONLY_PATHS");
+        lower = getenv("A0_SPARSE_BASE");
         if (!root || !control || getuid() == 0) return -EINVAL;
+        if (lower && compose(whiteouts, control, "/whiteouts") < 0) return -ENAMETOOLONG;
         static const FilteredSysnum calls[] = {
+            {PR_unlink, FILTER_SYSEXIT}, {PR_unlinkat, FILTER_SYSEXIT}, {PR_rmdir, FILTER_SYSEXIT},
+            {PR_rename, FILTER_SYSEXIT}, {PR_renameat, FILTER_SYSEXIT}, {PR_renameat2, FILTER_SYSEXIT},
+            {PR_lseek, FILTER_SYSEXIT}, {PR_getdents64, FILTER_SYSEXIT}, {PR_getdents, FILTER_SYSEXIT},
             {PR_sendmsg, FILTER_SYSEXIT},
             {PR_access, FILTER_SYSEXIT}, {PR_faccessat, FILTER_SYSEXIT}, {PR_faccessat2, FILTER_SYSEXIT},
             {PR_fchmod, FILTER_SYSEXIT}, {PR_fchown, FILTER_SYSEXIT}, {PR_fchown32, FILTER_SYSEXIT},
@@ -285,11 +312,19 @@ int cow_callback(Extension *extension, ExtensionEvent event, intptr_t data1, int
         extension->filtered_sysnums = calls;
         return 0;
     }
+    if (lower && event == HOST_PATH) return select_layer((char *)data1);
+    if (lower && event == TRANSLATED_PATH) return translated_path(TRACEE(extension), (char *)data1);
+    if (lower && event == SYSCALL_EXIT_END) return overlay_dir_exit(TRACEE(extension));
     if (event != SYSCALL_ENTER_END || data1 < 0) return 0;
     Tracee *tracee = TRACEE(extension);
     Reg argument = SYSARG_1;
     word_t number = get_sysnum(tracee, ORIGINAL);
     int copy = 1, status;
+    if (lower) {
+        if (number == PR_getdents || number == PR_getdents64) return get_directory_offset(tracee);
+        status = overlay_namespace(tracee, number);
+        if (status != 1) return status;
+    }
     switch (number) {
     case PR_sendmsg: return send_credentials(tracee);
     case PR_access: case PR_faccessat: case PR_faccessat2: return access_mode(tracee, number);
