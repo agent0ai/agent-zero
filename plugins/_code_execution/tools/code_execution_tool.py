@@ -68,13 +68,13 @@ class CodeExecution(Tool):
     async def _execute(self, job) -> Response:
         await self.agent.handle_intervention()  # wait for intervention and handle it, if paused
 
-        runtime_arg = self.args.get("runtime", "").lower().strip()
+        runtime_arg = _normalize_runtime_arg(self.args.get("runtime"))
         if runtime_arg in {"terminal", "python", "nodejs"} and not isinstance(self.args.get("code"), str):
             received = type(self.args["code"]).__name__ if "code" in self.args else "missing"
             raise RepairableException(
                 f"code_execution_tool requires code to be a string for runtime {runtime_arg}; received {received}"
             )
-        session = int(self.args.get("session", 0))
+        session = _parse_session_arg(self.args.get("session", 0))
         self.allow_running = coerce_bool(self.args.get("allow_running", False), False)
         reset = coerce_bool(self.args.get("reset", False), False) or runtime_arg == "reset"
 
@@ -565,6 +565,33 @@ class CodeExecution(Tool):
 # ------------------------------------------------------------------
 # Internal
 # ------------------------------------------------------------------
+
+def _normalize_runtime_arg(raw_value) -> str:
+    """Normalize the runtime argument; other types fall through to the unknown-runtime prompt."""
+    if raw_value is None:
+        return ""
+    return str(raw_value).strip().lower()
+
+
+def _parse_session_arg(raw_value) -> int:
+    """Return the session index; a non-numeric value is a repairable tool failure."""
+    if raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()):
+        return 0
+    if isinstance(raw_value, bool):
+        raise RepairableException(
+            f"code_execution_tool requires session to be an integer; received {type(raw_value).__name__}"
+        )
+    if isinstance(raw_value, int):
+        return raw_value
+    if isinstance(raw_value, str):
+        try:
+            return int(raw_value.strip())
+        except ValueError:
+            pass
+    raise RepairableException(
+        f"code_execution_tool requires session to be an integer; received {type(raw_value).__name__}"
+    )
+
 
 def _resolve_ssh_enabled(raw_value) -> bool:
     val = str(raw_value).strip().lower()
