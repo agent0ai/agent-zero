@@ -340,7 +340,8 @@ class BackupService:
         include_patterns: List[str],
         exclude_patterns: List[str],
         include_hidden: bool = True,
-        backup_name: str = "agent-zero-backup"
+        backup_name: str = "agent-zero-backup",
+        output_path: Optional[str] = None,
     ) -> str:
         """Create backup archive and return path to created file"""
 
@@ -360,8 +361,11 @@ class BackupService:
             raise Exception("No files matched the backup patterns")
 
         # Create temporary zip file
-        temp_dir = tempfile.mkdtemp()
-        zip_path = os.path.join(temp_dir, f"{backup_name}.zip")
+        if output_path is None:
+            temp_dir = tempfile.mkdtemp()
+            zip_path = os.path.join(temp_dir, f"{backup_name}.zip")
+        else:
+            zip_path = output_path
 
         try:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:

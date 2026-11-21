@@ -19,7 +19,8 @@
                     <button class="btn slim" style="margin-left: 0.5em;"
                         @click="$store.backupStore.dryRun()" :disabled="$store.backupStore.loading">Dry Run</button>
                     <button class="btn slim primary" style="margin-left: 0.5em;"
-                        @click="$store.backupStore.createBackup()" :disabled="$store.backupStore.loading">Create Backup</button>
+                        @click="$store.backupStore.createBackup()" :disabled="$store.backupStore.loading || $store.backupStore.backupBusy"
+                        x-text="$store.backupStore.backupJob ? 'Resume Backup' : 'Create Backup'">Create Backup</button>
                 </h3>
 
                 <!-- JSON Editor (upper part) -->
