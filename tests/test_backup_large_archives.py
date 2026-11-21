@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,31 @@ class UploadedBackup:
 
     def save(self, target: str) -> None:
         shutil.copyfile(self.path, target)
+
+
+@pytest.mark.asyncio
+async def test_backup_includes_files_dated_before_1980(tmp_path):
+    service = BackupService()
+    service.agent_zero_root = str(tmp_path)
+    service.base_paths = {str(tmp_path): str(tmp_path)}
+    source = tmp_path / "usr" / "old.txt"
+    source.parent.mkdir()
+    source.write_bytes(b"old file contents")
+    old_timestamp = datetime(1970, 1, 2, tzinfo=timezone.utc).timestamp()
+    os.utime(source, (old_timestamp, old_timestamp))
+    original_mtime = source.stat().st_mtime_ns
+    member = source.as_posix().lstrip("/")
+
+    defaults = service.get_default_backup_metadata()
+    archive = Path(await service.create_backup(defaults["include_patterns"], defaults["exclude_patterns"]))
+    try:
+        with zipfile.ZipFile(archive) as backup:
+            assert backup.testzip() is None
+            assert backup.read(member) == b"old file contents"
+            assert backup.getinfo(member).date_time == (1980, 1, 1, 0, 0, 0)
+        assert source.stat().st_mtime_ns == original_mtime
+    finally:
+        shutil.rmtree(archive.parent)
 
 
 @pytest.mark.asyncio
