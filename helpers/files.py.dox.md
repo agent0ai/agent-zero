@@ -44,6 +44,7 @@
 - `move_dir_safe(src, dst, rename_format=...)`
 - `create_dir_safe(dst, rename_format=...)`
 - `create_dir(relative_path: str)`
+- `safe_file_name(filename: str) -> str`: NFC-normalize and replace unsafe characters with underscores while keeping unicode letters, digits, dash, underscore and dot, so distinct non-latin names stay distinct files.
 - Notable constants/configuration names: `AGENTS_DIR`, `PLUGINS_DIR`, `PROJECTS_DIR`, `EXTENSIONS_DIR`, `USER_DIR`, `TEMP_DIR`, `API_DIR`.
 
 ## Runtime Contracts

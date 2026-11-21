@@ -10,6 +10,7 @@ from typing import Any, Literal
 import zipfile
 import glob
 import mimetypes
+import unicodedata
 from simpleeval import simple_eval
 from helpers import yaml
 
@@ -714,8 +715,9 @@ def move_file(relative_path: str, new_path: str):
 
 
 def safe_file_name(filename: str) -> str:
-    # Replace any character that's not alphanumeric, dash, underscore, or dot with underscore
-    return re.sub(r"[^a-zA-Z0-9-._]", "_", filename)
+    # Replace unsafe characters with underscore, but keep unicode letters and digits
+    # so that distinct names (e.g. non-latin prompt names) stay distinct.
+    return re.sub(r"[^\w\-.]", "_", unicodedata.normalize("NFC", filename))
 
 
 def read_text_files_in_dir(
