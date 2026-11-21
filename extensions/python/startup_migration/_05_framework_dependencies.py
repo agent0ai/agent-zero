@@ -16,6 +16,7 @@ _PACKAGES = {
     "litellm", "openai", "python-dotenv", "aiohttp", "anyio", "urllib3",
     "filelock", "fsspec", "multidict",
 }
+_DEPENDENCY_INSTALL_TIMEOUT_SECONDS = 300
 
 
 class FrameworkDependencies(Extension):
@@ -32,7 +33,7 @@ class FrameworkDependencies(Extension):
         PrintStyle.info("Updating framework dependencies:", ", ".join(outdated))
         subprocess.check_call(
             [uv, "pip", "install", "--python", sys.executable, *map(str, requirements)],
-            timeout=60,
+            timeout=_DEPENDENCY_INSTALL_TIMEOUT_SECONDS,
         )
         outdated = _outdated(requirements)
         if outdated:
