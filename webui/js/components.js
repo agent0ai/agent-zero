@@ -182,6 +182,10 @@ export async function importComponent(path, targetElement) {
     // Return parsed document
     return doc;
   } catch (error) {
+    const loadingEl = targetElement?.querySelector(':scope > .loading');
+    if (loadingEl) {
+      targetElement.removeChild(loadingEl);
+    }
     console.error("Error importing component:", error);
     throw error;
   } finally {
