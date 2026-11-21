@@ -943,6 +943,7 @@ class _BrowserRuntimeCore:
                 quality=int(call.get("quality") or 80),
                 full_page=bool(call.get("full_page")),
                 path=call.get("path") or "",
+                image_format=call.get("image_format") or "jpeg",
             )
         if action == "list":
             return await self.list_windows(include_content=bool(call.get("include_content")))
@@ -1648,12 +1649,14 @@ class _BrowserRuntimeCore:
         quality: int = 80,
         full_page: bool = False,
         path: str = "",
+        image_format: str = "jpeg",
     ) -> dict[str, Any]:
         await self.ensure_started()
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
         page_context_id = self.current_context_id
-        image_type = 'png' if Path(path).suffix.lower() == '.png' else 'jpeg'
+        requested = Path(path).suffix[1:] if path else image_format
+        image_type = 'png' if str(requested).lower() == 'png' else 'jpeg'
         options = {'type': image_type, 'full_page': bool(full_page)}
         if image_type == 'jpeg':
             options['quality'] = max(20, min(95, int(quality)))

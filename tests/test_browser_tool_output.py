@@ -110,6 +110,41 @@ def test_format_result_minifies_tool_json() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("batched", [False, True])
+async def test_named_png_destination_requests_png_without_exposing_the_path(monkeypatch, batched):
+    from plugins._browser.tools import browser as module
+
+    async def capture(method, *args, **kwargs):
+        options = args[0][0] if method == "multi" else kwargs
+        assert options["path"] == ""
+        assert options["image_format"] == "png"
+        result = {"a0_path": "capture.png", "mime": "image/png"}
+        return [{"ok": True, "result": result}] if batched else result
+
+    runtime = SimpleNamespace(call=capture)
+    monkeypatch.setattr(module, "get_runtime", AsyncMock(return_value=runtime))
+    monkeypatch.setattr(module, "activate_browser_model", lambda agent: None)
+    write = AsyncMock()
+    monkeypatch.setattr(module.destination_files, "write", write)
+    tool = object.__new__(Browser)
+    tool.agent = SimpleNamespace(context=SimpleNamespace(id="test"))
+    tool.method = ""
+    tool._record_history_screenshot = AsyncMock()
+    args = {"action": "screenshot", "destination": "host", "path": "report.PNG"}
+    if batched:
+        args = {"action": "multi", "calls": [args]}
+    for image in (b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n"):
+        monkeypatch.setattr(module.destination_files, "read", AsyncMock(return_value=image))
+        result = await tool.execute(**args)
+        if image.startswith(b"\xff"):
+            assert "different format" in result.message
+            write.assert_not_awaited()
+        else:
+            assert "report.PNG" in result.message
+            assert write.await_args.args[1:] == ("host", "report.PNG", image)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("internal,state", [(True, "starting"), (True, "ready"), (True, "idle"), (False, "starting")])
 @pytest.mark.parametrize("outcome", ["success", "failure", "cancel"])
 async def test_startup_hint_only_reports_internal_initialization_and_stops_with_tool(monkeypatch, internal, state, outcome):

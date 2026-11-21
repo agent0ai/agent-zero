@@ -125,7 +125,7 @@ class Browser(Tool):
                     browser_id,
                     quality=quality,
                     full_page=full_page,
-                    path="" if destination and path else path,
+                    **self._screenshot_capture(path, destination),
                 )
                 if path and destination:
                     await self._save_to_destination(result, destination, path)
@@ -351,14 +351,17 @@ class Browser(Tool):
                             prepared[key] = upload
                     elif operation == "screenshot" and target and source:
                         screenshots[index] = (target, source)
-                        item["path"] = ""
+                        item.update(self._screenshot_capture(source, target))
                     batch.append(item)
                 result = await runtime.call("multi", batch, **({"prepared_uploads": prepared} if prepared else {}))
                 if screenshots:
                     items = result.get("result") if isinstance(result, dict) else result
                     for index, (target, output) in screenshots.items():
                         if items[index].get("ok"):
-                            await self._save_to_destination(items[index]["result"], target, output)
+                            try:
+                                await self._save_to_destination(items[index]["result"], target, output)
+                            except Exception as exc:
+                                items[index] = {"ok": False, "error": str(exc)}
             elif action == "close":
                 result = await runtime.call("close_browser", browser_id)
             elif action == "close_all":
@@ -408,6 +411,12 @@ class Browser(Tool):
             raise ValueError("upload_file requires path or non-empty paths")
         return upload
 
+    @staticmethod
+    def _screenshot_capture(path, destination):
+        if destination and path and path.lower().endswith(".png"):
+            return {"path": "", "image_format": "png"}
+        return {"path": "" if destination else path}
+
     async def _save_to_destination(self, result, destination, path):
         from helpers.chat_media import DEFAULT_MAX_IMAGE_BYTES
 
@@ -417,6 +426,8 @@ class Browser(Tool):
         if not path.lower().endswith((".jpg", ".jpeg", ".png")):
             path += ".jpg"
         data = await destination_files.read(self.agent, "local", source, limit=DEFAULT_MAX_IMAGE_BYTES)
+        if path.lower().endswith(".png") and not data.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("The browser returned a different format. Update the browser runtime to save PNG captures.")
         await destination_files.write(self.agent, destination, path, data, limit=DEFAULT_MAX_IMAGE_BYTES)
         result["destination_path"] = path
         result["destination"] = destination

@@ -137,6 +137,8 @@ class ConnectorBrowserRuntime:
             payload["quality"] = kwargs.get("quality", 80)
             payload["full_page"] = kwargs.get("full_page", False)
             payload["path"] = kwargs.get("path", "")
+            if kwargs.get("image_format"):
+                payload["image_format"] = kwargs["image_format"]
         elif action == "list":
             payload["include_content"] = kwargs.get("include_content", False)
         elif action == "content":

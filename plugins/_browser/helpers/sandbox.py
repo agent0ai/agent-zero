@@ -279,7 +279,7 @@ class BrowserConnection:
         if not str(path or '').strip():
             saved = chat_media.save_image_bytes(context_id=result['context_id'], payload=image,
                 mime_type=result['mime'], category='screenshots', source='browser',
-                preferred_name=f"browser-{result['browser_id']}.jpg")
+                preferred_name=f"browser-{result['browser_id']}")
             result.update(path=saved.path, a0_path=saved.a0_path, ephemeral=False, chat_scoped=True)
             load_path = saved.a0_path
         else:
