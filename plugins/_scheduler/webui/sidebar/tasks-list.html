@@ -76,14 +76,17 @@
       position: relative;
     }
 
-    /* Scrollable tasks config list */
+    /* The real scroller is #extensions-section in the sidebar shell. This list
+       must NOT be a scroll container: as an overflow-y:auto box that can never
+       actually overflow, combined with overscroll-behavior:contain it swallowed
+       wheel input without scrolling and without chaining to the parent, so the
+       mouse wheel appeared dead while the parent scrollbar still dragged. */
     .tasks-config-list {
-      flex: 1;
+      flex: 0 0 auto;
       min-height: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+      overflow: visible;
+      overscroll-behavior: auto;
       scroll-behavior: smooth;
-      overscroll-behavior: contain; /* avoid scroll chaining */
     }
   
     .task-title-line {

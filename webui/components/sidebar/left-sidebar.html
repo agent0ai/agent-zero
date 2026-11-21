@@ -155,7 +155,39 @@
       margin-inline-start: calc(0px - var(--spacing-sm));
       width: calc(100% + var(--spacing-sm));
       padding-top: var(--spacing-md);
-      overflow: hidden;
+      /* The task list grows past the 40% cap. Clipping it here makes the
+         overflow unreachable because the inner list has no bounded height
+         to scroll within, so let this box scroll instead. */
+      overflow-x: hidden;
+      overflow-y: auto;
+      /* The global "body * { scrollbar-width: thin }" rule shrinks this
+         scrollbar to a nearly invisible 10px sliver of dark-on-dark, so the
+         wheel works but there is no handle to grab. Force a normal-width,
+         clearly visible scrollbar. Note: scrollbar-width must be "auto" here,
+         otherwise Chromium ignores the ::-webkit-scrollbar rules below. */
+      scrollbar-width: auto;
+      scrollbar-gutter: stable;
+      overscroll-behavior: contain;
+    }
+
+    #extensions-section::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    #extensions-section::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #extensions-section::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+      border: 2px solid transparent;
+      border-radius: 6px;
+      background-clip: content-box;
+    }
+
+    #extensions-section::-webkit-scrollbar-thumb:hover {
+      background: var(--color-text-muted);
+      background-clip: content-box;
     }
 
     #chats-section .section-header-row,

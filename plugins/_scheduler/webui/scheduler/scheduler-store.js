@@ -612,7 +612,7 @@ const schedulerStoreModel = {
 
       // Smart merge: preserve object references to prevent UI flickering
       const taskMap = new Map(this.tasks.map((t) => [t.uuid, t]));
-      this.tasks = tasks.map((newTask) => {
+      const merged = tasks.map((newTask) => {
         const existing = taskMap.get(newTask.uuid);
         if (existing) {
           // Update existing object in-place if different
@@ -623,6 +623,14 @@ const schedulerStoreModel = {
         }
         return newTask; // New object
       });
+
+      // This runs every 2s while polling. Assigning a fresh array each time
+      // wakes every bound effect and rebuilds the task list, resetting the
+      // scroll position mid-browse. Only publish when the list really changed.
+      const unchanged =
+        this.tasks.length === merged.length &&
+        merged.every((task, index) => this.tasks[index] === task);
+      if (!unchanged) this.tasks = merged;
 
       this.hasNoTasks = this.tasks.length === 0;
     } catch (error) {
