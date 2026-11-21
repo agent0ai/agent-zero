@@ -85,7 +85,7 @@ runpy.run_path(sys.argv[1], run_name='__main__')
 @pytest.mark.asyncio
 @pytest.mark.parametrize('failure', [RuntimeError('fixture setup failure'), asyncio.CancelledError()])
 async def test_setup_failure_cleans_owned_worker_before_retry(monkeypatch, tmp_path, failure):
-    monkeypatch.setattr(sandbox.files, 'get_abs_path', lambda *parts: str(tmp_path.joinpath(*parts)))
+    monkeypatch.setattr(sandbox, 'files', SimpleNamespace(get_abs_path=lambda *parts: str(tmp_path.joinpath(*parts))))
     connection = sandbox.BrowserConnection('fixture')
     connection.profile = tmp_path / 'profile'
     connection.downloads = tmp_path / 'downloads'
@@ -105,7 +105,7 @@ def test_browser_progress_distinguishes_dependency_readiness_from_chromium(monke
     assert connection.startup_status()['state'] == 'idle'
     connection.startup_progress('sandbox', 'Preparing browser sandbox')
     assert connection.startup_status()['state'] == 'starting'
-    for stage, step in [('sandbox', 1), ('driver', 2), ('chromium_dependencies', 2), ('chromium', 3)]:
+    for stage, step in [('sandbox', 1), ('installing', 2), ('viewer', 2), ('chromium', 3)]:
         monkeypatch.setattr(sandbox.worker, 'status', lambda stage=stage: {'state': 'starting', 'stage': stage})
         status = connection.startup_status()
         assert (status['step'], status['steps']) == (step, 6)

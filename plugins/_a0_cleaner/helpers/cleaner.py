@@ -18,7 +18,7 @@ from filelock import FileLock, Timeout
 
 DAY = 86400
 PROTECTED_NAMES = {'.git', '.a0proj', '.time_travel', '.env', 'repo.git'}
-AUTO_AREAS = {'pip', 'npm', 'staging', 'profiles', 'screenshots', 'captures', 'browser_versions'}
+AUTO_AREAS = {'pip', 'npm', 'staging', 'profiles', 'screenshots', 'captures'}
 DEFAULTS = {'automatic': True, 'automatic_areas': sorted(AUTO_AREAS), 'cache_days': 30,
             'staging_days': 7, 'review_days': 30, 'custom_folders': []}
 
@@ -31,9 +31,13 @@ def config_values(values=None):
     result = {**DEFAULTS, **(values or {})}
     if not isinstance(result['automatic'], bool):
         raise CleanerError('Automatic cleanup must be on or off.')
-    if not isinstance(result['automatic_areas'], list) or any(not isinstance(item, str) or item not in AUTO_AREAS for item in result['automatic_areas']):
+    areas = result['automatic_areas']
+    if not isinstance(areas, list) or any(not isinstance(item, str) for item in areas):
         raise CleanerError('Choose supported areas for automatic cleanup.')
-    result['automatic_areas'] = sorted(set(result['automatic_areas']))
+    selected = set(areas) - {'browser_versions'}
+    if not selected <= AUTO_AREAS:
+        raise CleanerError('Choose supported areas for automatic cleanup.')
+    result['automatic_areas'] = sorted(selected)
     for key in ('cache_days', 'staging_days', 'review_days'):
         value = result[key]
         if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 3650:
@@ -98,14 +102,13 @@ class Area:
 
 class Cleaner:
     def __init__(self, base, home, state, *, config=None, process_inventory=None, chat_activity=None,
-                 enabled=lambda: True, clock=time.time, cancel_event=None, browser_revision=''):
+                 enabled=lambda: True, clock=time.time, cancel_event=None):
         self.base, self.home, self.state = Path(base), Path(home), Path(state)
         self.config = config_values(config)
         self.process_inventory = process_inventory or (lambda: {'paths': [], 'package_busy': False})
         self.chat_activity = chat_activity or (lambda chat: None)
         self.enabled, self.clock, self.cancel_event = enabled, clock, cancel_event
         self._last_enabled_check = float('-inf')
-        self.browser_revision = str(browser_revision)
         self._mounts = set()
         self.state.mkdir(parents=True, exist_ok=True)
         self.lock = FileLock(str(self.state / 'operation.lock'), timeout=0, is_singleton=True)
@@ -122,7 +125,7 @@ class Cleaner:
         allowed = allowed or (path.is_relative_to(projects) and len(path.relative_to(projects).parts) >= 2)
         if not allowed:
             raise CleanerError('Choose a subfolder of workdir, a project, downloads, uploads or A0 tmp.')
-        managed = [self.base/'tmp/browser', self.base/'tmp/desktop', self.base/'tmp/playwright',
+        managed = [self.base/'tmp/browser', self.base/'tmp/desktop',
                    self.base/'tmp/memory', self.state]
         managed += [root for area in self.areas(include_custom=False) for root in area.roots]
         if any(path.is_relative_to(root) or root.is_relative_to(path) for root in managed):
@@ -157,8 +160,6 @@ class Cleaner:
                  'Old links to these temporary captures will no longer open.'),
             Area('embeddings', 'Embedding cache', 'memory', False, cfg['review_days'],
                  [self.base/'tmp/memory/embeddings'], 'Embeddings are rebuilt when needed; remote models may incur usage.'),
-            Area('browser_versions', 'Unused browser versions', 'download_done', False, cfg['review_days'],
-                 [self.base/'tmp/playwright'], 'Older browser installations will be removed. Other tools may download them again.', 'versions'),
         ]
         for area in areas:
             area.automatic = area.id in cfg['automatic_areas']
@@ -221,7 +222,7 @@ class Cleaner:
         if area.id in ('pip', 'npm', 'staging') and inventory['package_busy']:
             return
         for root in area.roots:
-            if area.kind not in ('profiles', 'screenshots', 'versions'):
+            if area.kind not in ('profiles', 'screenshots'):
                 if not self._in_use(root, inventory):
                     yield root, ''
                 continue
@@ -232,14 +233,6 @@ class Cleaner:
                     if not entry.is_dir(follow_symlinks=False) or entry.is_symlink():
                         continue
                     child = root/entry.name
-                    if area.kind == 'versions':
-                        if not self.browser_revision or not entry.name.startswith(('chromium-', 'chromium_headless_shell-')):
-                            continue
-                        revision = entry.name.rsplit('-', 1)[-1]
-                        if not revision.isdigit() or revision == self.browser_revision or self._in_use(child, inventory):
-                            continue
-                        yield child, ''
-                        continue
                     if area.kind == 'profiles':
                         if entry.name in ('shared', 'default', '__shared__') or self._in_use(child, inventory):
                             continue
@@ -264,7 +257,7 @@ class Cleaner:
                 for root, chat in self._roots(area, cutoff, inventory):
                     contents = list(self._walk(root, budget))
                     # Retired profiles are one unit: a recent file protects the entire profile.
-                    if area.kind in ('profiles', 'versions') and any(max(s.st_mtime, s.st_ctime) >= cutoff for _, s in contents):
+                    if area.kind == 'profiles' and any(max(s.st_mtime, s.st_ctime) >= cutoff for _, s in contents):
                         continue
                     for path, info in contents:
                         if max(info.st_mtime, info.st_ctime) >= cutoff or str(path) in inventory['paths']:
@@ -332,13 +325,14 @@ class Cleaner:
         if manifest.get('config') != self.config:
             raise CleanerError('Cleanup settings changed. Scan again before cleaning.')
         selected = [g for g in report['groups'] if g['id'] in groups]
-        if len(selected) != len(set(groups)) or any(g['blocked'] for g in selected):
+        allowed = {area.id: area for area in self.areas()}
+        if len(selected) != len(set(groups)) or any(g['blocked'] or g['id'] not in allowed for g in selected):
             raise CleanerError('This cleanup selection is unavailable. Scan again.')
-        return selected, [f for f in manifest['files'] if f['group'] in groups]
+        return selected, [f for f in manifest['files'] if f['group'] in groups], allowed
 
     def preview(self, token, groups):
         with self.operation('Preparing cleanup'):
-            selected, items = self._selection(token, groups)
+            selected, items, _ = self._selection(token, groups)
             return {'id': token, 'groups': selected, 'files': len(items), 'bytes': sum(i['bytes'] for i in items),
                     'paths': [i['path'] for i in items[:200]], 'more_paths': max(0, len(items)-200)}
 
@@ -354,8 +348,7 @@ class Cleaner:
         return True
 
     def _clean(self, token, groups, *, automatic=False):
-        selected, items = self._selection(token, groups)
-        allowed = {area.id: area for area in self.areas()}
+        selected, items, allowed = self._selection(token, groups)
         if automatic and any(not allowed[g['id']].automatic for g in selected):
             raise CleanerError('This area requires manual confirmation.')
         inventory = self.process_inventory()
@@ -365,7 +358,7 @@ class Cleaner:
             area = allowed[group['id']]
             cutoff = self.clock()-area.days*DAY
             roots = {str(root) for root, _ in self._roots(area, cutoff, inventory)}
-            if area.kind in ('profiles', 'versions'):
+            if area.kind == 'profiles':
                 for root in list(roots):
                     try:
                         if any(max(info.st_mtime, info.st_ctime) >= cutoff for _, info in self._walk(Path(root), {'files': 0, 'deadline': time.monotonic()+90})):

@@ -7,7 +7,6 @@ import os
 import sys
 
 sys.path.insert(0, '/app')
-os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/opt/browsers'
 from plugins._browser.sandbox.runtime import _BrowserRuntimeCore
 from plugins._browser.sandbox import display
 

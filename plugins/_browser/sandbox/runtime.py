@@ -18,6 +18,7 @@ from helpers.errors import RepairableException
 import logging as PrintStyle
 
 from plugins._browser.helpers.config import (
+    CHROMIUM_EXECUTABLE,
     DEFAULT_HOMEPAGE_KEY,
     DEFAULT_MAX_OPEN_TABS,
     DEFAULT_EVALUATE_TIMEOUT_SECONDS,
@@ -25,6 +26,7 @@ from plugins._browser.helpers.config import (
     MAX_OPEN_TABS_KEY,
     normalize_evaluate_timeout,
 )
+from plugins._browser.sandbox.cdp import CDPContext, CDPError, CDPFrame, CDPPage, CDPSession
 from plugins._browser.sandbox.display import BrowserInteractiveView
 from plugins._browser.helpers.url import normalize_url
 from plugins._browser.helpers.calls import run_browser_calls, multi_group_key
@@ -281,9 +283,8 @@ CLIPBOARD_BRIDGE_SCRIPT = r"""
 @dataclass
 class BrowserPage:
     id: int
-    page: Any
+    page: CDPPage
     evaluate_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
-    window_session: Any = None
 
 
 class _BrowserScreencast:
@@ -292,7 +293,7 @@ class _BrowserScreencast:
         *,
         stream_id: str,
         browser_id: int,
-        session: Any,
+        session: CDPSession,
         mime: str,
     ):
         self.id = stream_id
@@ -560,8 +561,7 @@ class _BrowserRuntimeCore:
             f"browser_context_{id(self)}",
             default=context_id,
         )
-        self.playwright = None
-        self.context = None
+        self.context: CDPContext | None = None
         self.pages: dict[int, BrowserPage] = {}
         self.screencasts: dict[str, _BrowserScreencast] = {}
         self.next_browser_id = 1
@@ -572,8 +572,8 @@ class _BrowserRuntimeCore:
         self._start_lock: asyncio.Lock | None = None
         self._registry_lock: asyncio.Lock | None = None
         self._closing = False
-        self._pending_popups: dict[asyncio.Future[int], Any] = {}
-        self._bootstrap_page: Any | None = None
+        self._pending_popups: dict[asyncio.Future[int], CDPPage] = {}
+        self._bootstrap_page: CDPPage | None = None
         self.interactive_view = BrowserInteractiveView(context_id)
 
     @property
@@ -669,40 +669,28 @@ class _BrowserRuntimeCore:
             self._start_lock = asyncio.Lock()
 
         async with self._start_lock:
-            if self._context_is_alive():
+            if self.context and not self.context.closed:
                 return
             if self.context:
-                await self._discard_stale_context("Browser context is stale; restarting.")
-            elif self.playwright and not self._closing:
-                await self._stop_playwright("Browser context closed; restarting Playwright.")
+                await self._close_chromium()
             try:
                 await self._start()
                 self.on_startup('ready', 'Browser is running')
             except (Exception, asyncio.CancelledError):
-                await self._stop_playwright("Playwright cleanup after startup failure failed")
-                self._discard_context_state()
+                await self._close_chromium()
                 with contextlib.suppress(Exception):
                     await asyncio.to_thread(self.interactive_view.close)
                 self.on_startup('error', 'Browser startup failed; retry to resume')
                 raise
 
-    def _context_is_alive(self) -> bool:
-        if not self.context:
-            return False
-        try:
-            pages = getattr(self.context, "pages")
-            len(pages() if callable(pages) else pages)
-            return True
-        except AttributeError:
-            # Lightweight test doubles may not model Playwright's pages property.
-            return True
-        except Exception:
-            return False
-
-    async def _discard_stale_context(self, message: str) -> None:
-        PrintStyle.warning(message)
+    async def _close_chromium(self) -> None:
+        context = self.context
         self._discard_context_state()
-        await self._stop_playwright("Playwright stop after Browser context loss failed")
+        if context:
+            try:
+                await context.close()
+            except Exception as exc:
+                PrintStyle.warning(f"Chromium close failed: {exc}")
 
     def _discard_context_state(self) -> None:
         for waiter in self._pending_popups:
@@ -724,24 +712,12 @@ class _BrowserRuntimeCore:
         self.screencasts.clear()
         self.context = None
 
-    async def _stop_playwright(self, warning: str) -> None:
-        if not self.playwright:
-            return
-        try:
-            await self.playwright.stop()
-        except Exception as exc:
-            PrintStyle.warning(f"{warning}: {exc}")
-        finally:
-            self.playwright = None
-
     def _release_orphaned_profile_singleton(self):
         # Host PID values from a previous process never identify guest processes.
         for singleton in CHROME_SINGLETON_FILES:
             (self.profile_dir / singleton).unlink(missing_ok=True)
 
     async def _start(self) -> None:
-        from patchright.async_api import async_playwright
-
         self.profile_dir.parent.mkdir(parents=True, exist_ok=True)
         self.profile_dir.mkdir(parents=True, exist_ok=True)
         self.downloads_dir.mkdir(parents=True, exist_ok=True)
@@ -762,55 +738,29 @@ class _BrowserRuntimeCore:
                 ]
             )
 
-        self.on_startup('browser', 'Starting browser driver')
-        self.playwright = await async_playwright().start()
-        browser_binary = Path(self.playwright.chromium.executable_path)
-        launch_kwargs: dict[str, Any] = {
-            "user_data_dir": str(self.profile_dir),
-            "headless": not bool(browser_display),
-            "accept_downloads": True,
-            "downloads_path": str(self.downloads_dir),
-            "args": launch_args,
-        }
-        if restore_native:
-            # The driver's extra blank tab would otherwise accumulate on every restart.
-            launch_kwargs["ignore_default_args"] = ["about:blank"]
+        # The guest runs as root under PRoot and has no desktop keyring.
+        launch_args.extend(["--no-sandbox", "--disable-dev-shm-usage", "--password-store=basic",
+                            "--no-first-run", "--no-default-browser-check", "--disable-popup-blocking",
+                            f"--user-data-dir={self.profile_dir}"])
+        env = None
         if browser_display:
             from plugins._browser.sandbox.audio import environment
-            launch_kwargs["env"] = {"DISPLAY": browser_display, "XAUTHORITY": getattr(self.interactive_view, "xauthority", ""), "GSETTINGS_BACKEND": "keyfile", "XDG_CONFIG_HOME": getattr(self.interactive_view, "gtk_config", ""), "HOME": "/root", "PATH": "/opt/runtime/bin:/usr/local/bin:/usr/bin:/bin", "PLAYWRIGHT_BROWSERS_PATH": "/opt/browsers", **environment()}
-            launch_kwargs["no_viewport"] = True
-            # Patchright otherwise emulates focus in every tab, including background windows.
-            launch_kwargs["focus_control"] = True
+            env = {"DISPLAY": browser_display, "XAUTHORITY": self.interactive_view.xauthority,
+                   "GSETTINGS_BACKEND": "keyfile", "XDG_CONFIG_HOME": self.interactive_view.gtk_config,
+                   "HOME": "/root", "PATH": "/usr/local/bin:/usr/bin:/bin", **environment()}
         else:
-            launch_kwargs.update(
-                viewport=DEFAULT_VIEWPORT,
-                screen=DEFAULT_VIEWPORT,
-                no_viewport=False,
-            )
-        if launch_config["channel"]:
-            launch_kwargs["channel"] = launch_config["channel"]
-        else:
-            launch_kwargs["executable_path"] = str(browser_binary)
-        if launch_config["proxy"]:
-            launch_kwargs["proxy"] = launch_config["proxy"]
+            launch_args.extend(["--headless=new", "--window-size=1024,768"])
+        if not restore_native:
+            launch_args.append("about:blank")
+
         self.on_startup('browser', 'Launching Chromium')
-        self.context = await self.playwright.chromium.launch_persistent_context(
-            **launch_kwargs
-        )
+        self.context = await CDPContext.launch(CHROMIUM_EXECUTABLE, launch_args,
+                                               env=env, proxy=launch_config["proxy"])
         self.on_startup('tabs', 'Preparing and restoring browser tabs')
-        self.context.set_default_timeout(30000)
-        self.context.set_default_navigation_timeout(30000)
         self.context.on("close", self._on_context_closed)
         self.context.on("page", self._on_new_page_sync)
 
         existing_pages = list(self.context.pages)
-        if existing_pages:
-            session = await self.context.new_cdp_session(existing_pages[0])
-            try:
-                # Honor the folder and save-dialog preference from Chromium's settings.
-                await session.send("Browser.setDownloadBehavior", {"behavior": "default"})
-            finally:
-                await session.detach()
         for page in existing_pages:
             if not restore_native and len(existing_pages) == 1 and page.url == "about:blank":
                 self._bootstrap_page = page
@@ -854,23 +804,11 @@ class _BrowserRuntimeCore:
         page = None
         if window_id is not None:
             anchor = await self._window_tab(window_id)
-            async with anchor.page.expect_popup() as opened:
-                await anchor.page.evaluate("() => { window.open('about:blank', '_blank'); }", isolated_context=True)
-            page = await opened.value
-            # A tool-created tab should have the same independent opener as a native new tab.
-            await page.evaluate("window.opener = null", isolated_context=True)
+            page = await anchor.page.open_tab()
         elif self._bootstrap_page and not self._bootstrap_page.is_closed():
             page, self._bootstrap_page = self._bootstrap_page, None
         elif new_window and self.pages:
-            marker = "about:blank#a0-" + uuid.uuid4().hex
-            anchor = next(iter(self.pages.values()))
-            session = await self.context.new_cdp_session(anchor.page)
-            try:
-                async with self.context.expect_page(lambda target: target.url == marker) as opened:
-                    await session.send("Target.createTarget", {"url": marker, "newWindow": True})
-                page = await opened.value
-            finally:
-                await session.detach()
+            page = await self.context.new_page(new_window=True)
         if page is None:
             page = await self.context.new_page()
         browser_page = await self._register_page(page)
@@ -927,6 +865,9 @@ class _BrowserRuntimeCore:
         return self.interactive_view.resize(width, height)
 
     async def list(self, include_content: bool = False) -> dict[str, Any]:
+        if self.context and self.context.closed:
+            # A viewer poll during native shutdown must not reopen the last window.
+            return {"browsers": [], "last_interacted_browser_id": None}
         if self.context or self._has_restorable_tabs():
             await self.ensure_started()
         ids = self._browser_ids()
@@ -1402,7 +1343,7 @@ class _BrowserRuntimeCore:
                 raise asyncio.CancelledError
 
     async def _finish_evaluate(
-        self, browser_page: BrowserPage, session: Any, operation: asyncio.Task, aborted: bool
+        self, browser_page: BrowserPage, session: CDPSession, operation: asyncio.Task, aborted: bool
     ) -> str:
         page = browser_page.page
         recovery_notice = ""
@@ -1510,9 +1451,7 @@ class _BrowserRuntimeCore:
                 await self._settle(page, short=False)
             elif box_selector:
                 try:
-                    await page.locator(box_selector).click(
-                        modifiers=list(modifiers), force=True, timeout=5000
-                    )
+                    await page.click_selector(box_selector, modifiers)
                     await self._settle(page, short=False)
                 except Exception as exc:
                     await self._reference_action("click", browser_id, reference_id)
@@ -1643,9 +1582,9 @@ class _BrowserRuntimeCore:
             and not clipboard_result.get("changed")
             and not clipboard_result.get("default_prevented")
         ):
-            if await self._insert_clipboard_text(page, str(text)):
-                clipboard_result["changed"] = True
-                clipboard_result["method"] = "keyboard.insert_text"
+            await page.keyboard.insert_text(str(text))
+            clipboard_result["changed"] = True
+            clipboard_result["method"] = "keyboard.insert_text"
         elif normalized_action in {"copy", "cut"} and not clipboard_result.get("text"):
             with contextlib.suppress(Exception):
                 shortcut = "Control+C" if normalized_action == "copy" else "Control+X"
@@ -1762,13 +1701,7 @@ class _BrowserRuntimeCore:
         }
 
     @staticmethod
-    async def _page_viewport(page: Any) -> dict[str, int]:
-        viewport = getattr(page, "viewport_size", None)
-        if viewport:
-            return {
-                "width": int(viewport.get("width") or DEFAULT_VIEWPORT["width"]),
-                "height": int(viewport.get("height") or DEFAULT_VIEWPORT["height"]),
-            }
+    async def _page_viewport(page: CDPPage) -> dict[str, int]:
         try:
             measured = await page.evaluate(
                 "() => ({ width: globalThis.innerWidth, height: globalThis.innerHeight })",
@@ -1893,7 +1826,7 @@ class _BrowserRuntimeCore:
 
     async def _point_for(
         self,
-        page: Any,
+        page: CDPPage,
         reference_id: int | str,
         *,
         offset_x: float = 0,
@@ -1918,7 +1851,7 @@ class _BrowserRuntimeCore:
 
     async def _input_point(
         self,
-        page: Any,
+        page: CDPPage,
         reference_id: int | str | None,
         *,
         x: float = 0,
@@ -2178,24 +2111,7 @@ class _BrowserRuntimeCore:
             ref,
             isolated_context=True,
         )
-        handle = None
-        try:
-            handle = await page.evaluate_handle(
-                "(ref) => globalThis.__spaceBrowserPageContent__.fileInputElementFor(ref)",
-                ref,
-                isolated_context=True,
-            )
-            element = handle.as_element() if handle else None
-            if element:
-                await element.set_input_files(upload_files)
-            elif metadata and metadata.get("selector"):
-                await page.set_input_files(metadata["selector"], upload_files)
-            else:
-                raise ValueError(f"Browser ref {ref!r} does not resolve to a file input")
-        finally:
-            if handle:
-                with contextlib.suppress(Exception):
-                    await handle.dispose()
+        await page.upload_files(ref, (metadata or {}).get("selector"), upload_files)
         await self._settle(page, short=True)
         self._maybe_promote(resolved_id)
         return {
@@ -2280,16 +2196,6 @@ class _BrowserRuntimeCore:
         self._maybe_promote(resolved_id)
         return await self._state(resolved_id)
 
-    async def _insert_clipboard_text(self, page: Any, text: str) -> bool:
-        if not text:
-            return False
-        insert_text = getattr(page.keyboard, "insert_text", None)
-        if callable(insert_text):
-            await insert_text(str(text))
-        else:
-            await page.keyboard.type(str(text))
-        return True
-
     async def close(self, delete_profile: bool = False) -> None:
         self._closing = True
         for waiter in self._pending_popups:
@@ -2297,22 +2203,7 @@ class _BrowserRuntimeCore:
                 waiter.set_exception(RuntimeError("Browser runtime is closing."))
         self._pending_popups.clear()
         await self._stop_all_screencasts()
-        self.pages.clear()
-        if self.context:
-            try:
-                await self.context.close()
-            except Exception as exc:
-                PrintStyle.warning(f"Browser context close failed: {exc}")
-            self.context = None
-        if self.playwright:
-            try:
-                await self.playwright.stop()
-            except Exception as exc:
-                PrintStyle.warning(f"Playwright stop failed: {exc}")
-            self.playwright = None
-        self.last_interacted_browser_id = None
-        if delete_profile:
-            pass  # The outer owner handles profile deletion after the guest stops.
+        await self._close_chromium()
 
     def _on_context_closed(self) -> None:
         if self._closing or self.context is None:
@@ -2351,31 +2242,25 @@ class _BrowserRuntimeCore:
 
     async def _goto(
         self,
-        page: Any,
+        page: CDPPage,
         url: str,
         *,
         wait_until: str = "domcontentloaded",
     ) -> None:
-        from patchright.async_api import Error as PlaywrightError
-        from patchright.async_api import TimeoutError as PlaywrightTimeoutError
-
         try:
             await page.goto(url, wait_until=wait_until, timeout=30000)
-        except PlaywrightTimeoutError:
+        except TimeoutError:
             PrintStyle.warning(f"Browser navigation timed out waiting for {wait_until}: {url}")
-        except PlaywrightError as exc:
+        except CDPError as exc:
             PrintStyle.warning(f"Browser navigation showed a native error page for {url}: {exc}")
 
-    async def _settle(self, page: Any, short: bool = False) -> None:
-        from patchright.async_api import Error as PlaywrightError
-        from patchright.async_api import TimeoutError as PlaywrightTimeoutError
-
+    async def _settle(self, page: CDPPage, short: bool = False) -> None:
         try:
             await page.wait_for_load_state(
                 "domcontentloaded",
                 timeout=1000 if short else 5000,
             )
-        except (PlaywrightError, PlaywrightTimeoutError):
+        except (CDPError, TimeoutError):
             pass
         await asyncio.sleep(0.1 if short else 0.35)
 
@@ -2386,15 +2271,7 @@ class _BrowserRuntimeCore:
         page = browser_page.page
         window_id = None
         if getattr(self.interactive_view, "display_name", "") and self.context:
-            try:
-                if browser_page.window_session is None:
-                    async with self._ensure_registry_lock():
-                        if browser_page.window_session is None:
-                            browser_page.window_session = await self.context.new_cdp_session(page)
-                window_id = (await browser_page.window_session.send("Browser.getWindowForTarget"))["windowId"]
-            except Exception:
-                browser_page.window_session = None
-                raise
+            window_id = (await page.send("Browser.getWindowForTarget"))["windowId"]
         try:
             state = await page.evaluate(
                 "() => ({title: document.title, canGoBack: history.length > 1, "
@@ -2421,7 +2298,7 @@ class _BrowserRuntimeCore:
             "viewport": state.get("viewport"),
         }
 
-    def _register_page_locked(self, page: Any) -> BrowserPage:
+    def _register_page_locked(self, page: CDPPage) -> BrowserPage:
         existing = self._browser_id_for_page(page)
         if existing is not None:
             return self.pages[existing]
@@ -2441,34 +2318,28 @@ class _BrowserRuntimeCore:
 
         return browser_page
 
-    async def _register_page(self, page: Any) -> BrowserPage:
+    async def _register_page(self, page: CDPPage) -> BrowserPage:
         lock = self._ensure_registry_lock()
         async with lock:
             browser_page = self._register_page_locked(page)
         await self._fit_browser_window(page)
         return browser_page
 
-    async def _fit_browser_window(self, page: Any) -> None:
+    async def _fit_browser_window(self, page: CDPPage) -> None:
         if getattr(self.interactive_view, "display", None) is None or not self.context:
             return
-        session = None
         try:
-            session = await self.context.new_cdp_session(page)
-            target = await session.send("Browser.getWindowForTarget")
+            target = await page.send("Browser.getWindowForTarget")
             window = {"windowId": target["windowId"]}
             if target.get("bounds", {}).get("windowState", "normal") != "normal":
-                await session.send("Browser.setWindowBounds", {**window, "bounds": {"windowState": "normal"}})
-            await session.send("Browser.setWindowBounds", {
+                await page.send("Browser.setWindowBounds", {**window, "bounds": {"windowState": "normal"}})
+            await page.send("Browser.setWindowBounds", {
                 **window,
                 "bounds": {"left": 0, "top": 0, "width": self.interactive_view.width,
                            "height": self.interactive_view.height, "windowState": "normal"},
             })
         except Exception as exc:
             PrintStyle.warning(f"Interactive Browser window fit failed: {exc}")
-        finally:
-            if session:
-                with contextlib.suppress(Exception):
-                    await session.detach()
 
     async def _unregister_page_async(self, browser_id: int) -> None:
         try:
@@ -2480,7 +2351,7 @@ class _BrowserRuntimeCore:
         except Exception as exc:
             PrintStyle.warning(f"Page unregister failed: {exc}")
 
-    def _on_new_page_sync(self, page: Any) -> None:
+    def _on_new_page_sync(self, page: CDPPage) -> None:
         if self._closing or self.context is None:
             return
         try:
@@ -2488,7 +2359,7 @@ class _BrowserRuntimeCore:
         except RuntimeError:
             return
 
-    async def _on_new_page_async(self, page: Any) -> None:
+    async def _on_new_page_async(self, page: CDPPage) -> None:
         try:
             if self._closing or page.is_closed():
                 return
@@ -2509,7 +2380,7 @@ class _BrowserRuntimeCore:
         except Exception as exc:
             PrintStyle.warning(f"Chromium tab registration failed: {exc}")
 
-    def _browser_id_for_page(self, page: Any) -> int | None:
+    def _browser_id_for_page(self, page: CDPPage) -> int | None:
         for browser_id, browser_page in self.pages.items():
             if browser_page.page == page:
                 return browser_id
@@ -2531,7 +2402,7 @@ class _BrowserRuntimeCore:
             raise KeyError(f"Browser {resolved} is not open.")
         return resolved
 
-    def _page(self, browser_id: int) -> Any:
+    def _page(self, browser_id: int) -> CDPPage:
         return self.pages[int(browser_id)].page
 
     async def _stop_screencasts_for_browser(self, browser_id: int) -> None:
@@ -2547,10 +2418,11 @@ class _BrowserRuntimeCore:
         for stream_id in list(self.screencasts):
             await self.stop_screencast(stream_id)
 
-    async def _ensure_content_helper(self, page: Any) -> None:
-        await self._ensure_dom_helper(page)
+    async def _ensure_content_helper(self, page: CDPPage) -> None:
+        await self._ensure_dom_helper(await page.document_frames())
         has_helper = await page.evaluate(
-            "() => Boolean(globalThis.__spaceBrowserPageContent__?.ready?.())",
+            "() => globalThis.__spaceBrowserPageContent__?.version === '14' && "
+            "globalThis.__spaceBrowserPageContent__.ready?.()",
             isolated_context=True,
         )
         if has_helper:
@@ -2559,14 +2431,10 @@ class _BrowserRuntimeCore:
             self._content_helper_source = CONTENT_HELPER_PATH.read_text(encoding="utf-8")
         await page.evaluate(self._content_helper_source, isolated_context=True)
 
-    async def _ensure_dom_helper(self, page: Any) -> None:
+    async def _ensure_dom_helper(self, frames: list[CDPFrame]) -> None:
         if self._dom_helper_source is None:
             self._dom_helper_source = DOM_HELPER_PATH.read_text(encoding="utf-8")
-        targets = [page]
-        frames = getattr(page, "frames", None)
-        if isinstance(frames, list) and frames:
-            targets = frames
-        for target in targets:
+        for target in frames:
             try:
                 state = await target.evaluate(
                     "() => ({version: globalThis.__spaceBrowserDomHelper__?.version || '',"

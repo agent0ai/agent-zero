@@ -1,12 +1,18 @@
-import re
 import asyncio
+import json
+import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
+from browser_fixtures import chromium, native_page
+from plugins._browser.sandbox.cdp import CDPError, CDPPage, CDPSession
+
 
 pytestmark = pytest.mark.anyio
-HELPER = Path(__file__).resolve().parents[1] / 'plugins/_browser/assets/browser-dom-helper.js'
+HELPER = (Path(__file__).resolve().parents[1] / 'plugins/_browser/assets/browser-dom-helper.js').read_text()
+INSTALL_HELPER = '() => {' + HELPER + '}'
 HTML = """<!doctype html><title>DOM RPC fixture</title>
 <p id="secret">PRIVATE_ACCOUNT_DATA</p>
 <form onsubmit="event.preventDefault(); document.body.dataset.submits = String(Number(document.body.dataset.submits || 0) + 1)">
@@ -28,39 +34,84 @@ def anyio_backend():
 
 
 @pytest.fixture
-async def browser_context():
-    pytest.importorskip('patchright.async_api')
-    from patchright.async_api import async_playwright
-
-    async with async_playwright() as playwright:
-        executable = playwright.chromium.executable_path
-        if not Path(executable).is_file():
-            pytest.skip('Patchright Chromium is not installed')
-        browser = await playwright.chromium.launch(executable_path=executable, headless=True, args=['--no-sandbox'])
+async def browser_context(tmp_path):
+    # Serve both .test origins on loopback. Each document retains its own browser origin.
+    async def serve(reader, writer):
         try:
-            context = await browser.new_context()
-            await context.route('**/*', lambda route: route.fulfill(content_type='text/html', body=HTML))
-            yield context
+            headers = await reader.readuntil(b"\r\n\r\n")
+            fixture = headers.startswith((b"GET http://victim.test/", b"GET http://attacker.test/"))
+            body = HTML.encode() if fixture else b""
+            status = b"200 OK" if fixture else b"404 Not Found"
+            writer.write(b"HTTP/1.1 " + status + b"\r\nContent-Type: text/html\r\nConnection: close\r\n"
+                         + f"Content-Length: {len(body)}\r\n\r\n".encode() + body)
+            await writer.drain()
+        except (asyncio.IncompleteReadError, ConnectionError):
+            pass
         finally:
-            await browser.close()
+            writer.close()
+
+    async with await asyncio.start_server(serve, "127.0.0.1", 0) as server:
+        port = server.sockets[0].getsockname()[1]
+        async with chromium(tmp_path, proxy={"server": f"http://127.0.0.1:{port}"}) as context:
+            yield context
+
+
+@dataclass
+class FixtureFrame:
+    session: CDPSession
+    main_world: int
+    isolated_world: int
+
+    async def evaluate(self, function, *args, isolated_context):
+        result = await self.session.send("Runtime.callFunctionOn", {
+            "functionDeclaration": function,
+            "executionContextId": self.isolated_world if isolated_context else self.main_world,
+            "arguments": [{"value": arg} for arg in args],
+            "awaitPromise": True, "returnByValue": True,
+        })
+        return CDPPage._value(result)
+
+
+async def fixture_frame(page, selector):
+    document = await page.send("DOM.getDocument")
+    element = await page.send("DOM.querySelector", {"nodeId": document["root"]["nodeId"], "selector": selector})
+    node = await page.send("DOM.describeNode", element)
+    frame_id = node["node"]["frameId"]
+
+    # Site isolation can move this fixture into its own renderer target.
+    local_ids = {frame.frame_id for frame in await page.document_frames()}
+    target = page if frame_id in local_ids else CDPPage(page.context, frame_id)
+    session = await page.context.new_cdp_session(target)
+    main_world = asyncio.get_running_loop().create_future()
+
+    def remember(event):
+        context = event["context"]
+        info = context.get("auxData", {})
+        if info.get("isDefault") and info.get("frameId") == frame_id and not main_world.done():
+            main_world.set_result(context["id"])
+
+    session.on("Runtime.executionContextCreated", remember)
+    await session.send("Runtime.enable")
+    isolated = await session.send("Page.createIsolatedWorld", {"frameId": frame_id, "worldName": "agent-zero-browser"})
+    main_id = await asyncio.wait_for(main_world, timeout=5)
+    assert main_id != isolated["executionContextId"]
+    return FixtureFrame(session, main_id, isolated["executionContextId"])
 
 
 async def add_frame(page, kind):
-    await page.evaluate("""({kind, html}) => {
+    await page.evaluate("""({kind, html}) => new Promise(resolve => {
         const frame = document.createElement('iframe');
         frame.id = 'frame';
         if (kind === 'opaque') frame.sandbox = 'allow-scripts';
         if (kind === 'srcdoc' || kind === 'opaque') frame.srcdoc = html;
         else frame.src = kind === 'blank' ? 'about:blank' : `http://${kind}.test/`;
+        frame.onload = () => {
+            if (kind === 'blank') frame.contentDocument.body.innerHTML = html;
+            resolve();
+        };
         document.body.append(frame);
-    }""", {'kind': kind, 'html': HTML}, isolated_context=False)
-    element = await page.locator('#frame').element_handle()
-    frame = await element.content_frame()
-    await frame.wait_for_load_state()
-    if kind == 'blank':
-        await frame.set_content(HTML)
-    await frame.locator('#input').wait_for()
-    return frame
+    })""", {'kind': kind, 'html': HTML}, isolated_context=False)
+    return await fixture_frame(page, '#frame')
 
 
 async def node_ids(frame, isolated):
@@ -109,19 +160,16 @@ async def test_dom_rpc_rejects_cross_origin_reads_and_mutations(browser_context,
     parent_is_victim = relationship in {'child', 'popup', 'opaque'}
     await page.goto('http://victim.test/' if parent_is_victim else 'http://attacker.test/')
     if relationship in {'opener', 'popup'}:
-        async with browser_context.expect_page() as popup:
-            await page.evaluate("url => { globalThis.rpcPopup = window.open(url); }",
-                                'http://attacker.test/' if parent_is_victim else 'http://victim.test/',
-                                isolated_context=False)
-        child = await popup.value
+        url = 'http://attacker.test/' if parent_is_victim else 'http://victim.test/'
+        await page.evaluate("url => { globalThis.rpcPopup = window.open(url); }", url)
+        child = await browser_context.wait_for_page(lambda tab: tab.url == url and tab is not page)
         await child.wait_for_load_state()
-        await child.locator('#input').wait_for()
         target = 'opener' if parent_is_victim else 'popup'
     else:
         child = await add_frame(page, 'opaque' if relationship == 'opaque' else ('attacker' if parent_is_victim else 'victim'))
         target = 'parent' if parent_is_victim else 'child'
     victim, attacker = (page, child) if parent_is_victim else (child, page)
-    await victim.evaluate(HELPER.read_text(), isolated_context=isolated)
+    await victim.evaluate(INSTALL_HELPER, isolated_context=isolated)
     replies = await attack(victim, attacker, target, isolated)
     state = await victim.evaluate(STATE, isolated_context=False)
     assert (replies, state) == ([], {'value': 'private@example.test', 'clicks': 0, 'submits': 0})
@@ -132,11 +180,11 @@ async def test_dom_rpc_rejects_distinct_opaque_origins(browser_context, isolated
     page = await browser_context.new_page()
     await page.goto('http://victim.test/')
     victim = await add_frame(page, 'opaque')
-    await page.locator('#frame').evaluate("frame => { frame.id = 'victim-frame'; }")
+    await page.evaluate("document.querySelector('#frame').id = 'victim-frame'")
     attacker = await add_frame(page, 'opaque')
     for frame in (victim, attacker):
         assert await frame.evaluate('() => origin', isolated_context=False) == 'null'
-    await victim.evaluate(HELPER.read_text(), isolated_context=isolated)
+    await victim.evaluate(INSTALL_HELPER, isolated_context=isolated)
     assert await attack(victim, attacker, 'sibling', isolated) == []
     assert await victim.evaluate(STATE, isolated_context=False) == {'value': 'private@example.test', 'clicks': 0, 'submits': 0}
 
@@ -154,7 +202,7 @@ async def test_dom_rpc_does_not_send_requests_to_untrusted_frames(browser_contex
         });
     }""", isolated_context=False)
     for frame in (page, child):
-        await frame.evaluate(HELPER.read_text(), isolated_context=True)
+        await frame.evaluate(INSTALL_HELPER, isolated_context=True)
     snapshot = await page.evaluate("() => globalThis.__spaceBrowserDomHelper__.captureDocument({selectors: ['#frame']})",
                                    isolated_context=True)
     assert 'browser_dom_helper_frame_origin_unavailable' in snapshot['targets']['#frame']
@@ -175,7 +223,7 @@ async def test_dom_rpc_preserves_same_origin_frame_actions(browser_context, kind
     await page.goto('http://victim.test/')
     child = await add_frame(page, kind)
     for frame in (page, child):
-        await frame.evaluate(HELPER.read_text(), isolated_context=True)
+        await frame.evaluate(INSTALL_HELPER, isolated_context=True)
     snapshot = await page.evaluate("() => globalThis.__spaceBrowserDomHelper__.captureDocument()", isolated_context=True)
     assert 'PRIVATE_ACCOUNT_DATA' in snapshot['html']
     child_id = await child.evaluate('() => globalThis.__spaceBrowserDomHelper__.frameId', isolated_context=True)
@@ -194,13 +242,14 @@ async def test_dom_rpc_binds_responses_to_requested_frame_and_operation(browser_
     page = await browser_context.new_page()
     await page.goto('http://victim.test/')
     child = await add_frame(page, 'victim')
-    await page.evaluate("""() => {
+    await page.evaluate("""() => new Promise(resolve => {
         const sibling = document.createElement('iframe');
+        sibling.id = 'sibling';
+        sibling.onload = () => resolve();
         sibling.src = 'http://victim.test/sibling';
         document.body.append(sibling);
-    }""", isolated_context=False)
-    sibling = page.frames[-1]
-    await sibling.wait_for_load_state()
+    })""", isolated_context=False)
+    sibling = await fixture_frame(page, '#sibling')
     await sibling.evaluate("""() => addEventListener('message', event => {
         if (event.data?.channel === 'rpc-test-forge') parent.postMessage(event.data.reply, origin);
     })""", isolated_context=False)
@@ -214,7 +263,7 @@ async def test_dom_rpc_binds_responses_to_requested_frame_and_operation(browser_
         setTimeout(() => event.source.postMessage({...reply,
             payload: {...reply.payload, html: 'VALID_SNAPSHOT'}}, origin), 50);
     })""", forgery, isolated_context=False)
-    await page.evaluate(HELPER.read_text(), isolated_context=True)
+    await page.evaluate(INSTALL_HELPER, isolated_context=True)
     snapshot = await page.evaluate("() => globalThis.__spaceBrowserDomHelper__.captureDocument({selectors: ['#frame']})",
                                    isolated_context=True)
     assert 'VALID_SNAPSHOT' in snapshot['targets']['#frame']
@@ -222,7 +271,6 @@ async def test_dom_rpc_binds_responses_to_requested_frame_and_operation(browser_
 
 
 async def test_dom_rpc_upgrade_requires_reload(browser_context):
-    from patchright.async_api import Error
     from plugins._browser.sandbox.runtime import _BrowserRuntimeCore
 
     page = await browser_context.new_page()
@@ -236,13 +284,13 @@ async def test_dom_rpc_upgrade_requires_reload(browser_context):
     }""", isolated_context=True)
     core = _BrowserRuntimeCore('dom-rpc-upgrade-test')
     with pytest.raises(RuntimeError, match='Reload the browser page'):
-        await core._ensure_dom_helper(page)
-    with pytest.raises(Error, match='Reload the browser page'):
-        await page.evaluate(HELPER.read_text(), isolated_context=True)
+        await core._ensure_dom_helper(await page.document_frames())
+    with pytest.raises(CDPError, match='Reload the browser page'):
+        await page.evaluate(INSTALL_HELPER, isolated_context=True)
     assert await page.evaluate('() => globalThis.__spaceBrowserDomHelper__.version', isolated_context=True) == '1'
     await page.reload()
     child = await add_frame(page, 'attacker')
-    await core._ensure_dom_helper(page)
+    await core._ensure_dom_helper(await page.document_frames())
     assert await page.evaluate('() => globalThis.__spaceBrowserDomHelper__.version', isolated_context=True) == '2'
     assert await attack(page, child, 'parent', True) == []
     assert await page.evaluate('() => typeof globalThis.legacyRequests', isolated_context=True) == 'undefined'
@@ -250,13 +298,18 @@ async def test_dom_rpc_upgrade_requires_reload(browser_context):
 
 
 @pytest.mark.parametrize('nested', [False, True])
-async def test_file_upload_resolves_captured_helper_reference(browser_context, nested):
+async def test_file_upload_resolves_captured_helper_reference(native_page, nested):
     from plugins._browser.sandbox.runtime import _BrowserRuntimeCore, BrowserPage
-    import json
-    page = await browser_context.new_page()
-    await page.goto('http://victim.test/')
-    target = await add_frame(page, 'victim') if nested else page
-    await target.evaluate("() => { const input=document.createElement('input'); input.type='file'; input.id='fixture-file'; document.body.append(input); }", isolated_context=False)
+    page = native_page
+    if nested:
+        await page.evaluate("""() => {
+            const frame = document.createElement("iframe");
+            frame.srcdoc = "<body></body>";
+            document.body.append(frame);
+            return new Promise(resolve => frame.onload = resolve);
+        }""")
+    target = (await page.document_frames())[-1]
+    await target.evaluate("() => { const input=document.createElement('input'); input.type='file'; input.id='fixture-file'; document.body.append(input); }", isolated_context=True)
     core = _BrowserRuntimeCore('fixture')
     core.pages[1] = BrowserPage(1, page)
     async def ready(): pass
@@ -267,4 +320,4 @@ async def test_file_upload_resolves_captured_helper_reference(browser_context, n
     core.request_uploads.set({json.dumps(['fixture.txt', None]): {'paths':['fixture.txt'], 'files':[
         {'name':'fixture.txt','mimeType':'text/plain','buffer':'c2VsZWN0ZWQ='}]}})
     await core.upload_file(1, ref, path='fixture.txt')
-    assert await target.locator('#fixture-file').evaluate('(input) => input.files[0].text()') == 'selected'
+    assert await target.evaluate("() => document.querySelector('#fixture-file').files[0].text()") == 'selected'

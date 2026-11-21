@@ -28,15 +28,7 @@ Use **Settings -> Backup & Restore** and avoid mapping the entire `/a0` director
 
 **8. My browser tool fails or says Chromium is missing. What now?**
 
-In normal Docker installs, the Browser already includes what it needs.
-
-If you are running a local development checkout, Agent Zero can install the
-browser the first time it is needed. To install it ahead of time, run this from
-the project root after installing Python requirements:
-
-```bash
-PLAYWRIGHT_BROWSERS_PATH=tmp/playwright patchright install chromium --no-shell
-```
+Open **Browser** and choose **Start**. On first use, the browser sandbox needs network access to install Chromium and its libraries. If installation fails, restore network access and retry. Later starts reuse that installation and your browser profile.
 
 If **Bring Your Own Browser** mode fails:
 

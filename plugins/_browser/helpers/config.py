@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 
 PLUGIN_NAME = "_browser"
+CHROMIUM_EXECUTABLE = "/opt/runtime/bin/a0-chromium"
 MODEL_PRESET_KEY = "model_preset"
 BROWSER_MODEL_ACTIVE_KEY = "_browser_model_active"
 DEFAULT_HOMEPAGE_KEY = "default_homepage"
@@ -443,9 +444,7 @@ def describe_browser_extensions(settings: dict[str, Any] | None) -> dict[str, An
 def build_browser_launch_config(settings: dict[str, Any] | None) -> dict[str, Any]:
     config = normalize_browser_config(settings)
     extensions = describe_browser_extensions(config)
-    args = ["--hide-crash-restore-bubble"]
-    channel: str | None = None
-    browser_mode = "chromium"
+    args = ["--hide-crash-restore-bubble", "--disable-infobars"]
     proxy = None
 
     if extensions["active"]:
@@ -470,8 +469,5 @@ def build_browser_launch_config(settings: dict[str, Any] | None) -> dict[str, An
     return {
         "args": args,
         "proxy": proxy,
-        "browser_mode": browser_mode,
-        "channel": channel,
         "extensions": extensions,
-        "requires_full_browser": True,
     }

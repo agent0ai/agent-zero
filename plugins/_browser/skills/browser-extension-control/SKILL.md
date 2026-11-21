@@ -18,7 +18,7 @@ Use this skill when the user wants to create a new Browser extension, modify an 
 - Browser extension paths must be visible inside the Docker runtime. Prefer `/a0/usr/browser-extensions/...` paths over host-only paths.
 - The Browser puzzle menu can open "My Browser Extensions", seed a "+ Create New with A0" request, and install Chrome Web Store URLs.
 - Chrome Web Store installs are converted into unpacked extension folders before Browser can load them.
-- Extension setting changes restart active Browser runtimes so Playwright can relaunch Chromium with the extension arguments.
+- Extension setting changes restart active Browser runtimes so Chromium starts with the extension arguments.
 
 ## Safety First
 

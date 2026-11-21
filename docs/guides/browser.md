@@ -137,8 +137,9 @@ Docker environment, and it is the browser shown in the live Browser surface.
 Use Docker browser mode when you want a clean, separate browser that Agent Zero
 can show in the Canvas.
 
-In normal Docker installs, the needed browser is already included. In local
-development, Agent Zero can install it the first time it is needed.
+Agent Zero reuses the full Chromium installed in the Browser guest. An empty
+guest installs Chromium on first use. Administrators maintain its security
+updates. See [v3 Docker Browser security updates](self-update.md#v3-docker-browser-security-updates).
 
 To use a proxy, enter its server in Browser settings, for example
 `http://proxy.example:3128` or `socks5://proxy.example:1080`. Add an optional
@@ -238,7 +239,7 @@ See [MCP Setup](mcp-setup.md) for MCP setup.
 
 ## Troubleshooting
 
-- **Browser says Chromium is missing:** Docker installs already include the browser. In local development, let Agent Zero install it on first use or preinstall it with `PLAYWRIGHT_BROWSERS_PATH=tmp/playwright patchright install chromium --no-shell`.
+- **Browser says Chromium is missing:** Choose **Start** in the Browser panel. The first launch needs network access to install Chromium in the browser sandbox. Retry once the guest has network access.
 - **The Browser surface does not open automatically:** That is expected. Open the Browser surface manually or ask the agent to show it.
 - **The Canvas does not follow the agent:** Enable **Autofocus active page** in Browser settings.
 - **Bring Your Own Browser cannot start:** Keep A0 CLI connected, verify Browser location is **Bring Your Own Browser**, and check `/browser status` in A0 CLI.

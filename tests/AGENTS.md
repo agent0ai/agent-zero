@@ -39,7 +39,7 @@
 
 - File destination changes need the tool, connector permission, and text freshness checks in `test_destination_files.py` and the real guest path and read-only mount check in `test_proot_runtime.py`.
 
-- Install root `requirements.txt` for application dependencies and suite tooling; plugin sandboxes still install their own runtime requirements. Real DOM/upload checks run in a provisioned browser guest with `PYTHONPATH=/app` and `PLAYWRIGHT_BROWSERS_PATH=/opt/browsers`.
+- Install root `requirements.txt` for application dependencies and suite tooling; plugin sandboxes still install their own runtime requirements. `test_browser_cdp.py` and `test_browser_cdp_actions.py` exercise the guest transport and captured form controls in a disposable profile. Set `CHROMIUM_BINARY` to the installed full executable when it is outside PATH. `test_browser_dom_security.py` uses the same native pipe and a loopback fixture for both origins. Keep Chromium site isolation enabled when checking page and isolated worlds.
 - Run `pytest` for broad changes.
 - Run `node --test tests/test_canvas_modes.mjs tests/test_component_moves.mjs` for workspace routing, close guards and retained component and extension moves; verify shared modal and isolated Save As rendering in a real browser.
 - Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views, selection, and shared browser configuration. Run `pytest tests/test_file_browser_actions.py tests/test_file_browser_navigation.py` for local Trash, ZIP, exact names, concurrent uploads and picker contracts.
@@ -69,7 +69,7 @@
 
 - Plugin worker coverage: `test_sandbox_workers.py`, Document Query, Whisper PCM, Kokoro/Paradee, browser regression and native desktop tests. Live guest installers/model inference/browser rendering are checked separately in disposable containers.
 - Run `node --test tests/test_tts_service.mjs` for backend-triggered cold speech feedback, quiet warm playback, cancellation, provider rediscovery and fallback. Verify both real voices and saved speeds in a fresh container through the response Speak button.
-- Run `test_browser_guest_policy.py` with the provisioned Browser guest's `/opt/runtime/bin/python` and `PLAYWRIGHT_BROWSERS_PATH=/opt/browsers`. It checks the effective policy in Chromium. Inspect the Xvnc startup window to verify visible infobar changes.
+- Run `test_browser_guest_policy.py` with the provisioned Browser guest’s image Python and `PYTHONPATH=/app`. It checks the effective policy in Chromium. Inspect the Xvnc startup window to verify visible infobar changes.
 - Browser startup progress requires worker boot/lock-isolation tests, `test_browser_pipe.py` for real guest stage messages and context-scoped pending requests, and `node --test tests/test_browser_cold_start.mjs` for numbered stages, first-run subtitles, idle checks, duplicate clicks, lost-acknowledgement recovery, confirmed failure/retry, cleanup and late replies. `test_browser_tool_output.py` covers internal startup hints and watcher cleanup on success, failure and cancellation, without adding hints to agent-facing results. Live UI checks must observe the Start button throughout a launch and viewer handoff. Installer dependency changes also need a fresh guest and real Chromium/HTML5 viewer check.
 
 - `integration_guest_smoke.py` runs inside provisioned Telegram/mail guests with their real SDK/parser and mocked network transports, and in the Local TTS guest to exercise Paradee WAV encoding with SoundFile. WhatsApp callback, authentication and media bounds are covered by the Node bridge suite; live pairing/account behavior requires separate authorization.
@@ -77,7 +77,7 @@
 - `test_browser_vnc.py` checks signed-session/origin admission, private credentials, asset traversal, binary proxy teardown and authenticated Xvnc launch. Native changes also require real noVNC input/clipboard/resize/dialog and fresh/warm sandbox measurements.
 - Browser window changes require a live user-created tab handoff to a second chat and a window switch through the header. Clipboard changes require repeated text transfers through the interactive iframe and coverage of macOS Command shortcuts.
 - Browser audio: `test_browser_audio.py` checks private sink/capture subprocess lifetime with stdlib unittest; `node --test tests/test_browser_audio.mjs` checks stereo samples, gain, buffering, mute and autoplay cleanup. Live checks measure playback through the viewer and verify mute survives iframe replacement. `test_browser_vnc.py` covers authenticated audio admission, silent gaps and capture teardown. Real Chromium audio requires the built native runtime.
-- Browser performance changes also verify reuse/migration of the image Python, duplicate Node removal, no-op display sizing, retained GTK/font behavior, and fresh plus existing guest installers. Directfs changes need real non-root lifecycle/read-only/masked-mount checks in addition to the manager tests.
+- Browser performance changes also verify the image Python, reuse of a provisioned Chromium, the Debian package path on first use, no-op display sizing, retained GTK/font behavior, and fresh plus existing guest installers. Directfs changes need real non-root lifecycle/read-only/masked-mount checks in addition to the manager tests.
 
 ## Child DOX Index
 

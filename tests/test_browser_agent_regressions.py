@@ -136,6 +136,7 @@ sys.modules.setdefault("plugins._model_config.helpers.model_config", _model_conf
 def anyio_backend():
     return "asyncio"
 
+from browser_fixtures import native_page
 from helpers import ephemeral_images, virtual_desktop
 from helpers.errors import RepairableException
 from plugins._browser.helpers.config import (
@@ -522,18 +523,16 @@ def test_browser_main_model_summary_shows_current_model(monkeypatch):
     assert get_browser_main_model_summary() == "openrouter / example/main"
 
 
-def test_browser_launch_config_uses_full_chromium_for_all_sessions(tmp_path):
+def test_browser_launch_config_enables_only_selected_extensions(tmp_path):
     default_launch = build_browser_launch_config(
         {
             "extension_paths": [],
         }
     )
 
-    assert default_launch["browser_mode"] == "chromium"
-    assert default_launch["channel"] is None
-    assert default_launch["requires_full_browser"] is True
     assert default_launch["proxy"] is None
     assert "--hide-crash-restore-bubble" in default_launch["args"]
+    assert "--disable-infobars" in default_launch["args"]
     assert not any(arg.startswith("--load-extension=") for arg in default_launch["args"])
     assert "--no-sandbox" not in default_launch["args"]
     assert "--disable-dev-shm-usage" not in default_launch["args"]
@@ -549,9 +548,6 @@ def test_browser_launch_config_uses_full_chromium_for_all_sessions(tmp_path):
         }
     )
 
-    assert launch["browser_mode"] == "chromium"
-    assert launch["channel"] is None
-    assert launch["requires_full_browser"] is True
     assert launch["extensions"]["active"] is True
     assert any(arg.startswith("--load-extension=") for arg in launch["args"])
     assert "--headless=new" not in launch["args"]
@@ -568,25 +564,6 @@ def test_browser_launch_config_uses_full_chromium_for_all_sessions(tmp_path):
 def test_browser_install_is_lazy(monkeypatch):
     monkeypatch.setattr(browser_hooks_module.subprocess, 'check_call', lambda *a, **k: pytest.fail('Host installation'))
     assert browser_hooks_module.install()['installed_on_demand']
-
-
-def _write_playwright_binary(cache_dir: Path) -> Path:
-    browser_binary = cache_dir / "chromium-1169" / "chrome-linux" / "chrome"
-    browser_binary.parent.mkdir(parents=True)
-    browser_binary.write_text("#!/bin/sh\n", encoding="utf-8")
-    return browser_binary
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_browser_extension_storage_uses_plugin_user_path(monkeypatch, tmp_path):
@@ -1789,11 +1766,10 @@ def test_browser_navigation_errors_stay_inside_native_browser_page():
         PROJECT_ROOT / "plugins" / "_browser" / "sandbox" / "runtime.py"
     ).read_text(encoding="utf-8")
 
-    assert "Error as PlaywrightError" in runtime
-    assert "except PlaywrightError as exc:" in runtime
+    assert "except CDPError as exc:" in runtime
     assert "Browser navigation showed a native error page" in runtime
     assert "await page.goto(url, wait_until=wait_until, timeout=30000)" in runtime
-    assert "except (PlaywrightError, PlaywrightTimeoutError):" in runtime
+    assert "except (CDPError, TimeoutError):" in runtime
 
 
 def test_browser_annotate_mode_ui_and_prompt_hooks():
@@ -1946,7 +1922,7 @@ def test_browser_content_helper_keeps_label_wrapped_controls_referenceable():
         PROJECT_ROOT / "plugins" / "_browser" / "assets" / "browser-page-content.js"
     ).read_text(encoding="utf-8")
 
-    assert 'const VERSION = "13"' in helper
+    assert 'const VERSION = "14"' in helper
     assert "function patchOpenShadowDom" in helper
     assert "Element.prototype.attachShadow = patched" in helper
     assert "const REQUIRED_API_NAMES = Object.freeze([" in helper
@@ -1971,70 +1947,28 @@ def test_browser_runtime_requires_current_content_helper_for_modifier_clicks():
         PROJECT_ROOT / "plugins" / "_browser" / "sandbox" / "runtime.py"
     ).read_text(encoding="utf-8")
 
-    assert "__spaceBrowserPageContent__?.ready?.()" in runtime
+    version = re.search(r'const VERSION = "(\d+)"', (PROJECT_ROOT / 'plugins/_browser/assets/browser-page-content.js').read_text())[1]
+    assert f"__spaceBrowserPageContent__?.version === '{version}'" in runtime
     assert "context.add_init_script" not in runtime
     assert "isolated_context=False" in runtime
 
 
 @pytest.mark.anyio
-async def test_browser_dom_helper_clicks_content_ref_inside_iframe():
-    pytest.importorskip("patchright.async_api")
-    from patchright.async_api import async_playwright
-
-    browser_binary = get_playwright_binary()
-    if not browser_binary:
-        pytest.skip("Patchright Chromium binary is not installed")
-
-    async with async_playwright() as playwright:
-        try:
-            browser = await playwright.chromium.launch(
-                executable_path=str(browser_binary),
-                headless=True,
-                args=["--no-sandbox"],
-            )
-        except Exception as exc:
-            pytest.skip(f"Patchright Chromium could not launch: {exc}")
-
-        try:
-            context = await browser.new_context()
-            page = await context.new_page()
-            await page.set_content(
-                """
-                <html>
-                  <body>
-                    <iframe srcdoc="
-                      <html>
-                        <body>
-                          <button id='inside' onclick=&quot;document.body.dataset.clicked = 'yes'; this.textContent = 'Clicked inside frame'&quot;>
-                            Frame Launch
-                          </button>
-                        </body>
-                      </html>
-                    "></iframe>
-                  </body>
-                </html>
-                """
-            )
-            core = _BrowserRuntimeCore("patchright-helper")
-            await core._ensure_content_helper(page)
-
-            captured = await page.evaluate(
-                "(payload) => globalThis.__spaceBrowserPageContent__.capture(payload || null)",
-                None,
-            )
-            document_content = str(captured.get("document") or "")
-            match = re.search(r"\[button (\d+)\]\s*Frame Launch", document_content)
-            assert match, document_content
-
-            action = await page.evaluate(
-                "(ref) => globalThis.__spaceBrowserPageContent__.click(ref)",
-                match.group(1),
-            )
-            frame = next(frame for frame in page.frames if frame != page.main_frame)
-            assert await frame.evaluate("() => document.body.dataset.clicked") == "yes"
-            assert action["status"]["reacted"] is True
-        finally:
-            await browser.close()
+async def test_browser_dom_helper_clicks_content_ref_inside_iframe(native_page):
+    page = native_page
+    await page.evaluate("""() => {
+        const frame = document.createElement('iframe');
+        frame.srcdoc = '<button onclick="document.body.dataset.clicked=1">Frame Launch</button>';
+        document.body.append(frame);
+        return new Promise(resolve => frame.onload = resolve);
+    }""")
+    core = _BrowserRuntimeCore("cdp-helper")
+    await core._ensure_content_helper(page)
+    captured = await page.evaluate("() => globalThis.__spaceBrowserPageContent__.capture(null)", isolated_context=True)
+    ref = re.search(r"\[button (\d+)\]\s*Frame Launch", captured["document"])
+    assert ref, captured["document"]
+    await page.evaluate("ref => globalThis.__spaceBrowserPageContent__.click(ref)", ref[1], isolated_context=True)
+    assert await page.evaluate("() => document.querySelector('iframe').contentDocument.body.dataset.clicked") == "1"
 
 
 @pytest.mark.anyio
@@ -2356,14 +2290,10 @@ async def test_browser_screencast_passes_wrong_viewport_frames_to_frontend_valid
 
 def test_browser_installs_full_chromium_only_in_guest():
     script = (PROJECT_ROOT / 'plugins/_browser/sandbox/install.sh').read_text()
-    assert 'python /plugin/sandbox/install_deps.py' in script
-    assert 'python -m patchright install chromium --no-shell' in script
-    assert 'patchright install' not in (PROJECT_ROOT / 'Dockerfile').read_text()
-    runtime = (PROJECT_ROOT / 'plugins/_browser/sandbox/runtime.py').read_text()
-    assert 'async_playwright().start()' in runtime
-    assert 'launch_persistent_context' in runtime
-    assert '"headless": not bool(browser_display)' in runtime
-    assert 'launch_kwargs["no_viewport"] = True' in runtime
+    assert 'fonts-noto-color-emoji' in script and 'dbus-x11' in script
+    assert '/usr/bin/chromium' not in (PROJECT_ROOT / 'Dockerfile').read_text()
+    requirements = (PROJECT_ROOT / 'plugins/_browser/sandbox/requirements.txt').read_text()
+    assert not [line for line in requirements.splitlines() if line.strip() and not line.startswith('#')]
 
 
 def test_browser_reuses_tuxee_display_bundle():
@@ -2372,25 +2302,16 @@ def test_browser_reuses_tuxee_display_bundle():
     assert "SandboxMount(display_bundle, '/opt/tuxee-gui')" in client
     assert '/opt/tuxee-gui/bin/tuxee-Xvnc' in guest
     assert 'xpra-server' not in guest and 'https://xpra.org' not in guest
-    assert 'python /plugin/sandbox/install_deps.py' in guest
+    assert '/opt/tuxee-guest-bin/tuxee-Xvnc' in guest
 
 
-def test_browser_startup_migration_prepares_current_playwright_binary():
-    extension = (
-        PROJECT_ROOT
-        / "plugins"
-        / "_browser"
-        / "extensions"
-        / "python"
-        / "startup_migration"
-        / "_20_browser_playwright_cache.py"
-    ).read_text(encoding="utf-8")
+def test_browser_startup_registers_viewer_routes(monkeypatch):
+    from plugins._browser.extensions.python.startup_migration._20_browser_routes import BrowserRoutes, virtual_desktop_routes
 
-    assert "class BrowserPlaywrightCacheMigration(Extension)" in extension
-    assert "virtual_desktop_routes.install_route_hooks()" in extension
-    assert "hooks.prepare_playwright_cache()" not in extension
-
-
+    calls = []
+    monkeypatch.setattr(virtual_desktop_routes, 'install_route_hooks', lambda: calls.append(True))
+    BrowserRoutes(None).execute()
+    assert calls == [True]
 
 
 def test_browser_interactive_view_applies_keyboard_layout(monkeypatch):
@@ -2482,6 +2403,7 @@ async def test_browser_first_open_reuses_headful_bootstrap_page(monkeypatch):
     page = BootstrapPage()
 
     class Context:
+        closed = False
         pages = [page]
 
         @staticmethod
@@ -2521,20 +2443,16 @@ async def test_browser_runtime_restarts_when_cached_context_is_stale():
     stopped = []
 
     class StaleContext:
-        @property
-        def pages(self):
-            raise RuntimeError("Target page, context or browser has been closed")
+        closed = True
+
+        async def close(self):
+            stopped.append(True)
 
     class LiveContext:
-        pages = []
-
-    class FakePlaywright:
-        async def stop(self):
-            stopped.append(True)
+        closed = False
 
     core = _BrowserRuntimeCore("ctx")
     core.context = StaleContext()
-    core.playwright = FakePlaywright()
     core.pages[4] = BrowserPage(id=4, page=object())
     core.last_interacted_browser_id = 4
 
@@ -2555,29 +2473,36 @@ async def test_browser_runtime_restarts_when_cached_context_is_stale():
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('cancel', [False, True])
-async def test_browser_start_failure_stops_driver_and_guest(monkeypatch, cancel):
+async def test_browser_start_failure_stops_chromium_and_display(monkeypatch, cancel):
     core = _BrowserRuntimeCore('failed-start')
     stopped = []
 
-    class Driver:
-        async def stop(self):
-            stopped.append('driver')
+    class Chromium:
+        async def close(self):
+            stopped.append('chromium')
 
     async def fail_start():
-        core.playwright = Driver()
+        core.context = Chromium()
         raise asyncio.CancelledError() if cancel else RuntimeError('launch failed')
 
     monkeypatch.setattr(core, '_start', fail_start)
     monkeypatch.setattr(core.interactive_view, 'close', lambda: stopped.append('guest'))
     with pytest.raises(asyncio.CancelledError if cancel else RuntimeError):
         await core.ensure_started()
-    assert stopped == ['driver', 'guest']
-    assert core.playwright is None and core.context is None
+    assert stopped == ['chromium', 'guest']
+    assert core.context is None
+
+
+@pytest.mark.anyio
+async def test_browser_list_during_native_shutdown_does_not_restart():
+    core = _BrowserRuntimeCore("shared", tabs=[{"url": "https://example.com"}])
+    core.context = SimpleNamespace(closed=True)
+    assert await core.list() == {"browsers": [], "last_interacted_browser_id": None}
 
 
 def test_browser_runtime_context_close_event_clears_cached_state():
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[4] = BrowserPage(id=4, page=object())
     core.last_interacted_browser_id = 4
 
@@ -3590,7 +3515,7 @@ async def test_browser_interactive_resize_uses_native_window_viewport():
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=page)
     core.interactive_view = FakeInteractiveView()
 
@@ -3625,13 +3550,14 @@ async def test_browser_runtime_restarts_screencast_without_resizing_same_viewpor
     settled = []
 
     class FakePage:
-        viewport_size = {"width": 1280, "height": 720}
+        async def evaluate(self, script, **kwargs):
+            return {"width": 1280, "height": 720}
 
         async def set_viewport_size(self, viewport):
             viewport_calls.append(dict(viewport))
 
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=FakePage())
 
     async def fake_stop_screencasts(browser_id):
@@ -3665,13 +3591,14 @@ async def test_browser_runtime_applies_changed_viewport_once():
     settled = []
 
     class FakePage:
-        viewport_size = {"width": 1024, "height": 768}
+        async def evaluate(self, script, **kwargs):
+            return {"width": 1024, "height": 768}
 
         async def set_viewport_size(self, viewport):
             calls.append(("viewport", dict(viewport)))
 
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=FakePage())
 
     async def fake_stop_screencasts(browser_id):
@@ -3728,7 +3655,7 @@ async def test_browser_runtime_screenshot_file_defaults_to_chat_scoped_artifact(
             return {"title": "Blank", "canGoBack": False, "loading": False}
 
     core = _BrowserRuntimeCore(browser_runtime_module.SHARED_RUNTIME_ID)
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[5] = BrowserPage(
         id=5,
         page=FakePage(),
@@ -3864,7 +3791,7 @@ async def test_browser_runtime_ref_point_resolution_applies_offsets():
             return {"title": "Blank", "canGoBack": False, "loading": False}
 
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=FakePage())
     core._ensure_content_helper = lambda _page: asyncio.sleep(0)
 
@@ -3933,7 +3860,7 @@ async def test_browser_runtime_clipboard_paste_uses_dom_bridge():
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=page)
 
     async def fake_settle(_page, short=False):
@@ -3979,7 +3906,7 @@ async def test_browser_runtime_clipboard_paste_falls_back_to_keyboard_insert_tex
 
     page = FakePage()
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=page)
     core._settle = lambda _page, short=False: asyncio.sleep(0)
 
@@ -4380,7 +4307,7 @@ async def test_browser_interactive_viewer_reuses_the_automated_page(width, heigh
     viewport_calls = []
     stopped = []
     core = _BrowserRuntimeCore("ctx")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages[7] = BrowserPage(id=7, page=page)
     core.interactive_view = interactive_view
 
@@ -4413,35 +4340,17 @@ async def test_browser_interactive_viewer_reuses_the_automated_page(width, heigh
 async def test_browser_interactive_window_fits_native_toolbar_without_fullscreen():
     commands = []
 
-    class FakeSession:
+    class FakePage:
         async def send(self, method, params=None):
             commands.append((method, params))
             if method == "Browser.getWindowForTarget":
                 return {"windowId": 7, "bounds": {"windowState": "normal"}}
             return {}
 
-        async def detach(self):
-            commands.append(("detach", None))
-
-    class FakeContext:
-        async def new_cdp_session(self, page):
-            assert page is fake_page
-            return FakeSession()
-
-    class FakeInteractiveView:
-        display = 0
-        width = 1200
-        height = 700
-
-    class FakePage:
-        async def evaluate(self, script, **kwargs):
-            commands.append(("evaluate", script))
-            return 87
-
     fake_page = FakePage()
     core = _BrowserRuntimeCore("ctx")
-    core.context = FakeContext()
-    core.interactive_view = FakeInteractiveView()
+    core.context = SimpleNamespace(closed=False)
+    core.interactive_view = SimpleNamespace(display=0, width=1200, height=700)
 
     await core._fit_browser_window(fake_page)
     core.interactive_view.width = 1280
@@ -4463,7 +4372,6 @@ async def test_browser_interactive_window_fits_native_toolbar_without_fullscreen
                 },
             },
         ),
-        ("detach", None),
         ("Browser.getWindowForTarget", None),
         (
             "Browser.setWindowBounds",
@@ -4478,7 +4386,6 @@ async def test_browser_interactive_window_fits_native_toolbar_without_fullscreen
                 },
             },
         ),
-        ("detach", None),
     ]
 
 
@@ -4508,15 +4415,6 @@ async def test_browser_viewer_falls_back_when_interactive_runtime_is_unavailable
     assert calls == [("interactive_viewer", (7,), {"width": 1200, "height": 700})]
 
 
-def get_playwright_binary():
-    api = pytest.importorskip('patchright.sync_api')
-    def binary():
-        with api.sync_playwright() as playwright:
-            return Path(playwright.chromium.executable_path)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(binary).result()
-
-
 @pytest.mark.anyio
 async def test_agent_list_groups_native_windows_and_allows_cross_chat_handoff():
     class Page:
@@ -4528,14 +4426,14 @@ async def test_agent_list_groups_native_windows_and_allows_cross_chat_handoff():
             return {"title": self.title, "visible": True, "focused": self.title == "two"}
 
     core = _BrowserRuntimeCore("shared")
-    core.context = object()
+    core.context = SimpleNamespace(closed=False)
     core.pages = {i: BrowserPage(i, Page(title)) for i, title in enumerate(("one", "two"), start=1)}
     core.interactive_view = SimpleNamespace(display_name=":1")
     for tab in core.pages.values():
         async def send(method, window_id=tab.id + 10):
             assert method == "Browser.getWindowForTarget"
             return {"windowId": window_id}
-        tab.window_session = SimpleNamespace(send=send)
+        tab.page.send = send
     for ctx in ("chat-a", "chat-b"):
         token = core.request_context_id.set(ctx)
         try:

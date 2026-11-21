@@ -1,7 +1,7 @@
 (() => {
   const GLOBAL_KEY = "__spaceBrowserPageContent__";
   const DOM_HELPER_KEY = "__spaceBrowserDomHelper__";
-  const VERSION = "13";
+  const VERSION = "14";
   const REQUIRED_API_NAMES = Object.freeze([
     "annotate",
     "boundingBoxFor",
@@ -2264,6 +2264,22 @@
     return entry;
   }
 
+  function localActionEntry(referenceId, options) {
+    let entry = requireReferenceEntry(referenceId, options);
+    // Pointer geometry is relative to the main viewport. Child references retain their frame routing.
+    if (entry.helperBacked && entry.frameChain.length === 1) {
+      const element = requireDomHelper(options.actionLabel).elementForNode(entry.frameChain, entry.nodeId);
+      entry = { ...entry, element };
+    }
+    if (options.requireEnabled && entry.element &&
+        (entry.element.matches(":disabled") || collectElementStateMetadata(entry.element).disabled)) {
+      throw createNamedError("BrowserPageContentActionError",
+        `Browser page content reference "${entry.referenceId}" is disabled.`,
+        { code: "browser_page_content_control_disabled" });
+    }
+    return entry;
+  }
+
   function computeStableSelector(el) {
     if (!el || el.nodeType !== 1) return null;
     const doc = el.ownerDocument || document;
@@ -2311,11 +2327,11 @@
   }
 
   function boundingBoxFor(referenceId) {
-    const entry = requireReferenceEntry(referenceId, {
+    const entry = localActionEntry(referenceId, {
       actionLabel: "boundingBox",
       requireConnected: false
     });
-    if (entry.helperBacked || !entry.element) return null;
+    if (!entry.element) return null;
     const el = entry.element;
     if (typeof el.getBoundingClientRect !== "function") return null;
     try {
@@ -2335,11 +2351,11 @@
   }
 
   function pointFor(referenceId, offsets = {}) {
-    const entry = requireReferenceEntry(referenceId, {
+    const entry = localActionEntry(referenceId, {
       actionLabel: "point",
       requireConnected: true
     });
-    if (entry.helperBacked || !entry.element) {
+    if (!entry.element) {
       throw createNamedError(
         "BrowserPageContentActionError",
         `Browser page content cannot resolve point for helper-backed reference "${entry.referenceId}".`,
@@ -2562,10 +2578,10 @@
   }
 
   async function selectReference(referenceId, valueOrValues) {
-    const entry = requireReferenceEntry(referenceId, {
-      actionLabel: "select"
+    const entry = localActionEntry(referenceId, {
+      actionLabel: "select", requireEnabled: true
     });
-    if (entry.helperBacked) {
+    if (!entry.element) {
       throw createNamedError(
         "BrowserPageContentActionError",
         `Browser page content cannot select helper-backed reference "${entry.referenceId}".`,
@@ -2603,10 +2619,10 @@
   }
 
   async function setCheckedReference(referenceId, checked = true) {
-    const entry = requireReferenceEntry(referenceId, {
-      actionLabel: "setChecked"
+    const entry = localActionEntry(referenceId, {
+      actionLabel: "setChecked", requireEnabled: true
     });
-    if (entry.helperBacked) {
+    if (!entry.element) {
       throw createNamedError(
         "BrowserPageContentActionError",
         `Browser page content cannot set helper-backed reference "${entry.referenceId}".`,

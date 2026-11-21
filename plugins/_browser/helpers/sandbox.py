@@ -27,7 +27,7 @@ worker.support_files = {
 MAX_MESSAGE = 128 * 1024 * 1024
 STARTUP_STEPS = {
     'sandbox': 1,
-    'installing': 2, 'python': 2, 'viewer': 2, 'driver': 2, 'chromium_dependencies': 2,
+    'installing': 2, 'viewer': 2,
     'chromium': 3,
     'starting_worker': 4, 'display': 4,
     'browser': 5,
@@ -124,7 +124,7 @@ class BrowserConnection:
                 await worker.aprepare()
                 self.startup_progress('display', 'Starting browser runtime')
                 manager, _ = worker._paths()
-                command = manager.process_command(worker.name, ['/opt/runtime/bin/python', '/plugin/sandbox/rpc.py'])
+                command = manager.process_command(worker.name, ['python', '/plugin/sandbox/rpc.py'])
                 self.process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE, stderr=None, limit=MAX_MESSAGE)
                 self.reader_task = asyncio.create_task(self.read())

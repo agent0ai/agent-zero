@@ -12,6 +12,18 @@ The UI will tell you when a new A0 update is available for download. Backups are
 
 ![Self Update modal showing the current v2.0 state](../res/usage/updating/self-update-v2-current.png)
 
+## v3 Docker Browser security updates
+
+Agent Zero v3 reuses the full Chromium installed in the Browser guest. Self Update
+leaves that executable in place. Administrators must apply Chromium security
+updates separately. Back up the profile with Chromium closed, then follow the
+steps for your Debian or standalone build in [Updating the internal browser](../../plugins/_browser/README.md#updating-the-internal-browser).
+
+Chromium runs with `--no-sandbox` in the PRoot guest. A compromised renderer
+can access files available to the guest user, including the browser profile and
+downloads, and network services reachable from the Agent Zero container,
+including its loopback services.
+
 ---
 
 ## Technical reference

@@ -124,7 +124,7 @@ class BrowserVncGateway(VirtualDesktopGateway):
         try:
             manager, _ = worker._paths()
             command = await asyncio.to_thread(manager.process_command, worker.name,
-                ['/opt/runtime/bin/python', '/plugin/sandbox/audio.py'])
+                ['python', '/plugin/sandbox/audio.py'])
             process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=None)
             await socket.accept()

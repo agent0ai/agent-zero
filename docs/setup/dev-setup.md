@@ -69,7 +69,6 @@ Now when you select one of the python files in the project, you should see prope
 ```bash
 python -m pip install -r requirements.txt
 python -m helpers.local_embeddings
-PLAYWRIGHT_BROWSERS_PATH=./tmp/playwright python -m patchright install chromium --no-shell
 ```
 
 The first command installs Python dependencies.
@@ -80,12 +79,8 @@ custom embedding `cache_folder`, rerun it after saving that setting so the same
 folder is prepared. See [Local ONNX embeddings](../developer/onnx-embeddings.md)
 for supported settings.
 
-The third command installs full Patchright Chromium into `./tmp/playwright`,
-relative to the project root. Docker images use the absolute path
-`/a0/tmp/playwright` and ship Chromium preinstalled. Docker builds install
-`requirements.txt` into `/usr/local/bin/python`'s global environment and use
-that interpreter to install Chromium. Application startup uses installed
-packages directly, without activating a dependency graph.
+Docker builds install `requirements.txt` into the global Python environment.
+The Browser plugin provisions Chromium inside its own sandbox on first use.
 
 Keep `PYTHONDONTWRITEBYTECODE=1` in the runtime environment, including IDE launch
 settings. Docker sets it automatically. This avoids import-time bytecode events
@@ -95,10 +90,6 @@ For images built with the retired shared dependency store, rebuild both the
 base and runtime images. A source-only self-update does not install all packages
 into global Python or replace the image's service launchers. Preserve the
 existing `usr/` volume when recreating the container.
-
-If you skip the third command, local development can still download Chromium on
-first Browser use through `ensure_playwright_binary()` in
-`plugins/_browser/helpers/playwright.py`. Pre-installing avoids that wait.
 
 See the [Browser Guide](../guides/browser.md) for the Browser surface,
 screenshots, annotations, and host-browser mode.

@@ -282,7 +282,7 @@ def test_host_browser_candidate_selection_allows_preparable_cli():
                 "browser_family": "chrome-a0",
                 "profile_label": "Default",
                 "features": ["ensure", "open"],
-                "support_reason": "Python Playwright is not installed.",
+                "support_reason": "The selected profile requires preparation.",
             },
         )
 
@@ -294,7 +294,7 @@ def test_host_browser_candidate_selection_allows_preparable_cli():
         ws_runtime.unregister_sid(sid)
 
 
-def test_host_browser_metadata_infers_preparable_legacy_cli():
+def test_host_browser_metadata_requires_explicit_preparation_capability():
     sid = "sid-host-browser-legacy-preparable"
     context_id = "ctx-host-browser-legacy-preparable"
     ws_runtime.register_sid(sid)
@@ -309,13 +309,13 @@ def test_host_browser_metadata_infers_preparable_legacy_cli():
                 "browser_family": "chrome-a0",
                 "profile_label": "Default",
                 "features": ["ensure", "open"],
-                "support_reason": "Python Playwright is not installed.",
+                "support_reason": "Enable remote debugging.",
             },
         )
 
         rows = ws_runtime.host_browser_metadata_for_context(context_id)
-        assert rows[0]["can_prepare"] is True
-        assert ws_runtime.select_host_browser_candidate_sid(context_id) == sid
+        assert rows[0]["can_prepare"] is False
+        assert ws_runtime.select_host_browser_candidate_sid(context_id) is None
     finally:
         ws_runtime.unregister_sid(sid)
 
@@ -670,7 +670,7 @@ def test_connector_runtime_ensures_preparable_host_browser_before_action(monkeyp
                     "browser_family": "chrome-a0",
                     "profile_label": "Default",
                     "features": ["ensure", "open"],
-                    "support_reason": "Python Playwright is not installed.",
+                    "support_reason": "The selected profile requires preparation.",
                 },
             )
             runtime = ConnectorBrowserRuntime(context_id, _agent(context_id))

@@ -1,7 +1,7 @@
 import asyncio
 
 from helpers.api import ApiHandler, Request
-from plugins._browser.helpers.config import build_browser_launch_config, get_browser_config
+from plugins._browser.helpers.config import CHROMIUM_EXECUTABLE, describe_browser_extensions, get_browser_config
 from plugins._browser.helpers.interactive_view import collect_status as collect_interactive_status
 from plugins._browser.helpers.sandbox import worker
 
@@ -10,10 +10,6 @@ from plugins._browser.helpers.runtime import known_context_ids, browser_startup_
 
 class Status(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
-        browser_config = get_browser_config()
-        launch_config = build_browser_launch_config(browser_config)
-        runtime_binary = "/opt/browsers" if worker.ready else ""
-        chromium_binary = runtime_binary
         try:
             from plugins._a0_connector.helpers.ws_runtime import all_host_browser_metadata
         except ImportError:
@@ -23,21 +19,12 @@ class Status(ApiHandler):
         return {
             "plugin": "_browser",
             "startup": await asyncio.to_thread(browser_startup_status, str(input.get('context_id') or '')),
-            "playwright": {
-                "cache_dir": "sandbox:/opt/browsers",
-                "cache_dirs": ["sandbox:/opt/browsers"],
-                "binary_found": bool(runtime_binary),
-                "install_required": not worker.ready,
-                "sandbox": True,
-                "binary_path": str(runtime_binary) if runtime_binary else "",
-                "chromium_binary_path": str(chromium_binary) if chromium_binary else "",
-                "launch_mode": launch_config["browser_mode"],
+            "chromium": {
+                "transport": "cdp-pipe",
+                "ready": worker.ready,
+                "binary_path": CHROMIUM_EXECUTABLE if worker.ready else "",
             },
-            "extensions": {
-                **launch_config["extensions"],
-                "launch_mode": launch_config["browser_mode"],
-                "requires_full_browser": launch_config["requires_full_browser"],
-            },
+            "extensions": describe_browser_extensions(get_browser_config()),
             "host_browser": host_browser,
             "interactive_view": collect_interactive_status(),
             "contexts": known_context_ids(),

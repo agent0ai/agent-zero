@@ -76,19 +76,28 @@ port is introduced. Service sandboxes do not share the agent `/shared` exchange
 or Agent Zero's whole `usr/` directory. Network mode currently remains `host`,
 which permits both internet and host loopback access.
 
-The browser exposes only its existing profile, downloads directory and selected
-extension directories. Uploads pass selected file bytes through Patchright;
-screenshots return through its normal protocol. The complete automation runtime (including Patchright Python and its Node driver) runs inside the guest. A browser-specific multiplexed pipe carries operations, frames and cancellation acknowledgements; no host browser SDK is imported. Tuxee’s minimal Xvnc remains on loopback behind the authenticated, token-scoped noVNC
-virtual-desktop gateway. Browser directory pickers see the guest filesystem;
-arbitrary host folders are not implicitly mounted.
+The Browser’s user-data mounts are its profile, downloads directory and selected
+extension directories. Its installer reuses a provisioned browser and uses Debian’s
+`chromium` package for an empty guest. Uploads pass selected file bytes to the guest. Python
+controls full Chromium over an inherited DevTools pipe. A separate pipe carries
+Agent Zero operations, screenshots, screencast frames and cancellation
+acknowledgements between the framework and the guest. Tuxee’s minimal Xvnc
+remains on loopback behind the authenticated, token-scoped noVNC
+virtual-desktop gateway. Browser directory pickers see the guest filesystem.
+
+Chromium runs with `--no-sandbox` inside this PRoot guest. PRoot separates its
+dependencies and ordinary filesystem writes using a dedicated Linux UID. The
+browser shares the outer kernel and host networking, including loopback. The private
+DevTools pipe keeps the debugging endpoint off the network. Code running in a
+compromised renderer has the filesystem and network access of the guest user. Operators maintain
+the selected browser build inside the guest. See [updating the internal browser](../../plugins/_browser/README.md#updating-the-internal-browser).
 
 `python -m helpers.sandbox list` lists these services alongside other instance
 sandboxes. Stop retains dependencies and models; delete removes the private
 disk root. Browser profile/download mounts remain owned by the browser and are
 not deleted with the sandbox. Uninstall removes the owned sandbox; disable stops it.
 
-Fresh outer images omit Patchright/Playwright, their bundled drivers, optional
-transport packages (aiogram, IMAPClient, Exchange), WhatsApp node_modules and the
+Fresh outer images omit browser drivers, optional transport packages (aiogram, IMAPClient, Exchange), WhatsApp node_modules and the
 retired Office/Xfce/Xpra stack. Shared memory/embedding libraries and the cached
 embedding model remain included. Office tools and separate Office tabs are absent.
 Editor retains the existing Office text/history store and backups without deleting

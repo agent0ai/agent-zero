@@ -83,6 +83,7 @@
   the CLI independently enforces the same ceiling. Reads return at most 2,000
   lines or 256 KiB with continuation metadata and reject binary-looking files.
   Prompts must direct complete or binary transfer to authenticated HTTP.
+- Select an unsupported host browser for preparation only when its connector advertises `can_prepare`.
 - Host browser status metadata may advertise `available_browsers` entries with browser ids, labels, CDP endpoints, status, and enabled state; keep older CLI payloads without those fields compatible.
 - `computer_use_remote` action results may report `requested_dispatch`, `actual_dispatch`, and `foreground_fallback_used` (`fallback_used` legacy); these are output-only fields, not tool args. `scroll` reads `dx`/`dy` with legacy aliases `delta_x`/`delta_y`; document only canonical args in model-facing prompts.
 - `computer_use_remote` reads legacy `name` as an `operation` fallback for element/ax/uia actions; it stays out of model-facing prompts.

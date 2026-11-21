@@ -36,10 +36,11 @@ def retire():
             pass
     if installed:
         subprocess.run(['uv', 'pip', 'uninstall', '--python', sys.executable, *installed], check=True, timeout=60)
+    base = Path(files.get_base_dir()).resolve()
     for relative in ('tmp/playwright', 'usr/plugins/_browser/playwright', 'usr/browser/playwright',
                      'plugins/_whatsapp_integration/whatsapp-bridge/node_modules'):
-        path = Path(files.get_abs_path(relative))
-        if path.is_dir() and not path.is_symlink():
+        path = base / relative
+        if path.is_dir() and path.resolve() == path:
             shutil.rmtree(path)
     if os.geteuid() != 0 or not shutil.which('dpkg-query'):
         return

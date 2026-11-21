@@ -1,6 +1,9 @@
 """Test the actual authenticated byte bridge, assets, and private display launch."""
 import asyncio
 import os
+import re
+import shutil
+import subprocess
 from pathlib import Path
 import struct
 import sys
@@ -161,30 +164,6 @@ def test_xvnc_private_credentials_and_loopback(monkeypatch, tmp_path):
     assert view.password=='' and view.port==0
 
 
-def test_native_dependencies_keep_dialogs_fonts_and_handle_t64():
-    from plugins._browser.sandbox.install_deps import native_packages, legacy_packages
-    packages = native_packages('Package: libasound2t64\nPackage: libgtk-3-0t64\n')
-    assert {'libasound2t64', 'libgtk-3-0t64', 'libx11-xcb1', 'dbus-x11', 'fonts-noto-color-emoji', 'fonts-wqy-zenhei'} <= set(packages)
-    assert not {'libasound2', 'libgtk-3-0', 'xvfb', 'libllvm15', 'libgl1-mesa-dri'} & set(packages)
-    assert {'libasound2', 'libgtk-3-0'} <= set(native_packages(''))
-    assert legacy_packages('libllvm15:amd64 installed\nlibgl1-mesa-dri installed\nxpra-html5 installed\nxvfb config-files\nlibgtk-3-0 installed\nlibnss3 installed\nlibx11-xcb1 installed\n') == ['libllvm15:amd64', 'libgl1-mesa-dri', 'xpra-html5']
-
-
-def test_native_installer_marks_runtime_before_retiring_legacy_dependencies(monkeypatch):
-    from plugins._browser.sandbox import install_deps
-    calls = []
-    def run(command, **kwargs):
-        calls.append(command)
-        output = 'libllvm15 installed\nlibgtk-3-0 installed\n' if command[0] == 'dpkg-query' else ''
-        return SimpleNamespace(stdout=output)
-    monkeypatch.setattr(install_deps.subprocess, 'run', run)
-    install_deps.install()
-    install = next(i for i, command in enumerate(calls) if command[:2] == ['apt-get', 'install'])
-    mark = calls.index(['apt-mark', 'auto', 'libllvm15'])
-    assert install < mark < calls.index(['apt-get', 'autoremove', '--purge', '-y'])
-    assert 'libgtk-3-0' in calls[install] and '--no-install-recommends' in calls[install]
-
-
 def test_repeated_viewer_size_does_not_launch_x_clients_or_rewrite_settings(monkeypatch, tmp_path):
     view = display.BrowserInteractiveView('fixture')
     view.state_dir = tmp_path
@@ -208,43 +187,109 @@ def test_repeated_viewer_size_does_not_launch_x_clients_or_rewrite_settings(monk
     assert (view.width, view.height) == (800, 600)
 
 
-def test_browser_bootstrap_reuses_image_python_and_preserves_matching_environment(tmp_path):
-    import subprocess
-    import sys
-    script = Path('plugins/_browser/sandbox/install.sh').read_text().split('ln -sfn /support')[0]
-    runtime = tmp_path / 'runtime'
-    progress = tmp_path / 'progress.py'
-    progress.write_text('pass')
-    script = script.replace('/opt/runtime', str(runtime)).replace('/worker/progress.py', str(progress))
-    script = script.replace('/usr/local/share/fonts', str(tmp_path / 'fonts'))
-    binary = tmp_path / 'bin'
-    binary.mkdir()
-    (binary / 'python').symlink_to(sys.executable)
-    env = {**os.environ, 'PATH': str(binary) + os.pathsep + os.environ['PATH']}
-    subprocess.run(['sh', '-ec', script], env=env, check=True)
-    assert (runtime / 'bin/python').resolve() == Path(sys.executable).resolve()
-    sentinel = runtime / 'keep-installed-packages'
-    sentinel.touch()
-    subprocess.run(['sh', '-ec', script], env=env, check=True)
-    assert sentinel.exists()
-    (runtime / 'bin/python').unlink()
-    (runtime / 'bin/python').symlink_to(tmp_path / 'retired-python')
-    subprocess.run(['sh', '-ec', script], env=env, check=True)
-    assert (runtime / 'bin/python').resolve() == Path(sys.executable).resolve()
-    assert not sentinel.exists()
+@pytest.mark.parametrize('source', [
+    'prepared', 'on_path', 'fresh', 'fresh_retry', 'missing_font',
+    'cache_amd64', 'cache_arm64', 'cache_and_path', 'ambiguous',
+])
+def test_guest_installer_reuses_or_provisions_chromium(tmp_path, source):
+    script = Path('plugins/_browser/sandbox/install.sh').read_text()
+    script = re.sub(r'(?<!\w)/(?:etc|opt|usr|app|var|worker|plugin|support)\b',
+                    lambda match: str(tmp_path) + match[0], script)
+    for directory in ['app/plugins', 'etc', 'usr/local/bin', 'usr/local/lib',
+                      'opt/tuxee-guest-bin', 'opt/tuxee-guest-audio', 'opt/runtime/bin', 'worker', 'bin']:
+        (tmp_path / directory).mkdir(parents=True, exist_ok=True)
+    (tmp_path / 'etc/os-release').write_text('VERSION_CODENAME=trixie\n')
+    (tmp_path / 'opt/tuxee-guest-bin/tuxee-Xvnc').touch(mode=0o755)
+    (tmp_path / 'worker/progress.py').touch()
+    bin_dir = tmp_path / 'bin'
+    (tmp_path / 'plugin').symlink_to(Path('plugins/_browser').resolve(), target_is_directory=True)
+    for name in ['mkdir', 'ln', 'rm', 'grep', 'install']:
+        (bin_dir / name).symlink_to(shutil.which(name))
+    (bin_dir / 'python').symlink_to(sys.executable)
+
+    def program(path, body):
+        path.write_text('#!/bin/sh\n' + body)
+        path.chmod(0o755)
+
+    browser = tmp_path / 'opt/runtime/bin/a0-chromium'
+    cache = tmp_path / 'opt/browsers'
+    platform_dir = 'chrome-linux' if source == 'cache_arm64' else 'chrome-linux64'
+    cached = cache / 'chromium-1228' / platform_dir / 'chrome'
+    cached.parent.mkdir(parents=True)
+    program(cached, 'test "$1" = --version')
+    if source != 'on_path' and not source.startswith('fresh'):
+        (cached.parents[1] / 'INSTALLATION_COMPLETE').touch()
+    if source == 'ambiguous':
+        shutil.copytree(cached.parents[1], cache / 'chromium-1229')
+    if source in ('prepared', 'missing_font'):
+        program(browser, 'test "$1" = --version')
+    if source in ('prepared', 'on_path', 'cache_and_path'):
+        program(bin_dir / 'chromium', 'test "$1" = --version')
+    program(bin_dir / 'dpkg-query', """
+        case "$source $*" in
+            fresh*|missing_font*fonts-unifont*) exit 1 ;;
+        esac
+        printf 'installed'
+    """)
+    program(bin_dir / 'apt-get', """
+        echo "$*" >> "$commands"
+        if [ "$1" = update ] && [ "$fail_update" = yes ]; then exit 100; fi
+        case " $* " in *' chromium '*)
+            mkdir -p "$guest/usr/share/X11/xkb" "$guest/usr/bin"
+            : > "$guest/usr/bin/xkbcomp"
+            ln -s "$new_chromium" "$bin_dir/chromium"
+        ;; esac
+    """)
+    new_chromium = tmp_path / 'package-binary'
+    program(new_chromium, 'test "$1" = --version')
+    commands = tmp_path / 'apt-commands'
+    commands.touch()
+    command = ['/bin/sh', '-ec', script]
+    env = {
+        'PATH': str(bin_dir), 'source': source, 'commands': str(commands),
+        'bin_dir': str(bin_dir), 'new_chromium': str(new_chromium), 'guest': str(tmp_path),
+    }
+    if source == 'fresh_retry':
+        assert subprocess.run(command, env={**env, 'fail_update': 'yes'}).returncode == 100
+        assert commands.read_text() == 'update\n'
+        commands.write_text('')
+    if source == 'ambiguous':
+        result = subprocess.run(command, env=env, capture_output=True, text=True)
+        assert result.returncode and 'Multiple installed Chromium builds' in result.stderr
+        assert commands.read_text() == '' and not browser.exists()
+        return
+    subprocess.run(command, check=True, env=env)
+    for brand in ('opt/chrome_for_testing', 'chromium'):
+        policy = tmp_path / 'etc' / brand / 'policies/managed/agent-zero-browser.json'
+        assert policy.read_bytes() == Path('plugins/_browser/sandbox/install-browser-policy.json').read_bytes()
+    if source in ('prepared', 'on_path') or source.startswith('cache_'):
+        assert commands.read_text() == ''
+    else:
+        update, install = commands.read_text().splitlines()
+        assert update == 'update' and 'fonts-unifont' in install.split()
+        assert ('chromium' in install.split()) is source.startswith('fresh')
+    if source.startswith('fresh'):
+        assert (tmp_path / 'opt/tuxee-gui/xkb').is_dir()
+        assert (tmp_path / 'opt/tuxee-gui/bin/xkbcomp').is_file()
+    if source in ('prepared', 'missing_font'):
+        assert browser.is_file() and not browser.is_symlink()
+    elif source.startswith('cache_'):
+        assert browser.resolve() == cached.resolve()
+    else:
+        assert browser.resolve() == (bin_dir / 'chromium').resolve()
 
 
 @pytest.mark.parametrize('build_fails', [False, True])
 def test_guest_display_build_cleanup_preserves_previous_packages(tmp_path, build_fails):
-    import subprocess
     script = Path('plugins/_browser/sandbox/install.sh').read_text()
-    script = script[script.index('    previous_manual='):script.index('\nfi\nif [ -z "$native_tuxee" ]; then')]
+    helpers = script[script.index('apt_updated='):script.index('python /worker/progress.py viewer')]
+    script = helpers + script[script.index('        previous_manual='):script.index('\n    fi\n    for tool in /opt/tuxee-gui')]
     script = script.replace('/support', str(tmp_path / 'support')).replace('/tmp/a0-gui', str(tmp_path / 'build'))
     script = script.replace('/opt/tuxee-gui', str(tmp_path / 'bundle'))
     binary = tmp_path / 'bin'
     binary.mkdir()
     log = tmp_path / 'commands'
-    for name in ('apt-get', 'apt-mark'):
+    for name in ('apt-get', 'apt-mark', 'dpkg-query'):
         tool = binary / name
         tool.write_text(f'#!/bin/sh\necho "{name} $*" >> "{log}"\nif [ "$1" = showmanual ]; then echo "python3 ca-certificates"; fi\n')
         tool.chmod(0o755)
@@ -266,21 +311,3 @@ def test_guest_display_build_cleanup_preserves_previous_packages(tmp_path, build
         assert result.returncode == 0
         assert (mounts / 'bin/tuxee-Xvnc').is_file()
         assert calls[-2:] == ['apt-mark manual python3 ca-certificates', 'apt-get autoremove --purge -y']
-
-
-@pytest.mark.parametrize('image_uses_managed_python', [False, True])
-def test_retired_runtime_cleanup_preserves_custom_image_interpreter(tmp_path, image_uses_managed_python):
-    import subprocess
-    managed = tmp_path / 'managed-python'
-    managed.mkdir()
-    interpreter = managed / 'python'
-    interpreter.touch()
-    cache = tmp_path / 'cache'
-    cache.mkdir()
-    script = Path('plugins/_browser/sandbox/install.sh').read_text().split('case "$base_interpreter" in', 1)[1].split('rm -rf /var/lib/apt/lists', 1)[0]
-    script = 'case "$base_interpreter" in' + script
-    script = script.replace('/root/.local/share/uv/python', str(managed)).replace('/root/.cache/uv', str(cache))
-    subprocess.run(['sh', '-ec', script], check=True,
-                   env={**os.environ, 'base_interpreter': str(interpreter) if image_uses_managed_python else '/usr/local/bin/python'})
-    assert interpreter.exists() is image_uses_managed_python
-    assert not cache.exists()

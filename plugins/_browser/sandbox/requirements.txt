@@ -1,1 +1,1 @@
-patchright==1.61.2
+# The native CDP worker uses the Python standard library.

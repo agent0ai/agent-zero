@@ -19,7 +19,7 @@ max_open_tabs: 32
 evaluate_timeout_seconds: 30
 
 # Runtime used by the agent-facing browser tool:
-# - container: use Agent Zero's Docker/server Playwright browser.
+# - container: use Agent Zero's Docker/server Chromium browser.
 # - host_required: use a host browser through Launcher or A0 CLI and prepare it on first use when possible.
 runtime_backend: "container"
 

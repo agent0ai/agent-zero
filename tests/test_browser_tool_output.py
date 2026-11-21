@@ -3,7 +3,6 @@ import json
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
-import sys
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -44,7 +43,6 @@ async def test_navigation_uses_requested_readiness_without_extra_settling(monkey
     monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 1}))
     monkeypatch.setattr(core, "_register_page", AsyncMock(return_value=core.pages[1]))
     monkeypatch.setattr(core, "_settle", AsyncMock(side_effect=AssertionError("Redundant wait")))
-    monkeypatch.setitem(sys.modules, "patchright.async_api", SimpleNamespace(Error=RuntimeError, TimeoutError=TimeoutError))
 
     await core.open("https://example.com", wait_until=wait_until)
     await core.navigate(1, "https://example.com", wait_until=wait_until)

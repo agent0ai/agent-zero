@@ -75,13 +75,10 @@ def chat_activity(chat_id):
 
 
 def service(cancel_event=None, config=None):
-    from plugins._browser.helpers.playwright import get_playwright_chromium_revision
-
     return Cleaner(files.get_base_dir(), Path.home(), state_dir(),
                    config=plugins.get_plugin_config(NAME) if config is None else config,
                    process_inventory=process_inventory, chat_activity=chat_activity,
-                   enabled=lambda: plugins.get_toggle_state(NAME) == 'enabled', cancel_event=cancel_event,
-                   browser_revision=get_playwright_chromium_revision())
+                   enabled=lambda: plugins.get_toggle_state(NAME) == 'enabled', cancel_event=cancel_event)
 
 
 async def ensure_task(*, recreate=False):

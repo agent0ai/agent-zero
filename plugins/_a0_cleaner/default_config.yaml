@@ -1,5 +1,5 @@
 automatic: true
-automatic_areas: [pip, npm, staging, profiles, screenshots, captures, browser_versions]
+automatic_areas: [pip, npm, staging, profiles, screenshots, captures]
 cache_days: 30
 staging_days: 7
 review_days: 30

@@ -99,7 +99,7 @@ _REMOTE_DEBUGGING_ERROR_TOKENS = (
     "cannot connect to the host browser",
     "127.0.0.1:9222",
     "localhost:9222",
-    "blocks playwright remote debugging",
+    "blocks command-line remote debugging",
 )
 
 
