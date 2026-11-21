@@ -5,8 +5,6 @@ Agent Zero has a built-in Browser for real web pages.
 Use it for research, forms, screenshots, UI review, downloads, extensions, and
 anything else that works best in a browser.
 
-![Browser Canvas and tool history](../res/usage/browser/browser-canvas-wide.png)
-
 ## Two Parts
 
 The Browser has two connected parts:
@@ -19,14 +17,13 @@ Open it when you want to watch, steer, or annotate the page.
 
 ## Open The Browser Surface
 
-1. Open the right-side Canvas.
-2. Select **Browser**.
-3. Click **Open Browser** or the plus button to create a new browser tab.
-4. Enter a URL in the Browser address bar.
+1. Open the right-side Canvas and select **Browser**.
+2. If the panel is empty, click **Open Browser**.
+3. Enter a URL in Chromium’s address bar. Click **+** in Chromium’s tab strip to open a tab, or select a tab to switch to it.
 
-![Browser surface](../res/usage/browser/browser-canvas-example.png)
-
-The surface shows Browser tabs, back/forward/reload controls, an address bar, an annotation toggle, and Browser settings.
+Every chat shares the Docker browser’s windows, tabs, and profile. The Canvas
+header lists each window with its tab count. Select a window to show it, or
+click **New window** (+) to open another. Resetting a chat keeps the browser open.
 
 ## Ask The Agent To Browse
 
@@ -108,25 +105,20 @@ Annotate mode lets you mark a page element or region and send a targeted comment
 
 ## Browser Settings
 
-Open Browser settings from the Browser toolbar or from the Browser plugin settings.
-
-![Browser toolbar settings](../res/usage/browser/browser-toolbar-settings.png)
-
-The toolbar menu includes:
-
-- **Browser LLM Preset:** Optional model choice for Browser helper work.
-- **Chrome Extensions:** Install a Chrome Web Store URL, create a new extension with Agent Zero, or scan an extension with Agent Zero.
-- **Settings:** Opens the full Browser plugin settings.
+Click **Browser settings** in the Canvas header. Choose **Host** or
+**Container** to set where the agent browses, or choose a **Browser LLM Preset**
+for Browser helper work. **More settings** opens the full Browser plugin settings.
 
 ![Browser plugin settings](../res/usage/browser/browser-plugin-settings.png)
 
-The full settings include:
+The full settings include these controls.
 
-- **Browser location:** Use the Docker browser or **Bring Your Own Browser** through A0 CLI.
-- **Proxy:** Optionally route the Docker browser through an HTTP or SOCKS proxy, with bypass and authentication settings.
-- **Starting page:** The default URL for new Browser sessions.
-- **Autofocus active page:** Lets an already-open Browser surface follow the agent's browsing.
-- **Extensions:** Choose which installed Chrome extensions load in the Docker browser.
+- **Browser location** lets you choose **Internal Docker browser** or **Host browser on connected computer**.
+- **Proxy server** routes the Docker browser through an HTTP or SOCKS proxy and supports a bypass list. HTTP proxies can use a username and password.
+- **Autofocus active page** lets an open Browser surface follow the agent’s browsing.
+- **Extensions** lets you install an extension from its Chrome Web Store URL, scan or create one with Agent Zero, and choose which extensions load in the Docker browser.
+
+The Docker browser initially opens DuckDuckGo. To change the homepage, open Settings inside Chromium.
 
 ## Docker Browser
 
@@ -141,9 +133,9 @@ guest installs Chromium on first use. Administrators maintain its security
 updates. See [v3 Docker Browser security updates](self-update.md#v3-docker-browser-security-updates).
 
 To use a proxy, enter its server in Browser settings, for example
-`http://proxy.example:3128` or `socks5://proxy.example:1080`. Add an optional
-comma-separated bypass list, username, and password when the proxy requires
-them. Saving proxy changes restarts active Docker Browser sessions.
+`http://proxy.example:3128` or `socks5://proxy.example:1080`. Enter any domains
+that should connect directly in **Bypass proxy for**, separated by commas.
+Saving proxy changes restarts active Docker Browser sessions.
 
 ## Bring Your Own Browser
 
@@ -155,7 +147,7 @@ Use it when the page, login, or browser profile should stay on your machine.
 Requirements:
 
 - [ ] Keep A0 CLI connected to the Agent Zero chat.
-- [ ] Choose **Bring Your Own Browser** in Browser settings.
+- [ ] Choose **Host** in the Browser settings menu.
 - [ ] Use a Chromium-family browser on the host: Chrome, Edge, Brave, Opera, Vivaldi, or Chromium.
 - [ ] For an already-open browser, open its remote debugging page and enable **Allow remote debugging for this browser instance**.
 
@@ -235,10 +227,10 @@ See [MCP Setup](mcp-setup.md) for MCP setup.
 
 ## Troubleshooting
 
-- **Browser says Chromium is missing:** Choose **Start** in the Browser panel. The first launch needs network access to install Chromium in the browser sandbox. Retry once the guest has network access.
+- **Browser says Chromium is missing:** Choose **Open Browser** in the Browser panel. An empty guest needs network access to install Chromium.
 - **The Browser surface does not open automatically:** That is expected. Open the Browser surface manually or ask the agent to show it.
 - **The Canvas does not follow the agent:** Enable **Autofocus active page** in Browser settings.
-- **Bring Your Own Browser cannot start:** Keep A0 CLI connected, verify Browser location is **Bring Your Own Browser**, and check `/browser status` in A0 CLI.
+- **Bring Your Own Browser cannot start:** Keep A0 CLI connected, verify **Host** is selected in the Browser settings menu, and check `/browser status` in A0 CLI.
 
 ## Related
 
