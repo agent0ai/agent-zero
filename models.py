@@ -824,10 +824,27 @@ class LiteLLMEmbeddingWrapper(Embeddings):
             input=inputs,
             **call_kwargs,
         )
-        return [
-            item.get("embedding") if isinstance(item, dict) else item.embedding  # type: ignore
-            for item in resp.data  # type: ignore
-        ]
+        response_data = resp.data  # type: ignore
+        if isinstance(response_data, dict):
+            response_data = response_data.get("data")
+        if not isinstance(response_data, list):
+            raise ValueError(
+                "Embedding provider response must contain a list of embeddings in 'data'."
+            )
+
+        embeddings = []
+        for index, item in enumerate(response_data):
+            vector = (
+                item.get("embedding")
+                if isinstance(item, dict)
+                else getattr(item, "embedding", None)
+            )
+            if not isinstance(vector, list):
+                raise ValueError(
+                    f"Embedding provider response item {index} is missing an embedding vector."
+                )
+            embeddings.append(vector)
+        return embeddings
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return self.embed(texts)
