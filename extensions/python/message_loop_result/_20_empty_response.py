@@ -1,9 +1,11 @@
-"""Retry completed model turns with neither response nor reasoning."""
+"""Retry empty turns and keep non-action text in the current generation."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from helpers import extract_tools
 from helpers.errors import HandledException
 from helpers.extension import Extension
 from helpers.print_style import PrintStyle
@@ -21,22 +23,40 @@ class EmptyResponse(Extension):
             return
 
         llm_result = result_data.get("llm_result")
+        if getattr(llm_result, "function_calls", None) or getattr(llm_result, "builtin_items", None):
+            return
         response = getattr(llm_result, "response", "")
         reasoning = getattr(llm_result, "reasoning", "")
         if not isinstance(response, str) or not isinstance(reasoning, str):
             return
-        if response.strip():
-            return
+        has_response = bool(response.strip())
+        if has_response:
+            if extract_tools.extract_tool_request(response) is not None:
+                return
+            status, _ = extract_tools.extract_leaked_tool_request(response)
+            if status not in ("clean", "quoted"):
+                return  # Malformed tool intent keeps its repair/dispatch path.
 
-        if reasoning.strip():
-            warning = self.agent.read_prompt("fw.msg_reasoning_only.md")
-            warning_message = self.agent.hist_add_warning(message=warning)
-            PrintStyle(font_color="orange", padding=True).print(warning)
-            self.agent.context.log.log(
-                type="warning",
-                content=self.agent.read_prompt('fw.msg_reasoning_only_response.md'),
-                id=warning_message.id,
+        if has_response or reasoning.strip():
+            text = response if has_response else reasoning
+            parsed = extract_tools.json_parse_dirty(response) or {}
+            thoughts = parsed.get("thoughts")
+            if not isinstance(thoughts, list) or not thoughts:
+                thoughts = [text]
+            log_item = self.agent.loop_data.params_temporary.get("log_item_generating")
+            self.agent.hist_add_ai_response(
+                response if has_response else json.dumps(
+                    {"thoughts": thoughts}, ensure_ascii=False, separators=(",", ":"),
+                ),
+                id=log_item.id if log_item else "",
+                llm_result=llm_result,
             )
+            if log_item is not None:
+                log_item.update(content=text, thoughts=thoughts)
+            warning = self.agent.read_prompt(
+                "fw.msg_misformat.md" if has_response else "fw.msg_reasoning_only.md"
+            )
+            self.agent.hist_add_warning(message=warning)
             result_data["skip_default_processing"] = True
             return
 

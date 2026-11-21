@@ -273,7 +273,7 @@ async def test_active_goal_keeps_response_tool_running(context_id: str):
 
 
 @pytest.mark.asyncio
-async def test_native_responses_text_uses_active_goal_response_override(
+async def test_native_response_tool_call_uses_active_goal_response_override(
     context_id: str,
     monkeypatch,
 ):
@@ -305,18 +305,24 @@ async def test_native_responses_text_uses_active_goal_response_override(
 
     result = await Agent.process_llm_result_tools(
         agent,
-        LLMResult(response="Checkpoint for the user."),
+        LLMResult.from_response({"output": [{
+            "type": "function_call", "name": "response", "call_id": "checkpoint",
+            "arguments": {"text": "Checkpoint for the user."},
+        }]}),
     )
 
     assert result is None
     assert recorded[0][0][0] == "response"
     assert recorded[0][0][1].startswith("Goal still active.")
-    assert recorded[0][1] == {}
+    assert recorded[0][1]["_responses_output_item"]["call_id"] == "checkpoint"
 
     goal.update_goal(context_id, status="complete")
     result = await Agent.process_llm_result_tools(
         agent,
-        LLMResult(response="Finished."),
+        LLMResult.from_response({"output": [{
+            "type": "function_call", "name": "response", "call_id": "finished",
+            "arguments": {"text": "Finished."},
+        }]}),
     )
 
     assert result == "Finished."

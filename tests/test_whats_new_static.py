@@ -5,7 +5,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WHATS_NEW_PLUGIN = PROJECT_ROOT / "plugins/_whats_new"
 
 
-def test_whats_new_modal_handles_empty_showcase_state():
+def test_whats_new_modal_preserves_empty_showcase_fallback():
     html = (WHATS_NEW_PLUGIN / "webui/main.html").read_text(encoding="utf-8")
     store = (WHATS_NEW_PLUGIN / "webui/whats-new-store.js").read_text(encoding="utf-8")
     slide_data = (WHATS_NEW_PLUGIN / "webui/whats-new-slides.js").read_text(
@@ -23,7 +23,6 @@ def test_whats_new_modal_handles_empty_showcase_state():
     assert "a0_whats_new_never_show" in store
     assert "No new updates right now" in store
     assert "hasSlides()" in html + store
-    assert "export const slides = [];" in slide_data
 
     old_cards = html + store + slide_data
     assert "Parallel tool calls and subagents" not in old_cards
@@ -32,6 +31,36 @@ def test_whats_new_modal_handles_empty_showcase_state():
     assert "parallel-subs.webm" not in old_cards
     assert "mcp-servers.png" not in old_cards
     assert "skills-scanner.png" not in old_cards
+
+
+def test_whats_new_introduces_a0_cleaner_first():
+    slide_data = (WHATS_NEW_PLUGIN / "webui/whats-new-slides.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert slide_data.split("id:", 1)[1].lstrip().startswith('"a0-cleaner"')
+    assert 'title: "Free up space with AOCleaner"' in slide_data
+    assert 'mediaType: "image"' in slide_data
+    assert "/plugins/_whats_new/webui/assets/a0-cleaner.png" in slide_data
+    assert (WHATS_NEW_PLUGIN / "webui/assets/a0-cleaner.png").is_file()
+    assert 'title: "Automatic cleanup"' in slide_data
+    assert "is on by default and runs on Monday at 9 AM" in slide_data
+    assert "adjust the schedule in the config page" in slide_data
+    assert 'title: "Review files"' in slide_data
+    assert "before a manual cleanup. You can add custom folders." in slide_data
+    assert 'title: "Find it"' in slide_data
+    assert "in Plugins → Builtin → AOCleaner → Open for the plugin screen." in slide_data
+
+    html = (WHATS_NEW_PLUGIN / "webui/main.html").read_text(encoding="utf-8")
+    assert '<strong x-text="item.title"></strong>' in html
+    assert '<span x-text="item.text"></span>' in html
+
+    assert slide_data.split("id:", 2)[2].lstrip().startswith('"scheduler-catchup"')
+    assert 'title: "Your scheduled tasks catch up after downtime"' in slide_data
+    assert "/plugins/_whats_new/webui/assets/scheduler-catchup.png" in slide_data
+    assert (WHATS_NEW_PLUGIN / "webui/assets/scheduler-catchup.png").is_file()
+    assert "Several missed runs become one catch-up run" in slide_data
+    assert "Tasks interrupted while running need your attention" in slide_data
 
 
 def test_whats_new_legacy_modal_path_redirects_to_main_screen():

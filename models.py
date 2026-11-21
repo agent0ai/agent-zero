@@ -969,6 +969,7 @@ def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
     return provider_name, model_name, kwargs
 
 
+@extensible
 def _merge_provider_defaults(
     provider_type: ProviderModelType, original_provider: str, kwargs: dict
 ) -> tuple[str, dict]:

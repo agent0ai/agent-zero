@@ -29,6 +29,7 @@
 - Observed side-effect areas: filesystem writes, settings/state persistence.
 - `profile`/`agent_profile` values are validated against available profile keys before use; unknown profiles raise `RepairableException` so the agent can retry with a real profile.
 - Direct and parallel calls use the same creation, continuation, message, history, and persistence functions in this module.
+- The shared tool prompt identifies the caller's profile and discourages handing its whole assignment to another same-profile agent; distinct bounded subtasks and independent reviews remain supported. Runtime profile validation and direct/parallel child creation impose no same-profile ban or depth cap.
 - Direct delegation runs that helper through the separate child's `AgentContext.run_task`, so running status, intervention, Stop, and completion notifications use the normal context lifecycle. Cancelling the caller cancels its direct child; stopping only the child raises a recoverable error to the caller. Parallel jobs retain their own task ownership, and legacy same-context children remain inline.
 - A non-empty `name` updates both the child context name and sidebar label on creation or continuation. Omission preserves an existing name; legacy same-context children must not rename the parent chat.
 - Every fresh child is `Agent(parent.number + 1, ...)` in its own persisted child-chat context, so sibling A1 agents can each create their own A2 descendants without sharing streaming state.

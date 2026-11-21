@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import socket
 import subprocess
 import sys
@@ -356,7 +357,14 @@ def test_self_update_selector_tag_options_hide_latest_when_durable_updater_lacks
     assert higher_major_versions == []
 
 
-def test_self_update_update_info_uses_current_branch_for_latest_version(monkeypatch):
+@pytest.mark.parametrize("timeout_override, expected_timeout", [(None, 600), ("900", 900)])
+def test_self_update_update_info_uses_current_branch_for_latest_version(
+    monkeypatch, timeout_override, expected_timeout,
+):
+    if timeout_override is None:
+        monkeypatch.delenv("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", raising=False)
+    else:
+        monkeypatch.setenv("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", timeout_override)
     monkeypatch.setattr(
         self_update,
         "get_repo_version_info",
@@ -423,6 +431,8 @@ def test_self_update_update_info_uses_current_branch_for_latest_version(monkeypa
 
     info = self_update.get_update_info()
 
+    assert info["defaults"]["health_timeout_seconds"] == expected_timeout
+    assert load_self_update_manager().DEFAULT_HEALTH_TIMEOUT_SECONDS == expected_timeout
     assert info["current_branch_latest"] == {
         "branch": "main",
         "supported": True,
@@ -821,6 +831,32 @@ def test_self_update_manager_queues_update_with_main_latest_defaults(monkeypatch
     assert payload["backup_conflict_policy"] == "rename"
     assert captured["path"] == manager.TRIGGER_FILE
     assert captured["payload"]["tag"] == "latest"
+
+
+def test_self_update_manager_usr_backup_preserves_contents_with_old_timestamps(tmp_path):
+    manager = load_self_update_manager()
+    source = tmp_path / "repo" / "usr" / "old.txt"
+    source.parent.mkdir(parents=True)
+    content = b"backup content\n" * 1000
+    source.write_bytes(content)
+    os.utime(source, (0, 0))
+
+    backup = manager.create_usr_backup(
+        repo_dir=source.parent.parent,
+        backup_path=str(tmp_path / "backups"),
+        backup_name="old-dates.zip",
+        conflict_policy="fail",
+        logger=manager.NullLogger(),
+    )
+
+    with zipfile.ZipFile(backup) as archive:
+        assert archive.testzip() is None
+        assert archive.read("usr/old.txt") == content
+        info = archive.getinfo("usr/old.txt")
+        assert info.date_time == (1980, 1, 1, 0, 0, 0)
+        assert info.compress_type == zipfile.ZIP_DEFLATED
+        assert info.compress_size < info.file_size
+    assert source.stat().st_mtime == 0
 
 
 def test_self_update_manager_usr_backup_skips_broken_symlinks(tmp_path):

@@ -23,7 +23,7 @@
 - `initialize.py` owns framework initialization.
 - `models.py` owns model-provider configuration and LiteLLM integration. `get_api_key_raw()` reads the stored key or key list for settings/editing; `get_api_key()` selects a runtime key and runs provider extension hooks.
 - Local sentence-transformers load only on an embedding cache miss, not when importing `models`. `run_ui.init_a0` starts deferred preload before chat restoration and returns a completion callback so its end hooks (including watchdog registration) overlap warmup. `run` invokes that callback, allowing up to ten additional seconds for preload before starting MCP and the job loop, then HTTP. Chat restoration and extension hooks are outside this wait limit. Timeout leaves preload running, so a first chat can still wait for an uncached model. Waiting is best-effort: timeout or task failure does not prevent HTTP startup. Initialization hooks may disable preload or suppress completion; disabled preload still allows MCP/jobs, while a skipped initializer skips them. `preload.py` constructs the configured local embedding model in a worker thread; it must not import unused speech runtimes or block the shared background event loop.
-- `models._merge_provider_defaults` merges YAML-declared `extra_body` defaults with legacy top-level values for those declared fields and explicit nested overrides, in that order; unrelated kwargs and original-provider API-key selection remain intact.
+- `models._merge_provider_defaults` merges YAML-declared `extra_body` defaults with legacy top-level values for those declared fields and explicit nested overrides, in that order; unrelated kwargs and original-provider API-key selection remain intact. Its extension hooks let provider plugins finalize runtime credentials after merging without changing saved settings.
 - `models.apply_rate_limiter` skips token counting and returns no limiter when all request, input, and output limits are unset; any configured limit retains normal accounting.
 - `requirements.txt` includes HTTPX's SOCKS extra so framework clients support SOCKS proxy environment variables before plugin setup.
 - LiteLLM and OpenAI pins must remain compatible. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.
@@ -41,7 +41,7 @@
 - Preserve authentication and CSRF protections.
 - Use Linux paths and commands in examples.
 - When a live Dockerized Agent Zero target is explicitly named, verify that exact runtime instead of assuming a fixed localhost port.
-- Message-loop completion flows through a response tool with `break_loop`; plain or malformed Chat Completions text enters repair, and native Responses output text is normalized through the same response-tool path.
+- Message-loop completion requires an explicit response-tool call with `break_loop`. Free text in either transport remains generation thoughts and silently continues; never synthesize a response-tool call from prose. Malformed tool intent keeps its repair path.
 - Reuse the startup-preloaded local embedding model for matching runtime configurations; wrappers retain their own rate-limit configuration while sharing the underlying inference model.
 - Embedding wrappers expose batch-shaped `embed(inputs)` for provider-ready inputs; keep `embed_documents` and `embed_query` as LangChain compatibility adapters.
 - Embedding requests never forward the chat-only `a0_api_mode` control to providers.

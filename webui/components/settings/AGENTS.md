@@ -13,12 +13,15 @@
 
 ## Local Contracts
 
+- Agent Config shows the unusable response limit below the default agent profile; Advanced Settings contains the knowledge subdirectory and project inheritance controls.
+- Working directory includes Host workspace tree limits. Use container settings defaults on and shows the current default-workdir values disabled; turning it off exposes independent saved overrides. Use normal Settings Save/Cancel semantics. This section controls prompt maps, never Launcher scopes, host selection, or permissions.
 - `file-browser/` owns the Files settings page, with appearance, remote folders/plugin controls, file limits and archives in that order. Use standard stacked Settings field rows rather than a bespoke two-column grid. The Files gear and provider plugin shortcuts open this category. Appearance includes the browser-local tree starting folder shared by Files and Editor, defaulting to `/a0`. Remember-location is a normal Settings draft; existing immediate Files limit writes also update the open Settings draft to avoid stale overwrite. Appearance also owns the Files path bar style (`buttons` breadcrumbs default or `raw` plain text path with the Up button), shown in Settings as Breadcrumbs and Text.
 - File Browser appearance includes browser-local **Separate browsing per chat**, enabled by default. It switches the primary browser between retained per-chat views and a shared session; Welcome Files always keeps its own view. Sorting/view/path-bar/tree defaults remain shared.
 - Keep settings payloads synchronized with backend APIs and plugin settings contracts.
 - Backup creation starts a background job, polls its status with short authenticated requests, and downloads the completed ZIP. Closing the modal stops polling/download consumption and retains the job ID in the store; Resume Backup continues it. Failed or expired jobs allow a fresh backup, and successful downloads clear the resume state.
 - Closing detaches a pending status request immediately so Resume Backup can start a fresh attempt. Late responses from the closed attempt leave the resumed operation unchanged.
 - Backup start requests normalize an omitted or null `include_hidden` to `true`, matching preview and dry-run; explicit `false` excludes hidden files.
+- Self-update reconnect polling uses the backend health timeout, falling back to 600 seconds, plus the existing 30-second restart buffer. Successful health recovery reloads immediately.
 - Settings tabs that expose plugin `settings_sections` must mount `settings/plugins/plugins-subsection.html` with matching `data-tab` and sidebar/nav section IDs.
 - Do not store secrets in localStorage, URLs, or console output.
 - Preserve Store Gating and modal footer conventions in settings components.

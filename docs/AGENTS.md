@@ -17,7 +17,11 @@
 - `guides/migrate-agents.md` owns the real Pi, Hermes and Claude Code CLI export, preview, import, file-copy and continuation journeys, with neutral captures under `res/usage/migration/`; source-format and parser contracts stay in the bundled Migrate Agents plugin. The migration and usage guides share the sidebar message-search capture and describe its loaded-conversation/filter limits.
 - `quickstart.md` owns the install-to-first-result journey. `guides/usage.md` owns Welcome layout recovery, chat controls, and goals; `guides/agent-profiles.md` owns whole-tool and individual-action permission guidance.
 - `setup/installation.md` and the root README share the Launcher download release and first-message, model-setup, same-chat sequence with the website Installation page. Keep optional Host access after the first result, persistent storage distinct from backups, and local Docker commands paired with their browser URLs. Reuse the verified kickoff-plan example in installation and quickstart; preserve existing manual-install and upgrade anchors.
+- The root README recommends Launcher for desktops and keeps A0 Install visible for servers and shell access, followed by shared first-message steps. Its Launcher installation screenshot is `res/usage/launcher/launcher-installation.png`; present Apple Silicon as the primary Mac download and label Intel for Intel Macs only. Keep direct Docker and troubleshooting in the "Other install options" accordion; link to the installation guide for scripted setup.
 - `guides/onboarding.md` covers provider selection and completion: the final Continue action closes the wizard and keeps the existing chat. Keep its Codex Main/Utility suggestions aligned with OAuth provider metadata.
+- `guides/telegram.md` owns private-bot setup, access versus administrator lists, scoped bot ownership, groups, webhooks, and upgrade recovery. Keep it aligned with the website Telegram guide and the bundled plugin; captures under `res/usage/telegram/` show unsaved neutral drafts with complete dialog frames and breathing room, never credentials.
+- `guides/cleaner.md` owns A0Cleaner's automatic defaults, notifications, scheduling, manual review, and custom folders. Keep it aligned with the website Cleaner guide and bundled plugin. Captures under `res/usage/cleaner/` retain complete panels; the toast uses a saved maintenance result and the custom-folder example is unsaved. Link the guide from the docs index and Usage.
+- `guides/task-scheduler.md` owns end-to-end form and natural-chat task creation, cron fields, dedicated/shared conversations, task controls, and missed runs. Keep it aligned with the website Task Scheduler guide and current controls; do not imply Reset State starts/stops work or that scheduled chats expose the ordinary Stop button. Captures under `res/usage/tasks/` show neutral example tasks with complete forms and dialogs. Link it from the docs index, Usage, and A0Cleaner.
 - Shared Web UI captures under `res/usage/webui/` must show real, optimized, neutral demo state without personal paths, account identities, or community controls presented as built-in features.
 
 ## Local Contracts
@@ -25,6 +29,7 @@
 - Prefer local docs for practical workflows and direct users to DeepWiki for source-linked internals when appropriate.
 - Do not document secrets, private deployment details, unreleased credentials, or user-specific runtime state.
 - Screenshots and assets must be relevant to the documented UI state and should be updated when UI changes make them misleading.
+- Frame screenshots with comfortable padding and enough of the window or dialog to orient the reader. Avoid crops that hug text or cut off controls; inspect them at their rendered documentation size.
 - Keep links relative inside the docs tree unless they intentionally point to external community or reference resources.
 
 ## Work Guidance

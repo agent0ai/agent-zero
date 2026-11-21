@@ -1,4 +1,4 @@
-"""Copy actions stay usable on long toasts without opening or dismissing them."""
+"""Diagnostic toasts keep Copy; routine status toasts omit it."""
 
 import mimetypes
 from pathlib import Path
@@ -66,7 +66,7 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
               navigator.clipboard.writeText = async text => { window.copied = text; };
               store.addFrontendToastOnly('error', '<b>Failure &amp; details</b><br>' +
                 'Long traceback line<br>'.repeat(40) + 'x'.repeat(500) + '<br>LAST LINE', 'Error title', 60);
-              store.addFrontendToastOnly('info', 'Other message', '', 60);
+              store.addFrontendToastOnly('warning', 'Other message', '', 60);
             }""")
             toast = page.locator(".toast-item").filter(has_text="Error title")
             content = toast.locator(".toast-content")
@@ -158,17 +158,42 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
                 action_toast.get_by_role("button", name=action, exact=True).click()
                 assert page.evaluate("window.nestedAction")
                 assert page.evaluate("window.modalOpens") == 0
-                if notification_id == "plugins_frontend_reload":
+                if notification_id == "oauth-codex-reconnect":
                     page.evaluate("""() => {
-                      store.toastStack.find(toast => toast.id === 'plugins_frontend_reload').message = 'Plain update text';
+                      store.toastStack.find(toast => toast.id === 'oauth-codex-reconnect').message = 'Reconnect Codex: plain warning';
                     }""")
                     playwright.expect(action_copy).to_be_visible()
                     page.evaluate("""() => {
-                      store.toastStack.find(toast => toast.id === 'plugins_frontend_reload').message = '<button>Reload page</button>';
+                      store.toastStack.find(toast => toast.id === 'oauth-codex-reconnect').message = 'Reconnect Codex: <button>Open OAuth settings</button>';
                     }""")
                     playwright.expect(action_copy).to_be_hidden()
                 action_toast.get_by_role("button", name="Dismiss").click()
                 playwright.expect(action_toast).to_have_count(0)
                 playwright.expect(page.locator(".toast-item").filter(has_text="Other message").get_by_role("button", name="Copy")).to_be_visible()
+
+            for notification_type, message, backend in [
+                ("success", "Plugin installed", True),
+                ("success", "Presets saved", False),
+                ("success", "Copied to clipboard!", False),
+                ("info", "Settings reset to default.", False),
+                ("progress", "Preparing download...", True),
+            ]:
+                page.evaluate("""sample => {
+                  if (sample.backend) {
+                    store.addToToastStack({ id: 'status-test', ...sample, display_time: 0 });
+                  } else {
+                    store.addFrontendToastOnly(sample.type, sample.message, '', 0);
+                  }
+                }""", {"type": notification_type, "message": message, "backend": backend})
+                status_toast = page.locator(".toast-item").filter(has_text=message)
+                status_copy = status_toast.get_by_role("button", name="Copy", include_hidden=True)
+                playwright.expect(status_toast).to_be_visible()
+                playwright.expect(status_copy).to_be_hidden()
+                page.evaluate("store.toastStack.at(-1).type = 'error'")
+                playwright.expect(status_copy).to_be_visible()
+                page.evaluate("type => { store.toastStack.at(-1).type = type; }", notification_type)
+                playwright.expect(status_copy).to_be_hidden()
+                status_toast.get_by_role("button", name="Dismiss", exact=True).click()
+                playwright.expect(status_toast).to_have_count(0)
         finally:
             browser.close()

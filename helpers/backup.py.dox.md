@@ -29,6 +29,7 @@
 - `create_backup(..., output_path=None)` accepts an optional server-owned output path for background jobs. Its caller owns the containing directory and final cleanup. The default retains the temporary archive return contract. `backup_name` remains archive metadata when an output path is supplied.
 - Default backup metadata includes persistent `/usr` data but excludes Time Travel shadow history under `usr/.time_travel/**` and Orchestrator state and credentials under `usr/plugins/_orchestrator/data/**`.
 - Restoring `usr/.env` preserves the destination instance's allowed origins while restoring authentication and other portable configuration from the archive.
+- Preview and restore normalize logical archive paths while preserving symlink names for pattern matching, overwrite policies, and `usr/.env` origin preservation. Resolved targets must stay inside the current Agent Zero root. Restore validates every member before cleanup or extraction and rechecks each target before use.
 
 ## Key Concepts
 
@@ -45,6 +46,8 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_backup_large_archives.py`
+- Portable round-trip tests cover inspection, preview, and restore between different installation roots, including symlinked VPS roots, cleanup, skip/overwrite policies, saved OAuth/model configuration, and destination-origin preservation.
   - `tests/test_download_toast_regressions.py`
   - `tests/test_office_document_store.py`
   - `tests/test_self_update_tag_filter.py`

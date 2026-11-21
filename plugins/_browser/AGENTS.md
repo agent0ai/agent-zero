@@ -17,6 +17,8 @@
 ## Local Contracts
 
 - Keep browser actions safe around external pages, credentials, and user data.
+- DOM-helper messaging accepts only non-opaque same-origin documents, uses exact target origins, and binds responses to the requested child window and operation. Use the effective Window origin so inherited-origin `about:blank` and `srcdoc` frames work; cross-origin frame RPC fails closed while direct automation entry points remain available.
+- DOM helper v2 and internal runtime readiness checks reject in-place upgrades: reload existing pages to remove legacy anonymous message listeners. Host connectors receive the helper source through its existing SHA-256 update path; restart existing host browsers and reconnect before reloading restored tabs to discard old initialization scripts.
 - Preserve Patchright lifecycle cleanup and WebSocket viewer compatibility across regular host browsers and Electron WebContentsView embedding.
 - Keep the WebUI Browser inside its own modal/canvas affordance; do not replace it with page-level navigation.
 - Default the visible WebUI Browser to the authenticated Xpra HTML5 viewer for its existing Patchright page. Keep live CDP screencast and lightweight snapshots as automatic fallbacks.
@@ -41,7 +43,9 @@
 - Share one persistent internal-Browser sign-in profile across chats while enforcing tab ownership through context-bound runtime handles; resetting or removing a chat closes only its tabs and never deletes the shared profile.
 - On first shared-profile use after an upgrade, adopt the first requesting chat's legacy Browser profile when one exists.
 - Empty viewer subscriptions and closing the last tab clear the address, page state, viewer, and switching flags. Context changes invalidate pending surface, subscription, and command results before awaiting session refresh; stale completions must not restore another chat or clear the current startup state. Structured subscription errors release switching state just like transport failures.
-- Show an accessible in-panel startup state while the on-demand shared Browser runtime is cold-starting; keep that one runtime warm until Browser configuration changes or Agent Zero shuts down.
+- Show an accessible in-panel startup state while the on-demand shared Browser runtime is cold-starting. Its existing worker checks once a minute and suspends it after 60 idle minutes by default (`idle_timeout_minutes`, global setting, 0 disables), including when only a scoped plugin is enabled. Count both chat messages and Browser activity, following subordinate/parallel parent links; running or paused owning agents, browser calls, downloads, and connected viewers prevent automatic suspension. Resume through the existing tab manifest and shared sign-in profile; unsaved page state is not recoverable. Passive listings must neither restore nor extend runtime lifetime.
+- Browser Settings provides a global Stop internal browser action, refusing active operations, downloads, or unpaused running owners. Global plugin disable uses the toggle start extension to close the runtime before its extensions disappear. Context reset/remove still forgets only that context's tabs.
+- Browser display cleanup removes only stale plugin-owned directories without a live owner or process reference; it never kills arbitrary Chromium or X server processes. New displays record the owning process identity, including its start time.
 - Listing tabs must not cold-start Chromium when there are no saved tabs to restore. Preserve per-chat/shared and legacy-session restoration when saved tabs exist.
 - Navigation waits only for the requested readiness: agent tools default to `domcontentloaded`, while WebUI navigation/new tabs and restored tabs use `commit`. Do not follow navigation with another load wait or fixed settle delay; retain settling for interaction actions. Read title, back-navigation availability, and loading state in one page evaluation.
 - Keep narrow WebUI Browser controls usable by grouping navigation with Annotate/settings above a full-width address bar.
@@ -87,7 +91,8 @@
 ## Verification
 
 - Smoke-test browser launch, navigation, DOM capture, and WebUI viewer after runtime changes.
-- For viewer render-path changes, verify direct iframe interaction reaches the same page controlled by Patchright, separate contexts use separate displays, and an unavailable Xpra runtime falls back to CDP screencast/snapshot rendering.
+- Run `pytest tests/test_browser_dom_security.py` for real-Chromium origin isolation, parent/frame/opener attacks, response binding, same-origin frame actions, and legacy-helper upgrades. Run `pytest tests/test_browser_agent_regressions.py tests/test_host_browser_connector.py` for internal runtime and distributed helper compatibility.
+- For viewer render-path changes, verify direct iframe interaction reaches the same page controlled by Patchright, contexts retain separate tab ownership on the shared display, and an unavailable Xpra runtime falls back to CDP screencast/snapshot rendering.
 - Run browser prompt/skill regression tests after changing browser prompt or Browser plugin skills.
 
 ## Child DOX Index

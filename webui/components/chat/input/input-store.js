@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+import { createStore, getStore } from "/js/AlpineStore.js";
 import * as shortcuts from "/js/shortcuts.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
 import { openLatest as openLatestSurface } from "/js/surfaces.js";
@@ -95,7 +95,12 @@ const model = {
   },
 
   get inputPlaceholder() {
-    if (!chatsStore.selected) return "Ask anything to start a new chat";
+    if (!chatsStore.selected) {
+      if (getStore("welcomeStore")?.banners.some(b => b.id === "missing-api-key")) {
+        return "Ask anything to set up your models, or click Settings";
+      }
+      return "Ask anything to start a new chat";
+    }
     const state = this._getSendState();
     if ((state === "all" || state === "stop") && messageQueueStore?.hasQueue) {
       return "Press Enter to send queued messages";

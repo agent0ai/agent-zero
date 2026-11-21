@@ -28,6 +28,23 @@
             </div>
           </div>
 
+          <div class="field">
+            <div class="field-label">
+              <div class="field-title">Consecutive unusable response limit</div>
+              <div class="field-description">
+                Stop after this many malformed or repeated model responses. The default is 5.
+              </div>
+            </div>
+            <div class="field-control">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                x-model.number="$store.settings.settings.max_consecutive_unusable_responses"
+              />
+            </div>
+          </div>
+
           <div class="settings-advanced-section" x-data="{ advOpen: false }">
             <button type="button" class="settings-advanced-toggle" @click="advOpen = !advOpen">
               <x-icon class="settings-advanced-toggle-icon"
@@ -64,23 +81,6 @@
                     <input type="checkbox" x-model="$store.settings.settings.chat_inherit_project">
                     <span class="toggler"> </span>
                   </label>
-                </div>
-              </div>
-
-              <div class="field">
-                <div class="field-label">
-                  <div class="field-title">Consecutive unusable response limit</div>
-                  <div class="field-description">
-                    Stop after this many malformed or repeated model responses. The default is 5.
-                  </div>
-                </div>
-                <div class="field-control">
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    x-model.number="$store.settings.settings.max_consecutive_unusable_responses"
-                  />
                 </div>
               </div>
             </div>

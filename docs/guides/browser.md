@@ -145,6 +145,28 @@ To use a proxy, enter its server in Browser settings, for example
 comma-separated bypass list, username, and password when the proxy requires
 them. Saving proxy changes restarts active Docker Browser sessions.
 
+### Idle Cleanup And Manual Stop
+
+Open **Browser Settings → Browser Runtime** to change the **Internal browser idle
+timeout** or choose **Stop internal browser**. These controls affect the shared
+Docker browser across all chats; they do not close your host browser.
+
+By default, Agent Zero stops the internal browser after one hour of inactivity
+across its chats and viewers. Running agents, including paused agents and agents
+waiting for tools, keep it open. Browser actions and downloads also prevent idle
+cleanup. Switching chats does not close the browser. Set the global timeout to
+**0** to keep it open indefinitely.
+
+Background scripts inside a web page do not reset the timer. Use **0** for an
+unattended page that must keep working after its agent finishes.
+
+Manual Stop requires browser actions and downloads to finish and running chats
+to finish or be paused. Disabling the Browser plugin globally also stops its
+internal runtime.
+
+Reopening Browser restores saved tab URLs and keeps sign-ins. Unsaved forms,
+page edits, and other in-memory page state are lost when the browser stops.
+
 ## Bring Your Own Browser
 
 Bring Your Own Browser lets Agent Zero use Chrome, Edge, Brave, Opera, Vivaldi,

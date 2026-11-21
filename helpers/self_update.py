@@ -851,6 +851,9 @@ def get_update_info(repo_dir: str | Path | None = None) -> dict[str, Any]:
             "log_file": str(get_log_file_path()),
         },
         "defaults": {
+            "health_timeout_seconds": int(
+                os.environ.get("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "600")
+            ),
             "branch": default_branch,
             "tag": current_version if _is_selector_supported_tag(current_version) else "",
             "backup_usr": True,

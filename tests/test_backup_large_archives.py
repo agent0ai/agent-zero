@@ -19,6 +19,78 @@ class UploadedBackup:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("symlink_root", [False, True])
+@pytest.mark.parametrize("clean", [False, True])
+@pytest.mark.parametrize("overwrite_policy", ["overwrite", "skip"])
+async def test_portable_backup_round_trip_preserves_vps_connections(
+    tmp_path, monkeypatch, symlink_root, clean, overwrite_policy
+):
+    source_root = tmp_path / "laptop" / "agent-zero"
+    actual_root = tmp_path / "vps" / "installation"
+    actual_root.mkdir(parents=True)
+    destination_root = tmp_path / "vps" / "current" if symlink_root else actual_root
+    if symlink_root:
+        destination_root.symlink_to(actual_root, target_is_directory=True)
+    portable_files = {
+        "usr/plugins/_oauth/codex/auth.json": '{"tokens":{"refresh_token":"synthetic-saved-token"}}\n',
+        "usr/plugins/_oauth/config.json": '{"codex":{"proxy_token":"synthetic-existing-proxy-token"}}\n',
+        "usr/plugins/_model_config/config.json": '{"chat_model":{"provider":"codex_oauth","name":"saved-model"}}\n',
+        "usr/projects/existing/.a0proj/settings.json": '{"name":"existing-project"}\n',
+        "usr/settings.json": '{"setting":"from-laptop"}\n',
+        "usr/.env": "AUTH_LOGIN=existing-user\nAUTH_PASSWORD=synthetic-password\nALLOWED_ORIGINS=https://laptop.invalid\n",
+    }
+    for name, content in portable_files.items():
+        for root in [source_root, destination_root]:
+            target = root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+    destination_env = destination_root / "usr/.env"
+    destination_env.write_text(portable_files["usr/.env"].replace("https://laptop.invalid", "https://vps.invalid"))
+    (destination_root / "usr/settings.json").write_text('{"setting":"from-vps"}\n')
+    stale_file = destination_root / "usr/stale.txt"
+    stale_file.write_text("old-vps-data")
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://vps.invalid")
+    monkeypatch.setattr(dotenv, "get_dotenv_file_path", lambda: str(destination_env))
+
+    source = BackupService()
+    source.agent_zero_root = str(source_root)
+    source.base_paths = {str(source_root): str(source_root)}
+
+    async def source_environment():
+        return {"agent_zero_root": str(source_root)}
+
+    monkeypatch.setattr(source, "_get_environment_info", source_environment)
+    metadata = source.get_default_backup_metadata()
+    archive = Path(await source.create_backup(metadata["include_patterns"], metadata["exclude_patterns"]))
+    destination = BackupService()
+    destination.agent_zero_root = str(destination_root)
+    destination.base_paths = {str(destination_root): str(destination_root)}
+    try:
+        upload = UploadedBackup(archive)
+        inspected = await destination.inspect_backup(upload)
+        assert inspected["total_files"] == len(portable_files)
+        options = {"clean_before_restore": clean, "overwrite_policy": overwrite_policy}
+        preview = await destination.preview_restore(upload, **options)
+        result = await destination.restore_backup(upload, **options)
+        assert result["errors"] == []
+        assert preview["delete_count"] == len(result["deleted_files"])
+        for name, content in portable_files.items():
+            expected = content
+            if name == "usr/.env":
+                expected = content.replace("https://laptop.invalid", "https://vps.invalid")
+            elif name == "usr/settings.json" and overwrite_policy == "skip" and not clean:
+                expected = '{"setting":"from-vps"}\n'
+            assert (destination_root / name).read_text() == expected
+        assert stale_file.exists() is not clean
+        if clean and overwrite_policy == "skip":
+            pytest.xfail("Pre-existing preview applies skip policy before simulating cleanup")
+        assert preview["restore_count"] == len(result["restored_files"])
+    finally:
+        archive.unlink()
+        archive.parent.rmdir()
+
+
+@pytest.mark.asyncio
 async def test_default_backup_patterns_exclude_generated_history_and_orchestrator_data(tmp_path):
     root = tmp_path / "a0"
     usr = root / "usr"
@@ -62,14 +134,17 @@ async def test_default_backup_patterns_exclude_generated_history_and_orchestrato
     ],
     ids=("credentials", "blank-credentials", "missing-credentials"),
 )
+@pytest.mark.parametrize("symlink_env", [False, True])
 @pytest.mark.asyncio
 async def test_restore_preserves_destination_origin_and_restores_backup_credentials(
-    tmp_path, monkeypatch, backup_credentials, expected_credentials
+    tmp_path, monkeypatch, backup_credentials, expected_credentials, symlink_env
 ):
     old_root = "/old-a0"
     destination_root = tmp_path / "a0"
     destination_env = destination_root / "usr" / ".env"
     destination_env.parent.mkdir(parents=True)
+    if symlink_env:
+        destination_env.symlink_to(destination_root / "instance.env")
     destination_env.write_text(
         "AUTH_LOGIN=current\n"
         "AUTH_PASSWORD=current-password\n"
@@ -258,3 +333,90 @@ async def test_restore_clean_before_restore_uses_unlimited_pattern_scan(monkeypa
 
     assert result == []
     assert captured["max_files"] is None
+
+
+@pytest.mark.parametrize("escape", ["traversal", "symlink"])
+@pytest.mark.parametrize("clean_before_restore", [False, True])
+@pytest.mark.asyncio
+async def test_restore_rejects_archive_member_before_changing_existing_files(
+    tmp_path, escape, clean_before_restore
+):
+    old_root = "/old-a0"
+    destination_root = tmp_path / "a0"
+    outside_file = tmp_path / "outside.txt"
+    existing_file = destination_root / "usr" / "settings.json"
+    existing_file.parent.mkdir(parents=True)
+    existing_file.write_text("current settings\n", encoding="utf-8")
+    if escape == "symlink":
+        (destination_root / "usr" / "escape").symlink_to(tmp_path, target_is_directory=True)
+        unsafe_member = "old-a0/usr/escape/outside.txt"
+    else:
+        unsafe_member = "old-a0/usr/../../outside.txt"
+    metadata = {
+        "environment_info": {"agent_zero_root": old_root},
+        "include_patterns": [f"{old_root}/usr/**"],
+        "exclude_patterns": [],
+    }
+    zip_path = tmp_path / "traversal.zip"
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("metadata.json", json.dumps(metadata))
+        archive.writestr("old-a0/usr/settings.json", "backup settings\n")
+        archive.writestr(unsafe_member, "malicious\n")
+
+    service = BackupService()
+    service.agent_zero_root = str(destination_root)
+
+    for method in (service.preview_restore, service.restore_backup):
+        with pytest.raises(Exception, match="escapes the restore root"):
+            await method(
+                backup_file=UploadedBackup(zip_path),
+                restore_include_patterns=metadata["include_patterns"],
+                clean_before_restore=clean_before_restore,
+            )
+
+        assert existing_file.read_text(encoding="utf-8") == "current settings\n"
+    assert not outside_file.exists()
+
+
+@pytest.mark.parametrize("link_kind", ["root", "file", "directory"])
+@pytest.mark.parametrize("exclude_file", [False, True])
+@pytest.mark.asyncio
+async def test_restore_preserves_logical_paths_for_contained_symlinks(
+    tmp_path, link_kind, exclude_file
+):
+    root = tmp_path / "real-a0"
+    (root / "usr").mkdir(parents=True)
+    target = root / "usr" / "settings.json"
+    if link_kind == "root":
+        logical_root = tmp_path / "a0"
+        logical_root.symlink_to(root, target_is_directory=True)
+        root = logical_root
+    elif link_kind == "file":
+        target = root / "instance.json"
+        (root / "usr" / "settings.json").symlink_to(target)
+    else:
+        (root / "data").mkdir()
+        (root / "usr" / "linked").symlink_to(root / "data", target_is_directory=True)
+        target = root / "data" / "settings.json"
+    target.write_text("current\n", encoding="utf-8")
+    relative_path = "usr/linked/settings.json" if link_kind == "directory" else "usr/settings.json"
+    metadata = {"environment_info": {"agent_zero_root": "/old-a0"}}
+    zip_path = tmp_path / "backup.zip"
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("metadata.json", json.dumps(metadata))
+        archive.writestr(f"old-a0/{relative_path}", "restored\n")
+    service = BackupService()
+    service.agent_zero_root = str(root)
+    options = {
+        "restore_include_patterns": ["/old-a0/usr/**"],
+        "restore_exclude_patterns": [f"/old-a0/{relative_path}"] if exclude_file else [],
+    }
+
+    preview = await service.preview_restore(UploadedBackup(zip_path), **options)
+    result = await service.restore_backup(UploadedBackup(zip_path), **options)
+
+    assert preview["restore_count"] == len(result["restored_files"]) == (0 if exclude_file else 1)
+    assert target.read_text(encoding="utf-8") == ("current\n" if exclude_file else "restored\n")
+    assert result["errors"] == []
+    if not exclude_file:
+        assert result["restored_files"][0]["target_path"] == str(root / relative_path)

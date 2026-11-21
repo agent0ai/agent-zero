@@ -8,11 +8,33 @@
     <div x-data>
         <template x-if="config">
             <div>
+                <div class="section-title">Snapshot coverage</div>
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Additional excluded paths</div>
+                        <div class="field-description">One Git-style pattern per line, relative to each workspace, for example downloads/ or models/*.bin. Built-in secret and cache exclusions always apply. Workspace .gitignore files do not control Time Travel. Exclusions affect future snapshots; older copies remain until their history expires. Restores that would touch an excluded path are refused.</div>
+                    </div>
+                    <div class="field-control">
+                        <textarea rows="5" aria-label="Additional excluded paths" x-model="config.capture_exclude_patterns"
+                            x-init="config.capture_exclude_patterns ??= ''"></textarea>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Maximum captured file size (MiB)</div>
+                        <div class="field-description">0 keeps the existing unlimited behavior. Larger files are skipped and listed when you check current changes. Documents, images and other artifacts remain eligible unless you exclude them or set a size limit.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="1" aria-label="Maximum captured file size (MiB)" x-model.number="config.capture_max_file_mb"
+                            x-init="config.capture_max_file_mb ??= 0" />
+                    </div>
+                </div>
+
                 <div class="section-title">Time Travel retention</div>
                 <div class="section-description">
                     Time Travel keeps a hidden history of every workspace it snapshots. Retention
-                    keeps that storage bounded by cleaning up histories nothing can reach anymore
-                    (deleted chats and projects) and, optionally, aging out old history.
+                    removes abandoned histories. Optionally limit recent history in active workspaces
+                    with the controls below. No workspace files are deleted by cleanup.
                 </div>
 
                 <div class="field">
@@ -21,7 +43,7 @@
                         <div class="field-description">
                             Periodically clean up orphaned workspace histories, stale snapshot
                             locks, and corrupt-repository backups. Turning this off means Time
-                            Travel storage grows without bound.
+                            Travel cleanup stops, including snapshot expiry.
                         </div>
                     </div>
                     <div class="field-control">
@@ -30,6 +52,40 @@
                                 x-init="if (config.retention_enabled === undefined || config.retention_enabled === null) config.retention_enabled = true" />
                             <span class="toggler"></span>
                         </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Expire older snapshots</div>
+                        <div class="field-description">On by default to limit history growth. Cleanup permanently expires older snapshots and older preserved timelines. Recent snapshots, the current state and boundary checkpoints remain. Turn this off to disable snapshot expiry. Retained snapshot IDs may change. Checkpoints can be restored but cannot be reverted.</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" aria-label="Expire older snapshots" x-model="config.history_retention_enabled" :disabled="!config.retention_enabled"
+                                x-init="config.history_retention_enabled ??= true" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Recent snapshots to keep</div>
+                        <div class="field-description">Keep up to this many recent snapshots across timelines, plus the current state and checkpoint boundaries. 0 disables the count limit. This is not a disk-space limit: retained file contents still need storage.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="1" aria-label="Recent snapshots to keep" x-model.number="config.history_max_snapshots" :disabled="!config.retention_enabled || !config.history_retention_enabled"
+                            x-init="config.history_max_snapshots ??= 500" />
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Recent history window (days)</div>
+                        <div class="field-description">Apply this age limit together with the count limit. 0 disables age-based expiry. The current state and checkpoint boundaries are always retained.</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" min="0" step="1" aria-label="Recent history window (days)" x-model.number="config.history_max_age_days" :disabled="!config.retention_enabled || !config.history_retention_enabled"
+                            x-init="config.history_max_age_days ??= 30" />
                     </div>
                 </div>
 
@@ -49,10 +105,11 @@
 
                 <div class="field">
                     <div class="field-label">
-                        <div class="field-title">Delete history older than (days)</div>
+                        <div class="field-title">Delete inactive workspace histories after (days)</div>
                         <div class="field-description">
-                            Leave at 0 (the default) and workspace history is kept forever. Set a
-                            number — say 30 — and a workspace with no snapshot in that many days
+                            Leave at 0 (the default) to disable whole-history deletion; snapshot
+                            expiry above still applies. Set a number — say 30 — and a workspace
+                            with no snapshot or travel in that many days
                             has its history deleted. Time Travel simply starts a fresh history on
                             the workspace's next change.
                         </div>
@@ -85,9 +142,8 @@
                         <div class="field-title">Stale snapshot lock age (minutes)</div>
                         <div class="field-description">
                             A leftover git index.lock older than this is removed so snapshots stop
-                            failing with "index.lock: File exists". Time Travel's own git
-                            operations are killed after 20 seconds, so no legitimate lock lives
-                            this long.
+                            failing with "index.lock: File exists". Cleanup skips histories
+                            that are currently being captured, restored or compacted.
                         </div>
                     </div>
                     <div class="field-control">

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+import re
 import select
 import shutil
 import socket
@@ -18,6 +20,49 @@ from helpers.print_style import PrintStyle
 DEFAULT_WIDTH = 1024
 DEFAULT_HEIGHT = 768
 START_TIMEOUT_SECONDS = 15.0
+
+
+def cleanup_stale_displays() -> None:
+    import psutil
+
+    root = Path(files.get_abs_path("tmp", "browser", "displays"))
+    if not root.is_dir():
+        return
+    candidates = []
+    for path in root.iterdir():
+        if path.is_symlink() or not re.fullmatch(r"browser-[0-9a-f]{32}", path.name):
+            continue
+        try:
+            if path.is_dir() and time.time() - path.stat().st_mtime > 86400:
+                candidates.append(path)
+        except FileNotFoundError:
+            continue
+    if not candidates:
+        return
+    commands = []
+    for process in psutil.process_iter():
+        try:
+            commands.extend(process.cmdline())
+        except psutil.NoSuchProcess:
+            continue
+        except psutil.AccessDenied:
+            return  # Without a complete process inventory, ownership is unknown.
+    for path in candidates:
+        try:
+            owner_file = path / "owner.json"
+            if owner_file.exists():
+                owner = json.loads(owner_file.read_text())
+                try:
+                    if psutil.Process(owner["pid"]).create_time() == owner["started"]:
+                        continue
+                except psutil.NoSuchProcess:
+                    pass
+                except psutil.AccessDenied:
+                    continue
+            if not any(str(path) in argument for argument in commands):
+                shutil.rmtree(path)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            PrintStyle.warning(f"Browser display cleanup skipped {path.name}: {exc}")
 
 
 def keyboard_options() -> dict[str, str]:
@@ -83,6 +128,11 @@ class BrowserInteractiveView:
 
             self.state_dir.mkdir(parents=True, exist_ok=True)
             self.state_dir.chmod(0o700)
+            import psutil
+
+            (self.state_dir / "owner.json").write_text(json.dumps({
+                "pid": os.getpid(), "started": psutil.Process().create_time(),
+            }))
             read_fd, write_fd = os.pipe()
             try:
                 process = subprocess.Popen(

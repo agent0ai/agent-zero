@@ -3,6 +3,30 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
+test('administrator numbers default to empty and are edited independently of allowed senders', () => {
+  const source = readFileSync(new URL('../plugins/_whatsapp_integration/webui/whatsapp-config-store.js', import.meta.url), 'utf8')
+    .replace(/^import .*;\n/gm, '').replace('export const store', 'const store');
+  const store = vm.runInNewContext(`${source}\nstore`, {
+    createStore: (_name, value) => value,
+    API: { callJsonApi: async () => ({ data: [] }) },
+  });
+  store.config = { allowed_numbers: ['111'] };
+  assert.equal(store.adminText(), '');
+  assert.deepEqual([...store.config.admin_numbers], []);
+  store.config.admin_numbers = ' +222, , 333 ';
+  assert.equal(store.adminText(), '+222, 333');
+  store.setAdmins('444, , 555');
+  assert.deepEqual([...store.config.admin_numbers], ['444', '555']);
+  assert.deepEqual([...store.config.allowed_numbers], ['111']);
+  store.setAllowed('666');
+  assert.deepEqual([...store.config.admin_numbers], ['444', '555']);
+  store.setAdmins('');
+  assert.deepEqual([...store.config.admin_numbers], []);
+  store.config = { allowed_numbers: '111, 222', admin_numbers: null };
+  assert.equal(store.allowedText(), '111, 222');
+  assert.equal(store.adminText(), '');
+});
+
 test('one-click pairing enables WhatsApp and polling stops on cancel, error, connection or cleanup', async () => {
   const requests = [];
   const timers = new Map();

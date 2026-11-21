@@ -20,6 +20,7 @@
 - Use shared API, WebSocket, notification, and attachment helpers where available.
 - Do not bypass CSRF or WebSocket state-sync expectations.
 - The shared composer can be mounted on the Welcome screen with no selected chat; sending from that state must create and select a chat context before dispatch.
+- The Welcome placeholder invites model setup or Settings while the existing `missing-api-key` banner is present; reuse Welcome's refreshed banner state without adding a readiness request or changing chat placeholders.
 - Text-only and attachment sends must render the first user turn immediately with the request message ID so the backend log merges into the same row.
 - Unsent composer text is kept as a separate browser-session draft for each selected chat and restored when switching contexts; a Welcome-screen prompt must follow the chat created for its first send. Preset changes and setup-gate retries must preserve any new unsent composer draft.
 - Composer text uses the main UI font by default; typing a triple-backtick fence and pressing Enter turns that line into a visual code block that serializes back to fenced Markdown, while pasted fenced Markdown stays plain text.

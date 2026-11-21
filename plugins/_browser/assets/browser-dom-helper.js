@@ -1,11 +1,18 @@
 (() => {
   const DOM_HELPER_CHANNEL = "a0.browser.dom_helper";
   const DOM_HELPER_KEY = "__spaceBrowserDomHelper__";
-  const VERSION = "1";
+  const VERSION = "2";
   const REQUEST_TIMEOUT_MS = 800;
 
   if (globalThis[DOM_HELPER_KEY]?.version === VERSION) {
     return;
+  }
+  if (globalThis[DOM_HELPER_KEY]?.version) {
+    throw createNamedError(
+      "BrowserDomHelperUpgradeRequiredError",
+      "Reload the browser page before updating the DOM helper to remove legacy message listeners.",
+      { code: "browser_dom_helper_reload_required" }
+    );
   }
 
   const INTERACTIVE_ROLES = new Set([
@@ -545,6 +552,19 @@
         }
       );
     }
+    let targetOrigin = "";
+    try {
+      targetOrigin = targetWindow.origin;
+    } catch {
+      // Cross-origin WindowProxy properties are inaccessible.
+    }
+    if (!targetOrigin || targetOrigin === "null" || targetOrigin !== globalThis.origin) {
+      throw createNamedError(
+        "BrowserDomHelperFrameOriginError",
+        "Embedded frame requests require a non-opaque same-origin document.",
+        { code: "browser_dom_helper_frame_origin_unavailable", details: { type } }
+      );
+    }
     return new Promise((resolve, reject) => {
       const requestId = createRequestId();
       const timer = globalThis.setTimeout(() => {
@@ -555,14 +575,14 @@
           { code: "browser_dom_helper_frame_timeout", details: { type } }
         ));
       }, REQUEST_TIMEOUT_MS);
-      pendingRequests.set(requestId, { reject, resolve, timer, type });
+      pendingRequests.set(requestId, { reject, resolve, source: targetWindow, timer, type });
       try {
         targetWindow.postMessage({
           channel: DOM_HELPER_CHANNEL,
           payload,
           requestId,
           type
-        }, "*");
+        }, targetOrigin);
       } catch (error) {
         globalThis.clearTimeout(timer);
         pendingRequests.delete(requestId);
@@ -1258,13 +1278,17 @@
     if (!rawMessage || rawMessage.channel !== DOM_HELPER_CHANNEL || typeof rawMessage.type !== "string") {
       return;
     }
+    const localOrigin = globalThis.origin;
+    if (!localOrigin || localOrigin === "null" || event.origin !== localOrigin) {
+      return;
+    }
     const requestId = typeof rawMessage.requestId === "string" ? rawMessage.requestId : "";
     if (!requestId) {
       return;
     }
     if (rawMessage.type.endsWith("_result")) {
       const pendingRequest = pendingRequests.get(requestId);
-      if (!pendingRequest) {
+      if (!pendingRequest || event.source !== pendingRequest.source || rawMessage.type !== `${pendingRequest.type}_result`) {
         return;
       }
       pendingRequests.delete(requestId);
@@ -1297,7 +1321,7 @@
           payload,
           requestId,
           type: `${rawMessage.type}_result`
-        }, "*");
+        }, localOrigin);
       })
       .catch((error) => {
         console.error(`[a0-browser/dom-helper] Request "${rawMessage.type}" failed.`, error);
@@ -1311,7 +1335,7 @@
           },
           requestId,
           type: `${rawMessage.type}_result`
-        }, "*");
+        }, localOrigin);
       });
   });
 

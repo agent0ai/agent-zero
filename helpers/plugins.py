@@ -569,6 +569,13 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
     )
 
 
+def _validate_plugin_scope(meta: PluginMetadata | None, project_name: str, agent_profile: str) -> None:
+    if meta and project_name and not meta.per_project_config:
+        raise ValueError(f'Plugin "{meta.name}" does not support project-scoped settings.')
+    if meta and agent_profile and not meta.per_agent_config:
+        raise ValueError(f'Plugin "{meta.name}" does not support agent-profile-scoped settings.')
+
+
 @extension.extensible
 def toggle_plugin(
     plugin_name: str,
@@ -578,6 +585,7 @@ def toggle_plugin(
     clear_overrides: bool = False,
 ):
     meta = get_plugin_meta(plugin_name)
+    _validate_plugin_scope(meta, project_name, agent_profile)
     if meta and meta.always_enabled and not enabled:
         raise ValueError(f'Plugin "{plugin_name}" is always enabled.')
 
@@ -699,6 +707,7 @@ def save_plugin_config(
     settings: dict,
     caller: CallerContext = "api",
 ):
+    _validate_plugin_scope(get_plugin_meta(plugin_name), project_name, agent_profile)
     file_path = determine_plugin_asset_path(
         plugin_name, project_name, agent_profile, CONFIG_FILE_NAME
     )

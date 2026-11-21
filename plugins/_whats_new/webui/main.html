@@ -43,8 +43,11 @@
             class="whats-new-bullets"
             x-show="$store.whatsNew.currentSlide.bullets.length"
           >
-            <template x-for="item in $store.whatsNew.currentSlide.bullets" :key="item">
-              <li x-text="item"></li>
+            <template x-for="item in $store.whatsNew.currentSlide.bullets" :key="item.title">
+              <li>
+                <strong x-text="item.title"></strong>
+                <span x-text="item.text"></span>
+              </li>
             </template>
           </ul>
         </section>

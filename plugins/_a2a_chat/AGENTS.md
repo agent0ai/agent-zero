@@ -29,6 +29,7 @@
 ## Verification
 
 - Import the tool in the framework runtime and run the a2a tool contract tests after changes.
+- `tests/test_a2a_chat_tool.py` exercises discovery, message send, and conversation reuse through the real server auth/router with token URLs, project URLs, explicit header credentials, and public peers.
 
 ## Child DOX Index
 

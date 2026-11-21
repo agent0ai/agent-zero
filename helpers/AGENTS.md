@@ -12,6 +12,8 @@
 
 ## Local Contracts
 
+- Filesystem watchdog registration retains unchanged observer subscriptions; `watchdog.py.dox.md` owns reconciliation and locking contracts.
+- UI bundle inventory uses directory-entry metadata to avoid repeated host-mount path checks while preserving symlink containment; `ui_bundler.py.dox.md` owns the details.
 - Preserve public helper APIs used by core code and plugins unless all callers, docs, and tests are updated.
 - Use structured parsers and serializers for YAML, JSON, paths, and URLs instead of ad hoc string handling.
 - Keep path handling constrained to intended roots for user files, uploads, downloads, projects, and workdirs.

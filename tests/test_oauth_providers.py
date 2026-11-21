@@ -767,12 +767,13 @@ def test_oauth_providers_leave_missing_result_unset_when_disconnected(monkeypatc
     "provider_id",
     [CODEX_PROVIDER_ID, GITHUB_COPILOT_PROVIDER_ID, GEMINI_API_PROVIDER_ID, XAI_GROK_PROVIDER_ID],
 )
-def test_oauth_providers_preserve_configured_api_key(provider_id):
-    data = {"args": (provider_id,), "kwargs": {}, "result": "configured"}
+def test_oauth_providers_replace_legacy_stored_key_when_connected(monkeypatch, provider_id):
+    monkeypatch.setattr(oauth_dummy_key, "oauth_provider_is_connected", lambda _provider_id: True)
+    data = {"args": (provider_id,), "kwargs": {}, "result": "legacy-stored-key"}
 
     oauth_dummy_key.OAuthAccountDummyKey(agent=None).execute(data=data)
 
-    assert data["result"] == "configured"
+    assert data["result"] == DUMMY_API_KEY
 
 
 def test_model_provider_config_contains_all_oauth_providers():
@@ -1083,7 +1084,7 @@ def test_github_copilot_streaming_proxy_streams_successful_upstream(monkeypatch)
         method="POST",
         host="localhost",
         remote_addr="127.0.0.1",
-        headers={},
+        headers={"Authorization": f"Bearer {DUMMY_API_KEY}"},
         args={},
         get_json=lambda silent=True: {"stream": True, "model": "gpt-5.2"},
     )
@@ -1165,7 +1166,7 @@ def test_github_copilot_proxy_does_not_send_bearer_token_to_malicious_base_url(m
         method="POST",
         host="localhost",
         remote_addr="127.0.0.1",
-        headers={},
+        headers={"Authorization": f"Bearer {DUMMY_API_KEY}"},
         args={},
         get_json=lambda silent=True: {"stream": False, "model": "gpt-5.2"},
     )
@@ -1281,7 +1282,7 @@ def test_xai_proxy_does_not_send_bearer_token_to_malicious_base_url(monkeypatch)
         method="POST",
         host="localhost",
         remote_addr="127.0.0.1",
-        headers={},
+        headers={"Authorization": f"Bearer {DUMMY_API_KEY}"},
         args={},
         get_json=lambda silent=True: {"stream": False, "model": "grok-4.3"},
     )

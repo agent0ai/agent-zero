@@ -232,7 +232,10 @@ class Plugins(ApiHandler):
             return Response(status=400, response="Missing plugin_name")
         if not isinstance(settings, dict):
             return Response(status=400, response="settings must be an object")
-        plugins.save_plugin_config(plugin_name, project_name, agent_profile, settings)
+        try:
+            plugins.save_plugin_config(plugin_name, project_name, agent_profile, settings)
+        except ValueError as exc:
+            return Response(status=400, response=str(exc))
         return {"ok": True}
 
     @extension.extensible

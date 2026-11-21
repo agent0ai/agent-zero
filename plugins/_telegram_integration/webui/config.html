@@ -12,6 +12,23 @@
     <template x-if="config">
       <div class="tg-page">
         <div class="section-title">Telegram</div>
+        <div class="field-description">
+          Configure bots globally, per project, per agent profile, or for a project and profile together.
+          Each saved scope needs its own bot from <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>.
+          When copying settings to another scope, replace the token with that bot's token before saving.
+          Inherited settings use the existing bot without starting another connection.
+        </div>
+        <div class="field-description" x-show="context.projectName || context.agentProfileKey">
+          Bots configured here stay within this project/profile. Their allowlists and activation rules are checked on every message and button press.
+        </div>
+        <button type="button" class="btn btn-field" @click="context.openConfigListModal()">
+          Show existing configurations
+        </button>
+        <button type="button" class="btn btn-field"
+          x-show="($store.pluginToggle?.configs || []).some(item => item.project_name || item.agent_profile)"
+          @click="window.openModal('/components/plugins/toggle/plugin-toggles.html')">
+          Review saved activation overrides
+        </button>
 
         <template x-if="$store.telegramConfig.didInit && $store.telegramConfig.bots.length === 0">
           <div class="tg-empty">
@@ -160,6 +177,20 @@
 
                     <div class="tg-warning" x-show="$store.telegramConfig.accessWarning(bot)">
                       <span x-text="$store.telegramConfig.accessWarning(bot)"></span>
+                    </div>
+
+                    <div class="field">
+                      <div class="field-label">
+                        <div class="field-title">Administrator users</div>
+                        <div class="field-description">Comma-separated @usernames or numeric IDs allowed to change
+                          plugins and tool permissions. They must also pass Allowed users. Leave empty to disable
+                          these settings changes from Telegram.</div>
+                      </div>
+                      <div class="field-control">
+                        <input type="text" aria-label="Administrator users" :value="$store.telegramConfig.adminUsersText(bot)"
+                          @input="$store.telegramConfig.setAdminUsers(bot, $event.target.value)"
+                          placeholder="@yourname, 123456789" />
+                      </div>
                     </div>
 
                     <div class="field">

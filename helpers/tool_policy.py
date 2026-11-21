@@ -228,6 +228,17 @@ def resolve_tool(
     if policy["mode"] != "custom":
         return ToolPolicyDecision(True, tool_id, "inherited", "inherit")
 
+    if tool_id == "plugin:_a0_connector:input_remote":
+        execution = resolve_tool(
+            agent, "code_execution_remote",
+            canonical_id="plugin:_a0_connector:code_execution_remote",
+            action="terminal", _policy=policy,
+        )
+        if not execution.allowed:
+            return ToolPolicyDecision(
+                False, tool_id, execution.source, execution.mode, "requires code_execution_remote:terminal"
+            )
+
     policy_ids = {tool_id, *LEGACY_TOOL_IDS.get(tool_id, ())}
     if tool_id == "plugin:_behavior_adjustment:behaviour_adjustment":
         policy_ids.update(LEGACY_TOOL_IDS["plugin:_behavior_adjustment:behavior_adjustment"])

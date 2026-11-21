@@ -24,7 +24,7 @@ def test_profile_catalog_keeps_ids_titles_scope_and_routing(monkeypatch, project
     monkeypatch.setattr(
         subagents, "get_available_agents_dict", lambda scope: scopes.append(scope) or profiles
     )
-    agent = SimpleNamespace(context=object())
+    agent = SimpleNamespace(context=object(), config=SimpleNamespace(profile="agent0"))
     prompt = files.read_prompt_file(
         "agent.system.tool.call_sub.md", _directories=[str(ROOT / "prompts")], _agent=agent
     )
@@ -35,6 +35,35 @@ def test_profile_catalog_keeps_ids_titles_scope_and_routing(monkeypatch, project
         "agent.system.tool.call_sub.md", _directories=[str(ROOT / "prompts")], _agent=agent
     )
     assert "available profiles:" not in prompt
+
+
+@pytest.mark.parametrize("profile", ["agent0", "developer", "custom-id", ""])
+def test_delegation_prompt_identifies_caller_without_hiding_same_profile(monkeypatch, profile):
+    monkeypatch.setattr(projects, "get_context_project_name", lambda _: None)
+    monkeypatch.setattr(
+        subagents,
+        "get_available_agents_dict",
+        lambda _: {
+            "developer": SimpleNamespace(
+                title="Developer", context="Implement and review code", description=""
+            )
+        },
+    )
+    agent = SimpleNamespace(context=object(), config=SimpleNamespace(profile=profile))
+    prompt = files.read_prompt_file(
+        "agent.system.tool.call_sub.md", _directories=[str(ROOT / "prompts")], _agent=agent
+    )
+
+    assert f"your current profile: {profile or 'default'}" in prompt
+    assert "- developer (Developer): Implement and review code" in prompt
+    assert "distinct bounded subtasks or independent reviews" in prompt
+    assert "always use specialized subordinate agents" not in prompt
+
+    without_agent = files.read_prompt_file(
+        "agent.system.tool.call_sub.md", _directories=[str(ROOT / "prompts")]
+    )
+    assert "your current profile:" not in without_agent
+    assert "{{current_profile}}" not in without_agent
 
 
 @pytest.mark.parametrize("path", [

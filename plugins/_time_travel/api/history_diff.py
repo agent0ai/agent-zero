@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from helpers.api import ApiHandler, Request, Response
 from plugins._time_travel.helpers.time_travel import (
     TimeTravelError,
@@ -19,7 +21,8 @@ class HistoryDiff(ApiHandler):
                 workspace_id=workspace_id,
                 context_loader=self.use_context,
             )
-            return TimeTravelService(workspace).history_diff(
+            return await asyncio.to_thread(
+                TimeTravelService(workspace).history_diff,
                 commit_hash=str(input.get("commit_hash") or ""),
                 path=str(input.get("path") or ""),
                 mode=str(input.get("mode") or "commit"),

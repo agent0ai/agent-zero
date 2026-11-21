@@ -15,6 +15,31 @@ INDEX_JS = PROJECT_ROOT / "webui/index.js"
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="Node.js is required")
+def test_welcome_placeholder_tracks_missing_credentials_without_affecting_chats() -> None:
+    run_module("webui/components/chat/input/input-store.js", """
+const createStore = (_name, model) => model;
+let welcome;
+const getStore = name => name === 'welcomeStore' ? welcome : undefined;
+const shortcuts = {}, fileBrowserStore = {}, messageQueueStore = {hasQueue: false};
+const attachmentsStore = {attachments: []};
+const chatsStore = {selected: '', selectedContext: null};
+""", """
+assert.equal(store.inputPlaceholder, 'Ask anything to start a new chat');
+welcome = {banners: [{id: 'system-resources'}]};
+assert.equal(store.inputPlaceholder, 'Ask anything to start a new chat');
+welcome.banners.push({id: 'missing-api-key', dismissible: false});
+assert.equal(store.inputPlaceholder, 'Ask anything to set up your models, or click Settings');
+chatsStore.selected = 'chat-a';
+assert.equal(store.inputPlaceholder, 'Type your message here...');
+messageQueueStore.hasQueue = true;
+assert.equal(store.inputPlaceholder, 'Press Enter to send queued messages');
+chatsStore.selected = '';
+welcome.banners = [];
+assert.equal(store.inputPlaceholder, 'Ask anything to start a new chat');
+""")
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="Node.js is required")
 def test_chat_input_keeps_separate_session_drafts() -> None:
     index_source = INDEX_JS.read_text(encoding="utf-8")
     set_context = index_source[index_source.index("export const setContext"):]

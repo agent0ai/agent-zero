@@ -159,6 +159,30 @@ class TaskPlan(BaseModel):
         return None
 
 
+async def _execute_plugin_task(task) -> str:
+    from helpers import plugins
+
+    if plugins.get_toggle_state(task.plugin_name) != "enabled":
+        raise RuntimeError(f"Task plugin '{task.plugin_name}' is disabled or unavailable")
+    cancel_event = threading.Event()
+    worker = asyncio.create_task(asyncio.to_thread(
+        plugins.call_plugin_hook, task.plugin_name, "run_scheduled_task",
+        task=task, cancel_event=cancel_event,
+    ))
+    try:
+        result = await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        cancel_event.set()
+        try:
+            await asyncio.shield(worker)
+        except Exception:
+            pass  # Cooperative hooks may signal their stop by raising.
+        raise
+    if not isinstance(result, str):
+        raise RuntimeError(f"Task plugin '{task.plugin_name}' did not return a result")
+    return result
+
+
 class BaseTask(BaseModel):
     uuid: str = Field(default_factory=lambda: guids.generate_id())
     context_id: Optional[str] = Field(default=None)
@@ -166,6 +190,7 @@ class BaseTask(BaseModel):
     name: str = Field()
     system_prompt: str
     prompt: str
+    plugin_name: str | None = None
     attachments: list[str] = Field(default_factory=list)
     project_name: str | None = Field(default=None)
     project_color: str | None = Field(default=None)
@@ -191,6 +216,9 @@ class BaseTask(BaseModel):
                context_id: str | None = None,
                **kwargs):
         with self._lock:
+            if self.plugin_name and any(value is not None and value != getattr(self, key)
+                                        for key, value in (("prompt", prompt), ("system_prompt", system_prompt), ("attachments", attachments))):
+                raise ValueError("Plugin tasks are configured by their owning plugin.")
             if name is not None:
                 self.name = name
                 self.updated_at = _now()
@@ -330,6 +358,16 @@ class AdHocTask(BaseTask):
 class ScheduledTask(BaseTask):
     type: Literal[TaskType.SCHEDULED] = TaskType.SCHEDULED
     schedule: TaskSchedule
+    schedule_anchor: datetime | None = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.schedule_anchor is None:
+            self.schedule_anchor = max(
+                _localize_task_datetime(stamp)
+                for stamp in (self.created_at, self.updated_at, self.last_run)
+                if stamp is not None
+            )
 
     @classmethod
     def create(
@@ -370,51 +408,40 @@ class ScheduledTask(BaseTask):
                context_id: str | None = None,
                schedule: TaskSchedule | None = None,
                **kwargs):
-        super().update(name=name,
-                       state=state,
-                       system_prompt=system_prompt,
-                       prompt=prompt,
-                       attachments=attachments,
-                       last_run=last_run,
-                       last_result=last_result,
-                       context_id=context_id,
-                       schedule=schedule,
-                       **kwargs)
+        with self._lock:
+            reset_schedule = ((schedule is not None and schedule != self.schedule)
+                              or (state is not None and state != self.state))
+            super().update(name=name,
+                           state=state,
+                           system_prompt=system_prompt,
+                           prompt=prompt,
+                           attachments=attachments,
+                           last_run=last_run,
+                           last_result=last_result,
+                           context_id=context_id,
+                           schedule=schedule,
+                           **kwargs)
+            if reset_schedule:
+                # Claiming a run consumes missed slots; re-enabling starts a fresh schedule.
+                self.schedule_anchor = _now()
 
     def check_schedule(self, frequency_seconds: float = 60.0) -> bool:
-        with self._lock:
-            crontab = CronTab(crontab=self.schedule.to_crontab())  # type: ignore
-
-            # Get the timezone from the schedule or use UTC as fallback
-            self.schedule.timezone = normalize_schedule_timezone(self.schedule.timezone)
-            task_timezone = pytz.timezone(self.schedule.timezone)
-
-            # Get reference time in task's timezone (by default now - frequency_seconds)
-            reference_time = (_now() - timedelta(seconds=frequency_seconds)).astimezone(task_timezone)
-
-            # Get next run time as seconds until next execution
-            next_run_seconds: Optional[float] = crontab.next(  # type: ignore
-                now=reference_time,
-                return_datetime=False
-            )  # type: ignore
-
-            if next_run_seconds is None:
-                return False
-
-            return next_run_seconds < frequency_seconds
+        next_run = self.get_next_run()
+        return next_run is not None and next_run <= _now()
 
     def get_next_run(self) -> datetime | None:
         with self._lock:
             crontab = CronTab(crontab=self.schedule.to_crontab())  # type: ignore
             self.schedule.timezone = normalize_schedule_timezone(self.schedule.timezone)
             task_timezone = pytz.timezone(self.schedule.timezone)
-            now_in_task_timezone = datetime.now(timezone.utc).astimezone(task_timezone)
-            next_run = crontab.next(now=now_in_task_timezone, return_datetime=True)  # type: ignore
-            if next_run is None:
+            reference = max(_localize_task_datetime(stamp)
+                            for stamp in (self.schedule_anchor, self.last_run) if stamp is not None)
+            reference = reference.astimezone(task_timezone)
+            # CronTab's datetime result retains the old UTC offset across DST changes.
+            delay = crontab.next(now=reference, return_datetime=False)
+            if delay is None:
                 return None
-            if next_run.tzinfo is None:
-                next_run = task_timezone.localize(next_run)
-            return next_run.astimezone(timezone.utc)
+            return reference.astimezone(timezone.utc) + timedelta(seconds=delay)
 
 
 class PlannedTask(BaseTask):
@@ -649,7 +676,7 @@ class SchedulerTaskList(BaseModel):
             await self.reload()
             return [
                 task for task in self.tasks
-                if task.check_schedule() and task.state == TaskState.IDLE
+                if task.state == TaskState.IDLE and task.check_schedule()
             ]
 
     def get_task_by_uuid(self, task_uuid: str) -> Union[ScheduledTask, AdHocTask, PlannedTask] | None:
@@ -700,9 +727,12 @@ class TaskScheduler:
             self._running_tasks_lock = threading.RLock()
             self._initialized = True
 
-    def _register_running_task(self, task_uuid: str, deferred_task: DeferredTask) -> None:
+    def _register_running_task(self, task_uuid: str, deferred_task: DeferredTask) -> bool:
         with self._running_tasks_lock:
+            if task_uuid in self._running_deferred_tasks:
+                return False
             self._running_deferred_tasks[task_uuid] = deferred_task
+            return True
 
     def _unregister_running_task(self, task_uuid: str) -> None:
         with self._running_tasks_lock:
@@ -739,7 +769,8 @@ class TaskScheduler:
 
     async def add_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> "TaskScheduler":
         await self._tasks.add_task(task)
-        ctx = await self._get_chat_context(task)  # invoke context creation
+        if not task.plugin_name:
+            await self._get_chat_context(task)
         from helpers.state_monitor_integration import mark_dirty_all
         mark_dirty_all(reason="task_scheduler.TaskScheduler.add_task")
         return self
@@ -767,7 +798,7 @@ class TaskScheduler:
 
     async def tick(self):
         for task in await self._tasks.get_due_tasks():
-            await self._run_task(task)
+            await self._run_task(task, scheduled=True)
 
     async def run_task_by_uuid(self, task_uuid: str, task_context: str | None = None):
         # First reload tasks to ensure we have the latest state
@@ -875,7 +906,7 @@ class TaskScheduler:
             raise ValueError(f"Context ID mismatch for task {task.name}: context {context.id} != task {task.context_id}")
         save_tmp_chat(context)
 
-    async def _run_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], task_context: str | None = None):
+    async def _run_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], task_context: str | None = None, *, scheduled: bool = False):
 
         async def _run_task_wrapper(task_uuid: str, task_context: str | None = None):
 
@@ -891,7 +922,12 @@ class TaskScheduler:
                 return
 
             # Atomically fetch and check the task's current state
-            current_task = await self.update_task_checked(task_uuid, lambda task: task.state != TaskState.RUNNING, state=TaskState.RUNNING)
+            current_task = await self.update_task_checked(
+                task_uuid,
+                lambda task: (task.state == TaskState.IDLE and task.check_schedule()) if scheduled
+                else task.state in (TaskState.IDLE, TaskState.ERROR),
+                state=TaskState.RUNNING,
+            )
             if not current_task:
                 PrintStyle.error(f"Scheduler Task with UUID '{task_uuid}' not found or updated by another process")
                 self._unregister_running_task(task_uuid)
@@ -909,6 +945,11 @@ class TaskScheduler:
 
             try:
                 PrintStyle.info(f"Scheduler Task '{current_task.name}' started")
+
+                if current_task.plugin_name:
+                    result = await _execute_plugin_task(current_task)
+                    await current_task.on_success(result)
+                    return
 
                 context = await self._get_chat_context(current_task)
                 context.set_data("scheduler_task_uuid", current_task.uuid)
@@ -1025,7 +1066,8 @@ class TaskScheduler:
                 self._unregister_running_task(task_uuid)
 
         deferred_task = DeferredTask(thread_name=self.__class__.__name__)
-        self._register_running_task(task.uuid, deferred_task)
+        if not self._register_running_task(task.uuid, deferred_task):
+            return
         deferred_task.start_task(_run_task_wrapper, task.uuid, task_context)
 
         # Ensure background execution doesn't exit immediately on async await, especially in script contexts.
@@ -1196,6 +1238,7 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
         "state": task.state,
         "system_prompt": task.system_prompt,
         "prompt": task.prompt,
+        "plugin_name": task.plugin_name,
         "attachments": task.attachments,
         "project_name": task.project_name,
         "project_color": task.project_color,
@@ -1216,6 +1259,7 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
     if isinstance(task, ScheduledTask):
         task_dict['type'] = 'scheduled'
         task_dict['schedule'] = serialize_task_schedule(task.schedule)  # type: ignore
+        task_dict['schedule_anchor'] = serialize_datetime(task.schedule_anchor)
     elif isinstance(task, AdHocTask):
         task_dict['type'] = 'adhoc'
         adhoc_task = cast(AdHocTask, task)
@@ -1268,6 +1312,7 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
         "state": TaskState(task_data.get("state", TaskState.IDLE)),
         "system_prompt": task_data.get("system_prompt", ""),
         "prompt": task_data.get("prompt", ""),
+        "plugin_name": task_data.get("plugin_name"),
         "attachments": task_data.get("attachments", []),
         "project_name": task_data.get("project_name"),
         "project_color": task_data.get("project_color"),
@@ -1282,6 +1327,7 @@ def deserialize_task(task_data: Dict[str, Any], task_class: Optional[Type[T]] = 
     if determined_class == ScheduledTask:  # type: ignore
         schedule_data = task_data.get("schedule", {})
         common_args["schedule"] = parse_task_schedule(schedule_data)
+        common_args["schedule_anchor"] = parse_datetime(task_data.get("schedule_anchor"))
         return ScheduledTask(**common_args)  # type: ignore
     elif determined_class == AdHocTask:  # type: ignore
         common_args["token"] = task_data.get("token", "")

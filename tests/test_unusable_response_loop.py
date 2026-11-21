@@ -1,6 +1,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from helpers.errors import HandledException
 from helpers.files import read_prompt_file
 from helpers.settings import get_default_settings, normalize_settings
@@ -115,6 +117,41 @@ def test_thoughts_fallback_warning_counts_toward_the_limit(monkeypatch):
 
     assert isinstance(data["exception"], HandledException)
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
+
+
+@pytest.mark.parametrize("prompt", [
+    "fw.msg_misformat.md",
+    "fw.msg_repeat.md",
+    "fw.msg_empty_response.md",
+    "fw.msg_reasoning_only.md",
+    "fw.msg_output_limit.md",
+])
+def test_core_retry_limit_without_context_doctor_prompts(monkeypatch, prompt):
+    monkeypatch.setattr(
+        response_loop, "get_settings", lambda: {"max_consecutive_unusable_responses": 1}
+    )
+    agent = _agent()
+    agent.read_prompt = lambda name, **kwargs: read_prompt_file(
+        name, ["prompts"], **kwargs
+    )
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    data = _run(extension, agent, agent.read_prompt(prompt))
+
+    assert isinstance(data["exception"], HandledException)
+    assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 1
+
+
+def test_unrelated_warning_without_context_doctor_prompts():
+    agent = _agent()
+    agent.read_prompt = lambda name, **kwargs: read_prompt_file(
+        name, ["prompts"], **kwargs
+    )
+    extension = response_loop.StopUnusableResponseLoop(agent=agent)
+
+    assert _run(extension, agent, "unrelated warning")["exception"] is None
+    assert agent.loop_data.params_persistent == {}
+    assert agent.context.log.entries == []
 
 
 def test_general_settings_expose_the_default_failure_limit():

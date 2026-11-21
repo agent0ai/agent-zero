@@ -21,6 +21,11 @@ browser_tab_scope: "per_context"
 # Raise this only for deliberate parallel browsing workflows.
 max_open_tabs: 32
 
+# Stop the shared internal browser after this many idle minutes (0 keeps it open).
+# Active viewers, browser calls, running chats and downloads prevent suspension.
+# Tab URLs and sign-ins survive; unsaved page contents do not.
+idle_timeout_minutes: 60
+
 # JavaScript evaluate deadline in seconds, including result/state collection.
 # Accepts finite values from 0.1 to 60; invalid values are rejected.
 # Interrupts in place first. Unresolved async execution may require reloading

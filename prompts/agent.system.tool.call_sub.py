@@ -24,4 +24,7 @@ class CallSubordinate(VariablesPlugin):
             )
             for name, profile in agents.items()
         ]
-        return {"agent_profiles": "\n".join(profiles) or None}
+        return {
+            "current_profile": (agent.config.profile or "default") if agent else None,
+            "agent_profiles": "\n".join(profiles) or None,
+        }

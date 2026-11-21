@@ -26,6 +26,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[OpenCode Go and Provider Plugins](guides/opencode.md):** Find a missing provider in the Plugin Hub, install OpenCode Go, and choose Main and Utility models.
 - **[Migrate Agents](guides/migrate-agents.md):** Move real Pi, Hermes Agent, and Claude Code chats, copy their working files, and continue the project in Agent Zero.
 - **[Usage Guide](guides/usage.md):** Practical tour of Agent Zero's main workflows.
+- **[Scheduled Tasks](guides/task-scheduler.md):** Create a recurring task with the form or a normal chat request, find its conversation, and manage later runs.
 - **[Agent Zero Launcher](guides/launcher.md):** Fresh-machine setup, Installs, Instances, and workspace folder or Docker volume choices.
 - **[Use Local Folders With Agent Zero](guides/local-folders.md):** Bind mounts, persistent user data, separate work folders, Docker CLI/Desktop/Compose examples, and Launcher storage links.
 - **[First-Run Onboarding](guides/onboarding.md):** Set up OpenRouter, our proxy API or another provider with the guided wizard.
@@ -37,8 +38,10 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[Agent Profiles](guides/agent-profiles.md):** Create and manage profiles in Easy or Advanced mode, set project availability, and control Tool, MCP, and Skill access.
 - **[Model Presets](guides/model-presets.md):** Create simple named shortcuts for model setups.
 - **[Memory Guide](guides/memory.md):** Search, edit, delete, and curate memories so useful context does not become stale noise.
+- **[A0Cleaner](guides/cleaner.md):** Free up space with automatic cleanup, understand its notifications, and review files or custom folders yourself.
 - **[Projects Tutorial](guides/projects.md):** Learn to create isolated workspaces with dedicated context and memory.
 - **[API Integration](guides/api-integration.md):** Add external APIs without writing code.
+- **[Telegram](guides/telegram.md):** Connect a private bot, choose projects and profiles, use groups or webhooks, and preserve existing settings when upgrading.
 - **[MCP Setup](guides/mcp-setup.md):** Configure Model Context Protocol servers.
 - **[A2A Setup](guides/a2a-setup.md):** Enable agent-to-agent communication.
 - **[Troubleshooting](guides/troubleshooting.md):** Solutions to common issues and FAQs.
@@ -126,6 +129,7 @@ docs focus on practical setup, screenshots, and user workflows.
     - [File Browser](guides/usage.md#file-browser)
     - [Memory Management](guides/usage.md#memory-management)
     - [Backup And Restore](guides/usage.md#backup-and-restore)
+  - [Scheduled Tasks](guides/task-scheduler.md)
   - [Agent Zero Launcher](guides/launcher.md)
     - [Workspace Storage](guides/launcher.md#workspace-storage)
   - [Use Local Folders With Agent Zero](guides/local-folders.md)
@@ -137,8 +141,10 @@ docs focus on practical setup, screenshots, and user workflows.
   - [Agent Profiles](guides/agent-profiles.md)
   - [Model Presets](guides/model-presets.md)
   - [Memory Guide](guides/memory.md)
+  - [A0Cleaner](guides/cleaner.md)
   - [Projects Tutorial](guides/projects.md)
   - [API Integration](guides/api-integration.md)
+  - [Telegram](guides/telegram.md)
   - [MCP Setup](guides/mcp-setup.md)
   - [A2A Setup](guides/a2a-setup.md)
   - [Troubleshooting](guides/troubleshooting.md)

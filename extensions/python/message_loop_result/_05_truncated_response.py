@@ -36,6 +36,12 @@ class TruncatedResponse(Extension):
                 return
         elif isinstance(response, str) and extract_tools.extract_tool_request(response):
             return
+        elif (
+            isinstance(response, str) and not response.strip()
+            and getattr(llm_result, "reasoning", "").strip()
+            and not getattr(llm_result, "builtin_items", None)
+        ):
+            return  # Reasoning-only recovery preserves the emitted thoughts.
 
         # Name truncation as the cause instead of the generic misformat warning.
         warning = self.agent.read_prompt("fw.msg_output_limit.md")

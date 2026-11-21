@@ -16,6 +16,8 @@ AUTOFOCUS_ACTIVE_PAGE_KEY = "autofocus_active_page"
 ANNOTATION_SCREENSHOTS_KEY = "annotation_screenshots"
 TAB_SCOPE_KEY = "browser_tab_scope"
 MAX_OPEN_TABS_KEY = "max_open_tabs"
+IDLE_TIMEOUT_KEY = "idle_timeout_minutes"
+DEFAULT_IDLE_TIMEOUT_MINUTES = 60
 EVALUATE_TIMEOUT_KEY = "evaluate_timeout_seconds"
 DEFAULT_EVALUATE_TIMEOUT_SECONDS = 30.0
 MIN_EVALUATE_TIMEOUT_SECONDS = 0.1
@@ -180,6 +182,12 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
             default=DEFAULT_MAX_OPEN_TABS,
             minimum=MIN_MAX_OPEN_TABS,
             maximum=HARD_MAX_OPEN_TABS,
+        ),
+        IDLE_TIMEOUT_KEY: _normalize_int(
+            raw.get(IDLE_TIMEOUT_KEY, DEFAULT_IDLE_TIMEOUT_MINUTES),
+            default=DEFAULT_IDLE_TIMEOUT_MINUTES,
+            minimum=0,
+            maximum=1440,
         ),
         EVALUATE_TIMEOUT_KEY: normalize_evaluate_timeout(
             raw.get(EVALUATE_TIMEOUT_KEY, DEFAULT_EVALUATE_TIMEOUT_SECONDS)

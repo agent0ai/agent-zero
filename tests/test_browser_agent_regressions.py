@@ -218,6 +218,7 @@ def test_browser_config_normalizes_extension_paths(tmp_path):
         "annotation_screenshots": False,
         "browser_tab_scope": "per_context",
         "max_open_tabs": 32,
+        "idle_timeout_minutes": 60,
         "evaluate_timeout_seconds": 30.0,
         "runtime_backend": "container",
         "host_browser_privacy_policy": "allow",
@@ -3975,7 +3976,7 @@ async def test_browser_runtime_sessions_are_context_qualified(monkeypatch):
 @pytest.mark.anyio
 async def test_shared_runtime_session_list_includes_restored_inactive_chats(monkeypatch):
     class FakeSharedRuntime:
-        async def call_for(self, context_id, method):
+        async def call_for(self, context_id, method, **kwargs):
             assert context_id == browser_runtime_module.SHARED_RUNTIME_ID
             assert method == "list_all"
             return {
@@ -4138,7 +4139,7 @@ def test_explicit_open_claims_page_registered_by_playwright_event():
     class Page:
         @staticmethod
         def on(event, callback):
-            assert event in {"close", "framenavigated"}
+            assert event in {"close", "framenavigated", "download"}
 
     core = _BrowserRuntimeCore(browser_runtime_module.SHARED_RUNTIME_ID)
     page = Page()
@@ -4174,7 +4175,7 @@ async def test_browser_restores_per_context_then_all_shared_tabs(monkeypatch):
 
         @staticmethod
         def on(event, callback):
-            assert event in {"close", "framenavigated"}
+            assert event in {"close", "framenavigated", "download"}
 
     class Context:
         async def new_page(self):
@@ -4342,7 +4343,7 @@ async def test_browser_viewer_command_can_return_shared_context_tabs(monkeypatch
         assert context_id == "ctx-a"
         return FakeRuntime()
 
-    async def fake_list_runtime_sessions():
+    async def fake_list_runtime_sessions(*, restore=True):
         return [
             {
                 "context_id": "ctx-a",
@@ -4418,7 +4419,7 @@ async def test_browser_viewer_sessions_lists_only_requested_context_without_crea
 
 @pytest.mark.anyio
 async def test_browser_viewer_sessions_can_list_shared_context_tabs(monkeypatch):
-    async def fake_list_runtime_sessions():
+    async def fake_list_runtime_sessions(*, restore=True):
         return [
             {
                 "context_id": "ctx-a",

@@ -824,7 +824,7 @@ const model = {
     const maxWaitMs =
       ((this.info?.pending?.health_timeout_seconds ||
         this.info?.defaults?.health_timeout_seconds ||
-        120) *
+        600) *
         1000) +
       HEALTH_WAIT_BUFFER_MS;
     const deadline = Date.now() + maxWaitMs;

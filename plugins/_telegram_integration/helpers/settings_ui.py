@@ -16,7 +16,13 @@ def _plugin_items():
             if plugins.get_plugin_meta(name)]
 
 
-async def show(context, token, chat_id, message_id, kind, page=0):
+def _require_admin(is_admin):
+    if not is_admin:
+        raise PermissionError("Only a configured Telegram administrator can change settings.")
+
+
+async def show(context, token, chat_id, message_id, kind, page=0, *, is_admin=False):
+    _require_admin(is_admin)
     if kind == "permissions" and context.config.profile == "default":
         raise ValueError("The Default utility profile has no editable permissions. Use /profile first.")
     items = _plugin_items() if kind == "plugins" else tool_policy.get_tool_catalog(context.agent0)
@@ -62,14 +68,15 @@ def _save_policy(context, policy):
     editor.apply_change_plan(plan)
 
 
-async def handle_callback(context, token, chat_id, message_id, action, value):
+async def handle_callback(context, token, chat_id, message_id, action, value, *, is_admin=False):
     actions = {"pluginspage", "permissionspage", "plugin", "tool", "toolset", "policy"}
     if action not in actions:
         return False
+    _require_admin(is_admin)
     if "_commands" not in plugins.get_enabled_plugins(context.agent0):
         raise ValueError("Commands is disabled for this chat.")
     if action in {"pluginspage", "permissionspage"}:
-        await show(context, token, chat_id, message_id, action.removesuffix('page'), int(value))
+        await show(context, token, chat_id, message_id, action.removesuffix('page'), int(value), is_admin=True)
     elif action == "plugin":
         desired, key = value.split(":", 1)
         if desired == 'noop':
@@ -78,7 +85,7 @@ async def handle_callback(context, token, chat_id, message_id, action, value):
         if not meta or meta.always_enabled or name in {"_telegram_integration", "_commands"} or desired not in {'on','off'}:
             raise ValueError("This plugin choice is unavailable. Send /plugins again.")
         plugins.toggle_plugin(name, desired == 'on')
-        await show(context, token, chat_id, message_id, "plugins")
+        await show(context, token, chat_id, message_id, "plugins", is_admin=True)
     elif action == "tool":
         item = next((item for item in tool_policy.get_tool_catalog(context.agent0) if _key(context, item['id']) == value), None)
         if not item:
@@ -98,7 +105,7 @@ async def handle_callback(context, token, chat_id, message_id, action, value):
         if desired != 'default':
             policy['allowed' if desired == 'allow' else 'blocked'].append(item['id'])
         _save_policy(context, policy)
-        await show(context, token, chat_id, message_id, 'permissions')
+        await show(context, token, chat_id, message_id, 'permissions', is_admin=True)
     elif action == "policy":
         field, desired, key = value.split(':', 2)
         if key != _key(context, field) or (field, desired) not in {
@@ -109,5 +116,5 @@ async def handle_callback(context, token, chat_id, message_id, action, value):
         policy.update(mode='custom')
         policy[field] = desired
         _save_policy(context, policy)
-        await show(context, token, chat_id, message_id, 'permissions')
+        await show(context, token, chat_id, message_id, 'permissions', is_admin=True)
     return True

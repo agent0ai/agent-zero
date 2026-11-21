@@ -369,13 +369,10 @@
               <span>Codex version</span>
               <input type="text" x-model="$store.oauthConfig.codex().codex_version" placeholder="Auto" />
             </label>
-            <label class="oauth-switch">
-              <span>Codex proxy token required</span>
-              <input type="checkbox" x-model="$store.oauthConfig.codex().require_proxy_token" />
-            </label>
             <label>
-              <span>Codex proxy token</span>
+              <span>External Codex proxy token</span>
               <input type="text" class="masked-text-input" x-model="$store.oauthConfig.codex().proxy_token" autocomplete="off" />
+              <small>Only needed for external clients. Agent Zero authenticates its own model calls automatically; loopback alone is never trusted.</small>
             </label>
           </div>
         </details>

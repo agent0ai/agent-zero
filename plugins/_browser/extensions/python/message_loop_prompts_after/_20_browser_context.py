@@ -24,7 +24,7 @@ class BrowserContextExtras(Extension):
             return
 
         try:
-            listing = await runtime.call("list")
+            listing = await runtime.call("list", restore=False, touch=False)
         except Exception:
             return
 

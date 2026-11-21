@@ -198,7 +198,7 @@ class WsBrowser(WsHandler):
             }
 
         runtime = await get_runtime(context_id, create=False) if context_id else None
-        listing = await runtime.call("list") if runtime else {}
+        listing = await runtime.call("list", restore=False, touch=False) if runtime else {}
         return {
             "context_id": context_id,
             "browsers": listing.get("browsers") or [],
@@ -500,7 +500,7 @@ class WsBrowser(WsHandler):
 
     async def _all_browser_tabs(self) -> list[dict[str, Any]]:
         browsers: list[dict[str, Any]] = []
-        for session in await list_runtime_sessions():
+        for session in await list_runtime_sessions(restore=False):
             context_id = str(session.get("context_id") or "")
             for browser in session.get("browsers") or []:
                 entry = dict(browser or {})
@@ -534,7 +534,7 @@ class WsBrowser(WsHandler):
                     await asyncio.sleep(FRAME_RETRY_DELAY_SECONDS)
                     continue
 
-                listing = await runtime.call("list")
+                listing = await runtime.call("list", restore=False)
                 browsers = listing.get("browsers") or []
                 active_id = self._active_browser_id(listing, browser_id)
                 if not active_id:
@@ -609,7 +609,7 @@ class WsBrowser(WsHandler):
                         break
                     now = time.monotonic()
                     if now - last_state_refresh >= FRAME_STATE_REFRESH_SECONDS:
-                        listing = await runtime.call("list")
+                        listing = await runtime.call("list", restore=False)
                         browsers = listing.get("browsers") or []
                         browser_ids = {str(browser.get("id")) for browser in browsers}
                         if str(active_id) not in browser_ids:
@@ -670,7 +670,7 @@ class WsBrowser(WsHandler):
                     await asyncio.sleep(FRAME_RETRY_DELAY_SECONDS)
                     continue
 
-                listing = await runtime.call("list")
+                listing = await runtime.call("list", restore=False)
                 browsers = listing.get("browsers") or []
                 active_id = self._active_browser_id(listing, browser_id)
                 state = self._state_for_browser(browsers, active_id, None) if active_id else None

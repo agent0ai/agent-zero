@@ -4,6 +4,8 @@ import stat
 import sys
 from pathlib import Path
 
+import pytest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -13,14 +15,23 @@ from extensions.python.startup_migration import _10_self_update_manager as migra
 
 
 SAFE_SOURCE = """#!/usr/bin/env python3
+import os
+import zipfile
 from pathlib import Path
 
 
 REPO_DIR = Path("/a0")
+DEFAULT_HEALTH_TIMEOUT_SECONDS = int(
+    os.environ.get("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "600")
+)
 
 
 def get_top_stash_oid(repo_dir):
     return ""
+
+
+def create_usr_backup():
+    return zipfile.ZipFile("backup.zip", "w", compresslevel=1, strict_timestamps=False,)
 
 
 def should_include_usr_backup_entry(source_file, logger):
@@ -91,6 +102,26 @@ def test_self_update_runtime_sync_upgrades_moving_stash_selectors(tmp_path):
 
     assert result["updated"] is True
     assert target.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")
+    assert target.with_name(target.name + migration.BACKUP_SUFFIX).read_text() == stale
+
+
+@pytest.mark.parametrize("current, old", [
+    ('"A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "600"', '"A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "180"'),
+    ("compresslevel=1,", "compresslevel=6,"),
+    ("strict_timestamps=False,", "strict_timestamps=True,"),
+])
+def test_self_update_runtime_sync_upgrades_old_runtime_settings(tmp_path, current, old):
+    source = PROJECT_ROOT / "docker" / "run" / "fs" / "exe" / "self_update_manager.py"
+    target = tmp_path / "self_update_manager.py"
+    stale = source.read_text().replace(current, old)
+    target.write_text(stale)
+
+    result = migration.ensure_self_update_manager_runtime_current(
+        target_path=target, source_path=source,
+    )
+
+    assert result["updated"] is True
+    assert target.read_text() == source.read_text()
     assert target.with_name(target.name + migration.BACKUP_SUFFIX).read_text() == stale
 
 

@@ -137,6 +137,20 @@
 
                             <div class="field">
                                 <div class="field-label">
+                                    <div class="field-title">Administrator numbers</div>
+                                    <div class="field-description">Allowed senders who may change plugins and tool
+                                        permissions, create profiles, or switch the browser runtime. Leave empty to
+                                        grant nobody administrative access.</div>
+                                </div>
+                                <div class="field-control">
+                                    <input type="text" aria-label="Administrator numbers" :value="$store.whatsappConfig.adminText()"
+                                        @input="$store.whatsappConfig.setAdmins($event.target.value)"
+                                        placeholder="+1 (415) 555-1234" />
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <div class="field-label">
                                     <div class="field-title">Allow groups</div>
                                     <div class="field-description">Reply in group chats when mentioned or replied to.
                                     </div>

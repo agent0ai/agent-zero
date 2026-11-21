@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from helpers.api import ApiHandler, Request, Response
 from plugins._time_travel.helpers.time_travel import (
     TimeTravelError,
@@ -20,7 +22,8 @@ class HistoryList(ApiHandler):
                 workspace_id=workspace_id,
                 context_loader=self.use_context,
             )
-            return TimeTravelService(workspace).history_list(
+            return await asyncio.to_thread(
+                TimeTravelService(workspace).history_list,
                 limit=int(input.get("limit") or 100),
                 offset=int(input.get("offset") or 0),
                 file_filter=str(input.get("file_filter") or ""),

@@ -30,6 +30,7 @@
 - `index.js` rechecks the selected context after asynchronous snapshot hooks and message rendering; an older snapshot must not replace selection or sidebar state after a chat switch or creation.
 - Snapshot and chat-selection consumers import the always-enabled scheduler's tasks store before synchronization starts; sidebar mounting must not determine whether the first task collection is retained.
 - `index.js`'s `sendMessage` reports accepted dispatch or queue insertion with `true`; busy, rejected, or failed sends must not consume a setup-gate prompt. Release its send latch before resuming a deferred gate retry.
+- Context selection already clears message history. Its first snapshot must retain any optimistic first send rendered since selection; later full snapshots and log GUID resets still clear stale history normally.
 - Avoid editing vendored files unless intentionally updating the vendor asset.
 - Startup scripts in `index.html` must be local and non-parser-blocking: use ES modules, `defer`, or `async` for every script with `src`.
 - Baseline main and login pages must load scripts, styles, fonts, and images from same-origin vendored or first-party assets so they remain usable without internet access.
