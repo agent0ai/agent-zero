@@ -264,24 +264,13 @@ to switch to Bring Your Own Browser mode for the current Global or project scope
 
 Run `/browser container` to switch that scope back to Docker browser mode.
 
-`/browser privacy` reminds users where the Browser content policy lives:
-
-![A0 CLI Browser privacy notice](../res/usage/a0-cli/a0-cli-browser-privacy.png)
-
 If the selected browser profile is already open in another window, close that
 window and try again. You can also run `/browser relaunch`.
 
 You do not need to install Chrome DevTools MCP for this. A0 CLI already includes
 what it needs to connect to the browser you approve.
 
-### Page Privacy
-
-Browser settings decide what Agent Zero may do with page text and screenshots
-from your own browser:
-
-- **Local models only:** use host-browser page content only with local models.
-- **Warn when using cloud:** allow cloud models, but show a warning.
-- **Allow:** allow without warning.
+When you enable host browsing, the model selected for Browser can receive page text and screenshots from the profile you authorize.
 
 > [!NOTE]
 > The live Browser surface shows the Docker browser. When Agent Zero uses your

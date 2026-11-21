@@ -8,7 +8,6 @@ const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
 const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup";
 const BROWSER_STATUS_API = "/plugins/_browser/status";
 const RUNTIME_BACKENDS = new Set(["container", "host_required"]);
-const HOST_PRIVACY_POLICIES = new Set(["enforce_local", "warn", "allow"]);
 const HOST_PROFILE_MODES = new Set(["existing", "agent"]);
 const DEFAULT_MAX_OPEN_TABS = 32;
 const MIN_MAX_OPEN_TABS = 1;
@@ -45,11 +44,6 @@ function ensureConfig(config) {
   config.proxy_password = String(config.proxy_password || "");
   config.keyboard_layout = normalizeXkbToken(config.keyboard_layout);
   config.keyboard_variant = normalizeXkbToken(config.keyboard_variant);
-  config.host_browser_privacy_policy = normalizeChoice(
-    config.host_browser_privacy_policy,
-    HOST_PRIVACY_POLICIES,
-    "allow",
-  );
   config.host_browser_profile_mode = normalizeChoice(
     config.host_browser_profile_mode,
     HOST_PROFILE_MODES,
@@ -259,13 +253,6 @@ export const store = createStore("browserConfig", {
     const value = this.config?.runtime_backend || "container";
     if (value === "host_required") return "Bring Your Own Browser";
     return "Docker Browser";
-  },
-
-  privacyPolicyLabel() {
-    const value = this.config?.host_browser_privacy_policy || "allow";
-    if (value === "warn") return "Warn When Using Cloud";
-    if (value === "allow") return "Allow";
-    return "Local Models Only";
   },
 
   hostBrowserOptions() {

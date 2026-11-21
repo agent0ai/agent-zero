@@ -124,7 +124,6 @@ The full settings include:
 
 - **Browser location:** Use the Docker browser or **Bring Your Own Browser** through A0 CLI.
 - **Proxy:** Optionally route the Docker browser through an HTTP or SOCKS proxy, with bypass and authentication settings.
-- **Page content access:** Controls host-browser page text and screenshots.
 - **Starting page:** The default URL for new Browser sessions.
 - **Autofocus active page:** Lets an already-open Browser surface follow the agent's browsing.
 - **Extensions:** Choose which installed Chrome extensions load in the Docker browser.
@@ -201,12 +200,7 @@ instance and A0 CLI session.
 > to saved data, cookies, site data, and navigation. Enable it only for browser
 > instances you intend Agent Zero to control.
 
-Browser settings decide what Agent Zero may do with page text and screenshots
-from your own browser:
-
-- **Local models only:** Block host-browser content and screenshots unless the active chat model is local.
-- **Warn when using cloud:** Allow content and include a warning.
-- **Allow:** Allow without warning.
+When you enable host browsing, the model selected for Browser can receive page text and screenshots from the profile you authorize.
 
 > [!NOTE]
 > The live Browser surface shows the Docker browser. When Agent Zero uses your
@@ -243,7 +237,6 @@ See [MCP Setup](mcp-setup.md) for MCP setup.
 - **The Browser surface does not open automatically:** That is expected. Open the Browser surface manually or ask the agent to show it.
 - **The Canvas does not follow the agent:** Enable **Autofocus active page** in Browser settings.
 - **Bring Your Own Browser cannot start:** Keep A0 CLI connected, verify Browser location is **Bring Your Own Browser**, and check `/browser status` in A0 CLI.
-- **Host-browser content is blocked:** Switch to a local model or change Browser **Page content access** from **Local models only** to **Warn when using cloud** or **Allow**.
 
 ## Related
 

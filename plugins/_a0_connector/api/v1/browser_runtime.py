@@ -5,12 +5,6 @@ from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
 
 
-_PRIVACY_NOTICE = (
-    "For Browser model-use settings, visit Agent Zero WebUI > Browser settings to choose "
-    "Local models only, Warn when using cloud, or Allow."
-)
-
-
 def _string(value: object) -> str:
     return str(value or "").strip()
 
@@ -105,7 +99,6 @@ class BrowserRuntime(connector_base.ProtectedConnectorApiHandler):
             "label": _runtime_label(runtime_backend),
             "project_name": project_name,
             "agent_profile": "",
-            "privacy_notice": _PRIVACY_NOTICE,
         }
 
     def _project_name_for_context(self, context_id: str) -> str:

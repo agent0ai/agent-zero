@@ -7,7 +7,6 @@ import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from helpers import chat_media, media_artifacts
 
@@ -40,16 +39,6 @@ EVALUATE_CANCEL_TIMEOUT_SECONDS = 20.0
 DOM_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-page-content.js"
 MAX_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
-HOST_BROWSER_PRIVACY_POLICY_KEY = getattr(
-    browser_config,
-    "HOST_BROWSER_PRIVACY_POLICY_KEY",
-    "host_browser_privacy_policy",
-)
-DEFAULT_HOST_BROWSER_PRIVACY_POLICY = getattr(
-    browser_config,
-    "DEFAULT_HOST_BROWSER_PRIVACY_POLICY",
-    "allow",
-)
 HOST_BROWSER_PROFILE_MODE_KEY = getattr(
     browser_config,
     "HOST_BROWSER_PROFILE_MODE_KEY",
@@ -61,9 +50,6 @@ HOST_BROWSER_SELECTION_KEY = getattr(
     "host_browser_selection",
 )
 get_browser_config = browser_config.get_browser_config
-_LOCAL_PROVIDERS = {"ollama", "lm_studio", "llama_cpp", "omlx", "vllm"}
-_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
-_SENSITIVE_ACTIONS = {"content", "detail", "evaluate", "screenshot", "screenshot_file"}
 _KEY_ALIASES = {
     "cmd": "Meta",
     "command": "Meta",
@@ -126,15 +112,7 @@ class ConnectorBrowserRuntime:
 
     async def call(self, method: str, *args: Any, **kwargs: Any) -> Any:
         payload = self._payload_for_call(method, *args, **kwargs)
-        warning = self._privacy_warning(payload)
-        result = await self._dispatch(payload)
-        result = self._materialize_artifact(result)
-        if warning:
-            if isinstance(result, dict):
-                result.setdefault("privacy_warning", warning)
-            else:
-                result = {"result": result, "privacy_warning": warning}
-        return result
+        return self._materialize_artifact(await self._dispatch(payload))
 
     def _payload_for_call(self, method: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
         action = str(method or "").strip().lower().replace("-", "_")
@@ -303,7 +281,6 @@ class ConnectorBrowserRuntime:
                 )
             )
         payload.setdefault("profile_mode", self._host_browser_profile_mode())
-        self._enforce_privacy(payload)
         sid = self._select_sid()
         if not sid:
             statuses = host_browser_metadata_for_context(self.context_id)
@@ -487,51 +464,6 @@ class ConnectorBrowserRuntime:
             and str(metadata.get("status") or "").strip() in {"ready", "active"}
         )
 
-    def _enforce_privacy(self, payload: dict[str, Any]) -> None:
-        policy = str(
-            get_browser_config(agent=self.agent).get(HOST_BROWSER_PRIVACY_POLICY_KEY)
-            or DEFAULT_HOST_BROWSER_PRIVACY_POLICY
-        ).strip()
-        if not self._payload_is_sensitive(payload) or policy != "enforce_local":
-            return
-        if _agent_uses_local_chat_model(self.agent):
-            return
-        raise RuntimeError(
-            "Host-browser content is blocked by Browser privacy policy. "
-            "Switch this project to a local chat model, or change Browser settings from "
-            "enforce_local to warn/allow."
-        )
-
-    def _privacy_warning(self, payload: dict[str, Any]) -> str:
-        policy = str(
-            get_browser_config(agent=self.agent).get(HOST_BROWSER_PRIVACY_POLICY_KEY)
-            or DEFAULT_HOST_BROWSER_PRIVACY_POLICY
-        ).strip()
-        if policy != "warn" or not self._payload_is_sensitive(payload):
-            return ""
-        if _agent_uses_local_chat_model(self.agent):
-            return ""
-        return (
-            "Browser privacy policy is warn: host-browser content was returned while "
-            "the active chat model does not appear local."
-        )
-
-    def _payload_is_sensitive(self, payload: dict[str, Any]) -> bool:
-        action = str(payload.get("action") or "").strip().lower().replace("-", "_")
-        if action in _SENSITIVE_ACTIONS:
-            return True
-        if action == "list" and bool(payload.get("include_content")):
-            return True
-        if action == "multi":
-            calls = payload.get("calls")
-            if isinstance(calls, list):
-                return any(
-                    self._payload_is_sensitive(call)
-                    for call in calls
-                    if isinstance(call, dict)
-                )
-        return False
-
     def _materialize_artifact(self, result: Any) -> Any:
         if isinstance(result, list):
             materialized_list = []
@@ -698,31 +630,3 @@ def _content_helper_required_apis(source: str) -> list[str]:
             f"Host-browser content helper from {CONTENT_HELPER_PATH} declares no required API names."
         )
     return names
-
-
-def _agent_uses_local_chat_model(agent: Any) -> bool:
-    try:
-        from plugins._model_config.helpers import model_config
-
-        cfg = model_config.get_chat_model_config(agent)
-    except Exception:
-        cfg = {}
-    if not isinstance(cfg, dict):
-        return False
-    provider = str(cfg.get("provider", "") or "").strip().lower()
-    if provider in _LOCAL_PROVIDERS:
-        return True
-    api_base = str(cfg.get("api_base", "") or cfg.get("base_url", "") or "").strip()
-    if not api_base:
-        kwargs = cfg.get("kwargs")
-        if isinstance(kwargs, dict):
-            api_base = str(kwargs.get("api_base", "") or kwargs.get("base_url", "") or "").strip()
-    return _api_base_is_local(api_base)
-
-
-def _api_base_is_local(api_base: str) -> bool:
-    if not api_base:
-        return False
-    parsed = urlparse(api_base if "://" in api_base else f"http://{api_base}")
-    hostname = (parsed.hostname or "").strip().lower()
-    return hostname in _LOCAL_HOSTS

@@ -66,6 +66,7 @@
 - Browser URL-intent handling must only claim web URL schemes and leave custom Agent Zero schemes to their owning surfaces.
 - Prefer DOM/CDP browser actions with refs, selectors, frame-chain refs, and screenshots over viewport coordinate input. Coordinates remain a visual fallback.
 - Do not hardcode user-specific browser paths or secrets.
+- Host Browser access is granted by the connected host. Its page content and screenshots are available to the selected model.
 - Browser model-preset selection resolves omitted preset fields from `_model_config`'s global `Default` preset, not from an unrelated currently scoped model selection. After the first Browser tool call, use the selected preset for subsequent model turns in that monologue and clear it at monologue end.
 - Open-browser runtime state (tab listing, last interacted browser, page content) is per-loop dynamic context: it must flow through the `message_loop_prompts_after` extension into `loop_data.extras_temporary` (rendered as message extras), never into the system prompt, so the system prompt stays cache-stable across turns. The extension must check the profile Browser `list` permission before listing and both `state` and `content` before reading the last page.
 - Browser tool results serialize minified JSON for agent history; any JSON beautification for display stays plugin-local in the WebUI tool handler (`browser-tool-handler.js`), never in shared `helpers/tool.py` where it would apply to every tool.

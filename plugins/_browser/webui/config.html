@@ -238,19 +238,6 @@
             </span>
           </div>
 
-          <label
-            class="browser-config-field"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
-          >
-            <span class="browser-config-field-label">Page content access</span>
-            <select x-model="$store.browserConfig.config.host_browser_privacy_policy">
-              <option value="enforce_local">Local models only</option>
-              <option value="warn">Warn when using cloud</option>
-              <option value="allow">Allow</option>
-            </select>
-            <span class="browser-config-field-help">Controls page text and screenshots from the host browser.</span>
-          </label>
-
           <div class="browser-config-note">
             <x-icon :class="{ spinning: $store.browserConfig.hostBrowserStatusLoading }" :name="$store.browserConfig.hostBrowserStatusLoading ? 'progress_activity' : 'captive_portal'"></x-icon>
             <span x-text="$store.browserConfig.browserRuntimeStatusLabel()"></span>

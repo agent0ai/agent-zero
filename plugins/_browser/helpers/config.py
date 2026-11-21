@@ -21,7 +21,6 @@ DEFAULT_EVALUATE_TIMEOUT_SECONDS = 30.0
 MIN_EVALUATE_TIMEOUT_SECONDS = 0.1
 MAX_EVALUATE_TIMEOUT_SECONDS = 60.0
 RUNTIME_BACKEND_KEY = "runtime_backend"
-HOST_BROWSER_PRIVACY_POLICY_KEY = "host_browser_privacy_policy"
 HOST_BROWSER_PROFILE_MODE_KEY = "host_browser_profile_mode"
 HOST_BROWSER_SELECTION_KEY = "host_browser_selection"
 PROXY_SERVER_KEY = "proxy_server"
@@ -31,12 +30,10 @@ PROXY_PASSWORD_KEY = "proxy_password"
 KEYBOARD_LAYOUT_KEY = "keyboard_layout"
 KEYBOARD_VARIANT_KEY = "keyboard_variant"
 RUNTIME_BACKENDS = {"container", "host_required"}
-HOST_BROWSER_PRIVACY_POLICIES = {"enforce_local", "warn", "allow"}
 HOST_BROWSER_PROFILE_MODES = {"existing", "agent"}
 DEFAULT_MAX_OPEN_TABS = 32
 MIN_MAX_OPEN_TABS = 1
 HARD_MAX_OPEN_TABS = 50
-DEFAULT_HOST_BROWSER_PRIVACY_POLICY = "allow"
 
 
 def _normalize_extension_paths(value: Any) -> list[str]:
@@ -179,11 +176,6 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         ),
         RUNTIME_BACKEND_KEY: _normalize_runtime_backend(
             raw.get(RUNTIME_BACKEND_KEY, "container")
-        ),
-        HOST_BROWSER_PRIVACY_POLICY_KEY: _normalize_choice(
-            raw.get(HOST_BROWSER_PRIVACY_POLICY_KEY, DEFAULT_HOST_BROWSER_PRIVACY_POLICY),
-            allowed=HOST_BROWSER_PRIVACY_POLICIES,
-            default=DEFAULT_HOST_BROWSER_PRIVACY_POLICY,
         ),
         HOST_BROWSER_PROFILE_MODE_KEY: _normalize_choice(
             raw.get(HOST_BROWSER_PROFILE_MODE_KEY, "existing"),

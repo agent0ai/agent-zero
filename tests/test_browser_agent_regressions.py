@@ -212,7 +212,6 @@ def test_browser_config_normalizes_extension_paths(tmp_path):
         "max_open_tabs": 32,
         "evaluate_timeout_seconds": 30.0,
         "runtime_backend": "container",
-        "host_browser_privacy_policy": "allow",
         "host_browser_profile_mode": "existing",
         "host_browser_selection": "",
         "proxy_server": "",
@@ -276,7 +275,7 @@ def test_browser_config_normalizes_model_preset():
     assert "model" not in normalize_browser_config({"model": "main"})
 
 
-def test_browser_config_normalizes_host_backend_and_privacy_policy():
+def test_browser_config_drops_retired_host_policy_and_preserves_routing():
     config = normalize_browser_config(
         {
             "runtime_backend": "host-required",
@@ -286,7 +285,7 @@ def test_browser_config_normalizes_host_backend_and_privacy_policy():
     )
 
     assert config["runtime_backend"] == "host_required"
-    assert config["host_browser_privacy_policy"] == "warn"
+    assert "host_browser_privacy_policy" not in config
     assert config["host_browser_profile_mode"] == "agent"
 
 

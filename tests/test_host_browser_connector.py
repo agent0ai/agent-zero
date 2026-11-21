@@ -17,7 +17,6 @@ from plugins._a0_connector.helpers import ws_runtime
 from plugins._browser.helpers import connector_runtime as connector_runtime_module
 from plugins._browser.helpers.connector_runtime import (
     ConnectorBrowserRuntime,
-    _agent_uses_local_chat_model,
     _stable_host_browser_selection,
 )
 
@@ -402,18 +401,6 @@ def test_host_browser_setup_api_dispatches_to_connected_cli(monkeypatch):
     asyncio.run(run())
 
 
-def test_host_browser_privacy_detects_local_model(monkeypatch):
-    from plugins._model_config.helpers import model_config
-
-    monkeypatch.setattr(
-        model_config,
-        "get_chat_model_config",
-        lambda agent=None: {"provider": "openai", "name": "local", "api_base": "http://127.0.0.1:11434/v1"},
-    )
-
-    assert _agent_uses_local_chat_model(_agent()) is True
-
-
 def test_connector_runtime_tolerates_legacy_config_module(monkeypatch):
     import plugins._browser.helpers.config as browser_config
     import plugins._browser.helpers.connector_runtime as connector_runtime_module
@@ -428,28 +415,6 @@ def test_connector_runtime_tolerates_legacy_config_module(monkeypatch):
     if original is not None:
         monkeypatch.setattr(browser_config, "HOST_BROWSER_PROFILE_MODE_KEY", original, raising=False)
     importlib.reload(connector_runtime_module)
-
-
-def test_host_browser_privacy_blocks_cloud_content(monkeypatch):
-    import plugins._browser.helpers.connector_runtime as connector_runtime_module
-    from plugins._model_config.helpers import model_config
-
-    monkeypatch.setattr(
-        model_config,
-        "get_chat_model_config",
-        lambda agent=None: {"provider": "openrouter", "name": "cloud/model", "api_base": ""},
-    )
-    monkeypatch.setattr(
-        connector_runtime_module,
-        "get_browser_config",
-        lambda agent=None: {
-            "host_browser_privacy_policy": "enforce_local",
-        },
-    )
-    runtime = ConnectorBrowserRuntime("ctx-host", _agent("ctx-host"))
-
-    with pytest.raises(RuntimeError, match="blocked by Browser privacy policy"):
-        runtime._enforce_privacy({"action": "content"})
 
 
 def test_connector_runtime_normalizes_host_navigation_payloads(monkeypatch):
@@ -655,7 +620,7 @@ def test_connector_runtime_ensures_preparable_host_browser_before_action(monkeyp
         monkeypatch.setattr(
             connector_runtime_module,
             "get_browser_config",
-            lambda agent=None: {"host_browser_privacy_policy": "allow"},
+            lambda agent=None: {},
         )
         ws_runtime.register_sid(sid)
         ws_runtime.subscribe_sid_to_context(sid, context_id)

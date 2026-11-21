@@ -30,12 +30,6 @@ proxy_bypass: ""
 proxy_username: ""
 proxy_password: ""
 
-# Local-model enforcement for host-browser content:
-# - enforce_local: block host page content and screenshots unless the active chat model is local.
-# - warn: allow and return a warning in tool output.
-# - allow: allow without warning.
-host_browser_privacy_policy: "allow"
-
 # Host-browser profile preference:
 # - existing: use the user's authorized existing browser profile when available.
 # - agent: use a clean A0-controlled browser profile on the host.
