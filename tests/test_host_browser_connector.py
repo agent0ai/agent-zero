@@ -46,6 +46,34 @@ def evaluate_bridge(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_old_connector_only_receives_pathless_screenshots_and_close(monkeypatch, evaluate_bridge):
+    runtime, sid = evaluate_bridge
+    sent = []
+
+    async def emit(sid, event, payload, **kwargs):
+        sent.append(payload["action"])
+        if payload["action"] in {"close", "close_browser"}:
+            result = {"browsers": [{"id": 9, "title": "Unrelated tab"}]}
+        else:
+            result = {"ephemeral": True}
+        ws_runtime.resolve_pending_browser_op(payload["op_id"], sid=sid, payload={"ok": True, "result": result})
+
+    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
+    results = await runtime.call("multi", [
+        {"action": "upload_file", "browser_id": 1, "ref": 2, "path": "note.txt"},
+        {"action": "screenshot", "browser_id": 1, "path": "note.png"},
+        {"action": "screenshot", "browser_id": 1},
+        {"action": "close", "browser_id": 1},
+        {"action": "multi", "calls": [{"action": "close-browser", "browser_id": 2}]},
+    ])
+    assert all("Update A0 CLI" in item["error"] for item in results[:2])
+    assert [item["result"] for item in results[2:]] == [
+        {"ephemeral": True}, {"closed": 1}, [{"ok": True, "result": {"closed": 2}}],
+    ]
+    assert sorted(sent) == ["close", "close_browser", "screenshot"]
+
+
+@pytest.mark.asyncio
 async def test_host_evaluate_deadline_and_multi_results(monkeypatch, evaluate_bridge):
     runtime, sid = evaluate_bridge
     payloads = []

@@ -356,13 +356,16 @@ class ConnectorBrowserRuntime:
         return payload
 
     async def _send_browser_op(self, sid: str, payload: dict[str, Any]) -> Any:
-        if payload.get("action") == "evaluate" and "evaluate_timeout_v1" not in (
-            (host_browser_metadata_for_sid(sid) or {}).get("features") or []
-        ):
+        action = payload.get("action")
+        features = (host_browser_metadata_for_sid(sid) or {}).get("features") or []
+        if action == "evaluate" and "evaluate_timeout_v1" not in features:
             raise RuntimeError(
                 "Host evaluate requires a connector with evaluate_timeout_v1 support. "
                 "Update A0 CLI/Launcher or use the Internal Docker browser; no script was sent."
             )
+        if action == "upload_file" or (action in {"screenshot", "screenshot_file"} and payload.get("path")):
+            if "browser_file_scopes_v1" not in features:
+                raise RuntimeError("Update A0 CLI or Launcher to use shared-folder paths in the host browser.")
         op_id = str(payload["op_id"])
         loop = asyncio.get_running_loop()
         future: asyncio.Future[dict[str, Any]] = loop.create_future()
@@ -427,7 +430,12 @@ class ConnectorBrowserRuntime:
                     response.get("error") or "Host browser operation failed"
                 )
             )
-        return response.get("result")
+        result = response.get("result")
+        if action in {"close", "close_browser"}:
+            # Older connectors returned every remaining tab after a successful close.
+            closed = result.get("closed") if isinstance(result, dict) else None
+            return {"closed": closed or payload.get("browser_id") or True}
+        return result
 
     async def _cancel_evaluate(self, sid: str, op_id: str) -> None:
         cleanup = asyncio.create_task(self._send_browser_op(sid, {

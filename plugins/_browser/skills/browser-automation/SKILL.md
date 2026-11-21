@@ -42,9 +42,7 @@ When the user asks for "my browser", "host browser", "local browser", a local Ch
 The same tool may run in Docker container mode or A0 CLI host-browser mode, depending on project/plugin settings.
 
 - Container mode: browser and upload paths resolve inside the Agent Zero container.
-- Host mode: browser and upload paths resolve on the connected A0 CLI host machine.
-
-In host mode, page content and screenshots may be blocked by host-content policy when remote models are active.
+- Host mode: upload files from the connected host's shared folder with Files read access. Saving a screenshot to that folder requires write access. A screenshot for the chat only needs Browser access.
 
 ## Screenshots And Vision
 

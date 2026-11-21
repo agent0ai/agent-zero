@@ -202,6 +202,8 @@ instance and A0 CLI session.
 
 When you enable host browsing, the model selected for Browser can receive page text and screenshots from the profile you authorize.
 
+To upload a file from your computer, share its folder through the connector and allow Files read access. Saving a screenshot in that folder requires write access. Taking a screenshot for the chat requires only Browser access.
+
 > [!NOTE]
 > The live Browser surface shows the Docker browser. When Agent Zero uses your
 > host browser, page results and screenshots appear in the chat, but the live
