@@ -62,7 +62,7 @@ def _normalize_model_preset(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _normalize_host_browser_selection(value: Any) -> str:
+def normalize_host_browser_selection(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -182,7 +182,7 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
             allowed=HOST_BROWSER_PROFILE_MODES,
             default="existing",
         ),
-        HOST_BROWSER_SELECTION_KEY: _normalize_host_browser_selection(
+        HOST_BROWSER_SELECTION_KEY: normalize_host_browser_selection(
             raw.get(HOST_BROWSER_SELECTION_KEY, raw.get("host_browser_choice", ""))
         ),
         PROXY_SERVER_KEY: str(raw.get(PROXY_SERVER_KEY, "") or "").strip()[:2048],
