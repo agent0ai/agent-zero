@@ -1,5 +1,6 @@
 import * as api from "./api.js";
 import * as cache from "./cache.js";
+import { mapWithConcurrency, withWebuiLoadSlot } from "./concurrency.js";
 
 /**
  * @typedef {string} WebuiExtension
@@ -86,19 +87,17 @@ export async function loadJsExtensions(extensionPoint) {
     let extensionPaths = manifestExtensions;
     if (extensionPaths == null) {
       /** @type {LoadWebuiExtensionsResponse} */
-      const response = await api.callJsonApi(`/api/load_webui_extensions`, {
+      const response = await withWebuiLoadSlot(() => api.callJsonApi(`/api/load_webui_extensions`, {
         extension_point: extensionPoint,
         filters: ["*.js", "*.mjs"],
-      });
+      }));
       extensionPaths = response.extensions;
     }
     /** @type {JsExtensionImport[]} */
-    const imports = await Promise.all(
-      extensionPaths.map(async (path) => ({
-        path,
-        module: await import(normalizePath(path))
-      }))
-    );
+    const imports = await mapWithConcurrency(extensionPaths, async (path) => ({
+      path,
+      module: await import(normalizePath(path))
+    }));
     cache.add(JS_CACHE_AREA, extensionPoint, imports);
     return imports;
   } catch (error) {
@@ -200,10 +199,10 @@ export async function importHtmlExtensions(extensionPoint, targetElement) {
     let extensionPaths = manifestExtensions;
     if (extensionPaths == null) {
       /** @type {LoadWebuiExtensionsResponse} */
-      const response = await api.callJsonApi(`/api/load_webui_extensions`, {
+      const response = await withWebuiLoadSlot(() => api.callJsonApi(`/api/load_webui_extensions`, {
         extension_point: extensionPoint,
         filters: ["*.html", "*.htm", "*.xhtml"],
-      });
+      }));
       extensionPaths = response.extensions;
     }
     let combinedHTML = "";
