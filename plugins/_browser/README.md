@@ -4,6 +4,11 @@ The internal browser runs Chromium, its Patchright driver and Tuxee’s minimal 
 
 The agent can call `list` to find a tab you opened, then select its `browser_id`. It can also open a tab in a specific `window_id` or request a new window. Resetting a chat preserves the shared browser. Bring Your Own Browser uses the host connector.
 
+PRoot presents the internal browser as root, so Patchright launches Chromium with
+`--no-sandbox`. Chromium’s renderer sandbox is disabled. A managed policy inside
+the Browser guest hides command-line flag warnings in the viewer. You can inspect
+the effective setting at `chrome://policy`.
+
 The sandbox persists installed packages and exposes only the browser profile,
 download directory and selected extensions. Uploads transfer selected bytes.
 See the [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md) for

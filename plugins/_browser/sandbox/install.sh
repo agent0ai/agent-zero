@@ -74,6 +74,10 @@ if [ -n "$native_tuxee" ]; then
 fi
 python /worker/progress.py chromium 'Downloading Chromium'
 python -m patchright install chromium --no-shell
+# The pinned SDK ships Chrome for Testing and unbranded Chromium across Linux architectures.
+for policy_root in /etc/opt/chrome_for_testing /etc/chromium; do
+    install -D -m 0644 /plugin/sandbox/install-browser-policy.json "$policy_root/policies/managed/agent-zero-browser.json"
+done
 if "$base_python" -c 'import importlib.util; exit(importlib.util.find_spec("uv") is None)'; then
     "$base_python" -m pip uninstall -y uv
 fi
