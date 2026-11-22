@@ -8,7 +8,7 @@ class SettingsWorkdirFileStructure(ApiHandler):
         workdir_path = input.get("workdir_path", "")
         workdir_path = files.get_abs_path_development(workdir_path)
         if not workdir_path:
-            raise Exception("workdir_path is required")
+            raise ValueError("workdir_path is required")
 
         tree = str(
             file_tree.file_tree(
