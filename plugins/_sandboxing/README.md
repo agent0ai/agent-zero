@@ -8,7 +8,7 @@ SSH, a nested daemon, or KVM.
 
 `code_execution_tool` now accepts `destination`:
 
-- `default` (the default) creates or wakes the configured default sandbox.
+- `default` creates or wakes the configured default sandbox. With the automatic type setting, this sandbox is permanent and other new sandboxes are temporary. You can choose a type explicitly at creation.
 - A listed sandbox name targets that sandbox; `sandbox:<name>` is always an
   unambiguous form.
 - `local` targets the operating system running Agent Zero and should be used

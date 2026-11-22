@@ -72,6 +72,14 @@ class SandboxConfig:
     max_output_bytes: int = 1_048_576
     instance_id: str = ""
     user_dir: Path | None = None
+    default_sandbox: str = "default"
+    default_type: SandboxType | Literal["auto"] = "auto"
+
+
+def creation_type(policy: SandboxType | Literal["auto"], *, is_default: bool) -> SandboxType:
+    if policy == "auto":
+        return "permanent" if is_default else "temporary"
+    return policy
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,7 +293,7 @@ class SandboxManager:
         name: str,
         *,
         network: NetworkMode = "host",
-        sandbox_type: SandboxType = "temporary",
+        sandbox_type: SandboxType | None = None,
         image: str = "",
         mounts: Sequence[SandboxMount | Mapping[str, Any]] = (),
         ownership: Mapping[str, str | None] | None = None,
@@ -297,6 +305,10 @@ class SandboxManager:
     ) -> SandboxInfo:
         name = validate_name(name)
         network = self._validate_network(network)
+        if sandbox_type is None:
+            sandbox_type = creation_type(
+                self.config.default_type, is_default=name == self.config.default_sandbox
+            )
         sandbox_type = self._validate_type(sandbox_type)
         requested_mounts = list(mounts)
         if share_usr and self.config.user_dir is not None:
@@ -391,7 +403,7 @@ class SandboxManager:
         name: str,
         *,
         network: NetworkMode = "host",
-        sandbox_type: SandboxType = "temporary",
+        sandbox_type: SandboxType | None = None,
         image: str = "",
     ) -> SandboxInfo:
         name = validate_name(name)
@@ -493,7 +505,9 @@ class SandboxManager:
             return self._process_command(name, metadata, args, cwd)
 
     def interactive_command(self, name, *, cwd='/workspace'):
-        return self.process_command(name, ['/bin/bash', '--login'], cwd=cwd)
+        command = self.process_command(name, ['/bin/bash', '--login'], cwd=cwd)
+        command.insert(2, '--terminal')
+        return command
 
     def save(self, name: str) -> SandboxInfo:
         name = validate_name(name)
@@ -1291,7 +1305,7 @@ class SandboxManager:
 
     @staticmethod
     def _validate_type(value: Any) -> SandboxType:
-        if value not in {"temporary", "permanent"}:
+        if value not in ("temporary", "permanent"):
             raise SandboxError(f"unsupported sandbox type {value!r}")
         return value
 

@@ -22,6 +22,7 @@
 - Normalize logged `code` to display text before title and copy operations. Rejected malformed arguments can remain in stored logs; streaming and replay must render them without changing the original arguments.
 
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
+- Record the resolved destination and session in code execution logs for step details, including omitted session defaults.
 - Execution runtimes (`terminal`, `python`, `nodejs`) require a string `code` argument. Reject missing or non-string code with `RepairableException` before configuring or resetting shells; output polling and reset do not require code. Verify with `tests/test_code_execution_arguments.py`.
 - A direct parallel code job retains its worker and loop-bound shell until the command ends or is cancelled. Output timeouts publish model-facing progress to the registered job and continue polling; callers use parallel job IDs. Close parallel shells explicitly on that worker loop on completion or cancellation, including partially connected shells. Top-level sessions retain their ordinary timeout/output/reset behavior.
 - Execute multi-line terminal input as one current-shell compound so intermediate prompts cannot mark queued work complete; preserve `cd`, exports, and other shell state.

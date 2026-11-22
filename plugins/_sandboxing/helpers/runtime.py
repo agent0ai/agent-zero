@@ -17,6 +17,7 @@ from plugins._sandboxing.helpers.manager import (
     SandboxConfig,
     SandboxError,
     SandboxManager,
+    creation_type,
     validate_name,
 )
 
@@ -32,7 +33,7 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
     default_image = str(raw.get("default_image") or BUILTIN_IMAGE).strip()
     if default_image in LEGACY_BUILTIN_IMAGES:
         default_image = BUILTIN_IMAGE
-    default_type = str(raw.get("default_type", "temporary")).strip().lower()
+    default_type = str(raw.get("default_type", "auto")).strip().lower()
     default_network = str(raw.get("default_network", "host")).strip().lower()
     default_sandbox = str(raw.get("default_sandbox") or "default").strip()
     try:
@@ -53,8 +54,8 @@ def normalize_config(value: dict[str, Any] | None) -> dict[str, Any]:
         "shared_dir": str(raw.get("shared_dir") or "usr/sandbox-shared").strip(),
         "default_sandbox": default_sandbox,
         "default_type": default_type
-        if default_type in {"temporary", "permanent"}
-        else "temporary",
+        if default_type in {"auto", "temporary", "permanent"}
+        else "auto",
         "default_network": default_network
         if default_network in {"host", "none"}
         else "host",
@@ -93,6 +94,8 @@ def manager_config(
         default_image=str(raw["default_image"]),
         instance_id=instance_id,
         user_dir=_absolute_path("usr"),
+        default_sandbox=raw["default_sandbox"],
+        default_type=raw["default_type"],
         temporary_lifetime_days=float(raw["temporary_lifetime_days"]),
         start_timeout=float(raw["start_timeout"]),
         stop_timeout=float(raw["stop_timeout"]),
@@ -143,7 +146,7 @@ def defaults(*, agent: object | None = None) -> tuple[str, str, str]:
     config = normalize_config(plugins.get_plugin_config(PLUGIN_NAME, agent=agent) or {})
     return (
         str(config["default_sandbox"]),
-        str(config["default_type"]),
+        creation_type(config["default_type"], is_default=True),
         str(config["default_network"]),
     )
 

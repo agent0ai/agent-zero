@@ -6,7 +6,7 @@ from typing import Any
 from helpers.api import ApiHandler, Request
 from plugins._sandboxing.helpers.file_browser import SandboxFilesProvider
 from plugins._sandboxing.helpers.images import image_info_dict
-from plugins._sandboxing.helpers.manager import SandboxError, sandbox_info_dict
+from plugins._sandboxing.helpers.manager import SandboxError, creation_type, sandbox_info_dict
 from plugins._sandboxing.helpers.runtime import defaults, get_manager
 
 
@@ -29,7 +29,8 @@ class Sandboxes(ApiHandler):
                     "images": [image_info_dict(item) for item in images],
                     "defaults": {
                         "name": default_name,
-                        "sandbox_type": default_type,
+                        "sandbox_type": creation_type(manager.config.default_type, is_default=False),
+                        "default_sandbox_type": default_type,
                         "network": default_network,
                         "image": manager.config.default_image,
                     },
@@ -47,11 +48,11 @@ class Sandboxes(ApiHandler):
                 size = await asyncio.to_thread(manager.disk_usage, name)
                 return {"ok": True, "name": name, "size_bytes": size}
             if action == "create":
-                default_name, default_type, default_network = defaults()
+                default_name, _, default_network = defaults()
                 item = await asyncio.to_thread(
                     manager.create,
                     name or default_name,
-                    sandbox_type=str(input.get("sandbox_type") or default_type),
+                    sandbox_type=input.get("sandbox_type") or None,
                     network=str(input.get("network") or default_network),
                     image=str(input.get("image") or manager.config.default_image),
                     mounts=input.get("mounts") or [],

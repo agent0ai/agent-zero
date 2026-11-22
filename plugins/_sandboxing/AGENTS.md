@@ -13,7 +13,7 @@
 - `helpers/manager.py` owns validation, launcher configuration, runtime state, bindings, sandbox/image references, expiry, and safe deletion.
 - `helpers/runtime.py` owns resolved plugin configuration and the process-local manager.
 - `helpers/shell.py` owns interactive PRoot terminal sessions.
-- `tools/`, `api/`, `prompts/`, `extensions/`, and `webui/` expose the manager without duplicating lifecycle logic.
+- `tools/`, `api/`, `prompts/`, `extensions/`, and `webui/` expose the manager without duplicating lifecycle logic. Describe types by idle expiry. Automatic creation makes the configured default sandbox permanent and other sandboxes temporary. An explicit type takes precedence.
 
 ## Local Contracts
 
@@ -53,6 +53,8 @@
 
 - `helpers/storage.py` owns immutable image preparation, sparse upper directories, symlink-safe binding ACLs and permanent UID leases. Preserve effective existing ACL permissions; atomic worker requests use mode 0640 so inherited read ACLs remain effective.
 - `helpers/process.py` drops supplementary groups and real UID/GID, applies no-new-privileges and seccomp, then runs PRoot fake-root. Supervisors use PID start-time tokens, child pipes and UID cleanup; exec wrappers reap their own detached descendants on cancellation.
+- Interactive sandbox shells attach their PTY as the guest session's controlling terminal. Startup consumes the initial prompt before accepting commands.
+- Agent prompts favor a task-specific temporary sandbox for ad hoc work, development and testing, with needed results saved before deletion or expiry.
 - `helpers/bootstrap.py` and `docker/sandbox/proot/` own the pinned build and source-update installer. Runtime capability marker `A0-COW-3` requires merged directory reads and sparse copy-up; older binaries rebuild through this installer on source update. Never install build dependencies during normal ready-image startup.
 - PRoot is dependency/filesystem separation, not a hostile-code security boundary. Do not claim PID/kernel isolation. Offline mode denies new non-Unix sockets; bindings can still expose Unix services.
 

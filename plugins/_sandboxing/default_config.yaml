@@ -9,7 +9,7 @@ state_dir: ""
 uid_registry: ""
 shared_dir: usr/sandbox-shared
 default_sandbox: default
-default_type: temporary
+default_type: auto
 default_network: host
 temporary_lifetime_days: 7
 image_lifetime_days: 30

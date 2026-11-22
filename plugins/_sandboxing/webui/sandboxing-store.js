@@ -14,7 +14,7 @@ const model = {
   images: [],
   diagnostics: [],
   sharedDir: "",
-  defaults: { name: "default", sandbox_type: "temporary", network: "host", image: "" },
+  defaults: { name: "default", sandbox_type: "temporary", default_sandbox_type: "permanent", network: "host", image: "" },
   imageCleanupDays: 30,
   loading: false,
   busy: false,
@@ -23,8 +23,20 @@ const model = {
   storage: {},
   pollTimer: null,
   formInitialized: false,
-  form: { name: "", sandbox_type: "temporary", network: "host", image: "" },
+  form: { name: "", sandbox_type: "", network: "host", image: "" },
   imageForm: { reference: "" },
+
+  get creationType() {
+    if (this.form.sandbox_type) return this.form.sandbox_type;
+    if (this.form.name.trim() === this.defaults.name && this.defaults.default_sandbox_type) {
+      return this.defaults.default_sandbox_type;
+    }
+    return this.defaults.sandbox_type;
+  },
+
+  set creationType(value) {
+    this.form.sandbox_type = value;
+  },
 
   async onOpen() {
     await this.refresh();
@@ -49,7 +61,6 @@ const model = {
       this.defaults = response.defaults || this.defaults;
       this.imageCleanupDays = Number(response.image_cleanup_days || 30);
       if (!this.formInitialized) {
-        this.form.sandbox_type = this.defaults.sandbox_type || "temporary";
         this.form.network = this.defaults.network || "host";
         this.form.image = this.defaults.image || "";
         this.formInitialized = true;
@@ -117,12 +128,13 @@ const model = {
       const response = await callJsonApi(API_PATH, {
         action: "create",
         name,
-        sandbox_type: this.form.sandbox_type,
+        sandbox_type: this.creationType,
         network: this.form.network,
         image: this.form.image || this.defaults.image,
       });
       if (!response?.ok) throw new Error(response?.error || "Could not create sandbox.");
       this.form.name = "";
+      this.form.sandbox_type = "";
       toastFrontendSuccess(`Sandbox ${name} created.`);
       await this.refresh(true);
     } catch (error) {

@@ -3,11 +3,15 @@ Run terminal, Python, or Node.js commands.
 
 Arguments in `tool_args`:
 - `runtime`: `terminal`, `python`, `nodejs`, or `output`
+- `destination`: target from EXTRAS; default `default`
 - `code`: command or script code
 - `session`: terminal session id; default `0`
 - `reset`: kill a session before running; `true` or `false`
 
 Rules:
+- For ad hoc work, development, and tests, create a named temporary sandbox and reuse it for the task. Honor an assigned destination.
+- Save needed results outside the sandbox before deleting it, or let it expire.
+- Use the same destination and session for commands, input, polling, and reset.
 - Put the command or script in `code`.
 - Use `runtime=output` to poll running work.
 - Use `input` for interactive terminal prompts.

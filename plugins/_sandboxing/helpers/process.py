@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import select
 import signal
 import subprocess
 import sys
+import termios
 import time
 
 
@@ -132,6 +134,8 @@ def guest(fd: int) -> None:
         config = json.load(handle)
     if os.getuid() != config['uid'] or not 20000 <= os.getuid() < 60000:
         raise RuntimeError('Sandbox privileges were not dropped')
+    if config.get('terminal'):
+        fcntl.ioctl(0, termios.TIOCSCTTY, 0)
     if ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0):
         raise RuntimeError('Cannot set no_new_privs')
     syscall_policy(config['network'])
@@ -146,7 +150,7 @@ def guest(fd: int) -> None:
     os.execve(config['proot'], argv, environment)
 
 
-def run(config_path: Path, *, owner_fd: int | None = None, argv=None, cwd=None) -> int:
+def run(config_path: Path, *, owner_fd: int | None = None, argv=None, cwd=None, terminal=False) -> int:
     if os.geteuid() != 0:
         raise PermissionError('Sandbox launcher must run as root')
     if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0):  # PR_SET_CHILD_SUBREAPER
@@ -158,6 +162,8 @@ def run(config_path: Path, *, owner_fd: int | None = None, argv=None, cwd=None) 
         state = json.loads((config_path.parent / 'state.json').read_text())
         if not alive(state):
             raise RuntimeError('Sandbox is stopped')
+    if terminal:
+        config['terminal'] = True
     fd = os.memfd_create('a0-sandbox-config', os.MFD_CLOEXEC)
     os.write(fd, json.dumps(config).encode()); os.lseek(fd, 0, os.SEEK_SET)
     stopping = False
@@ -213,10 +219,11 @@ if __name__ == '__main__':
         parser.add_argument('config', type=Path)
         parser.add_argument('--owner-fd', type=int)
         parser.add_argument('--cwd', default='/workspace')
+        parser.add_argument('--terminal', action='store_true')
         parser.add_argument('command', nargs=argparse.REMAINDER)
         args = parser.parse_args()
         command = args.command
         if command[:1] == ['--']:
             command = command[1:]
         sys.exit(run(args.config, owner_fd=args.owner_fd,
-                     argv=command if args.mode == 'execute' else None, cwd=args.cwd))
+                     argv=command if args.mode == 'execute' else None, cwd=args.cwd, terminal=args.terminal))

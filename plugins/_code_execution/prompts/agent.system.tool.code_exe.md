@@ -8,7 +8,8 @@ args:
 - `reset`: kill a session before running; `true` or `false`
 rules:
 - place the command or script in `code`
-- use a sandbox destination for development, builds, tests, experiments, and one-off commands. Pick `default` when it routes to a sandbox.
+- for ad hoc tasks, development, builds, tests, and experiments, create a named temporary sandbox with the `sandbox` tool and reuse it for the task. Honor an explicitly requested or already assigned destination.
+- save needed results outside a task sandbox before deleting it, or let the temporary sandbox expire after inactivity
 - use `destination=local` only for work that requires direct access to the running Agent Zero framework or its operating system. If no sandbox is available for a task that belongs in one, report the blocker.
 - keep the same `destination` for a session's commands, output polls, interactive input, and reset
 - for connected-host workflows, load the `host-code-execution` skill. Use `destination=host` only when the task requires the connected computer and that computer has enabled code execution. Use `input` with the same destination and session for terminal input.

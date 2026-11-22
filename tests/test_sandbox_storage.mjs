@@ -12,6 +12,25 @@ function model(callJsonApi, errors = [], actions = {}) {
   });
 }
 
+test('creation form follows the configured sandbox name and honors an explicit type', async () => {
+  const defaults = { name: 'home', sandbox_type: 'temporary', default_sandbox_type: 'permanent' };
+  const requests = [];
+  const store = model(async (_, input) => {
+    if (input.action === 'create') requests.push(input);
+    return { ok: true, defaults };
+  });
+  await store.refresh();
+  store.form.name = 'research';
+  assert.equal(store.creationType, 'temporary');
+  store.form.name = 'home';
+  assert.equal(store.creationType, 'permanent');
+  store.creationType = 'temporary';
+  await store.createSandbox();
+  assert.equal(requests[0].sandbox_type, 'temporary');
+  store.form.name = 'home';
+  assert.equal(store.creationType, 'permanent');
+});
+
 test('explicit size calculation leaves polling and actions free and survives refresh', async () => {
   let finish;
   const calls = [];

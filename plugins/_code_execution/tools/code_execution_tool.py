@@ -92,6 +92,15 @@ class CodeExecution(Tool):
         except ValueError as exc:
             return Response(message=str(exc), break_loop=False)
 
+        if getattr(self, "log", None):
+            destination = self.destination
+            label = (
+                f"Sandbox {destination.target}"
+                if destination.kind == "sandbox"
+                else destination.label
+            )
+            self.log.update(execution_destination=label, session=session)
+
         if self.destination.kind == "host":
             from plugins._a0_connector.helpers.host_execution import HostExecution
 

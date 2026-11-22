@@ -39,9 +39,9 @@
           </label>
           <label>
             <span>Type</span>
-            <select x-model="$store.sandboxingStore.form.sandbox_type">
-              <option value="temporary">Temporary · fast, expires</option>
-              <option value="permanent">Permanent · disk-backed</option>
+            <select x-model="$store.sandboxingStore.creationType">
+              <option value="temporary">Temporary · expires after inactivity</option>
+              <option value="permanent">Permanent · never expires</option>
             </select>
           </label>
           <label>

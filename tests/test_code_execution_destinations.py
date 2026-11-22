@@ -158,3 +158,39 @@ def test_host_input_reuses_terminal_transport_without_model_supplied_override(
         "destination": "host",
     }
     assert captured["allow_running"] is True
+
+
+@pytest.mark.parametrize(
+    "destination, session, expected",
+    [
+        (ExecutionDestination("default", "sandbox", "Default", "", target="work"), None, ("Sandbox work", 0)),
+        (ExecutionDestination("research", "sandbox", "Research", "", target="research"), 3, ("Sandbox research", 3)),
+        (ExecutionDestination("local", "local", "Agent Zero system", ""), 0, ("Agent Zero system", 0)),
+    ],
+)
+def test_execution_logs_resolved_destination_and_session(monkeypatch, destination, session, expected):
+    from helpers.log import Log
+    from plugins._code_execution.tools import code_execution_tool
+
+    async def resolve(agent, requested):
+        return destination
+
+    async def execute_terminal(*args, **kwargs):
+        return "done"
+
+    agent = SimpleNamespace(handle_intervention=lambda: asyncio.sleep(0))
+    tool = object.__new__(CodeExecution)
+    tool.agent = agent
+    tool.args = {"runtime": "terminal", "code": "echo test"}
+    if session is not None:
+        tool.args["session"] = session
+    tool.log = Log().log(type="code_exe", kvps=tool.args)
+    monkeypatch.setattr(code_execution_tool, "resolve_code_execution_destination", resolve)
+    monkeypatch.setattr(code_execution_tool.plugins, "get_plugin_config", lambda *args, **kwargs: {})
+    monkeypatch.setattr(code_execution_tool, "_parse_config", lambda config: {})
+    monkeypatch.setattr(tool, "execute_terminal_command", execute_terminal)
+
+    asyncio.run(tool._execute(None))
+
+    assert (tool.log.kvps["execution_destination"], tool.log.kvps["session"]) == expected
+    assert tool.log.kvps["code"] == "echo test"

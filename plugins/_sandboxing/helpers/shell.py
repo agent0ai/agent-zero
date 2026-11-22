@@ -5,6 +5,7 @@ import contextlib
 import errno
 import os
 import pty
+import secrets
 import signal
 import termios
 from typing import Any
@@ -29,11 +30,10 @@ class SandboxInteractiveSession:
         manager = get_manager(agent=self.agent)
         if (manager.config.instances_dir / self.name / "metadata.json").exists() and manager.inspect(self.name).service:
             raise RuntimeError("plugin service sandboxes are not agent execution destinations")
-        _, sandbox_type, network = defaults(agent=self.agent)
+        _, _, network = defaults(agent=self.agent)
         await asyncio.to_thread(
             manager.ensure_running,
             self.name,
-            sandbox_type=sandbox_type,
             network=network,
         )
         argv = await asyncio.to_thread(manager.interactive_command, self.name)
@@ -58,7 +58,17 @@ class SandboxInteractiveSession:
         self._master_fd = master
         self._queue = asyncio.Queue()
         self._pump_task = asyncio.create_task(self._pump())
-        await self._read_until_idle(0.1, 1.0)
+        marker = f"a0-shell-ready-{secrets.token_hex(16)}"
+        os.write(master, f"printf '\\n{marker}\\n'\n".encode())
+        output = ""
+        deadline = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < deadline:
+            output += await self._read_until_idle(0.1, 1)
+            if marker in output and output.split(marker, 1)[1].strip():
+                return
+            if self.is_terminated():
+                raise RuntimeError("Sandbox shell exited during startup")
+        raise RuntimeError("Sandbox shell did not become ready")
 
     async def close(self) -> None:
         process = self._proc

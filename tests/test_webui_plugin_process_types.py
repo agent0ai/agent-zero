@@ -194,6 +194,27 @@ def test_code_execution_malformed_code_does_not_block_following_response(page, c
     }""", {"code": code, "replay": replay})
 
 
+def test_code_execution_detail_shows_destination_and_session(page):
+    page.evaluate("""async () => {
+      msgs.resetMessageRenderState();
+      prefs.detailMode = 'expanded';
+      window.originalOpenModal = window.openModal;
+      window.openModal = () => {};
+      await msgs.setMessages([row(1, 'code_exe', {
+        kvps: {runtime: 'terminal', execution_destination: 'Sandbox work', session: 0},
+      })]);
+    }""")
+    try:
+        page.get_by_role("button", name="View details", exact=True).click()
+        labels = page.evaluate("""async () => {
+          const {store} = await import('/components/modals/process-step-detail/step-detail-store.js');
+          return store.selectedStepForDetail.headerLabels.map(item => item.label);
+        }""")
+        assert labels == ["terminal", "Sandbox work", "Session 0"]
+    finally:
+        page.evaluate("window.openModal = window.originalOpenModal")
+
+
 def test_code_execution_copy_preserves_output_without_a_matching_preview(page):
     page.evaluate("""async () => {
       const original = document.execCommand;

@@ -597,6 +597,25 @@ def test_invalid_metadata_and_symlink_entries_are_not_adopted(
     assert outside.exists()
 
 
+def test_default_sandbox_expiry_policy(manager, monkeypatch):
+    monkeypatch.setattr(manager, "_launch", lambda *args: None)
+    monkeypatch.setattr(manager, "_runtime_state", lambda *args: ({"status": "running"}, None))
+    assert manager.ensure_running("default").expires_at is None
+    assert manager.create("research").expires_at is not None
+
+    manager.config = dataclasses.replace(manager.config, default_sandbox="home")
+    assert manager.ensure_running("default").expires_at is None
+    assert manager.create("home", sandbox_type="temporary").expires_at is not None
+    assert manager.ensure_running("home").sandbox_type == "temporary"
+
+    manager.config = dataclasses.replace(manager.config, default_sandbox="renamed")
+    assert manager.ensure_running("renamed").expires_at is None
+    manager.config = dataclasses.replace(manager.config, default_sandbox="custom", default_type="temporary")
+    assert manager.create("custom").expires_at is not None
+    manager.config = dataclasses.replace(manager.config, default_type="permanent")
+    assert manager.create("other").expires_at is None
+
+
 def test_ensure_running_creates_missing_and_wakes_stopped(
     manager: SandboxManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -604,7 +623,7 @@ def test_ensure_running_creates_missing_and_wakes_stopped(
     monkeypatch.setattr(manager, "create", created)
     assert manager.ensure_running("new").name == "new"
     created.assert_called_once_with(
-        "new", network="host", sandbox_type="temporary", image=""
+        "new", network="host", sandbox_type=None, image=""
     )
 
     _metadata(manager, "sleeping", status="stopped")
@@ -688,7 +707,7 @@ def test_exec_uses_exact_argv_and_touches_last_use(
     assert updated["last_used_at"] >= metadata["last_used_at"]
 
 
-def test_interactive_command_uses_stdio_pty_without_unsupported_terminal_flag(
+def test_interactive_command_requests_controlling_terminal(
     manager: SandboxManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _metadata(manager, "alpha")
@@ -700,7 +719,7 @@ def test_interactive_command_uses_stdio_pty_without_unsupported_terminal_flag(
 
     command = manager.interactive_command("alpha")
 
-    assert "--terminal" not in command
+    assert "--terminal" in command
     assert command[-3:] == ['--', '/bin/bash', '--login']
     assert 'execute' in command
 

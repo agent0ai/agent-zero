@@ -61,18 +61,17 @@ class Sandbox(Tool):
                     }
                 )
             if action in {"create", "new"}:
-                configured_name, configured_type, configured_network = defaults(
+                configured_name, _, configured_network = defaults(
                     agent=self.agent
                 )
                 if not name:
                     name = configured_name
-                sandbox_type = str(sandbox_type or configured_type)
                 network = str(network or configured_network)
                 info = await asyncio.to_thread(
                     manager.create,
                     name,
                     network=network,
-                    sandbox_type=sandbox_type,
+                    sandbox_type=sandbox_type or None,
                     image=image,
                     mounts=self._mounts(mounts),
                     ownership=self._ownership(),
