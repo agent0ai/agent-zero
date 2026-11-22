@@ -453,10 +453,12 @@ assert not Path('/workspace/private').exists()
 """)
     assert (shared / 'directory/message').read_text() == 'second'
     assert (usr / 'accessible').read_text() == 'mounted'
-    manager.create('group-service', service=True)
+    manager.create('group-service', service=True, share_usr=False)
     run(manager, 'group-service', """
 from pathlib import Path
-assert not Path('/shared/existing').exists()
+p = Path('/shared/directory/message')
+assert p.read_text() == 'second'
+p.write_text('service update')
 assert not Path('/a0/usr/sandbox-shared/existing').exists()
 """)
     config_dir = manager.config.instances_dir
@@ -467,7 +469,9 @@ assert not Path('/a0/usr/sandbox-shared/existing').exists()
     assert shared.stat().st_mode & 0o7777 == 0o777
     assert (shared / 'restricted').stat().st_mode & 0o777 == 0o600
     assert run(manager, 'group-writer', "import os; assert not os.access('/shared/restricted', os.R_OK)") == ''
-    assert 'shared_gid' not in service
+    assert service['shared_gid'] == writer['shared_gid']
+    assert service['uid'] != writer['uid']
+    assert (shared / 'directory/message').read_text() == 'service update'
 
 
 def test_fresh_exchange_works_for_two_distinct_sandbox_users(manager):

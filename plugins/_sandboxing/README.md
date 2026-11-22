@@ -77,13 +77,13 @@ Existing host directories and their contents keep their ownership, permissions,
 and ACLs. This applies to `usr`, the managed workspace, the common exchange,
 and explicit bindings. A guest operation can return permission denied when the
 host restricts its path. New workspaces are created writable by their guest on
-Linux. Ordinary guests create files with a common primary group and umask 0002
-so they can exchange files in `/shared`. A service guest has a private exchange.
+Linux. Guests create files with a common primary group and umask 0002
+so they can exchange files in `/shared`.
 The manager tracks and stops processes by their distinct Linux UIDs.
 
 Every sandbox receives `/shared` and, by default, Agent Zero's `usr/` at
 `/a0/usr`. Private manager state, image caches and the per-sandbox data directory are masked inside broad user-folder
-mounts. Services can disable usr sharing. Host-root bindings are
+mounts. Services can disable usr sharing while keeping the common exchange. Host-root bindings are
 unsupported; bind only the directories the sandbox needs.
 
 Creation APIs also accept optional folder binds:

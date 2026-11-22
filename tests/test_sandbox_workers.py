@@ -123,11 +123,11 @@ def test_worker_does_not_stop_another_owners_sandbox(worker):
     assert not stopped
 
 
-def test_service_has_no_common_exchange_or_usr_mount(manager, monkeypatch):
-    metadata = create_disk(manager, monkeypatch, service=True, share_usr=False)
+def test_service_has_common_exchange_without_usr_mount(manager, monkeypatch):
+    create_disk(manager, monkeypatch, service=True, share_usr=False)
     spec = json.loads((manager.config.instances_dir / 'service/bundle/config.json').read_text())
     mounts = {target: source for source, target in spec['bindings']}
-    assert mounts['/shared'] == str(manager.config.instances_dir / 'service/shared')
+    assert mounts['/shared'] == str(manager.config.shared_dir)
     assert '/a0/usr' not in mounts
 
 

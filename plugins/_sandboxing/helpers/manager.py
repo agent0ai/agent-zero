@@ -1027,16 +1027,9 @@ class SandboxManager:
             host_paths.append(self.config.user_dir)
         if any(state_root == host or state_root in host.parents for host in host_paths):
             state_root = self.config.instances_dir
-        shared_gid = None
-        if metadata.get('service'):
-            private += (self.config.shared_dir,)
-            shared = path / 'shared'
-            shared.mkdir(mode=0o700, exist_ok=True)
-            set_owner(shared, uid, uid)
-        else:
-            shared = self.config.shared_dir
-            shared_gid = storage.lease_uid(self.config.uid_registry, shared)
-            storage.prepare_workspace(shared, gid=shared_gid)
+        shared = self.config.shared_dir
+        shared_gid = storage.lease_uid(self.config.uid_registry, shared)
+        storage.prepare_workspace(shared, gid=shared_gid)
         bindings.append((str(shared), '/shared'))
         for item in mounts:
             if item.source == Path('/'):
@@ -1070,11 +1063,9 @@ class SandboxManager:
                            A0_INSTANCE_ID=str(metadata.get('instance_id') or ''))
         environment.setdefault('PATH', '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
         command = self._validate_command(metadata.get('command', [])) or ['/bin/sh', '-c', 'while :; do sleep 3600; done']
-        config = dict(uid=uid, proot=str(self.config.proot), root=str(root), control=str(path / 'cow'),
+        config = dict(uid=uid, shared_gid=shared_gid, proot=str(self.config.proot), root=str(root), control=str(path / 'cow'),
                       temp=str(temp), bindings=bindings, readonly=readonly, network=metadata['network'],
                       cwd='/workspace', command=command, environment=environment)
-        if shared_gid is not None:
-            config['shared_gid'] = shared_gid
         if metadata.get('filesystem') == 'overlay':
             config['lower'] = str(image.rootfs)
         self._atomic_write_json(bundle / 'config.json', config)
