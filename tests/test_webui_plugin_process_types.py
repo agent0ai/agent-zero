@@ -212,7 +212,7 @@ def test_code_execution_detail_shows_destination_and_session(page):
         }""")
         assert labels == ["terminal", "Sandbox work", "Session 0"]
     finally:
-        page.evaluate("window.openModal = window.originalOpenModal")
+        page.evaluate("() => { window.openModal = window.originalOpenModal; }")
 
 
 def test_code_execution_copy_preserves_output_without_a_matching_preview(page):

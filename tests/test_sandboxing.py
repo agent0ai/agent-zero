@@ -230,6 +230,7 @@ def test_sandbox_workspace_survives_recreation_and_respects_explicit_mount(manag
     seed = manager.images.inspect(IMAGE_DIGEST).rootfs / "workspace"
     (seed / "example").write_text("from image")
     monkeypatch.setattr(manager, "_launch", lambda *args: None)
+    monkeypatch.setattr(manager, "_stop_runtime", lambda *args: None)
     monkeypatch.setattr(manager, "_save_locked", lambda *args: None)
     info = manager.create("research")
     workspace = usr / "sandbox_data/research/workspace"
