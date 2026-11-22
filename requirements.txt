@@ -9,7 +9,7 @@ fasta2a==0.5.0
 flask[async]==3.0.3
 flask-basicauth==0.2.0
 flaredantic==0.1.5
-GitPython==3.1.43
+GitPython==3.2.1
 giturlparse==0.14.0
 httpx[socks]==0.28.1
 inputimeout==1.0.4
