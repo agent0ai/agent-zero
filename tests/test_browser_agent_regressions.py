@@ -1779,8 +1779,9 @@ def test_browser_annotate_mode_ui_and_prompt_hooks():
         PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-store.js"
     ).read_text(encoding="utf-8")
 
-    assert "Annotate" in panel_html
-    assert "Annotating" in panel_html
+    assert 'title="Annotate" aria-label="Annotate"' in panel_html
+    assert ':aria-pressed="$store.browserPage.annotating.toString()"' in panel_html
+    assert "$store.browserPage.annotating ? 'rate_review' : 'edit_note'" in panel_html
     assert "browser-annotation-layer" in panel_html
     assert "browser-annotation-tray" in panel_html
     assert "annotationTrayStyle()" in panel_html

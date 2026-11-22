@@ -30,15 +30,13 @@
             :disabled="$store.browserPage.isBusy()" @click="$store.browserPage.command('open', { new_window: true })">
             <x-icon name="add"></x-icon>
           </button>
-          <div class="browser-session-controls">
-            <button type="button" class="btn browser-annotate-toggle surface-control surface-control-label" title="Annotate" aria-label="Annotate"
+          <div class="browser-session-controls surface-toolbar-group">
+            <button type="button" class="btn btn-icon-action surface-control" title="Annotate" aria-label="Annotate"
               :aria-pressed="$store.browserPage.annotating.toString()"
-              :class="{ 'is-active': $store.browserPage.annotating }"
               :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
               @click="$store.browserPage.toggleAnnotationMode()">
               <x-icon aria-hidden="true"
                 :name="$store.browserPage.annotating ? 'rate_review' : 'edit_note'"></x-icon>
-              <span x-text="$store.browserPage.annotating ? 'Annotating' : 'Annotate'"></span>
             </button>
             <div class="browser-volume" x-data="{ open: false }"
               @click.outside="open = false" @focusout="if (!$el.contains($event.relatedTarget)) open = false"
@@ -373,8 +371,8 @@
 
     .browser-toolbar {
       display: flex;
-      justify-content: flex-end;
       align-items: center;
+      gap: 6px;
     }
 
     .browser-windows {
@@ -408,7 +406,6 @@
     .browser-window-count { flex: none; }
     .browser-window-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .browser-window x-icon { font-size: 16px; }
-    .browser-session-controls { margin-inline-start: auto; }
 
     .browser-panel .btn-icon-action {
       width: var(--browser-control-size);
@@ -437,38 +434,10 @@
 
     .browser-session-controls {
       display: flex;
+      flex: none;
       align-items: center;
-      justify-content: flex-end;
       gap: 6px;
-      min-width: 0;
-    }
-
-    .browser-annotate-toggle {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      min-width: 0;
-      min-height: var(--browser-control-size);
-      padding: 0 10px;
-      border: 1px solid var(--browser-chrome-border);
-      border-radius: var(--browser-control-radius);
-      background: color-mix(in srgb, var(--color-background) 26%, transparent);
-      color: color-mix(in srgb, var(--color-text) 74%, var(--color-primary) 26%);
-      font-size: 0.82rem;
-      font-weight: 650;
-      white-space: nowrap;
-    }
-
-    .browser-annotate-toggle:hover:not(:disabled),
-    .browser-annotate-toggle.is-active {
-      border-color: color-mix(in srgb, var(--color-primary) 48%, var(--browser-chrome-border));
-      background: color-mix(in srgb, var(--color-primary) 16%, var(--color-background));
-      color: var(--color-text);
-    }
-
-    .browser-annotate-toggle .material-symbols-outlined {
-      font-size: 1.05rem;
+      margin-inline-start: auto;
     }
 
     .browser-session-controls .browser-extensions.is-active {
