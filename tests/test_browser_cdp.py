@@ -18,13 +18,15 @@ from plugins._browser.sandbox.cdp import CDPError
 
 @pytest.mark.asyncio
 async def test_chromium_pipe_tabs_input_frames_upload_screenshot_and_history(tmp_path):
-    html = """<input autofocus><input type=file id=file><button ondblclick="this.textContent='twice'">click</button>
+    html = """<script>window.initialWebdriver = navigator.webdriver;</script>
+              <input autofocus><input type=file id=file><button ondblclick="this.textContent='twice'">click</button>
               <div style="height:2400px"></div><iframe srcdoc="<title>inner</title>"></iframe>"""
     url = "data:text/html," + quote(html)
     async with chromium(tmp_path) as context:
         page, = context.pages
         assert not (tmp_path / "DevToolsActivePort").exists()
         await page.goto(url, wait_until="load")
+        assert await page.evaluate("[window.initialWebdriver, navigator.webdriver]") == [False, False]
         assert await page.evaluate("(() => { window.invocations = (window.invocations || 0) + 1; })();") is None
         assert await page.evaluate("(async () => window.invocations)") == 1
         assert await page.evaluate("async function () { return {count: window.invocations} }") == {"count": 1}

@@ -61,7 +61,7 @@ class CDPContext:
     @classmethod
     async def launch(cls, executable: str | os.PathLike, args: list[str], *,
                      env: dict[str, str] | None = None, proxy: dict[str, str] | None = None) -> CDPContext:
-        flags = ["--remote-debugging-pipe"]
+        flags = ["--remote-debugging-pipe", "--disable-blink-features=AutomationControlled"]
         if proxy:
             server = proxy["server"]
             address = urlsplit(server if "://" in server else "http://" + server)
