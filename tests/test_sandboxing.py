@@ -89,6 +89,8 @@ def manager(tmp_path: Path, monkeypatch) -> SandboxManager:
     monkeypatch.setattr(bootstrap, 'ensure', lambda *a: None)
     monkeypatch.setattr(SandboxManager, '_require_runtime_artifacts', lambda *a: None)
     monkeypatch.setattr(storage, 'ensure_base', lambda *a: None)
+    monkeypatch.setattr(storage, 'prepare_managed', lambda *a, **kw: None)
+    monkeypatch.setattr(storage, 'workspace_access', lambda *a: None)
     monkeypatch.setattr(storage, 'grant', lambda *a, **kw: None)
     monkeypatch.setattr(storage, 'traverse', lambda *a: None)
     monkeypatch.setattr(module, 'set_owner', lambda *a: None)
@@ -796,3 +798,11 @@ def test_runtime_bootstrap_requires_access_probe_fix(tmp_path, monkeypatch):
     assert not bootstrap.ready(executable)
     monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(a[0],0,'A0-COW-3',''))
     assert bootstrap.ready(executable)
+
+
+def test_exchange_cannot_adopt_private_storage(manager, tmp_path):
+    usr = tmp_path / "usr"
+    for shared in (usr, usr / "sandbox_data/guest", manager.config.uid_registry / "exchange"):
+        config = dataclasses.replace(manager.config, user_dir=usr, shared_dir=shared)
+        with pytest.raises(SandboxError, match="private sandbox state"):
+            SandboxManager(config, manager.images)

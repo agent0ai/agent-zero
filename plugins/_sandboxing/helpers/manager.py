@@ -194,7 +194,10 @@ class SandboxManager:
                 raise SandboxError(f"{label} must be an absolute path: {value}")
         instances = config.instances_dir.resolve(strict=False)
         shared = config.shared_dir.resolve(strict=False)
-        if instances == shared or instances in shared.parents or shared in instances.parents:
+        protected = [instances, config.uid_registry.resolve(strict=False)]
+        if config.user_dir is not None:
+            protected.append((config.user_dir / 'sandbox_data').resolve(strict=False))
+        if any(path == shared or path in shared.parents or shared in path.parents for path in protected):
             raise SandboxError("private sandbox state and shared exchange must be separate")
         if config.temporary_lifetime_days <= 0:
             raise SandboxError("temporary_lifetime_days must be positive")
@@ -1006,6 +1009,7 @@ class SandboxManager:
             readonly.append(str(bundle / target))
         private = (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.uid_registry)
         mounts = list(self._normalize_mounts(metadata.get('mounts', [])))
+        workspace = None
         if self.config.user_dir is not None:
             data_root = self.config.user_dir / "sandbox_data"
             private += (data_root,)
@@ -1015,21 +1019,27 @@ class SandboxManager:
                     storage.prepare_workspace(data_root / name)
                 else:
                     storage.prepare_workspace(workspace, workspace_seed)
+                    storage.workspace_access(workspace, uid, self.config.uid_registry)
                     mounts.insert(0, SandboxMount(workspace, "/workspace", False))
                 storage.link_sandbox_data(path / "data", data_root / name)
+        shared_gid = None
         if metadata.get('service'):
+            private += (self.config.shared_dir,)
             shared = path / 'shared'
             shared.mkdir(mode=0o700, exist_ok=True)
             set_owner(shared, uid, uid)
         else:
             shared = self.config.shared_dir
-            storage.grant(shared, uid, writable=True, exclude=private)
+            shared_gid = storage.lease_uid(self.config.uid_registry, shared)
+            storage.prepare_managed(shared, shared_gid, self.config.uid_registry, shared=True)
+            storage.traverse(shared.parent, uid, shared_gid)
         bindings.append((str(shared), '/shared'))
         for item in mounts:
             if item.source == Path('/'):
                 raise SandboxError('Host-root bindings are unavailable with PRoot; use explicit directories')
-            storage.grant(item.source, uid, writable=not item.read_only,
-                          exclude=[p for p in private if p == item.source or item.source in p.parents])
+            if item.source != workspace and (shared_gid is None or item.source != shared):
+                storage.grant(item.source, uid, writable=not item.read_only,
+                              exclude=(*private, shared), shared_gid=shared_gid)
             bindings.append((str(item.source), item.destination))
             if item.read_only:
                 readonly.append(str(item.source))
@@ -1058,6 +1068,8 @@ class SandboxManager:
         config = dict(uid=uid, proot=str(self.config.proot), root=str(root), control=str(path / 'cow'),
                       temp=str(temp), bindings=bindings, readonly=readonly, network=metadata['network'],
                       cwd='/workspace', command=command, environment=environment)
+        if shared_gid is not None:
+            config['shared_gid'] = shared_gid
         if metadata.get('filesystem') == 'overlay':
             config['lower'] = str(image.rootfs)
         self._atomic_write_json(bundle / 'config.json', config)

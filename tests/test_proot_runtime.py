@@ -407,3 +407,81 @@ assert Path('moved/alias').samefile('moved/keep')
             assert out.getvalue() == contents
     manager.start('namespace')
     assert run(manager, 'namespace', "import os; print(sorted(os.listdir('/cow-tests/subtree')))").strip() == '[]'
+
+
+def test_managed_permissions_and_group_exchange_without_binding_acls(manager, monkeypatch):
+    usr = manager.config.instances_dir.parent / 'acl-free-user-data'
+    shared = usr / 'sandbox-shared'
+    shared.mkdir(parents=True)
+    usr.chmod(0o777)
+    shared.chmod(0o770)
+    (shared / 'existing').write_text('legacy')
+    (usr / 'accessible').touch(mode=0o666)
+    (usr / 'accessible').chmod(0o666)
+    monkeypatch.setattr(manager, 'config', dataclasses.replace(manager.config, user_dir=usr, shared_dir=shared))
+    acl = storage._acl
+
+    def reject_mount_acl(fd, *args, **kwargs):
+        target = Path(os.readlink(f'/proc/self/fd/{fd}'))
+        assert target != usr and usr not in target.parents, f'unexpected ACL change on {target}'
+        return acl(fd, *args, **kwargs)
+
+    monkeypatch.setattr(storage, '_acl', reject_mount_acl)
+    manager.create('group-writer')
+    run(manager, 'group-writer', """
+from pathlib import Path
+p = Path('/shared/directory')
+p.mkdir()
+(p / 'message').write_text('first')
+Path('/workspace/private').write_text('secret')
+""")
+    manager.create('group-peer')
+    run(manager, 'group-peer', """
+from pathlib import Path
+p = Path('/shared/directory/message')
+assert p.read_text() == 'first'
+p.write_text('second')
+Path('/shared/existing').write_text('migrated')
+Path('/a0/usr/accessible').write_text('mounted')
+assert not Path('/workspace/private').exists()
+""")
+    assert (shared / 'directory/message').read_text() == 'second'
+    assert (usr / 'accessible').read_text() == 'mounted'
+    manager.create('group-service', service=True)
+    run(manager, 'group-service', """
+from pathlib import Path
+assert not Path('/shared/existing').exists()
+assert not Path('/a0/usr/sandbox-shared/existing').exists()
+""")
+    config_dir = manager.config.instances_dir
+    writer = json.loads((config_dir / 'group-writer/bundle/config.json').read_text())
+    service = json.loads((config_dir / 'group-service/bundle/config.json').read_text())
+    assert writer['shared_gid'] == shared.stat().st_gid
+    assert 'shared_gid' not in service
+
+
+def test_exchange_migrates_legacy_acls_once_and_avoids_external_links(tmp_path, monkeypatch):
+    (tmp_path / '24568').touch(mode=0o600)
+    shared = tmp_path / 'exchange'
+    shared.mkdir(mode=0o700)
+    outside = tmp_path / 'outside'
+    outside.touch(mode=0o600)
+    (shared / 'symlink').symlink_to(outside)
+    linked = shared / 'hardlink'
+    os.link(outside, linked)
+    with pytest.raises(SandboxError, match='multiply linked'):
+        storage.prepare_managed(shared, 24568, tmp_path, shared=True)
+    assert outside.stat().st_gid == os.getgid()
+    linked.unlink()
+    (shared / 'legacy').touch(mode=0o600)
+    old_uid = 24567
+    storage.grant(shared, old_uid, writable=True)
+    storage.prepare_managed(shared, 24568, tmp_path, shared=True)
+    for uid in (old_uid, 24569):
+        storage.traverse(shared.parent, uid)
+        subprocess.run(['sh', '-c', 'echo shared >> "$1"; echo next >> "$2"', 'guest',
+                        str(shared / 'legacy'), str(shared / 'fresh')],
+                       user=uid, group=uid, extra_groups=[24568], umask=0o002, check=True)
+    monkeypatch.setattr(storage, '_visit_tree', lambda *a, **kw: pytest.fail('repeated migration'))
+    storage.prepare_managed(shared, 24568, tmp_path, shared=True)
+    assert outside.stat().st_mode & 0o777 == 0o600

@@ -174,8 +174,10 @@ def run(config_path: Path, *, owner_fd: int | None = None, argv=None, cwd=None, 
         signal.signal(signum, stop)
     child = None
     try:
+        groups = [config['shared_gid']] if 'shared_gid' in config else []
         child = subprocess.Popen([sys.executable, '-c', Path(__file__).read_text(), 'guest', str(fd)],
-                                 pass_fds=(fd,), user=config['uid'], group=config['uid'], extra_groups=[],
+                                 pass_fds=(fd,), user=config['uid'], group=config['uid'], extra_groups=groups,
+                                 umask=0o002 if groups else -1,
                                  env={'PATH': '/usr/local/bin:/usr/bin:/bin', 'PYTHONDONTWRITEBYTECODE': '1'},
                                  cwd='/', start_new_session=True)
         os.close(fd); fd = -1
