@@ -2227,21 +2227,25 @@ class _BrowserRuntimeCore:
         resolved_id = self._resolve_browser_id(browser_id)
         page = self._page(resolved_id)
         await self._ensure_content_helper(page)
-        if text is None:
-            action = await page.evaluate(
-                "(args) => globalThis.__spaceBrowserPageContent__[args.method](args.ref)",
-                {"method": helper_method, "ref": reference_id},
-                isolated_context=True,
-            )
-        else:
+        previous_loader = page.loader_id
+        try:
             action = await page.evaluate(
                 "(args) => globalThis.__spaceBrowserPageContent__[args.method](args.ref, args.text)",
                 {"method": helper_method, "ref": reference_id, "text": text},
                 isolated_context=True,
             )
+        except CDPError as exc:
+            if (helper_method not in {"click", "submit", "typeSubmit"}
+                    or str(exc) != "Inspected target navigated or closed"
+                    or not await page.wait_for_document_change(previous_loader)):
+                raise
+            action = {"ref": reference_id, "warning": "The tab navigated before the page could report the action result."}
         await self._settle(page, short=False)
         self._maybe_promote(resolved_id)
-        return {"action": action or {}, "state": await self._state(resolved_id)}
+        state = await self._state(resolved_id)
+        if page.is_closed():
+            raise CDPError("The tab closed during the reference action")
+        return {"action": action or {}, "state": state}
 
     async def _goto(
         self,

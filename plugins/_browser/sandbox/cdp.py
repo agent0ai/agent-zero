@@ -297,7 +297,7 @@ class CDPPage:
         self._attach_lock = asyncio.Lock()
         self._on_close = None
         self._frame_id = None
-        self._loader = None
+        self.loader_id: str | None = None
         self._revision = 0
         self._lifecycle = OrderedDict()
         self._changed = asyncio.Event()
@@ -338,7 +338,7 @@ class CDPPage:
                 await session.send("Runtime.enable")
                 tree = await session.send("Page.getFrameTree")
                 frame = tree["frameTree"]["frame"]
-                self._frame_id, self._loader = frame["id"], frame.get("loaderId")
+                self._frame_id, self.loader_id = frame["id"], frame.get("loaderId")
                 await session.send("Page.setLifecycleEventsEnabled", {"enabled": True})
             except BaseException:
                 with contextlib.suppress(CDPError, ConnectionError):
@@ -358,11 +358,11 @@ class CDPPage:
     def _navigated(self, params):
         frame = params["frame"]
         if "parentId" not in frame:
-            self._frame_id, self._loader = frame["id"], frame.get("loaderId")
+            self._frame_id, self.loader_id = frame["id"], frame.get("loaderId")
             self.info["url"] = frame["url"] + frame.get("urlFragment", "")
             self._revision += 1
             if params.get("type") == "BackForwardCacheRestore":
-                self._lifecycle.setdefault(self._loader, set()).update(_READY_EVENTS.values())
+                self._lifecycle.setdefault(self.loader_id, set()).update(_READY_EVENTS.values())
             self._notify()
 
     def _within_document(self, params):
@@ -384,12 +384,23 @@ class CDPPage:
                 raise CDPError("The tab closed during navigation")
             await self._changed.wait()
 
+    async def wait_for_document_change(self, previous_loader: str | None) -> bool:
+        if not previous_loader:
+            return False
+        try:
+            # A lost evaluation can arrive just before the main frame's commit event.
+            async with asyncio.timeout(1):
+                await self._wait(lambda: self.loader_id and self.loader_id != previous_loader)
+        except (CDPError, TimeoutError):
+            return False
+        return not self.is_closed()
+
     async def _ready(self, wait_until):
         if wait_until == "commit":
             return
         if wait_until not in _READY_EVENTS:
             raise ValueError(f"Unknown Chromium navigation readiness: {wait_until}")
-        await self._wait(lambda: _READY_EVENTS[wait_until] in self._lifecycle.get(self._loader, ()))
+        await self._wait(lambda: _READY_EVENTS[wait_until] in self._lifecycle.get(self.loader_id, ()))
 
     async def wait_for_load_state(self, state="load", timeout=30000):
         async with asyncio.timeout(timeout / 1000):
@@ -402,7 +413,7 @@ class CDPPage:
             if result.get("errorText"):
                 raise CDPError(result["errorText"])
             if loader := result.get("loaderId"):
-                await self._wait(lambda: self._loader == loader)
+                await self._wait(lambda: self.loader_id == loader)
             await self._ready(wait_until)
 
     async def reload(self, *, wait_until="domcontentloaded", timeout=30000):

@@ -1,4 +1,5 @@
 """Exercise form and pointer actions using references from a real document capture."""
+import asyncio
 import re
 from pathlib import Path
 
@@ -64,3 +65,63 @@ async def test_guest_screenshot_bytes_match_pathless_format_and_explicit_suffix(
         assert saved.suffix.lower() == extension
         assert result["mime"] == ("image/png" if extension == ".png" else "image/jpeg")
         assert saved.read_bytes().startswith(b"\x89PNG\r\n\x1a\n" if extension == ".png" else b"\xff\xd8\xff")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["click", "submit", "type_submit"])
+async def test_reference_navigation_reports_replaced_document_once(native_page, method):
+    page = native_page
+    core = _BrowserRuntimeCore("navigation")
+    core.context = page.context
+    tab = (await core._register_page(page)).id
+    await page.evaluate("""() => {
+        document.body.innerHTML = '<form><input name="q"><button id="go">Send</button></form>';
+        document.querySelector('form').onsubmit = event => {
+            event.preventDefault();
+            sessionStorage.setItem('submits', String(Number(sessionStorage.getItem('submits')) + 1));
+            location.reload();
+        };
+    }""")
+    selector = "input" if method == "type_submit" else "#go"
+    capture = await core.content(tab, {"selectors": [selector]})
+    ref = re.search(r' (\d+)\]', capture[selector])[1]
+    args = (tab, ref, "fixture") if method == "type_submit" else (tab, ref)
+    previous = page.loader_id
+    result = await getattr(core, method)(*args)
+    assert page.loader_id != previous and result["state"]["currentUrl"] == page.url
+    assert result["action"]["ref"] == ref and "navigated" in result["action"]["warning"]
+    assert await page.evaluate("sessionStorage.getItem('submits')") == "1"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("interrupt", ["no navigation", "close tab", "close after commit"])
+async def test_reference_navigation_error_requires_a_new_live_document(native_page, monkeypatch, interrupt):
+    core = _BrowserRuntimeCore("navigation")
+    core.context = native_page.context
+    tab = (await core._register_page(native_page)).id
+    await core.content(tab)
+    with pytest.raises(CDPError, match="reference"):
+        await core.click(tab, 9999)
+
+    evaluate = native_page.evaluate
+    calls = 0
+
+    async def interrupted(script, *args, **kwargs):
+        nonlocal calls
+        if "args.method" in script:
+            calls += 1
+            if interrupt == "close tab":
+                await native_page.close()
+            elif interrupt == "close after commit":
+                await native_page.reload(wait_until="commit")
+            raise CDPError("Inspected target navigated or closed")
+        if interrupt == "close after commit" and "canGoBack: history.length" in script:
+            await native_page.close()
+            await asyncio.wait_for(native_page._wait(native_page.is_closed), 2)
+        return await evaluate(script, *args, **kwargs)
+
+    monkeypatch.setattr(native_page, "evaluate", interrupted)
+    message = "tab closed" if interrupt == "close after commit" else "Inspected target navigated or closed"
+    with pytest.raises(CDPError, match=message):
+        await core.click(tab, 1)
+    assert calls == 1
