@@ -26,6 +26,9 @@ def page():
         '/plugins/_text_editor/extensions/webui/get_process_step_types/text-editor-types.js',
         '/plugins/_code_execution/extensions/webui/get_process_step_types/code-exe-types.js'
       ],
+      get_tool_message_handler: [
+        '/plugins/_sandboxing/extensions/webui/get_tool_message_handler/sandbox-handler.js'
+      ],
       get_message_handler: [
         '/plugins/_text_editor/extensions/webui/get_message_handler/_10_text_editor_handler.js',
         '/plugins/_code_execution/extensions/webui/get_message_handler/code-exe-handler.js'
@@ -66,6 +69,23 @@ def page():
         }""")
         yield page
         browser.close()
+
+
+def test_sandbox_step_shows_only_action_and_name(page):
+    page.evaluate("""async () => {
+      prefs.detailMode = 'expanded';
+      msgs.resetMessageRenderState();
+      await msgs.setMessages([row(0, 'tool', {
+        kvps: {_tool_name: 'sandbox', action: 'create', name: 'eth-python', network: 'host'},
+        content: '{"status":"running"}'
+      }), row(1, 'tool', {kvps: {_tool_name: 'sandbox'}})]);
+      const steps = historyEl.querySelectorAll('.process-step.SBX');
+      const values = step => [...step.querySelectorAll('.kvps-val')].map(el => el.textContent);
+      check(steps.length === 2 && steps[0].querySelector('.step-badge').textContent === 'SBX', 'badge');
+      check(JSON.stringify(values(steps[0])) === '["create","eth-python"]', 'create fields');
+      check(JSON.stringify(values(steps[1])) === '["list"]', 'default action');
+      check(!steps[0].textContent.includes('running'), 'raw response rendered');
+    }""")
 
 
 def test_speak_button_acknowledges_click_before_playback_finishes(page):

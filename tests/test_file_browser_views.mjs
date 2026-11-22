@@ -361,3 +361,20 @@ test('a queued close event cannot abort a newly opened media preview', () => {
   onClose({ open: false }, release);
   assert.equal(request.signal.aborted, true);
 });
+
+test('Properties combines shared and mixed values and totals selected files', () => {
+  const fb = setup().store.current;
+  const first = {name: 'a', path: '/work/a', size: 12, uid: 0, mode: '640'};
+  const second = {name: 'b', path: '/work/b', size: 15, uid: 0, mode: '600'};
+  const summary = fb.summarizeProperties([first, second]);
+  assert.equal(summary.rows.Name, '2 items');
+  assert.equal(summary.rows.Location, '/work');
+  assert.equal(summary.rows.UID, 0);
+  assert.equal(summary.mode, 'Multiple');
+  assert.equal(summary.size, 27);
+  const folder = fb.summarizeProperties([first, {...second, is_dir: true}]);
+  assert.equal(folder.rows.Type, 'Multiple');
+  assert.equal(folder.size, null);
+  assert.equal(folder.canMeasure, true);
+  assert.equal(fb.summarizeProperties([{...first, is_symlink: true}]).editable, false);
+});

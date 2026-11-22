@@ -17,6 +17,8 @@
 
 ## Local Contracts
 
+- The sandbox tool chat step uses `SBX` and renders only the action and supplied name.
+
 - The Sandboxes panel opens persistent non-service roots in Files via the managed read-only Sandbox provider. Browse and download without starting a guest or following guest symlinks, including when names are concurrently replaced. The managed workspace is visible. Explicit bind mounts and transient runtime trees are outside this view. Pin connection IDs to the instance and sandbox creation time. The provider uses the same base, upper and whiteouts as the runtime.
 
 - Agent file transfers run the bounded standard Python file helper inside the selected guest. Exclude plugin service sandboxes and preserve guest mount permissions. Custom images need `python3` for this feature.

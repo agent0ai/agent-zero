@@ -54,7 +54,8 @@ function mountOverflow(row) {
   const more = document.createElement("button");
   more.type = "button";
   more.className = "btn-icon-action overflow-trigger";
-  more.setAttribute("aria-label", "More controls");
+  more.title = "More controls";
+  more.setAttribute("aria-label", more.title);
   more.setAttribute("aria-haspopup", "menu");
   more.setAttribute("aria-expanded", "false");
   more.append(icon("more_horiz"));

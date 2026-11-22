@@ -80,3 +80,26 @@ def test_failed_copy_discards_staged_items_without_publishing(tmp_path):
         browser.transfer_items(["regular", "pipe"], "destination", copy=True)
     assert list((tmp_path / "destination").iterdir()) == []
     assert (tmp_path / "regular").read_text() == "keep"
+
+
+def test_properties_size_and_permission_changes_use_selected_entries(tmp_path):
+    folder = tmp_path / "folder"
+    folder.mkdir()
+    child = folder / "child"
+    child.write_bytes(b"123")
+    other = tmp_path / "file"
+    other.write_bytes(b"4567")
+    link = folder / "link"
+    link.symlink_to(other)
+    paths = [str(folder), str(other)]
+    before = child.stat().st_mode
+    assert actions.selection_size(paths) == 7 + link.lstat().st_size
+    for path in paths:
+        actions.change_permissions(path, "0750")
+    assert [entry["mode"] for entry in actions.properties(paths)] == ["750", "750"]
+    assert actions.properties([str(link)])[0]["symlink_target"] == str(other)
+    for path, mode in [(str(link), "777"), (str(other), "888"), (str(other), "7"), ("/", "777")]:
+        with pytest.raises(ValueError):
+            actions.change_permissions(path, mode)
+    assert other.stat().st_mode & 0o777 == 0o750
+    assert child.stat().st_mode == before

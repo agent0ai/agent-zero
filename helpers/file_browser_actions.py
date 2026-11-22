@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import tempfile
 import uuid
 
@@ -17,6 +18,57 @@ def local_entry(path):
     if not isinstance(path, str) or not path.startswith("/") or file_connections.is_remote(path):
         raise ValueError("Choose an item on the local filesystem.")
     return FileBrowser()._entry_path(path)
+
+
+def properties(paths):
+    entries = []
+    for value in dict.fromkeys(paths):
+        path = Path("/") if value == "/" else local_entry(value)
+        info = path.lstat()
+        link = stat.S_ISLNK(info.st_mode)
+        entries.append({
+            "name": path.name or "/", "path": str(path), "size": info.st_size,
+            "is_dir": stat.S_ISDIR(info.st_mode), "is_symlink": link,
+            "symlink_target": os.readlink(path) if link else None,
+            "mode": format(stat.S_IMODE(info.st_mode), "03o"),
+            "uid": info.st_uid, "gid": info.st_gid,
+            "modified": info.st_mtime * 1000, "accessed": info.st_atime * 1000,
+            "changed": info.st_ctime * 1000,
+        })
+    return entries
+
+
+def selection_size(paths):
+    def fail(error):
+        raise error
+
+    total = 0
+    for entry in properties(paths):
+        if not entry["is_dir"]:
+            total += entry["size"]
+            continue
+        for _, directories, files_in_dir, fd in os.fwalk(entry["path"], onerror=fail):
+            for name in directories + files_in_dir:
+                info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                if not stat.S_ISDIR(info.st_mode):
+                    total += info.st_size
+    return total
+
+
+def change_permissions(value, mode):
+    if not isinstance(mode, str) or not re.fullmatch("[0-7]{3,4}", mode):
+        raise ValueError("Enter three or four octal digits (0–7).")
+    path = local_entry(value)
+    # Pin the inode without requiring read permission or following the final link.
+    fd = os.open(path, os.O_PATH | os.O_NOFOLLOW)
+    try:
+        kind = os.fstat(fd).st_mode
+        if not (stat.S_ISREG(kind) or stat.S_ISDIR(kind)):
+            raise ValueError("Permissions can only be changed on files and folders.")
+        os.chmod(f"/proc/self/fd/{fd}", int(mode, 8))
+    finally:
+        os.close(fd)
+    return str(path)
 
 
 def compress(paths, directory, name):

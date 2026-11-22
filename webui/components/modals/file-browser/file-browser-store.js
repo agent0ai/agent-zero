@@ -1844,14 +1844,14 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       && this.selectedFiles.every(file => this.remoteAllowed(permission, file));
   },
 
-  async localAction(action, paths, name = "") {
+  async localAction(action, paths, options = {}) {
     if (this.isBulkBusy || this.isPickerMode() || this.isRemote()) return false;
     const currentPath = this.browser.currentPath;
     this.isBulkBusy = true;
     this.operationError = "";
-    this.operationLabel = {trash: "Moving to Trash…", restore: "Restoring…", purge: "Deleting…", compress: "Creating ZIP…"}[action];
+    this.operationLabel = {trash: "Moving to Trash…", restore: "Restoring…", purge: "Deleting…", compress: "Creating ZIP…", chmod: "Applying permissions…"}[action];
     try {
-      const result = await callJsonApi("/file_browser_actions", {action, paths, currentPath, name});
+      const result = await callJsonApi("/file_browser_actions", {...options, action, paths, currentPath});
       if (result.error) throw new Error(result.error);
       await this.refreshFolders(new Set((result.paths || []).map(path => this.parentPath(path))));
       if (result.failed?.length) throw new Error(result.failed.join("\n"));
@@ -1871,12 +1871,41 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     return this.localAction("trash", this.selectedFiles.map(file => this.normalizePath(file.path)));
   },
 
-  async folderProperties() {
-    const path = this.browser.currentPath;
-    if (this.isRemote()) return {path, is_dir: true};
-    const info = await callJsonApi("/file_info", {path});
-    if (!info.exists) throw new Error("Folder no longer exists.");
-    return {path, is_dir: true, modified: new Date(info.modified * 1000).toISOString(), mode: (info.permissions & 0o7777).toString(8)};
+  async propertyData(action, entries) {
+    const paths = entries.map(entry => this.normalizePath(entry.path));
+    const result = await callJsonApi("/file_browser_actions", { action, paths });
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
+  summarizeProperties(entries) {
+    const common = get => {
+      const first = get(entries[0]);
+      return entries.every(entry => get(entry) === first) ? first : "Multiple";
+    };
+    const type = entry => entry.is_symlink ? "Symbolic link" : entry.is_dir ? "Folder" : "File";
+    const path = entry => this.normalizePath(entry.path);
+    const rows = {
+      Name: entries.length === 1 ? entries[0].name || path(entries[0]) : entries.length + " items",
+      Location: entries.length === 1 ? path(entries[0]) : common(entry => this.parentPath(path(entry))),
+      Type: common(type),
+    };
+    const hasFolders = entries.some(entry => entry.is_dir && !entry.is_symlink);
+    const size = !hasFolders && entries.every(entry => Number.isFinite(entry.size))
+      ? entries.reduce((sum, entry) => sum + entry.size, 0) : null;
+    for (const [label, field] of Object.entries({UID: "uid", GID: "gid", Modified: "modified", Accessed: "accessed", Changed: "changed", Target: "symlink_target"})) {
+      if (!entries.some(entry => entry[field] != null)) continue;
+      const value = common(entry => entry[field]);
+      if (["modified", "accessed", "changed"].includes(field) && value !== "Multiple") {
+        rows[label] = this.formatDate(typeof value === "number" ? new Date(value).toISOString() : value);
+      } else {
+        rows[label] = value;
+      }
+    }
+    const mode = common(entry => entry.mode);
+    const editable = !this.isRemote() && entries.every(entry => !entry.is_symlink && path(entry) !== "/");
+    if (!editable && mode) rows.Permissions = mode;
+    return {rows, size, mode, editable, canMeasure: hasFolders && !this.isRemote()};
   },
 
   async readTrash() {

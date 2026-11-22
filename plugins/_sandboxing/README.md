@@ -22,6 +22,7 @@ polls, and resets must use the same destination and session id.
 The `sandbox` tool and the plugin's main screen support list, doctor, create,
 inspect, save, stop, start, expiry cleanup, and exact-name delete operations.
 They also pull, list, inspect, clean, and delete cached sandbox images.
+In chat, the `SBX` step shows the action and the name when supplied.
 
 Use **Browse files** on a sandbox row to open its persistent filesystem in Files,
 including while the sandbox is stopped. You can browse folders and download files.

@@ -39,6 +39,31 @@
           x-data="{
             pathRoot: $el, menu: '', menuStyle: {}, menuTrigger: null, crumbsOverflow: 0,
             dialogKind: '', dialogEntries: [], trashEntries: [], trashIds: [], archiveName: '', dialogError: '', purgeConfirm: false, trashLoading: false,
+            properties: null, permissionMode: '', measuring: false, dialogRequest: 0,
+            async loadProperties() {
+              const request = ++this.dialogRequest;
+              this.properties = null; this.permissionMode = ''; this.measuring = false;
+              try {
+                const entries = fb.isRemote() ? this.dialogEntries : (await fb.propertyData('properties', this.dialogEntries)).entries;
+                if (request !== this.dialogRequest) return;
+                this.properties = fb.summarizeProperties(entries);
+                this.permissionMode = this.properties.mode === 'Multiple' ? '' : this.properties.mode || '';
+              } catch (error) { if (request === this.dialogRequest) this.dialogError = error.message; }
+            },
+            async measureProperties() {
+              const request = this.dialogRequest;
+              this.measuring = true; this.dialogError = '';
+              try {
+                const result = await fb.propertyData('size', this.dialogEntries);
+                if (request === this.dialogRequest) this.properties.size = result.size;
+              } catch (error) { if (request === this.dialogRequest) this.dialogError = error.message; }
+              finally { if (request === this.dialogRequest) this.measuring = false; }
+            },
+            async applyPermissions() {
+              const paths = this.dialogEntries.map(entry => fb.normalizePath(entry.path));
+              if (await fb.localAction('chmod', paths, {mode: this.permissionMode})) this.$refs.details.close();
+              else { await this.loadProperties(); this.dialogError = fb.operationError; }
+            },
             async refreshTrash() {
               this.trashLoading = true;
               try { this.trashEntries = await fb.readTrash(); this.trashIds = []; }
@@ -52,10 +77,7 @@
               this.archiveName = (this.dialogEntries.length === 1 ? this.dialogEntries[0].name : 'Selection') + '.zip';
               this.$refs.details.showModal();
               if (kind === 'Trash') await this.refreshTrash();
-              if (kind === 'Properties' &amp;&amp; !fb.selectedCount) {
-                try { const folder = await fb.folderProperties(); if (this.dialogKind === kind) this.dialogEntries = [folder]; }
-                catch (error) { this.dialogError = error.message; }
-              }
+              if (kind === 'Properties') await this.loadProperties();
             },
             async changeTrash(action) {
               this.dialogError = '';
@@ -143,6 +165,7 @@
                         @click="if (!fb.pathEditing) fb.focusPathInput($el)"
                         :class="{ 'is-submitting': fb.isPathSubmitting || fb.isLoading }"
                         :disabled="fb.isPathSubmitting || fb.isLoading"
+                        :title="fb.pathEditing ? 'Go to directory' : 'Edit directory path'"
                         :aria-label="fb.pathEditing ? 'Go to directory' : 'Edit directory path'"
                       >
                       </button>
@@ -203,7 +226,7 @@
                       </template>
                     </div>
                     <button type="button" class="path-edit-toggle" :class="{ 'is-loading': fb.isLoading }"
-                      :disabled="fb.isLoading" aria-label="Edit directory path" @click="fb.startPathEdit()">
+                      :disabled="fb.isLoading" title="Edit directory path" aria-label="Edit directory path" @click="fb.startPathEdit()">
                     </button>
                   </div>
                 </template>
@@ -485,16 +508,33 @@
               </div>
             </dialog>
             <dialog x-ref="details" class="file-details-dialog" aria-label="File actions" :aria-label="dialogKind"
-              @keydown.escape.stop @cancel="if (fb.isBulkBusy) $event.preventDefault()" @close="if (!$el.open) dialogKind = ''">
+              @keydown.escape.stop @cancel="if (fb.isBulkBusy) $event.preventDefault()" @close="if (!$el.open) { dialogKind = ''; dialogRequest++; }">
               <h3 x-text="dialogKind"></h3>
               <template x-if="dialogKind === 'Properties'">
-                <div class="file-detail-list"><template x-for="entry in dialogEntries" :key="entry.path"><div>
-                  <strong x-text="entry.name || entry.path"></strong>
-                  <div x-text="fb.normalizePath(entry.path)"></div>
-                  <div x-text="entry.is_symlink ? 'Link to ' + entry.symlink_target : entry.is_dir ? 'Folder' : entry.size.toLocaleString() + ' bytes'"></div>
-                  <div x-show="entry.mode" x-text="entry.mode"></div>
-                  <time x-show="entry.modified" x-text="entry.modified ? fb.formatDate(entry.modified) : ''"></time>
-                </div></template></div>
+                <div aria-live="polite">
+                  <p x-show="!properties &amp;&amp; !dialogError">Loading properties…</p>
+                  <template x-if="properties">
+                    <div>
+                      <dl class="file-properties">
+                        <template x-for="[label, value] in Object.entries(properties.rows)" :key="label">
+                          <div><dt x-text="label"></dt><dd x-text="value"></dd></div>
+                        </template>
+                        <div><dt>Total size</dt><dd>
+                          <span :title="properties.size == null ? '' : properties.size.toLocaleString() + ' bytes'"
+                            x-text="properties.size != null ? fb.formatFileSize(properties.size) : measuring ? 'Calculating…' : properties.canMeasure ? '' : 'Unavailable'"></span>
+                          <button class="btn" x-show="properties.canMeasure &amp;&amp; properties.size == null &amp;&amp; !measuring" @click="measureProperties()">Calculate</button>
+                        </dd></div>
+                      </dl>
+                      <form class="file-permissions" x-show="properties.editable" @submit.prevent="applyPermissions()">
+                        <label>Permissions (octal)
+                          <input type="text" inputmode="numeric" pattern="[0-7]{3,4}" required maxlength="4"
+                            title="Three or four octal digits (0–7)" x-model="permissionMode" :placeholder="properties.mode" :disabled="fb.isBulkBusy">
+                        </label>
+                        <button type="submit" class="btn btn-ok" :disabled="fb.isBulkBusy || !permissionMode || permissionMode === properties.mode">Apply</button>
+                      </form>
+                    </div>
+                  </template>
+                </div>
               </template>
               <template x-if="dialogKind === 'Trash'">
                 <div>
@@ -512,7 +552,7 @@
                 </div>
               </template>
               <template x-if="dialogKind === 'Create ZIP'">
-                <form @submit.prevent="if (await fb.localAction('compress', dialogEntries.map(f => fb.normalizePath(f.path)), archiveName)) $refs.details.close(); else dialogError = fb.operationError">
+                <form @submit.prevent="if (await fb.localAction('compress', dialogEntries.map(f => fb.normalizePath(f.path)), {name: archiveName})) $refs.details.close(); else dialogError = fb.operationError">
                   <label>Archive name <input x-model="archiveName" required></label>
                   <button class="btn btn-ok" :disabled="fb.isBulkBusy || !archiveName.trim()">Create ZIP</button>
                 </form>
@@ -1363,6 +1403,13 @@
       .file-details-dialog::backdrop { background: #0008; }
       .file-details-dialog h3 { margin-top: 0; }
       .file-details-dialog .btn-cancel { margin-top: 1rem; }
+      .file-properties { margin: 0; }
+      .file-properties > div { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: .75rem; padding: .3rem 0; }
+      .file-properties dt { color: var(--color-text-secondary); }
+      .file-properties dd { margin: 0; overflow-wrap: anywhere; }
+      .file-permissions { display: flex; align-items: end; gap: .75rem; border-top: 1px solid var(--color-border); margin-top: .75rem; padding-top: .75rem; }
+      .file-permissions label { display: grid; gap: .25rem; }
+      .file-permissions input { width: 7rem; font: inherit; }
       .file-detail-list { display: grid; gap: 0.75rem; overflow-wrap: anywhere; }
       .file-detail-list label, .file-dialog-buttons, .file-operation { display: flex; align-items: center; gap: 0.5rem; }
       .file-dialog-buttons { margin-top: 0.75rem; flex-wrap: wrap; }
