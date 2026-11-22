@@ -7,7 +7,6 @@ import mimetypes
 from pathlib import Path
 import re
 import shutil
-import tempfile
 import uuid
 
 from helpers.sandbox_worker import SandboxWorker
@@ -100,10 +99,10 @@ class BrowserConnection:
             launch = build_browser_launch_config(config)
             self.profile.parent.mkdir(parents=True, exist_ok=True)
             self.adopt_legacy_profile(context_id)
-            self.profile.mkdir(exist_ok=True)
+            worker.prepare_directory(self.profile)
             # Existing workers validate the old mount before replacing their mount list.
             Path(files.get_abs_path('tmp/browser/sessions/shared')).mkdir(parents=True, exist_ok=True)
-            self.downloads.mkdir(parents=True, exist_ok=True)
+            worker.prepare_directory(self.downloads)
             worker.mounts = [SandboxMount(self.profile.resolve(), str(self.profile), False),
                              SandboxMount(self.downloads.resolve(), str(self.downloads), False)]
             worker.mounts.extend(SandboxMount(Path(path).resolve(), path) for path in launch['extensions']['active_paths'])
@@ -147,11 +146,8 @@ class BrowserConnection:
             if legacy.is_dir():
                 self.profile.parent.mkdir(parents=True, exist_ok=True)
                 # tmp and usr may be different mounts; publish only a complete copy.
-                with tempfile.TemporaryDirectory(dir=self.profile.parent) as staging:
-                    target = Path(staging) / 'profile'
-                    shutil.copytree(legacy, target, symlinks=True)
-                    target.rename(self.profile)
-                shutil.rmtree(legacy)
+                if worker.prepare_directory(self.profile, legacy):
+                    shutil.rmtree(legacy)
                 return
 
     async def send(self, payload):

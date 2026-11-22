@@ -93,6 +93,8 @@
 - Use shared `surface-workspace`, toolbar/control, and separator styles from `webui/css/surfaces.css`; match the lighter Files/Browser panel palette and preserve disabled, active, and keyboard focus states.
 - Expose only the persistent browser profile, browser downloads and explicitly enabled extension directories to the guest. Uploads cross as selected file bytes; screenshots return through CDP. Never signal host PIDs from guest Chromium singleton files.
 
+- Create missing profile and download bindings with the Browser worker group. Publish a complete legacy profile before removing its source.
+
 ## Work Guidance
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.

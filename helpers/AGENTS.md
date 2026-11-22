@@ -37,6 +37,8 @@
 - `local_embeddings.py` owns pinned offline MiniLM ONNX assets and inference; its file DOX records accepted model/configuration and parity verification boundaries.
 - `sandbox_worker.py` owns lazy plugin worker handoff, cancellation and idle cleanup; `native_display.py` owns standard-library XRandR operations reusable inside guests.
 
+- Worker binding creation uses the reserved service identity. Atomic no-replace publication is shared by the file browser and seeded sandbox directories through `helpers/file_transfers.py`.
+
 ## Work Guidance
 
 - Prefer cohesive helper modules over adding unrelated utilities to large files.

@@ -25,6 +25,8 @@
 - LiteParse subprocesses use the guest interpreter. Parser source depends only on the standalone `helpers/document.py` value object, standard-library logging and guest packages. First-use installation is outside the document processing deadline; cancellation stops the child sandbox.
 - The tool stops its prepared worker on every exit, including cache hits and fetch failures before any parse.
 
+- Create new temporary index directories writable by the document worker at creation and release them with their store.
+
 ## Work Guidance
 
 - Coordinate parser changes with timeout handling and fallback behavior.

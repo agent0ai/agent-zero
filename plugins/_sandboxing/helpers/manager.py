@@ -335,7 +335,6 @@ class SandboxManager:
             image_info = self.images.ensure(image or self.config.default_image)
         except SandboxImageError as exc:
             raise SandboxError(str(exc)) from exc
-        self._ensure_shared_directory()
 
         with self._name_thread_lock(name), self._index_lock(exclusive=True):
             try:
@@ -562,7 +561,6 @@ class SandboxManager:
         name = validate_name(name)
         bootstrap.ensure(self.config.proot)
         self._require_runtime_artifacts()
-        self._ensure_shared_directory()
         with self._operation_lock(name):
             metadata = self._read_metadata(name)
             metadata["desired_running"] = True
@@ -987,7 +985,7 @@ class SandboxManager:
         image = self.images.inspect(metadata['image_digest'])
         if metadata.get('filesystem') == 'overlay':
             storage.ensure_base(image.rootfs)
-            storage.traverse(image.rootfs.parent, uid)
+            storage.traverse(image.rootfs.parent, uid, root=self.images.config.cache_dir)
         bundle = path / 'bundle'
         bundle.mkdir(mode=0o700, exist_ok=True)
         bindings = [('/proc', '/proc'), ('/dev', '/dev')]
@@ -996,7 +994,7 @@ class SandboxManager:
         runtime_dir = RUNTIME_DIR / str(uid)
         runtime_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
         set_owner(runtime_dir, uid, uid)
-        storage.traverse(runtime_dir, uid)
+        storage.traverse(runtime_dir, uid, root=RUNTIME_DIR)
         for target in ('tmp', 'run', 'trace'):
             scratch = runtime_dir / target
             scratch.mkdir(mode=0o700, exist_ok=True)
@@ -1009,19 +1007,26 @@ class SandboxManager:
             readonly.append(str(bundle / target))
         private = (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.uid_registry)
         mounts = list(self._normalize_mounts(metadata.get('mounts', [])))
-        workspace = None
         if self.config.user_dir is not None:
             data_root = self.config.user_dir / "sandbox_data"
             private += (data_root,)
             if "managed_workspace" in metadata:
                 workspace = self._managed_workspace(name, metadata)
                 if workspace is None:
-                    storage.prepare_workspace(data_root / name)
+                    storage.prepare_workspace(data_root / name, gid=uid)
                 else:
-                    storage.prepare_workspace(workspace, workspace_seed)
-                    storage.workspace_access(workspace, uid, self.config.uid_registry)
+                    seed = workspace_seed if workspace_seed and workspace_seed.is_dir() else None
+                    storage.prepare_workspace(workspace, seed, gid=uid)
                     mounts.insert(0, SandboxMount(workspace, "/workspace", False))
                 storage.link_sandbox_data(path / "data", data_root / name)
+        state_root = self.config.instances_dir.parent
+        # A configured host binding can itself be the parent of the runtime store.
+        host_paths = [m.source for m in mounts if self.config.instances_dir not in m.source.parents]
+        host_paths.append(self.config.shared_dir)
+        if self.config.user_dir is not None:
+            host_paths.append(self.config.user_dir)
+        if any(state_root == host or state_root in host.parents for host in host_paths):
+            state_root = self.config.instances_dir
         shared_gid = None
         if metadata.get('service'):
             private += (self.config.shared_dir,)
@@ -1031,15 +1036,14 @@ class SandboxManager:
         else:
             shared = self.config.shared_dir
             shared_gid = storage.lease_uid(self.config.uid_registry, shared)
-            storage.prepare_managed(shared, shared_gid, self.config.uid_registry, shared=True)
-            storage.traverse(shared.parent, uid, shared_gid)
+            storage.prepare_workspace(shared, gid=shared_gid)
         bindings.append((str(shared), '/shared'))
         for item in mounts:
             if item.source == Path('/'):
                 raise SandboxError('Host-root bindings are unavailable with PRoot; use explicit directories')
-            if item.source != workspace and (shared_gid is None or item.source != shared):
-                storage.grant(item.source, uid, writable=not item.read_only,
-                              exclude=(*private, shared), shared_gid=shared_gid)
+            # Worker request files are private manager state, including atomic replacements.
+            if metadata.get('service') and item.source == self.config.instances_dir / '.worker-inputs' / name:
+                storage.grant_worker_input(item.source, uid, root=state_root)
             bindings.append((str(item.source), item.destination))
             if item.read_only:
                 readonly.append(str(item.source))
@@ -1052,11 +1056,12 @@ class SandboxManager:
                 empty = path / 'masked' / str(len(bindings))
                 empty.mkdir(parents=True, mode=0o700, exist_ok=True)
                 set_owner(empty, uid, uid)
+                storage.traverse(empty, uid, root=state_root)
                 bindings.append((str(empty), str(PurePosixPath(item.destination) / relative)))
                 readonly.append(str(empty))
-        storage.traverse(root, uid)
-        storage.traverse(path / 'cow', uid)
-        storage.traverse(bundle, uid)
+        storage.traverse(root, uid, root=state_root)
+        storage.traverse(path / 'cow', uid, root=state_root)
+        storage.traverse(bundle, uid, root=state_root)
         temp = runtime_dir / 'trace'
         environment = dict(value.split('=', 1) for value in image.environment if '=' in value)
         environment.update(HOME='/root', LANG=environment.get('LANG', 'C.UTF-8'), TERM='xterm-256color',
@@ -1178,6 +1183,10 @@ class SandboxManager:
         state, error = self._runtime_state(name, metadata)
         if state is None or state.get("status") != "running":
             detail = error or f"status is {state.get('status') if state else 'unknown'}"
+            if state and state.get('exit_code'):
+                tail = self._log_tail(self._instance_path(name) / 'logs/launcher.log').splitlines()
+                if tail and tail[-1].startswith('Cannot resolve sandbox binding for '):
+                    detail += ': ' + tail[-1]
             raise SandboxError(f"sandbox {name!r} is not running: {detail}")
 
     def _run_captured(
@@ -1417,11 +1426,6 @@ class SandboxManager:
         for path in (self.config.instances_dir.parent, self.config.instances_dir):
             path.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-    def _ensure_shared_directory(self) -> None:
-        self.config.shared_dir.mkdir(mode=0o770, parents=True, exist_ok=True)
-        if self.config.shared_dir.is_symlink() or not self.config.shared_dir.is_dir():
-            raise SandboxError(f"shared path is not a safe directory: {self.config.shared_dir}")
-
     @contextlib.contextmanager
     def _name_thread_lock(self, name: str) -> Iterator[None]:
         with self._locks_guard:
@@ -1539,10 +1543,13 @@ class SandboxManager:
     @staticmethod
     def _log_tail(path: Path) -> str:
         try:
-            content = path.read_text(encoding="utf-8", errors="replace")
+            with path.open('rb') as stream:
+                end = stream.seek(0, os.SEEK_END)
+                stream.seek(max(0, end - 12000))
+                content = stream.read(12000).decode('utf-8', errors='replace')
         except OSError:
             return "(no log)"
-        return "\n".join(content[-12000:].splitlines()[-40:])
+        return "\n".join(content.splitlines()[-40:])
 
     def _process_command(self, name, metadata, args, cwd='/workspace'):
         if metadata.get('service'):

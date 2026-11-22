@@ -65,7 +65,7 @@ async def start_bridge(port: int, session_dir: str, cache_dir: str, mode: str = 
     mounts = []
     for directory in (session_dir, cache_dir):
         path = Path(directory).resolve()
-        path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        worker.prepare_directory(path)
         mounts.append(SandboxMount(path, str(path), False))
     async with _get_bridge_lock():
         if _bridge_config == config and worker.mounts == mounts and await asyncio.to_thread(is_process_alive):

@@ -73,13 +73,13 @@ the CLI command is `python -m helpers.sandbox disk-usage NAME`.
 Cached image sizes come from import/pull metadata; unavailable sizes remain
 unknown without scanning. Image-import size-limit checks still apply.
 
-Managed workspaces belong to the sandbox Linux user. The common exchange uses a
-dedicated Linux group and setgid directories. On first use the manager prepares
-existing contents. Later launches reuse their permissions. Ordinary files created
-there with the guest's default umask are group-writable. Applications can still
-create private files. Service guests have their own private exchange. The mount
-must honor Linux ownership and permissions. Custom bindings that need additional
-access for the sandbox user still require filesystem ACL support.
+Existing host directories and their contents keep their ownership, permissions,
+and ACLs. This applies to `usr`, the managed workspace, the common exchange,
+and explicit bindings. A guest operation can return permission denied when the
+host restricts its path. New workspaces are created writable by their guest on
+Linux. Ordinary guests create files with a common primary group and umask 0002
+so they can exchange files in `/shared`. A service guest has a private exchange.
+The manager tracks and stops processes by their distinct Linux UIDs.
 
 Every sandbox receives `/shared` and, by default, Agent Zero's `usr/` at
 `/a0/usr`. Private manager state, image caches and the per-sandbox data directory are masked inside broad user-folder

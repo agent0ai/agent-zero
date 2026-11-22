@@ -524,6 +524,8 @@ def test_document_query_allows_uncapped_index_chunks():
 
 
 def test_document_query_store_reuses_vector_db_per_context(monkeypatch):
+    from plugins._sandboxing.helpers.storage import prepare_workspace
+    monkeypatch.setattr('plugins._document_query.helpers.sandbox.worker.prepare_directory', prepare_workspace)
     monkeypatch.setattr(
         document_query_module,
         "_load_config",

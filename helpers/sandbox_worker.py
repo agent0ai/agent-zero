@@ -67,6 +67,16 @@ class SandboxWorker:
         result['quiet_seconds'] = max(0, int(end - result.get('updated_at', end)))
         return result
 
+    @property
+    def uid(self):
+        from plugins._sandboxing.helpers.storage import lease_uid
+        config = get_manager().config
+        return lease_uid(config.uid_registry, config.instances_dir / self.name)
+
+    def prepare_directory(self, path, seed=None):
+        from plugins._sandboxing.helpers.storage import prepare_workspace
+        return prepare_workspace(path, seed, gid=self.uid)
+
     def _paths(self):
         manager = get_manager()
         # This directory is masked in usr mounts and never exposed to other guests.

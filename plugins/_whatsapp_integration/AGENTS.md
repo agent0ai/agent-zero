@@ -35,6 +35,8 @@
 - Mount only existing session and media directories read/write into the guest; retain login state on stop, retry and restart. Disabled checks do not provision. The existing enabled job-loop path starts inbound reception; no incoming message is needed to start it. Keep the bridge on loopback with a per-process bearer token; npm and Baileys remain inside the guest.
 - Use the shared project/profile scope selector and Advanced accordion. Configuration is the sole plugin UI; keep pairing and connection controls there.
 
+- Create missing bridge directories with service group access and stage private outgoing media as the bridge UID. Existing mounted directories keep host permissions.
+
 ## Work Guidance
 
 - Coordinate Node bridge changes with Python bridge client and settings UI.

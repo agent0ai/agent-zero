@@ -1,4 +1,5 @@
 import asyncio
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -9,7 +10,7 @@ from plugins._whatsapp_integration.helpers import bridge_manager as manager
 
 @pytest.fixture
 def worker(monkeypatch):
-    fake = SimpleNamespace(ready=False, mounts=[], acall=AsyncMock(return_value=True), stop=lambda: None)
+    fake = SimpleNamespace(ready=False, mounts=[], prepare_directory=lambda p: p.mkdir(exist_ok=True), acall=AsyncMock(return_value=True), stop=lambda: None)
     manager._bridge_config.clear()
     manager._bridge_lock = None
     monkeypatch.setattr(manager, 'worker', fake)
@@ -60,3 +61,39 @@ def test_stop_preserves_login_state(worker, tmp_path):
     asyncio.run(manager.stop_bridge())
     assert stopped == [True]
     assert (session / 'creds.json').read_text() == 'fixture'
+
+
+@pytest.mark.skipif(getattr(os, 'geteuid', lambda: -1)() != 0, reason='requires sandbox process credentials')
+def test_outgoing_media_is_private_to_the_bridge(monkeypatch):
+    import tempfile
+    from unittest.mock import MagicMock
+    from plugins._sandboxing.helpers.storage import prepare_workspace
+    from plugins._whatsapp_integration.helpers import wa_client
+
+    with tempfile.TemporaryDirectory() as temporary:
+        parent = Path(temporary)
+        parent.chmod(0o711)
+        directory = parent / 'media'
+        uid = 24157
+        service = SimpleNamespace(uid=uid, prepare_directory=lambda path: prepare_workspace(path, gid=uid))
+        monkeypatch.setattr(wa_client, 'worker', service)
+        monkeypatch.setattr(wa_client, 'get_bridge_media_dir', lambda: directory)
+        source = parent / 'private.jpg'
+        source.write_bytes(b'media')
+        source.chmod(0o600)
+        client = MagicMock()
+        monkeypatch.setattr(wa_client.aiohttp, 'ClientSession', client)
+
+        def post(url, *, json, timeout):
+            staged = Path(json['filePath'])
+            assert staged.parent == directory
+            assert staged.stat().st_uid == uid
+            assert staged.stat().st_mode & 0o777 == 0o600
+            assert staged.read_bytes() == b'media'
+            response = MagicMock()
+            response.__aenter__.return_value.json = AsyncMock(return_value={'ok': True})
+            return response
+
+        client.return_value.__aenter__.return_value.post = post
+        assert asyncio.run(wa_client.send_media('http://bridge', 'chat', str(source))) == {'ok': True}
+        assert list(directory.iterdir()) == []

@@ -6,7 +6,6 @@ import json
 import io
 import os
 import subprocess
-import shutil
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -89,10 +88,10 @@ def manager(tmp_path: Path, monkeypatch) -> SandboxManager:
     monkeypatch.setattr(bootstrap, 'ensure', lambda *a: None)
     monkeypatch.setattr(SandboxManager, '_require_runtime_artifacts', lambda *a: None)
     monkeypatch.setattr(storage, 'ensure_base', lambda *a: None)
-    monkeypatch.setattr(storage, 'prepare_managed', lambda *a, **kw: None)
-    monkeypatch.setattr(storage, 'workspace_access', lambda *a: None)
-    monkeypatch.setattr(storage, 'grant', lambda *a, **kw: None)
-    monkeypatch.setattr(storage, 'traverse', lambda *a: None)
+    prepare_binding = storage.prepare_workspace
+    monkeypatch.setattr(storage, 'prepare_workspace', lambda path, seed=None, **kw: prepare_binding(path, seed))
+    monkeypatch.setattr(storage, 'grant_worker_input', lambda *a, **kw: None)
+    monkeypatch.setattr(storage, 'traverse', lambda *a, **kw: None)
     monkeypatch.setattr(module, 'set_owner', lambda *a: None)
     def lease(registry, owner):
         registry.mkdir(exist_ok=True)
@@ -286,7 +285,7 @@ def test_workspace_rejects_symlink_ancestors_and_incomplete_seed(tmp_path):
     seed.mkdir()
     os.mkfifo(seed / "pipe")
     directory = tmp_path / "guest/workspace"
-    with pytest.raises(shutil.Error):
+    with pytest.raises(OSError, match="Unsupported seed entry"):
         storage.prepare_workspace(directory, seed)
     assert not list(directory.parent.iterdir())
     (seed / "pipe").unlink()

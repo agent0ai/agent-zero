@@ -19,6 +19,8 @@ pytestmark = pytest.mark.skipif(os.environ.get('A0_PROOT_INTEGRATION') != '1', r
 @pytest.fixture(scope='module')
 def manager(tmp_path_factory):
     root = tmp_path_factory.mktemp('proot')
+    for directory in (root, root.parent, root.parent.parent):
+        directory.chmod(0o711)
     images = SandboxImageManager(SandboxImageConfig(
         skopeo=Path('/usr/bin/skopeo'), umoci=Path('/usr/bin/umoci'),
         cache_dir=root/'images', default_image=os.environ.get('A0_PROOT_TEST_IMAGE', BUILTIN_IMAGE)))
@@ -138,8 +140,8 @@ os.close(fd)
     run(manager, 'permissions', "import os; os.chmod('/cow-tests/access',0o400); assert os.access('/cow-tests/access',os.W_OK); open('/cow-tests/access','a').write(' private')")
 
 def test_readonly_bindings_and_atomic_request_acl(manager):
-    directory = manager.config.instances_dir.parent/'input'
-    directory.mkdir(mode=0o700)
+    directory = manager.config.instances_dir/'.worker-inputs/bindings'
+    directory.mkdir(parents=True, mode=0o700)
     (directory/'request').write_text('initial')
     manager.create('bindings', service=True, share_usr=False, mounts=[SandboxMount(directory,'/input')])
     temporary=directory/'temporary'
@@ -157,8 +159,8 @@ for mutate in [lambda: open('/input/request','w'),lambda: os.unlink('/input/requ
     assert (directory/'request').read_text() == 'replacement'
     run(manager,'bindings',"import os; assert not os.access('/input/request',os.W_OK)")
     uid=manager._read_metadata('bindings')['uid']
-    storage.grant(directory,uid,writable=True)
-    storage.traverse(directory/'request',uid)
+    # Host permissions allow mutation. The read-only guest binding still blocks it.
+    subprocess.run(['setfacl', '-m', f'u:{uid}:rwx', str(directory)], check=True)
     run(manager,'bindings',"import os; assert not os.access('/input/request',os.W_OK)")
     subprocess.run(['setpriv',f'--reuid={uid}',f'--regid={uid}','--clear-groups','sh','-c',f'touch {directory}/allowed'],check=True)
 
@@ -260,6 +262,7 @@ def test_destination_files_use_guest_paths_mounts_and_binary_limits(manager, mon
     from plugins._text_editor.tools import text_editor
 
     mounted = tmp_path / "read-only"
+    tmp_path.chmod(0o711)
     mounted.mkdir()
     (mounted / "data").write_bytes(b"mounted")
     manager.create("file-edit", mounts=[SandboxMount(mounted, "/input")])
@@ -414,8 +417,11 @@ def test_managed_permissions_and_group_exchange_without_binding_acls(manager, mo
     shared = usr / 'sandbox-shared'
     shared.mkdir(parents=True)
     usr.chmod(0o777)
-    shared.chmod(0o770)
+    shared.chmod(0o777)
     (shared / 'existing').write_text('legacy')
+    (shared / 'existing').chmod(0o666)
+    (shared / 'restricted').touch(mode=0o600)
+    os.link(shared / 'restricted', usr / 'hardlink')
     (usr / 'accessible').touch(mode=0o666)
     (usr / 'accessible').chmod(0o666)
     monkeypatch.setattr(manager, 'config', dataclasses.replace(manager.config, user_dir=usr, shared_dir=shared))
@@ -456,32 +462,40 @@ assert not Path('/a0/usr/sandbox-shared/existing').exists()
     config_dir = manager.config.instances_dir
     writer = json.loads((config_dir / 'group-writer/bundle/config.json').read_text())
     service = json.loads((config_dir / 'group-service/bundle/config.json').read_text())
-    assert writer['shared_gid'] == shared.stat().st_gid
+    assert writer['uid'] != writer['shared_gid']
+    assert shared.stat().st_gid == os.getgid()
+    assert shared.stat().st_mode & 0o7777 == 0o777
+    assert (shared / 'restricted').stat().st_mode & 0o777 == 0o600
+    assert run(manager, 'group-writer', "import os; assert not os.access('/shared/restricted', os.R_OK)") == ''
     assert 'shared_gid' not in service
 
 
-def test_exchange_migrates_legacy_acls_once_and_avoids_external_links(tmp_path, monkeypatch):
-    (tmp_path / '24568').touch(mode=0o600)
-    shared = tmp_path / 'exchange'
-    shared.mkdir(mode=0o700)
-    outside = tmp_path / 'outside'
-    outside.touch(mode=0o600)
-    (shared / 'symlink').symlink_to(outside)
-    linked = shared / 'hardlink'
-    os.link(outside, linked)
-    with pytest.raises(SandboxError, match='multiply linked'):
-        storage.prepare_managed(shared, 24568, tmp_path, shared=True)
-    assert outside.stat().st_gid == os.getgid()
-    linked.unlink()
-    (shared / 'legacy').touch(mode=0o600)
-    old_uid = 24567
-    storage.grant(shared, old_uid, writable=True)
-    storage.prepare_managed(shared, 24568, tmp_path, shared=True)
-    for uid in (old_uid, 24569):
-        storage.traverse(shared.parent, uid)
-        subprocess.run(['sh', '-c', 'echo shared >> "$1"; echo next >> "$2"', 'guest',
-                        str(shared / 'legacy'), str(shared / 'fresh')],
-                       user=uid, group=uid, extra_groups=[24568], umask=0o002, check=True)
-    monkeypatch.setattr(storage, '_visit_tree', lambda *a, **kw: pytest.fail('repeated migration'))
-    storage.prepare_managed(shared, 24568, tmp_path, shared=True)
-    assert outside.stat().st_mode & 0o777 == 0o600
+def test_fresh_exchange_works_for_two_distinct_sandbox_users(manager):
+    manager.create('fresh-writer')
+    manager.create('fresh-reader')
+    run(manager, 'fresh-writer', "open('/shared/fresh', 'w').write('first')")
+    run(manager, 'fresh-reader', """
+from pathlib import Path
+p = Path('/shared/fresh')
+assert p.read_text() == 'first'
+p.write_text('second')
+p.unlink()
+""")
+    assert manager._read_metadata('fresh-writer')['uid'] != manager._read_metadata('fresh-reader')['uid']
+
+
+def test_unreachable_binding_fails_before_running_command(manager, tmp_path):
+    private = tmp_path / 'unsearchable'
+    source = private / 'bound'
+    source.mkdir(parents=True)
+    private.chmod(0o700)
+    manager.create('denied-bind', mounts=[SandboxMount(source, '/input')],
+                   command=['sh', '-c', 'touch /shared/unbound-command-ran'])
+    deadline = time.monotonic() + 5
+    while manager.is_running('denied-bind') and time.monotonic() < deadline:
+        time.sleep(.05)
+    with pytest.raises(SandboxError, match='Cannot resolve sandbox binding for /input') as failure:
+        manager.exec('denied-bind', ['true'])
+    assert str(source) in str(failure.value)
+    assert not (manager.config.shared_dir / 'unbound-command-ran').exists()
+    assert private.stat().st_mode & 0o777 == 0o700

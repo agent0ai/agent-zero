@@ -139,6 +139,12 @@ def guest(fd: int) -> None:
     if ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0):
         raise RuntimeError('Cannot set no_new_privs')
     syscall_policy(config['network'])
+    # PRoot can skip an unresolvable binding. Fail before running in the wrong directory.
+    for source, destination in config['bindings']:
+        try:
+            os.stat(source)
+        except OSError as exc:
+            sys.exit(f'Cannot resolve sandbox binding for {destination}: {source}: {exc.strerror}')
     bindings = [value for source, destination in config['bindings'] for value in ('-b', source + ':' + destination + '!')]
     environment = dict(config['environment'])
     environment.update(A0_COW_ROOT=config['root'], A0_COW_CONTROL=config['control'],
@@ -174,10 +180,11 @@ def run(config_path: Path, *, owner_fd: int | None = None, argv=None, cwd=None, 
         signal.signal(signum, stop)
     child = None
     try:
-        groups = [config['shared_gid']] if 'shared_gid' in config else []
+        gid = config.get('shared_gid', config['uid'])
+        groups = [config['uid']] if gid != config['uid'] else []
         child = subprocess.Popen([sys.executable, '-c', Path(__file__).read_text(), 'guest', str(fd)],
-                                 pass_fds=(fd,), user=config['uid'], group=config['uid'], extra_groups=groups,
-                                 umask=0o002 if groups else -1,
+                                 pass_fds=(fd,), user=config['uid'], group=gid, extra_groups=groups,
+                                 umask=0o002 if 'shared_gid' in config else -1,
                                  env={'PATH': '/usr/local/bin:/usr/bin:/bin', 'PYTHONDONTWRITEBYTECODE': '1'},
                                  cwd='/', start_new_session=True)
         os.close(fd); fd = -1

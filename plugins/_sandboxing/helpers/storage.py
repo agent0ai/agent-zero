@@ -9,8 +9,8 @@ import os
 from pathlib import Path
 import pwd
 import stat
-import shutil
-import tempfile
+import subprocess
+import sys
 
 from helpers.sandbox_types import SandboxError
 
@@ -105,25 +105,22 @@ def adopt(root: Path, control: Path, uid: int) -> None:
         os.chown(path, uid, uid, follow_symlinks=False)
 
 
-def prepare_workspace(path: Path, seed: Path | None = None) -> None:
-    """Publish a new workspace once. A restored or previously used workspace wins."""
-    parent = _open(path.parent, create_dirs=True)
+def prepare_workspace(path: Path, seed: Path | None = None, *, gid: int | None = None) -> bool:
+    """Publish once, with creation credentials local to a child process."""
     try:
-        try:
-            fd = os.open(path.name, os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
-        except FileNotFoundError:
-            if seed is None or not any(seed.iterdir()):
-                os.mkdir(path.name, mode=0o700, dir_fd=parent)
-            else:
-                # Stage beside the destination so a failed copy cannot become user data.
-                with tempfile.TemporaryDirectory(dir=f'/proc/self/fd/{parent}') as stage:
-                    tree = Path(stage) / 'workspace'
-                    shutil.copytree(seed, tree, symlinks=True)
-                    os.rename(tree, path.name, dst_dir_fd=parent)
-        else:
-            os.close(fd)
-    finally:
-        os.close(parent)
+        os.close(open_directory(path))
+        return False
+    except FileNotFoundError:
+        pass
+    script = Path(__file__).with_name('binding_directory.py')
+    command = [sys.executable, '-I', str(script), str(path)]
+    if seed is not None:
+        command.append(str(seed))
+    result = subprocess.run(command, group=gid, umask=0, capture_output=True, text=True)
+    if result.returncode not in (0, errno.EEXIST):
+        raise OSError(f'Cannot create sandbox directory {path}: {result.stderr.strip()}')
+    os.close(open_directory(path))
+    return result.returncode == 0
 
 
 def link_sandbox_data(link: Path, data: Path) -> None:
@@ -146,7 +143,7 @@ def _open(path: Path, *, create_dirs: bool = False) -> int:
                 if not create_dirs:
                     raise
                 try:
-                    os.mkdir(part, mode=0o700, dir_fd=fd)
+                    os.mkdir(part, mode=0o755, dir_fd=fd)
                 except FileExistsError:
                     pass
                 next_fd = os.open(part, flags | os.O_DIRECTORY, dir_fd=fd)
@@ -177,17 +174,17 @@ def _has_acl(path, name='access'):
         raise
 
 
-def _mode_allows(fd, uid, bits, shared_gid=None):
+def _mode_allows(fd, uid, bits):
     info = os.fstat(fd)
     if info.st_uid == uid:
         return (info.st_mode >> 6) & bits == bits
     if _has_acl(f'/proc/self/fd/{fd}'):
         return False
-    shift = 3 if info.st_gid in (uid, shared_gid) else 0
+    shift = 3 if info.st_gid == uid else 0
     return (info.st_mode >> shift) & bits == bits
 
 
-def _acl(fd: int, uid: int | None, permissions: str, *, default=False, augment=False) -> None:
+def _acl(fd: int, uid: int, permissions: str, *, default=False, augment=False) -> None:
     # Descriptor paths pin the inode: a concurrent guest rename cannot redirect ACL changes.
     import ctypes
     library = ctypes.CDLL('libacl.so.1', use_errno=True)
@@ -216,7 +213,7 @@ def _acl(fd: int, uid: int | None, permissions: str, *, default=False, augment=F
         entries = [f'{label}::' + ''.join(c if mode & (bit << shift) else '-' for c,bit in [('r',4),('w',2),('x',1)])
                    for label,shift in [('user',6),('group',3),('other',0)]]
     old_mask = next((line.split(':')[2] for line in entries if line.startswith('mask:')), 'rwx')
-    principal = 'group::' if uid is None else f'user:{uid}:'
+    principal = f'user:{uid}:'
     if augment:
         previous = next((line.split(':')[2] for line in entries if line.startswith(f'user:{uid}:')), '')
         permissions = ''.join(c if c in permissions or c in previous and c in old_mask else '-' for c in 'rwx')
@@ -245,26 +242,24 @@ def _acl(fd: int, uid: int | None, permissions: str, *, default=False, augment=F
         library.acl_free(acl)
 
 
-def traverse(path: Path, uid: int, shared_gid=None) -> None:
+def traverse(path: Path, uid: int, *, root: Path) -> None:
     for parent in (*reversed(path.parents), path):
+        if parent != root and root not in parent.parents:
+            continue
         fd = _open(parent)
         try:
-            if not _mode_allows(fd, uid, 1, shared_gid):
+            if not _mode_allows(fd, uid, 1):
                 _acl(fd, uid, '--x', augment=True)
         finally:
             os.close(fd)
 
 
-def _visit_tree(root_fd, path, apply, exclude=(), *, children_first=False):
-    excluded = set(exclude)
+def _visit_tree(root_fd, path, apply):
     def visit(fd, logical):
-        if logical in excluded:
-            return
         info = os.fstat(fd)
         if not (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode)):
             return
-        if not children_first:
-            apply(fd, logical, info)
+        apply(fd, logical, info)
         if stat.S_ISDIR(info.st_mode):
             directory = os.open('.', os.O_RDONLY | os.O_DIRECTORY, dir_fd=fd)
             try:
@@ -279,86 +274,27 @@ def _visit_tree(root_fd, path, apply, exclude=(), *, children_first=False):
                         os.close(child)
             finally:
                 os.close(directory)
-        if children_first:
-            apply(fd, logical, info)
     visit(root_fd, path)
 
 
-def prepare_managed(path, identity, registry, *, shared=False):
-    """Update the root last so an interrupted migration can be retried."""
-    def update(child, logical, info):
-        target = f'/proc/self/fd/{child}'
-        is_dir = stat.S_ISDIR(info.st_mode)
-        if not is_dir and info.st_nlink > 1:
-            raise SandboxError(f'Cannot change ownership of a multiply linked managed file: {logical}')
-        access = 7 if is_dir or info.st_mode & 0o111 else 6
-        if shared:
-            os.chown(target, -1, identity)
-            mode = (info.st_mode & 0o1707) | (access << 3)
-            if is_dir:
-                mode |= stat.S_ISGID
-            for kind in (('access', 'default') if is_dir else ('access',)):
-                if _has_acl(target, kind):
-                    _acl(child, None, 'rwx' if access == 7 else 'rw-', default=kind == 'default')
-        else:
-            os.chown(target, identity, identity)
-            mode = 0o700 if logical == path else (info.st_mode & 0o077) | (access << 6)
-        os.chmod(target, mode)
-        current = os.fstat(child)
-        if (current.st_gid != identity or stat.S_IMODE(current.st_mode) != mode
-                or not shared and current.st_uid != identity):
-            raise SandboxError(f'Filesystem did not retain sandbox permissions: {logical}')
-
-    fd = open_directory(path)
-    try:
-        with (registry / str(identity)).open('rb') as lease:
-            fcntl.flock(lease, fcntl.LOCK_EX)
-            root = os.fstat(fd)
-            if shared and root.st_gid == identity and root.st_mode & 0o2070 == 0o2070:
-                return
-            if not shared and root.st_uid == identity and root.st_mode & 0o777 == 0o700:
-                return
-            _visit_tree(fd, path, update, children_first=True)
-    finally:
-        os.close(fd)
-
-
-def workspace_access(path, uid, registry):
-    for parent in (path.parent.parent, path.parent):
-        fd = open_directory(parent)
-        try:
-            if os.fstat(fd).st_uid != 0:
-                raise SandboxError(f'Expected a manager-owned workspace parent: {parent}')
-            target = f'/proc/self/fd/{fd}'
-            if parent == path.parent:
-                os.chown(target, -1, uid)
-                os.chmod(target, 0o710)
-            else:
-                os.chmod(target, 0o711)
-        finally:
-            os.close(fd)
-    prepare_managed(path, uid, registry)
-    traverse(path, uid)
-
-
-def grant(path: Path, uid: int, *, writable: bool, exclude=(), shared_gid=None) -> None:
-    """Use existing permissions where possible, preserving other users' ownership."""
-    traverse(path.parent, uid, shared_gid)
+def grant_worker_input(path: Path, uid: int, *, root: Path) -> None:
+    """Private worker requests are replaced by the manager while the guest runs."""
+    traverse(path.parent, uid, root=root)
 
     def apply(fd, logical, info):
         is_dir = stat.S_ISDIR(info.st_mode)
         execute = is_dir or bool(info.st_mode & 0o111)
-        bits = 4 | (2 if writable else 0) | int(execute)
-        if _mode_allows(fd, uid, bits, shared_gid):
+        bits = 4 | int(execute)
+        if _mode_allows(fd, uid, bits):
             return
-        permissions = 'r' + ('w' if writable else '-') + ('x' if execute else '-')
+        permissions = 'r-x' if execute else 'r--'
         _acl(fd, uid, permissions)
         if is_dir:
-            _acl(fd, uid, 'rwx' if writable else 'r-x', default=True)
+            _acl(fd, uid, 'r-x', default=True)
 
     fd = _open(path)
     try:
-        _visit_tree(fd, path, apply, exclude)
+        _visit_tree(fd, path, apply)
     finally:
         os.close(fd)
 

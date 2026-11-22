@@ -1,4 +1,3 @@
-import ctypes
 import os
 import tempfile
 from pathlib import Path
@@ -6,7 +5,7 @@ import shutil
 import base64
 import io
 import stat
-from helpers.file_transfers import write_stream_atomic, FileLimitExceeded
+from helpers.file_transfers import write_stream_atomic, FileLimitExceeded, rename_no_replace
 from typing import Dict, List, Tuple
 from helpers.security import safe_filename
 from datetime import datetime
@@ -14,23 +13,6 @@ from datetime import datetime
 from helpers import files
 from helpers.localization import Localization
 from helpers.print_style import PrintStyle
-
-
-def rename_no_replace(source: Path, target: Path):
-    """Publish a file or directory without replacing a concurrent writer."""
-    if os.name == "nt":
-        return os.rename(source, target)
-    libc = ctypes.CDLL(None, use_errno=True)
-    paths = os.fsencode(source), os.fsencode(target)
-    if hasattr(libc, "renameat2"):
-        result = libc.renameat2(-100, paths[0], -100, paths[1], 1)  # AT_FDCWD, RENAME_NOREPLACE
-    elif hasattr(libc, "renamex_np"):
-        result = libc.renamex_np(*paths, 4)  # RENAME_EXCL
-    else:
-        raise OSError("This filesystem runtime does not support exclusive rename")
-    if result != 0:
-        code = ctypes.get_errno()
-        raise OSError(code, os.strerror(code), str(target))
 
 
 def copy_regular(source, destination):

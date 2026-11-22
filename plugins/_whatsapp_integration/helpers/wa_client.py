@@ -6,10 +6,11 @@ No agent/tool dependencies.
 
 import aiohttp
 from pathlib import Path
-import shutil
-import tempfile
+import subprocess
+import sys
+import uuid
 from plugins._whatsapp_integration.helpers.storage_paths import get_bridge_media_dir
-from plugins._whatsapp_integration.helpers.bridge_manager import auth_headers
+from plugins._whatsapp_integration.helpers.bridge_manager import auth_headers, worker
 
 
 async def get_messages(base_url: str) -> list[dict]:
@@ -47,19 +48,28 @@ async def send_media(
 ) -> dict:
     source = Path(file_path)
     directory = Path(get_bridge_media_dir())
-    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    # Transfer only the selected file into the guest's mounted media directory.
-    with tempfile.NamedTemporaryFile(dir=directory, suffix=source.suffix) as staged:
+    # Create the private file as its reader so host-mounted media needs no permission edits.
+    if not directory.is_dir():
+        worker.prepare_directory(directory)
+    staged = directory / (uuid.uuid4().hex + source.suffix)
+    uid = worker.uid
+    try:
         with source.open('rb') as stream:
-            shutil.copyfileobj(stream, staged)
-        staged.flush()
-        payload = {'chatId': chat_id, 'filePath': staged.name,
+            copy = """import shutil, sys
+with open(sys.argv[1], 'xb') as output:
+    shutil.copyfileobj(sys.stdin.buffer, output)
+"""
+            subprocess.run([sys.executable, '-I', '-c', copy, str(staged)], stdin=stream,
+                           user=uid, group=uid, extra_groups=[], umask=0o077, check=True)
+        payload = {'chatId': chat_id, 'filePath': str(staged),
                    'fileName': file_name or source.name, 'caption': caption, 'mediaType': media_type}
         async with aiohttp.ClientSession(headers=auth_headers()) as session:
             async with session.post(
                 f"{base_url}/send-media", json=payload, timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 return await resp.json()
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 async def send_typing(base_url: str, chat_id: str, paused: bool = False) -> None:

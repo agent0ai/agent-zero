@@ -5,6 +5,9 @@ import base64
 import hashlib
 from pathlib import Path
 import tempfile
+import shutil
+import uuid
+import weakref
 import json
 import mimetypes
 import threading
@@ -89,8 +92,11 @@ class DocumentQueryStore:
     def __init__(self, agent: Agent):
         self.agent = agent
         self.config = _load_config(agent)
-        self._directory = tempfile.TemporaryDirectory(prefix="a0-doc-query-")
-        self.index_mount = SandboxMount(Path(self._directory.name), "/index", read_only=False)
+        directory = Path(tempfile.gettempdir()) / f"a0-doc-query-{uuid.uuid4().hex}"
+        if not worker.prepare_directory(directory):
+            raise FileExistsError(directory)
+        weakref.finalize(self, shutil.rmtree, directory, True)
+        self.index_mount = SandboxMount(directory, "/index", read_only=False)
         self._model = None
 
     @property

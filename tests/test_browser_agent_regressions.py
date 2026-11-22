@@ -3298,6 +3298,8 @@ async def test_browser_context_handles_share_one_runtime(monkeypatch):
 
 @pytest.mark.parametrize("legacy_name", ["shared", "ctx-a"])
 def test_shared_browser_runtime_adopts_first_requesting_legacy_profile(monkeypatch, tmp_path, legacy_name):
+    from plugins._sandboxing.helpers.storage import prepare_workspace
+    monkeypatch.setattr('plugins._browser.helpers.sandbox.worker.prepare_directory', prepare_workspace)
     monkeypatch.setattr(
         browser_runtime_module.files,
         "get_abs_path",
@@ -3336,10 +3338,9 @@ def test_browser_profile_migration_does_not_publish_an_incomplete_copy(monkeypat
     legacy = tmp_path / "tmp/browser/sessions/shared"
     legacy.mkdir(parents=True)
     (legacy / "Cookies").write_bytes(b"legacy")
-    def fail_copy(source, target, **kwargs):
-        target.mkdir()
+    def fail_copy(*args):
         raise OSError("copy interrupted")
-    monkeypatch.setattr("plugins._browser.helpers.sandbox.shutil.copytree", fail_copy)
+    monkeypatch.setattr("plugins._browser.helpers.sandbox.worker.prepare_directory", fail_copy)
     with pytest.raises(OSError, match="copy interrupted"):
         core.adopt_legacy_profile("ctx-a")
     assert not core.profile.exists()

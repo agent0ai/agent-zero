@@ -68,6 +68,7 @@ def package_rootfs(images, rootfs: Path, layout: Path, architecture: str, *, low
 
 def build_image(images, directory: Path) -> Path:
     """Build without host package installs, a Docker daemon, or shared user data."""
+    from plugins._sandboxing.helpers import storage
     from plugins._sandboxing.helpers.images import SandboxImageError, SandboxImageManager
     from plugins._sandboxing.helpers.manager import SandboxConfig, SandboxError, SandboxManager, SandboxMount
 
@@ -88,6 +89,11 @@ def build_image(images, directory: Path) -> Path:
             instance_id=uuid.uuid4().hex[:12],
         ), sources)
         try:
+            uid = storage.lease_uid(images.config.uid_registry, manager.config.instances_dir / 'build')
+            cache = images.config.cache_dir
+            default_store = Path(__file__).resolve().parents[3] / 'sandboxes'
+            storage.traverse(node.rootfs / 'usr/local', uid,
+                             root=default_store if cache.parent == default_store else cache)
             manager.create("build", service=True, share_usr=False, mounts=[
                 SandboxMount(recipe, "/build"),
                 SandboxMount(node.rootfs / "usr/local", "/node"),
