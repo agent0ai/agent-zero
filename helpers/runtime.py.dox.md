@@ -36,6 +36,7 @@
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
+- `call_development_function_sync` runs the delegated call on a worker thread with a 30-second join timeout. The worker's original exception is re-raised in the calling thread (failures must not surface as `queue.Empty`), and a worker still running past the timeout raises `TimeoutError`.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, subprocess/runtime control, settings/state persistence, secret handling, tunnel state.
 - Imported dependency areas include: `argparse`, `asyncio`, `helpers`, `inspect`, `nest_asyncio`, `pathlib`, `queue`, `secrets`, `sys`, `threading`, `typing`.
@@ -63,6 +64,7 @@
   - `tests/test_host_browser_connector.py`
   - `tests/test_http_auth_csrf.py`
   - `tests/test_image_get_security.py`
+  - `tests/test_runtime_development_function_sync.py`
 
 ## Child DOX Index
 
