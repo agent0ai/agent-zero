@@ -7,7 +7,7 @@ from typing import Any, List
 import contextlib
 import threading
 
-from helpers import settings, projects
+from helpers import settings, projects, server_auth
 from starlette.responses import Response as StarletteResponse
 from starlette.requests import Request
 
@@ -454,8 +454,8 @@ class DynamicA2AProxy:
         if path.startswith('/a2a'):
             path = path[4:]  # Remove '/a2a' prefix
 
-        # Initialize project name
-        project_name = None
+        # Initialize project name (from the URL; the X-A0-Project header is read below)
+        url_project = None
 
         # Check if path matches token pattern /t-{token}/
         if path.startswith('/t-'):
@@ -469,9 +469,9 @@ class DynamicA2AProxy:
                 if remaining_path.startswith('/p-'):
                     project_parts = remaining_path[3:].split('/', 1)
                     if project_parts[0]:
-                        project_name = project_parts[0]
+                        url_project = project_parts[0]
                         remaining_path = '/' + project_parts[1] if len(project_parts) > 1 else '/'
-                        _PRINTER.print(f"[A2A] Extracted project from URL: {project_name}")
+                        _PRINTER.print(f"[A2A] Extracted project from URL: {url_project}")
             else:
                 request_token = path[3:]
                 remaining_path = '/'
@@ -480,7 +480,7 @@ class DynamicA2AProxy:
             cfg = settings.get_settings()
             expected_token = cfg.get("mcp_server_token")
 
-            if expected_token and request_token != expected_token:
+            if expected_token and not server_auth.token_matches(request_token, expected_token):
                 # Invalid token, return 401
                 await send({
                     'type': 'http.response.start',
@@ -493,54 +493,6 @@ class DynamicA2AProxy:
                 })
                 return
 
-            # If project specified, inject it into the request payload
-            if project_name:
-                # Buffer messages and modify before returning the complete body
-                received_messages = []
-                body_modified = False
-                original_receive = receive
-
-                async def receive_wrapper():
-                    nonlocal body_modified
-
-                    # Receive and buffer the next message
-                    message = await original_receive()
-                    received_messages.append(message)
-
-                    # When we get the complete body, inject project into JSON
-                    if message['type'] == 'http.request' and not message.get('more_body', False) and not body_modified:
-                        body_modified = True
-                        try:
-                            import json
-                            # Reconstruct full body from all buffered messages
-                            body_parts = [msg.get('body', b'') for msg in received_messages if msg['type'] == 'http.request']
-                            full_body = b''.join(body_parts)
-                            data = json.loads(full_body)
-
-                            # INJECT project into message.metadata (standard A2A pattern)
-                            if 'params' in data and 'message' in data['params']:
-                                msg_data = data['params']['message']
-                                # Initialize metadata if it doesn't exist
-                                if 'metadata' not in msg_data or msg_data['metadata'] is None:
-                                    msg_data['metadata'] = {}
-                                msg_data['metadata']['project'] = project_name
-
-                            # Serialize back to JSON
-                            modified_body = json.dumps(data).encode('utf-8')
-
-                            # Return modified message IMMEDIATELY (before FastA2A processes it)
-                            return {
-                                'type': 'http.request',
-                                'body': modified_body,
-                                'more_body': False
-                            }
-                        except Exception as e:
-                            _PRINTER.print(f"[A2A] Failed to inject project into payload: {e}")
-
-                    return message
-
-                receive = receive_wrapper
-
             # Update scope with cleaned path
             scope = dict(scope)
             scope['path'] = remaining_path
@@ -552,12 +504,11 @@ class DynamicA2AProxy:
             expected = cfg.get("mcp_server_token")
 
             if expected:
-                auth_header = request.headers.get("Authorization", "")
                 api_key = request.headers.get("X-API-KEY") or request.query_params.get("api_key")
 
                 is_authorized = (
-                    (auth_header.startswith("Bearer ") and auth_header.split(" ", 1)[1] == expected) or
-                    (api_key == expected)
+                    server_auth.token_matches(server_auth.get_bearer_token(scope), expected) or
+                    server_auth.token_matches(api_key, expected)
                 )
 
                 if not is_authorized:
@@ -574,6 +525,69 @@ class DynamicA2AProxy:
                     return
             else:
                 _PRINTER.print("[A2A] No expected token found in settings")
+
+        # Project from the URL (/p-{project}/) or the X-A0-Project header
+        try:
+            project_name = server_auth.resolve_project(url_project, scope)
+        except server_auth.RequestRejected as e:
+            await send({
+                'type': 'http.response.start',
+                'status': e.status_code,
+                'headers': [[b'content-type', b'text/plain']],
+            })
+            await send({
+                'type': 'http.response.body',
+                'body': e.detail.encode('utf-8'),
+            })
+            return
+
+        # If project specified, inject it into the request payload
+        if project_name:
+            # Buffer messages and modify before returning the complete body
+            received_messages = []
+            body_modified = False
+            original_receive = receive
+
+            async def receive_wrapper():
+                nonlocal body_modified
+
+                # Receive and buffer the next message
+                message = await original_receive()
+                received_messages.append(message)
+
+                # When we get the complete body, inject project into JSON
+                if message['type'] == 'http.request' and not message.get('more_body', False) and not body_modified:
+                    body_modified = True
+                    try:
+                        import json
+                        # Reconstruct full body from all buffered messages
+                        body_parts = [msg.get('body', b'') for msg in received_messages if msg['type'] == 'http.request']
+                        full_body = b''.join(body_parts)
+                        data = json.loads(full_body)
+
+                        # INJECT project into message.metadata (standard A2A pattern)
+                        if 'params' in data and 'message' in data['params']:
+                            msg_data = data['params']['message']
+                            # Initialize metadata if it doesn't exist
+                            if 'metadata' not in msg_data or msg_data['metadata'] is None:
+                                msg_data['metadata'] = {}
+                            msg_data['metadata']['project'] = project_name
+
+                        # Serialize back to JSON
+                        modified_body = json.dumps(data).encode('utf-8')
+
+                        # Return modified message IMMEDIATELY (before FastA2A processes it)
+                        return {
+                            'type': 'http.request',
+                            'body': modified_body,
+                            'more_body': False
+                        }
+                    except Exception as e:
+                        _PRINTER.print(f"[A2A] Failed to inject project into payload: {e}")
+
+                return message
+
+            receive = receive_wrapper
 
         # Delegate to FastA2A app with cleaned scope
         with self._lock:

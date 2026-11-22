@@ -18,6 +18,8 @@
                     <p style="margin: 0 0 8px 0; color: var(--color-text-secondary); font-size: 14px;">
                         The token used in the URL is automatically generated from your username and password.
                         This same token is also used for external API endpoints. The token changes when you update your credentials.
+                        Instead of putting it in the URL, a client can send it as an <code>Authorization: Bearer &lt;token&gt;</code> header
+                        and use <code>/mcp/sse</code> or <code>/mcp/http/</code>; the project can go in an <code>X-A0-Project</code> header.
                     </p>
                     <div style="margin-top: 8px;">
                         <label style="display: block; margin-bottom: 4px; color: var(--color-text-secondary); font-size: 12px; font-weight: 600;">Token:</label>

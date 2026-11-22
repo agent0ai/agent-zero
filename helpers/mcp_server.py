@@ -7,12 +7,13 @@ from pydantic import Field
 import fastmcp
 from fastmcp import FastMCP
 import contextvars
+import re
 
 from agent import AgentContext, AgentContextType, UserMessage
 from helpers.persist_chat import remove_chat
 from initialize import initialize_agent
 from helpers.print_style import PrintStyle
-from helpers import settings, projects
+from helpers import settings, projects, server_auth
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -24,8 +25,14 @@ import threading
 
 _PRINTER = PrintStyle(italic=True, font_color="green", padding=False)
 
-# Context variable to store project name from URL (per-request)
+# Context variable to store project name from URL or header (per-request)
 _mcp_project_name: contextvars.ContextVar[str | None] = contextvars.ContextVar('mcp_project_name', default=None)
+
+# Proxy route: optional /t-{token} and /p-{project} segments, then the endpoint.
+# The token may instead come from "Authorization: Bearer", the project from X-A0-Project.
+_MCP_ROUTE = re.compile(
+    r"^(?:/t-(?P<token>[^/]+))?(?:/p-(?P<project>[^/]+))?(?P<endpoint>/(?:sse|messages|http)(?:/.*)?)$"
+)
 
 mcp_server: FastMCP = FastMCP(
     name="Agent Zero integrated MCP Server",
@@ -147,19 +154,19 @@ async def send_message(
             # If we continue a conversation, it must be persistent
             persistent_chat = True
 
-            # Validation: if project is in URL but context has different project
+            # Validation: if the request names a project but context has different project
             if project_name:
                 existing_project = context.get_data(projects.CONTEXT_DATA_KEY_PROJECT)
                 if existing_project and existing_project != project_name:
                     return ToolError(
-                        error=f"Chat belongs to project '{existing_project}' but URL specifies '{project_name}'",
+                        error=f"Chat belongs to project '{existing_project}' but the request specifies '{project_name}'",
                         chat_id=chat_id
                     )
     else:
         config = initialize_agent()
         context = AgentContext(config=config, type=AgentContextType.BACKGROUND)
 
-        # Activate project if specified in URL
+        # Activate project if specified in the URL or the X-A0-Project header
         if project_name:
             try:
                 projects.activate_project(context.id, project_name)
@@ -317,9 +324,12 @@ class DynamicMcpProxy:
             return
 
         self.token = token
-        sse_path = f"/t-{self.token}/sse"
-        http_path = f"/t-{self.token}/http"
-        message_path = f"/t-{self.token}/messages/"
+        # The apps serve token-free paths; the proxy authenticates each request and
+        # keeps a URL token in root_path, so the SSE endpoint event points the client
+        # back to the form it connected with (/t-{token}/messages/ or /messages/).
+        sse_path = "/sse"
+        http_path = "/http"
+        message_path = "/messages/"
 
         # Update settings in the MCP server instance if provided
         # Keep FastMCP settings synchronized so downstream helpers that read these
@@ -429,51 +439,49 @@ class DynamicMcpProxy:
         if not sse_app or not http_app:
             raise RuntimeError("MCP apps not initialized")
 
-        # Route based on path
+        # Route based on the path below the /mcp mount
         path = scope.get("path", "")
+        root_path = scope.get("root_path", "")
+        route_path = path[len(root_path):] if root_path and path.startswith(root_path) else path
+        route = _MCP_ROUTE.match(route_path)
+        if not route:
+            raise StarletteHTTPException(status_code=403, detail="MCP forbidden")
 
-        # Check for token in path (with or without project segment)
-        # Patterns: /t-{token}/sse, /t-{token}/p-{project}/sse, etc.
-        has_token = f"/t-{self.token}/" in path or f"t-{self.token}/" in path
+        # Token in the path (/t-{token}/...) or in the Authorization: Bearer header
+        url_token = route.group("token")
+        if url_token is not None:
+            authorized = server_auth.token_matches(url_token, self.token)
+        else:
+            authorized = server_auth.token_matches(
+                server_auth.get_bearer_token(scope), self.token
+            )
+        if not authorized:
+            raise StarletteHTTPException(status_code=403, detail="MCP forbidden")
 
-        # Extract project from path BEFORE cleaning and set in context variable
-        project_name = None
-        if "/p-" in path:
-            try:
-                parts = path.split("/p-")
-                if len(parts) > 1:
-                    project_part = parts[1].split("/")[0]
-                    if project_part:
-                        project_name = project_part
-                        _PRINTER.print(f"[MCP] Proxy extracted project from URL: {project_name}")
-            except Exception as e:
-                _PRINTER.print(f"[MCP] Failed to extract project in proxy: {e}")
+        # Project from the path (/p-{project}/) or the X-A0-Project header
+        try:
+            project_name = server_auth.resolve_project(route.group("project"), scope)
+        except server_auth.RequestRejected as e:
+            raise StarletteHTTPException(status_code=e.status_code, detail=e.detail)
+        if project_name:
+            _PRINTER.print(f"[MCP] Proxy resolved project: {project_name}")
 
         # Store project in context variable (will be available in send_message)
         _mcp_project_name.set(project_name)
 
-        # Strip project segment from path if present (e.g., /p-project_name/)
-        # This is needed because the underlying MCP apps were configured without project paths
-        cleaned_path = path
-        if "/p-" in path:
-            # Remove /p-{project}/ segment: /t-TOKEN/p-PROJECT/sse -> /t-TOKEN/sse
-            import re
-            cleaned_path = re.sub(r'/p-[^/]+/', '/', path)
-
-        # Update scope with cleaned path for the underlying app
+        # Drop the /p-{project} segment; keep a URL token in root_path so the
+        # SSE transport announces /t-{token}/messages/ to URL-token clients and
+        # a token-free /messages/ to header clients.
+        prefix = root_path + (f"/t-{url_token}" if url_token is not None else "")
+        endpoint = route.group("endpoint")
         modified_scope = dict(scope)
-        modified_scope['path'] = cleaned_path
+        modified_scope["root_path"] = prefix
+        modified_scope["path"] = prefix + endpoint
 
-        if has_token and ("/sse" in path or "/messages" in path):
-            # Route to SSE app with cleaned path
+        if endpoint.startswith(("/sse", "/messages")):
             await sse_app(modified_scope, receive, send)
-        elif has_token and "/http" in path:
-            # Route to HTTP app with cleaned path
-            await http_app(modified_scope, receive, send)
         else:
-            raise StarletteHTTPException(
-                status_code=403, detail="MCP forbidden"
-            )
+            await http_app(modified_scope, receive, send)
 
 
 async def mcp_middleware(request: Request, call_next):
