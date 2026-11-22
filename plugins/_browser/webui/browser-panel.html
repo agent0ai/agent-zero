@@ -34,7 +34,7 @@
             <button type="button" class="btn btn-icon-action surface-control" title="Annotate" aria-label="Annotate"
               :aria-pressed="$store.browserPage.annotating.toString()"
               :disabled="!$store.browserPage.canAnnotate() && !$store.browserPage.annotating"
-              @click="$store.browserPage.toggleAnnotationMode()">
+              @click="window.bootstrap?.Tooltip?.getInstance($el)?.hide(); $store.browserPage.toggleAnnotationMode()">
               <x-icon aria-hidden="true"
                 :name="$store.browserPage.annotating ? 'rate_review' : 'edit_note'"></x-icon>
             </button>
