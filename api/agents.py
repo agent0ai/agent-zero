@@ -10,7 +10,7 @@ class Agents(ApiHandler):
             if action == "list":
                 data = subagents.get_all_agents_list()
             else:
-                raise Exception("Invalid action")
+                raise ValueError("Invalid action")
 
             return {
                 "ok": True,
