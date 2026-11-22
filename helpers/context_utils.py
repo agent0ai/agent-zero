@@ -33,4 +33,4 @@ def use_context(lock: ThreadLockType, ctxid: str, create_if_not_exists: bool = T
                 context, projects.get_context_project_name(context)
             )
             return context
-        raise Exception(f"Context {ctxid} not found")
+        raise ValueError(f"Context {ctxid} not found")
