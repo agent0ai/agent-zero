@@ -36,7 +36,7 @@ BUNDLED_ACTIONS = {
     "plugin:_browser:browser": ToolActions((
         "open", "list", "state", "set_active", "navigate", "back", "forward", "reload",
         "content", "detail", "screenshot", "click", "type", "submit", "type_submit",
-        "scroll", "evaluate", "key_chord", "hover", "double_click", "right_click",
+        "scroll", "evaluate", "cdp", "key_chord", "hover", "double_click", "right_click",
         "drag", "wheel", "keyboard", "clipboard", "set_viewport", "select_option",
         "set_checked", "upload_file", "mouse", "multi", "close", "close_all",
     ), default="state", aliases={

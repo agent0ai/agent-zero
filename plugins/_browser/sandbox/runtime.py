@@ -28,6 +28,7 @@ from plugins._browser.helpers.config import (
 )
 from plugins._browser.sandbox.cdp import CDPContext, CDPError, CDPFrame, CDPPage, CDPSession
 from plugins._browser.sandbox.display import BrowserInteractiveView
+from plugins._browser.sandbox.raw_cdp import RawCDPClient
 from plugins._browser.helpers.url import normalize_url
 from plugins._browser.helpers.calls import run_browser_calls, multi_group_key
 
@@ -935,6 +936,8 @@ class _BrowserRuntimeCore:
     async def _dispatch_call(self, call: dict[str, Any]) -> Any:
         action = str(call.get("action") or "").strip().lower().replace("-", "_")
         bid = call.get("browser_id")
+        if action == "cdp":
+            return await self.cdp(bid, call.get("cdp_method"), call.get("params"), call.get("session_id"))
         if action == "open":
             return await self.open(call.get("url") or "", window_id=call.get("window_id"), new_window=bool(call.get("new_window")))
         if action == "screenshot":
@@ -1281,6 +1284,30 @@ class _BrowserRuntimeCore:
         )
         self._maybe_promote(resolved_id)
         return result or {}
+
+    async def cdp(self, browser_id=None, cdp_method=None, params=None, session_id=None):
+        if cdp_method is None:
+            if any(value is not None for value in (browser_id, params, session_id)):
+                raise ValueError("Supply cdp_method to send a command, or omit all arguments to read CDP events")
+            client = self.context.raw_clients.get(self.current_context_id) if self.context else None
+            return client.drain() if client else {"events": [], "remaining": 0, "dropped": 0}
+        if not isinstance(cdp_method, str) or not cdp_method.strip():
+            raise ValueError("cdp_method must be a non-empty protocol method name")
+        if params is not None and not isinstance(params, dict):
+            raise ValueError("CDP params must be a JSON object")
+        if browser_id is not None and session_id is not None:
+            raise ValueError("Choose either browser_id or session_id")
+        await self.ensure_started()
+        target = self._page(self._resolve_browser_id(browser_id)).target_id if browser_id is not None else None
+        context = self.context
+        client = context.raw_clients.get(self.current_context_id)
+        if client is None:
+            client = context.raw_clients[self.current_context_id] = RawCDPClient(context)
+        return await client.send(cdp_method, params, target, session_id)
+
+    async def release_cdp(self):
+        if self.context and (client := self.context.raw_clients.pop(self.current_context_id, None)):
+            await client.close()
 
     async def evaluate(self, browser_id: int | str | None, script: str) -> dict[str, Any]:
         if not isinstance(script, str) or not script.strip():

@@ -3,6 +3,8 @@ name: browser-automation
 description: "Control web pages: tabs, clicks, forms, downloads, screenshots; host or Docker browser."
 triggers:
   - "browser automation"
+  - "Chrome DevTools Protocol"
+  - "CDP"
   - "web automation"
   - "open website"
   - "open URL"
@@ -22,85 +24,41 @@ triggers:
 
 # Browser Tool
 
-Use this skill after the compact `browser` tool prompt points you here. It is the progressive-disclosure workflow guide for rendered pages, multi-step browser work, logins, downloads, JavaScript-heavy sites, screenshots, host/container browser mode, and visual inspection. Prefer the `web-search` skill or `document_query` for plain text research.
+Container is the default mode. Agent Zero controls its Chromium browser through Chrome DevTools Protocol (CDP). The Browser surface shows the same Container tabs used by all Browser actions, including `cdp`. Host Chromium uses the same Browser tool and action arguments.
 
-For fragile forms, load `browser-form-workflows` with `skills_tool:load` before acting when selects, checkboxes, radios, file uploads, contenteditable fields, validation, or final submission state are central to the task.
+Use this progressive-disclosure workflow guide for rendered browsing. When the user asks for "my browser", use the Browser tool in Host mode. If the selected browser is unavailable, report the setup it requests. For an existing page, match its title or URL in `list` and use that `browser_id`. Open a tab with `open` and `url` when needed. Container tabs and windows are shared across chats.
 
-## Core Workflow
+## Read and interact
 
-1. `open` creates a browser tab and returns a `browser_id`.
-2. `content` returns readable markdown plus typed refs like `[link 3]`, `[button 6]`, `[input text 8]`.
-3. Interact with refs using `click`, `type`, `submit`, `scroll`, etc.; iframe/shadow targets may return frame-chain metadata in action results.
-4. Use `navigate` on an existing `browser_id` for serial browsing.
-5. Close only tabs you created for the task. In the container, `close_all` closes tabs across all chats.
-6. If the user asks for an existing tab, page title, or already-open URL, call `list` first, match by title or URL, then use `set_active` or `navigate` on that `browser_id` instead of opening a new tab.
+1. Use `content` for readable text and element refs, optionally narrowed by `selector`. Use `click` or `type` with a fresh `ref` or `selector`. Refresh content after a document change.
+2. Use `evaluate` with `script` for a page expression or function. This action applies the configured deadline and reports timeout recovery, including any reload.
+3. Use `screenshot` for a visual record. Pass the returned `vision_load.tool_args.paths` to `vision_load`. Use `upload_file` with a file input ref or selector and `path` or `paths`. For Container file transfers, optional `destination` selects Agent Zero's local, sandbox, or host filesystem. Host uploads use the connector's shared folder with Files read access. Saving an explicit host screenshot path uses Files write access.
+4. For uploads, validation and fragile controls, load `browser-form-workflows` with `skills_tool:load` (`skill_name: "browser-form-workflows"`).
+5. If the tool's action list omits `cdp`, use `skills_tool:read_file` with `skill_name: "browser-automation"` and `file_path: "references/browser-controls.md"` for the available controls and Host setup.
 
-## Modes
+## Chrome DevTools Protocol
 
-When the user asks for "my browser", "host browser", "local browser", a local Chromium browser, or opening a URL in their host browser, use this `browser` tool. Do not substitute `computer_use_remote`, `code_execution_tool` with `destination: host`, `xdg-open`, `sensible-browser`, or Python `webbrowser.open`. If setup fails and mentions remote debugging, tell the user to open the browser inspect page, such as `chrome://inspect/#remote-debugging` or `opera://inspect/#remote-debugging`, enable "Allow remote debugging for this browser instance", run `/browser host on`, and retry.
+The built-in actions above use CDP on Chromium. Call `cdp` directly for advanced input, navigation on an existing tab, emulation, diagnostics and DevTools events. On the host, Browser access grants DevTools control of the selected Chromium profile.
 
-The same tool may run in Docker container mode or A0 CLI host-browser mode, depending on project/plugin settings.
+| Task | Browser tool arguments |
+| --- | --- |
+| Read browser version | `{"action":"cdp","cdp_method":"Browser.getVersion"}` |
+| Navigate tab 1 | `{"action":"cdp","browser_id":1,"cdp_method":"Page.navigate","params":{"url":"https://example.com"}}` |
+| Focus tab 1 | `{"action":"cdp","browser_id":1,"cdp_method":"Page.bringToFront"}` |
+| Enable console events | `{"action":"cdp","browser_id":1,"cdp_method":"Runtime.enable"}` |
+| Read queued events | `{"action":"cdp"}` |
+| Close your own tab | `{"action":"cdp","browser_id":1,"cdp_method":"Page.close"}` |
 
-- Container mode: browser and upload paths resolve inside the Agent Zero container.
-- Host mode: upload files from the connected host's shared folder with Files read access. Saving a screenshot to that folder requires write access. A screenshot for the chat only needs Browser access.
+Use the real tab ID from `open` or `list`. A navigation acknowledgement can precede the new document. Check its URL and expected content before acting. For event-driven waits, enable the relevant domain before the triggering action and read events until the expected notification arrives.
 
-## Screenshots And Vision
+Omit IDs for a browser command. For another target, use `Target.getTargets`, then `Target.attachToTarget` with `{"targetId":"…","flatten":true}`. Pass its `result.sessionId` as `session_id` on subsequent calls. Supply either `browser_id` or `session_id`. A reply contains the native `result` and the issuing `session_id`. State and event subscriptions persist across calls on that session. Event reads include `remaining` and `dropped`; drain while more events remain and disable noisy domains when finished.
 
-Screenshots are explicit only; the browser does not automatically load images into model context.
+### Read a network response body
 
-1. Call `browser` with `action: "screenshot"`.
-2. Call `vision_load` with the returned `vision_load.tool_args.paths` value.
-3. Reason from the latest loaded screenshot.
-
-Screenshot args include `quality`, `full_page`, and optional `path`. Without `path`, the screenshot is saved as a chat-scoped artifact and returned through `vision_load.tool_args.paths`; with `path`, PNG is used when `path` ends with `.png`, otherwise JPEG is used.
-
-## Forms And Files
-
-- `select_option` works for native selects and detectable ARIA listbox/combobox controls; pass one choice via `value` or several via `values`.
-- `set_checked` works for checkbox, radio, switch, and toggle-like refs; pass the desired state via `checked`.
-- `upload_file` works for file input `path` or multiple `paths`, file input refs or associated labels; verify files exist in the active browser environment.
-- For fragile forms, call `skills_tool` with `action: "load"` and `skill_name: "browser-form-workflows"`, then follow that form-specific workflow before filling or submitting.
-
-## Pointer And Keyboard
-
-- Prefer refs/selectors and DOM/CDP actions over viewport coordinates.
-- Interaction targets use `ref` from the latest `content` output; `hover`, `double_click`, `right_click`, and `drag` also accept viewport coordinates when no reliable ref exists.
-- Coordinates are Chromium viewport CSS pixels and match screenshots; treat them as visual fallback, not the default interaction path.
-- Coordinate args: `x`/`y` position the pointer; `drag` adds destination `to_x`/`to_y` or destination `target_ref`; element-relative offsets use `offset_x`/`offset_y` and drag `target_offset_x`/`target_offset_y`.
-- `mouse` sends raw pointer input with `event_type` (default `click`) plus `x`/`y` and `button`.
-- `click` with `modifiers` (e.g. `"Control"`) alters the click; `focus_popup: true` targets an auto-registered popup window.
-- `key_chord` presses `keys` in order and releases in reverse; `keyboard` types `text` or presses a single `key`.
-- `content` narrows extraction via `selector` or a list of `selectors`.
-- `evaluate` runs JavaScript in the page via `script` and returns the evaluated result.
-- Browser settings set the evaluate deadline (default 30 seconds, range 0.1–60 seconds); there is no tool-call timeout override. A timeout interrupts JavaScript in place and preserves the page when execution stops. If async execution remains pending, recovery may reload the affected tab, losing unsaved DOM edits; cookies and tab storage normally survive. The error explicitly reports a reload or fallback closure; use `list` before retrying a closed tab. Host evaluation requires an updated connector; Safari rejects it because its backend cannot forcibly interrupt JavaScript.
-- `wheel` scrolls by pixel deltas `delta_x`/`delta_y` at `x`/`y`.
-- `clipboard` actions are copy, cut, or paste, chosen via `clipboard_action`; paste inserts `text`.
-- `set_viewport` resizes the page viewport via `width` and `height`.
-- `navigate` takes the destination `url` on an existing `browser_id`.
-
-## Tabs And Popups
-
-- Popups and target-blank tabs are auto-registered.
-- In the container, `list` returns `active_tab` and `windows`, each with `window_id`, `selected_tab`, and `tabs` (browser_id, title, url). Tabs created by people and other chats are included. Pass `include_content: true` sparingly.
-- Call `set_active` with a window ID or a browser ID. Call `open` with a URL and optional `window_id`, or `new_window: true`. Resolve IDs from a fresh list after Chromium restarts.
-- `set_active` deliberately changes focus.
-- Operations on a non-active tab do not steal focus unless browser rules require it.
-
-## Browser Action Multi
-
-`multi` is only a browser action, never a top-level tool. Use:
+Enable durable response storage on the tab before triggering the request. Chromium's default renderer buffer can miss an unread response body, even when `Network.responseReceived` and `Network.dataReceived` arrive.
 
 ```json
-{
-  "tool_name": "browser",
-  "tool_args": {
-    "action": "multi",
-    "calls": [
-      {"action": "content", "browser_id": 1},
-      {"action": "screenshot", "browser_id": 2}
-    ]
-  }
-}
+{"action":"cdp","browser_id":1,"cdp_method":"Network.enable","params":{"enableDurableMessages":true,"maxTotalBufferSize":8388608}}
 ```
 
-Use browser action `multi` for parallel reads across tabs. Avoid mutating the same tab twice in one batch unless serial order is intended.
+Drain events with `{"action":"cdp"}`. Match `Network.responseReceived` by URL and pass its `params.requestId` to `Network.getResponseBody` on the same session. Wait for the body to arrive. An unread body can produce `Network.dataReceived` without `Network.loadingFinished`. Disable `Network` when done.

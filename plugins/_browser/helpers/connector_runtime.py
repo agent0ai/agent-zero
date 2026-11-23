@@ -10,15 +10,7 @@ from typing import Any
 
 from helpers import chat_media, media_artifacts
 
-try:
-    from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
-except Exception:
-    class ConnectionNotFoundError(RuntimeError):
-        pass
-
-    def get_shared_ws_manager():
-        raise ConnectionNotFoundError("WebSocket manager is unavailable")
-
+from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_browser_op,
     emit_connector_event,
@@ -29,6 +21,7 @@ from plugins._a0_connector.helpers.ws_runtime import (
     store_pending_browser_op,
 )
 from plugins._browser.helpers import config as browser_config
+from plugins._browser.helpers.config import get_browser_config
 from plugins._browser.helpers.url import normalize_url
 from plugins._browser.helpers.calls import run_browser_calls
 
@@ -39,17 +32,6 @@ EVALUATE_CANCEL_TIMEOUT_SECONDS = 20.0
 DOM_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-page-content.js"
 MAX_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
-HOST_BROWSER_PROFILE_MODE_KEY = getattr(
-    browser_config,
-    "HOST_BROWSER_PROFILE_MODE_KEY",
-    "host_browser_profile_mode",
-)
-HOST_BROWSER_SELECTION_KEY = getattr(
-    browser_config,
-    "HOST_BROWSER_SELECTION_KEY",
-    "host_browser_selection",
-)
-get_browser_config = browser_config.get_browser_config
 _KEY_ALIASES = {
     "cmd": "Meta",
     "command": "Meta",
@@ -89,22 +71,6 @@ _REMOTE_DEBUGGING_ERROR_TOKENS = (
 )
 
 
-def _stable_host_browser_selection(selection: Any, metadata: Any) -> str:
-    selected = str(selection or "").strip()
-    if not selected or not isinstance(metadata, dict):
-        return selected
-    candidates = list(metadata.get("available_browsers") or [])
-    candidates.append(metadata)
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            continue
-        endpoint = str(candidate.get("cdp_endpoint") or "").strip()
-        browser_id = str(candidate.get("id") or candidate.get("browser_id") or "").strip()
-        if endpoint == selected and browser_id:
-            return browser_id
-    return selected
-
-
 class ConnectorBrowserRuntime:
     def __init__(self, context_id: str, agent: Any):
         self.context_id = str(context_id or "").strip()
@@ -120,8 +86,6 @@ class ConnectorBrowserRuntime:
             "op_id": str(uuid.uuid4()),
             "context_id": self.context_id,
             "action": action,
-            "profile_mode": self._host_browser_profile_mode(),
-            "browser_selection": self._host_browser_selection(),
         }
 
         if action == "open":
@@ -150,6 +114,9 @@ class ConnectorBrowserRuntime:
         elif action == "evaluate":
             payload["browser_id"] = args[0] if args else None
             payload["script"] = args[1] if len(args) > 1 else ""
+        elif action == "cdp":
+            payload.update(zip(("browser_id", "cdp_method", "params", "session_id"), args))
+            payload.update(kwargs)
         elif action == "click":
             payload["browser_id"] = args[0] if args else None
             payload["ref"] = args[1] if len(args) > 1 else None
@@ -273,33 +240,32 @@ class ConnectorBrowserRuntime:
             return await run_browser_calls(payload.get("calls"), self._dispatch_call)
         if payload.get("window_id") is not None or payload.get("new_window"):
             raise ValueError("Window selection is available in the container browser.")
+        config = get_browser_config(self.agent)
         if payload.get("action") == "evaluate":
             script = payload.get("script")
             if not isinstance(script, str) or not script.strip():
                 raise ValueError("evaluate requires a non-empty 'script' string")
             payload[browser_config.EVALUATE_TIMEOUT_KEY] = browser_config.normalize_evaluate_timeout(
-                get_browser_config(self.agent).get(
-                    browser_config.EVALUATE_TIMEOUT_KEY, browser_config.DEFAULT_EVALUATE_TIMEOUT_SECONDS
-                )
+                config.get(browser_config.EVALUATE_TIMEOUT_KEY, browser_config.DEFAULT_EVALUATE_TIMEOUT_SECONDS)
             )
-        payload.setdefault("profile_mode", self._host_browser_profile_mode())
+        payload["profile_mode"] = config.get(browser_config.HOST_BROWSER_PROFILE_MODE_KEY, "existing")
+        payload["browser_selection"] = config.get(browser_config.HOST_BROWSER_SELECTION_KEY, "")
         sid = self._select_sid()
         if not sid:
             statuses = host_browser_metadata_for_context(self.context_id)
             raise RuntimeError(self._host_browser_unavailable_message(statuses))
-        payload["browser_selection"] = self._host_browser_selection(sid)
 
         if self._needs_prepare(sid, payload):
             await self._send_browser_op(
                 sid,
-                self._with_content_helper(
+                self._with_browser_helpers(
                     sid,
                     {
                         "op_id": str(uuid.uuid4()),
                         "context_id": self.context_id,
                         "action": "ensure",
-                        "profile_mode": self._host_browser_profile_mode(),
-                        "browser_selection": self._host_browser_selection(sid),
+                        "profile_mode": payload["profile_mode"],
+                        "browser_selection": payload["browser_selection"],
                     },
                 ),
             )
@@ -315,28 +281,6 @@ class ConnectorBrowserRuntime:
             "context_id": self.context_id,
             "op_id": str(uuid.uuid4()),
         })
-
-    def _host_browser_profile_mode(self) -> str:
-        config = get_browser_config(self.agent)
-        mode = str(config.get(HOST_BROWSER_PROFILE_MODE_KEY) or "existing").strip().lower()
-        return "agent" if mode == "agent" else "existing"
-
-    def _host_browser_selection(self, sid: str = "") -> str:
-        config = get_browser_config(self.agent)
-        selection = str(config.get(HOST_BROWSER_SELECTION_KEY) or "").strip()
-        if sid:
-            return _stable_host_browser_selection(
-                selection,
-                host_browser_metadata_for_sid(sid),
-            )
-        for metadata in host_browser_metadata_for_context(self.context_id):
-            stable = _stable_host_browser_selection(selection, metadata)
-            if stable != selection:
-                return stable
-        return selection
-
-    def _with_content_helper(self, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._with_browser_helpers(sid, payload)
 
     def _with_browser_helpers(self, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
         metadata = host_browser_metadata_for_sid(sid) or {}
@@ -359,15 +303,6 @@ class ConnectorBrowserRuntime:
 
     async def _send_browser_op(self, sid: str, payload: dict[str, Any]) -> Any:
         action = payload.get("action")
-        features = (host_browser_metadata_for_sid(sid) or {}).get("features") or []
-        if action == "evaluate" and "evaluate_timeout_v1" not in features:
-            raise RuntimeError(
-                "Host evaluate requires a connector with evaluate_timeout_v1 support. "
-                "Update A0 CLI/Launcher or use the Internal Docker browser; no script was sent."
-            )
-        if action == "upload_file" or (action in {"screenshot", "screenshot_file"} and payload.get("path")):
-            if "browser_file_scopes_v1" not in features:
-                raise RuntimeError("Update A0 CLI or Launcher to use shared-folder paths in the host browser.")
         op_id = str(payload["op_id"])
         loop = asyncio.get_running_loop()
         future: asyncio.Future[dict[str, Any]] = loop.create_future()
@@ -385,6 +320,8 @@ class ConnectorBrowserRuntime:
         )
         if payload.get("action") == "cancel_evaluate":
             wait_timeout = EVALUATE_CANCEL_TIMEOUT_SECONDS
+        if action == "release_cdp":
+            wait_timeout = 5.0
 
         async def exchange():
             await emit_connector_event(
@@ -432,12 +369,7 @@ class ConnectorBrowserRuntime:
                     response.get("error") or "Host browser operation failed"
                 )
             )
-        result = response.get("result")
-        if action in {"close", "close_browser"}:
-            # Older connectors returned every remaining tab after a successful close.
-            closed = result.get("closed") if isinstance(result, dict) else None
-            return {"closed": closed or payload.get("browser_id") or True}
-        return result
+        return response.get("result")
 
     async def _cancel_evaluate(self, sid: str, op_id: str) -> None:
         cleanup = asyncio.create_task(self._send_browser_op(sid, {
@@ -463,6 +395,13 @@ class ConnectorBrowserRuntime:
             select_host_browser_target_sid(self.context_id)
             or select_host_browser_candidate_sid(self.context_id)
         )
+
+    async def release_cdp(self) -> None:
+        for peer in host_browser_metadata_for_context(self.context_id):
+            if peer.get("enabled"):
+                await self._send_browser_op(peer["sid"], {
+                    "action": "release_cdp", "context_id": self.context_id, "op_id": str(uuid.uuid4()),
+                })
 
     def _needs_prepare(self, sid: str, payload: dict[str, Any]) -> bool:
         action = str(payload.get("action") or "").strip().lower().replace("-", "_")

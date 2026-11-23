@@ -59,7 +59,7 @@
 - Keep plugin README and docs current when user-visible plugin behavior changes.
 - Check configuration before injecting setup or discovery banners so configured plugins do not keep advertising setup.
 - Use highly unique banner IDs prefixed by plugin name.
-- Browser tool prompts must preserve the existing-tab workflow: when a user refers to an already-open URL, tab, or page title, guide agents to `list` and then `set_active` or `navigate` by `browser_id` instead of blindly opening a new tab.
+- Browser tool prompts must preserve the existing-tab workflow: when a user refers to an already-open URL, tab, or page title, guide agents to `list` and reuse the matching `browser_id` for interaction, navigation or focus.
 - When preparing community plugins, keep plugin contents at the standalone repository root with `plugin.yaml`, `README.md`, and a root `LICENSE`.
 - Plugin Index submissions use a separate `index.yaml` under `a0-plugins/plugins/<name>/`; do not confuse it with runtime `plugin.yaml`.
 

@@ -23,7 +23,7 @@ from plugins._browser.helpers.selector import get_tool_runtime
 HISTORY_SCREENSHOT_QUALITY = 62
 BROWSER_STARTUP_HINT = "Running the web browser for the first time will take a little while to install dependencies."
 HISTORY_SCREENSHOT_ACTION_DENYLIST = {
-    "close", "close_all", "list", "state", "content", "detail", "evaluate",
+    "close", "close_all", "list", "state", "content", "detail", "evaluate", "cdp",
 }
 
 
@@ -76,6 +76,9 @@ class Browser(Tool):
         height: int = 0,
         calls: list[dict[str, Any]] | None = None,
         *,
+        cdp_method: str | None = None,
+        params: dict[str, Any] | None = None,
+        session_id: str | None = None,
         window_id: int | None = None,
         new_window: bool = False,
         **kwargs: Any,
@@ -209,6 +212,8 @@ class Browser(Tool):
                 )
             elif action == "evaluate":
                 result = await runtime.call("evaluate", browser_id, script)
+            elif action == "cdp":
+                result = await runtime.call("cdp", browser_id, cdp_method, params, session_id)
             elif action in {"key_chord", "keychord"}:
                 if not keys:
                     raise ValueError("key_chord requires non-empty 'keys' list")
@@ -476,6 +481,7 @@ class Browser(Tool):
         "set_checked": "Toggling",
         "upload_file": "Uploading",
         "evaluate": "Evaluating",
+        "cdp": "Using DevTools",
         "key_chord": "Pressing",
         "keyboard": "Typing",
         "mouse": "Moving pointer",

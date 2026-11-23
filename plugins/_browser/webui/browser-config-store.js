@@ -111,24 +111,6 @@ function isCustomHostBrowserEndpoint(value) {
   return Boolean(normalizeCustomHostBrowserEndpoint(value));
 }
 
-function stableHostBrowserSelection(value, status) {
-  const selection = normalizeHostBrowserSelection(value);
-  if (!selection) return "";
-  const connectors = Array.isArray(status?.connectors) ? status.connectors : [];
-  for (const connector of connectors) {
-    const candidates = [
-      ...(Array.isArray(connector?.available_browsers) ? connector.available_browsers : []),
-      connector,
-    ];
-    for (const candidate of candidates) {
-      const endpoint = normalizeCustomHostBrowserEndpoint(candidate?.cdp_endpoint);
-      const browserId = normalizeHostBrowserSelection(candidate?.id || candidate?.browser_id);
-      if (endpoint && endpoint === selection && browserId) return browserId;
-    }
-  }
-  return selection;
-}
-
 function normalizeBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;
@@ -267,8 +249,8 @@ export const store = createStore("browserConfig", {
         : [];
       for (const browser of advertised) {
         const endpoint = normalizeCustomHostBrowserEndpoint(browser?.cdp_endpoint);
-        const browserId = normalizeHostBrowserSelection(browser?.id || browser?.browser_id);
-        const family = normalizeHostBrowserSelection(browser?.family || browser?.browser_family);
+        const browserId = normalizeHostBrowserSelection(browser?.id);
+        const family = normalizeHostBrowserSelection(browser?.family);
         const value = endpoint
           ? browserId || endpoint
           : family === "safari" ? browserId : "";
@@ -277,15 +259,6 @@ export const store = createStore("browserConfig", {
         const label = browser?.label || hostBrowserFamilyLabel(browser?.family || value);
         const status = browser?.status ? ` - ${hostBrowserStatusLabel(browser.status)}` : "";
         options.push({ value, label: `${label}${status}` });
-      }
-      const fallbackEndpoint = normalizeCustomHostBrowserEndpoint(connector?.cdp_endpoint);
-      const fallbackValue = fallbackEndpoint
-        ? normalizeHostBrowserSelection(connector?.browser_id) || fallbackEndpoint
-        : "";
-      if (fallbackValue && !seen.has(fallbackValue)) {
-        seen.add(fallbackValue);
-        const label = connector?.browser_label || hostBrowserFamilyLabel(connector?.browser_family || fallbackValue);
-        options.push({ value: fallbackValue, label });
       }
     }
     const selected = normalizeHostBrowserSelection(this.config?.host_browser_selection);
@@ -357,18 +330,6 @@ export const store = createStore("browserConfig", {
     try {
       const response = await callJsonApi(BROWSER_STATUS_API, {});
       this.hostBrowserStatus = response?.host_browser || { connectors: [] };
-      const safeConfig = ensureConfig(this.config);
-      if (safeConfig) {
-        const stable = stableHostBrowserSelection(
-          safeConfig.host_browser_selection,
-          this.hostBrowserStatus,
-        );
-        if (stable !== safeConfig.host_browser_selection) {
-          safeConfig.host_browser_selection = stable;
-          this.hostBrowserCustomEndpoint = "";
-          this.hostBrowserCustomMode = false;
-        }
-      }
     } catch (_error) {
       this.hostBrowserStatus = { connectors: [] };
     } finally {
@@ -394,7 +355,7 @@ export const store = createStore("browserConfig", {
       console.error("Failed to open host browser setup:", error);
       notificationStore.addFrontendToastOnly(
         "error",
-        "Connect or update Launcher or A0 CLI, enable host Browser access, and try again.",
+        "Connect Launcher or A0 CLI and select an installed host browser.",
         "Could not open browser setup",
         7,
       );

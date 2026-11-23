@@ -37,10 +37,7 @@ from plugins._text_editor.helpers.patch_request import (
 FILE_OP_TIMEOUT = 30.0
 FILE_OP_EVENT = "connector_file_op"
 REMOTE_FILE_TEXT_MAX_BYTES = 256 * 1024
-UNSUPPORTED_FRESHNESS_ERROR = (
-    "host text editor: the connected CLI is too old for freshness-aware patching. "
-    "Upgrade the CLI and try again."
-)
+UNSUPPORTED_FRESHNESS_ERROR = "host text editor: could not verify file state before patching."
 
 
 def _modification_payload_bytes(op: str, payload: dict[str, Any]) -> int:

@@ -1472,10 +1472,7 @@ def resolve_pending_file_op(
             _pending_file_ops,
             op_id,
             sid=sid,
-            error=(
-                "Legacy chunked file results are not supported. Upgrade the CLI so it "
-                "can negotiate transfer_protocol=1."
-            ),
+            error="Invalid file result. Chunked transfers require transfer_protocol=1.",
         )
     return _resolve_pending(_pending_file_ops, op_id, sid=sid, payload=payload)
 

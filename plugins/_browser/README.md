@@ -2,7 +2,7 @@
 
 The internal browser controls full Chromium over a private DevTools pipe and displays it through Tuxee’s minimal Xvnc in an on-demand child sandbox. Every chat sees the same Chromium windows and tabs. Use the Browser header to switch windows or open another one. Within each window, use Chromium’s own tabs, address bar and settings. DuckDuckGo is the initial homepage and can be changed in Chromium.
 
-The agent can call `list` to find a tab you opened, then select its `browser_id`. It can also open a tab in a specific `window_id` or request a new window. Resetting a chat preserves the shared browser. Bring Your Own Browser uses the host connector.
+The agent can call `list` to find a tab you opened, then select its `browser_id`. It can also open a tab in a specific `window_id` or request a new window. Resetting a chat preserves the shared browser. Bring Your Own Browser uses the host connector. On Chromium, enabling Browser in Host Access grants the same raw CDP commands and events as Container mode. Screenshots and uploads also retain their Agent Zero artifact and file handling.
 
 PRoot presents the internal browser as root, so the guest launches Chromium with
 `--no-sandbox`. Chromium’s renderer sandbox is disabled. A managed policy inside
@@ -15,10 +15,7 @@ See the [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md) for
 lifecycle, sharing, upgrade behavior and runtime requirements.
 
 Browser logins and settings live in `usr/plugins/_browser/profile`, alongside the
-persistent user data. First use migrates an existing `tmp/browser/sessions` profile.
-When switching an old full `/a0` mount to `/a0/usr`, run the updated Browser once
-before recreating the container, or copy the old `tmp/browser/sessions/shared`
-folder to `usr/plugins/_browser/profile` while Browser is stopped.
+persistent user data.
 
 Launch reports six numbered stages: preparing the sandbox, installing dependencies,
 installing Chromium, starting the display, launching Chromium, and preparing tabs /
@@ -105,13 +102,6 @@ python -m helpers.sandbox exec service-browser sh -ec '
     mv -Tf "$entry.next" "$entry"
 ' sh /absolute/guest/path/to/chrome
 ```
-
-**Offline v3 upgrades.** Setup reuses the stable entry point. On a direct
-upgrade it adopts a single completed full Chromium from the earlier v3 guest
-cache before looking for `chromium` on `PATH`. If your guest has several
-cached builds, or you keep a standalone build elsewhere, record **Executable
-Path** from `chrome://version` before updating and use the selection command
-above. A fully provisioned guest can then start offline.
 
 Open Browser again. In `chrome://version`, check the new version and the profile
 path under `usr/plugins/_browser/profile`. Verify the saved browser state you

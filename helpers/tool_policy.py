@@ -341,40 +341,45 @@ def filter_tool_prompt(agent: Any, prompt_file: str, prompt: str) -> str:
 
 def filter_tool_prompts(
     agent: Any, prompts: list[tuple[str, str]],
-    *, _policy: dict[str, Any] | None = None,
+    *, _policy: dict[str, Any] | None = None, action_enums: dict[str, list[str]] | None = None,
 ) -> list[str]:
     policy = _policy if _policy is not None else get_policy(agent)
-    if policy["mode"] != "custom":
-        return [prompt for _prompt_file, prompt in prompts]
+    if policy["mode"] == "custom":
+        known_names = _policy_tool_names(agent, policy)
+        prompt_names = {
+            name for prompt_file, prompt in prompts
+            for name in _prompt_tool_names(prompt_file, prompt, known_names)
+        }
+        allowed_names = {name for name in known_names | prompt_names
+                         if resolve_tool(agent, name, _policy=policy).allowed}
+        filtered = [_filter_tool_prompt(file, prompt, known_names, allowed_names) for file, prompt in prompts]
+        names = prompt_names & allowed_names
+    else:
+        filtered = [prompt for _, prompt in prompts]
+        known_names = {"browser"}
+        names = {"browser"} if any(_prompt_name(file) == "browser" for file, _ in prompts) else set()
 
-    known_names = _policy_tool_names(agent, policy)
-    prompt_names = {
-        name
-        for prompt_file, prompt in prompts
-        for name in _prompt_tool_names(prompt_file, prompt, known_names)
-    }
-    allowed_names = {
-        name
-        for name in known_names | prompt_names
-        if resolve_tool(agent, name, _policy=policy).allowed
-    }
-    filtered = [
-        _filter_tool_prompt(prompt_file, prompt, known_names, allowed_names)
-        for prompt_file, prompt in prompts
-    ]
-    for name in sorted(prompt_names & allowed_names):
+    for name in sorted(names):
         spec = get_tool_actions(agent, name)
         actions = allowed_tool_actions(agent, name, _policy=policy) if spec else None
-        if spec and actions is not None and len(actions) < len(spec.actions):
+        if spec and actions is not None:
+            if name == "browser":
+                from plugins._browser.helpers.config import model_actions
+
+                actions = model_actions(agent, actions)
+            if action_enums is not None:
+                action_enums[name] = actions
+            if name != "browser" and len(actions) == len(spec.actions):
+                continue
             for index, (prompt_file, prompt) in enumerate(prompts):
                 if filtered[index] and name in _prompt_tool_names(
                     prompt_file, prompt, known_names
                 ):
-                    filtered[index] += (
-                        f"\nPermitted {name} actions for this agent: "
-                        + ", ".join(actions)
-                        + f". All other {name} actions are blocked.\n"
-                    )
+                    if actions:
+                        suffix = "." if name == "browser" else f". All other {name} actions are blocked."
+                        filtered[index] += f"\nPermitted {name} actions for this agent: " + ", ".join(actions) + suffix + "\n"
+                    else:
+                        filtered[index] = ""
     return filtered
 
 

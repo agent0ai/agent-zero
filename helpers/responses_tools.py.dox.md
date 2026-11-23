@@ -23,6 +23,7 @@
 - Code execution, terminal input, the text editor, vision, document queries, and browser file actions expose a destination argument. The execution schema omits the framework-owned `allow_running` input flag.
 - Native local descriptions preserve full policy-filtered operational guidance. Convert unfenced and JSON-fenced A0 envelope examples to argument-only examples using the shared tool-request parser; preserve unrelated JSON and non-JSON code fences. Catalog summaries remain separate.
 - Web search is skill/CLI-owned and has no bundled function-tool schema.
+- Native Browser calls share the text prompt's scoped action list, with the CDP method, arbitrary parameter object, tab ID and attached session ID available for protocol calls.
 - Preserve original Agent Zero tool names through the native Responses name map.
 - Keep MCP tool schemas merged after local prompt-derived tools.
 - Apply `helpers.tool_policy` before emitting local or MCP schemas; a blocked

@@ -103,6 +103,15 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
     },
     "plugins/_browser/tools/browser.py": {
         "action": {"type": "string"},
+        "browser_id": {"anyOf": [{"type": "integer"}, {"type": "string"}]},
+        "url": {"type": "string"},
+        "selector": {"type": "string"},
+        "ref": {"anyOf": [{"type": "integer"}, {"type": "string"}]},
+        "text": {"type": "string"},
+        "script": {"type": "string"},
+        "cdp_method": {"type": "string"},
+        "params": {"type": "object", "additionalProperties": True},
+        "session_id": {"type": "string"},
         "destination": {"type": "string"},
         "path": {"type": "string"},
         "paths": {"type": "array", "items": {"type": "string"}},
@@ -153,23 +162,32 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
     policy = tool_policy.get_policy(agent)
 
     local_prompts = _local_tool_prompts(agent)
+    action_enums: dict[str, list[str]] = {}
     descriptions = tool_policy.filter_tool_prompts(
         agent,
         [(f"{TOOL_PROMPT_PREFIX}{name}{TOOL_PROMPT_SUFFIX}", prompt) for name, prompt in local_prompts],
-        _policy=policy,
+        _policy=policy, action_enums=action_enums,
     )
     for (tool_name, prompt), description in zip(local_prompts, descriptions):
-        if not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
+        if action_enums.get(tool_name) == [] or not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
             continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
         parameters = _schema_for_tool(agent, tool_name, prompt)
         if spec := tool_policy.get_tool_actions(agent, tool_name):
-            actions = tool_policy.allowed_tool_actions(agent, tool_name, _policy=policy)
+            actions = action_enums.get(tool_name)
+            if actions is None:
+                actions = tool_policy.allowed_tool_actions(agent, tool_name, _policy=policy)
             if actions is not None:
                 parameters.setdefault("properties", {})[spec.argument] = {
                     "type": "string", "enum": actions
                 }
+                if tool_name == "browser":
+                    for action, fields in (("multi", ("calls",)), ("evaluate", ("script",)),
+                                           ("cdp", ("cdp_method", "params", "session_id"))):
+                        if action not in actions:
+                            for field in fields:
+                                parameters["properties"].pop(field, None)
         tools.append(
             {
                 "type": "function",

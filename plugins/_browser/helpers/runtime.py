@@ -11,9 +11,7 @@ from typing import Any
 from helpers import files, kvp
 from helpers.defer import DeferredTask
 from helpers.print_style import PrintStyle
-from plugins._browser.helpers.calls import run_browser_calls  # Compatibility export.
 from plugins._browser.helpers.sandbox import BrowserConnection
-from plugins._browser.helpers.url import normalize_url  # Compatibility export.
 
 SHARED_RUNTIME_ID = 'shared'
 BROWSER_TABS_KEY = 'browser_open_tabs'
@@ -198,7 +196,15 @@ async def close_runtime(context_id: str, *, delete_profile: bool = True) -> None
         return
     # A chat owns its RPC handle. Chromium windows can be in use by other chats.
     with _runtime_lock:
-        _runtimes.pop(context_id, None)
+        session = _runtimes.pop(context_id, None)
+    if session:
+        await session.call("release_cdp")
+    try:
+        from plugins._browser.helpers.connector_runtime import ConnectorBrowserRuntime
+
+        await ConnectorBrowserRuntime(context_id, None).release_cdp()
+    except Exception as exc:
+        PrintStyle.warning(f"Host DevTools cleanup failed for {context_id}: {exc}")
 
 
 def close_runtime_sync(context_id: str, *, delete_profile: bool = True) -> None:

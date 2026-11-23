@@ -44,9 +44,6 @@ a0
 4. If Agent Zero is somewhere else, enter its web address.
 5. Open or create a chat and confirm you can talk to Agent Zero from the host machine.
 
-> [!NOTE]
-> If A0 CLI says connector support is missing, update Agent Zero first.
-
 ### Connection picker
 
 On launch, A0 CLI opens a host picker. If it finds Agent Zero on this machine,
@@ -290,7 +287,7 @@ Set up the A0 CLI connector for Agent Zero on this machine using the setup-a0-cl
 - **Nothing appears locally:** Enter the Agent Zero web address manually or export `AGENT_ZERO_HOST`.
 - **You tried to install from inside Docker:** A0 CLI belongs on the host machine. Agent Zero stays in Docker.
 - **Function keys do nothing:** Some terminals and IDEs capture function keys. Use `Ctrl+P`.
-- **A0 CLI says connector support is missing:** Update Agent Zero.
+- **A0 CLI says connector support is missing:** Check the instance URL and enable the builtin A0 Connector plugin.
 - **Host browser says repair is needed:** Run `/browser repair`.
 - **Host browser waits for relaunch:** Close the selected Chrome, Edge, or Chromium profile and run `/browser relaunch`.
 

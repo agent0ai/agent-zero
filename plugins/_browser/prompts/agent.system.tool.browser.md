@@ -1,19 +1,7 @@
 ### browser
 
-For internal uploads and named screenshots, `destination` selects the file location (`default`, a named sandbox, `host`, or `local`). The connected browser accepts uploads from its own host. Omit destination to keep the browser's usual path handling.
-Rendered browser automation for pages that need interaction, JavaScript, forms, downloads, screenshots, or visual inspection.
+Use the selected browser for rendered pages, interaction, files, and DevTools. The `cdp` action and the other Browser actions work on the same browser. For plain text research prefer the web-search skill or document_query.
 
-Prefer the `web-search` skill or `document_query` for plain text research. The tool must not open a Browser surface automatically. Use the tool headlessly unless the user opens the Browser surface or asks for the optional visible WebUI viewer.
+For rendered browsing, first load `browser-automation` with `skills_tool:load`. For fragile forms, `browser-automation` links to `browser-form-workflows`. Use the actions listed for this chat.
 
-For rendered browsing workflows, multi-step interaction, screenshots, downloads, uploads, forms, or host/container mode decisions, first load `browser-automation` with `skills_tool:load`, then call this tool using the loaded instructions. For fragile forms, `browser-automation` links to `browser-form-workflows`; load it when selects, checkboxes, radios, uploads, contenteditable fields, validation, or submission state are central.
-
-Actions: tabs `open`, `list`, `state`, `set_active`, `navigate`, `back`, `forward`, `reload`, `close`, `close_all`; inspect `content`, `detail`, `screenshot`; interact `click`, `hover`, `double_click`, `right_click`, `drag`, `type`, `submit`, `type_submit`, `scroll`, `select_option`, `set_checked`, `upload_file`; advanced `evaluate`, `key_chord`, `mouse`, `wheel`, `keyboard`, `clipboard`, `set_viewport`, `multi`.
-
-Rules:
-- Container `list` returns shared Chromium windows and tabs. `set_active` takes `browser_id` or `window_id`. `open` takes `window_id` or `new_window: true`.
-- If the user asks for an existing tab, page title, or already-open URL, call `list` first, match by title or URL, then use `set_active` or `navigate` on that `browser_id`.
-- Prefer DOM/CDP actions: use refs from the latest `content`, including frame-chain refs, or same-page `selector`; use coordinates only when refs/selectors are unavailable or the user explicitly asks for visual manual control.
-- Screenshots are explicit only; the browser does not automatically load screenshots. Call `vision_load` with the returned `vision_load.tool_args.paths` value before reasoning visually.
-- Close only tabs you created for this task.
-- `multi` is only a browser action: use `tool_name: "browser"` with `tool_args.action: "multi"`. Never use `tool_name: "multi"`.
-- `evaluate` requires `script`: a JavaScript expression or function whose result is returned. Browser settings bound execution; timeout recovery may reload the tab.
+For an existing tab, list tabs first and reuse its `browser_id`. Ground interactions in fresh page refs or a selector. Close only tabs you created. The browser does not automatically load screenshots. Use `vision_load` with the returned `vision_load.tool_args.paths` before reasoning visually.

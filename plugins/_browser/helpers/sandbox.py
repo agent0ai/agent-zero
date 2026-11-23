@@ -224,6 +224,10 @@ class BrowserConnection:
         from plugins._browser.helpers.config import get_browser_config
         from agent import AgentContext
         from plugins._browser.helpers.runtime import has_restorable_browser_tabs
+        if method == 'release_cdp':
+            if self.process and self.process.returncode is None:
+                await self.request(method, context_id, [], {})
+            return
         if not self.process and method in {'list', 'list_windows'} and not has_restorable_browser_tabs(context_id):
             return {'active_tab': None, 'windows': []} if method == 'list_windows' else {'browsers': [], 'last_interacted_browser_id': None}
         await self.start(context_id)

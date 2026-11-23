@@ -158,9 +158,7 @@ from plugins._browser.helpers.extension_manager import (
 import plugins._browser.helpers.extension_manager as browser_extension_manager_module
 from plugins._browser.sandbox.runtime import BrowserPage, _BrowserRuntimeCore, _BrowserScreencast
 from plugins._browser.helpers.sandbox import BrowserConnection, upload_request
-from plugins._browser.helpers.runtime import (
-    normalize_url,
-)
+from plugins._browser.helpers.url import normalize_url
 import plugins._browser.helpers.runtime as browser_runtime_module
 from plugins._browser.sandbox.display import BrowserInteractiveView
 import plugins._browser.sandbox.display as browser_interactive_view_module
@@ -338,7 +336,7 @@ def test_browser_config_normalizes_host_browser_selection():
     )
 
 
-def test_browser_config_store_lists_supported_host_targets_and_migrates_endpoint():
+def test_browser_config_store_lists_supported_host_targets_and_preserves_custom_endpoint():
     path = PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-config-store.js"
     source = path.read_text(encoding="utf-8")
     source = re.sub(r"^import .*;\n", "", source, flags=re.M)
@@ -384,7 +382,7 @@ def test_browser_config_store_lists_supported_host_targets_and_migrates_endpoint
         + source
         + f"\nstore.config = ensureConfig({{ host_browser_selection: {json.dumps(endpoint)} }});\n"
         + "await store.loadHostBrowserStatus();\n"
-        + "if (store.config.host_browser_selection !== 'chrome-cdp') throw new Error('legacy endpoint was not migrated');\n"
+        + f"if (store.config.host_browser_selection !== {json.dumps(endpoint)}) throw new Error('custom endpoint changed');\n"
         + "const values = store.hostBrowserOptions().map((option) => option.value);\n"
         + "if (!values.includes('chrome-cdp')) throw new Error('stable browser id is missing');\n"
         + "if (!values.includes('safari:default')) throw new Error('Safari WebDriver id is missing');\n"
@@ -395,8 +393,6 @@ def test_browser_config_store_lists_supported_host_targets_and_migrates_endpoint
         + "if (store.hostBrowserSetupAvailable('edge')) throw new Error('missing Edge setup is visible');\n"
         + "browserStatus.connectors[0].available_browsers.push({ family: 'edge-dev-a0' });\n"
         + "if (!store.hostBrowserSetupAvailable('edge')) throw new Error('installed Edge Dev setup is hidden');\n"
-        + "const custom = 'ws://localhost:9333/devtools/browser/custom';\n"
-        + "if (stableHostBrowserSelection(custom, browserStatus) !== custom) throw new Error('custom endpoint changed');\n"
         + "store.config.extension_paths = ['/scoped/extension'];\n"
         + "store.applyExtensionPayload({ extension_paths: ['/global/extension'], extensions: [] });\n"
         + "if (store.config.extension_paths[0] !== '/scoped/extension') throw new Error('refresh replaced scoped or unsaved extensions');\n"
@@ -1221,7 +1217,7 @@ def test_transient_ui_layers_above_modals_below_confirm_dialogs():
     assert all(z < confirm_z for z in [toast_z, *tooltip_z_indexes])
 
 
-def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
+def test_browser_tool_prompt_keeps_shared_browser_workflow():
     prompt = (
         PROJECT_ROOT / "plugins" / "_browser" / "prompts" / "agent.system.tool.browser.md"
     ).read_text(encoding="utf-8")
@@ -1237,21 +1233,20 @@ def test_browser_tool_does_not_auto_open_canvas_policy_is_documented():
         PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-config-store.js"
     ).read_text(encoding="utf-8")
 
-    assert "must not open a Browser surface automatically" in prompt
-    assert "Use the tool headlessly unless the user opens the Browser surface" in prompt
-    assert "optional visible WebUI viewer" in prompt
+    assert "The `cdp` action and the other Browser actions work on the same browser." in prompt
+    assert "headless" not in prompt
     assert "screenshot" in prompt
     assert "vision_load" in prompt
-    assert "select_option" in prompt
-    assert "set_checked" in prompt
-    assert "upload_file" in prompt
+    assert "select_option" not in prompt and "set_checked" not in prompt
     assert "browser-form-workflows" in prompt
     assert "first load `browser-automation` with `skills_tool:load`" in prompt
     assert "`browser-automation` links to `browser-form-workflows`" in prompt
     assert "does not automatically load screenshots" in prompt
     browser_skill = (PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md").read_text(encoding="utf-8")
-    assert "chrome://inspect/#remote-debugging" in browser_skill
-    assert "opera://inspect/#remote-debugging" in browser_skill
+    assert "references/browser-controls.md" in browser_skill
+    controls = (PROJECT_ROOT / "plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text()
+    assert "chrome://inspect/#remote-debugging" in controls
+    assert "opera://inspect/#remote-debugging" in controls
     assert tokens.approximate_tokens(prompt) <= 650
     assert "already open" in config
     assert "already-open Browser surface" in config_html

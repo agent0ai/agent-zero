@@ -620,11 +620,13 @@ def test_host_browser_requests_route_to_browser_tool_not_desktop_or_shell_fallba
     assert "computer_use_remote" not in browser_prompt
     assert "code_execution_remote" not in browser_prompt
     assert 'When the user asks for "my browser"' in browser_skill
-    assert "Do not substitute `computer_use_remote`" in browser_skill
-    assert "code_execution_tool" in browser_skill
-    assert "Python `webbrowser.open`" in browser_skill
-    assert "chrome://inspect/#remote-debugging" in browser_skill
-    assert "opera://inspect/#remote-debugging" in browser_skill
+    assert "references/browser-controls.md" in browser_skill
+    controls = (PROJECT_ROOT / "plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text()
+    assert "Do not substitute `computer_use_remote`" in controls
+    assert "code_execution_tool" in controls
+    assert "Python `webbrowser.open`" in controls
+    assert "chrome://inspect/#remote-debugging" in controls
+    assert "opera://inspect/#remote-debugging" in controls
     assert "Do not start `computer_use_remote` for web-page navigation" in computer_skill
     assert (
         "Do not fall back to `code_execution_tool` with `destination: host`, `xdg-open`, `sensible-browser`, "

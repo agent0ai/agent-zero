@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,10 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from plugins._a0_connector.helpers import ws_runtime
 from plugins._browser.helpers import connector_runtime as connector_runtime_module
-from plugins._browser.helpers.connector_runtime import (
-    ConnectorBrowserRuntime,
-    _stable_host_browser_selection,
-)
+from plugins._browser.helpers.connector_runtime import ConnectorBrowserRuntime
 
 
 def _agent(context_id: str = "ctx-host"):
@@ -32,7 +28,6 @@ def evaluate_bridge(monkeypatch):
     ws_runtime.subscribe_sid_to_context(sid, context_id)
     ws_runtime.store_sid_host_browser_metadata(sid, {
         "supported": True, "enabled": True, "status": "ready",
-        "features": ["evaluate_timeout_v1"],
     })
     monkeypatch.setattr(connector_runtime_module, "get_browser_config", lambda agent=None: {
         "evaluate_timeout_seconds": 0.1,
@@ -45,32 +40,47 @@ def evaluate_bridge(monkeypatch):
         ws_runtime.unregister_sid(sid)
 
 
+def test_host_browser_registration_replaces_or_clears_the_protocol_on_hello():
+    from plugins._a0_connector.api.ws_connector import WsConnector
+
+    sid, context_id = "browser-contract-sid", "browser-contract-context"
+    ws_runtime.register_sid(sid)
+    ws_runtime.subscribe_sid_to_context(sid, context_id)
+    handler = WsConnector(None, None)
+    try:
+        advertisement = {"supported": True, "enabled": True, "status": "ready"}
+        for version in (3, None, 3, 2):
+            metadata = dict(advertisement)
+            if version is not None:
+                metadata["contract_version"] = version
+            handler._store_remote_tool_metadata({"host_browser": metadata}, sid)
+            expected = sid if version == 3 else None
+            assert ws_runtime.select_host_browser_candidate_sid(context_id) == expected
+            assert ws_runtime.select_host_browser_target_sid(context_id) == expected
+    finally:
+        ws_runtime.unregister_sid(sid)
+
+
 @pytest.mark.asyncio
-async def test_old_connector_only_receives_pathless_screenshots_and_close(monkeypatch, evaluate_bridge):
-    runtime, sid = evaluate_bridge
+async def test_host_browser_sends_cdp_and_scoped_file_operations(monkeypatch, evaluate_bridge):
+    runtime, _ = evaluate_bridge
     sent = []
 
     async def emit(sid, event, payload, **kwargs):
-        sent.append(payload["action"])
-        if payload["action"] in {"close", "close_browser"}:
-            result = {"browsers": [{"id": 9, "title": "Unrelated tab"}]}
-        else:
-            result = {"ephemeral": True}
+        sent.append(payload)
+        result = {"closed": payload["browser_id"]} if payload["action"] == "close" else {}
         ws_runtime.resolve_pending_browser_op(payload["op_id"], sid=sid, payload={"ok": True, "result": result})
 
     monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
-    results = await runtime.call("multi", [
+    await runtime.call("cdp", None, "Browser.getVersion", None, None)
+    await runtime.call("multi", [
         {"action": "upload_file", "browser_id": 1, "ref": 2, "path": "note.txt"},
         {"action": "screenshot", "browser_id": 1, "path": "note.png"},
-        {"action": "screenshot", "browser_id": 1},
-        {"action": "close", "browser_id": 1},
-        {"action": "multi", "calls": [{"action": "close-browser", "browser_id": 2}]},
     ])
-    assert all("Update A0 CLI" in item["error"] for item in results[:2])
-    assert [item["result"] for item in results[2:]] == [
-        {"ephemeral": True}, {"closed": 1}, [{"ok": True, "result": {"closed": 2}}],
-    ]
-    assert sorted(sent) == ["close", "close_browser", "screenshot"]
+    assert await runtime.call("close_browser", 1) == {"closed": 1}
+    assert [p["action"] for p in sent] == ["cdp", "upload_file", "screenshot", "close"]
+    assert sent[0]["cdp_method"] == "Browser.getVersion"
+    assert [p["path"] for p in sent[1:3]] == ["note.txt", "note.png"]
 
 
 @pytest.mark.asyncio
@@ -133,27 +143,6 @@ async def test_host_evaluate_transport_cancellation_requires_ack(
     assert len(payloads) == 2
     assert not ws_runtime._pending_browser_ops
     assert not (asyncio.all_tasks() - before)
-
-
-@pytest.mark.asyncio
-async def test_host_evaluate_legacy_peer_fails_per_call_without_execution(monkeypatch, evaluate_bridge):
-    runtime, sid = evaluate_bridge
-    monkeypatch.setattr(connector_runtime_module, "host_browser_metadata_for_sid", lambda sid: {
-        "enabled": True, "status": "ready", "features": [],
-    })
-    emitted = []
-
-    async def emit(sid, event, payload, **kwargs):
-        emitted.append(payload["action"])
-        ws_runtime.resolve_pending_browser_op(payload["op_id"], sid=sid, payload={"ok": True, "result": {"id": 1}})
-
-    monkeypatch.setattr(connector_runtime_module, "emit_connector_event", emit)
-    results = await runtime.call("multi", [
-        {"action": "evaluate", "script": "1+1"}, {"action": "state", "browser_id": 1},
-    ])
-    assert results[0]["ok"] is False and "evaluate_timeout_v1" in results[0]["error"]
-    assert results[1]["ok"] is True
-    assert emitted == ["state"]
 
 
 @pytest.mark.asyncio
@@ -225,48 +214,24 @@ def test_host_browser_metadata_selection_is_context_scoped():
         ws_runtime.unregister_sid(sid)
 
 
-def test_connector_runtime_uses_stable_id_for_advertised_legacy_endpoint(monkeypatch):
-    sid = "sid-host-browser-stable"
-    context_id = "ctx-host-browser-stable"
-    endpoint = "ws://localhost:9222/devtools/browser/old-guid"
-    metadata = {
-        "supported": True,
-        "enabled": True,
-        "status": "ready",
-        "browser_family": "chrome-cdp",
-        "browser_id": "chrome-cdp",
-        "cdp_endpoint": endpoint,
-        "available_browsers": [
-            {
-                "id": "chrome-cdp",
-                "family": "chrome-cdp",
-                "label": "Chrome (allowed)",
-                "cdp_endpoint": endpoint,
-            }
-        ],
-        "features": ["ensure", "open"],
-    }
-    monkeypatch.setattr(
-        connector_runtime_module,
-        "get_browser_config",
-        lambda agent=None: {
-            "host_browser_profile_mode": "existing",
-            "host_browser_selection": endpoint,
-        },
-    )
-    ws_runtime.register_sid(sid)
-    ws_runtime.subscribe_sid_to_context(sid, context_id)
-    try:
-        ws_runtime.store_sid_host_browser_metadata(sid, metadata)
-        runtime = ConnectorBrowserRuntime(context_id, _agent(context_id))
-
-        assert runtime._payload_for_call("open", "example.com")["browser_selection"] == "chrome-cdp"
-        assert _stable_host_browser_selection(
-            "ws://localhost:9333/devtools/browser/custom",
-            metadata,
-        ) == "ws://localhost:9333/devtools/browser/custom"
-    finally:
-        ws_runtime.unregister_sid(sid)
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode,selection", [
+    ("agent", "chrome-cdp"),
+    ("existing", "ws://localhost:9222/devtools/browser/CaseSensitive"),
+])
+async def test_connector_uses_configured_host_profile_for_single_and_batch_calls(monkeypatch, evaluate_bridge, mode, selection):
+    runtime, _ = evaluate_bridge
+    monkeypatch.setattr(connector_runtime_module, "get_browser_config", lambda agent: {
+        "host_browser_profile_mode": mode, "host_browser_selection": selection,
+    })
+    send = AsyncMock(return_value={})
+    monkeypatch.setattr(runtime, "_send_browser_op", send)
+    await runtime.call("list")
+    await runtime.call("multi", [{"action": "list", "profile_mode": "other", "browser_selection": "other"}])
+    assert send.await_count == 2
+    for call in send.await_args_list:
+        payload = call.args[1]
+        assert (payload["profile_mode"], payload["browser_selection"]) == (mode, selection)
 
 
 def test_host_browser_candidate_selection_allows_disabled_supported_cli():
@@ -322,8 +287,8 @@ def test_host_browser_candidate_selection_allows_preparable_cli():
 
 
 def test_host_browser_metadata_requires_explicit_preparation_capability():
-    sid = "sid-host-browser-legacy-preparable"
-    context_id = "ctx-host-browser-legacy-preparable"
+    sid = "sid-host-browser-not-preparable"
+    context_id = "ctx-host-browser-not-preparable"
     ws_runtime.register_sid(sid)
     ws_runtime.subscribe_sid_to_context(sid, context_id)
     try:
@@ -429,22 +394,6 @@ def test_host_browser_setup_api_dispatches_to_connected_cli(monkeypatch):
     asyncio.run(run())
 
 
-def test_connector_runtime_tolerates_legacy_config_module(monkeypatch):
-    import plugins._browser.helpers.config as browser_config
-    import plugins._browser.helpers.connector_runtime as connector_runtime_module
-
-    original = getattr(browser_config, "HOST_BROWSER_PROFILE_MODE_KEY", None)
-    monkeypatch.delattr(browser_config, "HOST_BROWSER_PROFILE_MODE_KEY", raising=False)
-
-    reloaded = importlib.reload(connector_runtime_module)
-
-    assert reloaded.HOST_BROWSER_PROFILE_MODE_KEY == "host_browser_profile_mode"
-
-    if original is not None:
-        monkeypatch.setattr(browser_config, "HOST_BROWSER_PROFILE_MODE_KEY", original, raising=False)
-    importlib.reload(connector_runtime_module)
-
-
 def test_connector_runtime_normalizes_host_navigation_payloads(monkeypatch):
     import plugins._browser.helpers.connector_runtime as connector_runtime_module
 
@@ -496,21 +445,7 @@ def test_connector_runtime_normalizes_host_navigation_payloads(monkeypatch):
     assert multi_payload["calls"][4]["keys"] == ["Control", "A"]
     assert multi_payload["calls"][5]["calls"][0]["url"] == "https://nested.example/"
     assert multi_payload["calls"][6] == {"action": "content", "browser_id": 1}
-    assert open_payload["profile_mode"] == "existing"
     assert runtime._payload_for_call("key_chord", 1, "CTRL+A")["keys"] == ["Control", "A"]
-
-
-def test_connector_runtime_forwards_host_profile_mode(monkeypatch):
-    import plugins._browser.helpers.connector_runtime as connector_runtime_module
-
-    monkeypatch.setattr(
-        connector_runtime_module,
-        "get_browser_config",
-        lambda agent=None: {"host_browser_profile_mode": "agent"},
-    )
-    runtime = ConnectorBrowserRuntime("ctx-host", _agent("ctx-host"))
-
-    assert runtime._payload_for_call("open", "example.com")["profile_mode"] == "agent"
 
 
 def test_connector_runtime_adds_remote_debugging_help_to_cdp_errors():

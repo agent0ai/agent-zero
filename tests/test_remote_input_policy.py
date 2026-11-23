@@ -210,6 +210,21 @@ async def test_remote_input_still_requires_host_grants(remote_input, gate):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("denied", [LEGACY_EXEC_ID, f"{LEGACY_EXEC_ID}:reset"])
+async def test_host_output_with_reset_checks_saved_execution_permissions(remote_input, denied):
+    state = remote_input
+    args = {"runtime": "output", "reset": True, "destination": "host"}
+    tool = code_execution_tool.CodeExecution(state.agent, "code_execution_tool", None, args, "", None)
+    await EnforceToolPolicy(state.agent).execute(tool_name=tool.name, tool_args=args)
+    await tool.execute()
+    state.policy["blocked"].append(denied)
+    with pytest.raises(RepairableException, match="blocks code_execution_remote"):
+        await tool.execute()
+    [(event, payload)] = state.manager.calls
+    assert event == "connector_exec_op" and payload["runtime"] == "output" and payload["reset"] is True
+
+
+@pytest.mark.asyncio
 async def test_remote_execution_ignores_model_supplied_allow_running(remote_input):
     state = remote_input
     tool = code_execution_tool.CodeExecution(

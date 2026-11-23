@@ -34,8 +34,8 @@
 - Missing policy inherits standard access. A custom policy records independent
   defaults for local/plugin tools and canonical MCP tools; explicit allowed or
   blocked IDs take precedence over either default.
-- Inherited prompt policy returns tool text unchanged without inventorying or
-  resolving individual tools; only custom policy pays the filtering cost.
+- Browser `cdp` follows the normal tool and action rules. A profile with an allow default can block an individual Browser action and still use CDP.
+- Inherited prompt policy skips the full tool inventory. The bundled Browser prompt receives its scoped action list in both inherited and custom modes.
 - The `response` capability is a framework-required invariant: profile policy
   cannot disable it, and the editor does not list it as a configurable tool.
 - `vision_load` remains owned by the active chat model's vision configuration;
@@ -47,7 +47,7 @@
 - Moved bundled tools honor their saved core IDs; behavior adjustment honors its old plugin/spelling ID. Matching legacy IDs remain editable in the catalog while their replacement is available. Explicit blocks win across both IDs; unrelated profile overrides retain their own identity.
 - Unified memory checks both its tool-wide ID and the corresponding legacy action ID. Without an action, discovery exposes memory if any action is allowed; execution checks the requested action through `ensure_tool_allowed`. Legacy memory names stay action-specific, and a tool-wide block also blocks those aliases.
 - All registered bundled multi-action tools check whole-tool and action IDs with explicit-block precedence. Discovery exposes a tool when any action is allowed; execution supplies `tool_args` (including an empty dict) to resolve defaults and compound operations. Omitting both arguments and action is a discovery query, never an execution check.
-- `allowed_tool_actions` supplies the allowed enum to native schemas and the permitted-action note to textual prompts. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
+- `allowed_tool_actions` resolves action permissions. Browser discovery projects them onto the selected browser's capabilities. Native schemas reuse the same action list rendered in text. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that

@@ -75,7 +75,7 @@ async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action,calls,capture", [
-    *[(action, None, False) for action in ("list", "state", "content", "detail", "evaluate", "close", "close_all")],
+    *[(action, None, False) for action in ("list", "state", "content", "detail", "evaluate", "cdp", "close", "close_all")],
     ("multi", [{"action": "content"}, {"action": "evaluate", "script": "document.title"}], False),
     ("multi", [{"action": "content"}, {"action": "click", "ref": 1}], True),
     ("screenshot", None, True),

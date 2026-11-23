@@ -18,6 +18,59 @@ def anyio_backend():
 
 
 @pytest.mark.anyio
+async def test_agent_cdp_commands_sessions_events_and_chat_cleanup(native_page):
+    core = _BrowserRuntimeCore("first")
+    core.context = native_page.context
+    tab = (await core._register_page(native_page)).id
+    version = await core.cdp(cdp_method="Browser.getVersion")
+    assert version["result"]["protocolVersion"]
+    inspector = await core.cdp(tab, "Runtime.enable")
+    sid = inspector["session_id"]
+    assert sid != version["session_id"]
+    batch = await core.multi([
+        {"action": "cdp", "browser_id": tab, "cdp_method": "Page.getLayoutMetrics"},
+        {"action": "cdp", "session_id": sid, "cdp_method": "Runtime.evaluate",
+         "params": {"expression": "console.info('agent-cdp'); 6 * 7", "returnByValue": True}},
+    ])
+    assert batch[0]["result"]["result"]["cssLayoutViewport"]["clientWidth"] > 0
+    assert batch[1]["result"]["result"]["result"]["value"] == 42
+    token = core.request_context_id.set("second")
+    assert (await core.cdp())["events"] == []
+    with pytest.raises(ValueError, match="Unknown CDP session"):
+        await core.cdp(cdp_method="Runtime.enable", session_id=sid)
+    second = await core.cdp(tab, "DOM.getDocument", {"depth": 0})
+    core.request_context_id.reset(token)
+    events = (await core.cdp())["events"]
+    assert any(e["method"] == "Runtime.consoleAPICalled" and e["sessionId"] == sid
+               and e["params"]["args"][0]["value"] == "agent-cdp" for e in events)
+    assert not (await core.cdp())["events"]
+    nested = await core.cdp(cdp_method="Target.attachToTarget", params={
+        "targetId": native_page.target_id, "flatten": True,
+    })
+    child = nested["result"]["sessionId"]
+    assert (await core.cdp(cdp_method="Page.getFrameTree", session_id=child))["result"]["frameTree"]
+    with pytest.raises(CDPError, match="wasn't found"):
+        await core.cdp(tab, "MissingDomain.unknownCommand")
+    await core.release_cdp()
+    assert sid not in core.context.raw_sessions and child not in core.context.raw_sessions
+    assert second["session_id"] in core.context.raw_sessions
+    assert (await core.state(tab))["title"] == "Browser fixture"
+
+
+def test_agent_cdp_buffer_reports_lost_events(monkeypatch):
+    from plugins._browser.sandbox.raw_cdp import RawCDPClient
+
+    client = RawCDPClient(None)
+    monkeypatch.setattr(client, "MAX_BYTES", 8)
+    for sequence, size in enumerate([4, 4, 1, 9]):
+        client.receive({"method": "Page.loadEventFired", "params": {"n": sequence}}, size)
+    read = client.drain()
+    assert [event["params"]["n"] for event in read["events"]] == [1, 2]
+    assert read["dropped"] == 2 and read["remaining"] == client.size == 0
+    assert client.drain()["dropped"] == 0
+
+
+@pytest.mark.anyio
 async def test_captured_controls_resolve_for_native_browser_actions(native_page):
     page = native_page
     await page.evaluate("""() => {

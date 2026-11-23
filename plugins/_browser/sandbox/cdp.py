@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from plugins._browser.sandbox.cdp_input import Keyboard, Mouse
+from plugins._browser.sandbox.raw_cdp import RawCDPClient
 
 
 _SHUTDOWN_GRACE_SECONDS = 5
@@ -48,6 +49,8 @@ class CDPContext:
         self.proxy = proxy
         self._auth_attempts = deque(maxlen=256)
         self.sessions: dict[str, CDPSession] = {}
+        self.raw_clients: dict[str, RawCDPClient] = {}
+        self.raw_sessions: dict[str, RawCDPClient] = {}
         self.targets: dict[str, CDPPage] = {}
         self.handlers = {}
         self.pending: dict[int, tuple[str | None, asyncio.Future]] = {}
@@ -145,7 +148,11 @@ class CDPContext:
                         else:
                             pending[1].set_result(message.get("result", {}))
                     continue
-                self._event(message)
+                client = self.raw_sessions.get(message.get("sessionId"))
+                if client is not None:
+                    client.receive(message, len(data))
+                else:
+                    self._event(message)
         except (asyncio.IncompleteReadError, ConnectionError):
             pass
         except (ValueError, KeyError, asyncio.LimitOverrunError):
@@ -154,6 +161,8 @@ class CDPContext:
             self.closed = True
             self._fail_requests()
             self.sessions.clear()
+            self.raw_sessions.clear()
+            self.raw_clients.clear()
             for page in self.targets.values():
                 page._closed()
             self.targets.clear()
@@ -202,6 +211,8 @@ class CDPContext:
             self._notify()
         elif event == "Target.detachedFromTarget":
             session_id = params["sessionId"]
+            if client := self.raw_sessions.get(session_id):
+                client.detached(session_id)
             self.sessions.pop(session_id, None)
             self._fail_requests(session_id)
         else:

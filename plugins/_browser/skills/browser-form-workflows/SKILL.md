@@ -20,12 +20,8 @@ triggers:
 
 Use this skill as the form-specific extension of `browser-automation`. Load it after, or alongside, `browser-automation` when the page state may depend on selects, checkboxes, radios, file uploads, contenteditable fields, validation, or visual confirmation.
 
-Start with `browser:content` to capture current refs, then use `browser:detail` on ambiguous fields before acting. Prefer ref-based form actions before coordinates.
+Start with `browser:content` and use fresh refs or a selector to identify fields. Use `click` and `type` on those fields. Read a checkbox's current state before clicking it. For native selects or validation, inspect the control and its value with `evaluate`. Chromium trusted keyboard input is available through CDP `Input.dispatchKeyEvent`. Use `upload_file` for a file input with a verified file path.
 
-Use `select_option`, `set_checked`, `upload_file`, `type`, `type_submit`, and `submit` for form interaction. Use coordinates only when no stable ref exists or the UI is intentionally canvas-like.
+Click the identified submit control once. Verify the resulting confirmation or validation message with `content`. Use `browser:screenshot` plus `vision_load` when layout or visual state matters.
 
-Use `browser:screenshot` plus `vision_load` when layout, visual validation, captcha-like UI, canvas content, or hidden state matters. Browser screenshots are not automatically loaded into model-visible history; no-path screenshots return chat-scoped artifact paths for `vision_load`.
-
-Verify after submission with `browser:content`, `browser:state`, or another explicit `browser:screenshot` plus `vision_load`.
-
-Do not guess file paths for upload. Verify that every path exists before calling `upload_file`.
+When the direct `cdp` action is unavailable, read the browser controls reference in `browser-automation`. Use `select_option` or `set_checked` when listed.

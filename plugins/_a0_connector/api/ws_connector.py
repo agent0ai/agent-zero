@@ -358,7 +358,8 @@ class WsConnector(WsHandler):
             store_sid_computer_use_metadata(sid, computer_use)
         else:
             clear_sid_computer_use_metadata(sid)
-        if isinstance(host_browser, dict):
+        # Admit the scoped Browser protocol once, before any path or script can be sent.
+        if isinstance(host_browser, dict) and host_browser.get("contract_version") == 3:
             store_sid_host_browser_metadata(sid, host_browser)
         else:
             clear_sid_host_browser_metadata(sid)

@@ -884,7 +884,7 @@ def test_tool_prompts_prevent_top_level_multi_tool():
     communication_prompt = Path("prompts/agent.system.main.communication.md").read_text(
         encoding="utf-8"
     )
-    browser_prompt = Path("plugins/_browser/prompts/agent.system.tool.browser.md").read_text(
+    browser_reference = Path("plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text(
         encoding="utf-8"
     )
 
@@ -893,7 +893,7 @@ def test_tool_prompts_prevent_top_level_multi_tool():
     assert "run independent tool calls concurrently" in parallel_prompt
     assert "never an action name such as `read`, `write`, `terminal`, or `multi`" in communication_prompt
     assert "independent operations concurrently" not in communication_prompt
-    assert 'Never use `tool_name: "multi"`' in browser_prompt
+    assert '"tool_name":"browser","tool_args":{"action":"multi"' in browser_reference
 
 
 def test_local_model_tool_use_guide_stays_prompt_profile_plugin_only():

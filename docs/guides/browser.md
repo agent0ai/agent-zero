@@ -1,6 +1,8 @@
 # Browser Guide
 
-Agent Zero has a built-in Browser for real web pages.
+Agent Zero v3 uses Chrome DevTools Protocol (CDP) by default to control
+Chromium in **Container** mode. **Host** mode uses the same Browser tool and
+CDP actions when you connect a Chromium browser through Launcher or A0 CLI.
 
 Use it for research, forms, screenshots, UI review, downloads, extensions, and
 anything else that works best in a browser.
@@ -12,8 +14,9 @@ The Browser has two connected parts:
 - **The Browser tool:** the agent can browse even when the Browser surface is not open.
 - **The Browser surface:** The right-side Canvas panel where you can watch and interact with the live Docker browser.
 
-The Browser surface does not open automatically every time the agent browses.
-Open it when you want to watch, steer, or annotate the page.
+To watch, steer, or annotate the page, open **Browser** in the Canvas or choose
+**Open Browser** on a Browser tool result. The surface shows the same Container
+tabs the agent uses for every Browser action, including `cdp`.
 
 ## Open The Browser Surface
 
@@ -33,48 +36,24 @@ You can ask naturally:
 Use the Browser tool to open https://example.com, read the page content, and take a screenshot. Keep the response short.
 ```
 
-The agent can:
+Both Chromium modes offer the same nine actions with the default permissions.
 
-- open pages;
-- read page content;
-- click links and buttons;
-- type into forms;
-- upload files;
-- take screenshots.
+| Actions | What the agent uses them for |
+| --- | --- |
+| `open`, `list` | Open or find tabs and get their Agent Zero tab IDs. |
+| `content`, `click`, `type` | Read page text and act on element references such as `[button 2]` or `[input text 3]`. |
+| `evaluate` | Run page JavaScript with a time limit and recovery if it stalls. |
+| `screenshot`, `upload_file` | Save an image the agent can inspect with `vision_load` or upload a file through Agent Zero's file handling. |
+| `cdp` | Send DevTools commands and receive events such as console messages. |
 
-When a page is read, Agent Zero gets simple references such as `[link 1]`,
-`[button 2]`, or `[input text 3]`. It can use those references to act on the
-right part of the page.
+The built-in actions run over CDP on Chromium. They give the agent shortcuts
+for common tasks and connect browser results to the rest of Agent Zero.
 
-<details>
-<summary>Advanced Browser actions</summary>
-
-```text
-list
-state
-set_active
-navigate
-back
-forward
-reload
-hover
-double_click
-right_click
-drag
-scroll
-evaluate
-key_chord
-mouse
-wheel
-keyboard
-clipboard
-set_viewport
-multi
-close
-close_all
-```
-
-</details>
+In **Host access**, enabling **Browser** grants DevTools control of the selected
+Chromium profile, including its signed-in tabs and browser-level operations.
+The file upload and named screenshot actions also honor the connector's Files
+permissions. In Agent Editor, **Browser → Cdp** controls direct DevTools calls.
+The agent sees the actions available to its profile and browser.
 
 ![Browser tool history](../res/usage/browser/browser-tool-history-expanded.png)
 
@@ -228,7 +207,6 @@ See [MCP Setup](mcp-setup.md) for MCP setup.
 ## Troubleshooting
 
 - **Browser says Chromium is missing:** Choose **Open Browser** in the Browser panel. An empty guest needs network access to install Chromium.
-- **The Browser surface does not open automatically:** That is expected. Open the Browser surface manually or ask the agent to show it.
 - **The Canvas does not follow the agent:** Enable **Autofocus active page** in Browser settings.
 - **Bring Your Own Browser cannot start:** Keep A0 CLI connected, verify **Host** is selected in the Browser settings menu, and check `/browser status` in A0 CLI.
 

@@ -214,6 +214,26 @@ def get_browser_config(agent: "Agent | None" = None) -> dict[str, Any]:
     return normalize_browser_config(plugins.get_plugin_config(PLUGIN_NAME, agent=agent) or {})
 
 
+def model_actions(agent: "Agent", allowed: list[str]) -> list[str]:
+    """Project executable actions onto the vocabulary of the selected browser."""
+    config = get_browser_config(agent)
+    if config.get(RUNTIME_BACKEND_KEY) == "host_required":
+        selected = config.get(HOST_BROWSER_SELECTION_KEY)
+        if not selected:
+            from plugins._a0_connector.helpers import ws_runtime
+
+            sid = (ws_runtime.select_host_browser_target_sid(agent.context.id)
+                   or ws_runtime.select_host_browser_candidate_sid(agent.context.id))
+            if sid:
+                selected = (ws_runtime.host_browser_metadata_for_sid(sid) or {}).get("browser_family")
+        if str(selected).lower().split(":")[0] == "safari":
+            return [action for action in allowed if action not in {"cdp", "evaluate"}]
+    if "cdp" not in allowed:
+        return allowed
+    return [a for a in ("open", "list", "content", "click", "type", "evaluate",
+                        "screenshot", "upload_file", "cdp") if a in allowed]
+
+
 def get_browser_model_preset_name(
     agent: "Agent | None" = None,
     settings: dict[str, Any] | None = None,
