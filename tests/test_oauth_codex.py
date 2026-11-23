@@ -1270,6 +1270,25 @@ def test_codex_provider_reports_dummy_api_key_when_connected(monkeypatch):
     assert data["result"] == DUMMY_API_KEY
 
 
+def test_codex_model_key_lookup_uses_local_auth_without_fetching_usage(tmp_path, monkeypatch):
+    path = tmp_path / "auth.json"
+    monkeypatch.setattr(codex, "resolve_auth_write_path", lambda: path)
+    monkeypatch.setattr(codex, "fetch_usage", lambda: pytest.fail("model key lookup fetched usage"))
+    monkeypatch.setattr(codex, "refresh_tokens", lambda _: pytest.fail("model key lookup refreshed credentials"))
+    hook = oauth_dummy_key.OAuthAccountDummyKey(agent=None)
+    data = {"args": ("codex_oauth",), "kwargs": {}, "result": "original"}
+
+    hook.execute(data=data)
+    assert data["result"] == "original"
+
+    path.write_text(json.dumps({
+        "tokens": {"access_token": "access", "refresh_token": "refresh", "account_id": "account"},
+        "last_refresh": "2000-01-01T00:00:00Z",
+    }), encoding="utf-8")
+    hook.execute(data=data)
+    assert data["result"] == DUMMY_API_KEY
+
+
 def test_codex_provider_replaces_legacy_stored_key_when_connected(monkeypatch):
     monkeypatch.setattr(oauth_dummy_key, "oauth_provider_is_connected", lambda _provider_id: True)
     data = {"args": ("codex_oauth",), "kwargs": {}, "result": "legacy-stored-key"}

@@ -76,6 +76,7 @@
 - Keep user-facing errors safe: report setup or tier restrictions without exposing tokens, callback secrets, or raw auth payloads.
 - Codex refresh-token rejection raises a safe `reconnect_required` HTTP 401, marks the private auth file, and sends one actionable notification per failed connection. Marked credentials must not refresh again until successful sign-in replaces them or disconnect clears them; transient upstream failures must not mark credentials. Status retains account metadata and exposes `reconnect_required`.
 - Codex Reconnect reuses device sign-in without deleting stored credentials or model choices. Pending device controls remain visible for connected accounts; only successful sign-in replaces tokens and clears the reconnect marker.
+- The model-key hook uses the provider's optional `is_connected()` check when available, with provider status as the fallback. Codex owns its local connection check with refresh disabled. Usage fetches belong to account status, and request-time credential validation and refresh belong to the proxy.
 
 ## Verification
 
