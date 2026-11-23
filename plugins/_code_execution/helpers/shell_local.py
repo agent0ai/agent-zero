@@ -10,6 +10,15 @@ from plugins._code_execution.helpers import tty_session
 from plugins._code_execution.helpers.shell_ssh import clean_string
 
 
+FRAMEWORK_VENV_ROOT = "/opt/venv-a0"
+
+
+def _is_framework_venv_path(path_entry: str, root: str = FRAMEWORK_VENV_ROOT) -> bool:
+    normalized = path_entry.rstrip("/\\")
+    normalized_root = root.rstrip("/\\")
+    return normalized == normalized_root or normalized.startswith(normalized_root + "/") or normalized.startswith(normalized_root + "\\")
+
+
 def disable_pagers_in_env(env: dict | None = None) -> dict:
     """Return a copy of ``env`` with terminal pagers disabled.
 
@@ -22,6 +31,49 @@ def disable_pagers_in_env(env: dict | None = None) -> dict:
     env = dict(env if env is not None else os.environ)
     env["PAGER"] = "cat"
     env["GIT_PAGER"] = "cat"
+    return env
+
+
+def sanitize_execution_env(env: dict | None = None) -> dict:
+    """Return a copy of ``env`` safe for an agent code execution shell.
+
+    The WebUI process runs inside the framework virtual environment
+    (``/opt/venv-a0``) and therefore advertises ``VIRTUAL_ENV=/opt/venv-a0``
+    plus ``/opt/venv-a0/bin`` early in ``PATH``. Those values leak into every
+    shell the code execution tool spawns. Because the local interactive shell
+    starts with ``/bin/bash`` and ``/root/.bashrc`` only *prepends* the agent
+    runtime ``/opt/venv/bin``, the framework runtime stays reachable. Any
+    command that is not shadowed in ``/opt/venv/bin`` (``python3.12``,
+    ``pip3.12``, ``fastmcp``, ``jsondiff``, ...) then resolves out of the
+    framework runtime, so a plain ``pip install`` from a normal agent task
+    mutates the framework venv, and a task dependency can silently upgrade
+    or downgrade packages Agent Zero itself pins. The damage is invisible
+    until the next WebUI restart, when the new versions are imported and the
+    process enters a crash loop.
+
+    Removing ``VIRTUAL_ENV`` pointing at the framework root and dropping any
+    ``PATH`` entry that lies inside ``/opt/venv-a0`` prevents that class of
+    failure. The shell still activates ``/opt/venv`` via ``/root/.bashrc``,
+    giving callers the documented agent execution runtime.
+    """
+    env = dict(env if env is not None else os.environ)
+
+    path = env.get("PATH")
+    if path:
+        kept = []
+        for entry in path.split(os.pathsep):
+            if not entry:
+                continue
+            if _is_framework_venv_path(entry):
+                continue
+            kept.append(entry)
+        env["PATH"] = os.pathsep.join(kept)
+
+    current_venv = env.get("VIRTUAL_ENV")
+    if current_venv and _is_framework_venv_path(str(current_venv)):
+        env.pop("VIRTUAL_ENV", None)
+        env.pop("VIRTUAL_ENV_PROMPT", None)
+
     return env
 
 
@@ -42,7 +94,7 @@ class LocalInteractiveSession:
         self.session = tty_session.TTYSession(
             runtime.get_terminal_executable(),
             cwd=self.cwd,
-            env=disable_pagers_in_env(),
+            env=sanitize_execution_env(disable_pagers_in_env()),
         )
         await self.session.start()
         await self.session.read_full_until_idle(idle_timeout=1, total_timeout=1)
