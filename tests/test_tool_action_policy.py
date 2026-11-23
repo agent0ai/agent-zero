@@ -249,27 +249,6 @@ async def test_parallel_worker_rechecks_the_nested_tool_action_before_execution(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("blocked,expected_calls", [
-    ("list", []), ("state", ["list"]), ("content", ["list"]), ("evaluate", ["list", "state", "content"]),
-])
-async def test_browser_context_does_not_read_denied_actions(monkeypatch, action_agent, blocked, expected_calls):
-    from agent import LoopData
-    from plugins._browser.extensions.python.message_loop_prompts_after import _20_browser_context
-
-    action_agent.context = SimpleNamespace(id="test")
-    runtime = SimpleNamespace(call=AsyncMock(return_value={
-        "browsers": [{"id": 1, "currentUrl": "about:blank", "title": "Test"}],
-        "last_interacted_browser_id": 1, "document": "test page",
-    }))
-    monkeypatch.setattr(_20_browser_context, "get_runtime", AsyncMock(return_value=runtime))
-    policy(monkeypatch, blocked=[f"plugin:_browser:browser:{blocked}"])
-    loop = LoopData()
-    await _20_browser_context.BrowserContextExtras(action_agent).execute(loop_data=loop)
-    assert [call.args[0] for call in runtime.call.await_args_list] == expected_calls
-    assert ("test page" in loop.extras_temporary.get("browser_context", "")) == (blocked == "evaluate")
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize("blocked", ["list", "load"])
 async def test_automatic_skill_catalog_respects_action_permissions(monkeypatch, action_agent, blocked):
     from extensions.python.system_prompt import _13_skills_prompt

@@ -812,47 +812,21 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
 
 @pytest.mark.asyncio
-async def test_browser_context_follows_profile_tool_policy(
-    monkeypatch, tmp_path: Path
-) -> None:
+async def test_browser_prompt_hooks_leave_open_tabs_on_demand(monkeypatch, tmp_path):
     from agent import LoopData
-    from plugins._browser.extensions.python.message_loop_prompts_after import _20_browser_context
+    from helpers import extension
+    from plugins._browser.helpers import runtime
 
-    runtime = SimpleNamespace(
-        call=AsyncMock(
-            return_value={
-                "browsers": [
-                    {
-                        "id": "browser-1",
-                        "currentUrl": "https://example.com",
-                        "title": "Example",
-                    }
-                ]
-            }
-        )
-    )
-    allowed = False
+    get_runtime = AsyncMock()
+    monkeypatch.setattr(runtime, "get_runtime", get_runtime)
     agent = _Agent(tmp_path)
     agent.context.id = "ctx"
-    monkeypatch.setattr(
-        tool_policy,
-        "resolve_tool",
-        lambda *_args, **_kwargs: SimpleNamespace(allowed=allowed),
-    )
-    monkeypatch.setattr(
-        _20_browser_context, "get_runtime", AsyncMock(return_value=runtime)
-    )
+    loop = LoopData()
+    for hook in extension._get_extensions("plugins/_browser/extensions/python/message_loop_prompts_after"):
+        await hook(agent).execute(loop_data=loop)
 
-    loop_data = LoopData()
-    extension = _20_browser_context.BrowserContextExtras(agent)
-    await extension.execute(loop_data=loop_data)
-    assert "browser_context" not in loop_data.extras_temporary
-    runtime.call.assert_not_awaited()
-
-    allowed = True
-    await extension.execute(loop_data=loop_data)
-    assert "currently open web browsers" in loop_data.extras_temporary["browser_context"]
-    runtime.call.assert_awaited_once_with("list")
+    get_runtime.assert_not_awaited()
+    assert "browser_context" not in loop.extras_temporary
 
 
 @pytest.mark.asyncio
