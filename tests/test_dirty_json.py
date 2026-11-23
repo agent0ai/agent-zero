@@ -185,3 +185,18 @@ def test_tool_envelope_with_escaped_emoji_parses_like_json_loads(parse) -> None:
 
     assert parsed == json.loads(envelope)
     parsed["tool_args"]["code"].encode("utf-8")  # must not raise
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        pytest.param('{"date": 2024-01-01}', {"date": "2024-01-01"}, id="unquoted-date"),
+        pytest.param('{"version": 1.2.3}', {"version": "1.2.3"}, id="unquoted-version"),
+        pytest.param('{"range": 1-2}', {"range": "1-2"}, id="unquoted-range"),
+        pytest.param('{"a": +}', {"a": "+"}, id="sign-only"),
+        pytest.param('{"n": 1.5, "i": 7}', {"n": 1.5, "i": 7}, id="real-numbers-still-parse"),
+    ],
+)
+def test_unparseable_numbers_keep_their_text(payload, expected) -> None:
+    # The lenient parser is the fallback for model output; a dirty number must not
+    # raise ValueError out of parse_string().
+    assert DirtyJson.parse_string(payload) == expected

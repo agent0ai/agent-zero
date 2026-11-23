@@ -409,7 +409,14 @@ class DirtyJson:
         try:
             return int(number_str)
         except ValueError:
+            pass
+        try:
             return float(number_str)
+        except ValueError:
+            # Dirty payloads contain unquoted dates ("2024-01-01") and versions
+            # ("1.2.3"). Those are not numbers, so keep the literal text instead
+            # of raising out of the lenient parser.
+            return number_str
 
     def _parse_unquoted_string(self):
         result = ""
