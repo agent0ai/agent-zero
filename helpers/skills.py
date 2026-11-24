@@ -716,6 +716,7 @@ def normalize_visibility_policy(raw: Any) -> dict[str, Any]:
     return policy
 
 
+@extensible
 def get_visibility_policy(agent: Agent | None) -> dict[str, Any]:
     if not agent:
         return normalize_visibility_policy(None)

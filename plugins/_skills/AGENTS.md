@@ -23,6 +23,7 @@
   instructions.
 - Chat visibility overrides may reverse legacy `hidden_skills`, but cannot
   re-enable a skill blocked by profile policy.
+- Catalog activation checks effective visibility before updating loaded state, including when the chat already contains the skill instructions.
 
 ## Work Guidance
 

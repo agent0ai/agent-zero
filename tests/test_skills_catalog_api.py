@@ -37,6 +37,7 @@ class FakeContext:
 class FakeAgent:
     def __init__(self, context):
         self.context = context
+        self.config = SimpleNamespace(profile="agent0")
         self.history = FakeHistory()
         self.tool_results = []
 
@@ -161,3 +162,25 @@ def test_skills_catalog_deactivate_does_not_remove_loaded_skill(monkeypatch):
     assert "cannot be removed" in response["error"]
     assert context.get_data("loaded_skills") == ["demo-skill"]
     assert context.agent.tool_results == []
+
+
+def test_skills_catalog_activate_checks_visibility_even_with_prior_instructions(monkeypatch):
+    context = FakeContext()
+    saved = _patch_catalog(monkeypatch, context)
+    context.agent.hist_add_tool_result("skills_tool", "Previously loaded.", skill_instructions={
+        "name": "demo-skill", "content_included": True,
+    })
+    monkeypatch.setattr(skills_catalog.skills, "get_visibility_policy", lambda _agent: {
+        "mode": "custom", "default": "allow", "allowed": [], "blocked": ["demo-skill"],
+    })
+    handler = skills_catalog.SkillsCatalog(None, None)
+
+    response = asyncio.run(handler.process({
+        "action": "activate", "context_id": "ctx", "skill": {"path": "/a0/skills/demo-skill"},
+    }, None))
+
+    assert response["ok"] is False
+    assert "is blocked" in response["error"]
+    assert context.get_data("loaded_skills") is None
+    assert len(context.agent.tool_results) == 1
+    assert saved == []

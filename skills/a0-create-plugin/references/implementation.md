@@ -192,6 +192,8 @@ Have the skill use an existing authorized tool, CLI, or API when it already prov
 
 Follow the shipped [Browser](../../../plugins/_browser/extensions/python/skill_tools/_10_browser.py) and [Document Query](../../../plugins/_document_query/extensions/python/skill_tools/_10_document_query.py) registrations.
 
+A same-name tool file can hide the skill's native declaration even if the file fails to import at dispatch. Check the override's imports with the framework Python interpreter. Fix the imports to keep the override, or move the override file and its tool prompt out of the active scope to use the skill. Then load the skill in a fresh chat to verify the change.
+
 ## API And Tool Contracts
 
 An API handler extends `helpers.api.ApiHandler`, keeps authentication/CSRF defaults, validates input, and returns a dict or Flask response. Its route is `/api/plugins/<name>/<handler>`. See `a0-development` references for HTTP examples; do not import live server contexts into a separate shell process to control the WebUI.

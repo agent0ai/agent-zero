@@ -100,7 +100,7 @@
 ## Work Guidance
 
 - Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. Shared skill registration requires a loaded, visible `browser-automation` skill for native declarations and dispatch. Put WebDriver workflows and fallback guidance in the skill’s browser controls reference.
-- Saved Tool Access rules apply at their existing project/profile scope. A whole-tool denial or any denied former Browser action blocks the callable and hides the Browser plugin's skills from scoped discovery. The skill-root extension and callable gate use the same rule, including for chats that already loaded the skill.
+- Saved Tool Access rules apply at their existing project/profile scope. A whole-tool denial or any denied former Browser action blocks the callable and hides Browser skills from scoped discovery, including overrides with the same logical skill name. The skill-root, visibility-policy, and callable gates use the same rule, including for chats that already loaded the skill.
 - Keep response-body diagnostics in the Browser skill. Durable response storage is an explicit Chromium CDP option on the capturing session.
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.

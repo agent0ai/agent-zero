@@ -58,17 +58,23 @@ def browser_agent(monkeypatch):
     agent.data = {}
     agent.loop_data = SimpleNamespace(current_tool=None)
     plugin = ROOT / "plugins/_browser"
-    skill_extension = "_functions/helpers/skills/get_skill_roots/end"
+    plugin_extensions = plugin / "extensions/python"
     paths = {
         ("skills",): [str(plugin / "skills")],
         ("extensions/python", "skill_tools"): [str(plugin / "extensions/python/skill_tools")],
-        ("extensions/python", skill_extension): [str(plugin / "extensions/python" / skill_extension)],
         ("extensions/python", "_functions/agent/Agent/get_tool/end"): [
             str(ROOT / "extensions/python/_functions/agent/Agent/get_tool/end")
         ],
     }
+    for point in ("get_skill_roots", "get_visibility_policy"):
+        skill_extension = f"_functions/helpers/skills/{point}/end"
+        paths[("extensions/python", skill_extension)] = [str(plugin_extensions / skill_extension)]
     skill_policy = skills.normalize_visibility_policy(None)
-    monkeypatch.setattr(skills, "get_visibility_policy", lambda _agent: skill_policy)
+    get_config = skills.plugin_helpers.get_plugin_config
+    monkeypatch.setattr(skills.plugin_helpers, "get_plugin_config", lambda name, *args, **kwargs: (
+        {"visibility_policy": skill_policy}
+        if name == skills.ACTIVE_SKILLS_PLUGIN_NAME else get_config(name, *args, **kwargs)
+    ))
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **_: paths.get(parts, []))
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
@@ -119,9 +125,10 @@ async def test_browser_skill_respects_saved_tool_access(monkeypatch, browser_age
         assert not skills.find_skill("browser-automation", agent=agent)
         await check(False)
 
+    policy(monkeypatch)
+    skill = skills.find_skill("browser-automation", agent=agent)
     policy(monkeypatch, blocked=[action_policy_id(tool_id, "cdp")])
     with monkeypatch.context() as override:
-        skill = skills.find_skill("browser-automation", include_hidden=True)
         override.setattr(skills, "find_skill", lambda *_args, **_kwargs: skill)
         await check(False)
 
@@ -135,20 +142,56 @@ async def test_browser_skill_respects_saved_tool_access(monkeypatch, browser_age
 
 
 @pytest.mark.asyncio
-async def test_browser_import_fallback_uses_the_loaded_tools_policy(monkeypatch, tmp_path, browser_agent):
+async def test_browser_discovery_leaves_override_imports_to_dispatch(monkeypatch, tmp_path, browser_agent):
     agent, paths, _ = browser_agent
     override = tmp_path / "browser.py"
     override.write_text("raise ImportError('missing test dependency')\n")
+    paths[("tools",)] = [str(tmp_path)]
     paths[("tools", "browser.py")] = [str(override)]
+    load_classes = Mock(wraps=responses_tools.extract_tools.load_classes_from_file)
+    monkeypatch.setattr(responses_tools.extract_tools, "load_classes_from_file", load_classes)
     policy(monkeypatch)
     SkillsTool(agent, "skills_tool", None, {}, "", agent.loop_data)._load("browser-automation")
+    assert responses_tools.build_responses_function_tools(agent) == ([], {})
+    assert "local:browser" in {item["id"] for item in tool_policy.get_tool_catalog(agent)}
+    load_classes.assert_not_called()
+
     agent.loop_data.current_tool = agent.get_tool("browser", None, {}, "", agent.loop_data)
     assert isinstance(agent.loop_data.current_tool, Browser)
+    load_classes.assert_called_once()
 
     policy(monkeypatch, blocked=[action_policy_id("plugin:_browser:browser", "navigate")])
-    assert tool_policy.resolve_tool(agent, "browser").tool_id == "local:browser"
     with pytest.raises(RepairableException, match="is blocked"):
         await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={})
+
+    override.unlink()
+    policy(monkeypatch)
+    schemas, names = responses_tools.build_responses_function_tools(agent)
+    assert names == {"browser": "browser"}
+    assert "cdp_method" in schemas[0]["parameters"]["properties"]
+    load_classes.assert_called_once()
+
+
+def test_browser_denial_hides_scoped_skill_overrides(monkeypatch, tmp_path, browser_agent):
+    agent, paths, skill_policy = browser_agent
+    paths[("skills",)].insert(0, str(tmp_path))
+    override = tmp_path / "renamed-folder"
+    for directory, name in ((override, "browser-automation"), (tmp_path / "unrelated", "unrelated")):
+        directory.mkdir()
+        (directory / "SKILL.md").write_text(f"---\nname: {name}\ndescription: Scoped {name}\n---\nInstructions.\n")
+    policy(monkeypatch)
+    assert skills.find_skill("browser-automation", agent=agent).path == override
+    skill_policy.update(mode="custom", allowed=["browser-automation"])
+    policy(monkeypatch, blocked=["plugin:_browser:browser:evaluate"])
+    assert {skill.name for skill in skills.list_skills(agent)} == {"unrelated"}
+    assert skills.find_skill("browser-automation", agent=agent) is None
+    catalog = {item["name"]: item for item in skills.list_skill_catalog(agent=agent)}
+    assert catalog["browser-automation"]["hidden"]
+    assert not catalog["unrelated"]["hidden"]
+    with pytest.raises(ValueError, match="is blocked"):
+        skills.activate_chat_skill(agent, {"name": "browser-automation", "path": str(override)})
+    loader = SkillsTool(agent, "skills_tool", None, {}, "", agent.loop_data)
+    assert "skill not found" in loader._load("browser-automation").message
 
 
 @pytest.mark.asyncio

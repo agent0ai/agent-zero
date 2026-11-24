@@ -37,7 +37,7 @@ permitted actions. Custom tools and MCP tools retain whole-tool controls.
 Browser is controlled by its `browser-automation` skill and does not appear as
 a separate Agent Editor tool permission. If saved Tool Access policy denies
 Browser or any of its former actions, the Browser plugin blocks the entire
-capability and hides its skills in that scope.
+capability and hides its skills in that scope, including scoped overrides.
 
 Action controls restrict these tool calls. They are not a filesystem or process
 sandbox: an allowed terminal or browser JavaScript action can still perform work

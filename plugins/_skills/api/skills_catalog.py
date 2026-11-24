@@ -44,6 +44,7 @@ class SkillsCatalog(ApiHandler):
             raise ValueError("Skill name is required")
 
         skill_path = str(skill.get("path") or skill_entry.get("path") or "").strip()
+        skills.ensure_skill_visible(agent, {"name": skill_name, "path": skill_path})
         skills.add_loaded_skill_name(agent, skill_name)
         if not self._visible_skill_loaded(agent, skill_name):
             content = skills.load_skill_for_agent(skill_name=skill_name, agent=agent)
