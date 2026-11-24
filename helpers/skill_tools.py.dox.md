@@ -11,6 +11,7 @@
 - Use the chat's loaded skill names and normal scoped skill precedence and visibility. An override can supply a schema for the registered callable. An override without the declaration suppresses it.
 - Tool Access catalog entries retain their plugin ID regardless of chat load. Current skill visibility and Tool Access apply to both native exposure and execution.
 - Discovery gives same-name tool files precedence by path. The `Agent.get_tool/end` extension resolves registered skill handlers after ordinary file lookup and retains the selected handler's policy identity.
+- Execution rechecks the current registration against the selected handler's plugin, skill name, and legacy denial IDs. Factory object identity may vary between lookups.
 - Text-protocol instructions come from the loaded skill. Native Responses uses the same skill's structured schema.
 
 ## Verification

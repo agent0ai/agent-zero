@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -261,7 +262,15 @@ async def test_document_query_skill_registers_callable_with_existing_tool_access
     ))
     await check(True, "inherited", "Overridden document query")
     skill_roots.pop(0)
-    await check(True, "inherited")
+    registered = tool_policy.skill_tools.registered
+
+    def register_fresh_factory(for_agent):
+        binding = registered(for_agent)["document_query"]
+        return {"document_query": replace(binding, factory=lambda **kwargs: binding.factory(**kwargs))}
+
+    with monkeypatch.context() as fresh:
+        fresh.setattr(tool_policy.skill_tools, "registered", register_fresh_factory)
+        await check(True, "inherited")
     current.update(mode="custom", default="block")
     await check(False, "scoped-default")
     current["allowed"] = ["local:document_query"]

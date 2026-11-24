@@ -1,6 +1,6 @@
 """Bind skill declarations to handlers provided by enabled plugins."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, TYPE_CHECKING
 
 from helpers import extension
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class SkillTool:
     plugin: str
     skill_name: str
-    factory: Callable[..., "Tool"]
+    factory: Callable[..., "Tool"] = field(compare=False)
     legacy_denials: tuple[str, ...] = ()
 
     def policy_id(self, name: str) -> str:
