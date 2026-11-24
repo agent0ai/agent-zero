@@ -1,4 +1,4 @@
-liteparse==2.19.0
+liteparse==2.21.1
 faiss-cpu==1.16.0
 simpleeval>=1.0.8,<2
 unstructured[all-docs]==0.27.37

@@ -22,9 +22,10 @@
 - `sandbox/index.py` splits and stores chunks and performs native FAISS search in the guest. Each chat supplies its own temporary writable `/index` mount across worker restarts. The framework runs configured embeddings and model calls, and passes vectors without credentials.
 - Fetch local and remote resources safely and avoid leaking document contents beyond intended prompt/tool use.
 - Parser packages and OCR system dependencies belong only to `sandbox/install.sh` and the guest runtime; host hooks never install them. `helpers/sandbox.py` stages requested document bytes and serves both Document Query and Memory knowledge loaders.
+- `sandbox/requirements.txt` pins LiteParse for the guest. The worker installer fingerprints the manifest and refreshes an existing guest on its next start after a pin change.
 - Keep Tesseract, its Latin language data, and Poppler out of the base image. Install Tesseract immediately before a system-backed image OCR call and add Poppler only for a PDF OCR fallback.
 - LiteParse uses its bundled OCR implementation and must not trigger installation of the legacy system OCR packages.
-- LiteParse subprocesses use the guest interpreter. Parser source depends only on the standalone `helpers/document.py` value object, standard-library logging and guest packages. First-use installation is outside the document processing deadline; cancellation stops the child sandbox.
+- LiteParse subprocesses use the guest interpreter and derive their import root from the module path before resolving the `/app/plugins/_document_query` symlink to `/plugin`. Parser source depends only on the standalone `helpers/document.py` value object, standard-library logging and guest packages. First-use installation is outside the document processing deadline; cancellation stops the child sandbox.
 - The tool stops its prepared worker on every exit, including cache hits and fetch failures before any parse.
 
 - Create new temporary index directories writable by the document worker at creation and release them with their store.
@@ -38,6 +39,7 @@
 ## Verification
 
 - Run `tests/test_tool_action_policy.py` for skill gating, saved denials, and shim dispatch. Compare fresh and skill-loaded chats in the text and native Responses surfaces.
+- Run `tests/test_document_query_plugin.py` for LiteParse subprocess startup with both the checkout and guest plugin layouts. For a cold LiteParse OCR check, verify an image-only PDF and confirm the legacy OCR packages stay absent from the guest.
 - Smoke-test representative PDF, text/HTML, image/OCR, and remote-document queries after parser changes, including first-use OCR installation in a clean runtime image.
 
 ## Child DOX Index

@@ -444,7 +444,7 @@ def test_compatibility_imports_point_to_plugin_classes():
 
 def test_liteparse_is_installed_only_in_the_guest():
     assert 'liteparse==' not in (ROOT / 'requirements.txt').read_text()
-    assert 'liteparse==2.19.0' in (ROOT / 'plugins/_document_query/sandbox/requirements.txt').read_text()
+    assert 'liteparse==2.21.1' in (ROOT / 'plugins/_document_query/sandbox/requirements.txt').read_text()
     assert document_query_hooks.install() is True
 
 
@@ -608,7 +608,8 @@ def test_liteparse_parser_always_uses_subprocess(monkeypatch):
     assert parser._parse_sync(fetched, {"liteparse_subprocess": False}) == "ok"
 
 
-def test_liteparse_subprocess_uses_current_interpreter(monkeypatch):
+@pytest.mark.parametrize("symlink_plugin", [False, True])
+def test_liteparse_subprocess_uses_package_root(tmp_path, monkeypatch, symlink_plugin):
     fetched = FetchedDocument(
         uri="/tmp/report.pdf",
         source_uri="/tmp/report.pdf",
@@ -619,6 +620,17 @@ def test_liteparse_subprocess_uses_current_interpreter(monkeypatch):
     )
     parser = LiteParseParser()
     calls = []
+    project_root = tmp_path / "app"
+    plugin = project_root / "plugins" / "_document_query"
+    plugin.parent.mkdir(parents=True)
+    if symlink_plugin:
+        mounted_plugin = tmp_path / "plugin"
+        mounted_plugin.mkdir()
+        plugin.symlink_to(mounted_plugin, target_is_directory=True)
+    else:
+        plugin.mkdir()
+    monkeypatch.setattr(liteparse_module, "__file__", str(plugin / "helpers/parsers/liteparse.py"))
+    monkeypatch.delenv("PYTHONPATH", raising=False)
 
     def fake_run(command, **kwargs):
         calls.append((command, kwargs))
@@ -633,6 +645,8 @@ def test_liteparse_subprocess_uses_current_interpreter(monkeypatch):
         "-m",
         "plugins._document_query.helpers.parsers.liteparse_worker",
     ]
+    assert calls[0][1]["cwd"] == str(project_root)
+    assert calls[0][1]["env"]["PYTHONPATH"] == str(project_root)
 
 
 def test_liteparse_auto_disables_ocr_for_large_text_pdf(monkeypatch):
