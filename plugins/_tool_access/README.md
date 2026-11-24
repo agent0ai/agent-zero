@@ -22,7 +22,7 @@ because keyboard input can execute shell commands. Restricted profiles must
 permit both `input` with `destination: host` and the `terminal` action of `code_execution_tool` with `destination: host`.
 
 Bundled tools with multiple actions support independent permissions for each
-action: memory, scheduler, local/remote text editors and code execution,
+action: memory, local/remote text editors and code execution,
 remote computer use, office artifacts, goals, skills, and parallel jobs.
 Action IDs append the action to the tool ID, for example
 `plugin:_text_editor:text_editor:read`. Memory keeps its existing
@@ -43,6 +43,10 @@ For a default-block profile that granted the former `local:document_query`
 entry, allow `plugin:_document_query:document_query` in Agent Editor to use the
 bundled skill. The former local ID is still honored as a denial. It could also
 identify a custom file override, so allow the bundled plugin explicitly.
+
+Scheduler uses whole-tool access under `plugin:_scheduler:scheduler`.
+Saved denials of former Scheduler actions block the callable. To grant
+access in a default-block profile, allow the whole-tool ID.
 
 Action controls restrict these tool calls. They are not a filesystem or process
 sandbox: an allowed terminal or browser JavaScript action can still perform work

@@ -1,6 +1,35 @@
 ---
 name: scheduled-tasks
 description: "Create, edit, run or audit scheduled, planned and adhoc tasks; cron, timezones and reminders."
+triggers:
+  - "scheduled tasks"
+  - "next run"
+  - "when will it run"
+  - "schedule a reminder"
+  - "run a saved task"
+metadata:
+  tool:
+    name: scheduler
+    parameters:
+      type: object
+      required: [action]
+      additionalProperties: true
+      properties:
+        action: {type: string}
+        name: {type: string}
+        uuid: {type: string}
+        system_prompt: {type: string}
+        prompt: {type: string}
+        attachments: {type: array, items: {type: string}}
+        schedule: {anyOf: [{type: object}, {type: string}]}
+        timezone: {type: string}
+        plan: {type: array, items: {type: string}}
+        state: {anyOf: [{type: string}, {type: array, items: {type: string}}]}
+        type: {type: array, items: {type: string}}
+        dedicated_context: {type: boolean}
+        context: {type: string}
+        next_run_within: {type: integer}
+        next_run_after: {type: integer}
 ---
 
 # Scheduler Tasks

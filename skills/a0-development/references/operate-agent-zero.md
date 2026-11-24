@@ -126,7 +126,7 @@ The external API is a different contract: `POST /api/api_message` uses `X-API-KE
 
 ## Saved Tasks And Schedules
 
-Prefer the `scheduler` tool when available; load `scheduled-tasks` for detailed scheduling. The socket API also manages the same saved tasks, including a project association selected at creation.
+Load `scheduled-tasks` to use the `scheduler` callable. The socket API also manages saved tasks and supports choosing a project at creation.
 
 - List: `plugins/_scheduler/scheduler_tasks_list` with `{}`; result is `tasks`.
 - Create: `plugins/_scheduler/scheduler_task_create` with `name`, `prompt`, optional `system_prompt`, `attachments`, and `project_name`.

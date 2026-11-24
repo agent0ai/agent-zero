@@ -13,6 +13,7 @@
 ## Local Contracts
 
 - Apply a contract only to its resolved bundled implementation path. Profile/custom tools and MCP tools keep their own contracts and whole-tool policies.
+- Scheduler uses whole-tool policy through its skill binding. The Scheduler plugin owns compatibility with saved action denials.
 - Canonical actions and aliases must match the owning tool's dispatch. Update this registry and its tests when changing a bundled tool's actions.
 - Check every operation in a compound call before execution. Parallel workers also enforce each nested tool's policy independently.
 - These controls govern tool operations, not all effects reachable through other capabilities. Shell execution, browser JavaScript, and computer input retain their existing authority when allowed.

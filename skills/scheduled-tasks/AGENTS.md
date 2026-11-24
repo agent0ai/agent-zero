@@ -7,7 +7,7 @@
 
 ## Ownership
 
-- `SKILL.md` owns scheduler action descriptions, schedule field guidance, safety rules, and examples.
+- `SKILL.md` declares the on-demand `scheduler` callable and owns its action descriptions, schedule field guidance, and examples. The Scheduler plugin registers the handler.
 
 ## Local Contracts
 

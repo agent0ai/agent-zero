@@ -196,6 +196,59 @@ def test_browser_denial_hides_scoped_skill_overrides(monkeypatch, tmp_path, brow
 
 
 @pytest.mark.asyncio
+async def test_scheduler_skill_uses_whole_tool_access(monkeypatch):
+    tool_id = "plugin:_scheduler:scheduler"
+    state = {}
+    agent = object.__new__(Agent)
+    agent.config = SimpleNamespace(profile="scheduler-skill-binding")
+    agent.context = SimpleNamespace(
+        id="scheduler-skill-binding", get_data=state.get, set_data=state.__setitem__,
+    )
+    agent.data = {}
+    agent.loop_data = SimpleNamespace(current_tool=None)
+    paths = {
+        ("skills",): [str(ROOT / "skills")],
+        ("extensions/python", "skill_tools"): [str(ROOT / "plugins/_scheduler/extensions/python/skill_tools")],
+        ("extensions/python", "_functions/agent/Agent/get_tool/end"): [
+            str(ROOT / "extensions/python/_functions/agent/Agent/get_tool/end")
+        ],
+    }
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **_: paths.get(parts, []))
+    monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
+    monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
+    monkeypatch.setattr(skills, "get_visibility_policy", lambda _agent: skills.normalize_visibility_policy(None))
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: tool_policy.normalize_policy(None))
+    assert responses_tools.build_responses_function_tools(agent) == ([], {})
+    assert isinstance(agent.get_tool("scheduler", None, {}, "", agent.loop_data), Unknown)
+
+    loader = SkillsTool(agent, "skills_tool", None, {}, "", agent.loop_data)
+    assert '"tool_name": "scheduler"' in loader._load("scheduled-tasks").message
+    schemas, names = responses_tools.build_responses_function_tools(agent)
+    assert names == {"scheduler": "scheduler"}
+    assert schemas[0]["parameters"]["required"] == ["action"]
+    item = next(item for item in tool_policy.get_tool_catalog(agent) if item["id"] == tool_id)
+    assert "actions" not in item
+    args = {"action": "list_tasks"}
+    tool = agent.get_tool("scheduler", None, args, "", agent.loop_data)
+    assert type(tool).__name__ == "SchedulerTool"
+    agent.loop_data.current_tool = tool
+    await EnforceToolPolicy(agent).execute(tool_name="scheduler", tool_args=args)
+
+    run_args = {"action": "run_task", "uuid": "fixture"}
+    for denied_id in (tool_id, action_policy_id(tool_id, "run_task")):
+        policy(monkeypatch, allowed=[tool_id], blocked=[denied_id])
+        assert responses_tools.build_responses_function_tools(agent) == ([], {})
+        assert isinstance(agent.get_tool("scheduler", None, run_args, "", agent.loop_data), Unknown)
+        with pytest.raises(RepairableException, match="is blocked"):
+            await EnforceToolPolicy(agent).execute(tool_name="scheduler", tool_args=run_args)
+
+    policy(monkeypatch, default="block", allowed=[action_policy_id(tool_id, "list_tasks")])
+    assert responses_tools.build_responses_function_tools(agent) == ([], {})
+    policy(monkeypatch, default="block", allowed=[tool_id])
+    assert responses_tools.build_responses_function_tools(agent)[1] == {"scheduler": "scheduler"}
+
+
+@pytest.mark.asyncio
 async def test_document_query_skill_registers_callable_with_existing_tool_access(monkeypatch, tmp_path):
     plugin = ROOT / "plugins/_document_query"
     tool_id = "plugin:_document_query:document_query"

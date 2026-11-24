@@ -24,11 +24,6 @@ _EDITOR = ToolActions(("read", "write", "patch"))
 _CODE = ToolActions(("terminal", "python", "nodejs", "output", "reset"), argument="runtime")
 BUNDLED_ACTIONS = {
     MEMORY_TOOL_ID: ToolActions(MEMORY_ACTIONS),
-    "plugin:_scheduler:scheduler": ToolActions((
-        "list_tasks", "find_task_by_name", "show_task", "run_task", "delete_task",
-        "update_task", "create_scheduled_task", "create_adhoc_task",
-        "create_planned_task", "wait_for_task",
-    )),
     "plugin:_text_editor:text_editor": _EDITOR,
     "plugin:_a0_connector:text_editor_remote": _EDITOR,
     "plugin:_code_execution:code_execution_tool": _CODE,
