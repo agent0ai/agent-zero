@@ -64,6 +64,24 @@ When a project is specified:
 - The agent has access to project-specific resources and knowledge
 - Enables isolated, project-focused agent collaboration
 
+### Token and Project in Headers
+
+URLs often end up in proxy, browser and access logs. Instead of putting the token
+and the project in the URL, a client can send them as headers:
+
+```
+Authorization: Bearer YOUR_API_TOKEN
+X-A0-Project: PROJECT_NAME
+```
+
+The URL is then just `http://YOUR_HOST:PORT/a2a`. `X-A0-Project` is optional. If a
+request has both a `/p-PROJECT_NAME` segment and an `X-A0-Project` header and they
+differ, it is rejected with `400`. The URL form keeps working.
+
+The MCP server accepts the same headers: use `http://YOUR_HOST:PORT/mcp/sse` or
+`http://YOUR_HOST:PORT/mcp/http/` with `Authorization: Bearer YOUR_API_TOKEN` (and
+optionally `X-A0-Project`) instead of `/mcp/t-YOUR_API_TOKEN/...`.
+
 ## Example Use Cases
 
 ### 1. Local Development Setup
@@ -112,6 +130,15 @@ You can test A2A connectivity using curl:
 
 ```bash
 curl -X POST http://localhost:8080/a2a/t-YOUR_TOKEN \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello from another agent"}'
+```
+
+Or with the token in a header:
+
+```bash
+curl -X POST http://localhost:8080/a2a \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello from another agent"}'
 ```
