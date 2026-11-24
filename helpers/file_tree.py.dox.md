@@ -15,6 +15,7 @@
   - `as_dict(self) -> dict[str, Any]`
 - Top-level functions:
 - `_from_timestamp(timestamp: float) -> datetime`
+- `_safe_entry_stat(entry: os.DirEntry) -> os.stat_result | None`: Return entry metadata, or `None` when the entry disappears between directory enumeration and stat.
 - `file_tree(relative_path: str, max_depth: int=..., max_lines: int=..., folders_first: bool=..., max_folders: int=..., max_files: int=..., sort: tuple[Literal['name', 'created', 'modified'], Literal['asc', 'desc']]=..., ignore: str | None=..., output_mode: Literal['string', 'flat', 'nested', 'indent']=...) -> str | list[dict]`: Render a directory tree relative to the repository base path.
 - `_normalize_relative_path(path: str) -> str`
 - `_directory_has_visible_entries(directory: str, root_abs_path: str, ignore_spec: PathSpec, cache: dict[str, bool], max_depth_remaining: int) -> bool`
@@ -38,6 +39,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, subprocess/runtime control, WebSocket state.
+- Directory entries that vanish between `os.scandir()` and `stat()` are skipped so transient filesystem churn cannot abort prompt preparation.
 - Imported dependency areas include: `__future__`, `collections`, `dataclasses`, `datetime`, `helpers`, `helpers.localization`, `os`, `pathspec`, `typing`.
 
 ## Key Concepts
