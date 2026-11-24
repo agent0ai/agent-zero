@@ -594,9 +594,6 @@ def test_remote_tool_stubs_are_self_contained_and_reference_per_tool_skills():
 
 
 def test_host_browser_requests_route_to_browser_tool_not_desktop_or_shell_fallbacks():
-    browser_prompt = (
-        PROJECT_ROOT / "plugins" / "_browser" / "prompts" / "agent.system.tool.browser.md"
-    ).read_text(encoding="utf-8")
     exec_skill = (
         PROJECT_ROOT
         / "plugins"
@@ -617,8 +614,6 @@ def test_host_browser_requests_route_to_browser_tool_not_desktop_or_shell_fallba
     browser_skill = (
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md"
     ).read_text(encoding="utf-8")
-    assert "computer_use_remote" not in browser_prompt
-    assert "code_execution_remote" not in browser_prompt
     assert 'When the user asks for "my browser"' in browser_skill
     assert "references/browser-controls.md" in browser_skill
     controls = (PROJECT_ROOT / "plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text()

@@ -163,7 +163,7 @@ import plugins._browser.helpers.runtime as browser_runtime_module
 from plugins._browser.sandbox.display import BrowserInteractiveView
 import plugins._browser.sandbox.display as browser_interactive_view_module
 import plugins._browser.hooks as browser_hooks_module
-import plugins._browser.tools.browser as browser_tool_module
+import plugins._browser.helpers.browser_handler as browser_tool_module
 import plugins._browser.api.ws_browser as ws_browser_module
 
 
@@ -1217,11 +1217,10 @@ def test_transient_ui_layers_above_modals_below_confirm_dialogs():
     assert all(z < confirm_z for z in [toast_z, *tooltip_z_indexes])
 
 
-def test_browser_tool_prompt_keeps_shared_browser_workflow():
-    prompt = (
-        PROJECT_ROOT / "plugins" / "_browser" / "prompts" / "agent.system.tool.browser.md"
+def test_browser_skill_keeps_shared_browser_workflow():
+    browser_skill = (
+        PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md"
     ).read_text(encoding="utf-8")
-    from helpers import tokens
 
     config = (PROJECT_ROOT / "plugins" / "_browser" / "default_config.yaml").read_text(
         encoding="utf-8"
@@ -1233,21 +1232,15 @@ def test_browser_tool_prompt_keeps_shared_browser_workflow():
         PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-config-store.js"
     ).read_text(encoding="utf-8")
 
-    assert "The `cdp` action and the other Browser actions work on the same browser." in prompt
-    assert "headless" not in prompt
-    assert "screenshot" in prompt
-    assert "vision_load" in prompt
-    assert "select_option" not in prompt and "set_checked" not in prompt
-    assert "browser-form-workflows" in prompt
-    assert "skills_tool:load" not in prompt
-    assert "`browser-automation` links to `browser-form-workflows`" in prompt
-    assert "does not automatically load screenshots" in prompt
-    browser_skill = (PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md").read_text(encoding="utf-8")
+    assert "same Container tabs used by all Browser actions, including `cdp`" in browser_skill
+    assert "Host Chromium uses the same Browser tool and action arguments" in browser_skill
+    assert "headless" not in browser_skill
+    assert "browser-form-workflows" in browser_skill
+    assert "Pass the returned `vision_load.tool_args.paths` to `vision_load`" in browser_skill
     assert "references/browser-controls.md" in browser_skill
     controls = (PROJECT_ROOT / "plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text()
     assert "chrome://inspect/#remote-debugging" in controls
     assert "opera://inspect/#remote-debugging" in controls
-    assert tokens.approximate_tokens(prompt) <= 650
     assert "already open" in config
     assert "already-open Browser surface" in config_html
     assert "chrome://inspect/#remote-debugging" in config_html

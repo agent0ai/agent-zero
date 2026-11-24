@@ -8,7 +8,7 @@
 ## Ownership
 
 - `plugin.yaml` and `default_config.yaml` own metadata and browser settings defaults.
-- `tools/browser.py` owns the agent-facing browser tool.
+- `skills/browser-automation/SKILL.md` declares the on-demand callable. `extensions/python/skill_tools/` registers its handler in `helpers/browser_handler.py`.
 - The tool logs its message with an `icon://captive_portal` gerund headline naming the action and target URL, such as `Browser: Opening <url>`; `extensions/webui/get_tool_message_handler/` owns the `WWW` badge presentation.
 - `helpers/` owns the guest runtime client, private interactive display, selectors, URL helpers, extension management, and connector runtime logic.
 - `api/` owns status, extension, and browser WebSocket handlers.
@@ -99,15 +99,15 @@
 
 ## Work Guidance
 
-- Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. The Browser plugin's `tool_access` hook requires a loaded, visible `browser-automation` skill. The Browser prompt hook and native schema use that same decision. Put WebDriver workflows and fallback guidance in the skill’s browser controls reference.
+- Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. Shared skill registration requires a loaded, visible `browser-automation` skill for native declarations and dispatch. Put WebDriver workflows and fallback guidance in the skill’s browser controls reference.
 - Saved Tool Access rules apply at their existing project/profile scope. A whole-tool denial or any denied former Browser action blocks the callable and hides the Browser plugin's skills from scoped discovery. The skill-root extension and callable gate use the same rule, including for chats that already loaded the skill.
 - Keep response-body diagnostics in the Browser skill. Durable response storage is an explicit Chromium CDP option on the capturing session.
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.
 - Do not depend on nested Electron `<webview>` support or launcher-specific preload bridges unless the launcher exposes that bridge as an explicit contract.
-- Keep `prompts/agent.system.tool.browser.md` as a compact callable contract; move detailed browser workflows and host setup/remote-tool fallback guidance into `skills/browser-automation/SKILL.md` so the default system prompt does not name unavailable remote tools.
+- Keep the callable schema and rendered browsing workflow in `skills/browser-automation/SKILL.md`.
 - Keep `skills/browser-automation/SKILL.md` frontmatter triggers current with rendered browsing, host-browser, screenshot, and web-interaction user phrasing so relevant-skill recall can surface the skill before the full browser workflow is needed.
-- Keep fragile form guidance progressively disclosed through `skills/browser-form-workflows/SKILL.md`, linked from the browser prompt through `browser-automation`.
+- Keep fragile form guidance progressively disclosed through `skills/browser-form-workflows/SKILL.md`, linked from `browser-automation`.
 
 ## Verification
 
@@ -115,8 +115,8 @@
 - Run `python -m unittest discover -s tests -p test_browser_audio.py`, `node --test tests/test_browser_audio.mjs`, and the audio gateway cases in `tests/test_browser_vnc.py`; native audio changes also require a real Chromium-to-PCM capture check.
 - Run `pytest tests/test_browser_dom_security.py` for real-Chromium origin isolation, parent/frame/opener attacks, response binding, same-origin frame actions, and legacy-helper upgrades. Run `pytest tests/test_browser_agent_regressions.py tests/test_host_browser_connector.py` for internal runtime and distributed helper compatibility.
 - For viewer changes, verify native tabs opened by a user appear under the correct window in another chat’s agent tool, annotations target page content, and screencast/snapshot fallback still works.
-- Run browser prompt/skill regression tests after changing browser prompt or Browser plugin skills.
-- Run `tests/test_tool_action_policy.py` for legacy whole-tool and action denials across skill discovery, prompts, schemas, and direct dispatch.
+- Run browser skill regression tests after changing the callable declaration or Browser plugin skills.
+- Run `tests/test_tool_action_policy.py` for legacy whole-tool and action denials across skill discovery, native declarations, and direct dispatch.
 
 ## Child DOX Index
 

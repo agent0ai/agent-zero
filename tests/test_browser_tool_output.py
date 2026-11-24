@@ -11,7 +11,7 @@ from plugins._browser.sandbox import runtime as runtime_module
 from plugins._browser.helpers.config import normalize_browser_config
 from plugins._browser.helpers.runtime import BrowserRuntime
 from plugins._browser.sandbox.runtime import BrowserPage, _BrowserRuntimeCore
-from plugins._browser.tools.browser import Browser
+from plugins._browser.helpers.browser_handler import Browser
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -81,7 +81,7 @@ async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch
     ("screenshot", None, True),
 ])
 async def test_browser_inspection_skips_history_capture_but_preserves_visual_actions(monkeypatch, action, calls, capture):
-    from plugins._browser.tools import browser as tool_module
+    from plugins._browser.helpers import browser_handler as tool_module
 
     screenshot = {"browser_id": 1, "ephemeral_ref": "a0-ephemeral-image://test"}
     runtime = SimpleNamespace(call=AsyncMock(side_effect=lambda method, *a, **kw:
@@ -112,7 +112,7 @@ def test_format_result_minifies_tool_json() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("batched", [False, True])
 async def test_named_png_destination_requests_png_without_exposing_the_path(monkeypatch, batched):
-    from plugins._browser.tools import browser as module
+    from plugins._browser.helpers import browser_handler as module
 
     async def capture(method, *args, **kwargs):
         options = args[0][0] if method == "multi" else kwargs
@@ -148,7 +148,7 @@ async def test_named_png_destination_requests_png_without_exposing_the_path(monk
 @pytest.mark.parametrize("internal,state", [(True, "starting"), (True, "ready"), (True, "idle"), (False, "starting")])
 @pytest.mark.parametrize("outcome", ["success", "failure", "cancel"])
 async def test_startup_hint_only_reports_internal_initialization_and_stops_with_tool(monkeypatch, internal, state, outcome):
-    from plugins._browser.tools import browser as tool_module
+    from plugins._browser.helpers import browser_handler as tool_module
 
     started, finish = asyncio.Event(), asyncio.Event()
 
@@ -303,7 +303,7 @@ async def test_evaluate_timeout_recovers_and_multi_continues(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_evaluate_timeout_is_non_breaking_tool_error(monkeypatch):
-    from plugins._browser.tools import browser as tool_module
+    from plugins._browser.helpers import browser_handler as tool_module
 
     core, page, _ = _evaluate_runtime(monkeypatch)
     _hang_until_recovery(page)

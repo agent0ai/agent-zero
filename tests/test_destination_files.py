@@ -85,7 +85,7 @@ async def test_editor_sandbox_patch_is_scoped_and_rejects_stale_content(monkeypa
 async def test_browser_prepares_upload_from_the_selected_filesystem(monkeypatch):
     import base64
 
-    from plugins._browser.tools.browser import Browser
+    from plugins._browser.helpers.browser_handler import Browser
 
     async def read(agent, destination, path, *, limit):
         assert (destination, path) == ("analysis", "/workspace/artifact.png")

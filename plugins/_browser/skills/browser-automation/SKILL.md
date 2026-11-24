@@ -3,6 +3,27 @@ name: browser-automation
 description: "Control web pages: tabs, clicks, forms, downloads, screenshots; host or Docker browser."
 allowed-tools:
   - browser
+metadata:
+  tool:
+    name: browser
+    parameters:
+      type: object
+      additionalProperties: true
+      properties:
+        action: {type: string}
+        browser_id: {anyOf: [{type: integer}, {type: string}]}
+        url: {type: string}
+        selector: {type: string}
+        ref: {anyOf: [{type: integer}, {type: string}]}
+        text: {type: string}
+        script: {type: string}
+        cdp_method: {type: string}
+        params: {type: object, additionalProperties: true}
+        session_id: {type: string}
+        destination: {type: string}
+        path: {type: string}
+        paths: {type: array, items: {type: string}}
+        calls: {type: array, items: {type: object}}
 triggers:
   - "browser automation"
   - "Chrome DevTools Protocol"
@@ -29,6 +50,12 @@ triggers:
 Container is the default mode. Agent Zero controls its Chromium browser through Chrome DevTools Protocol (CDP). The Browser surface shows the same Container tabs used by all Browser actions, including `cdp`. Host Chromium uses the same Browser tool and action arguments.
 
 Use this progressive-disclosure workflow guide for rendered browsing. When the user asks for "my browser", use the Browser tool in Host mode. If the selected browser is unavailable, report the setup it requests. For an existing page, match its title or URL in `list` and use that `browser_id`. Open a tab with `open` and `url` when needed. Container tabs and windows are shared across chats.
+
+For plain text research, prefer the `web-search` skill. Close only tabs you created.
+
+```json
+{"tool_name":"browser","tool_args":{"action":"open","url":"https://example.com"}}
+```
 
 ## Read and interact
 

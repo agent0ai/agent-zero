@@ -55,14 +55,7 @@ def get_plugin_config(default=None, **kwargs):
 def tool_access(tool_name: str, agent=None) -> bool | None:
     if tool_name != "browser":
         return None
-
-    from helpers import skills
-
-    return bool(
-        "browser-automation" in skills.get_loaded_skill_names(agent)
-        and saved_tool_access_allows_browser(agent)
-        and skills.find_skill("browser-automation", agent=agent)
-    )
+    return agent is not None and saved_tool_access_allows_browser(agent)
 
 
 def save_plugin_config(settings=None, project_name="", agent_profile="", **kwargs):
