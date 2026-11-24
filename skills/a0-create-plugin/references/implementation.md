@@ -107,6 +107,7 @@ pass it explicitly.
   agents/
     <profile>/agent.yaml # Optional plugin-distributed agent profile
   api/                  # API Handlers (ApiHandler base class)
+  skills/<skill-name>/SKILL.md # On-demand agent workflow
   tools/                # Tool subclasses
   helpers/              # Shared Python logic
   prompts/              # Prompt templates
@@ -178,6 +179,12 @@ Omit `execute.py` by default. It is only for a separate, explicitly requested ma
 
 ---
 
+
+## Agent-Facing Capabilities
+
+Start with a plugin skill for an agent workflow. Put it in `skills/<skill-name>/SKILL.md` and use `build-skill` for authoring. The agent can discover the workflow and load its instructions when needed, which keeps detailed procedures out of unrelated chats.
+
+Have the skill use an existing authorized tool, CLI, or API when it already provides the operation. Add a dedicated tool when the operation needs an agent-specific boundary, such as chat-scoped state, framework artifacts, or per-action permissions. Keep authorization at the execution boundary.
 
 ## API And Tool Contracts
 

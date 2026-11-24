@@ -156,8 +156,8 @@ Once the small version works, change only one thing at a time:
 - show a different status for running chats and finished chats;
 - turn the plugin into a publishable project with a `LICENSE`, screenshots, and a clearer README.
 
-Small plugins are good teachers. You can see the whole machine turning without
-standing inside the engine.
+If your plugin adds a workflow for the agent, start with a skill so its
+instructions load when needed. See [when to add a dedicated tool](../../skills/a0-create-plugin/references/implementation.md#agent-facing-capabilities).
 
 ## Related
 
