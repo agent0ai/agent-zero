@@ -35,7 +35,9 @@ each worker checks its own tool call. Model prompts and native schemas expose th
 permitted actions. Custom tools and MCP tools retain whole-tool controls.
 
 Browser is controlled by its `browser-automation` skill and does not appear as
-a separate Agent Editor tool permission.
+a separate Agent Editor tool permission. If saved Tool Access policy denies
+Browser or any of its former actions, the Browser plugin blocks the entire
+capability and hides its skills in that scope.
 
 Action controls restrict these tool calls. They are not a filesystem or process
 sandbox: an allowed terminal or browser JavaScript action can still perform work

@@ -13,6 +13,7 @@ from helpers.errors import RepairableException
 from helpers.tool_actions import BUNDLED_ACTIONS, action_policy_id, bundled_path
 from plugins._agent_editor.helpers import editor
 from plugins._browser.extensions.python._functions.agent.Agent.read_prompt.end._30_browser_skill import BrowserSkillPrompt
+from plugins._browser.helpers.skill_access import _LEGACY_ACTION_IDS
 from plugins._document_query.extensions.python._functions.agent.Agent.read_prompt.end._30_document_query_skill import (
     DocumentQuerySkillPrompt,
 )
@@ -47,21 +48,22 @@ def policy(monkeypatch, *, default="allow", allowed=(), blocked=()):
 
 
 @pytest.mark.asyncio
-async def test_browser_is_owned_only_by_the_loaded_skill(monkeypatch):
+async def test_browser_skill_respects_saved_tool_access(monkeypatch):
     state = {}
     context = SimpleNamespace(
         id="skill-browser",
         get_data=state.get,
         set_data=state.__setitem__,
     )
-    agent = SimpleNamespace(
-        config=SimpleNamespace(profile="restricted"),
-        context=context,
-        data={},
-    )
-    skill_root = ROOT / "plugins/_browser/skills"
-    tool_root = ROOT / "plugins/_browser/tools"
-    prompt_root = ROOT / "plugins/_browser/prompts"
+    agent = object.__new__(Agent)
+    agent.config = SimpleNamespace(profile="restricted-browser")
+    agent.context = context
+    agent.data = {}
+    plugin = ROOT / "plugins/_browser"
+    skill_root = plugin / "skills"
+    tool_root = plugin / "tools"
+    prompt_root = plugin / "prompts"
+    skill_extension = "_functions/helpers/skills/get_skill_roots/end"
 
     def read_prompt(name, **_kwargs):
         data = {"args": (agent, name), "result": (prompt_root / name).read_text()}
@@ -76,24 +78,23 @@ async def test_browser_is_owned_only_by_the_loaded_skill(monkeypatch):
             ("tools",): [str(tool_root)],
             ("tools", "browser.py"): [str(tool_root / "browser.py")],
             ("prompts",): [str(prompt_root)],
+            ("extensions/python", skill_extension): [str(plugin / "extensions/python" / skill_extension)],
         }.get(parts, [])
 
     monkeypatch.setattr(tool_policy.subagents, "get_paths", paths)
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
     monkeypatch.setattr(responses_tools, "_include_local_tool_prompt", lambda *_args: True)
-    tool_policy_config = tool_policy.normalize_policy({
-        "mode": "custom",
-        "blocked": ["plugin:_browser:browser"],
-    })
-    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: tool_policy_config)
+    tool_id = "plugin:_browser:browser"
+    policy(monkeypatch, default="block", allowed=[tool_id])
     skill_policy = skills.normalize_visibility_policy(None)
     monkeypatch.setattr(skills, "get_visibility_policy", lambda _agent: skill_policy)
 
     prompt_name = "agent.system.tool.browser.md"
     prompt = (prompt_root / prompt_name).read_text()
-    assert "plugin:_browser:browser" not in BUNDLED_ACTIONS
+    assert tool_id not in BUNDLED_ACTIONS
     assert "browser" not in {item["name"] for item in tool_policy.get_tool_catalog(agent)}
+    assert skills.find_skill("browser-automation", agent=agent)
     assert agent.read_prompt(prompt_name) == ""
     assert responses_tools.build_responses_function_tools(agent) == ([], {})
     with pytest.raises(RepairableException, match="is blocked"):
@@ -108,6 +109,31 @@ async def test_browser_is_owned_only_by_the_loaded_skill(monkeypatch):
         tool_name="browser", tool_args={"action": "cdp"}
     )
 
+    policy(monkeypatch, default="block", allowed=_LEGACY_ACTION_IDS)
+    await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={"action": "open"})
+
+    for saved_rules in (
+        {"blocked": [tool_id]},
+        {"allowed": [tool_id], "blocked": [action_policy_id(tool_id, "evaluate")]},
+        {"default": "block", "allowed": [action_policy_id(tool_id, "open")]},
+    ):
+        policy(monkeypatch, **saved_rules)
+        assert str(skill_root) not in skills.get_skill_roots(agent)
+        assert str(skill_root) in skills.get_skill_roots()
+        assert not skills.find_skill("browser-automation", agent=agent)
+        assert agent.read_prompt(prompt_name) == ""
+        assert responses_tools.build_responses_function_tools(agent) == ([], {})
+        with pytest.raises(RepairableException, match="is blocked"):
+            await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={"action": "open"})
+
+    policy(monkeypatch, blocked=[action_policy_id(tool_id, "cdp")])
+    with monkeypatch.context() as override:
+        override.setattr(skills, "find_skill", lambda *_args, **_kwargs: True)
+        with pytest.raises(RepairableException, match="is blocked"):
+            await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={"action": "open"})
+
+    policy(monkeypatch)
+    assert skills.find_skill("browser-automation", agent=agent)
     skill_policy.update(skills.normalize_visibility_policy({
         "mode": "custom",
         "blocked": ["browser-automation"],

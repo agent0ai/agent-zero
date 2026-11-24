@@ -16,6 +16,7 @@ from plugins._browser.helpers.config import (
     normalize_browser_config,
 )
 from plugins._browser.helpers.runtime import close_all_runtimes_sync
+from plugins._browser.helpers.skill_access import saved_tool_access_allows_browser
 
 
 _SETUP_LOCK = threading.Lock()
@@ -59,6 +60,7 @@ def tool_access(tool_name: str, agent=None) -> bool | None:
 
     return bool(
         "browser-automation" in skills.get_loaded_skill_names(agent)
+        and saved_tool_access_allows_browser(agent)
         and skills.find_skill("browser-automation", agent=agent)
     )
 

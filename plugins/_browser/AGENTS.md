@@ -100,6 +100,7 @@
 ## Work Guidance
 
 - Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. The Browser plugin's `tool_access` hook requires a loaded, visible `browser-automation` skill. The Browser prompt hook and native schema use that same decision. Put WebDriver workflows and fallback guidance in the skill’s browser controls reference.
+- Saved Tool Access rules apply at their existing project/profile scope. A whole-tool denial or any denied former Browser action blocks the callable and hides the Browser plugin's skills from scoped discovery. The skill-root extension and callable gate use the same rule, including for chats that already loaded the skill.
 - Keep response-body diagnostics in the Browser skill. Durable response storage is an explicit Chromium CDP option on the capturing session.
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.
@@ -115,6 +116,7 @@
 - Run `pytest tests/test_browser_dom_security.py` for real-Chromium origin isolation, parent/frame/opener attacks, response binding, same-origin frame actions, and legacy-helper upgrades. Run `pytest tests/test_browser_agent_regressions.py tests/test_host_browser_connector.py` for internal runtime and distributed helper compatibility.
 - For viewer changes, verify native tabs opened by a user appear under the correct window in another chat’s agent tool, annotations target page content, and screencast/snapshot fallback still works.
 - Run browser prompt/skill regression tests after changing browser prompt or Browser plugin skills.
+- Run `tests/test_tool_action_policy.py` for legacy whole-tool and action denials across skill discovery, prompts, schemas, and direct dispatch.
 
 ## Child DOX Index
 

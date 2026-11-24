@@ -55,6 +55,8 @@ The file upload and named screenshot actions also honor the connector's Files
 permissions. In Agent Editor, **Skills → browser-automation** controls the
 whole Browser capability, including CDP. Blocking the skill takes effect on
 the next Browser call, including in a chat that loaded it earlier.
+On upgrade, a saved Tool Access denial of Browser or any of its former actions
+blocks the entire capability and hides the Browser plugin's skills in that scope.
 
 ![Browser tool history](../res/usage/browser/browser-tool-history-expanded.png)
 
