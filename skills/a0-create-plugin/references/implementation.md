@@ -107,9 +107,9 @@ pass it explicitly.
   agents/
     <profile>/agent.yaml # Optional plugin-distributed agent profile
   api/                  # API Handlers (ApiHandler base class)
-  skills/<skill-name>/SKILL.md # On-demand agent workflow
-  tools/                # Tool subclasses
-  helpers/              # Shared Python logic
+  skills/<skill-name>/SKILL.md # On-demand workflow and optional callable declaration
+  tools/                # Standalone agent tools
+  helpers/              # Shared Python logic and skill callable handlers
   prompts/              # Prompt templates
   conf/
     model_providers.yaml # Optional: add or override model providers
@@ -184,7 +184,13 @@ Omit `execute.py` by default. It is only for a separate, explicitly requested ma
 
 Start with a plugin skill for an agent workflow. Put it in `skills/<skill-name>/SKILL.md` and use `build-skill` for authoring. The agent can discover the workflow and load its instructions when needed, which keeps detailed procedures out of unrelated chats.
 
-Have the skill use an existing authorized tool, CLI, or API when it already provides the operation. Add a dedicated tool when the operation needs an agent-specific boundary, such as chat-scoped state, framework artifacts, or per-action permissions. Keep authorization at the execution boundary.
+Have the skill use an existing authorized tool, CLI, or API when it already provides the operation. If the workflow needs its own callable for chat-scoped state, framework artifacts, or a permission boundary, declare it in the skill.
+
+1. In `SKILL.md`, set `metadata.tool.name` to the callable name and `metadata.tool.parameters` to its JSON Schema object. Put text-mode call examples in the skill body. Responses uses the declared schema.
+2. In an `extensions/python/skill_tools/` extension, set `bindings[callable_name] = SkillTool(plugin_name, skill_name, factory)` from `execute(self, bindings, **kwargs)`. The factory creates the plugin's `Tool` handler from `helpers/`. The callable becomes available after the chat loads the skill, subject to normal scoped skill overrides, visibility, and Tool Access.
+3. When migrating, remove `tools/<callable>.py`, any discovery shim, and its old agent tool prompt or duplicate schema. File-based tool lookup takes precedence over the skill binding. Preserve saved Tool Access denials and destination authorization at execution.
+
+Follow the shipped [Browser](../../../plugins/_browser/extensions/python/skill_tools/_10_browser.py) and [Document Query](../../../plugins/_document_query/extensions/python/skill_tools/_10_document_query.py) registrations.
 
 ## API And Tool Contracts
 
@@ -200,7 +206,7 @@ class MyTool(Tool):
         return Response(message=text, break_loop=False)
 ```
 
-Provide its callable contract in a policy-filtered `agent.system.tool.*.md` prompt. Do not advertise configurable tools in unconditional system fragments. Keep examples complete and valid JSON.
+For a standalone tool, provide its callable contract in a policy-filtered `agent.system.tool.*.md` prompt. For an on-demand callable, put the contract in the skill as described above. Keep examples complete and valid JSON.
 
 ## Local Verification
 

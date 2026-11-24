@@ -156,8 +156,10 @@ Once the small version works, change only one thing at a time:
 - show a different status for running chats and finished chats;
 - turn the plugin into a publishable project with a `LICENSE`, screenshots, and a clearer README.
 
-If your plugin adds a workflow for the agent, start with a skill so its
-instructions load when needed. See [when to add a dedicated tool](../../skills/a0-create-plugin/references/implementation.md#agent-facing-capabilities).
+If your plugin adds a workflow for the agent, start with a skill. When it needs
+its own callable, declare it in `SKILL.md` so it becomes available on demand.
+When migrating an existing tool, keep its backend in the plugin and remove
+the standalone tool file. See the [authoring pattern for skill callables](../../skills/a0-create-plugin/references/implementation.md#agent-facing-capabilities).
 
 ## Related
 
