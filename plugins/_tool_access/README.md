@@ -39,6 +39,11 @@ a separate Agent Editor tool permission. If saved Tool Access policy denies
 Browser or any of its former actions, the Browser plugin blocks the entire
 capability and hides its skills in that scope, including scoped overrides.
 
+For a default-block profile that granted the former `local:document_query`
+entry, allow `plugin:_document_query:document_query` in Agent Editor to use the
+bundled skill. The former local ID is still honored as a denial. It could also
+identify a custom file override, so allow the bundled plugin explicitly.
+
 Action controls restrict these tool calls. They are not a filesystem or process
 sandbox: an allowed terminal or browser JavaScript action can still perform work
 that another tool's action is blocked from doing.
