@@ -256,9 +256,11 @@ class TTYSession:
 
 
 async def _spawn_posix_pty(cmd, cwd, env, echo):
-    import pty, asyncio, os, termios
+    import pty, asyncio, os, termios, fcntl, struct
 
     master, slave = pty.openpty()
+    # Set a valid terminal size: with 0x0, some libs like `ora` go into infinite-loop
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
     os.set_blocking(master, False)
 
     # ── Disable ECHO on the slave side if requested ──
