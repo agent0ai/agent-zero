@@ -30,8 +30,16 @@ LOGS: list[str] = []
 # ---------------------------------------------------------------------------
 
 
+def _stub(monkeypatch, name, module):
+    """Install a stub submodule of helpers, also as the package attribute that
+    "from helpers import x" reads first when helpers is already imported."""
+    monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setattr(sys.modules["helpers"], name.split(".", 1)[1], module, raising=False)
+
+
 def _install_stubs(monkeypatch):
     LOGS.clear()
+    importlib.import_module("helpers")
 
     settings_stub = types.ModuleType("helpers.settings")
     settings_stub.get_settings = lambda: {
@@ -39,7 +47,7 @@ def _install_stubs(monkeypatch):
         "a2a_server_enabled": True,
         "mcp_server_token": TOKEN,
     }
-    monkeypatch.setitem(sys.modules, "helpers.settings", settings_stub)
+    _stub(monkeypatch, "helpers.settings", settings_stub)
 
     projects_stub = types.ModuleType("helpers.projects")
     projects_stub.CONTEXT_DATA_KEY_PROJECT = "project"
@@ -55,7 +63,7 @@ def _install_stubs(monkeypatch):
     projects_stub.activate_project = lambda context_id, name, **kw: projects_stub.activated.append(
         (context_id, name)
     )
-    monkeypatch.setitem(sys.modules, "helpers.projects", projects_stub)
+    _stub(monkeypatch, "helpers.projects", projects_stub)
 
     print_style_stub = types.ModuleType("helpers.print_style")
 
@@ -71,7 +79,7 @@ def _install_stubs(monkeypatch):
             LOGS.append(" ".join(str(a) for a in args))
 
     print_style_stub.PrintStyle = _PrintStyle
-    monkeypatch.setitem(sys.modules, "helpers.print_style", print_style_stub)
+    _stub(monkeypatch, "helpers.print_style", print_style_stub)
 
     class _Context:
         contexts: dict = {}
@@ -107,10 +115,20 @@ def _install_stubs(monkeypatch):
 
     persist_chat_stub = types.ModuleType("helpers.persist_chat")
     persist_chat_stub.remove_chat = lambda *args, **kwargs: None
-    monkeypatch.setitem(sys.modules, "helpers.persist_chat", persist_chat_stub)
+    _stub(monkeypatch, "helpers.persist_chat", persist_chat_stub)
 
+    # Fresh server modules bound to these stubs; monkeypatch restores the
+    # originals (module and package attribute) afterwards.
+    package = sys.modules["helpers"]
     for name in ("helpers.server_auth", "helpers.mcp_server", "helpers.fasta2a_server"):
-        sys.modules.pop(name, None)
+        monkeypatch.delitem(sys.modules, name, raising=False)
+        attr = name.split(".", 1)[1]
+        monkeypatch.setattr(package, attr, None, raising=False)
+        delattr(package, attr)
+    # Import both, so the package attributes dropped above exist again when
+    # monkeypatch restores them.
+    importlib.import_module("helpers.mcp_server")
+    importlib.import_module("helpers.fasta2a_server")
     return projects_stub, _Context
 
 
@@ -482,3 +500,85 @@ def test_a2a_header_and_url_auth_and_project(a2a):
     assert status == 400
     assert len(calls) == 5
     assert not any(TOKEN in line for line in LOGS)
+
+
+async def _chunked_request(app, path, headers, chunks):
+    """POST ``chunks`` as separate http.request events; return what the app read."""
+    pending = [
+        {"type": "http.request", "body": chunk, "more_body": i < len(chunks) - 1}
+        for i, chunk in enumerate(chunks)
+    ]
+    sent = []
+
+    async def receive():
+        if pending:
+            return pending.pop(0)
+        await asyncio.Event().wait()
+
+    async def send(message):
+        sent.append(message)
+
+    await app(_scope("POST", path, headers), receive, send)
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    return start["status"]
+
+
+def _a2a_reading_proxy(module):
+    """A2A proxy whose app reads every http.request event until more_body is false."""
+    events = []
+
+    async def app(scope, receive, send):
+        while True:
+            message = await receive()
+            events.append(message)
+            if message["type"] != "http.request" or not message.get("more_body", False):
+                break
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    proxy, _ = _a2a_proxy(module)
+    proxy.app = app
+    return proxy, events
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("fasta2a") is None, reason="fasta2a not installed"
+)
+@pytest.mark.parametrize(
+    "path,headers",
+    [
+        ("/a2a/", BEARER + (("x-a0-project", "alpha"),)),
+        (f"/a2a/t-{TOKEN}/p-alpha/", ()),
+    ],
+    ids=["header-project", "url-project"],
+)
+def test_a2a_chunked_body_is_rewritten_once(a2a, path, headers):
+    """A body sent in several http.request events reaches the app exactly once,
+    as one rewritten http.request event (no duplicated first chunk)."""
+    proxy, events = _a2a_reading_proxy(a2a.module)
+    chunks = [A2A_BODY[:10], A2A_BODY[10:40], A2A_BODY[40:]]
+
+    assert asyncio.run(_chunked_request(proxy, path, headers, chunks)) == 200
+
+    assert len(events) == 1
+    assert events[0]["type"] == "http.request"
+    assert events[0]["more_body"] is False
+    data = json.loads(events[0]["body"])
+    assert data["params"]["message"]["metadata"] == {"project": "alpha"}
+    expected = json.loads(A2A_BODY)
+    expected["params"]["message"]["metadata"] = {"project": "alpha"}
+    assert data == expected
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("fasta2a") is None, reason="fasta2a not installed"
+)
+def test_a2a_chunked_body_without_project_passes_through(a2a):
+    """Without a project nothing is buffered: the app reads the chunks as sent."""
+    proxy, events = _a2a_reading_proxy(a2a.module)
+    chunks = [A2A_BODY[:10], A2A_BODY[10:]]
+
+    assert asyncio.run(_chunked_request(proxy, "/a2a/", BEARER, chunks)) == 200
+
+    assert [e["body"] for e in events] == chunks
+    assert [e["more_body"] for e in events] == [True, False]

@@ -99,10 +99,7 @@ async def test_agent_zero_token_url_is_preserved_for_discovery_and_rpc():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("auth_mode", [
-    "token-url", "explicit-header", "public-peer",
-    pytest.param("project-url", marks=pytest.mark.xfail(
-        strict=True, reason="Pre-existing project router duplicates chunked request bodies",
-    )),
+    "token-url", "explicit-header", "public-peer", "project-url",
 ])
 async def test_vps_a2a_discovery_and_conversation_preserve_explicit_auth(monkeypatch, auth_mode):
     from helpers import fasta2a_server, settings
