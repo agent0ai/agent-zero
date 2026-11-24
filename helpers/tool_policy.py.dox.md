@@ -19,7 +19,8 @@
 - `resolve_tool` returns the effective decision and provenance.
 - `get_tool_actions` and `allowed_tool_actions` expose the resolved bundled action contract and allowed actions; catalog entries carry an `actions` list for editor projection.
 - `ensure_tool_allowed` raises the stable repairable runtime policy error and
-  accepts an explicit canonical ID from transports that already resolved one.
+  accepts the source path of the loaded tool or an explicit canonical ID from
+  transports that already resolved one.
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
   including complete fenced JSON examples that reference them, without taking
   ownership of provider-native naming rules.

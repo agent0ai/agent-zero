@@ -216,9 +216,13 @@ def resolve_tool(
         tool_id = canonical_id
         spec = BUNDLED_ACTIONS.get(tool_id)
     else:
-        tool_id, path = _tool_identity(agent, tool_name)
-        spec = _actions_for_path(tool_id, path)
+        if tool_path:
+            tool_id, _ = _canonical_from_path(tool_path, tool_name)
+        else:
+            tool_id, tool_path = _tool_identity(agent, tool_name)
+        spec = _actions_for_path(tool_id, tool_path)
     requested = str(tool_name or "").strip()
+    tool_path: str = "",
     name = _tool_name_from_id(tool_id) if requested == tool_id else requested
     if name in NON_CONFIGURABLE_TOOLS:
         source = "framework-required" if name == "response" else "runtime-config"
@@ -292,7 +296,10 @@ def ensure_tool_allowed(
     action: str | None = None,
     tool_args: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
-    decision = resolve_tool(agent, tool_name, canonical_id=canonical_id, action=action, tool_args=tool_args)
+    decision = resolve_tool(
+        agent, tool_name, canonical_id=canonical_id, tool_path=tool_path,
+        action=action, tool_args=tool_args,
+    )
     if decision.allowed:
         return decision
     profile = str(getattr(getattr(agent, "config", None), "profile", "") or "default")
@@ -302,6 +309,7 @@ def ensure_tool_allowed(
 
 
 def ensure_retired_host_tool_allowed(agent: Any, name: str, *, action=None, tool_args=None) -> None:
+    tool_path: str = "",
     """Preserve explicit denials from profiles created before destinations were unified."""
     policy = get_policy(agent)
     decision = resolve_tool(

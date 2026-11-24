@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from agent import Agent
 from helpers import responses_tools, tool_policy
 from helpers.errors import RepairableException
 from helpers.tool_actions import BUNDLED_ACTIONS, action_policy_id, bundled_path
@@ -41,6 +42,28 @@ def policy(monkeypatch, *, default="allow", allowed=(), blocked=()):
     })
     monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: result)
     return result
+
+
+@pytest.mark.asyncio
+async def test_browser_import_fallback_uses_the_loaded_tools_policy(monkeypatch, tmp_path):
+    override = tmp_path / "browser.py"
+    override.write_text("raise ImportError('missing test dependency')\n")
+    bundled = ROOT / "plugins/_browser/tools/browser.py"
+    monkeypatch.setattr(
+        tool_policy.subagents, "get_paths",
+        lambda _agent, *parts: [str(override), str(bundled)]
+        if parts == ("tools", "browser.py") else [],
+    )
+    policy(monkeypatch, blocked=["plugin:_browser:browser"])
+    agent = SimpleNamespace(
+        config=SimpleNamespace(profile="restricted"),
+        loop_data=SimpleNamespace(current_tool=None),
+    )
+    agent.loop_data.current_tool = Agent.get_tool(agent, "browser", None, {}, "", agent.loop_data)
+    assert type(agent.loop_data.current_tool).__name__ == "Browser"
+
+    with pytest.raises(RepairableException, match="is blocked"):
+        await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={})
 
 
 @pytest.mark.asyncio
