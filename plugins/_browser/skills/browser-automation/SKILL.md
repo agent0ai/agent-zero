@@ -1,6 +1,8 @@
 ---
 name: browser-automation
 description: "Control web pages: tabs, clicks, forms, downloads, screenshots; host or Docker browser."
+allowed-tools:
+  - browser
 triggers:
   - "browser automation"
   - "Chrome DevTools Protocol"
@@ -34,7 +36,7 @@ Use this progressive-disclosure workflow guide for rendered browsing. When the u
 2. Use `evaluate` with `script` for a page expression or function. This action applies the configured deadline and reports timeout recovery, including any reload.
 3. Use `screenshot` for a visual record. Pass the returned `vision_load.tool_args.paths` to `vision_load`. Use `upload_file` with a file input ref or selector and `path` or `paths`. For Container file transfers, optional `destination` selects Agent Zero's local, sandbox, or host filesystem. Host uploads use the connector's shared folder with Files read access. Saving an explicit host screenshot path uses Files write access.
 4. For uploads, validation and fragile controls, load `browser-form-workflows` with `skills_tool:load` (`skill_name: "browser-form-workflows"`).
-5. If the tool's action list omits `cdp`, use `skills_tool:read_file` with `skill_name: "browser-automation"` and `file_path: "references/browser-controls.md"` for the available controls and Host setup.
+5. For Host setup and Safari WebDriver limits, read `references/browser-controls.md` with `skills_tool:read_file`.
 
 ## Chrome DevTools Protocol
 

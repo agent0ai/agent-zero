@@ -36,7 +36,7 @@ You can ask naturally:
 Use the Browser tool to open https://example.com, read the page content, and take a screenshot. Keep the response short.
 ```
 
-Both Chromium modes offer the same nine actions with the default permissions.
+Both Chromium modes offer the same Browser actions.
 
 | Actions | What the agent uses them for |
 | --- | --- |
@@ -52,8 +52,9 @@ for common tasks and connect browser results to the rest of Agent Zero.
 In **Host access**, enabling **Browser** grants DevTools control of the selected
 Chromium profile, including its signed-in tabs and browser-level operations.
 The file upload and named screenshot actions also honor the connector's Files
-permissions. In Agent Editor, **Browser → Cdp** controls direct DevTools calls.
-The agent sees the actions available to its profile and browser.
+permissions. In Agent Editor, **Skills → browser-automation** controls the
+whole Browser capability, including CDP. Blocking the skill takes effect on
+the next Browser call, including in a chat that loaded it earlier.
 
 ![Browser tool history](../res/usage/browser/browser-tool-history-expanded.png)
 

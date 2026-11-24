@@ -3,15 +3,16 @@ from __future__ import annotations
 import itertools
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from agent import Agent
-from helpers import responses_tools, tool_policy
+from helpers import responses_tools, skills, tool_policy
 from helpers.errors import RepairableException
 from helpers.tool_actions import BUNDLED_ACTIONS, action_policy_id, bundled_path
 from plugins._agent_editor.helpers import editor
+from plugins._browser.extensions.python._functions.agent.Agent.read_prompt.end._30_browser_skill import BrowserSkillPrompt
 from plugins._tool_access.extensions.python.tool_execute_before._10_enforce_tool_policy import EnforceToolPolicy
 
 
@@ -25,8 +26,6 @@ CALLABLE_ACTIONS = {tool_id: spec for tool_id, spec in BUNDLED_ACTIONS.items() i
 
 @pytest.fixture
 def action_agent(monkeypatch):
-    from plugins._browser.helpers import config as browser_config
-    monkeypatch.setattr(browser_config, "get_browser_config", lambda agent: {"runtime_backend": "container"})
     agent = SimpleNamespace(config=SimpleNamespace(profile="restricted"))
     paths = {tool_id.rsplit(":", 1)[-1]: ROOT / bundled_path(tool_id) for tool_id in CALLABLE_ACTIONS}
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **kwargs: (
@@ -45,6 +44,82 @@ def policy(monkeypatch, *, default="allow", allowed=(), blocked=()):
 
 
 @pytest.mark.asyncio
+async def test_browser_is_owned_only_by_the_loaded_skill(monkeypatch):
+    state = {}
+    context = SimpleNamespace(
+        id="skill-browser",
+        get_data=state.get,
+        set_data=state.__setitem__,
+    )
+    agent = SimpleNamespace(
+        config=SimpleNamespace(profile="restricted"),
+        context=context,
+        data={},
+    )
+    skill_root = ROOT / "plugins/_browser/skills"
+    tool_root = ROOT / "plugins/_browser/tools"
+    prompt_root = ROOT / "plugins/_browser/prompts"
+
+    def read_prompt(name, **_kwargs):
+        data = {"args": (agent, name), "result": (prompt_root / name).read_text()}
+        BrowserSkillPrompt(agent).execute(data)
+        return data["result"]
+
+    agent.read_prompt = read_prompt
+
+    def paths(_agent, *parts, **_kwargs):
+        return {
+            ("skills",): [str(skill_root)],
+            ("tools",): [str(tool_root)],
+            ("tools", "browser.py"): [str(tool_root / "browser.py")],
+            ("prompts",): [str(prompt_root)],
+        }.get(parts, [])
+
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", paths)
+    monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
+    monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
+    monkeypatch.setattr(responses_tools, "_include_local_tool_prompt", lambda *_args: True)
+    tool_policy_config = tool_policy.normalize_policy({
+        "mode": "custom",
+        "blocked": ["plugin:_browser:browser"],
+    })
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: tool_policy_config)
+    skill_policy = skills.normalize_visibility_policy(None)
+    monkeypatch.setattr(skills, "get_visibility_policy", lambda _agent: skill_policy)
+
+    prompt_name = "agent.system.tool.browser.md"
+    prompt = (prompt_root / prompt_name).read_text()
+    assert "plugin:_browser:browser" not in BUNDLED_ACTIONS
+    assert "browser" not in {item["name"] for item in tool_policy.get_tool_catalog(agent)}
+    assert agent.read_prompt(prompt_name) == ""
+    assert responses_tools.build_responses_function_tools(agent) == ([], {})
+    with pytest.raises(RepairableException, match="is blocked"):
+        await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={"action": "cdp"})
+
+    skills.set_loaded_skill_names(agent, ["browser-automation"])
+    assert agent.read_prompt(prompt_name) == prompt
+    schemas, names = responses_tools.build_responses_function_tools(agent)
+    assert names == {"browser": "browser"}
+    assert "cdp_method" in schemas[0]["parameters"]["properties"]
+    await EnforceToolPolicy(agent).execute(
+        tool_name="browser", tool_args={"action": "cdp"}
+    )
+
+    skill_policy.update(skills.normalize_visibility_policy({
+        "mode": "custom",
+        "blocked": ["browser-automation"],
+    }))
+    assert agent.read_prompt(prompt_name) == ""
+    assert responses_tools.build_responses_function_tools(agent) == ([], {})
+    with pytest.raises(RepairableException, match="is blocked"):
+        await EnforceToolPolicy(agent).execute(tool_name="browser", tool_args={"action": "cdp"})
+
+    monkeypatch.setattr(tool_policy, "_tool_identity", lambda *_: ("local:browser", ""))
+    assert agent.read_prompt(prompt_name) == prompt
+    await EnforceToolPolicy(agent).execute(tool_name="browser")
+
+
+@pytest.mark.asyncio
 async def test_browser_import_fallback_uses_the_loaded_tools_policy(monkeypatch, tmp_path):
     override = tmp_path / "browser.py"
     override.write_text("raise ImportError('missing test dependency')\n")
@@ -54,7 +129,7 @@ async def test_browser_import_fallback_uses_the_loaded_tools_policy(monkeypatch,
         lambda _agent, *parts: [str(override), str(bundled)]
         if parts == ("tools", "browser.py") else [],
     )
-    policy(monkeypatch, blocked=["plugin:_browser:browser"])
+    policy(monkeypatch)
     agent = SimpleNamespace(
         config=SimpleNamespace(profile="restricted"),
         loop_data=SimpleNamespace(current_tool=None),
@@ -74,10 +149,14 @@ async def test_each_action_has_the_same_permission_in_prompts_schemas_and_execut
     name = tool_id.rsplit(":", 1)[-1]
     prompt = f"### {name}\nTool instructions."
     monkeypatch.setattr(responses_tools, "_local_tool_prompts", lambda _agent: [(name, prompt)])
+    allowed_actions = Mock(wraps=tool_policy.allowed_tool_actions)
+    monkeypatch.setattr(tool_policy, "allowed_tool_actions", allowed_actions)
     for allowed_action in spec.actions:
-        policy(monkeypatch, default="block", allowed=[action_policy_id(tool_id, allowed_action)])
+        current = policy(monkeypatch, default="block", allowed=[action_policy_id(tool_id, allowed_action)])
         assert tool_policy.resolve_tool(action_agent, name).allowed
+        allowed_actions.reset_mock()
         schemas, names = responses_tools.build_responses_function_tools(action_agent)
+        allowed_actions.assert_called_once_with(action_agent, name, _policy=current)
         assert names == {name: name}
         assert schemas[0]["parameters"]["properties"][spec.argument]["enum"] == [allowed_action]
         assert f"Permitted {name} actions for this agent: {allowed_action}." in schemas[0]["description"]
@@ -120,13 +199,9 @@ async def test_aliases_cannot_bypass_action_blocks(monkeypatch, action_agent, to
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("name,args,blocked_action", [
-    ("browser", {}, "state"),
     ("goal", {}, "get"),
     ("skills_tool", {}, "list"),
     ("skills_tool", {"action": "", "method": "load"}, "load"),
-    ("browser", {"action": "multi", "calls": [{"action": "state"}, {"action": "evaluate", "script": "1"}]}, "evaluate"),
-    ("browser", {"action": "multi", "calls": [{"action": "cdp", "cdp_method": "Browser.getVersion"}]}, "cdp"),
-    ("browser", {"action": "multi", "calls": [{"action": "multi", "calls": [{"action": "focus"}]}]}, "set_active"),
     ("code_execution_tool", {"runtime": "terminal", "reset": "true"}, "reset"),
     ("parallel", {"action": "collect", "tool_calls": []}, "start"),
     ("parallel", {"action": "await", "calls": "[]"}, "start"),
@@ -141,47 +216,6 @@ async def test_defaults_and_compound_requests_cannot_skip_a_denied_action(
     policy(monkeypatch, blocked=[action_policy_id(tool_id, blocked_action)])
     with pytest.raises(RepairableException):
         await EnforceToolPolicy(action_agent).execute(tool_name=name, tool_args=args)
-
-
-def test_browser_cdp_inherits_the_profile_default_with_other_browser_actions_blocked(monkeypatch, action_agent):
-    policy(monkeypatch, blocked=["plugin:_browser:browser:evaluate"])
-    assert "cdp" in tool_policy.allowed_tool_actions(action_agent, "browser")
-    assert tool_policy.resolve_tool(action_agent, "browser", tool_args={"action": "cdp"}).allowed
-    assert not tool_policy.resolve_tool(action_agent, "browser", action="evaluate").allowed
-
-
-@pytest.mark.parametrize("backend,family,block_cdp,compact", [
-    ("container", "", False, True), ("container", "", True, False),
-    ("host_required", "", False, True), ("host_required", "chrome", False, True),
-    ("host_required", "safari", False, False),
-])
-def test_browser_discovery_matches_text_and_native(monkeypatch, action_agent, backend, family, block_cdp, compact):
-    from plugins._a0_connector.helpers import ws_runtime
-    from plugins._browser.helpers import config as browser_config
-    action_agent.context = SimpleNamespace(id="discovery")
-    monkeypatch.setattr(browser_config, "get_browser_config", lambda agent: {"runtime_backend": backend})
-    monkeypatch.setattr(ws_runtime, "select_host_browser_target_sid", lambda ctx: "sid" if family else None)
-    monkeypatch.setattr(ws_runtime, "select_host_browser_candidate_sid", lambda ctx: None)
-    monkeypatch.setattr(ws_runtime, "host_browser_metadata_for_sid", lambda sid: {"browser_family": family})
-    current = policy(monkeypatch, blocked=["plugin:_browser:browser:cdp"] if block_cdp else [])
-    if not block_cdp:
-        current["mode"] = "inherit"
-    prompt = (ROOT / "plugins/_browser/prompts/agent.system.tool.browser.md").read_text()
-    monkeypatch.setattr(responses_tools, "_local_tool_prompts", lambda agent: [("browser", prompt)])
-    text = tool_policy.filter_tool_prompt(action_agent, "agent.system.tool.browser.md", prompt)
-    tools, _ = responses_tools.build_responses_function_tools(action_agent)
-    schema = tools[0]["parameters"]["properties"]
-    actions = schema["action"]["enum"]
-    assert ", ".join(actions) + "." in text
-    assert ("cdp" in actions) == compact
-    assert ("cdp_method" in schema) == compact
-    assert ("script" in schema) == ("evaluate" in actions)
-    if compact:
-        assert actions == ["open", "list", "content", "click", "type", "evaluate", "screenshot", "upload_file", "cdp"]
-        assert "calls" not in schema
-    else:
-        assert {"keyboard", "wheel", "navigate", "multi"} <= set(actions)
-        assert ("evaluate" in actions) == (family != "safari")
 
 
 @pytest.mark.asyncio

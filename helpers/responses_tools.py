@@ -166,10 +166,11 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
     descriptions = tool_policy.filter_tool_prompts(
         agent,
         [(f"{TOOL_PROMPT_PREFIX}{name}{TOOL_PROMPT_SUFFIX}", prompt) for name, prompt in local_prompts],
-        _policy=policy, action_enums=action_enums,
+        _policy=policy,
+        action_enums=action_enums,
     )
     for (tool_name, prompt), description in zip(local_prompts, descriptions):
-        if action_enums.get(tool_name) == [] or not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
+        if not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
             continue
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
@@ -182,12 +183,6 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
                 parameters.setdefault("properties", {})[spec.argument] = {
                     "type": "string", "enum": actions
                 }
-                if tool_name == "browser":
-                    for action, fields in (("multi", ("calls",)), ("evaluate", ("script",)),
-                                           ("cdp", ("cdp_method", "params", "session_id"))):
-                        if action not in actions:
-                            for field in fields:
-                                parameters["properties"].pop(field, None)
         tools.append(
             {
                 "type": "function",

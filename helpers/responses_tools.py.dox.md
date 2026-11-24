@@ -23,7 +23,7 @@
 - Code execution, terminal input, the text editor, vision, document queries, and browser file actions expose a destination argument. The execution schema omits the framework-owned `allow_running` input flag.
 - Native local descriptions preserve full policy-filtered operational guidance. Convert unfenced and JSON-fenced A0 envelope examples to argument-only examples using the shared tool-request parser; preserve unrelated JSON and non-JSON code fences. Catalog summaries remain separate.
 - Web search is skill/CLI-owned and has no bundled function-tool schema.
-- Native Browser calls share the text prompt's scoped action list, with the CDP method, arbitrary parameter object, tab ID and attached session ID available for protocol calls.
+- Native Browser calls expose the CDP method, arbitrary parameter object, tab ID and attached session ID after the Browser skill is loaded.
 - Preserve original Agent Zero tool names through the native Responses name map.
 - Keep MCP tool schemas merged after local prompt-derived tools.
 - Apply `helpers.tool_policy` before emitting local or MCP schemas; a blocked
@@ -32,6 +32,7 @@
 - Resolve a fresh policy once per schema build and reuse it only within that
   build; runtime execution remains independently policy-gated.
 - Bundled multi-action schemas list only policy-allowed actions in their selector (`action` or code execution's `runtime`); legacy memory action permissions never expand into permission for the whole tool. Selector metadata comes from `helpers.tool_actions` and applies only to the resolved bundled implementation.
+- Reuse action lists computed by prompt filtering within the same schema build. Resolve the list directly when prompt filtering did not compute one.
 - `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
 - Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 

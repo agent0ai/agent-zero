@@ -19,7 +19,7 @@
   fallbacks; explicit canonical IDs remain shared in `allowed` and `blocked`.
 - Required final-response capability is never disabled.
 - Enforce policy using the source path recorded by the tool loader when available, including after import fallback.
-- Forward the complete execution arguments to shared policy resolution so action defaults, aliases, browser batches, reset flags, and parallel operations cannot bypass permissions. Unified memory retains the permissions of its former individual tools.
+- Forward the complete execution arguments to shared policy resolution so action defaults, aliases, reset flags, and parallel operations cannot bypass permissions. Unified memory retains the permissions of its former individual tools.
 
 ## Verification
 

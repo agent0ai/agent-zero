@@ -33,17 +33,6 @@ BUNDLED_ACTIONS = {
     "plugin:_a0_connector:text_editor_remote": _EDITOR,
     "plugin:_code_execution:code_execution_tool": _CODE,
     "plugin:_a0_connector:code_execution_remote": _CODE,
-    "plugin:_browser:browser": ToolActions((
-        "open", "list", "state", "set_active", "navigate", "back", "forward", "reload",
-        "content", "detail", "screenshot", "click", "type", "submit", "type_submit",
-        "scroll", "evaluate", "cdp", "key_chord", "hover", "double_click", "right_click",
-        "drag", "wheel", "keyboard", "clipboard", "set_viewport", "select_option",
-        "set_checked", "upload_file", "mouse", "multi", "close", "close_all",
-    ), default="state", aliases={
-        "setactive": "set_active", "activate": "set_active", "focus": "set_active",
-        "typesubmit": "type_submit", "keychord": "key_chord",
-        "copy": "clipboard", "cut": "clipboard", "paste": "clipboard",
-    }),
     "plugin:_a0_connector:computer_use_remote": ToolActions((
         "start_session", "status", "capture", "list_windows", "get_window_state",
         "element_action", "ax_snapshot", "ax_action", "uia_snapshot", "uia_action",
@@ -81,13 +70,7 @@ def requested_actions(tool_id: str, args: dict[str, Any]) -> list[str]:
     action = spec.normalize(value or spec.default)
     result = [action]
 
-    if tool_id == "plugin:_browser:browser" and action == "multi":
-        calls = args.get("calls")
-        if isinstance(calls, list):
-            for call in calls:
-                if isinstance(call, dict):
-                    result.extend(requested_actions(tool_id, call))
-    elif spec.argument == "runtime":
+    if spec.argument == "runtime":
         from helpers.tool import coerce_bool
 
         if coerce_bool(args.get("reset"), False):

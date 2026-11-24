@@ -24,7 +24,7 @@
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
   including complete fenced JSON examples that reference them, without taking
   ownership of provider-native naming rules.
-- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool decisions to a complete prompt batch. Native schema construction may supply its current `_policy` snapshot; neither owner retains it across calls.
+- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool decisions to a complete prompt batch. Native schema construction may supply its current `_policy` snapshot and an `action_enums` mapping to receive the allowed lists computed during filtering. Both are scoped to the current build.
 
 ## Runtime Contracts
 
@@ -35,20 +35,20 @@
 - Missing policy inherits standard access. A custom policy records independent
   defaults for local/plugin tools and canonical MCP tools; explicit allowed or
   blocked IDs take precedence over either default.
-- Browser `cdp` follows the normal tool and action rules. A profile with an allow default can block an individual Browser action and still use CDP.
-- Inherited prompt policy skips the full tool inventory. The bundled Browser prompt receives its scoped action list in both inherited and custom modes.
+- Inherited prompt policy returns the supplied tool text without inventorying or resolving individual tools.
 - The `response` capability is a framework-required invariant: profile policy
   cannot disable it, and the editor does not list it as a configurable tool.
 - `vision_load` remains owned by the active chat model's vision configuration;
   it is not exposed as a profile-policy choice and legacy policy IDs cannot
   suppress the chat-configured capability.
+- A plugin can own access to its tools via `hooks.py:tool_access(tool_name, agent=None)`. Return `None` for ordinary Tool Access policy, or a boolean for a decision owned by the plugin. Catalog discovery passes no agent and omits tools with a plugin decision. Runtime resolution passes the agent and checks the current decision.
 - Policy IDs are namespaced as `local:`, `plugin:<id>:`, or `mcp:<server>:`.
   Generic execution resolves canonical IDs from executable paths; MCP
   invocation supplies its explicit namespaced ID.
 - Moved bundled tools honor their saved core IDs; behavior adjustment honors its old plugin/spelling ID. Matching legacy IDs remain editable in the catalog while their replacement is available. Explicit blocks win across both IDs; unrelated profile overrides retain their own identity.
 - Unified memory checks both its tool-wide ID and the corresponding legacy action ID. Without an action, discovery exposes memory if any action is allowed; execution checks the requested action through `ensure_tool_allowed`. Legacy memory names stay action-specific, and a tool-wide block also blocks those aliases.
 - All registered bundled multi-action tools check whole-tool and action IDs with explicit-block precedence. Discovery exposes a tool when any action is allowed; execution supplies `tool_args` (including an empty dict) to resolve defaults and compound operations. Omitting both arguments and action is a discovery query, never an execution check.
-- `allowed_tool_actions` resolves action permissions. Browser discovery projects them onto the selected browser's capabilities. Native schemas reuse the same action list rendered in text. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
+- `allowed_tool_actions` supplies allowed action enums for registered multi-action tools. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that

@@ -99,7 +99,7 @@
 
 ## Work Guidance
 
-- Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. Keep the nine actions in `helpers/config.py:model_actions` in sync with the Browser skill. Both model transports use this projection. The viewer and Agent Editor use canonical action IDs. Put WebDriver workflows and guidance for when direct `cdp` calls are disabled in the skill’s browser controls reference.
+- Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. The Browser plugin's `tool_access` hook requires a loaded, visible `browser-automation` skill. The Browser prompt hook and native schema use that same decision. Put WebDriver workflows and fallback guidance in the skill’s browser controls reference.
 - Keep response-body diagnostics in the Browser skill. Durable response storage is an explicit Chromium CDP option on the capturing session.
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.

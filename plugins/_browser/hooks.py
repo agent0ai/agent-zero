@@ -51,6 +51,18 @@ def get_plugin_config(default=None, **kwargs):
     return normalize_browser_config(default)
 
 
+def tool_access(tool_name: str, agent=None) -> bool | None:
+    if tool_name != "browser":
+        return None
+
+    from helpers import skills
+
+    return bool(
+        "browser-automation" in skills.get_loaded_skill_names(agent)
+        and skills.find_skill("browser-automation", agent=agent)
+    )
+
+
 def save_plugin_config(settings=None, project_name="", agent_profile="", **kwargs):
     normalized = normalize_browser_config(settings)
     current = normalize_browser_config(

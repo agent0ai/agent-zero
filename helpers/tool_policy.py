@@ -86,6 +86,8 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
         if tool_id in seen:
             continue
         seen.add(tool_id)
+        if _plugin_tool_access(tool_id) is not None:
+            continue
         actions = _actions_for_path(tool_id, tool_path)
         if actions:
             action_ids.update(action_policy_id(tool_id, action) for action in actions.actions)
@@ -172,6 +174,15 @@ def canonical_mcp_id(tool_name: str) -> str:
     return f"mcp:{server}:{name}" if separator and server and name else ""
 
 
+def _plugin_tool_access(tool_id: str, agent: Any = None) -> bool | None:
+    parts = tool_id.split(":", 2)
+    if len(parts) == 3 and parts[0] == "plugin":
+        return plugins.call_plugin_hook(
+            parts[1], "tool_access", tool_name=parts[2], agent=agent
+        )
+    return None
+
+
 def _canonical_tool_id(agent: Any, tool_name: str) -> str:
     return _tool_identity(agent, tool_name)[0]
 
@@ -208,6 +219,7 @@ def resolve_tool(
     tool_name: str,
     *,
     canonical_id: str = "",
+    tool_path: str = "",
     action: str | None = None,
     tool_args: dict[str, Any] | None = None,
     _policy: dict[str, Any] | None = None,
@@ -222,11 +234,12 @@ def resolve_tool(
             tool_id, tool_path = _tool_identity(agent, tool_name)
         spec = _actions_for_path(tool_id, tool_path)
     requested = str(tool_name or "").strip()
-    tool_path: str = "",
     name = _tool_name_from_id(tool_id) if requested == tool_id else requested
     if name in NON_CONFIGURABLE_TOOLS:
         source = "framework-required" if name == "response" else "runtime-config"
         return ToolPolicyDecision(True, tool_id, source, "invariant")
+    if (allowed := _plugin_tool_access(tool_id, agent)) is not None:
+        return ToolPolicyDecision(allowed, tool_id, "plugin", "managed")
 
     policy = _policy if _policy is not None else get_policy(agent)
     if policy["mode"] != "custom":
@@ -293,6 +306,7 @@ def ensure_tool_allowed(
     tool_name: str,
     *,
     canonical_id: str = "",
+    tool_path: str = "",
     action: str | None = None,
     tool_args: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
@@ -309,7 +323,6 @@ def ensure_tool_allowed(
 
 
 def ensure_retired_host_tool_allowed(agent: Any, name: str, *, action=None, tool_args=None) -> None:
-    tool_path: str = "",
     """Preserve explicit denials from profiles created before destinations were unified."""
     policy = get_policy(agent)
     decision = resolve_tool(
@@ -349,45 +362,41 @@ def filter_tool_prompt(agent: Any, prompt_file: str, prompt: str) -> str:
 
 def filter_tool_prompts(
     agent: Any, prompts: list[tuple[str, str]],
-    *, _policy: dict[str, Any] | None = None, action_enums: dict[str, list[str]] | None = None,
+    *, _policy: dict[str, Any] | None = None,
+    action_enums: dict[str, list[str]] | None = None,
 ) -> list[str]:
     policy = _policy if _policy is not None else get_policy(agent)
-    if policy["mode"] == "custom":
-        known_names = _policy_tool_names(agent, policy)
-        prompt_names = {
-            name for prompt_file, prompt in prompts
-            for name in _prompt_tool_names(prompt_file, prompt, known_names)
-        }
-        allowed_names = {name for name in known_names | prompt_names
-                         if resolve_tool(agent, name, _policy=policy).allowed}
-        filtered = [_filter_tool_prompt(file, prompt, known_names, allowed_names) for file, prompt in prompts]
-        names = prompt_names & allowed_names
-    else:
-        filtered = [prompt for _, prompt in prompts]
-        known_names = {"browser"}
-        names = {"browser"} if any(_prompt_name(file) == "browser" for file, _ in prompts) else set()
+    if policy["mode"] != "custom":
+        return [prompt for _prompt_file, prompt in prompts]
 
-    for name in sorted(names):
+    known_names = _policy_tool_names(agent, policy)
+    prompt_names = {
+        name for prompt_file, prompt in prompts
+        for name in _prompt_tool_names(prompt_file, prompt, known_names)
+    }
+    allowed_names = {
+        name for name in known_names | prompt_names
+        if resolve_tool(agent, name, _policy=policy).allowed
+    }
+    filtered = [
+        _filter_tool_prompt(prompt_file, prompt, known_names, allowed_names)
+        for prompt_file, prompt in prompts
+    ]
+    for name in sorted(prompt_names & allowed_names):
         spec = get_tool_actions(agent, name)
         actions = allowed_tool_actions(agent, name, _policy=policy) if spec else None
-        if spec and actions is not None:
-            if name == "browser":
-                from plugins._browser.helpers.config import model_actions
-
-                actions = model_actions(agent, actions)
-            if action_enums is not None:
-                action_enums[name] = actions
-            if name != "browser" and len(actions) == len(spec.actions):
-                continue
+        if action_enums is not None and actions is not None:
+            action_enums[name] = actions
+        if spec and actions is not None and len(actions) < len(spec.actions):
             for index, (prompt_file, prompt) in enumerate(prompts):
                 if filtered[index] and name in _prompt_tool_names(
                     prompt_file, prompt, known_names
                 ):
-                    if actions:
-                        suffix = "." if name == "browser" else f". All other {name} actions are blocked."
-                        filtered[index] += f"\nPermitted {name} actions for this agent: " + ", ".join(actions) + suffix + "\n"
-                    else:
-                        filtered[index] = ""
+                    filtered[index] += (
+                        f"\nPermitted {name} actions for this agent: "
+                        + ", ".join(actions)
+                        + f". All other {name} actions are blocked.\n"
+                    )
     return filtered
 
 

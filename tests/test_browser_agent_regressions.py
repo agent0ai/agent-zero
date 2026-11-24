@@ -1239,7 +1239,7 @@ def test_browser_tool_prompt_keeps_shared_browser_workflow():
     assert "vision_load" in prompt
     assert "select_option" not in prompt and "set_checked" not in prompt
     assert "browser-form-workflows" in prompt
-    assert "first load `browser-automation` with `skills_tool:load`" in prompt
+    assert "skills_tool:load" not in prompt
     assert "`browser-automation` links to `browser-form-workflows`" in prompt
     assert "does not automatically load screenshots" in prompt
     browser_skill = (PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md").read_text(encoding="utf-8")

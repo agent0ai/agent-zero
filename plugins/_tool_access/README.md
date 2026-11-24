@@ -22,7 +22,7 @@ because keyboard input can execute shell commands. Restricted profiles must
 permit both `input` with `destination: host` and the `terminal` action of `code_execution_tool` with `destination: host`.
 
 Bundled tools with multiple actions support independent permissions for each
-action: memory, scheduler, local/remote text editors and code execution, browser,
+action: memory, scheduler, local/remote text editors and code execution,
 remote computer use, office artifacts, goals, skills, and parallel jobs.
 Action IDs append the action to the tool ID, for example
 `plugin:_text_editor:text_editor:read`. Memory keeps its existing
@@ -30,10 +30,12 @@ Action IDs append the action to the tool ID, for example
 
 Explicit blocks win over allows across both whole-tool and action rules.
 Existing whole-tool rules still work, and missing policies still inherit normal
-access. Browser batches check each member; code execution also checks an explicit
-reset flag; parallel requests check the operations they actually perform and
+access. Code execution also checks an explicit reset flag; parallel requests check the operations they actually perform and
 each worker checks its own tool call. Model prompts and native schemas expose the
 permitted actions. Custom tools and MCP tools retain whole-tool controls.
+
+Browser is controlled by its `browser-automation` skill and does not appear as
+a separate Agent Editor tool permission.
 
 Action controls restrict these tool calls. They are not a filesystem or process
 sandbox: an allowed terminal or browser JavaScript action can still perform work
