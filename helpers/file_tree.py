@@ -28,6 +28,13 @@ def _from_timestamp(timestamp: float) -> datetime:
     return datetime.fromtimestamp(timestamp, tz=Localization.get().get_tzinfo())
 
 
+def _safe_entry_stat(entry: os.DirEntry) -> os.stat_result | None:
+    try:
+        return entry.stat(follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+
+
 def file_tree(
     relative_path: str,
     *,
@@ -130,8 +137,15 @@ def file_tree(
     limit_reached = False
     visibility_cache: dict[str, bool] = {}
 
-    def make_entry(entry: os.DirEntry, parent: _TreeEntry, level: int, item_type: Literal["file", "folder"]) -> _TreeEntry:
-        stat = entry.stat(follow_symlinks=False)
+    def make_entry(
+        entry: os.DirEntry,
+        parent: _TreeEntry,
+        level: int,
+        item_type: Literal["file", "folder"],
+    ) -> _TreeEntry | None:
+        stat = _safe_entry_stat(entry)
+        if stat is None:
+            return None
         rel_path = os.path.relpath(entry.path, abs_root)
         rel_posix = _normalize_relative_path(rel_path)
         return _TreeEntry(
@@ -160,8 +174,16 @@ def file_tree(
             cache=visibility_cache,
         )
 
-        folder_entries = [make_entry(folder, parent_node, level, "folder") for folder in folders]
-        file_entries = [make_entry(file_entry, parent_node, level, "file") for file_entry in files]
+        folder_entries = [
+            node
+            for folder in folders
+            if (node := make_entry(folder, parent_node, level, "folder")) is not None
+        ]
+        file_entries = [
+            node
+            for file_entry in files
+            if (node := make_entry(file_entry, parent_node, level, "file")) is not None
+        ]
 
         children = _apply_sorting_and_limits(
             folder_entries,
@@ -421,7 +443,9 @@ def _create_folder_unprocessed_comment(
 
     hidden_entries: list[_TreeEntry] = []
     for entry in folders:
-        stat = entry.stat(follow_symlinks=False)
+        stat = _safe_entry_stat(entry)
+        if stat is None:
+            continue
         hidden_entries.append(
             _TreeEntry(
                 name=entry.name,
@@ -435,7 +459,9 @@ def _create_folder_unprocessed_comment(
             )
         )
     for entry in files:
-        stat = entry.stat(follow_symlinks=False)
+        stat = _safe_entry_stat(entry)
+        if stat is None:
+            continue
         hidden_entries.append(
             _TreeEntry(
                 name=entry.name,
