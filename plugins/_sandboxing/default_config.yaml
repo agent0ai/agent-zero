@@ -1,7 +1,7 @@
 proot_path: /usr/local/bin/a0-proot
 skopeo_path: /usr/bin/skopeo
 umoci_path: /usr/bin/umoci
-default_image: agent-zero-sandbox:3
+default_image: agent-zero-sandbox:4
 registry_auth_file: ""
 # Empty paths select the installation’s runtime store.
 image_cache_dir: ""

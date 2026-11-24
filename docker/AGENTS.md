@@ -18,7 +18,7 @@
 - Build-time APT steps remove package lists in the same layer. Exclude secrets, local environments and runtime data from the context.
 - Use the repository root as the build context. Local builds use the working tree without Git metadata. Published builds clone the selected branch with commit ancestry and tracking for self-update. An optional `SOURCE_COMMIT` pins its contents. Refresh the source stage in the publishing workflow.
 - Prepare the checksum-pinned ONNX model and default token encoding in image-owned caches under `/opt/agent-zero`. Tuxee declares `/root` as a volume, so replacing a container may reuse its previous contents. Local builds validate offline inference and token counting during asset preparation.
-- Bundle the sandbox OCI layout outside `/a0` at `/opt/agent-zero/sandbox-image-v3` using a read-only stage mount. Keep it readable by rootless callers and import it on demand.
+- Bundle the sandbox OCI layout outside `/a0` at `/opt/agent-zero/sandbox-image-v4` using a read-only stage mount. Keep it readable by rootless callers and import it on demand.
 
 ## Work Guidance
 

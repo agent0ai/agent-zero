@@ -9,7 +9,7 @@
 - `webui/thumbnail.jpg` owns the 256×256 plugin catalog artwork, kept below 20 KB.
 
 - `helpers/images.py` owns daemonless Docker/OCI pull, local Docker archive import, unpacking, digest-pinned image cache metadata, image last-use tracking, and safe cache deletion.
-- `helpers/builtin_image.py` owns OCI packaging and the lazy PRoot build of `agent-zero-sandbox:3` using `docker/sandbox/install.sh`.
+- `helpers/builtin_image.py` owns OCI packaging and the lazy PRoot build of `agent-zero-sandbox:4` using `docker/sandbox/install.sh`.
 - `helpers/manager.py` owns validation, launcher configuration, runtime state, bindings, sandbox/image references, expiry, and safe deletion.
 - `helpers/runtime.py` owns resolved plugin configuration and the process-local manager.
 - `helpers/shell.py` owns interactive PRoot terminal sessions.
@@ -27,9 +27,9 @@
 - Never use a Docker socket, nested daemon, SSH server, KVM, or an unvalidated sandbox path.
 - Pull images through `skopeo` and unpack them through `umoci` with argument arrays, bounded output, timeouts, and no shell. Use `umoci raw unpack` and `raw runtime-config --rootfs` on the same verified layout. Guests consume the filesystem and OCI environment. Registry credentials may only be referenced through a configured auth file.
 - Local `docker save` archives enter the same cache through `helpers.sandbox import-image`; inspect and unpack a private archive copy, preserve validation/size limits, and never access a Docker socket. A cache-only reference must be reimported if evicted.
-- Resolve the built-in default from the image cache, then `/opt/agent-zero/sandbox-image-v3`. If missing or invalid, build it on first use in a private temporary PRoot sandbox from official Python/Node images. Serialize this through the image-cache lock, use a separate temporary source cache, run no host package installers, and publish only validated results. Do not eagerly build on startup or config reads; restoring an existing standalone sandbox may recover its base in the background.
+- Resolve the built-in default from the image cache, then `/opt/agent-zero/sandbox-image-v4`. If missing or invalid, build it on first use in a private temporary PRoot sandbox from official Python/Node images. Serialize this through the image-cache lock, use a separate temporary source cache, run no host package installers, and publish only validated results. Do not eagerly build on startup or config reads; restoring an existing standalone sandbox may recover its base in the background.
 - A rebuilt image must match an explicitly requested digest; never silently replace an existing sandbox's pinned base. Preserve custom default-image settings.
-- New sandboxes include Git and use Debian 13 from `agent-zero-sandbox:3`. Resolve the previous built-in default setting to v3 for new sandboxes. Existing v1 and v2 guests resolve their pinned digest from the image cache.
+- New sandboxes use Debian 13 with Git and ripgrep. Earlier built-in defaults resolve to `agent-zero-sandbox:4` for new sandboxes. Existing guests use their pinned digest from the image cache.
 - Pin every sandbox to an immutable image digest. Tag refreshes affect new sandboxes only; image deletion and cleanup must refuse every digest referenced by sandbox metadata.
 - Runtime and image stores default to `/a0/sandboxes`. Honor explicit storage settings.
 - New guests bind `/workspace` from `usr/sandbox_data/<name>/workspace` unless explicitly overridden. Seed once, preserve data across guest deletion/expiry, mask peer data in broad mounts, and browse the managed workspace through pinned directories. Store new guest roots at `instances/<name>/fs` and publish `instances/<name>/data` as a relative symlink to the durable data directory. Keep legacy `rootfs` directories usable. Use the canonical source for guest mounts and history. Existing guest workspaces stay intact.

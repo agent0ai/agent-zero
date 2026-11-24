@@ -9,9 +9,9 @@ from pathlib import Path
 import tempfile
 import uuid
 
-BUILTIN_IMAGE = "agent-zero-sandbox:3"
-LEGACY_BUILTIN_IMAGES = ("agent-zero-sandbox:1", "agent-zero-sandbox:2")
-BUNDLE_PATH = Path("/opt/agent-zero/sandbox-image-v3")
+BUILTIN_IMAGE = "agent-zero-sandbox:4"
+LEGACY_BUILTIN_IMAGES = ("agent-zero-sandbox:1", "agent-zero-sandbox:2", "agent-zero-sandbox:3")
+BUNDLE_PATH = Path("/opt/agent-zero/sandbox-image-v4")
 PYTHON_IMAGE = "docker.io/library/python:3.13-slim-trixie"
 NODE_IMAGE = "docker.io/library/node:22-trixie-slim"
 ENVIRONMENT = (

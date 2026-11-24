@@ -91,7 +91,9 @@ def test_docker_builds_bundle_the_same_recipe_as_lazy_builds():
     assert f"FROM {builtin_image.PYTHON_IMAGE.removeprefix('docker.io/library/')} AS sandbox-rootfs" in dockerfile
     assert f"FROM {builtin_image.NODE_IMAGE.removeprefix('docker.io/library/')} AS node-runtime" in dockerfile
     assert "source=docker/sandbox/install.sh" in dockerfile
-    assert "git --version" in (root / "docker/sandbox/install.sh").read_text()
+    recipe = (root / "docker/sandbox/install.sh").read_text()
+    assert "git --version" in recipe
+    assert "rg --version" in recipe
     assert f"--output {builtin_image.BUNDLE_PATH}" in dockerfile
     assert f"chmod -R a+rX {builtin_image.BUNDLE_PATH}" in dockerfile
     assert f"default_image: {builtin_image.BUILTIN_IMAGE}" in (root / "plugins/_sandboxing/default_config.yaml").read_text()
@@ -103,7 +105,7 @@ def test_legacy_default_preserves_pinned_images(manager, monkeypatch, legacy):
     assert normalize_config({"default_image": "my-image:1"})["default_image"] == "my-image:1"
 
     def no_pull(*args, **kwargs):
-        pytest.fail("Bookworm was a local built-in image")
+        pytest.fail("Legacy built-in images must resolve from the local cache")
 
     monkeypatch.setattr(manager.images, "_pull_locked", no_pull)
     assert manager.images.ensure(legacy, digest=IMAGE_DIGEST).digest == IMAGE_DIGEST

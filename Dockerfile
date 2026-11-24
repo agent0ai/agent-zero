@@ -76,8 +76,8 @@ RUN --mount=type=bind,from=source,source=/a0,target=/source \
     && /usr/local/bin/python -X no_debug_ranges -m compileall -q -f --invalidation-mode checked-hash \
         -x '(^|/)(tests?/|test_[^/]*\.py$|[^/]*_test\.py$)' /usr/local/lib/python3.12/site-packages /a0 \
     && /usr/local/bin/python -m plugins._sandboxing.helpers.builtin_image \
-        --rootfs /sandbox --output /opt/agent-zero/sandbox-image-v3 --architecture "$TARGETARCH" \
-    && chmod -R a+rX /opt/agent-zero/sandbox-image-v3
+        --rootfs /sandbox --output /opt/agent-zero/sandbox-image-v4 --architecture "$TARGETARCH" \
+    && chmod -R a+rX /opt/agent-zero/sandbox-image-v4
 
 EXPOSE 22 80 9000-9009
 HEALTHCHECK --interval=30s --timeout=5s CMD curl -fsS http://127.0.0.1/api/health >/dev/null && tuxee healthcheck --config /etc/tuxee/a0.json

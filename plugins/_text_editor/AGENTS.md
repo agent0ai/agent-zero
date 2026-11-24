@@ -22,6 +22,7 @@
 - Fallback editor log rows without an action or path render `icon://construction Using tool 'text_editor'` without an agent-name prefix.
 - `tools/text_editor.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI `get_message_handler` hook routes messages to `_text_editor/extensions/webui/get_message_handler/_10_text_editor_handler.js` instead of the default `drawMessageTool` handler.
 - Plugin activation controls editor discovery for every destination.
+- Repository search runs in the terminal. Keep the editor's follow-up range reads on the same destination.
 - Preserve stale-read protection before patch operations.
 - Validate patch structures before applying edits.
 - Line-edit inserts past the last line start on a new line, even when the file has no trailing newline.

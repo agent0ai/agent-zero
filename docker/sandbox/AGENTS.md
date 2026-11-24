@@ -15,7 +15,7 @@
 
 - Use official Python and Node images with the same Debian release.
 - Keep Python and pip in the global `/usr/local` environment; do not create a venv.
-- Include IPython for the existing Python code execution tool, and npm/npx for Node.
+- Include Git and ripgrep for repository exploration, IPython for Python code execution, and npm/npx for Node.
 - Keep shared-library dependencies needed by Node on both amd64 and arm64.
 - Do not copy Agent Zero source, credentials, user data, or the framework's dependencies into this image.
 - The bundled OCI layout supplies a shared base. PRoot overlays a per-guest sparse directory in userspace using the existing Docker permissions.
@@ -25,7 +25,7 @@
 
 - Keep project-specific libraries out of the base; install them in the sandbox as needed.
 - Docker distributes the OCI bundle with zstd compression. The cache import requests gzip from Skopeo for the Trixie umoci unpacker. Lazy local builds skip recompression for distribution.
-- The built-in reference is `agent-zero-sandbox:3`; bump its recipe version deliberately when changing the runtime contract. It is resolved locally, not pulled from Docker Hub.
+- The built-in reference is `agent-zero-sandbox:4`; bump its recipe version deliberately when changing the runtime contract. It is resolved locally, not pulled from Docker Hub.
 - Keep the Python and Node base references in the root Dockerfile and `plugins/_sandboxing/helpers/builtin_image.py` synchronized.
 
 ## Verification
