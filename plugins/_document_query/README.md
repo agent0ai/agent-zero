@@ -3,6 +3,9 @@
 Load, parse, index, and Q&A over local and remote documents with configurable
 timeouts and thread-safe parsers.
 
+Load the `document-query` skill in the current chat to make the callable
+available, subject to Skills visibility and the current Tool Access policy.
+
 ## Features
 
 - **Strategy-pattern parsers** - MIME-type routing to dedicated parser classes

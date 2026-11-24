@@ -881,9 +881,8 @@ def test_document_query_prompt_uses_progressive_skill_disclosure():
     assert skill is not None
     assert "document_query" not in main_prompt
     assert "vision_load" not in main_prompt
-    assert "skills_tool:load" in prompt
-    assert "document-query" in prompt
     assert "document_query" in prompt
+    assert "`destination`" in skill.content
     assert "local/remote documents" in prompt
     assert "Use vision tools first" in prompt
     assert "fallback OCR" in prompt

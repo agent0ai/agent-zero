@@ -3,12 +3,23 @@ import uuid
 from pathlib import PurePosixPath
 from urllib.parse import unquote, urlparse
 
+from helpers import files, tool_policy
 from helpers.tool import Tool, Response
 from helpers.strings import truncate_text
 from plugins._document_query.helpers.document_query import DocumentQueryHelper
 
 
 class DocumentQueryTool(Tool):
+
+    async def before_execution(self, **kwargs):
+        # The compatibility shim loads this class under a local Tool Access ID.
+        if getattr(self, "_tool_source_path", "") == files.get_abs_path("tools/document_query.py"):
+            tool_policy.ensure_tool_allowed(
+                self.agent, self.name,
+                canonical_id="plugin:_document_query:document_query",
+                tool_args=kwargs,
+            )
+        await super().before_execution(**kwargs)
 
     async def execute(self, **kwargs):
         document_uri = kwargs.get("document")

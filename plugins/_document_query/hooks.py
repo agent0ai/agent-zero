@@ -1,4 +1,20 @@
 """Dependencies are installed only when the sandbox is first used."""
+
+
+def tool_access(tool_name: str, agent=None) -> bool | None:
+    if tool_name != "document_query" or agent is None:
+        return None
+
+    from helpers import skills
+
+    if (
+        "document-query" not in skills.get_loaded_skill_names(agent)
+        or not skills.find_skill("document-query", agent=agent)
+    ):
+        return False
+    return None
+
+
 def install():
     return True
 

@@ -16,6 +16,8 @@
 
 ## Local Contracts
 
+- Discover the callable through the existing `document-query` skill. The plugin denies it until the skill is loaded in the chat and currently visible. Then ordinary project/profile Tool Access decides. The tool remains in the Tool Access editor.
+- The prompt hook withholds the text declaration under inherited policy. Native Responses exposure and dispatch use shared Tool Access. The core compatibility shim checks the bundled gate before execution as well as its normal local policy.
 - Respect configured size, timeout, retry, parser concurrency, and OCR limits. The tool accepts destination paths and keys indexed content by its destination and revision. HTTP URLs still use the existing fetch policy.
 - `sandbox/index.py` splits and stores chunks and performs native FAISS search in the guest. Each chat supplies its own temporary writable `/index` mount across worker restarts. The framework runs configured embeddings and model calls, and passes vectors without credentials.
 - Fetch local and remote resources safely and avoid leaking document contents beyond intended prompt/tool use.
@@ -35,6 +37,7 @@
 
 ## Verification
 
+- Run `tests/test_tool_action_policy.py` for skill gating, saved denials, and shim dispatch. Compare fresh and skill-loaded chats in the text and native Responses surfaces.
 - Smoke-test representative PDF, text/HTML, image/OCR, and remote-document queries after parser changes, including first-use OCR installation in a clean runtime image.
 
 ## Child DOX Index
