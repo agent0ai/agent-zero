@@ -346,6 +346,9 @@ body.right-canvas-mobile-mode .right-canvas-rail {
   transform: translateY(-50%);
   pointer-events: auto;
 }
+body.right-canvas-mobile-mode .right-canvas-rail-button {
+  touch-action: manipulation;
+}
 
 body.right-canvas-mobile-mode .right-canvas-shell,
 body.right-canvas-mobile-mode .right-canvas-resize-handle {
