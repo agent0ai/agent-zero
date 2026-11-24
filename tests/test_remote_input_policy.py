@@ -6,7 +6,6 @@ import pytest
 
 from helpers import responses_tools, tool_policy
 from helpers.errors import RepairableException
-from plugins._a0_connector.extensions.python._functions._11_tools_prompt.build_prompt.end._70_include_remote_tool_stubs import IncludeRemoteToolStubs
 from plugins._a0_connector.helpers import ws_runtime
 from plugins._a0_connector.helpers import host_execution
 from plugins._code_execution.tools import code_execution_tool
@@ -89,9 +88,8 @@ async def test_default_remote_input_needs_no_editor_grants(remote_input, custom)
     assert tool_policy.resolve_tool(state.agent, "code_execution_tool", action="terminal").allowed
 
     prompts = [(path.name, path.read_text()) for path in (PLUGIN_ROOT / "prompts").glob("agent.system.tool.*.md")]
-    data = {"result": "\n".join(tool_policy.filter_tool_prompts(state.agent, prompts))}
-    IncludeRemoteToolStubs(agent=state.agent).execute(data=data)
-    assert '"tool_name": "input"' in data["result"]
+    prompt = "\n".join(tool_policy.filter_tool_prompts(state.agent, prompts))
+    assert '"tool_name": "input"' in prompt
     tools, _ = responses_tools.build_responses_function_tools(state.agent)
     assert "input" in {tool["name"] for tool in tools}
 
@@ -145,9 +143,8 @@ def test_remote_input_is_hidden_from_text_and_native_tools_when_execution_is_blo
     if grant == "output_only":
         state.policy["allowed"].append(f"{EXEC_ID}:output")
     prompts = [(path.name, path.read_text()) for path in (PLUGIN_ROOT / "prompts").glob("agent.system.tool.*.md")]
-    data = {"result": "\n".join(tool_policy.filter_tool_prompts(state.agent, prompts))}
-    IncludeRemoteToolStubs(agent=state.agent).execute(data=data)
-    assert '"tool_name": "input"' not in data["result"]
+    prompt = "\n".join(tool_policy.filter_tool_prompts(state.agent, prompts))
+    assert '"tool_name": "input"' not in prompt
     tools, _ = responses_tools.build_responses_function_tools(state.agent)
     assert "input" not in {tool["name"] for tool in tools}
 

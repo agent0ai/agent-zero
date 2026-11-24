@@ -87,11 +87,6 @@ def test_responses_function_tools_use_prompt_declared_names(monkeypatch, tmp_pat
         "get_paths",
         lambda *args, **kwargs: [str(prompt_root)],
     )
-    monkeypatch.setattr(
-        responses_tools,
-        "_include_local_tool_prompt",
-        lambda agent, tool_name: True,
-    )
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda agent: [])
 
     tools, name_map = responses_tools.build_responses_function_tools(
@@ -173,11 +168,6 @@ def test_response_tool_native_contract_stays_provider_neutral(monkeypatch):
         responses_tools.subagents,
         "get_paths",
         lambda *args, **kwargs: [str(prompt_root)],
-    )
-    monkeypatch.setattr(
-        responses_tools,
-        "_include_local_tool_prompt",
-        lambda agent, tool_name: True,
     )
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda agent: "")
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda agent: [])
@@ -298,11 +288,6 @@ def test_local_tool_prompts_use_registered_render_kwargs(monkeypatch, tmp_path):
         lambda *args, **kwargs: [str(prompt_root)],
     )
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
-    monkeypatch.setattr(
-        responses_tools,
-        "_include_local_tool_prompt",
-        lambda _agent, _tool_name: True,
-    )
 
     prompts = dict(responses_tools._local_tool_prompts(agent))
 

@@ -6,7 +6,7 @@ import pytest
 from helpers.modules import load_classes_from_file
 from helpers.tool import Tool, coerce_bool
 from plugins._a0_connector.helpers.event_bridge import log_entry_to_connector_event
-from plugins._a0_connector.tools.computer_use_remote import ComputerUseRemote
+from plugins._a0_connector.helpers.host_computer_use import ComputerUseRemote
 from plugins._memory.tools.memory import MemoryTool
 
 

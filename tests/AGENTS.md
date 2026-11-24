@@ -81,6 +81,7 @@
 - Raw CDP regression coverage in `test_browser_cdp_actions.py` exercises browser, tab and nested target commands, event buffering and chat-scoped cleanup on the private pipe.
 - `test_tool_action_policy.py` checks Browser skill access and verifies that execution follows the actual tool after import fallback. `test_host_browser_connector.py` covers Browser contract registration, routing, and cancellation.
 - `test_tool_policy.py` checks that ordinary prompt assembly leaves Browser tabs and page content on demand.
+- `test_a0_connector_prompt_gating.py` covers Host Computer Use skill loading, connector readiness, saved whole-tool and action rules, and native action enums.
 - `test_tool_action_policy.py` covers callable tools and host editor permission checks. `test_remote_input_policy.py` exercises saved connector permissions through unified host execution, including an output request with reset.
 
 ## Child DOX Index

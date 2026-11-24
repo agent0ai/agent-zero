@@ -114,11 +114,15 @@ def get_tool_catalog(agent: Any) -> list[dict[str, Any]]:
         if _plugin_tool_access(tool_id) is not None:
             continue
         skill = skills.find_skill(binding.skill_name, agent=agent, include_hidden=True)
+        actions = BUNDLED_ACTIONS.get(tool_id)
+        if actions:
+            action_ids.update(action_policy_id(tool_id, action) for action in actions.actions)
         catalog.append({
             "id": tool_id, "name": name, "label": name.replace("_", " ").title(),
             "origin": f"Plugin · {binding.plugin}",
             "description": skill.description if skill else "",
             "available": True,
+            **({"actions": list(actions.actions)} if actions else {}),
         })
 
     try:
@@ -227,9 +231,17 @@ def _actions_for_path(tool_id: str, path: str) -> ToolActions | None:
     return None
 
 
-def get_tool_actions(agent: Any, tool_name: str) -> ToolActions | None:
+def _tool_action_identity(agent: Any, tool_name: str) -> tuple[str, ToolActions | None]:
     tool_id, path = _tool_identity(agent, tool_name)
-    return _actions_for_path(tool_id, path)
+    if not path and not tool_id.startswith("mcp:"):
+        if binding := skill_tools.registered(agent).get(tool_name):
+            tool_id = binding.policy_id(tool_name)
+            return tool_id, BUNDLED_ACTIONS.get(tool_id)
+    return tool_id, _actions_for_path(tool_id, path)
+
+
+def get_tool_actions(agent: Any, tool_name: str) -> ToolActions | None:
+    return _tool_action_identity(agent, tool_name)[1]
 
 
 def resolve_tool(
@@ -260,7 +272,7 @@ def resolve_tool(
         source = "framework-required" if name == "response" else "runtime-config"
         return ToolPolicyDecision(True, tool_id, source, "invariant")
     definition = None
-    if skill_tool or not (tool_path or spec or tool_id.startswith("mcp:")):
+    if skill_tool or not (tool_path or tool_id.startswith("mcp:")):
         binding = skill_tools.registered(agent).get(name)
         if skill_tool is None and binding and (not canonical_id or canonical_id == binding.policy_id(name)):
             skill_tool = binding
@@ -269,6 +281,7 @@ def resolve_tool(
             definition = binding.definition(agent, name) if binding == skill_tool else None
             if not definition:
                 return ToolPolicyDecision(False, tool_id, "skill", "managed")
+            spec = BUNDLED_ACTIONS.get(tool_id)
     if (allowed := _plugin_tool_access(tool_id, agent)) is not None:
         return ToolPolicyDecision(allowed, tool_id, "plugin", "managed", skill_definition=definition if allowed else None)
 
@@ -305,13 +318,11 @@ def resolve_tool(
             _resolve_policy_ids(policy, tool_id, policy_ids | {action_policy_id(tool_id, value)})
             for value in actions
         ]
-        if discovery:
-            return next((decision for decision in decisions if decision.allowed), decisions[0])
-        return next((decision for decision in decisions if not decision.allowed), decisions[0])
-    if tool_id in {action_policy_id(MEMORY_TOOL_ID, value) for value in MEMORY_ACTIONS}:
-        policy_ids.add(MEMORY_TOOL_ID)
-
-    decision = _resolve_policy_ids(policy, tool_id, policy_ids)
+        decision = next((decision for decision in decisions if decision.allowed == discovery), decisions[0])
+    else:
+        if tool_id in {action_policy_id(MEMORY_TOOL_ID, value) for value in MEMORY_ACTIONS}:
+            policy_ids.add(MEMORY_TOOL_ID)
+        decision = _resolve_policy_ids(policy, tool_id, policy_ids)
     return replace(decision, skill_definition=definition) if definition and decision.allowed else decision
 
 
@@ -377,8 +388,7 @@ def allowed_memory_actions(
 def allowed_tool_actions(
     agent: Any, tool_name: str, *, _policy: dict[str, Any] | None = None,
 ) -> list[str] | None:
-    tool_id, path = _tool_identity(agent, tool_name)
-    spec = _actions_for_path(tool_id, path)
+    tool_id, spec = _tool_action_identity(agent, tool_name)
     if not spec:
         return None
     policy = _policy if _policy is not None else get_policy(agent)

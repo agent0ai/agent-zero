@@ -35,14 +35,12 @@
 - Bundled multi-action schemas list only policy-allowed actions in their selector (`action` or code execution's `runtime`); legacy memory action permissions never expand into permission for the whole tool. Selector metadata comes from `helpers.tool_actions` and applies only to the resolved bundled implementation.
 - Reuse action lists computed by prompt filtering within the same schema build. Resolve the list directly when prompt filtering did not compute one.
 - `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
-- Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 
 - `register_prompt` owns request-only alternatives for main, tools, and MCP sections. Section builders identify their section and retain the original text; only this helper selects Responses templates. MCP supplies policy-filtered server context without knowing the endpoint mode.
 
 ## Work Guidance
 
 - Do not silently truncate local or MCP instructions; prompt owners control their guidance budget.
-- Treat plugin-specific tool gates as optional imports so core helper loading does not require a plugin that is absent or disabled.
 
 ## Verification
 

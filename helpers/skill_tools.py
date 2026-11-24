@@ -15,6 +15,7 @@ class SkillTool:
     skill_name: str
     factory: Callable[..., "Tool"] = field(compare=False)
     legacy_denials: tuple[str, ...] = ()
+    available: Callable[..., bool] | None = field(default=None, compare=False)
 
     def policy_id(self, name: str) -> str:
         return f"plugin:{self.plugin}:{name}"
@@ -30,6 +31,8 @@ class SkillTool:
             return None
         parameters = declaration.get("parameters")
         if not isinstance(parameters, dict) or parameters.get("type") != "object":
+            return None
+        if self.available is not None and not self.available(agent):
             return None
         return skill.description, parameters
 

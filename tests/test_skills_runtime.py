@@ -433,7 +433,7 @@ def test_renamed_skills_use_standard_frontmatter_only():
         assert errors == []
         expected_keys = {"name", "description"}
         if path.parent.name == "host-computer-use":
-            expected_keys.update({"tags", "triggers"})
+            expected_keys.update({"tags", "triggers", "metadata"})
         if path.parent.name in {"browser-automation", "browser-extension-control", "browser-form-workflows", "setup-a0-cli"}:
             expected_keys.add("triggers")
         if path.parent.name == "browser-automation":

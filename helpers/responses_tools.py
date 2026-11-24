@@ -154,14 +154,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
         parameters = _schema_for_tool(agent, tool_name, prompt)
-        if spec := tool_policy.get_tool_actions(agent, tool_name):
-            actions = action_enums.get(tool_name)
-            if actions is None:
-                actions = tool_policy.allowed_tool_actions(agent, tool_name, _policy=policy)
-            if actions is not None:
-                parameters.setdefault("properties", {})[spec.argument] = {
-                    "type": "string", "enum": actions
-                }
+        parameters = _with_allowed_actions(agent, tool_name, parameters, policy, action_enums.get(tool_name))
         tools.append(
             {
                 "type": "function",
@@ -183,7 +176,8 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
         name_map[native_name] = name
         tools.append({
             "type": "function", "name": native_name, "strict": False,
-            "description": description, "parameters": _schema_from_any(parameters),
+            "description": description,
+            "parameters": _with_allowed_actions(agent, name, _schema_from_any(parameters), policy),
         })
 
     for tool_name, tool in _mcp_tools(agent):
@@ -207,6 +201,19 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
         )
 
     return _dedupe_tools(tools), name_map
+
+
+def _with_allowed_actions(agent, name, schema, policy, actions=None):
+    spec = tool_policy.get_tool_actions(agent, name)
+    if spec is None:
+        return schema
+    if actions is None:
+        actions = tool_policy.allowed_tool_actions(agent, name, _policy=policy)
+    if actions is None:
+        return schema
+    properties = dict(schema.get("properties", {}))
+    properties[spec.argument] = {"type": "string", "enum": actions}
+    return {**schema, "properties": properties}
 
 
 def original_tool_name(native_name: str, name_map: dict[str, str] | None) -> str:
@@ -267,9 +274,7 @@ def _local_tool_prompts(agent: Any) -> list[tuple[str, str]]:
                 prompt = files.read_file(tool_file)
             except Exception:
                 prompt = ""
-        for tool_name in _tool_names_from_prompt(prompt, fallback=fallback_name):
-            if _include_local_tool_prompt(agent, tool_name):
-                result.append((tool_name, prompt))
+        result.extend((name, prompt) for name in _tool_names_from_prompt(prompt, fallback=fallback_name))
 
     vision_prompt = _vision_tool_prompt(agent)
     if vision_prompt:
@@ -292,17 +297,6 @@ def _vision_tool_prompt(agent: Any) -> str:
         return agent.read_prompt("agent.system.tools_vision.md")
     except Exception:
         return ""
-
-
-def _include_local_tool_prompt(agent: Any, tool_name: str) -> bool:
-    try:
-        from plugins._a0_connector.helpers.remote_tool_prompts import (
-            should_include_remote_tool_prompt,
-        )
-    except Exception:
-        return True
-
-    return should_include_remote_tool_prompt(agent, tool_name)
 
 
 def _mcp_tools(agent: Any) -> list[tuple[str, dict[str, Any]]]:

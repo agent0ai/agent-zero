@@ -334,8 +334,8 @@ def _load_computer_use_remote_tool(monkeypatch):
         ws_runtime_stub,
     )
 
-    sys.modules.pop("plugins._a0_connector.tools.computer_use_remote", None)
-    return importlib.import_module("plugins._a0_connector.tools.computer_use_remote")
+    sys.modules.pop("plugins._a0_connector.helpers.host_computer_use", None)
+    return importlib.import_module("plugins._a0_connector.helpers.host_computer_use")
 
 
 def test_skills_tool_accepts_action_alias_for_search(monkeypatch, tmp_path: Path):
@@ -1183,59 +1183,6 @@ def test_corrected_tool_prompts_only_teach_action_contract():
             assert "Download file" in text
             assert "Canvas was not opened automatically" not in text
             assert "Open Document, or Desktop edit actions" not in text
-
-
-def test_computer_use_remote_is_runtime_checked_standard_tool():
-    project_root = Path(__file__).resolve().parents[1]
-    standard_prompt_path = (
-        project_root
-        / "plugins/_a0_connector/prompts/agent.system.tool.computer_use_remote.md"
-    )
-    standard_prompt_text = standard_prompt_path.read_text(encoding="utf-8")
-    skill_text = (
-        project_root
-        / "plugins/_a0_connector/skills/host-computer-use/SKILL.md"
-    ).read_text(encoding="utf-8")
-    macos_skill_text = (
-        project_root
-        / "plugins/_a0_connector/skills/host-computer-use-macos/SKILL.md"
-    ).read_text(encoding="utf-8")
-    windows_skill_text = (
-        project_root
-        / "plugins/_a0_connector/skills/host-computer-use-windows/SKILL.md"
-    ).read_text(encoding="utf-8")
-
-    assert standard_prompt_path.exists()
-    assert not (
-        project_root
-        / "plugins/_a0_connector/prompts/agent.system.runtime_tool.computer_use_remote.md"
-    ).exists()
-    assert '"tool_name": "computer_use_remote"' in standard_prompt_text
-    assert "not scoped to a single chat context" in standard_prompt_text
-    assert "checked when the tool runs" in standard_prompt_text
-    assert "visual verification is unavailable" in standard_prompt_text
-    assert "host-computer-use-macos" in standard_prompt_text
-    assert "host-computer-use-windows" in standard_prompt_text
-    assert "ax_snapshot" not in standard_prompt_text
-    assert "ax_action" not in standard_prompt_text
-    assert "uia_snapshot" not in standard_prompt_text
-    assert "uia_action" not in standard_prompt_text
-    assert '"tool_name": "computer_use_remote"' in skill_text
-    assert "ax_snapshot" not in skill_text
-    assert "ax_action" not in skill_text
-    assert "uia_snapshot" not in skill_text
-    assert "uia_action" not in skill_text
-    assert '"tool_name": "computer_use_remote"' in macos_skill_text
-    assert "ax_snapshot" in macos_skill_text
-    assert "ax_action" in macos_skill_text
-    assert '"tool_name": "computer_use_remote"' in windows_skill_text
-    assert "uia_snapshot" in windows_skill_text
-    assert "uia_action" in windows_skill_text
-    assert "focus_window" in windows_skill_text
-    assert "If a node offers `invoke`, use `invoke`, not `click`" in windows_skill_text
-    assert "Backend-specific macOS guidance" in macos_skill_text
-    assert "Backend-specific Windows guidance" in windows_skill_text
-    assert "Beta desktop control" in skill_text
 
 
 def test_computer_use_remote_start_session_reports_backend_features_and_macos_skill(monkeypatch):

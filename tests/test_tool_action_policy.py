@@ -26,7 +26,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RETIRED_HOST_TOOLS = {
     "plugin:_a0_connector:text_editor_remote", "plugin:_a0_connector:code_execution_remote",
 }
-CALLABLE_ACTIONS = {tool_id: spec for tool_id, spec in BUNDLED_ACTIONS.items() if tool_id not in RETIRED_HOST_TOOLS}
+CALLABLE_ACTIONS = {
+    tool_id: spec for tool_id, spec in BUNDLED_ACTIONS.items()
+    if tool_id not in RETIRED_HOST_TOOLS and (ROOT / bundled_path(tool_id)).is_file()
+}
 
 
 @pytest.fixture
