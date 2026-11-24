@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from threading import Lock
 
@@ -5,7 +6,7 @@ import httpx
 import pytest
 
 from plugins._a2a_chat.helpers.fasta2a_client import AgentConnection
-from plugins._a2a_chat.tools.a2a_chat import A2AChatTool
+from plugins._a2a_chat.helpers.chat_handler import A2AChatTool
 
 
 class _FakeLog:
@@ -39,6 +40,71 @@ def test_get_heading_falls_back_without_host():
     tool = _make_tool({})
 
     assert tool.get_heading() == "icon://hub Chatting"
+
+
+@pytest.mark.asyncio
+async def test_a2a_skill_load_preserves_current_and_legacy_tool_access(monkeypatch):
+    from agent import Agent
+    from helpers import responses_tools, skills, subagents, tool_policy
+    from helpers.errors import RepairableException
+    from plugins._tool_access.extensions.python.tool_execute_before._10_enforce_tool_policy import EnforceToolPolicy
+    from tools.skills_tool import SkillsTool
+    from tools.unknown import Unknown
+
+    root = Path(__file__).resolve().parents[1]
+    plugin = root / "plugins/_a2a_chat"
+    assert not (plugin / "tools/a2a_chat.py").exists()
+    assert not (plugin / "prompts/agent.system.tool.a2a_chat.md").exists()
+    paths = {
+        ("skills",): [str(plugin / "skills")],
+        ("extensions/python", "skill_tools"): [str(plugin / "extensions/python/skill_tools")],
+        ("extensions/python", "_functions/agent/Agent/get_tool/end"): [
+            str(root / "extensions/python/_functions/agent/Agent/get_tool/end")
+        ],
+    }
+    monkeypatch.setattr(subagents, "get_paths", lambda _agent, *parts, **kwargs: paths.get(parts, []))
+    monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
+    monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
+    monkeypatch.setattr(skills, "get_hidden_skills", lambda _agent: [])
+    monkeypatch.setattr(skills, "get_visibility_policy", lambda _agent: skills.normalize_visibility_policy(None))
+
+    saved = tool_policy.normalize_policy({"mode": "custom", "default": "block"})
+    monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: saved)
+    state = {}
+    agent = object.__new__(Agent)
+    agent.context = SimpleNamespace(id="a2a-skill-test", get_data=state.get, set_data=state.__setitem__)
+    agent.config = SimpleNamespace(profile="a2a-skill-test")
+    agent.loop_data = SimpleNamespace(current_tool=None)
+    agent.data = {}
+    tool_id = "plugin:_a2a_chat:a2a_chat"
+    legacy_id = "local:a2a_chat"
+    args = {"agent_url": "https://peer.invalid/a2a", "message": "Hello"}
+    saved["allowed"] = [legacy_id]
+
+    def select():
+        tool = agent.get_tool("a2a_chat", None, args, "", agent.loop_data)
+        agent.loop_data.current_tool = tool
+        return tool
+
+    assert tool_id in {item["id"] for item in tool_policy.get_tool_catalog(agent)}
+    assert responses_tools.build_responses_function_tools(agent) == ([], {})
+    assert isinstance(select(), Unknown)
+    loader = SkillsTool(agent, "skills_tool", None, {}, "", agent.loop_data)
+    assert '"tool_name": "a2a_chat"' in loader._load("a2a-chat").message
+
+    for allowed_id, denied_id in ((tool_id, legacy_id), (legacy_id, tool_id)):
+        saved.update(allowed=[allowed_id], blocked=[])
+        [declaration], names = responses_tools.build_responses_function_tools(agent)
+        assert names == {"a2a_chat": "a2a_chat"}
+        assert declaration["parameters"]["required"] == ["agent_url", "message"]
+        assert isinstance(select(), A2AChatTool)
+        await EnforceToolPolicy(agent).execute(tool_name="a2a_chat", tool_args=args)
+
+        saved["blocked"] = [denied_id]
+        assert responses_tools.build_responses_function_tools(agent) == ([], {})
+        assert isinstance(select(), Unknown)
+        with pytest.raises(RepairableException, match="is blocked"):
+            await EnforceToolPolicy(agent).execute(tool_name="a2a_chat", tool_args=args)
 
 
 async def _agent_card_request(connection: AgentConnection) -> httpx.Request:
