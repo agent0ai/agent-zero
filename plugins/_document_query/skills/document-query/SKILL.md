@@ -4,6 +4,21 @@ description: "Read, extract or compare PDFs, Office files, URLs and large text; 
 version: 1.0.0
 author: Agent Zero Team
 tags: ["documents", "ocr", "qa", "pdf", "code", "analysis"]
+metadata:
+  tool:
+    name: document_query
+    parameters:
+      type: object
+      properties:
+        document:
+          anyOf:
+            - {type: string}
+            - {type: array, items: {type: string}}
+        queries: {type: array, items: {type: string}}
+        query: {type: string}
+        destination: {type: string}
+      required: [document]
+      additionalProperties: true
 trigger_patterns:
   - document query
   - read document

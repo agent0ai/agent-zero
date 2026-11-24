@@ -14,9 +14,9 @@ from helpers.tool_actions import BUNDLED_ACTIONS, action_policy_id, bundled_path
 from plugins._agent_editor.helpers import editor
 from plugins._browser.extensions.python._functions.agent.Agent.read_prompt.end._30_browser_skill import BrowserSkillPrompt
 from plugins._browser.helpers.skill_access import _LEGACY_ACTION_IDS
-from plugins._document_query.extensions.python._functions.agent.Agent.read_prompt.end._30_document_query_skill import (
-    DocumentQuerySkillPrompt,
-)
+from plugins._document_query.helpers.query_handler import DocumentQueryTool
+from tools.skills_tool import SkillsTool
+from tools.unknown import Unknown
 from plugins._tool_access.extensions.python.tool_execute_before._10_enforce_tool_policy import EnforceToolPolicy
 
 
@@ -171,76 +171,97 @@ async def test_browser_import_fallback_uses_the_loaded_tools_policy(monkeypatch,
 
 
 @pytest.mark.asyncio
-async def test_document_query_skill_gates_discovery_and_defers_to_tool_access(monkeypatch):
+async def test_document_query_skill_registers_callable_with_existing_tool_access(monkeypatch, tmp_path):
     plugin = ROOT / "plugins/_document_query"
-    prompt_name = "agent.system.tool.document_query.md"
-    prompt = (plugin / "prompts" / prompt_name).read_text()
     tool_id = "plugin:_document_query:document_query"
-    agent = SimpleNamespace(config=SimpleNamespace(profile="restricted"), data={})
-    visible = True
-
-    def read_prompt(name, **_kwargs):
-        data = {"args": (agent, name), "result": prompt}
-        DocumentQuerySkillPrompt(agent).execute(data)
-        return data["result"]
-
-    agent.read_prompt = read_prompt
-    monkeypatch.setattr(
-        tool_policy.subagents, "get_paths",
-        lambda _agent, *parts, **_kwargs: [str(plugin.joinpath(*parts))],
+    state = {}
+    agent = object.__new__(Agent)
+    agent.config = SimpleNamespace(profile="document-query-binding")
+    agent.data = {}
+    agent.context = SimpleNamespace(
+        id="document-query-binding", get_data=state.get, set_data=state.__setitem__,
     )
+    agent.loop_data = SimpleNamespace(current_tool=None)
+    skill_roots = [str(plugin / "skills")]
+
+    def paths(_agent, *parts, **kwargs):
+        return {
+            ("skills",): skill_roots,
+            ("extensions/python", "skill_tools"): [str(plugin / "extensions/python/skill_tools")],
+            ("extensions/python", "_functions/agent/Agent/get_tool/end"): [
+                str(ROOT / "extensions/python/_functions/agent/Agent/get_tool/end")
+            ],
+        }.get(parts, [])
+
+    monkeypatch.setattr(tool_policy.subagents, "get_paths", paths)
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda _agent: [])
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
-    monkeypatch.setattr(skills, "find_skill", lambda *_args, **_kwargs: visible)
+    skill_policy = skills.normalize_visibility_policy(None)
+    monkeypatch.setattr(skills, "get_visibility_policy", lambda _agent: skill_policy)
     current = tool_policy.normalize_policy(None)
     monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: current)
 
-    async def check(available, source):
-        text = tool_policy.filter_tool_prompt(agent, prompt_name, agent.read_prompt(prompt_name))
-        assert bool(text) is available
+    async def check(available, source, description=None):
         schemas, names = responses_tools.build_responses_function_tools(agent)
         assert ("document_query" in names) is available
-        assert tool_policy.resolve_tool(agent, "document_query").source == source
+        decision = tool_policy.resolve_tool(agent, "document_query")
+        assert (decision.tool_id, decision.source) == (tool_id, source)
         assert tool_id in {item["id"] for item in tool_policy.get_tool_catalog(agent)}
+        tool = agent.get_tool("document_query", None, {}, "", agent.loop_data)
+        agent.loop_data.current_tool = tool
         if available:
+            assert isinstance(tool, DocumentQueryTool)
             assert "destination" in schemas[0]["parameters"]["properties"]
+            assert schemas[0]["parameters"]["required"] == ["document"]
+            if description:
+                assert schemas[0]["description"] == description
             await EnforceToolPolicy(agent).execute(tool_name="document_query")
         else:
+            assert isinstance(tool, Unknown)
             with pytest.raises(RepairableException, match="is blocked"):
                 await EnforceToolPolicy(agent).execute(tool_name="document_query")
 
-    await check(False, "plugin")
-    skills.set_loaded_skill_names(agent, ["document-query"])
+    loader = SkillsTool(agent, "skills_tool", None, {}, "", agent.loop_data)
+    await check(False, "skill")
+    shadow = tmp_path / "document-query"
+    shadow.mkdir()
+    override = shadow / "SKILL.md"
+    override.write_text("---\nname: document-query\ndescription: Shadow skill\n---\nShadow instructions.\n")
+    skill_roots.insert(0, str(tmp_path))
+    assert "Shadow instructions" in loader._load("document-query").message
+    await check(False, "skill")
+    builtin = (plugin / "skills/document-query/SKILL.md").read_text()
+    override.write_text(builtin.replace(
+        next(line for line in builtin.splitlines() if line.startswith("description:")),
+        "description: Overridden document query",
+    ))
+    await check(True, "inherited", "Overridden document query")
+    skill_roots.pop(0)
     await check(True, "inherited")
     current.update(mode="custom", default="block")
     await check(False, "scoped-default")
+    current["allowed"] = ["local:document_query"]
+    await check(False, "scoped-default")
     current["allowed"] = [tool_id]
     await check(True, "scoped-policy")
+
+    with monkeypatch.context() as disabled:
+        disabled.setattr(tool_policy.skill_tools, "registered", lambda _agent: {})
+        with pytest.raises(RepairableException, match="is blocked"):
+            await EnforceToolPolicy(agent).execute(tool_name="document_query")
+
+    # A permission change also applies to a handler already resolved for execution.
     current["blocked"] = [tool_id]
+    with pytest.raises(RepairableException, match="is blocked"):
+        await EnforceToolPolicy(agent).execute(tool_name="document_query")
+    await check(False, "scoped-policy")
+    current["blocked"] = ["local:document_query"]
     await check(False, "scoped-policy")
     current["blocked"] = []
-    visible = False
-    await check(False, "plugin")
-
-
-@pytest.mark.asyncio
-async def test_document_query_compat_tool_cannot_skip_the_plugin_gate(monkeypatch):
-    shim = ROOT / "tools/document_query.py"
-    monkeypatch.setattr(
-        tool_policy.subagents, "get_paths", lambda _agent, *_parts: [str(shim)],
-    )
-    agent = SimpleNamespace(config=SimpleNamespace(profile="restricted"), data={})
-    tool = Agent.get_tool(agent, "document_query", None, {}, "", None)
-    assert tool._tool_source_path == str(shim)
-    policy(monkeypatch)
-    with pytest.raises(RepairableException, match="is blocked"):
-        await tool.before_execution()
-
-    skills.set_loaded_skill_names(agent, ["document-query"])
-    monkeypatch.setattr(skills, "find_skill", lambda *_args, **_kwargs: True)
-    policy(monkeypatch, blocked=["plugin:_document_query:document_query"])
-    with pytest.raises(RepairableException, match="is blocked"):
-        await tool.before_execution()
+    skill_policy.update(skills.normalize_visibility_policy({
+        "mode": "custom", "blocked": ["document-query"],
+    }))
+    await check(False, "skill")
 
 
 @pytest.mark.asyncio

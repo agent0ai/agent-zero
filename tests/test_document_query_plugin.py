@@ -430,16 +430,13 @@ def test_unstructured_installs_ocr_packages_only_for_pdf_and_images(monkeypatch)
     assert events == ["tesseract", "pdf"]
 
 
-def test_compatibility_imports_point_to_plugin_classes():
+def test_compatibility_helper_import_points_to_plugin():
     pytest.importorskip("langchain_core")
 
     from helpers.document_query import DocumentQueryHelper as CompatHelper
     from plugins._document_query.helpers.document_query import DocumentQueryHelper
-    from plugins._document_query.tools.document_query import DocumentQueryTool
-    from tools.document_query import DocumentQueryTool as CompatTool
 
     assert CompatHelper is DocumentQueryHelper
-    assert CompatTool is DocumentQueryTool
 
 
 def test_liteparse_is_installed_only_in_the_guest():
@@ -880,13 +877,6 @@ def test_parse_document_limits_parser_concurrency_across_helpers(monkeypatch):
 def test_document_query_prompt_uses_progressive_skill_disclosure():
     from helpers.skills import find_skill
 
-    prompt = (
-        ROOT
-        / "plugins"
-        / "_document_query"
-        / "prompts"
-        / "agent.system.tool.document_query.md"
-    ).read_text(encoding="utf-8")
     main_prompt = (ROOT / "prompts" / "agent.system.main.tips.md").read_text(
         encoding="utf-8"
     )
@@ -895,11 +885,11 @@ def test_document_query_prompt_uses_progressive_skill_disclosure():
     assert skill is not None
     assert "document_query" not in main_prompt
     assert "vision_load" not in main_prompt
-    assert "document_query" in prompt
+    assert skill.metadata["tool"]["name"] == "document_query"
+    assert not (ROOT / "tools/document_query.py").exists()
+    assert not (ROOT / "plugins/_document_query/tools/document_query.py").exists()
+    assert not (ROOT / "plugins/_document_query/prompts/agent.system.tool.document_query.md").exists()
     assert "`destination`" in skill.content
-    assert "local/remote documents" in prompt
-    assert "Use vision tools first" in prompt
-    assert "fallback OCR" in prompt
     assert "OCR when vision fails" in skill.description
     assert "PDFs" in skill.description
     assert "### Answer Questions Over A Document" in skill.content

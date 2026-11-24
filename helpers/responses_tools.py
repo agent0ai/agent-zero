@@ -7,7 +7,7 @@ import re
 from copy import deepcopy
 from typing import Any
 
-from helpers import extract_tools, files, subagents, tool_policy
+from helpers import extract_tools, files, skill_tools, subagents, tool_policy
 
 
 FUNCTION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -95,11 +95,6 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
         "old_text": {"type": "string"},
         "new_text": {"type": "string"},
         "open_in_canvas": {"type": "boolean"},
-    },
-    "plugins/_document_query/tools/document_query.py": {
-        "destination": {"type": "string"},
-        "document": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
-        "queries": {"type": "array", "items": {"type": "string"}},
     },
     "plugins/_browser/tools/browser.py": {
         "action": {"type": "string"},
@@ -192,6 +187,20 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
                 "parameters": parameters,
             }
         )
+
+    for name in skill_tools.registered(agent):
+        native_name = _native_tool_name(name)
+        if native_name in name_map:
+            continue
+        decision = tool_policy.resolve_tool(agent, name, _policy=policy)
+        if not decision.skill_definition:
+            continue
+        description, parameters = decision.skill_definition
+        name_map[native_name] = name
+        tools.append({
+            "type": "function", "name": native_name, "strict": False,
+            "description": description, "parameters": _schema_from_any(parameters),
+        })
 
     for tool_name, tool in _mcp_tools(agent):
         if not tool_policy.resolve_tool(

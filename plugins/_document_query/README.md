@@ -3,8 +3,8 @@
 Load, parse, index, and Q&A over local and remote documents with configurable
 timeouts and thread-safe parsers.
 
-Load the `document-query` skill in the current chat to make the callable
-available, subject to Skills visibility and the current Tool Access policy.
+Load the `document-query` skill in the current chat to register its callable
+with the plugin's query handler. Skills visibility and Tool Access govern access.
 
 ## Features
 

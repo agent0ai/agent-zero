@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from plugins._document_query.tools.document_query import DocumentQueryTool
+from plugins._document_query.helpers.query_handler import DocumentQueryTool
 
 PROMPTS = Path("plugins/_document_query/prompts")
 
@@ -56,7 +56,7 @@ def test_empty_queries_read_documents():
 @pytest.mark.parametrize('fail', [False, True])
 def test_prepared_worker_stops_when_no_parse_runs(monkeypatch, fail):
     from plugins._document_query.helpers.sandbox import worker
-    from plugins._document_query.tools import document_query
+    from plugins._document_query.helpers import query_handler
 
     events = []
 
@@ -71,7 +71,7 @@ def test_prepared_worker_stops_when_no_parse_runs(monkeypatch, fail):
 
     monkeypatch.setattr(worker, 'aprepare', prepare)
     monkeypatch.setattr(worker, 'stop', lambda: events.append('stop'))
-    monkeypatch.setattr(document_query, 'DocumentQueryHelper', lambda *a, **kw: SimpleNamespace(
+    monkeypatch.setattr(query_handler, 'DocumentQueryHelper', lambda *a, **kw: SimpleNamespace(
         config={}, document_get_content=content, store=SimpleNamespace(settings=lambda: ({}, []))))
     tool = _make_tool({'document': 'example.txt'})
     tool.log = SimpleNamespace(update=lambda **kw: None)

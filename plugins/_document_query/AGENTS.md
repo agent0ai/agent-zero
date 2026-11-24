@@ -6,18 +6,17 @@
 
 ## Ownership
 
-- `tools/document_query.py` owns the agent-facing query tool.
+- `skills/document-query/SKILL.md` declares the on-demand callable. The `skill_tools` extension binds it to `helpers/query_handler.py`.
 - The tool logs its message as type `document_query` with an `icon://manage_search Querying: <document>` headline when queries are supplied and `Reading: <document>` without them, naming the first file and appending `+ N more` for multiple documents; `extensions/webui/get_message_handler/` owns the `DOC` badge presentation and `extensions/webui/get_process_step_types/` registers the type.
 - Agent-facing error messages render from `prompts/fw.document_query.*.md`, and the Q&A answer streams into the tool log while the model writes it.
 - `helpers/` owns fetching, parser routing and query orchestration.
 - `helpers/ocr_dependencies.py` owns concurrency-safe, just-in-time installation of legacy OCR system packages.
-- `prompts/` owns document-query tool and optimization prompts.
+- `prompts/` owns document-query error, optimization, and Q&A prompts.
 - `hooks.py`, `default_config.yaml`, `plugin.yaml`, `skills/`, `extensions/`, and `webui/` own dependency bootstrap, settings, metadata, skill guidance, hooks, and UI.
 
 ## Local Contracts
 
-- Discover the callable through the existing `document-query` skill. The plugin denies it until the skill is loaded in the chat and currently visible. Then ordinary project/profile Tool Access decides. The tool remains in the Tool Access editor.
-- The prompt hook withholds the text declaration under inherited policy. Native Responses exposure and dispatch use shared Tool Access. The core compatibility shim checks the bundled gate before execution as well as its normal local policy.
+- Discover the callable through the existing `document-query` skill. The effective loaded skill supplies its instructions and schema. Tool Access retains the existing plugin ID and honors explicit blocks saved for the removed local shim.
 - Respect configured size, timeout, retry, parser concurrency, and OCR limits. The tool accepts destination paths and keys indexed content by its destination and revision. HTTP URLs still use the existing fetch policy.
 - `sandbox/index.py` splits and stores chunks and performs native FAISS search in the guest. Each chat supplies its own temporary writable `/index` mount across worker restarts. The framework runs configured embeddings and model calls, and passes vectors without credentials.
 - Fetch local and remote resources safely and avoid leaking document contents beyond intended prompt/tool use.
@@ -38,7 +37,7 @@
 
 ## Verification
 
-- Run `tests/test_tool_action_policy.py` for skill gating, saved denials, and shim dispatch. Compare fresh and skill-loaded chats in the text and native Responses surfaces.
+- Run `tests/test_tool_action_policy.py` for skill registration, saved denials, and dispatch. Compare fresh and skill-loaded chats in the text and native Responses surfaces.
 - Run `tests/test_document_query_plugin.py` for LiteParse subprocess startup with both the checkout and guest plugin layouts. For a cold LiteParse OCR check, verify an image-only PDF and confirm the legacy OCR packages stay absent from the guest.
 - Smoke-test representative PDF, text/HTML, image/OCR, and remote-document queries after parser changes, including first-use OCR installation in a clean runtime image.
 

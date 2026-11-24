@@ -9,4 +9,5 @@ class EnforceToolPolicy(Extension):
             ensure_tool_allowed(
                 self.agent, tool_name, tool_args=tool_args or {},
                 tool_path=getattr(tool, "_tool_source_path", ""),
+                skill_tool=getattr(tool, "_skill_tool", None),
             )

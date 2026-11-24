@@ -23,6 +23,7 @@
 - Core plugins may use `plugins.<plugin_name>...` imports when they are shipped from this tree.
 - User plugins under `usr/plugins/` must use `usr.plugins.<plugin_name>...` imports and avoid `sys.path` hacks or persistent symlink-based imports.
 - Plugin extension layouts must use `extensions/python/<point>/`, `extensions/python/_functions/<module>/<qualname>/<start|end>/`, and `extensions/webui/<point>/`.
+- Plugins can contribute handler factories via the `skill_tools` extension point. Declare the callable schema in the owning skill's `metadata.tool`. The shared runtime uses normal skill precedence and visibility for loaded skills and applies Tool Access under the handler's plugin ID.
 - The `_functions` extension layout preserves every module and nested qualname segment; do not use retired flattened extension folder names.
 - Plugin settings defaults belong in `default_config.yaml`; runtime user settings belong under `usr/`.
 - Plugin settings resolution order is project/profile, project, user/profile, user plugin config, then bundled `default_config.yaml`.
