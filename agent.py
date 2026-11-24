@@ -1217,6 +1217,7 @@ class Agent:
                 tool_name=tool_name,
             )
 
+            tool.args = tool_args
             response = await tool.execute(**tool_args)
             await self.handle_intervention()
 
@@ -1497,6 +1498,7 @@ class Agent:
                         tool_name=tool_name,
                     )
 
+                    tool.args = tool_args
                     response = await tool.execute(**tool_args)
                     await self.handle_intervention()
 

@@ -41,6 +41,7 @@
 - Job completion fills child log content only when it is still empty; streamed or tool-written content is user-visible state and is never replaced by the job result or error string.
 - Wrapped tool child logs use each tool's native `get_log_object()` output when available, preserving special log rendering (for example: `code_execution_tool` uses `code_exe`, `wait` uses `progress`, MCP tools use `mcp`, and regular tools use `tool`).
 - Direct parallel worker execution reuses the parent-visible child log item so tool `before_execution()` cannot create a second generic worker log or lose the native badge type.
+- Pre-execution extensions and the direct execution kwargs share the same argument dictionary; after those hooks run, the effective arguments are written back to `tool.args`.
 - Direct tools may explicitly queue model-visible history for their parent. Terminal collection records the outer `parallel` result first, promotes queued messages in job order, and only then removes disposable worker state; background jobs retain queued history until they are collected.
 - Job IDs are stable handles for later await, collect, or cancel operations. Local code jobs keep their worker until the command completes; reject new-worker output/reset requests.
 - `get_parallel_worker_job(...)` resolves only a registered direct worker. A stateful tool may publish its own model-facing progress to that job while retaining its original resource/event-loop owner; do not substitute arbitrary UI logs for model output.

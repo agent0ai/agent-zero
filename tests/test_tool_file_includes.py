@@ -57,10 +57,10 @@ async def test_tools_receive_expanded_includes_without_streaming(tool_agent, tmp
     class CaptureTool(Tool):
         async def before_execution(self, **kwargs):
             self.original_args = self.args
+            self.args = dict(self.args)
             assert kwargs == args
 
         async def execute(self, **kwargs):
-            assert self.args is self.original_args
             assert self.args == kwargs == expected
             return Response(message="done", break_loop=True)
 
