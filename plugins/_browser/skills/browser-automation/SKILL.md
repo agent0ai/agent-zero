@@ -43,6 +43,24 @@ triggers:
   - "host browser"
   - "local browser"
   - "my browser"
+  - "browser form"
+  - "web form"
+  - "fill form"
+  - "fill web form"
+  - "submit form"
+  - "select option"
+  - "dropdown"
+  - "checkbox"
+  - "radio button"
+  - "file upload"
+  - "contenteditable"
+  - "form validation"
+  - "build browser extension"
+  - "modify browser extension"
+  - "extension permissions"
+  - "Chrome Web Store"
+  - "browser-extension-control"
+  - "browser-form-workflows"
 ---
 
 # Browser Tool
@@ -62,8 +80,16 @@ For plain text research, prefer the `web-search` skill. Close only tabs you crea
 1. Use `content` for readable text and element refs, optionally narrowed by `selector`. Use `click` or `type` with a fresh `ref` or `selector`. Refresh content after a document change.
 2. Use `evaluate` with `script` for a page expression or function. This action applies the configured deadline and reports timeout recovery, including any reload.
 3. Use `screenshot` for a visual record. Pass the returned `vision_load.tool_args.paths` to `vision_load`. Use `upload_file` with a file input ref or selector and `path` or `paths`. For Container file transfers, optional `destination` selects Agent Zero's local, sandbox, or host filesystem. Host uploads use the connector's shared folder with Files read access. Saving an explicit host screenshot path uses Files write access.
-4. For uploads, validation and fragile controls, load `browser-form-workflows` with `skills_tool:load` (`skill_name: "browser-form-workflows"`).
-5. For Host setup and Safari WebDriver limits, read `references/browser-controls.md` with `skills_tool:read_file`.
+
+## References
+
+Use `skills_tool` with `action: read_file`, `skill_name: browser-automation`, and the matching `file_path`:
+
+| Task | Reference |
+| --- | --- |
+| Form uploads, selects, validation, and fragile controls | `references/browser-form-workflows.md` |
+| Build, review, or install Browser extensions | `references/browser-extension-control.md` |
+| Host setup and Safari WebDriver limits | `references/browser-controls.md` |
 
 ## Chrome DevTools Protocol
 

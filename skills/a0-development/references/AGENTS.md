@@ -14,6 +14,8 @@
 - `api-webui.md` owns HTTP API handler, WebSocket, and WebUI extension development guidance.
 - `operate-agent-zero.md` owns local socket usage, remote HTTP authentication and project, chat, task, and application-operation workflows.
 - `agents-prompts-skills-projects.md` owns profiles, prompt fragments, skills, and project metadata guidance.
+- `a0-create-agent/guide.md` owns the agent profile creation workflow and blueprint.
+- `setup-a0-cli.md` owns host CLI setup, connection, and troubleshooting.
 - `plugins-workflow.md` owns plugin-first placement and handoff guidance.
 
 ## Local Contracts
@@ -38,4 +40,4 @@
 
 ## Child DOX Index
 
-No child DOX files.
+- [a0-create-agent/AGENTS.md](a0-create-agent/AGENTS.md) covers agent profile creation.

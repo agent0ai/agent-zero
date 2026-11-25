@@ -1,23 +1,9 @@
----
-name: a0-create-agent
-description: "Create Agent Zero profiles with agent.yaml, prompt overrides, tools and extensions."
-version: 1.0.0
-tags: ["agents", "profile", "create", "new", "subordinate"]
-trigger_patterns:
-  - "create agent"
-  - "new agent profile"
-  - "add agent profile"
-  - "make agent profile"
-  - "agent profile template"
-  - "build agent profile"
----
-
 # Create an Agent Zero Agent Profile
 
 > [!IMPORTANT]
 > Do **not** create new profiles in `/a0/agents/` — that directory is reserved for core framework profiles (`default`, `agent0`, `developer`, `hacker`, `researcher`, `_example`). User profiles belong in `/a0/usr/agents/<profile_name>/`.
 
-Related skills: `/a0/skills/a0-development/SKILL.md` (broader framework guide) | `/a0/skills/a0-create-plugin/SKILL.md` (bundle a profile inside a plugin).
+For the profile layout and discovery order, see the [profiles reference](../agents-prompts-skills-projects.md). To bundle a profile inside a plugin, load `a0-create-plugin`.
 
 Primary references:
 - `/a0/agents/_example/` — the canonical reference profile (tool + extension + prompt overrides)
@@ -367,7 +353,7 @@ class ExampleExtension(Extension):
         self.agent.agent_name = "SuperAgent" + str(self.agent.number)
 ```
 
-Available hook points mirror the framework's own `/a0/extensions/python/<point>/` directories — see `a0-development/SKILL.md` for the full list.
+Available hook points mirror the framework's `/a0/extensions/python/<point>/` directories. See the [extensions reference](../extensions.md).
 
 ---
 

@@ -1,17 +1,8 @@
----
-name: setup-a0-cli
-description: "Install, connect or troubleshoot A0 CLI host access, local files and remote tools."
-triggers:
-  - "install A0"
-  - "connect local files"
-  - "enable host connector"
-  - "A0 CLI setup"
-  - "host vs container"
----
-
 # A0 CLI Host Setup
 
 `a0` runs on the user's host machine; Agent Zero stays in Docker or its sandbox.
+
+See the [A0 CLI guide](../../../docs/guides/a0-cli-connector.md) and the [connector contract](../../../plugins/_a0_connector/AGENTS.md) for current setup and runtime details.
 
 ## Keep The Conversation Short
 

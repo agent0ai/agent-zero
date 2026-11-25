@@ -279,7 +279,7 @@ When you enable host browsing, the model selected for Browser can receive page t
 If another agent is helping with setup, do not paste a whole checklist. Paste one line:
 
 ```text
-Set up the A0 CLI connector for Agent Zero on this machine using the setup-a0-cli Skill.
+Set up the A0 CLI connector on this machine. Load a0-development and read references/setup-a0-cli.md.
 ```
 
 ## Troubleshooting

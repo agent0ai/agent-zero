@@ -100,14 +100,13 @@
 ## Work Guidance
 
 - Container uses CDP by default. Container and Host Chromium share the same Browser action vocabulary. Shared skill registration requires a loaded, visible `browser-automation` skill for native declarations and dispatch. Put WebDriver workflows and fallback guidance in the skill’s browser controls reference.
-- Saved Tool Access rules apply at their existing project/profile scope. A whole-tool denial or any denied former Browser action blocks the callable and hides Browser skills from scoped discovery, including overrides with the same logical skill name. The skill-root, visibility-policy, and callable gates use the same rule, including for chats that already loaded the skill.
+- Saved Tool Access rules apply at their existing project/profile scope. A whole-tool denial or any denied former Browser action blocks the callable and hides Browser skills from scoped discovery, including overrides with current or former Browser skill names. The skill-root, visibility-policy, and callable gates use the same rule, including for chats that already loaded the skill.
 - Keep response-body diagnostics in the Browser skill. Durable response storage is an explicit Chromium CDP option on the capturing session.
 
 - Coordinate tool, helper, and panel changes so browser state shown in the UI matches tool behavior.
 - Do not depend on nested Electron `<webview>` support or launcher-specific preload bridges unless the launcher exposes that bridge as an explicit contract.
 - Keep the callable schema and rendered browsing workflow in `skills/browser-automation/SKILL.md`.
-- Keep `skills/browser-automation/SKILL.md` frontmatter triggers current with rendered browsing, host-browser, screenshot, and web-interaction user phrasing so relevant-skill recall can surface the skill before the full browser workflow is needed.
-- Keep fragile form guidance progressively disclosed through `skills/browser-form-workflows/SKILL.md`, linked from `browser-automation`.
+- Keep `skills/browser-automation/SKILL.md` frontmatter triggers current with browsing, host-browser, screenshot, form, and extension user phrasing. Keep detailed form and extension workflows in the skill's `references/` directory and link them from the skill. Browser extension buttons prefill requests that load `browser-automation` and read the extension reference.
 
 ## Verification
 

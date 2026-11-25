@@ -1235,7 +1235,8 @@ def test_browser_skill_keeps_shared_browser_workflow():
     assert "same Container tabs used by all Browser actions, including `cdp`" in browser_skill
     assert "Host Chromium uses the same Browser tool and action arguments" in browser_skill
     assert "headless" not in browser_skill
-    assert "browser-form-workflows" in browser_skill
+    assert "references/browser-form-workflows.md" in browser_skill
+    assert "references/browser-extension-control.md" in browser_skill
     assert "Pass the returned `vision_load.tool_args.paths` to `vision_load`" in browser_skill
     assert "references/browser-controls.md" in browser_skill
     controls = (PROJECT_ROOT / "plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text()
@@ -1270,36 +1271,25 @@ def test_browser_skill_keeps_shared_browser_workflow():
     assert "HOST_BROWSER_STATUS_REFRESH_MS = 1000" in config_store_js
 
 
-def test_browser_skills_are_plugin_owned_and_progressively_linked():
+def test_browser_form_reference_keeps_form_workflows():
     automation_path = (
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md"
     )
-    skill_path = PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-form-workflows" / "SKILL.md"
-    assert automation_path.exists()
-    assert skill_path.exists()
     automation = automation_path.read_text(encoding="utf-8")
-    skill = skill_path.read_text(encoding="utf-8")
-    assert skill.startswith("---\n")
+    forms = (automation_path.parent / "references/browser-form-workflows.md").read_text(encoding="utf-8")
     automation_frontmatter = automation.split("---", 2)[1]
-    frontmatter = skill.split("---", 2)[1]
     assert "name: browser-automation" in automation_frontmatter
     assert "triggers:" in automation_frontmatter
     assert "browser screenshot" in automation_frontmatter
     assert "host browser" in automation_frontmatter
-    assert "name: browser-form-workflows" in frontmatter
-    assert "description:" in frontmatter
-    assert "triggers:" in frontmatter
-    assert "fill web form" in frontmatter
-    assert "file upload" in frontmatter
+    assert "fill web form" in automation_frontmatter
+    assert "file upload" in automation_frontmatter
     assert "progressive-disclosure workflow guide" in automation
-    assert "`browser-form-workflows` with `skills_tool:load`" in automation
-    assert 'skill_name: "browser-form-workflows"' in automation
-    assert "form-specific extension of `browser-automation`" in skill
-    assert "select_option" in skill
-    assert "set_checked" in skill
-    assert "upload_file" in skill
-    assert "browser:screenshot" in skill
-    assert "vision_load" in skill
+    assert "select_option" in forms
+    assert "set_checked" in forms
+    assert "upload_file" in forms
+    assert "browser:screenshot" in forms
+    assert "vision_load" in forms
 
 
 def test_browser_canvas_uses_plain_panel_without_debug_probe():
@@ -1364,6 +1354,7 @@ def test_browser_extension_settings_stay_user_facing():
 
     assert "Choose which installed Chrome extensions Browser loads." in config_html
     assert "Installed extensions" in config_html
+    assert "Load browser-automation and read references/browser-extension-control.md" in config_store
     assert "browser_tab_scope" not in config_html
     assert "Maximum number of open tabs before the agent must reuse an existing tab." in config_html
     assert 'x-model.number="$store.browserConfig.config.max_open_tabs"' in config_html

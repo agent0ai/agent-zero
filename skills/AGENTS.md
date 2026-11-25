@@ -9,7 +9,7 @@
 
 - Each direct skill directory owns its `SKILL.md` and any local supporting files.
 - Plugin-distributed skills belong under the relevant plugin directory.
-- `setup-a0-cli/` owns primary host-connector setup guidance and remains discoverable without a connected CLI.
+- `a0-development/` routes to host-connector setup guidance without a connected CLI.
 - User-local skills belong under `usr/skills/`.
 
 ## Local Contracts
@@ -37,9 +37,8 @@ Direct child DOX files:
 
 | Child | Scope |
 | --- | --- |
-| [a0-create-agent/AGENTS.md](a0-create-agent/AGENTS.md) | Creating Agent Zero agent profiles. |
 | [a0-create-plugin/AGENTS.md](a0-create-plugin/AGENTS.md) | Plugin authoring entrypoint with implementation, UI, review, and contribution references. |
-| [a0-development/AGENTS.md](a0-development/AGENTS.md) | Broad Agent Zero framework development guidance. |
+| [a0-development/AGENTS.md](a0-development/AGENTS.md) | Framework development, agent profile creation, and A0 CLI setup. |
 | [a0-manage-plugin/AGENTS.md](a0-manage-plugin/AGENTS.md) | Plugin Index discovery/recommendations and lifecycle operations. |
 | [build-skill/AGENTS.md](build-skill/AGENTS.md) | Building and improving Agent Zero skills. |
 | [scheduled-tasks/AGENTS.md](scheduled-tasks/AGENTS.md) | Managing scheduled, planned, and adhoc tasks. |

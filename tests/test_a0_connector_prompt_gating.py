@@ -513,7 +513,10 @@ def test_connector_skill_root_follows_connection_without_mutating_cached_paths(m
 
             connected = state.startswith("cli_")
             names = {skill.name for skill in skills.list_skills(agent)}
-            assert "setup-a0-cli" in names
+            assert "a0-development" in names
+            assert "setup-a0-cli" not in names
+            setup_matches = skills.search_skills("A0 CLI setup", limit=1, agent=agent)
+            assert [skill.name for skill in setup_matches] == ["a0-development"]
             assert (remote_names <= names) if connected else names.isdisjoint(remote_names)
             assert bool(skills.find_skill("host-file-editing", agent)) == connected
             matches = {skill.name for skill in skills.search_skills("host", agent=agent)}

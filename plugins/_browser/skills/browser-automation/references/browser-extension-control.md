@@ -1,15 +1,6 @@
----
-name: browser-extension-control
-description: "Build, edit, install or audit Chrome Web Store extensions in Agent Zero Browser."
-triggers:
-  - "build browser extension"
-  - "modify browser extension"
-  - "extension permissions"
----
-
 # Agent Zero Browser Extensions
 
-Use this skill when the user wants to create a new Browser extension, modify an existing extension, or install a Chrome Web Store extension for Agent Zero's direct `_browser` plugin.
+Use this guide to create, modify, or review a Browser extension, or to install one from the Chrome Web Store for Agent Zero's Browser.
 
 ## Operating Model
 

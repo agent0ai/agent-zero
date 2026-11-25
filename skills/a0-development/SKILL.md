@@ -1,6 +1,6 @@
 ---
 name: a0-development
-description: "Develop or operate Agent Zero: projects, chats, tasks, framework, tools and API/WebUI."
+description: "Develop or operate Agent Zero: profiles, projects, chats, tasks, tools, APIs and A0 CLI setup."
 version: 1.1.0
 author: Agent Zero Team
 tags: ["development", "framework", "agent-zero", "extending", "tools", "extensions", "skills", "api", "agents", "prompts", "dox"]
@@ -30,6 +30,19 @@ trigger_patterns:
   - "project instructions"
   - "create chat"
   - "new chat"
+  - "create agent"
+  - "new agent profile"
+  - "add agent profile"
+  - "make agent profile"
+  - "agent profile template"
+  - "build agent profile"
+  - "install A0"
+  - "connect local files"
+  - "enable host connector"
+  - "A0 CLI setup"
+  - "host vs container"
+  - "a0-create-agent"
+  - "setup-a0-cli"
 ---
 
 # Agent Zero Development
@@ -51,12 +64,14 @@ Use this skill to develop Agent Zero or operate an existing instance on the user
 Load references with:
 
 ```json
-{"tool_name": "skills_tool:read_file", "tool_args": {"skill_name": "a0-development", "file_path": "references/<file>.md"}}
+{"tool_name": "skills_tool", "tool_args": {"action": "read_file", "skill_name": "a0-development", "file_path": "references/<file>.md"}}
 ```
 
 | Need | Read |
 |---|---|
 | Operate Agent Zero for the user: projects, chats, tasks, profiles, skills and settings | `references/operate-agent-zero.md` |
+| Install, connect, or troubleshoot A0 CLI host access | `references/setup-a0-cli.md` |
+| Create an agent profile with a blueprint, prompt overrides, tools, or extensions | `references/a0-create-agent/guide.md` |
 | Runtime split, root layout, discovery order, path and port boundaries | `references/architecture-runtime.md` |
 | DOX edit workflow, when to update docs, file-level DOX checks | `references/dox-workflow.md` |
 | Tool contracts, locations, prompts, and verification | `references/tools.md` |
@@ -80,7 +95,6 @@ Load references with:
 - Plugin creation: load `a0-create-plugin`.
 - Plugin management or installation: load `a0-manage-plugin`.
 - Plugin review, debugging or publishing: load `a0-create-plugin` and read its relevant reference.
-- Agent profile creation: load `a0-create-agent`.
 - Skill creation or skill format work: load `build-skill`.
 
 ## Closeout

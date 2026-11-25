@@ -475,7 +475,7 @@ export const store = createStore("browserConfig", {
   createExtensionWithAgent(context) {
     this.prefillExtensionPrompt(context,
       [
-        "Use the browser-extension-control skill to create a new Chrome extension for Agent Zero's Browser.",
+        "Load browser-automation and read references/browser-extension-control.md to create a new Chrome extension for Agent Zero's Browser.",
         "Start by asking me for the extension name, purpose, target websites, and required permissions.",
         `Create it under ${this.extensionsRoot || EXTENSIONS_ROOT}/<extension-slug> and keep permissions minimal.`,
       ].join("\n")
@@ -486,12 +486,12 @@ export const store = createStore("browserConfig", {
     const url = String(this.extensionInstallUrl || "").trim();
     const prompt = url
       ? [
-          "Use the browser-extension-control skill to review and optionally install this Chrome Web Store extension for Agent Zero's Browser.",
+          "Load browser-automation and read references/browser-extension-control.md to review and optionally install this Chrome Web Store extension.",
           `Chrome Web Store URL or id: ${url}`,
           "Explain the permissions and any sandbox risk before enabling it.",
         ].join("\n")
       : [
-          "Use the browser-extension-control skill to help me install and review a Chrome Web Store extension for Agent Zero's Browser.",
+          "Load browser-automation and read references/browser-extension-control.md to help me review and install a Chrome Web Store extension.",
           "Ask me for the Chrome Web Store URL or extension id first.",
           "Explain the permissions and any sandbox risk before enabling it.",
         ].join("\n");

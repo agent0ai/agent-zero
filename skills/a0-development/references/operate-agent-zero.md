@@ -160,7 +160,7 @@ These are discovery starting points, not interchangeable payloads. Read the hand
 
 | Feature | Entry point | Guidance |
 |---|---|---|
-| Profile catalog and editor | `agents` (`action: list`); `plugins/_agent_editor/agent_editor` | Editor supports scoped list/load, quick_create, plan/save and lifecycle operations. Inspect its plan before applying complex edits. Use `a0-create-agent` for creation. |
+| Profile catalog and editor | `agents` (`action: list`); `plugins/_agent_editor/agent_editor` | Editor supports scoped list/load, quick_create, plan/save and lifecycle operations. Inspect its plan before applying complex edits. For creation, read `references/a0-create-agent/guide.md` in this skill. |
 | Skills (HTTP) | `skills`; `plugins/_skills/skills_catalog` | Catalog manages per-chat visibility and activation. Loading adds instructions to history; hiding is not unloading, and deactivate/clear are rejected. |
 | Slash commands (HTTP) | `plugins/_commands/commands` | List effective commands by `context_id`; get/save/duplicate/delete in the intended scope. Use `commands-create-slash-command`. |
 | Plugins | `plugins_list`, `plugins` | Inspect configuration and activation by plugin/project/profile. Use `a0-manage-plugin`; plugin execution/install/removal has wider effects than reading configuration. |

@@ -1,4 +1,4 @@
-# Agent Creation Skill DOX
+# Agent Profile Creation Reference DOX
 
 ## Purpose
 
@@ -7,7 +7,7 @@
 
 ## Ownership
 
-- `SKILL.md` owns trigger metadata, intake flow, profile blueprint schema, and file creation guidance.
+- `guide.md` owns intake, the profile blueprint schema, and file creation. The containing `a0-development` skill owns search triggers and the reference path.
 
 ## Local Contracts
 
@@ -23,7 +23,7 @@
 
 ## Verification
 
-- Manually read `SKILL.md` for stale paths and blueprint/schema drift.
+- Manually read `guide.md` for stale paths and blueprint/schema drift. Confirm it loads in full through `skills_tool` with the parent skill name.
 
 ## Child DOX Index
 

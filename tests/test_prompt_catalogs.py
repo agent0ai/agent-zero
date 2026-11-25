@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from helpers import files, projects, skills, subagents
+from tools.skills_tool import SkillsTool
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,13 +95,38 @@ def test_default_skill_descriptions_fit_preview_and_remain_searchable(monkeypatc
     for query, name in [
         ("publish plugin", "a0-create-plugin"),
         ("plugin not loading", "a0-create-plugin"),
-        ("create agent", "a0-create-agent"),
-        ("form validation", "browser-form-workflows"),
-        ("Chrome Web Store", "browser-extension-control"),
-        ("extension permissions", "browser-extension-control"),
-        ("connect local files", "setup-a0-cli"),
+        ("create agent", "a0-development"),
+        ("form validation", "browser-automation"),
+        ("Chrome Web Store", "browser-automation"),
+        ("extension permissions", "browser-automation"),
+        ("connect local files", "a0-development"),
         ("Word document", "document-query"),
         ("Docker desktop terminal", "linux-desktop"),
         ("framework development", "a0-development"),
     ]:
         assert name in [skill.name for skill in skills.search_skills(query, limit=3)], query
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("parent", "former_name", "query", "file_path"), [
+    ("a0-development", "a0-create-agent", "create agent", "references/a0-create-agent/guide.md"),
+    ("a0-development", "setup-a0-cli", "connect local files", "references/setup-a0-cli.md"),
+    ("browser-automation", "browser-extension-control", "Chrome Web Store", "references/browser-extension-control.md"),
+    ("browser-automation", "browser-form-workflows", "form validation", "references/browser-form-workflows.md"),
+])
+async def test_bundled_workflows_load_as_parent_skill_references(monkeypatch, parent, former_name, query, file_path):
+    roots = [ROOT / "skills", ROOT / "plugins/_browser/skills"]
+    monkeypatch.setattr(skills, "get_skill_roots", lambda agent=None: list(map(str, roots)))
+    monkeypatch.setattr(files, "normalize_a0_path", str)
+
+    assert skills.find_skill(former_name) is None
+    assert skills.search_skills(former_name, limit=1)[0].name == parent
+    assert skills.search_skills(query, limit=1)[0].name == parent
+    skill = skills.find_skill(parent, include_content=True)
+    assert file_path in skill.content
+    expected = (skill.path / file_path).read_text(encoding="utf-8")
+    assert expected.startswith("# ")
+
+    tool = SkillsTool(None, "skills_tool", None, {}, "", None)
+    result = await tool.execute(action="read_file", skill_name=parent, file_path=file_path)
+    assert result.message == f"Skill file: {parent}/{file_path}\n\n{expected}"
