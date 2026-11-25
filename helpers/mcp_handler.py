@@ -55,11 +55,25 @@ MCP_SESSION_CLEANUP_TIMEOUT_SECONDS = 5.0
 MCP_OPERATION_TIMEOUT_GRACE_SECONDS = MCP_SESSION_CLEANUP_TIMEOUT_SECONDS + 2.0
 DEFAULT_MCP_SERVERS_CONFIG = '{\n    "mcpServers": {}\n}'
 
+_TEMPLATE_BRACE_PAIR = re.compile(r"\{(?=\{)")
+
 
 def _mcp_get(item: Any, key: str, default: Any = None) -> Any:
     if isinstance(item, dict):
         return item.get(key, default)
     return getattr(item, key, default)
+
+
+def neutralize_prompt_template_syntax(value: Any) -> str:
+    """Return server-supplied text that prompt templates cannot interpret.
+
+    Prompt rendering substitutes placeholder values before it expands
+    ``{{ include '...' }}`` directives, so a ``{{`` inside text an MCP server
+    chose could read files into the prompt or capture a later placeholder.
+    Every brace that starts a ``{{`` gets a following space: the text stays
+    readable and holds nothing the renderer matches. Idempotent.
+    """
+    return _TEMPLATE_BRACE_PAIR.sub("{ ", str(value))
 
 
 def normalize_name(name: str) -> str:
@@ -1202,12 +1216,14 @@ class MCPConfig(BaseModel):
                     input_schema = (
                         json.dumps(tool["input_schema"]) if tool["input_schema"] else ""
                     )
+                    # Names, descriptions and schemas come from the server (or
+                    # its config), so none may carry template syntax.
                     tool_prompts.append(
                         render(
                             "agent.system.mcp_tool.md",
-                            qualified_name=qualified_name,
-                            description=tool["description"],
-                            input_schema=input_schema,
+                            qualified_name=neutralize_prompt_template_syntax(qualified_name),
+                            description=neutralize_prompt_template_syntax(tool["description"]),
+                            input_schema=neutralize_prompt_template_syntax(input_schema),
                         )
                     )
 
@@ -1215,8 +1231,8 @@ class MCPConfig(BaseModel):
                     server_prompts.append(
                         render(
                             "agent.system.mcp_server.md",
-                            server_name=selected_server_name,
-                            server_description=server.description,
+                            server_name=neutralize_prompt_template_syntax(selected_server_name),
+                            server_description=neutralize_prompt_template_syntax(server.description),
                             tools="\n\n".join(tool_prompts),
                         )
                     )

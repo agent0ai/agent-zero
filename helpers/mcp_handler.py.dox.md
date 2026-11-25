@@ -61,6 +61,7 @@
   - `get_session_id(self) -> Optional[str]`
 - Top-level functions:
 - `_mcp_get(item: Any, key: str, default: Any=...) -> Any`
+- `neutralize_prompt_template_syntax(value: Any) -> str`: Split every `{{` in server-supplied text so prompt templates cannot interpret it.
 - `normalize_name(name: str) -> str`
 - `_determine_server_type(config_dict: dict) -> str`: Determine the server type based on configuration, with backward compatibility.
 - `_is_streaming_http_type(server_type: str) -> bool`: Check if the server type is a streaming HTTP variant.
@@ -96,6 +97,12 @@
   `prompts/agent.system.mcp_server.md`, and
   `prompts/agent.system.mcp_tool.md`; this helper supplies the policy-filtered
   server names, exact qualified tool names, descriptions, and schemas.
+- Prompt rendering substitutes placeholder values before expanding
+  `{{ include '...' }}` directives, so every server- or config-supplied value
+  passed to an MCP prompt template (names, tool descriptions, JSON schemas,
+  server descriptions) goes through `neutralize_prompt_template_syntax` first.
+  Without it, a hostile tool description could read repository-relative files
+  such as `usr/.env` into the system prompt or capture a later placeholder.
 - `MCPConfig.get_tool()` tries the supplied qualified name first, then restores an advertised Responses alias from the calling agent's name map; names that still do not identify an MCP tool return `None` unchanged for downstream local-tool resolution.
 - Servers may define `disabled_tools` as a list of MCP tool names. Disabled tools are omitted from agent-facing prompts, status counts, `has_tool`, and calls, while detail views can still retrieve them through `get_all_tools()` with a `disabled` flag so users can re-enable them.
 - Server-specific `init_timeout` and `tool_timeout` override global MCP client timeout settings for list-tools and call-tool operations.
@@ -124,6 +131,7 @@
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
   - `tests/test_mcp_handler_multimodal.py`
+  - `tests/test_mcp_prompt_template_safety.py`
   - `tests/test_tool_policy.py`
 
 ## Child DOX Index
