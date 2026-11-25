@@ -21,8 +21,11 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
       <link rel="stylesheet" href="/vendor/google/google-icons.css">
       <link rel="stylesheet" href="/components/messages/action-buttons/simple-action-buttons.css">
       <script type="module">
-        import { store } from '/components/notifications/notification-store.js';
+        import { store, toastFrontendNotice } from '/components/notifications/notification-store.js';
+        import { store as syncStore } from '/components/sync/sync-store.js';
         window.store = store;
+        window.syncStore = syncStore;
+        window.toastFrontendNotice = toastFrontendNotice;
         window.modalOpens = 0;
         document.addEventListener('alpine:init', () => {
           Alpine.directive('create', (_el, { expression }, { evaluateLater }) => {
@@ -39,6 +42,25 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
             route.fulfill(content_type="text/html", body=html)
         elif path == "/js/modals.js":
             route.fulfill(content_type="text/javascript", body="export async function openModal() { window.modalOpens++; }")
+        elif path == "/index.js":
+            route.fulfill(content_type="text/javascript", body="""
+              export function applySnapshot() {}
+              export function buildStateRequestPayload() { return {}; }
+            """)
+        elif path == "/components/chat/top-section/chat-top-store.js":
+            route.fulfill(content_type="text/javascript", body="export const store = {};")
+        elif path == "/js/websocket.js":
+            route.fulfill(content_type="text/javascript", body="""
+              export function getNamespacedClient() {
+                return {
+                  addHandlers() {},
+                  onConnect(callback) { window.connectSocket = callback; },
+                  onDisconnect(callback) { window.disconnectSocket = callback; },
+                  async on() {},
+                  async request() { return { results: [{ ok: true, data: {} }] }; },
+                };
+              }
+            """)
         elif path == "/js/extensions.js":
             route.fulfill(content_type="text/javascript", body="""
               export async function callJsExtensions(point, data) {
@@ -198,5 +220,34 @@ def test_toast_copy_keeps_full_text_and_controls_visible(width):
                 playwright.expect(status_copy).to_be_hidden()
                 status_toast.get_by_role("button", name="Dismiss", exact=True).click()
                 playwright.expect(status_toast).to_have_count(0)
+
+            page.wait_for_function("window.syncStore.mode === 'HEALTHY'")
+            page.evaluate("window.connectSocket({ firstConnect: true })")
+            page.wait_for_function("window.syncStore.mode === 'HEALTHY'")
+            page.evaluate("window.disconnectSocket()")
+            disconnected = page.locator(".toast-item.notification-warning").filter(has_text="Disconnected")
+            playwright.expect(disconnected).to_be_visible()
+            playwright.expect(disconnected.get_by_role("button", name="Copy", include_hidden=True)).to_have_count(0)
+            disconnected.get_by_role("button", name="Dismiss").click()
+
+            page.evaluate("""async () => {
+              window.sendJsonData = async (url, request) => {
+                if (url !== '/notification_create') throw new Error(url);
+                window.noticeRequest = request;
+                return { success: true, notification_id: 'validation' };
+              };
+              await window.toastFrontendNotice('error', 'Please select a ZIP file first', 'Plugin Installer');
+              store.updateFromPoll({
+                notifications_guid: store.lastNotificationGuid,
+                notifications: [{ ...window.noticeRequest, id: 'validation' }],
+              });
+            }""")
+            assert page.evaluate("window.noticeRequest.copyable") is False
+            validation = page.locator(".toast-item.notification-error").filter(has_text="Please select a ZIP file first")
+            playwright.expect(validation).to_be_visible()
+            validation_copy = validation.get_by_role("button", name="Copy", include_hidden=True)
+            playwright.expect(validation_copy).to_have_count(0)
+            page.evaluate("store.toastStack.find(toast => toast.id === 'validation').copyable = true")
+            playwright.expect(validation_copy).to_be_visible()
         finally:
             browser.close()

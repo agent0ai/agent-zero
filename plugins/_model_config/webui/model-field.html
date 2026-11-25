@@ -55,7 +55,13 @@
                  this.results = r.models;
                  this.source = r.source;
                  this.open = true;
-                 if (r.error) globalThis.toastFrontendError?.('Could not load models from the provider. Check its connection and endpoint settings.', 'Model search');
+                 if (r.error) $store.notificationStore?.frontendNotification({
+                   type: 'error',
+                   message: 'Could not load models from the provider. Check its connection and endpoint settings.',
+                   title: 'Model search',
+                   displayTime: 8,
+                   copyable: false
+                 });
                }).finally(() => this.searching = false);
              },
              openSearch(trigger) { trigger?.scrollIntoView({ block: 'center' }); this.doSearch(); },

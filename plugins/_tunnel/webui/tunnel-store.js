@@ -1,3 +1,4 @@
+import { toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { createStore } from "/js/AlpineStore.js";
 import * as Sleep from "/js/sleep.js";
 
@@ -71,7 +72,7 @@ const model = {
       }, 3000);
     }).catch((err) => {
       console.error("Failed to copy code: ", err);
-      window.toastFrontendError("Failed to copy login code", "Clipboard Error");
+      toastFrontendNotice("error", "Failed to copy login code", "Clipboard Error");
     });
   },
 
@@ -300,7 +301,7 @@ const model = {
         await this.generateLink();
       } catch (error) {
         console.error("Error refreshing tunnel:", error);
-        window.toastFrontendError("Error refreshing Remote Control", "Remote Control");
+        toastFrontendNotice("error", "Error refreshing Remote Control", "Remote Control");
       } finally {
         this.isLoading = false;
         this.loadingText = "";
@@ -366,7 +367,7 @@ const model = {
         );
       }
     } catch (error) {
-      window.toastFrontendError("Error creating Remote Control", "Remote Control");
+      toastFrontendNotice("error", "Error creating Remote Control", "Remote Control");
       console.error("Error creating tunnel:", error);
     } finally {
       this.isLoading = false;
@@ -418,10 +419,10 @@ const model = {
             "Remote Control"
           );
         } else {
-          window.toastFrontendError("Failed to stop Remote Control", "Remote Control");
+          toastFrontendNotice("error", "Failed to stop Remote Control", "Remote Control");
         }
       } catch (error) {
-        window.toastFrontendError("Error stopping Remote Control", "Remote Control");
+        toastFrontendNotice("error", "Error stopping Remote Control", "Remote Control");
         console.error("Error stopping tunnel:", error);
       } finally {
         this.isLoading = false;
@@ -452,7 +453,8 @@ const model = {
       .catch((err) => {
         console.error("Failed to copy URL: ", err);
         this.copyState = "error";
-        window.toastFrontendError(
+        toastFrontendNotice(
+          "error",
           "Failed to copy Remote Control URL",
           "Clipboard Error"
         );

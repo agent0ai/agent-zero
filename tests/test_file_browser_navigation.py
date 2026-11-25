@@ -647,6 +647,8 @@ const window = globalThis;
 const createStore = (_name, model) => model;
 const getStore = () => null;
 const createFileTree = () => ({ shown: false, follow: async () => {} });
+const notices = [];
+const toastFrontendNotice = (type, message) => notices.push({type, message});
 let saved = '{}';
 const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
 ''' + source + '''
@@ -669,6 +671,7 @@ assert.equal(JSON.parse(saved).treeRoot, '/', 'filesystem root remains an explic
 for (const path of ['', 'usr', '/a0/../usr', '/a0/./usr', null, 42]) {
   await store.saveTreeRoot(path);
   assert.equal(JSON.parse(saved).treeRoot, '/', 'invalid input does not replace the saved root');
+  assert.equal(notices.pop()?.type, 'error');
   saved = JSON.stringify({treeRoot:path});
   store.loadPreferences();
   assert.equal(store.preferences.treeRoot, '/a0', 'invalid stored root falls back safely');

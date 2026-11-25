@@ -6,7 +6,7 @@ import {
   toastFrontendError,
   toastFrontendInfo,
   toastFrontendSuccess,
-  toastFrontendWarning,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const PREVIEW_API = "/api/plugins/_migrate_agents/migration_preview";
@@ -220,7 +220,7 @@ export const store = createStore("migrationParty", {
       this.copyTimer = setTimeout(() => { this.copied = false; }, 1600);
       void toastFrontendInfo("Copied to the clipboard.", "Migrate Agents");
     } catch {
-      void toastFrontendError("Could not copy. Select the text and copy it manually.", "Migrate Agents");
+      void toastFrontendNotice("error", "Could not copy. Select the text and copy it manually.", "Migrate Agents");
     }
   },
 
@@ -242,7 +242,7 @@ export const store = createStore("migrationParty", {
 
   async inspect() {
     if (!this.files.length) {
-      void toastFrontendWarning("Choose an export file, archive, or folder first.", "Migrate Agents");
+      void toastFrontendNotice("warning", "Choose an export file, archive, or folder first.", "Migrate Agents");
       return;
     }
     this.busy = true;
@@ -266,7 +266,7 @@ export const store = createStore("migrationParty", {
         "Migrate Agents",
       );
       if (this.preview?.warnings?.length) {
-        void toastFrontendWarning(`${this.preview.warnings.length} item(s) need review.`, "Migrate Agents");
+        void toastFrontendNotice("warning", `${this.preview.warnings.length} item(s) need review.`, "Migrate Agents");
       }
     } catch (error) {
       void toastFrontendError(error instanceof Error ? error.message : String(error), "Migrate Agents");
@@ -291,7 +291,7 @@ export const store = createStore("migrationParty", {
         "Migrate Agents",
       );
       if (result.warnings?.length) {
-        void toastFrontendWarning(`${result.warnings.length} item(s) were skipped with warnings.`, "Migrate Agents");
+        void toastFrontendNotice("warning", `${result.warnings.length} item(s) were skipped with warnings.`, "Migrate Agents");
       }
       if (result.ctxids?.[0]) setContext(result.ctxids[0]);
       closeModal("/plugins/_migrate_agents/webui/main.html");

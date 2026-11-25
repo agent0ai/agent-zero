@@ -40,9 +40,11 @@
                             </div>
                         </div>
 
-                        <div class="toast-actions"
-                             x-create="$el.append($store.notificationStore.createToastCopyButton($refs.content))">
-                        </div>
+                        <template x-if="toast.copyable !== false && (toast.type === 'warning' || toast.type === 'error')">
+                            <div class="toast-actions"
+                                 x-create="$el.append($store.notificationStore.createToastCopyButton($refs.content))">
+                            </div>
+                        </template>
                     </div>
 
                     <!-- Toast Dismiss -->
@@ -184,9 +186,6 @@
             flex-shrink: 0;
         }
 
-        .toast-item.notification-success .toast-actions,
-        .toast-item.notification-info .toast-actions,
-        .toast-item.notification-progress .toast-actions,
         .toast-body:has(.toast-content button) .toast-actions {
             display: none;
         }

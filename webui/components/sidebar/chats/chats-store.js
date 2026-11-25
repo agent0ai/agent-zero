@@ -9,7 +9,7 @@ import {
   justToast,
   getConnectionStatus,
 } from "/index.js";
-import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as notificationStore, toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
 import { store as tasksStore } from "/plugins/_scheduler/webui/sidebar/tasks-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js";
@@ -415,7 +415,8 @@ const model = {
     // Check connection status (avoid spamming requests when already disconnected)
     const connectionStatus = getConnectionStatus();
     if (connectionStatus === false) {
-      await notificationStore.frontendError(
+      await toastFrontendNotice(
+        "error",
         "Backend disconnected, cannot restart.",
         "Restart Error",
       );

@@ -1,7 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
-import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as notificationStore, toastFrontendNotice } from "/components/notifications/notification-store.js";
 
 const EXTENSIONS_ROOT = "/a0/usr/_browser/extensions";
 const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
@@ -353,11 +353,11 @@ export const store = createStore("browserConfig", {
       );
     } catch (error) {
       console.error("Failed to open host browser setup:", error);
-      notificationStore.addFrontendToastOnly(
+      toastFrontendNotice(
         "error",
         "Connect Launcher or A0 CLI and select an installed host browser.",
         "Could not open browser setup",
-        7,
+        { frontendOnly: true, displayTime: 7 },
       );
     } finally {
       this.hostBrowserSetupOpening = "";
@@ -550,7 +550,10 @@ export const store = createStore("browserConfig", {
     const path = String(extension?.path || "").trim();
     if (!path) return;
     if (!this.extensionCanDelete(extension)) {
-      notificationStore.addFrontendToastOnly("error", "Only Browser-managed extensions can be deleted.");
+      toastFrontendNotice("error", "Only Browser-managed extensions can be deleted.", "", {
+        frontendOnly: true,
+        displayTime: 5,
+      });
       return;
     }
     const name = String(extension?.name || "this extension").trim();

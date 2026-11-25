@@ -410,7 +410,15 @@ const model = {
       });
       if (!response?.ok) throw new Error(response?.error || "Snapshot failed.");
       const skipped = response.snapshot?.skipped_files || [];
-      globalThis.justToast?.(skipped.length ? `${skipped.length} oversized file(s) skipped. Check current changes for details.` : (response.snapshot?.created ? "Snapshot captured" : "No changes to snapshot"), skipped.length ? "warning" : "success", skipped.length ? 5000 : 1400, "time-travel-snapshot");
+      globalThis.justToast?.(
+        skipped.length
+          ? `${skipped.length} oversized file(s) skipped. Check current changes for details.`
+          : (response.snapshot?.created ? "Snapshot captured" : "No changes to snapshot"),
+        skipped.length ? "warning" : "success",
+        skipped.length ? 5000 : 1400,
+        "time-travel-snapshot",
+        false,
+      );
       await this.refresh({ keepSelection: true });
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);

@@ -2913,7 +2913,7 @@ const model = {
       await this.sendClipboard("paste", text);
     } catch (error) {
       this.error = "Browser paste needs clipboard permission in this tab.";
-      globalThis.justToast?.(this.error, "warning", 2200, "browser-clipboard");
+      globalThis.justToast?.(this.error, "warning", 2200, "browser-clipboard", false);
       console.warn("Browser clipboard paste failed", error);
     }
   },
@@ -2931,7 +2931,7 @@ const model = {
       this.error = action === "cut"
         ? "Browser cut failed."
         : "Browser copy failed.";
-      globalThis.justToast?.(this.error, "warning", 1800, "browser-clipboard");
+      globalThis.justToast?.(this.error, "warning", 1800, "browser-clipboard", false);
       console.warn("Browser clipboard copy failed", error);
     }
   },

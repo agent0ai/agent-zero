@@ -1,3 +1,4 @@
+import { toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { createStore, getStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { formatDateTime } from "/js/time-utils.js";
@@ -314,7 +315,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   async saveTreeRoot(value) {
     const path = this.normalizeTreeRoot(value);
     if (!path) {
-      globalThis.toastFrontendError?.("Enter an absolute folder path without . or .. segments.", "File Browser Settings");
+      toastFrontendNotice("error", "Enter an absolute folder path without . or .. segments.", "File Browser Settings");
       return;
     }
     this.preferences.treeRoot = path;
@@ -344,7 +345,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     try {
       localStorage.setItem("fileBrowser.preferences", JSON.stringify(this.preferences));
     } catch {
-      globalThis.toastFrontendError?.("Could not save file browser preferences.");
+      toastFrontendNotice("error", "Could not save file browser preferences.");
       return;
     }
     await Promise.all([...views.values()].map(async browser => {
@@ -1796,7 +1797,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     if (this.isPickerMode()) return false;
     const destination = this.normalizePath(destinationPath);
     if (!this.canTransfer(paths, destination, operation)) {
-      window.toastFrontendError("Choose a writable folder outside the selection. Remote moves must stay within one connection.", "Files");
+      toastFrontendNotice("error", "Choose a writable folder outside the selection. Remote moves must stay within one connection.", "Files");
       return false;
     }
     const sources = paths.map(path => this.normalizePath(path));
@@ -2287,7 +2288,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     const entries = Array.from(data.items || [], item => item.webkitGetAsEntry?.()).filter(Boolean);
     if (!entries.some(entry => entry.isDirectory)) return this.uploadFiles(Array.from(data.files), path);
     if (this.isRemote(path)) {
-      window.toastFrontendError("This connection supports dropping individual files.", "Upload");
+      toastFrontendNotice("error", "This connection supports dropping individual files.", "Upload");
       return;
     }
     const files = [], names = [], folders = [];
@@ -2441,7 +2442,7 @@ window.openFileLink = async function (path) {
   try {
     const resp = await window.sendJsonData("/file_info", { path });
     if (!resp.exists) {
-      window.toastFrontendError("File does not exist.", "File Error");
+      toastFrontendNotice("error", "File does not exist.", "File Error");
       return;
     }
     if (resp.is_dir) {

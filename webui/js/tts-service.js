@@ -206,7 +206,7 @@ class TtsService extends EventTarget {
           console.error("Speech playback failed", error);
           notifications.addFrontendToastOnly("error",
             "Audio playback failed. Check that a voice and an audio output are available, then press Speak to retry.",
-            "Unable to play speech", 8, "speech-playback-error");
+            "Unable to play speech", 8, "speech-playback-error", undefined, false);
         }
         return error;
       }

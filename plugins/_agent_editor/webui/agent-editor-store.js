@@ -1055,7 +1055,7 @@ const model = {
       await navigator.clipboard.writeText(this.promptCustomizationPath());
       globalThis.justToast?.("Path copied", "success", 1200, "agent-editor-copy");
     } catch {
-      globalThis.justToast?.("Could not copy path. Select and copy it manually.", "error", 3000, "agent-editor-copy");
+      globalThis.justToast?.("Could not copy path. Select and copy it manually.", "error", 3000, "agent-editor-copy", false);
     }
   },
 

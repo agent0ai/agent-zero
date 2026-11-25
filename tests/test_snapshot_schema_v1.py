@@ -168,3 +168,22 @@ def test_notification_payload_and_cursor_are_captured_together():
     assert [item["message"] for item in notifications] == ["first"]
     assert version == 1
     assert [item["message"] for item in manager.output(start=version)] == ["second"]
+
+
+@pytest.mark.asyncio
+async def test_notification_create_preserves_copy_preference(monkeypatch):
+    from api.notification_create import NotificationCreate
+    from helpers.notification import NotificationManager
+
+    manager = NotificationManager()
+    monkeypatch.setattr(NotificationManager, "send_notification", manager.add_notification)
+    handler = NotificationCreate.__new__(NotificationCreate)
+    payload = {"id": "test", "type": "warning", "message": "A warning"}
+
+    result = await handler.process({**payload, "copyable": False}, None)
+    assert result["notification"]["copyable"] is False
+    assert manager.output_all()[0]["copyable"] is False
+
+    result = await handler.process(payload, None)
+    assert result["notification"]["copyable"] is True
+    assert len(manager.output_all()) == 1

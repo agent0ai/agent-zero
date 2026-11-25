@@ -52,6 +52,7 @@ class NotificationCreate(ApiHandler):
                 display_time,
                 group,
                 notification_id,
+                copyable=input.get("copyable") is not False,
             )
 
             return {

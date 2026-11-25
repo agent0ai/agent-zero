@@ -3,6 +3,7 @@ import { callJsonApi } from "/js/api.js";
 import {
   toastFrontendSuccess,
   toastFrontendError,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 export const store = createStore("compactStore", {
@@ -38,7 +39,7 @@ export const store = createStore("compactStore", {
     try {
       const ctxid = globalThis.getContext?.();
       if (!ctxid) {
-        toastFrontendError("No active chat", "Compaction");
+        toastFrontendNotice("error", "No active chat", "Compaction");
         return;
       }
 

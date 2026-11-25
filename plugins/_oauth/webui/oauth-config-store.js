@@ -7,6 +7,7 @@ import {
   toastFrontendError,
   toastFrontendInfo,
   toastFrontendSuccess,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const MODEL_CONFIG_API = "/plugins/_model_config";
@@ -319,7 +320,7 @@ export const store = createStore("oauthConfig", {
       if (button) showButtonFeedback(button, true, "content_copy");
       void toastFrontendSuccess("Sign-in code copied.", "OAuth Connections");
     } catch {
-      void toastFrontendError("Could not copy the code. Select it and copy manually.", "OAuth Connections");
+      void toastFrontendNotice("error", "Could not copy the code. Select it and copy manually.", "OAuth Connections");
     }
   },
 
@@ -985,7 +986,7 @@ export const store = createStore("oauthConfig", {
     if (!this.isOauthProvider(providerId)) return;
     const callback = String(this.providerUiFor(providerId).manualCallback || "").trim();
     if (!callback) {
-      void toastFrontendError("Paste callback URL, query string, or code.", "OAuth Connections");
+      void toastFrontendNotice("error", "Paste callback URL, query string, or code.", "OAuth Connections");
       return;
     }
     this.connectingProvider = providerId;

@@ -494,7 +494,8 @@ const model = {
     detail = "",
     display_time = 3,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    copyable = true
   ) {
     try {
       const response = await globalThis.sendJsonData("/notification_create", {
@@ -505,6 +506,7 @@ const model = {
         display_time: display_time,
         group: group,
         priority: priority,
+        copyable,
       });
 
       if (response.success) {
@@ -656,7 +658,8 @@ const model = {
     title = "",
     display_time = 5,
     group = "",
-    priority = defaultPriority
+    priority = defaultPriority,
+    copyable = true
   ) {
     const timestamp = getCurrentUserISOString();
     const notification = {
@@ -671,6 +674,7 @@ const model = {
       frontend: true, // Mark as frontend-only
       group: group,
       priority: priority,
+      copyable,
     };
 
     //adjust data before using
@@ -728,7 +732,8 @@ const model = {
     display_time = 5,
     group = "",
     priority = defaultPriority,
-    frontendOnly = false
+    frontendOnly = false,
+    copyable = true
   ) {
     // Try to send to backend first if connected
     if (!frontendOnly) {
@@ -741,7 +746,8 @@ const model = {
             "",
             display_time,
             group,
-            priority
+            priority,
+            copyable
           );
           if (notificationId) {
             // Backend handled it, notification will arrive via polling
@@ -766,7 +772,8 @@ const model = {
       title,
       display_time,
       group,
-      priority
+      priority,
+      copyable
     );
   },
 
@@ -877,6 +884,7 @@ const model = {
    * @param {string} [options.group=''] - The group identifier for the notification.
    * @param {string} [options.priority='medium'] - The priority of the notification.
    * @param {boolean} [options.frontendOnly=false] - Whether to show only on frontend.
+   * @param {boolean} [options.copyable=true] - Set false for routine status or validation messages.
    * @returns {Promise<string>} The ID of the added notification.
    */
   async frontendNotification({
@@ -886,9 +894,10 @@ const model = {
     displayTime = 5,
     group = '',
     priority = defaultPriority,
-    frontendOnly = false
+    frontendOnly = false,
+    copyable = true
   }) {
-    return await this.addFrontendToast(type, message, title, displayTime, group, priority, frontendOnly);
+    return await this.addFrontendToast(type, message, title, displayTime, group, priority, frontendOnly, copyable);
   },
 };
 
@@ -903,12 +912,25 @@ const toastFrontendWarning = store.frontendWarning.bind(store);
 const toastFrontendError = store.frontendError.bind(store);
 const toastFrontendProgress = store.frontendProgress.bind(store);
 
+function toastFrontendNotice(type, message, title, options) {
+  const isError = type === NotificationType.ERROR;
+  return store.frontendNotification({
+    type,
+    message,
+    title: title ?? (isError ? "Connection Error" : "Warning"),
+    displayTime: isError ? 8 : 5,
+    ...options,
+    copyable: false,
+  });
+}
+
 export {
   toastFrontendInfo,
   toastFrontendSuccess,
   toastFrontendWarning,
   toastFrontendError,
   toastFrontendProgress,
+  toastFrontendNotice,
 };
 
 // add toasts to global for backward compatibility with older scripts

@@ -5,6 +5,7 @@ import { open as openSurface } from "/js/surfaces.js";
 import {
   toastFrontendError,
   toastFrontendSuccess,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const API_PATH = "/plugins/_sandboxing/sandboxes";
@@ -90,7 +91,7 @@ const model = {
       const response = await callJsonApi(API_PATH, { action: "doctor" });
       this.diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : [];
       if (response?.ok) toastFrontendSuccess("Sandbox runtime checks passed.");
-      else toastFrontendError("Sandbox runtime needs attention. Review the diagnostics.");
+      else toastFrontendNotice("error", "Sandbox runtime needs attention. Review the diagnostics.");
     } catch (error) {
       toastFrontendError(error?.message || "Sandbox doctor failed.");
     } finally {

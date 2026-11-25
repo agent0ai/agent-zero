@@ -1,7 +1,7 @@
 import * as API from "/js/api.js";
 import { store as markdownModalStore } from "/components/modals/markdown/markdown-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
-import { toastFrontendError } from "/components/notifications/notification-store.js";
+import { toastFrontendError, toastFrontendNotice } from "/components/notifications/notification-store.js";
 
 const CATALOG_API = "/plugins/_skills/skills_catalog";
 
@@ -251,7 +251,7 @@ window.createSkillsConfigModel = (context, config) => ({
     }
 
     if (!this.chatContextAvailable) {
-      await toastFrontendError("Open a chat before loading a skill.", "Skills");
+      await toastFrontendNotice("error", "Open a chat before loading a skill.", "Skills");
       await this.loadCatalog();
       return;
     }

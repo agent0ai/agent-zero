@@ -529,6 +529,7 @@ const model = {
         displayTime: 5,
         group: "knowledge_load",
         frontendOnly: true,
+        copyable: false,
       });
     }
   },

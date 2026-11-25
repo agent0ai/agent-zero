@@ -27,6 +27,7 @@ const store = vm.runInNewContext(`${source}\nstore`, {
   toastFrontendInfo() {},
   toastFrontendSuccess: message => feedback.push(message),
   toastFrontendError: message => feedback.push(message),
+  toastFrontendNotice: (type, message) => feedback.push({ type, message }),
   copyToClipboard: async code => {
     if (clipboardDenied) throw new Error('Permission denied');
     copied.push(code);
@@ -64,7 +65,10 @@ assert.deepEqual(buttonFeedback, [[copyButton, true, 'content_copy']]);
 assert.equal(feedback.pop(), 'Sign-in code copied.');
 clipboardDenied = true;
 await store.copyDeviceCode(provider, copyButton);
-assert.equal(feedback.pop(), 'Could not copy the code. Select it and copy manually.');
+assert.deepEqual(feedback.pop(), {
+  type: 'error',
+  message: 'Could not copy the code. Select it and copy manually.',
+});
 assert.equal(buttonFeedback.length, 1);
 assert.equal(timers.size, 1);
 await store.connectProvider(provider);

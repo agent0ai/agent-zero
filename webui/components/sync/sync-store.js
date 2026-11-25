@@ -105,14 +105,14 @@ const model = {
         this._degradedToastTimer = null;
         this._degradedToastShown = true;
         notificationStore
-          .frontendWarning(
-            "WebSocket connection problems - using polling fallback",
-            "Connection",
-            5,
-            "sync-mode",
-            undefined,
-            true
-          )
+          .frontendNotification({
+            type: "warning",
+            message: "WebSocket connection problems - using polling fallback",
+            title: "Connection",
+            group: "sync-mode",
+            frontendOnly: true,
+            copyable: false,
+          })
           .catch((error) => {
             console.error("[syncStore] degraded toast failed:", error);
           });
@@ -296,7 +296,14 @@ const model = {
         this._suppressDisconnectToastOnce = false;
         if (this._seenFirstConnect && !restartToastActive && !suppressToast) {
           notificationStore
-            .frontendWarning("Disconnected", "Connection", 5, "reconnect", undefined, true)
+            .frontendNotification({
+              type: "warning",
+              message: "Disconnected",
+              title: "Connection",
+              group: "reconnect",
+              frontendOnly: true,
+              copyable: false,
+            })
             .catch((error) => {
               console.error("[syncStore] disconnected toast failed:", error);
             });

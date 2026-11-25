@@ -5,6 +5,7 @@ import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import {
   toastFrontendError,
   toastFrontendSuccess,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const GOAL_API_PATH = "/plugins/_goal/goal";
@@ -152,7 +153,7 @@ const model = {
   async saveEdit() {
     const objective = (this.draft || "").trim();
     if (!objective) {
-      void toastFrontendError("Goal objective is required.", "Goal");
+      void toastFrontendNotice("error", "Goal objective is required.", "Goal");
       return;
     }
     const response = await this.update(

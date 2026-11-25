@@ -512,7 +512,7 @@ export const store = createStore("onboarding", {
         if (provider.quota_project_id && !ui.quota_project_id) ui.quota_project_id = provider.quota_project_id;
       }
     } catch (error) {
-      if (!silent) globalThis.justToast?.("Could not check account connection", "error");
+      if (!silent) globalThis.justToast?.("Could not check account connection", "error", 5000, "", false);
     } finally {
       this.oauthLoading = false;
     }
@@ -662,7 +662,7 @@ export const store = createStore("onboarding", {
     const selectedProvider = String(providerId || this.selectedProviderId || "").trim();
     const callback = String(this.oauthProviderUiFor(selectedProvider).manualCallback || "").trim();
     if (!selectedProvider || !callback) {
-      globalThis.justToast?.("Paste callback URL, query string, or code.", "error");
+      globalThis.justToast?.("Paste callback URL, query string, or code.", "error", 5000, "", false);
       return;
     }
     this.oauthConnecting = true;

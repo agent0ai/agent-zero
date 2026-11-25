@@ -2,7 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal } from "/js/modals.js";
 import { renderSafeMarkdown } from "/js/safe-markdown.js";
-import { toastFrontendSuccess, toastFrontendError } from "/components/notifications/notification-store.js";
+import { toastFrontendSuccess, toastFrontendError, toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
@@ -218,7 +218,7 @@ const model = {
 
   async installZip() {
     if (!this.zipFile) {
-      void toastFrontendError("Please select a ZIP file first", "Plugin Installer");
+      void toastFrontendNotice("error", "Please select a ZIP file first", "Plugin Installer");
       return;
     }
 
@@ -265,7 +265,7 @@ const model = {
   async installGit() {
     const url = (this.gitUrl || "").trim();
     if (!url) {
-      void toastFrontendError("Please enter a Git URL", "Plugin Installer");
+      void toastFrontendNotice("error", "Please enter a Git URL", "Plugin Installer");
       return;
     }
 
@@ -660,7 +660,7 @@ const model = {
   async installFromIndex(plugin) {
     if (this.loading) return;
     if (!plugin?.github) {
-      void toastFrontendError("No GitHub URL available for this plugin", "Plugin Installer");
+      void toastFrontendNotice("error", "No GitHub URL available for this plugin", "Plugin Installer");
       return;
     }
 
@@ -904,7 +904,7 @@ const model = {
     const pluginRecord = selectedPlugin && typeof selectedPlugin === "object" ? selectedPlugin : {};
     const pluginKey = pluginRecord["key"] || pluginRecord["name"] || this.installedPluginInfo?.name || "";
     if (!pluginKey) {
-      void toastFrontendError("Plugin name is missing", "Plugin Installer");
+      void toastFrontendNotice("error", "Plugin name is missing", "Plugin Installer");
       return;
     }
 

@@ -691,8 +691,8 @@ function removeClassFromElement(element, className) {
   element.classList.remove(className);
 }
 
-export function justToast(text, type = "info", timeout = 5000, group = "") {
-  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000, group);
+export function justToast(text, type = "info", timeout = 5000, group = "", copyable = true) {
+  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000, group, undefined, copyable);
 }
 globalThis.justToast = justToast;
 

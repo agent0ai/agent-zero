@@ -4,6 +4,7 @@ import {
   toastFrontendError,
   toastFrontendInfo,
   toastFrontendSuccess,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const STATUS_API = "/plugins/_orchestrator/status";
@@ -117,7 +118,7 @@ export const store = createStore("orchestratorStore", {
     if (Date.now() - this._pollStartedAt > MAX_POLL_MS) {
       this._stopPolling();
       this.login = null;
-      toastFrontendError("Login timed out. Please try again.", TOAST_TITLE);
+      toastFrontendNotice("error", "Login timed out. Please try again.", TOAST_TITLE);
       return;
     }
     try {

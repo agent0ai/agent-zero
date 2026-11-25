@@ -112,8 +112,8 @@ const FIELD_BUTTON_MODAL_BY_ID = Object.freeze({
 });
 
 // Helper for toasts
-function toast(text, type = "info", timeout = 5000) {
-  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000);
+function toast(text, type = "info", copyable = true) {
+  notificationStore.addFrontendToastOnly(type, text, "", 5, "", undefined, copyable);
 }
 
 // Settings Store
@@ -179,7 +179,7 @@ const model = {
     } catch (e) {
       console.error("Failed to load settings:", e);
       this.error = e.message || "Failed to load settings";
-      toast("Failed to load settings", "error");
+      toast("Failed to load settings", "error", false);
     } finally {
       this.isLoading = false;
     }
@@ -658,7 +658,7 @@ const model = {
   // Save settings
   async saveSettings() {
     if (!this.settings) {
-      toast("No settings to save", "warning");
+      toast("No settings to save", "warning", false);
       return false;
     }
 
@@ -719,7 +719,7 @@ const model = {
       window.openModal("settings/agent/workdir-file-structure-test.html");
     } catch (e) {
       console.error("Error testing workdir file structure:", e);
-      toast("Error testing workdir file structure", "error");
+      toast("Error testing workdir file structure", "error", false);
     }
   },
 
