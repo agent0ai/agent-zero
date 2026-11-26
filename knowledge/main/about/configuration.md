@@ -13,4 +13,6 @@ Plugins live in `plugins/` and `usr/plugins/`. Each plugin has a `plugin.yaml`; 
 
 Projects isolate workdir, memory/knowledge scope, custom instructions, secrets, MCP config, and repositories.
 
+MCP servers' own usage instructions (from their `initialize` response) are added to the system prompt after the MCP tools; only servers whose tools the profile may use contribute.
+
 Environment settings can use `A0_SET_<setting_name>=<value>`.

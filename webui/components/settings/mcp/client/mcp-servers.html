@@ -127,6 +127,8 @@
                                             <div class="mcp-status-meta">
                                                 <span x-text="$store.mcpServersStore.statusLabel(server)"></span>
                                                 <span x-show="server.type" x-text="server.type"></span>
+                                                <span x-show="server.has_instructions"
+                                                    title="This server sent usage instructions. Open its tools to read them.">Instructions</span>
                                             </div>
                                         </div>
                                     </div>

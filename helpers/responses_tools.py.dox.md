@@ -35,7 +35,7 @@
 - `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
 - Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 
-- `register_prompt` owns request-only alternatives for main, tools, and MCP sections. Section builders identify their section and retain the original text; only this helper selects Responses templates. MCP supplies policy-filtered server context without knowing the endpoint mode.
+- `register_prompt` owns request-only alternatives for main, tools, and MCP sections. Section builders identify their section and retain the original text; only this helper selects Responses templates. MCP supplies policy-filtered server context, including any MCP server instructions section, without knowing the endpoint mode.
 
 ## Work Guidance
 

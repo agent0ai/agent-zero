@@ -18,6 +18,7 @@ from typing import (
 )
 import threading
 import asyncio
+import unicodedata
 from contextlib import AsyncExitStack
 from shutil import which
 from datetime import timedelta
@@ -55,7 +56,18 @@ MCP_SESSION_CLEANUP_TIMEOUT_SECONDS = 5.0
 MCP_OPERATION_TIMEOUT_GRACE_SECONDS = MCP_SESSION_CLEANUP_TIMEOUT_SECONDS + 2.0
 DEFAULT_MCP_SERVERS_CONFIG = '{\n    "mcpServers": {}\n}'
 
+# Server instructions (the MCP initialize result's `instructions`).
+MAX_MCP_SERVER_INSTRUCTIONS_CHARS = 4096
+MCP_SERVER_INSTRUCTIONS_TRUNCATED_NOTE = "[Instructions truncated]"
+# Server text sits under a `###` subsection of the `##` instructions section,
+# so its own headings start at `####`.
+_MCP_INSTRUCTIONS_HEADING_DEMOTION = 3
+
 _TEMPLATE_BRACE_PAIR = re.compile(r"\{(?=\{)")
+_ATX_HEADING = re.compile(r"^( {0,3})(#{1,6})(?=[ \t]|$)")
+_CODE_FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
+# A line of `=` or `-` turns the paragraph line above it into a heading.
+_SETEXT_UNDERLINE = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
 
 
 def _mcp_get(item: Any, key: str, default: Any = None) -> Any:
@@ -74,6 +86,95 @@ def neutralize_prompt_template_syntax(value: Any) -> str:
     readable and holds nothing the renderer matches. Idempotent.
     """
     return _TEMPLATE_BRACE_PAIR.sub("{ ", str(value))
+
+
+def normalize_server_instructions(value: Any) -> str:
+    """Return the instructions an MCP server sent at initialize as clean text.
+
+    Anything but a string means none. Every line break form becomes ``\\n``,
+    other control characters (such as terminal escape codes) are dropped, and
+    docstring-style indentation (the spaces every non-blank line after the
+    first shares) is removed, since Python servers often pass an indented
+    triple-quoted string. Tabs are kept as sent. Applied once, when the
+    instructions are captured: a second pass could flatten nested indentation.
+    """
+    if not isinstance(value, str):
+        return ""
+    lines = [_without_control_chars(line) for line in value.splitlines()]
+    if not lines:
+        return ""
+    margin = min(
+        (len(line) - len(line.lstrip(" ")) for line in lines[1:] if line.strip()),
+        default=0,
+    )
+    lines = [lines[0].strip()] + [
+        line[margin:].rstrip() if line.strip() else "" for line in lines[1:]
+    ]
+    return "\n".join(lines).strip()
+
+
+def contain_server_instructions(text: str) -> str:
+    """Hold one server's instructions inside its system-prompt subsection.
+
+    Expects text from ``normalize_server_instructions``. The text is the
+    server's own, so it is cut to ``MAX_MCP_SERVER_INSTRUCTIONS_CHARS`` with a
+    visible note, every Markdown heading is pushed below the per-server
+    subsection (inside code fences too: a reader of the raw prompt cannot tell
+    a fenced ``# x`` from a heading, while a ``#`` comment stays a comment), an
+    ``=``/``-`` underline is separated from the line above so it cannot make
+    that line a heading, a closing fence is rewritten to match its opener
+    exactly, a fence left open is closed so it cannot swallow the next
+    server's section, and template syntax is neutralized. Returns "" when
+    there is nothing to say.
+    """
+    text = text.strip()
+    if not text:
+        return ""
+    truncated = len(text) > MAX_MCP_SERVER_INSTRUCTIONS_CHARS
+    if truncated:
+        text = text[:MAX_MCP_SERVER_INSTRUCTIONS_CHARS].rstrip()
+
+    lines: list[str] = []
+    fence: tuple[str, int] | None = None  # (fence character, opener length)
+    for line in text.split("\n"):
+        underline = fence is None and _SETEXT_UNDERLINE.match(line)
+        if underline and lines and lines[-1].strip():
+            # After a blank line the underline is a rule or plain text, never a heading.
+            lines.append("")
+        fence_match = _CODE_FENCE.match(line)
+        if fence_match:
+            indent, run, rest = fence_match.groups()
+            if fence is None:
+                # A backtick info string may not contain backticks (CommonMark).
+                if not (run[0] == "`" and "`" in rest):
+                    fence = (run[0], len(run))
+            elif run[0] == fence[0] and len(run) >= fence[1] and not rest.strip():
+                line = indent + fence[0] * fence[1]
+                fence = None
+        heading = _ATX_HEADING.match(line)
+        if heading:
+            indent, hashes = heading.groups()
+            level = min(len(hashes) + _MCP_INSTRUCTIONS_HEADING_DEMOTION, 6)
+            line = indent + "#" * level + line[heading.end():]
+        lines.append(line)
+    if fence is not None:
+        lines.append(fence[0] * fence[1])
+    if truncated:
+        lines.append(MCP_SERVER_INSTRUCTIONS_TRUNCATED_NOTE)
+    return neutralize_prompt_template_syntax("\n".join(lines))
+
+
+def _without_control_chars(line: str) -> str:
+    """Drop control characters other than tab from one line of server text."""
+    return "".join(
+        char for char in line if char == "\t" or unicodedata.category(char) != "Cc"
+    )
+
+
+def _server_instructions(server: Any) -> str:
+    # Duck-typed servers (plugins, tests) may not implement get_instructions.
+    get_instructions = getattr(server, "get_instructions", None)
+    return get_instructions() if callable(get_instructions) else ""
 
 
 def normalize_name(name: str) -> str:
@@ -574,6 +675,11 @@ class MCPServerRemote(BaseModel):
         with self.__lock:
             return self.__client.get_log()  # type: ignore
 
+    def get_instructions(self) -> str:
+        """Get the instructions the server sent in its MCP initialize result."""
+        with self.__lock:
+            return self.__client.get_instructions()  # type: ignore
+
     def get_tools(self) -> List[dict[str, Any]]:
         """Get enabled tools from the server"""
         with self.__lock:
@@ -674,6 +780,11 @@ class MCPServerLocal(BaseModel):
     def get_log(self) -> str:
         with self.__lock:
             return self.__client.get_log()  # type: ignore
+
+    def get_instructions(self) -> str:
+        """Get the instructions the server sent in its MCP initialize result."""
+        with self.__lock:
+            return self.__client.get_instructions()  # type: ignore
 
     def get_tools(self) -> List[dict[str, Any]]:
         """Get enabled tools from the server"""
@@ -1110,6 +1221,7 @@ class MCPConfig(BaseModel):
                         "error": error,
                         "tool_count": tool_count,
                         "has_log": has_log,
+                        "has_instructions": bool(_server_instructions(server)),
                     }
                 )
 
@@ -1125,6 +1237,7 @@ class MCPConfig(BaseModel):
                         "error": disconnected["error"],
                         "tool_count": 0,
                         "has_log": False,
+                        "has_instructions": False,
                     }
                 )
 
@@ -1144,6 +1257,7 @@ class MCPConfig(BaseModel):
                         "description": server.description,
                         "scope": getattr(server, "scope", self.config_scope),
                         "type": getattr(server, "type", ""),
+                        "instructions": _server_instructions(server),
                         "tools": tools,
                     }
             return {}
@@ -1165,7 +1279,7 @@ class MCPConfig(BaseModel):
             return tools
 
     def get_tools_prompt(self, server_name: str = "", agent: Any | None = None, *, include_tools: bool = True) -> str:
-        """Get a prompt for all tools"""
+        """Get a prompt for all tools, followed by the servers' instructions section."""
 
         # just to wait for pending initialization
         with self.__lock:
@@ -1193,6 +1307,7 @@ class MCPConfig(BaseModel):
             from helpers import tool_policy
 
         server_prompts: list[str] = []
+        instruction_prompts: list[str] = []
         for server in self.servers:
             if server.name in server_names:
                 selected_server_name = server.name
@@ -1236,13 +1351,31 @@ class MCPConfig(BaseModel):
                             tools="\n\n".join(tool_prompts),
                         )
                     )
+                    # Instructions are about a server's tools, so only a server
+                    # offering an allowed tool contributes them.
+                    instructions = contain_server_instructions(
+                        _server_instructions(server)
+                    )
+                    if instructions:
+                        instruction_prompts.append(
+                            render(
+                                "agent.system.mcp_server_instructions.md",
+                                server_name=neutralize_prompt_template_syntax(selected_server_name),
+                                instructions=instructions,
+                            )
+                        )
 
         if not server_prompts:
             return ""
         servers = "\n".join(server_prompts)
-        if not include_tools:
-            return servers
-        return render("agent.system.mcp_tools.md", tools=servers) + "\n"
+        prompt = render("agent.system.mcp_tools.md", tools=servers) if include_tools else servers
+        if instruction_prompts:
+            section = render(
+                "agent.system.mcp_instructions.md",
+                servers="\n\n".join(instruction_prompts),
+            )
+            prompt = f"{prompt}\n\n{section}"
+        return prompt + "\n" if include_tools else prompt
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is available"""
@@ -1302,6 +1435,8 @@ class MCPClientBase(ABC):
     def __init__(self, server: Union[MCPServerLocal, MCPServerRemote]):
         self.server = server
         self.tools: List[dict[str, Any]] = []  # Tools are cached on the client instance
+        # Instructions from the initialize result, cached alongside the tools.
+        self.instructions: str = ""
         self.error: str = ""
         self.log: List[str] = []
         self.log_file: Optional[TextIO] = None
@@ -1364,10 +1499,13 @@ class MCPClientBase(ABC):
         self,
         coro_func: Callable[[ClientSession], Awaitable[T]],
         read_timeout_seconds=60,
+        *,
+        on_initialized: Callable[[Any], None] | None = None,
     ) -> T:
         """
         Manages the lifecycle of an MCP session for a single operation.
         Creates a temporary session, executes coro_func with it, and ensures cleanup.
+        on_initialized receives the session's InitializeResult before coro_func runs.
         """
         operation_name = coro_func.__name__  # For logging
         # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Creating new session for operation '{operation_name}'...")
@@ -1387,7 +1525,9 @@ class MCPClientBase(ABC):
                     ),
                 )
             )
-            await session.initialize()
+            initialize_result = await session.initialize()
+            if on_initialized is not None:
+                on_initialized(initialize_result)
 
             result = await coro_func(session)
             has_result = True
@@ -1427,6 +1567,14 @@ class MCPClientBase(ABC):
 
     async def update_tools(self) -> "MCPClientBase":
         # PrintStyle(font_color="cyan").print(f"MCPClientBase ({self.server.name}): Starting 'update_tools' operation...")
+        initialized: dict[str, str] = {}
+
+        def remember_initialize_result(initialize_result: Any) -> None:
+            # Every session re-initializes, but instructions are taken only on
+            # this (re)connect path, so tool calls never change the prompt.
+            initialized["instructions"] = normalize_server_instructions(
+                _mcp_get(initialize_result, "instructions")
+            )
 
         async def list_tools_op(current_session: ClientSession):
             response: ListToolsResult = await current_session.list_tools()
@@ -1439,6 +1587,7 @@ class MCPClientBase(ABC):
                     }
                     for tool in response.tools
                 ]
+                self.instructions = initialized.get("instructions", "")
                 self.error = ""
             PrintStyle(font_color="green").print(
                 f"MCPClientBase ({self.server.name}): Tools updated. Found {len(self.tools)} tools."
@@ -1456,6 +1605,7 @@ class MCPClientBase(ABC):
                 lambda: self._execute_with_session(
                     list_tools_op,
                     read_timeout_seconds=init_timeout,
+                    on_initialized=remember_initialize_result,
                 ),
                 timeout_seconds=self._operation_timeout_seconds(init_timeout),
             )
@@ -1470,6 +1620,7 @@ class MCPClientBase(ABC):
             )
             with self.__lock:
                 self.tools = []  # Ensure tools are cleared on failure
+                self.instructions = ""
                 self.error = f"Failed to initialize. {error_text[:200]}{'...' if len(error_text) > 200 else ''}"  # store error from tools fetch
         return self
 
@@ -1485,6 +1636,11 @@ class MCPClientBase(ABC):
         """Get all tools from the server (uses cached tools)"""
         with self.__lock:
             return [dict(tool) for tool in self.tools]
+
+    def get_instructions(self) -> str:
+        """Get the server's initialize instructions (cached with the tools)."""
+        with self.__lock:
+            return self.instructions
 
     async def call_tool(
         self, tool_name: str, input_data: Dict[str, Any]

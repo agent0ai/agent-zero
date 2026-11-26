@@ -667,6 +667,7 @@ const model = {
           risk_level: this.scanResult.risk_level,
           warnings: this.scanResult.warnings || [],
           inspected_tools: this.scanResult.inspected_tools || [],
+          server_instructions: this.scanResult.detail?.instructions || "",
         }, null, 2)
         : "No deterministic config inspection has been run in this modal yet.";
 
@@ -676,7 +677,8 @@ const model = {
       prompt = prompt.replace(/\{\{RUNTIME_INSPECTION\}\}/g, this.scanOptions.inspectRuntime ? "requested" : "not requested");
       prompt = prompt.replace(/\{\{ALLOW_LOCAL_EXECUTION\}\}/g, this.scanOptions.allowLocalExecution ? "yes" : "no");
       prompt = prompt.replace(/\{\{ALLOW_REMOTE_NETWORK\}\}/g, this.scanOptions.allowRemoteNetwork ? "yes" : "no");
-      prompt = prompt.replace(/\{\{INSPECTION_SUMMARY\}\}/g, inspectionSummary);
+      // A function replacer keeps "$&"-style sequences in server text literal.
+      prompt = prompt.replace(/\{\{INSPECTION_SUMMARY\}\}/g, () => inspectionSummary);
       prompt = prompt.replace(
         /\{\{SELECTED_CHECKS\}\}/g,
         selected.length ? selected.map((check) => `- ${check.label}`).join("\n") : "- (no checks selected)",

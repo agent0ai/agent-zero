@@ -50,6 +50,37 @@ URL-based MCP tool:
 Use `command` for local tools and `url` for tools that are already running
 somewhere else.
 
+## Server Instructions
+
+MCP servers may return an `instructions` string when Agent Zero initializes
+them. Agent Zero captures it each time it connects to a server and lists its
+tools, then adds it to the system prompt after the MCP tools:
+
+```text
+## MCP Server Instructions
+<framing>
+
+### Instructions from MCP server `docs`
+<the server's text>
+```
+
+- A server contributes only while the active profile's tool policy allows at
+  least one of its enabled tools.
+- Each server's text is cut at 4,096 characters with an
+  `[Instructions truncated]` note.
+- Its Markdown headings, including `---` or `===` underlined ones, are pushed
+  below the section's own headings, an unclosed code fence is closed, and
+  control characters and template syntax are neutralized. One server's text
+  cannot pose as a new section or as another server.
+- The section appears in Chat Completions and Responses API turns alike, and
+  the context-window indicator counts it under MCP tools.
+- The server status API reports `has_instructions`, and the server detail API
+  returns the captured `instructions` text.
+
+There is no separate switch: a server's instructions leave the prompt when the
+server is disabled, its tools are disabled, or the profile's tool policy blocks
+all of them.
+
 ## Docker Addresses
 
 If Agent Zero runs in Docker, remember that "localhost" means the container, not
@@ -68,6 +99,10 @@ tool in the same Docker network is often simpler.
 ## Safety
 
 - Use MCP tools you trust.
+- Server instructions are third-party text added to the agent's system prompt,
+  like tool descriptions. Review them in the server's tool view, scan new
+  servers, and remove servers you don't fully trust. See
+  [Server Instructions](#server-instructions).
 - Keep real API keys out of public screenshots and repositories.
 - Prefer project secrets or environment variables for credentials.
 - Remove MCP tools you no longer use.

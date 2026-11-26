@@ -19,6 +19,7 @@
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - The request accepts `server_name` and optional `project_name`; when `project_name` is present, detail resolves through the project-scoped MCP configuration.
 - Detail responses include the server tools visible to the manager UI. Tools disabled through a server `disabled_tools` config list remain present in this detail list with a `disabled` flag so the UI can re-enable them.
+- Detail responses include `instructions`: the cleaned text the server sent in its MCP initialize result, or an empty string. It is untrusted server text; the UI renders it as plain text.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `McpServerGetDetail` is an `ApiHandler`.
 - `McpServerGetDetail` defines `process(...)`.
