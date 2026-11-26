@@ -21,7 +21,7 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert 'path="chat/attachments/inputPreview.html"' in welcome
     assert 'path="chat/input/chat-bar-input.html"' in welcome
     assert "x-text=\"$store.welcomeStore.heroSubtitle\"" in welcome
-    assert "Hello! I'm Agent Zero" in welcome
+    assert "Hei! Jeg er Agent Zero" in welcome
     assert "is-setup-required" not in welcome
     assert "welcome-setup-composer" not in welcome
     assert "Configure your models to start chatting" not in welcome
@@ -29,7 +29,7 @@ def test_welcome_screen_embeds_shared_new_chat_composer() -> None:
     assert "openBlockingSetup()" not in welcome
     assert '.filter((b) => b.id !== "missing-api-key")' in welcome_store
     assert "get heroSubtitle()" in welcome_store
-    assert 'return "How can I help you today?";' in welcome_store
+    assert 'return "Hvordan kan jeg hjelpe deg i dag?";' in welcome_store
     assert '<h2>Quick Actions</h2>' in welcome
     assert 'class="welcome-board"' in welcome
     assert 'x-extension id="welcome-actions-end"' in welcome
