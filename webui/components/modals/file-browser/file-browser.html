@@ -29,6 +29,7 @@
         }
       }"
       class="file-browser-shell surface-workspace"
+      data-internal-dropzone
       :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': xAttrs($el)?.mode === 'embedded' }"
       x-effect="mount()"
       x-destroy="mounted?.onUnmount($el)"

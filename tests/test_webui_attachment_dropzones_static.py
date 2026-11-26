@@ -20,8 +20,8 @@ def test_drop_overlay_yields_to_registered_internal_dropzones() -> None:
     store = ATTACHMENTS_STORE.read_text(encoding="utf-8")
 
     assert 'closest?.("[data-internal-dropzone]")' in store
-    assert "if (dragCounter === 1 && !this.isInternalDropTarget(e))" in store
-    assert "if (this.isInternalDropTarget(e)) this.hideDragDropOverlay();" in store
+    assert "if (dragCounter === 1 && !this.isModalOpen() && !this.isInternalDropTarget(e))" in store
+    assert "if (this.isModalOpen() || this.isInternalDropTarget(e)) this.hideDragDropOverlay();" in store
     assert "else this.showDragDropOverlay();" in store
     assert "if (this.isInternalDropTarget(e)) return;" in store
 
@@ -45,3 +45,12 @@ def test_skills_import_dropzone_claims_external_file_drops() -> None:
     assert 'endsWith(".zip")' in store
     assert "await this.acceptSkillsFile(file);" in store
     assert "async acceptSkillsFile(file)" in store
+
+
+def test_drop_overlay_yields_to_open_modals() -> None:
+    store = ATTACHMENTS_STORE.read_text(encoding="utf-8")
+
+    assert 'if (document.querySelector(".modal.show")) return true;' in store
+    assert 'getComputedStyle(overlay).display !== "none"' in store
+    assert "if (dragCounter === 1 && !this.isModalOpen() && !this.isInternalDropTarget(e))" in store
+    assert "if (this.isModalOpen()) return;" in store

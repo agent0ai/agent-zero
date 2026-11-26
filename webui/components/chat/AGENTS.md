@@ -40,7 +40,7 @@
 - While the selected context is running, an empty composer makes the primary button stop the active run; typed text still adds to the queue, and Enter with an empty composer still sends queued messages.
 - Pending queue items render image thumbnails from local blob URLs until the upload confirms; confirmed attachments use server `image_get` URLs, and a failed queue add drops its pending entry.
 - Chat navigation controls must cross virtual message-window boundaries; top and bottom target the full cached history rather than only the mounted DOM slice.
-- The page-wide attachment drop overlay must activate only for external file drags so internal WebUI drag interactions keep their own targets; elements marked `data-internal-dropzone` own external file drops in their subtree, so the overlay hides over them and the document drop handler leaves their files to the owning dropzone.
+- The page-wide attachment drop overlay must activate only for external file drags so internal WebUI drag interactions keep their own targets; elements marked `data-internal-dropzone` own external file drops in their subtree, so the overlay hides over them and the document drop handler leaves their files to the owning dropzone. While a modal or a visible legacy `.modal-overlay` surface is open the overlay yields entirely, so drops over modal targets never attach to the chat input.
 - Picker, folder, and drag/drop attachments share the store's size gate against the Files transfer limit (`/get_work_dir_files?limits=1`); oversized files are rejected with an error toast while the rest of the batch attaches, and unavailable limits fail open.
 
 ## Work Guidance

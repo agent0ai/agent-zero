@@ -76,6 +76,13 @@ const model = {
     return !!event?.target?.closest?.("[data-internal-dropzone]");
   },
 
+  isModalOpen() {
+    if (document.querySelector(".modal.show")) return true;
+    return Array.from(document.querySelectorAll(".modal-overlay")).some(
+      (overlay) => getComputedStyle(overlay).display !== "none"
+    );
+  },
+
   // Setup drag and drop event handlers
   setupDragDropHandlers() {
     console.log("Setting up drag and drop handlers...");
@@ -101,12 +108,12 @@ const model = {
         if (!this.isExternalFileDrag(e)) return;
         console.log("Drag enter detected");
         dragCounter++;
-        if (dragCounter === 1 && !this.isInternalDropTarget(e)) {
+        if (dragCounter === 1 && !this.isModalOpen() && !this.isInternalDropTarget(e)) {
           console.log("Showing drag drop overlay");
           this.showDragDropOverlay();
         }
       },
-      false
+      true
     );
 
     // Handle drag leave
@@ -119,18 +126,18 @@ const model = {
           this.hideDragDropOverlay();
         }
       },
-      false
+      true
     );
 
-    // keep the overlay out of registered internal dropzones
+    // capture phase so internal stopPropagation cannot starve the overlay state
     document.addEventListener(
       "dragover",
       (e) => {
         if (!this.isExternalFileDrag(e)) return;
-        if (this.isInternalDropTarget(e)) this.hideDragDropOverlay();
+        if (this.isModalOpen() || this.isInternalDropTarget(e)) this.hideDragDropOverlay();
         else this.showDragDropOverlay();
       },
-      false
+      true
     );
 
     // Handle drop
@@ -140,6 +147,7 @@ const model = {
         if (!this.isExternalFileDrag(e)) return;
         dragCounter = 0;
         this.hideDragDropOverlay();
+        if (this.isModalOpen()) return;
         if (this.isInternalDropTarget(e)) return;
         const dataTransfer = e.dataTransfer;
         console.log("Drop detected with files:", dataTransfer?.files?.length || 0);
