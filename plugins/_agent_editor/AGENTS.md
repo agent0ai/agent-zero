@@ -118,6 +118,7 @@
 - Save & test activates the saved profile in a fresh chat using that same scope.
 - The WebUI uses the shared modal stack, labeled prompt scroll regions, and
   24px-or-larger policy and text-action targets.
+- The Easy editor instructions textarea keeps its vertical grip instant: the shared settings stylesheet animates every textarea property, so the editor's own rule disables that transition.
 
 ## Verification
 
