@@ -14,6 +14,8 @@
 
 ## Local Contracts
 
+- Members use the native skill catalog and chat load controls with project and bundled skill scope. Active shared runs prevent concurrent skill edits.
+
 - Skills selected in `webui/` load into the current chat history only; do not store them as scope defaults.
 - Loaded skills are append-only from the user UI because their instructions live in chat history.
 - Store configured skills in normalized portable paths.

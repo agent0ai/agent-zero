@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Team member requests do not invoke instance-wide banner extensions, which can describe platform setup and integrations.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `GetBanners` is an `ApiHandler`.

@@ -21,6 +21,7 @@
 - `tools/text_editor.py` logs `type="text_editor"` through a `get_log_object()` override so the WebUI `get_message_handler` hook routes messages to `_text_editor/extensions/webui/get_message_handler/_10_text_editor_handler.js` instead of the default `drawMessageTool` handler.
 - The remote editor reuses shipped patch and log helpers even when this plugin is disabled; activation still controls local tool discovery and custom WebUI rendering. Removing bundled helper files is not a supported independent-plugin configuration.
 - Preserve stale-read protection before patch operations.
+- Team sessions use `helpers/team_editor.py` under the active run's project grant. Its reads and revision-checked writes share the native Projects file lock, and exact replacements use the revision seen by the tool.
 - Validate patch structures before applying edits.
 - Line-edit inserts past the last line start on a new line, even when the file has no trailing newline.
 - All three local patch methods preserve the existing file's mode and, when running as root, its UID/GID before atomic replacement. Metadata failures leave the original file intact. New-file ownership follows the executing process; patching does not repair already-root-owned workspaces.

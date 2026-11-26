@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from agent import AgentContext, UserMessage, AgentContextType
 from helpers.api import ApiHandler, Request, Response
-from helpers import files, projects
+from helpers import files, projects, team_access
 from helpers.print_style import PrintStyle
 from helpers.projects import activate_project
 from helpers.security import safe_filename
@@ -27,6 +27,8 @@ class ApiMessage(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         # Extract parameters
         context_id = input.get("context_id", "")
+        if team_access.is_team_chat_id(context_id):
+            return Response("Send from an assigned member account.", 403)
         message = input.get("message", "")
         attachments = input.get("attachments", [])
         lifetime_hours = input.get("lifetime_hours", 24)  # Default 24 hours

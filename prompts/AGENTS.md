@@ -16,6 +16,7 @@
 
 - Do not include secrets, real API keys, or private user data in prompt templates.
 - Keep placeholder names, include aliases, and template assumptions synchronized with prompt-loading code and extensions.
+- `team.tool.*.md` defines the scoped native project tool prompts and argument schemas for both model transports.
 - `agent.system.main.communication.native.md` owns native function-call formatting; profiles may override it alongside the legacy communication template. Shared communication additions remain transport-neutral; the brace terminator belongs only to legacy JSON formatting.
 - Native communication requests public commentary without a sentence limit; the display maps it to thoughts without adding fields to native arguments.
 - Prompt changes can alter agent behavior; keep edits narrow and intentional.

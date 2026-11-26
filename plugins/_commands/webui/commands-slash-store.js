@@ -359,21 +359,25 @@ const model = {
 
   async loadReferences(force = false) {
     const contextId = this.getContextId();
+    const member = globalThis.runtimeInfo?.teamRole === "member";
+    const projectName = member ? (chatsStore.selectedContext?.project?.name || window.Alpine?.store("projects")?.teamProjectName) : "";
+    const scopeKey = member ? `${projectName || ""}:${contextId}` : contextId;
     const directory = fileQueryDirectory(this.query);
     const generation = ++this.referenceLoadGeneration;
     this.loading = true;
 
     try {
-      if (force || contextId !== this.referenceContextId) {
+      if (force || scopeKey !== this.referenceContextId) {
+        const none = Promise.resolve(null);
         const [rootResult, settingsResult, skillsResult, profilesResult] = await Promise.allSettled([
-          contextId ? callJsonApi("/chat_files_path_get", { ctxid: contextId }) : Promise.resolve(null),
-          callJsonApi("settings_get", null),
-          callJsonApi(SKILLS_API_PATH, { action: "list", context_id: contextId }),
-          callJsonApi(AGENT_EDITOR_API_PATH, { action: "list", context_id: contextId }),
+          !member && contextId ? callJsonApi("/chat_files_path_get", { ctxid: contextId }) : none,
+          member ? none : callJsonApi("settings_get", null),
+          member && !projectName ? none : callJsonApi(SKILLS_API_PATH, { action: "list", context_id: contextId, project_name: projectName }),
+          member ? none : callJsonApi(AGENT_EDITOR_API_PATH, { action: "list", context_id: contextId }),
         ]);
         if (generation !== this.referenceLoadGeneration) return;
 
-        this.referenceRoot = normalizePath(
+        this.referenceRoot = member ? (projectName ? `/projects/${projectName}` : "") : normalizePath(
           rootResult.value?.path || settingsResult.value?.settings?.workdir_path || "",
         );
         const skills = skillsResult.value?.ok && Array.isArray(skillsResult.value.skills)
@@ -448,7 +452,7 @@ const model = {
           }).filter((item) => item.label),
         ];
         this.referenceFiles = [];
-        this.referenceContextId = contextId;
+        this.referenceContextId = scopeKey;
         this.referenceDirectoryKey = "";
       }
 
@@ -456,10 +460,16 @@ const model = {
         ? ""
         : `${this.referenceRoot}/${directory}`.replace(/\/$/, "");
       if (directory !== null && directoryKey && directoryKey !== this.referenceDirectoryKey) {
-        const response = await fetchApi(`/get_work_dir_files?path=${encodeURIComponent(directoryKey)}`);
-        const payload = await response.json().catch(() => ({}));
+        let entries;
+        if (member) {
+          const payload = await callJsonApi("team_project_files", { action: "list", project: projectName, path: directory });
+          entries = (payload.entries || []).map(entry => ({ path: `${this.referenceRoot}/${entry.path}`, is_dir: entry.directory }));
+        } else {
+          const response = await fetchApi(`/get_work_dir_files?path=${encodeURIComponent(directoryKey)}`);
+          const payload = await response.json().catch(() => ({}));
+          entries = response.ok && Array.isArray(payload?.data?.entries) ? payload.data.entries : [];
+        }
         if (generation !== this.referenceLoadGeneration) return;
-        const entries = response.ok && Array.isArray(payload?.data?.entries) ? payload.data.entries : [];
         const root = this.referenceRoot.replace(/^\//, "");
         this.referenceFiles = entries.flatMap((entry) => {
           const path = normalizePath(entry?.path).replace(/^\//, "");
@@ -519,7 +529,7 @@ const model = {
       return;
     }
 
-    const parsed = parseSlashInput(message, false);
+    const parsed = globalThis.runtimeInfo?.teamRole === "member" ? { active: false } : parseSlashInput(message, false);
 
     this.referenceRange = null;
     this.mode = parsed.active ? "slash" : "";

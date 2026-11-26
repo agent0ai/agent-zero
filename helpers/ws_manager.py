@@ -15,7 +15,7 @@ import uuid
 from helpers.defer import DeferredTask
 from helpers.print_style import PrintStyle
 from helpers import runtime
-from helpers.ws import ConnectionIdentity, ConnectionNotFoundError, WsHandler, _ws_debug_enabled, ws_debug
+from helpers.ws import ConnectionIdentity, ConnectionNotFoundError, WsHandler, member_session_for_sid, _ws_debug_enabled, ws_debug
 
 
 # Event validation
@@ -1326,7 +1326,14 @@ class WsManager:
         correlation_id: str | None = None,
         diagnostic: bool = False,
         max_payload_bytes: int | None = None,
+        member_scope=None,
     ) -> None:
+        token = member_session_for_sid(sid) if namespace == "/ws" else None
+        if token is not None:
+            from helpers.team_access import scope_for_session
+
+            if event_type != STATE_PUSH_EVENT or member_scope is None or scope_for_session(token) != member_scope:
+                return
         envelope = self._wrap_envelope(
             handler_id,
             data,
@@ -1386,7 +1393,7 @@ class WsManager:
             )
             delivered = True
         else:
-            if not known:
+            if not known or member_scope is not None:
                 raise ConnectionNotFoundError(sid, namespace=namespace)
             with self.lock:
                 self._buffer_event(
@@ -1448,7 +1455,7 @@ class WsManager:
             if conn_identity[0] != namespace:
                 continue
             sid = conn_identity[1]
-            if sid in excluded:
+            if sid in excluded or (namespace == "/ws" and member_session_for_sid(sid) is not None):
                 continue
             targets.append(sid)
             target_limits[sid] = info.max_payload_bytes
@@ -1543,6 +1550,9 @@ class WsManager:
 
     async def _flush_buffer(self, identity: ConnectionIdentity) -> None:
         self._ensure_dispatcher_loop()
+        if identity[0] == "/ws" and member_session_for_sid(identity[1]) is not None:
+            self.buffers.pop(identity, None)
+            return
         buffer = self.buffers.get(identity)
         if not buffer:
             return

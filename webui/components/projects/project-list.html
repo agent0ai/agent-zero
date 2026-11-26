@@ -5,31 +5,33 @@
     <script type="module">
         import { store as projectsStore } from "/components/projects/projects-store.js";
         import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+        import { store as projectFiles } from "/components/projects/project-files-store.js";
     </script>
 </head>
 
 <body>
-    <div x-data>
+    <div x-data="{ member: globalThis.runtimeInfo?.teamRole === 'member', get pickingFiles() { return $store.projects.pickingFiles; } }">
         <template x-if="$store.projects && $store.chats">
             <div>
-                <p class="projects-intro">Projects in Agent Zero are used to separate different use cases with custom
+                <p class="projects-intro" x-show="pickingFiles">Choose a project to browse its files.</p>
+                <p class="projects-intro" x-show="!pickingFiles">Projects in Agent Zero are used to separate different use cases with custom
                     instructions and files.
                     You can create projects for your tasks and switch between them easily.</p>
-                <div class="projects-list-header">
+                <div class="projects-list-header" x-show="!pickingFiles">
                     <div x-show="$store.chats.selectedContext && $store.chats.selectedContext?.project" class="active-project-display">
                         <span style="display: inline-flex; align-items: center; gap: 0.5em;">
                             <span>Active:</span>
                             <span class="project-color-ball" :style="$store.chats.selectedContext?.project?.color ? { backgroundColor: $store.chats.selectedContext?.project?.color } : { border: '1px solid var(--color-border)' }"></span>
                             <strong x-text="$store.chats.selectedContext?.project?.name"></strong>
                         </span>
-                        <button type="button" class="button cancel icon-button" title="Deactivate" @click="$store.projects.deactivateProject()">
+                        <button type="button" x-show="!member" class="button cancel icon-button" title="Deactivate" @click="$store.projects.deactivateProject()">
                             <x-icon class="icon" name="close"></x-icon>
                         </button>
-                        <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal($store.chats.selectedContext?.project?.name)">
+                        <button type="button" x-show="!member" class="button icon-button" title="Edit" @click="$store.projects.openEditModal($store.chats.selectedContext?.project?.name)">
                             <x-icon class="icon" name="edit"></x-icon>
                         </button>
                     </div>
-                    <button @click="$store.projects.openCreateModal()" type="button"
+                    <button x-show="!member" @click="$store.projects.openCreateModal()" type="button"
                         class="button projects-create-btn-top">
                         <x-icon class="icon" name="add"></x-icon> Create project
                     </button>
@@ -46,22 +48,30 @@
                                 <div class="projects-project-card-name">/<span x-text="project.name"></span></div>
                             </div>
                             <div class="projects-project-card-actions">
-                                <template x-if="$store.chats.selectedContext && project.name === $store.chats.selectedContext?.project?.name">
+                                <button type="button" x-show="pickingFiles" class="button confirm"
+                                    @click="$store.projects.openFilesForProject(project.name)">
+                                    <x-icon class="icon" name="folder_open"></x-icon>
+                                    Open files
+                                </button>
+                                <template x-if="!pickingFiles && !member && $store.chats.selectedContext && project.name === $store.chats.selectedContext?.project?.name">
                                     <button type="button" class="button cancel projects-project-card-state-action" title="Deactivate" @click="$store.projects.deactivateProject()">
                                         <x-icon class="icon" name="close"></x-icon>
                                         <span class="projects-project-card-action-text">Deactivate</span>
                                     </button>
                                 </template>
-                                <template x-if="$store.chats.selectedContext && project.name !== $store.chats.selectedContext?.project?.name">
-                                    <button type="button" class="button confirm projects-project-card-state-action" title="Activate" @click="$store.projects.activateProject(project.name)">
+                                <template x-if="!pickingFiles && (member || ($store.chats.selectedContext && project.name !== $store.chats.selectedContext?.project?.name))">
+                                    <button type="button" class="button confirm projects-project-card-state-action" :title="member ? 'Select project' : 'Activate'" @click="$store.projects.activateProject(project.name); if (member) closeModal('projects/project-list.html')">
                                         <x-icon class="icon" name="play_arrow"></x-icon>
-                                        <span class="projects-project-card-action-text">Activate</span>
+                                        <span class="projects-project-card-action-text" x-text="member ? 'Select project' : 'Activate'"></span>
                                     </button>
                                 </template>
-                                <button type="button" class="button icon-button" title="Edit" @click="$store.projects.openEditModal(project.name)">
+                                <button type="button" x-show="member && !pickingFiles" class="button icon-button" title="Project files" aria-label="Project files" @click="$store.projectFiles.open(project.name)">
+                                    <x-icon class="icon" name="folder"></x-icon>
+                                </button>
+                                <button type="button" x-show="!pickingFiles" class="button icon-button" title="Edit project settings" aria-label="Edit project settings" @click="$store.projects.openEditModal(project.name)">
                                     <x-icon class="icon" name="edit"></x-icon>
                                 </button>
-                                <button type="button" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => $store.projects.deleteProject(project.name))">
+                                <button type="button" x-show="!member && !pickingFiles" class="button cancel icon-button" title="Delete" @click="$confirmClick($event, () => $store.projects.deleteProject(project.name))">
                                     <x-icon class="icon" name="delete"></x-icon>
                                 </button>
                             </div>
@@ -72,8 +82,8 @@
 
                 <template x-if="$store.projects.projectList.length === 0">
                     <div class="projects-no-projects">
-                        <div class="projects-project-card-title">There are no projects yet</div>
-                        <div class="projects-no-projects-actions">
+                        <div class="projects-project-card-title" x-text="member ? 'No projects assigned' : 'There are no projects yet'"></div>
+                        <div class="projects-no-projects-actions" x-show="!member">
                             <button @click="$store.projects.openCreateModal()" type="button"
                                 class="button"><x-icon class="icon" name="add"></x-icon>Create project</button>
                         </div>

@@ -14,7 +14,7 @@ from helpers.state_snapshot import (
     advance_state_request_after_snapshot,
     build_snapshot_from_request,
 )
-from helpers.ws import ConnectionIdentity, ConnectionNotFoundError, _ws_debug_enabled, ws_debug
+from helpers.ws import ConnectionIdentity, ConnectionNotFoundError, member_session_for_sid, _ws_debug_enabled, ws_debug
 from helpers.ws_manager import STATE_PUSH_EVENT
 
 if TYPE_CHECKING:  # pragma: no cover - hints only
@@ -286,9 +286,20 @@ class StateMonitor:
                 dirty_reason = projection.dirty_reason
                 dirty_wave_id = projection.dirty_wave_id
 
+            token = member_session_for_sid(sid) if namespace == "/ws" else None
+            member_scope = None
+            if token is not None:
+                from helpers.team_access import scope_for_session
+
+                member_scope = scope_for_session(token)
+                if member_scope is None:
+                    asyncio.create_task(manager.socketio.disconnect(sid, namespace=namespace))
+                    return
+
             snapshot = await build_snapshot_from_request(
                 request=request,
                 include_collections=include_collections,
+                **({"member_scope": member_scope} if member_scope is not None else {}),
             )
 
             with self._lock:
@@ -333,6 +344,7 @@ class StateMonitor:
                     STATE_PUSH_EVENT,
                     payload,
                     handler_id=handler_id,
+                    **({"member_scope": member_scope} if member_scope is not None else {}),
                 )
             except ConnectionNotFoundError:
                 # Sid was removed before the emit; treat as benign.

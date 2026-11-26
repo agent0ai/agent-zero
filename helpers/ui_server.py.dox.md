@@ -36,6 +36,12 @@
 
 ## Runtime Contracts
 
+- The native header offers team audit navigation to the platform administrator and members with an audit grant. The audit endpoint independently checks current rights.
+
+- The native login form resolves either the configured administrator or an enabled member account in team mode. Logout revokes the actual browser session. Members may access the native WebUI and the allowed APIs. Other Flask routes require the corresponding platform role.
+- The authorized index includes the account role and an opaque account ID for browser controls and account-scoped draft and selection storage. Credentials remain on the server and in the standard signed session.
+- Team index responses use private no-store caching. The member manifest retains core message renderers and excludes platform extensions until their operations have a member scope.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Socket.IO heartbeat defaults are intentionally longer than Engine.IO's short defaults so CLI sessions survive long prompt/context work; environment overrides must remain positive integers and fall back to source defaults when invalid.

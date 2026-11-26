@@ -28,7 +28,7 @@ from uvicorn.middleware.wsgi import WSGIMiddleware
 from werkzeug.wrappers.request import Request as WerkzeugRequest
 import socketio  # type: ignore[import-untyped]
 
-from helpers import dotenv, fasta2a_server, files, git, login, mcp_server, runtime
+from helpers import fasta2a_server, files, git, login, mcp_server, runtime
 from helpers.api import get_safe_next_url, register_api_route, requires_auth
 from helpers.extension import extensible, get_webui_extension_manifest
 from helpers.files import get_abs_path
@@ -143,6 +143,13 @@ class UiServerRuntime:
     def register_http_routes(self) -> None:
         if self._routes_registered:
             return
+
+        from helpers.team_access import MEMBER_UI_ROUTES
+
+        @self.webapp.before_request
+        def restrict_member_routes():
+            if login.TEAM_SESSION_KEY in session and request.endpoint not in MEMBER_UI_ROUTES:
+                return Response("Action forbidden", 403)
 
         handlers = UiRouteHandlers(self)
         self._route_handlers = handlers
@@ -272,11 +279,7 @@ class UiRouteHandlers:
         )
 
         if request.method == "POST":
-            user = dotenv.get_dotenv_value("AUTH_LOGIN")
-            password = dotenv.get_dotenv_value("AUTH_PASSWORD")
-
-            if request.form["username"] == user and request.form["password"] == password:
-                session["authentication"] = login.get_credentials_hash()
+            if login.authenticate(request.form["username"], request.form["password"], session):
                 return redirect(next_url or fallback_url)
             else:
                 await asyncio.sleep(1)
@@ -287,7 +290,11 @@ class UiRouteHandlers:
 
     @extensible
     async def logout_handler(self):
-        session.pop("authentication", None)
+        login.clear_session(session)
+        if login.team_mode_enabled():
+            from helpers.state_monitor_integration import mark_dirty_all
+
+            mark_dirty_all(reason="team logout")
         return redirect(url_for("login_handler"))
 
     @requires_auth
@@ -311,6 +318,22 @@ class UiRouteHandlers:
     @requires_auth
     @extensible
     async def serve_index(self):
+        team_role = ""
+        team_account_id = ""
+        team_audit_available = False
+        if login.team_mode_enabled():
+            if login.TEAM_SESSION_KEY in session:
+                team_role = "member"
+                account = login.team_account_for_session(session[login.TEAM_SESSION_KEY])
+                team_account_id = account.id if account else "expired"
+                if account:
+                    from helpers.team_store import get_store
+
+                    team_audit_available = bool(get_store().audit_grants(account.id))
+            elif login.is_admin_session(session):
+                team_role = "admin"
+                team_account_id = "admin"
+                team_audit_available = True
         try:
             gitinfo = git.get_git_info()
         except Exception:
@@ -334,8 +357,13 @@ class UiRouteHandlers:
         except Exception:
             user_ui_control_visibility = json.dumps(settings_helper.UI_CONTROL_VISIBILITY_DEFAULTS)
         try:
+            manifest = get_webui_extension_manifest(agent=None)
+            if team_role == "member":
+                from helpers.team_access import member_webui_manifest
+
+                manifest = member_webui_manifest(manifest)
             webui_extension_manifest = json.dumps(
-                get_webui_extension_manifest(agent=None),
+                manifest,
                 separators=(",", ":"),
             )
             webui_extension_manifest = (
@@ -344,21 +372,25 @@ class UiRouteHandlers:
                 .replace(">", "\\u003e")
             )
         except Exception:
-            webui_extension_manifest = "null"
+            webui_extension_manifest = '{"html":{},"js":{}}' if team_role == "member" else "null"
 
         index = files.read_file("webui/index.html")
-        return files.replace_placeholders_text(
+        rendered = files.replace_placeholders_text(
             _content=index,
             version_no=gitinfo["version"],
             version_time=gitinfo["commit_time"],
             runtime_id=runtime.get_runtime_id(),
             runtime_is_development=("true" if runtime.is_development() else "false"),
-            logged_in=("true" if login.get_credentials_hash() else "false"),
+            logged_in=("true" if login.is_login_required() else "false"),
+            team_role=team_role,
+            team_account_id=team_account_id,
+            team_audit_available="true" if team_audit_available else "false",
             user_timezone_setting=user_timezone_setting,
             user_time_format_setting=user_time_format_setting,
             user_ui_control_visibility=user_ui_control_visibility,
             webui_extension_manifest=webui_extension_manifest,
         )
+        return Response(rendered, headers={"Cache-Control": "private, no-store"}) if team_role else rendered
 
     @requires_auth
     async def serve_ui_asset_bundle(self):

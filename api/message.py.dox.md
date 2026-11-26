@@ -18,6 +18,11 @@
 
 ## Runtime Contracts
 
+- Project attachments are stored with the accepting run under the project workspace. Multipart requests are size-checked and hashed before reservation. The shared log carries project-relative attachment references.
+
+- Project text sends from an assigned member or authenticated administrator recheck current access and reserve a durable run before writing the attributed user log or dispatching. The first accepted input commits a pending member draft. Repeated message IDs return the prior run, and competing sends receive a conflict with the current holder.
+- Legacy dispatch rechecks chat ownership after preparation in case the chat acquired a project binding during the request.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Message` is an `ApiHandler`.

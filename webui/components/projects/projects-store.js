@@ -8,15 +8,25 @@ import { store as skillsImportStore } from "/components/settings/skills/skills-i
 import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
 import * as shortcuts from "/js/shortcuts.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
+import { store as projectFiles } from "/components/projects/project-files-store.js";
 
 const listModal = "projects/project-list.html";
 const createModal = "projects/project-create.html";
 const editModal = "projects/project-edit.html";
+const sharedSettings = ["title", "description", "instructions", "color", "include_agents_md"];
 
 // define the model object holding data and functions
 const model = {
   projectList: [],
+  projectListRequest: 0,
+  pickingFiles: false,
+  teamProjectNames: null,
+  teamProjectName: "",
+  teamDraftPreset: "",
   selectedProject: null,
+  latestSettings: null,
+  settingsError: "",
+  savingSettings: false,
   editData: null,
   colors: [
     "#7b2cbf", // Deep Purple
@@ -88,9 +98,17 @@ const model = {
     await browserStore.open(path);
   },
 
-  async openProjectsModal() {
+  async openProjectsModal({ pickingFiles = false } = {}) {
+    this.pickingFiles = pickingFiles;
     await this.loadProjectsList();
     await modals.openModal(listModal);
+  },
+
+  async openFilesForProject(name) {
+    if (!this.projectList.some((project) => project.name === name)) return;
+    await this.activateProject(name);
+    await modals.closeModal(listModal);
+    await browserStore.open(`/projects/${name}`);
   },
 
   async openCreateModal() {
@@ -100,9 +118,13 @@ const model = {
   },
 
   async openEditModal(name) {
+    this.latestSettings = null;
+    this.settingsError = "";
     this.selectedProject = await this._createEditProjectData(name);
     await modals.openModal(editModal);
     this.selectedProject = null;
+    this.latestSettings = null;
+    this.settingsError = "";
   },
 
   async cancelCreate() {
@@ -201,12 +223,54 @@ const model = {
   },
 
   async confirmEdit() {
-    const project = await this.saveSelectedProject(false);
-    await this.loadProjectsList();
-    await modals.closeModal(editModal);
+    if (this.savingSettings) return;
+    this.savingSettings = true;
+    this.settingsError = "";
+    try {
+      const project = await this.saveSelectedProject(false);
+      if (!project) return;
+      await this.loadProjectsList();
+      await modals.closeModal(editModal);
+    } finally {
+      this.savingSettings = false;
+    }
+  },
+
+  async reviewLatestSettings() {
+    const draft = this.selectedProject;
+    try {
+      const response = await api.callJsonApi("projects", { action: "load", name: draft.name });
+      if (this.selectedProject === draft) this.latestSettings = response.data;
+    } catch (error) {
+      this.settingsError = error.message;
+    }
+  },
+
+  mergeLatestSettings() {
+    const draft = this.selectedProject;
+    const latest = this.latestSettings;
+    if (!draft?._meta.baseSettings || !latest) return;
+    for (const field of sharedSettings) {
+      if (draft[field] === draft._meta.baseSettings[field]) draft[field] = latest[field];
+      draft._meta.baseSettings[field] = latest[field];
+    }
+    draft.revision = latest.revision;
+    this.latestSettings = null;
+    this.settingsError = "";
   },
 
   async activateProject(name) {
+    const role = globalThis.runtimeInfo?.teamRole;
+    const selected = chatsStore.selectedContext;
+    if (role === "member" || (role === "admin" && (!selected || selected.team_chat))) {
+      if (!this.projectList.some((project) => project.name === name)) return;
+      if (this.teamProjectName !== name) this.teamDraftPreset = "";
+      this.teamProjectName = name;
+      if (selected && selected.project?.name !== name) {
+        await chatsStore.newChat(name);
+      }
+      return;
+    }
     try {
       const response = await api.callJsonApi("projects", {
         action: "activate",
@@ -334,18 +398,37 @@ const model = {
     }
   },
 
+  applyTeamProjectNames(names) {
+    if (JSON.stringify(names) === JSON.stringify(this.teamProjectNames)) return;
+    this.teamProjectNames = names;
+    this.updateProjectList(this.projectList.filter((project) => names.includes(project.name)));
+    void this.loadProjectsList();
+  },
+
+  updateProjectList(projectList) {
+    if (JSON.stringify(projectList) !== JSON.stringify(this.projectList)) this.projectList = projectList;
+    if (this.teamProjectName && !projectList.some((project) => project.name === this.teamProjectName)) {
+      this.teamProjectName = "";
+      this.teamDraftPreset = "";
+    }
+  },
+
   async loadProjectsList() {
+    const request = ++this.projectListRequest;
     this.loading = true;
     try {
       const response = await api.callJsonApi("projects", {
         action: "list",
       });
+      if (request !== this.projectListRequest) return;
       const projectList = response.data || [];
-      if (JSON.stringify(projectList) !== JSON.stringify(this.projectList)) this.projectList = projectList;
+      this.updateProjectList(this.teamProjectNames
+        ? projectList.filter((project) => this.teamProjectNames.includes(project.name))
+        : projectList);
     } catch (error) {
       console.error("Error loading projects list:", error);
     } finally {
-      this.loading = false;
+      if (request === this.projectListRequest) this.loading = false;
     }
   },
 
@@ -375,7 +458,7 @@ const model = {
           true
         );
         const contextId = chatsStore.getSelectedChatId();
-        if (contextId) await modelConfigStore.refreshSwitcher(contextId);
+        if (contextId && globalThis.runtimeInfo?.teamRole !== "member") await modelConfigStore.refreshSwitcher(contextId);
         return response.data;
       } else {
         notifications.toastFrontendError(
@@ -390,6 +473,7 @@ const model = {
       }
     } catch (error) {
       console.error("Error saving project:", error);
+      if (!creating) this.settingsError = error.message;
       notifications.toastFrontendError(
         "Error saving project: " + error,
         "Error saving project",
@@ -426,6 +510,10 @@ const model = {
         name: name,
       })
     ).data;
+    if (globalThis.runtimeInfo?.teamRole === "member") {
+      const baseSettings = Object.fromEntries(sharedSettings.map((field) => [field, projectData[field]]));
+      return { ...projectData, _meta: { creating: false, baseSettings } };
+    }
     return {
       _meta: {
         creating: false,
@@ -534,6 +622,10 @@ const model = {
   },
 
   async browseSelected(...relPath) {
+    if (this.selectedProject?.revision) {
+      const area = relPath[0] === ".a0proj" ? relPath[1] : "workspace";
+      return await projectFiles.open(this.selectedProject.name, area);
+    }
     const path = this.getSelectedAbsPath(...relPath);
     return await browserStore.open(path);
   },

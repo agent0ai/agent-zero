@@ -13,6 +13,7 @@
 - `README.md` owns the high-level core plugin architecture summary and community Plugin Index guidance.
 - Custom or experimental user plugins belong under `usr/plugins/`, not here, but this file remains their tracked DOX contract.
 - Do not create `AGENTS.md` files under `usr/plugins/` unless the user explicitly asks for ignored user-state documentation.
+- Platform integrations that open existing chats preserve the team transcript boundary. Authorized native project views and team audit serve team chat transcripts.
 
 ## Local Contracts
 

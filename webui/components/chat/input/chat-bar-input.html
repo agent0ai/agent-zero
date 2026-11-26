@@ -11,6 +11,8 @@
 <body>
   <div x-data>
     <x-extension id="chat-input-box-start"></x-extension>
+    <div class="team-run-status" role="status" x-show="$store.chats?.selectedContext?.team_run"
+      x-text="$store.chats?.selectedContext?.team_run ? `${$store.chats.selectedContext.team_run.holder} · ${$store.chats.selectedContext.team_run.state}` : ''"></div>
     <div class="input-row">
       <!-- More actions (+): opens upward; content lives in bottom-actions.html -->
       <div class="attachment-wrapper chat-more-dropdown" @click.outside="$store.chatInput.closeChatMoreMenu()"
@@ -46,6 +48,7 @@
       <div id="chat-buttons-wrapper">
         <!-- Send button -->
         <button class="chat-button" id="send-button" @click="$store.chatInput.activateSendButton()"
+          :disabled="$store.chatInput.isTeamSendBlocked"
           :class="$store.chatInput.sendButtonClass" :title="$store.chatInput.sendButtonTitle"
           :aria-label="$store.chatInput.sendButtonTitle">
           <x-icon :name="$store.chatInput.sendButtonIcon"></x-icon>
@@ -60,6 +63,7 @@
 
 
   <style>
+    .team-run-status { color: var(--color-text-secondary, var(--color-text)); margin-block-end: var(--spacing-xs); }
     /* Layout rows */
     .input-row {
       display: flex;

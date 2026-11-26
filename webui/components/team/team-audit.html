@@ -1,0 +1,139 @@
+<html>
+<head>
+  <title>Team audit</title>
+  <script type="module">
+    import { store } from "/components/team/team-audit-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.teamAudit">
+      <div class="team-audit" x-create="$store.teamAudit.initView()" x-destroy="$store.teamAudit.close()">
+        <p role="alert" x-show="$store.teamAudit.error" x-text="$store.teamAudit.error"></p>
+        <template x-if="$store.teamAudit.admin">
+          <details class="audit-access">
+            <summary>Audit permissions</summary>
+            <form class="audit-form" aria-label="Set audit permissions" @submit.prevent="$store.teamAudit.grant($event.currentTarget)">
+              <label>Project
+                <select name="project" required>
+                  <option value="">Select project</option>
+                  <template x-for="project in $store.teamAudit.projects.filter(item => !item.retired)" :key="project.id">
+                    <option :value="project.name" x-text="project.name"></option>
+                  </template>
+                </select>
+              </label>
+              <label>Account
+                <select name="recipient">
+                  <option value="admin">Administrator</option>
+                  <template x-for="account in $store.teamAudit.accounts" :key="account.id">
+                    <option :value="account.id" x-text="account.username"></option>
+                  </template>
+                </select>
+              </label>
+              <label>Permission
+                <select name="permission">
+                  <option value="events">Events</option>
+                  <option value="transcript">Events and transcript</option>
+                  <option value="none">Remove grant</option>
+                </select>
+              </label>
+              <button class="button confirm" type="submit" :disabled="$store.teamAudit.busy">Save permission</button>
+            </form>
+            <ul x-show="$store.teamAudit.grants.length" class="audit-grants">
+              <template x-for="grant in $store.teamAudit.grants" :key="grant.project_id + grant.actor_id">
+                <li x-text="`${grant.name} · ${$store.teamAudit.actor(grant.actor_id, $store.teamAudit.accounts.find(account => account.id === grant.actor_id)?.username)} · ${grant.transcript ? 'Events and transcript' : 'Events'}`"></li>
+              </template>
+            </ul>
+          </details>
+        </template>
+
+        <template x-if="$store.teamAudit.admin || $store.teamAudit.projects.length">
+          <div class="team-audit">
+            <form class="audit-form" aria-label="Filter audit events" @submit.prevent="$store.teamAudit.search()">
+              <label>Project
+                <select x-model="$store.teamAudit.filters.project_id">
+                  <option value="">All available projects</option>
+                  <template x-for="project in $store.teamAudit.projects" :key="project.id">
+                    <option :value="project.id" x-text="project.name + (project.retired ? ' (retired)' : '')"></option>
+                  </template>
+                </select>
+              </label>
+              <label>Account
+                <select x-model="$store.teamAudit.filters.account_id">
+                  <option value="">All accounts</option>
+                  <option value="admin">Administrator</option>
+                  <template x-for="account in $store.teamAudit.accounts" :key="account.id">
+                    <option :value="account.id" x-text="account.username"></option>
+                  </template>
+                </select>
+              </label>
+              <label>Chat ID <input x-model="$store.teamAudit.filters.context_id" maxlength="128"></label>
+              <label>Operation <input x-model="$store.teamAudit.filters.action" maxlength="128"></label>
+              <label>From <input type="datetime-local" x-model="$store.teamAudit.filters.from"></label>
+              <label>Until <input type="datetime-local" x-model="$store.teamAudit.filters.until"></label>
+              <button class="button confirm" type="submit" :disabled="$store.teamAudit.busy">Apply filters</button>
+            </form>
+            <div class="audit-table">
+              <table aria-label="Audit events">
+                <thead><tr><th>Time</th><th>Actor</th><th>Operation</th><th>Account</th><th>Project</th><th>Chat ID</th><th>Result</th></tr></thead>
+                <tbody>
+                  <template x-for="event in $store.teamAudit.events" :key="event.id">
+                    <tr>
+                      <td x-text="new Date(event.happened_at * 1000).toLocaleString()"></td>
+                      <td x-text="$store.teamAudit.actor(event.actor_id, event.actor_name)"></td>
+                      <td x-text="event.action"></td>
+                      <td x-text="event.account_name || '—'"></td>
+                      <td x-text="event.project || '—'"></td>
+                      <td>
+                        <button class="button" type="button" x-show="event.context_id" :disabled="$store.teamAudit.busy"
+                                x-text="event.context_id" @click="$store.teamAudit.showTranscript(event.context_id)"></button>
+                        <span x-show="!event.context_id">—</span>
+                      </td>
+                      <td x-text="event.result || 'ok'"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p x-show="!$store.teamAudit.events.length && !$store.teamAudit.busy">No operations match these filters.</p>
+            <button class="button" type="button" x-show="$store.teamAudit.cursor" :disabled="$store.teamAudit.busy"
+                    @click="$store.teamAudit.more()">More events</button>
+            <form class="audit-form" aria-label="Open transcript" @submit.prevent="$store.teamAudit.showTranscript()">
+              <label>Transcript chat ID <input x-model="$store.teamAudit.context" maxlength="128" required></label>
+              <button class="button" type="submit" :disabled="$store.teamAudit.busy">Open transcript</button>
+            </form>
+          </div>
+        </template>
+        <p x-show="!$store.teamAudit.admin && !$store.teamAudit.projects.length && !$store.teamAudit.busy">No project audit access.</p>
+
+        <template x-if="$store.teamAudit.transcript">
+          <section class="audit-transcript" aria-label="Transcript">
+            <h3 x-text="`Transcript ${$store.teamAudit.transcript.context}`"></h3>
+            <button class="button" type="button" x-show="$store.teamAudit.transcript.before_no !== null"
+                    @click="$store.teamAudit.showTranscript($store.teamAudit.transcript.context, $store.teamAudit.transcript.before_no)">Older messages</button>
+            <template x-for="entry in $store.teamAudit.transcript.messages" :key="entry.no">
+              <div class="audit-message">
+                <strong x-text="entry.type === 'response' ? 'Agent Zero' : entry.heading || 'Member'"></strong>
+                <p x-text="entry.content"></p>
+              </div>
+            </template>
+          </section>
+        </template>
+      </div>
+    </template>
+  </div>
+</body>
+<style>
+  .team-audit, .audit-access, .audit-transcript { display: grid; gap: var(--spacing-md); }
+  .audit-access { border: 1px solid var(--color-border); padding: var(--spacing-sm); }
+  .audit-access summary { cursor: pointer; }
+  .audit-form { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-sm); }
+  .audit-access .audit-form { margin-top: var(--spacing-sm); }
+  .audit-form label { display: grid; gap: var(--spacing-xs); }
+  .audit-form input { color: var(--color-text); background: var(--color-input); border: 1px solid var(--color-border); padding: var(--spacing-xs); }
+  .audit-table { overflow-x: auto; }
+  .audit-table table { border-collapse: collapse; width: 100%; }
+  .audit-table th, .audit-table td { border-bottom: 1px solid var(--color-border); text-align: start; padding: var(--spacing-xs); }
+  .audit-message p { white-space: pre-wrap; overflow-wrap: anywhere; margin-block: var(--spacing-xs); }
+</style>
+</html>

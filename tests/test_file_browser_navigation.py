@@ -605,6 +605,7 @@ const window = globalThis;
 const createStore = (_name, model) => model;
 const getStore = () => null;
 const createFileTree = () => ({ shown: false, follow: async () => {} });
+const fetchApi = () => { throw new Error('Preferences should not request a directory'); };
 let saved = '{}';
 const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
 ''' + source + '''

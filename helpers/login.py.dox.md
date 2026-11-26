@@ -3,7 +3,7 @@
 ## Purpose
 
 - Own the `login.py` helper module.
-- This module checks login requirements and credential hashes.
+- This module resolves the instance administrator and revocable team members for native browser sessions.
 - Keep this file-level DOX profile synchronized with `login.py` because this directory is intentionally flat.
 
 ## Ownership
@@ -13,12 +13,16 @@
 - Top-level functions:
 - `get_credentials_hash()`
 - `is_login_required()`
+- `team_mode_enabled()`, `team_account_for_session(token)`, `is_admin_session(values)`, and `is_authenticated(values)`
+- `authenticate(username, password, values)` and `clear_session(values)`
 
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: secret handling.
+- `A0_TEAM_MODE` enables team authentication. It requires a nonempty instance administrator username and password before members can sign in. In single-user mode the existing optional login behavior applies.
+- Each team login receives an opaque credential in the signed browser session. The current store decides validity on every authenticated request. Logout revokes that credential and clears the browser session.
 - Imported dependency areas include: `hashlib`, `helpers`.
 
 ## Key Concepts

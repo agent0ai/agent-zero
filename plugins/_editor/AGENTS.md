@@ -14,6 +14,8 @@
 
 ## Local Contracts
 
+- A project member uses the native Editor panels and the project file service for saves and tree navigation. Saves require the original project revision and never use instance-wide editor sockets.
+
 - This always-enabled plugin is the sole file-editing UI; Files Edit and New file route here. The retired `modals/file-editor` UI is removed.
 - Ctrl+F in source mode belongs to ACE; the preview search handles only preview mode and closes when returning to source.
 - Source mode uses ACE line numbers and its bundled filename-to-language mapping; JSONL uses JSON highlighting. Preview and formatting controls remain available only for Markdown/plain text.

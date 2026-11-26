@@ -19,6 +19,8 @@
 
 ## Local Contracts
 
+- The team composer retains scoped skill and project path references. Project messages do not execute the instance's slash scripts.
+
 - The plugin identity is `_commands`; user-created command files live under `usr/plugins/_commands/commands/` or `usr/projects/<project>/.a0proj/plugins/_commands/commands/`.
 - Each command is one `.command.yaml` config plus one same-directory `.txt` text template or `.py` script hook.
 - Project commands override global commands, global commands override bundled `_commands/commands/` defaults, and bundled defaults override other plugin-distributed commands with the same name.

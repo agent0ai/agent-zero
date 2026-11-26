@@ -1,7 +1,7 @@
 from typing import Any
 
 from helpers.extension import Extension, extensible
-from helpers import projects
+from helpers import projects, team_access, team_projects, team_runs
 from agent import Agent, LoopData
 
 
@@ -28,8 +28,14 @@ async def build_prompt(agent: Agent, loop_data: LoopData | None = None) -> str:
         loop_data.protocol_persistent.pop("agents_md_instructions", None)
         loop_data.protocol_persistent.pop("project_instructions", None)
     if project_name:
-        project_vars = projects.build_system_prompt_vars(project_name)
-        if loop_data and project_vars.get("include_agents_md", True):
+        team = team_access.is_team_chat(agent.context)
+        if team:
+            _, scope = team_runs.executing_scope(agent.context)
+            with team_projects.project_lock(project_name, scope):
+                project_vars = team_projects.prompt_variables(project_name)
+        else:
+            project_vars = projects.build_system_prompt_vars(project_name)
+        if loop_data and not team and project_vars.get("include_agents_md", True):
             agents_md_protocol = projects.build_agents_md_protocol(project_name)
             if agents_md_protocol:
                 loop_data.protocol_persistent["agents_md_instructions"] = (

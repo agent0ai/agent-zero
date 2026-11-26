@@ -3,6 +3,7 @@ import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
+import { fetchProjectBrowser, isTeamMember, projectFile, projectRoot, renameProjectEntry } from "/js/team-project-files.js";
 import {
   openLatest as openLatestSurface,
   placeSurfaceModalHeaderAction,
@@ -28,6 +29,7 @@ const MAX_HISTORY = 80;
 const SOURCE_MODE = "source";
 const PREVIEW_MODE = "preview";
 const EDITOR_TEXT_EXTENSIONS = new Set(["md", "txt"]);
+const projectEditorRevisions = new Map();
 
 function currentContextId() {
   try {
@@ -170,7 +172,37 @@ function taskLineIndexes(markdown = "") {
   return indexes;
 }
 
+async function projectEditor(action, payload) {
+  const root = projectRoot();
+  if (action === "home") return { path: root };
+  if (["status", "activate", "input", "close"].includes(action)) return { ok: true };
+  const priorPath = payload.session_id || payload.file_id;
+  const path = payload.path || priorPath || (action === "create" && root ? `${root}/${payload.title}` : "");
+  if (!path) throw new Error("Select a project and a text file.");
+  const document = { file_id: path, path, title: basename(path), extension: extensionOf(path) };
+  let result;
+  if (action === "create" || action === "save_as" || action === "save") {
+    const revision = action === "save" ? projectEditorRevisions.get(path) : null;
+    if (revision === undefined) throw new Error("Reopen the project file before saving it.");
+    result = await projectFile("save", path, { revision, content: payload.text || "" });
+  } else if (action === "renamed") {
+    const revision = projectEditorRevisions.get(priorPath);
+    if (revision === undefined) throw new Error("Reopen the project file before renaming it.");
+    const saved = payload.text === undefined ? { revision } : await projectFile("save", priorPath, { revision, content: payload.text });
+    projectEditorRevisions.set(priorPath, saved.revision);
+    result = await renameProjectEntry(priorPath, path, saved.revision);
+    projectEditorRevisions.delete(priorPath);
+  } else if (action === "open") {
+    result = await projectFile("read", path);
+  } else {
+    throw new Error("This operation is unavailable in the project Editor.");
+  }
+  projectEditorRevisions.set(path, result.revision);
+  return { ok: true, session_id: path, file_id: path, document, text: result.content ?? payload.text ?? "" };
+}
+
 async function callEditor(action, payload = {}) {
+  if (isTeamMember()) return projectEditor(action, payload);
   if (/^\/@(?:ssh|connections)\//.test(String(payload.path || "")) || String(payload.session_id || payload.file_id || "").startsWith("remote:")) {
     return await callJsonApi("/file_browser_connections", { action: "editor", operation: action, payload });
   }
@@ -183,7 +215,7 @@ async function callEditor(action, payload = {}) {
 }
 
 async function requestEditor(eventType, payload = {}, timeoutMs = 5000) {
-  if (String(payload.session_id || payload.file_id || "").startsWith("remote:") || String(payload.text || "").length > 64 * 1024) {
+  if (isTeamMember() || String(payload.session_id || payload.file_id || "").startsWith("remote:") || String(payload.text || "").length > 64 * 1024) {
     return await callEditor(eventType.replace(/^editor_/, ""), payload);
   }
   const explicitContextId = String(payload.ctxid || payload.context_id || "").trim();
@@ -216,7 +248,11 @@ function isEditorSocketData(data) {
 }
 
 const model = {
-  fileTree: createFileTree((file) => store.openTreeEntry(file), () => fileBrowserStore.preferences.treeRoot),
+  fileTree: createFileTree(
+    (file) => store.openTreeEntry(file),
+    () => isTeamMember() ? projectRoot() : fileBrowserStore.preferences.treeRoot,
+    fetchProjectBrowser,
+  ),
 
   async openTreeEntry(file) {
     if (file.is_dir || this.loading || this.saving) return;
@@ -1498,6 +1534,7 @@ const model = {
       path: document.path || renamedPath,
       extension: document.extension || session.extension,
       file_id: document.file_id || session.file_id,
+      session_id: response.session_id || session.session_id,
       version: document.version || response.version || session.version,
       text: this.session?.tab_id === session.tab_id ? this.editorText : session.text,
       dirty: false,

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from agent import AgentContext
+from helpers.team_access import CHAT_PROJECT_ID
 from plugins._a0_connector.api.v1.chats_list import ChatsList
 
 
@@ -50,3 +51,13 @@ def test_connector_search_rejects_invalid_queries_before_scanning(monkeypatch, p
 def test_connector_empty_query_does_not_scan_chats(monkeypatch):
     monkeypatch.setattr(AgentContext, "all", lambda: pytest.fail("Empty queries must not scan chats"))
     assert call({"query": "  "}) == {"matches": []}
+
+
+def test_connector_list_and_search_respect_team_chat_scope(monkeypatch):
+    public = context("ordinary", "Public notes", "shared subject")
+    team = context("team", "Team notes", "shared subject")
+    team.get_data = {CHAT_PROJECT_ID: "stable-project"}.get
+    monkeypatch.setattr(AgentContext, "all", lambda: [public, team])
+
+    assert [row["id"] for row in call({})["contexts"]] == ["ordinary"]
+    assert [row["id"] for row in call({"query": "shared subject"})["matches"]] == ["ordinary"]

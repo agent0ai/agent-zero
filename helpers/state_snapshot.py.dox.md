@@ -32,6 +32,13 @@
 
 ## Runtime Contracts
 
+- The native snapshot serves the same title, message log and run state to project members and platform administrators. Private member drafts and historical empty member-created rows are omitted. The audit endpoint retains its separate permissions.
+- Project task snapshots follow the same native project identifier and current grant. Platform snapshots omit team task prompt/result data.
+
+- A member scope filters chat collections, scheduled tasks, and selected logs before serialization. It excludes platform notifications and leaves the instance timezone and chat housekeeping to platform requests.
+- Member snapshots include `team_project_names` even during incremental pushes. The list contains current grants, including projects without chats. Platform snapshots retain the required v1 field set.
+- Team state collections include the active run ID, holder, and whether the viewer owns it, derived from the durable reservation.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, plugin state, settings/state persistence, secret handling, scheduler state, in-memory context removal.

@@ -1,5 +1,6 @@
 import asyncio
 from helpers.extension import Extension
+from helpers.team_access import is_team_chat
 from agent import LoopData
 from helpers import cache, dirty_json, errors, log, plugins
 
@@ -43,7 +44,7 @@ class RecallMemories(Extension):
     # THRESHOLD = DEFAULT_MEMORY_THRESHOLD
 
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
-        if not self.agent:
+        if not self.agent or is_team_chat(getattr(self.agent, "context", None)):
             return
 
         set = plugins.get_plugin_config("_memory", self.agent)

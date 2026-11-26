@@ -19,10 +19,11 @@
         <span class="chat-name"
           x-text="$store.chats.displayName(context)"></span>
       </div>
-      <button class="btn-icon-action chat-list-action-btn" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
+      <button class="btn-icon-action chat-list-action-btn" x-show="globalThis.runtimeInfo?.teamRole !== 'member' && !context.team_chat" title="Close chat" @click.stop="$confirmClick($event, () => $store.chats.killChat(context.id))">
         <x-icon name="close"></x-icon>
       </button>
       <button type="button" class="btn-icon-action chat-list-action-btn"
+        x-show="globalThis.runtimeInfo?.teamRole !== 'member' && !context.team_chat"
         aria-label="More chat actions" aria-haspopup="menu"
         :aria-expanded="($store.sidebar.rowMenuOpenId === `chat:${context.id}`).toString()"
         @click.stop="$store.sidebar.rowMenuToggle(`chat:${context.id}`, 'chat', $event.currentTarget)">

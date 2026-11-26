@@ -1,7 +1,7 @@
 import json
 
 from helpers.api import ApiHandler, Request, Response
-from helpers import defer, files, plugins
+from helpers import defer, files, plugins, projects, team_access
 from helpers.extension import call_extensions_async
 from helpers.persist_chat import _write_atomic, save_tmp_chat
 from agent import AgentContext
@@ -136,6 +136,29 @@ class ModelPresets(ApiHandler):
         agent_profile = str(input.get("agent_profile") or "").strip()
         context_id = str(input.get("context_id") or "").strip()
         scope = str(input.get("scope") or "").strip()
+
+        if member := team_access.request_scope():
+            if action != "get":
+                return Response("Editing presets requires a platform administrator.", 403)
+            context = AgentContext.get(context_id) if context_id else None
+            if context_id and (context is None or not team_access.can_send(member, context)):
+                return Response("Chat access denied.", 403)
+            if context is not None:
+                project_name = projects.get_context_project_name(context)
+            if project_name and project_name not in member.project_ids:
+                return Response("Project access denied.", 403)
+            configured = model_config.get_configured_preset_name(
+                agent=context.agent0 if context else None, project_name=project_name or None,
+            )
+            presets = []
+            for preset in model_config.get_presets():
+                public = {"name": preset["name"]}
+                for slot in ("chat", "utility", "vision", "embedding"):
+                    config = preset.get(slot)
+                    if isinstance(config, dict):
+                        public[slot] = {key: config[key] for key in ("name", "provider", "vision", "override_main") if key in config}
+                presets.append(public)
+            return {"ok": True, "presets": presets, "configured_preset": configured}
 
         if action == "get":
             if scope == "project":

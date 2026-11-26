@@ -2,6 +2,7 @@ from agent import AgentContext
 from helpers.api import ApiHandler, Request, Response
 from helpers.persist_chat import remove_chat
 from helpers.print_style import PrintStyle
+from helpers import team_access
 import json
 
 
@@ -36,6 +37,8 @@ class ApiTerminateChat(ApiHandler):
 
             # Check if context exists
             context = AgentContext.use(context_id)
+            if team_access.is_team_chat(context):
+                return Response("Shared chat history is retained.", 403)
             if not context:
                 return Response(
                     '{"error": "Chat context not found"}',

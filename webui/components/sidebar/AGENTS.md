@@ -14,6 +14,11 @@
 
 ## Local Contracts
 
+- Shared team chat rows omit destructive legacy controls. The team audit opens from the sidebar's More menu when enabled.
+
+- The platform administrator opens team account management from More. A member starts a draft in the current or explicitly selected project. The first send prepares its server context. Browser selection is scoped to the logged-in account.
+- Member Chats renders the native folder view against the scoped project list, including empty assigned projects. Each folder opens its own native shared chat rows.
+
 - Preserve responsive sidebar behavior and collapsed/expanded state.
 - Keep chat and task list updates compatible with WebSocket state sync.
 - Contexts with `parent_context_id` render as indented children beneath their parent chat; they must remain selectable while hidden from the top-level chat list.

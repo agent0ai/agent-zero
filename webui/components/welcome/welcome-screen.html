@@ -73,6 +73,9 @@
                             </header>
 
                             <section class="welcome-composer" aria-label="Start a new chat">
+                                <template x-if="globalThis.runtimeInfo?.teamRole === 'member'">
+                                    <x-component path="projects/project-selector.html"></x-component>
+                                </template>
                                 <x-component path="chat/attachments/inputPreview.html"></x-component>
                                 <x-component path="chat/input/chat-bar-input.html"></x-component>
                             </section>
@@ -112,21 +115,23 @@
                                     <span class="welcome-action-title">Files</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
-                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('settings')">
+                                <button type="button" class="welcome-action-card" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="$store.welcomeStore.executeAction('settings')">
                                     <x-icon class="welcome-action-icon" name="settings"></x-icon>
                                     <span class="welcome-action-title">Settings</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
-                                <button type="button" class="welcome-action-card" @click="$store.welcomeStore.executeAction('plugins')">
+                                <button type="button" class="welcome-action-card" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="$store.welcomeStore.executeAction('plugins')">
                                     <x-icon class="welcome-action-icon" name="extension"></x-icon>
                                     <span class="welcome-action-title">Plugins</span>
                                     <x-icon class="welcome-action-arrow" name="chevron_right"></x-icon>
                                 </button>
-                                <button type="button" class="welcome-action-card is-wide" @click="$store.welcomeStore.executeAction('website')">
-                                    <x-icon class="welcome-action-icon" name="language"></x-icon>
-                                    <span class="welcome-action-title">Visit Agent Zero Website</span>
-                                    <x-icon class="welcome-action-arrow" name="open_in_new"></x-icon>
-                                </button>
+                                <template x-if="globalThis.runtimeInfo?.teamRole !== 'member'">
+                                    <button type="button" class="welcome-action-card is-wide" @click="$store.welcomeStore.executeAction('website')">
+                                        <x-icon class="welcome-action-icon" name="language"></x-icon>
+                                        <span class="welcome-action-title">Visit Agent Zero Website</span>
+                                        <x-icon class="welcome-action-arrow" name="open_in_new"></x-icon>
+                                    </button>
+                                </template>
                             </div>
                         </section>
 

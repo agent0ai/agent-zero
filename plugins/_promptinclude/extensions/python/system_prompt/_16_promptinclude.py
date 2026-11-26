@@ -2,6 +2,7 @@ from helpers.extension import Extension
 from helpers import plugins, files, runtime
 from helpers import projects
 from helpers.settings import get_settings_for_prompt
+from helpers.team_access import is_team_chat
 from agent import Agent, LoopData
 
 from plugins._promptinclude.helpers.scanner import scan_promptinclude_files, ScanResult
@@ -15,7 +16,7 @@ class PromptInclude(Extension):
         loop_data: LoopData = LoopData(),
         **kwargs,
     ):
-        if not self.agent:
+        if not self.agent or is_team_chat(self.agent.context):
             return
 
         config = plugins.get_plugin_config("_promptinclude", agent=self.agent) or {}

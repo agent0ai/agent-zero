@@ -1,0 +1,10 @@
+<html>
+<head><title>Skills</title></head>
+<body>
+  <div x-data="{ context: { openOptions: { focus: 'chat' }, get projectName() {
+      return Alpine.store('chats').selectedContext?.project?.name || Alpine.store('projects').teamProjectName;
+    } }, config: { hidden_skills: [] } }">
+    <x-component path="/plugins/_skills/webui/config.html"></x-component>
+  </div>
+</body>
+</html>

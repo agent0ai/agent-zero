@@ -1,7 +1,7 @@
 import numpy as np
 
 from helpers.api import ApiHandler, Request, Response
-from helpers import files
+from helpers import files, team_access
 from helpers.localization import Localization
 from models import ModelConfig, ModelType
 from langchain_core.documents import Document
@@ -13,6 +13,10 @@ from plugins._memory.helpers.memory import Memory, get_existing_memory_subdirs, 
 class MemoryDashboard(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
+        if scope := team_access.request_scope():
+            return await self._team_dashboard(input, scope)
+        if str(input.get("memory_subdir", "")).startswith("team/"):
+            return Response("Open project memory as an assigned member.", 403)
         try:
             action = input.get("action", "search")
             if action == "get_memory_subdirs":
@@ -37,6 +41,47 @@ class MemoryDashboard(ApiHandler):
 
         except Exception as e:
             return {"success": False, "error": str(e), "memories": [], "total_count": 0}
+
+    async def _team_dashboard(self, input: dict, scope: team_access.MemberScope) -> dict | Response:
+        from helpers import projects
+        from plugins._memory.helpers import team_memory
+
+        action = input.get("action", "search")
+        if action == "get_memory_subdirs":
+            return {"success": True, "subdirs": sorted(scope.project_ids)}
+        if action == "get_current_memory_subdir":
+            context_id = input.get("context_id")
+            if context_id:
+                context = AgentContext.get(context_id) if isinstance(context_id, str) else None
+                if context is None or not scope.permits_chat(context):
+                    return Response("Project memory access denied.", 403)
+                return {"success": True, "memory_subdir": projects.get_context_project_name(context)}
+            return {"success": True, "memory_subdir": next(iter(sorted(scope.project_ids)), "")}
+        name = input.get("memory_subdir")
+        if not isinstance(name, str) or name not in scope.project_ids:
+            return Response("Project memory access denied.", 403)
+        if action not in ("search", "delete", "bulk_delete", "update", "reindex"):
+            return Response("Unknown project memory action.", 400)
+        data = input
+        if action == "update":
+            original, edited = input.get("original"), input.get("edited")
+            if not isinstance(original, dict) or not isinstance(edited, dict):
+                return Response("Choose an existing project memory.", 400)
+            data = {"memory_id": original.get("id"), "previous_text": original.get("content_full"), "text": edited.get("content_full")}
+        try:
+            result = await team_memory.operate(name, scope, "delete" if action == "bulk_delete" else action, data)
+        except PermissionError:
+            return Response("Project memory access denied.", 403)
+        except (ValueError, TypeError) as error:
+            return Response(str(error), 400)
+        if action != "search":
+            return {"success": True, **result}
+        memories = [self._format_memory_for_dashboard(doc) for doc in result["documents"]]
+        knowledge = sum(bool(doc["knowledge_source"]) for doc in memories)
+        return {
+            "success": True, "memories": memories, "total_count": len(memories), "total_db_count": result["total"],
+            "knowledge_count": knowledge, "conversation_count": len(memories) - knowledge,
+        }
 
     async def _delete_memory(self, input: dict) -> dict:
         """Delete a memory by ID from the specified subdirectory."""

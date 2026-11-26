@@ -52,6 +52,17 @@ function setup() {
 
 const settle = () => new Promise(setImmediate);
 
+test('member project files open in Browser and Desktop without using instance viewers', async () => {
+  const t = setup();
+  t.context.runtimeInfo = { teamRole: 'member' };
+  await t.store.openInSurface({ path: '/projects/p1/site.html' }, 'browser');
+  await t.store.openInSurface({ path: '/projects/p1/report.odt' }, 'desktop');
+  assert.deepEqual(t.calls, [
+    ['browser', '/projects/p1/site.html'],
+    ['desktop', '/projects/p1/report.odt'],
+  ]);
+});
+
 test('chat views keep navigation, selection and pending requests independent; shared mode is reversible', async () => {
   const t = setup();
   assert.equal(t.store.preferences.independent, true);

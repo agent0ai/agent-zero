@@ -2133,7 +2133,8 @@ export function drawMessageUser({
 
   // Handle attachments
   let attachmentsContainer = messageDiv.querySelector(".attachments-container");
-  if (kvps && kvps.attachments && kvps.attachments.length > 0) {
+  const messageAttachments = kvps?.team_attachments || kvps?.attachments;
+  if (messageAttachments?.length > 0) {
     if (!attachmentsContainer) {
       attachmentsContainer = document.createElement("div");
       attachmentsContainer.classList.add("attachments-container");
@@ -2142,7 +2143,7 @@ export function drawMessageUser({
     // Important: Clear existing attachments to re-render, preventing duplicates on update
     attachmentsContainer.innerHTML = "";
 
-    kvps.attachments.forEach((attachment) => {
+    messageAttachments.forEach((attachment) => {
       const attachmentDiv = document.createElement("div");
       attachmentDiv.classList.add("attachment-item");
 

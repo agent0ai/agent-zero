@@ -14,6 +14,8 @@
 
 ## Local Contracts
 
+- Members see preset names and model labels and can select an existing preset for an idle project chat or draft. Provider configuration, API credentials and preset edits use platform administration.
+
 - API-key reveal returns the complete stored key list without advancing rotation, so editing a provider preserves every configured key.
 - `Default` is the first global preset and cannot be deleted or renamed. It owns the complete main, utility, and embedding baseline; its Vision Model slot is optional.
 - Preset definitions are global. Global, project, agent-profile, and project/profile plugin configs persist only `model_preset`; chats may persist a preset reference as their explicit override.

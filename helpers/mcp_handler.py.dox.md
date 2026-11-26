@@ -74,6 +74,8 @@
 
 ## Runtime Contracts
 
+- Team conversations omit MCP tool lookup while the response-only policy applies.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - `MCPTool` is a `Tool`.

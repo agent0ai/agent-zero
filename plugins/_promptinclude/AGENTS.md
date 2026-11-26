@@ -15,6 +15,7 @@
 
 - Respect gitignore-style filtering, per-file budgets, and total token budgets.
 - Include only intended promptinclude files from configured workspaces.
+- Team project instructions use the core scoped project reader. This plugin's generic workspace scan skips team runs.
 - Keep scan result status fields accurate for skipped, cropped, and included files.
 - Keep the generic promptinclude mechanism discoverable even when no matching
   files exist; append file content only when the scan returns it.

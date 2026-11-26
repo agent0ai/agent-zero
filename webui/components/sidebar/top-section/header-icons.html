@@ -41,11 +41,11 @@
           <x-icon aria-hidden="true" name="home"></x-icon>
         </button>
 
-        <button class="config-button header-action-button" id="header-plugins" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins" aria-label="Plugins" tabindex="-1">
+        <button class="config-button header-action-button" id="header-plugins" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins" aria-label="Plugins" tabindex="-1">
           <x-icon aria-hidden="true" name="extension"></x-icon>
         </button>
 
-        <button class="config-button header-action-button" id="header-settings" @click="openModal('settings/settings.html')" title="Settings" aria-label="Settings" tabindex="-1">
+        <button class="config-button header-action-button" id="header-settings" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="openModal('settings/settings.html')" title="Settings" aria-label="Settings" tabindex="-1">
           <x-icon aria-hidden="true" name="settings"></x-icon>
         </button>
 
@@ -88,7 +88,7 @@
           <span>Files</span>
         </button>
 
-        <button class="dropdown-item" @click="ensureModalOpen('settings/tunnel/remote-link.html'); $store.sidebar.menuClose()">
+        <button class="dropdown-item" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="ensureModalOpen('settings/tunnel/remote-link.html'); $store.sidebar.menuClose()">
           <x-icon name="share"></x-icon>
           <span>Remote Control</span>
         </button>
@@ -98,9 +98,29 @@
           <span>Space Agent</span>
         </button>
 
-        <button class="dropdown-item" @click="openModal('settings/settings.html'); $store.sidebar.menuClose()">
+        <button class="dropdown-item" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="openModal('settings/settings.html'); $store.sidebar.menuClose()">
           <x-icon name="settings"></x-icon>
           <span>Settings</span>
+        </button>
+
+        <button class="dropdown-item" x-show="globalThis.runtimeInfo?.teamRole === 'admin'" @click="openModal('team/team-admin.html'); $store.sidebar.menuClose()">
+          <x-icon name="group"></x-icon>
+          <span>Team accounts</span>
+        </button>
+
+        <button class="dropdown-item" x-show="globalThis.runtimeInfo?.teamAuditAvailable" @click="openModal('team/team-audit.html'); $store.sidebar.menuClose()">
+          <x-icon name="fact_check"></x-icon>
+          <span>Team audit</span>
+        </button>
+        <button class="dropdown-item" x-show="globalThis.runtimeInfo?.teamRole === 'member'"
+                @click="openModal('/plugins/_memory/webui/memory-dashboard.html'); $store.sidebar.menuClose()">
+          <x-icon name="psychology"></x-icon>
+          <span>Memory</span>
+        </button>
+        <button class="dropdown-item" x-show="globalThis.runtimeInfo?.teamRole === 'member'"
+                @click="openModal('/plugins/_scheduler/webui/scheduler/scheduler-modal.html'); $store.sidebar.menuClose()">
+          <x-icon name="calendar_month"></x-icon>
+          <span>Scheduled Tasks</span>
         </button>
 
         <div class="dropdown-separator"></div>

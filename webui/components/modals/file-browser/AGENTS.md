@@ -9,10 +9,14 @@
 - `file-browser.html` owns file list markup, path controls, scoped styles, and modal/canvas footer behavior.
 - `../../settings/file-browser/file-browser-settings.html` owns the shared Settings fields for default sort, list/icon view, tree visibility and starting folder, plus the saved remote connection list/form and per-connection permissions.
 - `file-browser-store.js` owns the reusable view factory, shared configuration, directory loading, remembered locations, selection, file actions and surface handoff. Its `fileBrowser` facade preserves existing callers while selecting the active chat view.
-- `file-tree.js` and `file-tree.html` own the shared lazy directory tree; Files and Editor each retain independent tree state.
+- `file-tree.js` and `file-tree.html` own the shared lazy directory tree. Files and Editor retain independent tree state and supply the directory request scoped to their current file service.
 - `rename-modal.html` owns the rename and create-folder prompt for external callers (Editor, Desktop) that have no live browser footer; inside the browser both flows use the shared footer input.
 
 ## Local Contracts
+
+- A member uses the native Files surface with a project root. Lists, uploads, moves, deletes and downloads use the project file API, and normal text opens in Editor.
+
+- Browser initialization honors the team member capability boundary. Fetch limits in the authorized project view and use browser-local directory preferences. Member Browser and Desktop handoffs use the scoped project surface; the administrator continues to use the instance viewers.
 
 - `createFileBrowserView(name, { embedded, rememberKey })` returns one stable view per name. The existing `fileBrowser` store forwards actions to its `current` view with methods bound before asynchronous work. Chat views are independent by default; `preferences.independent = false` selects the shared primary view. Current directories, entries/selection, history, requests, menus, inline actions and trees are view-local. Uploads capture their destination before awaiting limits and update only a matching current folder. Appearance/defaults, limits and remote connection settings remain shared.
 - The browser-local **Separate browsing per chat** setting switches between retained chat views and one shared session. Remembered chat paths use `fileBrowser.lastDirectory.<context>`; the existing shared key remains compatible. The server's remember-location setting controls all views. Welcome uses its own remembered key and stays independent in either chat mode.

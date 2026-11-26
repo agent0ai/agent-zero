@@ -44,6 +44,7 @@ let agentProfilesRequestContext = "";
 
 export const switcherMethods = {
   async loadAgentProfiles(force = false) {
+    if (globalThis.runtimeInfo?.teamRole === "member") return [];
     const contextId = window.Alpine?.store("chats")?.selected || "";
     if (agentProfilesRequest && agentProfilesRequestContext === contextId) {
       return agentProfilesRequest;
@@ -91,8 +92,24 @@ export const switcherMethods = {
   async loadSwitcherState(contextId) {
     const result = { allowed: false, presets: [], override: null, configuredPreset: "Default", effectivePreset: "Default" };
     try {
-      await this.loadGlobalPresets();
-      result.presets = this.globalPresets.filter(p => p.name);
+      const member = globalThis.runtimeInfo?.teamRole === "member";
+      if (member) {
+        const projects = window.Alpine?.store("projects");
+        const project = contextId ? "" : projects?.teamProjectName;
+        if (!contextId && !project) return result;
+        const data = await callJsonApi(`${API_BASE}/model_presets`, { action: "get", context_id: contextId, project_name: project });
+        result.presets = this._normalizePresets(data.presets);
+        result.configuredPreset = data.configured_preset || "Default";
+        if (!contextId) {
+          const selected = projects.teamDraftPreset;
+          result.override = selected ? { preset_name: selected } : null;
+          result.effectivePreset = selected || result.configuredPreset;
+          result.allowed = true;
+        }
+      } else {
+        await this.loadGlobalPresets();
+        result.presets = this.globalPresets.filter(p => p.name);
+      }
       if (contextId) {
         const overRes = await fetchApi(`${API_BASE}/model_override`, {
           method: "POST",
@@ -235,6 +252,11 @@ export const switcherMethods = {
   },
 
   async selectPresetSwitch(contextId, presetName) {
+    if (!contextId && globalThis.runtimeInfo?.teamRole === "member") {
+      window.Alpine.store("projects").teamDraftPreset = presetName;
+      await this.refreshSwitcher(contextId);
+      return true;
+    }
     const data = await this.setPresetOverride(contextId, presetName);
     if (data && contextId === (window.Alpine?.store("chats")?.selected || "")) {
       const selected = data.preset_name || presetName;
@@ -245,6 +267,11 @@ export const switcherMethods = {
   },
 
   async clearOverrideSwitch(contextId) {
+    if (!contextId && globalThis.runtimeInfo?.teamRole === "member") {
+      window.Alpine.store("projects").teamDraftPreset = "";
+      await this.refreshSwitcher(contextId);
+      return true;
+    }
     const data = await this.clearOverride(contextId);
     if (data && contextId === (window.Alpine?.store("chats")?.selected || "")) {
       this.switcherOverride = null;

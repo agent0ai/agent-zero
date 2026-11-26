@@ -19,6 +19,8 @@
 
 ## Runtime Contracts
 
+- Instance-key message requests cannot send to shared team chats. Member sends use the native team composer and reservation.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `ApiMessage` is an `ApiHandler`.

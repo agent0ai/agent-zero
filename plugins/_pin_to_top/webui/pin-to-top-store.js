@@ -10,7 +10,7 @@ const model = {
   _initialized: false,
 
   async init() {
-    if (this._initialized) return;
+    if (this._initialized || globalThis.runtimeInfo?.teamRole === "member") return;
     this._initialized = true;
 
     for (const kind of ["chat", "task"]) {

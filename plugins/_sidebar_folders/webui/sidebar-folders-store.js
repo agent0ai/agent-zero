@@ -35,11 +35,17 @@ export const store = createStore("sidebarFolders", {
   busy: false,
   _initialized: false,
 
+  get member() { return globalThis.runtimeInfo?.teamRole === "member"; },
+
+  get collapsedStorageKey() {
+    return this.member ? `sidebarFoldersCollapsed:${globalThis.runtimeInfo.teamAccountId}` : "sidebarFoldersCollapsed";
+  },
+
   async init() {
     if (this._initialized) return;
     this._initialized = true;
     try {
-      const saved = JSON.parse(localStorage.getItem("sidebarFoldersCollapsed") || "{}");
+      const saved = JSON.parse(localStorage.getItem(this.collapsedStorageKey) || "{}");
       if (saved && typeof saved === "object" && !Array.isArray(saved)) this.collapsed = saved;
     } catch (error) {
       console.error("Could not restore sidebar folders", error);
@@ -61,6 +67,7 @@ export const store = createStore("sidebarFolders", {
   },
 
   async refresh() {
+    if (this.member) return projects.loadProjectsList();
     await Promise.all([this.loadConfig(), this.loadOrder(), projects.loadProjectsList()]);
   },
 
@@ -249,7 +256,7 @@ export const store = createStore("sidebarFolders", {
   sections(kind, previous, search = false) {
     const rows = this.roots(kind);
     const children = kind === "chat" ? this.childIndex() : null;
-    const pinned = this.pinnedRows(kind, rows, children);
+    const pinned = this.member ? [] : this.pinnedRows(kind, rows, children);
     const folders = this.groups(kind, rows, children);
     let sections = pinned.length ? [{ id: null, pinned: true, rows: pinned }, ...folders] : folders;
     if (search && this.searchActive) {
@@ -270,10 +277,13 @@ export const store = createStore("sidebarFolders", {
     const groups = new Map(projects.projectList.map((project) => [project.name, {
       id: project.name, title: project.title || project.name, color: project.color, rows: [],
     }]));
-    groups.set("", { id: "", title: "No project", color: "", rows: [] });
+    if (!this.member) groups.set("", { id: "", title: "No project", color: "", rows: [] });
     for (const row of rows) {
       const id = row.project?.name || "";
-      if (!groups.has(id)) groups.set(id, { id, title: row.project.title || id, color: row.project.color, rows: [] });
+      if (!groups.has(id)) {
+        if (this.member) continue;
+        groups.set(id, { id, title: row.project.title || id, color: row.project.color, rows: [] });
+      }
       if (this.isPinnedRow(kind, row, children)) groups.get(id).hasPinned = true;
       else groups.get(id).rows.push(row);
     }
@@ -302,7 +312,7 @@ export const store = createStore("sidebarFolders", {
 
   saveCollapsed() {
     try {
-      localStorage.setItem("sidebarFoldersCollapsed", JSON.stringify(this.collapsed));
+      localStorage.setItem(this.collapsedStorageKey, JSON.stringify(this.collapsed));
     } catch (error) {
       console.error("Could not save sidebar folders", error);
     }
@@ -424,7 +434,7 @@ export const store = createStore("sidebarFolders", {
   },
 
   startDrag(event, kind, id, project = "") {
-    if (this.busy || event.target.closest("button:not(.sidebar-folder-toggle)")) {
+    if (this.member || this.busy || event.target.closest("button:not(.sidebar-folder-toggle)")) {
       event.preventDefault();
       return;
     }

@@ -1,6 +1,7 @@
 from typing import Any
 
 from helpers.extension import Extension, extensible
+from helpers.team_access import is_team_chat
 from agent import Agent, LoopData
 
 
@@ -21,6 +22,8 @@ class SecretsPrompt(Extension):
 
 @extensible
 async def build_prompt(agent: Agent) -> str:
+    if is_team_chat(agent.context):
+        return ""
     try:
         from helpers.secrets import get_secrets_manager
         from helpers.settings import get_settings_for_prompt

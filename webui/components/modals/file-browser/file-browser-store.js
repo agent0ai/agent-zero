@@ -1,5 +1,6 @@
 import { createStore, getStore } from "/js/AlpineStore.js";
-import { callJsonApi, fetchApi } from "/js/api.js";
+import { callJsonApi } from "/js/api.js";
+import { downloadProjectFile, fetchProjectBrowser as fetchApi, projectRoot } from "/js/team-project-files.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
 import {
@@ -13,6 +14,7 @@ const DEFAULT_REMEMBER_LAST_DIRECTORY = true;
 const PICKER_MODE_NONE = "";
 const PICKER_MODE_TEXT_OPEN = "text-open";
 const PICKER_MODE_SAVE_AS = "save-as";
+const isTeamMember = () => globalThis.runtimeInfo?.teamRole === "member";
 const CONNECTION_PLUGINS = [
   ["ssh", "File Browser SSH access"],
   ["webdav", "File Browser WebDAV access"],
@@ -120,7 +122,11 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       globalThis.toastFrontendError?.(error.message, "File Browser Settings");
     } finally { this.savingTextLimit = false; }
   },
-  fileTree: createFileTree((file) => view.openTreeEntry(file), () => view.preferences.treeRoot),
+  fileTree: createFileTree(
+    (file) => view.openTreeEntry(file),
+    () => isTeamMember() ? projectRoot() : view.preferences.treeRoot,
+    fetchApi,
+  ),
 
   async openTreeEntry(file) {
     await this.ensureLimits();
@@ -289,6 +295,13 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
       : openLatestSurface("files", { path, source: "file-browser-settings" });
   },
   async startDownload(files) {
+    if (isTeamMember()) {
+      for (const file of files) {
+        if (file.is_dir) throw new Error("Choose files inside the folder to download.");
+        await downloadProjectFile(file.path, file.name);
+      }
+      return;
+    }
     const result = await callJsonApi("/download_work_dir_files", {
       paths: files.map(file => file.path), currentPath: this.browser.currentPath,
     });
@@ -473,6 +486,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async openSurface(path = "") {
+    if (isTeamMember() && !path) path = projectRoot();
     if (this.isLoading || this.isRenaming || this.isBulkBusy) return false;
     if (this.isSurfaceHandoff) return true;
     this.resetOpenState();
@@ -629,7 +643,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   async loadOpeningPath(path = "") {
     await this.loadDirectoryPreference();
     const explicitPath = this.normalizeOpeningPath(path || this.initialPath);
-    const rememberedPath = !explicitPath ? this.getRememberedDirectory() : "";
+    const rememberedPath = !explicitPath && !isTeamMember() ? this.getRememberedDirectory() : "";
     const targetPath = explicitPath || rememberedPath || "$WORK_DIR";
     this.browser.currentPath = targetPath;
     this.syncPathInput();
@@ -1035,6 +1049,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
   },
 
   async loadDirectoryPreference() {
+    if (isTeamMember()) return this.rememberLastDirectory;
     if (this.settingsLoadPromise) return await this.settingsLoadPromise;
 
     this.settingsLoadPromise = (async () => {
@@ -1410,6 +1425,11 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     const preserveOnError = options?.preserveOnError === true;
     const suppressErrorToast = options?.suppressErrorToast === true;
     const requestedPath = this.normalizeOpeningPath(path) || "$WORK_DIR";
+    if (isTeamMember() && requestedPath === "$WORK_DIR" && !projectRoot()) {
+      this.pathError = "Select a project first.";
+      this.isLoading = false;
+      return false;
+    }
     this.isLoading = true;
     
     // Preserve scroll position if refreshing the same path
@@ -2035,7 +2055,9 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     this.closeDropdown();
 
     try {
-      if (target === "browser") {
+      if (isTeamMember() && (target === "browser" || target === "desktop")) {
+        await openLatestSurface(target, { path, source: "file-browser" });
+      } else if (target === "browser") {
         const url = this.fileUrl(file);
         const { store: browserStore } = await import("/plugins/_browser/webui/browser-store.js");
         await openLatestSurface("browser", { url, source: "file-browser" });

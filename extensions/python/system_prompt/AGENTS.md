@@ -14,6 +14,8 @@
 - Preserve ordering where sections depend on earlier context.
 - Main, local-tool and MCP section owners identify their sections to `helpers.responses_tools.register_prompt` while retaining normal text prompts. That helper owns alternate protocol templates; Chat and fallback keep the text protocol. MCP supplies policy-filtered server context independently of endpoint mode.
 - Keep secret-related prompt sections masked and scoped.
+- Team chats omit MCP and secret prompt sections and advertise the enabled project tool allowlist.
+- Team project prompt input comes from the stable assigned project header and bounded team file reader.
 - Prompt additions must be bounded and compatible with tool-call contracts.
 - Keep non-tool sections free of configurable capability guidance; tool-owned
   guidance belongs in policy-filtered `agent.system.tool.*.md` prompts.

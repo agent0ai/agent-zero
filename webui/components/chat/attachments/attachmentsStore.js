@@ -1,5 +1,6 @@
-import { createStore } from "/js/AlpineStore.js";
+import { createStore, getStore } from "/js/AlpineStore.js";
 import { fetchApi } from "/js/api.js";
+import { downloadProjectFile } from "/js/team-project-files.js";
 import { store as imageViewerStore } from "../../modals/image-viewer/image-viewer-store.js";
 
 const model = {
@@ -42,12 +43,19 @@ const model = {
   },
 
   validateDuplicates(newAttachment) {
-    // Check if attachment already exists based on name and size
+    const role = globalThis.runtimeInfo?.teamRole;
+    const chats = getStore("chats");
+    const projectChat = role === "member" || (role === "admin" && (
+      chats?.selectedContext?.team_chat || (!chats?.selected && getStore("projects")?.teamProjectName)
+    ));
+    const attachmentPath = (attachment) =>
+      (projectChat && attachment.file?.webkitRelativePath) || attachment.name;
+    const newPath = attachmentPath(newAttachment);
     const isDuplicate = this.attachments.some(
       (existing) =>
-        existing.name === newAttachment.name &&
         existing.file &&
         newAttachment.file &&
+        attachmentPath(existing) === newPath &&
         existing.file.size === newAttachment.file.size
     );
     return !isDuplicate;
@@ -421,6 +429,17 @@ const model = {
 
   // Enhanced method to get attachment display info for UI
   getAttachmentDisplayInfo(attachment) {
+    if (attachment?.project && attachment?.path && attachment?.name) {
+      const filename = attachment.name;
+      return {
+        filename,
+        extension: filename.split(".").pop().toUpperCase(),
+        isImage: false,
+        previewUrl: this.getFilePreviewUrl(filename),
+        clickHandler: () => downloadProjectFile(`/projects/${attachment.project}/${attachment.path}`, filename)
+          .catch(error => globalThis.toastFetchError?.("Error downloading project attachment", error)),
+      };
+    }
     if (typeof attachment === "string") {
       // attachment is filename only (from persistent storage)
       const filename = attachment;

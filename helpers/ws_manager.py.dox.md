@@ -40,6 +40,8 @@
 
 ## Runtime Contracts
 
+- Member sockets receive individually scoped state snapshots. The manager compares the snapshot's scope with live permissions before sending. Platform broadcasts and buffered replay exclude those connections.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - `WsManager.emit_to(..., max_payload_bytes=...)` rejects an oversized encoded event before dispatch or buffering. Callers that negotiate peer limits should pass the peer's effective receive ceiling and turn `WsPayloadTooLargeError` into their own structured application error.
 - `WsManager.set_peer_max_payload_bytes(...)` stores an optional limit on the

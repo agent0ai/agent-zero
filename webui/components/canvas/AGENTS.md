@@ -12,10 +12,12 @@
 
 ## Local Contracts
 
+- The standard project member rail hosts scoped Files, Browser, Desktop and Editor surfaces. Selecting a project makes the rail available before a member sends the first message.
+
 - Keep registered surfaces compatible with WebUI extension hooks.
 - Preserve responsive layout and avoid overlapping the chat/sidebar shells.
 - Right-canvas rail and tab buttons are explicit canvas entry points above the mobile breakpoint; at mobile widths, keep the rail visible but route non-action surfaces into floating modals instead of the side canvas shell.
-- Keep the right-canvas rail and docked shell hidden while the welcome screen is active; non-action surface opens during welcome must route into floating/modal surfaces instead of docking beside the welcome screen.
+- The welcome screen uses floating surfaces by default. A team member with a selected project can use its docked project surfaces during welcome.
 - Preserve docked canvas open state across same-tab reloads with session-scoped state, but do not treat it as durable cross-session UI state.
 - In mobile mode, keep the rail below blocking modal layers and compact it on very narrow screens instead of letting it cover modal content.
 - Keep the canvas shell functional when the instance-level visibility preference hides only the right-canvas rail.

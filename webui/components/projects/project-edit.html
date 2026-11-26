@@ -8,22 +8,40 @@
 </head>
 
 <body>
-    <div x-data>
+    <div x-data="{ member: globalThis.runtimeInfo?.teamRole === 'member' }">
         <template x-if="$store.projects && $store.projects.selectedProject">
             <div>
 
 
                 <div class="buttons-container" style="margin: var(--spacing-md) var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);">
-                    <div class="buttons-left">
+                    <div class="buttons-left" x-show="!member">
                         <button type="button" class="button cancel"
                             @click="$confirmClick($event, () => $store.projects.deleteProjectAndCloseModal())">Delete</button>
                     </div>
                     <div class="buttons-right">
-                        <button type="button" class="button confirm"
+                        <button type="button" class="button confirm" :disabled="$store.projects.savingSettings"
                             @click="$store.projects.confirmEdit()">Save</button>
                         <button type="button" class="button cancel"
                             @click="$store.projects.cancelEdit()">Cancel</button>
                     </div>
+                </div>
+
+                <div class="project-detail" x-show="$store.projects.settingsError">
+                    <p role="alert" x-text="$store.projects.settingsError"></p>
+                    <button type="button" class="button" x-show="member && !$store.projects.latestSettings"
+                        @click="$store.projects.reviewLatestSettings()">Review latest version</button>
+                    <template x-if="member && $store.projects.latestSettings">
+                        <div>
+                            <dl>
+                                <dt>Latest title</dt><dd x-text="$store.projects.latestSettings.title"></dd>
+                                <dt>Latest description</dt><dd class="project-review-text" x-text="$store.projects.latestSettings.description"></dd>
+                                <dt>Latest instructions</dt><dd class="project-review-text" x-text="$store.projects.latestSettings.instructions"></dd>
+                                <dt>Latest color</dt><dd x-text="$store.projects.latestSettings.color || 'None'"></dd>
+                                <dt>Latest Include AGENTS.md</dt><dd x-text="$store.projects.latestSettings.include_agents_md ? 'On' : 'Off'"></dd>
+                            </dl>
+                            <button type="button" class="button" @click="$store.projects.mergeLatestSettings()">Keep my edits and apply the latest unchanged fields</button>
+                        </div>
+                    </template>
                 </div>
 
                 <div class="project-detail">
@@ -33,6 +51,7 @@
                     <x-component path="projects/project-edit-basic-data.html">
                     </x-component>
 
+                    <template x-if="!member">
                     <div class="settings-advanced-section project-advanced-section" x-data="{ advOpen: false }">
                         <button type="button" class="settings-advanced-toggle" @click="advOpen = !advOpen">
                             <x-icon class="settings-advanced-toggle-icon"
@@ -45,6 +64,7 @@
                             </x-component>
                         </div>
                     </div>
+                    </template>
                 </div>
 
                 <div class="project-detail">
@@ -55,45 +75,42 @@
                     </x-component>
                 </div>
 
-                <div class="project-detail">
-                    <div class="project-detail-header">
-                        <span class="projects-project-card-title">Skills</span>
+                <template x-if="!member">
+                    <div>
+                        <div class="project-detail">
+                            <div class="project-detail-header">
+                                <span class="projects-project-card-title">Skills</span>
+                            </div>
+                            <x-component path="projects/project-edit-skills.html"></x-component>
+                        </div>
+                        <div class="project-detail">
+                            <div class="project-detail-header">
+                                <span class="projects-project-card-title">MCP Servers</span>
+                            </div>
+                            <x-component path="projects/project-edit-mcp.html"></x-component>
+                        </div>
+                        <div class="project-detail">
+                            <div class="project-detail-header">
+                                <span class="projects-project-card-title">File structure</span>
+                            </div>
+                            <x-component path="projects/project-edit-file-structure.html"></x-component>
+                        </div>
+                        <div class="project-detail">
+                            <div class="project-detail-header">
+                                <span class="projects-project-card-title">Secrets</span>
+                            </div>
+                            <x-component path="projects/project-edit-secrets.html"></x-component>
+                        </div>
                     </div>
-                    <x-component path="projects/project-edit-skills.html">
-                    </x-component>
-                </div>
-
-                <div class="project-detail">
-                    <div class="project-detail-header">
-                        <span class="projects-project-card-title">MCP Servers</span>
-                    </div>
-                    <x-component path="projects/project-edit-mcp.html">
-                    </x-component>
-                </div>
-
-                <div class="project-detail">
-                    <div class="project-detail-header">
-                        <span class="projects-project-card-title">File structure</span>
-                    </div>
-                    <x-component path="projects/project-edit-file-structure.html">
-                    </x-component>
-                </div>
-
-                <div class="project-detail">
-                    <div class="project-detail-header">
-                        <span class="projects-project-card-title">Secrets</span>
-                    </div>
-                    <x-component path="projects/project-edit-secrets.html">
-                    </x-component>
-                </div>
+                </template>
 
                 <div class="buttons-container" style="margin: var(--spacing-md) var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);">
-                    <div class="buttons-left">
+                    <div class="buttons-left" x-show="!member">
                         <button type="button" class="button cancel"
                             @click="$confirmClick($event, () => $store.projects.deleteProjectAndCloseModal())">Delete</button>
                     </div>
                     <div class="buttons-right">
-                        <button type="button" class="button confirm"
+                        <button type="button" class="button confirm" :disabled="$store.projects.savingSettings"
                             @click="$store.projects.confirmEdit()">Save</button>
                         <button type="button" class="button cancel"
                             @click="$store.projects.cancelEdit()">Cancel</button>
@@ -116,6 +133,11 @@
 
     .project-detail-header {
         margin-bottom: 1em;
+    }
+
+    .project-review-text {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
     }
 
     .project-advanced-section {

@@ -12,6 +12,8 @@
 - Component HTML files own their markup, local module imports, and local scoped styles.
 - `_examples/` contains reference implementations for component and store shape.
 - Modal components normally live under `modals/<name>/<name>.html`; settings components live under `settings/`.
+- `team/` owns the native administrator modal for member accounts and project grants and the audit modal for authorized users. Passwords stay in transient form inputs. Audit transcript state is cleared when its view closes.
+- The team Browser and Desktop fit their full display inside the native canvas or floating window. Resizing keeps the connection. Clicking the remote screen focuses its keyboard input without clipboard sharing.
 
 ## Local Contracts
 

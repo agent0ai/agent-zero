@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
+from io import BytesIO
 import os
 import random
 import threading
@@ -22,7 +23,8 @@ from helpers.print_style import PrintStyle
 from helpers.defer import DeferredTask
 from helpers.files import get_abs_path, make_dirs, read_file, write_file
 from helpers.localization import Localization
-from helpers import projects, guids, yaml
+from helpers import projects, guids, login, yaml
+from helpers.file_transfers import write_stream_atomic
 import pytz
 from typing import Annotated
 
@@ -194,6 +196,8 @@ class BaseTask(BaseModel):
     attachments: list[str] = Field(default_factory=list)
     project_name: str | None = Field(default=None)
     project_color: str | None = Field(default=None)
+    team_project_id: str | None = None
+    team_owner_id: str | None = None
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
     last_run: datetime | None = None
@@ -616,7 +620,11 @@ class SchedulerTaskList(BaseModel):
                     "ERROR: Found null token in JSON output for an adhoc task"
                 )
 
-            write_file(path, yaml.from_json(json_data) if path.endswith(".yaml") else json_data)
+            content = yaml.from_json(json_data) if path.endswith(".yaml") else json_data
+            if login.team_mode_enabled():
+                write_stream_atomic(BytesIO(content.encode("utf-8")), path)
+            else:
+                write_file(path, content)
 
             # Debug: Verify after saving
             if exists(path):
@@ -696,6 +704,16 @@ class SchedulerTaskList(BaseModel):
             self.tasks = [task for task in self.tasks if task.uuid != task_uuid]
             await self.save()
         return self
+
+    async def remove_idle_team_task(self, task_uuid: str, project_id: str) -> bool:
+        with self._lock:
+            await self.reload()
+            task = self.get_task_by_uuid(task_uuid)
+            if not task or task.team_project_id != project_id or task.state == TaskState.RUNNING:
+                return False
+            self.tasks.remove(task)
+            await self.save()
+            return True
 
     async def remove_task_by_name(self, name: str) -> "SchedulerTaskList":
         with self._lock:
@@ -781,6 +799,14 @@ class TaskScheduler:
         mark_dirty_all(reason="task_scheduler.TaskScheduler.remove_task_by_uuid")
         return self
 
+    async def remove_idle_team_task(self, task_uuid: str, project_id: str) -> bool:
+        removed = await self._tasks.remove_idle_team_task(task_uuid, project_id)
+        if removed:
+            from helpers.state_monitor_integration import mark_dirty_all
+
+            mark_dirty_all(reason="project task removed")
+        return removed
+
     async def remove_task_by_name(self, name: str) -> "TaskScheduler":
         await self._tasks.remove_task_by_name(name)
         from helpers.state_monitor_integration import mark_dirty_all
@@ -800,7 +826,7 @@ class TaskScheduler:
         for task in await self._tasks.get_due_tasks():
             await self._run_task(task, scheduled=True)
 
-    async def run_task_by_uuid(self, task_uuid: str, task_context: str | None = None):
+    async def run_task_by_uuid(self, task_uuid: str, task_context: str | None = None, *, team_actor_id: str | None = None):
         # First reload tasks to ensure we have the latest state
         await self._tasks.reload()
 
@@ -808,6 +834,11 @@ class TaskScheduler:
         task = self.get_task_by_uuid(task_uuid)
         if not task:
             raise ValueError(f"Task with UUID '{task_uuid}' not found")
+        if task.team_project_id:
+            from helpers.team_tasks import scope_for_task
+
+            if not scope_for_task(task, team_actor_id):
+                raise PermissionError("Run this task from an assigned project account.")
 
         # If the task is already running, raise an error
         if task.state == TaskState.RUNNING:
@@ -828,7 +859,10 @@ class TaskScheduler:
                 raise ValueError(f"Task with UUID '{task_uuid}' not found after state reset")
 
         # Run the task
-        await self._run_task(task, task_context)
+        if team_actor_id:
+            await self._run_task(task, task_context, team_actor_id=team_actor_id)
+        else:
+            await self._run_task(task, task_context)
 
     async def run_task_by_name(self, name: str, task_context: str | None = None):
         task = self._tasks.get_task_by_name(name)
@@ -874,6 +908,11 @@ class TaskScheduler:
         # context.name = task.name
 
         # Activate project if set
+        if task.team_project_id:
+            from helpers.team_access import CHAT_CREATOR_ID, CHAT_PROJECT_ID
+
+            context.set_data(CHAT_PROJECT_ID, task.team_project_id)
+            context.set_data(CHAT_CREATOR_ID, task.team_owner_id)
         if task.project_name:
             projects.activate_project(context.id, task.project_name)
 
@@ -906,7 +945,26 @@ class TaskScheduler:
             raise ValueError(f"Context ID mismatch for task {task.name}: context {context.id} != task {task.context_id}")
         save_tmp_chat(context)
 
-    async def _run_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], task_context: str | None = None, *, scheduled: bool = False):
+    async def _run_task(self, task: Union[ScheduledTask, AdHocTask, PlannedTask], task_context: str | None = None, *,
+                        scheduled: bool = False, team_actor_id: str | None = None):
+        from helpers import team_access
+
+        actor_id = team_actor_id
+        if task.team_project_id:
+            from helpers.team_tasks import scope_for_task
+
+            actor_id = task.team_owner_id if scheduled else team_actor_id
+            if not scope_for_task(task, actor_id):
+                if scheduled:
+                    if login.team_mode_enabled():
+                        await self.update_task_checked(
+                            task.uuid, lambda current: current.state == TaskState.IDLE,
+                            state=TaskState.DISABLED, last_result="The task owner's project grant ended.",
+                        )
+                    return
+                raise PermissionError("Run this task from an assigned project account.")
+        elif team_access.is_team_chat_id(task.context_id):
+            raise PermissionError("A shared chat can run only a project-bound task.")
 
         async def _run_task_wrapper(task_uuid: str, task_context: str | None = None):
 
@@ -947,11 +1005,21 @@ class TaskScheduler:
                 PrintStyle.info(f"Scheduler Task '{current_task.name}' started")
 
                 if current_task.plugin_name:
+                    if current_task.team_project_id:
+                        raise ValueError("Project tasks use the team agent runtime.")
                     result = await _execute_plugin_task(current_task)
                     await current_task.on_success(result)
                     return
 
                 context = await self._get_chat_context(current_task)
+                if current_task.team_project_id:
+                    from helpers.team_tasks import execute_task
+
+                    result = await execute_task(current_task, context, actor_id)
+                    await current_task.on_success(result)
+                    return
+                if team_access.is_team_chat(context):
+                    raise PermissionError("A shared chat can run only a project-bound task.")
                 context.set_data("scheduler_task_uuid", current_task.uuid)
                 AgentContext.use(context.id)
 
@@ -1081,7 +1149,7 @@ class TaskScheduler:
         """
         return serialize_tasks(self.get_tasks())
 
-    def serialize_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def serialize_task(self, task_id: str, *, include_team_data: bool = False) -> Optional[Dict[str, Any]]:
         """
         Serialize a specific task in the scheduler by UUID.
         Returns None if task is not found.
@@ -1089,7 +1157,7 @@ class TaskScheduler:
         # Get task without locking, as get_task_by_uuid() is already thread-safe
         task = self.get_task_by_uuid(task_id)
         if task:
-            return serialize_task(task)
+            return serialize_task(task, include_team_data=include_team_data) if include_team_data else serialize_task(task)
         return None
 
 
@@ -1227,7 +1295,7 @@ def parse_task_plan(plan_data: Dict[str, Any]) -> TaskPlan:
 T = TypeVar('T', bound=Union[ScheduledTask, AdHocTask, PlannedTask])
 
 
-def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[str, Any]:
+def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask], *, include_team_data: bool = False) -> Dict[str, Any]:
     """
     Standardized serialization for task objects with proper handling of all complex types.
     """
@@ -1263,12 +1331,17 @@ def serialize_task(task: Union[ScheduledTask, AdHocTask, PlannedTask]) -> Dict[s
     elif isinstance(task, AdHocTask):
         task_dict['type'] = 'adhoc'
         adhoc_task = cast(AdHocTask, task)
-        task_dict['token'] = adhoc_task.token
+        if not task.team_project_id:
+            task_dict['token'] = adhoc_task.token
     else:
         task_dict['type'] = 'planned'
         planned_task = cast(PlannedTask, task)
         task_dict['plan'] = serialize_task_plan(planned_task.plan)  # type: ignore
 
+    if task.team_project_id:
+        task_dict["team_task"] = True
+        if not include_team_data:
+            task_dict.update({"prompt": "", "system_prompt": "", "last_result": None})
     return task_dict
 
 

@@ -463,7 +463,14 @@ def load_skill_for_agent(
     agent: Agent | None = None,
 ) -> str:
     """Load skill and format it as a complete string for agent context."""
-    skill = find_skill(skill_name, agent=agent, include_content=True)
+    from helpers.team_access import is_team_chat
+
+    scoped = is_team_chat(getattr(agent, "context", None))
+    if scoped:
+        entry = project_skill(skill_name, agent)
+        skill = skill_from_markdown(Path(files.fix_dev_path(entry["path"])) / "SKILL.md", include_content=True) if entry else None
+    else:
+        skill = find_skill(skill_name, agent=agent, include_content=True)
     if not skill:
         return f"Error: skill '{skill_name}' not found"
 
@@ -493,7 +500,7 @@ def load_skill_for_agent(
     lines.extend(["", "Content (SKILL.md body):", skill.content.strip() or "(empty)"])
 
     # File tree
-    files_tree = _get_skill_files(skill.path)
+    files_tree = _get_skill_files(skill.path) if not scoped else ""
     lines.append("")
     if files_tree:
         lines.append("Files (use skills_tool action=read_file to open):")
@@ -502,6 +509,27 @@ def load_skill_for_agent(
         lines.append("No additional files found.")
 
     return "\n".join(lines)
+
+
+def project_skill(name: str, agent: Agent) -> CatalogSkill | None:
+    catalog = list_skill_catalog(agent=agent, project_scope=True)
+    needle = name.strip().casefold()
+    matches = [item for item in catalog if not item["hidden"] and needle in {item["name"].casefold(), item["path"].casefold()}]
+    return next((item for item in matches if item["origin"] == "Project"), matches[0] if matches else None)
+
+
+def load_project_reference_skills(agent: Agent, message: str) -> None:
+    names = dict.fromkeys(re.findall(r"@\[skill/([^\]\n]{1,120})\]", message))
+    loaded = {str(entry.get("name") or "").casefold() for entry in get_loaded_skill_entries(agent)}
+    for name in list(names)[:MAX_ACTIVE_SKILLS]:
+        if name.casefold() in loaded or not (entry := project_skill(name, agent)):
+            continue
+        content = load_skill_for_agent(entry["path"], agent)
+        if not content.startswith("Error:"):
+            add_loaded_skill_name(agent, entry["name"])
+            agent.hist_add_tool_result("skills_tool", content, skill_instructions={
+                "name": entry["name"], "path": entry["path"], "source": "composer:reference", "content_included": True,
+            })
 
 
 def skill_instruction_name(message: Any) -> str:
@@ -805,6 +833,8 @@ def normalize_skill_entries(
 def list_skill_catalog(
     project_name: str = "",
     agent: Agent | None = None,
+    *,
+    project_scope: bool = False,
 ) -> list[CatalogSkill]:
     if not project_name:
         project_name = _get_agent_project_name(agent)
@@ -813,10 +843,20 @@ def list_skill_catalog(
     seen_paths: set[str] = set()
     hidden_entries = get_hidden_skills(agent) if agent else []
     visibility_policy = get_visibility_policy(agent)
+    allowed_roots = (
+        Path(files.get_abs_path("skills")),
+        Path(files.get_abs_path("plugins")),
+        Path(projects.get_project_meta(project_name, "skills")) if project_name else None,
+    ) if project_scope else ()
 
     for root in _get_catalog_roots(project_name=project_name, agent=agent):
         root_path = Path(root)
+        actual_root = root_path.resolve()
+        if project_scope and not any(boundary and actual_root.is_relative_to(boundary) for boundary in allowed_roots):
+            continue
         for skill_md in discover_skill_md_files(root_path):
+            if project_scope and not skill_md.resolve().is_relative_to(actual_root):
+                continue
             skill = skill_from_markdown(skill_md, include_content=False)
             if not skill:
                 continue

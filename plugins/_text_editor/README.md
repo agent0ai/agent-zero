@@ -34,6 +34,8 @@ This plugin exposes a native text editing tool that agents can use to inspect fi
 
 ## Configuration Scope
 
+In team chats, the native tool reads and edits UTF-8 files relative to the active project workspace. A write to an existing file needs the revision from a prior read. A patch can replace one exact span. The same revision checks apply to edits made from Projects.
+
 - **Settings section**: `agent`
 - **Per-project config**: `true`
 - **Per-agent config**: `true`

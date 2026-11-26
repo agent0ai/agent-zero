@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 
 from helpers.api import Request, Response
+from helpers.team_access import is_team_chat
 import plugins._a0_connector.api.v1.base as connector_base
 
 
@@ -31,11 +32,16 @@ class ChatsList(connector_base.ProtectedConnectorApiHandler):
             if not isinstance(query, str) or len(query) > 200:
                 return Response("Query must be text of at most 200 characters.", status=400)
             query = query.strip()
-            matches = await asyncio.to_thread(search_contexts, AgentContext.all(), query, {}) if query else []
+            if not query:
+                return {"matches": []}
+            candidates = [context for context in AgentContext.all() if not is_team_chat(context)]
+            matches = await asyncio.to_thread(search_contexts, candidates, query, {})
             return {"matches": matches}
 
         contexts: list[dict[str, object]] = []
         for context in AgentContext.all():
+            if is_team_chat(context):
+                continue
             data = context.output()
             project = _project_metadata(context, data)
             contexts.append(

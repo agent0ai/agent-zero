@@ -16,6 +16,10 @@
 
 ## Runtime Contracts
 
+- A shared nudge either submits an interjection to the verified holder's current run or reserves a new turn for an idle chat with history.
+
+- Shared chat turns use the reservation-aware composer and queue.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Nudge` is an `ApiHandler`.

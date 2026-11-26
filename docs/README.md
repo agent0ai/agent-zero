@@ -48,6 +48,7 @@ docs focus on practical setup, screenshots, and user workflows.
 
 ## Technical Reference
 
+- **[本地开发踩坑经验](本地开发踩坑经验.md)** Development and verification notes from native teams v1.
 - **[DeepWiki for Agent Zero](https://deepwiki.com/agent0ai/agent-zero):** Architecture, Web UI internals, plugin lifecycle, backend APIs, deployment details, and source-linked explanations.
 - **[Architecture](developer/architecture.md):** Short local handoff to DeepWiki plus practical starting points.
 - **[Plugins](developer/plugins.md):** Compact plugin starting points and sharing checklist.
@@ -130,6 +131,7 @@ docs focus on practical setup, screenshots, and user workflows.
     - [Memory Management](guides/usage.md#memory-management)
     - [Backup And Restore](guides/usage.md#backup-and-restore)
   - [Scheduled Tasks](guides/task-scheduler.md)
+  - [Native Teams Docker QA](guides/native-teams.md)
   - [Agent Zero Launcher](guides/launcher.md)
     - [Workspace Storage](guides/launcher.md#workspace-storage)
   - [Use Local Folders With Agent Zero](guides/local-folders.md)
@@ -150,6 +152,7 @@ docs focus on practical setup, screenshots, and user workflows.
   - [Troubleshooting](guides/troubleshooting.md)
 
 - [Technical Reference](#technical-reference)
+  - [本地开发踩坑经验](本地开发踩坑经验.md)
   - [DeepWiki for Agent Zero](https://deepwiki.com/agent0ai/agent-zero)
   - [Architecture](developer/architecture.md)
   - [Plugins](developer/plugins.md)

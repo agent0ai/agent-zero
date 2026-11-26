@@ -39,6 +39,8 @@ This plugin stores memories and knowledge embeddings in a FAISS-backed vector da
 
 ## Configuration Scope
 
+In a team session the Memory tool and dashboard share one index for each authorized project. Save and search explicitly, and use Reindex project knowledge to refresh indexed text files after changing them in Projects.
+
 - **Settings section**: `agent`
 - **Per-project config**: `true`
 - **Per-agent config**: `true`

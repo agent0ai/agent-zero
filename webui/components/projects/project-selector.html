@@ -8,22 +8,16 @@
 </head>
 
 <body>
-    <div x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" class="dropdown project-dropdown-container">
-        <template x-if="$store.projects && $store.chats && $store.chats.selectedContext">
+    <div x-data="{ open: false, member: globalThis.runtimeInfo?.teamRole === 'member', team: Boolean(globalThis.runtimeInfo?.teamRole) }" @click.outside="open = false" @keydown.escape.window="open = false" class="dropdown project-dropdown-container">
+        <template x-if="$store.projects && $store.chats && ($store.chats.selectedContext || team)">
             <div>
-                <template x-if="$store.chats.selectedContext.project?.name">
-                    <button @click="open = !open" type="button" class="button project-dropdown-button">
-                        <span class="project-color-ball" :style="$store.chats.selectedContext.project.color ? { backgroundColor: $store.chats.selectedContext.project.color } : { border: '1px solid var(--color-border)' }"></span>
-                        <span x-text="$store.chats.selectedContext.project.title"></span>
-                        <x-icon class="icon" name="arrow_drop_down"></x-icon>
-                    </button>
-                </template>
-                <template x-if="!$store.chats.selectedContext.project?.name">
-                    <button @click="open = !open" type="button" class="button project-dropdown-button">
-                        No project
-                        <x-icon class="icon" name="arrow_drop_down"></x-icon>
-                    </button>
-                </template>
+                <button @click="open = !open; if (team && open) $store.projects.loadProjectsList()" type="button" class="button project-dropdown-button"
+                        :aria-expanded="open"
+                        x-data="{ get project() { return $store.chats.selectedContext?.project || (team && !$store.chats.selected && $store.projects.projectList.find((item) => item.name === $store.projects.teamProjectName)); } }">
+                    <span class="project-color-ball" x-show="project" :style="project?.color ? { backgroundColor: project.color } : { border: '1px solid var(--color-border)' }"></span>
+                    <span x-text="project?.title || (member ? 'Select a project' : 'No project')"></span>
+                    <x-icon class="icon" name="arrow_drop_down"></x-icon>
+                </button>
 
                 <div x-show="open" x-init="$store.projects.loadProjectsList()" class="dropdown-menu" style="display: none;" x-transition>
                     <button type="button" @click="$store.projects.openProjectsModal(); open = false;" class="dropdown-item">
@@ -31,12 +25,12 @@
                         <span>Projects</span>
                     </button>
 
-                    <button type="button" x-show="$store.chats.selectedContext.project?.name" @click="$store.projects.editActiveProject(); open = false;" class="dropdown-item">
+                    <button type="button" x-show="!member && $store.chats.selectedContext?.project?.name" @click="$store.projects.editActiveProject(); open = false;" class="dropdown-item">
                         <x-icon class="icon" name="edit"></x-icon>
-                        <span>Edit <span x-text="$store.chats.selectedContext.project?.title"></span></span>
+                        <span>Edit <span x-text="$store.chats.selectedContext?.project?.title"></span></span>
                     </button>
 
-                    <button type="button" x-show="$store.chats.selectedContext.project?.name" @click="$store.projects.deactivateProject(); open = false;" class="dropdown-item">
+                    <button type="button" x-show="!member && $store.chats.selectedContext?.project?.name && !$store.chats.selectedContext?.team_chat" @click="$store.projects.deactivateProject(); open = false;" class="dropdown-item">
                         <x-icon class="icon" name="close"></x-icon>
                         <span>Deactivate</span>
                     </button>

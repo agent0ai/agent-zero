@@ -44,6 +44,7 @@ class VirtualDesktopEndpoint:
     owner: str = "desktop"
     title: str = "Desktop"
     resize: ResizeCallback | None = None
+    authorize: Callable[[dict], bool] | None = None
 
 
 class VirtualDesktopRegistry:
@@ -84,6 +85,7 @@ def register_session(
     owner: str = "desktop",
     title: str = "Desktop",
     resize: ResizeCallback | None = None,
+    authorize: Callable[[dict], bool] | None = None,
 ) -> None:
     get_registry().register(
         VirtualDesktopEndpoint(
@@ -93,6 +95,7 @@ def register_session(
             owner=str(owner),
             title=str(title),
             resize=resize,
+            authorize=authorize,
         ),
     )
 

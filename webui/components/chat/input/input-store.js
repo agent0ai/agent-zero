@@ -11,6 +11,11 @@ const FENCE_LINE_RE = /^```([A-Za-z0-9_-]*)?$/;
 const BLOCK_TAGS = new Set(["DIV", "P", "LI"]);
 const DRAFT_STORAGE_PREFIX = "a0:chat-draft:";
 
+function draftStorageKey(contextId) {
+  const account = globalThis.runtimeInfo?.teamAccountId;
+  return DRAFT_STORAGE_PREFIX + (account ? `${account}:${contextId}` : contextId);
+}
+
 function escapeHTML(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -87,6 +92,14 @@ const model = {
     const hasInput = this.message.trim() || attachmentsStore?.attachments?.length > 0;
     const hasQueue = !!messageQueueStore?.hasQueue;
     const running = !!chatsStore.selectedContext?.running;
+    const activeRun = chatsStore.selectedContext?.team_run;
+
+    if (activeRun) {
+      if (activeRun.state === "stopping") return "busy";
+      if (!activeRun.mine) return globalThis.runtimeInfo?.teamRole === "admin" && !hasInput ? "stop" : "busy";
+      if (activeRun.kind === "compact") return "stop";
+      return hasInput ? "queue" : "stop";
+    }
 
     if (running && !hasInput) return "stop";
     if (hasQueue && !hasInput) return "all";
@@ -148,7 +161,12 @@ const model = {
     if (state === "stop") return "Stop agent";
     if (state === "all") return "Send all queued messages";
     if (state === "queue") return "Add to queue";
+    if (state === "busy") return `${chatsStore.selectedContext.team_run.holder} is holding this chat`;
     return "Send message";
+  },
+
+  get isTeamSendBlocked() {
+    return this._getSendState() === "busy";
   },
 
   init() {
@@ -163,7 +181,8 @@ const model = {
       this._syncMessageFromEditor();
       const pendingMessage = this.message;
 
-      if (!chatsStore.selected && (this.message.trim() || attachmentsStore?.attachments?.length > 0)) {
+      const role = globalThis.runtimeInfo?.teamRole;
+      if (role !== "member" && !(role === "admin" && Alpine.store("projects")?.teamProjectName) && !chatsStore.selected && (this.message.trim() || attachmentsStore?.attachments?.length > 0)) {
         const ctxid = await chatsStore.newChat();
         if (!ctxid && !chatsStore.selected) return;
         this.message = pendingMessage;
@@ -184,6 +203,7 @@ const model = {
   async activateSendButton() {
     if (this._sending) return;
     this._syncMessageFromEditor();
+    if (this.isTeamSendBlocked) return;
     if (this._getSendState() === "stop") {
       await this.stopAgent();
       return;
@@ -450,7 +470,8 @@ const model = {
       const context = globalThis.getContext?.();
       if (!globalThis.sendJsonData)
         throw new Error("sendJsonData not available");
-      await globalThis.sendJsonData("/pause", { paused, context });
+      const runId = chatsStore.selectedContext?.team_run?.id;
+      await globalThis.sendJsonData("/pause", { paused, context, ...(runId ? { run_id: runId } : {}) });
     } catch (e) {
       if ((this._pendingPause || 0) <= 1) this.paused = prev;
       if (globalThis.toastFetchError) {
@@ -465,7 +486,8 @@ const model = {
     try {
       const context = globalThis.getContext?.();
       if (!context || !globalThis.sendJsonData) return;
-      await globalThis.sendJsonData("/stop", { context });
+      const runId = chatsStore.selectedContext?.team_run?.id;
+      await globalThis.sendJsonData("/stop", { context, ...(runId ? { run_id: runId } : {}) });
     } catch (e) {
       if (globalThis.toastFetchError) {
         globalThis.toastFetchError("Error stopping agent", e);
@@ -476,7 +498,8 @@ const model = {
   async nudge() {
     try {
       const context = globalThis.getContext();
-      await globalThis.sendJsonData("/nudge", { ctxid: context });
+      const runId = chatsStore.selectedContext?.team_run?.id;
+      await globalThis.sendJsonData("/nudge", { ctxid: context, ...(runId ? { run_id: runId } : {}) });
     } catch (e) {
       if (globalThis.toastFetchError) {
         globalThis.toastFetchError("Error nudging agent", e);
@@ -618,7 +641,7 @@ const model = {
 
     let draft = "";
     if (nextCtxid) {
-      try { draft = sessionStorage.getItem(DRAFT_STORAGE_PREFIX + nextCtxid) || ""; } catch (_e) { /* ignore */ }
+      try { draft = sessionStorage.getItem(draftStorageKey(nextCtxid)) || ""; } catch (_e) { /* ignore */ }
     }
     this._message = draft;
     this._renderEditorFromText(draft);
@@ -628,7 +651,7 @@ const model = {
   _saveDraft() {
     if (!this._draftCtxid) return;
     try {
-      const key = DRAFT_STORAGE_PREFIX + this._draftCtxid;
+      const key = draftStorageKey(this._draftCtxid);
       if (this._message) sessionStorage.setItem(key, this._message);
       else sessionStorage.removeItem(key);
     } catch (_e) { /* ignore unavailable storage */ }

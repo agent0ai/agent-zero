@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from helpers.extension import Extension
+from helpers.team_access import is_team_chat
 from plugins._commands.helpers import commands
 
 
@@ -16,6 +17,8 @@ class ResolveSlashCommand(Extension):
             return
 
         context, message = args[0], args[2]
+        if is_team_chat(context):
+            return
         raw_message = getattr(message, "message", None)
         if not isinstance(raw_message, str):
             return

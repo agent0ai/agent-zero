@@ -1,9 +1,10 @@
 import time
 
 from helpers.api import ApiHandler, Request, Response
-from helpers import defer
+from helpers import defer, team_access
 from helpers.extension import call_extensions_async
 from helpers.persist_chat import save_tmp_chat
+from helpers.team_store import get_store
 from agent import AgentContext
 from plugins._model_config.helpers import model_config
 
@@ -31,15 +32,33 @@ class ModelOverride(ApiHandler):
         context_id = input.get("context_id", "")
         action = input.get("action", "get")  # get | set | set_preset | clear
 
-        if not context_id:
+        if not isinstance(context_id, str) or not context_id:
             return Response(status=400, response="Missing context_id")
 
         ctx = AgentContext.get(context_id)
+        member = team_access.request_scope()
+        if member is not None and (ctx is None or not team_access.can_send(member, ctx)):
+            return Response("Chat access denied.", 403)
         if not ctx:
             return Response(status=404, response="Context not found")
 
+        if action == "set" and member is not None:
+            return Response("Select an existing model preset.", 403)
+        with self.thread_lock:
+            if member is not None:
+                member = team_access.request_scope()
+                if member is None or not team_access.can_send(member, ctx):
+                    return Response("Chat access denied.", 403)
+            if action != "get" and team_access.is_team_chat(ctx) and (ctx.is_running() or get_store().active_run(ctx.id)):
+                return Response("Wait for the current run before switching models.", 409)
+            return self._change(ctx, action, input, member is not None)
+
+    def _change(self, ctx: AgentContext, action: str, input: dict, member: bool) -> dict | Response:
         if action == "get":
             override = ctx.get_data("chat_model_override")
+            if member:
+                name = override.get("preset_name") if isinstance(override, dict) else None
+                override = {"preset_name": name} if name else None
             allowed = model_config.is_chat_override_allowed(ctx.agent0)
             return {
                 "override": override,
@@ -68,7 +87,7 @@ class ModelOverride(ApiHandler):
             if not model_config.is_chat_override_allowed(ctx.agent0):
                 return Response(status=403, response="Per-chat override is disabled")
             preset_name = input.get("preset_name", "")
-            if not preset_name:
+            if not isinstance(preset_name, str) or not preset_name:
                 return Response(status=400, response="Missing preset_name")
             previous_embedding = model_config.get_embedding_model_config(ctx.agent0)
             # Verify preset exists

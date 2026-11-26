@@ -1,0 +1,6 @@
+<html><head><title>Browser</title></head>
+<body>
+  <div class="project-surface" x-data="{ mode: 'browser' }" x-init="await Alpine.store('projectSurfaces').open(mode)">
+    <x-component path="team/project-surface.html"></x-component>
+  </div>
+</body></html>

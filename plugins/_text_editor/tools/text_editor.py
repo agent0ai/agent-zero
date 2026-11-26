@@ -3,6 +3,7 @@ from pathlib import Path
 from helpers.tool import Tool, Response
 from helpers.extension import call_extensions_async
 from helpers import plugins, runtime
+from helpers.team_access import is_team_chat
 from plugins._text_editor.helpers.file_ops import (
     FileInfo,
     read_file,
@@ -36,6 +37,10 @@ class TextEditor(Tool):
 
     async def execute(self, **kwargs):
         action = _current_action(self, kwargs)
+        if is_team_chat(getattr(self.agent, "context", None)):
+            from plugins._text_editor.helpers import team_editor
+
+            return team_editor.execute(self.agent, action, kwargs)
         if action == "read":
             return await self._read(**kwargs)
         elif action == "write":

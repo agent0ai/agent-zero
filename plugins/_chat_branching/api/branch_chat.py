@@ -1,6 +1,7 @@
 import json
 
 from agent import Agent, AgentContext
+from helpers.team_access import is_team_chat
 from helpers.api import ApiHandler, Input, Output, Request, Response
 from helpers.localization import Localization
 from helpers.persist_chat import (
@@ -105,6 +106,8 @@ class BranchChat(ApiHandler):
         context = AgentContext.get(ctxid)
         if not context:
             return Response("Context not found", 404)
+        if is_team_chat(context):
+            return Response("Shared chats use the team workflow.", 403)
 
         # Serialize the source context
         data = _serialize_context(context)

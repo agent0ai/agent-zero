@@ -65,6 +65,8 @@
 
 ## Runtime Contracts
 
+- Native team-mode user chats acquire a stable project binding on project activation.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - `get_file_structure(...)` delegates rendering to `helpers.file_tree.file_tree`; the default `OUTPUT_MODE_STRING` keeps user-facing surfaces (project structure API) box-drawn, while the workdir EXTRAS extension passes `OUTPUT_MODE_INDENT` for the token-compact agent-facing tree.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
@@ -80,6 +82,7 @@
 - Activating or deactivating a project preserves the active chat profile when it
   is available in the destination scope; otherwise it replaces it with the
   configured default profile, then `agent0`, then the first available profile.
+- Team chat activation loads display metadata from the native public header.
 - Per-project profile availability is persisted sparsely in `.a0proj/agents.json`;
   entries matching the profile definition's scoped default are omitted. The
   helper retains the established tolerant load contract for read-only settings.
@@ -95,6 +98,7 @@
   its scope, so a disabled configured profile cannot become invisibly active.
 - Project updates and deletion refresh only chats assigned to that project and
   persist each affected chat once; unrelated chats are never rewritten.
+- The team API can use atomic header publication after its project revision check. The native serializer continues to own the file format.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, plugin state, settings/state persistence, secret handling.
 - Imported dependency areas include: `helpers`, `helpers.print_style`, `os`,
   `typing`.

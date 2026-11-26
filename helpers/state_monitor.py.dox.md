@@ -27,6 +27,8 @@
 
 ## Runtime Contracts
 
+- Member projections resolve the current session and project permissions before building each push. When a session expires or is revoked, the monitor closes its connection.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem deletion, WebSocket state, settings/state persistence, scheduler state.

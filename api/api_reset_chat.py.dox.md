@@ -20,6 +20,8 @@
 
 ## Runtime Contracts
 
+- The instance API key cannot reset shared team chats.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `ApiResetChat` is an `ApiHandler`.

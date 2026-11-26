@@ -15,6 +15,8 @@
 
 ## Local Contracts
 
+- Platform search and project-move endpoints keep managed team conversations within their own chat access and audit scopes.
+
 - Folder view is enabled by default; config is instance-wide with a flat-view fallback. Register the optional view through the sidebar row-list extension contract, without replacing stores or moving row DOM.
 - Default sorting is creation time, newest first, in both views; message activity must not reorder chats unless recent-activity sorting is explicitly selected.
 - Reordering folders, chats, or tasks by drag and drop automatically selects and saves manual sorting.
@@ -40,7 +42,7 @@
 - Folder-row new-chat and overflow buttons use accessible labels without tooltips; Chats header controls retain their tooltips.
 - Sidebar menus share their pointer scope with the opening row or header. Dismiss after leaving both, allowing a short gap-crossing delay; also dismiss when focus leaves, the surrounding list scrolls, the window resizes, or the header extension unmounts. The search popover stays open on pointer leave so typing is not interrupted; outside click, Escape, focus exit, scroll, resize, and unmount still dismiss it. Mouse cleanup must not interrupt touch interaction or scrolling inside a menu.
 - Resolve the core row menu through its `rowActionsMenu` reference, not shared menu styling classes that community plugins may also use. Header integrations must preserve the core header and its `chats-header-controls` extension point.
-- The two list-view extension points are display-only alternatives. Disabling the plugin restores the core lists and existing chat/task controls.
+- The two list-view extension points are display-only alternatives. Disabling the plugin restores the platform's core lists and existing chat/task controls. Team members always use the native Chats folder view with only their assigned projects, including empty folders. Its expand state is browser-local per account. Platform pins, search, ordering and project moves stay outside the member view.
 - Register view and sorting callbacks when each list-view extension mounts, and unregister them when it unmounts. Importing the store from another plugin must not hide or filter the core lists while this plugin is disabled.
 - Search defaults to Standard below the Chats heading. Compact teleports an owned magnifier immediately before New Chat and opens the same input as a popover. No search clears the query and hides both controls. Mode saves in plugin config; query/results stay transient and clear when the chat-list extension unmounts.
 - The search placeholder is **Search**; retain its descriptive accessible label. Inline and popover inputs match the composer background, border, and 160ms focus/shadow transition while retaining compact sidebar sizing.

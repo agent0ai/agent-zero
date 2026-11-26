@@ -27,6 +27,10 @@
 
 ## Runtime Contracts
 
+- Attributed project attachments use verified project-relative descriptors in the log. Legacy message and queue attachments keep their existing names.
+
+- Log rendering accepts an optional server-provided author for native shared chat sends. Legacy callers retain the existing user message representation.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem deletion, settings/state persistence.

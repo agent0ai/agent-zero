@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Members may request the context window only for a started chat in their assigned project. Legacy project adoption clears the previously rendered window.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `GetCtxWindow` is an `ApiHandler`.

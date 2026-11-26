@@ -31,6 +31,8 @@
 
 ## Local Contracts
 
+- `team-project-files.js` adapts native Files and Editor requests to the project file API for member sessions.
+
 - Use ES modules and browser-compatible JavaScript.
 - `x-overflow` follows `display: contents` wrappers to find flex items. Each collapsible item is a button or contains a trigger; its sibling `[x-show]`, `[role=menu]`, `[role=dialog]`, or `[data-overflow-panel]` is reused as the submenu. `data-overflow-label` on the trigger may override its rendered label. Keep the row's containing flex item shrinkable (`min-width: 0`); non-control content stays inline. Native manual popovers preserve DOM scope while avoiding clipping and stacking conflicts. Resize/mutation observers and document listeners must be removed on unmount.
 - Overflow labels open submenus on hover and toggle them on click; a click-closed submenu stays closed until pointer exit or another click. When neither side has room, use the larger space above/below the first menu and scroll the submenu, keeping its label reachable.

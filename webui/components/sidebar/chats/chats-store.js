@@ -14,6 +14,12 @@ import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
 import { store as tasksStore } from "/plugins/_scheduler/webui/sidebar/tasks-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js";
 import { store as chatInputStore } from "/components/chat/input/input-store.js";
+import { store as projectsStore } from "/components/projects/projects-store.js";
+
+function selectedChatKey() {
+  const account = globalThis.runtimeInfo?.teamAccountId;
+  return account ? `lastSelectedChat:${account}` : "lastSelectedChat";
+}
 
 const model = {
   contexts: [],
@@ -48,7 +54,7 @@ const model = {
     }
 
     // Initialize from sessionStorage
-    const lastSelectedChat = sessionStorage.getItem("lastSelectedChat");
+    const lastSelectedChat = sessionStorage.getItem(selectedChatKey());
     if (lastSelectedChat) {
       this.selectChat(lastSelectedChat);
     }
@@ -265,7 +271,18 @@ const model = {
   // Create new chat
   async newChat(projectName = undefined) {
     try {
-
+      const role = globalThis.runtimeInfo?.teamRole;
+      const project = projectName === undefined ? this.selectedContext?.project?.name || (!this.selected && projectsStore.teamProjectName) : projectName;
+      if (role === "member" || (role === "admin" && project)) {
+        projectsStore.teamProjectName = project || projectsStore.teamProjectName;
+        projectsStore.teamDraftPreset = "";
+        this.pendingTeamChat = null;
+        this.deselectChat();
+        chatInputStore.reset();
+        chatInputStore.focus();
+        return null;
+      }
+      if (role === "admin") projectsStore.teamProjectName = "";
       // first create a new chat on the backend
       const response = await sendJsonData("/chat_create", {
         current_context: this.selected,
@@ -282,6 +299,23 @@ const model = {
       toastFetchError("Error creating new chat", e);
     }
     return null;
+  },
+
+  pendingTeamChat: null,
+
+  async prepareTeamChat(text, messageId) {
+    const project = projectsStore.teamProjectName;
+    const presetName = projectsStore.teamDraftPreset;
+    if (!project) {
+      toast("Select a project before starting a chat.", "warning");
+      return null;
+    }
+    if (this.pendingTeamChat?.project === project && this.pendingTeamChat.text === text && this.pendingTeamChat.presetName === presetName) {
+      return this.pendingTeamChat;
+    }
+    const response = await sendJsonData("/chat_create", { project_name: project, preset_name: presetName });
+    this.pendingTeamChat = { project, text, presetName, messageId, id: response.ctxid };
+    return this.pendingTeamChat;
   },
 
   deselectChat(){
@@ -402,9 +436,9 @@ const model = {
     if(!this.selectedContext) this.selectedContext = tasksStore.tasks.find((ctx) => ctx.id === this.selected);
     this.expandAncestors(this.selectedContext);
     if (this.selected) {
-      sessionStorage.setItem("lastSelectedChat", this.selected);
+      sessionStorage.setItem(selectedChatKey(), this.selected);
     } else {
-      sessionStorage.removeItem("lastSelectedChat");
+      sessionStorage.removeItem(selectedChatKey());
     }
   },
 
@@ -465,7 +499,7 @@ const model = {
     }
 
     try {
-      sessionStorage.removeItem("lastSelectedChat");
+      sessionStorage.removeItem(selectedChatKey());
       sessionStorage.removeItem("lastSelectedTask");
     } catch (_e) {
       // ignore

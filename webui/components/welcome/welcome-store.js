@@ -3,6 +3,7 @@ import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
 import * as API from "/js/api.js";
+import { isTeamMember, projectRoot } from "/js/team-project-files.js";
 import { getCurrentUserISOString } from "/js/time-utils.js";
 
 import { mountLayout } from "/components/welcome/welcome-layout.js";
@@ -309,7 +310,8 @@ const model = {
         projectsStore.openProjectsModal();
         break;
       case "files":
-        fileBrowserStore.open();
+        if (isTeamMember() && !projectRoot()) projectsStore.openProjectsModal({ pickingFiles: true });
+        else fileBrowserStore.open();
         break;
       case "website":
         window.open("https://agent-zero.ai", "_blank");

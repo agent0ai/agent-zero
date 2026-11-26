@@ -1,0 +1,45 @@
+<html>
+<head>
+  <script type="module" src="/components/team/project-surface-store.js"></script>
+  <style>
+    .project-surface { display:flex; flex-direction:column; flex:1; min-height:0; width:100%; height:100%; }
+    .project-surface-viewport { position:relative; flex:1; min-height:0; overflow:hidden; background:var(--surface-background); }
+    .project-surface-frame { position:absolute; top:0; left:0; width:1280px; height:800px; border:0; transform:scale(var(--viewer-scale, 1)); transform-origin:top left; }
+    .project-surface-status { padding:8px 12px; }
+    .project-surface-toolbar { display:flex; align-items:center; gap:8px; padding:6px 10px; }
+  </style>
+</head>
+<body>
+  <section class="surface-workspace project-surface" x-data="{
+    get activeSession() { return $store.projectSurfaces.sessions[mode]; },
+    bindViewerInput(frame) {
+      const screen = frame.contentDocument?.getElementById('screen');
+      if (!screen) return;
+      screen.tabIndex = 0;
+      screen.addEventListener('pointerdown', () => screen.focus({ preventScroll: true }), { capture: true });
+    }
+  }" x-init="$watch('$store.projects.teamProjectName', () => {
+    if ($store.rightCanvas.isSurfaceVisible(mode)) $store.projectSurfaces.open(mode);
+  }); $watch('$store.chats.selectedContext?.project?.name', (project, oldProject) => {
+    if (project && project !== oldProject && $store.rightCanvas.isSurfaceVisible(mode)) $store.projectSurfaces.open(mode);
+  });">
+    <div class="project-surface-toolbar" x-show="mode === 'desktop' && activeSession?.path">
+      <button type="button" class="btn btn-field" @click="$store.projectSurfaces.save(mode)">
+        Save to Project
+      </button>
+      <span x-text="activeSession?.path"></span>
+    </div>
+    <p class="project-surface-status" role="status" x-show="$store.projectSurfaces.loading[mode]">Opening project viewer…</p>
+    <p class="project-surface-status" role="alert" x-show="$store.projectSurfaces.errors[mode]" x-text="$store.projectSurfaces.errors[mode]"></p>
+    <template x-if="activeSession?.url">
+      <div class="project-surface-viewport" x-create="$el.viewerObserver = new ResizeObserver(([entry]) => {
+        const { width, height } = entry.contentRect;
+        $el.style.setProperty('--viewer-scale', Math.min(width / 1280, height / 800, 1));
+      }); $el.viewerObserver.observe($el)" x-destroy="$el.viewerObserver?.disconnect()">
+        <iframe class="project-surface-frame" :src="activeSession.url" :title="mode === 'desktop' ? 'Project Desktop' : 'Project Browser'"
+          referrerpolicy="same-origin" @load="bindViewerInput($el)"></iframe>
+      </div>
+    </template>
+  </section>
+</body>
+</html>

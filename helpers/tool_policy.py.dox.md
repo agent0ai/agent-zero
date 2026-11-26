@@ -27,6 +27,8 @@
 
 ## Runtime Contracts
 
+- Team chat markers limit discovery and dispatch to reviewed bundled tools. Platform plugin activation and profile tool policy may further restrict the project tools and their actions.
+
 - Scoped asset precedence comes from `helpers.plugins`: active project profile,
   active project, user profile, bundled/plugin profile, then default.
   `get_policy` selects the first custom policy; unknown-only and

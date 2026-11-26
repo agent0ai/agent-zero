@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Members may inspect history only for a started chat in their currently assigned project.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `GetHistory` is an `ApiHandler`.

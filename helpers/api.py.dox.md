@@ -31,6 +31,8 @@
 
 ## Runtime Contracts
 
+- Native browser auth resolves revocable team sessions and preserves optional single-user login. The API dispatcher rejects routes outside the member allowlist before resolving or invoking handlers. Permitted operations verify their project or chat separately.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - `ApiHandler` defines `process(...)`.

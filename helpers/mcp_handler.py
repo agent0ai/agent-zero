@@ -1241,6 +1241,10 @@ class MCPConfig(BaseModel):
             return False
 
     def get_tool(self, agent: Any, tool_name: str) -> MCPTool | None:
+        from helpers.team_access import is_team_chat
+
+        if is_team_chat(getattr(agent, "context", None)):
+            return None
         effective_config = MCPConfig.get_for_agent(agent)
         if effective_config is not self:
             return effective_config.get_tool(agent, tool_name)

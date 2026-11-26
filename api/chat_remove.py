@@ -1,12 +1,14 @@
 from helpers.api import ApiHandler, Input, Output, Request, Response
 from agent import AgentContext
-from helpers import persist_chat
+from helpers import persist_chat, team_access
 from helpers.task_scheduler import TaskScheduler
 
 
 class RemoveChat(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
         ctxid = input.get("context", "")
+        if team_access.is_team_chat_id(ctxid):
+            return Response("Shared chat history is retained.", 403)
 
         scheduler = TaskScheduler.get()
         scheduler.cancel_tasks_by_context(ctxid, terminate_thread=True)

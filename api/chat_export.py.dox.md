@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Team chat transcripts use the permission-checked audit view. Legacy chat export stays scoped to ordinary chats.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `ExportChat` is an `ApiHandler`.

@@ -9,6 +9,7 @@
 
 - `base/` owns the base image context.
 - `run/` owns the runnable image context and compose file.
+- `team/` owns the independent team Compose deployment.
 - Root `DockerfileLocal` is owned by the root contract but must stay compatible with this directory.
 
 ## Local Contracts
@@ -38,3 +39,4 @@ Direct child DOX files:
 | --- | --- |
 | [base/AGENTS.md](base/AGENTS.md) | Base image Dockerfile, copied filesystem, and installation scripts. |
 | [run/AGENTS.md](run/AGENTS.md) | Runnable image Dockerfile, compose example, entrypoints, and install scripts. |
+| [team/AGENTS.md](team/AGENTS.md) | Local team Compose volumes, startup, and rollback. |

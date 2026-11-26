@@ -1,7 +1,7 @@
 import { fetchApi } from "/js/api.js";
 
 // Each host owns its tree so opening an Editor picker cannot reset it.
-export function createFileTree(onOpen, getRootPath = () => "/a0") {
+export function createFileTree(onOpen, getRootPath = () => "/a0", fetchDirectory = fetchApi) {
   const pendingLoads = new WeakMap();
   return {
     shown: false,
@@ -64,7 +64,7 @@ export function createFileTree(onOpen, getRootPath = () => "/a0") {
       node.loading = true;
       node.error = "";
       try {
-        const response = await fetchApi(`/get_work_dir_files?path=${encodeURIComponent(node.path)}`);
+        const response = await fetchDirectory(`/get_work_dir_files?path=${encodeURIComponent(node.path)}`);
         const data = await response.json();
         if (!response.ok || data.error || data.data?.error || !data.data?.current_path) {
           throw new Error(data.error || data.data?.error || "Directory not accessible");

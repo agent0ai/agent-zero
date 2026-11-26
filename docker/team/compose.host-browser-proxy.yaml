@@ -1,0 +1,44 @@
+services:
+  webui:
+    environment:
+      A0_TEAM_BROWSER_PROXY_SOCKET: /run/team-browser/proxy.sock
+      A0_TEAM_BROWSER_DNS_HTTPS: ${A0_TEAM_BROWSER_DNS_HTTPS:-https://cloudflare-dns.com/dns-query}
+    volumes:
+      - type: volume
+        source: browser-proxy
+        target: /run/team-browser
+        read_only: true
+    depends_on:
+      browser-proxy:
+        condition: service_healthy
+
+  browser-proxy:
+    image: ${A0_TEAM_IMAGE:-agent0ai/agent-zero@sha256:28a9a19e3168d44d53c78fb1a6c7cf086c9e7d6d621d906660d5ec1170d065c1}
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      A0_TEAM_HOST_PROXY_PORT: ${A0_TEAM_HOST_PROXY_PORT:?Set the local HTTP proxy port}
+      PYTHONDONTWRITEBYTECODE: "1"
+    entrypoint: [/usr/bin/python3, /relay-code/host_proxy_relay.py]
+    volumes:
+      - type: bind
+        source: ${A0_TEAM_SOURCE:?Set A0_TEAM_SOURCE to the team worktree}/docker/team/host_proxy_relay.py
+        target: /relay-code/host_proxy_relay.py
+        read_only: true
+      - type: bind
+        source: ${A0_TEAM_SOURCE:?Set A0_TEAM_SOURCE to the team worktree}/helpers/team_surface_proxy.py
+        target: /relay-code/team_surface_proxy.py
+        read_only: true
+      - type: volume
+        source: browser-proxy
+        target: /relay
+    healthcheck:
+      test: [CMD, /usr/bin/test, -S, /relay/proxy.sock]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+
+volumes:
+  browser-proxy:

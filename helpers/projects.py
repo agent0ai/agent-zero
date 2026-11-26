@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 from typing import NotRequired, TypedDict, TYPE_CHECKING, cast
 
@@ -250,7 +251,7 @@ def _basic_data_to_edit_data(data: BasicProjectData) -> EditProjectData:
     return _normalizeEditData(base)
 
 
-def update_project(name: str, data: EditProjectData):
+def update_project(name: str, data: EditProjectData, *, atomic_header: bool = False):
     extended_data = _project_extended_data_for_save(data)
 
     # merge with current state
@@ -260,7 +261,7 @@ def update_project(name: str, data: EditProjectData):
 
     # save header data
     header = _edit_data_to_basic_data(current)
-    save_project_header(name, header)
+    save_project_header(name, header, atomic=atomic_header)
 
     # save secrets
     save_project_variables(name, current["variables"])
@@ -308,14 +309,19 @@ def load_edit_project_data(name: str) -> EditProjectData:
     return data
 
 
-def save_project_header(name: str, data: BasicProjectData):
+def save_project_header(name: str, data: BasicProjectData, *, atomic: bool = False):
     # save project header file
     header = dirty_json.stringify(_project_header_for_save(data))
     abs_path = files.get_abs_path(
         PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE
     )
 
-    files.write_file(abs_path, header)
+    if atomic:
+        from helpers.file_transfers import write_stream_atomic
+
+        write_stream_atomic(BytesIO(header.encode("utf-8")), abs_path)
+    else:
+        files.write_file(abs_path, header)
 
 
 @extension.extensible
@@ -446,12 +452,19 @@ def reconcile_agent_profiles(
 
 
 def activate_project(context_id: str, name: str, *, mark_dirty: bool = True):
-    from agent import AgentContext
+    from agent import Agent, AgentContext, AgentContextType
+    from helpers import login, team_access
+    from helpers.team_store import ADMIN_ACTOR_ID
 
-    data = load_edit_project_data(name)
     context = AgentContext.get(context_id)
     if context is None:
         raise Exception("Context not found")
+    if login.team_mode_enabled() and context.type == AgentContextType.USER and not team_access.is_team_chat(context):
+        project_id = team_access.register_project(name)
+        context.set_data(team_access.CHAT_PROJECT_ID, project_id)
+        context.set_data(team_access.CHAT_CREATOR_ID, ADMIN_ACTOR_ID)
+        context.get_agent().set_data(Agent.DATA_NAME_RESPONSES_STATE, None)
+    data = load_basic_project_data(name) if team_access.is_team_chat(context) else load_edit_project_data(name)
     display_name = str(data.get("title", name))
     display_name = display_name[:22] + "..." if len(display_name) > 25 else display_name
     context.set_data(CONTEXT_DATA_KEY_PROJECT, name)

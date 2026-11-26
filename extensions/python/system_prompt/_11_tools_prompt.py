@@ -5,6 +5,7 @@ from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from helpers import files, subagents, tool_policy
 from helpers.print_style import PrintStyle
+from helpers.team_access import is_team_chat
 from agent import Agent, LoopData
 
 
@@ -28,6 +29,13 @@ class ToolsPrompt(Extension):
 
 @extensible
 async def build_prompt(agent: Agent) -> str:
+    if is_team_chat(agent.context):
+        local = responses_tools.team_tool_prompts(agent)
+        descriptions = tool_policy.filter_tool_prompts(
+            agent, [(f"agent.system.tool.{name}.md", prompt) for name, prompt in local],
+        )
+        return agent.read_prompt("agent.system.tools.md", tools="\n\n".join(filter(None, descriptions)))
+
     # collect tool files from all prompt directories
     prompt_dirs = subagents.get_paths(agent, "prompts")
     tool_files = files.get_unique_filenames_in_dirs(

@@ -215,6 +215,12 @@ class WsConnector(WsHandler):
         data: dict[str, Any],
         sid: str,
     ) -> dict[str, Any] | WsResult | None:
+        from helpers.team_access import is_team_chat_id
+
+        if is_team_chat_id(data.get("context_id")):
+            return WsResult.error(
+                code="CONTEXT_NOT_FOUND", message="Context not found", correlation_id=data.get("correlationId"),
+            )
         if event == "connector_hello":
             limit = store_sid_connector_capabilities(sid, data.get("capabilities"))
             self.manager.set_peer_max_payload_bytes(self._namespace, sid, limit)

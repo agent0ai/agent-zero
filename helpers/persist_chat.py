@@ -49,8 +49,10 @@ def get_chat_msg_files_folder(ctxid: str):
 
 def save_tmp_chat(context: AgentContext):
     """Save context to the chats folder"""
+    from helpers.team_access import is_draft
+
     # Skip saving BACKGROUND contexts as they should be ephemeral
-    if context.type == AgentContextType.BACKGROUND:
+    if context.type == AgentContextType.BACKGROUND or is_draft(context):
         return
 
     path = _get_chat_file_path(context.id)
@@ -71,6 +73,8 @@ def save_tmp_chats():
 
 def load_tmp_chats():
     """Load all contexts from the chats folder"""
+    from helpers import login, team_access
+
     _convert_v080_chats()
     folders = files.list_files(CHATS_FOLDER, "*")
     json_files = []
@@ -90,6 +94,8 @@ def load_tmp_chats():
                 ctxids.append(ctx.id)
             except Exception as e:
                 print(f"Error loading chat {file}: {e}")
+    if login.team_mode_enabled():
+        team_access.adopt_project_chats(AgentContext.all())
     return ctxids
 
 

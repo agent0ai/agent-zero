@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Team member polling passes the current account and project scope to the same builder used for WebSocket state. Out-of-scope selections are deselected without returning chat content.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Poll` is an `ApiHandler`.

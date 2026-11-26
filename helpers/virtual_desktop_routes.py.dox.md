@@ -27,6 +27,8 @@
 
 ## Runtime Contracts
 
+- Project viewer HTTP and WebSocket routes validate that exact endpoint and current account assignment before forwarding. Project viewer WebSockets require the same host and recheck access every two seconds.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem deletion, network calls, subprocess/runtime control, WebSocket state, settings/state persistence, secret handling.

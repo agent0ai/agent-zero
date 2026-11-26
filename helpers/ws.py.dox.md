@@ -36,6 +36,8 @@
 
 ## Runtime Contracts
 
+- A member WebSocket requires a valid browser session and the existing origin and CSRF checks. It activates `ws_webui` only and accepts state requests. Handlers revalidate the current member session on each event.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - `WsHandler` defines `process(...)`.

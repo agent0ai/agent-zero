@@ -83,11 +83,12 @@ class VirtualDesktopGateway:
         await PlainTextResponse("Unsupported scope", status_code=500)(scope, receive, send)
 
     async def http(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if not self.is_authorized(scope):
+        path = self.relative_path(scope)
+        session_request = self.session_request(path)
+        endpoint = virtual_desktop.proxy_for_token(session_request[0]) if session_request else None
+        if path != "/resize" and not self.is_authorized(scope, endpoint):
             await PlainTextResponse("Authentication required", status_code=401)(scope, receive, send)
             return
-
-        path = self.relative_path(scope)
         if path in {"", "/"}:
             await RedirectResponse(f"{self.mount_path}/health")(scope, receive, send)
             return
@@ -98,7 +99,6 @@ class VirtualDesktopGateway:
             await self.resize(scope, receive, send)
             return
 
-        session_request = self.session_request(path)
         if not session_request:
             await PlainTextResponse("Desktop session not found.", status_code=404)(scope, receive, send)
             return
@@ -117,6 +117,9 @@ class VirtualDesktopGateway:
             except Exception:
                 payload = {}
         token = str(payload.get("token") or query.get("token", [""])[0])
+        if not self.is_authorized(scope, virtual_desktop.proxy_for_token(token)):
+            await PlainTextResponse("Authentication required", status_code=401)(scope, receive, send)
+            return
         width = payload.get("width") or query.get("width", [0])[0]
         height = payload.get("height") or query.get("height", [0])[0]
         try:
@@ -136,6 +139,9 @@ class VirtualDesktopGateway:
         endpoint = virtual_desktop.proxy_for_token(token)
         if not endpoint:
             await PlainTextResponse("Desktop session not found.", status_code=404)(scope, receive, send)
+            return
+        if endpoint.authorize and scope.get("method") not in {"GET", "HEAD"}:
+            await PlainTextResponse("Method not allowed.", status_code=405)(scope, receive, send)
             return
 
         body = await Request(scope, receive).body()
@@ -160,19 +166,26 @@ class VirtualDesktopGateway:
 
     async def websocket(self, scope: Scope, receive: Receive, send: Send) -> None:
         websocket = WebSocket(scope, receive=receive, send=send)
-        if not self.is_authorized(scope):
-            await websocket.close(code=1008)
-            return
-
         session_request = self.session_request(self.relative_path(scope))
         if not session_request:
             await websocket.close(code=1008)
             return
         token, upstream_path = session_request
         endpoint = virtual_desktop.proxy_for_token(token)
-        if not endpoint:
+        if not endpoint or not self.is_authorized(scope, endpoint):
             await websocket.close(code=1008)
             return
+        if endpoint.authorize:
+            headers = dict(scope.get("headers", []))
+            origin = headers.get(b"origin", b"").decode("latin-1")
+            host = headers.get(b"host", b"").decode("latin-1")
+            try:
+                if not host or urlsplit(origin).netloc.casefold() != host.casefold():
+                    await websocket.close(code=1008)
+                    return
+            except ValueError:
+                await websocket.close(code=1008)
+                return
 
         target = self.upstream_target(upstream_path or "/", scope.get("query_string", b""))
         try:
@@ -182,15 +195,30 @@ class VirtualDesktopGateway:
                 tuple(scope.get("subprotocols") or ()),
             )
             await websocket.accept(subprotocol=subprotocol)
-            await asyncio.gather(
-                self.browser_to_xpra(websocket, upstream, writer),
-                self.xpra_to_browser(websocket, upstream, reader, writer),
-            )
+            tasks = [asyncio.create_task(self.browser_to_xpra(websocket, upstream, writer)),
+                     asyncio.create_task(self.xpra_to_browser(websocket, upstream, reader, writer))]
+            if endpoint.authorize:
+                tasks.append(asyncio.create_task(self.watch_access(scope, endpoint)))
+            try:
+                done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                if endpoint.authorize and tasks[-1] in done:
+                    await websocket.close(code=1008)
+            finally:
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                writer.close()
         except Exception:
             try:
                 await websocket.close(code=1011)
             except Exception:
                 pass
+
+    async def watch_access(self, scope: Scope, endpoint: virtual_desktop.VirtualDesktopEndpoint) -> None:
+        while True:
+            await asyncio.sleep(2)
+            if not self.is_authorized(scope, endpoint):
+                return
 
     async def open_websocket(
         self,
@@ -372,9 +400,9 @@ class VirtualDesktopGateway:
     def query(self, scope: Scope) -> dict[str, list[str]]:
         return parse_qs(scope.get("query_string", b"").decode("latin-1"), keep_blank_values=True)
 
-    def is_authorized(self, scope: Scope) -> bool:
+    def is_authorized(self, scope: Scope, endpoint: virtual_desktop.VirtualDesktopEndpoint | None = None) -> bool:
         credentials_hash = login.get_credentials_hash()
-        if not credentials_hash:
+        if not credentials_hash and not login.team_mode_enabled() and not (endpoint and endpoint.authorize):
             return True
         if not self.flask_app:
             return False
@@ -393,7 +421,9 @@ class VirtualDesktopGateway:
             session_data = serializer.loads(session_cookie.value)
         except Exception:
             return False
-        return session_data.get("authentication") == credentials_hash
+        if endpoint and endpoint.authorize:
+            return endpoint.authorize(session_data)
+        return login.is_admin_session(session_data)
 
 
 def install_route_hooks() -> None:

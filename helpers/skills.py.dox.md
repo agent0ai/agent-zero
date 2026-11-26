@@ -57,6 +57,8 @@
 
 ## Runtime Contracts
 
+- Scoped skill discovery restricts metadata and instruction reads to the project and bundled skill roots. Sending an explicit skill reference adds its validated instructions through native chat history.
+
 - `get_skill_roots` is extensible. Plugin end hooks may filter agent-scoped roots from current runtime state; do not mutate cached path lists. Global discovery without an agent retains installed roots. Listing, search, lookup, and skill reattachment use this resolver.
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.

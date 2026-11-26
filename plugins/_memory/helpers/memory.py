@@ -664,6 +664,15 @@ def _metadata_references_any(value: Any, ids: set[str]) -> bool:
 
 
 def abs_db_dir(memory_subdir: str) -> str:
+    if memory_subdir.startswith("team/"):
+        project_id = memory_subdir.removeprefix("team/")
+        if not re.fullmatch(r"[0-9a-f]{32}", project_id):
+            raise ValueError("Unknown team memory.")
+        root = files.get_abs_path("usr", "team", "memory")
+        target = os.path.join(root, project_id)
+        if os.path.realpath(target) != target:
+            raise ValueError("Team memory requires private local storage.")
+        return target
     # patch for projects, this way we don't need to re-work the structure of memory subdirs
     if memory_subdir.startswith("projects/"):
         from helpers.projects import get_project_meta
@@ -695,6 +704,10 @@ def get_memory_subdir_abs(agent: Agent) -> str:
 
 
 def get_agent_memory_subdir(agent: Agent) -> str:
+    from helpers.team_access import CHAT_PROJECT_ID, is_team_chat
+
+    if is_team_chat(agent.context):
+        return f"team/{agent.context.get_data(CHAT_PROJECT_ID)}"
     config = plugins.get_plugin_config("_memory", agent)
 
     if not config:
@@ -745,6 +758,8 @@ def get_existing_memory_subdirs() -> list[str]:
 def get_knowledge_subdirs_by_memory_subdir(
     memory_subdir: str, default: list[str]
 ) -> list[str]:
+    if memory_subdir.startswith("team/"):
+        return []
     if memory_subdir.startswith("projects/"):
         from helpers.projects import get_project_meta
 

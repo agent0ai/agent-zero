@@ -100,9 +100,10 @@ def test_welcome_composer_can_create_a_chat_before_sending() -> None:
     assert 'return "Ask anything to start a new chat";' in input_store
     assert "if (!chatsStore.selected" in input_store
     assert "await chatsStore.newChat()" in input_store
-    optimistic_user = 'await setMessages([{ id: messageId, type: "user"'
+    optimistic_user = "if (!projectChat) await setMessages([userMessage]);"
     assert index_js.count(optimistic_user) == 1
-    assert index_js.index(optimistic_user) < index_js.index("if (hasAttachments)")
+    assert index_js.index(optimistic_user) < index_js.index('response = await api.fetchApi("/message_async"')
+    assert index_js.index("if (!response.ok)") < index_js.index("if (!jsonResponse.replayed && !draft)")
     assert "return response.ctxid;" in chats_store
     assert 'return "arrow_forward";' in input_store
     assert "modelGateStore.canSendToModel()" not in index_js

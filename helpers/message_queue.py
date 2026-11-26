@@ -117,6 +117,9 @@ def log_user_message(
     attachment_paths: list[str],
     message_id: str | None = None,
     source: str = "",
+    *,
+    author: str = "",
+    project_attachments: list[dict] | None = None,
 ):
     """Log user message to console and UI. Used by message API and queue processing."""
     # Prepare attachment filenames for logging
@@ -138,11 +141,12 @@ def log_user_message(
             PrintStyle(font_color="white", padding=False).print(f"- {filename}")
     
     # Log to UI
+    kvps = {"team_attachments": project_attachments} if project_attachments else {"attachments": attachment_filenames}
     context.log.log(
         type="user",
-        heading="",
+        heading=author,
         content=message,
-        kvps={"attachments": attachment_filenames},
+        kvps=kvps,
         id=message_id,
     )
 

@@ -1,0 +1,6 @@
+<html><head><title>Desktop</title></head>
+<body>
+  <div class="project-surface" x-data="{ mode: 'desktop' }" x-init="await Alpine.store('projectSurfaces').open(mode)">
+    <x-component path="team/project-surface.html"></x-component>
+  </div>
+</body></html>

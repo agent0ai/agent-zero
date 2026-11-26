@@ -1,0 +1,51 @@
+name: agent-zero-native-team-qa
+
+services:
+  webui:
+    image: ${A0_TEAM_IMAGE:-agent0ai/agent-zero@sha256:28a9a19e3168d44d53c78fb1a6c7cf086c9e7d6d621d906660d5ec1170d065c1}
+    ports:
+      - "127.0.0.1:${A0_TEAM_PORT:-5081}:80"
+    environment:
+      A0_TEAM_MODE: "1"
+      A0_SET_UPDATE_CHECK_ENABLED: "false"
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: /a0
+    volumes:
+      - type: bind
+        source: ${A0_TEAM_SOURCE:?Set A0_TEAM_SOURCE to the team worktree}
+        target: /a0
+        read_only: true
+      - type: bind
+        source: ${A0_TEAM_GIT_COMMON:?Set A0_TEAM_GIT_COMMON to the Git common directory}
+        target: ${A0_TEAM_GIT_COMMON:?Set A0_TEAM_GIT_COMMON to the Git common directory}
+        read_only: true
+      - type: volume
+        source: usr
+        target: /a0/usr
+      - type: volume
+        source: tmp
+        target: /a0/tmp
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv-a0/bin/python
+        - -c
+        - |-
+          import json
+          import urllib.request
+          with urllib.request.urlopen('http://127.0.0.1/api/health', timeout=3) as response:
+              assert response.status == 200 and json.load(response)['error'] is None
+      start_period: 30s
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+volumes:
+  usr:
+  tmp:

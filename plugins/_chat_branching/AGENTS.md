@@ -14,6 +14,8 @@
 
 ## Local Contracts
 
+- Legacy branching applies to ordinary chats. Shared team history stays bound to its existing project context.
+
 - Preserve UUID-based linking between log entries and history messages.
 - Branched chats must include history only up to the selected message.
 - Detach inherited Responses continuation and response-ID ownership, while

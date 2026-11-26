@@ -15,6 +15,7 @@
 - Keep ordering stable where replacement must occur before unmasking or execution.
 - `_05_replace_include_alias.py` expands `§§include(path)` recursively in argument values before tool-policy checks and secret unmasking. Mutate the original argument dictionary so both `tool.args` and execution kwargs receive file contents; unreadable files keep their placeholders through `helpers.strings.replace_file_includes`.
 - Execution expansion must work without response streaming for Chat, native Responses calls, and parallel workers; the response-stream hook remains display-only.
+- Response-only team chats keep include aliases and stored secret placeholders inert before execution.
 
 ## Work Guidance
 

@@ -52,6 +52,7 @@
       <button
         type="button"
         class="chat-bottom-menu-item"
+        x-show="globalThis.runtimeInfo?.teamRole !== 'member'"
         @click="$store.mcpServersStore.openFromComposer($store.chats.selectedContext?.project?.name || ''); $store.chatInput.closeChatMoreMenu()"
       >
         <x-icon aria-hidden="true" name="hub"></x-icon>
@@ -62,7 +63,7 @@
         type="button"
         class="chat-bottom-menu-item"
         @click="$confirmClick($event, () => { $store.chats.resetChat(); $store.chatInput.closeChatMoreMenu() })"
-        :disabled="!$store.chats.selected"
+        :disabled="!$store.chats.selected || Boolean($store.chats.selectedContext?.team_chat && $store.chats.selectedContext?.running)"
       >
         <x-icon aria-hidden="true" name="delete_sweep"></x-icon>
         <span>Clear Chat</span>

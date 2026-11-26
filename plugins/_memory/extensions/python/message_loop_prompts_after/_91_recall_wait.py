@@ -1,4 +1,5 @@
 from helpers.extension import Extension
+from helpers.team_access import is_team_chat
 from agent import LoopData
 from plugins._memory.extensions.python.message_loop_prompts_after._50_recall_memories import (
     DATA_NAME_ITER as DATA_NAME_ITER_MEMORIES,
@@ -13,7 +14,7 @@ from helpers import plugins
 class RecallWait(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
 
-        if not self.agent:
+        if not self.agent or is_team_chat(getattr(self.agent, "context", None)):
             return
 
         set = plugins.get_plugin_config("_memory", self.agent)

@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Only the active team holder can remove pending items from that run.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `MessageQueueRemove` is an `ApiHandler`.

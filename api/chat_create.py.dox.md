@@ -16,6 +16,14 @@
 
 ## Runtime Contracts
 
+- Project drafts created by either role may reference an existing model preset. The request allocates a private context until the first message is accepted.
+
+- Member requests prepare an authorized in-memory context for a first send. They create neither a chat file nor a run record. Administrator project selection binds native chats to the registered project.
+
+- A caller supplying a legacy context ID cannot reuse an existing shared team chat.
+
+- A member must explicitly name a currently assigned project. The server allocates the context ID and persists project identity and creator before returning the new context.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `CreateChat` is an `ApiHandler`.

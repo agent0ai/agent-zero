@@ -15,6 +15,7 @@
 - Treat parsed stream snapshots as partial data; nested tool fields may be `None`
   until their values arrive.
 - Preserve include-alias replacement semantics where prompts/tools rely on them.
+- Response-only team chats skip filesystem include substitution in displayed stream data.
 - Do not expose unmasked secrets in live responses.
 
 ## Work Guidance

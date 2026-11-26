@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- Team additions are text-only and require the exact active run ID, its holder, and current project membership.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `MessageQueueAdd` is an `ApiHandler`.

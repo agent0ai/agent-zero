@@ -21,6 +21,7 @@ const NOTIFICATION_DURATION = {
 };
 const DEFAULT_TASK_STATE = "idle";
 const TASK_TYPES = ["scheduled", "adhoc", "planned"];
+const isTeamMember = () => globalThis.runtimeInfo?.teamRole === "member";
 
 /**
  * @typedef {Object} SchedulerPlan
@@ -242,7 +243,7 @@ function buildPayloadFromEditingTask(editingTask, { isCreating = false } = {}) {
     prompt: editingTask.prompt || "",
     state: editingTask.state || DEFAULT_TASK_STATE,
     timezone: getUserTimezone(),
-    attachments: normalizeAttachments(editingTask.attachments),
+    attachments: isTeamMember() ? [] : normalizeAttachments(editingTask.attachments),
     dedicated_context: editingTask.dedicated_context,
   };
 
@@ -254,7 +255,7 @@ function buildPayloadFromEditingTask(editingTask, { isCreating = false } = {}) {
     payload.plan = normalizePlanStruct(editingTask.plan);
   }
 
-  if (editingTask.type === "adhoc") {
+  if (editingTask.type === "adhoc" && !isTeamMember()) {
     payload.token = editingTask.token;
   }
 
@@ -645,7 +646,11 @@ const schedulerStoreModel = {
       return;
     }
 
-    if (this.editingTask.type === "adhoc" && !this.editingTask.token) {
+    if (isTeamMember() && this.isCreating && !this.editingTask.project?.name) {
+      this.notifyError("Choose an assigned project for this task.");
+      return;
+    }
+    if (!isTeamMember() && this.editingTask.type === "adhoc" && !this.editingTask.token) {
       this.editingTask.token = this.generateRandomToken();
     }
 
@@ -1034,7 +1039,7 @@ const schedulerStoreModel = {
     const initialProject = this.deriveActiveProject();
 
     this.editingTask = defaultEditingTask({
-      token: this.generateRandomToken(),
+      token: isTeamMember() ? "" : this.generateRandomToken(),
       project: initialProject,
     });
     this.selectedProjectSlug = initialProject?.name || "";

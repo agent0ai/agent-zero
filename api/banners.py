@@ -1,5 +1,6 @@
 from helpers.api import ApiHandler, Request, Response
 from helpers.extension import call_extensions_async
+from helpers.team_access import request_scope
 
 
 class GetBanners(ApiHandler):
@@ -9,6 +10,8 @@ class GetBanners(ApiHandler):
     """
 
     async def process(self, input: dict, request: Request) -> dict | Response:
+        if request_scope() is not None:
+            return {"banners": []}
         banners = input.get("banners", [])
         frontend_context = input.get("context", {})
         

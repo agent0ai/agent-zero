@@ -10,6 +10,8 @@
 
 ## Runtime Contracts
 
+- Stopping a team conversation requires the exact active run ID and either its sender or the platform administrator. The stop request keeps occupancy until the underlying coroutine confirms exit.
+
 - `Stop` derives from `ApiHandler`, retaining the default authentication and CSRF protections.
 - Input uses the selected chat ID in `context`; the endpoint never creates a missing context.
 - Stopping cancels the context task through `AgentContext.kill_process()`, clears pause state, preserves chat history and queued messages, and does not start another run.

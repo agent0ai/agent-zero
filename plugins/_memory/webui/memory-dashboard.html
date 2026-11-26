@@ -16,7 +16,7 @@
                 <!-- Search and Filters Section -->
                 <div class="filters-header memory-filters-header">
                     <div class="filter-group-inline filter-memory-dir">
-                        <label for="memory-subdir-select">Memory Directory</label>
+                        <label for="memory-subdir-select" x-text="globalThis.runtimeInfo?.teamRole === 'member' ? 'Project' : 'Memory Directory'"></label>
                         <select id="memory-subdir-select" x-model="$store.memoryDashboardStore.selectedMemorySubdir"
                             @change="$store.memoryDashboardStore.onMemorySubdirChange()"
                             :disabled="$store.memoryDashboardStore.loadingSubdirs">
@@ -42,7 +42,7 @@
                     <div class="filter-group-inline filter-limit">
                         <label for="limit-input">Limit:</label>
                         <input type="number" id="limit-input" x-model.number="$store.memoryDashboardStore.limit"
-                            min="10" max="1000" step="10" />
+                            min="10" :max="globalThis.runtimeInfo?.teamRole === 'member' ? 100 : 1000" step="10" />
                     </div>
 
                     <div class="filter-threshold">
@@ -65,6 +65,9 @@
                     <button class="btn btn-cancel btn-clear" @click="$store.memoryDashboardStore.clearSearch()">
                         Clear
                     </button>
+                    <button class="button" type="button" x-show="globalThis.runtimeInfo?.teamRole === 'member'"
+                            :disabled="$store.memoryDashboardStore.loading || !$store.memoryDashboardStore.selectedMemorySubdir"
+                            @click="$store.memoryDashboardStore.reindexProjectKnowledge()">Reindex project knowledge</button>
                 </div>
 
                 <!-- Loading state -->

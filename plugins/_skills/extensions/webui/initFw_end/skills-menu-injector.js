@@ -17,6 +17,10 @@ function buildButton() {
 
   button.addEventListener("click", async () => {
     chatInputStore.closeChatMoreMenu();
+    if (globalThis.runtimeInfo?.teamRole === "member" && typeof globalThis.openModal === "function") {
+      await globalThis.openModal("/plugins/_skills/webui/team-skills.html");
+      return;
+    }
     const projectName = chatsStore.selectedContext?.project?.name || "";
     await pluginSettingsStore.openConfig("_skills", projectName, "", {
       focus: "chat",

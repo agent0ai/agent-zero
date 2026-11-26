@@ -5,6 +5,7 @@ from helpers import settings
 from helpers import runtime
 from helpers import file_tree
 from helpers import files
+from helpers import team_access, team_projects, team_runs
 
 class IncludeWorkdirExtras(Extension):
     async def execute(self, loop_data: LoopData = LoopData(), **kwargs):
@@ -12,6 +13,15 @@ class IncludeWorkdirExtras(Extension):
             return
 
         project_name = projects.get_context_project_name(self.agent.context)
+        if team_access.is_team_chat(self.agent.context):
+            _, scope = team_runs.executing_scope(self.agent.context)
+            with team_projects.project_lock(project_name, scope):
+                project = projects.load_basic_project_data(project_name)
+                if project["file_structure"]["enabled"]:
+                    entries = team_projects.file_action(project_name, "list", {"path": ""})["entries"]
+                    paths = [item["name"] + ("/" if item["directory"] else "") for item in entries[:50]]
+                    loop_data.extras_temporary["project_file_structure"] = "Project workspace entries:\n" + "\n".join(paths)
+            return
 
         enabled = False
         max_depth = 0

@@ -1,5 +1,5 @@
 from agent import AgentContext, AgentContextType
-from helpers import persist_chat, projects
+from helpers import persist_chat, projects, team_access
 from helpers.api import ApiHandler, Input, Output, Request, Response
 from helpers.state_monitor_integration import mark_dirty_all
 from helpers.task_scheduler import TaskScheduler
@@ -50,6 +50,8 @@ class MoveChat(ApiHandler):
             except (ValueError, FileNotFoundError):
                 return Response("Invalid project or chat family", 400)
 
+            if any(team_access.is_team_chat(item) for item in family):
+                return Response("Shared chat ownership is fixed.", 403)
             scheduler = TaskScheduler.get()
             if family[0].type != AgentContextType.USER or any(
                 scheduler.get_task_by_uuid(item.id) for item in family

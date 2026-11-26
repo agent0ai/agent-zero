@@ -268,7 +268,7 @@
                 <button
                   type="button"
                   class="file-browser-header-button surface-control"
-                  x-show="!fb.isPickerMode()"
+                  x-show="!fb.isPickerMode() && globalThis.runtimeInfo?.teamRole !== 'member'"
                   @click="fb.openSettings()"
                   title="File Browser Settings"
                   aria-label="File Browser Settings"
@@ -470,15 +470,17 @@
                                   <span>Download ZIP</span>
                                 </button>
 
-                                <button
-                                  type="button"
-                                  class="dropdown-item"
-                                  x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"
-                                  @click="fb.extractArchive(file)"
-                                >
-                                  <x-icon name="unarchive"></x-icon>
-                                  <span>Extract</span>
-                                </button>
+                                <template x-if="globalThis.runtimeInfo?.teamRole !== 'member'">
+                                  <button
+                                    type="button"
+                                    class="dropdown-item"
+                                    x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"
+                                    @click="fb.extractArchive(file)"
+                                  >
+                                    <x-icon name="unarchive"></x-icon>
+                                    <span>Extract</span>
+                                  </button>
+                                </template>
 
                                 <button
                                   type="button"

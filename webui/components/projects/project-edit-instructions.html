@@ -17,18 +17,18 @@
                     </div> -->
 
                 <div class="projects-form-group">
-                    <label class="projects-form-label">Description</label>
+                    <label for="project-description-input" class="projects-form-label">Description</label>
                     <span class="projects-form-description">Describe the project. This helps both you and the agent
                         understand the project context.</span>
-                    <textarea class="projects-form-textarea" x-model="$store.projects.selectedProject.description"
+                    <textarea id="project-description-input" class="projects-form-textarea" x-model="$store.projects.selectedProject.description"
                         rows="5" placeholder="Enter project description"></textarea>
                 </div>
 
                 <div class="projects-form-group">
-                    <label class="projects-form-label">Instructions</label>
+                    <label for="project-instructions-input" class="projects-form-label">Instructions</label>
                     <span class="projects-form-description">Provide specific instructions for the agent related to this
                         project.</span>
-                    <textarea class="projects-form-textarea"
+                    <textarea id="project-instructions-input" class="projects-form-textarea"
                         x-model="$store.projects.selectedProject.instructions" rows="15"
                         placeholder="Enter project instructions"></textarea>
                 </div>

@@ -2,6 +2,7 @@ import uuid
 
 from helpers.tool import Tool, Response
 from helpers.strings import truncate_text
+from helpers.team_access import is_team_chat
 from plugins._memory.helpers.memory import Memory
 
 DEFAULT_THRESHOLD = 0.7
@@ -12,6 +13,10 @@ class MemoryTool(Tool):
 
     async def execute(self, action="", **kwargs) -> Response:
         action = self._action(action)
+        if is_team_chat(getattr(self.agent, "context", None)):
+            from plugins._memory.helpers.team_memory import execute_tool
+
+            return await execute_tool(self.agent, action, kwargs)
         if action == "load":
             return await self._load(**kwargs)
         if action == "save":

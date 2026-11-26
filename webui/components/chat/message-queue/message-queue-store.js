@@ -9,6 +9,11 @@ import { sleep } from "/js/sleep.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
 
+function runPayload() {
+  const run = chatsStore.selectedContext?.team_run;
+  return run ? { run_id: run.id } : {};
+}
+
 const model = {
   // items: [],
   get items() {
@@ -58,6 +63,16 @@ const model = {
 
     // Generate a temporary ID for pending item
     const tempId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (chatsStore.selectedContext?.team_chat) {
+      try {
+        if (attachments.length) return false;
+        const response = await api.callJsonApi("/message_queue_add", { context, text, item_id: tempId, ...runPayload() });
+        return Boolean(response.ok);
+      } catch (error) {
+        globalThis.toastFetchError?.("Could not queue message", error);
+        return false;
+      }
+    }
     const pendingItem = {
       id: tempId,
       text: text.substring(0, 200) || "(attachment only)",
@@ -188,6 +203,7 @@ const model = {
       await api.callJsonApi("/message_queue_remove", {
         context,
         item_id: itemId,
+        ...runPayload(),
       });
     } catch (e) {
       console.error("Failed to remove from queue:", e);
@@ -198,7 +214,7 @@ const model = {
     const context = globalThis.getContext?.();
     if (!context) return;
     try {
-      await api.callJsonApi("/message_queue_remove", { context });
+      await api.callJsonApi("/message_queue_remove", { context, ...runPayload() });
     } catch (e) {
       console.error("Failed to clear queue:", e);
     }
@@ -211,6 +227,7 @@ const model = {
       await api.callJsonApi("/message_queue_send", {
         context,
         item_id: itemId,
+        ...runPayload(),
       });
     } catch (e) {
       console.error("Failed to send queued message:", e);
@@ -220,6 +237,7 @@ const model = {
   async sendAll() {
     const context = globalThis.getContext?.();
     if (!context || !this.hasQueue) return;
+    const hold = runPayload();
 
     // check for pending uploads and notify user
     if (this.pendingItems.length > 0) {
@@ -240,7 +258,7 @@ const model = {
     if (!this.hasQueue) return;
     try {
       navStore.scrollToBottom();
-      await api.callJsonApi("/message_queue_send", { context, send_all: true });
+      await api.callJsonApi("/message_queue_send", { context, send_all: true, ...hold });
     } catch (e) {
       console.error("Failed to send all queued:", e);
     }

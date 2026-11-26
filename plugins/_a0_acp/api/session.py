@@ -95,12 +95,13 @@ class Session(ProtectedConnectorApiHandler):
 
     def _context(self, input: dict):
         from agent import AgentContext
+        from helpers.team_access import is_team_chat
 
         context_id = str(input.get("context_id") or input.get("session_id") or "").strip()
         if not context_id:
             return None, Response(status=400, response="context_id is required")
         context = AgentContext.get(context_id)
-        if context is None:
+        if context is None or is_team_chat(context):
             return None, Response(status=404, response="ACP session not found")
         return context, None
 

@@ -17,6 +17,8 @@
 
 ## Runtime Contracts
 
+- Team logout revokes the session credential before clearing the browser cookie and causes state transports to recheck the session.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `ApiLogout` is an `ApiHandler`.

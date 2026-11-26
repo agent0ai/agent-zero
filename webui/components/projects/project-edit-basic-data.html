@@ -29,10 +29,10 @@
                 </template>
 
                 <div class="projects-form-group">
-                    <label class="projects-form-label">Title</label>
+                    <label for="project-title-input" class="projects-form-label">Title</label>
                     <span class="projects-form-description">Title and description are visible to both you and the agent
                         and can help it understand the project.</span>
-                    <input class="projects-form-input" type="text" x-model="$store.projects.selectedProject.title"
+                    <input id="project-title-input" class="projects-form-input" type="text" x-model="$store.projects.selectedProject.title"
                         placeholder="Optional title">
                 </div>
 

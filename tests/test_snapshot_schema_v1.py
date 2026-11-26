@@ -108,6 +108,29 @@ async def test_negotiated_incremental_snapshot_uses_null_collection_sentinel():
     assert payload["tasks"] is None
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("grants, names", [
+    ({"p2": "id2", "p1": "id1"}, ["p1", "p2"]),
+    ({}, []),
+])
+async def test_member_incremental_snapshot_includes_grants_without_chat_collections(grants, names):
+    from helpers import state_snapshot as snapshot
+    from helpers.team_access import MemberScope
+
+    payload = await snapshot.build_snapshot_from_request(
+        request=snapshot.StateRequestV1(None, 0, 0, "UTC", collections_delta=True),
+        include_collections=False,
+        member_scope=MemberScope("member", grants),
+    )
+
+    assert set(payload) == EXPECTED_SNAPSHOT_KEYS | {"team_project_names"}
+    assert payload["team_project_names"] == names
+    assert payload["contexts"] is None
+    assert payload["tasks"] is None
+    with pytest.raises(TypeError, match="snapshot.team_project_names"):
+        snapshot.validate_snapshot_schema_v1({**payload, "team_project_names": "p1"})
+
+
 def test_state_request_collection_delta_is_optional_and_type_checked():
     from helpers import state_snapshot as snapshot
 

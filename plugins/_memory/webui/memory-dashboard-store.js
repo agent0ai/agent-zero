@@ -10,6 +10,7 @@ import {
   getUserTimezone,
 } from "/js/time-utils.js";
 const MEMORY_DASHBOARD_API = "/plugins/_memory/memory_dashboard";
+const isMember = () => globalThis.runtimeInfo?.teamRole === "member";
 
 // Helper function for toasts
 function justToast(text, type = "info", timeout = 5000) {
@@ -68,8 +69,10 @@ const memoryDashboardStore = {
   },
 
   async onOpen() {
+    if (isMember()) this.limit = Math.min(this.limit, 100);
     await this.getCurrentMemorySubdir();
     await this.loadMemorySubdirs();
+    if (isMember() && !this.memorySubdirs.length) return;
     await this.searchMemories();
     // Start polling for live updates as soon as dashboard is open
     this.startPolling();
@@ -125,6 +128,13 @@ const memoryDashboardStore = {
       });
 
       if (response.success) {
+        if (isMember()) {
+          this.memorySubdirs = response.subdirs || [];
+          if (!this.memorySubdirs.includes(this.selectedMemorySubdir)) {
+            this.selectedMemorySubdir = this.memorySubdirs[0] || "";
+          }
+          return;
+        }
         let subdirs = response.subdirs || ["default"];
 
         // Sort alphabetically but ensure "default" is always first
@@ -159,7 +169,26 @@ const memoryDashboardStore = {
     }
   },
 
+  async reindexProjectKnowledge() {
+    if (!isMember() || this.loading || !this.selectedMemorySubdir) return;
+    this.loading = true;
+    this.error = null;
+    try {
+      const outcome = await API.callJsonApi(MEMORY_DASHBOARD_API, {
+        action: "reindex",
+        memory_subdir: this.selectedMemorySubdir,
+      });
+      justToast(`Indexed ${outcome.count} project knowledge files`, "success");
+      await this.searchMemories();
+    } catch (error) {
+      justToast(error.message || "Could not index project knowledge", "error");
+    } finally {
+      this.loading = false;
+    }
+  },
+
   async searchMemories(silent = false) {
+    if (isMember() && !this.selectedMemorySubdir) return;
     // Save limit to localStorage for persistence
     localStorage.setItem("memoryDashboard_limit", this.limit.toString());
     localStorage.setItem(
@@ -660,6 +689,7 @@ ${memory.content_full}
     this.message = null;
     this.currentPage = 1;
     this.editMemoryBackup;
+    if (isMember()) this.detailMemory = null;
   },
 
   enableEditMode() {

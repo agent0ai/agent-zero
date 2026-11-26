@@ -3,6 +3,7 @@ from typing import Any
 from helpers import responses_tools
 from helpers.extension import Extension, extensible
 from helpers.mcp_handler import MCPConfig
+from helpers.team_access import is_team_chat
 from agent import Agent, LoopData
 
 
@@ -24,6 +25,8 @@ class MCPToolsPrompt(Extension):
 
 @extensible
 async def build_prompt(agent: Agent) -> str:
+    if is_team_chat(agent.context):
+        return ""
     mcp_config = MCPConfig.get_for_agent(agent)
     if not mcp_config.servers:
         return ""

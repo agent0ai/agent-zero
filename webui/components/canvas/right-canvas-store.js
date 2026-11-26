@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+import { createStore, getStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { callJsExtensions } from "/js/extensions.js";
@@ -701,6 +701,7 @@ const model = {
   },
 
   shouldRender() {
+    if (globalThis.runtimeInfo?.teamRole === "member" && getStore("projects")?.teamProjectName) return true;
     return !this.isWelcomeVisible();
   },
 };

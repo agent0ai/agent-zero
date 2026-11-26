@@ -16,6 +16,10 @@
 
 ## Runtime Contracts
 
+- Clearing an idle shared chat first saves an archive and records an audit event. Ownership, title and participation remain with the same project.
+
+- The legacy reset route preserves shared team chat history and running reservations.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Reset` is an `ApiHandler`.

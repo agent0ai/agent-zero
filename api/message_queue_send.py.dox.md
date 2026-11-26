@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- An authorized team holder promotes the pending items into the original run's native intervention checkpoints. Unconsumed promotions drain inside the same hold in queue order.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `MessageQueueSend` is an `ApiHandler`.

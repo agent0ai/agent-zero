@@ -177,10 +177,7 @@ def requires_auth(f):
     async def decorated(*args, **kwargs):
         from helpers import login
 
-        user_pass_hash = login.get_credentials_hash()
-        if not user_pass_hash:
-            return await f(*args, **kwargs)
-        if session.get("authentication") != user_pass_hash:
+        if not login.is_authenticated(session):
             return redirect(url_for("login_handler", next=get_current_request_next_url()))
         return await f(*args, **kwargs)
 
@@ -205,9 +202,11 @@ def csrf_protect(f):
 
 def register_api_route(app: Flask, lock: ThreadLockType) -> None:
     from helpers.modules import load_classes_from_file
-    from helpers import plugins
+    from helpers import login, plugins, team_access
 
     async def _dispatch(path: str) -> BaseResponse:
+        if login.TEAM_SESSION_KEY in session and path not in team_access.MEMBER_API_ROUTES:
+            return Response("Action forbidden", 403)
         # Return cached wrapped handler if available
         cached = cache.get(CACHE_AREA, path)
         if cached is not None:

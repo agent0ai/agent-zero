@@ -25,6 +25,7 @@
 - Recurring tasks catch up once after missed schedules on the next engine tick. Changes to cron/timezone or re-enabling a disabled task start a new schedule from that moment; ordinary edits preserve an overdue run. Keep timing in the engine and preserve its serialized `schedule_anchor` during full-task round trips.
 - The plugin declares `always_enabled: true`: the core scheduling engine keeps running tasks it created even when plugin code is absent, so the plugin must not be disableable into a state where tasks run without any way to manage them.
 - Plugin API routes resolve as `/api/plugins/_scheduler/<handler>` via the standard plugin API resolution in `helpers/api.py`.
+- Team member CRUD and task listings verify the current project grant. Starting a team task runs the native scheduler with its authorized actor, and removing an idle task retains the project chat.
 - Core snapshot and chat-selection consumers import the always-enabled plugin's tasks store directly, ensuring it exists before the first snapshot even when the sidebar has not mounted.
 - Timezone aliases (local/user/default/current/current_timezone) resolve via `helpers.localization`; cron validation rejects malformed expressions before task creation.
 - `wait_for_task` polls task state until completion, failure, or idempotent runs.

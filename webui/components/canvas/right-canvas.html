@@ -115,6 +115,9 @@
 
           <main class="right-canvas-panels">
             <x-extension id="right-canvas-panels"></x-extension>
+            <template x-if="globalThis.runtimeInfo?.teamRole === 'member'">
+              <x-component path="team/project-viewer-panels.html"></x-component>
+            </template>
             <template x-if="$store.rightCanvas.panelSurfaces.length === 0">
               <div class="right-canvas-empty-state">
                 <x-extension id="right-canvas-empty-state"></x-extension>

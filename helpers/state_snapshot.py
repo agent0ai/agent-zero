@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import types
-from typing import Any, Mapping, TypedDict, Union, get_args, get_origin, get_type_hints
+from typing import Any, Mapping, NotRequired, TypedDict, Union, get_args, get_origin, get_type_hints, TYPE_CHECKING
 
 from dataclasses import dataclass, replace
 
@@ -12,6 +12,10 @@ from agent import AgentContext, AgentContextType
 from helpers.dotenv import get_dotenv_value
 from helpers.localization import Localization
 from helpers.task_scheduler import TaskScheduler
+from helpers import login
+
+if TYPE_CHECKING:
+    from helpers.team_access import MemberScope
 
 
 class SnapshotV1(TypedDict):
@@ -30,6 +34,7 @@ class SnapshotV1(TypedDict):
     notifications: list[dict[str, Any]]
     notifications_guid: str
     notifications_version: int
+    team_project_names: NotRequired[list[str]]
 
 @dataclass(frozen=True)
 class StateRequestV1:
@@ -81,7 +86,11 @@ def _build_schema_from_typeddict(td: type) -> dict[str, tuple[type, ...]]:
 
 
 _SNAPSHOT_V1_SCHEMA = _build_schema_from_typeddict(SnapshotV1)
-SNAPSHOT_SCHEMA_V1_KEYS: tuple[str, ...] = tuple(_SNAPSHOT_V1_SCHEMA.keys())
+SNAPSHOT_SCHEMA_V1_KEYS: tuple[str, ...] = tuple(
+    key
+    for key, annotation in get_type_hints(SnapshotV1, include_extras=True).items()
+    if get_origin(annotation) is not NotRequired
+)
 
 
 def validate_snapshot_schema_v1(snapshot: Mapping[str, Any]) -> None:
@@ -90,7 +99,7 @@ def validate_snapshot_schema_v1(snapshot: Mapping[str, Any]) -> None:
     expected = set(SNAPSHOT_SCHEMA_V1_KEYS)
     actual = set(snapshot.keys())
     missing = sorted(expected - actual)
-    extra = sorted(actual - expected)
+    extra = sorted(actual - _SNAPSHOT_V1_SCHEMA.keys())
     if missing or extra:
         message = "snapshot schema mismatch"
         if missing:
@@ -100,7 +109,7 @@ def validate_snapshot_schema_v1(snapshot: Mapping[str, Any]) -> None:
         raise ValueError(message)
 
     for key, expected_types in _SNAPSHOT_V1_SCHEMA.items():
-        if expected_types and not isinstance(snapshot.get(key), expected_types):
+        if key in snapshot and expected_types and not isinstance(snapshot[key], expected_types):
             type_desc = " | ".join(t.__name__ for t in expected_types)
             raise TypeError(f"snapshot.{key} must be {type_desc}")
 
@@ -264,16 +273,17 @@ def advance_state_request_after_snapshot(
 
 
 async def build_snapshot_from_request(
-    *, request: StateRequestV1, include_collections: bool = True
+    *, request: StateRequestV1, include_collections: bool = True, member_scope: MemberScope | None = None
 ) -> SnapshotV1:
     """Build a poll-shaped snapshot for both /poll and state_push."""
 
-    localization = Localization.get()
-    previous_timezone = localization.get_timezone()
-    localization.set_timezone(request.timezone)
-    current_timezone = localization.get_timezone()
-    if current_timezone != previous_timezone:
-        _notify_timezone_changed(previous_timezone, current_timezone)
+    if member_scope is None:
+        localization = Localization.get()
+        previous_timezone = localization.get_timezone()
+        localization.set_timezone(request.timezone)
+        current_timezone = localization.get_timezone()
+        if current_timezone != previous_timezone:
+            _notify_timezone_changed(previous_timezone, current_timezone)
 
     ctxid = request.context if isinstance(request.context, str) else ""
     ctxid = ctxid.strip()
@@ -281,12 +291,24 @@ async def build_snapshot_from_request(
     from_no = _coerce_non_negative_int(request.log_from, default=0)
     notifications_from_no = _coerce_non_negative_int(request.notifications_from, default=0)
 
-    if include_collections:
+    if include_collections and member_scope is None:
         _prune_missing_saved_contexts()
 
     active_context = AgentContext.get(ctxid) if ctxid else None
+    from helpers import team_access
+    from helpers.team_store import ADMIN_ACTOR_ID
 
-    if active_context:
+    scheduler = TaskScheduler.get()
+    if active_context and member_scope:
+        if not member_scope.permits_chat(active_context) or team_access.is_draft(active_context):
+            active_context = None
+        elif not team_access.has_chat_history(active_context):
+            linked_task = scheduler.get_task_by_uuid(active_context.id)
+            if not linked_task or getattr(linked_task, "team_project_id", None) != active_context.get_data(team_access.CHAT_PROJECT_ID):
+                active_context = None
+
+    show_log = bool(active_context) and not team_access.is_draft(active_context)
+    if show_log:
         log_output = active_context.log.output(start=from_no)
         logs = log_output.items
         log_end = log_output.end
@@ -294,12 +316,13 @@ async def build_snapshot_from_request(
         logs = []
         log_end = 0
 
-    notification_manager = AgentContext.get_notification_manager()
-    notifications, notifications_guid, notifications_version = (
-        notification_manager.output_with_state(start=notifications_from_no)
-    )
-
-    scheduler = TaskScheduler.get()
+    if member_scope is None:
+        notification_manager = AgentContext.get_notification_manager()
+        notifications, notifications_guid, notifications_version = (
+            notification_manager.output_with_state(start=notifications_from_no)
+        )
+    else:
+        notifications, notifications_guid, notifications_version = [], "", 0
 
     ctxs: list[dict[str, Any]] = []
     tasks: list[dict[str, Any]] = []
@@ -307,6 +330,14 @@ async def build_snapshot_from_request(
     agent_profile_labels = _get_agent_profile_labels() if include_collections else {}
 
     all_ctxs = AgentContext.all() if include_collections else []
+    active_runs = {}
+    active_queues = {}
+    if include_collections and login.team_mode_enabled():
+        from helpers.team_store import get_store
+        from helpers.team_runs import public_run
+
+        active_runs = get_store().active_runs()
+        active_queues = get_store().pending_queues()
     for ctx in all_ctxs:
         if ctx.id in processed_contexts:
             continue
@@ -314,17 +345,32 @@ async def build_snapshot_from_request(
         if ctx.type == AgentContextType.BACKGROUND:
             processed_contexts.add(ctx.id)
             continue
+        if team_access.is_draft(ctx) or (member_scope and not member_scope.permits_chat(ctx)):
+            continue
 
         context_data = ctx.output()
+        if team_access.is_team_chat(ctx):
+            context_data["team_chat"] = True
         _apply_agent_profile_metadata(context_data, ctx, agent_profile_labels)
+        if run := active_runs.get(ctx.id):
+            viewer_id = member_scope.account_id if member_scope else ADMIN_ACTOR_ID
+            context_data["team_run"] = public_run(run, viewer_id)
+            context_data["running"] = True
+            if run.account_id == viewer_id:
+                context_data["message_queue"] = active_queues.get(run.id, [])
 
         context_task = scheduler.get_task_by_uuid(ctx.id)
         is_task_context = context_task is not None and context_task.context_id == ctx.id
 
         if not is_task_context:
+            if team_access.is_team_chat(ctx) and not team_access.has_chat_history(ctx):
+                if member_scope or ctx.get_data(team_access.CHAT_CREATOR_ID) != ADMIN_ACTOR_ID:
+                    continue
             ctxs.append(context_data)
-        else:
-            task_details = scheduler.serialize_task(ctx.id)
+        elif member_scope is None or getattr(context_task, "team_project_id", None) == member_scope.project_ids.get(
+            ctx.get_data("project"), ""
+        ):
+            task_details = scheduler.serialize_task(ctx.id, include_team_data=True) if member_scope else scheduler.serialize_task(ctx.id)
             if task_details:
                 context_data.update(
                     {
@@ -345,8 +391,10 @@ async def build_snapshot_from_request(
                     context_data["schedule"] = task_details.get("schedule")
                 elif task_details.get("type") == "planned":
                     context_data["plan"] = task_details.get("plan")
-                else:
+                elif "token" in task_details:
                     context_data["token"] = task_details.get("token")
+                if task_details.get("team_task"):
+                    context_data["team_task"] = True
 
             tasks.append(context_data)
 
@@ -361,15 +409,17 @@ async def build_snapshot_from_request(
         "contexts": ctxs if include_collections else None,
         "tasks": tasks if include_collections else None,
         "logs": logs,
-        "log_guid": active_context.log.guid if active_context else "",
+        "log_guid": active_context.log.guid if show_log else "",
         "log_version": log_end,
-        "log_progress": active_context.log.progress if active_context else 0,
-        "log_progress_active": bool(active_context.log.progress_active) if active_context else False,
-        "paused": active_context.paused if active_context else False,
+        "log_progress": active_context.log.progress if show_log else 0,
+        "log_progress_active": bool(active_context.log.progress_active) if show_log else False,
+        "paused": active_context.paused if show_log else False,
         "notifications": notifications,
         "notifications_guid": notifications_guid,
         "notifications_version": notifications_version,
     }
+    if member_scope is not None:
+        snapshot["team_project_names"] = sorted(member_scope.project_ids)
 
     validate_snapshot_schema_v1(snapshot)
     return snapshot
@@ -396,6 +446,7 @@ async def build_snapshot(
     log_from: int,
     notifications_from: int,
     timezone: str | None,
+    member_scope: MemberScope | None = None,
 ) -> SnapshotV1:
     request = _coerce_state_request_inputs(
         context=context,
@@ -403,4 +454,6 @@ async def build_snapshot(
         notifications_from=notifications_from,
         timezone=timezone,
     )
+    if member_scope is not None:
+        return await build_snapshot_from_request(request=request, member_scope=member_scope)
     return await build_snapshot_from_request(request=request)

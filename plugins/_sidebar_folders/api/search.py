@@ -1,6 +1,7 @@
 import asyncio
 
 from agent import AgentContext, AgentContextType
+from helpers.team_access import is_team_chat
 from helpers.api import ApiHandler, Request, Response
 from helpers.task_scheduler import TaskScheduler
 from plugins._sidebar_folders.helpers.search import search_contexts
@@ -16,6 +17,9 @@ class Search(ApiHandler):
         query = query.strip()
         if not query:
             return {"matches": []}
-        contexts = [context for context in AgentContext.all() if context.type != AgentContextType.BACKGROUND]
+        contexts = [
+            context for context in AgentContext.all()
+            if context.type != AgentContextType.BACKGROUND and not is_team_chat(context)
+        ]
         titles = {task.uuid: task.name for task in TaskScheduler.get().get_tasks() if task.is_dedicated()}
         return {"matches": await asyncio.to_thread(search_contexts, contexts, query, titles)}

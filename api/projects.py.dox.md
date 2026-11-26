@@ -23,6 +23,10 @@
 
 ## Runtime Contracts
 
+- Members receive only their currently assigned native projects in the list and options. Member project creation, deactivation, and reassignment of existing chats require a separately authorized operation.
+- Members load and update ordinary settings in assigned projects. Bound projects use a native header revision for both participant and administrator saves. A stale revision returns HTTP 409, and each managed save records its outcome.
+- Legacy activation and deactivation cannot move an existing team chat.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Projects` is an `ApiHandler`.

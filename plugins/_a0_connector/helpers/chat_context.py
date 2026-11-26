@@ -26,10 +26,10 @@ def get_existing_context(
     project_name: str | None = None,
 ):
     from agent import AgentContext
-    from helpers import projects
+    from helpers import projects, team_access
 
     context = AgentContext.get(context_id)
-    if context is None:
+    if context is None or team_access.is_team_chat(context):
         raise ConnectorContextError(
             "Context not found",
             status_code=404,

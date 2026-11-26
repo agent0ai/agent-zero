@@ -10,6 +10,8 @@
 
 ## Local Contracts
 
+- `register-project-viewers.js` installs the browser and desktop views for project members.
+
 - JavaScript modules must export a default function.
 - Surface IDs must be unique and stable.
 - Registered surfaces must point to valid components or handlers.

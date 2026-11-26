@@ -3,6 +3,7 @@ from helpers.extension import Extension
 from helpers import message_queue as mq
 from agent import AgentContext, Agent, LoopData
 from helpers.state_monitor_integration import mark_dirty_for_context
+from helpers.team_access import is_team_chat
 
 
 class ProcessQueue(Extension):
@@ -17,6 +18,8 @@ class ProcessQueue(Extension):
             return
 
         context = self.agent.context
+        if is_team_chat(context):
+            return
 
         # Check if there are queued messages
         if mq.has_queue(context):

@@ -26,6 +26,9 @@
 
 ## Local Contracts
 
+- `guides/native-teams.md` owns independent team Compose setup, member verification, and backup, upgrade and rollback procedures.
+- `本地开发踩坑经验.md` owns reusable development and diagnostic lessons from native team verification.
+
 - Prefer local docs for practical workflows and direct users to DeepWiki for source-linked internals when appropriate.
 - Do not document secrets, private deployment details, unreleased credentials, or user-specific runtime state.
 - Screenshots and assets must be relevant to the documented UI state and should be updated when UI changes make them misleading.

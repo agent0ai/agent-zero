@@ -1,7 +1,7 @@
 from agent import AgentContext
 from helpers.api import ApiHandler, Request, Response
 from helpers.print_style import PrintStyle
-from helpers import persist_chat
+from helpers import persist_chat, team_access
 import json
 
 
@@ -36,6 +36,8 @@ class ApiResetChat(ApiHandler):
 
             # Check if context exists
             context = AgentContext.use(context_id)
+            if team_access.is_team_chat(context):
+                return Response("Shared chat history is retained.", 403)
             if not context:
                 return Response(
                     '{"error": "Chat context not found"}',

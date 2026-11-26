@@ -225,6 +225,10 @@ def project_system_prompt(
 
 
 def _local_tool_prompts(agent: Any) -> list[tuple[str, str]]:
+    from helpers.team_access import is_team_chat
+
+    if is_team_chat(getattr(agent, "context", None)):
+        return team_tool_prompts(agent)
     prompt_dirs = subagents.get_paths(agent, "prompts")
     tool_files = files.get_unique_filenames_in_dirs(
         prompt_dirs, f"{TOOL_PROMPT_PREFIX}*{TOOL_PROMPT_SUFFIX}"
@@ -253,6 +257,17 @@ def _local_tool_prompts(agent: Any) -> list[tuple[str, str]]:
     if vision_prompt:
         result.append(("vision_load", vision_prompt))
     return result
+
+
+def team_tool_prompts(agent: Any) -> list[tuple[str, str]]:
+    from helpers.team_access import TEAM_TOOL_IDS
+
+    return [
+        (name, agent.read_prompt(f"agent.system.tool.{name}.md") if name in {"response", "goal"}
+         else files.read_file(f"prompts/team.tool.{name}.md"))
+        for name in TEAM_TOOL_IDS
+        if tool_policy.resolve_tool(agent, name).allowed
+    ]
 
 
 def _vision_tool_prompt(agent: Any) -> str:
@@ -284,6 +299,10 @@ def _include_local_tool_prompt(agent: Any, tool_name: str) -> bool:
 
 
 def _mcp_tools(agent: Any) -> list[tuple[str, dict[str, Any]]]:
+    from helpers.team_access import is_team_chat
+
+    if is_team_chat(getattr(agent, "context", None)):
+        return []
     try:
         import helpers.mcp_handler as mcp_helper
 

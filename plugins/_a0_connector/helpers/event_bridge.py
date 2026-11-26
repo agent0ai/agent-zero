@@ -6,6 +6,7 @@ import time
 from typing import Any, AsyncIterator, Callable
 
 from helpers.print_style import PrintStyle
+from helpers.team_access import is_team_chat
 
 
 EVENT_USER_MESSAGE = "user_message"
@@ -98,7 +99,7 @@ def get_context_log_entries(
         from agent import AgentContext
 
         context = AgentContext.get(context_id)
-        if context is None:
+        if context is None or is_team_chat(context):
             return [], 0
 
         start = max(int(after or 0), 0)
@@ -134,7 +135,7 @@ def get_context_log_entry_count(context_id: str) -> int:
         from agent import AgentContext
 
         context = AgentContext.get(context_id)
-        if context is None:
+        if context is None or is_team_chat(context):
             return 0
 
         log = context.log

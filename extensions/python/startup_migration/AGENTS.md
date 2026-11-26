@@ -13,6 +13,8 @@
 - Migrations must be safe to run repeatedly.
 - Preserve user data and create backups or reversible paths when changing durable state.
 - Keep long-running work bounded and observable.
+- `_30_team_runs.py` acquires the team volume's single-framework runtime lock before recovering interrupted runs from an exited process.
+- It also marks interrupted native project tasks for explicit retry.
 - `_05_framework_dependencies.py` applies the LiteLLM/OpenAI pins and shared security floors from root `requirements.txt` on Docker startup. Already-current and non-Docker environments skip installation; failures stop startup. Extend its package scope when future core dependency changes need self-update installation.
 - After changing framework packages, reuse `helpers.process.restart_process()` before serving requests so imported SDK modules are refreshed. Keep installation within 60 seconds to leave startup time within older self-updaters' health-check window; Git rollback does not restore Python packages.
 - `_10_self_update_manager.py` may replace `/exe/self_update_manager.py` from the repository copy when the installed runtime updater is stale; it must validate required safety markers and keep a backup before replacement.

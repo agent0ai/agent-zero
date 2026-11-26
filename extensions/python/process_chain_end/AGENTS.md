@@ -11,6 +11,7 @@
 ## Local Contracts
 
 - Preserve queue ordering and avoid duplicate message processing.
+- Team queue processing stays inside the durable holder's turn wrapper. The generic delayed-send hook skips team conversations.
 - Keep queue side effects synchronized with chat persistence and WebUI state.
 
 ## Work Guidance

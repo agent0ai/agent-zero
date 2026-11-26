@@ -11,6 +11,8 @@
 
 ## Local Contracts
 
+- Project Browser and Desktop mount in the native canvas. Their viewer URLs come from the authorized project surface API.
+
 - Each panel must correspond to a registered right-canvas surface ID.
 - Use `<x-component>` for reusable component content instead of duplicating panel implementations.
 - Keep canvas panels compatible with `.right-canvas-surface-panel` layout semantics.

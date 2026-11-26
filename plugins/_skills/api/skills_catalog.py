@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
 from agent import AgentContext
-from helpers import files, projects, skills
+from helpers import files, projects, skills, team_access
 from helpers.api import ApiHandler, Request, Response
 from helpers.persist_chat import save_tmp_chat
+from helpers.team_store import get_store
 
 
 class SkillsCatalog(ApiHandler):
@@ -15,38 +17,55 @@ class SkillsCatalog(ApiHandler):
         context_id = str(input.get("context_id", "") or "").strip()
         project_name = str(input.get("project_name", "") or "").strip()
 
+        member = team_access.request_scope()
+        context = AgentContext.get(context_id) if context_id else None
+        project_scope = member is not None or team_access.is_team_chat(context)
+        if project_scope:
+            scope = team_access.request_chat_scope(context) if context else member
+            if scope is None or (context_id and (not context or not team_access.can_send(scope, context))):
+                return Response("Chat access denied.", 403)
+            project_name = projects.get_context_project_name(context) if context else project_name
+            if project_name not in scope.project_ids:
+                return Response("Project access denied.", 403)
+
         try:
             if action == "list":
-                return self._build_state(context_id=context_id, project_name=project_name)
-            if action == "activate":
-                return self._activate(input, context_id=context_id)
+                return self._build_state(context_id=context_id, project_name=project_name, project_scope=project_scope)
+            if action in {"activate", "hide", "show"}:
+                with self.thread_lock if project_scope else nullcontext():
+                    if project_scope:
+                        current_scope = team_access.request_chat_scope(context) if context else None
+                        if not context or current_scope is None or not team_access.can_send(current_scope, context):
+                            return Response("Chat access denied.", 403)
+                        if context.is_running() or get_store().active_run(context.id):
+                            return Response("Wait for the current run before changing skills.", 409)
+                    if action == "activate":
+                        return self._activate(input, context_id=context_id, project_scope=project_scope)
+                    if action == "hide":
+                        return self._hide(input, context_id=context_id, project_scope=project_scope)
+                    return self._show(input, context_id=context_id, project_scope=project_scope)
             if action == "deactivate":
                 return self._deactivate(input, context_id=context_id)
-            if action == "hide":
-                return self._hide(input, context_id=context_id)
-            if action == "show":
-                return self._show(input, context_id=context_id)
             if action == "clear":
                 return self._clear(context_id=context_id)
             if action == "get_doc":
-                return self._get_doc(input, context_id=context_id, project_name=project_name)
+                return self._get_doc(input, context_id=context_id, project_name=project_name, project_scope=project_scope)
             return {"ok": False, "error": f"Unknown action: {action}"}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def _activate(self, input: dict, *, context_id: str) -> dict[str, Any]:
+    def _activate(self, input: dict, *, context_id: str, project_scope: bool = False) -> dict[str, Any]:
         context = self._require_context(context_id)
         skill_entry = self._require_skill_entry(input)
         agent = context.get_agent()
-        skill = self._resolve_catalog_skill(skill_entry, context=context)
+        skill = self._resolve_catalog_skill(skill_entry, context=context, project_scope=project_scope)
         skill_name = str(skill.get("name") or skill_entry.get("name") or "").strip()
         if not skill_name:
             raise ValueError("Skill name is required")
 
         skill_path = str(skill.get("path") or skill_entry.get("path") or "").strip()
-        skills.add_loaded_skill_name(agent, skill_name)
         if not self._visible_skill_loaded(agent, skill_name):
-            content = skills.load_skill_for_agent(skill_name=skill_name, agent=agent)
+            content = skills.load_skill_for_agent(skill_name=skill_path if project_scope else skill_name, agent=agent)
             if content.startswith("Error:"):
                 raise ValueError(content)
             agent.hist_add_tool_result(
@@ -59,8 +78,9 @@ class SkillsCatalog(ApiHandler):
                     "content_included": True,
                 },
             )
+        skills.add_loaded_skill_name(agent, skill_name)
         save_tmp_chat(context)
-        return self._build_state(context_id=context.id)
+        return self._build_state(context_id=context.id, project_scope=project_scope)
 
     def _deactivate(self, input: dict, *, context_id: str) -> dict[str, Any]:
         return {
@@ -68,19 +88,23 @@ class SkillsCatalog(ApiHandler):
             "error": "Loaded skills are kept in chat history and cannot be removed.",
         }
 
-    def _hide(self, input: dict, *, context_id: str) -> dict[str, Any]:
+    def _hide(self, input: dict, *, context_id: str, project_scope: bool = False) -> dict[str, Any]:
         context = self._require_context(context_id)
         skill_entry = self._require_skill_entry(input)
+        if project_scope:
+            skill_entry = self._resolve_catalog_skill(skill_entry, context=context, project_scope=True)
         skills.hide_chat_skill(context.get_agent(), skill_entry)
         save_tmp_chat(context)
-        return self._build_state(context_id=context.id)
+        return self._build_state(context_id=context.id, project_scope=project_scope)
 
-    def _show(self, input: dict, *, context_id: str) -> dict[str, Any]:
+    def _show(self, input: dict, *, context_id: str, project_scope: bool = False) -> dict[str, Any]:
         context = self._require_context(context_id)
         skill_entry = self._require_skill_entry(input)
+        if project_scope:
+            skill_entry = self._resolve_catalog_skill(skill_entry, context=context, project_scope=True)
         skills.show_chat_skill(context.get_agent(), skill_entry)
         save_tmp_chat(context)
-        return self._build_state(context_id=context.id)
+        return self._build_state(context_id=context.id, project_scope=project_scope)
 
     def _clear(self, *, context_id: str) -> dict[str, Any]:
         return {
@@ -93,6 +117,7 @@ class SkillsCatalog(ApiHandler):
         *,
         context_id: str = "",
         project_name: str = "",
+        project_scope: bool = False,
     ) -> dict[str, Any]:
         context = AgentContext.get(context_id) if context_id else None
         agent = context.get_agent() if context else None
@@ -100,7 +125,7 @@ class SkillsCatalog(ApiHandler):
         if context and not project_name:
             project_name = projects.get_context_project_name(context) or ""
 
-        catalog = skills.list_skill_catalog(project_name=project_name, agent=agent)
+        catalog = skills.list_skill_catalog(project_name=project_name, agent=agent, project_scope=project_scope)
         catalog_by_key = {self._entry_key(skill): skill for skill in catalog}
         catalog_by_name = {
             str(skill.get("name") or "").strip().lower(): skill for skill in catalog
@@ -114,7 +139,7 @@ class SkillsCatalog(ApiHandler):
         visible_entries = skills.get_chat_visible_skills(context)
         hidden_entries = skills.get_hidden_skills(agent)
 
-        return {
+        state = {
             "ok": True,
             "context_available": bool(context),
             "context_id": context.id if context else "",
@@ -193,6 +218,11 @@ class SkillsCatalog(ApiHandler):
                 for entry in visible_entries
             ],
         }
+        if project_scope:
+            for key, entries in state.items():
+                if key != "skills" and isinstance(entries, list):
+                    state[key] = [entry for entry in entries if not entry.get("missing")]
+        return state
 
     def _get_doc(
         self,
@@ -200,6 +230,7 @@ class SkillsCatalog(ApiHandler):
         *,
         context_id: str = "",
         project_name: str = "",
+        project_scope: bool = False,
     ) -> dict[str, Any]:
         context = AgentContext.get(context_id) if context_id else None
         agent = context.get_agent() if context else None
@@ -209,7 +240,7 @@ class SkillsCatalog(ApiHandler):
 
         skill_entry = self._require_skill_entry(input)
         requested_key = self._entry_key(skill_entry)
-        catalog = skills.list_skill_catalog(project_name=project_name, agent=agent)
+        catalog = skills.list_skill_catalog(project_name=project_name, agent=agent, project_scope=project_scope)
         skill = next(
             (item for item in catalog if self._entry_key(item) == requested_key),
             None,
@@ -267,14 +298,18 @@ class SkillsCatalog(ApiHandler):
         entry: dict[str, Any],
         *,
         context: AgentContext,
+        project_scope: bool = False,
     ) -> dict[str, Any]:
         agent = context.get_agent()
         project_name = projects.get_context_project_name(context) or ""
-        catalog = skills.list_skill_catalog(project_name=project_name, agent=agent)
-        return next(
+        catalog = skills.list_skill_catalog(project_name=project_name, agent=agent, project_scope=project_scope)
+        match = next(
             (item for item in catalog if self._entry_matches_any(entry, [item])),
-            entry,
+            None,
         )
+        if match is None and project_scope:
+            raise ValueError("Skill not found in this project.")
+        return match or entry
 
     def _merge_entries(
         self,

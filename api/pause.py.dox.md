@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- A shared pause or resume requires the exact active run ID and the run holder or an authenticated platform administrator. Each change records an audit event.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `Pause` is an `ApiHandler`.

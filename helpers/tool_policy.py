@@ -177,6 +177,11 @@ def _canonical_tool_id(agent: Any, tool_name: str) -> str:
 
 
 def _tool_identity(agent: Any, tool_name: str) -> tuple[str, str]:
+    from helpers.team_access import TEAM_TOOL_IDS, is_team_chat
+
+    if is_team_chat(getattr(agent, "context", None)):
+        tool_id = TEAM_TOOL_IDS.get(tool_name)
+        return (tool_id, files.get_abs_path(bundled_path(tool_id))) if tool_id else (f"local:{tool_name}", "")
     if mcp_id := canonical_mcp_id(tool_name):
         try:
             from helpers.mcp_handler import MCPConfig
@@ -212,6 +217,20 @@ def resolve_tool(
     tool_args: dict[str, Any] | None = None,
     _policy: dict[str, Any] | None = None,
 ) -> ToolPolicyDecision:
+    from helpers.team_access import TEAM_TOOL_IDS, is_team_chat
+
+    team = is_team_chat(getattr(agent, "context", None))
+    if team:
+        team_id = TEAM_TOOL_IDS.get(tool_name)
+        if not team_id or canonical_id not in ("", team_id):
+            return ToolPolicyDecision(False, canonical_id or f"local:{tool_name}", "team", "project")
+        if team_id.startswith("plugin:") and team_id.split(":")[1] not in plugins.get_enabled_plugins(agent):
+            return ToolPolicyDecision(False, team_id, "team", "project", "plugin disabled")
+        canonical_id = team_id
+        if team_id == MEMORY_TOOL_ID and (tool_args is not None or action is not None):
+            actions = requested_actions(team_id, tool_args if tool_args is not None else {"action": action})
+            if any(value not in ("load", "save", "delete") for value in actions):
+                return ToolPolicyDecision(False, team_id, "team", "project", "Unsupported project memory action")
     if canonical_id:
         tool_id = canonical_id
         spec = BUNDLED_ACTIONS.get(tool_id)
@@ -248,6 +267,8 @@ def resolve_tool(
         actions = list(spec.actions) if discovery else requested_actions(
             tool_id, tool_args if tool_args is not None else {spec.argument: action}
         )
+        if team and discovery and tool_id == MEMORY_TOOL_ID:
+            actions.remove("forget")
         decisions = [
             _resolve_policy_ids(policy, tool_id, policy_ids | {action_policy_id(tool_id, value)})
             for value in actions

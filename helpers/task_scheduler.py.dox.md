@@ -5,6 +5,7 @@
 - Own the `task_scheduler.py` helper module.
 - This module models, serializes, schedules, runs, and persists scheduled tasks.
 - Keep this file-level DOX profile synchronized with `task_scheduler.py` because this directory is intentionally flat.
+- Team tasks persist native project/creator bindings. Manual and due runs delegate to the team run coordinator and require current membership. Legacy payloads expose team task metadata without prompts, results or trigger tokens. Team mode uses atomic scheduler file publication.
 
 ## Ownership
 

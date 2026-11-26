@@ -142,7 +142,7 @@
                     </div>
 
                     <div class="scheduler-form-field full-width"
-                         x-show="$store.schedulerStore.editingTask.type === 'adhoc'">
+                         x-show="$store.schedulerStore.editingTask.type === 'adhoc' && globalThis.runtimeInfo?.teamRole !== 'member'">
                         <div class="label-help-wrapper">
                             <label class="scheduler-form-label">Token</label>
                             <div class="scheduler-form-help">Token used to trigger this task externally</div>
@@ -191,7 +191,7 @@
                                   aria-label="User Prompt" placeholder="User message for the AI"></textarea>
                     </div>
 
-                    <div class="scheduler-form-field full-width" x-show="!$store.schedulerStore.editingTask.plugin_name">
+                    <div class="scheduler-form-field full-width" x-show="!$store.schedulerStore.editingTask.plugin_name && globalThis.runtimeInfo?.teamRole !== 'member'">
                         <div class="label-help-wrapper">
                             <label class="scheduler-form-label">Attachments</label>
                             <div class="scheduler-form-help">Container file paths or URLs, one per line</div>
@@ -349,7 +349,7 @@
                     </div>
 
                     <div class="scheduler-form-field full-width"
-                         x-show="$store.schedulerStore.editingTask.type === 'adhoc'">
+                         x-show="$store.schedulerStore.editingTask.type === 'adhoc' && globalThis.runtimeInfo?.teamRole !== 'member'">
                         <div class="label-help-wrapper">
                             <label class="scheduler-form-label">Token</label>
                             <div class="scheduler-form-help">Token used to trigger this task externally</div>
@@ -398,7 +398,7 @@
                                   aria-label="User Prompt" placeholder="User message for the AI"></textarea>
                     </div>
 
-                    <div class="scheduler-form-field full-width" x-show="!$store.schedulerStore.editingTask.plugin_name">
+                    <div class="scheduler-form-field full-width" x-show="!$store.schedulerStore.editingTask.plugin_name && globalThis.runtimeInfo?.teamRole !== 'member'">
                         <div class="label-help-wrapper">
                             <label class="scheduler-form-label">Attachments</label>
                             <div class="scheduler-form-help">Container file paths or URLs, one per line</div>

@@ -20,6 +20,7 @@
          $store.modelConfig.loadAgentProfiles(),
        ]);
        $watch('$store.chats.selected', v => $store.modelConfig.refreshSwitcher(v || ''));
+       $watch('$store.projects.teamProjectName', () => $store.modelConfig.refreshSwitcher($store.chats?.selected || ''));
      ">
   <template x-if="($store.modelConfig.switcherAllowed && !$store.modelConfig.switcherLoading) || $store.chats?.selectedContext?.agent_profile">
     <div class="model-switcher-container">
@@ -108,8 +109,8 @@
               </template>
 
               <!-- Edit Presets shortcut -->
-              <div class="model-switcher-divider" style="opacity:0.2;"></div>
-              <div class="model-switcher-item model-switcher-edit" @click="
+              <div class="model-switcher-divider" style="opacity:0.2;" x-show="globalThis.runtimeInfo?.teamRole !== 'member'"></div>
+              <div class="model-switcher-item model-switcher-edit" x-show="globalThis.runtimeInfo?.teamRole !== 'member'" @click="
                 $store.modelConfig.openPresetEditor(
                   $store.modelConfig.switcherEffectivePreset,
                   $store.chats?.selected || ''
@@ -123,7 +124,7 @@
           </div>
         </template>
 
-        <template x-if="$store.chats?.selectedContext?.agent_profile">
+        <template x-if="globalThis.runtimeInfo?.teamRole !== 'member' && $store.chats?.selectedContext?.agent_profile">
           <div class="agent-profile-anchor" @click.outside="showProfileDropdown = false">
             <button class="btn-icon-action agent-profile-btn"
                     title="Active agent profile"

@@ -18,7 +18,7 @@
               @dragover="$store.sidebarFolders.dragOverFolder($event, kind, group, sections)"
               @drop="$store.sidebarFolders.drop($event, kind, group.id)">
               <template x-if="!group.pinned">
-              <div class="sidebar-folder-row" draggable="true" x-data="{ actionsFocused: false }"
+              <div class="sidebar-folder-row" :draggable="!$store.sidebarFolders.member" x-data="{ actionsFocused: false }"
                 :class="[$store.sidebarFolders.drag?.kind !== 'project' ? $store.sidebarFolders.dropClass(kind, group.id) : '', actionsFocused ? 'sidebar-folder-actions-focused' : ''].join(' ')"
                 @focusin="actionsFocused = actionsFocused || $event.target.matches(':focus-visible, .sidebar-folder-action')"
                 @focusout="if (!$el.contains($event.relatedTarget)) actionsFocused = false"
@@ -38,7 +38,7 @@
                   @click.stop="$store.sidebarFolders.newChat(group.id)">
                   <x-icon name="chat_add_on"></x-icon>
                 </button>
-                <button type="button" class="btn-icon-action chat-list-action-btn sidebar-folder-action" :aria-label="'Actions for ' + group.title"
+                <button type="button" class="btn-icon-action chat-list-action-btn sidebar-folder-action" :aria-label="'Actions for ' + group.title" x-show="!$store.sidebarFolders.member"
                   aria-haspopup="menu"
                   :aria-expanded="$store.sidebarFolders.menu === 'project' && $store.sidebarFolders.menuProject === group.id"
                   @click.stop="$store.sidebarFolders.openMenu('project', $event.currentTarget, group.id)">
@@ -53,7 +53,7 @@
                     $store.sidebarFolders.dropClass(kind, group.id, item),
                     kind === 'chat' ? 'chat-tree-item' : 'task-list-item',
                     !group.pinned && $store.sidebar.hasRowDividerBefore(kind, item, itemIndex, group.rows) ? 'sidebar-list-divider' : '',
-                  ].join(' ')" :data-folder-thread="item.id" draggable="true"
+                  ].join(' ')" :data-folder-thread="item.id" :draggable="!$store.sidebarFolders.member"
                     x-data="{ get match() { return $store.sidebarFolders.searchMatch(item, kind); } }"
                     @dragstart.stop="$store.sidebarFolders.startDrag($event, kind, item.id, item.project?.name || '')"
                     @dragover="$store.sidebarFolders.dragOver($event, kind, group.id, item, $event.currentTarget, group.rows)"
@@ -86,7 +86,7 @@
           </template>
         </ul>
         <div class="empty-list-message" x-show="!sections.length">
-          <p role="status" x-text="$store.sidebarFolders.searchPending ? 'Searching…' : (kind === 'chat' ? 'No matching chats.' : 'No matching tasks.')"></p>
+          <p role="status" x-text="$store.sidebarFolders.member ? 'No projects assigned.' : ($store.sidebarFolders.searchPending ? 'Searching…' : (kind === 'chat' ? 'No matching chats.' : 'No matching tasks.'))"></p>
         </div>
       </div>
     </template>

@@ -176,11 +176,18 @@ class _SecurityContext:
     csrf_cookie: str | None
     remote_addr: str | None
     api_key: str | None
+    team_session: str | None = None
 
 
 _ws_contexts: dict[str, _SecurityContext] = {}
 _active_handlers: dict[str, dict[str, "WsHandler"]] = {}
 _contexts_lock = threading.Lock()
+
+
+def member_session_for_sid(sid: str) -> str | None:
+    with _contexts_lock:
+        context = _ws_contexts.get(sid)
+        return context.team_session if context else None
 
 
 class WsHandler:
@@ -401,8 +408,11 @@ def _check_security(handler_cls: type[WsHandler], ctx: _SecurityContext) -> dict
 
     if handler_cls.requires_auth():
         from helpers import login
-        user_pass_hash = login.get_credentials_hash()
-        if user_pass_hash and ctx.auth_hash != user_pass_hash:
+
+        state = {"authentication": ctx.auth_hash}
+        if ctx.team_session is not None:
+            state[login.TEAM_SESSION_KEY] = ctx.team_session
+        if not login.is_authenticated(state):
             return {"code": "AUTH_REQUIRED", "error": "Authentication required"}
 
     if handler_cls.requires_csrf():
@@ -431,7 +441,7 @@ def register_ws_namespace(
     manager: "WsManager | None" = None,
 ) -> None:
     from helpers.modules import load_classes_from_file
-    from helpers import plugins, runtime
+    from helpers import login, plugins, runtime
 
     def _resolve_handler(path: str) -> type[WsHandler] | None:
         handler_cls: type[WsHandler] | None = None
@@ -485,6 +495,11 @@ def register_ws_namespace(
                 )
                 return False
 
+            token = session.get(login.TEAM_SESSION_KEY)
+            member = login.team_account_for_session(token)
+            if login.TEAM_SESSION_KEY in session and member is None:
+                return False
+
             ctx = _SecurityContext(
                 auth_hash=session.get("authentication"),
                 csrf_token=session.get("csrf_token"),
@@ -500,8 +515,15 @@ def register_ws_namespace(
                     (auth.get("api_key") or auth.get("apiKey"))
                     if isinstance(auth, dict) else None
                 ),
+                team_session=token if member else None,
             )
-            user_id = session.get("user_id") or "single_user"
+            if login.team_mode_enabled() and not login.is_authenticated(session) and not ctx.api_key:
+                return False
+            if member and not (
+                ctx.csrf_token and ctx.client_csrf_token == ctx.csrf_token and ctx.csrf_cookie == ctx.csrf_token
+            ):
+                return False
+            user_id = member.id if member else session.get("user_id") or "single_user"
 
             with _contexts_lock:
                 _ws_contexts[sid] = ctx
@@ -521,6 +543,8 @@ def register_ws_namespace(
 
         activated: dict[str, WsHandler] = {}
         for path in handler_paths:
+            if ctx.team_session is not None and path != "ws_webui":
+                continue
             try:
                 handler_cls = _resolve_cached(path)
                 if handler_cls is None:
@@ -571,6 +595,8 @@ def register_ws_namespace(
             if ctx is None:
                 return _error_response("AUTH_REQUIRED",
                                        "No security context", correlation_id)
+            if ctx.team_session is not None and event != "state_request":
+                return _error_response("FORBIDDEN", "Action forbidden", correlation_id)
             if not activated:
                 return _error_response("NO_HANDLERS",
                                        "No handlers activated", correlation_id)

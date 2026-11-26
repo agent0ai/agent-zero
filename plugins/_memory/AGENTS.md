@@ -19,6 +19,7 @@
 ## Local Contracts
 
 - Keep memory scoped by configured subdirectory/context.
+- Team memory operations use a private vector store keyed by stable project ID. Serialize them with the project memory worker and keep the run reserved until accepted work exits. Team knowledge indexing reads authorized UTF-8 project sources. The normal background recall and memorization hooks are separate from this scope.
 - Shared tool policy preserves saved per-action memory permissions in both unified and legacy calls; an allowed load must not grant save, delete or forget. Explicit tool-wide blocks cover every alias.
 - Preserve embedding metadata needed to rebuild indexes safely.
 - Delayed recall results must survive `LoopData` replacement, stay scoped to the originating memory/profile/project, and be consumed once by the next prompt; do not persist live task objects into chat JSON.

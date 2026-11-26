@@ -16,6 +16,8 @@
 
 ## Runtime Contracts
 
+- The legacy close/delete route preserves shared team chats and their running reservations.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `RemoveChat` is an `ApiHandler`.

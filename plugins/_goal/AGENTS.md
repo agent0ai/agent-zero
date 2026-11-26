@@ -19,6 +19,8 @@
 
 ## Local Contracts
 
+- Shared goal state follows chat authorization. A member needs to hold the active run to change its goal while running.
+
 - Goal status values are `active`, `paused`, `complete`, and `blocked`.
 - The `goal` tool reads legacy action values `show`/`status` for `get`, `set` for `create`, and direct `complete`/`blocked` for `update` with `status`; prompts document only canonical actions.
 - Active goals are injected into agent extras; paused and blocked goals remain visible in the UI, while complete goals are hidden.

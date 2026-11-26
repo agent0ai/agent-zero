@@ -16,6 +16,9 @@
 
 ## Local Contracts
 
+- Shared chat controls use the same project grant and active run as the composer. A member New Chat keeps a browser draft, and project attachments enter shared history only with the accepted send.
+- Folder attachments in shared project chats retain relative paths. Files in different folders remain distinct even when their names and sizes match.
+
 - Preserve Store Gating for all store-backed chat components.
 - Use shared API, WebSocket, notification, and attachment helpers where available.
 - Do not bypass CSRF or WebSocket state-sync expectations.
@@ -23,6 +26,10 @@
 - The Welcome placeholder invites model setup or Settings while the existing `missing-api-key` banner is present; reuse Welcome's refreshed banner state without adding a readiness request or changing chat placeholders.
 - Text-only and attachment sends must render the first user turn immediately with the request message ID so the backend log merges into the same row.
 - Unsent composer text is kept as a separate browser-session draft for each selected chat and restored when switching contexts; a Welcome-screen prompt must follow the chat created for its first send. Preset changes and setup-gate retries must preserve any new unsent composer draft.
+- Team member drafts include the account ID. Text sends keep the draft until server acceptance and report model readiness to the member without opening platform configuration.
+- Shared team chats show the active holder and retain another member's draft while the chat is occupied. Stop includes the active run ID and respects the current sender's identity.
+- The holder can use the native message queue with the current run ID. Pending queue entries and controls are visible to that holder. Automatic queue processing and explicitly promoted interjections share the same hold.
+- Administrators and assigned members use the native participant composer in shared chats. Active runs retain their holder and administrator stop rules. Team Audit has a separate transcript permission.
 - Composer text uses the main UI font by default; typing a triple-backtick fence and pressing Enter turns that line into a visual code block that serializes back to fenced Markdown, while pasted fenced Markdown stays plain text.
 - The contenteditable composer sizes naturally between its CSS minimum and maximum heights; do not freeze measured scroll heights into pixels during mounting or editing.
 - The backend rejects dispatches when no chat model is configured: a `user_message_ui` extension in `_model_config` flags the chat and `/message_async` returns a `model_not_configured` payload before logging or dispatching. The client opens the setup gate from that response and must not round-trip a per-send configuration pre-check.

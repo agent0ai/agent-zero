@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from agent import AgentContext
+from helpers import team_access
 from helpers.api import ApiHandler, Request, Response
+from helpers.team_store import ADMIN_ACTOR_ID, get_store
 
 from plugins._goal.tools import goal
 
@@ -9,7 +12,20 @@ class Goal(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         action = str(input.get("action", "") or "").strip().lower()
         context_id = str(input.get("context_id", "") or "").strip()
+        member = team_access.request_scope()
+        context = AgentContext.get(context_id) if context_id else None
+        if member is not None or team_access.is_team_chat(context):
+            with self.thread_lock:
+                scope = team_access.request_chat_scope(context) if context else None
+                if not scope or not scope.permits_chat(context) or not team_access.has_chat_history(context):
+                    return Response("Chat access denied.", 403)
+                run = get_store().active_run(context.id)
+                if action != "get" and run and scope.account_id not in {run.account_id, ADMIN_ACTOR_ID}:
+                    return Response("Only the run holder can change the active goal.", 409)
+                return self._dispatch(action, context_id, {**input, "created_by": "user"})
+        return self._dispatch(action, context_id, input)
 
+    def _dispatch(self, action: str, context_id: str, input: dict) -> dict | Response:
         try:
             if action == "get":
                 return {"ok": True, "goal": goal.public_goal(goal.get_goal(context_id))}

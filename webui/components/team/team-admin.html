@@ -1,0 +1,65 @@
+<html>
+<head>
+  <title>Team accounts</title>
+  <script type="module">
+    import { store } from "/components/team/team-admin-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.teamAdmin">
+      <div class="team-admin" x-create="$store.teamAdmin.refresh()">
+        <form class="team-form" aria-label="Create member" @submit.prevent="$store.teamAdmin.create($event.currentTarget)">
+          <label>Username <input name="username" autocomplete="off" maxlength="64" required></label>
+          <label>Password <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <button class="button confirm" type="submit" :disabled="$store.teamAdmin.busy">Create account</button>
+        </form>
+
+        <p class="team-error" role="alert" x-show="$store.teamAdmin.error" x-text="$store.teamAdmin.error"></p>
+        <p x-show="!$store.teamAdmin.busy && !$store.teamAdmin.accounts.length">No team accounts yet.</p>
+
+        <template x-for="account in $store.teamAdmin.accounts" :key="account.id">
+          <section class="team-account" :aria-label="account.username">
+            <div class="team-account-title">
+              <h3 x-text="account.username"></h3>
+              <span x-text="account.enabled ? 'Enabled' : 'Disabled'"></span>
+              <button type="button" class="button" :disabled="$store.teamAdmin.busy" @click="$store.teamAdmin.setEnabled(account, !account.enabled)"
+                      x-text="account.enabled ? 'Disable' : 'Enable'"></button>
+            </div>
+            <fieldset :disabled="$store.teamAdmin.busy">
+              <legend>Projects</legend>
+              <div class="team-grants">
+                <template x-for="project in $store.teamAdmin.projects" :key="project.name">
+                  <label>
+                    <input type="checkbox" :checked="account.projects.includes(project.name)"
+                           @change="$store.teamAdmin.setMembership(account, project.name, $event.currentTarget)">
+                    <span x-text="project.title || project.name"></span>
+                  </label>
+                </template>
+              </div>
+              <p x-show="!$store.teamAdmin.projects.length">Create a project in Projects to assign it here.</p>
+            </fieldset>
+            <form class="team-form" :aria-label="`Reset password for ${account.username}`" @submit.prevent="$store.teamAdmin.resetPassword(account, $event.currentTarget)">
+              <label>New password <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+              <button type="submit" class="button" :disabled="$store.teamAdmin.busy">Reset password</button>
+            </form>
+          </section>
+        </template>
+      </div>
+    </template>
+  </div>
+</body>
+<style>
+  .team-admin, .team-account { display: grid; gap: var(--spacing-md); }
+  .team-form, .team-account-title, .team-grants { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-sm); }
+  .team-form label { display: grid; gap: var(--spacing-xs); }
+  .team-account { border: 1px solid var(--color-border); border-radius: var(--border-radius, 8px); padding: var(--spacing-md); }
+  .team-account-title { align-items: center; }
+  .team-account-title h3 { margin: 0; }
+  .team-account-title button { margin-inline-start: auto; }
+  .team-account fieldset { padding: var(--spacing-sm); border: 1px solid var(--color-border); }
+  .team-grants label { display: inline-flex; gap: var(--spacing-xs); align-items: center; }
+  .team-error { color: var(--color-error, #c74d4d); }
+  .team-form input { max-width: 100%; }
+</style>
+</html>

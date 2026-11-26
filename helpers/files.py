@@ -85,6 +85,47 @@ def load_plugin_variables(
 from helpers.strings import sanitize_string
 
 
+def _team_prompt_values(kwargs: dict) -> bool:
+    agent = kwargs.get("_agent")
+    if agent is None:
+        return False
+    from helpers.team_access import is_team_chat
+
+    return is_team_chat(getattr(agent, "context", None))
+
+
+_PROMPT_DIRECTIVE = re.compile(
+    r"""{{(?:(?P<key>\w+)|\s*include\s+(?P<original>original)\s*|\s*include\s*['"](?P<path>.*?)['"]\s*)}}"""
+)
+
+
+def _render_team_prompt(content, variables, directories, kwargs, source_file="", source_dir="", *, as_json=False):
+    """Expand only directives present in the trusted template."""
+    def substitute(match):
+        if key := match["key"]:
+            if key not in variables:
+                return match[0]
+            return json.dumps(variables[key]) if as_json else str(variables[key])
+        if as_json:
+            return match[0]
+        if match["original"]:
+            if not source_file or not source_dir:
+                return match[0]
+            try:
+                return read_prompt_file(source_file, _get_dirs_after(directories, source_dir), **kwargs)
+            except FileNotFoundError:
+                return ""
+        path = match["path"]
+        if not os.path.isabs(path):
+            try:
+                return read_prompt_file(path, directories, **kwargs)
+            except FileNotFoundError:
+                pass
+        return match[0]
+
+    return _PROMPT_DIRECTIVE.sub(substitute, content)
+
+
 def parse_file(
     _filename: str, _directories: list[str] | None = None, _encoding="utf-8", **kwargs
 ):
@@ -103,6 +144,9 @@ def parse_file(
     content = remove_code_fences(content)
     variables = load_plugin_variables(absolute_path, _directories, **kwargs) or {}  # type: ignore
     variables.update(kwargs)
+    if _team_prompt_values(kwargs):
+        rendered = _render_team_prompt(content, variables, _directories, kwargs, as_json=is_json)
+        return json.loads(rendered) if is_json else rendered
     if is_json:
         content = replace_placeholders_json(content, **variables)
         obj = json.loads(content)
@@ -145,6 +189,8 @@ def read_prompt_file(
 
     # evaluate conditions
     content = evaluate_text_conditions(content, **variables)
+    if _team_prompt_values(kwargs):
+        return _render_team_prompt(content, variables, _directories, kwargs, _file, source_dir)
 
     # Replace placeholders with values from kwargs
     content = replace_placeholders_text(content, **variables)

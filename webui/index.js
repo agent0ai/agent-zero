@@ -9,6 +9,7 @@ import { store as notificationStore } from "/components/notifications/notificati
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { store as inputStore } from "/components/chat/input/input-store.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as tasksStore } from "/plugins/_scheduler/webui/sidebar/tasks-store.js";
 import { store as chatTopStore } from "/components/chat/top-section/chat-top-store.js";
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
@@ -100,9 +101,21 @@ export async function sendMessage(options = {}) {
     message = sendCtx.message;
     attachmentsWithUrls = sendCtx.attachments;
     hasAttachments = attachmentsWithUrls.length > 0;
-    const sendContext = options.context || context;
-    const messageId = options.messageId || generateGUID();
+    let sendContext = options.context || context;
+    let messageId = options.messageId || generateGUID();
     const shouldResetInput = !hasProvidedMessage && !options.preserveInput;
+    const member = globalThis.runtimeInfo?.teamRole === "member";
+    const startingProject = !sendContext && (member || (globalThis.runtimeInfo?.teamRole === "admin" && projectsStore.teamProjectName));
+    const projectChat = member || startingProject || (sendContext === context && chatsStore.selectedContext?.team_chat);
+
+    let draft = null;
+    if (startingProject && (message || hasAttachments)) {
+      const files = attachmentsWithUrls.map(({ file }) => [file.webkitRelativePath || file.name, file.size, file.lastModified]);
+      draft = await chatsStore.prepareTeamChat(JSON.stringify([message, files]), messageId);
+      if (!draft) return false;
+      sendContext = draft.id;
+      messageId = draft.messageId;
+    }
 
     // If empty input but has queued messages, send all queued
     if (!message && !hasAttachments && messageQueueStore.hasQueue) {
@@ -113,6 +126,23 @@ export async function sendMessage(options = {}) {
     if (message || hasAttachments) {
       // Check if agent is busy - queue instead of sending
       if (sendContext === context && (chatsStore.selectedContext?.running || messageQueueStore.hasQueue)) {
+        if (projectChat) {
+          const activeRun = chatsStore.selectedContext?.team_run;
+          if (!activeRun?.mine || activeRun.state === "stopping" || activeRun.kind === "compact") {
+            toast(activeRun?.holder ? `${activeRun.holder} is holding this chat.` : "This chat already has a running message.", "warning");
+            return false;
+          }
+          if (hasAttachments) {
+            toast("Wait for the current run before sending attachments.", "warning");
+            return false;
+          }
+          const accepted = await messageQueueStore.addToQueue(message, attachmentsWithUrls);
+          if (accepted && shouldResetInput && sendContext === context && inputStore.message.trim() === message) {
+            inputStore.reset();
+            adjustTextareaHeight();
+          }
+          return accepted;
+        }
         const success = messageQueueStore.addToQueue(message, attachmentsWithUrls);
         if (shouldResetInput) inputStore.reset();
         adjustTextareaHeight();
@@ -126,14 +156,15 @@ export async function sendMessage(options = {}) {
       let response;
 
       // Clear input and attachments
-      if (shouldResetInput) {
+      if (shouldResetInput && !projectChat) {
         inputStore.reset();
         adjustTextareaHeight();
       }
 
       // Render immediately; the backend log reuses messageId and merges into this row.
       const heading = hasAttachments ? "Uploading attachments..." : "";
-      await setMessages([{ id: messageId, type: "user", heading, content: message, kvps: {} }]);
+      const userMessage = { id: messageId, type: "user", heading, content: message, kvps: {} };
+      if (!projectChat) await setMessages([userMessage]);
 
       // Include attachments in the user message
       if (hasAttachments) {
@@ -146,7 +177,8 @@ export async function sendMessage(options = {}) {
         formData.append("message_id", messageId);
 
         for (let i = 0; i < attachmentsWithUrls.length; i++) {
-          formData.append("attachments", attachmentsWithUrls[i].file);
+          const file = attachmentsWithUrls[i].file;
+          formData.append("attachments", file, projectChat ? file.webkitRelativePath || file.name : file.name);
         }
 
         response = await api.fetchApi("/message_async", {
@@ -170,10 +202,15 @@ export async function sendMessage(options = {}) {
       }
 
       // Handle response
+      if (!response.ok) throw new Error(await response.text());
       const jsonResponse = await response.json();
       if (!jsonResponse) {
         toast("No response returned.", "error");
       } else if (jsonResponse.model_not_configured) {
+        if (member) {
+          toast("Ask your team administrator to configure a chat model.", "warning");
+          return false;
+        }
         // Backend rejected dispatch; open the setup gate (synthetic row merges by message id)
         modelGateStore.start({
           message,
@@ -185,7 +222,18 @@ export async function sendMessage(options = {}) {
         await setMessages(modelGateStore.syntheticMessages(sendContext));
         forceScrollChatToBottom();
       } else {
-        setContext(jsonResponse.context);
+        if (projectChat && (sendContext === context || (draft && !context))) {
+          if (shouldResetInput && inputStore.message.trim() === message) {
+            inputStore.reset();
+            adjustTextareaHeight();
+          }
+          if (!jsonResponse.replayed && !draft) {
+            userMessage.heading = jsonResponse.actor || "";
+            await setMessages([userMessage]);
+          }
+        }
+        if (draft && chatsStore.pendingTeamChat === draft) chatsStore.pendingTeamChat = null;
+        if (!draft || (!context && projectsStore.teamProjectName === draft.project)) setContext(jsonResponse.context);
         return true;
       }
     }
@@ -362,6 +410,10 @@ export async function applySnapshot(snapshot, options = {}) {
   if (!snapshot || typeof snapshot !== "object") {
     console.error("Invalid snapshot payload");
     return { updated: false };
+  }
+
+  if (Array.isArray(snapshot.team_project_names)) {
+    projectsStore.applyTeamProjectNames(snapshot.team_project_names);
   }
 
   // deselect chat if it is requested by the backend

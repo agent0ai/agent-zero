@@ -15,6 +15,8 @@
 
 ## Local Contracts
 
+- Manual compaction in a project chat rechecks the project grant, reserves the chat, and persists the summary through the existing backup workflow.
+
 - Preserve chat history integrity and persistence after compaction.
 - Backup JSON and transcript artifacts must remain UTF-8 writable when chat content contains malformed Unicode such as lone surrogates.
 - Keep generated summaries bounded by configured model and token limits.

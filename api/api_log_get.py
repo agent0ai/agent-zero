@@ -1,4 +1,5 @@
 from agent import AgentContext
+from helpers import team_access
 from helpers.api import ApiHandler, Request, Response
 
 
@@ -33,6 +34,8 @@ class ApiLogGet(ApiHandler):
 
         # Get context
         context = AgentContext.use(context_id)
+        if team_access.is_team_chat(context):
+            return Response("Use the team audit to open a shared transcript.", 403)
         if not context:
             return Response('{"error": "Context not found"}', status=404, mimetype="application/json")
 

@@ -1,0 +1,16 @@
+<div x-data="{ member: globalThis.runtimeInfo?.teamRole === 'member' }" style="display:contents">
+  <template x-if="member">
+    <div class="right-canvas-surface-panel" data-surface-id="browser" x-data="{ mode: 'browser' }"
+      :class="{ 'is-active': $store.rightCanvas.isSurfaceVisible(mode), 'is-mounted': $store.rightCanvas.isSurfaceRendered(mode) }"
+      :aria-hidden="(!$store.rightCanvas.isSurfaceVisible(mode)).toString()">
+      <x-component path="team/project-surface.html"></x-component>
+    </div>
+  </template>
+  <template x-if="member">
+    <div class="right-canvas-surface-panel" data-surface-id="desktop" x-data="{ mode: 'desktop' }"
+      :class="{ 'is-active': $store.rightCanvas.isSurfaceVisible(mode), 'is-mounted': $store.rightCanvas.isSurfaceRendered(mode) }"
+      :aria-hidden="(!$store.rightCanvas.isSurfaceVisible(mode)).toString()">
+      <x-component path="team/project-surface.html"></x-component>
+    </div>
+  </template>
+</div>

@@ -2,13 +2,17 @@ from helpers.api import ApiHandler, Request, Response
 from helpers import message_queue as mq
 from agent import AgentContext
 from helpers.state_monitor_integration import mark_dirty_for_context
+from helpers.team_runs import team_queue_response
 
 
 class MessageQueueAdd(ApiHandler):
     """Add a message to the queue."""
 
     async def process(self, input: dict, request: Request) -> dict | Response:
-        context = AgentContext.get(input.get("context", ""))
+        context_id = input.get("context", "")
+        context = AgentContext.get(context_id) if isinstance(context_id, str) else None
+        if (response := team_queue_response(context, input, "add")) is not None:
+            return response
         if not context:
             return Response("Context not found", status=404)
 

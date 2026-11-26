@@ -1,0 +1,93 @@
+<html>
+<head>
+  <title>Project files</title>
+  <script type="module">
+    import { store } from "/components/projects/project-files-store.js";
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.projectFiles">
+      <div class="project-files">
+        <div class="project-files-actions">
+          <strong x-text="$store.projectFiles.project"></strong>
+          <label>Area
+            <select :value="$store.projectFiles.area" :disabled="$store.projectFiles.busy"
+                    @change="$store.projectFiles.navigate('', $event.target.value)">
+              <option value="workspace">Workspace</option>
+              <option value="instructions">Instructions</option>
+              <option value="knowledge">Knowledge</option>
+            </select>
+          </label>
+          <button class="button" type="button" :disabled="$store.projectFiles.busy || !$store.projectFiles.directory"
+                  @click="$store.projectFiles.navigate($store.projectFiles.directory.split('/').slice(0,-1).join('/'))">Up</button>
+          <button class="button" type="button" :disabled="$store.projectFiles.busy"
+                  @click="$store.projectFiles.navigate($store.projectFiles.directory)">Refresh</button>
+        </div>
+        <p class="project-files-path" x-text="'/' + $store.projectFiles.directory"></p>
+        <div class="project-files-actions">
+          <button class="button" type="button" :disabled="$store.projectFiles.busy" @click="$store.projectFiles.beginNew('file')">New text file</button>
+          <button class="button" type="button" :disabled="$store.projectFiles.busy" @click="$store.projectFiles.beginNew('folder')">New folder</button>
+          <button class="button" type="button" :disabled="$store.projectFiles.busy" @click="$refs.projectUpload.click()">Upload</button>
+          <input type="file" x-ref="projectUpload" hidden @change="$store.projectFiles.upload($event)">
+        </div>
+
+        <form class="project-files-actions" x-show="$store.projectFiles.newKind" @submit.prevent="$store.projectFiles.createEntry()">
+          <label>Name <input type="text" x-model="$store.projectFiles.newName" maxlength="180"></label>
+          <button class="button confirm" type="submit" :disabled="$store.projectFiles.busy">Create</button>
+          <button class="button" type="button" @click="$store.projectFiles.newKind = ''">Cancel</button>
+        </form>
+
+        <p role="alert" x-show="$store.projectFiles.error" x-text="$store.projectFiles.error"></p>
+        <p x-show="!$store.projectFiles.entries.length && !$store.projectFiles.busy">This folder is empty.</p>
+        <ul class="project-files-list" x-show="$store.projectFiles.entries.length">
+          <template x-for="entry in $store.projectFiles.entries" :key="entry.path">
+            <li class="project-files-row">
+              <button type="button" class="button project-file-label" :disabled="$store.projectFiles.busy"
+                      @click="$store.projectFiles.openEntry(entry)">
+                <x-icon :name="entry.directory ? 'folder' : 'description'" aria-hidden="true"></x-icon>
+                <span x-text="entry.name"></span>
+              </button>
+              <button class="button" type="button" x-show="!entry.directory" :disabled="$store.projectFiles.busy"
+                      :aria-label="`Download ${entry.name}`" @click="$store.projectFiles.download(entry)">Download</button>
+            </li>
+          </template>
+        </ul>
+
+        <template x-if="$store.projectFiles.editor">
+          <div class="project-files-editor">
+            <label for="project-file-contents" x-text="$store.projectFiles.editor.path"></label>
+            <textarea rows="11" id="project-file-contents" aria-label="File contents"
+                      :disabled="$store.projectFiles.busy" x-model="$store.projectFiles.editor.content" spellcheck="false"></textarea>
+            <div class="project-files-actions">
+              <button type="button" class="button confirm" :disabled="$store.projectFiles.busy" @click="$store.projectFiles.save()">Save file</button>
+              <button type="button" class="button" :disabled="$store.projectFiles.busy" @click="$store.projectFiles.closeEditor()">Close file</button>
+              <button type="button" class="button cancel" x-show="$store.projectFiles.editor.revision" :disabled="$store.projectFiles.busy"
+                      @click="$confirmClick($event, () => $store.projectFiles.remove())">Delete file</button>
+              <button type="button" class="button" x-show="$store.projectFiles.error && !$store.projectFiles.latest" :disabled="$store.projectFiles.busy"
+                      @click="$store.projectFiles.inspectLatest()">Review latest file</button>
+            </div>
+            <template x-if="$store.projectFiles.latest">
+              <div>
+                <label for="project-file-latest">Latest file contents</label>
+                <textarea rows="7" id="project-file-latest" :value="$store.projectFiles.latest.content" readonly></textarea>
+                <button type="button" class="button" @click="$store.projectFiles.useLatestRevision()">Keep my draft after review</button>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+  </div>
+</body>
+<style>
+  .project-files, .project-files-editor { display: grid; gap: var(--spacing-md); }
+  .project-files-actions, .project-files-row { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center; }
+  .project-files-path { margin: 0; overflow-wrap: anywhere; font-family: monospace; }
+  .project-files-list { padding: 0; list-style: none; display: grid; gap: var(--spacing-xs); margin: 0; }
+  .project-files-row { justify-content: space-between; }
+  .project-file-label { display: inline-flex; gap: var(--spacing-sm); align-items: center; text-align: start; }
+  .project-file-label span { overflow-wrap: anywhere; }
+  .project-files-editor textarea { box-sizing: border-box; width: 100%; font-family: monospace; resize: vertical; }
+</style>
+</html>

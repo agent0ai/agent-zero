@@ -1,4 +1,5 @@
-from helpers.api import ApiHandler, Input, Output, Request
+from helpers.api import ApiHandler, Input, Output, Request, Response
+from helpers import team_access, team_tasks
 from helpers.task_scheduler import (
     TaskScheduler, ScheduledTask, AdHocTask, PlannedTask, TaskSchedule,
     serialize_task, parse_task_schedule, parse_task_plan, TaskType, TaskState
@@ -14,6 +15,13 @@ class SchedulerTaskCreate(ApiHandler):
         """
         Create a new task in the scheduler
         """
+        if scope := team_access.request_scope():
+            try:
+                return await team_tasks.create_task(input, scope)
+            except PermissionError as error:
+                return Response(str(error), 403)
+            except ValueError as error:
+                return Response(str(error), 400)
         printer = PrintStyle(italic=True, font_color="blue", padding=False)
 
         # Get timezone from input (do not set if not provided, we then rely on poll() to set it)

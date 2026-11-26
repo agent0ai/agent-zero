@@ -1,6 +1,7 @@
 from typing import Any
 from helpers.extension import Extension
 from helpers.strings import replace_file_includes
+from helpers.team_access import is_team_chat
 
 
 class ReplaceIncludeAlias(Extension):
@@ -11,7 +12,7 @@ class ReplaceIncludeAlias(Extension):
         parsed: dict[str, Any] | None = None,
         **kwargs
     ):
-        if not parsed or not isinstance(parsed, dict):
+        if not parsed or not isinstance(parsed, dict) or is_team_chat(getattr(self.agent, "context", None)):
             return
 
         def replace_placeholders(value: Any) -> Any:
