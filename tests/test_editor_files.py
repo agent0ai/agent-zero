@@ -116,7 +116,7 @@ def test_tool_results_refresh_open_code_but_preserve_dirty_text():
     script = r'''
 import assert from 'node:assert/strict';
 const calls = [];
-const editorStore = { session: { path: '/a0/test.py' }, openSession: async payload => calls.push(payload) };
+const editorStore = { session: { path: '/a0/test.py', file_id: 'fid-1' }, openSession: async payload => calls.push(payload) };
 globalThis.document = { querySelector: () => ({}) };
 globalThis.setTimeout = callback => callback();
 ''' + source + r'''
@@ -124,6 +124,7 @@ const result = id => ({ results: [{ args: { id, timestamp: Date.now(), kvps: { t
 await syncTextEditorResultsIntoOpenEditor(result('clean'));
 assert.equal(calls.length, 1);
 assert.equal(calls[0].path, '/a0/test.py');
+assert.equal(calls[0].file_id, 'fid-1');
 editorStore.session.dirty = true;
 await syncTextEditorResultsIntoOpenEditor(result('dirty'));
 assert.equal(calls.length, 1);

@@ -145,9 +145,10 @@ async function syncOpenEditorSurface(document = {}) {
   if (!editor || !isEditorSurfaceOpen()) return false;
   if (!hasSameDocument(editor, document)) return false;
   if (isDirtySameDocument(editor, document)) return false;
+  const entry = documentEntries(editor).find((entry) => documentsMatch(entry, document));
   await editor.openSession?.({
     path: document.path || "",
-    file_id: document.file_id || "",
+    file_id: entry?.file_id || document.file_id || "",
     ctxid: document.ctxid || document.context_id || "",
     context_id: document.context_id || document.ctxid || "",
     refresh: true,
