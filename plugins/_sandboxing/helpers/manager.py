@@ -1007,14 +1007,20 @@ class SandboxManager:
             readonly.append(str(bundle / target))
         private = (self.config.instances_dir.parent, self.images.config.cache_dir, self.config.uid_registry)
         mounts = list(self._normalize_mounts(metadata.get('mounts', [])))
+        shared = self.config.shared_dir
+        registry = self.config.uid_registry
+        shared_gid = storage.lease_uid(registry, shared)
         if self.config.user_dir is not None:
             data_root = self.config.user_dir / "sandbox_data"
             private += (data_root,)
             if "managed_workspace" in metadata:
+                storage.prepare_workspace(data_root, gid=shared_gid, mode=0o710)
                 workspace = self._managed_workspace(name, metadata)
                 if workspace is None:
                     storage.prepare_workspace(data_root / name, gid=uid)
                 else:
+                    storage.migrate_shared_group(data_root, shared_gid, registry)
+                    storage.prepare_workspace(workspace.parent, gid=uid, mode=0o710)
                     seed = workspace_seed if workspace_seed and workspace_seed.is_dir() else None
                     storage.prepare_workspace(workspace, seed, gid=uid)
                     mounts.insert(0, SandboxMount(workspace, "/workspace", False))
@@ -1027,9 +1033,9 @@ class SandboxManager:
             host_paths.append(self.config.user_dir)
         if any(state_root == host or state_root in host.parents for host in host_paths):
             state_root = self.config.instances_dir
-        shared = self.config.shared_dir
-        shared_gid = storage.lease_uid(self.config.uid_registry, shared)
         storage.prepare_workspace(shared, gid=shared_gid)
+        if self.config.user_dir is not None and shared == self.config.user_dir / 'sandbox-shared':
+            storage.migrate_shared_group(shared, shared_gid, registry, recursive=True)
         bindings.append((str(shared), '/shared'))
         for item in mounts:
             if item.source == Path('/'):

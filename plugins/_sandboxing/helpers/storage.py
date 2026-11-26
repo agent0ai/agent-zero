@@ -105,7 +105,7 @@ def adopt(root: Path, control: Path, uid: int) -> None:
         os.chown(path, uid, uid, follow_symlinks=False)
 
 
-def prepare_workspace(path: Path, seed: Path | None = None, *, gid: int | None = None) -> bool:
+def prepare_workspace(path: Path, seed: Path | None = None, *, gid: int | None = None, mode=0o770) -> bool:
     """Publish once, with creation credentials local to a child process."""
     try:
         os.close(open_directory(path))
@@ -113,7 +113,7 @@ def prepare_workspace(path: Path, seed: Path | None = None, *, gid: int | None =
     except FileNotFoundError:
         pass
     script = Path(__file__).with_name('binding_directory.py')
-    command = [sys.executable, '-I', str(script), str(path)]
+    command = [sys.executable, '-I', str(script), str(path), oct(mode)]
     if seed is not None:
         command.append(str(seed))
     result = subprocess.run(command, group=gid, umask=0, capture_output=True, text=True)
@@ -254,12 +254,13 @@ def traverse(path: Path, uid: int, *, root: Path) -> None:
             os.close(fd)
 
 
-def _visit_tree(root_fd, path, apply):
+def _visit_tree(root_fd, path, apply, *, children_first=False):
     def visit(fd, logical):
         info = os.fstat(fd)
         if not (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode)):
             return
-        apply(fd, logical, info)
+        if not children_first:
+            apply(fd, logical, info)
         if stat.S_ISDIR(info.st_mode):
             directory = os.open('.', os.O_RDONLY | os.O_DIRECTORY, dir_fd=fd)
             try:
@@ -274,7 +275,75 @@ def _visit_tree(root_fd, path, apply):
                         os.close(child)
             finally:
                 os.close(directory)
+        if children_first:
+            apply(fd, logical, info)
     visit(root_fd, path)
+
+
+def _legacy_grants(fd, users, group):
+    """Only convert ACLs whose group mode already equals the old guests' effective access."""
+    lines = subprocess.check_output(
+        ['getfacl', '-cnEp', f'/proc/self/fd/{fd}'], pass_fds=(fd,), text=True,
+    ).splitlines()
+    access = dict(line.rsplit(':', 1) for line in lines if line and not line.startswith('default:'))
+    mask = access.get('mask:')
+    named = {who for who in access if not who.endswith(':')}
+    if not mask or named.isdisjoint(users) or named - users - {group}:
+        return False
+    effective = set(mask) - {'-'}
+    if any(not effective.issubset(access[who]) for who in named):
+        return False
+
+    defaults = {line.removeprefix('default:') for line in lines if line.startswith('default:')}
+    if not defaults:
+        return True
+    # The old manager seeded defaults from the directory mode after granting guest access.
+    stock = {'user::rwx', 'group::rwx', 'mask::rwx', f"other::{access['other:']}"}
+    stock.update(f'{who}:rwx' for who in named)
+    return access['user:'] == 'rwx' and defaults == stock
+
+
+def migrate_shared_group(path: Path, gid: int, registry: Path, *, recursive=False) -> None:
+    """Convert traversal on the common parent or read/write access in the built-in exchange."""
+    fd = open_directory(path)
+    try:
+        root = f'/proc/self/fd/{fd}'
+        if not _has_acl(root):
+            return
+        with (registry / str(gid)).open('rb') as lease:
+            fcntl.flock(lease, fcntl.LOCK_EX)
+            users = {f'user:{p.name}' for p in registry.iterdir() if p.name.isdecimal()}
+            group = f'group:{gid}'
+            required = 0o070 if recursive else 0o010
+            info = os.fstat(fd)
+            if info.st_gid and f'user:{info.st_gid}' not in users:
+                return
+            if info.st_mode & 0o070 != required or not _legacy_grants(fd, users, group):
+                return
+
+            def convert(child, _path, info):
+                target = f'/proc/self/fd/{child}'
+                if info.st_gid not in (0, gid) and f'user:{info.st_gid}' not in users:
+                    return
+                if not info.st_mode & 0o070:
+                    return
+                if stat.S_ISREG(info.st_mode) and (info.st_nlink > 1 or info.st_mode & 0o6000
+                                                   or 'security.capability' in os.listxattr(target)):
+                    return
+                if child != fd and (not _has_acl(target) or not _legacy_grants(child, users, group)):
+                    return
+                os.chown(target, -1, gid)
+                if _has_acl(target, 'default'):
+                    os.removexattr(target, 'system.posix_acl_default')
+                # Linux keeps the ACL mask as the group mode when removing the access ACL.
+                os.removexattr(target, 'system.posix_acl_access')
+
+            if recursive:
+                _visit_tree(fd, path, convert, children_first=True)
+            else:
+                convert(fd, path, info)
+    finally:
+        os.close(fd)
 
 
 def grant_worker_input(path: Path, uid: int, *, root: Path) -> None:

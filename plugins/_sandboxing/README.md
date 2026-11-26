@@ -73,12 +73,12 @@ the CLI command is `python -m helpers.sandbox disk-usage NAME`.
 Cached image sizes come from import/pull metadata; unavailable sizes remain
 unknown without scanning. Image-import size-limit checks still apply.
 
-Existing host directories and their contents keep their ownership, permissions,
-and ACLs. This applies to `usr`, the managed workspace, the common exchange,
-and explicit bindings. A guest operation can return permission denied when the
-host restricts its path. New workspaces are created writable by their guest on
-Linux. Guests create files with a common primary group and umask 0002
-so they can exchange files in `/shared`.
+On Linux, guests share a numeric group for `/shared`. New workspaces use
+their guest's group. On older installations the original guest UID keeps
+its access to retained private files. Agent Zero repairs traversal on the
+common `usr/sandbox_data` directory and converts recognized legacy permissions
+inside the built-in `/shared` exchange. Existing private workspaces and custom
+mounts retain their host permissions. Docker bind mounts use these same numeric IDs.
 The manager tracks and stops processes by their distinct Linux UIDs.
 
 Every sandbox receives `/shared` and, by default, Agent Zero's `usr/` at

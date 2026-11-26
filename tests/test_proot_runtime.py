@@ -416,7 +416,7 @@ def test_managed_permissions_and_group_exchange_without_binding_acls(manager, mo
     usr = manager.config.instances_dir.parent / 'acl-free-user-data'
     shared = usr / 'sandbox-shared'
     shared.mkdir(parents=True)
-    usr.chmod(0o777)
+    usr.chmod(0o2777)
     shared.chmod(0o777)
     (shared / 'existing').write_text('legacy')
     (shared / 'existing').chmod(0o666)
@@ -434,6 +434,12 @@ def test_managed_permissions_and_group_exchange_without_binding_acls(manager, mo
 
     monkeypatch.setattr(storage, '_acl', reject_mount_acl)
     manager.create('group-writer')
+    data = usr / 'sandbox_data'
+    assert data.stat().st_gid == storage.lease_uid(manager.config.uid_registry, shared)
+    assert data.stat().st_mode & 0o777 == 0o710
+    parent = data / 'group-writer'
+    assert parent.stat().st_gid == manager._read_metadata('group-writer')['uid']
+    assert parent.stat().st_mode & 0o777 == 0o710
     run(manager, 'group-writer', """
 from pathlib import Path
 p = Path('/shared/directory')
@@ -486,6 +492,133 @@ p.write_text('second')
 p.unlink()
 """)
     assert manager._read_metadata('fresh-writer')['uid'] != manager._read_metadata('fresh-reader')['uid']
+
+
+@pytest.mark.parametrize('custom_default', ['d:u::r-x', 'd:g::r--', 'd:o::r-x'])
+def test_custom_defaults_keep_their_inheritance(tmp_path, custom_default):
+    shared = tmp_path / 'shared'
+    shared.mkdir(mode=0o700)
+    registry = tmp_path / 'uids'
+    gid = storage.lease_uid(registry, shared)
+    uid = storage.lease_uid(registry, tmp_path / 'guest')
+    subprocess.run(['setfacl', '-m', f'u:{uid}:rwx,d:u:{uid}:rwx,d:g::rwx', str(shared)], check=True)
+    subprocess.run(['setfacl', '-m', custom_default, str(shared)], check=True)
+    default_acl = os.getxattr(shared, 'system.posix_acl_default')
+    before = shared / 'before'
+    before.touch()
+
+    storage.migrate_shared_group(shared, gid, registry, recursive=True)
+
+    after = shared / 'after'
+    after.touch()
+    assert os.getxattr(shared, 'system.posix_acl_default') == default_acl
+    assert after.stat().st_mode == before.stat().st_mode
+
+
+def test_interrupted_exchange_migration_retries_from_the_root(tmp_path, monkeypatch):
+    root = tmp_path / 'shared'
+    root.mkdir(mode=0o700)
+    registry = tmp_path / 'uids'
+    gid = storage.lease_uid(registry, root)
+    uid = storage.lease_uid(registry, tmp_path / 'guest')
+    subprocess.run(['setfacl', '-m', f'u:{uid}:rwx,d:u:{uid}:rwx,d:g::rwx', str(root)], check=True)
+    folder = root / 'folder'
+    folder.mkdir()
+    file = folder / 'retained'
+    file.write_text('original')
+    remove = os.removexattr
+
+    def interrupt(target, attr):
+        if attr == 'system.posix_acl_access' and os.path.samefile(target, folder):
+            raise InterruptedError('interrupted at folder')
+        remove(target, attr)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, 'removexattr', interrupt)
+        with pytest.raises(InterruptedError, match='interrupted at folder'):
+            storage.migrate_shared_group(root, gid, registry, recursive=True)
+    assert 'system.posix_acl_access' not in os.listxattr(file)
+    assert 'system.posix_acl_default' not in os.listxattr(folder)
+    assert 'system.posix_acl_access' in os.listxattr(folder)
+    assert 'system.posix_acl_default' in os.listxattr(root)
+
+    storage.migrate_shared_group(root, gid, registry, recursive=True)
+    for path in (file, folder, root):
+        assert path.stat().st_gid == gid
+        assert not any(attr.startswith('system.posix_acl_') for attr in os.listxattr(path))
+    assert file.read_text() == 'original'
+
+
+def test_upgrade_preserves_private_workspace_and_migrates_shared_files(manager, monkeypatch):
+    usr = manager.config.instances_dir.parent / 'legacy-user-data'
+    data = usr / 'sandbox_data'
+    workspace = data / 'legacy-owner/workspace'
+    shared = usr / 'sandbox-shared'
+    workspace.mkdir(parents=True, mode=0o700)
+    data.chmod(0o700)
+    shared.mkdir(mode=0o750)
+    owner = storage.lease_uid(manager.config.uid_registry, manager.config.instances_dir / 'legacy-owner')
+    exchange_gid = storage.lease_uid(manager.config.uid_registry, shared)
+    workspace.parent.chmod(0o700)
+    subprocess.run(['setfacl', '-m', f'u:{owner}:--x,u:{exchange_gid}:--x', str(data), str(workspace.parent)], check=True)
+    subprocess.run(['setfacl', '-m', f'u:{owner}:rwx,d:u:{owner}:rwx,d:g::rwx', str(workspace), str(shared)], check=True)
+    message = shared / 'legacy/message'
+    message.parent.mkdir()
+    message.write_text('retained exchange data')
+    restricted = shared / 'restricted'
+    restricted.touch(mode=0o600)
+    external = usr / 'external'
+    external.touch(mode=0o600)
+    subprocess.run(['setfacl', '-m', f'u:{owner}:rw-', str(external)], check=True)
+    os.link(external, shared / 'linked')
+    external_acl = os.getxattr(external, 'system.posix_acl_access')
+    custom = shared / 'host-acl'
+    custom.touch()
+    subprocess.run(['setfacl', '-m', 'u:65534:r--', str(custom)], check=True)
+    custom_acl = os.getxattr(custom, 'system.posix_acl_access')
+    private = workspace / 'retained'
+    private.write_text('retained workspace data')
+    subprocess.run(['setfacl', '-m', f'u:{owner}:rw-', str(private)], check=True)
+    private_permissions = ['getfacl', '-np', str(workspace.parent), str(workspace), str(private)]
+    original_permissions = subprocess.check_output(private_permissions)
+
+    monkeypatch.setattr(manager, 'config', dataclasses.replace(manager.config, user_dir=usr, shared_dir=shared))
+    shared.chmod(0o700)
+    message_acl = os.getxattr(message, 'system.posix_acl_access')
+    manager.create('legacy-owner')
+    assert os.getxattr(message, 'system.posix_acl_access') == message_acl
+    shared.chmod(0o770)
+    manager.create('legacy-peer')
+    for path in (data, shared, message):
+        assert path.stat().st_gid == exchange_gid
+        assert not any(attr.startswith('system.posix_acl_') for attr in os.listxattr(path))
+    run(manager, 'legacy-peer', """
+import os
+from pathlib import Path
+p = Path('/shared/legacy/message')
+assert p.read_text() == 'retained exchange data'
+p.write_text('peer update')
+Path('/shared/peer-message').write_text('shared with owner')
+Path('/workspace/new').write_text('peer workspace')
+assert not Path('/a0/usr/sandbox_data/legacy-owner/workspace/retained').exists()
+assert not Path('/workspace/retained').exists()
+assert not os.access('/shared/restricted', os.R_OK)
+assert not os.access('/shared/linked', os.R_OK)
+""")
+    manager.restart('legacy-owner')
+    run(manager, 'legacy-owner', """
+from pathlib import Path
+assert Path('/workspace/retained').read_text() == 'retained workspace data'
+Path('/workspace/retained').write_text('owner update')
+assert Path('/shared/legacy/message').read_text() == 'peer update'
+assert Path('/shared/peer-message').read_text() == 'shared with owner'
+""")
+    assert (data / 'legacy-peer/workspace/new').read_text() == 'peer workspace'
+    assert private.read_text() == 'owner update'
+    assert subprocess.check_output(private_permissions) == original_permissions
+    assert restricted.stat().st_mode & 0o777 == 0o600
+    assert os.getxattr(external, 'system.posix_acl_access') == external_acl
+    assert os.getxattr(custom, 'system.posix_acl_access') == custom_acl
 
 
 def test_unreachable_binding_fails_before_running_command(manager, tmp_path):

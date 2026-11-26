@@ -10,7 +10,7 @@ import tempfile
 
 def copy_seed(source, target):
     target.mkdir(mode=0o770)
-    for name in os.listdir(source):
+    for name in os.listdir(f'/proc/self/fd/{source}'):
         dest = target / name
         mode = os.stat(name, dir_fd=source, follow_symlinks=False).st_mode
         if stat.S_ISLNK(mode):
@@ -35,31 +35,38 @@ def copy_seed(source, target):
             raise OSError(f'Unsupported seed entry: {name}')
 
 
-def create(path, seed):
+def create(path, seed, mode):
     from helpers.file_transfers import rename_no_replace
     from plugins._sandboxing.helpers.storage import _open, open_directory
 
     parent = _open(path.parent, create_dirs=True)
     try:
         target = Path('/proc/self/fd') / str(parent) / path.name
-        if seed is not None:
-            fd = open_directory(seed)
+        inherited_group = os.fstat(parent).st_mode & stat.S_ISGID
+        if seed is None and not inherited_group:
+            target.mkdir(mode=mode)
+            return
+        with tempfile.TemporaryDirectory(dir=target.parent) as stage:
+            stage_fd = os.open(stage, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             try:
-                source = os.open('.', os.O_RDONLY | os.O_DIRECTORY, dir_fd=fd)
-                try:
-                    with os.scandir(source) as entries:
-                        populated = next(entries, None) is not None
-                    if populated:
-                        with tempfile.TemporaryDirectory(dir=target.parent) as stage:
-                            tree = Path(stage) / 'binding'
-                            copy_seed(source, tree)
-                            rename_no_replace(tree, target)
-                        return
-                finally:
-                    os.close(source)
+                info = os.fstat(stage_fd)
+                if info.st_uid != os.geteuid() or info.st_mode & 0o777 != 0o700:
+                    raise PermissionError('Expected a private binding staging directory')
+                # A setgid host mount would otherwise override the leased creation group.
+                if inherited_group:
+                    os.fchmod(stage_fd, 0o700)
+                tree = Path('/proc/self/fd') / str(stage_fd) / 'binding'
+                if seed is None:
+                    tree.mkdir(mode=mode)
+                else:
+                    fd = open_directory(seed)
+                    try:
+                        copy_seed(fd, tree)
+                    finally:
+                        os.close(fd)
+                rename_no_replace(tree, target)
             finally:
-                os.close(fd)
-        target.mkdir(mode=0o770)
+                os.close(stage_fd)
     finally:
         os.close(parent)
 
@@ -67,7 +74,7 @@ def create(path, seed):
 if __name__ == '__main__':
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     try:
-        create(Path(sys.argv[1]), Path(sys.argv[2]) if len(sys.argv) > 2 else None)
+        create(Path(sys.argv[1]), Path(sys.argv[3]) if len(sys.argv) > 3 else None, int(sys.argv[2], 8))
     except FileExistsError:
         sys.exit(errno.EEXIST)
     except OSError as exc:
