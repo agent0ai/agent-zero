@@ -220,6 +220,7 @@ const model = {
   },
 
   _applyDarkMode(value) {
+    document.documentElement.dataset.theme = value ? "dark" : "light";
     if (value) {
       document.body.classList.remove("light-mode");
       document.body.classList.add("dark-mode");
