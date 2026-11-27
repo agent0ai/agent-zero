@@ -13,6 +13,10 @@
 
 - Preserve ordering where sections depend on earlier context.
 - Main, local-tool and MCP section owners identify their sections to `helpers.responses_tools.register_prompt` while retaining normal text prompts. That helper owns alternate protocol templates; Chat and fallback keep the text protocol. MCP supplies policy-filtered server context independently of endpoint mode.
+- MCP server instructions are rendered inside `MCPConfig.get_tools_prompt` so
+  the Responses replacement keeps them. Do not append MCP text to the
+  registered MCP prompt here or in a `build_prompt` end hook: Responses
+  rebuilds that section and would drop it.
 - Keep secret-related prompt sections masked and scoped.
 - Prompt additions must be bounded and compatible with tool-call contracts.
 - Keep non-tool sections free of configurable capability guidance; tool-owned

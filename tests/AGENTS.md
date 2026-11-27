@@ -44,6 +44,7 @@
 - Run `node --test tests/test_canvas_modes.mjs tests/test_component_moves.mjs` for workspace routing, close guards and retained component and extension moves; verify shared modal and isolated Save As rendering in a real browser.
 - Run `node --test tests/test_file_browser_views.mjs` for independent chat/embedded views, selection, and shared browser configuration. Run `pytest tests/test_file_browser_actions.py tests/test_file_browser_navigation.py` for local Trash, ZIP, exact names, concurrent uploads and picker contracts.
 - Run `node --test tests/test_canvas_resize.mjs tests/test_canvas_rail_drag.mjs` for deferred canvas resizing, drag pointer ownership and cancellation cleanup; iframe interception also needs a real-browser drag check.
+- Run `node --test tests/test_mcp_scan_prompt.mjs` for MCP scan prompt placeholder filling and safe scan report rendering.
 - Run `pytest tests/test_name.py` for narrow changes and mention any broader test gaps at closeout.
 - Plugin Hub compatibility: `python -m unittest discover -s tests -p test_plugin_compatibility.py` and `node --test tests/test_plugin_compatibility.mjs tests/test_plugin_hub_welcome.mjs` cover manifest/version parsing and advisory install filtering/confirmation without installing plugins.
 - Run `python -m unittest discover -s tests -p test_upload_filenames.py` for the dependency-free shared upload-name checks; `pytest tests/test_telegram_media_delivery.py` also covers attachment destination confinement.

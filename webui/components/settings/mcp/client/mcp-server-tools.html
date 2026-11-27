@@ -26,6 +26,13 @@
                     </div>
                 </div>
 
+                <template x-if="$store.mcpServersStore.serverDetail?.instructions">
+                    <details class="tool-item">
+                        <summary><strong>Server instructions</strong></summary>
+                        <div class="tool-properties mcp-server-instructions-text" x-text="$store.mcpServersStore.serverDetail.instructions"></div>
+                    </details>
+                </template>
+
                 <label class="mcp-tool-search">
                     <x-icon aria-hidden="true" name="search"></x-icon>
                     <input type="search" x-model.debounce.150ms="$store.mcpServersStore.toolSearch" placeholder="Search tools" />
@@ -163,6 +170,11 @@
         .mcp-tools-modal .button:disabled {
             opacity: 0.55;
             cursor: not-allowed;
+        }
+
+        .mcp-server-instructions-text {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
         }
 
         .mcp-tools-count {

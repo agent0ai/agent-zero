@@ -1,5 +1,5 @@
 import { createStore } from "/js/AlpineStore.js";
-import { marked } from "/vendor/marked/marked.esm.js";
+import { renderSafeMarkdown } from "/js/safe-markdown.js";
 import sleep from "/js/sleep.js";
 import * as API from "/js/api.js";
 import { openModal } from "/js/modals.js";
@@ -220,6 +220,12 @@ function formatStatusLegend(ratings) {
 
 function formatRatingIcons(ratings) {
   return Object.values(ratings || {}).map((rating) => rating.icon).join("/");
+}
+
+// Fill every {{NAME}} in one pass over the template. Inserted values (server
+// config, instructions) are never searched for placeholders or "$&" patterns.
+function fillScanTemplate(template, values) {
+  return template.replace(/\{\{([A-Z_]+)\}\}/g, (match, name) => values[name] ?? match);
 }
 
 function createDefaultScanOptions() {
@@ -668,32 +674,27 @@ const model = {
           risk_level: this.scanResult.risk_level,
           warnings: this.scanResult.warnings || [],
           inspected_tools: this.scanResult.inspected_tools || [],
+          server_instructions: this.scanResult.detail?.instructions || "",
         }, null, 2)
         : "No deterministic config inspection has been run in this modal yet.";
 
-      let prompt = template;
-      prompt = prompt.replace(/\{\{SERVER_JSON\}\}/g, this.scanTargetJson || JSON.stringify(this.scanServer, null, 2));
-      prompt = prompt.replace(/\{\{CONFIG_SCOPE\}\}/g, this.scope === "project" && this.projectName ? `project: ${this.projectName}` : "global draft");
-      prompt = prompt.replace(/\{\{RUNTIME_INSPECTION\}\}/g, this.scanOptions.inspectRuntime ? "requested" : "not requested");
-      prompt = prompt.replace(/\{\{ALLOW_LOCAL_EXECUTION\}\}/g, this.scanOptions.allowLocalExecution ? "yes" : "no");
-      prompt = prompt.replace(/\{\{ALLOW_REMOTE_NETWORK\}\}/g, this.scanOptions.allowRemoteNetwork ? "yes" : "no");
-      prompt = prompt.replace(/\{\{INSPECTION_SUMMARY\}\}/g, inspectionSummary);
-      prompt = prompt.replace(
-        /\{\{SELECTED_CHECKS\}\}/g,
-        selected.length ? selected.map((check) => `- ${check.label}`).join("\n") : "- (no checks selected)",
-      );
-      prompt = prompt.replace(
-        /\{\{CHECK_DETAILS\}\}/g,
-        selected.length
+      this.scanPrompt = fillScanTemplate(template, {
+        SERVER_JSON: this.scanTargetJson || JSON.stringify(this.scanServer, null, 2),
+        CONFIG_SCOPE: this.scope === "project" && this.projectName ? `project: ${this.projectName}` : "global draft",
+        RUNTIME_INSPECTION: this.scanOptions.inspectRuntime ? "requested" : "not requested",
+        ALLOW_LOCAL_EXECUTION: this.scanOptions.allowLocalExecution ? "yes" : "no",
+        ALLOW_REMOTE_NETWORK: this.scanOptions.allowRemoteNetwork ? "yes" : "no",
+        INSPECTION_SUMMARY: inspectionSummary,
+        SELECTED_CHECKS: selected.length ? selected.map((check) => `- ${check.label}`).join("\n") : "- (no checks selected)",
+        CHECK_DETAILS: selected.length
           ? selected.map((check) => `**${check.label}**: ${check.detail}\n${formatCriteria(ratings, check.criteria)}`).join("\n\n")
           : "(no checks selected)",
-      );
-      prompt = prompt.replace(/\{\{STATUS_LEGEND\}\}/g, formatStatusLegend(ratings));
-      prompt = prompt.replace(/\{\{RATING_ICONS\}\}/g, formatRatingIcons(ratings));
-      prompt = prompt.replace(/\{\{RATING_PASS\}\}/g, ratings.pass?.icon || "PASS");
-      prompt = prompt.replace(/\{\{RATING_WARNING\}\}/g, ratings.warning?.icon || "WARN");
-      prompt = prompt.replace(/\{\{RATING_FAIL\}\}/g, ratings.fail?.icon || "FAIL");
-      this.scanPrompt = prompt;
+        STATUS_LEGEND: formatStatusLegend(ratings),
+        RATING_ICONS: formatRatingIcons(ratings),
+        RATING_PASS: ratings.pass?.icon || "PASS",
+        RATING_WARNING: ratings.warning?.icon || "WARN",
+        RATING_FAIL: ratings.fail?.icon || "FAIL",
+      });
     } catch (error) {
       console.error("Failed to build MCP scan prompt:", error);
       void toastFrontendError(`Failed to build scan prompt: ${error.message || error}`, SCAN_TITLE);
@@ -1104,7 +1105,8 @@ const model = {
   },
 
   get renderedScanOutput() {
-    return this.scanOutput ? marked.parse(this.scanOutput, { breaks: true }) : "";
+    // The report can quote server-controlled text (tool descriptions, instructions).
+    return renderSafeMarkdown(this.scanOutput);
   },
 
   onClose() {

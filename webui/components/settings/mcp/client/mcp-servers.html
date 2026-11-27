@@ -127,13 +127,15 @@
                                             <div class="mcp-status-meta">
                                                 <span x-text="$store.mcpServersStore.statusLabel(server)"></span>
                                                 <span x-show="server.type" x-text="server.type"></span>
+                                                <span x-show="server.has_instructions"
+                                                    title="This server sent usage instructions. Open its detail view to read them.">Instructions</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="mcp-status-actions">
-                                        <button type="button" class="button" x-show="server.tool_count > 0"
+                                        <button type="button" class="button" x-show="server.tool_count > 0 || server.has_instructions"
                                             @click="$store.mcpServersStore.onToolCountClick(server.name)"
-                                            x-text="server.tool_count + ' tools'"></button>
+                                            x-text="server.tool_count > 0 ? server.tool_count + ' tools' : 'Details'"></button>
                                         <button type="button" class="button" x-show="server.has_log"
                                             @click="$store.mcpServersStore.getServerLog(server.name)">Log</button>
                                     </div>
