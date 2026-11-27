@@ -184,7 +184,7 @@ const model = {
   },
 
   get heroSubtitle() {
-    return "How can I help you today?";
+    return "Hvordan kan jeg hjelpe deg i dag?";
   },
 
   executeBannerAction(action) {
