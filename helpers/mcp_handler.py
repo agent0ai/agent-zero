@@ -18,6 +18,7 @@ from typing import (
 )
 import threading
 import asyncio
+import textwrap
 import unicodedata
 from contextlib import AsyncExitStack
 from shutil import which
@@ -93,24 +94,14 @@ def normalize_server_instructions(value: Any) -> str:
 
     Anything but a string means none. Every line break form becomes ``\\n``,
     other control characters (such as terminal escape codes) are dropped, and
-    docstring-style indentation (the spaces every non-blank line after the
-    first shares) is removed, since Python servers often pass an indented
-    triple-quoted string. Tabs are kept as sent. Applied once, when the
-    instructions are captured: a second pass could flatten nested indentation.
+    the indentation shared by every non-blank line is removed, since Python
+    servers often pass an indented triple-quoted string. Relative indentation
+    and tabs are kept as sent.
     """
     if not isinstance(value, str):
         return ""
-    lines = [_without_control_chars(line) for line in value.splitlines()]
-    if not lines:
-        return ""
-    margin = min(
-        (len(line) - len(line.lstrip(" ")) for line in lines[1:] if line.strip()),
-        default=0,
-    )
-    lines = [lines[0].strip()] + [
-        line[margin:].rstrip() if line.strip() else "" for line in lines[1:]
-    ]
-    return "\n".join(lines).strip()
+    text = "\n".join(_without_control_chars(line) for line in value.splitlines())
+    return textwrap.dedent(text).strip()
 
 
 def contain_server_instructions(text: str) -> str:
@@ -1578,20 +1569,15 @@ class MCPClientBase(ABC):
 
         async def list_tools_op(current_session: ClientSession):
             response: ListToolsResult = await current_session.list_tools()
-            with self.__lock:
-                self.tools = [
-                    {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "input_schema": tool.inputSchema,
-                    }
-                    for tool in response.tools
-                ]
-                self.instructions = initialized.get("instructions", "")
-                self.error = ""
-            PrintStyle(font_color="green").print(
-                f"MCPClientBase ({self.server.name}): Tools updated. Found {len(self.tools)} tools."
-            )
+            tools = [
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": tool.inputSchema,
+                }
+                for tool in response.tools
+            ]
+            return tools, initialized.get("instructions", "")
 
         try:
             current_settings = settings.get_settings()
@@ -1600,7 +1586,9 @@ class MCPClientBase(ABC):
                 or current_settings.get("mcp_client_init_timeout", 10)
                 or 10
             )
-            await self._run_isolated_operation(
+            # The worker only returns results: a listing that finishes after
+            # the timeout was abandoned must not overwrite the cleared caches.
+            tools, instructions = await self._run_isolated_operation(
                 "update_tools",
                 lambda: self._execute_with_session(
                     list_tools_op,
@@ -1608,6 +1596,13 @@ class MCPClientBase(ABC):
                     on_initialized=remember_initialize_result,
                 ),
                 timeout_seconds=self._operation_timeout_seconds(init_timeout),
+            )
+            with self.__lock:
+                self.tools = tools
+                self.instructions = instructions
+                self.error = ""
+            PrintStyle(font_color="green").print(
+                f"MCPClientBase ({self.server.name}): Tools updated. Found {len(tools)} tools."
             )
         except Exception as e:
             # e = eg.exceptions[0]

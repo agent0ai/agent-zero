@@ -66,7 +66,7 @@
 - Top-level functions:
 - `_mcp_get(item: Any, key: str, default: Any=...) -> Any`
 - `neutralize_prompt_template_syntax(value: Any) -> str`: Split every `{{` in server-supplied text so prompt templates cannot interpret it.
-- `normalize_server_instructions(value: Any) -> str`: Clean the initialize `instructions` string once at capture (line breaks unified, control characters dropped, docstring indentation removed).
+- `normalize_server_instructions(value: Any) -> str`: Clean the initialize `instructions` string at capture (line breaks unified, control characters dropped, indentation shared by every non-blank line removed; relative indentation kept).
 - `contain_server_instructions(text: str) -> str`: Bound, demote, fence-close, and neutralize one server's normalized instructions for its prompt subsection.
 - `_without_control_chars(line: str) -> str`: Drop control characters other than tab.
 - `_server_instructions(server: Any) -> str`: Read a server's cached instructions, tolerating duck-typed servers.
@@ -113,11 +113,14 @@
   such as `usr/.env` into the system prompt or capture a later placeholder.
 - Server instructions (the MCP `initialize` result's optional `instructions`)
   are captured only on the `update_tools` (re)connect path through
-  `_execute_with_session(..., on_initialized=...)`, normalized once, and
-  committed with the tool cache under the client lock. A successful reconnect
-  replaces them (empty when the server sends none); a failed one clears them
-  with the tools. Tool calls re-initialize sessions but never change them, so
-  the system prompt does not shift mid-conversation.
+  `_execute_with_session(..., on_initialized=...)` and normalized. The
+  isolated worker only returns the listed tools and instructions;
+  `update_tools` publishes both under the client lock after the timed
+  operation succeeds, so a listing that finishes after its timeout cannot
+  restore caches the timeout cleared. A successful reconnect replaces them
+  (empty when the server sends none); a failed one clears them with the
+  tools. Tool calls re-initialize sessions but never change them, so the
+  system prompt does not shift mid-conversation.
 - `get_tools_prompt` appends one `## MCP Server Instructions` section after
   the server sections, with a `### Instructions from MCP server <name>`
   subsection per server in config order, rendered from

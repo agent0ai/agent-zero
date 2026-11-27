@@ -96,7 +96,8 @@ tools, so the agent uses those tools the way the server intends.
 - Each server's text is capped at 4,096 characters and kept inside its own
   section.
 - A server's status row shows **Instructions** when it sent some. To read them,
-  click the server's tool count and expand **Server instructions**.
+  click the server's tool count (**Details** if all its tools are off) and
+  expand **Server instructions**.
 - To leave a server's instructions out, turn off that server or its tools; its
   instructions go with them.
 

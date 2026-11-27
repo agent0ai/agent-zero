@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -105,8 +106,10 @@ def test_captured_instructions_are_trimmed_and_dedented() -> None:
     assert normalize("\n    Connect to Agent Zero.\n    It controls Linux.\n    ") == (
         "Connect to Agent Zero.\nIt controls Linux."
     )
-    assert normalize("First line\r\n    second\r    third\n") == "First line\nsecond\nthird"
+    assert normalize("  a\r\n    b\r  c\n") == "a\n  b\nc"
     assert normalize("\n    - list\n      - nested\n") == "- list\n  - nested"
+    # Only indentation every line shares is removed: nested examples keep their shape.
+    assert normalize("options:\n  limit: 10") == "options:\n  limit: 10"
     assert normalize("Tabs\tstay\n\tas sent") == "Tabs\tstay\n\tas sent"
     assert normalize("Use \x1b[31mred\x1b[0m\x00 wisely\x07") == "Use [31mred[0m wisely"
     assert normalize("  \n\t ") == ""
@@ -293,6 +296,45 @@ def test_update_tools_captures_initialize_instructions(quiet_handler, monkeypatc
     assert client.error == ""
 
 
+def test_a_listing_that_finishes_after_the_timeout_publishes_nothing(
+    quiet_handler, monkeypatch
+) -> None:
+    release = threading.Event()
+    finished = threading.Event()
+
+    class _SlowSession:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            finished.set()
+            return False
+
+        async def initialize(self):
+            return SimpleNamespace(instructions="Late instructions.")
+
+        async def list_tools(self):
+            while not release.is_set():
+                await asyncio.sleep(0.01)
+            tool = SimpleNamespace(name="read", description="Read", inputSchema={})
+            return SimpleNamespace(tools=[tool])
+
+    monkeypatch.setattr(mcp_handler, "ClientSession", _SlowSession)
+    client = _Client(SimpleNamespace(name="docs", init_timeout=0))
+    client._operation_timeout_seconds = lambda seconds: 0.05
+
+    asyncio.run(client.update_tools())  # times out while the listing is still running
+    release.set()
+    assert finished.wait(5)  # the abandoned worker has now completed its listing
+
+    assert client.get_tools() == []
+    assert client.get_instructions() == ""
+    assert client.error.startswith("Failed to initialize.")
+
+
 def test_failed_reconnect_clears_stale_instructions(quiet_handler) -> None:
     class _Broken(mcp_handler.MCPClientBase):
         async def _create_stdio_transport(self, current_exit_stack):
@@ -344,6 +386,8 @@ def test_settings_ui_shows_server_instructions() -> None:
     detail = (client / "mcp-server-tools.html").read_text(encoding="utf-8")
 
     assert 'x-show="server.has_instructions"' in servers
+    # With every tool disabled the detail view stays reachable for the instructions.
+    assert 'x-show="server.tool_count > 0 || server.has_instructions"' in servers
     # Server text is untrusted: plain text only.
     assert 'x-text="$store.mcpServersStore.serverDetail.instructions"' in detail
     assert "x-html" not in detail
