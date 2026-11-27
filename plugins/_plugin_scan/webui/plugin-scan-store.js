@@ -3,7 +3,7 @@ import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal } from "/js/modals.js";
 import { getUserTimezone } from "/js/time-utils.js";
-import { toastFrontendError } from "/components/notifications/notification-store.js";
+import { toastFrontendError, toastFrontendNotice } from "/components/notifications/notification-store.js";
 
 const BASE = "/plugins/_plugin_scan/webui";
 
@@ -162,14 +162,14 @@ export const store = createStore("pluginScan", {
     try {
       await navigator.clipboard.writeText(this.prompt);
     } catch {
-      void toastFrontendError("Failed to copy the scan prompt", SCAN_TITLE);
+      void toastFrontendNotice("error", "Failed to copy the scan prompt", SCAN_TITLE);
     }
   },
 
   /** Create a fresh context, log the prompt into it, and start the scan immediately. */
   async runScan() {
     if (!this.gitUrl.trim()) {
-      void toastFrontendError("Please enter a Git URL", SCAN_TITLE);
+      void toastFrontendNotice("error", "Please enter a Git URL", SCAN_TITLE);
       return;
     }
 
@@ -217,7 +217,7 @@ export const store = createStore("pluginScan", {
       if (Date.now() >= deadline) {
         if (gen === _pollGen) {
           this.scanning = false;
-          void toastFrontendError("Scan timed out while waiting for the agent response", SCAN_TITLE);
+          void toastFrontendNotice("error", "Scan timed out while waiting for the agent response", SCAN_TITLE);
           console.error(`Scan poll timed out for context ${ctxId}`);
         }
         return;

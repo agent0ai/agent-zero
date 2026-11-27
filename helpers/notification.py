@@ -34,6 +34,7 @@ class NotificationItem:
     read: bool = False
     id: str = ""
     group: str = ""  # Group identifier for grouping related notifications
+    copyable: bool = True
 
     def __post_init__(self):
         if not self.id:
@@ -59,6 +60,7 @@ class NotificationItem:
             "display_time": self.display_time,
             "read": self.read,
             "group": self.group,
+            "copyable": self.copyable,
         }
 
 
@@ -80,10 +82,11 @@ class NotificationManager:
         display_time: int = 3,
         group: str = "",
         id: str = "",
+        copyable: bool = True,
     ) -> NotificationItem:
         from agent import AgentContext
         return AgentContext.get_notification_manager().add_notification(
-            type, priority, message, title, detail, display_time, group, id
+            type, priority, message, title, detail, display_time, group, id, copyable
         )
 
     def add_notification(
@@ -96,6 +99,7 @@ class NotificationManager:
         display_time: int = 3,
         group: str = "",
         id: str = "",
+        copyable: bool = True,
     ) -> NotificationItem:
         with self._lock:
             existing = None
@@ -111,6 +115,7 @@ class NotificationManager:
                 existing.timestamp = Localization.get().now()
                 existing.display_time = display_time
                 existing.group = group
+                existing.copyable = copyable
                 existing.read = False
                 self.updates.append(existing.no)
                 item = existing
@@ -128,6 +133,7 @@ class NotificationManager:
                     display_time=display_time,
                     id=id,
                     group=group,
+                    copyable=copyable,
                 )
 
                 self.notifications.append(item)

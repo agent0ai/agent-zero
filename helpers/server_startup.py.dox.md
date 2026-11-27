@@ -37,6 +37,7 @@
 ## Runtime Contracts
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
+- An explicit shutdown requested through `helpers.process` ends startup attempts even when the readiness monitor has yet to record a healthy response. Watchdog timeouts retain the retry path.
 - Uvicorn receives the shared `A0_WS_MAX_PAYLOAD_BYTES` ceiling. The `websockets` backend enforces this transport setting; the selected `wsproto` backend is protected by connector application preflight because Uvicorn exposes no wsproto-specific message-size option.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem writes, network calls, subprocess/runtime control, settings/state persistence.

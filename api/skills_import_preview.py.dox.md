@@ -20,12 +20,13 @@
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `SkillsImportPreview` is an `ApiHandler`.
 - `SkillsImportPreview` defines `process(...)`.
+- Uploaded archive filenames use `helpers.security.safe_filename`, falling back to `skills.zip` when empty after cleaning.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.
-- Imported dependency areas include: `__future__`, `helpers`, `helpers.api`, `helpers.skills_import`, `os`, `pathlib`, `time`, `uuid`, `werkzeug.datastructures`, `werkzeug.utils`.
+- Imported dependency areas include: `__future__`, `helpers`, `helpers.api`, `helpers.security`, `helpers.skills_import`, `os`, `pathlib`, `time`, `uuid`, `werkzeug.datastructures`.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `self.use_context`, `strip.lower`, `Path`, `tmp_dir.mkdir`, `secure_filename`, `time.strftime`, `skills_file.save`, `strip`, `files.get_abs_path`, `base.lower.endswith`, `import_skills`, `files.deabsolute_path`, `uuid.uuid4`, `tmp_path.unlink`, `base.lower`.
+- Important called helpers/classes observed in the source: `self.use_context`, `strip.lower`, `Path`, `tmp_dir.mkdir`, `safe_filename`, `time.strftime`, `skills_file.save`, `strip`, `files.get_abs_path`, `base.lower.endswith`, `import_skills`, `files.deabsolute_path`, `uuid.uuid4`, `tmp_path.unlink`, `base.lower`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

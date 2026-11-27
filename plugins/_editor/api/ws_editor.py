@@ -5,7 +5,7 @@ from typing import Any
 from helpers.ws import WsHandler
 from helpers.ws_manager import WsResult
 from plugins._editor.helpers import markdown_sessions
-from plugins._office.helpers import document_store
+from plugins._editor.helpers import document_store
 
 
 class WsEditor(WsHandler):

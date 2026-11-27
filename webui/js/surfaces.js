@@ -5,7 +5,6 @@ export const SURFACE_MODE_FLOATING = "modal";
 export const SURFACE_MODAL_GROUP = "surfaces";
 
 const LEGACY_SURFACE_IDS = new Map([
-  ["office", "desktop"],
 ]);
 
 const registeredSurfaces = new Map();
@@ -33,7 +32,7 @@ export const CORE_SURFACES = [
     },
     async open(payload = {}) {
       const { store } = await import("/components/modals/file-browser/file-browser-store.js");
-      await store.openSurface(payload.path || payload.filePath || payload.directory || "");
+      await store.openSurface(payload.path || payload.filePath || payload.directory || "", payload.options);
     },
   },
   {
@@ -46,7 +45,7 @@ export const CORE_SURFACES = [
   {
     id: "desktop",
     title: "Desktop",
-    icon: "desktop_windows",
+    icon: "tuxee",
     order: 20,
     modalPath: "/plugins/_desktop/webui/main.html",
   },
@@ -204,35 +203,8 @@ export function shouldSuppressBackdrop(modal) {
   );
 }
 
-function setModalParked(modal, parked = false) {
-  const element = modal?.element;
-  if (!element) return;
-  element.classList.toggle("modal-surface-parked", parked);
-  element.classList.toggle("surface-modal-parked", parked);
-  if (parked) {
-    element.classList.remove("show");
-    element.setAttribute("aria-hidden", "true");
-  } else {
-    element.classList.add("show");
-    element.removeAttribute("aria-hidden");
-  }
-}
-
 async function modalApi() {
   return await import("/js/modals.js");
-}
-
-async function parkSiblingSurfaceModals(activeModal) {
-  const group = modalSurfaceGroup(activeModal);
-  if (!group) {
-    setModalParked(activeModal, false);
-    return;
-  }
-
-  const { getModalStack } = await modalApi();
-  for (const modal of getModalStack()) {
-    setModalParked(modal, modal !== activeModal && modalSurfaceGroup(modal) === group);
-  }
 }
 
 export async function closeSurfaceGroupModals(options = {}) {
@@ -277,30 +249,6 @@ export async function closeSurfaceGroupModals(options = {}) {
       }
     }
   }
-}
-
-function getModalSwitchSurfaces(metadata) {
-  const surfacesById = new Map(CORE_SURFACES.map((surface) => [surface.id, surface]));
-  for (const surface of getRegisteredSurfaces()) {
-    if (!surface?.id || !surface.modalPath || surface.actionOnly) continue;
-    surfacesById.set(surface.id, {
-      ...surface,
-      modalPath: surface.modalPath,
-    });
-  }
-
-  if (metadata?.surfaceId && !surfacesById.has(metadata.surfaceId)) {
-    surfacesById.set(metadata.surfaceId, {
-      id: metadata.surfaceId,
-      title: metadata.title,
-      icon: metadata.icon,
-      modalPath: metadata.modalPath,
-    });
-  }
-
-  return Array.from(surfacesById.values())
-    .filter((surface) => surface?.id && surface.modalPath && !surface.actionOnly)
-    .sort((left, right) => (left.order ?? 100) - (right.order ?? 100));
 }
 
 function directChildByClass(parent, className) {
@@ -605,72 +553,6 @@ function markSurfaceModal(modal, metadata) {
   inner.classList.add("surface-modal", "modal-no-backdrop", "modal-explicit-close");
 }
 
-function createModalSurfaceButton(surface, metadata, modal) {
-  const title = surface.title || surface.id;
-  const targetModalPath = surface.modalPath || "";
-  const normalizedId = normalizeSurfaceId(surface.id);
-  const isActive = normalizedId === metadata.surfaceId || sameModalPath(targetModalPath, modal.path);
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "surface-button modal-surface-button";
-  button.dataset.surfaceId = normalizedId;
-  button.dataset.canvasSurface = normalizedId;
-  button.setAttribute("aria-label", title);
-  button.setAttribute("aria-pressed", isActive.toString());
-  if (isActive) button.classList.add("is-active");
-
-  if (surface.image) {
-    const image = document.createElement("img");
-    image.className = "modal-surface-image";
-    image.src = surface.image;
-    image.alt = "";
-    image.setAttribute("aria-hidden", "true");
-    button.appendChild(image);
-  } else {
-    const icon = document.createElement("x-icon");
-    icon.setAttribute("aria-hidden", "true");
-    icon.name = surface.icon || "web_asset";
-    button.appendChild(icon);
-  }
-
-  button.addEventListener("click", async () => {
-    if (button.disabled || isActive || !targetModalPath) return;
-    button.disabled = true;
-    try {
-      await recordMode(normalizedId, SURFACE_MODE_FLOATING);
-      const { ensureModalOpen } = await modalApi();
-      const openPromise = ensureModalOpen(targetModalPath);
-      if (openPromise?.catch) {
-        openPromise.catch((error) => console.error(`Modal surface ${surface.id} failed to open`, error));
-      }
-    } finally {
-      if (document.contains(button)) button.disabled = false;
-    }
-  });
-
-  return button;
-}
-
-function configureModalSurfaceSwitcher(modal, metadata) {
-  if (!metadata || !modal?.header || modal.header.querySelector(".surface-switcher, .modal-surface-switcher")) {
-    return;
-  }
-
-  const surfaces = getModalSwitchSurfaces(metadata);
-  if (surfaces.length <= 1) return;
-
-  const switcher = document.createElement("div");
-  switcher.className = "surface-switcher modal-surface-switcher";
-  switcher.setAttribute("role", "group");
-  switcher.setAttribute("aria-label", "Modal surfaces");
-
-  for (const surface of surfaces) {
-    switcher.appendChild(createModalSurfaceButton(surface, metadata, modal));
-  }
-
-  placeSurfaceModalHeaderAction(modal.header, switcher, "surfaces");
-}
-
 function configureModalDockButton(modal, metadata) {
   if (!metadata || !modal?.header || modal.header.querySelector(".surface-dock-button")) {
     return;
@@ -713,7 +595,6 @@ async function configureSurfaceModal(event) {
   const metadata = modalSurfaceMetadata(doc, modal?.path || "");
   if (!metadata) return;
   markSurfaceModal(modal, metadata);
-  configureModalSurfaceSwitcher(modal, metadata);
   configureModalDockButton(modal, metadata);
   const { persistRestorableModalStack, refreshModalStack } = await modalApi();
   refreshModalStack();
@@ -722,12 +603,17 @@ async function configureSurfaceModal(event) {
 
 export async function open(surfaceId = "", payload = {}) {
   const { store } = await import("/components/canvas/right-canvas-store.js");
-  return await store.open(normalizeSurfaceId(surfaceId), payload);
+  return await store.openModalSurface(normalizeSurfaceId(surfaceId), payload);
 }
 
 export async function openLatest(surfaceId = "", payload = {}) {
+  return await open(surfaceId, payload);
+}
+
+// Navigation originating inside the canvas keeps its current host.
+export async function select(surfaceId = "", payload = {}) {
   const { store } = await import("/components/canvas/right-canvas-store.js");
-  return await store.openLatest(normalizeSurfaceId(surfaceId), payload);
+  return await store.open(normalizeSurfaceId(surfaceId), payload);
 }
 
 export async function dock(surfaceId = "", payload = {}) {
@@ -757,10 +643,6 @@ export async function handleUrlIntent(intent = {}) {
 
 document.addEventListener("modal-content-loaded", (event) => {
   void configureSurfaceModal(event);
-});
-
-document.addEventListener("modal-activated", (event) => {
-  void parkSiblingSurfaceModals(event?.detail?.modal);
 });
 
 document.addEventListener("modal-closed", async () => {

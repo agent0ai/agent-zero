@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import os
-import tempfile
 import warnings
 from typing import Any
 
-import whisper
+import numpy as np
 
-from helpers import files, plugins
+from helpers import plugins
+from helpers.sandbox_worker import SandboxWorker
 from helpers.notification import (
     NotificationManager,
     NotificationPriority,
@@ -17,7 +16,6 @@ from helpers.notification import (
 )
 from helpers.print_style import PrintStyle
 from plugins._whisper_stt.helpers import migration
-
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -34,7 +32,18 @@ DEFAULT_CONFIG = {
 VALID_MODEL_SIZES = {"tiny", "base", "small", "medium", "large", "turbo"}
 VALID_MESSAGE_MODES = {"send", "draft"}
 
-_model = None
+AUDIO_WIRE_VERSION = 1
+AUDIO_SAMPLE_RATE = 16_000
+AUDIO_CHANNELS = 1
+AUDIO_SAMPLE_FORMAT = "f32le"
+AUDIO_MAX_DURATION_SECONDS = 120
+AUDIO_MAX_FRAMES = AUDIO_SAMPLE_RATE * AUDIO_MAX_DURATION_SECONDS
+AUDIO_BYTES_PER_SAMPLE = 4
+AUDIO_MAX_BYTES = AUDIO_MAX_FRAMES * AUDIO_BYTES_PER_SAMPLE
+AUDIO_MAX_BASE64_CHARS = ((AUDIO_MAX_BYTES + 2) // 3) * 4
+
+worker = SandboxWorker(PLUGIN_NAME)
+package_version = ""
 _model_name = ""
 is_updating_model = False
 
@@ -78,7 +87,9 @@ def normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
         pass
 
     try:
-        waiting_timeout = int(config.get("waiting_timeout", normalized["waiting_timeout"]))
+        waiting_timeout = int(
+            config.get("waiting_timeout", normalized["waiting_timeout"])
+        )
         if waiting_timeout > 0:
             normalized["waiting_timeout"] = waiting_timeout
     except (TypeError, ValueError):
@@ -94,7 +105,7 @@ def get_config() -> dict[str, Any]:
 
 
 def get_loaded_model_name() -> str:
-    return _model_name
+    return _model_name if worker.ready else ""
 
 
 def is_globally_enabled() -> bool:
@@ -110,34 +121,12 @@ async def preload(model_name: str | None = None):
 
 
 async def _preload(model_name: str):
-    global _model, _model_name, is_updating_model
-
-    while is_updating_model:
-        await asyncio.sleep(0.1)
-
+    global _model_name, is_updating_model, package_version
+    is_updating_model = True
     try:
-        is_updating_model = True
-        if not _model or _model_name != model_name:
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Loading Whisper model...",
-                display_time=99,
-                group="whisper-preload",
-            )
-            PrintStyle.standard(f"Loading Whisper model: {model_name}")
-            _model = whisper.load_model(
-                name=model_name,
-                download_root=files.get_abs_path("/tmp/models/whisper"),
-            )
-            _model_name = model_name
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Whisper model loaded.",
-                display_time=2,
-                group="whisper-preload",
-            )
+        result = await worker.acall({'action': 'preload', 'model': model_name}, timeout=600)
+        _model_name = model_name
+        package_version = result['version']
     finally:
         is_updating_model = False
 
@@ -147,43 +136,90 @@ async def is_downloading() -> bool:
 
 
 async def is_downloaded() -> bool:
-    return _model is not None
+    return worker.ready and bool(_model_name)
 
 
 async def transcribe(
-    audio_bytes_b64: str, config: dict[str, Any] | None = None
+    audio_payload: dict[str, Any], config: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     cfg = normalize_config(config or get_config())
+    audio_samples = decode_audio_payload(audio_payload)
     return await _transcribe(
         str(cfg["model_size"]),
-        audio_bytes_b64,
+        audio_samples,
         language=_resolve_language(str(cfg["language"])),
     )
 
 
 async def _transcribe(
-    model_name: str, audio_bytes_b64: str, *, language: str | None = None
+    model_name: str, audio_samples: np.ndarray, *, language: str | None = None
 ) -> dict[str, Any]:
-    await _preload(model_name)
+    global _model_name, is_updating_model, package_version
+    is_updating_model = True
+    try:
+        result = await worker.acall({
+            'action': 'transcribe', 'model': model_name, 'language': language,
+            'audio': base64.b64encode(audio_samples.astype('<f4').tobytes()).decode('ascii'),
+        }, timeout=600)
+        _model_name = model_name
+        package_version = result['version']
+        return result['transcript']
+    finally:
+        is_updating_model = False
 
-    audio_bytes = base64.b64decode(audio_bytes_b64)
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio_file:
-        audio_file.write(audio_bytes)
-        temp_path = audio_file.name
+class AudioPayloadError(ValueError):
+    """Raised when the bounded PCM wire contract is invalid."""
+
+
+def decode_audio_payload(payload: dict[str, Any]) -> np.ndarray:
+    """Validate PCM v1 and return Whisper-ready mono float32 samples."""
+
+    if not isinstance(payload, dict):
+        raise AudioPayloadError("Audio payload must be an object")
+    if payload.get("version") != AUDIO_WIRE_VERSION:
+        raise AudioPayloadError("Unsupported audio payload version")
+    if payload.get("sample_rate") != AUDIO_SAMPLE_RATE:
+        raise AudioPayloadError("Unsupported audio sample rate")
+    if payload.get("channels") != AUDIO_CHANNELS:
+        raise AudioPayloadError("Unsupported audio channel count")
+    if payload.get("sample_format") != AUDIO_SAMPLE_FORMAT:
+        raise AudioPayloadError("Unsupported audio sample format")
+
+    frame_count = payload.get("frame_count")
+    if isinstance(frame_count, bool) or not isinstance(frame_count, int):
+        raise AudioPayloadError("Audio frame count must be an integer")
+    if frame_count <= 0:
+        raise AudioPayloadError("Audio payload is empty")
+    if frame_count > AUDIO_MAX_FRAMES:
+        raise AudioPayloadError("Audio duration exceeds 120 seconds")
+
+    encoded = payload.get("data")
+    if not isinstance(encoded, str) or not encoded:
+        raise AudioPayloadError("Audio data must be base64 text")
+    if len(encoded) > AUDIO_MAX_BASE64_CHARS:
+        raise AudioPayloadError("Audio payload exceeds the byte limit")
 
     try:
-        kwargs: dict[str, Any] = {"fp16": False}
-        if language:
-            kwargs["language"] = language
+        raw = base64.b64decode(encoded, validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise AudioPayloadError("Audio data is not valid base64") from exc
 
-        result = _model.transcribe(temp_path, **kwargs)  # type: ignore[union-attr]
-        return result if isinstance(result, dict) else {}
-    finally:
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
+    expected_bytes = frame_count * AUDIO_BYTES_PER_SAMPLE
+    if len(raw) != expected_bytes:
+        raise AudioPayloadError("Audio data length does not match frame count")
+    if len(raw) > AUDIO_MAX_BYTES:
+        raise AudioPayloadError("Audio payload exceeds the byte limit")
+
+    samples = np.frombuffer(raw, dtype="<f4")
+    if not np.isfinite(samples).all():
+        raise AudioPayloadError("Audio samples must be finite")
+    if np.any(np.abs(samples) > 1.0):
+        raise AudioPayloadError("Audio samples must be normalized")
+
+    # Whisper accepts a 16 kHz mono float32 ndarray and therefore skips load_audio,
+    # the only path in openai-whisper that launches ffmpeg.
+    return np.array(samples, dtype=np.float32, copy=True, order="C")
 
 
 def _resolve_language(language: str) -> str | None:

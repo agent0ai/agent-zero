@@ -7,6 +7,7 @@ from helpers.errors import format_error
 
 from plugins._email_integration.helpers.imap_client import (
     connect_exchange,
+    exchange_count,
     connect_imap,
     disconnect_imap,
     get_highest_uid,
@@ -61,8 +62,7 @@ class TestConnection(ApiHandler):
                 username=handler.get("username", ""),
                 password=handler.get("password", ""),
             )
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, lambda: account.inbox.total_count)
+            await exchange_count(account)
             results.append({
                 "test": "Incoming",
                 "ok": True,

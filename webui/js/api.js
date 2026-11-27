@@ -3,9 +3,10 @@
  * Data is automatically serialized
  * @param {string} endpoint - The API endpoint to call
  * @param {any} data - The data to send to the API
+ * @param {(response: Response) => void} [onResponse] Called when successful response headers arrive.
  * @returns {Promise<any>} The JSON response from the API
  */
-export async function callJsonApi(endpoint, data) {
+export async function callJsonApi(endpoint, data, onResponse) {
   const apiUrl = _normalizeApiUrl(endpoint);
 
   /** @type {{ endpoint: string, data: any, response: Response | null, result: any, error: Error | null }} */
@@ -46,6 +47,7 @@ export async function callJsonApi(endpoint, data) {
     return ctx.result;
   }
 
+  onResponse?.(response);
   ctx.result = await response.json();
 
   if (await _shouldCallApiExtensions(apiUrl)) {

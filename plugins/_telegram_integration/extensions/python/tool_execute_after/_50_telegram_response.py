@@ -5,7 +5,6 @@ from plugins._telegram_integration.helpers.constants import (
     CTX_TG_ATTACHMENTS,
     CTX_TG_KEYBOARD,
 )
-from plugins._telegram_integration.helpers.dependencies import ensure_dependencies
 
 
 class TelegramResponseIntercept(Extension):
@@ -51,7 +50,6 @@ class TelegramResponseIntercept(Extension):
             await self._send_inline(context, tool, response)
 
     async def _send_inline(self, context, tool, response: Response):
-        ensure_dependencies()
         from plugins._telegram_integration.helpers.handler import send_telegram_reply
         from plugins._telegram_integration.helpers import draft_stream
 

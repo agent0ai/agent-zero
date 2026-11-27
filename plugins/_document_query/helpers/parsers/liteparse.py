@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from plugins._document_query.helpers.fetch import FetchedDocument
+from plugins._document_query.helpers.document import FetchedDocument
 from .base import BaseParser
 
 
@@ -72,7 +72,8 @@ class LiteParseParser(BaseParser):
                 "kwargs": self._liteparse_kwargs(config, document, file_path),
             }
             env = os.environ.copy()
-            project_root = str(Path(__file__).resolve().parents[4])
+            # The guest imports through /app/plugins/_document_query, a symlink to /plugin.
+            project_root = str(Path(__file__).absolute().parents[4])
             python_path = env.get("PYTHONPATH", "")
             env["PYTHONPATH"] = (
                 f"{project_root}{os.pathsep}{python_path}"

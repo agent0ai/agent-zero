@@ -1996,10 +1996,11 @@ export function drawMessageResponse({
     });
   }
 
-  // response of agent 0, render as response to user
-  // get last process group or create new container (if first message)
-
-  let group = getLastProcessGroup();
+  // A standalone setup card at the DOM tail must not detach the response from its GEN group.
+  const renderInfo = arguments[0][PROCESS_GROUP_RENDER_INFO];
+  let group = renderInfo
+    ? getOrCreateProcessGroup(id, true, renderInfo)
+    : getLastProcessGroup();
   if (group?.classList.contains("utility-only")) {
     group.setAttribute("data-group-complete", "true");
     updateProcessGroupHeader(group);

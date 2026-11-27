@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import subprocess
 import sys
+import threading
+from types import SimpleNamespace
+from plugins._document_query.helpers.chunks import index_chunks
 from pathlib import Path
 
 import pytest
@@ -14,6 +18,7 @@ if str(ROOT) not in sys.path:
 
 from helpers import network as network_helper
 from plugins._document_query import hooks as document_query_hooks
+from plugins._document_query.helpers import ocr_dependencies
 from plugins._document_query.helpers.fetch import FetchedDocument, fetch_public_resource
 import plugins._document_query.helpers.document_query as document_query_module
 from plugins._document_query.helpers.document_query import (
@@ -23,20 +28,17 @@ from plugins._document_query.helpers.document_query import (
 from plugins._document_query.helpers.parsers.base import BaseParser
 from plugins._document_query.helpers.parsers import get_parsers_for_mimetype
 from plugins._document_query.helpers.parsers import liteparse as liteparse_module
+from plugins._document_query.helpers.parsers import pdf as pdf_module
+from plugins._document_query.helpers.parsers import unstructured as unstructured_module
 from plugins._document_query.helpers.parsers.liteparse import LiteParseParser
+from plugins._document_query.helpers.parsers.pdf import PdfParser
 from plugins._document_query.helpers.parsers.text import TextParser
+from plugins._document_query.helpers.parsers.unstructured import UnstructuredParser
 
 
 def run_async(coro):
     with asyncio.Runner() as runner:
         return runner.run(coro)
-
-
-class ParserNameShouldNotLeak(BaseParser):
-    mimetypes = ["text/plain"]
-
-    def _parse_sync(self, document: FetchedDocument, config: dict) -> str:
-        return "parsed"
 
 
 class CountingAsyncParser(BaseParser):
@@ -73,34 +75,6 @@ class _StoreAgent:
     def __init__(self, context_id: str):
         self.config = object()
         self.context = _StoreContext(context_id)
-
-
-class _FakeVectorDB:
-    def __init__(self):
-        self.docs = []
-
-    async def insert_documents(self, docs):
-        ids = []
-        for doc in docs:
-            doc_id = f"doc-{len(self.docs)}"
-            doc.metadata["id"] = doc_id
-            ids.append(doc_id)
-            self.docs.append(doc)
-        return ids
-
-    async def search_by_metadata(self, filter: str, limit: int = 0):
-        document_uri = filter.split("'", 2)[1]
-        docs = [
-            doc
-            for doc in self.docs
-            if doc.metadata.get("document_uri") == document_uri
-        ]
-        return docs[:limit] if limit > 0 else docs
-
-    async def delete_documents_by_ids(self, ids: list[str]):
-        removed = [doc for doc in self.docs if doc.metadata.get("id") in ids]
-        self.docs = [doc for doc in self.docs if doc.metadata.get("id") not in ids]
-        return removed
 
 
 def test_fetch_file_detects_mimetype_and_reads_once(tmp_path):
@@ -264,28 +238,211 @@ def test_text_parser_uses_prefetched_content():
     assert text == '{"ok": true}'
 
 
-def test_compatibility_imports_point_to_plugin_classes():
+def test_unstructured_parser_uses_local_partitioner(monkeypatch, tmp_path):
+    document_path = tmp_path / "notes.bin"
+    document_path.write_bytes(b"opaque")
+    fetched = FetchedDocument(
+        uri=str(document_path),
+        source_uri=str(document_path),
+        scheme="file",
+        mimetype="application/octet-stream",
+        content=b"opaque",
+        local_path=str(document_path),
+    )
+    seen = []
+
+    monkeypatch.setattr(
+        unstructured_module,
+        "_partition_file",
+        lambda file_path: seen.append(file_path) or ["first", "second"],
+    )
+
+    assert UnstructuredParser()._parse_sync(fetched, {}) == "first\nsecond"
+    assert seen == [str(document_path)]
+
+
+def test_requirements_omit_legacy_langchain_unstructured_wrapper():
+    root_requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+
+    assert "langchain-unstructured" not in root_requirements
+
+
+def test_outer_image_omits_legacy_ocr_system_packages():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "tesseract-ocr" not in dockerfile
+    assert "poppler-utils" not in dockerfile
+
+
+def test_ocr_dependencies_skip_apt_when_already_available(monkeypatch):
+    monkeypatch.setattr(ocr_dependencies, "_READY_PROFILES", set())
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_dependencies_present",
+        lambda _packages, _commands: True,
+    )
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_run_apt_command",
+        lambda *_args, **_kwargs: pytest.fail("apt must not run"),
+    )
+
+    ocr_dependencies.ensure_pdf_ocr_dependencies()
+
+    assert ocr_dependencies._READY_PROFILES == {"pdf_ocr", "tesseract"}
+
+
+def test_ocr_dependencies_fail_only_at_fallback_without_apt_access(monkeypatch):
+    monkeypatch.setattr(ocr_dependencies, "_READY_PROFILES", set())
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_dependencies_present",
+        lambda _packages, _commands: False,
+    )
+    monkeypatch.setattr(ocr_dependencies, "_apt_command_prefix", lambda: [])
+
+    with pytest.raises(RuntimeError, match="Automatic installation requires apt-get"):
+        ocr_dependencies.ensure_tesseract_dependencies()
+
+
+def test_pdf_ocr_dependencies_install_once_across_threads(monkeypatch):
+    monkeypatch.setattr(ocr_dependencies, "_READY_PROFILES", set())
+    installed = False
+    calls = []
+
+    def dependencies_present(_packages, _commands):
+        return installed
+
+    def run_apt(command, *, timeout):
+        nonlocal installed
+        calls.append((command, timeout))
+        if "install" in command:
+            installed = True
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(ocr_dependencies, "_dependencies_present", dependencies_present)
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_missing_apt_packages",
+        lambda packages: list(packages),
+    )
+    monkeypatch.setattr(
+        ocr_dependencies,
+        "_apt_command_prefix",
+        lambda: ["apt-get"],
+    )
+    monkeypatch.setattr(ocr_dependencies, "_run_apt_command", run_apt)
+    monkeypatch.setattr(ocr_dependencies.logging, "info", lambda _message: None)
+
+    threads = [
+        threading.Thread(target=ocr_dependencies.ensure_pdf_ocr_dependencies)
+        for _ in range(4)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert calls == [
+        (["apt-get", "update"], 300),
+        (
+            [
+                "apt-get",
+                "install",
+                "-y",
+                "--no-install-recommends",
+                "tesseract-ocr",
+                "tesseract-ocr-script-latn",
+                "poppler-utils",
+            ],
+            900,
+        ),
+    ]
+    assert ocr_dependencies._READY_PROFILES == {"pdf_ocr", "tesseract"}
+
+
+def test_pdf_full_page_ocr_installs_before_poppler_and_tesseract(monkeypatch):
+    events = []
+    pdf2image = pytest.importorskip("pdf2image")
+    pytesseract = pytest.importorskip("pytesseract")
+
+    monkeypatch.setattr(
+        pdf_module,
+        "ensure_pdf_ocr_dependencies",
+        lambda: events.append("install"),
+    )
+    monkeypatch.setattr(
+        pdf2image,
+        "convert_from_path",
+        lambda _path: events.append("render") or ["page"],
+    )
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_string",
+        lambda _page: events.append("ocr") or "text",
+    )
+
+    assert PdfParser()._parse_with_ocr("scan.pdf") == "text"
+    assert events == ["install", "render", "ocr"]
+
+
+def test_embedded_image_tesseract_install_is_lazy(monkeypatch):
+    events = []
+    pytesseract = pytest.importorskip("pytesseract")
+
+    monkeypatch.setattr(
+        pdf_module,
+        "ensure_tesseract_dependencies",
+        lambda: events.append("install"),
+    )
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_string",
+        lambda _image, lang: events.append(f"ocr:{lang}") or "embedded text",
+    )
+
+    import io
+    pixels = io.BytesIO()
+    Image.new("RGB", (2, 2)).save(pixels, format="PNG")
+
+    assert events == []
+    assert pdf_module._image_text(pixels.getvalue()) == "embedded text"
+    assert events == ["install", "ocr:eng"]
+
+
+def test_unstructured_installs_ocr_packages_only_for_pdf_and_images(monkeypatch):
+    events = []
+    monkeypatch.setattr(
+        unstructured_module,
+        "ensure_tesseract_dependencies",
+        lambda: events.append("tesseract"),
+    )
+    monkeypatch.setattr(
+        unstructured_module,
+        "ensure_pdf_ocr_dependencies",
+        lambda: events.append("pdf"),
+    )
+
+    unstructured_module._ensure_ocr_dependencies("text/plain", "notes.txt")
+    unstructured_module._ensure_ocr_dependencies("image/png", "scan.png")
+    unstructured_module._ensure_ocr_dependencies("application/pdf", "scan.pdf")
+
+    assert events == ["tesseract", "pdf"]
+
+
+def test_compatibility_helper_import_points_to_plugin():
     pytest.importorskip("langchain_core")
 
     from helpers.document_query import DocumentQueryHelper as CompatHelper
     from plugins._document_query.helpers.document_query import DocumentQueryHelper
-    from plugins._document_query.tools.document_query import DocumentQueryTool
-    from tools.document_query import DocumentQueryTool as CompatTool
 
     assert CompatHelper is DocumentQueryHelper
-    assert CompatTool is DocumentQueryTool
 
 
-def test_liteparse_is_installed_by_docker_and_plugin_hook_requirements():
-    root_requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-    hooks_source = (
-        ROOT / "plugins" / "_document_query" / "hooks.py"
-    ).read_text(encoding="utf-8")
-
-    assert "liteparse==2.0.3" in root_requirements
-    assert "_ROOT_REQUIREMENTS_FILE" in hooks_source
-    assert document_query_hooks._liteparse_requirement() == "liteparse==2.0.3"
-    assert not (ROOT / "plugins" / "_document_query" / "requirements.txt").exists()
+def test_liteparse_is_installed_only_in_the_guest():
+    assert 'liteparse==' not in (ROOT / 'requirements.txt').read_text()
+    assert 'liteparse==2.21.1' in (ROOT / 'plugins/_document_query/sandbox/requirements.txt').read_text()
+    assert document_query_hooks.install() is True
 
 
 def test_default_config_bounds_liteparse_runtime_concurrency():
@@ -340,32 +497,32 @@ def test_config_panel_exposes_document_query_settings():
 
 
 def test_document_query_adapts_chunk_size_for_large_documents():
-    store = object.__new__(DocumentQueryStore)
-    store.config = {
+    config = {
         "chunk_size": 100,
         "chunk_overlap": 10,
         "max_index_chunks": 10,
     }
 
-    chunks = store._split_text_for_index(("alpha beta gamma delta " * 400).strip())
+    chunks = index_chunks(("alpha beta gamma delta " * 400).strip(), config)
 
     assert 1 < len(chunks) <= 10
 
 
 def test_document_query_allows_uncapped_index_chunks():
-    store = object.__new__(DocumentQueryStore)
-    store.config = {
+    config = {
         "chunk_size": 100,
         "chunk_overlap": 10,
         "max_index_chunks": 0,
     }
 
-    chunks = store._split_text_for_index(("alpha beta gamma delta " * 400).strip())
+    chunks = index_chunks(("alpha beta gamma delta " * 400).strip(), config)
 
     assert len(chunks) > 10
 
 
 def test_document_query_store_reuses_vector_db_per_context(monkeypatch):
+    from plugins._sandboxing.helpers.storage import prepare_workspace
+    monkeypatch.setattr('plugins._document_query.helpers.sandbox.worker.prepare_directory', prepare_workspace)
     monkeypatch.setattr(
         document_query_module,
         "_load_config",
@@ -375,11 +532,16 @@ def test_document_query_store_reuses_vector_db_per_context(monkeypatch):
             "max_index_chunks": 20,
         },
     )
-    monkeypatch.setattr(
-        DocumentQueryStore,
-        "init_vector_db",
-        lambda _self: _FakeVectorDB(),
-    )
+    from plugins._document_query.sandbox.index import handle
+    async def call(request, *, mounts):
+        return handle(request, mounts[0].source)
+    async def vectors(chunks):
+        return [[1., 0.] for _ in chunks]
+    async def query(text):
+        return [1., 0.]
+    monkeypatch.setattr(document_query_module.worker, "acall", call)
+    monkeypatch.setattr(_StoreAgent, "get_embedding_model", lambda self: SimpleNamespace(
+        aembed_documents=vectors, aembed_query=query), raising=False)
 
     agent = _StoreAgent("ctx-one")
     store = DocumentQueryStore.get(agent)
@@ -392,7 +554,11 @@ def test_document_query_store_reuses_vector_db_per_context(monkeypatch):
     assert success is True
     assert ids
     assert second_store is store
-    assert second_store.vector_db is store.vector_db
+    hits = run_async(store.search_document("/tmp/book.txt", "alpha"))
+    assert {doc.metadata["id"] for doc in hits} == set(ids)
+    assert run_async(store.search_document("/tmp/other.txt", "alpha")) == []
+    assert run_async(store.add_document("", "/tmp/book.txt")) == (False, [])
+    assert run_async(store.search_document("/tmp/book.txt", "alpha")) == hits
     assert run_async(second_store.document_exists("/tmp/book.txt")) is True
 
     isolated_store = DocumentQueryStore.get(_StoreAgent("ctx-two"))
@@ -437,6 +603,47 @@ def test_liteparse_parser_always_uses_subprocess(monkeypatch):
     monkeypatch.setattr(parser, "_parse_in_process", fail_in_process)
 
     assert parser._parse_sync(fetched, {"liteparse_subprocess": False}) == "ok"
+
+
+@pytest.mark.parametrize("symlink_plugin", [False, True])
+def test_liteparse_subprocess_uses_package_root(tmp_path, monkeypatch, symlink_plugin):
+    fetched = FetchedDocument(
+        uri="/tmp/report.pdf",
+        source_uri="/tmp/report.pdf",
+        scheme="file",
+        mimetype="application/pdf",
+        content=b"",
+        local_path="/tmp/report.pdf",
+    )
+    parser = LiteParseParser()
+    calls = []
+    project_root = tmp_path / "app"
+    plugin = project_root / "plugins" / "_document_query"
+    plugin.parent.mkdir(parents=True)
+    if symlink_plugin:
+        mounted_plugin = tmp_path / "plugin"
+        mounted_plugin.mkdir()
+        plugin.symlink_to(mounted_plugin, target_is_directory=True)
+    else:
+        plugin.mkdir()
+    monkeypatch.setattr(liteparse_module, "__file__", str(plugin / "helpers/parsers/liteparse.py"))
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, stdout='{"text": "ok"}', stderr="")
+
+    monkeypatch.setattr(liteparse_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(parser, "_liteparse_kwargs", lambda *_args: {})
+
+    assert parser._parse_subprocess(fetched, {}) == "ok"
+    assert calls[0][0] == [
+        sys.executable,
+        "-m",
+        "plugins._document_query.helpers.parsers.liteparse_worker",
+    ]
+    assert calls[0][1]["cwd"] == str(project_root)
+    assert calls[0][1]["env"]["PYTHONPATH"] == str(project_root)
 
 
 def test_liteparse_auto_disables_ocr_for_large_text_pdf(monkeypatch):
@@ -588,7 +795,12 @@ def test_query_optimize_prompt_filename_is_spelled_correctly():
     assert "fw.document_query.optimize_query.md" in helper_source
 
 
-def test_parser_progress_is_user_facing_and_generic():
+def test_parser_progress_is_user_facing_and_generic(monkeypatch):
+    from plugins._document_query.helpers.sandbox import worker
+    async def parse(payload, **kwargs):
+        assert payload['mimetype'] == 'text/plain'
+        return 'parsed'
+    monkeypatch.setattr(worker, 'acall', parse)
     fetched = FetchedDocument(
         uri="/tmp/example.txt",
         source_uri="/tmp/example.txt",
@@ -600,22 +812,26 @@ def test_parser_progress_is_user_facing_and_generic():
     progress = []
     helper = object.__new__(DocumentQueryHelper)
     helper.config = {}
+    helper.store = SimpleNamespace(settings=lambda: ({}, []))
     helper.progress_callback = progress.append
 
     content = run_async(
         helper._parse_document(
             document=fetched,
-            parsers=[ParserNameShouldNotLeak()],
             timeout=1,
-            thread_offload=False,
         )
     )
 
     assert content == "parsed"
-    assert progress == ["Parsing document content"]
+    assert progress == ["Parsing document content in sandbox"]
 
 
-def test_parse_document_limits_parser_concurrency_across_helpers():
+def test_parse_document_limits_parser_concurrency_across_helpers(monkeypatch):
+    from plugins._document_query.helpers.sandbox import worker
+    async def parse(payload, **kwargs):
+        document = FetchedDocument(uri=payload['uri'], scheme='file', mimetype='text/plain', content=b'')
+        return await CountingAsyncParser()._parse_async(document, {})
+    monkeypatch.setattr(worker, 'acall', parse)
     CountingAsyncParser.active = 0
     CountingAsyncParser.max_active = 0
     fetched_a = FetchedDocument(
@@ -639,21 +855,18 @@ def test_parse_document_limits_parser_concurrency_across_helpers():
     helper_a.progress_callback = lambda _msg: None
     helper_b = object.__new__(DocumentQueryHelper)
     helper_b.config = {"parser_concurrency": 1}
+    helper_a.store = helper_b.store = SimpleNamespace(settings=lambda: ({}, []))
     helper_b.progress_callback = lambda _msg: None
 
     async def parse_both():
         return await asyncio.gather(
             helper_a._parse_document(
                 document=fetched_a,
-                parsers=[CountingAsyncParser()],
                 timeout=1,
-                thread_offload=False,
             ),
             helper_b._parse_document(
                 document=fetched_b,
-                parsers=[CountingAsyncParser()],
                 timeout=1,
-                thread_offload=False,
             ),
         )
 
@@ -664,13 +877,6 @@ def test_parse_document_limits_parser_concurrency_across_helpers():
 def test_document_query_prompt_uses_progressive_skill_disclosure():
     from helpers.skills import find_skill
 
-    prompt = (
-        ROOT
-        / "plugins"
-        / "_document_query"
-        / "prompts"
-        / "agent.system.tool.document_query.md"
-    ).read_text(encoding="utf-8")
     main_prompt = (ROOT / "prompts" / "agent.system.main.tips.md").read_text(
         encoding="utf-8"
     )
@@ -679,12 +885,11 @@ def test_document_query_prompt_uses_progressive_skill_disclosure():
     assert skill is not None
     assert "document_query" not in main_prompt
     assert "vision_load" not in main_prompt
-    assert "skills_tool:load" in prompt
-    assert "document-query" in prompt
-    assert "document_query" in prompt
-    assert "local/remote documents" in prompt
-    assert "Use vision tools first" in prompt
-    assert "fallback OCR" in prompt
+    assert skill.metadata["tool"]["name"] == "document_query"
+    assert not (ROOT / "tools/document_query.py").exists()
+    assert not (ROOT / "plugins/_document_query/tools/document_query.py").exists()
+    assert not (ROOT / "plugins/_document_query/prompts/agent.system.tool.document_query.md").exists()
+    assert "`destination`" in skill.content
     assert "OCR when vision fails" in skill.description
     assert "PDFs" in skill.description
     assert "### Answer Questions Over A Document" in skill.content

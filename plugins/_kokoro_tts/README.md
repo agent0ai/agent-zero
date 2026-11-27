@@ -9,8 +9,9 @@ Built-in local speech synthesis, retaining the `_kokoro_tts` plugin identity.
 - Kokoro supports single voices, comma-separated equal blends, and optional in-memory weighted blends.
 - Existing saved voices, blends, speed, and enable/disable preferences are preserved. No startup choice dialog is shown.
 - Keeps browser-native `speechSynthesis` as the fallback path when disabled or synthesis fails.
-- Prepares Paradee's ONNX Runtime and English phonemizer dependencies through `hooks.py` on installation, updates, startup, and re-enable. Already-installed dependencies are reused; speech synthesis never installs packages.
-- Uses Kokoro's existing voice-pack cache and does not create persistent blend files. Paradee downloads its pinned ONNX model and vocabulary on first use into `usr/plugins/_kokoro_tts/paradee/`; later use works offline.
+- Press **Speak** under a response for one-time playback. The sidebar Speech preference reads new responses automatically. The button briefly shows a checkmark. **Initializing speech** appears when the selected model needs loading and clears when playback starts. **Stop Speech** cancels pending playback. Saved voice and speed changes apply to the next request.
+- Installs CPU model and phonemizer dependencies inside the sandbox on first use; startup and config reads leave the host environment untouched.
+- Uses Kokoro's existing voice-pack cache and does not create persistent blend files. Paradee downloads its pinned ONNX model and vocabulary on first use into its private sandbox disk root; later use works offline.
 
 ## Config
 
@@ -22,3 +23,11 @@ Built-in local speech synthesis, retaining the `_kokoro_tts` plugin identity.
 
 - `POST /api/plugins/_kokoro_tts/synthesize`
 - `POST /api/plugins/_kokoro_tts/status`
+
+## Sandbox runtime
+
+Heavy execution and dependency installation run inside a child PRoot sandbox on
+first use. Root files and model downloads persist; no extra host service starts
+at Agent Zero startup. Manage it with `python -m helpers.sandbox list` and the
+existing start/stop/delete commands. See [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md)
+for sharing, lifecycle and upgrade behavior.

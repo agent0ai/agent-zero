@@ -2,8 +2,12 @@ services:
   agent-zero:
     container_name: agent-zero
     image: agent0ai/agent-zero:latest
+    privileged: false
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - ./agent-zero:/a0
+      # Keep the existing usr subfolder when migrating from a full /a0 mount.
+      - ./agent-zero/usr:/a0/usr
     ports:
       - "50080:80"
     ulimits:

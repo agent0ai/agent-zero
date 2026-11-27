@@ -45,7 +45,6 @@ These are the defaults:
 | Retired browser profiles | On | Profiles unchanged for 30 days. Shared and running profiles are kept. |
 | Old chat screenshots | On | Screenshots older than 30 days in chats inactive for at least 30 days. Running and paused chats are kept. |
 | Temporary captures | On | Browser and desktop captures older than 30 days. |
-| Unused browser versions | On | Old Chromium installations unchanged for 30 days. Required and running versions are kept. |
 | Embedding cache | Manual only | Cached embeddings older than 30 days. |
 | Custom folders | Manual only | Files matching the age you choose for that folder. |
 

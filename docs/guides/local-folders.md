@@ -43,7 +43,7 @@ such as `-v /home/user/agent-zero-data:/a0/usr`, creates a **bind mount**.
 ## Keep Agent Zero User Data In A Local Folder
 
 Mount your dedicated data folder at **`/a0/usr`** to keep settings, chats,
-memory, projects, and custom plugins outside the container. The folder itself
+memory, application logs, projects, and custom plugins outside the container. The folder itself
 contains `settings.json`, `chats/`, and other user data; you do not need to add
 another `usr` folder inside it.
 
@@ -99,6 +99,44 @@ Compose resolves `./agent-zero-data` relative to the Compose file's directory.
 > also keeps application code from the host and can interfere with image
 > upgrades. For a major version upgrade, follow the
 > [backup and restore instructions](../setup/installation.md#updating-from-v120-to-v20).
+
+### Moving from a whole `/a0` mount
+
+Images install application code directly at `/a0`. For the old Compose mapping
+`./agent-zero:/a0`, stop the container, back up that folder, and change the mapping
+to `./agent-zero/usr:/a0/usr` before recreating it. Keep the old folder until you
+have verified your data. Move any custom core-code changes into custom plugins
+under `usr/plugins`, or keep a separate development checkout.
+
+To retain an old Browser login profile, open and close Browser once with the
+updated code before switching mounts. Alternatively, while Browser is stopped,
+copy `tmp/browser/sessions/shared` from the old folder to
+`usr/plugins/_browser/profile` if that destination does not exist.
+
+An empty bind mount at `/a0` hides the application and startup stops with an error.
+A populated development checkout can still be mounted there, but it supplies
+its own code instead of the image's version.
+
+In-app source updates and core-code edits survive a container restart. When
+replacing the container, its application version comes from the replacement
+image. Only files under your persistent mounts survive; `/a0/usr` includes chats,
+settings, custom plugins and sandbox state. Pull the desired image before
+recreating a container to keep its application version current.
+
+## Application Logs
+
+Application print output is saved as UTF-8 plain text in `usr/logs` (Docker:
+`/a0/usr/logs`). Each process creates a unique `.log` file with a UTC timestamp
+in its name. Messages retain line breaks, blank lines, indentation and Unicode;
+console colors and HTML presentation are not written to these files. Existing
+secret masking applies. Chat history and its UI remain separate.
+
+The directory is created automatically and is included in user-data mounts and
+backups. Logs are not rotated or automatically deleted; remove unneeded files
+when the instance is stopped. Older top-level `logs` folders are left intact,
+without conversion or automatic relocation. Back those up separately before
+replacing an older container. Docker service output remains available through
+`docker logs`; self-update and sandbox diagnostic logs keep their own locations.
 
 ## Share A Separate Work Folder
 

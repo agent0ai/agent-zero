@@ -27,6 +27,7 @@ def run_store_check(checks: str) -> None:
     source = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
     source = re.sub(r'^import\b[\s\S]*?;\n', '', source, flags=re.M)
     source = source.replace('export const store = createStore', 'const store = createStore').replace('export function createFileBrowserView', 'function createFileBrowserView')
+    source = source.replace('await import("/components/canvas/right-canvas-store.js")', '({store: globalThis.canvas})')
     preamble = '''
 import assert from 'node:assert/strict';
 const window = globalThis;
@@ -39,7 +40,8 @@ const document = Object.assign(new EventTarget(), { querySelector: () => surface
 const requestAnimationFrame = callback => callback();
 const callJsonApi = async () => ({settings: {}});
 const formatDateTime = () => '';
-const openLatestSurface = async () => {};
+const openSurface = async () => {};
+const selectSurface = openSurface;
 const setupFloatingSurfaceModalChrome = () => () => {};
 const settle = () => new Promise(setImmediate);
 const listing = (path, entries = []) => ({ok:true, json:async () => ({data:{current_path:path, entries}})});
@@ -54,63 +56,129 @@ window.openModal = (path, guard) => { modalCalls++; activeModal = path; modalGua
 window.ensureModalOpen = async path => { if (!modals.has(path)) return window.openModal(path); activeModal = path; return null; };
 window.closeModal = path => { modals.get(path)?.(); modals.delete(path); document.dispatchEvent(new CustomEvent('modal-closed', {detail:{modalPath:path}})); };
 window.toastFrontendError = () => {};
+let workspaceClosed;
+globalThis.canvas = {
+  isOpen:false, isDetached:false, activeSurfaceId:'',
+  async openModalSurface(id, payload) {
+    this.isOpen = false; this.isDetached = true;
+    return this.open(id, payload);
+  },
+  async open(id, payload) {
+    if (!this.isOpen && !this.isDetached) this.isDetached = true;
+    this.activeSurfaceId = id;
+    if (!workspaceClosed) workspaceClosed = window.openModal('canvas/canvas-modal.html');
+    activeModal = 'canvas/canvas-modal.html';
+    if (id === 'files' && payload) await store.openSurface(payload.path, payload.options);
+    return true;
+  },
+  whenClosed: () => workspaceClosed,
+  close() {
+    if (store.isBulkBusy || store.isRenaming) return false;
+    this.isOpen = this.isDetached = false;
+    window.closeModal('canvas/canvas-modal.html');
+    workspaceClosed = null;
+    return true;
+  },
+};
 '''
     subprocess.run(['node', '--input-type=module'], input=preamble + source + checks,
                    text=True, check=True, timeout=15)
 
 
-def test_picker_modal_visibility_and_inline_new_file():
+def test_shared_picker_returns_to_editor_and_preserves_workspace_close_waiters():
     run_store_check('''
-const modal = 'modals/file-browser/file-browser.html';
-for (const host of [null, {hidden:true, closest:() => null}, {hidden:false, closest:() => null}]) {
-  surface = host;
-  store.browser.currentPath = '/original';
-  let closed = false;
-  const request = store.openSaveAsPicker('/target', {filename:'draft.txt'}).then(() => closed = true);
-  await settle();
-  assert.equal(modals.has(modal), true, 'external picker is visible regardless of canvas state');
-  assert.equal(closed, false, 'open waits for close');
-  assert.equal(store.pickerFilename, 'draft.txt');
-  await store.cancelPicker();
-  await request;
-  assert.equal(store.pickerMode, '');
-  assert.equal(store.browser.currentPath, host ? '/original' : '');
-}
-surface = null;
-const request = store.open('/a');
+const modal = 'canvas/canvas-modal.html';
+store.browser.currentPath = '/original';
+let closed = false;
+const request = store.open('/original').then(() => closed = true);
 await settle();
 const count = modalCalls;
-activeModal = 'editor';
-let reusedClosed = false;
-const reused = store.openTextPicker('/b').then(() => reusedClosed = true);
+await canvas.open('editor');
+const picker = store.openTextPicker('/target');
 await settle();
-assert.equal(modalCalls, count, 'reuse existing modal');
-assert.equal(activeModal, modal, 'activate Files parked behind Editor');
-assert.equal(reusedClosed, false, 'reuse preserves await-close contract');
-store.beginSurfaceHandoff();
-await store.openSurface('/b');
-assert.equal(store.pickerMode, 'text-open', 'docking preserves picker state');
-store.cancelSurfaceHandoff();
+assert.equal(modals.has(modal), true);
+assert.equal(modalCalls, count, 'picker reuses workspace');
+assert.equal(canvas.activeSurfaceId, 'files');
+assert.equal(store.pickerMode, 'text-open');
 await store.cancelPicker();
-await Promise.all([request, reused]);
-void window.openModal(modal);
-activeModal = 'editor';
-let genericClosed = false;
-const generic = store.openSaveAsPicker('/generic', {filename:'draft.txt'}).then(() => genericClosed = true);
+await picker;
+assert.equal(canvas.activeSurfaceId, 'editor');
+assert.equal(store.browser.currentPath, '/original');
+assert.equal(store.pickerMode, '');
+assert.equal(closed, false, 'picker cancellation does not finish workspace waiters');
+canvas.isOpen = true; canvas.isDetached = false;
+const dockedPicker = store.openTextPicker('/target');
 await settle();
-assert.equal(activeModal, modal, 'activate a parked Files modal opened by surface controls');
-assert.equal(genericClosed, false, 'surface-opened modal still awaits close');
+assert.equal(canvas.isOpen, true, 'internal picker preserves sidebar mode');
+store.isBulkBusy = true;
+assert.equal(canvas.close(), false);
 await store.cancelPicker();
-await generic;
-store.browser.currentPath = '/a';
+assert.equal(store.pickerMode, 'text-open', 'pending writes block cancellation');
+store.isBulkBusy = false;
+await store.cancelPicker();
+await dockedPicker;
+assert.equal(closed, false, 'attaching does not finish workspace waiters');
+await canvas.close();
+await request;
+assert.equal(closed, true);
+assert.equal(store.browser.currentPath, '/original', 'closing retains files');
+
 store.history = ['/'];
 await store.openNewFile();
-assert.equal(modalCalls, count + 1, 'New file configures current footer');
+assert.equal(modalCalls, count, 'inline creation uses existing footer');
 assert.equal(store.pickerMode, 'save-as');
-assert.deepEqual(store.history, ['/'], 'inline New file preserves navigation');
+assert.deepEqual(store.history, ['/']);
 await store.cancelPicker();
 assert.equal(store.pickerMode, '');
-assert.equal(store.browser.currentPath, '/a');
+assert.equal(store.browser.currentPath, '/original');
+''')
+
+
+def test_explicit_navigation_replaces_picker_without_restoring_old_path():
+    run_store_check('''
+store.browser.currentPath = '/original';
+const first = store.openTextPicker('/pick');
+await settle();
+const second = store.openTextPicker('/new');
+await settle();
+await first;
+assert.equal(store.browser.currentPath, '/new');
+assert.equal(store.pickerMode, 'text-open');
+assert.equal(store.isPickerModal, true);
+await store.openSurface('/external');
+await second;
+assert.equal(store.browser.currentPath, '/external');
+assert.equal(store.pickerMode, '');
+assert.equal(store.isPickerModal, false);
+await canvas.close();
+''')
+
+
+def test_save_as_uses_its_own_guarded_modal_without_changing_workspace():
+    run_store_check('''
+await canvas.open('editor');
+store.browser.currentPath = '/original';
+const request = store.openSaveAsPicker('/target', {filename:'draft.txt'});
+await settle();
+const picker = createFileBrowserView('fileBrowserSaveAs');
+const path = 'modals/file-browser/save-as-modal.html';
+assert.equal(modals.has(path), true);
+assert.equal(canvas.activeSurfaceId, 'editor');
+assert.equal(store.browser.currentPath, '/original');
+assert.equal(store.pickerMode, '');
+assert.equal(picker.pickerFilename, 'draft.txt');
+assert.equal(picker.browser.currentPath, '/target');
+picker.isBulkBusy = true;
+assert.equal(modalGuards.get(path)(), false);
+await picker.cancelPicker();
+assert.equal(modals.has(path), true);
+picker.isBulkBusy = false;
+await picker.cancelPicker();
+await request;
+assert.equal(modals.has(path), false);
+assert.equal(canvas.activeSurfaceId, 'editor');
+assert.equal(store.browser.currentPath, '/original');
+await canvas.close();
 ''')
 
 
@@ -328,13 +396,8 @@ def test_file_browser_editable_path_bar_and_remembered_directory_contract() -> N
     workdir_settings = read("webui", "components", "settings", "file-browser", "file-browser-settings.html")
 
     assert 'class="path-navigator surface-toolbar"' in html
-    assert 'class="nav-button back-button surface-control"' in html
-    assert 'class="text-button back-button"' not in html
-    assert ".nav-button:focus-visible" in html
-    assert ".nav-button .material-symbols-outlined" in html
-    assert 'class="nav-button-label">Up</span>' in html
-    assert "flex-direction: column;" in html
-    assert ".nav-button-label" in html
+    assert 'aria-label="Parent folder"' in html
+    assert '@click="fb.navigateUp()"' in html
     assert 'x-model="fb.pathInput"' in html
     assert '@submit.prevent="fb.submitPath()"' in html
     assert 'fb.pathError' in html
@@ -379,29 +442,15 @@ def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
     assert 'title="New file"' in html
     assert 'aria-label="New folder"' in html
     assert 'title="New folder"' in html
-    assert 'aria-label="Create new"' in html
-    assert html.split('<style>', 1)[0].count('btn-new-item') == 1
-    assert ">New File<" not in html
-    assert ">New Folder<" not in html
-    assert 'class="file-search-shell"' not in html
-    assert 'class="file-tree-heading"' not in read("webui", "components", "modals", "file-browser", "file-tree.html")
-    assert "file-status-bar" not in html
-    assert html.index('aria-label="New file"') < html.index('aria-label="New folder"') < html.index('aria-label="Toggle file tree"')
-    assert "btn-new-item" in html
-    assert "width: 32px;" in html
-    assert "height: 32px;" in html
-    assert ".path-navigator { align-items: center; flex-direction: row;" in flat(html)
-    assert ".path-navigator .nav-button-label { display: none;" in flat(html)
+    assert 'role="toolbar" aria-label="File actions" x-overflow' in html
+    for action in ("Parent folder", "Home folder", "Refresh files", "Upload files", "Download selected", "Toggle file tree"):
+        assert f'aria-label="{action}"' in html
+    assert 'aria-label="Filter by name"' in html
+    assert 'container: file-browser / inline-size;' in html
+    assert '@container file-browser (max-width: 620px)' in html
+    assert '.file-cell-date, .file-date { display: none;' in flat(html)
+    assert 'min-height: 44px;' in html
 
-    assert "container: file-browser / inline-size;" in html
-    assert "@container file-browser (max-width: 620px)" in html
-    assert "grid-template-columns: 2.25rem minmax(0, 1fr) minmax(4.25rem, max-content) 8rem;" in flat(html)
-    assert ".file-cell-date, .file-date { display: none;" in flat(html)
-    assert "@container file-browser (max-width: 400px)" in html
-    assert ".file-cell-size, .file-size { display: none;" in flat(html)
-
-    assert "hiding the Modified date column" in dox
-    assert "One Create new (+) control owns both create actions" in dox
 
 
 def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
@@ -429,7 +478,7 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "fb.confirmPicker()" in html
     assert "picker-selection-label" not in html
     assert "fb.isPickerMode()" in html
-    assert "fb.isTextOpenPicker()" in html
+    assert "fb.isSelectableEntry(file)" in html
     assert "picker-confirm-button" in html
 
     assert "picker modes for Editor Open and Save As" in dox
@@ -437,15 +486,16 @@ def test_file_browser_editor_picker_modes_have_primary_footer_actions() -> None:
     assert "Keep Edit inside the overflow menu" in dox
 
     dropdown_menu_index = html.index('class="dropdown-menu file-actions-menu"')
-    assert html.index('class="dropdown file-actions-dropdown"') < html.index('title="Download file"') < html.index('title="Delete item"')
+    menu = html[dropdown_menu_index:html.index('id="file-browser-actions-menu"')]
+    assert "fb.bulkDownloadFiles()" in menu and "fb.trashSelected()" in menu
     assert '<x-extension id="file-browser-actions-menu"></x-extension>' in html[dropdown_menu_index:]
     assert 'file-browser-actions-menu/*.html' in dox
     edit_button = html[dropdown_menu_index:html.index('<span>Edit</span>')]
     assert 'class="dropdown-item"' in edit_button
-    assert 'x-show="fb.isEditableFile(file)"' in edit_button
+    assert 'x-show="fb.selectedCount === 1 &amp;&amp; fb.isEditableFile(file)"' in edit_button
     assert '@click="fb.openFileEditor(file)"' in edit_button
     assert 'always_enabled: true' in read("plugins", "_editor", "plugin.yaml")
-    assert 'x-show="fb.canOpenInActionMenu(file)"' in html
+    assert 'x-show="fb.selectedCount === 1 &amp;&amp; fb.canOpenInActionMenu(file)"' in html
 
 
 def test_file_browser_extract_and_editor_download_actions() -> None:
@@ -454,7 +504,7 @@ def test_file_browser_extract_and_editor_download_actions() -> None:
     editor_html = read("plugins", "_editor", "webui", "editor-panel.html")
     editor_store = read("plugins", "_editor", "webui", "editor-store.js")
 
-    assert 'x-show="!file.is_dir && !fb.isRemote(file.path) && fb.isArchive(file.name)"' in browser_html
+    assert 'x-show="fb.selectedCount === 1 &amp;&amp; !file.is_dir &amp;&amp; !fb.isRemote(file.path) &amp;&amp; fb.isArchive(file.name)"' in browser_html
     assert 'fb.extractArchive(file)' in browser_html
     assert "ARCHIVE_SUFFIXES" in browser_store
     assert 'fetchApi("/extract_work_dir_archive"' in browser_store
@@ -469,8 +519,7 @@ def test_file_browser_dropdown_escapes_scroll_container_and_header_is_opaque() -
     html = read("webui", "components", "modals", "file-browser", "file-browser.html")
     store = read("webui", "components", "modals", "file-browser", "file-browser-store.js")
 
-    assert '@scroll="fb.closeDropdown(); closeMenu()"' in html
-    assert 'const surfaceActive = Boolean(document.querySelector(".file-browser-root.is-surface"));' in store
+    assert '@scroll="fb.lastTap = null; fb.closeDropdown(); closeMenu()"' in html
     assert 'await this.openSurface(retainedPath);' in store
     assert 'overflow: auto;' in html
     assert 'x-teleport="body"' in html
@@ -509,7 +558,7 @@ def test_file_browser_is_registered_as_right_canvas_surface() -> None:
     assert 'id: "files"' in surfaces
     assert 'title: "Files"' in surfaces
     assert 'modalPath: "modals/file-browser/file-browser.html"' in surfaces
-    assert 'await store.openSurface(payload.path || payload.filePath || payload.directory || "")' in surfaces
+    assert 'await store.openSurface(payload.path || payload.filePath || payload.directory || "", payload.options)' in surfaces
     assert 'data-surface-id="files"' in html
     assert 'data-surface-modal-path="modals/file-browser/file-browser.html"' in html
     assert 'class="surface-modal file-browser-modal modal-no-backdrop"' in html
@@ -579,18 +628,11 @@ def test_file_browser_drag_and_drop_contract() -> None:
     attachments = read("webui", "components", "chat", "attachments", "attachmentsStore.js")
     api = read("api", "rename_work_dir_file.py")
 
-    assert ':draggable="!fb.isPickerMode() && !fb.isBulkBusy"' in html
-    assert "fb.dropItems(file.path, file.name, $event)" in html
-    assert "fb.dropItems(fb.browser.parentPath, 'parent folder', $event)" in html
-    start_drag = store[store.index("  startDrag("):store.index("  isDraggingPath(")]
-    assert "this.clearSelection()" not in start_drag
-    assert "file.selected = true" not in start_drag
-    assert ": [file.path]" in start_drag
-    assert "decorateEntries(data.data?.entries || [], selectedPaths)" in store
-    assert "application/x-agent-zero-files" in store
-    assert 'action: "move"' in store
-    assert 'fetchApi("/rename_work_dir_file"' in store
-    assert 'if action == "move":' in api
+    assert ':data-file-drop="file.is_dir ? file.path : null"' in html
+    assert ':data-file-drop="fb.browser.parentPath"' in html
+    assert 'fb.mountGestures($el' in html
+    assert '"/rename_work_dir_file"' in store
+    assert 'if action in {"move", "copy"}:' in api
     assert 'isExternalFileDrag(event)' in attachments
     assert 'includes("Files")' in attachments
 
@@ -605,6 +647,8 @@ const window = globalThis;
 const createStore = (_name, model) => model;
 const getStore = () => null;
 const createFileTree = () => ({ shown: false, follow: async () => {} });
+const notices = [];
+const toastFrontendNotice = (type, message) => notices.push({type, message});
 let saved = '{}';
 const localStorage = { getItem: () => saved, setItem: (_key, value) => saved = value };
 ''' + source + '''
@@ -627,6 +671,7 @@ assert.equal(JSON.parse(saved).treeRoot, '/', 'filesystem root remains an explic
 for (const path of ['', 'usr', '/a0/../usr', '/a0/./usr', null, 42]) {
   await store.saveTreeRoot(path);
   assert.equal(JSON.parse(saved).treeRoot, '/', 'invalid input does not replace the saved root');
+  assert.equal(notices.pop()?.type, 'error');
   saved = JSON.stringify({treeRoot:path});
   store.loadPreferences();
   assert.equal(store.preferences.treeRoot, '/a0', 'invalid stored root falls back safely');
@@ -708,3 +753,34 @@ store.forwardHistory = [];
 assert.equal(store.history.length, 0);
 '''
     subprocess.run(['node', '--input-type=module'], input=script, text=True, check=True)
+
+
+def test_copy_and_device_upload_preserve_directories_links_and_collisions(tmp_path: Path):
+    from io import BytesIO
+    from types import SimpleNamespace
+    browser = FileBrowser()
+    browser.base_dir = tmp_path
+    source = tmp_path / "folder"
+    source.mkdir()
+    (source / "note.txt").write_text("original")
+    (source / "link").symlink_to("note.txt")
+    (tmp_path / "dest").mkdir()
+    browser.transfer_items(["folder"], "dest", copy=True)
+    assert (tmp_path / "dest/folder/link").is_symlink()
+    browser.transfer_items(["folder/note.txt"], "folder", copy=True)
+    assert (source / "note (copy).txt").read_text() == "original"
+    with pytest.raises(FileExistsError):
+        browser.transfer_items(["folder"], "dest", copy=True)
+    with pytest.raises(ValueError, match="itself"):
+        browser.transfer_items(["folder"], "folder", copy=True)
+
+    def payload(content):
+        return SimpleNamespace(stream=BytesIO(content))
+    saved = browser.upload_tree([payload(b"new")], "dest", ["folder/note.txt"], ["folder/empty"])
+    assert saved == (["folder (1)"], [])
+    assert (tmp_path / "dest/folder (1)/empty").is_dir()
+    assert (tmp_path / "dest/folder (1)/note.txt").read_bytes() == b"new"
+    assert (tmp_path / "dest/folder/note.txt").read_text() == "original"
+    with pytest.raises(ValueError):
+        browser.upload_tree([payload(b"x")], "dest", ["../outside"], [])
+    assert not (tmp_path / "outside").exists()

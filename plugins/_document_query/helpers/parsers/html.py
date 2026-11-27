@@ -1,6 +1,8 @@
 """HTML parser using Markdownify transformer."""
 
-from plugins._document_query.helpers.fetch import FetchedDocument
+import re
+
+from plugins._document_query.helpers.document import FetchedDocument
 from .base import BaseParser
 
 
@@ -8,13 +10,7 @@ class HtmlParser(BaseParser):
     mimetypes = ["text/html"]
 
     def _parse_sync(self, document: FetchedDocument, config: dict) -> str:
-        from langchain_community.document_transformers import MarkdownifyTransformer
-        from langchain_core.documents import Document
+        from markdownify import markdownify
 
-        parts = [
-            Document(
-                page_content=document.text(),
-                metadata={"source": document.source_uri or document.uri},
-            )
-        ]
-        return "\n".join(e.page_content for e in MarkdownifyTransformer().transform_documents(parts))
+        text = markdownify(document.text(), heading_style="ATX").replace("\xa0", " ").strip()
+        return re.sub(r"\n\s*\n", "\n\n", text)

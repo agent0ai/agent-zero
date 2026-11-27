@@ -103,7 +103,10 @@ async def test_default_agent0_prompt_contracts():
         assert name not in system_text
         assert name not in rendered_system_text
     assert "- host-" not in system_text
-    assert "- setup-a0-cli:" in system_text
+    assert "- a0-development:" in system_text
+    assert "- browser-automation:" in system_text
+    for former_skill in ("a0-create-agent", "setup-a0-cli", "browser-extension-control", "browser-form-workflows"):
+        assert f"- {former_skill}:" not in system_text
     assert "Computer Use enablement is scoped to the current CLI session" not in system_text
 
 

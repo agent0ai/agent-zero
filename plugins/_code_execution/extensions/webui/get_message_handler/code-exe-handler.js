@@ -41,6 +41,10 @@ function drawMessageCodeExe({
 
   const headerLabels = [
     kvps?.runtime && { label: kvps.runtime, class: "tool-name-badge" },
+    kvps?.execution_destination && {
+      label: kvps.execution_destination,
+      class: "header-label",
+    },
     kvps?.session != null && {
       label: `Session ${kvps.session}`,
       class: "header-label",

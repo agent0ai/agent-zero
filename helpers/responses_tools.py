@@ -7,7 +7,7 @@ import re
 from copy import deepcopy
 from typing import Any
 
-from helpers import extract_tools, files, subagents, tool_policy
+from helpers import extract_tools, files, skill_tools, subagents, tool_policy
 
 
 FUNCTION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -37,8 +37,8 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
     "tools/response.py": {
         "text": {"type": "string", "minLength": 1},
     },
-    "plugins/_search_engine/tools/search_engine.py": {"query": {"type": "string"}},
     "tools/vision_load.py": {
+        "destination": {"type": "string"},
         "paths": {"type": "array", "items": {"type": "string"}},
         "query": {"type": "string"},
     },
@@ -71,26 +71,30 @@ BUNDLED_TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
         "file_path": {"type": "string"},
     },
     "plugins/_code_execution/tools/code_execution_tool.py": {
+        "destination": {"type": "string"},
+        "reason": {"type": "string"},
         "runtime": {"type": "string", "enum": ["terminal", "python", "nodejs", "output", "reset"]},
         "code": {"type": "string"},
         "session": {"type": "integer"},
         "reset": {"type": "boolean"},
-        "allow_running": {"type": "boolean"},
     },
     "plugins/_code_execution/tools/input.py": {
+        "destination": {"type": "string"},
         "keyboard": {"type": "string"},
         "session": {"type": "integer"},
     },
-    "plugins/_a0_connector/tools/code_execution_remote.py": {
-        "runtime": {"type": "string", "enum": ["terminal", "python", "nodejs", "output", "reset"]},
-        "code": {"type": "string"},
-        "session": {"type": "integer"},
-        "reset": {"type": "boolean"},
-        "reason": {"type": "string"},
-    },
-    "plugins/_a0_connector/tools/input_remote.py": {
-        "keyboard": {"type": "string"},
-        "session": {"type": "integer"},
+    "plugins/_text_editor/tools/text_editor.py": {
+        "action": {"type": "string", "enum": ["read", "write", "patch"]},
+        "destination": {"type": "string"},
+        "path": {"type": "string"},
+        "content": {"type": "string"},
+        "line_from": {"type": "integer"},
+        "line_to": {"type": "integer"},
+        "edits": {"type": "array", "items": {"type": "object"}},
+        "patch_text": {"type": "string"},
+        "old_text": {"type": "string"},
+        "new_text": {"type": "string"},
+        "open_in_canvas": {"type": "boolean"},
     },
     "plugins/_memory/tools/memory.py": {
         "action": {"type": "string", "enum": ["load", "save", "delete", "forget"]},
@@ -137,10 +141,12 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
     policy = tool_policy.get_policy(agent)
 
     local_prompts = _local_tool_prompts(agent)
+    action_enums: dict[str, list[str]] = {}
     descriptions = tool_policy.filter_tool_prompts(
         agent,
         [(f"{TOOL_PROMPT_PREFIX}{name}{TOOL_PROMPT_SUFFIX}", prompt) for name, prompt in local_prompts],
         _policy=policy,
+        action_enums=action_enums,
     )
     for (tool_name, prompt), description in zip(local_prompts, descriptions):
         if not tool_policy.resolve_tool(agent, tool_name, _policy=policy).allowed:
@@ -148,12 +154,7 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
         native_name = _native_tool_name(tool_name)
         name_map[native_name] = tool_name
         parameters = _schema_for_tool(agent, tool_name, prompt)
-        if spec := tool_policy.get_tool_actions(agent, tool_name):
-            actions = tool_policy.allowed_tool_actions(agent, tool_name, _policy=policy)
-            if actions is not None:
-                parameters.setdefault("properties", {})[spec.argument] = {
-                    "type": "string", "enum": actions
-                }
+        parameters = _with_allowed_actions(agent, tool_name, parameters, policy, action_enums.get(tool_name))
         tools.append(
             {
                 "type": "function",
@@ -163,6 +164,21 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
                 "parameters": parameters,
             }
         )
+
+    for name in skill_tools.registered(agent):
+        native_name = _native_tool_name(name)
+        if native_name in name_map:
+            continue
+        decision = tool_policy.resolve_tool(agent, name, _policy=policy)
+        if not decision.skill_definition:
+            continue
+        description, parameters = decision.skill_definition
+        name_map[native_name] = name
+        tools.append({
+            "type": "function", "name": native_name, "strict": False,
+            "description": description,
+            "parameters": _with_allowed_actions(agent, name, _schema_from_any(parameters), policy),
+        })
 
     for tool_name, tool in _mcp_tools(agent):
         if not tool_policy.resolve_tool(
@@ -185,6 +201,19 @@ def build_responses_function_tools(agent: Any) -> tuple[list[dict[str, Any]], di
         )
 
     return _dedupe_tools(tools), name_map
+
+
+def _with_allowed_actions(agent, name, schema, policy, actions=None):
+    spec = tool_policy.get_tool_actions(agent, name)
+    if spec is None:
+        return schema
+    if actions is None:
+        actions = tool_policy.allowed_tool_actions(agent, name, _policy=policy)
+    if actions is None:
+        return schema
+    properties = dict(schema.get("properties", {}))
+    properties[spec.argument] = {"type": "string", "enum": actions}
+    return {**schema, "properties": properties}
 
 
 def original_tool_name(native_name: str, name_map: dict[str, str] | None) -> str:
@@ -245,9 +274,7 @@ def _local_tool_prompts(agent: Any) -> list[tuple[str, str]]:
                 prompt = files.read_file(tool_file)
             except Exception:
                 prompt = ""
-        for tool_name in _tool_names_from_prompt(prompt, fallback=fallback_name):
-            if _include_local_tool_prompt(agent, tool_name):
-                result.append((tool_name, prompt))
+        result.extend((name, prompt) for name in _tool_names_from_prompt(prompt, fallback=fallback_name))
 
     vision_prompt = _vision_tool_prompt(agent)
     if vision_prompt:
@@ -270,17 +297,6 @@ def _vision_tool_prompt(agent: Any) -> str:
         return agent.read_prompt("agent.system.tools_vision.md")
     except Exception:
         return ""
-
-
-def _include_local_tool_prompt(agent: Any, tool_name: str) -> bool:
-    try:
-        from plugins._a0_connector.helpers.remote_tool_prompts import (
-            should_include_remote_tool_prompt,
-        )
-    except Exception:
-        return True
-
-    return should_include_remote_tool_prompt(agent, tool_name)
 
 
 def _mcp_tools(agent: Any) -> list[tuple[str, dict[str, Any]]]:

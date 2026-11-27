@@ -38,7 +38,10 @@ export default async function registerFilesSurface(surfaces) {
     async open(payload = {}) {
       const panel = await waitForElement('[data-surface-id="files"] .file-browser-root');
       if (!panel) throw new Error("Files surface panel did not mount.");
-      await fileBrowserStore.openSurface(payload.path || payload.filePath || payload.directory || "");
+      await fileBrowserStore.openSurface(payload.path || payload.filePath || payload.directory || "", payload.options);
+    },
+    canClose() {
+      return !fileBrowserStore.isBulkBusy && !fileBrowserStore.isRenaming;
     },
   });
 }

@@ -3,8 +3,8 @@
 import asyncio
 from abc import ABC, abstractmethod
 
-from helpers.print_style import PrintStyle
-from plugins._document_query.helpers.fetch import FetchedDocument
+import logging
+from plugins._document_query.helpers.document import FetchedDocument
 
 
 class BaseParser(ABC):
@@ -52,7 +52,7 @@ class BaseParser(ABC):
                     timeout=timeout,
                 )
         except asyncio.TimeoutError:
-            PrintStyle.error(
+            logging.error(
                 f"Parser {self.__class__.__name__} timed out after {timeout}s on {document.uri}"
             )
             raise ValueError(f"Document parsing timed out after {timeout}s: {document.uri}")

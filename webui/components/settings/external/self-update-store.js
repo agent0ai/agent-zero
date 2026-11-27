@@ -670,14 +670,15 @@ const model = {
       if (this.info) {
         this.info.pending = response.pending;
       }
-      notificationStore.frontendWarning(
-        notificationMessage,
-        "Self Update",
-        10,
-        "self-update-restart",
-        undefined,
-        true,
-      ).catch((warningError) => {
+      notificationStore.frontendNotification({
+        type: "warning",
+        message: notificationMessage,
+        title: "Self Update",
+        displayTime: 10,
+        group: "self-update-restart",
+        frontendOnly: true,
+        copyable: false,
+      }).catch((warningError) => {
         console.error("Failed to show self-update warning toast:", warningError);
       });
       await this.restartAndReload();

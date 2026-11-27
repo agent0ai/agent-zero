@@ -10,7 +10,7 @@
       <p class="file-tree-status" x-show="tree.query && !tree.rows.length">No matching files</p>
       <template x-for="row in tree.rows" :key="row.node.path">
         <div x-create="if (tree.selectedPath === row.node.path) $nextTick(() => tree.scrollToSelected($el.closest('.file-tree')))">
-          <div class="file-tree-row" :class="{ 'is-selected': tree.selectedPath === row.node.path }" :style="{ paddingLeft: (8 + row.depth * 16) + 'px' }">
+          <div class="file-tree-row" :data-file-drop="row.node.is_dir ? row.node.path : null" :class="{ 'is-selected': tree.selectedPath === row.node.path }" :style="{ paddingLeft: (8 + row.depth * 16) + 'px' }">
             <button type="button" class="file-tree-chevron" :style="{ visibility: row.node.is_dir ? 'visible' : 'hidden' }" :tabindex="row.node.is_dir ? 0 : -1" :aria-label="(row.node.expanded ? 'Collapse ' : 'Expand ') + row.node.name" :aria-expanded="row.node.is_dir ? String(row.node.expanded) : null" @click="tree.expand(row.node)">
               <x-icon :name="row.node.loading ? 'progress_activity' : (row.node.expanded ? 'expand_more' : 'chevron_right')"></x-icon>
             </button>

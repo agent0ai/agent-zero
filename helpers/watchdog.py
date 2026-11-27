@@ -17,7 +17,7 @@ class _DispatchHandler:
         self.registry.dispatch(self.scheduled_root, event)
 
 
-WatchEvent = Literal["create", "modify", "delete", "move"]
+WatchEvent = Literal["create", "modify", "delete", "move", "close_write"]
 WatchEvents = Literal["all"] | list[WatchEvent | str] | set[WatchEvent | str]
 WatchItem = list[str]
 WatchHandler = Callable[[list[WatchItem]], None]
@@ -30,10 +30,12 @@ _DEFAULT_IGNORE_PATTERNS = [
     "**/*.pyc",
     "**/*.pyo",
 ]
-_VALID_EVENTS: frozenset[WatchEvent] = frozenset(["create", "modify", "delete", "move"])
+_DEFAULT_EVENTS: frozenset[WatchEvent] = frozenset(["create", "modify", "delete", "move"])
 _EVENT_ALIASES: dict[str, WatchEvent] = {
     "create": "create",
     "created": "create",
+    "closed": "close_write",
+    "close_write": "close_write",
     "modify": "modify",
     "modified": "modify",
     "delete": "delete",
@@ -70,7 +72,7 @@ class _WatchRegistry:
         self._observer: Any = None
         self._watches: dict[str, _Watch] = {}
         self._watch_ids_by_group: dict[str, set[str]] = {}
-        self._scheduled_roots: dict[str, Any] = {}
+        self._scheduled_roots: set[str] = set()
         self._pending_batches: dict[str, _PendingBatch] = {}
 
     def add(
@@ -245,12 +247,12 @@ class _WatchRegistry:
                         with self._lock:
                             self._observer = observer
                         observer.start()
-                    # Retain unchanged recursive subscriptions instead of rescanning their trees.
-                    for root in scheduled_roots.keys() - target_roots:
-                        observer.unschedule(scheduled_roots[root])
-                        del scheduled_roots[root]
-                    for root in target_roots - scheduled_roots.keys():
-                        scheduled_roots[root] = observer.schedule(_DispatchHandler(self, root), root, recursive=True)
+                    if target_roots != scheduled_roots:
+                        observer.unschedule_all()
+                        for root in target_roots:
+                            observer.schedule(_DispatchHandler(self, root), root, recursive=True)
+                        with self._lock:
+                            self._scheduled_roots = target_roots
                 with self._lock:
                     if not self._refresh_pending:
                         # Release before a new registration can miss this refresh.
@@ -265,7 +267,7 @@ class _WatchRegistry:
         with self._lock:
             observer = self._observer
             self._observer = None
-            self._scheduled_roots = {}
+            self._scheduled_roots = set()
         if observer is None:
             return
         observer.unschedule_all()
@@ -306,14 +308,14 @@ def _normalize_patterns(
 
 def _normalize_events(events: WatchEvents) -> frozenset[WatchEvent]:
     if events == "all":
-        return _VALID_EVENTS
+        return _DEFAULT_EVENTS
     normalized: set[WatchEvent] = set()
     for event in events:
         mapped = _map_event_type(str(event))
         if mapped is None:
             raise ValueError(f"Unsupported watch event: {event}")
         normalized.add(mapped)
-    return frozenset(normalized) if normalized else _VALID_EVENTS
+    return frozenset(normalized) if normalized else _DEFAULT_EVENTS
 
 
 def _map_event_type(event_type: str) -> WatchEvent | None:

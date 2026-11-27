@@ -20,7 +20,7 @@ from helpers.plugins import (
     after_plugin_change,
 )
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
+from helpers.security import safe_filename
 
 
 def _get_user_plugins_dir() -> str:
@@ -77,7 +77,7 @@ def install_uploaded_zip(plugin_file: FileStorage) -> dict:
     tmp_dir = Path(files.get_abs_path("tmp", "plugin_uploads"))
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    temp_name = secure_filename(original_filename) or "plugin.zip"
+    temp_name = safe_filename(original_filename) or "plugin.zip"
     if not temp_name.lower().endswith(".zip"):
         temp_name = f"{temp_name}.zip"
 

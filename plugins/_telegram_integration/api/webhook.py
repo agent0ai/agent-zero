@@ -2,7 +2,6 @@ import secrets
 
 from helpers.api import ApiHandler, Request, Response
 from helpers.print_style import PrintStyle
-from plugins._telegram_integration.helpers.dependencies import ensure_dependencies
 
 
 class TelegramWebhook(ApiHandler):
@@ -21,8 +20,6 @@ class TelegramWebhook(ApiHandler):
         return ["POST"]
 
     async def process(self, input: dict, request: Request) -> dict | Response:
-        ensure_dependencies()
-        from aiogram.types import Update
 
         from plugins._telegram_integration.helpers.bot_manager import get_bot
 
@@ -46,8 +43,8 @@ class TelegramWebhook(ApiHandler):
 
         # Parse and feed the update to aiogram
         try:
-            update = Update.model_validate(input, context={"bot": instance.bot})
-            await instance.dispatcher.feed_update(instance.bot, update)
+            from plugins._telegram_integration.helpers.bot_manager import feed_webhook
+            await feed_webhook(instance, input)
         except Exception as e:
             PrintStyle.error(f"Telegram webhook ({bot_name}): {e}")
             return Response("Internal error", 500)

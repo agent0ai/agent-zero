@@ -1,3 +1,5 @@
+import base64
+import ntpath
 import uuid
 from mimetypes import guess_type
 
@@ -5,12 +7,12 @@ from langchain_core.messages import HumanMessage
 
 from helpers import (
     chat_media,
+    destination_files,
     ephemeral_images,
     files,
     history,
     images,
     parallel_tools,
-    runtime,
 )
 from helpers.tool import Response, Tool
 from helpers.strings import truncate_text
@@ -50,6 +52,7 @@ class VisionLoad(Tool):
         self,
         paths: list[str] | str = [],
         query: str = "",
+        destination: str = "local",
         **kwargs,
     ) -> Response:
 
@@ -99,7 +102,25 @@ class VisionLoad(Tool):
                     self.images_dict[display_path] = stored_ref
                     self.loaded_paths.append(display_path)
                 continue
-            if not await runtime.call_development_function(files.exists, str(path)):
+            if destination != "local":
+                mime_type, _ = guess_type(path)
+                if mime_type and mime_type.startswith("image/"):
+                    try:
+                        data = await destination_files.read(
+                            self.agent, destination, path, limit=chat_media.DEFAULT_MAX_IMAGE_BYTES,
+                        )
+                        ref = self._store_data_url(
+                            f"data:{mime_type};base64,{base64.b64encode(data).decode()}",
+                            preferred_name=ntpath.basename(path),
+                        )
+                        self.images_dict[display_path] = ref
+                        self.loaded_paths.append(display_path)
+                    except (OSError, ValueError, RuntimeError) as exc:
+                        return Response(message=f"Cannot load {display_path} from {destination}: {exc}", break_loop=False)
+                continue
+
+            path = files.fix_dev_path(path)
+            if not files.exists(path):
                 continue
 
             if path not in self.images_dict:

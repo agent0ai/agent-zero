@@ -15,11 +15,12 @@ import * as cache from "./cache.js";
 /**
  * @typedef {Object} JsExtensionImport
  * @property {string} path
- * @property {{ default: (...data: any[]) => (void|Promise<void>) }} module
+ * @property {{ default: (...data: any[]) => unknown }} module
  */
 
 const JS_CACHE_AREA = "frontend_extensions_js(extensions)(plugins)";
 const HTML_CACHE_AREA = "frontend_extensions_html(extensions)(plugins)";
+const htmlExtensionLoads = new WeakMap();
 let alpineInitialized = false;
 const LOADING_SELECTOR = "x-component > .loading:empty, x-extension.loading";
 
@@ -74,14 +75,15 @@ export async function callJsExtensions(extensionPoint, ...data){
  * Load JS extension modules for an extension point.
  *
  * @param {string} extensionPoint
+ * @param {{ fresh?: boolean }} [options] Query current activation even if a page manifest exists.
  * @returns {Promise<JsExtensionImport[]>}
  */
-export async function loadJsExtensions(extensionPoint) {
+export async function loadJsExtensions(extensionPoint, { fresh = false } = {}) {
   try {
     const cached = cache.get(JS_CACHE_AREA, extensionPoint, null);
-    if (cached != null) return cached;
+    if (!fresh && cached != null) return cached;
 
-    const manifestExtensions = manifestExtensionPaths("js", extensionPoint);
+    const manifestExtensions = fresh ? null : manifestExtensionPaths("js", extensionPoint);
     /** @type {WebuiExtension[]} */
     let extensionPaths = manifestExtensions;
     if (extensionPaths == null) {
@@ -102,19 +104,20 @@ export async function loadJsExtensions(extensionPoint) {
     cache.add(JS_CACHE_AREA, extensionPoint, imports);
     return imports;
   } catch (error) {
+    if (fresh) throw error;
     console.error("Error loading JS extensions:", error);
     return [];
   }
 }
 
-// Load all x-component tags starting from root elements
 /**
  * Load and render all HTML extensions in the given DOM roots.
  *
  * @param {Element | Document | Array<Element | Document>} [roots]
+ * @param {{ reload?: boolean }} [options]
  * @returns {Promise<void>}
  */
-export async function loadHtmlExtensions(roots = [document.documentElement]) {
+export async function loadHtmlExtensions(roots = [document.documentElement], { reload = false } = {}) {
   try {
     // Convert single root to array if needed
     /** @type {Array<Element | Document>} */
@@ -135,7 +138,8 @@ export async function loadHtmlExtensions(roots = [document.documentElement]) {
           console.error("x-extension missing id attribute:", extension);
           return;
         }
-        await importHtmlExtensions(path, /** @type {HTMLElement} */ (extension));
+        if (reload) extension.innerHTML = "";
+        await importHtmlExtensions(path, /** @type {HTMLElement} */ (extension), { reload });
       }),
     );
   } catch (error) {
@@ -149,33 +153,8 @@ export async function loadHtmlExtensions(roots = [document.documentElement]) {
  * @param {Element | Document | Array<Element | Document>} [roots]
  * @returns {Promise<void>}
  */
-export async function reloadHtmlExtensions(roots = [document.documentElement]) {
-  try {
-    /** @type {Array<Element | Document>} */
-    const rootElements = Array.isArray(roots) ? roots : [roots];
-
-    /** @type {Element[]} */
-    const extensions = rootElements.flatMap((root) =>
-      Array.from(root.querySelectorAll("x-extension")),
-    );
-
-    if (extensions.length === 0) return;
-
-    await Promise.all(
-      extensions.map(async (extension) => {
-        const path = extension.getAttribute("id");
-        if (!path) {
-          console.error("x-extension missing id attribute:", extension);
-          return;
-        }
-
-        extension.innerHTML = "";
-        await importHtmlExtensions(path, /** @type {HTMLElement} */ (extension));
-      }),
-    );
-  } catch (error) {
-    console.error("Error reloading HTML extensions:", error);
-  }
+export function reloadHtmlExtensions(roots = [document.documentElement]) {
+  return loadHtmlExtensions(roots, { reload: true });
 }
 
 // import all extensions for extension point via backend api
@@ -184,42 +163,55 @@ export async function reloadHtmlExtensions(roots = [document.documentElement]) {
  *
  * @param {string} extensionPoint
  * @param {HTMLElement} targetElement
+ * @param {{ reload?: boolean }} [options]
  * @returns {Promise<void>}
  */
-export async function importHtmlExtensions(extensionPoint, targetElement) {
-  targetElement.classList.add("loading");
-  try {
-    const cachedHtml = cache.get(HTML_CACHE_AREA, extensionPoint, null);
-    if (cachedHtml != null) {
-      targetElement.innerHTML = cachedHtml;
-      return;
-    }
+export function importHtmlExtensions(extensionPoint, targetElement, { reload = true } = {}) {
+  const previous = htmlExtensionLoads.get(targetElement);
+  if (!reload && previous?.point === extensionPoint) return previous.ready;
 
-    const manifestExtensions = manifestExtensionPaths("html", extensionPoint);
-    /** @type {WebuiExtension[]} */
-    let extensionPaths = manifestExtensions;
-    if (extensionPaths == null) {
-      /** @type {LoadWebuiExtensionsResponse} */
-      const response = await api.callJsonApi(`/api/load_webui_extensions`, {
-        extension_point: extensionPoint,
-        filters: ["*.html", "*.htm", "*.xhtml"],
-      });
-      extensionPaths = response.extensions;
-    }
-    let combinedHTML = "";
-    for (const extension of extensionPaths) {
-      const path = normalizePath(extension);
-      combinedHTML += `<x-component path="${path}"></x-component>`;
-    }
-    cache.add(HTML_CACHE_AREA, extensionPoint, combinedHTML);
-    targetElement.innerHTML = combinedHTML;
-  } catch (error) {
-    console.error("Error importing HTML extensions:", error);
-    return;
-  } finally {
-    targetElement.classList.remove("loading");
-    checkInitialLoadComplete();
+  targetElement.classList.add("loading");
+  const isCurrent = () => htmlExtensionLoads.get(targetElement)?.ready === ready;
+  const ready = getHtmlExtensionMarkup(extensionPoint)
+    .then(html => {
+      if (isCurrent()) targetElement.innerHTML = html;
+    })
+    .finally(() => {
+      if (isCurrent()) {
+        targetElement.classList.remove("loading");
+        checkInitialLoadComplete();
+      }
+    })
+    .catch(error => {
+      if (isCurrent()) htmlExtensionLoads.delete(targetElement);
+      console.error("Error importing HTML extensions:", error);
+    });
+  htmlExtensionLoads.set(targetElement, { point: extensionPoint, ready });
+  return ready;
+}
+
+async function getHtmlExtensionMarkup(extensionPoint) {
+  const cachedHtml = cache.get(HTML_CACHE_AREA, extensionPoint, null);
+  if (cachedHtml != null) return cachedHtml;
+
+  const manifestExtensions = manifestExtensionPaths("html", extensionPoint);
+  /** @type {WebuiExtension[]} */
+  let extensionPaths = manifestExtensions;
+  if (extensionPaths == null) {
+    /** @type {LoadWebuiExtensionsResponse} */
+    const response = await api.callJsonApi(`/api/load_webui_extensions`, {
+      extension_point: extensionPoint,
+      filters: ["*.html", "*.htm", "*.xhtml"],
+    });
+    extensionPaths = response.extensions;
   }
+  let combinedHTML = "";
+  for (const extension of extensionPaths) {
+    const path = normalizePath(extension);
+    combinedHTML += `<x-component path="${path}"></x-component>`;
+  }
+  cache.add(HTML_CACHE_AREA, extensionPoint, combinedHTML);
+  return combinedHTML;
 }
 
 /**
@@ -241,7 +233,7 @@ const extensionObserverCallback = (mutations) => {
         const el = /** @type {Element} */ (node);
         if (el.matches?.("x-extension")) {
           const id = el.getAttribute("id");
-          if (id) importHtmlExtensions(id, /** @type {HTMLElement} */ (el));
+          if (id) importHtmlExtensions(id, /** @type {HTMLElement} */ (el), { reload: false });
         } else if (/** @type {any} */ (el)["querySelectorAll"]) {
           loadHtmlExtensions([el]);
         }

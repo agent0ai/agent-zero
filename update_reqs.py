@@ -1,10 +1,10 @@
-import pkg_resources
+import importlib.metadata
 import re
 
 def get_installed_version(package_name):
     try:
-        return pkg_resources.get_distribution(package_name).version
-    except pkg_resources.DistributionNotFound:
+        return importlib.metadata.version(package_name)
+    except importlib.metadata.PackageNotFoundError:
         return None
 
 def update_requirements():
@@ -14,13 +14,13 @@ def update_requirements():
     updated_requirements = []
     for req in requirements:
         req = req.strip()
-        if not req or req.startswith('#'):
+        if not req or req.startswith('#') or ';' in req:
             updated_requirements.append(req)
             continue
             
         # Extract package name
         match = re.match(r'^([^=<>]+)==', req)
-        if match:
+        if match and match.group(1).lower() not in {"litellm", "openai"}:
             package_name = match.group(1)
             current_version = get_installed_version(package_name)
             if current_version:

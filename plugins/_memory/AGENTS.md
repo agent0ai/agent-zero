@@ -20,7 +20,7 @@
 
 - Keep memory scoped by configured subdirectory/context.
 - Shared tool policy preserves saved per-action memory permissions in both unified and legacy calls; an allowed load must not grant save, delete or forget. Explicit tool-wide blocks cover every alias.
-- Preserve embedding metadata needed to rebuild indexes safely.
+- `helpers/native_store.py` keeps IDs, text, JSON metadata, model identity and float32 vectors transactionally in `memory.sqlite3`. Search uses native FAISS in the framework. Migrate legacy document records using the restricted reader and existing embedding cache. Preserve legacy files and abort on unsupported records. Re-embed stored text when the model changes.
 - Delayed recall results must survive `LoopData` replacement, stay scoped to the originating memory/profile/project, and be consumed once by the next prompt; do not persist live task objects into chat JSON.
 - The `load` action accepts numeric `threshold` and `limit` values as native numbers or numeric strings and coerces them before vector search.
 - The tool-prompt declaration must start with `args` so native Responses models receive the `memory` tool.
@@ -28,6 +28,8 @@
 - Keep auto-recall context capability-neutral; memory-tool routing belongs in
   the policy-filtered memory tool prompt.
 - Avoid storing transient action-history noise as durable memory.
+
+- PDF and HTML knowledge import use the Document Query sandbox loader, preserving source/page metadata and host-side indexes. Text/CSV loaders remain local. Reusable parser code is available independently of the document tool toggle.
 
 ## Work Guidance
 

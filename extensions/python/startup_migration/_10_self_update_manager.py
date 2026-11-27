@@ -33,6 +33,8 @@ REQUIRED_RUNTIME_MARKERS = (
     "clean_transient_desktop_agent_state(REPO_DIR, logger)",
     "def refresh_codex_cli(",
     "refresh_codex_cli(logger)",
+    "def run_update_hooks(",
+    "def replace_update_manager(",
 )
 
 
@@ -77,6 +79,11 @@ def ensure_self_update_manager_runtime_current(
 
     if not _missing_required_markers(target_text):
         return {"ok": True, "updated": False, "reason": "already-current"}
+
+    try:
+        compile(source_text, str(source), "exec")
+    except SyntaxError as exc:
+        return {"ok": False, "updated": False, "warning": f"invalid updater source: {exc}"}
 
     try:
         backup = _replace_runtime_manager(target, source_text)

@@ -49,15 +49,6 @@
             <span>Internal Docker browser selected. Host-browser connection settings are ignored for Browser tool runs.</span>
           </div>
 
-          <label class="browser-config-field" x-show="!context.projectName && !context.agentProfileKey">
-            <span class="browser-config-field-label">Internal browser idle timeout (minutes)</span>
-            <input type="number" min="0" max="1440" step="1" x-model.number="config.idle_timeout_minutes" />
-            <span class="browser-config-field-help">Stops the shared internal browser after all its chats and viewers are idle. Running or paused agents, browser actions, and downloads keep it open. Default: 60 minutes; 0 keeps it open indefinitely. Tab URLs and sign-ins are kept; unsaved page edits are lost. Applies to all chats.</span>
-          </label>
-          <button type="button" class="button" :disabled="$store.browserConfig.stoppingBrowser" @click="$store.browserConfig.stopBrowser()">
-            <span x-text="$store.browserConfig.stoppingBrowser ? 'Stopping…' : 'Stop internal browser'"></span>
-          </button>
-
           <details
             class="browser-config-proxy"
             x-show="$store.browserConfig.config.runtime_backend === 'container'"
@@ -72,7 +63,7 @@
                   aria-label="Proxy server"
                   autocomplete="off"
                 />
-                <span class="browser-config-field-help">Optional. Routes the internal browser through this HTTP or SOCKS proxy.</span>
+                <span class="browser-config-field-help">Routes the internal browser through an HTTP or SOCKS proxy. Chromium supports credentials for HTTP proxies.</span>
               </label>
 
               <label class="browser-config-field">
@@ -247,19 +238,6 @@
             </span>
           </div>
 
-          <label
-            class="browser-config-field"
-            x-show="$store.browserConfig.config.runtime_backend === 'host_required'"
-          >
-            <span class="browser-config-field-label">Page content access</span>
-            <select x-model="$store.browserConfig.config.host_browser_privacy_policy">
-              <option value="enforce_local">Local models only</option>
-              <option value="warn">Warn when using cloud</option>
-              <option value="allow">Allow</option>
-            </select>
-            <span class="browser-config-field-help">Controls page text and screenshots from the host browser.</span>
-          </label>
-
           <div class="browser-config-note">
             <x-icon :class="{ spinning: $store.browserConfig.hostBrowserStatusLoading }" :name="$store.browserConfig.hostBrowserStatusLoading ? 'progress_activity' : 'captive_portal'"></x-icon>
             <span x-text="$store.browserConfig.browserRuntimeStatusLabel()"></span>
@@ -273,40 +251,7 @@
           </div>
 
           <label class="browser-config-field">
-            <span class="browser-config-field-label">Starting page</span>
-            <input
-              type="text"
-              x-model="$store.browserConfig.config.default_homepage"
-              placeholder="about:blank or https://example.com"
-              autocomplete="off"
-            />
-          </label>
-
-          <label class="browser-config-field">
-            <span class="browser-config-field-label">Browser tabs</span>
-            <select
-              x-model="$store.browserConfig.config.browser_tab_scope"
-              @change="$store.browserConfig.setBrowserTabScope($event.target.value)"
-            >
-              <option value="per_context">Separate per chat</option>
-              <option value="shared">Shared across chats</option>
-            </select>
-            <span
-              class="browser-config-field-help"
-              x-show="$store.browserConfig.config.browser_tab_scope !== 'shared'"
-            >
-              Each chat shows only its own tabs. Browser sign-ins are shared across chats.
-            </span>
-            <span
-              class="browser-config-field-help"
-              x-show="$store.browserConfig.config.browser_tab_scope === 'shared'"
-            >
-              The tab strip shows tabs from every active chat. Browser sign-ins are shared across chats.
-            </span>
-          </label>
-
-          <label class="browser-config-field">
-            <span class="browser-config-field-label">Maximum tabs per chat</span>
+            <span class="browser-config-field-label">Agent tab limit</span>
             <input
               type="number"
               min="1"
@@ -316,7 +261,7 @@
               @change="$store.browserConfig.normalizeMaxOpenTabs()"
             />
             <span class="browser-config-field-help">
-              New Browser tabs stop opening in a chat after this limit.
+              Maximum number of open tabs before the agent must reuse an existing tab.
             </span>
           </label>
 
@@ -385,24 +330,7 @@
         </div>
 
         <div class="browser-config-card browser-config-management">
-          <div class="section-title">Browsing data</div>
-          <div class="section-description">Manage the container browser's shared profile. These pages open in Browser and their changes take effect immediately.</div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Clear browsing data</span>
-              <span class="browser-config-field-help">Choose a time range and remove history, cookies, cached files, or other site data.</span>
-            </div>
-            <button type="button" class="button" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('clearData')">Clear browsing data</button>
-          </div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Browsing history</span>
-              <span class="browser-config-field-help">Search and manage pages visited in the container browser.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage browsing history" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('history')">Manage</button>
-          </div>
+          <div class="section-title">Annotations</div>
           <label class="browser-config-management-row">
             <span class="browser-config-switch-copy">
               <span class="browser-config-field-label">Annotation screenshots</span>
@@ -416,59 +344,11 @@
         </div>
 
         <div class="browser-config-card browser-config-management">
-          <div class="section-title">Autofill and passwords</div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Password manager</span>
-              <span class="browser-config-field-help">Manage saved passwords, imports, and sign-in preferences in the container browser.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage passwords" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('passwords')">Manage</button>
-          </div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Contact info</span>
-              <span class="browser-config-field-help">Add, edit, and delete saved addresses, phone numbers, and email addresses.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage contact info" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('addresses')">Manage</button>
-          </div>
-        </div>
-
-        <div class="browser-config-card browser-config-management">
-          <div class="section-title">Downloads</div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Location and download prompts</span>
-              <span class="browser-config-field-help">Choose a folder inside the container and whether to ask where to save each file.</span>
-            </div>
-            <button type="button" class="button" aria-label="Change download settings" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('downloadSettings')">Change</button>
-          </div>
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Download history</span>
-              <span class="browser-config-field-help">View and manage downloads from the container browser.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage download history" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('downloads')">Manage</button>
-          </div>
-        </div>
-
-        <div class="browser-config-card">
           <div class="section-title">Extensions</div>
           <div class="section-description">
             Choose which installed Chrome extensions Browser loads.
           </div>
 
-          <div class="browser-config-management-row">
-            <div class="browser-config-switch-copy">
-              <span class="browser-config-field-label">Extension manager</span>
-              <span class="browser-config-field-help">Open Chromium's extension details, permissions, and developer tools.</span>
-            </div>
-            <button type="button" class="button" aria-label="Manage Chrome extensions" :disabled="!!$store.browserConfig.openingBrowserPage"
-              @click="$store.browserConfig.openBrowserPage('extensions')">Manage</button>
-          </div>
           <div class="browser-config-extension-install">
             <label class="browser-config-field">
               <span class="browser-config-field-label">Chrome Web Store URL</span>

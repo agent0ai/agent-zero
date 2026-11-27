@@ -6,18 +6,20 @@ import io
 import math
 import re
 import warnings
+from pathlib import Path
 from typing import Any
 
-import soundfile as sf
 
 from helpers import plugins
+from helpers.sandbox_worker import SandboxWorker
 from helpers.notification import (
     NotificationManager,
     NotificationPriority,
     NotificationType,
 )
 from helpers.print_style import PrintStyle
-from plugins._kokoro_tts.helpers import migration, paradee
+from plugins._kokoro_tts.helpers import migration
+from plugins._kokoro_tts.sandbox.voices import _resolve_voice
 
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -32,7 +34,10 @@ DEFAULT_CONFIG = {
 }
 VOICE_ID_PATTERN = re.compile(r"^[a-z]{2}_[a-z0-9_]+$")
 
-_pipeline = None
+worker = SandboxWorker(PLUGIN_NAME)
+_loaded_engines = set()
+_model_generation = -1
+package_versions = {}
 is_updating_model = False
 
 
@@ -89,112 +94,46 @@ def is_globally_enabled() -> bool:
     )
 
 
-async def preload(config: dict[str, Any] | None = None):
-    if normalize_config(config if config is not None else get_config())["voice"] == "paradee":
-        return await asyncio.to_thread(paradee.preload)
-    return await _preload()
-
-
-async def _preload():
-    global _pipeline, is_updating_model
-
-    while is_updating_model:
-        await asyncio.sleep(0.1)
-
+async def _request(action, config, sentences=None):
+    global is_updating_model, _model_generation
+    cfg = normalize_config(config)
+    engine = 'paradee' if cfg['voice'] == 'paradee' else 'kokoro'
+    is_updating_model = True
     try:
-        is_updating_model = True
-        if not _pipeline:
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Loading Kokoro TTS model...",
-                display_time=99,
-                group="kokoro-preload",
-            )
-            PrintStyle.standard("Loading Kokoro TTS model...")
-            from kokoro import KPipeline
-
-            _pipeline = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
-            NotificationManager.send_notification(
-                NotificationType.INFO,
-                NotificationPriority.NORMAL,
-                "Kokoro TTS model loaded.",
-                display_time=2,
-                group="kokoro-preload",
-            )
+        voice_files = {}
+        if not cfg['voice_weights']:
+            from helpers import files
+            for voice in cfg['voice'].split(','):
+                if voice.endswith('.pt'):
+                    path = Path(files.fix_dev_path(voice))
+                    if not path.is_absolute():
+                        path = Path(files.get_abs_path(str(path)))
+                    voice_files[voice] = base64.b64encode(path.read_bytes()).decode('ascii')
+        result = await worker.acall({'action': action, 'config': cfg, 'sentences': sentences or [],
+                                    'voice_files': voice_files}, timeout=600)
+        if _model_generation != worker.generation:
+            _loaded_engines.clear()
+            _model_generation = worker.generation
+        _loaded_engines.add(engine)
+        package_versions[engine] = result['version']
+        return result.get('audio', '')
     finally:
         is_updating_model = False
 
 
-async def is_downloading(config: dict[str, Any] | None = None) -> bool:
-    if normalize_config(config if config is not None else get_config())["voice"] == "paradee":
-        return paradee.model_status()["loading"]
+async def preload(config=None):
+    return await _request('preload', config if config is not None else get_config())
+
+
+async def is_downloading(config=None):
     return is_updating_model
 
 
-async def is_downloaded(config: dict[str, Any] | None = None) -> bool:
-    if normalize_config(config if config is not None else get_config())["voice"] == "paradee":
-        return paradee.model_status()["ready"]
-    return _pipeline is not None
+async def is_downloaded(config=None):
+    cfg = normalize_config(config if config is not None else get_config())
+    engine = 'paradee' if cfg['voice'] == 'paradee' else 'kokoro'
+    return worker.ready and _model_generation == worker.generation and engine in _loaded_engines
 
 
-async def synthesize_sentences(
-    sentences: list[str], config: dict[str, Any] | None = None
-) -> str:
-    cfg = normalize_config(config or get_config())
-    if cfg["voice"] == "paradee" and not cfg["voice_weights"]:
-        return await asyncio.to_thread(paradee.synthesize, "\n".join(sentences), float(cfg["speed"]))
-    return await _synthesize_sentences(
-        sentences,
-        voice=str(cfg["voice"]),
-        voice_weights=dict(cfg["voice_weights"]),
-        speed=float(cfg["speed"]),
-    )
-
-
-def _resolve_voice(
-    pipeline: Any, voice: str, voice_weights: dict[str, float]
-) -> Any:
-    if not voice_weights:
-        return voice
-
-    total = sum(voice_weights.values())
-    if not math.isfinite(total) or total <= 0:
-        return voice
-    blend = None
-    for voice_id, weight in voice_weights.items():
-        weighted_pack = pipeline.load_single_voice(voice_id) * (weight / total)
-        blend = weighted_pack if blend is None else blend + weighted_pack
-    return blend
-
-
-async def _synthesize_sentences(
-    sentences: list[str], *, voice: str, voice_weights: dict[str, float], speed: float
-) -> str:
-    await _preload()
-
-    combined_audio: list[float] = []
-    resolved_voice = _resolve_voice(_pipeline, voice, voice_weights)
-
-    try:
-        for sentence in sentences:
-            if not sentence.strip():
-                continue
-
-            segments = _pipeline(  # type: ignore[misc]
-                sentence.strip(), voice=resolved_voice, speed=speed
-            )
-            for segment in list(segments):
-                audio_tensor = segment.audio
-                audio_numpy = audio_tensor.detach().cpu().numpy()  # type: ignore[union-attr]
-                combined_audio.extend(audio_numpy.tolist())
-
-        if not combined_audio:
-            return ""
-
-        buffer = io.BytesIO()
-        sf.write(buffer, combined_audio, 24000, format="WAV")
-        return base64.b64encode(buffer.getvalue()).decode("utf-8")
-    except Exception as e:
-        PrintStyle.error(f"Error in Kokoro TTS synthesis: {e}")
-        raise
+async def synthesize_sentences(sentences, config=None):
+    return await _request('synthesize', config if config is not None else get_config(), sentences)

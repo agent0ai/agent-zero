@@ -34,6 +34,15 @@ CODEX_FALLBACK_CONFIG = {
 class CodexOAuthProvider:
     provider_id = CODEX_PROVIDER_ID
 
+    def is_connected(self) -> bool:
+        from plugins._oauth.helpers import codex
+
+        try:
+            codex.load_auth(ensure_fresh=False)
+        except (OSError, RuntimeError):
+            return False
+        return True
+
     def metadata(self) -> OAuthProviderMetadata:
         cfg = _codex_config()
         models = list(cfg["models"])

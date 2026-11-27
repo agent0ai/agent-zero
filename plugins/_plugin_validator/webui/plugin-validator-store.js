@@ -3,7 +3,7 @@ import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal as openAppModal } from "/js/modals.js";
 import { getUserTimezone } from "/js/time-utils.js";
-import { toastFrontendError } from "/components/notifications/notification-store.js";
+import { toastFrontendError, toastFrontendNotice } from "/components/notifications/notification-store.js";
 
 const BASE = "/plugins/_plugin_validator/webui";
 
@@ -293,7 +293,7 @@ export const store = createStore("pluginValidator", {
     try {
       await navigator.clipboard.writeText(this.prompt);
     } catch {
-      void toastFrontendError("Failed to copy the validation prompt", "Plugin Validator");
+      void toastFrontendNotice("error", "Failed to copy the validation prompt", "Plugin Validator");
     }
   },
 
@@ -320,7 +320,7 @@ export const store = createStore("pluginValidator", {
   async runValidation() {
     const selectedChecks = Object.entries(this.checks).filter(([, enabled]) => enabled);
     if (!selectedChecks.length) {
-      void toastFrontendError("Select at least one validation phase", "Plugin Validator");
+      void toastFrontendNotice("error", "Select at least one validation phase", "Plugin Validator");
       return;
     }
 
@@ -328,12 +328,12 @@ export const store = createStore("pluginValidator", {
     let cleanupTargetOverride = "";
     if (this.source === "local") {
       if (!this.localPluginName) {
-        void toastFrontendError("Select a local plugin to validate", "Plugin Validator");
+        void toastFrontendNotice("error", "Select a local plugin to validate", "Plugin Validator");
         return;
       }
     } else if (this.source === "git") {
       if (!this.gitUrl.trim()) {
-        void toastFrontendError("Please enter a Git URL", "Plugin Validator");
+        void toastFrontendNotice("error", "Please enter a Git URL", "Plugin Validator");
         return;
       }
     } else if (this.source === "zip") {
@@ -430,7 +430,7 @@ export const store = createStore("pluginValidator", {
       if (Date.now() >= deadline) {
         if (gen === _pollGen) {
           this.validating = false;
-          void toastFrontendError("Validation timed out while waiting for the agent response", "Plugin Validator");
+          void toastFrontendNotice("error", "Validation timed out while waiting for the agent response", "Plugin Validator");
           console.error(`Validation poll timed out for context ${ctxId}`);
         }
         return;

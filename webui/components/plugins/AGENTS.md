@@ -14,6 +14,7 @@
 ## Local Contracts
 
 - Keep plugin settings modals bound through `$store.pluginSettingsPrototype` conventions.
+- A successful settings save dispatches `plugin-config-saved` on the window with `detail.pluginName` before closing the modal.
 - Preserve global and scoped toggle semantics using `.toggle-1` and `.toggle-0`.
 - Use notification helpers for plugin UI feedback.
 - Label reset actions `Reset to default` and resolve notification globals when the action runs so late WebUI initialization cannot abort the reset lifecycle.

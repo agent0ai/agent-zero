@@ -15,7 +15,6 @@ triggers:
   - "delegate to opencode"
 allowed_tools:
   - code_execution_tool
-  - code_execution_remote
   - memory
 ---
 
@@ -30,7 +29,7 @@ Prefer the user's own host-machine CLI when that is what they mean. Container-in
 - For Codex, Claude Code, Cursor CLI, Gemini CLI, Grok Build, Hermes Agent, and OpenCode, first decide the execution place: the user's local machine through A0 CLI, or the Agent Zero Docker/container shell.
 - If the user did not specify local/host versus container, check memory for this coding agent's execution-place preference. If no current preference is known, ask: "Do you want me to use your own local <agent> through A0 CLI, or the <agent> installed inside the Agent Zero container?"
 - After the user chooses, save a stable per-agent preference with `memory` action=save, for example: "For orchestrator, the user prefers Claude Code to run on the host machine through A0 CLI by default." If memory tools are unavailable, continue without saving.
-- Never use Computer Use to drive coding-agent terminals, menus, or TUIs. Use headless CLI commands through `code_execution_remote` or `code_execution_tool`; if that is not possible, stop and ask.
+- Never use Computer Use to drive coding-agent terminals, menus, or TUIs. Use headless CLI commands through `code_execution_tool` with the chosen destination; if that is not possible, stop and ask.
 - ACP may be available as a community plugin, but do not assume it is installed. Mention it only if the user explicitly asks for ACP or the direct CLI path is unsuitable.
 - For Codex, Claude Code, Cursor CLI, Gemini CLI, Grok Build, Hermes Agent, and OpenCode, setup is part of the workflow: check whether the CLI is installed, install only the requested CLI if missing, probe its version/help, run a tiny smoke prompt, then run the real task.
 - Keep authentication human-in-the-loop. You may start the CLI login/setup command, relay the exact URL, device code, browser step, or prompt to the user, then wait for the user to confirm completion before retrying the smoke prompt.
@@ -47,8 +46,8 @@ Prefer the user's own host-machine CLI when that is what they mean. Container-in
 
 Use this when the user wants their own local Claude Code, Codex, Cursor CLI, Gemini CLI, Grok Build, Hermes Agent, or OpenCode.
 
-1. Use `code_execution_remote`, not `code_execution_tool`, because paths, shell, login, and installed CLIs belong to the A0 CLI host machine.
-2. If `code_execution_remote` is unavailable or reports no connected CLI / remote execution disabled, tell the user exactly:
+1. Set `destination: host` on `code_execution_tool` because paths, shell, login, and installed CLIs belong to the A0 CLI host machine.
+2. If `code_execution_tool` with `destination: host` is unavailable or reports no connected CLI / remote execution disabled, tell the user exactly:
 
 ```text
 To use your local coding agents, open a terminal on your computer and install A0 CLI if needed.
@@ -66,7 +65,7 @@ Connect it to this Agent Zero instance. Select the chat/session, or type the Age
 ```
 
 3. Once remote execution is available, optionally load `host-code-execution` for host-shell safety rules.
-4. Read the relevant agent reference file. Run the same install/probe, smoke, auth, and real-task commands with `code_execution_remote`.
+4. Read the relevant agent reference file. Run the same install/probe, smoke, auth, and real-task commands with `code_execution_tool` with `destination: host`.
 5. Keep workdir semantics host-side: `cd` to the host project path, not `/a0/usr/workdir`, unless the user explicitly wants the container workspace.
 
 ## Container Pal Flow

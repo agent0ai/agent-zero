@@ -22,6 +22,7 @@
 - `NotificationCreate` is an `ApiHandler`.
 - `NotificationCreate` defines `process(...)`.
 - `NotificationCreate` defines `requires_auth(...)`.
+- An optional JSON boolean `copyable: false` suppresses the toast Copy action while preserving the notification type, content, and history.
 - Imported dependency areas include: `flask`, `helpers.api`, `helpers.notification`.
 
 ## Key Concepts

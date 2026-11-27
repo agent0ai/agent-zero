@@ -87,11 +87,6 @@ def test_responses_function_tools_use_prompt_declared_names(monkeypatch, tmp_pat
         "get_paths",
         lambda *args, **kwargs: [str(prompt_root)],
     )
-    monkeypatch.setattr(
-        responses_tools,
-        "_include_local_tool_prompt",
-        lambda agent, tool_name: True,
-    )
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda agent: [])
 
     tools, name_map = responses_tools.build_responses_function_tools(
@@ -174,11 +169,6 @@ def test_response_tool_native_contract_stays_provider_neutral(monkeypatch):
         "get_paths",
         lambda *args, **kwargs: [str(prompt_root)],
     )
-    monkeypatch.setattr(
-        responses_tools,
-        "_include_local_tool_prompt",
-        lambda agent, tool_name: True,
-    )
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda agent: "")
     monkeypatch.setattr(responses_tools, "_mcp_tools", lambda agent: [])
     tools, _name_map = responses_tools.build_responses_function_tools(
@@ -192,27 +182,27 @@ def test_response_tool_native_contract_stays_provider_neutral(monkeypatch):
 
 
 def test_complex_prompt_args_are_not_guessed_as_string_schemas():
-    for path in (
-        PROJECT_ROOT / "plugins" / "_scheduler" / "prompts" / "agent.system.tool.scheduler.md",
-        PROJECT_ROOT / "prompts" / "agent.system.tool.parallel.md",
-    ):
-        schema = responses_tools._schema_from_prompt(path.read_text(encoding="utf-8"))
+    path = PROJECT_ROOT / "prompts" / "agent.system.tool.parallel.md"
+    schema = responses_tools._schema_from_prompt(path.read_text(encoding="utf-8"))
 
-        assert schema == {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": True,
-        }
+    assert schema == {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": True,
+    }
 
 
-def test_remote_execution_schemas_match_local_runtime_and_input_contracts():
+def test_shared_execution_and_input_schemas_expose_destination():
     params = responses_tools.BUNDLED_TOOL_PARAMETERS
-    local = params["plugins/_code_execution/tools/code_execution_tool.py"]
-    remote = params["plugins/_a0_connector/tools/code_execution_remote.py"]
-    assert remote["runtime"] == local["runtime"]
-    assert "input" not in remote["runtime"]["enum"]
-    assert "allow_running" not in remote
-    assert params["plugins/_a0_connector/tools/input_remote.py"] == params["plugins/_code_execution/tools/input.py"]
+    execution = params["plugins/_code_execution/tools/code_execution_tool.py"]
+    keyboard = params["plugins/_code_execution/tools/input.py"]
+    assert execution["destination"] == keyboard["destination"] == {"type": "string"}
+    assert "input" not in execution["runtime"]["enum"]
+    assert "allow_running" not in execution
+    assert not set(params).intersection({
+        "plugins/_a0_connector/tools/code_execution_remote.py",
+        "plugins/_a0_connector/tools/input_remote.py",
+    })
 
 
 def test_bundled_schema_follows_implementation_and_explicit_overrides(monkeypatch, tmp_path):
@@ -298,11 +288,6 @@ def test_local_tool_prompts_use_registered_render_kwargs(monkeypatch, tmp_path):
         lambda *args, **kwargs: [str(prompt_root)],
     )
     monkeypatch.setattr(responses_tools, "_vision_tool_prompt", lambda _agent: "")
-    monkeypatch.setattr(
-        responses_tools,
-        "_include_local_tool_prompt",
-        lambda _agent, _tool_name: True,
-    )
 
     prompts = dict(responses_tools._local_tool_prompts(agent))
 

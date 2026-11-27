@@ -9,7 +9,7 @@
 <body>
   <div
     x-data
-    x-init="$store.kokoroTts.ensureStatusLoaded()"
+    x-create="$store.kokoroTts.refreshStatus()"
     class="speech-plugin-page"
   >
     <template x-if="$store.kokoroTts">

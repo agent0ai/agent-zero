@@ -2,16 +2,38 @@ import glob
 import os
 import hashlib
 from typing import Any, Dict, Literal, TypedDict
-from langchain_community.document_loaders import (
-    CSVLoader,
-    PyPDFLoader,
-    TextLoader,
-    UnstructuredHTMLLoader,
-)
+import csv
+import io
+from pathlib import Path
+from langchain_core.documents import Document
+from plugins._document_query.helpers.chunks import split_text
+from plugins._document_query.helpers.sandbox import KnowledgeLoader
 from helpers.log import LogItem
 from helpers.print_style import PrintStyle
 
-text_loader_kwargs = {"autodetect_encoding": True}
+def _load_documents(path, ext):
+    if ext in {"html", "pdf"}:
+        mime = "text/html" if ext == "html" else "application/pdf"
+        records = KnowledgeLoader(path, mimetype=mime).load()
+    else:
+        data = Path(path).read_bytes()
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            from charset_normalizer import from_bytes
+            match = from_bytes(data).best()
+            if match is None:
+                raise ValueError(f"Cannot decode knowledge file {path}")
+            text = str(match)
+        if ext == "csv":
+            rows = csv.DictReader(io.StringIO(text, newline=""))
+            records = [Document(page_content="\n".join(
+                f"{key.strip()}: {(value or '').strip()}" for key, value in row.items() if key is not None
+            ), metadata={"source": path, "row": i}) for i, row in enumerate(rows)]
+        else:
+            records = [Document(page_content=text, metadata={"source": path})]
+    return [Document(page_content=chunk, metadata=doc.metadata) for doc in records
+            for chunk in split_text(doc.page_content)]
 
 
 class KnowledgeImport(TypedDict):
@@ -44,17 +66,6 @@ def load_knowledge(
     This function now includes enhanced error handling and compatibility with the
     intelligent memory consolidation system.
     """
-
-    # Mapping file extensions to corresponding loader classes
-    # Note: Using TextLoader for JSON and MD to avoid parsing issues with consolidation
-    file_types_loaders = {
-        "txt": TextLoader,
-        "pdf": PyPDFLoader,
-        "csv": CSVLoader,
-        "html": UnstructuredHTMLLoader,
-        "json": TextLoader,  # Use TextLoader for better consolidation compatibility
-        "md": TextLoader,    # Use TextLoader for better consolidation compatibility
-    }
 
     cnt_files = 0
     cnt_docs = 0
@@ -122,7 +133,7 @@ def load_knowledge(
                 continue  # Skip files without extensions
 
             ext = file_parts[-1].lower()
-            if ext not in file_types_loaders:
+            if ext not in {"txt", "md", "json", "csv", "pdf", "html"}:
                 continue  # Skip unsupported file types
 
             checksum = calculate_checksum(file_path)
@@ -148,19 +159,9 @@ def load_knowledge(
 
             # Process changed files
             if file_data["state"] == "changed":
-                file_data["checksum"] = checksum
-                loader_cls = file_types_loaders[ext]
-
                 try:
-                    loader = loader_cls(
-                        file_path,
-                        **(
-                            text_loader_kwargs
-                            if ext in ["txt", "csv", "html", "md"]
-                            else {}
-                        ),
-                    )
-                    documents = loader.load_and_split()
+                    documents = _load_documents(file_path, ext)
+                    file_data["checksum"] = checksum
 
                     # Enhanced metadata for better consolidation compatibility
                     enhanced_metadata = {
@@ -181,6 +182,7 @@ def load_knowledge(
                     cnt_docs += len(documents)
 
                 except Exception as e:
+                    file_data["state"] = "original"
                     PrintStyle(font_color="red").print(f"Error loading {file_path}: {e}")
                     if log_item:
                         log_item.stream(progress=f"\nError loading {os.path.basename(file_path)}: {e}")

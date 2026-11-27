@@ -6,8 +6,53 @@ import test from 'node:test';
 function load() {
   const source = readFileSync(new URL('../plugins/_plugin_installer/webui/pluginInstallStore.js', import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '').replace('export { store };', '');
-  return vm.runInNewContext(`${source}\nstore`, { createStore: (_, value) => value });
+  return vm.runInNewContext(`${source}\nstore`, { createStore: (_, value) => value, URL });
 }
+
+test('Official stays immediately after All and can be selected when empty', () => {
+  const store = load();
+  assert.equal(store.browseFilters[0].key, 'all');
+  assert.equal(store.browseFilters[1].key, 'official');
+  assert.equal(store.browseFilters[1].label, 'Official');
+  assert.equal(store.browseFilters[1].count, 0);
+  store.page = 3;
+  store.setBrowseFilter('official');
+  assert.equal(store.browseFilter, 'official');
+  assert.equal(store.page, 1);
+  assert.equal(store.filteredPlugins.length, 0);
+});
+
+test('Official derives membership from the GitHub repository owner and combines with search', () => {
+  const store = load();
+  const excludedUrls = [
+    undefined, '', 'not a URL',
+    'https://github.com/community/plugin',
+    'https://github.com/agent0ai-community/plugin',
+    'https://github.com/community/agent0ai',
+    'https://github.com/agent0ai',
+    'https://github.com/agent0ai/',
+    'https://github.com.evil.test/agent0ai/plugin',
+    'https://github.com@evil.test/agent0ai/plugin',
+    'https://example.com/agent0ai/plugin',
+    'https://example.com/?repo=https://github.com/agent0ai/plugin',
+    'ftp://github.com/agent0ai/plugin',
+  ];
+  store.index.plugins = {
+    official: { github: 'https://github.com/agent0ai/plugin', title: 'Official tools' },
+    mixedCase: { github: ' https://GitHub.com/Agent0AI/plugin.git/ ', title: 'Another plugin' },
+    ...Object.fromEntries(excludedUrls.map((github, i) => [
+      `excluded-${i}`, { github, author: 'agent0ai', tags: ['official', 'Official'] },
+    ])),
+  };
+  assert.equal(store.browseFilters[1].key, 'official');
+  assert.equal(store.browseFilters[1].count, 2);
+  assert.equal(store.browseFilters.filter(filter => filter.label.toLowerCase() === 'official').length, 1);
+  store.setBrowseFilter('official');
+  assert.deepEqual(Array.from(store.filteredPlugins, plugin => plugin.key).sort(), ['mixedCase', 'official']);
+  store.search = 'tools';
+  assert.deepEqual(Array.from(store.filteredPlugins, plugin => plugin.key), ['official']);
+  assert.equal(store.browseFilters[1].count, 2);
+});
 
 test('Welcome matches secondary tags, counts each plugin once, and stays discoverable when empty', () => {
   const store = load();

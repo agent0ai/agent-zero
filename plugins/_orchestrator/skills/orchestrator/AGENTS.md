@@ -14,10 +14,10 @@
 
 ## Local Contracts
 
-- Front matter must allow `code_execution_tool`, `code_execution_remote`, and `memory`.
+- Front matter must allow `code_execution_tool` and `memory`.
 - The body must explicitly state that no `terminal_agent` tool exists.
 - The setup flow must ask or recall host-vs-container preference for each coding agent before running non-A0 adapters.
-- The host flow must use A0 CLI `code_execution_remote`; the container flow must check install, install only the requested CLI if missing, probe version/help, run a smoke prompt, handle auth/setup with the user, then retry before the real task.
+- The host flow must use A0 CLI `code_execution_tool` with `destination: host`; the container flow must check install, install only the requested CLI if missing, probe version/help, run a smoke prompt, handle auth/setup with the user, then retry before the real task.
 - Agent-specific commands, auth quirks, install hints, and smoke prompts belong in the matching `references/<agent>.md` file.
 - `SKILL.md` must tell agents to read only the relevant reference file before acting.
 - Claude Code reference guidance must avoid plain `claude` and bare `claude auth login` until the user chooses `--claudeai`, `--console`, `--sso`, or external API-key auth.
@@ -39,7 +39,7 @@
 
 - Run:
   ```bash
-  docker exec 8dc967046cda bash -lc 'cd /a0 && /opt/venv-a0/bin/python plugins/_orchestrator/tests/test_status_adapters.py'
+  docker exec 8dc967046cda bash -lc 'cd /a0 && python plugins/_orchestrator/tests/test_status_adapters.py'
   ```
 
 ## Child DOX Index

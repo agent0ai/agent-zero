@@ -401,8 +401,10 @@ export async function applySnapshot(snapshot, options = {}) {
   const firstSnapshot = !lastLogGuid;
   if (lastLogGuid != snapshot.log_guid) {
     if (lastLogGuid) {
+      modelGateStore.resetContext(snapshot.context);
       msgs.resetMessageRenderState();
       lastLogVersion = 0;
+      lastSpokenNo = 0;
       lastLogGuid = snapshot.log_guid;
       if (typeof onLogGuidReset === "function") {
         await onLogGuidReset();
@@ -689,8 +691,8 @@ function removeClassFromElement(element, className) {
   element.classList.remove(className);
 }
 
-export function justToast(text, type = "info", timeout = 5000, group = "") {
-  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000, group);
+export function justToast(text, type = "info", timeout = 5000, group = "", copyable = true) {
+  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000, group, undefined, copyable);
 }
 globalThis.justToast = justToast;
 

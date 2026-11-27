@@ -2,7 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import { openModal } from "/js/modals.js";
 import { renderSafeMarkdown } from "/js/safe-markdown.js";
-import { toastFrontendSuccess, toastFrontendError } from "/components/notifications/notification-store.js";
+import { toastFrontendSuccess, toastFrontendError, toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 import { formatDateTime } from "/js/time-utils.js";
 import { store as imageViewerStore } from "/components/modals/image-viewer/image-viewer-store.js";
@@ -47,6 +47,9 @@ const model = {
   browseFilter: "all",
   initialBrowseFilter: "all",
   selectedPlugin: null,
+  pluginCompatibility: null,
+  compatibilityLoading: false,
+  compatibilityLoadSeq: 0,
 
   // Shared state
   loading: false,
@@ -110,6 +113,17 @@ const model = {
     return (plugin?.stars || 0) >= POPULAR_PLUGIN_MIN_STARS;
   },
 
+  _isOfficialPlugin(plugin) {
+    try {
+      const url = new URL(plugin?.github);
+      return ["https:", "http:"].includes(url.protocol)
+        && url.hostname === "github.com"
+        && /^\/agent0ai\/[^/]+\/?$/i.test(url.pathname);
+    } catch {
+      return false;
+    }
+  },
+
   _isNewPlugin(plugin) {
     const updatedAt = (plugin?.updated || "").trim();
     if (!updatedAt) return false;
@@ -135,6 +149,7 @@ const model = {
 
   _matchesBrowseFilter(plugin, filterKey) {
     if (!filterKey || filterKey === "all") return true;
+    if (filterKey === "official") return this._isOfficialPlugin(plugin);
     if (filterKey === "installed") return !!plugin?.installed;
     if (filterKey === "update") return !!plugin?.has_update;
     if (filterKey === "popular") return this._isPopularPlugin(plugin);
@@ -203,7 +218,7 @@ const model = {
 
   async installZip() {
     if (!this.zipFile) {
-      void toastFrontendError("Please select a ZIP file first", "Plugin Installer");
+      void toastFrontendNotice("error", "Please select a ZIP file first", "Plugin Installer");
       return;
     }
 
@@ -250,7 +265,7 @@ const model = {
   async installGit() {
     const url = (this.gitUrl || "").trim();
     if (!url) {
-      void toastFrontendError("Please enter a Git URL", "Plugin Installer");
+      void toastFrontendNotice("error", "Please enter a Git URL", "Plugin Installer");
       return;
     }
 
@@ -425,6 +440,9 @@ const model = {
     const plugins = this.pluginsList;
     const filters = [{ key: "all", label: "All", count: plugins.length }];
 
+    const officialCount = plugins.filter((plugin) => this._isOfficialPlugin(plugin)).length;
+    filters.push({ key: "official", label: "Official", count: officialCount });
+
     const installedCount = plugins.filter((plugin) => plugin.installed).length;
     if (installedCount) {
       filters.push({ key: "installed", label: "Installed", count: installedCount });
@@ -454,7 +472,7 @@ const model = {
     filters.push({ key: "tag:provider", label: "Provider", count: tagCounts.get("provider") || 0 });
     filters.push({ key: "tag:channels", label: "Channels", count: tagCounts.get("channels") || 0 });
     for (const [tag, count] of Array.from(tagCounts.entries())
-      .filter(([tag]) => tag !== "welcome" && tag !== "provider" && tag !== "channels")
+      .filter(([tag]) => tag !== "welcome" && tag !== "provider" && tag !== "channels" && tag.toLowerCase() !== "official")
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 4)) {
       filters.push({
@@ -562,11 +580,48 @@ const model = {
     this.readmeContent = null;
     this.detailError = null;
     this.detailThumbnailUrl = this.getThumbnailUrl(this.selectedPlugin);
+    this.pluginCompatibility = null;
+    this.fetchPluginCompatibility(this.selectedPlugin);
     if (this.selectedPlugin.installed) {
       this.fetchInstalledPluginInfo(this.selectedPlugin.name);
     }
     this.fetchReadme(this.selectedPlugin);
     openModal("/plugins/_plugin_installer/webui/install-detail.html");
+  },
+
+  async fetchPluginCompatibility(plugin) {
+    const requestSeq = ++this.compatibilityLoadSeq;
+    this.compatibilityLoading = true;
+    let compatibility;
+    try {
+      const data = await api.callJsonApi(PLUGIN_API, {
+        action: "check_compatibility",
+        git_url: plugin.github,
+      });
+      if (!data.success) throw new Error(data.error || "Compatibility check failed");
+      compatibility = data;
+    } catch (error) {
+      compatibility = {
+        a0_version: null,
+        current_version: this.pluginCompatibility?.current_version || "unknown",
+        compatible: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+    if (requestSeq === this.compatibilityLoadSeq && this.selectedPlugin?.key === plugin.key) {
+      this.pluginCompatibility = compatibility;
+      this.compatibilityLoading = false;
+    }
+    return compatibility;
+  },
+
+  formatA0Requirement(compatibility) {
+    const requirement = compatibility?.a0_version;
+    if (!compatibility || (compatibility.error && requirement == null)) return "Unknown";
+    if (requirement == null || requirement === "" || (Array.isArray(requirement) && !requirement.length)) {
+      return "Not specified";
+    }
+    return Array.isArray(requirement) ? requirement.join(" OR ") : String(requirement);
   },
 
   async fetchReadme(plugin) {
@@ -603,25 +658,46 @@ const model = {
   },
 
   async installFromIndex(plugin) {
+    if (this.loading) return;
     if (!plugin?.github) {
-      void toastFrontendError("No GitHub URL available for this plugin", "Plugin Installer");
+      void toastFrontendNotice("error", "No GitHub URL available for this plugin", "Plugin Installer");
       return;
     }
 
-    const confirmed = await showConfirmDialog({
-      ...SECURITY_WARNING,
-      extensionContext: {
-        kind: "plugin_hub_plugin_install_warning",
-        source: "plugin_installer",
-        pluginKey: plugin.key || "",
-        pluginTitle: plugin.title || plugin.key || "",
-        gitUrl: plugin.github,
-      },
-    });
-    if (!confirmed) return;
-
     try {
       this.loading = true;
+      this.loadingMessage = "Checking Agent Zero compatibility";
+      const compatibility = await this.fetchPluginCompatibility(plugin);
+      if (compatibility.compatible !== true) {
+        const message = document.createElement("div");
+        const status = compatibility.compatible === false
+          ? "This plugin's Agent Zero version requirement is not compatible with your installed version."
+          : "This plugin's Agent Zero version compatibility could not be verified.";
+        message.textContent = `${status} Installed Agent Zero: ${compatibility.current_version}. `
+          + `Allowed versions: ${this.formatA0Requirement(compatibility)}. `
+          + (compatibility.error ? `${compatibility.error}. ` : "")
+          + "Custom forks may still work. You can choose to install anyway.";
+        const proceed = await showConfirmDialog({
+          title: "Agent Zero Version Compatibility",
+          message: message.innerHTML,
+          type: "warning",
+          confirmText: "Install Anyway",
+          cancelText: "Cancel",
+        });
+        if (!proceed) return;
+      }
+
+      const confirmed = await showConfirmDialog({
+        ...SECURITY_WARNING,
+        extensionContext: {
+          kind: "plugin_hub_plugin_install_warning",
+          source: "plugin_installer",
+          pluginKey: plugin.key || "",
+          pluginTitle: plugin.title || plugin.key || "",
+          gitUrl: plugin.github,
+        },
+      });
+      if (!confirmed) return;
       this.loadingMessage = "Installing";
 
       const data = await api.callJsonApi(PLUGIN_API, {
@@ -828,7 +904,7 @@ const model = {
     const pluginRecord = selectedPlugin && typeof selectedPlugin === "object" ? selectedPlugin : {};
     const pluginKey = pluginRecord["key"] || pluginRecord["name"] || this.installedPluginInfo?.name || "";
     if (!pluginKey) {
-      void toastFrontendError("Plugin name is missing", "Plugin Installer");
+      void toastFrontendNotice("error", "Plugin name is missing", "Plugin Installer");
       return;
     }
 

@@ -13,7 +13,8 @@
 - `extensions.js` owns frontend extension loading.
 - `components.js` owns `<x-component>` loading, component caching, module injection, nested component processing, and `globalThis.xAttrs`.
 - `modals.js` owns the stacked modal shell, `openModal`, `closeModal`, `scrollModal`, footer relocation, backdrop, and modal z-index behavior.
-- `surfaces.js` owns shared surface registration, right-canvas/modal mode routing, surface modal action rails, and reusable draggable/focus modal chrome.
+- `surfaces.js` owns shared surface registration, routing to the unified canvas workspace, and reusable action rails/draggable/focus chrome for standalone workflow dialogs. `open` and compatibility `openLatest` route external actions to the shared modal; `select` preserves the current host for navigation inside the workspace. Workspace tabs live only in the canvas shell; do not create or park one modal per tab.
+- Desktop's core and plugin registrations use the `tuxee` icon name; `surfaces.css` owns its theme-aware emblem mask.
 - `initFw.js` owns Alpine bootstrap and custom lifecycle directives such as `x-create`, `x-destroy`, and periodic `x-every-*` hooks.
 - `overflow.js` owns the reusable `x-overflow` directive for constrained flex rows. It observes layout and late plugin content, collapses trailing controls behind `more_horiz`, and opens their original panels without moving or reinitializing Alpine nodes.
 - `icons.js` owns `<x-icon>`, icon-name validation, the name property/attribute bridge, and helpers that read or update both the first-party custom element and legacy plugin ligature spans.
@@ -27,12 +28,14 @@
 - `loading-indicators.js` owns reusable DOM factories for shared loading visuals.
 - `scroller.js` owns bottom-following snapshots and cancellation of pending scroll effects.
 - Root response bodies grow with the chat viewport and must not create an inner `Scroller`; the message batch owns chat-level following. Other standalone message bodies retain their existing scrolling behavior.
+- Local speech runs in plugin sandboxes; do not bundle an unused browser Transformers runtime.
+- On the first playable chunk of each new speech stream, `tts-service.js` resolves explicitly registered providers first, then discovers the first currently enabled `tts_provider` extension. Its default export returns a provider with `id` and `synthesize(text)`. Providers can call the supplied `onInitializing` callback on a backend cold-start signal. Only that signal shows the initialization toast, which clears on playback, cancellation or failure. Report synthesis failures once per stream before browser fallback.
 - Other modules own focused UI utilities such as modals, messages, safe markdown, shortcuts, TTS/STT, surfaces, and initialization.
 
 ## Local Contracts
 
 - Use ES modules and browser-compatible JavaScript.
-- `x-overflow` follows `display: contents` wrappers to find flex items. Each collapsible item is a button or contains a trigger; its sibling `[x-show]`, `[role=menu]`, `[role=dialog]`, or `[data-overflow-panel]` is reused as the submenu. `data-overflow-label` on the trigger may override its rendered label. Keep the row's containing flex item shrinkable (`min-width: 0`); non-control content stays inline. Native manual popovers preserve DOM scope while avoiding clipping and stacking conflicts. Resize/mutation observers and document listeners must be removed on unmount.
+- `x-overflow` follows `display: contents` wrappers to find flex items. The overflow trigger uses the shared Bootstrap tooltip. A button that is itself a flex item forwards clicks directly. A trigger inside a flex item can reuse its sibling `[x-show]`, `[role=menu]`, `[role=dialog]`, or `[data-overflow-panel]` as a submenu. `data-overflow-label` on the trigger may override its rendered label. Keep the row's containing flex item shrinkable (`min-width: 0`); non-control content stays inline. Native manual popovers preserve DOM scope while avoiding clipping and stacking conflicts. Resize/mutation observers and document listeners must be removed on unmount.
 - Overflow labels open submenus on hover and toggle them on click; a click-closed submenu stays closed until pointer exit or another click. When neither side has room, use the larger space above/below the first menu and scroll the submenu, keeping its label reachable.
 - Mark a compound visual with `data-overflow-icon` on the trigger or a child (for example, an avatar or percentage ring). Overflow entries mirror its rendered markup and updates without cloning Alpine bindings or interactive buttons; font icons, SVGs, and images are detected by default. Controls without a visual reserve no icon space.
 - Overflow measurements allow half a CSS pixel of rounding tolerance: browser zoom can make summed item rectangles and CSS gaps slightly exceed a shrink-wrapped row even when every control fits. Verify both fitting and genuinely constrained rows at native browser zoom levels.
@@ -53,9 +56,10 @@
 - `scrollModal(id)` scrolls inside the top modal's `.modal-scroll`.
 - Keep extension loader cache keys and extension point names stable for plugins.
 - The rendered index supplies a complete `runtimeInfo.webuiExtensions` manifest; `extensions.js` must resolve HTML and JavaScript extension paths from it without per-extension-point startup API calls, while retaining `/api/load_webui_extensions` as a compatibility fallback when the manifest is unavailable.
-- HTML extension loading turns discovered HTML files into `<x-component>` tags; JavaScript extensions must export a default function.
+- HTML extensions render as `<x-component>` tags. Automatic discovery reuses the pending or completed load when an element moves with the same extension ID. Explicit reloads rebuild its children. JavaScript extensions must export a default function.
 - `extensions.js` exposes `initialHtmlExtensionsLoaded` and emits `webui-extensions-loaded` once after Alpine and the initial recursive component/extension loading placeholders have cleared.
 - Transport-level preloading must remain outside `components.js`, `extensions.js`, and `initFw.js`; cache hits flow through their ordinary asynchronous requests.
+- Automatic component discovery must skip already-loaded nodes at the same path when retained parents move; explicit `importComponent` calls and new paths still reload.
 - `<x-component>` loading must process component `style`, `script`, and stylesheet-link assets only once, even when a component keeps its scoped `<style>` inside `<body>`.
 - Every `<x-component>` instance must await cached module-load promises before markup is appended so Alpine bindings only run after imported stores exist.
 - Frontend extension hooks such as `confirm_dialog_after_render` and `get_tool_message_handler` must preserve their mutable context contracts.
@@ -76,7 +80,8 @@
 - `PROCESS_STEP_TYPES` contains core log types only. `messages.js` dispatches `get_process_step_types` with a fresh `{ processStepTypes: Set }` before merging each batch. Extensions add their types and dispatch identifies generic tool fallbacks; the pure classifier receives the resulting set for grouping and utility lookahead, without knowing its source. Do not add a separate handler cache or persist declarations beyond the extension loader lifecycle.
 - Warnings classified into a full-log process render unit must remain process steps during replay even when the current DOM tail is already complete; use the live DOM tail only when render metadata is unavailable.
 - `set_messages_after_loop` receives offscreen live updates as results with `result.virtualized === true` and `result.element === null`; extensions that only need `args` may still react, while DOM-mutating extensions must guard the element.
-- Context switches and log GUID resets clear both message DOM and message-window cache state; later full log snapshots also reset the cache before rebuilding.
+- Reset the message DOM and its cache on a context switch, log GUID reset, or full snapshot after the first one.
+- Root responses use their full-log process-group identity when available, so an intervening setup card or another DOM tail cannot strand the completed GEN group with an active animation.
 - Awaited message-window layout frames must have a timer fallback so hidden or occluded browser windows cannot block state synchronization on painting.
 - Context switches clear stale history immediately but defer the chat loading splash for 300 ms so fast loads do not flash; slower loads fade it in and dismiss it only after the matching context snapshot finishes rendering. Stale snapshots and timers must not affect a newer switch's splash.
 - Long primary-agent responses start collapsed only during chat replay; long user-message text starts collapsed during both live sends and replay. Both use the shared collapsible-message behavior, but user attachments remain outside its clipped content target.

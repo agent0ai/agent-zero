@@ -5,10 +5,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager, suppress
 
-from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.types import Message as TgMessage, CallbackQuery
+from plugins._telegram_integration.helpers.sandbox import Bot, TelegramEvent as TgMessage, TelegramEvent as CallbackQuery
 
 from agent import AgentContext, UserMessage
 from helpers import files, projects, subagents
@@ -17,6 +14,7 @@ from helpers.notification import NotificationManager, NotificationType, Notifica
 from helpers.persist_chat import save_tmp_chat
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
+from helpers.security import safe_filename
 from initialize import initialize_agent
 
 from plugins._telegram_integration.helpers import telegram_client as tc
@@ -75,7 +73,9 @@ def cleanup_old_attachments(bots_cfg: dict):
         max_age_hours = bot_cfg.get("attachment_max_age_hours", 0)
         if not max_age_hours or max_age_hours <= 0:
             continue
-        prefix = f"tg_{bot_name}_"
+        prefix = safe_filename(f"tg_{bot_name}_")
+        if not prefix:
+            continue
         cutoff = time.time() - max_age_hours * 3600
         for name in os.listdir(upload_dir):
             if not name.startswith(prefix):
@@ -125,7 +125,7 @@ def _get_project(bot_cfg: dict, user_id: int) -> str:
         project = bot_cfg.get("default_project", "")
     return project
 
-# Message handlers (registered with aiogram by bot_manager)
+# Message handlers for events forwarded by the Telegram worker
 
 async def handle_start(message: TgMessage, bot_name: str, bot_cfg: dict):
     """Handle /start command."""
@@ -493,8 +493,9 @@ async def _download_attachments(bot, message: TgMessage, bot_name: str = "") -> 
     download_dir_ref = files.get_abs_path_dockerized(DOWNLOAD_FOLDER)
 
     async def _dl(file_id: str, filename: str) -> str | None:
-        filename = os.path.basename(filename.replace("\\", "/").replace("\0", "")) or "file"
-        safe_name = f"{tg_prefix}{uuid.uuid4().hex[:8]}_{filename}"
+        safe_name = safe_filename(f"{tg_prefix}{uuid.uuid4().hex[:8]}_{filename}")
+        if not safe_name:
+            return None
         dest = os.path.join(download_dir, safe_name)
         result = await tc.download_file(bot, file_id, dest)
         if result:
@@ -551,7 +552,7 @@ async def send_telegram_reply(
     reply_to = context.data.get(CTX_TG_REPLY_TO)
 
     try:
-        async with _temp_bot(instance.bot.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)) as reply_bot:
+        async with _temp_bot(instance.bot.token, parse_mode="HTML") as reply_bot:
             if attachments:
                 for path in attachments:
                     local_path = files.fix_dev_path(path)

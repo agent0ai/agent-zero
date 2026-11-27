@@ -20,10 +20,11 @@
 - Emit generated definitions with `strict: false` so Responses does not normalize optional or extensible arguments into required strict fields. Provider-specific strictness (such as Codex's final response) belongs at the provider request boundary.
 - Explicitly embedded JSON schemas take precedence. Otherwise use canonical argument properties only for a matching resolved bundled implementation in `BUNDLED_TOOL_PARAMETERS`; custom/profile overrides must not inherit a same-named bundled contract. Properties remain optional and extensible for action-dependent inputs and runtime aliases; runtime validation remains authoritative.
 - For unlisted implementations, infer only an unambiguous single backticked argument on an otherwise empty `args:` line; otherwise retain a permissive object instead of prose-guessed types.
-- Local and remote code execution expose matching runtime enums; `input` and
-  `input_remote` expose keyboard/session arguments separately. Remote schemas
-  do not advertise the framework-owned `allow_running` transport flag.
+- Code execution, terminal input, the text editor, vision, document queries, and browser file actions expose a destination argument. The execution schema omits the framework-owned `allow_running` input flag.
 - Native local descriptions preserve full policy-filtered operational guidance. Convert unfenced and JSON-fenced A0 envelope examples to argument-only examples using the shared tool-request parser; preserve unrelated JSON and non-JSON code fences. Catalog summaries remain separate.
+- Web search is skill/CLI-owned and has no bundled function-tool schema.
+- Emit registered skill tools from the declaration returned by Tool Access. Existing tool declarations take precedence over a duplicate name.
+- Native Browser calls expose the CDP method, arbitrary parameter object, tab ID and attached session ID after the Browser skill is loaded.
 - Preserve original Agent Zero tool names through the native Responses name map.
 - Keep MCP tool schemas merged after local prompt-derived tools.
 - Apply `helpers.tool_policy` before emitting local or MCP schemas; a blocked
@@ -32,15 +33,14 @@
 - Resolve a fresh policy once per schema build and reuse it only within that
   build; runtime execution remains independently policy-gated.
 - Bundled multi-action schemas list only policy-allowed actions in their selector (`action` or code execution's `runtime`); legacy memory action permissions never expand into permission for the whole tool. Selector metadata comes from `helpers.tool_actions` and applies only to the resolved bundled implementation.
+- Reuse action lists computed by prompt filtering within the same schema build. Resolve the list directly when prompt filtering did not compute one.
 - `project_system_prompt` applies build-local substitutions only to system/developer input on a copy. Match rendered JSON-fence normalization; preserve user/history content and unrelated blocks. Chat inputs remain untouched for fallback.
-- Connector remote tools are advertised only when `_a0_connector` runtime metadata says the matching connected CLI capability is currently available.
 
 - `register_prompt` owns request-only alternatives for main, tools, and MCP sections. Section builders identify their section and retain the original text; only this helper selects Responses templates. MCP supplies policy-filtered server context, including any MCP server instructions section, without knowing the endpoint mode.
 
 ## Work Guidance
 
 - Do not silently truncate local or MCP instructions; prompt owners control their guidance budget.
-- Treat plugin-specific tool gates as optional imports so core helper loading does not require a plugin that is absent or disabled.
 
 ## Verification
 

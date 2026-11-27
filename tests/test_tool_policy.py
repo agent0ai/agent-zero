@@ -812,47 +812,21 @@ def test_mcp_prompt_and_native_schema_omit_blocked_tool(
 
 
 @pytest.mark.asyncio
-async def test_browser_context_follows_profile_tool_policy(
-    monkeypatch, tmp_path: Path
-) -> None:
+async def test_browser_prompt_hooks_leave_open_tabs_on_demand(monkeypatch, tmp_path):
     from agent import LoopData
-    from plugins._browser.extensions.python.message_loop_prompts_after import _20_browser_context
+    from helpers import extension
+    from plugins._browser.helpers import runtime
 
-    runtime = SimpleNamespace(
-        call=AsyncMock(
-            return_value={
-                "browsers": [
-                    {
-                        "id": "browser-1",
-                        "currentUrl": "https://example.com",
-                        "title": "Example",
-                    }
-                ]
-            }
-        )
-    )
-    allowed = False
+    get_runtime = AsyncMock()
+    monkeypatch.setattr(runtime, "get_runtime", get_runtime)
     agent = _Agent(tmp_path)
     agent.context.id = "ctx"
-    monkeypatch.setattr(
-        tool_policy,
-        "resolve_tool",
-        lambda *_args, **_kwargs: SimpleNamespace(allowed=allowed),
-    )
-    monkeypatch.setattr(
-        _20_browser_context, "get_runtime", AsyncMock(return_value=runtime)
-    )
+    loop = LoopData()
+    for hook in extension._get_extensions("plugins/_browser/extensions/python/message_loop_prompts_after"):
+        await hook(agent).execute(loop_data=loop)
 
-    loop_data = LoopData()
-    extension = _20_browser_context.BrowserContextExtras(agent)
-    await extension.execute(loop_data=loop_data)
-    assert "browser_context" not in loop_data.extras_temporary
-    runtime.call.assert_not_awaited()
-
-    allowed = True
-    await extension.execute(loop_data=loop_data)
-    assert "currently open web browsers" in loop_data.extras_temporary["browser_context"]
-    runtime.call.assert_awaited_once_with("list")
+    get_runtime.assert_not_awaited()
+    assert "browser_context" not in loop.extras_temporary
 
 
 @pytest.mark.asyncio
@@ -1132,14 +1106,14 @@ def test_memory_profile_override_does_not_inherit_bundled_action_policy(monkeypa
     assert tool_policy.resolve_tool(agent, "memory", action="delete").allowed
 
 
-def test_moved_tool_legacy_policy_stays_editable(monkeypatch, tmp_path):
+def test_retired_search_tool_legacy_policy_stays_editable(monkeypatch, tmp_path):
     root = Path(__file__).resolve().parents[1] / "plugins/_search_engine"
     monkeypatch.setattr(tool_policy.subagents, "get_paths", lambda _agent, *parts, **kwargs: [str(root.joinpath(*parts))])
     monkeypatch.setattr(tool_policy, "get_policy", lambda _agent: _custom_policy(default="allow", blocked=["local:search_engine"]))
     monkeypatch.setattr(mcp_handler.MCPConfig, "get_for_agent", lambda _agent: _NoMCPTools())
     catalog = tool_policy.get_tool_catalog(_Agent(root / "prompts"))
     legacy = next(item for item in catalog if item["id"] == "local:search_engine")
-    assert legacy["available"] is True
+    assert legacy["available"] is False
     assert legacy["name"] == "search_engine"
 
 

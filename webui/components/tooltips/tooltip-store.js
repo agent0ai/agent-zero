@@ -31,7 +31,8 @@ function ensureBootstrapTooltip(element) {
       element.setAttribute("data-bs-original-title", title);
       element.removeAttribute("title");
     }
-    existing.setContent({ ".tooltip-inner": title });
+    const visibleLabel = existing.tip?.querySelector(".tooltip-inner");
+    if (visibleLabel && visibleLabel.textContent !== title) visibleLabel.textContent = title;
     return;
   }
 
@@ -41,11 +42,13 @@ function ensureBootstrapTooltip(element) {
   }
 
   element.setAttribute("data-bs-toggle", "tooltip");
-  element.setAttribute("data-bs-trigger", "hover");
+  const trigger = element.closest(".surface-toolbar") ? "hover focus" : "hover";
+  element.setAttribute("data-bs-trigger", trigger);
   element.setAttribute("data-bs-tooltip-initialized", "true");
   new bs.Tooltip(element, {
     delay: { show: 0, hide: 0 },
-    trigger: "hover",
+    trigger,
+    container: element.closest("dialog, [popover]") || document.body,
   });
 }
 
@@ -125,7 +128,13 @@ function observeBootstrapTooltips() {
   });
 }
 
+function startTooltipObserver() {
+  initBootstrapTooltips();
+  observeBootstrapTooltips();
+}
+
 function cleanupTooltipObserver() {
+  document.removeEventListener("DOMContentLoaded", startTooltipObserver);
   document.removeEventListener("show.bs.tooltip", preventTouchTooltip);
   if (bootstrapTooltipObserver) {
     bootstrapTooltipObserver.disconnect();
@@ -136,8 +145,8 @@ function cleanupTooltipObserver() {
 export const store = createStore("tooltips", {
   init() {
     document.addEventListener("show.bs.tooltip", preventTouchTooltip);
-    initBootstrapTooltips();
-    observeBootstrapTooltips();
+    if (globalThis.bootstrap?.Tooltip) startTooltipObserver();
+    else document.addEventListener("DOMContentLoaded", startTooltipObserver, { once: true });
   },
   
   cleanup: cleanupTooltipObserver,

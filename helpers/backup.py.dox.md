@@ -26,7 +26,9 @@
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, settings/state persistence, secret handling.
 - Imported dependency areas include: `datetime`, `helpers`, `helpers.localization`, `helpers.print_style`, `json`, `os`, `pathspec`, `platform`, `tempfile`, `typing`, `zipfile`.
 - `test_patterns(..., max_files=None)` is the unlimited scan mode. UI preview and dry-run callers may pass bounded limits, but real backup creation and restore clean-before-restore must use unlimited matching so archives and cleanup are not silently truncated.
+- The default `usr/**` selection prunes sibling directories before traversal, including the framework sandbox store. Custom include patterns retain their usual matching.
 - Default backup metadata includes persistent `/usr` data but excludes Time Travel shadow history under `usr/.time_travel/**` and Orchestrator state and credentials under `usr/plugins/_orchestrator/data/**`.
+- Backup creation clamps unsupported file dates in ZIP entries to the format's valid range without changing source timestamps.
 - Restoring `usr/.env` preserves the destination instance's allowed origins while restoring authentication and other portable configuration from the archive.
 - Preview and restore normalize logical archive paths while preserving symlink names for pattern matching, overwrite policies, and `usr/.env` origin preservation. Resolved targets must stay inside the current Agent Zero root. Restore validates every member before cleanup or extraction and rechecks each target before use.
 

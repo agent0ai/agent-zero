@@ -55,3 +55,5 @@
 ## Child DOX Index
 
 No child DOX files.
+
+Active Remote Control origins come from the plugin through `helpers.tunnel_origins.get_active_tunnel_origins`; no secondary HTTP controller is queried.

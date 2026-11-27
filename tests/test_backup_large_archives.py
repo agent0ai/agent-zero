@@ -1,6 +1,8 @@
 import json
+import os
 import shutil
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,62 @@ class UploadedBackup:
 
     def save(self, target: str) -> None:
         shutil.copyfile(self.path, target)
+
+
+@pytest.mark.asyncio
+async def test_backup_includes_files_dated_before_1980(tmp_path):
+    service = BackupService()
+    service.agent_zero_root = str(tmp_path)
+    service.base_paths = {str(tmp_path): str(tmp_path)}
+    source = tmp_path / "usr" / "old.txt"
+    source.parent.mkdir()
+    source.write_bytes(b"old file contents")
+    old_timestamp = datetime(1970, 1, 2, tzinfo=timezone.utc).timestamp()
+    os.utime(source, (old_timestamp, old_timestamp))
+    original_mtime = source.stat().st_mtime_ns
+    member = source.as_posix().lstrip("/")
+
+    defaults = service.get_default_backup_metadata()
+    archive = Path(await service.create_backup(defaults["include_patterns"], defaults["exclude_patterns"]))
+    try:
+        with zipfile.ZipFile(archive) as backup:
+            assert backup.testzip() is None
+            assert backup.read(member) == b"old file contents"
+            assert backup.getinfo(member).date_time == (1980, 1, 1, 0, 0, 0)
+        assert source.stat().st_mtime_ns == original_mtime
+    finally:
+        shutil.rmtree(archive.parent)
+
+
+@pytest.mark.asyncio
+async def test_default_backup_walks_only_user_data_and_skips_shortcuts(tmp_path, monkeypatch):
+    service = BackupService()
+    service.agent_zero_root = str(tmp_path)
+    service.base_paths = {str(tmp_path): str(tmp_path)}
+    data = tmp_path / "usr/sandbox_data/demo"
+    data.mkdir(parents=True)
+    (data / "result").write_text("user data")
+    runtime = tmp_path / "sandboxes"
+    instance = runtime / "instances/demo"
+    instance.mkdir(parents=True)
+    (instance / "data").symlink_to(data)
+    (runtime / "package").touch()
+
+    walked = set()
+    original_walk = os.walk
+
+    def record_walk(*args, **kwargs):
+        for row in original_walk(*args, **kwargs):
+            walked.add(Path(row[0]))
+            yield row
+
+    monkeypatch.setattr(os, "walk", record_walk)
+    metadata = service.get_default_backup_metadata()
+    matches = await service.test_patterns(metadata)
+    assert [row["path"] for row in matches] == [str(data / "result")]
+    assert runtime not in walked
+    metadata["include_patterns"] = [f"{tmp_path}/sandboxes/**"]
+    assert [row["path"] for row in await service.test_patterns(metadata)] == [str(runtime / "package")]
 
 
 @pytest.mark.asyncio

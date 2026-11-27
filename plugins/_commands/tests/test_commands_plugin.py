@@ -337,6 +337,18 @@ def test_duplicate_builtin_creates_same_name_project_override(
     assert resolved["path"] == override["path"]
 
 
+def test_clear_command_requests_backend_reset_for_invoking_chat(monkeypatch):
+    monkeypatch.setattr(connector_commands, "_context", lambda _context_id: None)
+    result = connector_commands.run({
+        "invocation": {"command_name": "clear"},
+        "context": {"context_id": "chat-to-clear"},
+    })
+    assert result == {
+        "text": "",
+        "effects": [{"type": "reset_chat", "context_id": "chat-to-clear"}],
+    }
+
+
 def test_models_command_always_opens_modal():
     result = connector_commands.run(
         {

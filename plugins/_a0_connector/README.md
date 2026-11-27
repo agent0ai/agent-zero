@@ -4,11 +4,11 @@
 
 In **Settings → Agent → Working directory → Host workspace**, **Use container settings** makes connected host maps follow the default workdir's depth, file, folder, and line limits. It is enabled by default. Disable it for separate host limits; zero means unlimited. Paths, ignore rules, project settings, and access permissions are unchanged.
 
-Updated TUI, headless, ACP, and Launcher gateway connectors receive `remote_tree_config` in the existing hello and tree acknowledgements. Saved changes normally apply within a minute without restarting Launcher. Explicit `AGENT_ZERO_REMOTE_TREE_*` settings on the host take precedence. Older connectors need an update to use these controls; older Core remains compatible with updated connectors.
+TUI, headless, ACP, and Launcher gateway connectors receive `remote_tree_config` in the existing hello and tree acknowledgements. Saved changes normally apply within a minute without restarting Launcher. Explicit `AGENT_ZERO_REMOTE_TREE_*` settings on the host take precedence.
 
 ## Connector composer controls
 
-Agent Zero advertises `composer_controls` when the generic composer-control API is available. Compatible connectors render controls supplied by enabled plugins beside the provider/model bar. No optional plugin names or domain rules belong in the connector.
+Agent Zero advertises `composer_controls` when the generic composer-control API is available. Connectors render controls supplied by enabled plugins beside the provider/model bar. No optional plugin names or domain rules belong in the connector.
 
 ## Plugin extension
 
@@ -58,4 +58,4 @@ It returns `{"ok": true, "controls": [...]}`; no controls is a normal empty list
 }
 ```
 
-The connector forwards the revision without interpreting it, refreshes descriptors after success, and must discard work after host/chat changes. Server-side revision validation prevents a menu opened against old plugin state from changing a new target. Escape or outside clicks cancel locally; validation failures retain custom input for correction. Plugin disablement/removal hides its controls on refresh. Older Core builds without the capability receive no optional requests.
+The connector forwards the revision without interpreting it, refreshes descriptors after success, and must discard work after host/chat changes. Server-side revision validation prevents a menu opened against old plugin state from changing a new target. Escape or outside clicks cancel locally; validation failures retain custom input for correction. Plugin disablement/removal hides its controls on refresh.

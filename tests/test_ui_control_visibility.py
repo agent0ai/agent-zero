@@ -137,7 +137,14 @@ preferences.registerUiControlVisibility('canvas:files');
 assert.equal(preferences.isUiControlVisible('canvas:files'), false);
 assert.equal(preferences.uiVisibilitySnapshot()['canvas:unavailable'].desktop, false);
 const local = new Map();
+const listeners = new Map();
+const addListener = (type, fn, { signal }) => {
+  listeners.set(type, fn);
+  signal.addEventListener('abort', () => listeners.delete(type), { once: true });
+};
 const canvas = load('webui/components/canvas/right-canvas-store.js', {
+  AbortController,
+  addEventListener: addListener,
   preferencesStore: preferences,
   chatsStore: { selected: 'test' },
   normalizeSurfaceId: id => String(id || ''),
@@ -176,30 +183,33 @@ assert.equal(canvas.railPosition, 0.02);
 canvas.railPosition = null;
 canvas.restore();
 assert.equal(canvas.railPosition, 0.02);
-const listeners = new Map();
 const handle = {
   closest: () => ({getBoundingClientRect: () => ({top: 200, height: 200})}),
   setPointerCapture() {},
-  addEventListener: (type, fn) => listeners.set(type, fn),
+  hasPointerCapture: () => false,
+  addEventListener: addListener,
   removeEventListener: type => listeners.delete(type),
 };
 canvas._rootElement = {getBoundingClientRect: () => ({top: 0, height: 800})};
 canvas.startRailDrag({button: 0, clientY: 210, pointerId: 1, currentTarget: handle, preventDefault() {}});
-listeners.get('pointermove')({clientY: -1000});
+listeners.get('pointermove')({clientY: -1000, pointerId: 1, buttons: 1});
 assert.equal(canvas.railPosition, 108 / 800);
-listeners.get('pointermove')({clientY: 2000});
+listeners.get('pointermove')({clientY: 2000, pointerId: 1, buttons: 1});
 assert.equal(canvas.railPosition, 692 / 800);
 listeners.get('lostpointercapture')();
 assert.equal(listeners.size, 0);
 (async () => {
-  let modalId;
-  canvas.openModalSurface = async id => { modalId = id; return true; };
+  let modalOpens = 0;
+  canvas.showModal = async () => { modalOpens++; canvas.isDetached = true; return true; };
   await canvas.open('files');
-  assert.equal(modalId, 'files');
+  assert.equal(modalOpens, 1);
+  assert.equal(canvas.activeSurfaceId, 'files');
   assert.equal(canvas.isOpen, false);
   await canvas.open('browser');
-  assert.equal(canvas.isOpen, true);
-  canvas.isOpen = false;
+  assert.equal(canvas.activeSurfaceId, 'browser');
+  assert.equal(canvas.isDetached, true);
+  assert.equal(canvas.isOpen, false);
+  canvas.isDetached = false;
   preferences.setUiVisibility(Object.fromEntries(canvas.surfaces.map(s =>
     [`canvas:${s.id}`, {mobile: false, desktop: false}])));
   assert.equal(await canvas.toggleCanvas(), false);

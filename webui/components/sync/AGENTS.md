@@ -18,6 +18,7 @@
 - A queued state push that finishes after transport loss must not overwrite the
   `DISCONNECTED` mode or flush reconnect notifications.
 - Avoid noisy user-facing alerts for transient sync state unless existing UX expects them.
+- Connection status toasts stay tab-local and omit Copy.
 - Keep the compact status cluster free of native title tooltips; interactive
   extensions must provide accessible names directly.
 

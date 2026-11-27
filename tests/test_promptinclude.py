@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from helpers import runtime
 
 from plugins._promptinclude.extensions.python.system_prompt import _16_promptinclude
 from plugins._promptinclude.helpers.scanner import scan_promptinclude_files
@@ -26,8 +27,8 @@ async def test_promptinclude_stays_discoverable_without_matching_files(
             assert name == "agent.system.promptinclude.md"
             return f"{kwargs['name_pattern']}|{kwargs['includes']}"
 
-    async def call_direct(function, *args, **kwargs):
-        return function(*args, **kwargs)
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Prompt inclusion must scan locally")
 
     monkeypatch.setattr(
         _16_promptinclude.plugins,
@@ -38,7 +39,7 @@ async def test_promptinclude_stays_discoverable_without_matching_files(
         _16_promptinclude, "_resolve_workdir", lambda _agent: str(tmp_path)
     )
     monkeypatch.setattr(
-        _16_promptinclude.runtime, "call_development_function", call_direct
+        runtime, "call_development_function", no_dispatch
     )
 
     system_prompt: list[str] = []

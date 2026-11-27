@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from plugins._scheduler.tools.scheduler import SchedulerTool
+from plugins._scheduler.helpers.scheduler_handler import SchedulerTool
 
 
 class _FakeLog:

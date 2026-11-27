@@ -11,6 +11,7 @@
 - `strings.py` owns the runtime implementation.
 - `strings.py.dox.md` owns durable notes about responsibilities, contracts, side effects, and verification for that implementation.
 - Top-level functions:
+- `clean_string(input_string: str) -> str` strips terminal escapes, prompt prefixes and overwritten carriage-return text for local and sandbox sessions.
 - `sanitize_string(s: str, encoding: str=...) -> str`
 - `calculate_valid_match_lengths(first: bytes | str, second: bytes | str, deviation_threshold: int=..., deviation_reset: int=..., ignore_patterns: list[bytes | str]=..., debug: bool=...) -> tuple[int, int]`
 - `format_key(key: str) -> str`: Format a key string to be more readable.

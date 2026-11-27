@@ -16,6 +16,7 @@
 
 ## Runtime Contracts
 
+- Return the local project/workdir path for the Files browser, resolving configured `/a0` aliases in development without changing stored settings or remote execution paths.
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `GetChatFilesPath` is an `ApiHandler`.
@@ -25,7 +26,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `self.use_context`, `projects.get_context_project_name`, `Exception`, `files.normalize_a0_path`, `projects.get_project_folder`, `settings.get_settings`.
+- Important called helpers/classes observed in the source: `self.use_context`, `projects.get_context_project_name`, `Exception`, `files.fix_dev_path`, `projects.get_project_folder`, `settings.get_settings`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

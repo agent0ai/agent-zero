@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
+from contextlib import asynccontextmanager
 from datetime import timedelta
 import asyncio
 import gzip
+import importlib
 import json
 import logging
 import os
@@ -28,12 +30,13 @@ from uvicorn.middleware.wsgi import WSGIMiddleware
 from werkzeug.wrappers.request import Request as WerkzeugRequest
 import socketio  # type: ignore[import-untyped]
 
-from helpers import dotenv, fasta2a_server, files, git, login, mcp_server, runtime
+from helpers import dotenv, files, git, login, runtime
 from helpers.api import get_safe_next_url, register_api_route, requires_auth
 from helpers.extension import extensible, get_webui_extension_manifest
 from helpers.files import get_abs_path
 from helpers.print_style import PrintStyle
 from helpers.server_startup import StartupMonitor
+from helpers.socket_api import socket_lifespan
 from helpers.ui_bundler import (
     get_ui_asset_bundle,
     serialize_ui_asset_bundle,
@@ -226,24 +229,33 @@ class UiServerRuntime:
         )
         self._transport_registered = True
 
-    def build_asgi_app(self, startup_monitor: StartupMonitor):
+    def build_asgi_app(self, startup_monitor: StartupMonitor, extra_routes=()):
+        @asynccontextmanager
+        async def lifespan(app):
+            async with startup_monitor.lifespan()(app):
+                async with socket_lifespan(self.webapp, self.lock):
+                    yield
+
         with startup_monitor.stage("wsgi.middleware.create"):
             wsgi_app = WSGIMiddleware(self.webapp)
 
-        with startup_monitor.stage("mcp.proxy.init"):
-            mcp_app = mcp_server.DynamicMcpProxy.get_instance()
+        async def mcp_app(scope, receive, send):
+            module = await asyncio.to_thread(importlib.import_module, "helpers.mcp_server")
+            await module.DynamicMcpProxy.get_instance()(scope, receive, send)
 
-        with startup_monitor.stage("a2a.proxy.init"):
-            a2a_app = fasta2a_server.DynamicA2AProxy.get_instance()
+        async def a2a_app(scope, receive, send):
+            module = await asyncio.to_thread(importlib.import_module, "helpers.fasta2a_server")
+            await module.DynamicA2AProxy.get_instance()(scope, receive, send)
 
         with startup_monitor.stage("starlette.app.create"):
             starlette_app = Starlette(
                 routes=[
+                    *extra_routes,
                     Mount("/mcp", app=mcp_app),
                     Mount("/a2a", app=a2a_app),
                     Mount("/", app=wsgi_app),
                 ],
-                lifespan=startup_monitor.lifespan(),
+                lifespan=lifespan,
             )
             compressed_http_app = GZipMiddleware(
                 starlette_app,

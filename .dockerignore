@@ -23,7 +23,7 @@ usr/*
 .conda/
 .cursor/
 .venv/
-.git/
+.git
 
 
 ###############################################################################
@@ -36,6 +36,10 @@ usr/*
 # ─── LAST SECTION: universal junk / caches (MUST BE LAST) ───
 #   Put these at the *bottom* so they override any ! re‑includes above
 ###############################################################################
+# Local sandbox state, including nested .gitkeep files
+/sandboxes/
+/sandboxes/**
+
 # OS / editor junk
 **/.DS_Store
 **/Thumbs.db

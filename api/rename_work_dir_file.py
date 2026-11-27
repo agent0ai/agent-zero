@@ -1,7 +1,8 @@
 from helpers.api import ApiHandler, Input, Output, Request
 from helpers.file_browser import FileBrowser
-from helpers import runtime, extension
+from helpers import extension
 from api import get_work_dir_files
+import asyncio
 import posixpath
 
 
@@ -11,7 +12,7 @@ class RenameWorkDirFile(ApiHandler):
             action = input.get("action", "rename")
             current_path = input.get("currentPath", "")
 
-            if action == "move":
+            if action in {"move", "copy"}:
                 file_paths = input.get("paths", [])
                 destination_path = input.get("destinationPath", "")
                 if not isinstance(file_paths, list) or not all(
@@ -26,8 +27,11 @@ class RenameWorkDirFile(ApiHandler):
                 ]
                 if not destination_path.startswith("/"):
                     destination_path = f"/{destination_path}"
-                moved_paths = await runtime.call_development_function(
-                    move_items, file_paths, destination_path
+                from helpers import file_connections
+                if any(file_connections.is_remote(path) for path in [destination_path, *file_paths]):
+                    raise ValueError("Use the connection provider to transfer remote files.")
+                moved_paths = await asyncio.to_thread(
+                    FileBrowser().transfer_items, file_paths, destination_path, copy=action == "copy"
                 )
                 res = bool(moved_paths)
                 changed_paths = [*file_paths, *moved_paths]
@@ -40,9 +44,7 @@ class RenameWorkDirFile(ApiHandler):
                     parent_path = input.get("parentPath", current_path)
                     if not parent_path:
                         return {"error": "Parent path is required"}
-                    res = await runtime.call_development_function(
-                        create_folder, parent_path, new_name
-                    )
+                    res = await create_folder(parent_path, new_name)
                     changed_paths = [
                         posixpath.join(str(parent_path).rstrip("/"), new_name)
                     ]
@@ -52,9 +54,7 @@ class RenameWorkDirFile(ApiHandler):
                         return {"error": "Path is required"}
                     if not file_path.startswith("/"):
                         file_path = f"/{file_path}"
-                    res = await runtime.call_development_function(
-                        rename_item, file_path, new_name
-                    )
+                    res = await rename_item(file_path, new_name)
                     changed_paths = [
                         file_path,
                         posixpath.join(posixpath.dirname(file_path), new_name),
@@ -73,10 +73,11 @@ class RenameWorkDirFile(ApiHandler):
                         "current_path": current_path,
                     },
                 )
-                result = await runtime.call_development_function(
-                    get_work_dir_files.get_files, current_path
-                )
-                return {"data": result}
+                result = await get_work_dir_files.get_files(current_path)
+                response = {"data": result}
+                if action in {"move", "copy"}:
+                    response["paths"] = moved_paths
+                return response
 
             error_msg = {
                 "create-folder": "Failed to create folder",

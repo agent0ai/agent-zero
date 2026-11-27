@@ -16,16 +16,14 @@ on:
         type: string
 
 env:
-  # Non-main branches publish a Docker tag with the same name as the branch.
   ALLOWED_BRANCHES: "testing ready main"
   MAIN_BRANCH: "main"
   RELEASE_TAG_REGEX: "^v([0-9]+)\\.([0-9]+)$"
   MIN_RELEASE_MAJOR: "1"
   MIN_RELEASE_MINOR: "0"
-  DOCKERFILE_DIR: "docker/run"
-  DOCKERFILE_PATH: "docker/run/Dockerfile"
   DOCKER_IMAGE_NAME: "agent-zero"
   DOCKER_PLATFORMS: "linux/amd64,linux/arm64"
+  IMAGE_OUTPUT: type=image,push=true,oci-mediatypes=true,compression=zstd,compression-level=10,force-compression=true
 
 permissions:
   contents: read
@@ -162,23 +160,16 @@ jobs:
         if: steps.resolve.outputs.should_build != 'true'
         run: echo "${{ steps.resolve.outputs.skip_reason }}"
 
-      - name: Set cache date
-        if: steps.resolve.outputs.should_build == 'true'
-        id: cache_date
-        run: echo "value=$(date -u +%Y-%m-%d:%H:%M:%S)" >> "$GITHUB_OUTPUT"
-
       - name: Build and push Docker image
         if: steps.resolve.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.DOCKERFILE_DIR }}
-          file: ${{ env.DOCKERFILE_PATH }}
+          context: .
+          no-cache-filters: source
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: true
+          outputs: ${{ env.IMAGE_OUTPUT }}
           tags: ${{ steps.resolve.outputs.tags }}
-          build-args: |
-            BRANCH=${{ matrix.branch }}
-            CACHE_DATE=${{ steps.cache_date.outputs.value }}
+          build-args: BRANCH=${{ matrix.branch }}
 
       - name: Resolve GitHub release target
         if: steps.resolve.outputs.should_build == 'true'

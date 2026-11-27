@@ -56,8 +56,9 @@
 
 ## Runtime Contracts
 
-- `remote_tree_inherit` defaults true. Connected host maps follow the four default-workdir limits; false selects the independently persisted `remote_tree_max_depth/files/folders/lines` values. Zero is unlimited; malformed, fractional, boolean, or negative overrides fall back to defaults. The connector reads effective limits at hello and tree acknowledgement, without changing paths, ignore rules, host grants, or project settings.
+- `set_root_password` remains a compatibility export of `helpers.runtime.set_root_password`; sensitive-settings writes retain the same Docker guard, checked command and dotenv persistence.
 
+- `remote_tree_inherit` defaults to true, so connected host trees use the default workdir's limits. When false, the connector uses the independently saved `remote_tree_max_depth/files/folders/lines` settings. Zero means unlimited. Invalid overrides fall back to their defaults.
 - Settings reads use `models.get_api_key_raw()` to preserve complete key lists without advancing runtime rotation or persisting keys synthesized by runtime hooks. Masking, authentication reloads, and intentional clearing retain their existing behavior.
 - Ordinary settings reads represent an unreadable secrets file as `None`, preserving unrelated settings access. Normalization retains this transient value, and saves skip secret writes for it even if the file becomes readable in the meantime. Frontend conversion and explicit secret edits still raise on read failures; they must never present a false empty editor or overwrite unreadable data. A missing file remains a valid empty store, and an explicit empty string still clears a readable store.
 - `ui_control_visibility` accepts dynamic `canvas:<surface-id>` entries as well as built-in controls, normalizes device values to booleans (default shown), and preserves choices for temporarily unavailable plugins.
@@ -68,7 +69,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, network calls, subprocess/runtime control, model calls, WebSocket state, plugin state, settings/state persistence, secret handling, scheduler state.
-- Imported dependency areas include: `base64`, `hashlib`, `helpers`, `helpers.notification`, `helpers.print_style`, `helpers.providers`, `helpers.secrets`, `json`, `models`, `os`, `pytz`, `re`, `subprocess`, `typing`.
+- Imported dependency areas include: `base64`, `hashlib`, `helpers`, `helpers.notification`, `helpers.print_style`, `helpers.providers`, `helpers.secrets`, `json`, `models`, `os`, `pytz`, `re`, `typing`.
 
 ## Key Concepts
 

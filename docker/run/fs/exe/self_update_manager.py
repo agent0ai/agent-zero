@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import inspect
 import json
 import os
 import re
@@ -43,6 +44,8 @@ DEFAULT_HEALTH_POLL_INTERVAL_SECONDS = float(
 )
 DEFAULT_BACKUP_DIR = "/root/update-backups"
 DEFAULT_BACKUP_CONFLICT_POLICY = "rename"
+UPDATE_HOOK_DIR = "docker/run/update"
+UPDATE_HOOK_TIMEOUT_SECONDS = 1800
 BACKUP_CONFLICT_POLICIES = {"rename", "overwrite", "fail"}
 MIN_SELECTOR_VERSION = (1, 0)
 LATEST_SELECTOR_TAG = "latest"
@@ -618,24 +621,6 @@ def run_command(
     return completed
 
 
-def clean_uv_cache(logger: AttemptLogger) -> None:
-    uv_path = shutil.which("uv")
-    if not uv_path:
-        logger.log("uv executable not found, skipping uv cache clean.")
-        return
-
-    logger.log("Cleaning uv cache before continuing self-update startup.")
-    try:
-        run_command(
-            [uv_path, "cache", "clean"],
-            cwd=None,
-            logger=logger,
-            error_message="Failed to clean uv cache during self-update.",
-        )
-    except Exception as exc:
-        logger.log(f"uv cache clean skipped after error: {exc}")
-
-
 def refresh_codex_cli(logger: AttemptLogger) -> None:
     codex_path = shutil.which("codex")
     if not codex_path:
@@ -941,8 +926,6 @@ def restore_git_state(
 
 
 def launch_ui_process(repo_dir: Path, logger: AttemptLogger) -> subprocess.Popen[bytes]:
-    run_office_cleanup_hook(repo_dir, logger)
-
     prepare_script = repo_dir / "prepare.py"
     if prepare_script.exists():
         logger.log("Running prepare.py before UI start")
@@ -961,31 +944,6 @@ def launch_ui_process(repo_dir: Path, logger: AttemptLogger) -> subprocess.Popen
         ],
         cwd=repo_dir,
     )
-
-
-def run_office_cleanup_hook(repo_dir: Path, logger: AttemptLogger) -> None:
-    hook_path = repo_dir / "plugins" / "_office" / "hooks.py"
-    if not hook_path.exists():
-        return
-    try:
-        if str(repo_dir) not in sys.path:
-            sys.path.insert(0, str(repo_dir))
-        spec = importlib.util.spec_from_file_location("a0_office_hooks", hook_path)
-        if spec is None or spec.loader is None:
-            logger.log("Office cleanup hook could not be loaded.")
-            return
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        cleanup = getattr(module, "cleanup_stale_runtime_state", None)
-        if not callable(cleanup):
-            return
-        result = cleanup()
-        if isinstance(result, dict) and result.get("errors"):
-            logger.log(f"Office cleanup hook reported errors: {result.get('errors')}")
-        else:
-            logger.log("Office cleanup hook completed.")
-    except Exception as exc:
-        logger.log(f"Office cleanup hook skipped after error: {exc}")
 
 
 def wait_for_health(
@@ -1099,20 +1057,131 @@ def record_result(
     write_status(payload)
 
 
+def run_update_hooks(
+    phase: str,
+    source_info: dict[str, str],
+    target: dict[str, str],
+    logger: AttemptLogger,
+    *,
+    updater_candidate: Path | None = None,
+) -> None:
+    # Read the fetched commit, never local/untracked scripts or a moving branch ref.
+    directory = f"{UPDATE_HOOK_DIR}/{phase}"
+    entries = git_output(REPO_DIR, "ls-tree", "-rz", target["expected_commit"], "--", directory + "/")
+    env = {
+        **os.environ,
+        "PYTHONUNBUFFERED": "1",
+        "A0_UPDATE_PHASE": phase,
+        "A0_UPDATE_REPO_DIR": str(REPO_DIR),
+        "A0_UPDATE_SOURCE_VERSION": source_info["short_tag"],
+        "A0_UPDATE_SOURCE_COMMIT": source_info["commit"],
+        "A0_UPDATE_TARGET_VERSION": target["expected_short_tag"],
+        "A0_UPDATE_TARGET_COMMIT": target["expected_commit"],
+        "A0_UPDATE_UPDATER_PATH": str(Path(__file__).resolve()),
+    }
+    env.pop("A0_UPDATE_UPDATER_CANDIDATE", None)
+    if updater_candidate is not None:
+        env["A0_UPDATE_UPDATER_CANDIDATE"] = str(updater_candidate)
+    with tempfile.TemporaryDirectory(prefix="a0-update-hooks-") as temporary:
+        scripts = []
+        for entry in sorted(filter(None, entries.split("\0"))):
+            metadata, name = entry.split("\t", 1)
+            path = Path(name)
+            if path.parent.as_posix() != directory or path.suffix not in {".py", ".sh"}:
+                continue
+            mode, kind, oid = metadata.split()
+            if mode not in {"100644", "100755"} or kind != "blob":
+                raise RuntimeError(f"Update hook must be a regular file: {name}")
+            script = Path(temporary) / path.name
+            script.write_bytes(subprocess.check_output(["git", "-C", str(REPO_DIR), "cat-file", "blob", oid]))
+            scripts.append(script)
+        for script in sorted(scripts):
+            logger.log(f"Running {phase} update hook: {script.name}")
+            command = [sys.executable if script.suffix == ".py" else "/bin/bash", str(script)]
+            with logger.path.open("a") as output:
+                process = subprocess.Popen(
+                    command, cwd=REPO_DIR, env=env, stdin=subprocess.DEVNULL,
+                    stdout=output, stderr=subprocess.STDOUT, start_new_session=True,
+                )
+                try:
+                    code = process.wait(timeout=UPDATE_HOOK_TIMEOUT_SECONDS)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+                    raise RuntimeError(f"Update hook timed out: {phase}/{script.name}") from None
+            if code:
+                raise RuntimeError(f"Update hook failed ({code}): {phase}/{script.name}; see {logger.path}")
+
+
+def write_runtime_manager(path: Path, content: bytes, mode: int) -> None:
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.chmod(stat.S_IMODE(mode))
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def replace_update_manager(candidate: Path, logger: AttemptLogger):
+    """Opt-in before-hook handoff; keep the old updater until validation passes."""
+    runtime = Path(__file__).absolute()
+    if not stat.S_ISREG(runtime.lstat().st_mode):
+        raise RuntimeError("Installed updater must be a regular file.")
+    if not stat.S_ISREG(candidate.lstat().st_mode):
+        raise RuntimeError("Replacement updater must be a regular file.")
+    content = candidate.read_bytes()
+    compile(content, str(candidate), "exec")
+    check = subprocess.run(
+        [sys.executable, str(candidate), "--help"], capture_output=True,
+        text=True, timeout=30, cwd=REPO_DIR,
+    )
+    if check.returncode:
+        logger.log_block("Replacement updater validation", check.stdout + check.stderr)
+        raise RuntimeError("Replacement updater failed its --help check.")
+    spec = importlib.util.spec_from_file_location("a0_replacement_updater", candidate)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Cannot load replacement updater.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    inspect.signature(module.execute_pending_update).bind({}, logger=logger, prepared={})
+    mode = runtime.stat().st_mode
+    backup = runtime.with_name(runtime.name + ".before-update-backup")
+    write_runtime_manager(backup, runtime.read_bytes(), mode)
+    write_runtime_manager(runtime, content, mode)
+    module.__file__ = str(runtime)
+    logger.log(f"Activated explicitly requested updater replacement; backup: {backup}")
+    return module, backup
+
+
+def restore_update_manager(backup: Path | None, logger: AttemptLogger) -> None:
+    if backup is not None:
+        runtime = Path(__file__).absolute()
+        write_runtime_manager(runtime, backup.read_bytes(), backup.stat().st_mode)
+        logger.log(f"Restored the previous updater from {backup}")
+
+
 def execute_pending_update(
     request_data: dict[str, Any],
     *,
     logger: AttemptLogger,
+    prepared: dict[str, Any] | None = None,
 ) -> subprocess.Popen[bytes]:
-    source_info = get_repo_version_info(REPO_DIR)
-    started_at = now_iso()
-    backup_zip_path = ""
-    stash_ref: str | None = None
+    state = prepared or {}
+    source_info = state.get("source_info") or get_repo_version_info(REPO_DIR)
+    started_at = state.get("started_at") or now_iso()
+    backup_zip_path = state.get("backup_zip_path", "")
+    stash_ref: str | None = state.get("stash_ref")
+    updater_backup = state.get("updater_backup")
     repository_changed = False
     branch = str(request_data.get("branch", "")).strip()
     tag = str(request_data.get("tag", "")).strip()
-    backup_exclusions: list[Path] = []
-    resolved_target: dict[str, str] | None = None
+    backup_exclusions: list[Path] = [Path(backup_zip_path)] if backup_zip_path else []
+    resolved_target = state.get("resolved_target")
 
     try:
         if not branch:
@@ -1120,9 +1189,10 @@ def execute_pending_update(
         if not tag:
             raise ValueError("Update file is missing the tag field.")
 
-        stash_ref = create_rollback_stash(REPO_DIR, logger)
+        if prepared is None:
+            stash_ref = create_rollback_stash(REPO_DIR, logger)
 
-        if bool(request_data.get("backup_usr", True)):
+        if prepared is None and bool(request_data.get("backup_usr", True)):
             backup_destination = create_usr_backup(
                 repo_dir=REPO_DIR,
                 backup_path=str(request_data.get("backup_path", "/root/update-backups")),
@@ -1133,13 +1203,21 @@ def execute_pending_update(
             backup_zip_path = str(backup_destination)
             backup_exclusions.append(backup_destination)
 
-        resolved_target = resolve_requested_target(
-            REPO_DIR,
-            branch,
-            tag,
-            source_info["short_tag"],
-            logger,
-        )
+        if prepared is None:
+            resolved_target = resolve_requested_target(
+                REPO_DIR, branch, tag, source_info["short_tag"], logger,
+            )
+            with tempfile.TemporaryDirectory(prefix="a0-update-manager-") as temporary:
+                candidate = Path(temporary) / "self_update_manager.py"
+                run_update_hooks("before", source_info, resolved_target, logger, updater_candidate=candidate)
+                if candidate.exists() or candidate.is_symlink():
+                    replacement, updater_backup = replace_update_manager(candidate, logger)
+                    repository_changed = True
+                    return replacement.execute_pending_update(request_data, logger=logger, prepared={
+                        "source_info": source_info, "started_at": started_at,
+                        "backup_zip_path": backup_zip_path, "stash_ref": stash_ref,
+                        "resolved_target": resolved_target, "updater_backup": updater_backup,
+                    })
 
         repository_changed = True
         logger.log(
@@ -1149,7 +1227,7 @@ def execute_pending_update(
         checkout_target_release(
             REPO_DIR,
             branch,
-            resolved_target["target_ref"],
+            resolved_target["expected_commit"],
             resolved_target["target_description"],
             logger,
             exclude_paths=backup_exclusions,
@@ -1167,6 +1245,7 @@ def execute_pending_update(
                 f"Expected {resolved_target['expected_short_tag']}, got {current_info['short_tag']}."
             )
 
+        run_update_hooks("after", source_info, resolved_target, logger)
         updated_process = launch_ui_process(REPO_DIR, logger)
         healthy, details = wait_for_health(
             updated_process,
@@ -1204,6 +1283,7 @@ def execute_pending_update(
 
         logger.log(f"Updated UI failed health check, rolling back: {details}")
         terminate_process(updated_process)
+        restore_update_manager(updater_backup, logger)
         restore_git_state(
             REPO_DIR,
             head=source_info["commit"],
@@ -1258,6 +1338,11 @@ def execute_pending_update(
         raise RuntimeError(str(rollback_details))
     except Exception as exc:
         restore_error = ""
+        try:
+            restore_update_manager(updater_backup, logger)
+        except OSError as restore_exc:
+            restore_error = f"Updater restore failed: {restore_exc}"
+            logger.log(restore_error)
         if repository_changed or stash_ref:
             logger.log(f"Restoring pre-update repository state after error: {exc}")
             try:
@@ -1272,7 +1357,7 @@ def execute_pending_update(
                     apply_stash(REPO_DIR, stash_ref, logger)
                     stash_ref = None
             except Exception as restore_exc:
-                restore_error = str(restore_exc)
+                restore_error = " | ".join(filter(None, (restore_error, str(restore_exc))))
                 logger.log(f"Automatic restore failed: {restore_exc}")
 
         failure_message = str(exc)
@@ -1438,7 +1523,6 @@ def docker_run_ui() -> int:
         logger.reset()
         logger.log(f"Consumed update file at {TRIGGER_FILE}")
         logger.log_block("Trigger file content", raw_text)
-        clean_uv_cache(logger)
         try:
             clean_transient_desktop_agent_state(REPO_DIR, logger)
         except Exception as exc:

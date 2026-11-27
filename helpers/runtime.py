@@ -1,6 +1,7 @@
 import argparse
 import inspect
 import secrets
+import subprocess
 from pathlib import Path
 from typing import TypeVar, Callable, Awaitable, Union, overload, cast
 from helpers import dotenv, rfc, files
@@ -58,6 +59,18 @@ def has_arg(name: str):
 
 def is_dockerized() -> bool:
     return bool(get_arg("dockerized"))
+
+
+def set_root_password(password: str):
+    if not is_dockerized():
+        raise Exception("root password can only be set in dockerized environments")
+    subprocess.run(
+        ["chpasswd"],
+        input=f"root:{password}".encode(),
+        capture_output=True,
+        check=True,
+    )
+    dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, password)
 
 
 def is_development() -> bool:

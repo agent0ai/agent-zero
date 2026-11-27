@@ -19,7 +19,7 @@ const websocket = getNamespacedClient("/ws");
 websocket.addHandlers(["ws_webui"]);
 
 const BROWSER_SUBSCRIBE_TIMEOUT_MS = 60000;
-const BROWSER_FIRST_INSTALL_TIMEOUT_MS = 300000;
+const BROWSER_STARTUP_TIMEOUT_MS = 2100000;
 const BROWSER_COMMAND_TIMEOUT_MS = 45000;
 const BROWSER_CONFIG_REFRESH_MS = 15000;
 const BROWSER_VIEWER_TRANSPORT_INTERACTIVE = "interactive";
@@ -190,7 +190,6 @@ const model = {
   viewerTransport: BROWSER_VIEWER_TRANSPORT_INTERACTIVE,
   interactiveViewUrl: "",
   viewerFallbackReason: "",
-  tabScope: "per_context",
   annotating: false,
   annotationComments: [],
   annotationHover: null,
@@ -245,10 +244,10 @@ const model = {
   _lastSelectedContextId: "",
   _sessionRefreshPromise: null,
   _sessionRefreshContextId: "",
+  volume: 100,
+  lastVolume: 100,
+  volumeError: "",
   extensionMenuOpen: false,
-  extensionsList: [],
-  extensionsListLoading: false,
-  extensionToggleLoadingPath: "",
   modelPreset: "",
   modelPresetOptions: [],
   mainModelSummary: "",
@@ -257,22 +256,118 @@ const model = {
   runtimeBackendSaving: false,
   settingsProjectName: "",
   annotationScreenshots: false,
-  browserInstallExpected: false,
-  defaultHomepage: "about:blank",
+  startupProgress: null,
+  startupNotice: "",
+  _startupLaunchRequested: false,
+  _startupRecovering: false,
+  _startupPollTimer: null,
+  _startupPollGeneration: 0,
+  _startupPollUsers: 0,
   autofocusActivePage: true,
   _commandInFlightCount: 0,
-  _closingBrowserIds: {},
   _configLoadedAt: 0,
   _configRefreshPromise: null,
   _clipboardFallbackText: "",
 
   async refreshStatus() {
     this.status = await callJsonApi("/plugins/_browser/status", {});
-    this.browserInstallExpected = Boolean(this.status?.playwright?.install_required);
+  },
+
+  startStartupPolling() {
+    if (this.activeBrowserId) return () => {};
+    this._startupPollUsers += 1;
+    const generation = this._startupPollGeneration;
+    if (this._startupPollUsers === 1) {
+      this.startupProgress = null;
+      const poll = async () => {
+        if (generation !== this._startupPollGeneration) return;
+        try {
+          if (!this._startupRecovering) await this.refreshStartupProgress(generation);
+        } catch {
+          // The startup request owns errors; a missed progress poll must not cancel it.
+        }
+        if (generation === this._startupPollGeneration) {
+          this._startupPollTimer = globalThis.setTimeout(poll, 1000);
+        }
+      };
+      void poll();
+    }
+    return () => {
+      if (generation !== this._startupPollGeneration) return;
+      this._startupPollUsers -= 1;
+      if (!this._startupPollUsers) this.stopStartupPolling();
+    };
+  },
+
+  stopStartupPolling() {
+    this._startupPollGeneration += 1;
+    this._startupPollUsers = 0;
+    globalThis.clearTimeout(this._startupPollTimer);
+    this._startupPollTimer = null;
+    this.startupProgress = null;
+    this.startupNotice = "";
+    this._startupLaunchRequested = false;
+    this._startupRecovering = false;
+  },
+
+  browserStartupDetail() {
+    if (this.startupNotice) return this.startupNotice;
+    return !this.activeBrowserId && (this._startupLaunchRequested || this.startupProgress?.state === "starting")
+      ? "Running the web browser for the first time will take a little while to install dependencies."
+      : "";
+  },
+
+  async refreshStartupProgress(generation = this._startupPollGeneration) {
+    const response = await websocket.request("browser_startup_status", {
+      context_id: this.contextId || this.resolveContextId(),
+    }, { timeoutMs: 5000 });
+    if (generation !== this._startupPollGeneration) return null;
+    this.startupProgress = firstOk(response).startup || null;
+    return this.startupProgress;
+  },
+
+  async recoverStartup(error, contextSequence) {
+    this._startupRecovering = true;
+    this.startupNotice = "Waiting for Agent Zero to confirm startup…";
+    try {
+      while (contextSequence === this._contextSequence) {
+        if (this.activeBrowserId && this.hasFrame()) return;
+        let progress;
+        try {
+          progress = await this.refreshStartupProgress();
+        } catch {
+          this.startupNotice = "Connection interrupted. Reconnecting to Agent Zero…";
+        }
+        if (contextSequence !== this._contextSequence) return;
+        if (progress && !progress.pending && progress.state !== "starting") {
+          if (progress.state === "error") {
+            this.error = progress.message;
+            return;
+          }
+          try {
+            await this.connectViewer({ contextId: this.contextId, recover: false });
+            if (contextSequence !== this._contextSequence) return;
+            if (!this.activeBrowserId) this.error = error.message;
+            return;
+          } catch (retryError) {
+            if (contextSequence !== this._contextSequence) return;
+            if (!retryError.browserOutcomeUnknown) {
+              this.error = retryError.message;
+              return;
+            }
+          }
+        }
+        await new Promise(resolve => globalThis.setTimeout(resolve, 1000));
+      }
+    } finally {
+      if (contextSequence === this._contextSequence) {
+        this._startupRecovering = false;
+        this.startupNotice = "";
+      }
+    }
   },
 
   async refreshExtensionsList() {
-    this.extensionsListLoading = true;
     try {
       const response = await callJsonApi("/plugins/_browser/extensions", {
         action: "list",
@@ -284,14 +379,10 @@ const model = {
       this.applyExtensionPayload(response);
     } catch (error) {
       notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
-    } finally {
-      this.extensionsListLoading = false;
     }
   },
 
   applyExtensionPayload(response = {}) {
-    this.extensionsList = Array.isArray(response.extensions) ? response.extensions : [];
-    this.defaultHomepage = String(response.default_homepage || "about:blank").trim() || "about:blank";
     this.autofocusActivePage = normalizeBool(response.autofocus_active_page, true);
     this.runtimeBackend = response.runtime_backend || "container";
     this.settingsProjectName = response.settings_project_name || "";
@@ -366,7 +457,6 @@ const model = {
       );
       if (contextSequence !== this._contextSequence) return;
       const data = firstOk(response);
-      this.applyTabScope(data);
       this.applyBrowserListing(data.browsers || [], data.context_id || "", {
         replaceAll: Boolean(data.all_browsers),
         replaceContext: !data.all_browsers,
@@ -387,6 +477,7 @@ const model = {
     if (selectedContextId === this.contextId && this.connected) return;
     const previousContextId = this.contextId;
     const surfaceSequence = ++this._surfaceOpenSequence;
+    this.stopStartupPolling();
     this._contextSequence += 1;
     this._connectSequence += 1;
     this._viewerToken = "";
@@ -405,9 +496,8 @@ const model = {
       if (!selectedContextId || !this.isCurrentSurfaceOpen(surfaceSequence)) return;
       await this.refreshBrowserSessions(selectedContextId);
       if (!this.isCurrentSurfaceOpen(surfaceSequence) || !this.isVisibleBrowserSurface()) return;
-      const targetBrowserId = this.firstBrowserInContext(selectedContextId)?.id || null;
       await this.connectViewer({
-        browserId: targetBrowserId,
+        browserId: null,
         contextId: selectedContextId,
         initialViewport: this.currentViewportSize(),
       });
@@ -425,6 +515,12 @@ const model = {
         this._surfaceSwitching = false;
       }
     }
+  },
+
+  setVolume(volume) {
+    this.volumeError = "";
+    this.volume = volume;
+    if (volume > 0) this.lastVolume = volume;
   },
 
   toggleExtensionsMenu() {
@@ -536,32 +632,6 @@ const model = {
     }
   },
 
-  async setExtensionEnabled(extension, enabled, input = null) {
-    const path = String(extension?.path || "");
-    if (!path) return;
-    const previous = Boolean(extension?.enabled);
-    this.extensionToggleLoadingPath = path;
-    try {
-      const response = await callJsonApi("/plugins/_browser/extensions", {
-        action: "set_extension_enabled",
-        context_id: this.resolveContextId() || this.contextId,
-        path,
-        enabled: Boolean(enabled),
-      });
-      if (!response?.ok) {
-        throw new Error(response?.error || "Could not update extension.");
-      }
-      this.applyExtensionPayload(response);
-      notificationStore.addFrontendToastOnly("success", `${enabled ? "Enabled" : "Disabled"} ${extension.name || "extension"}.`);
-      await this.refreshAfterSettingsClose();
-    } catch (error) {
-      if (input) input.checked = previous;
-      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
-    } finally {
-      this.extensionToggleLoadingPath = "";
-    }
-  },
-
   async setBrowserModelPreset(value) {
     const presetName = String(value || "");
     this.modelPreset = presetName;
@@ -608,53 +678,12 @@ const model = {
     }
   },
 
-  zoomPercent() {
-    return Number(this.frameState?.zoom) || 100;
-  },
-
-  canZoom() {
-    return Boolean(this.activeBrowserId && this.frameState?.zoom_available && !this.isBusy());
-  },
-
   modelPresetSummary() {
     if (!this.modelPreset) {
       return this.mainModelSummary ? `Using ${this.mainModelSummary}` : "Using Main Model";
     }
     const option = this.modelPresetOptions.find((preset) => preset?.name === this.modelPreset);
     return option?.summary || option?.label || this.modelPreset;
-  },
-
-  extensionVersionLabel(extension) {
-    const version = String(extension?.version || "").trim();
-    return version ? `v${version}` : "Unpacked extension";
-  },
-
-  extensionOpenUrl(extension) {
-    return String(extension?.open_url || extension?.ui?.open_url || "").trim();
-  },
-
-  extensionHasOpenUi(extension) {
-    return Boolean(this.extensionOpenUrl(extension));
-  },
-
-  extensionOpenTitle(extension) {
-    const label = String(extension?.open_label || extension?.ui?.open_label || "Extension UI").trim();
-    const name = String(extension?.name || "extension").trim();
-    if (!extension?.enabled) {
-      return `Enable ${name} before opening ${label}.`;
-    }
-    return `Open ${label} for ${name}`;
-  },
-
-  async openExtensionUi(extension) {
-    const url = this.extensionOpenUrl(extension);
-    if (!url) return;
-    if (!extension?.enabled) {
-      notificationStore.addFrontendToastOnly("info", `Enable ${extension?.name || "this extension"} before opening it.`);
-      return;
-    }
-    this.closeExtensionsMenu();
-    await this.command("open", { url });
   },
 
   async onOpen(element = null, options = {}) {
@@ -807,6 +836,7 @@ const model = {
       || globalThis.document?.querySelector?.(".browser-panel");
     if (!root?.isConnected) return false;
     const surface = root.closest?.(".browser-canvas-surface");
+    if (surface && !rightCanvasStore.isSurfaceVisible("browser")) return false;
     const stage = root.querySelector?.(".browser-stage") || root;
     const surfaceStyle = surface ? globalThis.getComputedStyle?.(surface) : null;
     const rootStyle = globalThis.getComputedStyle?.(root);
@@ -959,18 +989,6 @@ const model = {
     return BROWSER_VIEWER_TRANSPORT_SNAPSHOT;
   },
 
-  normalizeTabScope(value = "") {
-    return String(value || "").trim().toLowerCase().replace("-", "_") === "shared"
-      ? "shared"
-      : "per_context";
-  },
-
-  applyTabScope(data = {}) {
-    if (!data || typeof data !== "object") return;
-    if (!Object.prototype.hasOwnProperty.call(data, "tab_scope")) return;
-    this.tabScope = this.normalizeTabScope(data.tab_scope);
-  },
-
   usesScreencastTransport() {
     return this.viewerTransport === BROWSER_VIEWER_TRANSPORT_SCREENCAST;
   },
@@ -986,54 +1004,8 @@ const model = {
 
   prepareInteractiveViewFrame(frame = null) {
     const target = frame || this._stageElement?.querySelector?.(".browser-interactive-frame");
-    const remoteWindow = target?.contentWindow;
-    if (!remoteWindow) return false;
     try {
-      const remoteDocument = target.contentDocument || remoteWindow.document;
-      if (!remoteDocument) return false;
-      if (!remoteDocument.getElementById("a0-xpra-browser-frame-css")) {
-        const style = remoteDocument.createElement("style");
-        style.id = "a0-xpra-browser-frame-css";
-        style.textContent = `
-          #shadow_pointer {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-          }
-          .window canvas,
-          .undecorated canvas {
-            display: block !important;
-            margin: 0 !important;
-          }
-        `;
-        remoteDocument.head?.appendChild(style);
-      }
-
-      const normalizeWindows = () => {
-        const windows = Object.values(remoteWindow.client?.id_to_window || {});
-        for (const xpraWindow of windows) {
-          xpraWindow.resizable = false;
-          xpraWindow.decorations = false;
-          xpraWindow.decorated = false;
-          xpraWindow.metadata = { ...(xpraWindow.metadata || {}), decorations: false };
-          xpraWindow._set_decorated?.(false);
-          xpraWindow.configure_border_class?.();
-          xpraWindow.leftoffset = 0;
-          xpraWindow.rightoffset = 0;
-          xpraWindow.topoffset = 0;
-          xpraWindow.bottomoffset = 0;
-          xpraWindow.updateCSSGeometry?.();
-        }
-        return windows.length > 0;
-      };
-
-      const screen = remoteDocument.querySelector?.("#screen");
-      if (screen && !remoteWindow.__a0BrowserFrameObserver && remoteWindow.MutationObserver) {
-        const observer = new remoteWindow.MutationObserver(normalizeWindows);
-        observer.observe(screen, { childList: true });
-        remoteWindow.__a0BrowserFrameObserver = observer;
-      }
-      return normalizeWindows();
+      return Boolean(target?.contentWindow?.a0BrowserViewer?.connected);
     } catch {
       return false;
     }
@@ -1042,10 +1014,7 @@ const model = {
   syncInteractiveViewSize() {
     if (!this.usesInteractiveTransport()) return;
     const frame = this._stageElement?.querySelector?.(".browser-interactive-frame");
-    try {
-      this.prepareInteractiveViewFrame(frame);
-      frame?.contentWindow?.client?._screen_resized?.();
-    } catch {}
+    try { frame?.contentWindow?.a0BrowserViewer?.resize(); } catch {}
   },
 
   applyViewer(data = {}) {
@@ -1109,6 +1078,7 @@ const model = {
   },
 
   async connectViewer(options = {}) {
+    const contextSequence = this._contextSequence;
     const sequence = ++this._connectSequence;
     const viewerToken = makeViewerToken();
     this._viewerToken = viewerToken;
@@ -1151,6 +1121,8 @@ const model = {
     this.error = "";
     const initialViewport = options.initialViewport || this.currentViewportSize();
     let data;
+    let responseReceived = false;
+    const stopProgress = this.startStartupPolling();
     try {
       await this._bindSocketEvents();
       if (sequence !== this._connectSequence || viewerToken !== this._viewerToken) return;
@@ -1169,25 +1141,32 @@ const model = {
           viewport_height: initialViewport?.height,
         },
         {
-          timeoutMs: this.browserInstallExpected
-            ? BROWSER_FIRST_INSTALL_TIMEOUT_MS
+          timeoutMs: !requestedBrowserId && options.recover !== false
+            ? BROWSER_STARTUP_TIMEOUT_MS
             : BROWSER_SUBSCRIBE_TIMEOUT_MS,
         },
       );
+      responseReceived = true;
       data = firstOk(response);
     } catch (error) {
       if (sequence === this._connectSequence && viewerToken === this._viewerToken) {
+        if (!responseReceived && !requestedBrowserId && options.recover !== false) {
+          await this.recoverStartup(error, contextSequence);
+          return;
+        }
+        error.browserOutcomeUnknown = !responseReceived;
         this.connected = false;
         this.switchingBrowserId = null;
         this._surfaceSwitching = false;
         throw error;
       }
       return;
+    } finally {
+      stopProgress();
     }
     if (sequence !== this._connectSequence || viewerToken !== this._viewerToken) {
       return;
     }
-    this.applyTabScope(data);
     this.applyBrowserListing(data.browsers || [], contextId, {
       replaceAll: Boolean(data.all_browsers),
       replaceContext: !data.all_browsers,
@@ -1206,7 +1185,6 @@ const model = {
     this.applyActiveFrameState(this.browserById(this.activeBrowserId, this.activeBrowserContextId));
     this.applySnapshot(data.snapshot);
     this.connected = true;
-    this.browserInstallExpected = false;
   },
 
   async _bindSocketEvents() {
@@ -1215,7 +1193,6 @@ const model = {
         if (data?.context_id !== this.contextId) return;
         if (data?.viewer_id && data.viewer_id !== this._viewerToken) return;
         this.applyViewer(data);
-        this.applyTabScope(data);
         const incomingContextId = this.normalizeContextId(data.context_id || this.contextId);
         const incomingBrowserId = this.normalizeBrowserId(data.browser_id || data.state?.id);
         if (Array.isArray(data.browsers)) {
@@ -1285,7 +1262,6 @@ const model = {
         if (data?.context_id !== this.contextId) return;
         if (data?.viewer_id && data.viewer_id !== this._viewerToken) return;
         this.applyViewer(data);
-        this.applyTabScope(data);
         const commandContextId = this.normalizeContextId(data.active_browser_context_id || data.context_id || this.contextId);
         if (Array.isArray(data.browsers)) {
           this.applyBrowserListing(data.browsers, commandContextId, {
@@ -1310,6 +1286,11 @@ const model = {
           || this.firstBrowserId(resultContextId)
         );
         const stateBrowserId = this.normalizeBrowserId(data.active_browser_id || data.browser_id || data.state?.id);
+        if (!command && this.usesInteractiveTransport() && data.active_browser_id !== undefined) {
+          this.setActiveBrowserId(stateBrowserId, commandContextId);
+          this.applyActiveFrameState(data.state);
+          return;
+        }
         if (
           stateBrowserId
           && (
@@ -1543,13 +1524,18 @@ const model = {
   },
 
   async command(command, extra = {}) {
+    const commandName = String(command || "").toLowerCase();
+    const startup = commandName === "open" && !this.activeBrowserId;
+    if (startup && (this.commandInFlight || this._startupRecovering)) return;
+    if (startup) this._startupLaunchRequested = true;
     this.error = "";
     this.annotationError = "";
     this.beginCommand();
+    const stopProgress = this.startStartupPolling();
     const previousActiveBrowserId = this.activeBrowserId;
     const previousActiveContextId = this.activeBrowserContextId;
-    const commandName = String(command || "").toLowerCase();
     const contextSequence = this._contextSequence;
+    let responseReceived = false;
     try {
       const targetContextId = commandName === "open"
         ? await this.contextIdForNewBrowser()
@@ -1567,11 +1553,11 @@ const model = {
           viewer_transport: this.requestedViewerTransport(),
           command,
         },
-        { timeoutMs: BROWSER_COMMAND_TIMEOUT_MS },
+        { timeoutMs: startup ? BROWSER_STARTUP_TIMEOUT_MS : BROWSER_COMMAND_TIMEOUT_MS },
       );
       if (contextSequence !== this._contextSequence) return;
+      responseReceived = true;
       const data = firstOk(response);
-      this.applyTabScope(data);
       this.applyBrowserListing(data.browsers || [], targetContextId, {
         replaceAll: Boolean(data.all_browsers),
         replaceContext: !data.all_browsers,
@@ -1634,9 +1620,11 @@ const model = {
       }
     } catch (error) {
       if (contextSequence === this._contextSequence) {
-        this.error = error instanceof Error ? error.message : String(error);
+        if (startup && !responseReceived) await this.recoverStartup(error, contextSequence);
+        else this.error = error instanceof Error ? error.message : String(error);
       }
     } finally {
+      stopProgress();
       if (contextSequence === this._contextSequence) this.finishCommand();
     }
   },
@@ -1654,18 +1642,6 @@ const model = {
       return;
     }
     await this.syncViewport(true, { restartStream: true });
-  },
-
-  async go() {
-    const url = String(this.address || "").trim();
-    if (!url) return;
-    this.addressFocused = false;
-    globalThis.document?.activeElement?.blur?.();
-    if (this.activeBrowserId) {
-      await this.command("navigate", { url });
-    } else {
-      await this.command("open", { url });
-    }
   },
 
   async openUrlIntent(url = "", options = {}) {
@@ -1689,24 +1665,10 @@ const model = {
     return true;
   },
 
-  onAddressFocus() {
-    this.addressFocused = true;
-  },
-
-  onAddressBlur() {
-    this.addressFocused = false;
-    if (this.frameState?.currentUrl && !String(this.address || "").trim()) {
-      this.address = this.frameState.currentUrl;
-    }
-  },
-
   async selectBrowser(id, contextId = "") {
     const targetId = this.normalizeBrowserId(id);
     const targetContextId = this.normalizeContextId(contextId || this.contextIdForBrowserId(targetId));
-    if (!targetId) {
-      await this.openNewBrowser();
-      return;
-    }
+    if (!targetId) return;
     if (
       this.sameBrowserTab(targetId, targetContextId, this.activeBrowserId, this.activeBrowserContextId)
       && this.connected
@@ -1740,46 +1702,20 @@ const model = {
     }
   },
 
-  async openNewBrowser() {
-    await this.command("open");
-  },
-
-  isClosingBrowser(id, contextId = "") {
-    const browserId = this.normalizeBrowserId(id);
-    const key = this.browserTabKey({
-      id: browserId,
-      context_id: contextId || this.contextIdForBrowserId(browserId),
-    });
-    return Boolean(key && this._closingBrowserIds[key]);
-  },
-
-  markBrowserClosing(id, contextId = "", closing = true) {
-    const browserId = this.normalizeBrowserId(id);
-    if (!browserId) return;
-    const key = this.browserTabKey({
-      id: browserId,
-      context_id: contextId || this.contextIdForBrowserId(browserId),
-    });
-    if (!key) return;
-    const nextClosing = { ...this._closingBrowserIds };
-    if (closing) {
-      nextClosing[key] = true;
-    } else {
-      delete nextClosing[key];
+  browserWindows() {
+    const windows = new Map();
+    for (const tab of this.browsers) {
+      const id = tab.window_id;
+      if (id == null) continue;
+      const group = windows.get(id);
+      if (group) {
+        group.count++;
+        if (tab.visible) group.tab = tab;
+      } else {
+        windows.set(id, { tab, count: 1 });
+      }
     }
-    this._closingBrowserIds = nextClosing;
-  },
-
-  async closeBrowser(id, contextId = "") {
-    const browserId = this.normalizeBrowserId(id);
-    const browserContextId = this.normalizeContextId(contextId || this.contextIdForBrowserId(browserId));
-    if (!browserId || !browserContextId || this.isClosingBrowser(browserId, browserContextId)) return;
-    this.markBrowserClosing(browserId, browserContextId, true);
-    try {
-      await this.command("close", { browser_id: browserId, context_id: browserContextId });
-    } finally {
-      this.markBrowserClosing(browserId, browserContextId, false);
-    }
+    return [...windows.values()];
   },
 
   isActiveBrowser(browser) {
@@ -1796,29 +1732,10 @@ const model = {
     return title || url || "about:blank";
   },
 
-  browserTabLabel(browser) {
-    const id = browser?.id ? `#${browser.id}` : "Browser";
-    return [id, this.browserTabTitle(browser)].filter(Boolean).join(" ");
-  },
-
-  browserTabTooltip(browser) {
-    const chatTitle = this.browserChatTitle(browser);
-    return [this.browserTabLabel(browser), chatTitle ? `Chat: ${chatTitle}` : ""]
-      .filter(Boolean)
-      .join("\n");
-  },
-
   browserTabKey(browser = {}) {
     const id = this.normalizeBrowserId(browser?.id ?? browser);
     const contextId = this.normalizeContextId(browser?.context_id || browser?.contextId || this.activeBrowserContextId || this.contextId);
     return id && contextId ? `${contextId}:${id}` : "";
-  },
-
-  browserChatTitle(browser = {}) {
-    const contextId = this.normalizeContextId(browser?.context_id || browser?.contextId);
-    if (!contextId) return "";
-    const context = chatsStore.contexts?.find?.((item) => item?.id === contextId);
-    return String(context?.name || context?.title || "").trim();
   },
 
   firstBrowser(contextId = "") {
@@ -1829,15 +1746,6 @@ const model = {
       if (scoped) return scoped;
     }
     return browsers[0] || null;
-  },
-
-  visibleBrowsers() {
-    const browsers = Array.isArray(this.browsers) ? this.browsers : [];
-    if (this.tabScope === "shared") return browsers;
-    const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId || this.resolveContextId());
-    return contextId
-      ? browsers.filter((browser) => this.normalizeContextId(browser?.context_id) === contextId)
-      : browsers;
   },
 
   firstBrowserInContext(contextId = "") {
@@ -1904,7 +1812,9 @@ const model = {
         });
     this.browsers = [...retained, ...incoming];
     if (this.activeBrowserId && !this.browserById(this.activeBrowserId, this.activeBrowserContextId)) {
-      this.setActiveBrowserId(null);
+      // Closing a native tab leaves the same display connected to its successor.
+      const next = this.usesInteractiveTransport() && this.browsers.find(tab => tab.visible);
+      this.setActiveBrowserId(next?.id, next?.context_id);
     }
   },
 
@@ -1981,13 +1891,23 @@ const model = {
   },
 
   isBusy() {
-    return Boolean(this.loading || this.commandInFlight || this._surfaceSwitching || this.isSwitchingBrowser());
+    return Boolean(this.loading || this.commandInFlight || this._startupPollUsers
+      || this._startupRecovering || this._surfaceSwitching || this.isSwitchingBrowser());
   },
 
   browserLoadingLabel() {
-    if (this.commandInFlight && !this.activeBrowserId) return "Starting Browser…";
+    if (!this.activeBrowserId && this.startupProgress?.state === "starting") {
+      const { step, steps, message } = this.startupProgress;
+      return step ? `${step}/${steps} ${message}…` : (message || "Checking browser startup…");
+    }
+    if (!this.activeBrowserId && this.startupProgress?.state === "error") return this.startupProgress.message;
+    if (!this.activeBrowserId && this._startupLaunchRequested) {
+      return this.startupProgress?.state === "ready"
+        ? "6/6 Opening browser tab…" : "1/6 Preparing browser sandbox…";
+    }
+    if (!this.activeBrowserId) return "Checking existing browser session…";
     if (this.isSwitchingBrowser()) return "Switching Browser tab…";
-    return "Connecting to Browser…";
+    return "6/6 Connecting browser view…";
   },
 
   setActiveBrowserId(id, contextId = "") {
@@ -2310,7 +2230,7 @@ const model = {
   },
 
   annotationBoxStyle(rect = {}) {
-    const viewport = this.currentViewportSize() || this._lastViewport || {};
+    const viewport = this.annotationViewport() || this._lastViewport || {};
     const width = Math.max(1, Number(viewport.width || rect.width || 1));
     const height = Math.max(1, Number(viewport.height || rect.height || 1));
     const normalized = this.clampAnnotationRect(rect);
@@ -2324,7 +2244,7 @@ const model = {
 
   annotationPopoverStyle() {
     const rect = this.annotationDraft?.rect || this.annotationDragRect || {};
-    const viewport = this.currentViewportSize() || this._lastViewport || {};
+    const viewport = this.annotationViewport() || this._lastViewport || {};
     const width = Math.max(1, Number(viewport.width || 1));
     const height = Math.max(1, Number(viewport.height || 1));
     const popoverWidth = Math.min(320, Math.max(240, width - 20));
@@ -2349,8 +2269,31 @@ const model = {
     return this.annotationDraft.kind === "area" ? "Area annotation" : "Element annotation";
   },
 
+  annotationViewport() {
+    return (this.usesInteractiveTransport() && this.frameState?.viewport) || this.currentViewportSize();
+  },
+
+  annotationLayerStyle() {
+    const viewport = this.frameState?.viewport;
+    if (!this.usesInteractiveTransport() || !viewport) return {};
+    const display = this.currentViewportSize();
+    if (!display) return {};
+    return {
+      top: "auto",
+      height: Math.min(100, viewport.height * viewport.scale / display.height * 100) + "%",
+      width: Math.min(100, viewport.width * viewport.scale / display.width * 100) + "%",
+    };
+  },
+
   stagePointForEvent(event) {
-    return this.pointerCoordinatesFor(event, this.frameElement());
+    if (!this.usesInteractiveTransport()) return this.pointerCoordinatesFor(event, this.frameElement());
+    const rect = event.currentTarget.getBoundingClientRect();
+    const viewport = this.annotationViewport();
+    if (!rect.width || !rect.height || !viewport) return null;
+    return {
+      x: (event.clientX - rect.left) * viewport.width / rect.width,
+      y: (event.clientY - rect.top) * viewport.height / rect.height,
+    };
   },
 
   normalizeAnnotationRect(start = {}, end = {}) {
@@ -2367,7 +2310,7 @@ const model = {
   },
 
   clampAnnotationRect(rect = {}) {
-    const viewport = this.currentViewportSize() || this._lastViewport || {};
+    const viewport = this.annotationViewport() || this._lastViewport || {};
     const viewportWidth = Math.max(1, Number(viewport.width || rect.x + rect.width || 1));
     const viewportHeight = Math.max(1, Number(viewport.height || rect.y + rect.height || 1));
     const x = Math.max(0, Math.min(viewportWidth, Number(rect.x || 0)));
@@ -2434,7 +2377,7 @@ const model = {
       kind: isDrag ? "area" : "element",
       point,
       rect: isDrag ? rect : null,
-      viewport: this.currentViewportSize(),
+      viewport: this.annotationViewport(),
       url: this.activeAnnotationUrl(),
       title: this.activeTitle,
     };
@@ -2482,7 +2425,7 @@ const model = {
           payload: {
             kind: "element",
             point: { x: Math.round(point.x), y: Math.round(point.y) },
-            viewport: this.currentViewportSize(),
+            viewport: this.annotationViewport(),
             url,
             title: this.activeTitle,
           },
@@ -2970,7 +2913,7 @@ const model = {
       await this.sendClipboard("paste", text);
     } catch (error) {
       this.error = "Browser paste needs clipboard permission in this tab.";
-      globalThis.justToast?.(this.error, "warning", 2200, "browser-clipboard");
+      globalThis.justToast?.(this.error, "warning", 2200, "browser-clipboard", false);
       console.warn("Browser clipboard paste failed", error);
     }
   },
@@ -2988,7 +2931,7 @@ const model = {
       this.error = action === "cut"
         ? "Browser cut failed."
         : "Browser copy failed.";
-      globalThis.justToast?.(this.error, "warning", 1800, "browser-clipboard");
+      globalThis.justToast?.(this.error, "warning", 1800, "browser-clipboard", false);
       console.warn("Browser clipboard copy failed", error);
     }
   },
@@ -3033,6 +2976,7 @@ const model = {
       this.extensionMenuOpen = false;
       return;
     }
+    this.stopStartupPolling();
     this._surfaceOpenSequence += 1;
     this._contextSequence += 1;
     this._openPromise = null;
@@ -3044,12 +2988,10 @@ const model = {
     this._subscribedViewerTransport = this.viewerTransport;
     this.interactiveViewUrl = "";
     this.viewerFallbackReason = "";
-    this.tabScope = "per_context";
     this._surfaceMounted = false;
     this._surfaceSwitching = false;
     this.commandInFlight = false;
     this._commandInFlightCount = 0;
-    this._closingBrowserIds = {};
     this.annotating = false;
     this.annotationBusy = false;
     this.annotationError = "";
@@ -3074,8 +3016,6 @@ const model = {
     }
     this.resetViewportTracking();
     this.extensionMenuOpen = false;
-    this.extensionsListLoading = false;
-    this.extensionToggleLoadingPath = "";
     this.modelPresetSaving = false;
     this.connected = false;
   },
@@ -3167,27 +3107,6 @@ const model = {
     };
     clampGeometry();
 
-    const newAction = globalThis.document.createElement("div");
-    newAction.className = "browser-header-actions surface-modal-new-action";
-    newAction.innerHTML = `
-      <button type="button" class="browser-header-new-button surface-modal-new-button" title="New Browser" aria-label="New Browser">
-        <x-icon aria-hidden="true" name="add"></x-icon>
-        <span>New</span>
-      </button>
-    `;
-    const newButton = newAction.querySelector(".browser-header-new-button");
-    const onNewClick = async () => {
-      if (!newButton || newButton.disabled || this.isBusy()) return;
-      newButton.disabled = true;
-      try {
-        await this.openNewBrowser();
-      } finally {
-        if (globalThis.document?.contains?.(newButton)) newButton.disabled = false;
-      }
-    };
-    newButton?.addEventListener("click", onNewClick);
-    placeSurfaceModalHeaderAction(header, newAction, "new");
-
     const focusButton = globalThis.document.createElement("button");
     focusButton.type = "button";
     focusButton.className = "surface-button browser-modal-focus-button";
@@ -3272,8 +3191,6 @@ const model = {
     header.addEventListener("pointerdown", onPointerDown);
 
     this._floatingCleanup = () => {
-      newButton?.removeEventListener("click", onNewClick);
-      newAction.remove();
       focusButton.removeEventListener("click", onFocusClick);
       focusButton.remove();
       header.removeEventListener("pointerdown", onPointerDown);

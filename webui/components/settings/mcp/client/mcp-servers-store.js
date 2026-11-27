@@ -9,6 +9,7 @@ import {
   toastFrontendError,
   toastFrontendSuccess,
   toastFrontendWarning,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const EMPTY_CONFIG = '{\n  "mcpServers": {}\n}';
@@ -317,7 +318,7 @@ const model = {
       }
     } catch (error) {
       console.error("Failed to load settings for MCP manager:", error);
-      void toastFrontendError("Failed to load settings for MCP manager", "MCP Servers");
+      void toastFrontendNotice("error", "Failed to load settings for MCP manager", "MCP Servers");
     }
   },
 
@@ -344,7 +345,7 @@ const model = {
         this.configureProjectScope(normalizedProject, response.data, true);
       } catch (error) {
         console.error("Failed to load project MCP config:", error);
-        void toastFrontendError("Failed to load project MCP config", "MCP Servers");
+        void toastFrontendNotice("error", "Failed to load project MCP config", "MCP Servers");
         return;
       }
     } else {
@@ -726,7 +727,7 @@ const model = {
     try {
       await navigator.clipboard.writeText(this.scanPrompt || "");
     } catch {
-      void toastFrontendError("Failed to copy the scan prompt", SCAN_TITLE);
+      void toastFrontendNotice("error", "Failed to copy the scan prompt", SCAN_TITLE);
     }
   },
 
@@ -737,7 +738,7 @@ const model = {
 
     const prompt = String(this.scanPrompt || "").trim();
     if (!prompt) {
-      void toastFrontendError("Scan prompt is empty", SCAN_TITLE);
+      void toastFrontendNotice("error", "Scan prompt is empty", SCAN_TITLE);
       return;
     }
 
@@ -767,7 +768,7 @@ const model = {
     while (gen === scanPollGeneration) {
       if (Date.now() >= deadline) {
         this.agentScanning = false;
-        void toastFrontendError("Scan timed out while waiting for Agent Zero", SCAN_TITLE);
+        void toastFrontendNotice("error", "Scan timed out while waiting for Agent Zero", SCAN_TITLE);
         return;
       }
       await sleep(SCAN_POLL_INTERVAL_MS);
@@ -885,7 +886,7 @@ const model = {
       }
 
       if (!removed) {
-        void toastFrontendWarning("MCP server is no longer in this config.", "MCP Servers");
+        void toastFrontendNotice("warning", "MCP server is no longer in this config.", "MCP Servers");
         await this.loadStatus({ silent: true });
         return;
       }
@@ -957,7 +958,7 @@ const model = {
       const config = this.getConfigObject();
       const ref = this.getServerConfigRef(config, serverName);
       if (!ref?.server) {
-        void toastFrontendWarning("Add this inherited server to the current config before changing its tools.", "MCP Servers");
+        void toastFrontendNotice("warning", "Add this inherited server to the current config before changing its tools.", "MCP Servers");
         return;
       }
 
@@ -1005,7 +1006,7 @@ const model = {
     } catch (error) {
       if (!options.silent) {
         console.error("Failed to load MCP status:", error);
-        void toastFrontendError("Failed to load MCP status", "MCP Servers");
+        void toastFrontendNotice("error", "Failed to load MCP status", "MCP Servers");
       }
     }
   },

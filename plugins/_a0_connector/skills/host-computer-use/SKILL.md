@@ -1,6 +1,6 @@
 ---
 name: host-computer-use
-description: Beta desktop control through the connected A0 CLI host. Use for the user's host/local computer screenshots, screen inspection, menus, native app UI, OS-level clicking, scrolling, typing, or checking computer_use_remote status. Use instead of linux-desktop for host/local machine control. Do not use for ordinary browser navigation; host browser requests should use the browser tool.
+description: Inspect screenshots, list native windows, and interact with apps on the connected host desktop. Use for the user's own screen, native app UI, or OS-level input. Ordinary host browser navigation uses the Browser skill.
 tags: ["host", "local", "desktop", "screen", "computer-use", "wayland", "ubuntu", "macos", "windows"]
 triggers:
   - "computer use"
@@ -13,11 +13,48 @@ triggers:
   - "host screen"
   - "local screen"
   - "Ubuntu Wayland desktop"
+metadata:
+  tool:
+    name: computer_use_remote
+    parameters:
+      type: object
+      required: [action]
+      properties:
+        action: {type: string}
+        session_id: {type: string}
+        pid: {type: integer}
+        window_id: {type: string}
+        element_index: {type: integer}
+        target: {type: object}
+        max_depth: {type: integer}
+        max_nodes: {type: integer}
+        include_hidden: {type: boolean}
+        include_offscreen: {type: boolean}
+        max_windows: {type: integer}
+        selector: {type: string}
+        path:
+          anyOf:
+            - {type: array, items: {type: integer}}
+            - {type: string}
+        operation: {type: string}
+        value: {}
+        dispatch: {type: string, enum: [background, auto, foreground]}
+        x: {type: number, minimum: 0, maximum: 1}
+        y: {type: number, minimum: 0, maximum: 1}
+        button: {type: string, enum: [left, right, middle]}
+        count: {type: integer}
+        dx: {type: integer}
+        dy: {type: integer}
+        key: {type: string}
+        keys: {type: array, items: {type: string}}
+        text: {type: string}
+        submit: {type: boolean}
+      additionalProperties: true
 ---
 
 # Host Computer Use
 
-This skill unlocks the beta `computer_use_remote` tool for connected local desktop control through A0 CLI or a Launcher host gateway. Prefer native background-safe computer use when the connected backend advertises window and element-index features.
+Loading this skill makes `computer_use_remote` available in this chat when the routed A0 CLI or Launcher host gateway has Computer Use enabled and ready. The host grant belongs to the CLI session or Launcher Host access lease. Each chat starts and reuses its own desktop session.
 
 ## When to Use
 
@@ -38,7 +75,7 @@ Never switch to `linux-desktop`, the Agent Zero Desktop/Xpra surface, `desktopct
 - If the user asks to use/open/control their host browser, local browser, Chrome, "my browser", or a URL in the host browser, use the `browser` tool. The Browser plugin chooses Docker or A0 CLI host-browser runtime from Browser settings and can surface Chrome remote-debugging setup.
 - Do not start `computer_use_remote` for web-page navigation just because the phrase "host browser" appears. Use this skill only for desktop/browser-chrome tasks that the `browser` tool cannot express.
 - If host-browser setup fails or mentions remote debugging, tell the user to open `chrome://inspect/#remote-debugging`, enable "Allow remote debugging for this browser instance", run `/browser host on`, and retry.
-- Do not fall back to `code_execution_remote`, `xdg-open`, `sensible-browser`, or Python `webbrowser.open` for host-browser control. Those can launch pages without giving Agent Zero browser control or setup diagnostics.
+- Do not fall back to `code_execution_tool` with `destination: host`, `xdg-open`, `sensible-browser`, or Python `webbrowser.open` for host-browser control. Those can launch pages without giving Agent Zero browser control or setup diagnostics.
 
 ## Tool Contract
 
@@ -71,6 +108,8 @@ Arguments:
 Availability, backend support, and trust mode are checked when the tool runs. If no A0 CLI or Launcher host gateway is connected, or local computer use is disabled, tell the user what to enable instead of using the server environment.
 
 If any tool result contains `COMPUTER_USE_REARM_REQUIRED` or `status=rearm required`, stop the computer-use sequence immediately. Do not retry `start_session`, do not call `capture`, and do not use shell, vision, or screenshot fallbacks to bypass it. Tell the user that the connected host has Computer Use configured but the installed desktop-control backend is not armed; they should run `/computer-use on` in the A0 Launcher chat when using Launcher Host access, or in A0 CLI otherwise, and approve the platform permission prompt if shown.
+
+After an error, report it or use a different recovery supported by the current permissions. Repeating the same action with identical arguments does not resolve it.
 
 ## Core Loop
 

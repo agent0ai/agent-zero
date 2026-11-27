@@ -18,6 +18,7 @@
 
 ## Work Guidance
 
+- Surface toolbar controls show Bootstrap tooltips on hover and keyboard focus. Keep tooltips inside their owning dialog or popover and preserve visible tips when a control moves.
 - Prefer concise tooltip text and stable positioning around icon-only controls.
 
 ## Verification

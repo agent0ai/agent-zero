@@ -1,7 +1,7 @@
 from helpers.api import ApiHandler, Input, Output, Request, Response
 
 
-from helpers import persist_chat
+from helpers import message_queue, persist_chat
 from helpers.task_scheduler import TaskScheduler
 
 
@@ -15,6 +15,7 @@ class Reset(ApiHandler):
         # context instance - get or create
         context = self.use_context(ctxid)
         context.reset()
+        message_queue.remove(context)
         persist_chat.save_tmp_chat(context)
         persist_chat.remove_msg_files(ctxid)
 

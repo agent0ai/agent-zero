@@ -20,6 +20,8 @@
 
 ## Runtime Contracts
 
+- File existence checks and image loading resolve development `/a0` aliases on the local filesystem; ephemeral references, chat isolation, materialization and model calls retain their existing behavior.
+
 - Tool modules must define `helpers.tool.Tool` subclasses and return `helpers.tool.Response` from `execute(...)`.
 - One call may contain multiple paths; a bare string is treated as one path. The Vision Model route sends every selected path in one request and returns one textual capsule.
 - Model configuration exposes a Vision Model only when the effective preset selects that route; otherwise this tool follows Main's native vision path.

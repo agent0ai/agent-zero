@@ -16,6 +16,8 @@
   - `save_files(self, files: List, current_path: str=...) -> Tuple[List[str], List[str]]`
   - `delete_file(self, file_path: str) -> bool`
   - `rename_item(self, file_path: str, new_name: str) -> bool`
+  - `upload_tree(uploads, directory, names, folders)` validates relative components, stages streamed files under the transfer limit and publishes collision-safe local uploads.
+  - `transfer_items(file_paths, destination_path, *, copy)` stages local copies, preserves symlinks and publishes with exclusive rename. Same-directory copies use a numbered sibling name. Collision failures preserve the existing target.
   - `move_items(self, file_paths: List[str], destination_path: str) -> List[str]`
   - `create_folder(self, parent_path: str, folder_name: str) -> bool`
   - `save_text_file(self, file_path: str, content: str) -> bool`
@@ -31,12 +33,10 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
-- Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion, subprocess/runtime control, settings/state persistence.
-- Imported dependency areas include: `base64`, `datetime`, `helpers`, `helpers.localization`, `helpers.print_style`, `helpers.security`, `os`, `pathlib`, `shutil`, `subprocess`, `typing`.
+- Directory listings use scandir, preserve exact Linux names and symlink targets, report directory read errors, and format timestamps in the configured timezone.
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `Path`, `files.get_abs_path`, `self._get_file_extension`, `file.seek`, `file.tell`, `resolve`, `os.makedirs`, `os.path.exists`, `full_path.with_name`, `new_path.exists`, `os.rename`, `target_dir.exists`, `filename.rsplit.lower`, `subprocess.run`, `result.stdout.strip.split`, `self._get_files_via_ls`, `files.exists`, `ValueError`, `str.startswith`, `file.write`.
 - Multi-item moves validate every source and target before renaming, reject collisions and directory self-nesting, preserve symlink objects, and best-effort roll back earlier renames if a later rename fails.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
@@ -58,7 +58,7 @@
 
 No child DOX files.
 
-`read_text` owns bounded local Editor reads. `encode_upload` bounds the development RFC adapter. `prepare_files_download` owns Files routing and policy; a single selected directory downloads as `<folder>.zip` while true multi-selections keep the timestamped `agent-zero-selected-<count>-<stamp>.zip` archive name. `register_files_download` rechecks remote permission at delivery. API handlers do not select byte limits. Generic attachment/Connector downloads remain separate.
+`read_text` owns bounded local Editor reads. `encode_upload` remains a bounded base64 compatibility adapter; normal uploads stream locally in every mode. `prepare_files_download` owns Files routing and policy; a single selected directory downloads as `<folder>.zip` while true multi-selections keep the timestamped `agent-zero-selected-<count>-<stamp>.zip` archive name. `register_files_download` rechecks remote permission at delivery. API handlers do not select byte limits. Generic attachment/Connector downloads remain separate.
 
 Destructive entry operations resolve parent directories while preserving the final symlink. Delete/Rename operate on the link itself; empty/root targets are rejected in the shared helper. Local Files downloads stage a bounded snapshot and reject in-place source changes during preparation. Cancelled preparation closes late responses and their temporary descriptors.
 

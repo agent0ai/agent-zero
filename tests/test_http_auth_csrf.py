@@ -36,7 +36,7 @@ def _set_csrf_cookie(client, token: str) -> None:
 
 
 def test_http_auth_enforced_when_configured(monkeypatch) -> None:
-    from run_ui import csrf_protect, requires_auth
+    from helpers.api import csrf_protect, requires_auth
 
     monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: "hash")
 
@@ -54,7 +54,7 @@ def test_http_auth_enforced_when_configured(monkeypatch) -> None:
 
 
 def test_http_csrf_required_even_when_auth_not_configured(monkeypatch) -> None:
-    from run_ui import csrf_protect, requires_auth
+    from helpers.api import csrf_protect, requires_auth
 
     monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: None)
 
@@ -73,7 +73,7 @@ def test_http_csrf_required_even_when_auth_not_configured(monkeypatch) -> None:
 
 
 def test_http_csrf_rejects_missing_token(monkeypatch) -> None:
-    from run_ui import csrf_protect, requires_auth
+    from helpers.api import csrf_protect, requires_auth
 
     monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: "hash")
 
@@ -92,7 +92,7 @@ def test_http_csrf_rejects_missing_token(monkeypatch) -> None:
 
 
 def test_http_csrf_accepts_valid_header_without_cookie(monkeypatch) -> None:
-    from run_ui import csrf_protect, requires_auth
+    from helpers.api import csrf_protect, requires_auth
 
     monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: "hash")
 
@@ -111,7 +111,7 @@ def test_http_csrf_accepts_valid_header_without_cookie(monkeypatch) -> None:
 
 
 def test_http_csrf_accepts_valid_cookie(monkeypatch) -> None:
-    from run_ui import csrf_protect, requires_auth
+    from helpers.api import csrf_protect, requires_auth
 
     monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: "hash")
 
@@ -160,7 +160,7 @@ def test_safe_next_url_rejects_external_and_protocol_relative_urls() -> None:
 
 
 def test_auth_redirect_includes_original_path_and_query(monkeypatch) -> None:
-    from run_ui import requires_auth
+    from helpers.api import requires_auth
 
     monkeypatch.setattr("helpers.login.get_credentials_hash", lambda: "hash")
 

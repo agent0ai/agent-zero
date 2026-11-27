@@ -2,29 +2,15 @@
 # Paths must be readable from the Agent Zero runtime itself.
 extension_paths: []
 
-# Page opened by new Browser sessions when no URL is provided.
-default_homepage: "about:blank"
-
 # When the Browser surface is already open, keep it synced to agent Browser tool results.
 autofocus_active_page: true
 
 # Include page screenshots with annotations sent to the chat. Off by default.
 annotation_screenshots: false
 
-# Browser tab visibility in the WebUI. Both modes use the same internal
-# Chromium runtime and sign-in profile:
-# - per_context: each chat shows only its own Browser tabs.
-# - shared: show Browser tabs from all active chats.
-browser_tab_scope: "per_context"
-
-# Maximum number of Browser tabs/pages a single chat context may keep open.
+# Maximum number of open Chromium tabs before an agent must reuse a tab.
 # Raise this only for deliberate parallel browsing workflows.
 max_open_tabs: 32
-
-# Stop the shared internal browser after this many idle minutes (0 keeps it open).
-# Active viewers, browser calls, running chats and downloads prevent suspension.
-# Tab URLs and sign-ins survive; unsaved page contents do not.
-idle_timeout_minutes: 60
 
 # JavaScript evaluate deadline in seconds, including result/state collection.
 # Accepts finite values from 0.1 to 60; invalid values are rejected.
@@ -33,7 +19,7 @@ idle_timeout_minutes: 60
 evaluate_timeout_seconds: 30
 
 # Runtime used by the agent-facing browser tool:
-# - container: use Agent Zero's Docker/server Playwright browser.
+# - container: use Agent Zero's Docker/server Chromium browser.
 # - host_required: use a host browser through Launcher or A0 CLI and prepare it on first use when possible.
 runtime_backend: "container"
 
@@ -43,12 +29,6 @@ proxy_server: ""
 proxy_bypass: ""
 proxy_username: ""
 proxy_password: ""
-
-# Local-model enforcement for host-browser content:
-# - enforce_local: block host page content and screenshots unless the active chat model is local.
-# - warn: allow and return a warning in tool output.
-# - allow: allow without warning.
-host_browser_privacy_policy: "allow"
 
 # Host-browser profile preference:
 # - existing: use the user's authorized existing browser profile when available.

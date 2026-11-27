@@ -405,35 +405,15 @@ def install_route_hooks() -> None:
     original_build_asgi_app = UiServerRuntime.build_asgi_app
 
     def build_asgi_app(self, startup_monitor):
-        from socketio import ASGIApp
-        from starlette.applications import Starlette
         from starlette.routing import Mount
-        from uvicorn.middleware.wsgi import WSGIMiddleware
+        from plugins._desktop.helpers.gateway import TuxeeGateway
+        from plugins._browser.helpers.viewer_gateway import BrowserVncGateway
 
-        from helpers import fasta2a_server, mcp_server
-
-        with startup_monitor.stage("wsgi.middleware.create"):
-            wsgi_app = WSGIMiddleware(self.webapp)
-
-        with startup_monitor.stage("mcp.proxy.init"):
-            mcp_app = mcp_server.DynamicMcpProxy.get_instance()
-
-        with startup_monitor.stage("a2a.proxy.init"):
-            a2a_app = fasta2a_server.DynamicA2AProxy.get_instance()
-
-        with startup_monitor.stage("starlette.app.create"):
-            starlette_app = Starlette(
-                routes=[
-                    Mount("/desktop", app=VirtualDesktopGateway(self.webapp, "/desktop")),
-                    Mount("/mcp", app=mcp_app),
-                    Mount("/a2a", app=a2a_app),
-                    Mount("/", app=wsgi_app),
-                ],
-                lifespan=startup_monitor.lifespan(),
-            )
-
-        with startup_monitor.stage("socketio.asgi.create"):
-            return ASGIApp(self.socketio_server, other_asgi_app=starlette_app)
+        return original_build_asgi_app(self, startup_monitor, extra_routes=[
+            Mount("/browser/vnc", app=BrowserVncGateway(self.webapp)),
+            Mount("/desktop/tuxee", app=TuxeeGateway(self.webapp)),
+            Mount("/desktop", app=VirtualDesktopGateway(self.webapp, "/desktop")),
+        ])
 
     UiServerRuntime.build_asgi_app = build_asgi_app
     UiServerRuntime._a0_virtual_desktop_route_hooks_installed = True

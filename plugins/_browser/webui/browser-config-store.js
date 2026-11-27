@@ -1,24 +1,13 @@
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
-import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as notificationStore, toastFrontendNotice } from "/components/notifications/notification-store.js";
 
-const BROWSER_PAGES = {
-  history: "chrome://history/",
-  clearData: "chrome://settings/clearBrowserData",
-  passwords: "chrome://password-manager/passwords",
-  addresses: "chrome://settings/addresses",
-  extensions: "chrome://extensions/",
-  downloadSettings: "chrome://settings/downloads",
-  downloads: "chrome://downloads/",
-};
 const EXTENSIONS_ROOT = "/a0/usr/_browser/extensions";
 const BROWSER_EXTENSIONS_API = "/plugins/_browser/extensions";
 const BROWSER_SETUP_API = "/plugins/_browser/host_browser_setup";
 const BROWSER_STATUS_API = "/plugins/_browser/status";
 const RUNTIME_BACKENDS = new Set(["container", "host_required"]);
-const BROWSER_TAB_SCOPES = new Set(["per_context", "shared"]);
-const HOST_PRIVACY_POLICIES = new Set(["enforce_local", "warn", "allow"]);
 const HOST_PROFILE_MODES = new Set(["existing", "agent"]);
 const DEFAULT_MAX_OPEN_TABS = 32;
 const MIN_MAX_OPEN_TABS = 1;
@@ -44,12 +33,9 @@ function normalizePathList(value) {
 function ensureConfig(config) {
   if (!config || typeof config !== "object") return null;
   config.extension_paths = normalizePathList(config.extension_paths);
-  config.default_homepage = String(config.default_homepage || "about:blank").trim() || "about:blank";
   config.autofocus_active_page = normalizeBoolean(config.autofocus_active_page, true);
   config.annotation_screenshots = normalizeBoolean(config.annotation_screenshots, false);
-  config.browser_tab_scope = normalizeChoice(config.browser_tab_scope, BROWSER_TAB_SCOPES, "per_context");
   config.max_open_tabs = normalizeInt(config.max_open_tabs, DEFAULT_MAX_OPEN_TABS, MIN_MAX_OPEN_TABS, HARD_MAX_OPEN_TABS);
-  config.idle_timeout_minutes ??= 60;
   config.evaluate_timeout_seconds ??= 30;
   config.runtime_backend = normalizeRuntimeBackend(config.runtime_backend);
   config.proxy_server = String(config.proxy_server || "").trim();
@@ -58,11 +44,6 @@ function ensureConfig(config) {
   config.proxy_password = String(config.proxy_password || "");
   config.keyboard_layout = normalizeXkbToken(config.keyboard_layout);
   config.keyboard_variant = normalizeXkbToken(config.keyboard_variant);
-  config.host_browser_privacy_policy = normalizeChoice(
-    config.host_browser_privacy_policy,
-    HOST_PRIVACY_POLICIES,
-    "allow",
-  );
   config.host_browser_profile_mode = normalizeChoice(
     config.host_browser_profile_mode,
     HOST_PROFILE_MODES,
@@ -130,24 +111,6 @@ function isCustomHostBrowserEndpoint(value) {
   return Boolean(normalizeCustomHostBrowserEndpoint(value));
 }
 
-function stableHostBrowserSelection(value, status) {
-  const selection = normalizeHostBrowserSelection(value);
-  if (!selection) return "";
-  const connectors = Array.isArray(status?.connectors) ? status.connectors : [];
-  for (const connector of connectors) {
-    const candidates = [
-      ...(Array.isArray(connector?.available_browsers) ? connector.available_browsers : []),
-      connector,
-    ];
-    for (const candidate of candidates) {
-      const endpoint = normalizeCustomHostBrowserEndpoint(candidate?.cdp_endpoint);
-      const browserId = normalizeHostBrowserSelection(candidate?.id || candidate?.browser_id);
-      if (endpoint && endpoint === selection && browserId) return browserId;
-    }
-  }
-  return selection;
-}
-
 function normalizeBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;
@@ -195,8 +158,6 @@ export const store = createStore("browserConfig", {
   extensionInstallUrl: "",
   extensionActionLoading: false,
   extensionsRoot: "",
-  openingBrowserPage: "",
-  stoppingBrowser: false,
   extensionDeleteLoadingPath: "",
   hostBrowserStatus: null,
   hostBrowserStatusLoading: false,
@@ -216,7 +177,6 @@ export const store = createStore("browserConfig", {
     this.config = null;
     this.extensionsList = [];
     this.extensionInstallUrl = "";
-    this.openingBrowserPage = "";
     this.extensionDeleteLoadingPath = "";
     this.hostBrowserStatus = null;
     this.hostBrowserStatusLoading = false;
@@ -249,44 +209,6 @@ export const store = createStore("browserConfig", {
     }
   },
 
-  async openBrowserPage(section) {
-    const url = BROWSER_PAGES[section];
-    if (!url || this.openingBrowserPage) return;
-    this.openingBrowserPage = section;
-    try {
-      const { store: browser } = await import("/plugins/_browser/webui/browser-store.js");
-      const { store: canvas } = await import("/components/canvas/right-canvas-store.js");
-      await browser.command("open", { url });
-      if (browser.error) throw new Error(browser.error);
-      await canvas.openModalSurface("browser");
-    } catch (error) {
-      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
-    } finally {
-      this.openingBrowserPage = "";
-    }
-  },
-
-  async stopBrowser() {
-    if (this.stoppingBrowser) return;
-    const confirmed = await showConfirmDialog({
-      title: "Stop internal browser",
-      message: "Stop the internal browser for all chats? Tab URLs and sign-ins are kept, but unsaved page edits will be lost. Open Browser again to restore the tabs.",
-      confirmText: "Stop browser",
-      type: "danger",
-    });
-    if (!confirmed) return;
-    this.stoppingBrowser = true;
-    try {
-      const response = await callJsonApi("/plugins/_browser/stop", {});
-      if (!response?.ok) throw new Error(response?.error || "Could not stop Browser.");
-      notificationStore.addFrontendToastOnly("success", "Internal browser stopped. Tabs will restore on next use.");
-    } catch (error) {
-      notificationStore.addFrontendToastOnly("error", error instanceof Error ? error.message : String(error));
-    } finally {
-      this.stoppingBrowser = false;
-    }
-  },
-
   setAutofocusActivePage(enabled) {
     const safeConfig = ensureConfig(this.config);
     if (!safeConfig) return;
@@ -297,15 +219,6 @@ export const store = createStore("browserConfig", {
     return this.config?.autofocus_active_page === false ? "Off" : "On";
   },
 
-  setBrowserTabScope(value) {
-    const safeConfig = ensureConfig(this.config);
-    if (!safeConfig) return;
-    safeConfig.browser_tab_scope = normalizeChoice(value, BROWSER_TAB_SCOPES, "per_context");
-  },
-
-  browserTabScopeLabel() {
-    return this.config?.browser_tab_scope === "shared" ? "Shared" : "Per chat";
-  },
 
   normalizeMaxOpenTabs() {
     const safeConfig = ensureConfig(this.config);
@@ -324,13 +237,6 @@ export const store = createStore("browserConfig", {
     return "Docker Browser";
   },
 
-  privacyPolicyLabel() {
-    const value = this.config?.host_browser_privacy_policy || "allow";
-    if (value === "warn") return "Warn When Using Cloud";
-    if (value === "allow") return "Allow";
-    return "Local Models Only";
-  },
-
   hostBrowserOptions() {
     const connectors = Array.isArray(this.hostBrowserStatus?.connectors)
       ? this.hostBrowserStatus.connectors
@@ -343,8 +249,8 @@ export const store = createStore("browserConfig", {
         : [];
       for (const browser of advertised) {
         const endpoint = normalizeCustomHostBrowserEndpoint(browser?.cdp_endpoint);
-        const browserId = normalizeHostBrowserSelection(browser?.id || browser?.browser_id);
-        const family = normalizeHostBrowserSelection(browser?.family || browser?.browser_family);
+        const browserId = normalizeHostBrowserSelection(browser?.id);
+        const family = normalizeHostBrowserSelection(browser?.family);
         const value = endpoint
           ? browserId || endpoint
           : family === "safari" ? browserId : "";
@@ -353,15 +259,6 @@ export const store = createStore("browserConfig", {
         const label = browser?.label || hostBrowserFamilyLabel(browser?.family || value);
         const status = browser?.status ? ` - ${hostBrowserStatusLabel(browser.status)}` : "";
         options.push({ value, label: `${label}${status}` });
-      }
-      const fallbackEndpoint = normalizeCustomHostBrowserEndpoint(connector?.cdp_endpoint);
-      const fallbackValue = fallbackEndpoint
-        ? normalizeHostBrowserSelection(connector?.browser_id) || fallbackEndpoint
-        : "";
-      if (fallbackValue && !seen.has(fallbackValue)) {
-        seen.add(fallbackValue);
-        const label = connector?.browser_label || hostBrowserFamilyLabel(connector?.browser_family || fallbackValue);
-        options.push({ value: fallbackValue, label });
       }
     }
     const selected = normalizeHostBrowserSelection(this.config?.host_browser_selection);
@@ -433,18 +330,6 @@ export const store = createStore("browserConfig", {
     try {
       const response = await callJsonApi(BROWSER_STATUS_API, {});
       this.hostBrowserStatus = response?.host_browser || { connectors: [] };
-      const safeConfig = ensureConfig(this.config);
-      if (safeConfig) {
-        const stable = stableHostBrowserSelection(
-          safeConfig.host_browser_selection,
-          this.hostBrowserStatus,
-        );
-        if (stable !== safeConfig.host_browser_selection) {
-          safeConfig.host_browser_selection = stable;
-          this.hostBrowserCustomEndpoint = "";
-          this.hostBrowserCustomMode = false;
-        }
-      }
     } catch (_error) {
       this.hostBrowserStatus = { connectors: [] };
     } finally {
@@ -468,11 +353,11 @@ export const store = createStore("browserConfig", {
       );
     } catch (error) {
       console.error("Failed to open host browser setup:", error);
-      notificationStore.addFrontendToastOnly(
+      toastFrontendNotice(
         "error",
-        "Connect or update Launcher or A0 CLI, enable host Browser access, and try again.",
+        "Connect Launcher or A0 CLI and select an installed host browser.",
         "Could not open browser setup",
-        7,
+        { frontendOnly: true, displayTime: 7 },
       );
     } finally {
       this.hostBrowserSetupOpening = "";
@@ -590,7 +475,7 @@ export const store = createStore("browserConfig", {
   createExtensionWithAgent(context) {
     this.prefillExtensionPrompt(context,
       [
-        "Use the browser-extension-control skill to create a new Chrome extension for Agent Zero's Browser.",
+        "Load browser-automation and read references/browser-extension-control.md to create a new Chrome extension for Agent Zero's Browser.",
         "Start by asking me for the extension name, purpose, target websites, and required permissions.",
         `Create it under ${this.extensionsRoot || EXTENSIONS_ROOT}/<extension-slug> and keep permissions minimal.`,
       ].join("\n")
@@ -601,12 +486,12 @@ export const store = createStore("browserConfig", {
     const url = String(this.extensionInstallUrl || "").trim();
     const prompt = url
       ? [
-          "Use the browser-extension-control skill to review and optionally install this Chrome Web Store extension for Agent Zero's Browser.",
+          "Load browser-automation and read references/browser-extension-control.md to review and optionally install this Chrome Web Store extension.",
           `Chrome Web Store URL or id: ${url}`,
           "Explain the permissions and any sandbox risk before enabling it.",
         ].join("\n")
       : [
-          "Use the browser-extension-control skill to help me install and review a Chrome Web Store extension for Agent Zero's Browser.",
+          "Load browser-automation and read references/browser-extension-control.md to help me review and install a Chrome Web Store extension.",
           "Ask me for the Chrome Web Store URL or extension id first.",
           "Explain the permissions and any sandbox risk before enabling it.",
         ].join("\n");
@@ -665,7 +550,10 @@ export const store = createStore("browserConfig", {
     const path = String(extension?.path || "").trim();
     if (!path) return;
     if (!this.extensionCanDelete(extension)) {
-      notificationStore.addFrontendToastOnly("error", "Only Browser-managed extensions can be deleted.");
+      toastFrontendNotice("error", "Only Browser-managed extensions can be deleted.", "", {
+        frontendOnly: true,
+        displayTime: 5,
+      });
       return;
     }
     const name = String(extension?.name || "this extension").trim();

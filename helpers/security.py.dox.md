@@ -18,7 +18,9 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
-- Observed side-effect areas: filesystem reads, filesystem deletion.
+- `safe_filename` is the shared framework upload-name cleaner: replace path separators and control characters, preserve Unicode, handle reserved names, and return `None` for an empty/dot-only name. Callers choose their existing rejection or fallback behavior before joining a trusted destination directory.
+- Chat, API, file-browser, knowledge, Telegram, WhatsApp staging, email persistence, and skill/plugin archive uploads use this cleaner. It cleans a filename, not a directory or an archive member; retain separate containment, symlink, and archive checks.
+- This helper has no filesystem side effects.
 - Imported dependency areas include: `pathlib`, `re`, `typing`, `unicodedata`.
 
 ## Key Concepts
@@ -36,6 +38,8 @@
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
 - Related tests observed by source search:
+  - `tests/test_upload_filenames.py`
+  - `tests/test_telegram_media_delivery.py`
   - `tests/test_fastmcp_openapi_security.py`
   - `tests/test_image_get_security.py`
   - `tests/test_ws_security.py`

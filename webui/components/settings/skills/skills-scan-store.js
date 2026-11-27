@@ -6,7 +6,7 @@ import { openModal } from "/js/modals.js";
 import { getUserTimezone } from "/js/time-utils.js";
 import {
   toastFrontendError,
-  toastFrontendWarning,
+  toastFrontendNotice,
 } from "/components/notifications/notification-store.js";
 
 const SCAN_ASSET_BASE = "/components/settings/skills";
@@ -156,7 +156,7 @@ const model = {
     const response = await this.loadInstalledTargets();
     const paths = response?.paths || [];
     if (!paths.length) {
-      void toastFrontendWarning("No installed skills found to scan.", SCAN_TITLE);
+      void toastFrontendNotice("warning", "No installed skills found to scan.", SCAN_TITLE);
       return;
     }
 
@@ -188,7 +188,7 @@ const model = {
 
   async openForUploadedFile(file, metadata = {}) {
     if (!file) {
-      void toastFrontendError("Select a skills .zip file first", SCAN_TITLE);
+      void toastFrontendNotice("error", "Select a skills .zip file first", SCAN_TITLE);
       return false;
     }
 
@@ -309,7 +309,7 @@ const model = {
     try {
       await navigator.clipboard.writeText(this.scanPrompt || "");
     } catch {
-      void toastFrontendError("Failed to copy the scan prompt", SCAN_TITLE);
+      void toastFrontendNotice("error", "Failed to copy the scan prompt", SCAN_TITLE);
     }
   },
 
@@ -319,7 +319,7 @@ const model = {
 
     const prompt = String(this.scanPrompt || "").trim();
     if (!prompt) {
-      void toastFrontendError("Scan prompt is empty", SCAN_TITLE);
+      void toastFrontendNotice("error", "Scan prompt is empty", SCAN_TITLE);
       return;
     }
 
@@ -349,7 +349,7 @@ const model = {
     while (gen === scanPollGeneration) {
       if (Date.now() >= deadline) {
         this.agentScanning = false;
-        void toastFrontendError("Scan timed out while waiting for Agent Zero", SCAN_TITLE);
+        void toastFrontendNotice("error", "Scan timed out while waiting for Agent Zero", SCAN_TITLE);
         return;
       }
       await sleep(SCAN_POLL_INTERVAL_MS);

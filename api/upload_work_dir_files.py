@@ -4,23 +4,34 @@ from werkzeug.datastructures import FileStorage
 from helpers.api import ApiHandler, Request, Response
 from helpers.file_browser import FileBrowser
 from helpers.file_transfers import FileLimitExceeded
-from helpers import files, runtime, extension
+from helpers import extension
 from api import get_work_dir_files
-import os
 import posixpath
 
 
 class UploadWorkDirFiles(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
-        if "files[]" not in request.files:
+        manifest = request.form.get("manifest")
+        if not manifest and "files[]" not in request.files:
             raise Exception("No files uploaded")
 
         current_path = request.form.get("path", "")
         uploaded_files = request.files.getlist("files[]")
         try:
-            successful, failed = await upload_files(uploaded_files, current_path)
+            if manifest:
+                manifest = json.loads(manifest)
+                if not isinstance(manifest, dict):
+                    raise ValueError("Invalid upload manifest")
+                successful, failed = await asyncio.to_thread(
+                    FileBrowser().upload_tree, uploaded_files, current_path, manifest.get("files"), manifest.get("folders")
+                )
+            else:
+                successful, failed = await upload_files(uploaded_files, current_path)
         except FileLimitExceeded as error:
             return Response(json.dumps({"error": str(error)}), status=413, mimetype="application/json")
+
+        except (OSError, ValueError) as error:
+            return {"error": str(error)}
 
         if not successful and failed:
             return {"error": "Files could not be uploaded. Check destination permissions and free disk space.",
@@ -41,8 +52,7 @@ class UploadWorkDirFiles(ApiHandler):
                 },
             )
 
-        # result = browser.get_files(current_path)
-        result = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
+        result = await get_work_dir_files.get_files(current_path)
 
         return {
             "message": (
@@ -57,22 +67,8 @@ class UploadWorkDirFiles(ApiHandler):
 
 
 async def upload_files(uploaded_files: list[FileStorage], current_path: str):
-    if runtime.is_development():
-        successful = []
-        failed = []
-        for file in uploaded_files:
-            base64_content = await asyncio.to_thread(FileBrowser.encode_upload, file)
-            if await runtime.call_development_function(
-                upload_file, current_path, file.filename, base64_content
-            ):
-                successful.append(file.filename)
-            else:
-                failed.append(file.filename)
-    else:
-        browser = FileBrowser()
-        successful, failed = await asyncio.to_thread(browser.save_files, uploaded_files, current_path)
-
-    return successful, failed
+    browser = FileBrowser()
+    return await asyncio.to_thread(browser.save_files, uploaded_files, current_path)
 
 
 async def upload_file(current_path: str, filename: str, base64_content: str):

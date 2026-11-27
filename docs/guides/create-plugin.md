@@ -84,6 +84,13 @@ per_project_config: false
 per_agent_config: false
 ```
 
+If the plugin depends on particular Agent Zero releases, declare them with a
+quoted `a0_version`, for example `a0_version: ">=3.0,<4.0"`. It accepts exact
+versions, ranges, wildcards and lists of alternatives; see the
+[version requirement specification](../developer/plugins.md#agent-zero-version-requirements).
+Plugin Hub shows the requirement and warns before installing on an incompatible
+A0 version, with an option to continue for custom forks.
+
 The two Web UI extension files are the little doorways into the running
 interface:
 
@@ -149,8 +156,10 @@ Once the small version works, change only one thing at a time:
 - show a different status for running chats and finished chats;
 - turn the plugin into a publishable project with a `LICENSE`, screenshots, and a clearer README.
 
-Small plugins are good teachers. You can see the whole machine turning without
-standing inside the engine.
+If your plugin adds a workflow for the agent, start with a skill. When it needs
+its own callable, declare it in `SKILL.md` so it becomes available on demand.
+When migrating an existing tool, keep its backend in the plugin and remove
+the standalone tool file. See the [authoring pattern for skill callables](../../skills/a0-create-plugin/references/implementation.md#agent-facing-capabilities).
 
 ## Related
 

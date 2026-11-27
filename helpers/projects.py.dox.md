@@ -40,7 +40,7 @@
 - `_merge_project_extended_data(data: EditProjectData, extended_data: object) -> None`
 - `load_project_mcp_servers(name: str) -> str`
 - `save_project_mcp_servers(name: str, mcp_servers: str)`
-- `get_active_projects_list()`
+- `get_active_projects_list()` returns an empty list before the projects folder is created.
 - `get_file_structure(name: str, basic_data: BasicProjectData|None=None, output_mode: str = file_tree.OUTPUT_MODE_STRING) -> str`
 - `_get_projects_list(parent_dir)`
 - `reconcile_agent_profile(context: AgentContext, project_name: str | None) -> bool`

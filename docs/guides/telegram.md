@@ -8,8 +8,7 @@ Start with **one private bot using Polling**. You do not need a public website,
 an incoming port, or a tunnel. Agent Zero must remain running and able to reach
 Telegram; model usage follows your normal Agent Zero configuration.
 
-This guide describes the scoped Telegram integration in **v2.15**. If you already
-have a bot, start with [Upgrading an existing setup](#upgrading-an-existing-setup).
+If you already have a bot, start with [Upgrading an existing setup](#upgrading-an-existing-setup).
 The screenshots use an unsaved example configuration, with no real credentials.
 
 - [Connect your first bot](#connect-your-first-bot)

@@ -36,7 +36,7 @@ Use this skill to find useful existing plugins and manage installed ones. For bu
 | Search the Plugin Index, compare candidates, recommend useful plugins | `references/discovery.md` |
 | Security scan, install, update, config, enable/disable or remove | `references/lifecycle.md` |
 
-Read references through `skills_tool` with `action: "read_file"`, `skill_name: "a0-manage-plugin"`, and the file path. API examples reuse the session/CSRF client in `/a0/skills/a0-development/references/operate-agent-zero.md`. Load `a0-development` before reading that reference through `skills_tool`; discover the correct live origin.
+Read references through `skills_tool` with `action: "read_file"`, `skill_name: "a0-manage-plugin"`, and the file path. Local examples reuse the socket `local()` client in `/a0/skills/a0-development/references/operate-agent-zero.md`. Load `a0-development` before reading that reference through `skills_tool`; run the helper where the intended instance socket is accessible.
 
 ## Discovery Discipline
 
@@ -49,6 +49,8 @@ Distinguish browsing the Index from running the model-based security scanner. Di
 Use framework management APIs so hooks, caches and UI state stay consistent. Confirm the requested plugin and scope before changing it. Third-party plugins execute code in the Agent Zero environment: explain that risk and offer a security scan once before install, respecting an earlier scan choice. Do not turn an install or removal request into repeated confirmation prompts when the user has already specified the action and target.
 
 **Installation and removal must run the plugin's `hooks.py` lifecycle through these APIs. Never use `execute.py` or ask the user to click Execute for setup, dependency installation, required initialization, or uninstall cleanup.** If a plugin requires such a step, treat it as a plugin defect and route the fix to `a0-create-plugin`; do not silently use the manual workaround.
+
+Guest dependencies should normally provision automatically in existing sandboxes on first use, or at enablement/startup when an early feature or configured listener needs readiness. This delegation preserves hook ownership; hooks still execute in the framework. Main-environment packages need a documented reason tied to functionality that must run there and a minimal dependency set. See [sandbox placement](../../docs/developer/plugin-sandboxes.md#choosing-dependency-location); a cold guest alone is not failed installation.
 
 Verify the API result and read back installed/config/toggle state. Preserve unrelated scoped overrides and local code changes. Do not use raw Git pulls or folder deletion as substitutes for normal lifecycle APIs.
 

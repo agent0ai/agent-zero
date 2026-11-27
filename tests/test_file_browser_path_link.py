@@ -6,7 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STORE_PATH = PROJECT_ROOT / "webui/components/modals/file-browser/file-browser-store.js"
 
 
-def test_file_links_choose_visible_browser_or_modal_and_preserve_file_actions():
+def test_file_links_always_open_shared_modal_and_preserve_file_actions():
     source = STORE_PATH.read_text(encoding="utf-8")
     handler = source[source.index("window.openFileLink ="):].replace(
         'await import("/components/canvas/right-canvas-store.js")', '{store: canvas}'
@@ -28,7 +28,7 @@ window.isModalOpen = () => modal;
 window.sendJsonData = async () => response;
 window.toastFrontendError = () => calls.push(['error']);
 ''' + handler + '''
-for (const [m,r,v,expected] of [[true,false,false,'navigate'],[false,true,true,'navigate'],[false,true,false,'open'],[false,false,true,'open']]) {
+for (const [m,r,v,expected] of [[true,false,false,'open'],[false,true,true,'open'],[false,true,false,'open'],[false,false,true,'open']]) {
   modal=m; rendered=r; visible=v;
   await window.openFileLink('relative-link');
   assert.deepEqual(calls.pop(), [expected,'/clicked']);

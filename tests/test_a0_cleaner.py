@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import threading
@@ -72,14 +73,27 @@ def test_explicit_area_opt_out_and_master_opt_out_are_respected(cleaner):
     assert cache.exists() and profile.exists()
 
 
-def test_browser_versions_preserve_required_and_running_installations(cleaner):
-    cleaner.browser_revision = '1228'
-    required = put(cleaner.base/'tmp/playwright/chromium-1228/chrome')
-    retired = put(cleaner.base/'tmp/playwright/chromium-1234/chrome')
-    running = put(cleaner.base/'tmp/playwright/chromium-1200/chrome')
-    cleaner.process_inventory=lambda:{'paths':[str(running)], 'package_busy':False}
-    cleaner.scheduled()
-    assert not retired.exists() and required.exists() and running.exists()
+def test_saved_settings_ignore_retired_area_and_preserve_opt_outs(cleaner):
+    from plugins._a0_cleaner.helpers.cleaner import config_values
+
+    cleaner.config = config_values({'automatic_areas': ['browser_versions', 'pip']})
+    report = cleaner.scan()
+    assert [area['id'] for area in report['groups'] if area['automatic']] == ['pip']
+    assert 'browser_versions' not in {area['id'] for area in report['groups']}
+
+
+def test_retired_group_in_saved_report_requires_rescan(cleaner):
+    keep = put(cleaner.home/'.cache/pip/old')
+    report = cleaner.scan()
+    report['groups'].append({**group(report, 'pip'), 'id': 'browser_versions'})
+    (cleaner.state/'report.json').write_text(json.dumps(report))
+    selected = ['pip', 'browser_versions']
+    with pytest.raises(CleanerError, match='Scan again'):
+        cleaner.preview(report['id'], selected)
+    with pytest.raises(CleanerError, match='Scan again'):
+        cleaner.clean(report['id'], selected, confirmed=True)
+    assert keep.exists()
+    assert cleaner.preview(report['id'], ['pip'])['paths'] == [str(keep)]
 
 
 def test_changed_files_and_replaced_parent_symlinks_are_not_deleted(cleaner, tmp_path):
@@ -140,7 +154,7 @@ def test_old_or_replayed_scan_and_changed_rules_are_rejected(cleaner):
         cleaner.clean(newer['id'],['pip'],confirmed=True)
 
 
-@pytest.mark.parametrize('suffix',['usr','usr/projects/project','usr/projects/project/.a0proj','tmp/browser','tmp/playwright','tmp','usr/workdir'])
+@pytest.mark.parametrize('suffix',['usr','usr/projects/project','usr/projects/project/.a0proj','tmp/browser','tmp/desktop','tmp','usr/workdir'])
 def test_custom_folders_cannot_target_protected_roots(cleaner,suffix):
     path=cleaner.base/suffix;path.mkdir(parents=True,exist_ok=True)
     with pytest.raises(CleanerError): cleaner.custom_path(str(path))

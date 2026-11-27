@@ -21,10 +21,34 @@ body.right-canvas-resizing {
   user-select: none;
 }
 
-.right-canvas {
+.right-canvas-resize-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.right-canvas-resize-preview::after {
+  content: "";
+  position: absolute;
+  left: var(--resize-left);
+  top: var(--resize-top);
+  height: var(--resize-height);
+  width: 3px;
+  transform: translateX(-50%);
+  background: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-background);
+}
+
+.right-canvas,
+.right-canvas-shell {
   --right-canvas-chrome: color-mix(in srgb, var(--color-background) 94%, #000 6%);
   --right-canvas-surface: color-mix(in srgb, var(--color-panel) 88%, var(--color-background) 12%);
   --right-canvas-border: color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.right-canvas {
   position: relative;
   z-index: 1200;
   display: flex;
@@ -35,7 +59,7 @@ body.right-canvas-resizing {
   overflow: hidden;
   border-left: 1px solid var(--right-canvas-border);
   background: var(--right-canvas-chrome);
-  transition: width 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .right-canvas-rail {
@@ -295,6 +319,7 @@ body.right-canvas-resizing {
   z-index: 3;
   width: 7px;
   cursor: col-resize;
+  touch-action: none;
 }
 
 body.right-canvas-overlay-mode .right-canvas {
@@ -347,7 +372,7 @@ body.right-canvas-mobile-mode .right-canvas-rail {
   pointer-events: auto;
 }
 
-body.right-canvas-mobile-mode .right-canvas-shell,
+body.right-canvas-mobile-mode .right-canvas > .right-canvas-shell,
 body.right-canvas-mobile-mode .right-canvas-resize-handle {
   display: none !important;
 }

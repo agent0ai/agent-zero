@@ -1,6 +1,6 @@
 name: _code_execution
 title: Code Execution
-description: Code execution tool supporting terminal, Python, and Node.js runtimes via local TTY or SSH.
+description: Run terminal, Python, and Node.js commands in a sandbox, on the Agent Zero machine, or on a connected host.
 version: 1.0.0
 always_enabled: False
 settings_sections:

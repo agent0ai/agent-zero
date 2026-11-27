@@ -3,13 +3,14 @@
 ## Purpose
 
 - Own the broad Agent Zero development guide used by agents extending the framework.
-- Route user-requested application operations through existing HTTP APIs with explicit target IDs and verified results.
+- Route user-requested application operations through explicit local socket handlers (HTTP for remote/unsupported operations) with explicit target IDs and verified results.
 - Keep architecture, tools, extensions, API, agents, prompts, projects, plugins, runtime, and skills guidance in sync with the repository.
 
 ## Ownership
 
 - `SKILL.md` owns the concise development entry point, routing workflow, path conventions, and reference map.
 - `references/` owns detailed source-grounded development references loaded on demand.
+- Keep agent profile creation and A0 CLI setup discoverable through this skill's triggers and reference map. CLI setup must remain available without a connected host.
 
 ## Local Contracts
 

@@ -422,10 +422,7 @@ def test_renamed_skills_use_standard_frontmatter_only():
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-computer-use-macos" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-computer-use-windows" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-file-editing" / "SKILL.md",
-        PROJECT_ROOT / "skills" / "setup-a0-cli" / "SKILL.md",
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md",
-        PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-extension-control" / "SKILL.md",
-        PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-form-workflows" / "SKILL.md",
     ]
 
     for path in skill_paths:
@@ -433,9 +430,11 @@ def test_renamed_skills_use_standard_frontmatter_only():
         assert errors == []
         expected_keys = {"name", "description"}
         if path.parent.name == "host-computer-use":
-            expected_keys.update({"tags", "triggers"})
-        if path.parent.name in {"browser-automation", "browser-extension-control", "browser-form-workflows", "setup-a0-cli"}:
-            expected_keys.add("triggers")
+            expected_keys.update({"tags", "triggers", "metadata"})
+        if path.parent.name == "browser-automation":
+            expected_keys.update({"allowed-tools", "metadata", "triggers"})
+        if path.parent.name == "scheduled-tasks":
+            expected_keys.update({"triggers", "metadata"})
         assert set(frontmatter) == expected_keys
         assert frontmatter["name"] == path.parent.name
         assert frontmatter["description"]
@@ -446,9 +445,6 @@ def test_browser_skills_rank_for_browser_trigger_phrases(monkeypatch):
     browser_automation = runtime.skill_from_markdown(
         PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-automation" / "SKILL.md"
     )
-    browser_forms = runtime.skill_from_markdown(
-        PROJECT_ROOT / "plugins" / "_browser" / "skills" / "browser-form-workflows" / "SKILL.md"
-    )
     document_query = runtime.skill_from_markdown(
         PROJECT_ROOT / "plugins" / "_document_query" / "skills" / "document-query" / "SKILL.md"
     )
@@ -456,7 +452,6 @@ def test_browser_skills_rank_for_browser_trigger_phrases(monkeypatch):
         PROJECT_ROOT / "plugins" / "_a0_connector" / "skills" / "host-computer-use" / "SKILL.md"
     )
     assert browser_automation is not None
-    assert browser_forms is not None
     assert document_query is not None
     assert host_computer is not None
     monkeypatch.setattr(
@@ -465,7 +460,6 @@ def test_browser_skills_rank_for_browser_trigger_phrases(monkeypatch):
         lambda *args, **kwargs: [
             document_query,
             host_computer,
-            browser_forms,
             browser_automation,
         ],
     )
@@ -474,20 +468,12 @@ def test_browser_skills_rank_for_browser_trigger_phrases(monkeypatch):
         "open this URL in my browser and take a screenshot",
         "interact with a JavaScript page and verify it visually",
         "use the host browser for multi-tab browsing",
+        "fill a web form with a checkbox and file upload",
+        "review Chrome Web Store extension permissions",
     )
     for query in browser_queries:
         results = runtime.search_skills(query, limit=3)
         assert results[0].name == "browser-automation"
-
-    form_results = [
-        skill.name
-        for skill in runtime.search_skills(
-            "fill a web form with a checkbox and file upload",
-            limit=3,
-        )
-    ]
-    assert "browser-automation" in form_results
-    assert "browser-form-workflows" in form_results
 
 
 def test_skill_search_does_not_score_description_terms_alone(monkeypatch):
@@ -532,7 +518,7 @@ def test_host_computer_use_ranks_before_linux_desktop_for_host_screen_queries(mo
         assert results[0].name == "host-computer-use"
 
     xpra_results = runtime.search_skills(
-        "operate Agent Zero built-in Xpra Desktop LibreOffice GUI",
+        "operate Agent Zero built-in Tuxee Desktop GUI",
         limit=2,
     )
     assert xpra_results[0].name == "linux-desktop"

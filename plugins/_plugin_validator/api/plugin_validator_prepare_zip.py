@@ -10,7 +10,7 @@ from helpers import files
 from helpers.api import ApiHandler, Input, Output, Request, Response
 from plugins._plugin_installer.helpers.install import validate_plugin_dir
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
+from helpers.security import safe_filename
 
 
 def _find_plugin_root(extracted_dir: str) -> str:
@@ -38,7 +38,7 @@ class PluginValidatorPrepareZip(ApiHandler):
         uploads_dir = Path(files.get_abs_path("tmp", "plugin_validation_uploads"))
         uploads_dir.mkdir(parents=True, exist_ok=True)
 
-        safe_name = secure_filename(original_filename) or "plugin.zip"
+        safe_name = safe_filename(original_filename) or "plugin.zip"
         if not safe_name.lower().endswith(".zip"):
             safe_name = f"{safe_name}.zip"
 

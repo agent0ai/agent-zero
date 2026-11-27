@@ -4,6 +4,7 @@ import { store as projectsStore } from "/components/projects/projects-store.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
 import * as API from "/js/api.js";
 import { getCurrentUserISOString } from "/js/time-utils.js";
+import { open as openSurface } from "/js/surfaces.js";
 
 import { mountLayout } from "/components/welcome/welcome-layout.js";
 
@@ -296,6 +297,9 @@ const model = {
   // Execute an action by ID
   executeAction(actionId) {
     switch (actionId) {
+      case "desktop":
+      case "browser":
+        return openSurface(actionId);
       case "new-chat":
         chatsStore.newChat();
         break;

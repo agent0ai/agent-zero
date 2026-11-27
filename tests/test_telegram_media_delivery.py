@@ -1,4 +1,9 @@
 import asyncio
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
 
 from plugins._telegram_integration.helpers import handler
 from plugins._telegram_integration.helpers import telegram_client as tc
@@ -7,6 +12,29 @@ from plugins._telegram_integration.helpers.constants import (
     CTX_TG_CHAT_ID,
     CTX_TG_REPLY_TO,
 )
+
+
+@pytest.mark.parametrize("filename", [
+    "../../../../api/payload.py", r"..\..\..\..\api\payload.py",
+    "/absolute/payload.py", "report.pdf", "bad\x00name.txt",
+])
+def test_incoming_attachment_names_cannot_escape_uploads(monkeypatch, tmp_path, filename):
+    upload_dir = tmp_path / "usr/uploads"
+    monkeypatch.setattr(handler.files, "get_abs_path", lambda *_: str(upload_dir))
+    monkeypatch.setattr(handler.files, "get_abs_path_dockerized", lambda *_: "/a0/usr/uploads")
+    download = AsyncMock(return_value=True)
+    monkeypatch.setattr(handler.tc, "download_file", download)
+    message = SimpleNamespace(
+        document=SimpleNamespace(file_id="fixture", file_name=filename),
+        photo=None, audio=None, voice=None, video=None, video_note=None,
+    )
+
+    paths = asyncio.run(handler._download_attachments(None, message, "test"))
+
+    destination = Path(download.await_args.args[2])
+    assert destination.resolve().parent == upload_dir.resolve()
+    assert "\\" not in destination.name and "\x00" not in destination.name
+    assert paths == [f"/a0/usr/uploads/{destination.name}"]
 
 
 class FakeBotInstance:
@@ -50,9 +78,11 @@ class FakeMediaBot:
         return type("Message", (), {"message_id": 13})()
 
 
-def test_telegram_client_native_media_helpers(monkeypatch):
+def test_telegram_client_native_media_helpers(monkeypatch, tmp_path):
     bot = FakeMediaBot()
-    monkeypatch.setattr(tc.os.path, "isfile", lambda path: True)
+    monkeypatch.chdir(tmp_path)
+    for name in ("voice.ogg", "song.mp3", "clip.mp4"):
+        (tmp_path / name).write_bytes(b"fixture")
 
     voice_id = asyncio.run(tc.send_voice(bot, 123, "voice.ogg", reply_to_message_id=456))
     audio_id = asyncio.run(tc.send_audio(bot, 123, "song.mp3", reply_to_message_id=456))
@@ -60,6 +90,7 @@ def test_telegram_client_native_media_helpers(monkeypatch):
 
     assert (voice_id, audio_id, video_id) == (11, 12, 13)
     assert [kind for kind, _ in bot.calls] == ["voice", "audio", "video"]
+    assert bot.calls[0][1]["voice"] == {"file_name": "voice.ogg", "file_data": "Zml4dHVyZQ=="}
     assert bot.calls[0][1]["chat_id"] == 123
     assert bot.calls[0][1]["reply_to_message_id"] == 456
 

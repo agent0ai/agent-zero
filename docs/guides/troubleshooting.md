@@ -28,23 +28,14 @@ Use **Settings -> Backup & Restore** and avoid mapping the entire `/a0` director
 
 **8. My browser tool fails or says Chromium is missing. What now?**
 
-In normal Docker installs, the Browser already includes what it needs.
-
-If you are running a local development checkout, Agent Zero can install the
-browser the first time it is needed. To install it ahead of time, run this from
-the project root after installing Python requirements:
-
-```bash
-PLAYWRIGHT_BROWSERS_PATH=tmp/playwright patchright install chromium --no-shell
-```
+Open **Browser** and choose **Start**. On first use, the browser sandbox needs network access to install Chromium and its libraries. If installation fails, restore network access and retry. Later starts reuse that installation and your browser profile.
 
 If **Bring Your Own Browser** mode fails:
 
 - keep A0 CLI connected to the chat;
 - restart or reconnect A0 CLI after enabling remote debugging in a browser;
 - run `/browser status` in A0 CLI;
-- check that Browser settings still say **Bring Your Own Browser**;
-- check **Page content access** if page text or screenshots are blocked.
+- check that Browser settings still say **Bring Your Own Browser**.
 
 See the [Browser Guide](browser.md) for Browser settings and host-browser
 behavior. If you need a different external browser tool, see
@@ -77,7 +68,7 @@ Yes. Start with [API Integration](api-integration.md) for one-off services or
 
 **Usage**
 
-- **Terminal commands not executing:** Ensure the Docker container is running and properly configured.  Check SSH settings if applicable. Check if the Docker image is updated by removing it from Docker Desktop app, and subsequently pulling it again.
+- **Terminal commands not executing:** Ensure the Docker container is running and properly configured.  Check which execution destination the tool selected. Check if the Docker image is updated by removing it from Docker Desktop app, and subsequently pulling it again.
 - **Agent Zero stuck on the update screen or not starting after an update:** If the browser stays on the updating screen for multiple minutes, reload the current browser window first. If the UI still does not come back, restart the Docker container. If it still does not recover, queue another self-update for the next startup and inspect the updater log.
 
 From the host, find the container name:

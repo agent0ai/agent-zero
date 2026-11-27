@@ -7,7 +7,7 @@
 
 ## Ownership
 
-- Each direct child directory owns one vendored library or library bundle.
+- Each direct child directory owns one vendored library or library bundle. `socket.io.esm.min.js` supplies the Socket.IO client imported by `webui/js/websocket.js`.
 - Vendored files should be treated as upstream artifacts, with local edits avoided unless clearly documented.
 
 ## Local Contracts
@@ -32,7 +32,6 @@ Direct child DOX files:
 
 | Child | Scope |
 | --- | --- |
-| [_ace/AGENTS.md](_ace/AGENTS.md) | Minimal Ace editor subset used by core editor surfaces. |
 | [ace-min/AGENTS.md](ace-min/AGENTS.md) | Full minified Ace distribution and supporting assets. |
 | [alpine/AGENTS.md](alpine/AGENTS.md) | Vendored Alpine.js core and collapse plugin. |
 | [bootstrap/AGENTS.md](bootstrap/AGENTS.md) | Vendored Bootstrap JavaScript bundle for collapse and tooltip behavior. |

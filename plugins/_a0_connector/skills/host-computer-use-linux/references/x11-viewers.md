@@ -5,7 +5,7 @@ Use this for a native Linux app limitation during an already-authorized host Com
 ## Choose the right surface
 
 - Prefer `computer_use_remote` and its advertised window/element capabilities. A Remmina or RustDesk accessibility tree may describe only the viewer chrome; the remote desktop inside it is a separate pixel surface.
-- If a necessary viewer operation is unsupported, existing X11 utilities may help through `code_execution_remote`. Load `host-code-execution`, confirm both host Computer Use and host code execution remain enabled, and use only the connected host shell. Do not use `code_execution_tool`, Docker, Xpra, or `desktopctl.sh`.
+- If a necessary viewer operation is unsupported, existing X11 utilities may help through `code_execution_tool` with `destination: host`. Load `host-code-execution`, confirm both host Computer Use and host code execution remain enabled, and use only the connected host shell. Do not use Docker, Xpra, or `desktopctl.sh` for host viewing.
 - A disabled grant, missing bridge, re-arm requirement, screen-capture denial, or unverifiable target is a stop condition. Shell access does not override it. Do not install desktop-control dependencies or change session configuration just to escape such a failure.
 
 ## Discover, target, verify

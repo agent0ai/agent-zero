@@ -23,8 +23,8 @@ def normalize_paths(paths) -> list[str]:
     for raw_path in paths:
         if not isinstance(raw_path, str):
             continue
-        path = raw_path.strip()
-        if not path:
+        path = raw_path
+        if not path.strip():
             continue
         if not path.startswith("/"):
             path = f"/{path}"

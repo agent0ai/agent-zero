@@ -13,7 +13,6 @@ A real **A0Cleaner** task appears in Agent Zero's Scheduled Tasks. It runs weekl
 | Retired browser profiles | Automatic | 30 days, inactive profiles only |
 | Old chat screenshots | Automatic | 30 days, inactive chats only |
 | Temporary browser/desktop captures | Automatic | 30 days |
-| Unused Chromium installations | Automatic | 30 days, required and running versions excluded |
 | Embedding cache | Manual selection | 30 days |
 | Custom folders | Manual selection | Per-folder age |
 

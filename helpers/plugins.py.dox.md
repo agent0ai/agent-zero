@@ -49,6 +49,7 @@
 
 ## Runtime Contracts
 
+- `PluginMetadata.a0_version` preserves an optional string/list of strings from the manifest. It declares A0 compatibility separately from the plugin's own `version`; interpretation and advisory Hub warnings belong to `_plugin_installer`, without gating discovery or activation.
 - Enabled asset paths follow `get_plugin_roots()` priority: user plugins before
   bundled plugins, preserving discovery order within each root. First-match
   tools, prompts and same-filename extensions therefore honor user plugin
@@ -75,6 +76,9 @@
 
 - Important called helpers/classes observed in the source: `re.compile`, `Field`, `watchdog.add_watchdog`, `clear_plugin_cache`, `send_frontend_reload_notification`, `DeferredTask.start_task`, `get_plugin_roots`, `get_plugin_name_from_path`, `result.sort`, `cache.add`, `get_enhanced_plugins_list`, `find_plugin_dir`, `files.get_abs_path`, `files.exists`, `call_plugin_hook`, `delete_plugin`, `files.delete_dir`, `after_plugin_change`, `get_enabled_plugins`, `get_plugins_list`, `get_plugin_meta`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
+
+- Linux plugin watchers react to completed writes, creates, moves and deletes. PRoot mount ACL changes produce metadata events and must leave live workers and WebUI extensions loaded.
+- Plugin watchdog invalidation only admits direct plugin hooks, toggles and extensions; dependency files inside sandbox disk roots must not unload live services.
 
 ## Work Guidance
 

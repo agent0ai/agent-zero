@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Own Agent Zero workspace history, diff inspection, travel, snapshots, and revert for selectable Agent Zero workdir/project workspaces under `/a0/usr`.
+- Own Agent Zero workspace history, diff inspection, travel, snapshots, and revert for selectable Agent Zero workdir, project and sandbox data workspaces under `/a0/usr`.
 
 ## Ownership
 
@@ -15,7 +15,8 @@
 
 ## Local Contracts
 
-- Keep history operations scoped to Agent Zero-owned workdir/project workspaces.
+- Keep history operations scoped to Agent Zero-owned workdir, project and sandbox data workspaces.
+- Each sandbox data directory at `usr/sandbox_data/<name>` has its own selectable history. Resolve file events and retention to the same workspace. Travel and revert preserve empty guest bind directories and inherited guest write permissions.
 - Display-path mapping must resolve real paths inside a dev checkout that itself lives under `/a0`, without doubling the base dir.
 - Canonical workspace display paths are posix-normalized and workspace ids derive from that normalized string, so equivalent inputs keep stable ids.
 - Nested dev checkouts switch once from physical to logical canonical paths, so their workspace ids change and older shadow repos stay on disk unreachable; production instances based at `/a0` keep their ids.

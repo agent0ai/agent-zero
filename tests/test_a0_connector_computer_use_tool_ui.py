@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from plugins._a0_connector.tools.computer_use_remote import ComputerUseRemote
+from plugins._a0_connector.helpers.host_computer_use import ComputerUseRemote
 
 
 class _FakeLog:

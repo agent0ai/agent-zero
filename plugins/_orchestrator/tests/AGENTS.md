@@ -12,7 +12,7 @@
 
 ## Local Contracts
 
-- Tests must run with the Agent Zero framework runtime, not the agent execution runtime.
+- Tests must run with Agent Zero's global Docker Python runtime, not an isolated sandbox image.
 - Keep tests self-contained and deterministic. They may inspect files and adapter metadata but should not call network login endpoints or run real terminal agents.
 - When adding an adapter, assert registry order and status-only behavior as needed.
 - When changing setup/login guidance, add or update assertions for the phrases that protect the workflow.
@@ -26,7 +26,7 @@
 
 - Main check:
   ```bash
-  docker exec 8dc967046cda bash -lc 'cd /a0 && /opt/venv-a0/bin/python plugins/_orchestrator/tests/test_status_adapters.py'
+  docker exec 8dc967046cda bash -lc 'cd /a0 && python plugins/_orchestrator/tests/test_status_adapters.py'
   ```
 
 ## Child DOX Index

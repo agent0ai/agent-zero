@@ -4,6 +4,21 @@ description: "Read, extract or compare PDFs, Office files, URLs and large text; 
 version: 1.0.0
 author: Agent Zero Team
 tags: ["documents", "ocr", "qa", "pdf", "code", "analysis"]
+metadata:
+  tool:
+    name: document_query
+    parameters:
+      type: object
+      properties:
+        document:
+          anyOf:
+            - {type: string}
+            - {type: array, items: {type: string}}
+        queries: {type: array, items: {type: string}}
+        query: {type: string}
+        destination: {type: string}
+      required: [document]
+      additionalProperties: true
 trigger_patterns:
   - document query
   - read document
@@ -41,6 +56,7 @@ Do not use `document_query` for purely visual questions, first-pass screenshot i
 - `document`: required. A single local path/URL or a list of local paths/URLs.
 - `queries`: optional. A list of questions. When omitted, the tool returns extracted document content.
 - `query`: optional compatibility shortcut for a single question.
+- `destination`: optional for files. Use `local` (the default), `default`, a named sandbox, or `host` with connected file access.
 
 Local paths must be full paths. `file://` is optional for local files. URLs should use `http://` or `https://`.
 
@@ -48,7 +64,7 @@ For directories or codebases, first identify the relevant files with file/search
 
 ## Workflow
 
-1. Use `document_query` directly after this skill is loaded.
+1. Call `document_query` sequentially after this skill is loaded.
 2. If the user asks for an answer, summary, comparison, or extraction, pass natural-language questions in `queries`.
 3. If the user asks to inspect raw contents or you need to see the extracted text first, omit `queries`.
 4. For multiple documents, pass a list in `document` and ask comparison or extraction questions in `queries`.

@@ -17,7 +17,7 @@
 
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
-- Imported dependency areas include: `functools`, `inspect`, `pyinstrument`.
+- Install the optional profiler with `python -m pip install pyinstrument` before applying `@trace_performance()`. Importing this helper only requires the standard library.
 
 ## Key Concepts
 

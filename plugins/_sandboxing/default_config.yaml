@@ -1,0 +1,22 @@
+proot_path: /usr/local/bin/a0-proot
+skopeo_path: /usr/bin/skopeo
+umoci_path: /usr/bin/umoci
+default_image: agent-zero-sandbox:4
+registry_auth_file: ""
+# Empty paths select the installation’s runtime store.
+image_cache_dir: ""
+state_dir: ""
+uid_registry: ""
+shared_dir: usr/sandbox-shared
+default_sandbox: default
+default_type: auto
+default_network: host
+temporary_lifetime_days: 7
+image_lifetime_days: 30
+image_pull_timeout: 900
+image_unpack_timeout: 900
+max_image_bytes: 17179869184
+start_timeout: 8
+stop_timeout: 3
+exec_timeout: 600
+max_output_bytes: 1048576

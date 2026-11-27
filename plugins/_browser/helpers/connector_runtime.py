@@ -7,19 +7,10 @@ import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from helpers import chat_media, media_artifacts
 
-try:
-    from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
-except Exception:
-    class ConnectionNotFoundError(RuntimeError):
-        pass
-
-    def get_shared_ws_manager():
-        raise ConnectionNotFoundError("WebSocket manager is unavailable")
-
+from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 from plugins._a0_connector.helpers.ws_runtime import (
     clear_pending_browser_op,
     emit_connector_event,
@@ -30,8 +21,9 @@ from plugins._a0_connector.helpers.ws_runtime import (
     store_pending_browser_op,
 )
 from plugins._browser.helpers import config as browser_config
+from plugins._browser.helpers.config import get_browser_config
 from plugins._browser.helpers.url import normalize_url
-from plugins._browser.helpers.runtime import run_browser_calls
+from plugins._browser.helpers.calls import run_browser_calls
 
 
 BROWSER_OP_EVENT = "connector_browser_op"
@@ -40,30 +32,6 @@ EVALUATE_CANCEL_TIMEOUT_SECONDS = 20.0
 DOM_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-dom-helper.js"
 CONTENT_HELPER_PATH = Path(__file__).resolve().parents[1] / "assets" / "browser-page-content.js"
 MAX_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
-HOST_BROWSER_PRIVACY_POLICY_KEY = getattr(
-    browser_config,
-    "HOST_BROWSER_PRIVACY_POLICY_KEY",
-    "host_browser_privacy_policy",
-)
-DEFAULT_HOST_BROWSER_PRIVACY_POLICY = getattr(
-    browser_config,
-    "DEFAULT_HOST_BROWSER_PRIVACY_POLICY",
-    "allow",
-)
-HOST_BROWSER_PROFILE_MODE_KEY = getattr(
-    browser_config,
-    "HOST_BROWSER_PROFILE_MODE_KEY",
-    "host_browser_profile_mode",
-)
-HOST_BROWSER_SELECTION_KEY = getattr(
-    browser_config,
-    "HOST_BROWSER_SELECTION_KEY",
-    "host_browser_selection",
-)
-get_browser_config = browser_config.get_browser_config
-_LOCAL_PROVIDERS = {"ollama", "lm_studio", "llama_cpp", "omlx", "vllm"}
-_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
-_SENSITIVE_ACTIONS = {"content", "detail", "evaluate", "screenshot", "screenshot_file"}
 _KEY_ALIASES = {
     "cmd": "Meta",
     "command": "Meta",
@@ -99,24 +67,8 @@ _REMOTE_DEBUGGING_ERROR_TOKENS = (
     "cannot connect to the host browser",
     "127.0.0.1:9222",
     "localhost:9222",
-    "blocks playwright remote debugging",
+    "blocks command-line remote debugging",
 )
-
-
-def _stable_host_browser_selection(selection: Any, metadata: Any) -> str:
-    selected = str(selection or "").strip()
-    if not selected or not isinstance(metadata, dict):
-        return selected
-    candidates = list(metadata.get("available_browsers") or [])
-    candidates.append(metadata)
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            continue
-        endpoint = str(candidate.get("cdp_endpoint") or "").strip()
-        browser_id = str(candidate.get("id") or candidate.get("browser_id") or "").strip()
-        if endpoint == selected and browser_id:
-            return browser_id
-    return selected
 
 
 class ConnectorBrowserRuntime:
@@ -126,15 +78,7 @@ class ConnectorBrowserRuntime:
 
     async def call(self, method: str, *args: Any, **kwargs: Any) -> Any:
         payload = self._payload_for_call(method, *args, **kwargs)
-        warning = self._privacy_warning(payload)
-        result = await self._dispatch(payload)
-        result = self._materialize_artifact(result)
-        if warning:
-            if isinstance(result, dict):
-                result.setdefault("privacy_warning", warning)
-            else:
-                result = {"result": result, "privacy_warning": warning}
-        return result
+        return self._materialize_artifact(await self._dispatch(payload))
 
     def _payload_for_call(self, method: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
         action = str(method or "").strip().lower().replace("-", "_")
@@ -142,8 +86,6 @@ class ConnectorBrowserRuntime:
             "op_id": str(uuid.uuid4()),
             "context_id": self.context_id,
             "action": action,
-            "profile_mode": self._host_browser_profile_mode(),
-            "browser_selection": self._host_browser_selection(),
         }
 
         if action == "open":
@@ -159,6 +101,8 @@ class ConnectorBrowserRuntime:
             payload["quality"] = kwargs.get("quality", 80)
             payload["full_page"] = kwargs.get("full_page", False)
             payload["path"] = kwargs.get("path", "")
+            if kwargs.get("image_format"):
+                payload["image_format"] = kwargs["image_format"]
         elif action == "list":
             payload["include_content"] = kwargs.get("include_content", False)
         elif action == "content":
@@ -170,6 +114,9 @@ class ConnectorBrowserRuntime:
         elif action == "evaluate":
             payload["browser_id"] = args[0] if args else None
             payload["script"] = args[1] if len(args) > 1 else ""
+        elif action == "cdp":
+            payload.update(zip(("browser_id", "cdp_method", "params", "session_id"), args))
+            payload.update(kwargs)
         elif action == "click":
             payload["browser_id"] = args[0] if args else None
             payload["ref"] = args[1] if len(args) > 1 else None
@@ -225,6 +172,8 @@ class ConnectorBrowserRuntime:
         else:
             payload.update(kwargs)
 
+        if kwargs.get("window_id") is not None or kwargs.get("new_window"):
+            raise ValueError("Window selection is available in the container browser.")
         return payload
 
     @staticmethod
@@ -289,34 +238,34 @@ class ConnectorBrowserRuntime:
     async def _dispatch(self, payload: dict[str, Any]) -> Any:
         if payload.get("action") == "multi":
             return await run_browser_calls(payload.get("calls"), self._dispatch_call)
+        if payload.get("window_id") is not None or payload.get("new_window"):
+            raise ValueError("Window selection is available in the container browser.")
+        config = get_browser_config(self.agent)
         if payload.get("action") == "evaluate":
             script = payload.get("script")
             if not isinstance(script, str) or not script.strip():
                 raise ValueError("evaluate requires a non-empty 'script' string")
             payload[browser_config.EVALUATE_TIMEOUT_KEY] = browser_config.normalize_evaluate_timeout(
-                get_browser_config(self.agent).get(
-                    browser_config.EVALUATE_TIMEOUT_KEY, browser_config.DEFAULT_EVALUATE_TIMEOUT_SECONDS
-                )
+                config.get(browser_config.EVALUATE_TIMEOUT_KEY, browser_config.DEFAULT_EVALUATE_TIMEOUT_SECONDS)
             )
-        payload.setdefault("profile_mode", self._host_browser_profile_mode())
-        self._enforce_privacy(payload)
+        payload["profile_mode"] = config.get(browser_config.HOST_BROWSER_PROFILE_MODE_KEY, "existing")
+        payload["browser_selection"] = config.get(browser_config.HOST_BROWSER_SELECTION_KEY, "")
         sid = self._select_sid()
         if not sid:
             statuses = host_browser_metadata_for_context(self.context_id)
             raise RuntimeError(self._host_browser_unavailable_message(statuses))
-        payload["browser_selection"] = self._host_browser_selection(sid)
 
         if self._needs_prepare(sid, payload):
             await self._send_browser_op(
                 sid,
-                self._with_content_helper(
+                self._with_browser_helpers(
                     sid,
                     {
                         "op_id": str(uuid.uuid4()),
                         "context_id": self.context_id,
                         "action": "ensure",
-                        "profile_mode": self._host_browser_profile_mode(),
-                        "browser_selection": self._host_browser_selection(sid),
+                        "profile_mode": payload["profile_mode"],
+                        "browser_selection": payload["browser_selection"],
                     },
                 ),
             )
@@ -332,28 +281,6 @@ class ConnectorBrowserRuntime:
             "context_id": self.context_id,
             "op_id": str(uuid.uuid4()),
         })
-
-    def _host_browser_profile_mode(self) -> str:
-        config = get_browser_config(self.agent)
-        mode = str(config.get(HOST_BROWSER_PROFILE_MODE_KEY) or "existing").strip().lower()
-        return "agent" if mode == "agent" else "existing"
-
-    def _host_browser_selection(self, sid: str = "") -> str:
-        config = get_browser_config(self.agent)
-        selection = str(config.get(HOST_BROWSER_SELECTION_KEY) or "").strip()
-        if sid:
-            return _stable_host_browser_selection(
-                selection,
-                host_browser_metadata_for_sid(sid),
-            )
-        for metadata in host_browser_metadata_for_context(self.context_id):
-            stable = _stable_host_browser_selection(selection, metadata)
-            if stable != selection:
-                return stable
-        return selection
-
-    def _with_content_helper(self, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._with_browser_helpers(sid, payload)
 
     def _with_browser_helpers(self, sid: str, payload: dict[str, Any]) -> dict[str, Any]:
         metadata = host_browser_metadata_for_sid(sid) or {}
@@ -375,13 +302,7 @@ class ConnectorBrowserRuntime:
         return payload
 
     async def _send_browser_op(self, sid: str, payload: dict[str, Any]) -> Any:
-        if payload.get("action") == "evaluate" and "evaluate_timeout_v1" not in (
-            (host_browser_metadata_for_sid(sid) or {}).get("features") or []
-        ):
-            raise RuntimeError(
-                "Host evaluate requires a connector with evaluate_timeout_v1 support. "
-                "Update A0 CLI/Launcher or use the Internal Docker browser; no script was sent."
-            )
+        action = payload.get("action")
         op_id = str(payload["op_id"])
         loop = asyncio.get_running_loop()
         future: asyncio.Future[dict[str, Any]] = loop.create_future()
@@ -399,6 +320,8 @@ class ConnectorBrowserRuntime:
         )
         if payload.get("action") == "cancel_evaluate":
             wait_timeout = EVALUATE_CANCEL_TIMEOUT_SECONDS
+        if action == "release_cdp":
+            wait_timeout = 5.0
 
         async def exchange():
             await emit_connector_event(
@@ -473,6 +396,13 @@ class ConnectorBrowserRuntime:
             or select_host_browser_candidate_sid(self.context_id)
         )
 
+    async def release_cdp(self) -> None:
+        for peer in host_browser_metadata_for_context(self.context_id):
+            if peer.get("enabled"):
+                await self._send_browser_op(peer["sid"], {
+                    "action": "release_cdp", "context_id": self.context_id, "op_id": str(uuid.uuid4()),
+                })
+
     def _needs_prepare(self, sid: str, payload: dict[str, Any]) -> bool:
         action = str(payload.get("action") or "").strip().lower().replace("-", "_")
         if action in {"status", "ensure"}:
@@ -482,51 +412,6 @@ class ConnectorBrowserRuntime:
             metadata.get("enabled")
             and str(metadata.get("status") or "").strip() in {"ready", "active"}
         )
-
-    def _enforce_privacy(self, payload: dict[str, Any]) -> None:
-        policy = str(
-            get_browser_config(agent=self.agent).get(HOST_BROWSER_PRIVACY_POLICY_KEY)
-            or DEFAULT_HOST_BROWSER_PRIVACY_POLICY
-        ).strip()
-        if not self._payload_is_sensitive(payload) or policy != "enforce_local":
-            return
-        if _agent_uses_local_chat_model(self.agent):
-            return
-        raise RuntimeError(
-            "Host-browser content is blocked by Browser privacy policy. "
-            "Switch this project to a local chat model, or change Browser settings from "
-            "enforce_local to warn/allow."
-        )
-
-    def _privacy_warning(self, payload: dict[str, Any]) -> str:
-        policy = str(
-            get_browser_config(agent=self.agent).get(HOST_BROWSER_PRIVACY_POLICY_KEY)
-            or DEFAULT_HOST_BROWSER_PRIVACY_POLICY
-        ).strip()
-        if policy != "warn" or not self._payload_is_sensitive(payload):
-            return ""
-        if _agent_uses_local_chat_model(self.agent):
-            return ""
-        return (
-            "Browser privacy policy is warn: host-browser content was returned while "
-            "the active chat model does not appear local."
-        )
-
-    def _payload_is_sensitive(self, payload: dict[str, Any]) -> bool:
-        action = str(payload.get("action") or "").strip().lower().replace("-", "_")
-        if action in _SENSITIVE_ACTIONS:
-            return True
-        if action == "list" and bool(payload.get("include_content")):
-            return True
-        if action == "multi":
-            calls = payload.get("calls")
-            if isinstance(calls, list):
-                return any(
-                    self._payload_is_sensitive(call)
-                    for call in calls
-                    if isinstance(call, dict)
-                )
-        return False
 
     def _materialize_artifact(self, result: Any) -> Any:
         if isinstance(result, list):
@@ -694,31 +579,3 @@ def _content_helper_required_apis(source: str) -> list[str]:
             f"Host-browser content helper from {CONTENT_HELPER_PATH} declares no required API names."
         )
     return names
-
-
-def _agent_uses_local_chat_model(agent: Any) -> bool:
-    try:
-        from plugins._model_config.helpers import model_config
-
-        cfg = model_config.get_chat_model_config(agent)
-    except Exception:
-        cfg = {}
-    if not isinstance(cfg, dict):
-        return False
-    provider = str(cfg.get("provider", "") or "").strip().lower()
-    if provider in _LOCAL_PROVIDERS:
-        return True
-    api_base = str(cfg.get("api_base", "") or cfg.get("base_url", "") or "").strip()
-    if not api_base:
-        kwargs = cfg.get("kwargs")
-        if isinstance(kwargs, dict):
-            api_base = str(kwargs.get("api_base", "") or kwargs.get("base_url", "") or "").strip()
-    return _api_base_is_local(api_base)
-
-
-def _api_base_is_local(api_base: str) -> bool:
-    if not api_base:
-        return False
-    parsed = urlparse(api_base if "://" in api_base else f"http://{api_base}")
-    hostname = (parsed.hostname or "").strip().lower()
-    return hostname in _LOCAL_HOSTS

@@ -11,14 +11,13 @@ from helpers.ws import WsHandler
 from helpers.ws_manager import WsResult
 from plugins._browser.helpers.config import (
     ANNOTATION_SCREENSHOTS_KEY,
-    DEFAULT_BROWSER_TAB_SCOPE,
-    TAB_SCOPE_KEY,
     get_browser_config,
 )
 from plugins._browser.helpers.runtime import (
     get_runtime,
     has_restorable_browser_tabs,
-    list_runtime_sessions,
+    browser_startup_request,
+    browser_startup_status,
 )
 
 
@@ -55,8 +54,11 @@ class WsBrowser(WsHandler):
         if not event.startswith("browser_"):
             return None
 
+        if event == "browser_startup_status":
+            return {"startup": await asyncio.to_thread(browser_startup_status, self._context_id(data))}
         if event == "browser_viewer_subscribe":
-            return await self._subscribe(data, sid)
+            with browser_startup_request(self._context_id(data)):
+                return await self._subscribe(data, sid)
         if event == "browser_viewer_unsubscribe":
             return self._unsubscribe(data, sid)
         if event == "browser_viewer_snapshot":
@@ -64,6 +66,9 @@ class WsBrowser(WsHandler):
         if event == "browser_viewer_sessions":
             return await self._sessions(data)
         if event == "browser_viewer_command":
+            if str(data.get('command') or '').strip().lower() == 'open':
+                with browser_startup_request(self._context_id(data)):
+                    return await self._command(data, sid)
             return await self._command(data, sid)
         if event == "browser_viewer_input":
             return await self._input(data, sid)
@@ -153,16 +158,14 @@ class WsBrowser(WsHandler):
             if viewer_transport != VIEWER_TRANSPORT_INTERACTIVE:
                 snapshot = await self._snapshot_for_browser(runtime, active_id)
 
-        browsers, all_browsers, tab_scope = await self._tabs_for_scope(context_id, browsers)
-
         return {
             "context_id": context_id,
             "active_browser_context_id": context_id,
             "active_browser_id": active_id,
             "snapshot": snapshot,
             "browsers": browsers,
-            "all_browsers": all_browsers,
-            "tab_scope": tab_scope,
+            "all_browsers": True,
+            "tab_scope": "shared",
             "viewer_id": viewer_id,
             "viewer_transport": viewer_transport,
             "interactive_view": interactive_view,
@@ -188,22 +191,13 @@ class WsBrowser(WsHandler):
 
     async def _sessions(self, data: dict[str, Any]) -> dict[str, Any]:
         context_id = self._context_id(data)
-        tab_scope = self._tab_scope()
-        if tab_scope == "shared":
-            return {
-                "context_id": context_id,
-                "browsers": await self._all_browser_tabs(),
-                "all_browsers": True,
-                "tab_scope": tab_scope,
-            }
-
         runtime = await get_runtime(context_id, create=False) if context_id else None
-        listing = await runtime.call("list", restore=False, touch=False) if runtime else {}
+        listing = await runtime.call("list") if runtime else {}
         return {
             "context_id": context_id,
             "browsers": listing.get("browsers") or [],
-            "all_browsers": False,
-            "tab_scope": tab_scope,
+            "all_browsers": True,
+            "tab_scope": "shared",
         }
 
     async def _snapshot(self, data: dict[str, Any]) -> dict[str, Any] | WsResult:
@@ -215,15 +209,14 @@ class WsBrowser(WsHandler):
 
         runtime = await get_runtime(context_id, create=False)
         if not runtime:
-            browsers, all_browsers, tab_scope = await self._tabs_for_scope(context_id, [])
             return {
                 "context_id": context_id,
                 "active_browser_context_id": context_id,
                 "active_browser_id": None,
                 "snapshot": None,
-                "browsers": browsers,
-                "all_browsers": all_browsers,
-                "tab_scope": tab_scope,
+                "browsers": [],
+                "all_browsers": True,
+                "tab_scope": "shared",
             }
 
         listing = await runtime.call("list")
@@ -242,16 +235,14 @@ class WsBrowser(WsHandler):
                     quality=quality,
                 )
 
-        browsers, all_browsers, tab_scope = await self._tabs_for_scope(context_id, browsers)
-
         return {
             "context_id": context_id,
             "active_browser_context_id": context_id,
             "active_browser_id": active_id,
             "snapshot": snapshot,
             "browsers": browsers,
-            "all_browsers": all_browsers,
-            "tab_scope": tab_scope,
+            "all_browsers": True,
+            "tab_scope": "shared",
         }
 
     async def _command(self, data: dict[str, Any], sid: str) -> dict[str, Any] | WsResult:
@@ -265,7 +256,8 @@ class WsBrowser(WsHandler):
 
         try:
             if command == "open":
-                result = await runtime.call("open", data.get("url") or "", wait_until="commit")
+                kwargs = {"new_window": True} if data.get("new_window") else {}
+                result = await runtime.call("open", data.get("url") or "", wait_until="commit", **kwargs)
             elif command == "navigate":
                 result = await runtime.call(
                     "navigate",
@@ -306,10 +298,7 @@ class WsBrowser(WsHandler):
             if viewer_transport == VIEWER_TRANSPORT_INTERACTIVE
             else await self._snapshot_for_result(runtime, result)
         )
-        browsers, all_browsers, tab_scope = await self._tabs_for_scope(
-            context_id,
-            listing.get("browsers") or [],
-        )
+        browsers = listing.get("browsers") or []
         await self.emit_to(
             sid,
             "browser_viewer_state",
@@ -322,8 +311,8 @@ class WsBrowser(WsHandler):
                 "result": result,
                 "snapshot": snapshot,
                 "browsers": browsers,
-                "all_browsers": all_browsers,
-                "tab_scope": tab_scope,
+                "all_browsers": True,
+                "tab_scope": "shared",
                 "last_interacted_browser_id": last_interacted_browser_id,
                 "viewer_transport": viewer_transport,
                 "interactive_view": interactive_view,
@@ -334,8 +323,8 @@ class WsBrowser(WsHandler):
             "result": result,
             "snapshot": snapshot,
             "browsers": browsers,
-            "all_browsers": all_browsers,
-            "tab_scope": tab_scope,
+            "all_browsers": True,
+            "tab_scope": "shared",
             "active_browser_context_id": context_id,
             "last_interacted_browser_id": last_interacted_browser_id,
             "command": command,
@@ -480,34 +469,6 @@ class WsBrowser(WsHandler):
             return await runtime.call("screenshot", browser_id, quality=SCREENSHOT_QUALITY)
         return None
 
-    @staticmethod
-    def _tab_scope() -> str:
-        scope = str(
-            (get_browser_config() or {}).get(TAB_SCOPE_KEY, DEFAULT_BROWSER_TAB_SCOPE)
-            or DEFAULT_BROWSER_TAB_SCOPE
-        ).strip().lower().replace("-", "_")
-        return "shared" if scope == "shared" else DEFAULT_BROWSER_TAB_SCOPE
-
-    async def _tabs_for_scope(
-        self,
-        context_id: str,
-        browsers: list[dict[str, Any]] | None,
-    ) -> tuple[list[dict[str, Any]], bool, str]:
-        tab_scope = self._tab_scope()
-        if tab_scope == "shared":
-            return await self._all_browser_tabs(), True, tab_scope
-        return browsers or [], False, tab_scope
-
-    async def _all_browser_tabs(self) -> list[dict[str, Any]]:
-        browsers: list[dict[str, Any]] = []
-        for session in await list_runtime_sessions(restore=False):
-            context_id = str(session.get("context_id") or "")
-            for browser in session.get("browsers") or []:
-                entry = dict(browser or {})
-                entry.setdefault("context_id", context_id)
-                browsers.append(entry)
-        return browsers
-
     async def _stream_frames(
         self,
         sid: str,
@@ -534,7 +495,7 @@ class WsBrowser(WsHandler):
                     await asyncio.sleep(FRAME_RETRY_DELAY_SECONDS)
                     continue
 
-                listing = await runtime.call("list", restore=False)
+                listing = await runtime.call("list")
                 browsers = listing.get("browsers") or []
                 active_id = self._active_browser_id(listing, browser_id)
                 if not active_id:
@@ -609,7 +570,7 @@ class WsBrowser(WsHandler):
                         break
                     now = time.monotonic()
                     if now - last_state_refresh >= FRAME_STATE_REFRESH_SECONDS:
-                        listing = await runtime.call("list", restore=False)
+                        listing = await runtime.call("list")
                         browsers = listing.get("browsers") or []
                         browser_ids = {str(browser.get("id")) for browser in browsers}
                         if str(active_id) not in browser_ids:
@@ -670,12 +631,13 @@ class WsBrowser(WsHandler):
                     await asyncio.sleep(FRAME_RETRY_DELAY_SECONDS)
                     continue
 
-                listing = await runtime.call("list", restore=False)
+                listing = await runtime.call("list")
                 browsers = listing.get("browsers") or []
-                active_id = self._active_browser_id(listing, browser_id)
+                active_id = self._active_browser_id(listing, None if viewer_transport == VIEWER_TRANSPORT_INTERACTIVE else browser_id)
                 state = self._state_for_browser(browsers, active_id, None) if active_id else None
                 signature = (
                     str(active_id or ""),
+                    (state or {}).get("viewport"),
                     tuple(
                         (
                             str(browser.get("context_id") or context_id),
@@ -683,6 +645,8 @@ class WsBrowser(WsHandler):
                             str(browser.get("currentUrl") or ""),
                             str(browser.get("title") or ""),
                             bool(browser.get("loading")),
+                            browser.get("window_id"),
+                            browser.get("visible"),
                         )
                         for browser in browsers
                     ),
@@ -858,7 +822,6 @@ class WsBrowser(WsHandler):
         state: dict[str, Any] | None = None,
         viewer_transport: str = VIEWER_TRANSPORT_SNAPSHOT,
     ) -> None:
-        browsers, all_browsers, tab_scope = await self._tabs_for_scope(context_id, browsers or [])
         await self._emit_to_connected_viewer(
             sid,
             "browser_viewer_state",
@@ -870,8 +833,8 @@ class WsBrowser(WsHandler):
                 "active_browser_id": browser_id,
                 "browsers": browsers or [],
                 "state": state,
-                "all_browsers": all_browsers,
-                "tab_scope": tab_scope,
+                "all_browsers": True,
+                "tab_scope": "shared",
                 "viewer_transport": viewer_transport,
             },
         )
@@ -885,7 +848,6 @@ class WsBrowser(WsHandler):
         viewer_id: str = "",
         frame_source: str = "",
     ) -> None:
-        browsers, all_browsers, tab_scope = await self._tabs_for_scope(context_id, browsers or [])
         await self._emit_to_connected_viewer(
             sid,
             "browser_viewer_frame",
@@ -894,8 +856,8 @@ class WsBrowser(WsHandler):
                 "viewer_id": viewer_id,
                 "browser_id": None,
                 "browsers": browsers or [],
-                "all_browsers": all_browsers,
-                "tab_scope": tab_scope,
+                "all_browsers": True,
+                "tab_scope": "shared",
                 "image": "",
                 "mime": "",
                 "state": None,

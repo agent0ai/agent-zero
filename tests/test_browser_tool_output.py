@@ -7,25 +7,26 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from plugins._browser.helpers import runtime as runtime_module
+from plugins._browser.sandbox import runtime as runtime_module
 from plugins._browser.helpers.config import normalize_browser_config
-from plugins._browser.helpers.runtime import BrowserPage, BrowserRuntime, _BrowserRuntimeCore
-from plugins._browser.tools.browser import Browser
+from plugins._browser.helpers.runtime import BrowserRuntime
+from plugins._browser.sandbox.runtime import BrowserPage, _BrowserRuntimeCore
+from plugins._browser.helpers.browser_handler import Browser
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("method", ["list", "list_all"])
+@pytest.mark.parametrize("method", ["list", "list_windows"])
 @pytest.mark.parametrize("restorable", [False, True])
 async def test_listing_only_starts_cold_browser_when_tabs_need_restoring(monkeypatch, method, restorable):
     core = _BrowserRuntimeCore("listing-test")
     started = AsyncMock()
     monkeypatch.setattr(core, "ensure_started", started)
-    monkeypatch.setattr(runtime_module, "has_restorable_browser_tabs", lambda context_id: restorable)
+    monkeypatch.setattr(core, "_has_restorable_tabs", lambda: restorable)
 
-    assert (await getattr(core, method)())["browsers"] == []
+    assert (await getattr(core, method)())["windows" if method == "list_windows" else "browsers"] == []
     assert started.await_count == int(restorable)
 
 
@@ -36,14 +37,12 @@ async def test_navigation_uses_requested_readiness_without_extra_settling(monkey
     page = SimpleNamespace(
         goto=AsyncMock(), go_back=AsyncMock(), go_forward=AsyncMock(), reload=AsyncMock(),
     )
-    core.pages[1] = BrowserPage(1, page, "navigation-test")
+    core.pages[1] = BrowserPage(1, page)
     core.context = SimpleNamespace(new_page=AsyncMock(return_value=page))
     monkeypatch.setattr(core, "ensure_started", AsyncMock())
     monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 1}))
     monkeypatch.setattr(core, "_register_page", AsyncMock(return_value=core.pages[1]))
-    monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
     monkeypatch.setattr(core, "_settle", AsyncMock(side_effect=AssertionError("Redundant wait")))
-    monkeypatch.setattr(runtime_module, "get_browser_config", lambda: {})
 
     await core.open("https://example.com", wait_until=wait_until)
     await core.navigate(1, "https://example.com", wait_until=wait_until)
@@ -61,12 +60,13 @@ async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch
     page = SimpleNamespace(url="https://example.com", evaluate=AsyncMock(return_value={
         "title": "Example", "canGoBack": True, "loading": True, "zoom": 125,
     }))
-    core.pages[1] = BrowserPage(1, page, "state-test")
+    core.pages[1] = BrowserPage(1, page)
     state = await core._state(1)
     assert state == {
         "id": 1, "context_id": "state-test", "currentUrl": page.url,
         "title": "Example", "canGoBack": True, "canGoForward": False, "loading": True,
-        "zoom": 125, "zoom_available": False,
+        "zoom": 125, "zoom_available": False, "window_id": None,
+        "visible": False, "focused": False, "viewport": None,
     }
     assert page.evaluate.await_count == 1
     page.evaluate.side_effect = RuntimeError("Execution context destroyed during navigation")
@@ -75,13 +75,13 @@ async def test_browser_state_reads_metadata_once_and_reports_loading(monkeypatch
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action,calls,capture", [
-    *[(action, None, False) for action in ("list", "state", "content", "detail", "evaluate", "close", "close_all")],
+    *[(action, None, False) for action in ("list", "state", "content", "detail", "evaluate", "cdp", "close", "close_all")],
     ("multi", [{"action": "content"}, {"action": "evaluate", "script": "document.title"}], False),
     ("multi", [{"action": "content"}, {"action": "click", "ref": 1}], True),
     ("screenshot", None, True),
 ])
 async def test_browser_inspection_skips_history_capture_but_preserves_visual_actions(monkeypatch, action, calls, capture):
-    from plugins._browser.tools import browser as tool_module
+    from plugins._browser.helpers import browser_handler as tool_module
 
     screenshot = {"browser_id": 1, "ephemeral_ref": "a0-ephemeral-image://test"}
     runtime = SimpleNamespace(call=AsyncMock(side_effect=lambda method, *a, **kw:
@@ -107,6 +107,88 @@ def test_format_result_minifies_tool_json() -> None:
 
     assert "\n" not in formatted
     assert json.loads(formatted) == result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("batched", [False, True])
+async def test_named_png_destination_requests_png_without_exposing_the_path(monkeypatch, batched):
+    from plugins._browser.helpers import browser_handler as module
+
+    async def capture(method, *args, **kwargs):
+        options = args[0][0] if method == "multi" else kwargs
+        assert options["path"] == ""
+        assert options["image_format"] == "png"
+        result = {"a0_path": "capture.png", "mime": "image/png"}
+        return [{"ok": True, "result": result}] if batched else result
+
+    runtime = SimpleNamespace(call=capture)
+    monkeypatch.setattr(module, "get_runtime", AsyncMock(return_value=runtime))
+    monkeypatch.setattr(module, "activate_browser_model", lambda agent: None)
+    write = AsyncMock()
+    monkeypatch.setattr(module.destination_files, "write", write)
+    tool = object.__new__(Browser)
+    tool.agent = SimpleNamespace(context=SimpleNamespace(id="test"))
+    tool.method = ""
+    tool._record_history_screenshot = AsyncMock()
+    args = {"action": "screenshot", "destination": "host", "path": "report.PNG"}
+    if batched:
+        args = {"action": "multi", "calls": [args]}
+    for image in (b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n"):
+        monkeypatch.setattr(module.destination_files, "read", AsyncMock(return_value=image))
+        result = await tool.execute(**args)
+        if image.startswith(b"\xff"):
+            assert "different format" in result.message
+            write.assert_not_awaited()
+        else:
+            assert "report.PNG" in result.message
+            assert write.await_args.args[1:] == ("host", "report.PNG", image)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("internal,state", [(True, "starting"), (True, "ready"), (True, "idle"), (False, "starting")])
+@pytest.mark.parametrize("outcome", ["success", "failure", "cancel"])
+async def test_startup_hint_only_reports_internal_initialization_and_stops_with_tool(monkeypatch, internal, state, outcome):
+    from plugins._browser.helpers import browser_handler as tool_module
+
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def call(*args, **kwargs):
+        started.set()
+        await finish.wait()
+        if outcome == "failure":
+            raise RuntimeError("Browser launch failed")
+        return {"browsers": []}
+
+    runtime = object.__new__(tool_module.BrowserRuntimeSession) if internal else SimpleNamespace()
+    runtime.call = call
+    monkeypatch.setattr(tool_module, "get_runtime", AsyncMock(return_value=runtime))
+    monkeypatch.setattr(tool_module, "activate_browser_model", lambda agent: None)
+    monkeypatch.setattr(tool_module, "browser_startup_status", lambda context_id: {"state": state})
+    tool = object.__new__(Browser)
+    tool.agent = SimpleNamespace(context=SimpleNamespace(id="test"))
+    tool.method = ""
+    tool.log = SimpleNamespace(update=Mock())
+    tasks_before = asyncio.all_tasks()
+    task = asyncio.create_task(tool.execute(action="list"))
+    await asyncio.wait_for(started.wait(), 1)
+    if internal and state == "starting":
+        tool.log.update.assert_called_once_with(browser_startup_hint=tool_module.BROWSER_STARTUP_HINT)
+    else:
+        tool.log.update.assert_not_called()
+
+    if outcome == "cancel":
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    else:
+        finish.set()
+        response = await task
+        assert tool_module.BROWSER_STARTUP_HINT not in response.message
+        if outcome == "success":
+            assert json.loads(response.message) == {"browsers": []}
+        else:
+            assert "Browser launch failed" in response.message
+    assert not (asyncio.all_tasks() - tasks_before)
 
 
 def test_format_result_keeps_content_document_plain() -> None:
@@ -166,13 +248,10 @@ def _evaluate_runtime(monkeypatch, timeout=0.1):
         context=SimpleNamespace(new_cdp_session=AsyncMock(return_value=session)),
         reload=AsyncMock(), close=AsyncMock(), is_closed=lambda: False,
     )
-    core.pages[3] = BrowserPage(3, page, "evaluate-test")
+    core.pages[3] = BrowserPage(3, page)
     monkeypatch.setattr(core, "ensure_started", AsyncMock())
     monkeypatch.setattr(core, "_state", AsyncMock(return_value={"id": 3}))
-    monkeypatch.setattr(core, "_persist_browser_tabs", lambda: None)
-    monkeypatch.setattr(runtime_module, "get_browser_config", lambda agent=None: {
-        "evaluate_timeout_seconds": timeout,
-    })
+    core.request_options.set({"evaluate_timeout_seconds": timeout})
     return core, page, session
 
 
@@ -224,7 +303,7 @@ async def test_evaluate_timeout_recovers_and_multi_continues(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_evaluate_timeout_is_non_breaking_tool_error(monkeypatch):
-    from plugins._browser.tools import browser as tool_module
+    from plugins._browser.helpers import browser_handler as tool_module
 
     core, page, _ = _evaluate_runtime(monkeypatch)
     _hang_until_recovery(page)
@@ -328,7 +407,7 @@ async def test_evaluate_javascript_or_closed_page_error_is_preserved(monkeypatch
 async def test_evaluate_recovery_failure_closes_only_affected_page(monkeypatch, close_fails):
     core, page, session = _evaluate_runtime(monkeypatch)
     _, _, operations = _hang_until_recovery(page)
-    unrelated = BrowserPage(4, SimpleNamespace(), "other-chat")
+    unrelated = BrowserPage(4, SimpleNamespace())
     core.pages[4] = unrelated
     page.reload.side_effect = RuntimeError("reload failed")
     if close_fails:
@@ -362,7 +441,7 @@ async def test_browser_worker_propagates_cancellation_and_waits_for_cleanup(monk
     started = loop.create_future()
     cleaned = []
 
-    async def work():
+    async def work(*args, **kwargs):
         loop.call_soon_threadsafe(started.set_result, None)
         try:
             await asyncio.sleep(1)
@@ -370,7 +449,7 @@ async def test_browser_worker_propagates_cancellation_and_waits_for_cleanup(monk
             await asyncio.sleep(0.01)
             cleaned.append(True)
 
-    monkeypatch.setattr(runtime._core, "evaluate", work)
+    monkeypatch.setattr(runtime._core, "call", work)
     try:
         task = asyncio.create_task(runtime.call("evaluate"))
         await asyncio.wait_for(started, 1)
@@ -379,10 +458,10 @@ async def test_browser_worker_propagates_cancellation_and_waits_for_cleanup(monk
             await asyncio.wait_for(task, 2)
         assert cleaned == [True]
 
-        async def pending():
+        async def pending(*args, **kwargs):
             return len([task for task in asyncio.all_tasks() if task is not asyncio.current_task()])
 
-        monkeypatch.setattr(runtime._core, "state", pending)
+        monkeypatch.setattr(runtime._core, "call", pending)
         assert await runtime.call("state") == 0
     finally:
         runtime._worker.kill(terminate_thread=True)

@@ -276,7 +276,10 @@ class BackupService:
                 if not os.path.exists(base_real_path):
                     continue
 
+                usr_only = include_patterns == [os.path.join(base_pattern_path, "usr", "**")]
                 for root, dirs, files_list in os.walk(base_real_path):
+                    if usr_only and root == base_real_path:
+                        dirs[:] = [name for name in dirs if name == "usr"]
                     # Filter hidden directories if not included, BUT allow explicit ones
                     if not include_hidden:
                         dirs_to_keep = []
@@ -364,7 +367,7 @@ class BackupService:
         zip_path = os.path.join(temp_dir, f"{backup_name}.zip")
 
         try:
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False) as zipf:
                 # Add comprehensive metadata
                 metadata = {
                     # Basic backup information

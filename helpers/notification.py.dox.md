@@ -17,8 +17,8 @@
   - `mark_read(self)`
   - `output(self)`
 - `NotificationManager` (no explicit base class)
-  - `send_notification(type: NotificationType, priority: NotificationPriority, message: str, title: str=..., detail: str=..., display_time: int=..., group: str=..., id: str=...) -> NotificationItem`
-  - `add_notification(self, type: NotificationType, priority: NotificationPriority, message: str, title: str=..., detail: str=..., display_time: int=..., group: str=..., id: str=...) -> NotificationItem`
+  - `send_notification(type: NotificationType, priority: NotificationPriority, message: str, title: str=..., detail: str=..., display_time: int=..., group: str=..., id: str=..., copyable: bool=True) -> NotificationItem`
+  - `add_notification(self, type: NotificationType, priority: NotificationPriority, message: str, title: str=..., detail: str=..., display_time: int=..., group: str=..., id: str=..., copyable: bool=True) -> NotificationItem`
   - `get_recent_notifications(self, seconds: int=...) -> list[NotificationItem]`
   - `output(self, start: int | None=..., end: int | None=...) -> list[dict]`
   - `output_with_state(self, start: int | None=..., end: int | None=...) -> tuple[list[dict], str, int]`
@@ -32,6 +32,7 @@
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Notification payloads, GUIDs, and update cursors are captured under one lock so WebUI snapshots cannot skip notifications created during snapshot assembly.
+- `copyable=False` suppresses Copy for a toast. The manager serializes it for all tabs and replaces it when a notification ID is reused.
 - Observed side-effect areas: filesystem deletion, settings/state persistence.
 - Imported dependency areas include: `dataclasses`, `datetime`, `enum`, `helpers.localization`, `threading`, `uuid`.
 

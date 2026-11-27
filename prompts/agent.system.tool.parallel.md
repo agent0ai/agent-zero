@@ -27,7 +27,7 @@ Start and wait:
   "tool_args": {
     "tool_calls": [
       {"tool_name": "call_subordinate", "tool_args": {"message": "Review option A and return key risks.", "reset": true}},
-      {"tool_name": "search_engine", "tool_args": {"query": "official API changelog release notes"}}
+      {"tool_name": "call_subordinate", "tool_args": {"message": "Review option B and return key risks.", "reset": true}}
     ],
     "wait": true
   }

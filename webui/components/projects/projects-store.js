@@ -597,6 +597,7 @@ const model = {
         displayTime: 5,
         group: "knowledge_load",
         frontendOnly: true,
+        copyable: false,
       });
     }
   },
@@ -630,6 +631,7 @@ const model = {
         priority: shortcuts.NotificationPriority.NORMAL,
         displayTime: 3,
         frontendOnly: true,
+        copyable: false,
       });
     }
   },

@@ -56,3 +56,15 @@ def test_plugin_scan_prompt_requires_file_paths_only_for_warning_or_fail_finding
     assert "Every 🟡 or 🔴 finding has a concrete file path and line range" in prompt
     assert "Expected plugin capabilities were not treated as findings" in prompt
     assert "Each check has a concrete finding with file path" not in prompt
+
+
+def test_dependency_isolation_is_included_by_default_and_selectable():
+    url = "https://github.com/example/plugin"
+    check_heading = "#### Plugin Dependency Isolation"
+    assert check_heading in build_prompt(url)
+    selected = build_prompt(url, checks=["dependencyIsolation"])
+    assert check_heading in selected
+    assert "🔴 The plugin clearly installs dependencies into Agent Zero's shared environment" in selected
+    assert "🟢 No shared environment changes, or shared dependencies are minimal and documented" in selected
+    assert "#### Static Code Review" not in selected
+    assert check_heading not in build_prompt(url, checks=["codeReview"])

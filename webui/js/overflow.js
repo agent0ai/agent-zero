@@ -54,7 +54,8 @@ function mountOverflow(row) {
   const more = document.createElement("button");
   more.type = "button";
   more.className = "btn-icon-action overflow-trigger";
-  more.setAttribute("aria-label", "More controls");
+  more.title = "More controls";
+  more.setAttribute("aria-label", more.title);
   more.setAttribute("aria-haspopup", "menu");
   more.setAttribute("aria-expanded", "false");
   more.append(icon("more_horiz"));
@@ -156,7 +157,7 @@ function mountOverflow(row) {
   }
 
   function createRecord(item, button) {
-    const panel = [...button.parentElement.children].find(element =>
+    const panel = item === button ? null : [...button.parentElement.children].find(element =>
       element !== button && element.matches("[x-show], [role=menu], [role=dialog], [data-overflow-panel]"));
     const entry = document.createElement("button");
     entry.type = "button";

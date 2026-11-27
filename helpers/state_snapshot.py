@@ -380,7 +380,6 @@ def _notify_timezone_changed(previous_timezone: str, current_timezone: str) -> N
         from helpers import plugins
 
         plugins.call_plugin_hook(
-            "_office",
             "timezone_changed",
             None,
             previous_timezone=previous_timezone,

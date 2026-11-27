@@ -1,0 +1,6 @@
+{
+  "bind": "127.0.0.1:17883",
+  "http": true,
+  "state": "/a0/usr/plugins/_desktop/tuxee",
+  "pam": "login"
+}

@@ -54,12 +54,6 @@ def text_editor_cls():
     return TextEditor
 
 
-@pytest.fixture(scope="module")
-def text_editor_remote_cls():
-    from plugins._a0_connector.tools.text_editor_remote import TextEditorRemote
-    return TextEditorRemote
-
-
 def test_text_editor_log_object_uses_custom_type(text_editor_cls):
     tool = _make_tool(text_editor_cls, action="read", path="/a0/file.txt")
     item = tool.get_log_object()
@@ -95,16 +89,16 @@ def test_text_editor_log_object_id_is_uuid(text_editor_cls):
     assert str(parsed) == str(item.id)
 
 
-def test_text_editor_remote_log_object_has_remote_suffix(text_editor_remote_cls):
-    tool = _make_tool(text_editor_remote_cls, action="read", path="/remote/file.txt")
+def test_text_editor_remote_log_object_has_remote_suffix(text_editor_cls):
+    tool = _make_tool(text_editor_cls, action="read", path="/remote/file.txt", destination="host")
     item = tool.get_log_object()
     assert item.type == "text_editor"
     assert item.heading == "icon://construction Reading /remote/file.txt (remote)"
     assert item.kvps["_tool_name"] == "text_editor"
 
 
-def test_text_editor_remote_falls_back_with_remote_suffix(text_editor_remote_cls):
-    tool = _make_tool(text_editor_remote_cls)
+def test_text_editor_remote_falls_back_with_remote_suffix(text_editor_cls):
+    tool = _make_tool(text_editor_cls, destination="host")
     item = tool.get_log_object()
     assert item.type == "text_editor"
     assert "(remote)" in item.heading

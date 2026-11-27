@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from aiogram.types import Update
+from plugins._telegram_integration.helpers.sandbox import TelegramEvent
 
 from api.plugins import Plugins
 from helpers import cache, files, plugins, integration_commands
@@ -36,18 +36,21 @@ def telegram_config(monkeypatch, tmp_path):
     config = {"bots": [{"name": "scope_test", "token": "123456:fake", "enabled": True,
                         "allowed_users": [111], "admin_users": [111]}]}
     plugins.save_plugin_config(PLUGIN, "", "", config)
-    monkeypatch.setattr(manager, "ensure_dependencies", Mock())
     monkeypatch.setattr(manager.NotificationManager, "send_notification", Mock())
     monkeypatch.setattr(handler, "cleanup_old_attachments", Mock())
     return config
 
 
-def message(user=111, *, chat_type="private"):
-    return Update.model_validate({"update_id": 1, "message": {
+def message_payload(user=111, *, chat_type="private"):
+    return {
         "message_id": 1, "date": 1700000000, "text": "SCOPE_TEST",
         "from": {"id": user, "is_bot": False, "first_name": "Test"},
         "chat": {"id": 111, "type": chat_type},
-    }}).message
+    }
+
+
+def message(user=111, *, chat_type="private"):
+    return TelegramEvent(message_payload(user, chat_type=chat_type), None)
 
 
 def context(bot="scope_test", project="", profile="agent0", user=111):
@@ -116,7 +119,6 @@ async def test_legacy_duplicate_scopes_pause_conflicting_bots_without_deleting_s
     stop.assert_awaited_once_with("scope_test")
     create.assert_not_called()
     handler.cleanup_old_attachments.assert_not_called()
-    manager.ensure_dependencies.assert_not_called()
     manager.NotificationManager.send_notification.assert_called_once()
     assert path.read_text() == raw
     save_scoped(telegram_config, project, profile)
@@ -277,7 +279,7 @@ def test_secrets_are_not_added_to_persisted_context_config(telegram_config):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("project,profile", SCOPES)
-async def test_real_webhook_dispatch_preserves_scoped_authentication(telegram_config, monkeypatch, project, profile):
+async def test_webhook_dispatch_from_guest_preserves_scoped_authentication(telegram_config, monkeypatch, project, profile):
     from plugins._telegram_integration.api import webhook
     config = deepcopy(telegram_config)
     config["bots"][0].update(mode="webhook", webhook_url="https://example.invalid", webhook_secret="s" * 32)
@@ -291,7 +293,9 @@ async def test_real_webhook_dispatch_preserves_scoped_authentication(telegram_co
         await manager._make_handler(receive)(event, bot.key, bot.config)
 
     monkeypatch.setattr(bot_manager, "_bots", {})
-    monkeypatch.setattr(webhook, "ensure_dependencies", Mock())
+    guest_rpc = AsyncMock(return_value=[{"kind": "message", "event": message_payload()}])
+    monkeypatch.setattr(bot_manager, "rpc", guest_rpc)
+    monkeypatch.setattr(bot_manager, "cache_bot_info", AsyncMock())
     instance = bot_manager.create_bot(bot.key, bot.config["token"], receive_bound, receive_bound)
     instance.webhook_active = True
     instance.webhook_secret = "s" * 32
@@ -302,12 +306,15 @@ async def test_real_webhook_dispatch_preserves_scoped_authentication(telegram_co
         assert parse_qs(urlsplit(instance.bot.set_webhook.call_args.kwargs["url"]).query)["bot"] == [bot.key]
         endpoint = webhook.TelegramWebhook.__new__(webhook.TelegramWebhook)
         request = SimpleNamespace(args={"bot": bot.key}, headers={"X-Telegram-Bot-Api-Secret-Token": "s" * 32})
-        payload = {"update_id": 1, "message": message().model_dump(mode="json", exclude_none=True)}
+        payload = {"update_id": 1, "message": message_payload()}
         assert await endpoint.process(payload, request) == {"ok": True}
         assert received == [(bot.key, (project, profile or "agent0"))]
+        guest_rpc.assert_awaited_once_with({"action": "webhook", "name": bot.key, "update": payload})
+        guest_rpc.reset_mock()
         received.clear()
         request.headers["X-Telegram-Bot-Api-Secret-Token"] = "wrong"
         assert (await endpoint.process(payload, request)).status_code == 403
+        guest_rpc.assert_not_awaited()
         assert not received
         request.headers["X-Telegram-Bot-Api-Secret-Token"] = "s" * 32
         plugins.toggle_plugin(PLUGIN, False, project, profile)
@@ -396,6 +403,25 @@ async def test_inherited_bot_can_be_enabled_only_in_a_scope(telegram_config, mon
     await manager._make_handler(dispatch)(message(), "scope_test", telegram_config["bots"][0])
     dispatch.assert_awaited_once()
     assert not scopes.resolve(scopes.configured_bots()[0], "", "unrelated")
+
+
+@pytest.mark.asyncio
+async def test_group_policy_tightens_before_the_guest_restarts(telegram_config, monkeypatch):
+    captured = {**telegram_config["bots"][0], "group_mode": "all"}
+    monkeypatch.setattr(bot_manager, "get_bot", lambda _: SimpleNamespace(
+        bot_info=SimpleNamespace(id=123456, username="scope_test_bot")
+    ))
+    dispatch = AsyncMock()
+    dispatch.__name__ = "handle_message"
+    wrapped = manager._make_handler(dispatch)
+    payload = message_payload(chat_type="group")
+
+    await wrapped(TelegramEvent(payload, None), "scope_test", captured)
+    dispatch.assert_not_awaited()
+
+    payload["text"] = "Hi @Scope_Test_Bot"
+    await wrapped(TelegramEvent(payload, None), "scope_test", captured)
+    dispatch.assert_awaited_once()
 
 
 @pytest.mark.asyncio

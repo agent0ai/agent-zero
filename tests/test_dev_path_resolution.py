@@ -18,6 +18,8 @@ def test_fix_dev_path_keeps_paths_inside_a_nested_checkout(monkeypatch):
     inside = f"{NESTED_BASE}/usr/workdir"
     assert files.fix_dev_path(inside) == inside
     assert files.fix_dev_path("/a0/usr/workdir") == inside
+    assert files.fix_dev_path("/a0") == NESTED_BASE
+    assert files.fix_dev_path("/a0-other/file") == "/a0-other/file"
 
 
 def test_fix_dev_path_leaves_paths_alone_outside_development(monkeypatch):
@@ -25,6 +27,7 @@ def test_fix_dev_path_leaves_paths_alone_outside_development(monkeypatch):
     monkeypatch.setattr(runtime, "is_development", lambda: False)
 
     assert files.fix_dev_path("/a0/usr/workdir") == "/a0/usr/workdir"
+    assert files.fix_dev_path("/a0") == "/a0"
 
 
 def test_canonical_workspace_display_path_normalizes_root():

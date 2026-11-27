@@ -1,12 +1,12 @@
 import os
 import json
 from helpers import files
-from helpers import subagents, extension
-from helpers import yaml as yaml_helper
 from helpers.print_style import PrintStyle
 
 
 def startup_migration() -> None:
+    from helpers import extension
+
     migrate_user_data()
     convert_agents_json_yaml()
 
@@ -82,6 +82,9 @@ def migrate_dotenv() -> None:
 
 
 def convert_agents_json_yaml() -> None:
+    from helpers import subagents
+    from helpers import yaml as yaml_helper
+
     for root in subagents.get_agents_roots():
         rel_root = files.deabsolute_path(root)
         for subdir in files.get_subdirectories(rel_root):
@@ -159,7 +162,6 @@ def _cleanup_obsolete() -> None:
     to_remove = [
         "knowledge/default",
         "memory",
-        "logs",
     ]
     for path in to_remove:
         if files.exists(path):

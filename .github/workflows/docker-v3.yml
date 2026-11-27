@@ -1,0 +1,93 @@
+name: Publish v3 Docker preview
+
+on:
+  push:
+    tags:
+      - 'pre-v3.[0-9]+'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-publish-v3
+  cancel-in-progress: false
+
+env:
+  IMAGE: agent0ai/agent-zero
+
+jobs:
+  check:
+    if: github.repository == 'agent0ai/agent-zero' && !github.event.deleted
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.check.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check the newest preview reachable from v3
+        id: check
+        run: |
+          latest=$(git tag --merged origin/v3 --sort=-version:refname --list 'pre-v3.*' |
+            awk '/^pre-v3\.(0|[1-9][0-9]*)$/ && !seen++')
+          if [[ "$GITHUB_REF_NAME" == "$latest" && "$(git rev-parse "refs/tags/$latest^{commit}")" == "$(git rev-parse HEAD)" ]]; then
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.eligible == 'true'
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_ORG }}
+          password: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+          scope: agent0ai/agent-zero@push
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            BRANCH=v3
+            SOURCE_COMMIT=${{ github.sha }}
+          tags: ${{ env.IMAGE }}
+          outputs: type=image,push=true,push-by-digest=true,name-canonical=true,oci-mediatypes=true,compression=zstd,compression-level=10,force-compression=true
+      - name: Save platform digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: echo "$DIGEST" > "$RUNNER_TEMP/${{ matrix.arch }}.digest"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/${{ matrix.arch }}.digest
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_ORG }}
+          password: ${{ secrets.DOCKERHUB_OAT_TOKEN }}
+      - name: Publish the two architectures under the v3 tag
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:v3" \
+            "$IMAGE@$(cat digests/amd64.digest)" "$IMAGE@$(cat digests/arm64.digest)"

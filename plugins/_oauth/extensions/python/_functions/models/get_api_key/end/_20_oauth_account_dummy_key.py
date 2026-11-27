@@ -29,7 +29,11 @@ class OAuthAccountDummyKey(Extension):
 
 def oauth_provider_is_connected(provider_id: str) -> bool:
     try:
-        status = get_provider(provider_id).status()
+        provider = get_provider(provider_id)
+        is_connected = getattr(provider, "is_connected", None)
+        if callable(is_connected):
+            return is_connected()
+        status = provider.status()
     except Exception:
         return False
     if not isinstance(status, dict):

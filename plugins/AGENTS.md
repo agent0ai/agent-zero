@@ -18,20 +18,25 @@
 
 - Every plugin directory must include a valid `plugin.yaml`.
 - Bundled plugin directory names and manifest `name` values must start with `_` to avoid collisions with community plugins.
-- Runtime manifest fields include `name`, `title`, `description`, `version`, `settings_sections`, `per_project_config`, `per_agent_config`, and `always_enabled`.
+- Runtime manifest fields include `name`, `title`, `description`, `version`, `a0_version`, `settings_sections`, `per_project_config`, `per_agent_config`, and `always_enabled`.
+- Optional `a0_version` declares supported A0 versions as a quoted requirement or list of alternatives; see the [syntax and Hub warning contract](../docs/developer/plugins.md#agent-zero-version-requirements). It does not restrict plugin discovery or activation.
 - Core plugins may use `plugins.<plugin_name>...` imports when they are shipped from this tree.
 - User plugins under `usr/plugins/` must use `usr.plugins.<plugin_name>...` imports and avoid `sys.path` hacks or persistent symlink-based imports.
 - Plugin extension layouts must use `extensions/python/<point>/`, `extensions/python/_functions/<module>/<qualname>/<start|end>/`, and `extensions/webui/<point>/`.
+- Plugins can contribute handler factories via the `skill_tools` extension point. Declare the callable schema in the owning skill's `metadata.tool`. The shared runtime uses normal skill precedence and visibility for loaded skills and applies Tool Access under the handler's plugin ID.
 - The `_functions` extension layout preserves every module and nested qualname segment; do not use retired flattened extension folder names.
 - Plugin settings defaults belong in `default_config.yaml`; runtime user settings belong under `usr/`.
 - Plugin settings resolution order is project/profile, project, user/profile, user plugin config, then bundled `default_config.yaml`.
 - `webui/config.html` settings UIs must bind plugin values to `config.*` and modal state/actions to `context.*` through `$store.pluginSettingsPrototype`.
 - Plugin model provider overrides belong in plugin `conf/model_providers.yaml` and merge after base `conf/model_providers.yaml`.
 - Global and scoped activation are independent and use `.toggle-1` and `.toggle-0`; `always_enabled: true` forces ON and disables UI toggles.
-- `hooks.py` runs in the framework runtime. Explicitly target another runtime if a plugin must prepare the agent execution environment.
-- Plugin maintenance can register native scheduler tasks with `plugin_name` and a `run_scheduled_task(task, cancel_event)` hook. The shared scheduler owns timing, state and results; hooks return a string and cooperate with cancellation. Preserve edited/disabled schedules and task deletion.
-- `execute.py` is manual user-triggered setup, maintenance, repair, migration, or refresh work; automatic framework behavior belongs in hooks or lifecycle extensions.
+- Prefer the existing [sandbox/worker facilities](../docs/developer/plugin-sandboxes.md#choosing-dependency-location) for plugin-owned Python, Node and native packages, heavy inference, browser/document/media workers and external integration dependencies. Keep lightweight tools, hooks, configuration and authenticated API/UI adapters in the framework; call the guest without importing guest-only libraries or adding them to root requirements or global pip/npm/apt installs.
+- Main-environment dependencies are legitimate only for functionality that must execute there. Document the concrete need in the plugin README and keep that dependency set minimal. `hooks.py` still runs in the framework's global Docker Python environment; sandboxing workers does not isolate plugin hooks.
+- Hooks own install/update/uninstall through framework APIs and may delegate guest provisioning to automatic worker setup. Reuse guest-owned manifests/installers and persistent environments with idempotent setup/retry; provision at first actual use, or at enablement/startup for early-needed features and configured listeners. Disable stops owned workers; uninstall cleans up owned resources while preserving shared dependencies and unrelated user data.
+- For scheduled maintenance, register a task with `plugin_name` and implement `run_scheduled_task(task, cancel_event)` in `hooks.py`. Return a result string and cooperate with cancellation. Preserve user changes, disabled schedules, and task deletion.
+- `execute.py` is only for separate, explicitly requested manual actions unrelated to lifecycle setup, dependency installation, required initialization, updates or removal. Never require it or a user-run post-install command to make a plugin usable.
 - Plugin routes are `GET /plugins/<name>/<path>`, `POST /api/plugins/<name>/<handler>`, and `POST /api/plugins` for management actions.
+- Local socket handlers live in `socket/` beside `api/`, derive from `helpers.socket_api.SocketHandler`, and resolve as `plugins/<name>/<handler>`. Follow [the socket contract](../socket/AGENTS.md); validate operation arguments and any scoped permissions in the handler.
 - `_a0_connector` WebSocket history replay must stay bounded: emit large chat history as paged `connector_context_snapshot` payloads, keep `last_sequence` as the Agent Zero log-output cursor, and avoid sending an entire long transcript in one frame.
 - Frontend plugin HTML extensions live under `extensions/webui/<point>/`, include a root Alpine scope, and use `x-move-*` directives when targeting static breakpoints.
 - Welcome HTML contributions can opt into drag ordering through the [welcome block contract](../webui/components/welcome/AGENTS.md); use plugin-prefixed IDs and retain Alpine ownership with the documented teleport pattern.
@@ -45,6 +50,8 @@
 - Supported discovery CTA actions are `open-plugin-config:<plugin_folder_name>`, `open-plugin-hub`, and `open-url:<url>`.
 - Plugin deletion or disablement should not leave unmanaged services, symlinks, or files outside plugin-owned paths unless explicitly documented with cleanup.
 
+- Document parsing/OCR, local speech inference, messaging/mail transports and the internal browser runtime execute in child sandboxes with on-demand installers; thin plugin tools, settings and authenticated API/UI adapters stay in the framework.
+
 ## Work Guidance
 
 - Prefer plugin-local helpers for behavior used only by one plugin.
@@ -53,12 +60,13 @@
 - Keep plugin README and docs current when user-visible plugin behavior changes.
 - Check configuration before injecting setup or discovery banners so configured plugins do not keep advertising setup.
 - Use highly unique banner IDs prefixed by plugin name.
-- Browser tool prompts must preserve the existing-tab workflow: when a user refers to an already-open URL, tab, or page title, guide agents to `list` and then `set_active` or `navigate` by `browser_id` instead of blindly opening a new tab.
+- Browser tool prompts must preserve the existing-tab workflow: when a user refers to an already-open URL, tab, or page title, guide agents to `list` and reuse the matching `browser_id` for interaction, navigation or focus.
 - When preparing community plugins, keep plugin contents at the standalone repository root with `plugin.yaml`, `README.md`, and a root `LICENSE`.
 - Plugin Index submissions use a separate `index.yaml` under `a0-plugins/plugins/<name>/`; do not confuse it with runtime `plugin.yaml`.
 
 ## Verification
 
+- Check that optional guest dependencies stay out of main requirements and feature import/general boot paths do not eagerly install them; verify intentional enablement/startup readiness for configured listeners and other early-needed features. See the [sandbox guide](../docs/developer/plugin-sandboxes.md#choosing-dependency-location).
 - Run plugin-specific tests after changing a bundled plugin.
 - Run framework tests for touched extension points, API handlers, tools, settings, or WebUI surfaces.
 - For plugins with external services or browser/desktop integrations, perform a targeted smoke check when practical.
@@ -75,7 +83,7 @@ Direct child DOX files:
 | [_a2a_chat/AGENTS.md](_a2a_chat/AGENTS.md) | FastA2A agent-to-agent chat tool. |
 | [_agent_editor/AGENTS.md](_agent_editor/AGENTS.md) | Deterministic sparse agent-profile editor API, helpers, and WebUI. |
 | [_behavior_adjustment/AGENTS.md](_behavior_adjustment/AGENTS.md) | Persistent behavior rules tool and system-prompt injection. |
-| [_browser/AGENTS.md](_browser/AGENTS.md) | Playwright browser tool, helpers, viewer, and browser panel UI. |
+| [_browser/AGENTS.md](_browser/AGENTS.md) | Chromium CDP browser tool, helpers, viewer, and browser panel UI. |
 | [_chat_branching/AGENTS.md](_chat_branching/AGENTS.md) | Chat branching from an existing message. |
 | [_chat_compaction/AGENTS.md](_chat_compaction/AGENTS.md) | Full-chat compaction into a summary message. |
 | [_chat_naming/AGENTS.md](_chat_naming/AGENTS.md) | Built-in manual and Utility Model-assisted chat naming. |
@@ -97,7 +105,6 @@ Direct child DOX files:
 | [_model_config/AGENTS.md](_model_config/AGENTS.md) | Model selection, presets, API-key checks, and scoped overrides. |
 | [_notify_user/AGENTS.md](_notify_user/AGENTS.md) | User notification tool for chats that run on their own. |
 | [_oauth/AGENTS.md](_oauth/AGENTS.md) | OAuth-backed model-provider connections and local proxy routes. |
-| [_office/AGENTS.md](_office/AGENTS.md) | LibreOffice office artifacts and office canvas sessions. |
 | [_onboarding/AGENTS.md](_onboarding/AGENTS.md) | First-time model onboarding wizard. |
 | [_orchestrator/AGENTS.md](_orchestrator/AGENTS.md) | External terminal coding-agent orchestration skill, adapter status, and settings UI. |
 | [_pin_to_top/AGENTS.md](_pin_to_top/AGENTS.md) | Built-in chat, task, and project-folder sidebar pinning. |
@@ -106,8 +113,11 @@ Direct child DOX files:
 | [_plugin_validator/AGENTS.md](_plugin_validator/AGENTS.md) | Plugin manifest, structure, convention, and security validator. |
 | [_promptinclude/AGENTS.md](_promptinclude/AGENTS.md) | Promptinclude scanning and prompt injection. |
 | [_scheduler/AGENTS.md](_scheduler/AGENTS.md) | Scheduler agent tool, Scheduled Tasks WebUI, CRUD API endpoints, and sidebar task list. |
-| [_search_engine/AGENTS.md](_search_engine/AGENTS.md) | Live web search tool via local SearXNG. |
+| [_search_engine/AGENTS.md](_search_engine/AGENTS.md) | Web-search skill and historical search-log presentation. |
 | [_sidebar_folders/AGENTS.md](_sidebar_folders/AGENTS.md) | Project folder presentation, filters, sorting, drag ordering, and chat project moves. |
+| [_tunnel/AGENTS.md](_tunnel/AGENTS.md) | On-demand remote-control providers, sandbox installers, and settings. |
+| [_sandboxing/AGENTS.md](_sandboxing/AGENTS.md) | Direct PRoot sandbox lifecycle, runtime OCI image cache, execution destinations, and management UI. |
+| [_searxng/AGENTS.md](_searxng/AGENTS.md) | On-demand SearXNG CLI, sandbox installation and process-safe status. |
 | [_skills/AGENTS.md](_skills/AGENTS.md) | Active and hidden skill configuration and prompt injection. |
 | [_telegram_integration/AGENTS.md](_telegram_integration/AGENTS.md) | Telegram bot integration and per-user chat sessions. |
 | [_text_editor/AGENTS.md](_text_editor/AGENTS.md) | Native text read, write, and patch tool. |

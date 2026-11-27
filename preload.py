@@ -1,5 +1,5 @@
 import asyncio
-from helpers import runtime
+from helpers import runtime, tokens
 from helpers.print_style import PrintStyle
 import models
 
@@ -19,12 +19,18 @@ async def preload():
                 **emb_cfg.build_kwargs(),
             )
             await emb_mod.aembed_query("test")
-        PrintStyle().print("Preload completed.")
     except Exception as e:
         PrintStyle().error(f"Error in preload: {e}")
 
+    try:
+        await asyncio.to_thread(tokens.count_tokens, "test")
+    except Exception as e:
+        PrintStyle().error(f"Error preloading tokenizer: {e}")
 
-# preload the configured embedding model
+    PrintStyle().print("Preload completed.")
+
+
+# preload the configured embedding model and token counter
 if __name__ == "__main__":
     PrintStyle().print("Running preload...")
     runtime.initialize()

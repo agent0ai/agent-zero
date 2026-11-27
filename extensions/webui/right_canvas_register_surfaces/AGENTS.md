@@ -13,6 +13,7 @@
 - JavaScript modules must export a default function.
 - Surface IDs must be unique and stable.
 - Registered surfaces must point to valid components or handlers.
+- Files forwards navigation and picker options to its retained view; its `canClose` guard blocks workspace dismissal while a rename or bulk write is pending.
 
 ## Work Guidance
 

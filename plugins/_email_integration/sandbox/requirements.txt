@@ -1,0 +1,5 @@
+imapclient>=3.0.1
+exchangelib>=5.4.3
+html2text>=2024.2.26
+beautifulsoup4>=4.12.3
+markdown==3.7

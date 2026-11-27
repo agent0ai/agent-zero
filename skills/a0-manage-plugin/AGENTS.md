@@ -7,7 +7,7 @@
 ## Ownership
 
 - `SKILL.md` owns discovery/lifecycle routing and authorization boundaries.
-- `references/` owns current Index search, candidate assessment, and management API procedures.
+- `references/` owns current Index search, candidate assessment, and local socket management procedures (HTTP for remote clients).
 
 ## Local Contracts
 

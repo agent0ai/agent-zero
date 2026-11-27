@@ -1598,7 +1598,7 @@ class Agent:
                 continue
 
         tool_class = classes[0] if classes else Unknown
-        return tool_class(
+        tool = tool_class(
             agent=self,
             name=name,
             method=method,
@@ -1607,6 +1607,9 @@ class Agent:
             loop_data=loop_data,
             **kwargs,
         )
+        if classes:
+            tool._tool_source_path = path
+        return tool
 
 
 def re_search_session_id(text: str) -> str:

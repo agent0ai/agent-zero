@@ -22,7 +22,6 @@ from helpers.task_scheduler import (
     serialize_task_plan,
 )
 from plugins._memory.api.memory_dashboard import MemoryDashboard
-from plugins._desktop.helpers import desktop_session
 
 
 @pytest.fixture
@@ -141,10 +140,7 @@ def test_settings_auto_timezone_resolves_to_browser_timezone(isolated_localizati
     )
 
     assert Localization.get().get_timezone() == "Europe/Rome"
-    assert hooks[0]["plugin_name"] == "_office"
-    assert hooks[0]["hook_name"] == "timezone_changed"
-    assert hooks[0]["kwargs"]["previous_timezone"] == "UTC"
-    assert hooks[0]["kwargs"]["timezone"] == "Europe/Rome"
+    assert hooks == []
 
 
 def test_settings_fixed_timezone_ignores_browser_timezone(isolated_localization, monkeypatch):
@@ -189,10 +185,7 @@ def test_settings_fixed_timezone_reapplies_when_runtime_drifted(isolated_localiz
     )
 
     assert Localization.get().get_timezone() == "America/New_York"
-    assert hooks[0]["plugin_name"] == "_office"
-    assert hooks[0]["hook_name"] == "timezone_changed"
-    assert hooks[0]["kwargs"]["previous_timezone"] == "Europe/Rome"
-    assert hooks[0]["kwargs"]["timezone"] == "America/New_York"
+    assert hooks == []
 
 
 def test_settings_rejects_invalid_timezone_value():
@@ -269,80 +262,3 @@ class FakeProcess:
 
     def poll(self):
         return None
-
-
-def test_desktop_session_env_uses_session_timezone(isolated_localization, tmp_path):
-    set_test_timezone("Europe/Rome")
-    session = desktop_session.DesktopSession(
-        session_id=desktop_session.SYSTEM_SESSION_ID,
-        file_id=desktop_session.SYSTEM_FILE_ID,
-        extension="desktop",
-        path=str(tmp_path),
-        title="Desktop",
-        display=120,
-        xpra_port=14500,
-        token=desktop_session.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
-        profile_dir=tmp_path / "profile",
-        timezone="America/New_York",
-    )
-
-    env = desktop_session.DesktopSessionManager()._session_env(session)
-
-    assert env["TZ"] == "America/New_York"
-
-
-def test_desktop_timezone_sync_restarts_active_system_desktop(
-    isolated_localization,
-    monkeypatch,
-    tmp_path,
-):
-    set_test_timezone("America/New_York")
-    manager = desktop_session.DesktopSessionManager()
-    old_session = desktop_session.DesktopSession(
-        session_id=desktop_session.SYSTEM_SESSION_ID,
-        file_id=desktop_session.SYSTEM_FILE_ID,
-        extension="desktop",
-        path=str(tmp_path),
-        title="Desktop",
-        display=120,
-        xpra_port=14500,
-        token=desktop_session.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
-        profile_dir=tmp_path / "profile-old",
-        timezone="Europe/Rome",
-        processes={"xpra": FakeProcess()},
-    )
-    replacement = desktop_session.DesktopSession(
-        session_id=desktop_session.SYSTEM_SESSION_ID,
-        file_id=desktop_session.SYSTEM_FILE_ID,
-        extension="desktop",
-        path=str(tmp_path),
-        title="Desktop",
-        display=120,
-        xpra_port=14500,
-        token=desktop_session.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
-        profile_dir=tmp_path / "profile-new",
-        timezone="America/New_York",
-        processes={"xpra": FakeProcess()},
-    )
-    manager._sessions[desktop_session.SYSTEM_SESSION_ID] = old_session
-    restarted: list[desktop_session.DesktopSession] = []
-
-    def fake_restart(session):
-        restarted.append(session)
-        manager._sessions[desktop_session.SYSTEM_SESSION_ID] = replacement
-        return replacement
-
-    monkeypatch.setattr(manager, "_restart_system_desktop_for_timezone_locked", fake_restart)
-
-    result = manager.sync_timezone("America/New_York")
-
-    assert result == {
-        "ok": True,
-        "restarted": True,
-        "session_id": desktop_session.SYSTEM_SESSION_ID,
-        "timezone": "America/New_York",
-    }
-    assert restarted == [old_session]

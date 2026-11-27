@@ -12,10 +12,8 @@ from helpers.print_style import PrintStyle
 
 
 _REQUIREMENTS_FILE = Path(files.get_abs_path("requirements.txt"))
-_PACKAGES = {
-    "litellm", "openai", "python-dotenv", "aiohttp", "anyio", "urllib3",
-    "filelock", "fsspec", "multidict",
-}
+# Only update retired distributions on images that already have them installed.
+_LEGACY = ("langchain>=1.5.2,<2", "langchain-community>=0.4.2,<1", "langchain-text-splitters>=1.1.3,<2")
 
 
 class FrameworkDependencies(Extension):
@@ -31,8 +29,9 @@ class FrameworkDependencies(Extension):
             raise RuntimeError("Framework dependency update requires 'uv'.")
         PrintStyle.info("Updating framework dependencies:", ", ".join(outdated))
         subprocess.check_call(
-            [uv, "pip", "install", "--python", sys.executable, *map(str, requirements)],
-            timeout=60,
+            [uv, "pip", "install", "--no-cache", "--python", sys.executable,
+             "-c", str(_REQUIREMENTS_FILE.parent / "docker/litellm-constraints.txt"), *map(str, requirements)],
+            timeout=600,
         )
         outdated = _outdated(requirements)
         if outdated:
@@ -47,11 +46,15 @@ def _requirements() -> list[Requirement]:
         line = line.partition("#")[0].strip()
         if line:
             requirement = Requirement(line)
-            if requirement.name in _PACKAGES:
+            if not requirement.marker or requirement.marker.evaluate():
                 requirements.append(requirement)
-    missing = _PACKAGES - {requirement.name for requirement in requirements}
-    if missing:
-        raise RuntimeError(f"Framework requirements missing from {_REQUIREMENTS_FILE}: {sorted(missing)}")
+    for pin in _LEGACY:
+        requirement = Requirement(pin)
+        try:
+            importlib.metadata.version(requirement.name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        requirements.append(requirement)
     return requirements
 
 

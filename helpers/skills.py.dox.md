@@ -63,6 +63,7 @@
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Loaded skill names are chat-wide context data under `CONTEXT_DATA_NAME_LOADED_SKILLS`; legacy agent-local `loaded_skills` lists are migrated into context data and cleared when read.
 - Loaded skill bodies live in chat history; hiding a skill changes catalog visibility but does not remove the loaded-skill ledger.
+- The `get_visibility_policy/end` extension can add policy denials that apply by logical name across scoped overrides. Preserve the effective settings for unrelated skills.
 - `_skills.visibility_policy` is profile-aware and uses explicit future-skill
   allow/block defaults. It filters discovery, search, new loading, chat
   activation, and active-skill resolution without removing instructions already

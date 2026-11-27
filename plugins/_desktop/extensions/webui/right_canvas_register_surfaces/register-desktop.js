@@ -23,7 +23,7 @@ export default async function registerDesktopSurface(surfaces) {
   surfaces.registerSurface({
     id: "desktop",
     title: "Desktop",
-    icon: "desktop_windows",
+    icon: "tuxee",
     order: 20,
     modalPath: "/plugins/_desktop/webui/main.html",
     async beginDockHandoff() {
@@ -36,7 +36,7 @@ export default async function registerDesktopSurface(surfaces) {
       desktopStore.cancelDesktopHostHandoff?.();
     },
     async open(payload = {}) {
-      const panel = await waitForElement('[data-surface-id="desktop"] .office-panel');
+      const panel = await waitForElement('[data-surface-id="desktop"] .desktop-panel');
       if (!panel) throw new Error("Desktop surface panel did not mount.");
       await desktopStore.onMount?.(panel, { mode: "canvas" });
       await desktopStore.onOpen?.(payload);

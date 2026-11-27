@@ -1,9 +1,9 @@
 import asyncio
-import base64
 import sys
 import threading
 from pathlib import Path
 
+import pytest
 from flask import Flask, request
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -47,9 +47,10 @@ def test_image_get_serves_images_inside_base_dir(tmp_path, monkeypatch):
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
-def test_image_get_blocks_image_paths_outside_base_dir(tmp_path, monkeypatch):
+@pytest.mark.parametrize("development", [False, True])
+def test_image_get_blocks_image_paths_outside_base_dir(tmp_path, monkeypatch, development):
     base_dir = tmp_path / "a0"
-    _patch_base_dir(monkeypatch, base_dir)
+    _patch_base_dir(monkeypatch, base_dir, development=development)
     outside_image = tmp_path / "outside.png"
     outside_image.write_bytes(b"outside")
 
@@ -59,9 +60,10 @@ def test_image_get_blocks_image_paths_outside_base_dir(tmp_path, monkeypatch):
     assert response.get_data(as_text=True) == "Path is outside of allowed directory"
 
 
-def test_image_get_blocks_symlink_escape_from_base_dir(tmp_path, monkeypatch):
+@pytest.mark.parametrize("development", [False, True])
+def test_image_get_blocks_symlink_escape_from_base_dir(tmp_path, monkeypatch, development):
     base_dir = tmp_path / "a0"
-    _patch_base_dir(monkeypatch, base_dir)
+    _patch_base_dir(monkeypatch, base_dir, development=development)
     outside_image = tmp_path / "secret.png"
     outside_image.write_bytes(b"secret")
     link_path = base_dir / "usr" / "uploads" / "linked.png"
@@ -73,9 +75,10 @@ def test_image_get_blocks_symlink_escape_from_base_dir(tmp_path, monkeypatch):
     assert response.status_code == 403
 
 
-def test_image_get_hardens_svg_responses(tmp_path, monkeypatch):
+@pytest.mark.parametrize("development", [False, True])
+def test_image_get_hardens_svg_responses(tmp_path, monkeypatch, development):
     base_dir = tmp_path / "a0"
-    _patch_base_dir(monkeypatch, base_dir)
+    _patch_base_dir(monkeypatch, base_dir, development=development)
     svg_path = base_dir / "usr" / "uploads" / "payload.svg"
     svg_path.parent.mkdir(parents=True)
     svg_path.write_text(
@@ -91,61 +94,38 @@ def test_image_get_hardens_svg_responses(tmp_path, monkeypatch):
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
-def test_image_get_development_fallback_validates_remote_path(tmp_path, monkeypatch):
+def test_image_get_development_serves_local_a0_path(tmp_path, monkeypatch):
     base_dir = tmp_path / "a0"
     _patch_base_dir(monkeypatch, base_dir, development=True)
-    calls = []
+    image_path = base_dir / "usr" / "uploads" / "local.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"local image")
 
-    async def fake_call_development_function(func, *args, **kwargs):
-        calls.append(func.__name__)
-        if func is image_get._resolve_allowed_image_path:
-            return "/a0/usr/uploads/remote.png"
-        if func is image_get.files.exists:
-            return True
-        if func is image_get.files.read_file_base64:
-            return base64.b64encode(b"\x89PNG\r\n\x1a\n").decode("ascii")
-        raise AssertionError(f"Unexpected remote call: {func.__name__}")
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Images must be read locally")
 
-    monkeypatch.setattr(
-        image_get.runtime,
-        "call_development_function",
-        fake_call_development_function,
-    )
-
-    response = asyncio.run(_request_image("/a0/usr/uploads/remote.png"))
-
-    assert response.status_code == 200
-    assert response.headers["X-File-Type"] == "image"
-    assert calls == ["_resolve_allowed_image_path", "exists", "read_file_base64"]
+    monkeypatch.setattr(image_get.runtime, "call_development_function", no_dispatch)
+    response = asyncio.run(_request_image("/a0/usr/uploads/local.png"))
+    try:
+        assert response.status_code == 200
+        assert b"".join(response.response) == b"local image"
+    finally:
+        response.close()
 
 
-def test_image_get_development_fallback_does_not_read_rejected_remote_path(
-    tmp_path,
-    monkeypatch,
-):
+def test_image_get_development_missing_file_uses_icon_without_rfc(tmp_path, monkeypatch):
     base_dir = tmp_path / "a0"
     _patch_base_dir(monkeypatch, base_dir, development=True)
-    calls = []
 
-    async def fake_call_development_function(func, *args, **kwargs):
-        calls.append(func.__name__)
-        if func is image_get._resolve_allowed_image_path:
-            raise ValueError("Path is outside of allowed directory")
-        raise AssertionError(f"Unexpected remote call after validation: {func.__name__}")
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Missing images must not trigger RFC")
 
-    monkeypatch.setattr(
-        image_get.runtime,
-        "call_development_function",
-        fake_call_development_function,
-    )
+    monkeypatch.setattr(image_get.runtime, "call_development_function", no_dispatch)
     monkeypatch.setattr(
         image_get,
         "_send_fallback_icon",
         lambda _icon_name: image_get.Response("fallback", status=200),
     )
-
-    response = asyncio.run(_request_image("/a0/usr/uploads/rejected.png"))
-
+    response = asyncio.run(_request_image("/a0/usr/uploads/missing.png"))
     assert response.status_code == 200
     assert response.get_data(as_text=True) == "fallback"
-    assert calls == ["_resolve_allowed_image_path"]

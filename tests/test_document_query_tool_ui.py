@@ -1,7 +1,10 @@
 from pathlib import Path
 from types import SimpleNamespace
+import asyncio
 
-from plugins._document_query.tools.document_query import DocumentQueryTool
+import pytest
+
+from plugins._document_query.helpers.query_handler import DocumentQueryTool
 
 PROMPTS = Path("plugins/_document_query/prompts")
 
@@ -48,3 +51,30 @@ def test_get_heading_lists_first_document_and_count():
 def test_empty_queries_read_documents():
     assert _make_tool({"document": "https://example.com/a.pdf", "queries": []}).get_heading() == "icon://manage_search Reading: a.pdf"
     assert _make_tool({"document": "https://example.com/a.pdf", "query": ""}).get_heading() == "icon://manage_search Reading: a.pdf"
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_prepared_worker_stops_when_no_parse_runs(monkeypatch, fail):
+    from plugins._document_query.helpers.sandbox import worker
+    from plugins._document_query.helpers import query_handler
+
+    events = []
+
+    async def prepare(*, mounts):
+        assert mounts == []
+        events.append('prepare')
+
+    async def content(uri):
+        if fail:
+            raise ValueError('fetch failed')
+        return 'cached document'
+
+    monkeypatch.setattr(worker, 'aprepare', prepare)
+    monkeypatch.setattr(worker, 'stop', lambda: events.append('stop'))
+    monkeypatch.setattr(query_handler, 'DocumentQueryHelper', lambda *a, **kw: SimpleNamespace(
+        config={}, document_get_content=content, store=SimpleNamespace(settings=lambda: ({}, []))))
+    tool = _make_tool({'document': 'example.txt'})
+    tool.log = SimpleNamespace(update=lambda **kw: None)
+    response = asyncio.run(tool.execute(document='example.txt'))
+    assert ('fetch failed' if fail else 'cached document') in response.message
+    assert events == ['prepare', 'stop']

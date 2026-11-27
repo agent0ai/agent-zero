@@ -44,9 +44,6 @@ a0
 4. If Agent Zero is somewhere else, enter its web address.
 5. Open or create a chat and confirm you can talk to Agent Zero from the host machine.
 
-> [!NOTE]
-> If A0 CLI says connector support is missing, update Agent Zero first.
-
 ### Connection picker
 
 On launch, A0 CLI opens a host picker. If it finds Agent Zero on this machine,
@@ -264,24 +261,13 @@ to switch to Bring Your Own Browser mode for the current Global or project scope
 
 Run `/browser container` to switch that scope back to Docker browser mode.
 
-`/browser privacy` reminds users where the Browser content policy lives:
-
-![A0 CLI Browser privacy notice](../res/usage/a0-cli/a0-cli-browser-privacy.png)
-
 If the selected browser profile is already open in another window, close that
 window and try again. You can also run `/browser relaunch`.
 
 You do not need to install Chrome DevTools MCP for this. A0 CLI already includes
 what it needs to connect to the browser you approve.
 
-### Page Privacy
-
-Browser settings decide what Agent Zero may do with page text and screenshots
-from your own browser:
-
-- **Local models only:** use host-browser page content only with local models.
-- **Warn when using cloud:** allow cloud models, but show a warning.
-- **Allow:** allow without warning.
+When you enable host browsing, the model selected for Browser can receive page text and screenshots from the profile you authorize.
 
 > [!NOTE]
 > The live Browser surface shows the Docker browser. When Agent Zero uses your
@@ -293,7 +279,7 @@ from your own browser:
 If another agent is helping with setup, do not paste a whole checklist. Paste one line:
 
 ```text
-Set up the A0 CLI connector for Agent Zero on this machine using the setup-a0-cli Skill.
+Set up the A0 CLI connector on this machine. Load a0-development and read references/setup-a0-cli.md.
 ```
 
 ## Troubleshooting
@@ -301,7 +287,7 @@ Set up the A0 CLI connector for Agent Zero on this machine using the setup-a0-cl
 - **Nothing appears locally:** Enter the Agent Zero web address manually or export `AGENT_ZERO_HOST`.
 - **You tried to install from inside Docker:** A0 CLI belongs on the host machine. Agent Zero stays in Docker.
 - **Function keys do nothing:** Some terminals and IDEs capture function keys. Use `Ctrl+P`.
-- **A0 CLI says connector support is missing:** Update Agent Zero.
+- **A0 CLI says connector support is missing:** Check the instance URL and enable the builtin A0 Connector plugin.
 - **Host browser says repair is needed:** Run `/browser repair`.
 - **Host browser waits for relaunch:** Close the selected Chrome, Edge, or Chromium profile and run `/browser relaunch`.
 

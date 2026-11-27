@@ -16,7 +16,7 @@ def test_touch_taps_suppress_tooltips_and_mouse_hover_still_works():
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script>
       </head><body>
-      <button title="Helpful description" onclick="window.clicks++">Action</button>
+      <div class="surface-toolbar"><button title="Helpful description" onclick="window.clicks++">Action</button></div>
       <script>window.clicks = 0;</script>
       </body></html>"""
 
@@ -67,6 +67,7 @@ def test_touch_taps_suppress_tooltips_and_mouse_hover_still_works():
                     page.mouse.move(300, 400)
                     playwright.expect(page.locator(".tooltip")).to_have_count(0)
                     button.focus()
+                    playwright.expect(page.locator(".tooltip.show")).to_have_text("Helpful description")
                     page.keyboard.press("Enter")
                     assert page.evaluate("window.clicks") == 1
                 page.evaluate("tooltips.cleanup()")

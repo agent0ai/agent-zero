@@ -12,7 +12,7 @@
 
 ## Local Contracts
 
-- Skills must use Agent Zero's ordinary shell/code execution tools, either container `code_execution_tool` or A0 Connector `code_execution_remote`, not a plugin-specific terminal agent tool.
+- Skills use Agent Zero's `code_execution_tool` for both sandbox and connected-host execution. Select `destination: host` for the connected machine.
 - Skill instructions plus their local reference files must be self-contained enough for the agent to run install checks, login/setup, smoke prompts, real tasks, and verification.
 - Generic orchestration belongs in `SKILL.md`; per-agent details belong in the nearest `references/` file.
 - Non-A0 agents first choose host-vs-container execution. Unknown preferences must be asked once and saved with memory when available.
@@ -32,7 +32,7 @@
 
 - Run the skill text contract test:
   ```bash
-  docker exec 8dc967046cda bash -lc 'cd /a0 && /opt/venv-a0/bin/python plugins/_orchestrator/tests/test_status_adapters.py'
+  docker exec 8dc967046cda bash -lc 'cd /a0 && python plugins/_orchestrator/tests/test_status_adapters.py'
   ```
 
 ## Child DOX Index

@@ -19,6 +19,9 @@
 
 ## Runtime Contracts
 
+- Invoke the existing file helpers locally in both development and production; await their async entry points. Path validation, response shapes and mutation hooks remain unchanged.
+- Resolve development `/a0` aliases before local stat calls; retain the original `input_path` and report the resolved local `abs_path`.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `FileInfoApi` is an `ApiHandler`.
@@ -28,7 +31,7 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `files.get_abs_path`, `os.path.exists`, `os.path.dirname`, `os.path.basename`, `runtime.call_development_function`, `os.path.isdir`, `os.path.isfile`, `os.path.islink`, `os.path.getsize`, `os.path.getmtime`, `os.path.getctime`, `os.path.splitext`, `os.stat`.
+- Important called helpers/classes observed in the source: `files.get_abs_path`, `os.path.exists`, `os.path.dirname`, `os.path.basename`, `os.path.isdir`, `os.path.isfile`, `os.path.islink`, `os.path.getsize`, `os.path.getmtime`, `os.path.getctime`, `os.path.splitext`, `os.stat`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

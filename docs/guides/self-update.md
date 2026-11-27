@@ -12,6 +12,18 @@ The UI will tell you when a new A0 update is available for download. Backups are
 
 ![Self Update modal showing the current v2.0 state](../res/usage/updating/self-update-v2-current.png)
 
+## v3 Docker Browser security updates
+
+Agent Zero v3 reuses the full Chromium installed in the Browser guest. Self Update
+leaves that executable in place. Administrators must apply Chromium security
+updates separately. Back up the profile with Chromium closed, then follow the
+steps for your Debian or standalone build in [Updating the internal browser](../../plugins/_browser/README.md#updating-the-internal-browser).
+
+Chromium runs with `--no-sandbox` in the PRoot guest. A compromised renderer
+can access files available to the guest user, including the browser profile and
+downloads, and network services reachable from the Agent Zero container,
+including its loopback services.
+
 ---
 
 ## Technical reference
@@ -26,9 +38,19 @@ Agent Zero includes a Docker-oriented self-update flow for switching to a specif
 4. It cleans the root `uv` cache when `uv` is available.
 5. If requested, it creates a zip backup of `/a0/usr`.
 6. It fetches the requested branch and update target from the official Agent Zero repository.
-7. It updates `/a0` while preserving gitignored paths such as `/a0/usr`.
-8. It starts Agent Zero again and waits for `/api/health` to become healthy.
-9. If the UI does not become healthy within the allowed time, it restores the previous checkout and starts that version again.
+7. It runs any `before` update scripts from the resolved target commit against the old checkout.
+8. It updates `/a0` while preserving gitignored paths such as `/a0/usr`.
+9. It runs any `after` scripts before starting Agent Zero and waiting for `/api/health` to become healthy.
+10. If a script fails or the updated UI does not become healthy within the allowed time, it aborts or restores the previous checkout and starts that version again.
+
+Release scripts can check and update system components independently of the
+Docker image. They run only for update attempts, with output in the update log;
+ordinary restarts still use existing startup migrations and lazy plugin installers.
+Critical releases can explicitly replace the updater before checkout, with
+validation, backup and continuation of the same attempt. See
+[release update scripts](../../docker/run/update/README.md) for the hook contract.
+Git rollback does not undo system-package or sandbox changes; those scripts must
+preserve working state and provide their own recovery.
 
 ## Durable files
 

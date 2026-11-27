@@ -1,9 +1,14 @@
 """PDF parser with PyMuPDF primary and Tesseract OCR fallback."""
 
+import io
 import os
 
-from helpers.print_style import PrintStyle
-from plugins._document_query.helpers.fetch import FetchedDocument
+import logging
+from plugins._document_query.helpers.document import FetchedDocument
+from plugins._document_query.helpers.ocr_dependencies import (
+    ensure_pdf_ocr_dependencies,
+    ensure_tesseract_dependencies,
+)
 
 from .base import BaseParser
 
@@ -18,27 +23,43 @@ class PdfParser(BaseParser):
             contents = self._parse_with_pymupdf(file_path)
             if not contents:
                 if not config.get("pdf_ocr_fallback", True):
-                    raise ValueError("PyMuPDF returned no content and OCR fallback is disabled")
+                    raise ValueError(
+                        "PyMuPDF returned no content and OCR fallback is disabled"
+                    )
                 contents = self._parse_with_ocr(file_path)
             return contents
 
     def _parse_with_pymupdf(self, file_path: str) -> str:
-        from langchain_community.document_loaders.pdf import PyMuPDFLoader
-        from langchain_community.document_loaders.parsers.images import TesseractBlobParser
+        import pymupdf
 
         try:
-            loader = PyMuPDFLoader(
-                file_path, mode="single", extract_tables="markdown",
-                extract_images=True, images_inner_format="text",
-                images_parser=TesseractBlobParser(), pages_delimiter="\n",
-            )
-            return "\n".join(e.page_content for e in loader.load())
+            parts = []
+            with pymupdf.open(file_path) as pdf:
+                for page in pdf:
+                    parts.append(page.get_text())
+                    parts.extend(table.to_markdown() for table in page.find_tables().tables)
+                    for image in page.get_images():
+                        data = pdf.extract_image(image[0])
+                        if data and data.get("image"):
+                            parts.append(_image_text(data["image"]))
+            return "\n".join(parts).strip()
         except Exception as e:
-            PrintStyle.error(f"PyMuPDF parsing failed: {e}")
+            logging.error(f"PyMuPDF parsing failed: {e}")
             return ""
 
     def _parse_with_ocr(self, file_path: str) -> str:
         import pdf2image, pytesseract
-        PrintStyle.debug(f"FALLBACK: OCR for {file_path}")
+
+        ensure_pdf_ocr_dependencies()
+        logging.debug(f"FALLBACK: OCR for {file_path}")
         pages = pdf2image.convert_from_path(file_path)
         return "\n\n".join(pytesseract.image_to_string(p) for p in pages)
+
+
+def _image_text(data):
+    from PIL import Image
+    import pytesseract
+
+    ensure_tesseract_dependencies()
+    with Image.open(io.BytesIO(data)) as image:
+        return pytesseract.image_to_string(image, lang="eng")

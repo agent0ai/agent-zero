@@ -7,12 +7,13 @@
 
 ## Ownership
 
+- `destination_files.py` owns bounded binary file access for agent tools across local, sandbox and connected-host filesystems. Resolve guest paths inside PRoot and honor the connected host folder and transfer grants.
+
 - Helper modules provide reusable services; feature-specific route handlers belong in `api/`, tool behavior in `tools/`, and plugin-local logic inside plugin directories.
-- Security, auth, settings, file access, plugin discovery, extension dispatch, notifications, state snapshots, scheduler, tunnel, and WebSocket primitives live here.
+- Security, auth, settings, file access, plugin discovery, extension dispatch, notifications, state snapshots, scheduler, sandbox access, tunnel-origin discovery, and WebSocket primitives live here.
 
 ## Local Contracts
 
-- Filesystem watchdog registration retains unchanged observer subscriptions; `watchdog.py.dox.md` owns reconciliation and locking contracts.
 - UI bundle inventory uses directory-entry metadata to avoid repeated host-mount path checks while preserving symlink containment; `ui_bundler.py.dox.md` owns the details.
 - Preserve public helper APIs used by core code and plugins unless all callers, docs, and tests are updated.
 - Use structured parsers and serializers for YAML, JSON, paths, and URLs instead of ad hoc string handling.
@@ -32,6 +33,11 @@
 - The `*.py.dox.md` file owns helper purpose, public classes/functions, cross-module contracts, persistence or side effects, path/security assumptions, important dependencies, and verification guidance.
 - When a helper module is added, removed, renamed, or behaviorally changed, update its matching `*.py.dox.md` in the same change.
 - Do not leave stale file-level DOX after helper deletion or rename.
+
+- `local_embeddings.py` owns pinned offline MiniLM ONNX assets and inference; its file DOX records accepted model/configuration and parity verification boundaries.
+- `sandbox_worker.py` owns lazy plugin worker handoff, cancellation and idle cleanup; `native_display.py` owns standard-library XRandR operations reusable inside guests.
+
+- Worker binding creation uses the reserved service identity. Atomic no-replace publication is shared by the file browser and seeded sandbox directories through `helpers/file_transfers.py`.
 
 ## Work Guidance
 

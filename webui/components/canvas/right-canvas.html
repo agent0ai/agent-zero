@@ -20,6 +20,7 @@
         :style="$store.rightCanvas.widthStyle()"
         x-show="$store.rightCanvas.shouldRender()"
         x-init="$store.rightCanvas.init($el)"
+        x-destroy="$store.rightCanvas._resizeCleanup?.()"
         x-effect="$store.rightCanvas.applyLayoutState()"
         aria-label="Universal Canvas"
       >
@@ -42,7 +43,7 @@
               :class="{ 'is-active': $store.rightCanvas.isSurfaceActive(surface.id) && $store.rightCanvas.isOpen }"
               :title="surface.title"
               :aria-label="surface.title"
-              @click="$store.rightCanvas.open(surface.id)"
+              @click="$store.rightCanvas.openFromRail(surface.id)"
             >
               <template x-if="surface.image">
                 <img class="right-canvas-surface-image" :src="surface.image" alt="" aria-hidden="true">
@@ -60,7 +61,7 @@
           </button>
         </nav>
 
-        <section class="right-canvas-shell">
+        <section class="right-canvas-shell" x-data x-create="$store.rightCanvas.mountShell($el)">
           <x-extension id="right-canvas-shell-start"></x-extension>
 
           <header class="right-canvas-header">
@@ -93,12 +94,12 @@
               <button
                 type="button"
                 class="right-canvas-icon-button"
-                title="Open as window"
-                aria-label="Open as window"
-                x-show="$store.rightCanvas.currentSurfaceCanUndock()"
-                @click="$store.rightCanvas.undockActiveSurface()"
+                :title="$store.rightCanvas.isDetached ? 'Attach to sidebar' : 'Detach canvas'"
+                :aria-label="$store.rightCanvas.isDetached ? 'Attach to sidebar' : 'Detach canvas'"
+                x-show="!$store.rightCanvas.isDetached || (!$store.rightCanvas.isMobileMode && $store.rightCanvas.shouldRender())"
+                @click="$store.rightCanvas.toggleMode()"
               >
-                <x-icon name="open_in_new"></x-icon>
+                <x-icon :name="$store.rightCanvas.isDetached ? 'dock_to_right' : 'open_in_new'"></x-icon>
               </button>
               <button
                 type="button"

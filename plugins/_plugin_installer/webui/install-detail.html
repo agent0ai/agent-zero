@@ -218,6 +218,24 @@
                          class="pi-readme-content" x-html="$store.pluginInstallStore.readmeContent"></div>
                 </div>
 
+                <div class="pi-version-section">
+                    <div class="pi-version-header">Agent Zero compatibility</div>
+                    <div class="pi-version-grid">
+                        <div class="pi-version-card">
+                            <div class="pi-version-label">Allowed Agent Zero versions</div>
+                            <div class="pi-version-name"
+                                 x-text="$store.pluginInstallStore.compatibilityLoading ? 'Checking...' : $store.pluginInstallStore.formatA0Requirement($store.pluginInstallStore.pluginCompatibility)"></div>
+                        </div>
+                        <div class="pi-version-card">
+                            <div class="pi-version-label">Installed Agent Zero</div>
+                            <div class="pi-version-name"
+                                 x-text="$store.pluginInstallStore.pluginCompatibility?.current_version || 'Unknown'"></div>
+                            <div class="pi-version-time"
+                                 x-text="$store.pluginInstallStore.compatibilityLoading ? 'Checking compatibility...' : $store.pluginInstallStore.pluginCompatibility?.compatible === true ? 'Compatible' : $store.pluginInstallStore.pluginCompatibility?.compatible === false ? 'Version mismatch' : 'Compatibility could not be verified'"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="pi-version-section"
                      x-show="$store.pluginInstallStore.getCurrentInstalledVersion() || $store.pluginInstallStore.getCurrentInstalledCommit() || $store.pluginInstallStore.getLatestPluginHubVersion() || $store.pluginInstallStore.getLatestPluginHubCommit()">
                     <div class="pi-version-header">Version</div>

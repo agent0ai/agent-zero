@@ -1,5 +1,3 @@
-import json
-import urllib.request
 from urllib.parse import urlparse
 
 
@@ -48,60 +46,11 @@ def origin_key(value):
 
 
 def get_active_tunnel_origins():
-    """Return normalized origins for currently active Remote Control URLs."""
-    origins = []
-
+    """Discover the active plugin URL without starting any service."""
     try:
-        from helpers.tunnel_manager import TunnelManager
-
-        tunnel_url = TunnelManager.get_instance().get_tunnel_url()
-        _append_origin(origins, tunnel_url)
+        from plugins._tunnel.helpers.runtime import status
+        current = status()
+        origin = origin_from_url(current.get("tunnel_url")) if current.get("is_running") else None
+        return [origin] if origin else []
     except Exception:
-        pass
-
-    try:
-        _append_origin(origins, _get_tunnel_service_url())
-    except Exception:
-        pass
-
-    return origins
-
-
-def _append_origin(origins, url):
-    origin = origin_from_url(url)
-    if origin and origin not in origins:
-        origins.append(origin)
-
-
-def _get_tunnel_service_url():
-    try:
-        from helpers import dotenv, runtime
-
-        should_query_service = bool(
-            runtime.is_dockerized()
-            or runtime.get_arg("tunnel_api_port")
-            or dotenv.get_dotenv_value("TUNNEL_API_PORT")
-        )
-        if not should_query_service:
-            return None
-
-        port = runtime.get_tunnel_api_port()
-    except Exception:
-        return None
-
-    body = json.dumps({"action": "get"}).encode("utf-8")
-    request = urllib.request.Request(
-        f"http://localhost:{port}/",
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=0.35) as response:
-            payload = json.loads(response.read().decode("utf-8", errors="replace"))
-    except Exception:
-        return None
-
-    if isinstance(payload, dict) and payload.get("success"):
-        return payload.get("tunnel_url")
-    return None
+        return []

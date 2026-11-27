@@ -32,6 +32,16 @@ setup, the chat holds your message while you complete
 Use **Restart** from the sidebar when you need the framework to reload after
 settings or code changes.
 
+### Browse and manage files
+
+Click once to select a file or folder. Double-click, double-tap, or press Enter to open it. Hold Ctrl (Command on Mac) to toggle individual items or Shift to select a range. On a narrow screen, tap the checkboxes or sweep down the checkbox column. Type in the list to filter names, or use **Hidden** to include dotfiles.
+
+Drag a selection onto a folder to move it. Hold Ctrl while dropping to copy. For a destination outside the current view, choose **Copy to…** or **Move to…** from the item menu, browse to the destination, and confirm. Dropping files or folders from your device uploads them. Local uploads keep both copies when names collide. The toolbar ellipsis holds actions that do not fit.
+
+Open the item menu for **Properties**, **Create ZIP**, or **Move to Trash**. Open **Trash** in the toolbar to restore local items. Restoring requires a free original name. Items on another filesystem cannot move into the instance Trash. Remote folders use the actions allowed by their connection.
+
+In Editor, **Open Selected** opens the selected text files. **Save As** lets you browse to a folder, enter a new filename, and choose **Save Here**. Cancel returns you to the editor. Media files open in a preview with previous and next controls.
+
 ### Find a chat or message
 
 Use **Search** below **Chats** to enter a chat title or a phrase you remember.

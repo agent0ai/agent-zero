@@ -1,10 +1,11 @@
 ### text_editor
 canonical text and Markdown file read write patch with numbered lines
 not code execution rejects binary
-terminal (grep find sed) advance search/replace
+Use `rg --files` to list repo files and `rg -n PATTERN` to find matching lines in the terminal. If `rg` is unavailable in a Git checkout, use `git grep -n PATTERN`. Read matching ranges on the same destination.
 actions: read write patch
-common args: action path
-optional UI intent args: open_in_canvas
+common args: action path destination
+- `destination` selects the filesystem. Use the same destination as code execution for sandbox files (`default` or a sandbox name). Use `host` for the connected CLI or Launcher and `local` for A0 files. Omitted destination uses `local` for compatibility. For connected-host workflows, load the `host-file-editing` skill. The host must allow the requested file operation.
+optional UI intent args for local files: open_in_canvas
 use this tool for Markdown and plain text files; use `office_artifact` only for Office packages such as odt ods odp docx xlsx pptx
 if the user explicitly asks to open the Markdown file in the canvas/Editor after a write or patch, set `open_in_canvas: true`; otherwise omit UI flags because already-open Editor sessions refresh automatically
 

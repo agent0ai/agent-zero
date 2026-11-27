@@ -15,6 +15,7 @@ export const store = createStore("modelGate", {
   accountConnected: false,
   accountLabel: "",
   pending: null,
+  contextId: "",
   gateMessageId: "",
   choice: "",
   dispatching: false,
@@ -91,8 +92,21 @@ export const store = createStore("modelGate", {
     this.active = true;
     this.connected = false;
     this.pending = { message, attachments, messageId, context };
-    this.gateMessageId = this.gateMessageId || `model-gate-${messageId}`;
+    this.contextId = context;
+    this.gateMessageId = `model-gate-${messageId}`;
     this.savePending();
+  },
+
+  resetContext(contextId) {
+    this.init();
+    if (this.contextId !== contextId) return;
+    this.pending = null;
+    this.contextId = "";
+    this.active = false;
+    this.connected = false;
+    this.gateMessageId = "";
+    this.choice = "";
+    this.clearSavedPending();
   },
 
   syntheticMessages(currentContext) {
@@ -226,6 +240,7 @@ export const store = createStore("modelGate", {
     this.active = true;
     this.connected = false;
     this.pending = { message, attachments: [], messageId, context };
+    this.contextId = context;
     this.gateMessageId = String(saved?.gateMessageId || `model-gate-${messageId}`);
     this.choice = ["local", "cloud", "account"].includes(saved?.choice) ? saved.choice : "";
   },

@@ -1,8 +1,13 @@
+import hashlib
 from pathlib import Path
+import tempfile
+
+from helpers import destination_files
+from helpers.tool_policy import ensure_retired_host_tool_allowed
 
 from helpers.tool import Tool, Response
 from helpers.extension import call_extensions_async
-from helpers import plugins, runtime
+from helpers import files, plugins
 from plugins._text_editor.helpers.file_ops import (
     FileInfo,
     read_file,
@@ -32,10 +37,20 @@ _MTIME_KEY = LOCAL_FRESHNESS_KEY
 class TextEditor(Tool):
 
     def get_log_object(self):
-        return create_editor_log(self)
+        return create_editor_log(self, remote=self.args.get("destination") == "host")
 
     async def execute(self, **kwargs):
         action = _current_action(self, kwargs)
+        destination = str(kwargs.pop("destination", self.args.get("destination", "local")) or "local").strip()
+        if destination == "host":
+            from plugins._a0_connector.helpers.host_text_editor import HostTextEditor
+
+            ensure_retired_host_tool_allowed(self.agent, "text_editor_remote", action=action)
+            remote = HostTextEditor(self.agent, {**self.args, **kwargs, "action": action})
+            return await remote.execute()
+        if destination and destination != "local":
+            kwargs.pop("action", None)
+            return await self._sandbox_edit(destination, action, **kwargs)
         if action == "read":
             return await self._read(**kwargs)
         elif action == "write":
@@ -50,20 +65,95 @@ class TextEditor(Tool):
             break_loop=False,
         )
 
+    async def _sandbox_edit(self, destination, action, path="", **kwargs):
+        limit = 10 * 1024 * 1024
+        try:
+            if not isinstance(path, str) or not path or action not in {"read", "write", "patch"}:
+                raise ValueError("Provide a path and a read, write, or patch action")
+            target = await destination_files.resolve(self.agent, destination)
+            key = f"{target.target}:{path}"
+            revisions = self.agent.data.setdefault("_text_editor_sandbox_revisions", {})
+            if action == "write":
+                content = kwargs.get("content")
+                if content is None:
+                    content = ""
+                if not isinstance(content, str):
+                    raise ValueError("content must be a string")
+                revision = await destination_files.write(
+                    self.agent, destination, path, content.encode("utf-8"), limit=limit,
+                )
+                revisions[key] = revision
+                return Response(message=f"{path} written in {destination}", break_loop=False)
+
+            content = await destination_files.read(self.agent, destination, path, limit=limit)
+            if b"\x00" in content[:8192]:
+                raise ValueError("File appears binary")
+            revision = hashlib.sha256(content).hexdigest()
+            with tempfile.TemporaryDirectory(prefix="a0-text-editor-") as directory:
+                staged = Path(directory, "content")
+                staged.write_bytes(content)
+                if action == "read":
+                    cfg = _get_config(self.agent)
+                    result = read_file(
+                        str(staged), line_from=int(kwargs.get("line_from", 1)),
+                        line_to=int(kwargs["line_to"]) if kwargs.get("line_to") is not None else None,
+                        max_line_tokens=cfg["max_line_tokens"],
+                        default_line_count=cfg["default_line_count"],
+                        max_total_read_tokens=cfg["max_total_read_tokens"],
+                    )
+                    if result["error"]:
+                        raise ValueError(result["error"])
+                    revisions[key] = revision
+                    visible = {name: result[name] for name in ("content", "warnings")}
+                    await call_extensions_async("text_editor_read_after", agent=self.agent, data=visible)
+                    message = self.agent.read_prompt(
+                        "fw.text_editor.read_ok.md", path=path, total_lines=str(result["total_lines"]), **visible,
+                    )
+                    return Response(message=message, break_loop=False)
+
+                patch, error = parse_patch_request(
+                    kwargs.get("edits"), kwargs.get("patch_text"), kwargs.get("old_text"), kwargs.get("new_text"),
+                )
+                if error:
+                    raise ValueError(error)
+                if patch.mode == "replace":
+                    apply_exact_replace_file(str(staged), patch.old_text, patch.new_text)
+                elif patch.mode == "patch_text":
+                    apply_context_patch_file(str(staged), patch.patch_text)
+                else:
+                    if key not in revisions:
+                        return Response(self.agent.read_prompt("fw.text_editor.patch_need_read.md", path=path), False)
+                    if revisions[key] != revision:
+                        return Response(self.agent.read_prompt("fw.text_editor.patch_stale_read.md", path=path), False)
+                    edits, error = validate_edits(patch.edits)
+                    if error:
+                        raise ValueError(error)
+                    apply_patch(str(staged), edits)
+                new_revision = await destination_files.write(
+                    self.agent, destination, path, staged.read_bytes(), limit=limit, expected=revision,
+                )
+                if patch.mode == "edits":
+                    revisions[key] = new_revision
+                else:
+                    revisions.pop(key, None)
+                return Response(message=f"{path} patched in {destination}", break_loop=False)
+        except (OSError, ValueError, RuntimeError, TypeError) as exc:
+            return self._error(action, path, str(exc))
+
     # ------------------------------------------------------------------
     # READ
     # ------------------------------------------------------------------
     async def _read(self, path: str = "", **kwargs) -> Response:
         if not path:
             return self._error("read", path, "path is required")
+        path = files.fix_dev_path(str(Path(path).expanduser().absolute()))
 
         cfg = _get_config(self.agent)
         line_from = int(kwargs.get("line_from", 1))
         raw_to = kwargs.get("line_to")
         line_to = int(raw_to) if raw_to is not None else None
 
-        result = await runtime.call_development_function(
-            read_file,
+        result = read_file(
             path,
             line_from=line_from,
             line_to=line_to,
@@ -75,7 +165,7 @@ class TextEditor(Tool):
         if result["error"]:
             return self._error("read", path, result["error"])
 
-        info = await runtime.call_development_function(file_info, path)
+        info = file_info(path)
         record_file_state(
             self.agent,
             info,
@@ -109,6 +199,7 @@ class TextEditor(Tool):
     ) -> Response:
         if not path:
             return self._error("write", path, "path is required")
+        path = files.fix_dev_path(str(Path(path).expanduser().absolute()))
 
         # Extension point
         ext_data = {"path": path, "content": content}
@@ -116,9 +207,7 @@ class TextEditor(Tool):
             "text_editor_write_before", agent=self.agent, data=ext_data
         )
 
-        result = await runtime.call_development_function(
-            write_file, ext_data["path"], ext_data["content"]
-        )
+        result = write_file(ext_data["path"], ext_data["content"])
 
         if result["error"]:
             return self._error("write", path, result["error"])
@@ -129,7 +218,7 @@ class TextEditor(Tool):
             data={"path": path, "total_lines": result["total_lines"]},
         )
 
-        info = await runtime.call_development_function(file_info, path)
+        info = file_info(path)
         record_file_state(
             self.agent,
             info,
@@ -138,8 +227,7 @@ class TextEditor(Tool):
         )
 
         cfg = _get_config(self.agent)
-        read_result = await runtime.call_development_function(
-            read_file,
+        read_result = read_file(
             info["expanded"],
             line_from=1,
             line_to=result["total_lines"],
@@ -167,6 +255,7 @@ class TextEditor(Tool):
     ) -> Response:
         if not path:
             return self._error("patch", path, "path is required")
+        path = files.fix_dev_path(str(Path(path).expanduser().absolute()))
         patch_request, err = parse_patch_request(
             edits,
             patch_text,
@@ -177,7 +266,7 @@ class TextEditor(Tool):
         if err:
             return self._error("patch", path, err)
 
-        info = await runtime.call_development_function(file_info, path)
+        info = file_info(path)
         if not info["is_file"]:
             return self._error("patch", path, "file not found")
 
@@ -222,9 +311,7 @@ class TextEditor(Tool):
         )
 
         try:
-            total_lines = await runtime.call_development_function(
-                apply_patch, ext_data["path"], ext_data["edits"]
-            )
+            total_lines = apply_patch(ext_data["path"], ext_data["edits"])
         except Exception as exc:
             return self._error("patch", path, str(exc))
 
@@ -235,9 +322,7 @@ class TextEditor(Tool):
         )
 
         # Refresh file info after patch for updated mtime
-        post_info = await runtime.call_development_function(
-            file_info, expanded
-        )
+        post_info = file_info(expanded)
         apply_patch_post_state(
             self.agent,
             post_info,
@@ -279,8 +364,7 @@ class TextEditor(Tool):
         )
 
         try:
-            result = await runtime.call_development_function(
-                apply_exact_replace_file,
+            result = apply_exact_replace_file(
                 ext_data["path"],
                 ext_data["old_text"],
                 ext_data["new_text"],
@@ -300,9 +384,7 @@ class TextEditor(Tool):
             },
         )
 
-        post_info = await runtime.call_development_function(
-            file_info, ext_data["path"]
-        )
+        post_info = file_info(ext_data["path"])
         mark_file_state_stale(self.agent, post_info, key=_MTIME_KEY)
 
         patch_content = await _read_exact_replace_region(
@@ -341,8 +423,7 @@ class TextEditor(Tool):
         )
 
         try:
-            result = await runtime.call_development_function(
-                apply_context_patch_file,
+            result = apply_context_patch_file(
                 ext_data["path"],
                 ext_data["patch_text"],
             )
@@ -362,9 +443,7 @@ class TextEditor(Tool):
             },
         )
 
-        post_info = await runtime.call_development_function(
-            file_info, ext_data["path"]
-        )
+        post_info = file_info(ext_data["path"])
         mark_file_state_stale(self.agent, post_info, key=_MTIME_KEY)
 
         patch_content = await _read_context_patch_region(
@@ -417,8 +496,7 @@ async def _read_patch_region(
     max_to = max(e["to"] for e in edits)
     end_line = max_to + added - removed + 3
 
-    result = await runtime.call_development_function(
-        read_file,
+    result = read_file(
         path,
         line_from=max(min_from - 1, 1),
         line_to=min(end_line, total_lines),
@@ -438,8 +516,7 @@ async def _read_context_patch_region(
     line_from = min(max(int(result["line_from"]), 1), total_lines)
     line_to = min(max(int(result["line_to"]), line_from) + 3, total_lines)
 
-    read_result = await runtime.call_development_function(
-        read_file,
+    read_result = read_file(
         path,
         line_from=max(line_from - 1, 1),
         line_to=line_to,
@@ -459,8 +536,7 @@ async def _read_exact_replace_region(
     line_from = min(max(int(result["line_from"]), 1), total_lines)
     line_to = min(max(int(result["line_to"]), line_from) + 3, total_lines)
 
-    read_result = await runtime.call_development_function(
-        read_file,
+    read_result = read_file(
         path,
         line_from=max(line_from - 1, 1),
         line_to=line_to,

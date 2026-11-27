@@ -7,8 +7,8 @@
 
 ## Project
 
-- Stack: Python 3.12+ framework, Python 3.13 agent execution runtime, Flask, Alpine.js, LiteLLM, and Socket.IO.
-- Start the WebUI with `python run_ui.py`; discover its URL from startup output, Docker mappings, or explicit configuration rather than assuming a port.
+- Stack: Python 3.12+ framework, Flask, Alpine.js, LiteLLM, and Socket.IO. Docker uses Tuxee with the official Python image's global environment.
+- Start the WebUI with `PYTHONDONTWRITEBYTECODE=1 python run_ui.py`; discover its URL from startup output, Docker mappings, or explicit configuration rather than assuming a port.
 - Run the full test suite with `pytest` or a focused file with `pytest tests/test_name.py`.
 - Human-facing documentation lives in `README.md` and `docs/`.
 
@@ -22,17 +22,20 @@
 - Native function calls use canonical call content for history and combine public response text with calls for repeat comparison. The canonical history content passes through the normal history template/masking hook; provider output metadata remains intact.
 - `initialize.py` owns framework initialization.
 - `models.py` owns model-provider configuration and LiteLLM integration. `get_api_key_raw()` reads the stored key or key list for settings/editing; `get_api_key()` selects a runtime key and runs provider extension hooks.
-- Local sentence-transformers load only on an embedding cache miss, not when importing `models`. `run_ui.init_a0` starts deferred preload before chat restoration and returns a completion callback so its end hooks (including watchdog registration) overlap warmup. `run` invokes that callback, allowing up to ten additional seconds for preload before starting MCP and the job loop, then HTTP. Chat restoration and extension hooks are outside this wait limit. Timeout leaves preload running, so a first chat can still wait for an uncached model. Waiting is best-effort: timeout or task failure does not prevent HTTP startup. Initialization hooks may disable preload or suppress completion; disabled preload still allows MCP/jobs, while a skipped initializer skips them. `preload.py` constructs the configured local embedding model in a worker thread; it must not import unused speech runtimes or block the shared background event loop.
-- `models._merge_provider_defaults` merges YAML-declared `extra_body` defaults with legacy top-level values for those declared fields and explicit nested overrides, in that order; unrelated kwargs and original-provider API-key selection remain intact. Its extension hooks let provider plugins finalize runtime credentials after merging without changing saved settings.
+- Local ONNX embeddings load only on an embedding cache miss, not when importing `models`. `run_ui.init_a0` starts deferred preload before chat restoration and returns a completion callback so its end hooks (including watchdog registration) overlap warmup. `run` invokes that callback, allowing up to ten additional seconds for preload before starting MCP and the job loop, then HTTP. Chat restoration and extension hooks are outside this wait limit. Timeout leaves preload running, so a first chat can still wait for an uncached model. Waiting is best-effort: timeout or task failure does not prevent HTTP startup. Initialization hooks may disable preload or suppress completion; disabled preload still allows MCP/jobs, while a skipped initializer skips them. `preload.py` warms the `cl100k_base` token counter and constructs the configured local embedding model in worker threads; failures remain independent and best-effort. Image asset preparation bundles the tokenizer cache with a failing-on-error token count. Preload must not import unused speech runtimes or block the shared background event loop.
+- `models._merge_provider_defaults` merges YAML-declared `extra_body` defaults with legacy top-level values for those declared fields and explicit nested overrides, in that order; unrelated kwargs and original-provider API-key selection remain intact. Extension hooks let provider plugins finalize runtime credentials without changing saved settings.
 - `models.apply_rate_limiter` skips token counting and returns no limiter when all request, input, and output limits are unset; any configured limit retains normal accounting.
-- `requirements.txt` includes HTTPX's SOCKS extra so framework clients support SOCKS proxy environment variables before plugin setup.
-- LiteLLM and OpenAI pins must remain compatible. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.
+- `update_reqs.py` preserves platform-specific requirement lines and reads installed versions through standard-library `importlib.metadata`; it must not require the retired Torch-transitive setuptools/pkg_resources.
+- `requirements.txt` is the single root application/test/tooling manifest; plugin sandbox manifests remain independent. It includes HTTPX's SOCKS extra for framework clients before plugin setup. Source-only upgrades retain unused optional packages for private consumers; rerun the root install to obtain consolidated test tooling, and use a fresh environment or image to omit retired packages.
+- LiteLLM and OpenAI pins receive explicit review. Docker builds and source-update migration use the glibc wheel hashes in `docker/litellm-constraints.txt`. Framework chat and prompt APIs use `langchain-core`. Retain shared dependency security floors and verify upgrades with installed-SDK HTTP tests in `tests/test_litellm_sdk.py` using the framework runtime.
 - Native agent-turn response callbacks may receive a display-only commentary preview as their full text; legacy callbacks, accumulated model output, usage and native dispatch retain the original text and result metadata.
 - `run_ui.py` is the WebUI entry point.
+- `helpers/socket_api.py` owns the local Unix socket transport; `helpers/ui_server.py` binds its lifetime to ASGI startup/shutdown. Core handlers live in `socket/`, plugin handlers in `<plugin>/socket/`; keep root `socket/` without `__init__.py` so Python's standard library remains importable.
+- `run_tunnel.py` is only a native sleep compatibility shim for old images until startup migration removes their Supervisor entry; Remote Control implementation and dependencies belong to `plugins/_tunnel/`.
 - `pytest.ini` and root `conftest.py` own test discovery: `tests` and `plugins` testpaths with importlib import mode, `tests/` importable for sibling test imports, and handler modules named like tests kept out of collection.
-- `prepare.py` migrates and loads legacy `.env` configuration before writing the root password; `helpers/migration.py` owns preservation of existing files and symlink handling.
-- `DockerfileLocal` must remain compatible with the contracts under `docker/`.
-- Runtime or user state under `usr/` and `tmp/` is intentionally outside tracked DOX unless the user explicitly asks otherwise.
+- `prepare.py` migrates and loads legacy `.env` configuration before writing the root password through lightweight `helpers.runtime`, without importing settings or the model stack; `helpers/migration.py` owns preservation of existing files and symlink handling.
+- `Dockerfile` builds the local and published Agent Zero image. See `docker/AGENTS.md` for runtime and build contracts.
+- Runtime or user state under `usr/`, `sandboxes/`, and `tmp/` is intentionally outside tracked DOX unless the user explicitly asks otherwise.
 
 ## Project-Wide Contracts
 
@@ -41,15 +44,18 @@
 - Preserve authentication and CSRF protections.
 - Use Linux paths and commands in examples.
 - When a live Dockerized Agent Zero target is explicitly named, verify that exact runtime instead of assuming a fixed localhost port.
+- Target a freshly pulled image for the v3 beta. Use the current API contract directly and describe setup or permission failures in terms of the action the user can take.
 - Message-loop completion requires an explicit response-tool call with `break_loop`. Free text in either transport remains generation thoughts and silently continues; never synthesize a response-tool call from prose. Malformed tool intent keeps its repair path.
 - Reuse the startup-preloaded local embedding model for matching runtime configurations; wrappers retain their own rate-limit configuration while sharing the underlying inference model.
 - Embedding wrappers expose batch-shaped `embed(inputs)` for provider-ready inputs; keep `embed_documents` and `embed_query` as LangChain compatibility adapters.
+- The bundled local encoder is the checksum-pinned all-MiniLM-L6-v2 ONNX pipeline in `helpers/local_embeddings.py`. Build/setup prepares assets explicitly; inference is offline. Other local models or inference-changing kwargs fail explicitly until separately validated. Keep logical provider/model/cache identity only with persisted-index parity evidence. Source upgrades retain old optional packages/cache for private consumers and rollback; rebuilt images omit them.
 - Embedding requests never forward the chat-only `a0_api_mode` control to providers.
 - Prompt Markdown may retain fenced JSON examples for readability; final system-prompt rendering removes only their JSON fence markers before model calls and preserves non-JSON fences.
 - System section owners register request-only alternatives with `helpers.responses_tools`; `helpers.responses_history` owns their per-build state and prepared-history capture in existing loop parameters. Responses applies them to copied input, preserving original Chat/fallback messages and stored history.
 - Copy live core-plugin changes back into tracked source under `plugins/`.
 - Develop new custom plugins under ignored `usr/plugins/`; tracked bundled plugins live under `plugins/`.
-- Use the framework runtime for backend and plugin-hook verification, not the separate agent execution runtime.
+- In Docker, use the global `/usr/local/bin/python` runtime for framework, plugin-hook, and local agent-code verification.
+- Production Python entrypoints use installed dependencies directly. Install root `requirements.txt` during image build or local setup; do not add dependency graph activation to application imports.
 - Dependency changes must cover both image installation declarations and existing self-updated instances. Use startup migrations for core dependencies and the owning installation hooks for plugin dependencies.
 
 ## Permissions
@@ -90,10 +96,10 @@ Ask before:
 | [extensions/AGENTS.md](extensions/AGENTS.md) | Backend and WebUI lifecycle extensions. |
 | [helpers/AGENTS.md](helpers/AGENTS.md) | Shared backend utilities and runtime services. |
 | [knowledge/AGENTS.md](knowledge/AGENTS.md) | Built-in agent self-knowledge. |
-| [lib/AGENTS.md](lib/AGENTS.md) | Lightweight browser-side helpers outside the WebUI bundle. |
 | [plugins/AGENTS.md](plugins/AGENTS.md) | Bundled system plugins and custom-plugin architecture. |
 | [prompts/AGENTS.md](prompts/AGENTS.md) | Core prompt templates. |
 | [scripts/AGENTS.md](scripts/AGENTS.md) | Repository maintenance scripts and automation inputs. |
+| [socket/AGENTS.md](socket/AGENTS.md) | Local Unix socket JSON handlers and invocation contracts. |
 | [skills/AGENTS.md](skills/AGENTS.md) | Bundled Agent Zero skills. |
 | [tests/AGENTS.md](tests/AGENTS.md) | Pytest regression and contract tests. |
 | [tools/AGENTS.md](tools/AGENTS.md) | Core agent tool implementations. |
@@ -106,6 +112,7 @@ Intentionally unindexed local or generated roots:
 | `.conda/`, `.venv/` | Local Python environments. |
 | `.pytest_cache/`, `__pycache__/` | Generated test and bytecode caches. |
 | `.vscode/`, `.windsurf/` | Editor-local configuration and assistant metadata. |
+| `sandboxes/` | Private sandbox images and guest runtimes, excluded from Git and the Docker build context. |
 | `tmp/` | Ignored runtime caches, uploads, and generated work. |
 | `usr/` | Ignored local user data, settings, plugins, chats, and workdirs. |
 | `python/` | Generated or legacy runtime mirror; current source is in root modules and tracked source directories. |

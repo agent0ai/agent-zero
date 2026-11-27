@@ -8,7 +8,7 @@ from helpers.defer import DeferredTask
 
 
 class Message(ApiHandler):
-    async def process(self, input: dict, request: Request) -> dict | Response:
+    async def process(self, input: dict, request: Request | None) -> dict | Response:
         task, context = await self.communicate(input=input, request=request)
         return await self.respond(task, context)
 
@@ -25,9 +25,9 @@ class Message(ApiHandler):
             "context": context.id,
         }
 
-    async def communicate(self, input: dict, request: Request):
+    async def communicate(self, input: dict, request: Request | None):
         # Handle both JSON and multipart/form-data
-        if request.content_type.startswith("multipart/form-data"):
+        if request is not None and (request.content_type or "").startswith("multipart/form-data"):
             text = request.form.get("text", "")
             ctxid = request.form.get("context", "")
             message_id = request.form.get("message_id", None)
@@ -50,7 +50,7 @@ class Message(ApiHandler):
                     attachment_paths.append(os.path.join(upload_folder_int, filename))
         else:
             # Handle JSON request as before
-            input_data = request.get_json()
+            input_data = input if request is None else request.get_json()
             text = input_data.get("text", "")
             ctxid = input_data.get("context", "")
             message_id = input_data.get("message_id", None)

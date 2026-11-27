@@ -6,12 +6,12 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 from typing import Any, Literal, TypedDict, cast, TypeVar
 
 import models
 import pytz  # type: ignore
 from helpers import runtime, defer, git, subagents
+from helpers.runtime import set_root_password
 from . import files, dotenv
 from helpers.print_style import PrintStyle
 from helpers.providers import get_providers, FieldOption as ProvidersFO
@@ -675,22 +675,6 @@ def _apply_timezone_setting(previous: Settings | None, browser_timezone: str | N
         return
 
     localization.set_timezone(target_timezone)
-    current_timezone = localization.get_timezone()
-    if current_timezone == previous_timezone:
-        return
-
-    try:
-        from helpers import plugins
-
-        plugins.call_plugin_hook(
-            "_office",
-            "timezone_changed",
-            None,
-            previous_timezone=previous_timezone,
-            timezone=current_timezone,
-        )
-    except Exception:
-        return
 
 
 def _apply_settings(previous: Settings | None, browser_timezone: str | None = None):
@@ -851,20 +835,7 @@ def _dict_to_env(data_dict):
     return "\n".join(lines)
 
 
-def set_root_password(password: str):
-    if not runtime.is_dockerized():
-        raise Exception("root password can only be set in dockerized environments")
-    _result = subprocess.run(
-        ["chpasswd"],
-        input=f"root:{password}".encode(),
-        capture_output=True,
-        check=True,
-    )
-    dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, password)
-
-
 def get_runtime_config(set: Settings):
-    # SSH config is now managed by the code_execution plugin.
     # This function is kept for backward compatibility but returns an empty dict.
     return {}
 

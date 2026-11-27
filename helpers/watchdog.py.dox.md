@@ -39,12 +39,14 @@
 - `clear_watchdogs() -> None`
 - `start_watchdog_daemon() -> None`
 - `stop_watchdog_daemon() -> None`
-- Notable constants/configuration names: `_DEFAULT_PATTERNS`, `_DEFAULT_IGNORE_PATTERNS`, `_VALID_EVENTS`, `_EVENT_ALIASES`.
+- Notable constants/configuration names: `_DEFAULT_PATTERNS`, `_DEFAULT_IGNORE_PATTERNS`, `_DEFAULT_EVENTS`, `_EVENT_ALIASES`.
 
 ## Runtime Contracts
 
-- Track observer subscription handles by covering root. Reconcile only added and removed roots, preserving unchanged recursive watches and their event delivery. Remove superseded coverage before scheduling replacements; a failed schedule leaves successful subscriptions tracked for retry.
-- Never call observer scheduling, shutdown, or join while holding the registry lock: event dispatch acquires those locks in the opposite order. Serialize reconciliation with a separate refresh lock and drain registrations arriving during a refresh.
+- Subscribers may request `close_write` for Linux inotify close-after-write events. Default subscriptions retain create, modify, delete and move notifications.
+
+- Observer scheduling/unscheduling must run outside the registry lock: watchdog dispatch holds its own observer lock while calling us. Serialize refreshes without blocking callbacks, and replay a pending refresh after concurrent registrations. Verify the lock ordering with `tests/test_watchdog_registration.py`.
+
 - Helper modules own reusable framework APIs and must preserve public callers unless all callers, tests, and docs are updated together.
 - Update this file whenever public functions, classes, persistence behavior, path/security assumptions, side effects, or cross-module contracts change.
 - Observed side-effect areas: filesystem reads, filesystem writes, filesystem deletion.

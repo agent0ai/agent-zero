@@ -12,8 +12,8 @@ import {
 const MEMORY_DASHBOARD_API = "/plugins/_memory/memory_dashboard";
 
 // Helper function for toasts
-function justToast(text, type = "info", timeout = 5000) {
-  notificationStore.addFrontendToastOnly(type, text, "", timeout / 1000);
+function justToast(text, type = "info", copyable = true) {
+  notificationStore.addFrontendToastOnly(type, text, "", 5, "", undefined, copyable);
 }
 
 // Memory Dashboard Store
@@ -546,7 +546,7 @@ ${memory.content_full}
         justToast("Copied to clipboard!", "success");
     } catch (err) {
       console.error("Fallback clipboard copy failed:", err);
-      justToast("Failed to copy to clipboard", "error");
+      justToast("Failed to copy to clipboard", "error", false);
     }
     document.body.removeChild(textArea);
   },
@@ -580,13 +580,13 @@ ${memory.content_full}
       }
     } catch (error) {
       console.error("Memory deletion error:", error);
-      justToast("Failed to delete memory", "error");
+      justToast("Failed to delete memory", "error", false);
     }
   },
 
   exportMemories() {
     if (this.memories.length === 0) {
-      justToast("No memories to export", "warning");
+      justToast("No memories to export", "warning", false);
       return;
     }
 
@@ -623,7 +623,7 @@ ${memory.content_full}
       justToast("Memory export completed", "success");
     } catch (error) {
       console.error("Memory export error:", error);
-      justToast("Failed to export memories", "error");
+      justToast("Failed to export memories", "error", false);
     }
   },
 
@@ -693,7 +693,7 @@ ${memory.content_full}
       this.editMemoryBackup = null; // discard backup
     } catch (error) {
       console.error("Error confirming edit mode:", error);
-      justToast("Failed to save memory changes.", "error");
+      justToast("Failed to save memory changes.", "error", false);
     }
   },
 };

@@ -29,9 +29,6 @@
 - `_package_installed(package: str) -> bool`
 - `normalize_size(width: int | float | str, height: int | float | str, max_width: int=..., max_height: int=..., min_width: int=..., min_height: int=...) -> tuple[int, int]`
 - `resize_display(display: int, width: int, height: int, max_width: int=..., max_height: int=..., window_class: str=..., keys: tuple[str, ...]=..., xauthority: str=..., home: str=..., settle_seconds: float=...) -> dict[str, Any]`
-- `_ensure_xrandr_mode(env: dict[str, str], width: int, height: int) -> None`
-- `_select_xrandr_mode(env: dict[str, str], width: int, height: int) -> subprocess.CompletedProcess[str]`
-- `_xrandr_output_modes(env: dict[str, str]) -> tuple[str, set[str]]`
 - `current_display_size(display: int, xauthority: str=..., home: str=...) -> tuple[int, int] | None`
 - `fit_window_until(display: int, width: int, height: int, window_class: str=..., keys: tuple[str, ...]=..., settle_seconds: float=..., timeout_seconds: float=..., process: subprocess.Popen[Any] | None=..., xauthority: str=..., home: str=...) -> None`
 - `fit_window(display: int, width: int, height: int, window_class: str=..., keys: tuple[str, ...]=..., xauthority: str=..., home: str=...) -> bool`
@@ -51,11 +48,11 @@
 
 ## Key Concepts
 
-- Important called helpers/classes observed in the source: `Path`, `files.get_abs_path`, `get_registry.register`, `get_registry.unregister`, `get_registry.proxy_for_token`, `get_registry.resize`, `quote`, `urlencode`, `find_xpra_html_root`, `subprocess.run`, `normalize_size`, `shutil.which`, `_display_env`, `current_display_size`, `_ensure_xrandr_mode`, `_select_xrandr_mode`, `time.sleep`, `strip`, `_xrandr_output_modes`, `result.stdout.splitlines`.
+- Native XRandR detection, normalization and mode selection live in `helpers/native_display.py`; this adapter supplies host localization/environment and retains window fitting and authenticated session registration.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
-- Session URLs keep Desktop's JPEG, printing, and file-transfer defaults while allowing restricted viewers such as Browser to negotiate encoding and disable unrelated capabilities.
+- The registry also holds Browser VNC endpoints, marked `owner=browser-vnc`, with a password excluded from repr. The browser plugin owns its URLs and serves credentials only through its authenticated same-origin gateway; never serialize registry entries to status/logs.
 - Display resizing keeps the Desktop settle delay by default; latency-sensitive callers may skip it when they immediately verify the XRandR size.
-- `XPRA_START_ENV` bounds Xpra's initial system D-Bus and CUPS socket waits to one second instead of five before it attempts to start those services. Browser and Desktop merge these defaults before their inherited environment so explicit timeout overrides remain effective.
+- `XPRA_START_ENV` bounds Xpra's initial system D-Bus and CUPS socket waits to one second instead of five before it attempts to start those services. These legacy defaults are not used by Browser.
 
 ## Work Guidance
 
@@ -66,10 +63,7 @@
 ## Verification
 
 - Run targeted tests for changed helper behavior; run security regressions for auth, filesystem, WebSocket, tunnel, upload, or secret-handling helpers.
-- Related tests observed by source search:
-  - `tests/test_office_canvas_setup.py`
-  - `tests/test_office_desktop_state.py`
-  - `tests/test_office_document_store.py`
+- Run `tests/test_browser_vnc.py`, `tests/test_browser_agent_regressions.py` and `tests/test_tuxee_gateway.py`.
 
 ## Child DOX Index
 

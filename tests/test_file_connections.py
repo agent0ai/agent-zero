@@ -31,7 +31,7 @@ def test_remote_transfers_and_editing_have_independent_limits(storage, monkeypat
 
 
 def test_editors_inherit_file_browser_text_rules(storage, monkeypatch, tmp_path):
-    from plugins._office.helpers import document_store
+    from plugins._editor.helpers import document_store
     remote, item, _, _ = storage
     monkeypatch.setattr(FileBrowser, "max_text_bytes", classmethod(lambda cls: 4))
     assert document_store.editor_text_bytes("éé") == "éé".encode()

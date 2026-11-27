@@ -2,13 +2,13 @@
 
 Sources: `/a0/plugins/_plugin_installer/api/plugin_install.py`, `/a0/plugins/_plugin_installer/helpers/install.py`, `/a0/api/plugins.py`, `/a0/helpers/plugins.py`, and `/a0/plugins/_plugin_scan/api/plugin_scan_run.py`.
 
-Use the authorized session/CSRF client from `/a0/skills/a0-development/references/operate-agent-zero.md`. Discover the live origin; do not assume an internal or published port. The session cookie and `X-CSRF-Token` header are sufficient; do not invent an additional required CSRF cookie. Preserve login and CSRF protections.
+Use the local socket client from `/a0/skills/a0-development/references/operate-agent-zero.md`. Run it where the intended instance socket is accessible; no login cookie or CSRF exchange is needed for this filesystem-authorized transport. Remote HTTP callers still use the normal login/session/CSRF protections.
 
 ## Security Scan
 
 Offer the scan once before installing third-party code, unless the user already chose whether to scan. It executes model-driven analysis and can take several minutes; browsing the Index is a separate operation. Do not claim a scan guarantees safety.
 
-POST `/api/plugins/_plugin_scan/plugin_scan_run` with:
+Call `local("plugins/_plugin_scan/plugin_scan_run", payload)` with:
 
 ```json
 {
@@ -17,42 +17,62 @@ POST `/api/plugins/_plugin_scan/plugin_scan_run` with:
 }
 ```
 
-Use a sufficiently long client timeout for this synchronous scan. The current handler returns `ok`, `git_url` and a Markdown `report`; do not assume a separate structured verdict field. Read the report, present its findings, and distinguish a safe-looking result, caution, serious issues, or inconclusive/error. If it reveals a new material risk, resolve that with the user before installation. Respect a prior decision to skip scanning; do not repeatedly offer it or label an unscanned plugin as scanned.
+The socket client has no default response deadline for this synchronous scan; do not impose a short timeout. The current handler returns `ok`, `git_url` and a Markdown `report`; do not assume a separate structured verdict field. Read the report, present its findings, and distinguish a safe-looking result, caution, serious issues, or inconclusive/error. If it reveals a new material risk, resolve that with the user before installation. Respect a prior decision to skip scanning; do not repeatedly offer it or label an unscanned plugin as scanned.
 
 ## Install
+
+Before a Hub Git install, use the read-only compatibility check:
+
+```python
+compatibility = local("plugins/_plugin_installer/plugin_install", {
+    "action": "check_compatibility",
+    "git_url": "https://github.com/OWNER/REPOSITORY",
+})
+```
+
+It reads default-branch `plugin.yaml` and returns `a0_version`, `current_version`,
+`compatible` (`true`, `false`, or `null` when unverifiable), and `error`.
+For a mismatch or unknown result, report the requirement and installed version
+and let the user choose whether to continue, honoring an explicit prior override.
+Custom forks may work despite the warning. Do not treat a failed read as a match.
+The [requirement specification](../../../docs/developer/plugins.md#agent-zero-version-requirements)
+covers exact versions, ranges, wildcards and alternatives. This is advisory;
+direct install APIs do not enforce the requirement or replace the security scan.
 
 For Git installation:
 
 ```python
-result = api("plugins/_plugin_installer/plugin_install", {
+result = local("plugins/_plugin_installer/plugin_install", {
     "action": "install_git",
     "git_url": "https://github.com/OWNER/REPOSITORY",
     "plugin_name": "plugin_id",
 })
 ```
 
-Use the actual Index identity; do not overwrite an existing plugin. `git_token` is optional for a private repository; do not log it. A ZIP install uses multipart form fields `action=install_zip` and file field `plugin_file`, not a JSON body.
+Use the actual Index identity; do not overwrite an existing plugin. `git_token` is optional for a private repository; do not log it. For a ZIP already on the server, call the same socket command with `{"action":"install_zip","zip_path":"/absolute/path/plugin.zip"}`. The installer copies the archive before extraction/cleanup and retains the source file. Remote HTTP ZIP uploads still use multipart `action=install_zip` and `plugin_file`.
 
-The framework validates and places the plugin under `usr/plugins/`, runs `hooks.py:install()` for dependency setup and required initialization, and refreshes state. No `execute.py` or manual post-install step should be needed; treat that requirement as a plugin defect and use `a0-create-plugin` to fix it. Re-fetch the Index or plugin list to verify installed identity; inspect effective activation separately. Do not import framework installation helpers into the separate task-code runtime.
+The framework validates and places the plugin under `usr/plugins/`, runs `hooks.py:install()` for required installation state and initialization, and refreshes state. Hooks may delegate guest provisioning to automatic worker setup; a cold guest can be ready for first use without already having packages installed. No `execute.py` or manual post-install step should be needed; treat that requirement as a plugin defect and use `a0-create-plugin` to fix it. Re-fetch the Index or plugin list to verify installed identity; inspect effective activation separately. Do not import framework installation helpers into the separate task-code runtime.
+
+Prefer guest-owned dependencies in existing persistent sandboxes. Main-environment dependencies require a documented need for functionality that must execute there and a minimal set; hooks running in the framework are not a reason to install guest libraries there. Follow the [sandbox pattern](../../../docs/developer/plugin-sandboxes.md#choosing-dependency-location), including idempotent setup/retry. Configured listeners and early-needed features prepare at enablement/startup before receiving work; do not wait for a message an unstarted receiver cannot receive. Verify readiness at the appropriate point within the authorized operation, without adding a manual setup workflow.
 
 ## Update
 
 Inspect the installed repository's current commit, configured remote/branch, and local changes. A matching manifest version does not prove it is current. Compare the actual tracking branch or Index commit; remote default-branch HEAD is not automatically the installed branch.
 
 ```python
-result = api("plugins/_plugin_installer/plugin_install", {
+result = local("plugins/_plugin_installer/plugin_install", {
     "action": "update_plugin", "plugin_name": "plugin_id",
 })
 ```
 
-This path runs `hooks.py:pre_update()`, updates the repository, reruns `hooks.py:install()`, and refreshes framework state. On `dirty_tree_conflict`, inspect the reported files and preserve local edits; do not force-reset or uninstall/reinstall to hide the conflict. Verify returned commit/version and behavior. Non-Git installs need an explicitly planned replacement with local configuration/data preserved.
+This path runs `hooks.py:pre_update()`, updates the repository, reruns `hooks.py:install()`, and refreshes framework state. On failure with `error.details.error_kind: "dirty_tree_conflict"`, inspect `error.details.conflicting_files` and preserve local edits; do not force-reset or uninstall/reinstall to hide the conflict. Verify returned commit/version and behavior. Non-Git installs need an explicitly planned replacement with local configuration/data preserved.
 
 ## Configure Or Enable/Disable
 
-`POST /api/plugins` supports `get_config`, `get_default_config`, `save_config`, `get_toggle_status` and `toggle_plugin`. Supply `plugin_name` and the intended `project_name`/`agent_profile` where applicable.
+The `plugins` socket command supports `get_config`, `get_default_config`, `save_config`, `get_toggle_status` and `toggle_plugin`. Supply `plugin_name` and the intended `project_name`/`agent_profile` where applicable.
 
 ```python
-api("plugins", {
+local("plugins", {
     "action": "toggle_plugin", "plugin_name": "plugin_id", "enabled": True,
     "project_name": "", "agent_profile": "",
 })
@@ -65,7 +85,7 @@ Empty scope fields mean global scope. Do not clear scoped overrides unless reque
 For a user-requested uninstall of an identified custom plugin:
 
 ```python
-api("plugins", {"action": "delete_plugin", "plugin_name": "plugin_id"})
+local("plugins", {"action": "delete_plugin", "plugin_name": "plugin_id"})
 ```
 
 The standard path runs `hooks.py:uninstall()` to stop owned processes, remove registrations, and clean up plugin-owned dependencies/resources, then removes the custom plugin directory and refreshes state. Never substitute `execute.py` or a manual dependency-removal command; shared dependencies must remain intact. Explain material data loss before acting if it was not clear in the request. Core plugins cannot be uninstalled this way; disabling is separate and may also be restricted. Scoped configuration may remain after uninstall; do not delete it unless requested.
@@ -74,4 +94,4 @@ If normal lifecycle operations fail, inspect the error and plugin-owned state. M
 
 ## Verify
 
-Check HTTP and body-level success, installed state, requested scope and the actual relevant behavior. Avoid arbitrary restarts of a busy instance. Return the action and evidence, not a claim based only on files being present.
+Check the socket envelope and read back installed state, requested scope and the actual relevant behavior. Avoid arbitrary restarts of a busy instance. Return the action and evidence, not a claim based only on files being present.

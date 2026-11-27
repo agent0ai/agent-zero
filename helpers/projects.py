@@ -378,7 +378,11 @@ def _get_projects_list(parent_dir):
     projects = []
 
     # folders in project directory
-    for name in os.listdir(parent_dir):
+    try:
+        names = os.listdir(parent_dir)
+    except FileNotFoundError:
+        return []
+    for name in names:
         try:
             abs_path = os.path.join(parent_dir, name)
             if os.path.isdir(abs_path):

@@ -908,7 +908,7 @@ def store_sid_host_browser_metadata(sid: str, payload: dict[str, Any]) -> HostBr
     support_reason = str(payload.get("support_reason", "") or "").strip()
     metadata = HostBrowserMetadata(
         supported=bool(payload.get("supported")),
-        can_prepare=_host_browser_can_prepare(payload, features=features, support_reason=support_reason),
+        can_prepare=bool(payload.get("can_prepare")),
         enabled=bool(payload.get("supported")) and bool(payload.get("enabled")),
         status=str(payload.get("status", "") or "").strip(),
         browser_family=str(payload.get("browser_family", "") or "").strip(),
@@ -926,25 +926,6 @@ def store_sid_host_browser_metadata(sid: str, payload: dict[str, Any]) -> HostBr
     with _state_lock:
         _sid_host_browser_metadata[sid] = metadata
     return metadata
-
-
-def _host_browser_can_prepare(
-    payload: dict[str, Any],
-    *,
-    features: tuple[str, ...],
-    support_reason: str,
-) -> bool:
-    if "can_prepare" in payload:
-        return bool(payload.get("can_prepare"))
-    if "ensure" not in features:
-        return False
-    reason = support_reason.lower()
-    return (
-        "python playwright" in reason
-        or "a0-controlled local profile" in reason
-        or "chrome-a0" in reason
-        or "remote debugging" in reason
-    )
 
 
 def _normalize_available_host_browsers(value: Any) -> tuple[dict[str, Any], ...]:
@@ -1491,10 +1472,7 @@ def resolve_pending_file_op(
             _pending_file_ops,
             op_id,
             sid=sid,
-            error=(
-                "Legacy chunked file results are not supported. Upgrade the CLI so it "
-                "can negotiate transfer_protocol=1."
-            ),
+            error="Invalid file result. Chunked transfers require transfer_protocol=1.",
         )
     return _resolve_pending(_pending_file_ops, op_id, sid=sid, payload=payload)
 

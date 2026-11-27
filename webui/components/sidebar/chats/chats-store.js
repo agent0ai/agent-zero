@@ -9,11 +9,12 @@ import {
   justToast,
   getConnectionStatus,
 } from "/index.js";
-import { store as notificationStore } from "/components/notifications/notification-store.js";
+import { store as notificationStore, toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { store as sidebarStore } from "/components/sidebar/sidebar-store.js";
 import { store as tasksStore } from "/plugins/_scheduler/webui/sidebar/tasks-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js";
 import { store as chatInputStore } from "/components/chat/input/input-store.js";
+import { store as modelGateStore } from "/components/chat/model-gate-store.js";
 
 const model = {
   contexts: [],
@@ -252,6 +253,7 @@ const model = {
       await sendJsonData("/chat_reset", {
         context
       });
+      modelGateStore.resetContext(context);
 
       // Increment reset counter
       if (typeof globalThis.resetCounter === 'number') {
@@ -413,7 +415,8 @@ const model = {
     // Check connection status (avoid spamming requests when already disconnected)
     const connectionStatus = getConnectionStatus();
     if (connectionStatus === false) {
-      await notificationStore.frontendError(
+      await toastFrontendNotice(
+        "error",
         "Backend disconnected, cannot restart.",
         "Restart Error",
       );

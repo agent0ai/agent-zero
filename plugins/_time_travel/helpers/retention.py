@@ -124,6 +124,7 @@ def live_workspace_ids() -> set[str]:
         pass
 
     ids.add(time_travel.workspace_id_for(time_travel.configured_workdir_display_path()))
+    ids.update(time_travel.workspace_id_for(path) for path in time_travel.sandbox_workspace_paths())
 
     chats_root = time_travel.real_path_for_display("/a0/usr/chats")
     try:

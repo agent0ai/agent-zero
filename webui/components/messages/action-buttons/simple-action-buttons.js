@@ -50,10 +50,12 @@ export function showButtonFeedback(button, success, originalIcon) {
   const icon = button.querySelector(ICON_SELECTOR);
   if (!icon) return;
   
+  clearTimeout(button.__feedbackTimer);
+  button.classList.remove("success", "error");
   setIconName(icon, success ? "check" : "error");
   button.classList.add(success ? "success" : "error");
   
-  setTimeout(() => {
+  button.__feedbackTimer = setTimeout(() => {
     setIconName(icon, originalIcon);
     button.classList.remove("success", "error");
   }, 1000);
@@ -123,15 +125,15 @@ export function createActionButton(icon, text = "", handler = null) {
   button.addEventListener("click", async (event) => {
     event.stopPropagation();
     if (typeof button.__actionHandler !== "function") return;
-    const shouldShowFeedback = Boolean(iconName); // icon === "copy" || icon === "speak";
+    if (icon === "speak") showButtonFeedback(button, true, iconName);
     try {
       await button.__actionHandler();
-      if (shouldShowFeedback) {
+      if (iconName && icon !== "speak") {
         showButtonFeedback(button, true, iconName);
       }
     } catch (err) {
       console.error("Action button failed:", err);
-      if (shouldShowFeedback) {
+      if (iconName) {
         showButtonFeedback(button, false, iconName);
       }
     }

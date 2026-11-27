@@ -1,0 +1,8 @@
+name: _tunnel
+title: Remote Control
+description: Access Agent Zero from another computer or your phone with a shareable link.
+version: 0.1.0
+settings_sections:
+  - external
+per_project_config: false
+per_agent_config: false

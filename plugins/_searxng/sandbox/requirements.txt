@@ -1,0 +1,7 @@
+# Build-time imports required by SearXNG's setup.py; runtime pins come from its pinned source.
+setuptools==80.9.0
+wheel==0.45.1
+PyYAML==6.0.3
+lxml==6.1.3
+msgspec==0.22.0
+typing_extensions==4.16.0

@@ -131,7 +131,7 @@ A0_PATH="/opt/${A0_NAME}"
 mkdir -p ${A0_PATH}
 mkdir -p ${A0_PATH}/work_dir
 mkdir -p ${A0_PATH}/memory
-mkdir -p ${A0_PATH}/logs
+mkdir -p ${A0_PATH}/usr/logs
 ```
 
 ### Step 2: Create Environment Configuration

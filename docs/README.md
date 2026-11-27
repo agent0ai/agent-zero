@@ -54,6 +54,7 @@ docs focus on practical setup, screenshots, and user workflows.
 - **[Extensions](developer/extensions.md):** Short guide for when an extension is the right tool.
 - **[Connectivity](developer/connectivity.md):** Choose between A0 CLI, MCP, A2A, and external APIs.
 - **[WebSockets](developer/websockets.md):** Short local handoff to DeepWiki and source files.
+- **[Local Socket API](developer/local-socket.md):** Unix socket handlers, JSON protocol, permissions and terminal client.
 - **[MCP Configuration](developer/mcp-configuration.md):** Compact reference for MCP JSON.
 - **[Notifications](developer/notifications.md):** Notification system architecture and setup.
 - **[Contributing Skills](developer/contributing-skills.md):** Create and share agent skills.

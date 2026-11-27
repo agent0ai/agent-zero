@@ -6,8 +6,8 @@ import time
 import sys
 from typing import Optional, Tuple
 from helpers import runtime
+from helpers.strings import clean_string
 from plugins._code_execution.helpers import tty_session
-from plugins._code_execution.helpers.shell_ssh import clean_string
 
 
 def disable_pagers_in_env(env: dict | None = None) -> dict:

@@ -65,7 +65,7 @@ async def _handler_poll_loop(handler_name: str) -> None:
             (h for h in handlers if h.get("name") == handler_name and h.get("enabled")),
             None,
         )
-        if handler_cfg is None:
+        if handler_cfg is None or PLUGIN_NAME not in plugins.get_enabled_plugins(None):
             break
 
         try:

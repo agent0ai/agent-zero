@@ -3,6 +3,9 @@
 Load, parse, index, and Q&A over local and remote documents with configurable
 timeouts and thread-safe parsers.
 
+Load the `document-query` skill in the current chat to register its callable
+with the plugin's query handler. Skills visibility and Tool Access govern access.
+
 ## Features
 
 - **Strategy-pattern parsers** - MIME-type routing to dedicated parser classes
@@ -10,7 +13,7 @@ timeouts and thread-safe parsers.
 - **LiteParse first path** - fast local parsing for PDFs and supported document/image formats, with legacy fallbacks
 - **Adaptive OCR** - long PDFs skip OCR automatically to avoid pathological parse times
 - **Adaptive indexing** - very large extracted documents increase chunk size to keep embedding work bounded
-- **Bounded parser execution** - sync parsers are offloaded to asyncio.to_thread and globally capped across chats
+- **Bounded parser execution** - parsing runs in a serialized sandbox worker with request deadlines and cancellation cleanup
 - **Configurable timeouts** - per-document and gather-level timeouts
 - **Expanded format support** - PDF, HTML, text, YAML, XML, TOML, JS, TS, images, and catch-all Unstructured
 
@@ -34,25 +37,23 @@ See default_config.yaml for all options. Key settings:
 | liteparse_enabled | true | Prefer LiteParse before legacy parser fallbacks |
 | liteparse_num_workers | 2 | Max LiteParse OCR workers per parser job |
 | liteparse_ocr_auto_disable_pages | 30 | Disable OCR for PDFs at or above this effective page count |
-| thread_offload | true | Offload sync parsers to thread pool |
+| thread_offload | true | Legacy setting; parsing now always runs in the sandbox |
 
-LiteParse is installed into the Agent Zero framework runtime from hooks.py during
-plugin install/startup. If installation fails, the plugin logs the error and
-continues with the legacy parser fallbacks.
-
-LiteParse always runs in a child process so native parser and OCR failures stay
-isolated from the Web UI process.
+LiteParse and all parsing/OCR dependencies install only inside the plugin sandbox.
+Tesseract and Poppler remain lazy legacy fallbacks there. The host fetches each
+input once. The guest parses, splits and indexes chunks with native FAISS using a
+private per-chat directory. Agent Zero supplies embeddings and handles model queries. Memory PDF/HTML import reuses the same sandbox.
 
 ## Parsers
 
 | Parser | MIME Types | Backend |
 |--------|-----------|---------|
 | LiteParseParser | PDF, Office/OpenDocument, images | LiteParse |
-| PdfParser | application/pdf | PyMuPDF + Tesseract OCR fallback |
-| HtmlParser | text/html | Markdownify transformer |
+| PdfParser | application/pdf | PyMuPDF + on-demand Tesseract/Poppler OCR fallback |
+| HtmlParser | text/html | markdownify |
 | TextParser | text/*, application/json, YAML, XML, TOML, JS, TS, shell | Direct read |
-| ImageParser | image/* | UnstructuredLoader |
-| UnstructuredParser | * (catch-all) | UnstructuredLoader hi-res |
+| ImageParser | image/* | Unstructured local partitioner + on-demand Tesseract |
+| UnstructuredParser | * (catch-all) | Unstructured local partitioner, hi-res strategy; OCR system packages on demand |
 
 ## Adding a new parser
 
@@ -60,3 +61,11 @@ isolated from the Web UI process.
 2. Set mimetypes class attribute
 3. Implement _parse_sync(document, config)
 4. Register in helpers/parsers/__init__.py
+
+## Sandbox runtime
+
+Heavy execution and dependency installation run inside a child PRoot sandbox on
+first use. Root files and model downloads persist; no extra host service starts
+at Agent Zero startup. Manage it with `python -m helpers.sandbox list` and the
+existing start/stop/delete commands. See [plugin sandbox guide](../../docs/developer/plugin-sandboxes.md)
+for sharing, lifecycle and upgrade behavior.

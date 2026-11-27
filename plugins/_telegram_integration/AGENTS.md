@@ -13,7 +13,7 @@
 - `helpers/slash_commands.py` adapts the shared Commands resolver and effects to Telegram replies, menus, session bindings, exports, and compaction confirmation.
 - `helpers/settings_ui.py` owns Telegram plugin toggles and tool-permission menus, delegating writes to the existing plugin and Agent Editor owners.
 - `hooks.py` normalizes configurations, supplies stable names, and rejects unsafe/duplicate names, reused Telegram bot identities, and routing outside the owning project on save.
-- `helpers/dependencies.py` and `requirements.txt` own framework-runtime dependency bootstrap.
+- `helpers/sandbox.py` owns request and event adapters. The persistent guest under `sandbox/` owns aiogram, polling, webhook parsing, and file transport.
 - `api/`, `prompts/`, `extensions/`, `default_config.yaml`, `plugin.yaml`, `README.md`, and `webui/` own tests/webhook endpoints, prompt fragments, hooks, settings, metadata, docs, and UI.
 - `webui/config.html` is the sole plugin WebUI, including bot setup and connection checks.
 - `docs/guides/telegram.md` in the repository root owns the user setup walkthrough; keep its UI labels, scope examples, access guidance, and migration claims aligned with this plugin.
@@ -21,7 +21,7 @@
 ## Local Contracts
 
 - Treat bot tokens, chat IDs, attachments, and user data as sensitive.
-- Incoming attachment filenames are untrusted; strip both slash styles and NULs to a basename before constructing the upload path.
+- Clean the entire generated attachment filename with `helpers.security.safe_filename` before joining `usr/uploads`. Use the same cleaner for bot cleanup prefixes.
 - Keep allowed-user, group-mode, project, model, and `/send` controls enforced.
 - Resolve raw commands before adding the Telegram message envelope; its closing marker prevents queued/rendered text from being interpreted as a second postfix command. Custom/project definitions override bundled commands; keep Telegram's existing integration aliases and pickers for unoverridden commands.
 - `/commands` discovers the current chat's effective commands on each use. The native Telegram menu registers global commands at startup, maps hyphens to underscores, and obeys Telegram's name/description/count limits.
@@ -31,7 +31,7 @@
 - `/new` creates and binds a fresh context without resetting the previous chat. `/clear` retains Telegram's existing reset behavior. Compaction confirms the current idle context and uses the existing backup-producing compactor.
 - Restart bots when their token, delivery mode, group mode, webhook URL, or webhook secret changes. Polling may start on the next job-loop tick after saving settings.
 - Webhook dispatch requires an active webhook and a matching nonempty secret header. Setup requires a random 32–256 character secret using letters, digits, `_` or `-`; polling and webhook removal revoke HTTP delivery.
-- Install Telegram dependencies into the framework runtime only when required.
+- Provision the guest on connection test or when an enabled bot needs it. Recreate registered bots after a guest restart. Stop the worker when the last bot stops. Keep SDK errors sanitized and request secrets out of logs.
 - Support global, project, profile, and combined configurations and activation using framework precedence. Each explicitly saved configuration owns separate Telegram bots; inherited configuration does not create another connection. Reusing a Telegram bot ID (including a rotated token) across configurations is rejected on save and pauses all conflicting connections on read, preserving files for review.
 - Global runtime keys remain bot names. Scoped keys include a stable scope digest; state mappings, webhooks, attachments, and replies use those keys. Project/profile-owned bots stay inside their owning scope; new contexts start in that project/profile. Global bots retain default-project and per-user routing.
 - Preserve existing names, including spaces and Unicode, so global session keys do not change on upgrade. Reject path separators/control characters and pause runtime-key collisions. Never infer administrators, merge allowlists, drop scoped overrides, or silently choose between duplicate bot tokens during migration.
@@ -54,7 +54,7 @@
 - Smoke-test connection checks, polling or webhook delivery, per-user context reuse, attachments, and replies when practical.
 - Run `tests/test_telegram_config_scope.py` for all scopes, duplicate-token shutdown, inherited activation, current authorization, revocation, and session isolation.
 - Run `tests/test_telegram_migration.py` for exact configuration/state preservation, private backups, webhook-secret upgrades, symlink preservation, and retry after interrupted or failed writes.
-- Run `PYTHONPATH=. conda run -n a0 python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
+- Run `python -m pytest -q tests/test_telegram_commands.py tests/test_telegram_webhook_security.py` for command routing, menu bounds, configuration normalization, bot lifecycle, and administrator-only policy persistence and revocation regressions.
 
 ## Child DOX Index
 

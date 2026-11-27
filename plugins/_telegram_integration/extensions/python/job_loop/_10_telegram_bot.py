@@ -5,7 +5,7 @@ from helpers.extension import Extension
 from helpers.errors import format_error
 from helpers.print_style import PrintStyle
 from helpers.notification import NotificationManager, NotificationPriority, NotificationType
-from plugins._telegram_integration.helpers.dependencies import ensure_dependencies, has_aiogram
+from plugins._telegram_integration.helpers.sandbox import worker
 from plugins._telegram_integration.helpers import scopes
 
 
@@ -32,13 +32,6 @@ class TelegramBotManager(Extension):
                 id="telegram-scope-conflicts",
             )
         enabled_names = set(configured)
-
-        # Avoid installing aiogram on idle ticks when Telegram is not configured.
-        if not enabled_names and not has_aiogram():
-            return
-
-        if enabled_names:
-            ensure_dependencies()
 
         from plugins._telegram_integration.helpers.bot_manager import (
             get_all_bots,
@@ -84,7 +77,9 @@ class TelegramBotManager(Extension):
                 )
                 if current_mode == running_mode and current_group_mode == inst.group_mode and same_connection:
                     # Same mode and still alive → skip
-                    if (inst.task and not inst.task.done()) or inst.webhook_active:
+                    if worker.ready and inst.generation == worker.generation and (
+                        (inst.task and not inst.task.done()) or inst.webhook_active
+                    ):
                         continue
                 # Mode changed or instance died — stop and recreate
                 await stop_bot(name)
@@ -131,7 +126,7 @@ class TelegramBotManager(Extension):
                     f"Telegram ({name}): failed to start: {format_error(e)}"
                 )
 
-# Wrapper functions for aiogram handlers
+# Authorization for events forwarded by the Telegram worker
 
 def _get_current_bot_cfg(bot_name: str, event, captured: dict) -> dict:
     from plugins._telegram_integration.helpers import handler
@@ -175,12 +170,29 @@ def _make_handler(handler_fn):
             return
         if current:
             message = getattr(event, "message", None) or event
-            if (handler_fn.__name__ == "handle_message" and current.get("group_mode", "mention") == "mention"
-                    and message.chat.type != "private" and not (message.text or message.caption or "").startswith("/")):
-                from plugins._telegram_integration.helpers.bot_manager import get_bot, _make_group_mention_filter
-                instance = get_bot(bot_name)
-                if instance:
-                    await _make_group_mention_filter(partial(handler_fn, bot_name=bot_name, bot_cfg=current), instance.bot)(event)
+            # A live policy change can narrow the guest's filter before it restarts.
+            if (
+                current.get("group_mode", "mention") == "mention"
+                and bot_cfg.get("group_mode", "mention") == "all"
+                and message.chat.type != "private"
+                and getattr(handler_fn, "__name__", "") == "handle_message"
+                and not (message.text or message.caption or "").startswith("/")
+                and not _mentions_bot(message, bot_name)
+            ):
                 return
             await handler_fn(event, bot_name, current)
     return _wrapped
+
+
+def _mentions_bot(message, bot_name: str) -> bool:
+    from plugins._telegram_integration.helpers.bot_manager import get_bot
+
+    instance = get_bot(bot_name)
+    info = instance.bot_info if instance else None
+    if not info:
+        return False
+    reply = message.reply_to_message
+    if reply and reply.from_user and reply.from_user.id == info.id:
+        return True
+    text = message.text or message.caption or ""
+    return bool(info.username and f"@{info.username.lower()}" in text.lower())

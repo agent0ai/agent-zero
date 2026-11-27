@@ -10,7 +10,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from helpers import images
+from helpers import images, runtime
+from helpers.tool import coerce_bool
 
 
 class _TestResponse(SimpleNamespace):
@@ -55,6 +56,7 @@ def _install_tool_stub(monkeypatch):
     tool_stub = types.ModuleType("helpers.tool")
     tool_stub.Response = _TestResponse
     tool_stub.Tool = _TestTool
+    tool_stub.coerce_bool = coerce_bool
     history_stub = types.ModuleType("helpers.history")
 
     class _RawMessage(dict):
@@ -92,13 +94,13 @@ async def test_vision_load_materializes_local_image_to_chat_artifact(monkeypatch
     monkeypatch.setattr(vision_load_module, "get_chat_model_config", lambda _agent: {"vision": True, "max_embeds": 10})
     monkeypatch.setattr(vision_load_module, "get_vision_model_config", lambda _agent: {})
 
-    async def direct_call(func, *args, **kwargs):
-        return func(*args, **kwargs)
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Vision files must be checked locally")
 
     monkeypatch.setattr(
-        vision_load_module.runtime,
+        runtime,
         "call_development_function",
-        direct_call,
+        no_dispatch,
     )
 
     image_path = tmp_path / "sample-image.png"
@@ -195,8 +197,8 @@ async def test_vision_model_sends_multiple_images_once_and_keeps_history_text_on
     _install_tool_stub(monkeypatch)
     import tools.vision_load as vision_load_module
 
-    async def direct_call(func, *args, **kwargs):
-        return func(*args, **kwargs)
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Vision files must be checked locally")
 
     calls = []
 
@@ -205,7 +207,7 @@ async def test_vision_model_sends_multiple_images_once_and_keeps_history_text_on
             calls.append(kwargs)
             return "The second screenshot fixes the red login error.", ""
 
-    monkeypatch.setattr(vision_load_module.runtime, "call_development_function", direct_call)
+    monkeypatch.setattr(runtime, "call_development_function", no_dispatch)
     monkeypatch.setattr(vision_load_module, "build_vision_model", lambda _agent: FakeVisionModel())
     monkeypatch.setattr(
         vision_load_module,
@@ -405,10 +407,10 @@ async def test_independent_vision_model_calls_can_run_concurrently(monkeypatch, 
             active -= 1
             return "done", ""
 
-    async def direct_call(func, *args, **kwargs):
-        return func(*args, **kwargs)
+    def no_dispatch(*args, **kwargs):
+        raise AssertionError("Vision files must be checked locally")
 
-    monkeypatch.setattr(vision_load_module.runtime, "call_development_function", direct_call)
+    monkeypatch.setattr(runtime, "call_development_function", no_dispatch)
     monkeypatch.setattr(vision_load_module, "build_vision_model", lambda _agent: FakeVisionModel())
     monkeypatch.setattr(vision_load_module, "get_chat_model_config", lambda _agent: {"vision": False})
     monkeypatch.setattr(

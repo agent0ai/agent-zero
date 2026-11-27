@@ -1,3 +1,4 @@
+import { toastFrontendNotice } from "/components/notifications/notification-store.js";
 import { createStore } from "/js/AlpineStore.js";
 import {
   formatDateTime,
@@ -405,7 +406,7 @@ const model = {
       await navigator.clipboard.writeText(fileList);
       window.toastFrontendInfo('File list copied to clipboard', 'Clipboard');
     } catch (error) {
-      window.toastFrontendError('Failed to copy to clipboard', 'Clipboard Error');
+      toastFrontendNotice("error", 'Failed to copy to clipboard', 'Clipboard Error');
     }
   },
 

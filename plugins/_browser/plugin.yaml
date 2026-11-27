@@ -1,6 +1,6 @@
 name: _browser
 title: Browser
-description: Built-in direct Playwright browser tool and WebUI viewer.
+description: Built-in Chromium CDP browser tool and WebUI viewer.
 version: 1.0.0
 always_enabled: false
 settings_sections:

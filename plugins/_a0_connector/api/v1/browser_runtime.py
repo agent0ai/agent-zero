@@ -5,12 +5,6 @@ from helpers.api import Request, Response
 import plugins._a0_connector.api.v1.base as connector_base
 
 
-_PRIVACY_NOTICE = (
-    "For Browser model-use settings, visit Agent Zero WebUI > Browser settings to choose "
-    "Local models only, Warn when using cloud, or Allow."
-)
-
-
 def _string(value: object) -> str:
     return str(value or "").strip()
 
@@ -22,11 +16,6 @@ def _normalize_requested_backend(value: object) -> str:
     if normalized in {"host", "host_required", "byob", "bring_your_own_browser"}:
         return "host_required"
     return ""
-
-
-def _normalize_host_browser_selection(value: object) -> str:
-    raw = _string(value).lower().replace(" ", "_")
-    return "".join(ch for ch in raw if ch.isalnum() or ch in {"_", "-", ":", ".", "/"})[:200]
 
 
 def _normalize_profile_mode(value: object) -> str:
@@ -74,7 +63,9 @@ class BrowserRuntime(connector_base.ProtectedConnectorApiHandler):
                 )
             settings["runtime_backend"] = runtime_backend
             if "host_browser_selection" in input or "browser_selection" in input:
-                settings["host_browser_selection"] = _normalize_host_browser_selection(
+                from plugins._browser.helpers.config import normalize_host_browser_selection
+
+                settings["host_browser_selection"] = normalize_host_browser_selection(
                     input.get("host_browser_selection", input.get("browser_selection"))
                 )
             if "host_browser_profile_mode" in input or "profile_mode" in input:
@@ -95,17 +86,15 @@ class BrowserRuntime(connector_base.ProtectedConnectorApiHandler):
 
         runtime_backend = settings.get("runtime_backend") or "container"
         profile_mode = _normalize_profile_mode(settings.get("host_browser_profile_mode")) or "existing"
-        browser_selection = _normalize_host_browser_selection(settings.get("host_browser_selection"))
 
         return {
             "ok": True,
             "runtime_backend": runtime_backend,
             "host_browser_profile_mode": profile_mode,
-            "host_browser_selection": browser_selection,
+            "host_browser_selection": settings["host_browser_selection"],
             "label": _runtime_label(runtime_backend),
             "project_name": project_name,
             "agent_profile": "",
-            "privacy_notice": _PRIVACY_NOTICE,
         }
 
     def _project_name_for_context(self, context_id: str) -> str:

@@ -9,21 +9,18 @@ if TYPE_CHECKING:
 
 
 PLUGIN_NAME = "_browser"
+CHROMIUM_EXECUTABLE = "/opt/runtime/bin/a0-chromium"
 MODEL_PRESET_KEY = "model_preset"
 BROWSER_MODEL_ACTIVE_KEY = "_browser_model_active"
 DEFAULT_HOMEPAGE_KEY = "default_homepage"
 AUTOFOCUS_ACTIVE_PAGE_KEY = "autofocus_active_page"
 ANNOTATION_SCREENSHOTS_KEY = "annotation_screenshots"
-TAB_SCOPE_KEY = "browser_tab_scope"
 MAX_OPEN_TABS_KEY = "max_open_tabs"
-IDLE_TIMEOUT_KEY = "idle_timeout_minutes"
-DEFAULT_IDLE_TIMEOUT_MINUTES = 60
 EVALUATE_TIMEOUT_KEY = "evaluate_timeout_seconds"
 DEFAULT_EVALUATE_TIMEOUT_SECONDS = 30.0
 MIN_EVALUATE_TIMEOUT_SECONDS = 0.1
 MAX_EVALUATE_TIMEOUT_SECONDS = 60.0
 RUNTIME_BACKEND_KEY = "runtime_backend"
-HOST_BROWSER_PRIVACY_POLICY_KEY = "host_browser_privacy_policy"
 HOST_BROWSER_PROFILE_MODE_KEY = "host_browser_profile_mode"
 HOST_BROWSER_SELECTION_KEY = "host_browser_selection"
 PROXY_SERVER_KEY = "proxy_server"
@@ -33,14 +30,10 @@ PROXY_PASSWORD_KEY = "proxy_password"
 KEYBOARD_LAYOUT_KEY = "keyboard_layout"
 KEYBOARD_VARIANT_KEY = "keyboard_variant"
 RUNTIME_BACKENDS = {"container", "host_required"}
-BROWSER_TAB_SCOPES = {"per_context", "shared"}
-HOST_BROWSER_PRIVACY_POLICIES = {"enforce_local", "warn", "allow"}
 HOST_BROWSER_PROFILE_MODES = {"existing", "agent"}
-DEFAULT_BROWSER_TAB_SCOPE = "per_context"
 DEFAULT_MAX_OPEN_TABS = 32
 MIN_MAX_OPEN_TABS = 1
 HARD_MAX_OPEN_TABS = 50
-DEFAULT_HOST_BROWSER_PRIVACY_POLICY = "allow"
 
 
 def _normalize_extension_paths(value: Any) -> list[str]:
@@ -69,7 +62,7 @@ def _normalize_model_preset(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _normalize_host_browser_selection(value: Any) -> str:
+def normalize_host_browser_selection(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -172,22 +165,11 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         ANNOTATION_SCREENSHOTS_KEY: _normalize_bool(
             raw.get(ANNOTATION_SCREENSHOTS_KEY), default=False,
         ),
-        TAB_SCOPE_KEY: _normalize_choice(
-            raw.get(TAB_SCOPE_KEY, DEFAULT_BROWSER_TAB_SCOPE),
-            allowed=BROWSER_TAB_SCOPES,
-            default=DEFAULT_BROWSER_TAB_SCOPE,
-        ),
         MAX_OPEN_TABS_KEY: _normalize_int(
             raw.get(MAX_OPEN_TABS_KEY, DEFAULT_MAX_OPEN_TABS),
             default=DEFAULT_MAX_OPEN_TABS,
             minimum=MIN_MAX_OPEN_TABS,
             maximum=HARD_MAX_OPEN_TABS,
-        ),
-        IDLE_TIMEOUT_KEY: _normalize_int(
-            raw.get(IDLE_TIMEOUT_KEY, DEFAULT_IDLE_TIMEOUT_MINUTES),
-            default=DEFAULT_IDLE_TIMEOUT_MINUTES,
-            minimum=0,
-            maximum=1440,
         ),
         EVALUATE_TIMEOUT_KEY: normalize_evaluate_timeout(
             raw.get(EVALUATE_TIMEOUT_KEY, DEFAULT_EVALUATE_TIMEOUT_SECONDS)
@@ -195,17 +177,12 @@ def normalize_browser_config(settings: dict[str, Any] | None) -> dict[str, Any]:
         RUNTIME_BACKEND_KEY: _normalize_runtime_backend(
             raw.get(RUNTIME_BACKEND_KEY, "container")
         ),
-        HOST_BROWSER_PRIVACY_POLICY_KEY: _normalize_choice(
-            raw.get(HOST_BROWSER_PRIVACY_POLICY_KEY, DEFAULT_HOST_BROWSER_PRIVACY_POLICY),
-            allowed=HOST_BROWSER_PRIVACY_POLICIES,
-            default=DEFAULT_HOST_BROWSER_PRIVACY_POLICY,
-        ),
         HOST_BROWSER_PROFILE_MODE_KEY: _normalize_choice(
             raw.get(HOST_BROWSER_PROFILE_MODE_KEY, "existing"),
             allowed=HOST_BROWSER_PROFILE_MODES,
             default="existing",
         ),
-        HOST_BROWSER_SELECTION_KEY: _normalize_host_browser_selection(
+        HOST_BROWSER_SELECTION_KEY: normalize_host_browser_selection(
             raw.get(HOST_BROWSER_SELECTION_KEY, raw.get("host_browser_choice", ""))
         ),
         PROXY_SERVER_KEY: str(raw.get(PROXY_SERVER_KEY, "") or "").strip()[:2048],
@@ -459,9 +436,7 @@ def describe_browser_extensions(settings: dict[str, Any] | None) -> dict[str, An
 def build_browser_launch_config(settings: dict[str, Any] | None) -> dict[str, Any]:
     config = normalize_browser_config(settings)
     extensions = describe_browser_extensions(config)
-    args = ["--hide-crash-restore-bubble"]
-    channel: str | None = None
-    browser_mode = "chromium"
+    args = ["--hide-crash-restore-bubble", "--disable-infobars"]
     proxy = None
 
     if extensions["active"]:
@@ -486,8 +461,5 @@ def build_browser_launch_config(settings: dict[str, Any] | None) -> dict[str, An
     return {
         "args": args,
         "proxy": proxy,
-        "browser_mode": browser_mode,
-        "channel": channel,
         "extensions": extensions,
-        "requires_full_browser": True,
     }

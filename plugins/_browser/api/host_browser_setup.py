@@ -43,7 +43,7 @@ class HostBrowserSetup(ApiHandler):
             )
         else:
             return Response(
-                "Connect or update Launcher or A0 CLI before opening a host browser setup page",
+                "Connect Launcher or A0 CLI to open browser setup on the host",
                 status=409,
             )
 

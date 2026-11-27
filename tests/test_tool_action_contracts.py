@@ -334,8 +334,8 @@ def _load_computer_use_remote_tool(monkeypatch):
         ws_runtime_stub,
     )
 
-    sys.modules.pop("plugins._a0_connector.tools.computer_use_remote", None)
-    return importlib.import_module("plugins._a0_connector.tools.computer_use_remote")
+    sys.modules.pop("plugins._a0_connector.helpers.host_computer_use", None)
+    return importlib.import_module("plugins._a0_connector.helpers.host_computer_use")
 
 
 def test_skills_tool_accepts_action_alias_for_search(monkeypatch, tmp_path: Path):
@@ -791,8 +791,8 @@ def test_behavior_prompts_preserve_exact_rules_and_avoid_promptinclude():
 
 def _load_a2a_chat_tool(monkeypatch):
     _install_tool_stub(monkeypatch)
-    sys.modules.pop("plugins._a2a_chat.tools.a2a_chat", None)
-    return importlib.import_module("plugins._a2a_chat.tools.a2a_chat")
+    sys.modules.pop("plugins._a2a_chat.helpers.chat_handler", None)
+    return importlib.import_module("plugins._a2a_chat.helpers.chat_handler")
 
 
 def test_a2a_extracts_latest_assistant_text_from_history(monkeypatch):
@@ -884,7 +884,7 @@ def test_tool_prompts_prevent_top_level_multi_tool():
     communication_prompt = Path("prompts/agent.system.main.communication.md").read_text(
         encoding="utf-8"
     )
-    browser_prompt = Path("plugins/_browser/prompts/agent.system.tool.browser.md").read_text(
+    browser_reference = Path("plugins/_browser/skills/browser-automation/references/browser-controls.md").read_text(
         encoding="utf-8"
     )
 
@@ -893,7 +893,7 @@ def test_tool_prompts_prevent_top_level_multi_tool():
     assert "run independent tool calls concurrently" in parallel_prompt
     assert "never an action name such as `read`, `write`, `terminal`, or `multi`" in communication_prompt
     assert "independent operations concurrently" not in communication_prompt
-    assert 'Never use `tool_name: "multi"`' in browser_prompt
+    assert '"tool_name":"browser","tool_args":{"action":"multi"' in browser_reference
 
 
 def test_local_model_tool_use_guide_stays_prompt_profile_plugin_only():
@@ -947,8 +947,11 @@ def _load_scheduler_tool(monkeypatch):
     projects_stub.load_basic_project_data = lambda project: {}
     monkeypatch.setitem(sys.modules, "helpers.projects", projects_stub)
 
-    sys.modules.pop("plugins._scheduler.tools.scheduler", None)
-    return importlib.import_module("plugins._scheduler.tools.scheduler")
+    path = Path(__file__).resolve().parents[1] / "plugins/_scheduler/helpers/scheduler_handler.py"
+    spec = importlib.util.spec_from_file_location("scheduler_contract_fixture", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_scheduler_accepts_action_alias(monkeypatch):
@@ -1130,10 +1133,10 @@ def test_scheduler_invalid_state_returns_repairable_message(monkeypatch):
     assert "Use one of: idle, running, disabled, error." in response.message
 
 
-def test_scheduler_prompt_includes_update_timezone_and_dedicated_context():
+def test_scheduler_skill_includes_update_timezone_and_dedicated_context():
     project_root = Path(__file__).resolve().parents[1]
     text = (
-        project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md"
+        project_root / "skills/scheduled-tasks/SKILL.md"
     ).read_text(encoding="utf-8")
 
     assert "update_task" in text
@@ -1156,14 +1159,7 @@ def test_corrected_tool_prompts_only_teach_action_contract():
     prompt_paths = [
         project_root / "plugins/_text_editor/prompts/agent.system.tool.text_editor.md",
         project_root / "prompts/agent.system.tool.skills.md",
-        project_root / "plugins/_scheduler/prompts/agent.system.tool.scheduler.md",
-        project_root / "plugins/_a0_connector/prompts/agent.system.tool.text_editor_remote.md",
-        project_root / "plugins/_office/prompts/agent.system.tool.office_artifact.md",
-        project_root / "plugins/_office/skills/office-artifacts/SKILL.md",
-        project_root / "plugins/_office/skills/markdown-documents/SKILL.md",
-        project_root / "plugins/_office/skills/writer-documents/SKILL.md",
-        project_root / "plugins/_office/skills/calc-spreadsheets/SKILL.md",
-        project_root / "plugins/_office/skills/impress-presentations/SKILL.md",
+        project_root / "skills/scheduled-tasks/SKILL.md",
     ]
     forbidden = (
         "text_editor:",
@@ -1187,59 +1183,6 @@ def test_corrected_tool_prompts_only_teach_action_contract():
             assert "Download file" in text
             assert "Canvas was not opened automatically" not in text
             assert "Open Document, or Desktop edit actions" not in text
-
-
-def test_computer_use_remote_is_runtime_checked_standard_tool():
-    project_root = Path(__file__).resolve().parents[1]
-    standard_prompt_path = (
-        project_root
-        / "plugins/_a0_connector/prompts/agent.system.tool.computer_use_remote.md"
-    )
-    standard_prompt_text = standard_prompt_path.read_text(encoding="utf-8")
-    skill_text = (
-        project_root
-        / "plugins/_a0_connector/skills/host-computer-use/SKILL.md"
-    ).read_text(encoding="utf-8")
-    macos_skill_text = (
-        project_root
-        / "plugins/_a0_connector/skills/host-computer-use-macos/SKILL.md"
-    ).read_text(encoding="utf-8")
-    windows_skill_text = (
-        project_root
-        / "plugins/_a0_connector/skills/host-computer-use-windows/SKILL.md"
-    ).read_text(encoding="utf-8")
-
-    assert standard_prompt_path.exists()
-    assert not (
-        project_root
-        / "plugins/_a0_connector/prompts/agent.system.runtime_tool.computer_use_remote.md"
-    ).exists()
-    assert '"tool_name": "computer_use_remote"' in standard_prompt_text
-    assert "not scoped to a single chat context" in standard_prompt_text
-    assert "checked when the tool runs" in standard_prompt_text
-    assert "visual verification is unavailable" in standard_prompt_text
-    assert "host-computer-use-macos" in standard_prompt_text
-    assert "host-computer-use-windows" in standard_prompt_text
-    assert "ax_snapshot" not in standard_prompt_text
-    assert "ax_action" not in standard_prompt_text
-    assert "uia_snapshot" not in standard_prompt_text
-    assert "uia_action" not in standard_prompt_text
-    assert '"tool_name": "computer_use_remote"' in skill_text
-    assert "ax_snapshot" not in skill_text
-    assert "ax_action" not in skill_text
-    assert "uia_snapshot" not in skill_text
-    assert "uia_action" not in skill_text
-    assert '"tool_name": "computer_use_remote"' in macos_skill_text
-    assert "ax_snapshot" in macos_skill_text
-    assert "ax_action" in macos_skill_text
-    assert '"tool_name": "computer_use_remote"' in windows_skill_text
-    assert "uia_snapshot" in windows_skill_text
-    assert "uia_action" in windows_skill_text
-    assert "focus_window" in windows_skill_text
-    assert "If a node offers `invoke`, use `invoke`, not `click`" in windows_skill_text
-    assert "Backend-specific macOS guidance" in macos_skill_text
-    assert "Backend-specific Windows guidance" in windows_skill_text
-    assert "Beta desktop control" in skill_text
 
 
 def test_computer_use_remote_start_session_reports_backend_features_and_macos_skill(monkeypatch):

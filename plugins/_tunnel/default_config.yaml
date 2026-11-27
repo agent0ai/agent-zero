@@ -1,0 +1,5 @@
+provider: cloudflared
+# Empty uses Sandboxing's configured base image.
+image: ""
+# Zero follows Agent Zero's actual runtime HTTP port.
+port: 0

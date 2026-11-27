@@ -10,20 +10,20 @@
 - `normalize_policy` owns the sparse allow/block configuration shape.
 - `get_tool_catalog` owns canonical local, plugin, and MCP identities plus
   unavailable-policy retention; local entries come from executable `tools/*.py`
-  files in the runtime path hierarchy. The catalog describes installed
-  capabilities independently of transient transport availability; connector
-  prompt/schema extensions remain responsible for live remote-tool exposure.
+  files and registered plugin skill bindings. The catalog describes installed
+  capabilities independently of transient transport availability.
   The editor applies the current draft policy instead of receiving duplicated
   allowed/required flags from the backend.
 - `tool_prompt_description` owns compact editor catalog summaries; Responses owns full native tool descriptions and schema projection.
 - `resolve_tool` returns the effective decision and provenance.
 - `get_tool_actions` and `allowed_tool_actions` expose the resolved bundled action contract and allowed actions; catalog entries carry an `actions` list for editor projection.
 - `ensure_tool_allowed` raises the stable repairable runtime policy error and
-  accepts an explicit canonical ID from transports that already resolved one.
+  accepts the source path of the loaded tool or an explicit canonical ID from
+  transports that already resolved one.
 - `filter_tool_prompt` removes denied local capabilities from the text protocol,
   including complete fenced JSON examples that reference them, without taking
   ownership of provider-native naming rules.
-- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool decisions to a complete prompt batch. Native schema construction may supply its current `_policy` snapshot; neither owner retains it across calls.
+- `filter_tool_prompts` applies one fresh policy snapshot and one set of tool decisions to a complete prompt batch. Native schema construction may supply its current `_policy` snapshot and an `action_enums` mapping to receive the allowed lists computed during filtering. Both are scoped to the current build.
 
 ## Runtime Contracts
 
@@ -34,29 +34,26 @@
 - Missing policy inherits standard access. A custom policy records independent
   defaults for local/plugin tools and canonical MCP tools; explicit allowed or
   blocked IDs take precedence over either default.
-- Inherited prompt policy returns tool text unchanged without inventorying or
-  resolving individual tools; only custom policy pays the filtering cost.
+- Inherited prompt policy returns the supplied tool text without inventorying or resolving individual tools.
 - The `response` capability is a framework-required invariant: profile policy
   cannot disable it, and the editor does not list it as a configurable tool.
 - `vision_load` remains owned by the active chat model's vision configuration;
   it is not exposed as a profile-policy choice and legacy policy IDs cannot
   suppress the chat-configured capability.
+- A plugin can own access to its tools via `hooks.py:tool_access(tool_name, agent=None)`. Return `None` for ordinary Tool Access policy, or a boolean for a decision owned by the plugin. Catalog discovery passes no agent and omits tools with a plugin decision. Runtime resolution passes the agent and checks the current decision.
 - Policy IDs are namespaced as `local:`, `plugin:<id>:`, or `mcp:<server>:`.
   Generic execution resolves canonical IDs from executable paths; MCP
   invocation supplies its explicit namespaced ID.
+- Registered skill handlers use their declared plugin identity. Refuse an inactive skill before applying ordinary Tool Access, return the declaration with allowed decisions, and recheck the selected binding during execution.
 - Moved bundled tools honor their saved core IDs; behavior adjustment honors its old plugin/spelling ID. Matching legacy IDs remain editable in the catalog while their replacement is available. Explicit blocks win across both IDs; unrelated profile overrides retain their own identity.
 - Unified memory checks both its tool-wide ID and the corresponding legacy action ID. Without an action, discovery exposes memory if any action is allowed; execution checks the requested action through `ensure_tool_allowed`. Legacy memory names stay action-specific, and a tool-wide block also blocks those aliases.
-- All registered bundled multi-action tools check whole-tool and action IDs with explicit-block precedence. Discovery exposes a tool when any action is allowed; execution supplies `tool_args` (including an empty dict) to resolve defaults and compound operations. Omitting both arguments and action is a discovery query, never an execution check.
-- `allowed_tool_actions` supplies the allowed enum to native schemas and the permitted-action note to textual prompts. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
+- Bundled multi-action tools, including registered skill handlers with a bundled action contract, check whole-tool and action IDs with explicit-block precedence. Discovery exposes a tool when any action is allowed. Execution supplies `tool_args` (including an empty dict) to resolve defaults and compound operations. Omitting both arguments and action is a discovery query.
+- `allowed_tool_actions` supplies allowed action enums for registered multi-action tools. `allowed_memory_actions` remains a compatibility wrapper. Custom/profile implementations do not inherit bundled action contracts.
 - Plugin IDs are derived relative to the canonical roots from `helpers.plugins`,
   not by independently parsing repository-relative path strings.
 - Each executable local tool has its own policy identity, including tools that
   share one Markdown prompt.
-- Bundled `input_remote` additionally requires the bundled `code_execution_remote`
-  terminal action, since its transport can execute commands. Resolve the
-  dependency by canonical ID with the same policy snapshot so profile shadows,
-  explicit grants, and default-deny policies cannot bypass it. Keep its own
-  independent permission check; granting execution alone does not grant input.
+- Bundled `input` requires the bundled `code_execution_tool:terminal` permission. Resolve the dependency by canonical ID for discovery and execution. Connected-host dispatch also honors explicit denials saved for retired remote tool IDs, and the connector independently enforces its active permissions.
 - Catalog descriptions call the supplied agent's prompt loader instead of
   opening prompt files through a parallel path; the editor agent intentionally
   keeps its existing raw, no-processor implementation.

@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from helpers import dotenv, files, migration, runtime, settings
+from helpers import dotenv, files, migration, runtime
 
 
 @pytest.fixture
@@ -174,7 +174,7 @@ def test_prepare_migrates_and_loads_legacy_env_before_writing_root_password(env_
         passwords.append(password)
         dotenv.save_dotenv_value(dotenv.KEY_ROOT_PASSWORD, password)
 
-    monkeypatch.setattr(settings, "set_root_password", set_root_password)
+    monkeypatch.setattr(runtime, "set_root_password", set_root_password)
     prepare = Path(__file__).resolve().parents[1] / "prepare.py"
     runpy.run_path(str(prepare), run_name="__main__")
     migration.migrate_user_data()
@@ -194,7 +194,7 @@ def test_prepare_stops_before_password_writes_when_dotenv_is_invalid(env_paths, 
     monkeypatch.setattr(sys, "argv", ["prepare.py"])
     monkeypatch.setattr(runtime, "initialize", lambda: None)
     passwords = []
-    monkeypatch.setattr(settings, "set_root_password", passwords.append)
+    monkeypatch.setattr(runtime, "set_root_password", passwords.append)
     prepare = Path(__file__).resolve().parents[1] / "prepare.py"
 
     with pytest.raises(ValueError, match=r"\.env"):

@@ -243,6 +243,11 @@ If you are upgrading from Agent Zero v0.9.8 or earlier to v1.1 or newer, use the
 
 > Use this only if Self Update is unavailable or you must manage containers yourself (for example, some custom Docker setups).
 
+Application code is installed directly in `/a0`; persist only `/a0/usr` for
+ordinary Docker installs. In-app code updates survive restarts, but container
+replacement uses the replacement image's code. If you previously mounted all
+of `/a0`, follow [the mount migration guide](../guides/local-folders.md#moving-from-a-whole-a0-mount).
+
 1. Keep the current container running
 2. `docker pull agent0ai/agent-zero:latest`
 3. Start a **new** container on a different host port, for example: `docker run -d -p 50081:80 --name agent-zero-new agent0ai/agent-zero:latest`
@@ -561,7 +566,7 @@ Use `claude-sonnet-4-5` for Anthropic, but use `anthropic/claude-sonnet-4-5` for
 ### Built-in Voice Plugins
 
 - Agent Zero ships Whisper STT as the built-in `_whisper_stt` plugin and Kokoro TTS as the built-in `_kokoro_tts` plugin.
-- Docker/bootstrap remains responsible for installing the required speech dependencies such as `ffmpeg`, Kokoro, Whisper, and `soundfile`.
+- Whisper and Kokoro runtime dependencies install inside their plugin sandboxes on first use. Whisper microphone audio is browser-normalized PCM, so the outer container does not require FFmpeg or additional system audio packages.
 - Both plugins can be enabled or disabled independently from the Agent Plugins section in the Web UI.
 - Whisper model size, language, message handling, and silence behavior are configured from the plugin settings screen.
 - If `_kokoro_tts` is disabled, spoken output falls back to the browser's native speech synthesis instead of the container runtime.
@@ -592,7 +597,7 @@ Configure API keys for various service providers directly within the Web UI. Cli
 - **RFC Parameters (local instances only):** Configure URLs and ports for remote function calls between instances
 - **RFC Password:** Configure password for remote function calls
 
-Learn more about Remote Function Calls in the [Development Setup guide](dev-setup.md#step-6-configure-ssh-and-rfc-connection).
+For development, see [Choose the execution runtime](dev-setup.md#step-5-choose-the-execution-runtime).
 
 > [!IMPORTANT]
 > Always keep your API keys and passwords secure.

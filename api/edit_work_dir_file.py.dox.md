@@ -21,6 +21,8 @@
 
 ## Runtime Contracts
 
+- Invoke the existing file helpers locally in both development and production; await their async entry points. Path validation, response shapes and mutation hooks remain unchanged.
+
 - HTTP handlers must derive from `helpers.api.ApiHandler`; WebSocket handlers must derive from `helpers.ws.WsHandler`.
 - Update this file whenever request payloads, authentication or CSRF requirements, response shapes, route side effects, or WebSocket event contracts change.
 - `EditWorkDirFile` is an `ApiHandler`.
@@ -31,7 +33,7 @@
 
 ## Key Concepts
 
-- Important helpers: `FileBrowser.text_bytes`, `FileBrowser.decode_text`, `browser.get_full_path`, `browser.save_text_file`, `runtime.call_development_function`, and `extension.call_extensions_async`.
+- Important helpers: `FileBrowser.text_bytes`, `FileBrowser.decode_text`, `browser.get_full_path`, `browser.save_text_file`, and `extension.call_extensions_async`.
 - Keep request/response, tool, or helper semantics documented here at the same time as source changes.
 
 ## Work Guidance

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from plugins._browser.tools.browser import Browser
+from plugins._browser.helpers.browser_handler import Browser
 
 
 class _FakeLog:
