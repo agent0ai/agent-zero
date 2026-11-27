@@ -53,7 +53,7 @@
     .file-tree-status { margin: 8px 12px; font-size: 12px; color: var(--color-text-secondary); }
     .file-tree-retry { background: transparent; border: 0; text-align: left; cursor: pointer; text-decoration: underline; }
     .file-tree :is(button, input):focus-visible { outline: 1px solid var(--color-text-secondary); outline-offset: -1px; }
-    @container (max-width: 640px) {
+    @container file-browser-workspace (max-width: 640px) {
       .file-tree-host { position: absolute; top: 0; right: 0; bottom: 0; z-index: 30; width: min(280px, 85%); box-shadow: -8px 0 20px #0002; }
     }
   </style>
