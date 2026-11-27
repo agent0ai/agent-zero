@@ -19,6 +19,17 @@ INVALID_FIELDS = [
     ("weekday", "8"),
     ("minute", "*/0"),
     ("minute", "not-a-minute"),
+    ("day", ""),
+    ("day", "   "),
+]
+
+EMPTY_FIELD_CASES = [
+    ("minute", ""),
+    ("hour", ""),
+    ("day", ""),
+    ("day", "   "),
+    ("month", ""),
+    ("weekday", ""),
 ]
 
 
@@ -35,9 +46,9 @@ def schedule_data(**overrides):
 @pytest.fixture(params=["json", "yaml"])
 def runtime(request, monkeypatch, tmp_path):
     monkeypatch.setattr(scheduler, "SCHEDULER_FOLDER", str(tmp_path))
-    monkeypatch.setattr(
-        scheduler, "_now", lambda: datetime(2026, 10, 30, 6, 0, 30, tzinfo=UTC)
-    )
+    now = datetime(2026, 10, 30, 6, 0, 30, tzinfo=UTC)
+    anchor = datetime(2026, 10, 30, 5, 59, 0, tzinfo=UTC)
+    monkeypatch.setattr(scheduler, "_now", lambda: now)
     monkeypatch.setattr(
         "helpers.state_monitor_integration.mark_dirty_all", lambda **kwargs: None
     )
@@ -47,6 +58,9 @@ def runtime(request, monkeypatch, tmp_path):
         prompt="Keep this prompt",
         schedule=scheduler.TaskSchedule(**schedule_data(timezone="UTC")),
     )
+    task.created_at = anchor
+    task.updated_at = anchor
+    task.schedule_anchor = anchor
     tasks = scheduler.SchedulerTaskList(tasks=[task])
     path = tmp_path / f"tasks.{request.param}"
     path.write_text(
@@ -161,3 +175,89 @@ def test_prompt_only_update_does_not_validate_legacy_schedule(runtime):
     )
     assert updated.prompt == "Repair later"
     assert updated.schedule.minute == "60"
+
+
+@pytest.mark.parametrize("field,value", EMPTY_FIELD_CASES)
+def test_empty_cron_field_error_guides_wildcard_usage(runtime, field, value):
+    before = runtime.path.read_bytes()
+    original = runtime.task.model_dump()
+
+    with pytest.raises(ValueError) as create_exc:
+        asyncio.run(
+            SchedulerTaskCreate(None, None).process(
+                {
+                    "name": "Empty field create",
+                    "prompt": "Never save",
+                    "schedule": schedule_data(**{field: value}),
+                },
+                None,
+            )
+        )
+    create_msg = str(create_exc.value)
+    assert field in create_msg
+    assert '"*"' in create_msg
+
+    with pytest.raises(ValueError) as update_exc:
+        asyncio.run(
+            SchedulerTaskUpdate(None, None).process(
+                {
+                    "task_id": runtime.task.uuid,
+                    "name": "Do not rename",
+                    "schedule": schedule_data(**{field: value}),
+                },
+                None,
+            )
+        )
+    update_msg = str(update_exc.value)
+    assert field in update_msg
+    assert '"*"' in update_msg
+
+    assert runtime.path.read_bytes() == before
+    assert runtime.engine.get_task_by_uuid(runtime.task.uuid).model_dump() == original
+
+
+def test_empty_string_slot_and_whitespace_token_do_not_shift_fields(runtime):
+    before = runtime.path.read_bytes()
+
+    with pytest.raises(ValueError) as str_exc:
+        asyncio.run(
+            SchedulerTaskCreate(None, None).process(
+                {
+                    "name": "Double space cron",
+                    "prompt": "Never save",
+                    "schedule": "* *  * *",
+                },
+                None,
+            )
+        )
+    assert "day" in str(str_exc.value)
+    assert '"*"' in str(str_exc.value)
+
+    with pytest.raises(ValueError) as shift_exc:
+        asyncio.run(
+            SchedulerTaskCreate(None, None).process(
+                {
+                    "name": "Shifted columns",
+                    "prompt": "Never save",
+                    "schedule": schedule_data(minute="0 1", day=""),
+                },
+                None,
+            )
+        )
+    assert "day" in str(shift_exc.value)
+    assert '"*"' in str(shift_exc.value)
+
+    with pytest.raises(ValueError) as ws_exc:
+        asyncio.run(
+            SchedulerTaskCreate(None, None).process(
+                {
+                    "name": "Whitespace token",
+                    "prompt": "Never save",
+                    "schedule": schedule_data(minute="0 1"),
+                },
+                None,
+            )
+        )
+    assert "minute" in str(ws_exc.value)
+    assert '"*"' in str(ws_exc.value)
+    assert runtime.path.read_bytes() == before
