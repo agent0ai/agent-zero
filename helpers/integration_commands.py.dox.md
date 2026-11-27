@@ -26,6 +26,7 @@
 - `/model <preset>` stores a per-chat global preset reference, `/model inherit` clears it, and status always reports the effective scoped-or-chat preset. `Default` is a real selectable preset, not an alias for clearing the chat selection.
 
 - Project and profile changes on Telegram-bound contexts call the Telegram scope owner before mutation, including calls from shared command scripts. Other integrations retain their existing behavior.
+- Name matching preserves Unicode letters and numbers while retaining case-insensitive, whitespace/hyphen/underscore normalization and punctuation removal. Empty normalized lookup keys do not select an item or clear a selection; explicit empty quoted arguments and documented reset aliases retain their existing reset behavior. No Unicode normalization-form equivalence is implied.
 
 ## Key Concepts
 
