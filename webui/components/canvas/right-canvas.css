@@ -136,7 +136,8 @@ body.right-canvas-resizing {
 
 .right-canvas-rail-button:hover,
 .right-canvas-icon-button:hover,
-.right-canvas-rail-button.is-active {
+.right-canvas-rail-button.is-active,
+.right-canvas-icon-button.is-active {
   opacity: 1;
   border-color: color-mix(in srgb, var(--color-primary) 28%, var(--right-canvas-border));
   background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);

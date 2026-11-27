@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-function setup() {
+function setup(mobile = false) {
   const stack = [], opens = [], moves = [];
   const storage = new Map();
   const parent = { moveBefore: node => { node.parentElement = parent; moves.push(parent); } };
@@ -13,6 +13,8 @@ function setup() {
     .replace(/^import\b[\s\S]*?;\n/gm, '').replace('export const store', 'const store');
   const context = {
     createStore: (_, model) => model, console, setTimeout, clearTimeout,
+    createSurfaceKeyboard: () => ({ close() {}, destroy() {} }),
+    isMobileUserAgent: () => mobile,
     SURFACE_MODE_DOCKED: 'canvas', SURFACE_MODE_FLOATING: 'modal',
     normalizeSurfaceId: id => id, normalizeSurfaceMode: mode => mode === 'modal' ? mode : 'canvas',
     migratePersistedSurfaceState: saved => saved,
@@ -147,6 +149,19 @@ test('mobile and welcome use the same modal; resize preserves mounted panels', a
   context.chatsStore.selected = null;
   await store.open('files');
   assert.equal(store.isDetached, true);
+});
+
+test('mobile keyboard visibility is limited to active Browser and Desktop canvas tabs', async () => {
+  const { store } = setup(true);
+  for (const id of ['browser', 'desktop']) {
+    await store.open(id);
+    assert.equal(store.shouldShowSurfaceKeyboard(), true);
+    await store.open('editor');
+    assert.equal(store.shouldShowSurfaceKeyboard(), false);
+  }
+  const desktop = setup(false).store;
+  await desktop.open('browser');
+  assert.equal(desktop.shouldShowSurfaceKeyboard(), false);
 });
 
 test('session reload restores one workspace with its mode and active tab', async () => {

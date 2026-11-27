@@ -93,6 +93,19 @@
               <x-extension id="right-canvas-toolbar-start"></x-extension>
               <button
                 type="button"
+                class="right-canvas-icon-button right-canvas-keyboard-button"
+                title="Toggle keyboard"
+                aria-label="Toggle keyboard"
+                aria-pressed="false"
+                x-show="$store.rightCanvas.shouldShowSurfaceKeyboard()"
+                x-create="$store.rightCanvas.mountSurfaceKeyboard($el)"
+                x-destroy="$store.rightCanvas.unmountSurfaceKeyboard()"
+                x-effect="$store.rightCanvas.syncSurfaceKeyboard()"
+              >
+                <x-icon name="keyboard"></x-icon>
+              </button>
+              <button
+                type="button"
                 class="right-canvas-icon-button"
                 :title="$store.rightCanvas.isDetached ? 'Attach to sidebar' : 'Detach canvas'"
                 :aria-label="$store.rightCanvas.isDetached ? 'Attach to sidebar' : 'Detach canvas'"

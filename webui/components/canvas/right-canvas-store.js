@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { callJsExtensions } from "/js/extensions.js";
+import { createSurfaceKeyboard, isMobileUserAgent } from "/js/surface-keyboard.js";
 import {
   SURFACE_MODE_DOCKED,
   SURFACE_MODE_FLOATING,
@@ -66,6 +67,8 @@ const model = {
   _registering: false,
   _rootElement: null,
   _resizeCleanup: null,
+  _surfaceKeyboard: null,
+  _surfaceKeyboardSurfaceId: "",
   _lastPayloadBySurface: {},
   _restoreOpenRequested: false,
   _restoreOpenTimer: null,
@@ -285,6 +288,49 @@ const model = {
   mountShell(element) {
     this._shellElement = element;
     this._shellParent = element.parentElement;
+  },
+
+  shouldShowSurfaceKeyboard() {
+    return isMobileUserAgent() && ["browser", "desktop"].includes(this.activeSurfaceId) &&
+      this.isSurfaceVisible(this.activeSurfaceId);
+  },
+
+  mountSurfaceKeyboard(button) {
+    if (!isMobileUserAgent()) return;
+    this.unmountSurfaceKeyboard();
+    this._surfaceKeyboard = createSurfaceKeyboard(button, {
+      onFocusTarget: () => {
+        this._surfaceKeyboardSurfaceId = this.activeSurfaceId;
+        return false;
+      },
+      onBlurTarget: () => {
+        const surface = this.getSurface(this._surfaceKeyboardSurfaceId);
+        this._surfaceKeyboardSurfaceId = "";
+        surface?.blurKeyboardTarget?.();
+      },
+      onText: (text) => this.sendSurfaceKeyboardInput({ text }, this._surfaceKeyboardSurfaceId),
+      onKey: (key) => this.sendSurfaceKeyboardInput({ key }, this._surfaceKeyboardSurfaceId),
+    });
+  },
+
+  syncSurfaceKeyboard() {
+    if (!this.shouldShowSurfaceKeyboard()) {
+      this._surfaceKeyboard?.close?.();
+      return;
+    }
+    if (this._surfaceKeyboardSurfaceId && this._surfaceKeyboardSurfaceId !== this.activeSurfaceId) {
+      this._surfaceKeyboard?.close?.();
+    }
+  },
+
+  unmountSurfaceKeyboard() {
+    this._surfaceKeyboard?.destroy?.();
+    this._surfaceKeyboard = null;
+    this._surfaceKeyboardSurfaceId = "";
+  },
+
+  sendSurfaceKeyboardInput(input, surfaceId = this.activeSurfaceId) {
+    return this.getSurface(surfaceId)?.sendKeyboardInput?.(input) || false;
   },
 
   moveShell(parent) {

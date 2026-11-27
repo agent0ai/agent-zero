@@ -2893,6 +2893,25 @@ const model = {
     });
   },
 
+  async sendSurfaceKeyboardInput({ key = "", text = "" } = {}) {
+    if (this.annotating) return false;
+    const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId);
+    if (!contextId || !this.activeBrowserId) return false;
+    try {
+      await websocket.emit("browser_viewer_input", {
+        context_id: contextId,
+        browser_id: this.activeBrowserId,
+        input_type: "keyboard",
+        key: String(key || ""),
+        text: String(text || ""),
+      });
+      return true;
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : String(error);
+      return false;
+    }
+  },
+
   async sendShortcut(key) {
     const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId);
     if (!contextId || !this.activeBrowserId || !key) return;

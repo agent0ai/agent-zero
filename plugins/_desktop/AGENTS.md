@@ -9,18 +9,15 @@
 - `build/version.txt` sets the minimum official Tuxee release. `build/release.sh` resolves GitHub's latest stable release once, requires that minimum, downloads its unmodified architecture-specific binary and verifies the release checksum and reported version. Fail if no compatible release is published; never fall back to a private build. Embedded upstream assets include third-party notices. `runtime-packages.txt` owns outer native runtime libraries.
 - `helpers/runtime.py` owns lazy loopback server lifecycle and private state under `usr/plugins/_desktop/tuxee`; `helpers/install.py` builds missing/stale runtime assets in a disposable child sandbox for source-only upgrades.
 - `helpers/gateway.py` streams HTTP and binary/text WebSockets at `/desktop/tuxee/` through the existing A0 listener and holds the automatic PAM session in memory. `api/desktop_session.py`, hooks and startup migration register/control that runtime.
-- `webui/` keeps one Tuxee iframe across modal/canvas handoffs, reloading it when a hidden tab, closed canvas or closed modal reopens and hiding the old document until the new page loads; no Office tabs or Office tools remain.
+- `webui/` keeps one Tuxee iframe across modal/canvas handoffs, reloading it when a hidden tab, closed canvas or closed modal reopens and hiding the old document until the new page loads; no Office tabs or Office tools remain. The canvas keyboard toggle targets the noVNC canvas inside that same-origin iframe and dispatches text and special-key events through its keyboard handler.
 - `webui/tuxee-emblem.png` is the monochrome Tuxee emblem used by the `tuxee` surface icon. Shared surface CSS uses its luminance as a mask: the hexagon, belly and eye follow the theme's text color; the outer penguin and background remain transparent.
-
 - `build/gui.sh` pins the minimal TigerVNC/Xorg build; `build/bundle-gui.sh` packages its tools, ELF loader/library closure and XKB data at `/usr/local/lib/tuxee-gui` for read-only guest mounts. Host Xvnc/password entry points are small wrappers around that same bundle, preserving its private loader and avoiding duplicate binaries. Build tools remain in the builder.
 - `build/audio.sh` builds upstream's stripped PulseAudio/libsndfile support, including the microphone remap module, at `/usr/local/lib/tuxee-audio`, with relocatable `tuxee-pulseaudio`/`tuxee-pacat` wrappers. Keep this portable build compatible with existing Bookworm guests. The Tuxee base uses the upstream audio runtime for Desktop and new Trixie Browser guests. Installation preserves library symlinks. No codecs, sound devices or additional listener ports are required.
 
 ## Local Contracts
 
 - Both canvas registration hooks share the implementation in `right_canvas_register_surfaces/`.
-
 - New worker environments reuse the sandbox image Python; existing worker environments remain intact.
-
 - Enforce the configured A0 login policy and same-origin checks before starting or contacting Tuxee. Keep real Linux PAM authentication, CSRF headers and WebSocket checks. Forward only Tuxee cookies and allowlisted request headers (including the required upload byte-size header), scope response cookies to the proxy prefix, and allow framing only by the same origin.
 - Bind Tuxee's managed listener to `127.0.0.1` on an allocated port with a private empty config and cleared inherited Tuxee environment overrides. No new published port is required. Browser shares the minimal native display bundle and noVNC sources, with its own sandbox and authenticated gateway.
 - In the Tuxee-based Docker image, Tuxee's entrypoint owns the listener on `127.0.0.1:17883`. Desktop verifies its health before proxying there. Plugin disable still closes the gateway, and container shutdown owns the Tuxee service.
