@@ -134,7 +134,8 @@
   heading, closing fences are rewritten to their opener's run, an unclosed
   fence is closed (fences follow CommonMark: at most three spaces of
   indentation, no backticks in a backtick info string), and template syntax is
-  neutralized. Control characters are already dropped at capture.
+  neutralized. Rendering preserves relative indentation on the first line so
+  it can start an indented code block. Control characters are dropped at capture.
 - The same section is returned with `include_tools=False`, so the Responses
   replacement built by `helpers.responses_tools.register_prompt` keeps it;
   appending instructions to the `_12_mcp_prompt` result instead would drop

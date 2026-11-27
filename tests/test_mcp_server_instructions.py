@@ -122,6 +122,18 @@ def test_blank_instructions_say_nothing() -> None:
     assert contain(" \n\t") == ""
 
 
+def test_first_instruction_line_keeps_relative_indentation() -> None:
+    instructions = "    read --limit 10\n\nRun this before opening a document."
+    normalized = normalize(f"\n \t\n{instructions}\n \t\n")
+    assert normalized == instructions
+
+    config = _config(_Server("docs", normalized))
+    assert config.get_server_detail("docs")["instructions"] == instructions
+    subsection = _subsection("docs", instructions)
+    assert subsection in config.get_tools_prompt()
+    assert subsection in config.get_tools_prompt(include_tools=False)
+
+
 def test_a_servers_text_cannot_leave_its_subsection() -> None:
     text = "\n".join(
         [

@@ -96,12 +96,12 @@ def normalize_server_instructions(value: Any) -> str:
     other control characters (such as terminal escape codes) are dropped, and
     the indentation shared by every non-blank line is removed, since Python
     servers often pass an indented triple-quoted string. Relative indentation
-    and tabs are kept as sent.
+    is preserved, including on the first non-blank line.
     """
     if not isinstance(value, str):
         return ""
     text = "\n".join(_without_control_chars(line) for line in value.splitlines())
-    return textwrap.dedent(text).strip()
+    return textwrap.dedent(text).lstrip("\n").rstrip()
 
 
 def contain_server_instructions(text: str) -> str:
@@ -118,8 +118,7 @@ def contain_server_instructions(text: str) -> str:
     server's section, and template syntax is neutralized. Returns "" when
     there is nothing to say.
     """
-    text = text.strip()
-    if not text:
+    if not text.strip():
         return ""
     truncated = len(text) > MAX_MCP_SERVER_INSTRUCTIONS_CHARS
     if truncated:
