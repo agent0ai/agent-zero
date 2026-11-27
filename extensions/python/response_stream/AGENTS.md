@@ -11,6 +11,7 @@
 ## Local Contracts
 
 - Keep streaming output synchronized with UI log items.
+- The `step` KVP shown beside a streamed tool call comes from `build_step_description`, which seeds `Using <tool name with underscores as spaces>...` and then dispatches the `tool_step_description` hook with a mutable `ctx` holding `tool_name`, `tool_args`, and `step`. Plugins contribute label text by rewriting `ctx["step"]`; the core module holds no per-tool formatting. After the hook chain the builder appends the compact serialized tool_args length as ` (N)` to the final step, so argument streaming stays visible for every tool; extensions must not add their own counters. The hook is display-only: a raising hook logs through `PrintStyle.debug` and leaves the default step text instead of aborting the remaining `response_stream` extensions or skipping the log update for that chunk.
 - Agent.handle_response_stream normalizes complete tool name/argument aliases before these consumers; incomplete snapshots remain partial data. This display normalization does not execute or authorize tools.
 - Treat parsed stream snapshots as partial data; nested tool fields may be `None`
   until their values arrive.
