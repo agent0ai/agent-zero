@@ -33,6 +33,46 @@ const KEY_KEYSYMS = {
 };
 const TEXT_KEYSYMS = { "\n": keysyms.XK_Linefeed, "\r": keysyms.XK_Return, "\t": keysyms.XK_Tab };
 
+const CHORD_CODES = { KeyA: "a", KeyC: "c", KeyX: "x", KeyV: "v", KeyZ: "z", KeyY: "y", Period: ".", Insert: "insert" };
+
+// a chord key is worth translating only when the local layout disagrees with the physical key
+function viewerChordKey(event) {
+  const expected = CHORD_CODES[event.code];
+  if (!expected) return null;
+  if (event.altKey) return null;
+  if (!(event.ctrlKey || event.metaKey) && !(expected === "insert" && event.shiftKey)) return null;
+  if (String(event.key || "").toLowerCase() === expected) return null;
+  return expected;
+}
+
+function sendChord(keysym, event) {
+  const mod = event.metaKey ? keysyms.XK_Super_L : keysyms.XK_Control_L;
+  const modCode = event.metaKey ? "SuperLeft" : "ControlLeft";
+  if (event.ctrlKey || event.metaKey) rfb.sendKey(mod, modCode, true);
+  if (event.shiftKey) rfb.sendKey(keysyms.XK_Shift_L, "ShiftLeft", true);
+  rfb.sendKey(keysym, "Unidentified", true);
+  rfb.sendKey(keysym, "Unidentified", false);
+  if (event.shiftKey) rfb.sendKey(keysyms.XK_Shift_L, "ShiftLeft", false);
+  if (event.ctrlKey || event.metaKey) rfb.sendKey(mod, modCode, false);
+}
+
+// chord keys never cross the iframe boundary: translate layout-mismatched ones for the display
+window.addEventListener("keydown", event => {
+  const expected = viewerChordKey(event);
+  if (!expected || !connected()) return;
+  const keysym = expected === "insert" ? keysyms.XK_Insert : keysymLookup.lookup(expected.codePointAt(0));
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  sendChord(keysym, event);
+}, true);
+
+window.addEventListener("keyup", event => {
+  if (viewerChordKey(event) && connected()) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+}, true);
+
 const viewer = window.a0BrowserViewer = {
   connected: false,
   resize() { window.dispatchEvent(new Event('resize')); },
