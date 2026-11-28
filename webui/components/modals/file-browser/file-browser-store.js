@@ -3,6 +3,7 @@ import { createStore, getStore } from "/js/AlpineStore.js";
 import { callJsonApi, fetchApi } from "/js/api.js";
 import { fetchWorkDirFileLimits } from "/js/workdir-file-limits.js";
 import { formatDateTime } from "/js/time-utils.js";
+import { matchesChordKey } from "/js/shortcut-keys.js";
 import { mediaKind, mediaPreview } from "/components/modals/file-browser/file-preview.js";
 import { mountFileGestures } from "/components/modals/file-browser/file-gestures.js";
 import { createFileTree } from "/components/modals/file-browser/file-tree.js";
@@ -805,7 +806,7 @@ export function createFileBrowserView(name, { embedded = false, rememberKey = FI
     const index = entries.findIndex(file => file.path === this.focusedPath);
     const file = entries[index];
     const command = event.metaKey || event.ctrlKey;
-    if (command && event.key.toLowerCase() === "a") {
+    if (command && matchesChordKey(event, "a")) {
       this.selectableEntries.forEach(entry => { entry.selected = true; });
     } else if (command) return;
     else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
