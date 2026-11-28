@@ -134,13 +134,20 @@ body.right-canvas-resizing {
   transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
 }
 
-.right-canvas-rail-button:hover,
-.right-canvas-icon-button:hover,
 .right-canvas-rail-button.is-active,
 .right-canvas-icon-button.is-active {
   opacity: 1;
   border-color: color-mix(in srgb, var(--color-primary) 28%, var(--right-canvas-border));
   background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
+}
+
+@media (hover: hover) {
+  .right-canvas-rail-button:hover,
+  .right-canvas-icon-button:hover {
+    opacity: 1;
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--right-canvas-border));
+    background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
+  }
 }
 
 .right-canvas-rail-button .material-symbols-outlined,
@@ -214,9 +221,14 @@ body.right-canvas-resizing {
   transition: border-color 0.16s ease, background-color 0.16s ease, opacity 0.16s ease;
 }
 
-.right-canvas-tab:hover,
 .right-canvas-tab.is-active {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .right-canvas-tab:hover {
+    opacity: 1;
+  }
 }
 
 .right-canvas-tab .material-symbols-outlined {

@@ -119,3 +119,17 @@ test('keyboard toggle focuses the soft input and routes text and special keys', 
   assert.equal(input.removed, true);
   assert.equal(targetEvents.length, 0);
 });
+
+test('canvas hover highlights stay hover-capable and never stick on touch', () => {
+  const css = readFileSync(new URL('../webui/components/canvas/right-canvas.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('@media (hover: hover)'));
+  const guarded = css.slice(css.indexOf('@media (hover: hover)'));
+  assert.ok(guarded.includes('.right-canvas-icon-button:hover'));
+  assert.ok(guarded.includes('.right-canvas-rail-button:hover'));
+  assert.ok(guarded.includes('.right-canvas-tab:hover'));
+  const unguarded = css.slice(0, css.indexOf('@media (hover: hover)'));
+  assert.ok(unguarded.includes('.right-canvas-icon-button.is-active'));
+  for (const line of unguarded.split('\n')) {
+    assert.ok(!line.includes(':hover'), `unguarded hover rule: ${line.trim()}`);
+  }
+});

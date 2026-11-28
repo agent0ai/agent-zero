@@ -2895,6 +2895,8 @@ const model = {
 
   async sendSurfaceKeyboardInput({ key = "", text = "" } = {}) {
     if (this.annotating) return false;
+    const viewer = this._stageElement?.querySelector?.(".browser-interactive-frame")?.contentWindow?.a0BrowserViewer;
+    if (viewer?.connected && viewer.sendKeyboardInput?.({ key, text })) return true;
     const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId);
     if (!contextId || !this.activeBrowserId) return false;
     try {

@@ -25,6 +25,7 @@
 - Rail icons open their respective surfaces directly; keep the rail free of a separate Show/Hide toggle and keep the grip free of a tooltip.
 - The rail grip moves vertically with pointer capture or arrow/Home/End keys; its local position persists with canvas state and is clamped to the available height. Track the active pointer at window capture phase so movement and release outside the grip still work if pointer capture fails. End on release, cancellation, lost capture, blur, released-button movement or unmount; disconnect its size observer and drag listeners on unmount.
 - Register each surface as `canvas:<surface-id>` in shared Interface visibility. Filter rail icons and tabs by device; hidden panels requested elsewhere open as windows. Customize opens Settings at Interface.
+- Keep hover highlights behind `@media (hover: hover)` so touch taps never stick; active-state styling stays unguarded.
 - On mobile user agents, show the keyboard toggle only for visible Browser and Desktop canvas tabs. Include iPadOS desktop-mode user agents through its touch-capable Mac platform signal. Keep Browser input on its authenticated viewer channel and Desktop input on the VNC canvas, close it when changing tabs or hiding the workspace, and remove its input/listeners on unmount.
 
 ## Work Guidance
