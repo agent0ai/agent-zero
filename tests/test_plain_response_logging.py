@@ -10,8 +10,16 @@ from extensions.python.response_stream._10_log_from_stream import (
     LogFromStream as StreamLog,
 )
 from extensions.python.response_stream._20_live_response import LiveResponse
+from helpers import cache, extension
 from helpers.dirty_json import DirtyJson
 from helpers.log import Log
+
+
+@pytest.fixture(autouse=True)
+def restore_extension_caches():
+    yield
+    cache.clear(extension._CLASSES_CACHE_AREA)
+    cache.clear(extension._EXTENSIONS_CACHE_AREA)
 
 
 def _agent_with_generating_log():
@@ -183,17 +191,17 @@ async def test_live_response_renders_legacy_message_argument():
     [
         (
             '{"tool_name":"code_execution_tool","tool_args":',
-            "Using code_execution_tool...",
+            "Using code execution tool...",
         ),
         (
             '{"tool_name":"code_execution_tool","tool_args":'
             '{"runtime":"python","code":',
-            "Writing Python code... ",
+            "Writing Python code... (32)",
         ),
         (
             '{"tool_name":"code_execution_tool","tool_args":'
             '{"runtime":"python","code":"pri',
-            "Writing Python code... (3)",
+            "Writing Python code... (33)",
         ),
     ],
 )
@@ -204,7 +212,8 @@ async def test_stream_log_tolerates_partial_tool_arguments(
     log = Log()
     loop_data = LoopData()
     agent = SimpleNamespace(
-        context=SimpleNamespace(log=log),
+        context=SimpleNamespace(log=log, get_data=lambda *args, **kwargs: None),
+        config=SimpleNamespace(profile=None),
         agent_name="A0",
     )
 
@@ -228,16 +237,24 @@ async def test_stream_aliases_reach_all_consumers_canonically(monkeypatch, tool_
     import json
     from agent import Agent
     from helpers import extension
+    from test_tool_step_description import pin_bundled_plugins
+
+    pin_bundled_plugins(monkeypatch)
 
     agent = object.__new__(Agent)
     agent.loop_data = LoopData()
     agent.agent_name = "A0"
-    agent.context = SimpleNamespace(log=Log())
+    agent.config = SimpleNamespace(profile=None)
+    agent.context = SimpleNamespace(log=Log(), get_data=lambda *args, **kwargs: None)
 
     async def no_intervention():
         pass
 
+    real_call_extensions_async = extension.call_extensions_async
+
     async def consume(name, _agent, **kwargs):
+        if name == "tool_step_description":
+            return await real_call_extensions_async(name, _agent, **kwargs)
         assert name == "response_stream"
         assert kwargs["parsed"]["tool_name"] == "code_execution_tool"
         assert kwargs["parsed"]["tool_args"] == {"runtime": "python", "code": "print(1)"}
@@ -246,7 +263,7 @@ async def test_stream_aliases_reach_all_consumers_canonically(monkeypatch, tool_
     agent.handle_intervention = no_intervention
     monkeypatch.setattr(extension, "call_extensions_async", consume)
     await agent.handle_response_stream(json.dumps(tool_request))
-    assert agent.loop_data.params_temporary["log_item_generating"].kvps["step"] == "Writing Python code... (8)"
+    assert agent.loop_data.params_temporary["log_item_generating"].kvps["step"] == "Writing Python code... (38)"
 
 
 def test_native_tool_commentary_keeps_generating_step():

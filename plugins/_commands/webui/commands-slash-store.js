@@ -336,7 +336,6 @@ const model = {
     const input = this.getInputElement();
     const selection = document.getSelection?.();
     const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
-    if (range && chatInputStore?._isInCodeBlock?.(range.startContainer?.parentElement)) return null;
     const offsets = chatInputStore?._selectionOffsets?.(input);
     return offsets && offsets.start === offsets.end ? offsets.end : null;
   },

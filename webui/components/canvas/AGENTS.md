@@ -21,11 +21,12 @@
 - Preserve the active tab, open state and workspace mode across same-tab reloads with session-scoped state, but do not treat open state as durable across sessions.
 - In mobile mode, keep the rail below blocking modal layers and compact it on very narrow screens instead of letting it cover modal content.
 - Keep the canvas shell functional when the instance-level visibility preference hides only the right-canvas rail.
-- Width drags move a highlighted separator over a temporary viewport input shield; keep surface sizes unchanged until release, then commit/persist once without a width transition. Capture the initiating pointer and track it at window capture phase so iframe surfaces cannot steal either drag direction. Cancellation, lost capture, Escape, blur, viewport resize, close and unmount remove the preview/listeners without committing.
-
+- Width drags resize the canvas shell live while keeping surface panel widths fixed until release when the initial panel width is nonzero; an unmeasurable or zero-width panel keeps its natural `100%` width. Clear the temporary width and commit/persist once on release. A viewport input shield and window capture-phase tracking keep embedded surfaces from stealing either drag direction. Cancellation, lost capture, Escape, blur, viewport resize, close and unmount restore the starting width without committing.
 - Rail icons open their respective surfaces directly; keep the rail free of a separate Show/Hide toggle and keep the grip free of a tooltip.
 - The rail grip moves vertically with pointer capture or arrow/Home/End keys; its local position persists with canvas state and is clamped to the available height. Track the active pointer at window capture phase so movement and release outside the grip still work if pointer capture fails. End on release, cancellation, lost capture, blur, released-button movement or unmount; disconnect its size observer and drag listeners on unmount.
 - Register each surface as `canvas:<surface-id>` in shared Interface visibility. Filter rail icons and tabs by device; hidden panels requested elsewhere open as windows. Customize opens Settings at Interface.
+- Keep hover highlights behind `@media (hover: hover)` so touch taps never stick; active-state styling stays unguarded.
+- On mobile user agents, show the keyboard toggle only for visible Browser and Desktop canvas tabs. Include iPadOS desktop-mode user agents through its touch-capable Mac platform signal. Keep Browser input on its authenticated viewer channel and Desktop input on the VNC canvas, close it when changing tabs or hiding the workspace, and remove its input/listeners on unmount.
 
 ## Work Guidance
 

@@ -10,6 +10,7 @@
 - `hooks.py` owns skill config normalization.
 - `api/skills_catalog.py` owns skill catalog access and loading selected skills into chat history.
 - `webui/` owns skill settings UI and store.
+- `extensions/webui/chat-input-more-menu/` owns the declarative Skills entry in the composer "+" More actions menu.
 - `default_config.yaml`, `plugin.yaml`, `README.md`, and `LICENSE` own defaults, metadata, docs, and license.
 
 ## Local Contracts

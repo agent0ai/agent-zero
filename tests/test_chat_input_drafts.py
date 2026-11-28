@@ -116,13 +116,11 @@ assert(sessionStorage.getItem("a0:chat-draft:chat-new") === "welcome prompt", "f
 
 const editor = {{
   style: {{ height: "240px" }},
-  get scrollHeight() {{ throw new Error("composer sizing must not freeze a transient layout"); }},
+  scrollHeight: 96,
 }};
 model._editorEl = editor;
 model.adjustTextareaHeight();
-assert(editor.style.height === "auto", "composer retained its measured height");
-model.adjustTextareaHeight();
-assert(editor.style.height === "auto", "repeated sizing froze the composer height");
+assert(editor.style.height === "96px", "composer must grow with its content");
 model.unmountEditor(editor);
 """
 

@@ -1,1 +1,1 @@
-Plain-text reply was kept as thoughts. Retrying with a tool-call reminder.
+Plain-text response detected. Kept as thoughts. Retrying.

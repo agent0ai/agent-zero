@@ -19,12 +19,11 @@
 
 ## Local Contracts
 
-- The six used-token buckets are `messages`, `system_tools`, `skills`,
-  `mcp_tools`, `system_prompt`, and `extras`.
+- The seven used-token buckets are `messages`, `system_tools`, `skills`, `mcp_tools`, `system_prompt`, `protocol`, and `extras`.
 - Tools, MCP tools, and the available-skills catalog are measured from their
   extensible prompt builders, never inferred from rendered headings.
 - Loaded skill instructions are removed from Messages and added to Skills.
-- Protocol and prompt extras are reported together as Extras.
+- Protocol and prompt extras are reported as separate Protocol and Extras rows.
 - Messages reuse the history record token ledger; independently rendered
   fragments use a bounded, content-addressed, runtime-only cache.
 - Bucket totals reconcile to the already-stored prompt token total; the

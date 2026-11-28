@@ -24,6 +24,7 @@
 - User plugins under `usr/plugins/` must use `usr.plugins.<plugin_name>...` imports and avoid `sys.path` hacks or persistent symlink-based imports.
 - Plugin extension layouts must use `extensions/python/<point>/`, `extensions/python/_functions/<module>/<qualname>/<start|end>/`, and `extensions/webui/<point>/`.
 - Plugins can contribute handler factories via the `skill_tools` extension point. Declare the callable schema in the owning skill's `metadata.tool`. The shared runtime uses normal skill precedence and visibility for loaded skills and applies Tool Access under the handler's plugin ID.
+- A tool's streamed step label is contributed through the `tool_step_description` hook (`extensions/python/tool_step_description/`): the extension receives a mutable `ctx` with `tool_name`, `tool_args`, and the default `Using <humanized tool name>...` text and rewrites `ctx["step"]`; the core appends the compact serialized tool_args length as ` (N)` to the final step, so extensions must not add their own counters. Ignore foreign tool names and leave malformed arguments on the default; one extension class per file, matching the loader. Extension filenames must be unique across every plugin contributing to the same extension point because discovery keeps only the first class per filename.
 - The `_functions` extension layout preserves every module and nested qualname segment; do not use retired flattened extension folder names.
 - Plugin settings defaults belong in `default_config.yaml`; runtime user settings belong under `usr/`.
 - Plugin settings resolution order is project/profile, project, user/profile, user plugin config, then bundled `default_config.yaml`.
@@ -49,7 +50,6 @@
 - Community discovery cards should use `type: "feature"`; reserve `hero` cards for core system features.
 - Supported discovery CTA actions are `open-plugin-config:<plugin_folder_name>`, `open-plugin-hub`, and `open-url:<url>`.
 - Plugin deletion or disablement should not leave unmanaged services, symlinks, or files outside plugin-owned paths unless explicitly documented with cleanup.
-
 - Document parsing/OCR, local speech inference, messaging/mail transports and the internal browser runtime execute in child sandboxes with on-demand installers; thin plugin tools, settings and authenticated API/UI adapters stay in the framework.
 
 ## Work Guidance

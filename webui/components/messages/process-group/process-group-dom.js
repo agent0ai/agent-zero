@@ -3,6 +3,42 @@
  */
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 
+export function isAtLiveTail(
+  chatHistory = document.getElementById("chat-history"),
+) {
+  if (!chatHistory) return false;
+  const windowEnd = Number(chatHistory.dataset.messageWindowEnd);
+  const windowTotal = Number(chatHistory.dataset.messageWindowTotal);
+  return (
+    Number.isFinite(windowEnd) &&
+    Number.isFinite(windowTotal) &&
+    windowEnd >= windowTotal
+  );
+}
+
+export function isGroupComplete(group) {
+  return (
+    group.hasAttribute("data-group-complete") ||
+    Boolean(group.querySelector(".process-group-response"))
+  );
+}
+
+export function getCurrentStep(
+  chatHistory = document.getElementById("chat-history"),
+  showUtils = preferencesStore.showUtils,
+) {
+  if (!isAtLiveTail(chatHistory)) return null;
+  const groups = Array.from(chatHistory.querySelectorAll(".process-group"));
+  const group = groups[groups.length - 1];
+  if (!group || isGroupComplete(group)) return null;
+  const steps = Array.from(group.querySelectorAll(".process-step"));
+  for (let si = steps.length - 1; si >= 0; si -= 1) {
+    const step = steps[si];
+    if (showUtils || !step.classList.contains("message-util")) return step;
+  }
+  return null;
+}
+
 export async function applyModeSteps(
   detailMode,
   showUtils,
@@ -25,12 +61,8 @@ export async function applyModeSteps(
       : preferencesStore.showUtils || false;
   const pending = [];
   const messages = Array.from(chatHistory.querySelectorAll(".process-group"));
-  const windowEnd = Number(chatHistory.dataset.messageWindowEnd);
-  const windowTotal = Number(chatHistory.dataset.messageWindowTotal);
-  const isAtTail =
-    Number.isFinite(windowEnd) &&
-    Number.isFinite(windowTotal) &&
-    windowEnd >= windowTotal;
+  const currentStep =
+    mode === "current" ? getCurrentStep(chatHistory, showUtilsFlag) : null;
   for (let i = 0; i < messages.length; i += 1) {
     const group = messages[i];
     if (typeof group.__setExpanded === "function") {
@@ -40,26 +72,6 @@ export async function applyModeSteps(
     }
 
     const steps = Array.from(group.querySelectorAll(".process-step"));
-    const isComplete =
-      group.hasAttribute("data-group-complete") ||
-      Boolean(group.querySelector(".process-group-response"));
-    let currentStep = null;
-    if (
-      mode === "current" &&
-      isAtTail &&
-      group === messages[messages.length - 1] &&
-      !isComplete
-    ) {
-      for (let si = steps.length - 1; si >= 0; si -= 1) {
-        if (
-          showUtilsFlag ||
-          !steps[si].classList.contains("message-util")
-        ) {
-          currentStep = steps[si];
-          break;
-        }
-      }
-    }
 
     for (let si = 0; si < steps.length; si += 1) {
       const step = steps[si];

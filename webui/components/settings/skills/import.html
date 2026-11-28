@@ -15,7 +15,12 @@
                     Add a zipped skill pack that contains one or more <code>SKILL.md</code> folders.
                 </div>
 
-                <div class="upload-section">
+                <div class="upload-section" data-internal-dropzone
+                    :class="{ 'is-drag-active': $store.skillsImportStore.dragActive }"
+                    @dragenter.prevent="$store.skillsImportStore.setDragActive(true)"
+                    @dragover.prevent="$store.skillsImportStore.setDragActive(true)"
+                    @dragleave="$store.skillsImportStore.handleDragLeave($event)"
+                    @drop.prevent="$store.skillsImportStore.handleDrop($event)">
                     <label for="skills-file" class="upload-label">
                         Select Skills Pack (.zip)
                     </label>
@@ -107,6 +112,10 @@
             border: 2px dashed var(--color-border);
             border-radius: 4px;
             text-align: center;
+        }
+
+        .upload-section.is-drag-active {
+            border-color: var(--color-primary);
         }
 
         .upload-label {

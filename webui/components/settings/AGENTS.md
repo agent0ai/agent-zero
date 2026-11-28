@@ -34,8 +34,9 @@
 - MCP manager local command forms accept shell-style command and argument lines; quote argument values that intentionally contain spaces.
 - MCP server status rows show an **Instructions** marker for servers that sent initialize instructions (`has_instructions`), and the server tool detail modal shows them in a collapsed **Server instructions** block as plain text (`x-text`, never `x-html`). The tool-count button reads **Details** when every tool is disabled but the server sent instructions, so the detail view stays reachable.
 - The MCP scan prompt's inspection summary carries the scanned server's instructions. Fill scan prompt placeholders in one pass (`fillScanTemplate`) so inserted server text is never searched for placeholders or `$&` patterns, and render the scan report with `renderSafeMarkdown`, since it can quote server-controlled text.
-
 - Interface nests registered canvas surfaces under the right canvas rail control, using their plain titles, with independent mobile/desktop visibility in the same Save/Cancel draft. `open(tab, section)` supports direct section entry; initial scrolling waits for component markup and uses instant positioning so scroll anchoring follows later content growth.
+- Long settings textareas that benefit from a grip carry the `resizable-textarea` class, which re-enables the vertical resize grip the shared stylesheet suppresses and drops the all-properties transition so dragging follows the pointer.
+- The skills import upload area registers `data-internal-dropzone` and accepts dropped `.zip` packs through the import store instead of the chat attachment overlay.
 
 ## Work Guidance
 

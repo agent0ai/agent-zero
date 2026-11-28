@@ -2,11 +2,13 @@
 
 import uuid
 
+ACTION_VERBS = {"read": "Reading", "write": "Writing", "patch": "Patching"}
+
 
 def create_editor_log(tool, *, remote: bool = False):
     action = str(tool.args.get("action") or "")
     path = str(tool.args.get("path") or "")
-    verb = {"read": "Reading", "write": "Writing", "patch": "Patching"}.get(action)
+    verb = ACTION_VERBS.get(action)
     suffix = " (remote)" if remote else ""
     heading = (
         f"icon://construction {verb} {path}{suffix}".strip()

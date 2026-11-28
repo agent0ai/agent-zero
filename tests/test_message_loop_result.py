@@ -40,6 +40,7 @@ class FakeAgent:
             "fw.msg_empty_response.md": "empty",
             "fw.msg_repeat.md": "repeat",
             "fw.msg_repeat_response.md": "Repeated response detected. Retrying.",
+            "fw.msg_misformat_response.md": "Plain-text response detected. Kept as thoughts. Retrying.",
             "fw.msg_reasoning_only.md": "reasoning only",
             "fw.msg_reasoning_only_response.md": "Reasoning-only response detected. Retrying.",
             "fw.msg_output_limit.md": "output limit",
@@ -138,7 +139,7 @@ def test_repeat_ignores_reasoning():
 
 
 @pytest.mark.parametrize("truncated", [False, True])
-def test_reasoning_only_retries_silently_and_preserves_thoughts(truncated):
+def test_reasoning_only_retries_with_util_notice_and_preserves_thoughts(truncated):
     agent = FakeAgent("", reasoning="thinking", last_response="previous")
     item = Log().log(type="agent", id="generation", reasoning="thinking")
     agent.loop_data.params_temporary["log_item_generating"] = item
@@ -148,7 +149,13 @@ def test_reasoning_only_retries_silently_and_preserves_thoughts(truncated):
     assert result["skip_default_processing"] is True
     assert agent.warnings == ["reasoning only"]
     assert agent.history == ['{"thoughts":["thinking"]}']
-    assert agent.logs == []
+    assert agent.logs == [
+        {
+            "type": "util",
+            "content": "Reasoning-only response detected. Retrying.",
+            "id": "warning",
+        }
+    ]
     assert item.type == "agent"
     assert item.kvps["thoughts"] == ["thinking"]
     assert item.kvps["reasoning"] == "thinking"
@@ -180,7 +187,7 @@ def test_reasoning_with_native_action_is_not_retried(item):
     ('{"thoughts":["Checking"]}', ["Checking"]),
     ('{"status":"working"}', ['{"status":"working"}']),
 ])
-def test_prose_retries_silently_without_context_doctor(mode, text, thoughts):
+def test_prose_retries_with_util_notice_without_context_doctor(mode, text, thoughts):
     agent = FakeAgent(text)
     item = Log().log(type="agent", id="generation")
     agent.loop_data.params_temporary["log_item_generating"] = item
@@ -190,7 +197,13 @@ def test_prose_retries_silently_without_context_doctor(mode, text, thoughts):
     assert data["skip_default_processing"] is True
     assert agent.history == [text]
     assert agent.warnings == ["misformatted"]
-    assert agent.logs == []
+    assert agent.logs == [
+        {
+            "type": "util",
+            "content": "Plain-text response detected. Kept as thoughts. Retrying.",
+            "id": "warning",
+        }
+    ]
     assert item.type == "agent" and item.kvps["thoughts"] == thoughts
     assert "log_item_response" not in agent.loop_data.params_temporary
 

@@ -10,6 +10,7 @@ const ROWS = [
   { key: "skills", label: "Skills" },
   { key: "mcp_tools", label: "MCP tools" },
   { key: "system_prompt", label: "System prompt" },
+  { key: "protocol", label: "Protocol" },
   { key: "extras", label: "Extras" },
 ];
 

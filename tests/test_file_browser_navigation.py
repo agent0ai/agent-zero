@@ -446,8 +446,15 @@ def test_file_browser_compact_controls_and_narrow_layout_contract() -> None:
     for action in ("Parent folder", "Home folder", "Refresh files", "Upload files", "Download selected", "Toggle file tree"):
         assert f'aria-label="{action}"' in html
     assert 'aria-label="Filter by name"' in html
-    assert 'container: file-browser / inline-size;' in html
-    assert '@container file-browser (max-width: 620px)' in html
+    tree = read("webui", "components", "modals", "file-browser", "file-tree.html")
+    assert 'container: file-browser / inline-size;' not in html
+    assert 'container: file-browser-workspace / inline-size;' in html
+    assert '@media (max-width: 620px)' in html
+    assert '@media (max-width: 400px)' in html
+    assert '@container file-browser (max-width: 620px)' not in html
+    assert '@container file-browser-workspace (max-width: 640px)' in tree
+    assert 'container: file-browser-footer / inline-size;' in html
+    assert '@container file-browser-footer (max-width: 620px)' in html
     assert '.file-cell-date, .file-date { display: none;' in flat(html)
     assert 'min-height: 44px;' in html
 

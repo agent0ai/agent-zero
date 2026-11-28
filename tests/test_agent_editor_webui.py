@@ -1142,3 +1142,10 @@ def test_profile_slash_effects_reuse_the_agent_editor_entry_points() -> None:
     assert 'type === "test_agent_profile"' in slash_store
     assert "globalThis.testAgentProfile?." in slash_store
     assert "String(effect.project_name || \"\")" in slash_store
+
+def test_easy_editor_textarea_resizes_instantly() -> None:
+    modal = MODAL.read_text(encoding="utf-8")
+    rule = re.search(r"\.agent-easy textarea \{([^}]*)\}", modal)
+    assert rule, "the Easy editor textarea rule is missing"
+    assert "resize:vertical" in rule.group(1)
+    assert "transition:none" in rule.group(1)

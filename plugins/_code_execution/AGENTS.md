@@ -14,13 +14,11 @@
 ## Local Contracts
 
 - Connected-host commands and input use the shared tools with `destination=host`, the connector permissions, and the bundled terminal policy. Only the input wrapper can set `allow_running`.
-
 - Local workdir creation resolves development paths with `files.fix_dev_path`. Local and sandbox sessions share terminal output cleaning in `helpers.strings.clean_string`. Honor a saved or environment-configured legacy SSH selection by declining local execution until the old selection is cleared.
-
 - `extensions/webui/get_process_step_types/code-exe-types.js` registers `code_exe` as a process-step type so raw-log grouping matches the plugin's message renderer.
+- `extensions/python/tool_step_description/_10_code_execution_step.py` owns the streamed step label for this tool (`Writing Python code...`, `Writing terminal command...`, and so on). The hook receives a mutable `ctx` with `tool_name`, `tool_args`, and the default `Using <humanized tool name>...` step; ignore foreign tool names and leave incomplete arguments on the default. The compact tool_args length `(N)` is appended centrally to every refined step, so this extension must not add its own counter.
 - Keep command previews compact in rendered execution output. `code-exe-handler.js` restores a matching command prefix from the already-masked `kvps.code` for Copy Output and step details, preserving command whitespace and the output body. Existing log size limits remain; copying cannot recover text already discarded by those limits.
 - Normalize logged `code` to display text before title and copy operations. Rejected malformed arguments can remain in stored logs; streaming and replay must render them without changing the original arguments.
-
 - Keep session concurrency, timeout, streaming, and reset behavior predictable.
 - Record the resolved destination and session in code execution logs for step details, including omitted session defaults.
 - Execution runtimes (`terminal`, `python`, `nodejs`) require a string `code` argument. Reject missing or non-string code with `RepairableException` before configuring or resetting shells; output polling and reset do not require code. Verify with `tests/test_code_execution_arguments.py`.

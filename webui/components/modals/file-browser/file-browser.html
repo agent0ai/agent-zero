@@ -29,6 +29,7 @@
         }
       }"
       class="file-browser-shell surface-workspace"
+      data-internal-dropzone
       :class="{ 'is-surface': xAttrs($el)?.mode === 'canvas', 'is-embedded': xAttrs($el)?.mode === 'embedded' }"
       x-effect="mount()"
       x-destroy="mounted?.onUnmount($el)"
@@ -702,7 +703,6 @@
 
       /* File Browser Root */
       .file-browser-root {
-        container: file-browser / inline-size;
         display: flex;
         flex-direction: column;
         width: 100%;
@@ -1377,6 +1377,7 @@
       .file-commandbar [aria-label="Parent folder"], .file-commandbar [aria-label="Home folder"], .file-commandbar [aria-label="Open Trash"] { color: var(--color-primary); }
       .file-commandbar [hidden] { display: none !important; }
       .file-browser-workspace {
+        container: file-browser-workspace / inline-size;
         display: flex;
         flex: 1;
         min-height: 0;
@@ -1385,7 +1386,6 @@
         overflow: hidden;
       }
       .file-browser-list-pane {
-        container: file-browser / inline-size;
         display: flex;
         flex: 1;
         flex-direction: column;
@@ -1415,25 +1415,24 @@
       .file-dialog-buttons { margin-top: 0.75rem; flex-wrap: wrap; }
       .file-operation { padding: 0.25rem 0.5rem; font-size: var(--font-size-small); }
       .file-operation progress { height: 4px; accent-color: var(--color-highlight); }
-      @container file-browser (min-width: 621px) {
+      @media (min-width: 621px) {
         .file-select-cell, .file-cell-select { display: none; }
       }
       .files-list:not(.file-icons-view) .file-item.selected { box-shadow: inset 1px 0 var(--color-highlight), inset -1px 0 var(--color-highlight); border-top-color: transparent; }
       .files-list:not(.file-icons-view) :not(.selected) + .file-item.selected { border-radius: 4px 4px 0 0; border-top-color: var(--color-highlight); }
       .files-list:not(.file-icons-view) .file-item.selected:not(:has(+ .selected)) { border-radius: 0 0 4px 4px; border-bottom: 1px solid var(--color-highlight); padding-bottom: 4px; }
-      @container file-browser (max-width: 620px) {
+      @media (max-width: 620px) {
         .files-list { --file-columns: 44px minmax(0, 1fr) 4.5rem 36px; }
         .file-cell-date, .file-date { display: none; }
         .file-select-cell { min-height: 44px; }
         .file-actions { padding-right: 0; }
         .file-icon { margin: 0 0.5rem 0 0.25rem; }
       }
-      @container file-browser (max-width: 400px) {
+      @media (max-width: 400px) {
         .path-navigator { flex-wrap: wrap; }
         .path-edit-group,
         .path-buttons-group { flex-basis: calc(100% - 88px); }
         .path-navigator > .surface-toolbar-separator { display: none; }
-
       }
       @container file-browser-footer (max-width: 620px) {
         .file-browser-picker-actions {

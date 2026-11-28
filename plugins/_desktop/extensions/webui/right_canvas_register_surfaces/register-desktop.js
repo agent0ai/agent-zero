@@ -35,6 +35,12 @@ export default async function registerDesktopSurface(surfaces) {
     async cancelDockHandoff() {
       desktopStore.cancelDesktopHostHandoff?.();
     },
+    blurKeyboardTarget() {
+      desktopStore.blurKeyboardTarget?.();
+    },
+    sendKeyboardInput(input) {
+      return desktopStore.sendKeyboardInput?.(input) || false;
+    },
     async open(payload = {}) {
       const panel = await waitForElement('[data-surface-id="desktop"] .desktop-panel');
       if (!panel) throw new Error("Desktop surface panel did not mount.");

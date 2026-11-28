@@ -1,0 +1,15 @@
+<html>
+<body>
+  <div x-data>
+    <button
+      type="button"
+      class="chat-bottom-menu-item"
+      id="goal-chat-more-item"
+      @click="$store.chatInput.closeChatMoreMenu(); $store.chatInput.message = '/goal '; $store.chatInput.adjustTextareaHeight(); $store.chatInput.focus(); $store.chatInput._setEditorCaret?.($store.chatInput.message.length)"
+    >
+      <x-icon aria-hidden="true" name="track_changes"></x-icon>
+      <span>Goal mode</span>
+    </button>
+  </div>
+</body>
+</html>

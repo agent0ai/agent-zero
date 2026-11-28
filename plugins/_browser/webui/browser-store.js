@@ -3,6 +3,7 @@ import { store as attachmentsStore } from "/components/chat/attachments/attachme
 import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
+import { matchesChordKey } from "/js/shortcut-keys.js";
 import { getContext, setContext } from "/index.js";
 import { copyToClipboard } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { store as chatInputStore } from "/components/chat/input/input-store.js";
@@ -37,6 +38,7 @@ const ANNOTATION_MAX_COMMENTS = 24;
 const ANNOTATION_DOM_LIMIT = 1200;
 const ANNOTATION_TRAY_MARGIN = 10;
 const BROWSER_VISUAL_SHORTCUT_KEYS = new Set(["a", "c", "insert", "v", "x", "y", "z"]);
+const BROWSER_VISUAL_SHORTCUT_CODES = new Set(["KeyA", "KeyC", "Insert", "KeyV", "KeyX", "KeyY", "KeyZ"]);
 const LOCAL_EDITABLE_SELECTOR = "input, textarea, select, [contenteditable]";
 const BROWSER_BINARY_FRAME_REQUESTS_ENABLED = false;
 const BROWSER_BINARY_PAYLOADS_SUPPORTED = typeof Blob === "function"
@@ -1983,7 +1985,7 @@ const model = {
 
   handleKeydown(event) {
     if (isLocalEditableTarget(event?.target)) return;
-    const annotateShortcut = event?.key === "." && (event.metaKey || event.ctrlKey) && !event.altKey;
+    const annotateShortcut = matchesChordKey(event, ".") && (event.metaKey || event.ctrlKey) && !event.altKey;
     if (annotateShortcut && this._surfaceMounted) {
       event.preventDefault();
       event.stopPropagation?.();
@@ -2033,21 +2035,20 @@ const model = {
 
   visualBrowserShortcut(event) {
     if (!this.shouldHandleVisualBrowserShortcut(event)) return null;
-    const key = String(event?.key || "").toLowerCase();
     const primary = Boolean(event?.ctrlKey || event?.metaKey);
     const shift = Boolean(event?.shiftKey);
 
-    if (!primary && shift && key === "insert") {
+    if (!primary && shift && matchesChordKey(event, "insert")) {
       return { action: "paste" };
     }
     if (!primary || event?.altKey) return null;
 
-    if (key === "v") return { action: "paste" };
-    if (!shift && (key === "c" || key === "insert")) return { action: "copy" };
-    if (!shift && key === "x") return { action: "cut" };
-    if (!shift && key === "a") return { key: "Control+A" };
-    if (key === "z") return { key: shift ? "Control+Shift+Z" : "Control+Z" };
-    if (!shift && key === "y") return { key: "Control+Y" };
+    if (matchesChordKey(event, "v")) return { action: "paste" };
+    if (!shift && (matchesChordKey(event, "c") || matchesChordKey(event, "insert"))) return { action: "copy" };
+    if (!shift && matchesChordKey(event, "x")) return { action: "cut" };
+    if (!shift && matchesChordKey(event, "a")) return { key: "Control+A" };
+    if (matchesChordKey(event, "z")) return { key: shift ? "Control+Shift+Z" : "Control+Z" };
+    if (!shift && matchesChordKey(event, "y")) return { key: "Control+Y" };
     return null;
   },
 
@@ -2055,7 +2056,7 @@ const model = {
     if (!this._surfaceMounted || !this.activeBrowserId || this.annotating) return false;
     if (isLocalEditableTarget(event?.target)) return false;
     const key = String(event?.key || "").toLowerCase();
-    if (!BROWSER_VISUAL_SHORTCUT_KEYS.has(key)) return false;
+    if (!BROWSER_VISUAL_SHORTCUT_KEYS.has(key) && !BROWSER_VISUAL_SHORTCUT_CODES.has(event?.code)) return false;
     return Boolean(this.visualBrowserStageForEvent(event));
   },
 
@@ -2891,6 +2892,27 @@ const model = {
       key: printable ? "" : event.key,
       text: printable ? event.key : "",
     });
+  },
+
+  async sendSurfaceKeyboardInput({ key = "", text = "" } = {}) {
+    if (this.annotating) return false;
+    const viewer = this._stageElement?.querySelector?.(".browser-interactive-frame")?.contentWindow?.a0BrowserViewer;
+    if (viewer?.connected && viewer.sendKeyboardInput?.({ key, text })) return true;
+    const contextId = this.normalizeContextId(this.activeBrowserContextId || this.contextId);
+    if (!contextId || !this.activeBrowserId) return false;
+    try {
+      await websocket.emit("browser_viewer_input", {
+        context_id: contextId,
+        browser_id: this.activeBrowserId,
+        input_type: "keyboard",
+        key: String(key || ""),
+        text: String(text || ""),
+      });
+      return true;
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : String(error);
+      return false;
+    }
   },
 
   async sendShortcut(key) {

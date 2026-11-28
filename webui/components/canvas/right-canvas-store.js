@@ -2,6 +2,7 @@ import { createStore } from "/js/AlpineStore.js";
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as preferencesStore } from "/components/sidebar/bottom/preferences/preferences-store.js";
 import { callJsExtensions } from "/js/extensions.js";
+import { createSurfaceKeyboard, isMobileUserAgent } from "/js/surface-keyboard.js";
 import {
   SURFACE_MODE_DOCKED,
   SURFACE_MODE_FLOATING,
@@ -66,6 +67,8 @@ const model = {
   _registering: false,
   _rootElement: null,
   _resizeCleanup: null,
+  _surfaceKeyboard: null,
+  _surfaceKeyboardSurfaceId: "",
   _lastPayloadBySurface: {},
   _restoreOpenRequested: false,
   _restoreOpenTimer: null,
@@ -287,6 +290,49 @@ const model = {
     this._shellParent = element.parentElement;
   },
 
+  shouldShowSurfaceKeyboard() {
+    return isMobileUserAgent() && ["browser", "desktop"].includes(this.activeSurfaceId) &&
+      this.isSurfaceVisible(this.activeSurfaceId);
+  },
+
+  mountSurfaceKeyboard(button) {
+    if (!isMobileUserAgent()) return;
+    this.unmountSurfaceKeyboard();
+    this._surfaceKeyboard = createSurfaceKeyboard(button, {
+      onFocusTarget: () => {
+        this._surfaceKeyboardSurfaceId = this.activeSurfaceId;
+        return false;
+      },
+      onBlurTarget: () => {
+        const surface = this.getSurface(this._surfaceKeyboardSurfaceId);
+        this._surfaceKeyboardSurfaceId = "";
+        surface?.blurKeyboardTarget?.();
+      },
+      onText: (text) => this.sendSurfaceKeyboardInput({ text }, this._surfaceKeyboardSurfaceId),
+      onKey: (key) => this.sendSurfaceKeyboardInput({ key }, this._surfaceKeyboardSurfaceId),
+    });
+  },
+
+  syncSurfaceKeyboard() {
+    if (!this.shouldShowSurfaceKeyboard()) {
+      this._surfaceKeyboard?.close?.();
+      return;
+    }
+    if (this._surfaceKeyboardSurfaceId && this._surfaceKeyboardSurfaceId !== this.activeSurfaceId) {
+      this._surfaceKeyboard?.close?.();
+    }
+  },
+
+  unmountSurfaceKeyboard() {
+    this._surfaceKeyboard?.destroy?.();
+    this._surfaceKeyboard = null;
+    this._surfaceKeyboardSurfaceId = "";
+  },
+
+  sendSurfaceKeyboardInput(input, surfaceId = this.activeSurfaceId) {
+    return this.getSurface(surfaceId)?.sendKeyboardInput?.(input) || false;
+  },
+
   moveShell(parent) {
     const shell = this._shellElement;
     if (!parent || !shell || shell.parentElement === parent) return;
@@ -502,8 +548,12 @@ const model = {
     const bounds = this._rootElement.getBoundingClientRect();
     const startWidth = this.width;
     const maxWidth = this.maxWidth();
+    const panels = this._rootElement.querySelector(".right-canvas-panels");
+    const panelsWidth = panels?.getBoundingClientRect().width;
     let nextWidth = startWidth;
-    // Cover embedded documents even when pointer capture is unavailable.
+    if (Number.isFinite(panelsWidth) && panelsWidth > 0) {
+      panels.style.setProperty("--right-canvas-resize-content-width", `${panelsWidth}px`);
+    }
     const preview = document.createElement("div");
     preview.className = "right-canvas-resize-preview";
     preview.setAttribute("aria-hidden", "true");
@@ -511,6 +561,7 @@ const model = {
     preview.style.setProperty("--resize-height", `${bounds.height}px`);
     const update = (x) => {
       nextWidth = clamp(normalizeWidth(startWidth + event.clientX - x), MIN_WIDTH, maxWidth);
+      this._rootElement.style.setProperty("width", `${nextWidth}px`);
       preview.style.setProperty("--resize-left", `${bounds.right - nextWidth}px`);
     };
     update(event.clientX);
@@ -525,9 +576,10 @@ const model = {
       if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
       preview.remove();
       document.body.classList.remove("right-canvas-resizing");
-      if ((e?.type === "pointerup" || e?.type === "pointermove") && nextWidth !== this.width) {
-        this.setWidth(nextWidth);
-      }
+      const released = e?.type === "pointerup" || e?.type === "pointermove";
+      if (!released) this._rootElement.style.setProperty("width", `${startWidth}px`);
+      panels?.style.removeProperty("--right-canvas-resize-content-width");
+      if (released && nextWidth !== this.width) this.setWidth(nextWidth);
       this.dispatchResizeEvent("right-canvas-resize-end");
     };
     const move = (e) => {

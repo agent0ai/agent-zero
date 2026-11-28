@@ -516,6 +516,10 @@ def test_mixed_no_action_turns_share_limit_and_only_show_final_stop():
         LLMResult.from_chat(response="", reasoning="Need another check"),
         LLMResult.from_chat(response='{"thoughts":["Continue checking"]}'),
     ]
+    notices = [
+        agent.read_prompt("fw.msg_thoughts_fallback_response.md"),
+        agent.read_prompt("fw.msg_reasoning_only_response.md"),
+    ]
     for iteration, result in enumerate(results):
         agent.loop_data.iteration = iteration
         if iteration == 2:
@@ -523,14 +527,17 @@ def test_mixed_no_action_turns_share_limit_and_only_show_final_stop():
                 run_hooks(agent, result)
         else:
             assert run_hooks(agent, result)["skip_default_processing"] is True
-            assert agent.logs == []
 
     assert len(agent.history) == 3
     assert agent.loop_data.params_persistent[response_loop.STATE_KEY]["count"] == 3
-    assert agent.logs == [{
-        "type": "warning",
-        "content": agent.read_prompt("fw.msg_unusable_response_limit.md", limit=3),
-    }]
+    assert agent.logs == [
+        {"type": "util", "content": notices[0], "id": "warning"},
+        {"type": "util", "content": notices[1], "id": "warning"},
+        {
+            "type": "warning",
+            "content": agent.read_prompt("fw.msg_unusable_response_limit.md", limit=3),
+        },
+    ]
 
 
 def test_diagnostics_do_not_include_argument_contents():

@@ -10,6 +10,9 @@ function setup() {
     return {
       isConnected: true, style: {}, navigations: [],
       setAttribute() {},
+      matches() { return false; },
+      addEventListener() {},
+      removeEventListener() {},
       append(node) { node.parentElement = this; },
       moveBefore(node) { this.append(node); },
       set src(value) { this.url = value; this.navigations.push(value); },
@@ -17,6 +20,38 @@ function setup() {
     };
   }
   const parking = element();
+  const keyboardEvents = [], documentEvents = [], receivedEvents = [];
+  let keyboardCanvas = null;
+  const keyboardDocument = {
+    activeElement: null,
+    addEventListener(type, handler) { documentEvents.push({ type, handler }); },
+    removeEventListener(type, handler) {
+      const index = documentEvents.findIndex(item => item.type === type && item.handler === handler);
+      if (index >= 0) documentEvents.splice(index, 1);
+    },
+    querySelector: () => keyboardCanvas,
+    defaultView: {
+      KeyboardEvent: class {
+        constructor(type, options) { this.type = type; Object.assign(this, options); this.getModifierState = () => false; }
+      },
+    },
+  };
+  const canvas = {
+    tagName: 'CANVAS', ownerDocument: keyboardDocument, isConnected: true,
+    addEventListener(type, handler) { keyboardEvents.push({ type, handler }); },
+    removeEventListener(type, handler) {
+      const index = keyboardEvents.findIndex(item => item.type === type && item.handler === handler);
+      if (index >= 0) keyboardEvents.splice(index, 1);
+    },
+    dispatchEvent(event) {
+      event.target = this;
+      receivedEvents.push(event);
+      for (const item of keyboardEvents.filter(item => item.type === event.type)) item.handler(event);
+      if (event.bubbles) for (const item of documentEvents.filter(item => item.type === event.type)) item.handler(event);
+      return true;
+    },
+    blur() { keyboardDocument.activeElement = null; },
+  };
   const source = readFileSync(new URL('../plugins/_desktop/webui/desktop-store.js', import.meta.url), 'utf8')
     .replace(/^import.*\n/gm, '').replace('export const store', 'const store');
   const store = vm.runInNewContext(`${source}\nstore`, {
@@ -27,11 +62,18 @@ function setup() {
     },
     document: {
       body: element(), getElementById: () => parking,
-      createElement: tag => { const node = element(); if (tag === 'iframe') frames.push(node); return node; },
+      createElement: tag => {
+        const node = element();
+        if (tag === 'iframe') { node.contentDocument = keyboardDocument; frames.push(node); }
+        return node;
+      },
     },
   });
   const panel = () => { const host = element(); return { host, querySelector: () => host }; };
-  return { store, frames, requests, panel, release: () => release(), parking };
+  return {
+    store, frames, requests, panel, release: () => release(), parking, canvas, keyboardDocument, keyboardEvents, receivedEvents,
+    setKeyboardCanvas: () => { keyboardCanvas = canvas; },
+  };
 }
 
 test('fresh open logs in once; hiding a tab or canvas reloads only on reopening', async () => {
@@ -83,6 +125,28 @@ test('modal close and reopen reloads, but docking preserves the running document
   t.store.beforeDesktopHostHandoff(); t.store.cancelDesktopHostHandoff();
   assert.equal(frame.parentElement, canvas.host);
   assert.equal(frame.navigations.length, 2);
+});
+
+test('mobile keyboard input reaches the noVNC canvas when it mounts after the iframe loads', async () => {
+  const t = setup(), panel = t.panel();
+  await t.store.onMount(panel);
+  const opening = t.store.onOpen(); t.release(); await opening;
+  const frame = t.frames[0];
+  frame.onload();
+  assert.equal(t.store.sendKeyboardInput({ text: 'a1' }), false);
+  t.setKeyboardCanvas();
+  assert.equal(t.store.sendKeyboardInput({ text: 'a1\r\nb' }), true);
+  assert.deepEqual(t.receivedEvents.map(({ type, key, code }) => [type, key, code]), [
+    ['keydown', 'a', 'KeyA'], ['keyup', 'a', 'KeyA'],
+    ['keydown', '1', 'Digit1'], ['keyup', '1', 'Digit1'],
+    ['keydown', 'Enter', 'Enter'], ['keyup', 'Enter', 'Enter'],
+    ['keydown', 'b', 'KeyB'], ['keyup', 'b', 'KeyB'],
+  ]);
+  assert.equal(t.store.sendKeyboardInput({ key: 'Backspace' }), true);
+  assert.deepEqual(t.receivedEvents.slice(-2).map(({ type, key, code }) => [type, key, code]), [
+    ['keydown', 'Backspace', 'Backspace'], ['keyup', 'Backspace', 'Backspace'],
+  ]);
+  assert.equal(t.canvas.isConnected, true);
 });
 
 test('closing during startup parks the result and reopening reloads it without duplicate startup', async () => {

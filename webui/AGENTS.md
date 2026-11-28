@@ -36,6 +36,8 @@
 - Startup scripts in `index.html` must be local and non-parser-blocking: use ES modules, `defer`, or `async` for every script with `src`.
 - Baseline main and login pages must load scripts, styles, fonts, and images from same-origin vendored or first-party assets so they remain usable without internet access.
 - Native checkboxes use dark surfaces and the `--color-input` accent in dark mode; the mixed state uses the native light-scheme mark for contrast; retain native checkmarks, indeterminate marks, keyboard focus, disabled behavior, and light-mode appearance. This shared rule lives in `index.css`.
+- `preferences-store.js` toggles theme by stamping `html[data-theme]` and the body mode classes; it must not set inline styles that would beat user stylesheets.
+- `index.html` stamps `html[data-theme]` from the persisted preference in a head script that runs before the critical style parses. That critical style paints the root canvas per attribute (dark `#131313`, light `#fafafa`) before any stylesheet loads, so the first paint already matches the active theme and the translucent top bar never flashes. The body mode classes stay the only theme signal for surfaces below the root; do not duplicate the root background rules in `index.css`.
 - `index.css` renders every `<x-icon name="stop">` as a filled, subtly rounded square using `currentColor`, retaining the shared icon box and font-loading visibility guard.
 - Rubik (`--font-family-main`) is the default WebUI text and control font; use the code/mono font tokens only for code, logs, paths, and fixed-width data.
 - Hover, focus, and active border treatments should follow existing neutral border/background patterns; avoid hard-coded blue border highlights unless matching an established specialized surface.

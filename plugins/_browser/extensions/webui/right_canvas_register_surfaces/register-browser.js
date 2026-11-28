@@ -85,6 +85,9 @@ export default async function registerBrowserSurface(canvas) {
     cancelDockHandoff() {
       browserStore.cancelSurfaceHandoff?.();
     },
+    sendKeyboardInput(input) {
+      return browserStore.sendSurfaceKeyboardInput?.(input);
+    },
     async open(payload = {}) {
       await waitForElement('[data-surface-id="browser"] .browser-panel');
       const panel = await waitForVisibleCanvasPanel('[data-surface-id="browser"] .browser-panel');

@@ -11,6 +11,34 @@ from tools.skills_tool import SkillsTool
 
 ROOT = Path(__file__).resolve().parents[1]
 
+NOTICE_PROMPTS = [
+    ("fw.msg_misformat_response.md", "prompts"),
+    ("fw.msg_reasoning_only_response.md", "prompts"),
+    ("fw.msg_output_limit_response.md", "prompts"),
+    ("fw.msg_thoughts_fallback_response.md", "plugins/_context_doctor/prompts"),
+]
+
+
+@pytest.mark.parametrize("name, directory", NOTICE_PROMPTS)
+def test_recovery_notice_prompts_exist(name, directory):
+    text = files.read_prompt_file(
+        name, _directories=[str(ROOT / directory)], finish_reason="length"
+    )
+
+    assert text.strip(), name
+
+
+def test_same_condition_recovery_notices_stay_in_sync():
+    core = files.read_prompt_file(
+        "fw.msg_misformat_response.md", _directories=[str(ROOT / "prompts")]
+    )
+    plugin = files.read_prompt_file(
+        "fw.msg_thoughts_fallback_response.md",
+        _directories=[str(ROOT / "plugins" / "_context_doctor" / "prompts")],
+    )
+
+    assert core.rstrip("\n") == plugin.rstrip("\n")
+
 
 @pytest.mark.parametrize("project", [None, "demo"])
 def test_profile_catalog_keeps_ids_titles_scope_and_routing(monkeypatch, project):

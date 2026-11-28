@@ -137,6 +137,7 @@ async def test_api_returns_only_counts_and_display_flags(monkeypatch, display):
             "skills": 0,
             "mcp_tools": 0,
             "system_prompt": 0,
+            "protocol": 0,
             "extras": 0,
         },
         "provider_usage": {},
@@ -261,7 +262,7 @@ for (let mask = 0; mask < 16; mask++) {{
   payload.display = Object.fromEntries(keys.map((key, i) => [key, Boolean(mask & (1 << i))]));
   const value = await store.refresh("chat-1");
   assert.equal(value.hasBreakdown, Boolean(mask & 1));
-  assert.equal(value.rows.length, mask & 1 ? 7 : 0);
+  assert.equal(value.rows.length, mask & 1 ? 8 : 0);
   assert.equal(value.missingBreakdown, false);
   assert.equal(value.provider.price.hasData, Boolean(mask & 2));
   assert.equal(value.provider.cache.hasData, Boolean(mask & 4));
@@ -272,7 +273,7 @@ for (let mask = 0; mask < 16; mask++) {{
 }}
 delete payload.display;
 let value = await store.refresh("chat-1");
-assert.equal(value.rows.length, 7);
+assert.equal(value.rows.length, 8);
 assert.equal(value.provider.price.label, "$0.0275");
 assert.equal(value.provider.cache.label, "98%");
 assert.equal(value.provider.tokens, "100 → 10");
@@ -601,7 +602,7 @@ def test_history_ledger_changes_without_invalidating_fragment_cache(monkeypatch)
     assert first["messages"] == 1_000 - first["skills"]
     assert second["messages"] == 400 - second["skills"]
     assert calls.count("stable tools") == 1
-    assert len(agent.data[usage.CACHE_KEY]) == 3
+    assert len(agent.data[usage.CACHE_KEY]) == 4
 
 
 def test_rendered_history_fallback_preserves_system_prompt_bucket(monkeypatch):

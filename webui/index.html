@@ -5,8 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>Agent Zero</title>
+    <script>
+        try {
+            const light = localStorage.getItem("darkMode") === "false";
+            document.documentElement.dataset.theme = light ? "light" : "dark";
+        } catch (_) {}
+    </script>
 
     <style id="startup-transition-critical">
+        html[data-theme="dark"] { background: #131313; }
+        html[data-theme="light"] { background: #fafafa; }
         #startup-transition {
             position: fixed;
             inset: 0;

@@ -14,9 +14,8 @@
 ## Local Contracts
 
 - Text read/write/patch operations support local, sandbox, and connected-host paths. Local operations preserve extension hooks and canvas metadata. Sandbox line edits track destination-specific content revisions and reject writes over a changed file. Host editing uses the connector transport and its file permissions. The local tool resolves development `/a0` aliases before reads, writes, patches and freshness tracking; shared file helpers used by the remote editor retain remote path semantics.
-
+- `extensions/python/tool_step_description/_10_text_editor_step.py` reuses `ACTION_VERBS` from `helpers/log.py` so the step label and the editor tool heading share one action-to-verb map.
 - `extensions/webui/get_process_step_types/text-editor-types.js` registers `text_editor` as a process-step type so raw-log grouping matches the plugin's message renderer.
-
 - `patch` supports line-number `edits`, context `patch_text`, and exact `old_text`/`new_text` replacement. Line edits remain supported and require fresh read state; they are not deprecated.
 - Text Editor `write`/`patch` read the canonical UI-intent arg `open_in_canvas`; legacy aliases `open_canvas` and `open_document` still work. Document only the canonical arg in model-facing prompts.
 - Fallback editor log rows without an action or path render `icon://construction Using tool 'text_editor'` without an agent-name prefix.

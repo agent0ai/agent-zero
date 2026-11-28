@@ -534,16 +534,23 @@ export function scrollModal(id) {
   const lastModal = modalStack[modalStack.length - 1].element;
   if (!lastModal) return;
 
-  // Find the modal container and target element
-  const modalContainer = lastModal.querySelector(".modal-scroll");
   const targetElement = lastModal.querySelector(`#${id}`);
+  if (!targetElement) return;
 
-  if (modalContainer && targetElement) {
-    modalContainer.scrollTo({
-      top: targetElement.offsetTop - 20, // 20px padding from top
-      behavior: "smooth",
-    });
+  let scroller = targetElement.parentElement;
+  while (scroller && scroller !== lastModal) {
+    const overflow = getComputedStyle(scroller).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && scroller.clientHeight > 0 && scroller.scrollHeight > scroller.clientHeight) break;
+    scroller = scroller.parentElement;
   }
+  if (!scroller || scroller === lastModal) scroller = lastModal.querySelector(".modal-scroll");
+  if (!scroller) return;
+
+  const offset = targetElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  scroller.scrollTo({
+    top: scroller.scrollTop + offset - 20,
+    behavior: "smooth",
+  });
 }
 
 // Make scrollModal globally available

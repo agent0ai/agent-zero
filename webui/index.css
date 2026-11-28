@@ -429,7 +429,8 @@ div#right-panel::-webkit-scrollbar-thumb:hover {
 }
 
 #time-date-container {
-  z-index: 1000;
+  /* above the composer so the project dropdown paints over the chat input */
+  z-index: 1002;
   position: absolute;
   top: 0;
   right: var(--spacing-md);
@@ -1090,7 +1091,8 @@ input:checked + .slider:before {
     bottom: 0;
     background-color: rgba(0, 0, 0, 0);
     opacity: 0;
-    z-index: 1002;
+    /* stays above the top bar so mobile menu covers it fully */
+    z-index: 1003;
   }
 
   .sidebar-overlay.visible {
@@ -1176,6 +1178,7 @@ a:active {
   height: 100%;
   background: rgba(0, 0, 0, 0.85);
   z-index: 9999;
+  pointer-events: none;
   display: flex;
   justify-content: center;
   align-items: center;
