@@ -204,18 +204,19 @@ def test_welcome_hover_and_focus_borders_use_neutral_tokens() -> None:
     assert "border-color: color-mix(in srgb, var(--color-border) 88%, var(--color-text) 12%)" in surfaces
 
 
-def test_composer_creates_visual_code_blocks_from_entered_fence() -> None:
+def test_composer_edits_stay_plain_text_with_native_paste() -> None:
     chat_bar = _read("webui/components/chat/input/chat-bar-input.html")
     input_store = _read("webui/components/chat/input/input-store.js")
 
-    assert 'contenteditable="true"' in chat_bar
+    assert '<textarea id="chat-input"' in chat_bar
+    assert "contenteditable" not in chat_bar
     assert "font-family: var(--font-family-main" in chat_bar
-    assert ".composer-code-content" in chat_bar
-    assert "font-family: var(--font-family-code" in chat_bar
-    assert "FENCE_LINE_RE" in input_store
-    assert "_tryCreateCodeBlock($event)" in input_store
-    assert 'data-code-block' in input_store
-    assert "handlePaste($event)" in input_store
-    assert "_insertPlainText(text)" in input_store
+    assert "composer-code" not in chat_bar
+    assert "handlePaste" not in chat_bar
+    assert "FENCE_LINE_RE" not in input_store
+    assert "_tryCreateCodeBlock" not in input_store
+    assert "data-code-block" not in input_store
+    assert "execCommand" not in input_store
+    assert "_insertPlainText" not in input_store
     assert "is-code-context" not in chat_bar
     assert "_isCaretInsideFence" not in input_store

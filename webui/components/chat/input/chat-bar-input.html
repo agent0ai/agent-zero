@@ -26,14 +26,12 @@
 
       <!-- Container for composer and expand button -->
       <div id="chat-input-container">
-        <div id="chat-input" role="textbox" aria-label="Message" aria-multiline="true" contenteditable="true"
-          spellcheck="true" :data-placeholder="$store.chatInput.inputPlaceholder"
+        <textarea id="chat-input" rows="1" aria-label="Message" spellcheck="true" :placeholder="$store.chatInput.inputPlaceholder"
           @keydown="$store.chatInput.handleKeydown($event)"
           @input="$store.chatInput.handleInput($event)"
-          @paste="$store.chatInput.handlePaste($event)"
-          :class="{ 'progress-active': $store.chatInput.progressActive, 'is-empty': !$store.chatInput.message }"
+          :class="{ 'progress-active': $store.chatInput.progressActive }"
           x-create="$store.chatInput.mountEditor($el)"
-          x-destroy="$store.chatInput.unmountEditor($el)"></div>
+          x-destroy="$store.chatInput.unmountEditor($el)"></textarea>
         <div id="chat-input-progress-placeholder" x-show="$store.chatInput.showProgressPlaceholder"
           x-html="$store.chatInput.progressPlaceholderHtml"
           :class="{ 'progress-active': $store.chatInput.progressActive }" aria-hidden="true" style="display: none;">
@@ -174,41 +172,17 @@
       padding: 0.68rem 2.2rem 0.68rem 0.1rem;
       margin: 0;
       overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
       scroll-behavior: smooth;
       resize: none;
-      align-content: center;
       background-clip: border-box;
       outline: none;
       transition: color 0.16s ease, background-color 0.16s ease;
       -webkit-transition: color 0.16s ease, background-color 0.16s ease;
     }
 
-    #chat-input.is-empty::before {
-      content: attr(data-placeholder);
+    #chat-input::placeholder {
       color: color-mix(in srgb, var(--color-text) 62%, transparent);
       opacity: 0.78;
-      pointer-events: none;
-    }
-
-    #chat-input .composer-code-block {
-      display: block;
-      margin: 0.48rem 0;
-      padding: 0.56rem 0.7rem;
-      border-radius: 6px;
-      background: color-mix(in srgb, var(--color-border) 28%, transparent);
-    }
-
-    #chat-input .composer-code-content {
-      min-height: 1.35rem;
-      margin: 0;
-      outline: none;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: var(--font-family-code, "Roboto Mono", monospace);
-      font-size: 0.94rem;
-      line-height: 1.45;
     }
 
     #chat-input::-webkit-scrollbar {
@@ -239,7 +213,7 @@
     }
 
     /* Progress ghost text animation — gentle pulse on placeholder */
-    #chat-input.progress-active.is-empty::before {
+    #chat-input.progress-active::placeholder {
       animation: placeholder-pulse 2s ease-in-out infinite;
     }
 

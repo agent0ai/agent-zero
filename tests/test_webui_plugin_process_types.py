@@ -323,9 +323,8 @@ def test_preset_switch_preserves_composer_and_saved_chat_draft(page):
       const {switcherState, switcherMethods} = await import('/plugins/_model_config/webui/switcher-mixin.js');
       const previousFetch = window.fetch, previousAlpine = window.Alpine, previousChat = chats.selected;
       const requests = [];
-      const editor = document.createElement('div');
+      const editor = document.createElement('textarea');
       editor.id = 'chat-input';
-      editor.contentEditable = 'true';
       document.body.append(editor);
       try {
         chats.selected = 'draft-chat';
@@ -345,7 +344,7 @@ def test_preset_switch_preserves_composer_and_saved_chat_draft(page):
         await switcher.refreshSwitcher('draft-chat');
         check(switcher.switcherEffectivePreset === 'Fast', 'preset selection did not change');
         check(requests[0].context_id === 'draft-chat', 'preset switch targeted another chat');
-        check(input.message === draft && editor.textContent === draft, 'preset switch cleared the composer');
+        check(input.message === draft && editor.value === draft, 'preset switch cleared the composer');
         check(sessionStorage.getItem('a0:chat-draft:draft-chat') === draft, 'preset switch erased session recovery');
       } finally {
         window.fetch = previousFetch;
